@@ -316,7 +316,11 @@ test('the map sits in the slide strip at every width, under the slide, never in 
 // THE CAPACITY REPORT BINDING ON THE REAL STUDIO. The pool reports its ceiling to the rail, and the rail passes it to
 // Veduta's `settle`, which caps the live tiles it asks for. No shipped setting lowers the ceiling below 28, so the
 // diagnostic key does (StudioMap.tsx `diagnosticSlots`); the arm without it shows the same deck asks for more.
-const TEN = Array.from({ length: 10 }, (_, i) => `# Slide ${i + 1}`).join('\n\n---\n\n');
+// Each slide shows a library photo (`asset:`), and a slide that does keeps its live frame even once its poster exists
+// (StudioMap.tsx: the photo can change under the same text). So these tiles hold their frames, and the frame count
+// measures the pool's ceiling. A deck of plain slides would hand each frame back as its poster arrived, and the uncapped
+// arm would never see more than 3 frames at once, which would leave the capped test proving nothing.
+const TEN = Array.from({ length: 10 }, (_, i) => `# Slide ${i + 1}\n\n![](asset:photo-${i + 1})`).join('\n\n---\n\n');
 async function openTen(page: Page, slots: string | null) {
 	if (slots) await page.addInitScript((n) => window.localStorage.setItem('lattice-studio-map-slots', n), slots);
 	await gotoStudio(page);
