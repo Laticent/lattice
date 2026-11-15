@@ -534,6 +534,19 @@ type PanelNavValue = {
 
 const PanelNavCtx = React.createContext<PanelNavValue>({ back: 'Back' });
 
+/**
+ * A DRILL-IN's way back: set around ONE pane that another pane opened (Chat's "Manage docs" opens
+ * the Library), never around the app. A pointer surface draws it as a "‹ Chat" chip before the
+ * panel's identity; a phone relabels its leading back chevron to the same destination, so the
+ * chevron says where it goes and goes there. The X still closes to the canvas — the chip is the
+ * only way back, and it is visible (engineering/decisions/2026-11-15-one-side-pane.md).
+ */
+type PanelDrillValue = { label: string; onBack: () => void };
+const PanelDrillCtx = React.createContext<PanelDrillValue | null>(null);
+export function PanelDrillBack({ to, children }: { to: PanelDrillValue | null; children: React.ReactNode }) {
+	return <PanelDrillCtx.Provider value={to}>{children}</PanelDrillCtx.Provider>;
+}
+
 /** Declares, for every panel inside, where back goes and what "leave" means. */
 export function PanelNav({ back, onLeave, children }: PanelNavValue & { children: React.ReactNode }) {
 	const value = React.useMemo(() => ({ back, onLeave }), [back, onLeave]);
@@ -760,12 +773,33 @@ export function PanelHeader({
 	const inSheet = React.useContext(PanelSheetCtx);
 	const phone = React.useContext(PanelPhoneCtx);
 	const backLabel = React.useContext(PanelNavCtx).back;
+	const drill = React.useContext(PanelDrillCtx);
 	const Title = inSheet ? SheetTitle : 'h2';
 	// On a phone the way out is a LEADING back chevron and there is no X; on a pointer
 	// surface it stays a trailing X. See the transport split at the top of this file.
 	// Inside a Sheet the control is a `SheetClose`, so Radix still owns the dismiss —
 	// focus return and Escape parity are unchanged, only the affordance moved.
-	const back = showClose && phone ? <PanelBack label={backLabel} onBack={inSheet ? undefined : onClose} /> : null;
+	// A drill-in takes the chevron over: it names the pane that sent you here and returns to it
+	// (an `onBack`, so PanelBack does not wrap it in SheetClose and the swap is the only effect).
+	const back = showClose && phone ? <PanelBack label={drill?.label ?? backLabel} onBack={drill ? drill.onBack : inSheet ? undefined : onClose} /> : null;
+	// On a pointer surface the drill-in is a chip of its own: the X keeps its one meaning.
+	const drillChip = drill && !phone ? (
+		<button
+			type="button"
+			onClick={drill.onBack}
+			aria-label={`Back to ${drill.label}`}
+			data-panel-drill-back=""
+			className={cn(
+				'inline-flex h-7 shrink-0 items-center gap-0.5 rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] pr-2.5 pl-1.5 text-[12px] font-semibold text-[var(--accent)] transition-colors',
+				'hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]',
+				// A finger on a tablet gets the app's 44px floor; a mouse keeps the compact chip.
+				'[@media(pointer:coarse)]:min-h-11',
+			)}
+		>
+			<ChevronLeft aria-hidden="true" className="size-3.5" />
+			{drill.label}
+		</button>
+	) : null;
 	// Tighter gap and less left padding when the back control is present — it draws its
 	// own hairline separator, so the default `gap-3` either side of that reads as a gap
 	// twice as wide as anywhere else in the header.
@@ -774,7 +808,10 @@ export function PanelHeader({
 	return (
 		<div className={cn('flex h-14 shrink-0 items-center gap-3 px-3.5', back && 'gap-2 pl-2', border && 'border-b border-border', className)}>
 			{back}
-			{icon ? (
+			{drillChip}
+			{/* The chip stands in for the identity icon: at a dock's 280–320px the two together cut the
+			    title to "Libra…" (measured on the real Studio). The title still names the panel. */}
+			{icon && !drillChip ? (
 				<span className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] [&_svg]:size-[17px]">
 					{icon}
 				</span>

@@ -920,17 +920,61 @@ describe('StudioShell — desktop activity bar', () => {
 		expect(scopeEcho()).not.toMatch(/Slide \d+ — overrides the deck/);
 	});
 
-	it('the Architect stays independent of settings — the coach can be up WHILE you tune (grouped, not global)', async () => {
+	// ONE side pane (engineering/decisions/2026-11-15-one-side-pane.md): every pane shares one slot.
+	it('opening settings REPLACES the open tool pane — one side pane at a time, never two', async () => {
 		const user = setup();
-		// Ensure the coach is open (idempotent — a returning user starts with it up).
 		const coach = screen.getByRole('button', { name: 'Toggle Coach' });
 		if (coach.getAttribute('aria-pressed') !== 'true') await user.click(coach);
 		expect(coach).toHaveAttribute('aria-pressed', 'true');
-		// Opening deck settings does NOT close the coach — independent groups, not a
-		// single mutually-exclusive sidebar.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
+		expect(screen.getByRole('button', { name: 'Toggle Coach' })).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveAttribute('aria-pressed', 'true');
+		// And the other way: a tool replaces settings.
+		await user.click(screen.getByRole('button', { name: 'Toggle Coach' }));
 		expect(screen.getByRole('button', { name: 'Toggle Coach' })).toHaveAttribute('aria-pressed', 'true');
+		expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	it('marks the pane that last held the slot on the rail, so getting back is one visible click', async () => {
+		const user = setup();
+		const recentOn = (name: string) => screen.getByRole('button', { name }).querySelector('[data-recent]') !== null;
+		await user.click(screen.getByRole('button', { name: 'Toggle Coach' }));
+		expect(recentOn('Toggle Coach')).toBe(false); // the open pane carries the active rule, not the mark
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		expect(recentOn('Toggle Coach')).toBe(true);
+		expect(recentOn('Deck scope')).toBe(false);
+		// Closing returns to the canvas, never to Coach — the mark moves to what just closed.
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		expect(screen.getByRole('button', { name: 'Toggle Coach' })).toHaveAttribute('aria-pressed', 'false');
+		expect(recentOn('Deck scope')).toBe(true);
+		expect(recentOn('Toggle Coach')).toBe(false);
+	});
+
+	it('Esc inside a docked pane closes it and returns focus to its rail button; Esc in a text field does not', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
+		const dock = document.querySelector<HTMLElement>('[data-settings-dock]');
+		expect(dock).not.toBeNull();
+		// A text field inside the pane keeps Esc for itself.
+		const field = dock?.querySelector<HTMLInputElement>('input[type="text"], input[type="search"], input:not([type])');
+		if (field) {
+			field.focus();
+			await user.keyboard('{Escape}');
+			expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveAttribute('aria-pressed', 'true');
+		}
+		const btn = dock?.querySelector<HTMLElement>('button');
+		expect(btn).toBeTruthy();
+		await user.unhover(screen.getByRole('button', { name: 'Deck scope' }));
+		btn?.focus();
+		// Esc closes the innermost open layer first: a tooltip the pointer or focus left open (a Radix
+		// DismissableLayer) takes a press before the pane does. So the pane closes within two presses,
+		// and the first press never leaves the pane half-closed.
+		await user.keyboard('{Escape}');
+		if (screen.getByRole('button', { name: 'Deck scope' }).getAttribute('aria-pressed') === 'true') await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveAttribute('aria-pressed', 'false'));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Deck scope' })));
 	});
 
 	it('carries persistent group labels + captions so the icons are self-evident (not hover-only)', () => {

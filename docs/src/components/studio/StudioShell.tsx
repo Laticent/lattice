@@ -22,7 +22,7 @@ import {
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
 import { Frozen, ScrollTopOnMount, useEverTrue, useShowCount } from '@/components/ui/keep-mounted';
-import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelBody, PanelDrillBack, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
 import { filteringProps, SettingsBasicFoot, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsTierSwitch, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
@@ -86,7 +86,7 @@ import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
-import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
+import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
@@ -875,19 +875,69 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setQuietened(false);
 		if (postureRef.current !== 'craft') setRevealCraft(true);
 	}, []);
-	// Panel state — TWO independent, nullable, per-group slots (the activity-bar
-	// model, engineering/decisions/2026-07-06-studio-activity-bar.md). NOT one
-	// global `activePanel`: the Architect (Assistants group) and the settings scope
-	// (Settings group) are independent, so the coach stays up while you tune.
-	// Merging the old inspectorOpen + inspectorScope into ONE nullable enum makes
-	// the illegal "open with no scope" state unrepresentable.
-	// The left "tool" slot — a MUTUALLY-EXCLUSIVE assistant/tool panel: the Architect
-	// (Coach/Chat), the reader-views Lenses, or the Library. One at a time (a toggle
-	// group), sharing one grid track — the layout can't fit three docked columns
-	// beside editor+preview (#721). Settings/Inspector is a SEPARATE independent slot,
-	// so a tool panel + settings can be open together (the coach↔tune loop).
-	const [activeAssistant, setActiveAssistant] = React.useState<'coach' | 'chat' | 'live' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Craft shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
-	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
+	// Panel state — ONE side pane at a time (engineering/decisions/2026-11-15-one-side-pane.md,
+	// which supersedes the two-slot model of 2026-07-06-studio-activity-bar.md). Every side pane —
+	// Coach, Chat, Live, Reader views, Library, Slide settings, Deck settings — shares ONE nullable
+	// slot, so "two panes open at once" is unrepresentable rather than merely discouraged.
+	// Opening a pane REPLACES whatever holds the slot; closing it returns to the canvas, never to
+	// an earlier pane. The one way back is the visible chip a drill-in sets (`paneBack` below).
+	// panels start closed at every stop; Craft shows the activity-bar launcher, panels open on
+	// demand (T2 §4.5 orthogonality — posture never force-opens a panel). PM-4: preview is sacred.
+	const [activePane, setActivePane] = React.useState<StudioPaneId | null>(null);
+	// The pane that last held the slot — the rail marks it, so getting back is one click the
+	// author chooses rather than something X does to them.
+	const [lastPane, setLastPane] = React.useState<StudioPaneId | null>(null);
+	// A drill-in's way back: set only when one pane sends you to another (Chat's "Manage docs" →
+	// Library), shown as a "‹ Chat" chip in the destination's header, and dropped the moment the
+	// slot holds anything else.
+	const [paneBack, setPaneBack] = React.useState<{ from: StudioPaneId; to: StudioPaneId } | null>(null);
+	// Derived during render (React's "adjust state when a value changes" pattern), so the rail's
+	// mark and the chip are right in the same commit as the swap — no one-frame flash.
+	const [prevPane, setPrevPane] = React.useState<StudioPaneId | null>(null);
+	if (prevPane !== activePane) {
+		setPrevPane(activePane);
+		if (prevPane) setLastPane(prevPane);
+		if (paneBack && paneBack.to !== activePane) setPaneBack(null);
+	}
+	// The two group views keep their old names: dozens of reads (aria-pressed, layout, effects,
+	// the tour snapshot) speak "assistant" or "settings", and each is now a pure read off the slot.
+	const activeAssistant = isAssistantPane(activePane) ? activePane : null;
+	const activeSettings = isSettingsPane(activePane) ? activePane : null;
+	// The group setters keep the old functional-update API. A non-null result TAKES the slot
+	// (replacing a pane of either group); a null result closes the slot only when this group
+	// holds it, so clearing one group never stomps the other (the restore path relies on that).
+	const setActiveAssistant = React.useCallback((next: AssistantPaneId | null | ((prev: AssistantPaneId | null) => AssistantPaneId | null)) => {
+		setActivePane((p) => {
+			const prev = isAssistantPane(p) ? p : null;
+			const n = typeof next === 'function' ? next(prev) : next;
+			return n ?? (prev ? null : p);
+		});
+	}, []);
+	const setActiveSettings = React.useCallback((next: SettingsPaneId | null | ((prev: SettingsPaneId | null) => SettingsPaneId | null)) => {
+		setActivePane((p) => {
+			const prev = isSettingsPane(p) ? p : null;
+			const n = typeof next === 'function' ? next(prev) : next;
+			return n ?? (prev ? null : p);
+		});
+	}, []);
+	// Esc in a docked pane: close it if focus is inside one (and not typing), return focus to its
+	// rail button, and report whether it did. A ref, so the window keydown listener reads the live slot.
+	const closeFocusedPaneRef = React.useRef<() => boolean>(() => false);
+	closeFocusedPaneRef.current = () => {
+		const el = document.activeElement as HTMLElement | null;
+		if (!activePane || !el || isTypingTarget(el) || !el.closest('[data-studio-pane], [data-settings-dock]')) return false;
+		const label = PANE_RAIL_LABEL[activePane];
+		setActivePane(null);
+		requestAnimationFrame(() => document.querySelector<HTMLElement>(`nav[aria-label="Studio panels"] button[aria-label="${label}"]`)?.focus());
+		return true;
+	};
+	// A drill-in: open `to` from inside `from`, and leave the chip that leads back.
+	const drillPane = React.useCallback((from: StudioPaneId, to: StudioPaneId) => {
+		setActivePane(to);
+		setPaneBack({ from, to });
+	}, []);
+	// What the destination pane's header shows (PanelDrillBack): the source's name, and the swap back.
+	const drillTo = (id: StudioPaneId) => (paneBack && paneBack.to === id ? { label: PANE_NAME[paneBack.from], onBack: () => setActivePane(paneBack.from) } : null);
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
 	// Coach and Chat are SEPARATE panels (own toolbar icon, own drawer) — they have
@@ -919,7 +969,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (revealCraft && !architectOpen && !liveOpen && !lensesOpen && !libraryOpen && !inspectorOpen) setRevealCraft(false);
 	}, [revealCraft, architectOpen, liveOpen, lensesOpen, libraryOpen, inspectorOpen]);
 	// Compatibility setters — the demo hook's prop interface and a handful of simple
-	// call sites still speak the old open/scope API; these adapt it onto the enums.
+	// call sites still speak the old open/scope API; these adapt it onto the one slot.
 	// The COMPOUND toggles (the bar's scope icons, the mobile/tablet settings toggle)
 	// call setActiveSettings directly to avoid a two-call batch ordering trap.
 	// setInspectorScope(s) SELECTS scope s and ensures the panel is open — the only
@@ -929,10 +979,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Lenses/Library). Toggling one closes it; it never stomps a sibling it didn't own.
 	const setCoachOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'coach') : v) ? 'coach' : prev === 'coach' ? null : prev));
-	}, []);
+	}, [setActiveAssistant]);
 	const setChatOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'chat') : v) ? 'chat' : prev === 'chat' ? null : prev));
-	}, []);
+	}, [setActiveAssistant]);
 	// Back-compat shims for the demo/walkthrough hook, which speaks the old open/tab
 	// API: open defaults to the Coach panel, and the "tab" setter now SELECTS which of
 	// the two separate panels is shown. CLOSE clears the assistant slot UNCONDITIONALLY
@@ -944,18 +994,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const was = prev === 'coach' || prev === 'chat';
 			return (typeof v === 'function' ? v(was) : v) ? (was ? prev : 'coach') : null;
 		});
-	}, []);
+	}, [setActiveAssistant]);
 	// Lenses + Library share the assistant slot (mutually exclusive with the Architect).
 	const setLensesOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
-		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : null));
-	}, []);
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : prev === 'lenses' ? null : prev));
+	}, [setActiveAssistant]);
 	const setLibraryOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
-		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'library') : v) ? 'library' : null));
-	}, []);
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'library') : v) ? 'library' : prev === 'library' ? null : prev));
+	}, [setActiveAssistant]);
 	const setInspectorOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveSettings((prev) => ((typeof v === 'function' ? v(prev !== null) : v) ? prev ?? 'slide' : null));
-	}, []);
-	const setInspectorScope = React.useCallback((s: 'slide' | 'deck') => setActiveSettings(s), []);
+	}, [setActiveSettings]);
+	const setInspectorScope = React.useCallback((s: 'slide' | 'deck') => setActiveSettings(s), [setActiveSettings]);
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate' | 'article'>('compose');
@@ -4476,6 +4526,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// ⌘. quiets to Write — the opposite of a Craft reveal, so drop any reveal first.
 				// If we're dismissing a TRANSIENT reveal, close its summoned panel(s) too (see Esc).
 				if (viewRef.current !== 'fabricate') { if (revealCraftRef.current) { setActiveAssistant(null); setActiveSettings(null); } setRevealCraft(false); setQuietened((v) => !v); }
+			} else if (e.key === 'Escape' && !e.defaultPrevented && closeFocusedPaneRef.current()) {
+				// Esc inside a DOCKED pane closes that pane (2026-11-15-one-side-pane.md) and hands focus
+				// back to the rail button that opens it. Only when focus is in the pane and not in a text
+				// field: a popover or menu inside it handles its own Esc first (defaultPrevented), and Esc
+				// in a field keeps its editing meaning. Everywhere else Esc keeps the meaning below.
+				e.preventDefault();
 			} else if (e.key === 'Escape') {
 				// Esc clears either transient overlay (whichever is armed) back to the saved stop.
 				// Dismissing a transient Craft REVEAL also closes the panel(s) it was summoned for:
@@ -4488,7 +4544,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, []);
+	}, [setActiveAssistant, setActiveSettings]);
 	// Fabricate is its own full-screen surface; never sit quietened OR craft-revealed
 	// behind it, but SUSPEND-and-RESTORE either transient so exiting Fabricate returns
 	// you to the exact surface you left — not a posture you didn't choose (R5). Present
@@ -6408,7 +6464,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
 		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
+			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); drillPane('chat', 'library'); }} />}
 		</PanelLoader>
 	);
 
@@ -7713,7 +7769,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// here is only the STATE: which slot is showing, and what a click does to it.
 	const activityBar = (
 		<ActivityRail
-			state={{ assistant: activeAssistant, settings: activeSettings }}
+			state={{ assistant: activeAssistant, settings: activeSettings, recent: lastPane }}
 			onAssistant={(id) => setActiveAssistant((p) => (p === id ? null : id))}
 			onSettings={(id) => setActiveSettings((p) => (p === id ? null : id))}
 			onWorkspace={() => setWorkspaceOpen(true)}
@@ -8703,7 +8759,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    simply not rendered (the activity-bar icon reopens it). */}
 						{desktop && effectiveStop === 'craft' && inspectorOpen && (
 							<>
-								<ResizablePanel id="studio-settings" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
+								<ResizablePanel id="studio-settings" data-studio-pane="" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
 									{/* Empty: the settings are drawn over this box by `settingsDock`, which outlives it. */}
 									<div ref={setSettingsSlot} className="min-h-0 flex-1" />
 								</ResizablePanel>
@@ -8719,7 +8775,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								{/* Library keeps its own panel id so switching the assistant slot
 								    Coach→Library is a fresh panel identity, and each keeps its own
 								    persisted width via the per-panel-id bucket. */}
-								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-card">
+								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} data-studio-pane="" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-card">
 									{coachOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>
@@ -8735,9 +8791,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{libraryOpen && (
-										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
+										<PanelDrillBack to={drillTo('library')}><PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
 											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
-										</PanelLoader>
+										</PanelLoader></PanelDrillBack>
 									)}
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize panel" />
@@ -8923,7 +8979,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    Gated on the compose view like its Architect/Lenses sheet peers, so it never
 			    floats over the full-screen Fabricate surface. */}
 			{compact && view === 'compose' && libraryMounted && (
-				<PanelLoader panel={libraryPanel} sheet open={libraryOpen} shell={(body) => <LibraryShell open={libraryOpen} onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
+				<PanelDrillBack to={drillTo('library')}><PanelLoader panel={libraryPanel} sheet open={libraryOpen} shell={(body) => <LibraryShell open={libraryOpen} onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
 					{(Library) => (
 						<Library
 							open={libraryOpen}
@@ -8943,7 +8999,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshAssets(); }}
 						/>
 					)}
-				</PanelLoader>
+				</PanelLoader></PanelDrillBack>
 			)}
 			{(presentOpen || presentEverOpened) && (
 				<React.Suspense

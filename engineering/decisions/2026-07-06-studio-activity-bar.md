@@ -5,6 +5,11 @@ summary: Consolidate the Studio chrome onto ONE left activity bar — the single
 
 # Studio chrome: a left activity bar + co-located panels
 
+> **Superseded in part (2026-11-15):** the TWO-slot rule below (an assistant slot plus an independent
+> settings slot, "grouped exclusivity", the coach↔tune concurrency) is replaced by ONE side pane at a
+> time — `2026-11-15-one-side-pane.md`. The rail, its groups, the one collapse rule and left docking
+> stand.
+
 **Date:** 2026-07-06
 **Status:** Accepted — build in progress (`claude/studio-settings-panel-redesign-rdfu8u`)
 **Supersedes the chrome/toggle surface of:** the settings-panel "Spine" redesign

@@ -272,12 +272,12 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 // and `badge`/`describedBy` so a status count can ride the cell without changing its
 // accessible name. Both variants now floor at `min-h-11` (44px) — the rail's own
 // `py-1.5` box computed to ~41px, itself under the touch floor.
-export function BarIcon({ label, hint, caption, active, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost', brand = false }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid'; brand?: boolean }) {
+export function BarIcon({ label, hint, caption, active, recent, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost', brand = false }: { label: string; hint: string; caption: string; active?: boolean; /** The pane that last held the one side slot (2026-11-15-one-side-pane.md): a small mark on the rail's inner edge, where the active rule sits, so getting back is one visible click. */ recent?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid'; brand?: boolean }) {
 	const bar = variant === 'bar';
 	return (
 		// `describedBy` rides the Tip, not the button: an `aria-describedby` on the button, even an
 		// undefined one, overrides the Tip's and silenced every bar icon's hint for a screen reader.
-		<Tip label={hint} alsoDescribedBy={describedBy}><button
+		<Tip label={recent && !active ? `${hint} (last used)` : hint} alsoDescribedBy={describedBy}><button
 			type="button"
 			aria-label={label}
 			aria-pressed={active}
@@ -326,6 +326,7 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 			{active && tone === 'ghost' && (
 				<span aria-hidden="true" className={bar ? cn('absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full', brand ? 'bg-[var(--lx-compose)]' : 'bg-[var(--bg)]') : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
 			)}
+			{recent && !active && !bar && <span aria-hidden="true" data-recent="" className="absolute -left-[6px] top-1/2 size-[5px] -translate-y-1/2 rounded-full bg-[var(--accent)]" />}
 			{children}
 			<span className="tracking-tight">{caption}</span>
 			{typeof badge === 'number' && badge > 0 && (
@@ -338,8 +339,9 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 // ── The desktop Craft activity rail — the ONE launcher for every panel ──────────
 //
 // Assistants (Coach/Chat/Library/Views) top · Settings (Slide/Deck) mid · Globals
-// (Workspace, account) foot. Group labels + dividers make the grouped exclusivity
-// legible (the assistants share one slot; Slide/Deck swap another).
+// (Workspace, account) foot. The labels and divider group the icons by job; every pane in
+// both groups shares ONE side slot, so opening any of them replaces the one showing
+// (engineering/decisions/2026-11-15-one-side-pane.md).
 //
 // It lives HERE, beside BarIcon and PostureDial, for the reason those two do: the
 // pre-paint instant shell has to draw this rail at build time and the app draws it at
@@ -357,13 +359,27 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 // scope', 'Slide settings', 'Open Library', 'Workspace settings', 'Toggle Live' (studio-fixture.ts CHROME
 // map + tour-kit SEL) — keep them stable.
 
-/** Which panel each of the rail's two exclusive slots is showing (null = closed). */
+/** Which pane holds the one side slot, read as its two groups (at most one is non-null). */
 export type ActivityRailState = {
 	/** The assistant slot: Coach · Chat · Live · Library · Reader views. */
 	assistant: 'coach' | 'chat' | 'live' | 'library' | 'lenses' | null;
 	/** The settings slot: the slide Inspector or the deck one. */
 	settings: 'slide' | 'deck' | null;
+	/** The pane that last held the slot, marked on the rail while another (or none) shows. */
+	recent?: StudioPaneId | null;
 };
+
+export type AssistantPaneId = NonNullable<ActivityRailState['assistant']>;
+export type SettingsPaneId = NonNullable<ActivityRailState['settings']>;
+/** Every side pane. They share ONE slot: opening one replaces the other. */
+export type StudioPaneId = AssistantPaneId | SettingsPaneId;
+const ASSISTANT_PANES: readonly string[] = ['coach', 'chat', 'live', 'library', 'lenses'] satisfies readonly AssistantPaneId[];
+export const isAssistantPane = (p: StudioPaneId | null): p is AssistantPaneId => p !== null && ASSISTANT_PANES.includes(p);
+export const isSettingsPane = (p: StudioPaneId | null): p is SettingsPaneId => p === 'slide' || p === 'deck';
+/** Each pane's name as a destination ("‹ Chat") — the rail's captions are abbreviations. */
+export const PANE_NAME: Record<StudioPaneId, string> = { coach: 'Coach', chat: 'Chat', live: 'Live', library: 'Library', lenses: 'Reader views', slide: 'Slide settings', deck: 'Deck settings' };
+/** The rail button that opens each pane, by its accessible name (the e2e CHROME contract) — where focus returns on Esc. */
+export const PANE_RAIL_LABEL: Record<StudioPaneId, string> = { coach: 'Toggle Coach', chat: 'Toggle Chat', live: 'Toggle Live', library: 'Open Library', lenses: 'Toggle Reader views', slide: 'Slide settings', deck: 'Deck scope' };
 
 /** The rail's boot state — every panel closed, which is what StudioShell mounts with. */
 export const ACTIVITY_RAIL_CLOSED: ActivityRailState = { assistant: null, settings: null };
@@ -392,15 +408,15 @@ export function ActivityRail({
 			    switches the slot. Library + Lenses are first-class panels here, not a
 			    sheet-from-a-globals-icon and not a tab inside the AI coach. */}
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
-			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={state.assistant === 'coach'} onClick={() => onAssistant('coach')}><Gauge className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={state.assistant === 'chat'} onClick={() => onAssistant('chat')}><ChatIcon className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Live" hint="Live — edit together: invite, people, session chat" caption="Live" active={state.assistant === 'live'} onClick={() => onAssistant('live')}><UsersRound className="size-[18px]" /></BarIcon>
-			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={state.assistant === 'library'} onClick={() => onAssistant('library')}><FileBox className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Reader views" hint="Reader views — a subset of the deck for one kind of reader" caption="Views" active={state.assistant === 'lenses'} onClick={() => onAssistant('lenses')}><LensIcon className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={state.assistant === 'coach'} recent={state.recent === 'coach'} onClick={() => onAssistant('coach')}><Gauge className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={state.assistant === 'chat'} recent={state.recent === 'chat'} onClick={() => onAssistant('chat')}><ChatIcon className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Live" hint="Live — edit together: invite, people, session chat" caption="Live" active={state.assistant === 'live'} recent={state.recent === 'live'} onClick={() => onAssistant('live')}><UsersRound className="size-[18px]" /></BarIcon>
+			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={state.assistant === 'library'} recent={state.recent === 'library'} onClick={() => onAssistant('library')}><FileBox className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Reader views" hint="Reader views — a subset of the deck for one kind of reader" caption="Views" active={state.assistant === 'lenses'} recent={state.recent === 'lenses'} onClick={() => onAssistant('lenses')}><LensIcon className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />
 			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
-			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={state.settings === 'slide'} onClick={() => onSettings('slide')}><FileSliders className="size-[18px]" /></BarIcon>
-			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={state.settings === 'deck'} onClick={() => onSettings('deck')}><SlidersHorizontal className="size-[18px]" /></BarIcon>
+			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={state.settings === 'slide'} recent={state.recent === 'slide'} onClick={() => onSettings('slide')}><FileSliders className="size-[18px]" /></BarIcon>
+			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={state.settings === 'deck'} recent={state.recent === 'deck'} onClick={() => onSettings('deck')}><SlidersHorizontal className="size-[18px]" /></BarIcon>
 			<span className="flex-1" />
 			<Separator className="my-1 w-6" />
 			<BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={onWorkspace}><SettingsCog className="size-[18px]" /></BarIcon>
