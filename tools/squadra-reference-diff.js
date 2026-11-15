@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
  * The reference diff of the lint-core rewrite (engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §6):
- * run lint-core (lib/authoring/lint-core.js) and the new `deck` ruleset (lib/authoring/squadra, `lintDeck`) over the
- * same corpora and compare what each reports, finding by finding.
+ * run lint-core as main has it and the new `deck` ruleset (lib/authoring/squadra, `lintDeck`) over the same corpora and
+ * compare what each reports, finding by finding.
  *
- * THE REFERENCE IS THE LIVE LINT-CORE, not a copy. The rewrite does not edit lint-core: rules join the new ruleset
- * beside it (steps 4-5), and step 6 runs this diff a last time and then deletes it. Until then the file on the branch
- * IS the reference, and it carries main's lint-core changes whenever the branch takes main, so a family is never held
- * to behavior main has dropped. (A frozen copy was tried first; it only added 10,800 lines that had to equal this file.)
+ * THE REFERENCE IS MAIN, RUN FROM A WORKTREE (tools/squadra/reference-tree.js): lint-core and every module it loads,
+ * checked out at the commit this branch left main at, its libraries built there. Nothing this branch edits can reach
+ * it, so there is no list of lint-core's inputs to keep, and nothing to freeze. When the branch takes main, the merge-base
+ * moves and the next run builds the newer reference (about 19 s, once per commit). Two earlier designs, a frozen copy of
+ * lint-core.js and a gate over a list of its inputs, both missed inputs this branch had already edited.
  *
  * The corpora (tools/squadra/corpus.js):
  *   1. every source the lint unit tests hand the linter, recorded by running them (`--corpus <file>` reuses one,
@@ -36,13 +37,6 @@
  * path's findings before and after, compared as multisets). It is held when every one of those rules is migrated; a
  * difference no rule accounts for is unexplained and fails.
  *
- * THE REFERENCE MUST NOT MOVE ON THIS BRANCH. lint-core's answer depends on its own file and on the generated tables it
- * reads (`REFERENCE_INPUTS`). Before it runs, the tool checks that none of them differs from where the branch left
- * main (`git merge-base HEAD origin/main`): a step that regenerates one (step 4 moves plugins' `lint` role to Squadra,
- * which rewrites lib/plugins/lint.generated.js) would otherwise change the reference with no edit to lint-core, and a
- * family could explain the drift away. When one has moved, the run stops: freeze a copy of the reference at the
- * merge-base for that step (decision note §10), or pass `--allow-moved-reference` to diff against it knowingly.
- *
  * The diff must RUN: it fails when the corpora gave the reference no finding at all, because a diff over sources with
  * nothing to compare proves nothing.
  *
@@ -50,7 +44,7 @@
  *   node tools/squadra-reference-diff.js [--corpus <inputs.jsonl>] [--save-corpus <file>] [--hosts N] [--fix]
  *     [--json] [--out <file.md>] [--rules a,b] (hold only these lint-core rule names) [--examples N]
  * Exits 1 on an unexplained difference in a migrated rule, a stale explanation, or a run with no reference finding;
- * exits 2 when the reference moved on this branch.
+ * exits 2 when the reference cannot be built (no merge-base with main).
  */
 
 const fs = require('node:fs');
@@ -70,22 +64,24 @@ const FIX = argv.includes('--fix');
 const JSON_OUT = argv.includes('--json');
 const EXPLAINED_FILE = path.join(__dirname, 'squadra', 'explained.json');
 
-const ref = require('../lib/authoring/lint-core');
 const { buildVocab } = require('../lib/authoring/lint');
-const { separatorLines } = require('../lib/authoring/slide-split');
-const { fencedLines } = require('../lib/core/shape-glyphs');
 const { deckRuleset, fixDeck, lintDeck } = require('../lib/authoring/squadra');
+const { loadReference } = require('./squadra/reference-tree');
+
+/** The reference, loaded on first use: lint-core and its helpers from the worktree of the merge-base. */
+let reference = null;
+const ref = () => reference ?? (reference = loadReference());
 
 const PREFIX = 'deck/';
 
 /** A lint-core finding as the diff compares it. `text` is null when `fixLineIndex` cannot place its line. */
-function oldRecords(text, vocab) {
+function oldRecords(text, vocab, R = ref()) {
   const lines = text.split('\n');
-  const seps = separatorLines(lines);
-  const fm = ref.fmChunks(text);
-  const fenced = fencedLines(text);
-  return ref.lintTextWith(text, vocab).map((f) => {
-    const i = ref.fixLineIndex(lines, seps, fm, f, fenced);
+  const seps = R.separatorLines(lines);
+  const fm = R.core.fmChunks(text);
+  const fenced = R.fencedLines(text);
+  return R.core.lintTextWith(text, vocab).map((f) => {
+    const i = R.core.fixLineIndex(lines, seps, fm, f, fenced);
     return { rule: f.rule, severity: f.severity, slide: f.slide ?? 0, message: f.message, line: i + 1, text: i >= 0 ? lines[i].trim() : null };
   });
 }
@@ -166,30 +162,16 @@ function explain(entries, rule, kind, subject) {
   return e ?? null;
 }
 
-/** lint-core and the generated tables whose content decides what it reports. */
-const REFERENCE_INPUTS = ['lib/authoring/lint-core.js', 'lib/plugins/lint.generated.js', 'lib/authoring/pane-lint.generated.js', 'lib/authoring/venue-capacity.generated.js'];
-
-/** The reference inputs that differ from the merge-base with main, or null when git cannot say (no history, no main). */
-function movedReferenceInputs() {
-  const { spawnSync } = require('node:child_process');
-  const git = (...a) => spawnSync('git', a, { cwd: ROOT, encoding: 'utf8' });
-  for (const main of ['origin/main', 'main']) {
-    const base = git('merge-base', 'HEAD', main);
-    if (base.status !== 0) continue;
-    const diff = git('diff', '--name-only', base.stdout.trim(), '--', ...REFERENCE_INPUTS);
-    if (diff.status !== 0) return null;
-    return diff.stdout.split('\n').filter(Boolean);
-  }
-  return null;
-}
-
 function main() {
-  const moved = movedReferenceInputs();
-  if (moved === null) console.error('[squadra-reference-diff] warning: no merge-base with main, so the reference could not be checked for drift on this branch');
-  else if (moved.length && !argv.includes('--allow-moved-reference')) {
-    console.error(`[squadra-reference-diff] the reference moved on this branch: ${moved.join(', ')} differ from the merge-base with main. Freeze lint-core at the merge-base for this step (decision note §10), or pass --allow-moved-reference.`);
+  let R;
+  try {
+    R = ref();
+  } catch (e) {
+    console.error(`[squadra-reference-diff] no reference: ${e.message}`);
     return 2;
   }
+  // Each side lints with its own vocabulary: the reference with main's manifests, the new ruleset with the branch's.
+  const refVocab = R.buildVocab();
   const vocab = buildVocab();
   const migrated = new Set(deckRuleset(vocab).rules.map((r) => (r.id.startsWith(PREFIX) ? r.id.slice(PREFIX.length) : r.id)));
   const held = (rule) => (rule.startsWith('squadra/') || migrated.has(rule)) && (!ONLY || ONLY.includes(rule));
@@ -203,7 +185,7 @@ function main() {
   for (const text of recording.inputs) sources.push({ corpus: 'tests', name: `test input ${sources.length + 1}`, text });
   const hosts = hostsOf(decks, HOSTS);
   for (const text of recording.inputs) {
-    if (!ref.lintTextWith(text, vocab).length) continue;
+    if (!R.core.lintTextWith(text, refVocab).length) continue;
     for (const h of hosts) sources.push({ corpus: 'mutated', name: `${h.path} + test input`, text: splice(fold(h.text), text) });
   }
   for (const d of decks) sources.push({ corpus: 'decks', name: d.path, text: d.text });
@@ -215,7 +197,7 @@ function main() {
   const fixStats = { compared: 0, same: 0, held: [], notMigrated: 0 };
   for (const s of sources) {
     byCorpus[s.corpus] = (byCorpus[s.corpus] ?? 0) + 1;
-    const olds = oldRecords(s.text, vocab);
+    const olds = oldRecords(s.text, refVocab, R);
     const news = newRecords(s.text, vocab);
     oldTotal += olds.length;
     for (const r of olds) tally(r.rule).old++;
@@ -230,14 +212,14 @@ function main() {
     for (const r of m.newOnly) tally(r.rule).newOnly.push({ source: s.name, ...r });
 
     if (FIX) {
-      const oldText = ref.applyAllFixes(s.text, vocab);
+      const oldText = R.core.applyAllFixes(s.text, refVocab);
       const newText = fixDeck(s.text, { vocab }).text;
       fixStats.compared++;
       if (oldText === newText) {
         fixStats.same++;
         continue;
       }
-      const rules = new Set([...changedRules(olds, oldRecords(oldText, vocab)), ...changedRules(news, newRecords(newText, vocab))]);
+      const rules = new Set([...changedRules(olds, oldRecords(oldText, refVocab, R)), ...changedRules(news, newRecords(newText, vocab))]);
       if (rules.size && ![...rules].every(held)) {
         fixStats.notMigrated++;
         continue;
@@ -269,7 +251,7 @@ function main() {
   const out = [];
   out.push('# Squadra reference diff', '');
   out.push(`Corpora: ${Object.entries(byCorpus).map(([k, v]) => `${k} ${v}`).join(', ')} sources (${recording.tests} lint test files, exit ${recording.testExit}).`);
-  out.push(`Reference findings: ${oldTotal}. Rules the ruleset defines: ${migrated.size}.`, '');
+  out.push(`Reference: lint-core at ${R.sha.slice(0, 9)} (main where this branch left it). Reference findings: ${oldTotal}. Rules the ruleset defines: ${migrated.size}.`, '');
   out.push('## Migrated rules', '');
   if (!heldRows.length) out.push('None yet.', '');
   else {
@@ -303,4 +285,4 @@ function main() {
 
 if (require.main === module) process.exitCode = main();
 
-module.exports = { oldRecords, newRecords, match, changedRules, loadExplained, explain, movedReferenceInputs, REFERENCE_INPUTS, ROOT };
+module.exports = { oldRecords, newRecords, match, changedRules, loadExplained, explain, ROOT };

@@ -124,9 +124,10 @@ representative demo deck is rendered in dark and light and sent to the owner for
 
 ## 6. How the rewrite proves itself
 
-- **The reference diff.** lint-core itself is the reference: the rewrite does not edit it, and step 6 runs the diff a
-  last time before deleting it (§10 says why a frozen copy was dropped). `npm run squadra:reference-diff` runs it and
-  the new linter over the three corpora (the lint tests' inputs, mutated decks, the tracked decks) and compares rule,
+- **The reference diff.** The reference is lint-core as main has it where the branch left main, run from a git
+  worktree of that commit (`tools/squadra/reference-tree.js`), so nothing the branch edits reaches it; step 6 runs the
+  diff a last time before deleting lint-core (§10 says why two other designs were dropped). `npm run
+  squadra:reference-diff` runs it and the new linter over the three corpora (the lint tests' inputs, mutated decks, the tracked decks) and compares rule,
   severity, slide, message and the line the span starts on. Every difference is fixed or listed in the PR as intended, with the reason. A family's commit lands only
   with its diff at 0 or explained.
 - **The fix diff.** Fix all on the old and new paths over the same corpora; same rule.
@@ -150,7 +151,7 @@ branch and says the previous session is finished).
    capacity and fit; panes; glyphs; plugins (their `lint` role moves to Squadra rules); the rest.
 5. Consumers: the Studio (editor, Coach, Fix all, thin-card fix, photo verdict, architect), the Playground, `lint:deck`
    and the CLI, conformance kinds, the score tools.
-6. Run the reference diff a last time, then delete lint-core, the bridge, `lattice-line`, the legacy fix path and the diff tool; measure the bundle;
+6. Run the reference diff a last time, then delete lint-core, the bridge, `lattice-line`, the legacy fix path, the diff tool and its reference tree; measure the bundle;
    render the export sign-off decks; the adversarial trio; the merge ask.
 
 Estimated 6–10 sessions (an estimate from #3194's pace: one session built a language, an adapter, a diff and two rules).
@@ -214,9 +215,8 @@ empty until step 4) loaded through the runtime. The vocab bridge (`lib/authoring
 string-list vocabularies as sorted arrays; the structured ones (capacity, pane specs, exclusive axes) cross with the
 families that read them.
 
-**The reference and its diff.** The reference is `lib/authoring/lint-core.js` itself: nothing in the rewrite edits it,
-so until step 6 deletes it the branch's copy is the reference, and it carries main's changes whenever the branch takes
-main. `npm run squadra:reference-diff` runs it and `lintDeck` over the
+**The reference and its diff.** The reference is lint-core as main has it at the merge-base, run from a worktree (below,
+"The reference is main, in a worktree"). `npm run squadra:reference-diff` runs it and `lintDeck` over the
 three corpora (`tools/squadra/corpus.js`, carried from #3194) and holds each migrated rule to it on rule, severity,
 slide, message and the TEXT of the line a finding starts on (lint-core names its line by text, so line numbers would
 make false differences on repeated lines; a lint-core finding it cannot place matches on the other four and is counted
@@ -235,24 +235,35 @@ test/unit/authoring/squadra-lattice-deck.test.js, with a CRLF span start that co
 **The diff can fail (2026-11-13, the card grader's raise).** The grader set the card at `medium` because the diff had
 never compared a real finding. So a temporary `deck/paginate-comment-retired`, a faithful copy of lint-core's rule on
 `lattice-deck`'s tree, ran against a 3,003-input subset of the recorded corpus (every input naming `paginate`, plus
-every 25th other one), with 2,832 mutated decks and the 520 tracked decks. Faithful: 36 of 36 findings matched on line
+every 25th other one), with 2,832 mutated decks and the 520 tracked decks (on the branch before its rebase onto main;
+the fix arm below, after it, saw 2,862 and 519, because main changed lint-core and a tracked deck). Faithful: 36 of 36 findings matched on line
 text, PASS, exit 0. One message changed: 36 only in lint-core and 36 only in Squadra, FAIL, exit 1. The rule was then
 removed and the stamps restored byte for byte. The same grader found why every recording run exited 1: the preload
 loaded lint-core before `payload-elision-lint-oracle.test.js` could stub `elidePayloads`, which lint-core captures at
 load. The preload now wraps the linter when a test first loads it, and a recording with any red test now stops the
 diff instead of being printed and ignored.
 
-**No frozen copy (2026-11-14).** The diff first ran a copy of lint-core frozen at the fork under `tools/squadra/reference/`.
-The second card grader found nothing kept it in step with the branch's lint-core, which main had already changed
-(#3174, #3181); a test then forced the copy to equal the live file, and CI's merge with main tripped it, which forced a
-rebase. A copy that must equal the live file is the live file plus 10,800 lines of diff. Since nothing in the rewrite
-edits lint-core before step 6 deletes it, the diff reads `lib/authoring/lint-core.js` directly; the copy, its re-freeze
-script and its test are gone. If a step ever has to change lint-core before step 6, the copy comes back for that step.
-The rule is enforced, and wider than the one file: lint-core's answer also depends on the generated tables it reads
-(`lib/plugins/lint.generated.js`, which step 4's plugins family regenerates, the pane and venue tables). The diff tool
-refuses to run when any of them differs from the merge-base with main (`REFERENCE_INPUTS`, exit 2), so the reference
-cannot drift with no edit to lint-core.js; the step that moves one freezes a copy, or opts in with
-`--allow-moved-reference` and says why in its commit.
+**The reference is main, in a worktree (2026-11-15).** Two designs came first, and both had silent holes.
+- *A frozen copy of lint-core.js* under `tools/squadra/reference/`. Its requires reached the live `lib/`, so only the one
+  file was frozen; a test then forced it to equal the live file, which made it the live file plus 10,800 lines of diff.
+- *The live lint-core, with a gate over a list of its inputs*: first four files kept by hand, then the load closure read
+  from `require.cache`. The fifth review found the closure missed every module reached through an ESM `import` (the deck
+  model, the directive island, 18 files), modules loaded only while linting, and the fix driver lint-core loads on
+  demand, and that this branch had ALREADY edited two of them: the deck model's `containers` and the Squadra driver
+  lint-core's own Fix all runs. The gate said nothing had moved.
+
+The owner chose the root fix on 2026-11-15: `tools/squadra/reference-tree.js` checks out the merge-base with main as a git
+worktree under `.scratch/squadra-reference/<sha>`, builds its six workspace libraries there, and gives it a
+`node_modules` whose workspace links resolve to ITS `docs/src/lib`. The reference is then that commit's whole tree,
+every input included, with no list to keep. Before it marks a tree ready it proves isolation: a fresh process loads the
+reference, lints the gallery and runs a Fix all, and every module it loaded, through `require` or (via a resolve hook)
+`import`, must sit inside the tree. Failing arm: pointing one workspace link back at the branch's `segno-markdown`, a
+package lint-core reaches only through `import`, made the check name the leaked module; restored. Cost, measured: about
+19 s the first time for a commit (11 s with warm caches), 0 s after. When the branch takes main the merge-base moves and
+the next run builds the newer reference. Each side lints with its own vocabulary: the reference with main's manifests.
+The first two failing arms below ran on the live lint-core before this change. The fix arms were re-run on the worktree
+reference (lint-core at `caf4115a9`) and gave the same numbers: faithful, 36 of 36 and 6,291 of 6,384 identical, PASS;
+the fix changed, 14 sources attributed to the rule, FAIL, exit 1. The rule was removed again and the stamps restored.
 
 **The fix diff can fail too (2026-11-15, the third card grader's raise).** The grader held the card at `high` because
 no run had ever turned the fix diff red. The same temporary rule, now carrying lint-core's fix (delete the comment's

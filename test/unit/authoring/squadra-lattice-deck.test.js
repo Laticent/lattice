@@ -257,17 +257,23 @@ describe('the reference diff: matching and explanations', () => {
   });
 });
 
-describe('the reference diff: what the reference depends on', () => {
-  test('every REFERENCE_INPUTS entry is lint-core itself or a file lint-core requires', () => {
+describe('the reference diff: the reference tree', () => {
+  test("links the workspace packages to the tree's own libraries and every other package to the repo's install", () => {
     const fs = require('node:fs');
+    const os = require('node:os');
     const path = require('node:path');
-    const { REFERENCE_INPUTS } = require('../../../tools/squadra-reference-diff');
-    const root = path.join(__dirname, '../../..');
-    const src = fs.readFileSync(path.join(root, 'lib/authoring/lint-core.js'), 'utf8');
-    for (const f of REFERENCE_INPUTS) {
-      if (f === 'lib/authoring/lint-core.js') continue;
-      assert.ok(fs.existsSync(path.join(root, f)), `${f} does not exist`);
-      assert.ok(src.includes(`require('${path.relative(path.join(root, 'lib/authoring'), path.join(root, f)).replace(/^(?!\.)/, './')}`), `lint-core does not require ${f}`);
+    const { linkModules } = require('../../../tools/squadra/reference-tree');
+    const tree = fs.mkdtempSync(path.join(os.tmpdir(), 'squadra-tree-'));
+    try {
+      linkModules(tree);
+      const root = path.join(__dirname, '../../..');
+      // A workspace package resolves INSIDE the tree, so main's library is what the reference loads.
+      const ws = path.resolve(path.join(tree, 'node_modules', '@laticent'), fs.readlinkSync(path.join(tree, 'node_modules', '@laticent', 'segno-markdown')));
+      assert.equal(ws, path.join(tree, 'docs', 'src', 'lib', 'segno-markdown'));
+      // Any other package is the repo's install, shared.
+      assert.equal(fs.realpathSync(path.join(tree, 'node_modules', 'yaml')), fs.realpathSync(path.join(root, 'node_modules', 'yaml')));
+    } finally {
+      fs.rmSync(tree, { recursive: true, force: true });
     }
   });
 });
