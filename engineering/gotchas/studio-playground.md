@@ -2173,3 +2173,19 @@ never turn "passed in headless" into "works on iOS."
   opened by typing can also open before the key under test, so "the key opened it" passes on a key that does nothing.
 - **Fix** — wait for a positive option first, then read the absence; and test a key at a spot that opens nothing by
   itself (a bare `<!-- _class: ` stays quiet until a letter or the key). `editor-completion-keys.spec.ts` does both.
+
+## An e2e that waits for "two screenshots in a row identical" times out on a page with nothing moving
+
+- **Symptom** — a poll that compares each `page.screenshot()` with the one before times out after 15 s, and the failure
+  screenshot shows a settled page. `plugin-slots.spec.ts` on `webkit-tablet` (nightly run 43712760849): 6 of 10 local
+  runs red, at the first of its three widths.
+- **Cause** — an infinite animation on the page. The Studio's drawn caret (`lx-ghost-caret-cm`, shown in an editor
+  without focus) blinks every 530 ms (`lx-caret-blink`, 1.06 s). On WebKit, one poll round of a 300 ms interval plus a
+  ~220 ms screenshot took 520 to 570 ms, so consecutive shots fell half a blink apart and never matched.
+- **Fix** — `pictureStill(page)` (`docs/e2e/barriers.ts`) takes every shot with `animations: 'disabled'`, which runs a
+  finite animation to its end and holds an infinite one at its first frame, so only a real change in layout keeps two
+  shots apart. A JS-driven ticker still fails it, as it should. Use it instead of a hand-rolled screenshot poll.
+- **Triggered by** — a screenshot-equality wait on any page that shows a blinking caret, a spinner or another infinite
+  animation.
+- **Removable when** — never: an infinite animation never settles.
+- **Commits** — PR for `fix/e2e-filo-live-plugin-slots` (2026-11-15).
