@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { admitNpmBundle, externalRefusal } = require('../../../lib/packages/npm-plugin-admission.js');
-const { npmLayerRefusal, npmRefusals, judgeWindowsRows, judgeWindowsReads } = require('../../../lib/core/os-sandbox.js');
+const { npmLayerRefusal, npmRefusals, judgeWindowsRows, judgeWindowsReads, readWindowsUntilSettled } = require('../../../lib/core/os-sandbox.js');
 
 const sha = (c) => crypto.createHash('sha256').update(c).digest('hex');
 const GOOD = 'function render(f){ return "<p>" + f.body.length + "</p>"; }\nexport { render as default };';
@@ -138,5 +138,48 @@ describe('judgeWindowsReads: a renderer still starting is not a browser without 
     assert.equal(judgeWindowsReads([[locked(1), locked(2)]]), true);
     assert.equal(judgeWindowsReads([]), null);
     assert.equal(judgeWindowsReads([['    "tag": "renderer!kRenderer",']]), null);
+  });
+});
+
+describe('readWindowsUntilSettled: the read loop fails closed', () => {
+  const locked = (pid) => `${pid}\tRenderer\t\tRenderer\tLockdown\tS-1-16-0 Untrusted\t\t`;
+  const starting = (pid) => `${pid}\tRenderer\t\tNot Sandboxed\t\t\t\t\t`;
+  /** A fake `chrome://sandbox`: each call returns the next read, or throws an Error given in its place. */
+  const pages = (...reads) => {
+    let i = 0;
+    const calls = { n: 0 };
+    const read = async () => {
+      calls.n++;
+      const r = reads[Math.min(i++, reads.length - 1)];
+      if (r instanceof Error) throw r;
+      return r;
+    };
+    return { read, calls };
+  };
+  test('a starting renderer that settles reads on, and the diagnostics keep both reads', async () => {
+    const { read } = pages([starting(9), locked(7)], [locked(9), locked(7)]);
+    const diag = {};
+    assert.equal(await readWindowsUntilSettled(read, diag), true);
+    assert.ok(diag.seen.some((r) => r.startsWith('read 1:') && /Not Sandboxed/.test(r)));
+  });
+  test('a renderer that never settles reads off after five reads, never on or unmeasured', async () => {
+    let n = 0;
+    const read = async () => [starting(++n), locked(7)]; // a new starting renderer every read
+    const diag = {};
+    assert.equal(await readWindowsUntilSettled(read, diag), false);
+    assert.equal(n, 5);
+  });
+  test('after an unsandboxed read, an empty read or a thrown read does not turn it into unmeasured', async () => {
+    assert.equal(await readWindowsUntilSettled(pages([starting(9)], [], [starting(9)]).read), false, 'empty, then the same pid');
+    assert.equal(await readWindowsUntilSettled(pages([starting(9)], ['    "tag": "renderer!kRenderer",'], [locked(9)]).read), true, 'policy lines, then settled');
+    const diag = {};
+    assert.equal(await readWindowsUntilSettled(pages([starting(9)], new Error('nav timeout')).read, diag), false, 'a throw after an unsandboxed read');
+    assert.ok(diag.seen.some((r) => /Not Sandboxed/.test(r)) && diag.seen.some((r) => /nav timeout/.test(r)), 'the first read and the error are both kept');
+  });
+  test('a first read that throws is the caller\'s unmeasured; a first read locked down is on at once', async () => {
+    await assert.rejects(readWindowsUntilSettled(pages(new Error('nav timeout')).read), /nav timeout/);
+    const { read, calls } = pages([locked(1), locked(2)]);
+    assert.equal(await readWindowsUntilSettled(read), true);
+    assert.equal(calls.n, 1);
   });
 });
