@@ -5,7 +5,7 @@ recorded: 2026-11-15
 area: engine
 severity: high
 swimlane: engineering/decisions/2026-11-13-native-pptx-writer.md §How it is proven
-deferred: blocked — no runner here or in the platform suites opens PowerPoint, Keynote or Google Slides; the owner's export sign-off is the next chance
+deferred: blocked — no runner here or in the platform suites opens PowerPoint for macOS, Keynote or Google Slides; Windows PowerPoint was opened by the owner on 2026-11-15
 source: https://github.com/Laticent/lattice/pull/3220
 ---
 
@@ -21,10 +21,16 @@ where     — docs/src/lib/calco/pptx.ts (the package), lib/export/pptx-export.j
             "Playfair Display SemiBold Italic", which Windows may refuse to use), the title placeholder with no idx,
             the slide-number placeholder at idx 12.
 done when — the gallery deck, light and dark, as a plain and an --editable .pptx, opens without a repair prompt in
-            PowerPoint for macOS, PowerPoint for Windows, Keynote and Google Slides (import), each with a screenshot
+            PowerPoint for macOS, PowerPoint for Windows (done, 2026-11-15), Keynote and Google Slides (import), each with a screenshot
             of slide 1 and of one card slide.
 evidence  — the screenshots, the app versions, and for any failure the part it names.
 verify    — tier 1 checker on the screenshots against the LibreOffice renders on PR #3220.
+
+## PowerPoint for Windows: opened (2026-11-15)
+
+The owner opened all 8 export sign-off files from `f3ead5f` (sha256 prefixes in PR #3220's body) in PowerPoint for
+Windows, Microsoft 365, with no repair prompt, and judged the decks good. That closes the Windows half of the done-when.
+Still open: PowerPoint for macOS, Keynote and Google Slides (import), and the screenshots this note asks for.
 
 ## Apple's importer, main (pptxgenjs) against this branch (2026-11-15)
 
