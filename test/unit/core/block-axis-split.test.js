@@ -101,3 +101,27 @@ describe('the block axis: what the maker-checker review found', () => {
     assert.equal(membersIn(s.inner, 'block').length, 2);
   });
 });
+
+describe('one long paragraph splits at its sentence breaks (§23, the passage rule)', () => {
+  const { proseMembers } = require('../../../lib/core/split-envelope');
+  const one = sectionOf('## One paragraph.\n\nFirst sentence here. Second sentence here. Third sentence *ends* here.');
+
+  test('its members are its sentences', () => {
+    assert.equal(proseMembers(one.inner).count, 3);
+  });
+
+  test('a measured plan cuts between sentences, each page one paragraph, every sentence once', () => {
+    const parts = splitEnvelope(one.openTag, one.inner, chromeOf(one.inner), { axis: 'block', per: [2, 1] });
+    const body = bodies(parts);
+    assert.equal(body.length, 2);
+    assert.match(body[0], /First sentence here\. Second sentence here\./);
+    assert.doesNotMatch(body[0], /Third/);
+    assert.match(body[1], /Third sentence <em>ends<\/em> here\./);
+    for (const page of body) assert.equal((page.match(/<p\b/g) || []).length - (page.match(/<p[^>]*>\s*<code/g) || []).length, 1, 'one paragraph a page');
+  });
+
+  test('two paragraphs keep their paragraph seam, not sentences', () => {
+    const two = sectionOf('## Two.\n\nOne. Two.\n\nThree. Four.');
+    assert.equal(proseMembers(two.inner).count, 2);
+  });
+});

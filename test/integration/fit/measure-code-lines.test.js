@@ -110,3 +110,8 @@ test('CONTENT HEADING: a subheading keeps with the block after it, so no page en
   const out = await measure('content', '<p>Lead.</p><h3>A sub heading</h3><p>Body one.</p><p>Body two.</p>');
   assert.deepEqual(out[0].members.keepWithNext, [false, true, false, false]);
 });
+
+test('CONTENT SENTENCES: one paragraph reads its sentences as members', async () => {
+  const out = await measure('content', '<p style="margin:0;font:20px/30px serif">First sentence here. Second sentence here. Third one.</p>');
+  assert.equal(out[0].members.heights.length, 3, JSON.stringify(out[0].members));
+});

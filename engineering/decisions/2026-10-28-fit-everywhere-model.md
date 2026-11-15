@@ -1344,3 +1344,11 @@ pages through `blockSpans`); an inline `<svg viewBox>` (KaTeX's root sign) made 
 clipped (`deriveAxis` now takes the page's own test: no table and no list of two or more items); and
 the Fluido docs still said a single member always stays whole.
 
+**One long paragraph, built (owner, 2026-11-15).** A content slide whose prose is ONE paragraph of two
+or more sentences splits at its sentence breaks, §20's passage rule applied to a content paragraph:
+`proseMembers` (lib/core/split-envelope.js) counts the sentences by `passageCuts` and `partitionBlocks`
+cuts the paragraph with `splitHtmlAtText`, each page one paragraph; the page reads the same sentences
+(`sentenceRanges`, lib/core/fit-measure.js). Several blocks keep their paragraph seams, so an over-tall
+paragraph among others is not cut. `sentenceRanges` is now shared with the passage split and ends each
+Range in the node holding its last character, the code-lines measurement fix applied to sentences.
+
