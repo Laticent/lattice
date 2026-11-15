@@ -91,6 +91,52 @@ describe('the inline check in <head>', () => {
 		expect(document.documentElement.getAttribute('data-old-browser')).toBe('failed');
 	});
 
+	describe('hides the page before its first paint, so the broken page never flashes', () => {
+		const hider = () => document.getElementById('lattice-old-browser-veil');
+		afterEach(() => {
+			hider()?.remove();
+			vi.useRealTimers();
+		});
+
+		it('only when a feature is missing', () => {
+			check(/^$/);
+			expect(hider()).toBeNull();
+			check(/:has\(/);
+			expect(hider()?.textContent).toBe('body{visibility:hidden}');
+		});
+
+		it('not once this tab chose Continue anyway', () => {
+			sessionStorage.setItem('lattice-old-browser-continue', '1');
+			check(/:has\(/);
+			expect(hider()).toBeNull();
+		});
+
+		it('shows the page again when the notice cannot load', () => {
+			const script = check(/:has\(/);
+			script?.onerror?.(new Event('error'));
+			expect(hider()).toBeNull();
+		});
+
+		it('shows the page again after 8 s if the notice never appears, and not before', () => {
+			vi.useFakeTimers();
+			check(/:has\(/);
+			vi.advanceTimersByTime(7999);
+			expect(hider()).not.toBeNull();
+			vi.advanceTimersByTime(1);
+			expect(hider()).toBeNull();
+		});
+
+		it('the notice takes it away as it shows, with the page blurred', () => {
+			check(/:has\(/);
+			expect(hider()).not.toBeNull();
+			const main = document.createElement('main');
+			document.body.append(main);
+			run('SomeBrowser/1.0');
+			expect(hider()).toBeNull();
+			expect(main.style.filter).toContain('blur(');
+		});
+	});
+
 	it('marks the page but loads nothing once this tab chose Continue anyway', () => {
 		sessionStorage.setItem('lattice-old-browser-continue', '1');
 		expect(check(/:has\(/)).toBeNull();

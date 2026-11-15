@@ -487,6 +487,17 @@ versions and how to update, and it looks like the site, not like an error page.
     keeps its screen for the hardware floor. The notice's "Continue anyway" also sets the device tier's own
     `lattice-device-continue` and fires `lattice-old-browser-continue`, so the Studio and the Playground then run as
     Lite under their banner, as their own "Continue anyway" did.
+  - **No flash of the broken page (owner: "during load i notice the broken site momentarily").** The notice comes in a
+    second download and shows once the page is parsed, so the page used to paint first, broken. The `<head>` check now
+    adds `body{visibility:hidden}` before the first paint when a feature is missing, and the notice removes it as it
+    shows, with the page already blurred. Two exits keep a reader from a blank page: the check lifts it when
+    `/old-browser.js` fails to load, and after 8 s if the notice never appears. Real Chromium 101, with the notice's
+    download held 2 s: before, the unblurred page showed mid-gap; after, only the background, then the notice.
+  - **Minified at build time.** The integration runs the check through esbuild (`target: 'es5'`) before injecting it:
+    1,268 bytes on every page, so the home page stays at 118.7 of its 119.1 KB ceiling with the flash fix included.
+    esbuild refuses to emit anything newer than ES5, so a `const` slipped into the source fails the build, and
+    `old-browser-check.node.test.ts` parses the shipped form with `ecmaVersion: 5`. The minifier runs in the Astro
+    integration (Node), not in the check module, because esbuild will not run in jsdom.
   - **What the app adds after the notice shows** (the Studio mounts toasts and portals into `<body>`) joins the page
     beneath through a `MutationObserver`, and is given back on "Continue anyway".
   - **Measured:** real Chromium 101 shows the same notice on `/`, `/studio/`, `/playground/`, `/getting-started/` and

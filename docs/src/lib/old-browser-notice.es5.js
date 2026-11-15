@@ -428,6 +428,9 @@
 
 		document.body.appendChild(screen);
 		if (watcher) watcher.observe(document.body, { childList: true });
+		// The <head> check hid the page before its first paint (old-browser-check.es5.js); it comes back now, blurred.
+		var pageHider = document.getElementById('lattice-old-browser-veil');
+		if (pageHider) pageHider.parentNode.removeChild(pageHider);
 		title.focus();
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		setTimeout(function () {

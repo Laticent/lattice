@@ -37,13 +37,29 @@ function latticeOldBrowserCheck(checks, src) {
 		if (sessionStorage.getItem('lattice-old-browser-continue') === '1') return;
 	} catch (_e) {}
 	window.__latticeOldBrowser = missing;
+	// Hide the page before its first paint: the notice comes in a second download and shows once the page is parsed, and
+	// until then the reader would see the broken page. The notice takes this away as it shows, with the page blurred.
+	var veil = document.createElement('style');
+	veil.id = 'lattice-old-browser-veil';
+	veil.appendChild(document.createTextNode('body{visibility:hidden}'));
+	document.head.appendChild(veil);
+	// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
+	var lift = function () {
+		if (veil.parentNode) veil.parentNode.removeChild(veil);
+	};
 	var s = document.createElement('script');
 	s.src = src;
-	// If the notice cannot load (offline, a network error), say so on the page: the Studio's own gate then shows its
-	// screen instead of deferring to a notice that will never come (device-gate.ts).
+	// If the notice cannot load (offline, a network error), show the page and say so on it: the Studio's own gate then
+	// shows its screen instead of deferring to a notice that will never come (device-gate.ts).
 	// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 	s.onerror = function () {
+		lift();
 		document.documentElement.setAttribute('data-old-browser', 'failed');
 	};
 	document.head.appendChild(s);
+	// And if the notice loads but never shows (a browser older than any tested), the page comes back: never a blank one.
+	// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
+	setTimeout(function () {
+		if (!document.getElementById('lattice-old-browser')) lift();
+	}, 8000);
 }

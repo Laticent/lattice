@@ -10,12 +10,17 @@ export const OLD_BROWSER_CHECKS = OLD_BROWSER_FEATURES.map((f) => ({ label: FEAT
 /** `<` is escaped so no string in the data can close the script element. */
 const literal = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c');
 
-/** The check function without its comment lines: they explain the source, and every visitor would download them. */
+/**
+ * The check function without its comment lines or indentation (every page carries it). Lines stay lines, so automatic
+ * semicolon insertion reads it exactly as the source. The build minifies it further (src/plugins/old-browser-check.mjs);
+ * this module stays free of esbuild so it runs in a browser-like test environment.
+ */
 const code = check
 	.split('\n')
 	.filter((line) => !/^\s*\/\//.test(line))
-	.join('\n')
-	.trim();
+	.map((line) => line.trim())
+	.filter((line) => line !== '')
+	.join('\n');
 
 /** The inline script: the check function, called once with the probes and the notice's address. */
 export function oldBrowserCheckScript(noticeSrc: string): string {

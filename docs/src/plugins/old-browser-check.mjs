@@ -8,15 +8,25 @@
 // per URL (no Vary: User-Agent), and the site stays static. Why inline: an old browser may not parse our bundled
 // modules at all, so the check cannot live in one.
 
+import { transformSync } from 'esbuild';
 import { joinBase } from '../lib/base-url.mjs';
 import { oldBrowserCheckScript } from '../lib/old-browser-check.ts';
+
+/**
+ * The check as every page ships it: minified, because every page carries it and the home page sits at its HTML ceiling.
+ * esbuild only shortens names and space: the source is ES5 and `target: 'es5'` keeps it so, which
+ * old-browser-check.node.test.ts holds by parsing this exact output with `ecmaVersion: 5`.
+ */
+export function minifiedOldBrowserCheck(noticeSrc) {
+	return transformSync(oldBrowserCheckScript(noticeSrc), { loader: 'js', minify: true, target: 'es5', legalComments: 'none' }).code.trim();
+}
 
 export function oldBrowserCheck() {
 	return {
 		name: 'lattice-old-browser-check',
 		hooks: {
 			'astro:config:setup': ({ config, injectScript }) => {
-				injectScript('head-inline', oldBrowserCheckScript(joinBase(config.base, 'old-browser.js')));
+				injectScript('head-inline', minifiedOldBrowserCheck(joinBase(config.base, 'old-browser.js')));
 			},
 		},
 	};

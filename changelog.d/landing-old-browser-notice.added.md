@@ -18,3 +18,5 @@
   beside "Technical details", instead of linking to another page of the site, which an old browser could not show
   properly either. Both sections open with the same simple button in every browser. Its only link goes to the browser maker's own update
   page.
+- An old browser no longer glimpses the broken page while the notice loads: the page stays hidden until the notice
+  shows it, blurred behind it.
