@@ -280,6 +280,15 @@ are covered by the matcher's unit tests rather than a real run. And while most r
 unmigrated, the fix diff skips every source with an unmigrated rule's fix in it; the report prints that count, so a
 family's commit says how many sources its fix diff actually compared.
 
+**The full corpus, on the worktree reference (2026-11-15).** The first full run (all 59,353 recorded inputs) ran the
+heap out after 61 minutes: it built every mutated deck before comparing any, up to 475,000 of them at 8 hosts per input,
+and it kept every unmigrated rule's findings in lists the report never printed. The diff now streams its sources,
+keeps lists only for migrated rules (counts for all), and splices each input with a finding into one host, the 8 in
+turn. The run then compared 91,769 sources (59,353 test inputs, 31,897 mutated decks, 519 tracked decks) against
+lint-core at `caf4115a9`: 87,953 reference findings across 177 rules, none migrated, so none held; Fix all identical
+on 90,552 sources, the other 1,217 differing only on unmigrated rules. PASS, exit 0, 804 s. With an empty ruleset this
+proves the harness at full scale, not any rule: each family's commit runs it with its rules held.
+
 **Carried into step 4, from the same review.**
 - Notes are inert, and `<!-- _clas: kpi -->` is a note. A rule that reports or fixes a misspelled directive reads with
   `inert: 'include'` and declares `changes: inert`.
