@@ -6,7 +6,7 @@
 - **The map's pictures now use the slide's own fonts, icons and emoji,** so they match the slide instead of re-wrapping
   in a fallback face. A slide that shows a library photo keeps its live preview, so a replaced photo shows at once.
 - **Typing with the map open is smoother.** The map draws a new picture of an edited slide only once you pause, and draws
-  it with less work, so keystrokes wait less (at 4x CPU the slowest keystroke went from 192 ms to 120 ms, and blocking while typing fell by 46%).
+  it with less work, so keystrokes wait less (at 4x CPU the slowest keystroke went from 240 ms to 104 ms, and blocking while typing fell by half).
 - **`npm run perf:load`** (in `docs/`) measures a page's load with Lighthouse's desktop settings: median Total Blocking
   Time, Speed Index and time to interactive, for a first visit, a returning reader (`RETURN=1`) or with the map open
   (`MAP=1`), at any CPU slowdown (`CPU=4`).

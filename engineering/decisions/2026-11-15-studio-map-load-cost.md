@@ -78,10 +78,12 @@ arms, which is why only alternated pairs are compared.
 | Typing, map open: blocking while typing | 1,447 ms | **778 ms** | −46% |
 | Typing, map open: longest single task | 213 ms | 221 ms | level |
 
-RE-MEASURED ON THE MERGED HEAD (`fae4780f`, after the third and fourth reviews' fixes), the same way, all pairs kept:
+RE-MEASURED ON THE PR HEAD (`fae4780f`, after the third and fourth reviews' fixes), the same way, all pairs kept:
 returning, map open (5 pairs) TBT 5,003 -> **2,712 ms** (-46%, better in every pair by 1.0 to 3.8 s), SI 3,960 ->
 2,762 ms, TTI 8,945 -> 6,033 ms, frames 7 -> 1; first visit, map open (9 pairs) TBT 4,502 -> 4,198 ms (-7%, better in
 6 of 9), SI and TTI level. A first visit still makes its stills, so its gain is the smaller captures, not fewer frames.
+Typing with the map open (5 pairs): keystroke p95 112 -> 96 ms, slowest 240 -> 104 ms, blocking while typing 1,668 ->
+805 ms (-52%); the longest single task is 251 -> 272 ms, and it lands in a pause, as the keystroke rows show.
 
 Earlier runs of the same comparison, on earlier builds of this branch, agree in direction (returning TBT 4,765 → 3,095
 ms, SI 4,066 → 2,865 ms; 1x CPU returning TBT 246 → 194 ms; map closed level, 2,024 → 2,156 ms within noise).
