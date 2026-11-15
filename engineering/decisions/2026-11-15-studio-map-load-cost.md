@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Why the Studio scored 0 on Total Blocking Time with the slide map open, and what fixed most of it. Each live map tile is a whole engine document (the 857 KB runtime parsed, the 1.35 MB stylesheet styled), and a returning reader's map mounted seven of them on every load. Map posters are now kept across visits in IndexedDB, a tile with a fresh poster shows it and mounts no frame ("stills stay stills"), posters are captured with the slide's own fonts so they match the slide, and the rail promotes live tiles one at a time after load. Measured with the new `npm run perf:load` at 4x CPU, a returning reader's load went from TBT 4.8 s to 3.7 s, Speed Index 4.1 s to 2.8 s and TTI 9.4 s to 6.7 s. Slow promotion on its own measured no gain, and is recorded here as such.
+summary: Why the Studio scored 0 on Total Blocking Time with the slide map open, and what fixed most of it. Each live map tile is a whole engine document (the 857 KB runtime parsed, the 1.35 MB stylesheet styled), and a returning reader's map mounted seven of them on every load. Map posters are now kept across visits in IndexedDB, a tile with a fresh poster shows it and mounts no frame ("stills stay stills"), posters are captured with the slide's own fonts so they match the slide, and the rail promotes live tiles one at a time after load. Measured with the new `npm run perf:load` at 4x CPU, a returning reader's load went from TBT 4.8 s to 3.1 s, Speed Index 4.1 s to 2.9 s and TTI 9.4 s to 6.4 s, and a first visit held level. Slow promotion on its own measured no gain, and is recorded here as such.
 ---
 
 # Studio load cost: the slide map's live frames
@@ -57,12 +57,12 @@ So the map is about half of the blocking time, and nearly all of it scales with 
 
 | Load | TBT | Speed Index | TTI | Map frames |
 |---|---:|---:|---:|---:|
-| Returning, map open | 4,765 → **3,671 ms** | 4,066 → **2,764 ms** | 9,378 → **6,706 ms** | 7 → **0** (1 frame: the stage) |
+| Returning, map open | 4,765 → **3,095 ms** | 4,066 → **2,865 ms** | 9,378 → **6,423 ms** | 7 → **0** (1 frame: the stage) |
 | Returning, map open, 1x CPU | 246 → 194 ms | 1,537 → 1,426 ms | 2,290 → 2,260 ms | 7 → 0 |
 | Map closed | 2,024 → 2,156 ms | 2,616 → 2,638 ms | 7,456 → 7,990 ms | 0 → 0 |
-| First visit, map open (9 runs, alternated) | FIRST_VISIT_TBT | FIRST_VISIT_SI | FIRST_VISIT_TTI | 8 → 4 at settle |
+| First visit, map open (9 runs, alternated) | 4,185 → 4,165 ms (worst 5,424 → 5,205) | 3,952 → 3,992 ms | 9,479 → 9,363 ms | 8 → 4 at settle |
 
-With the map closed the numbers sit inside run-to-run noise: that path loads none of this code.
+With the map closed the numbers sit inside run-to-run noise: that path loads none of this code. A first visit has no posters to show, so it mounts the frames it always did and captures from them; it holds level, and the font-embedded capture costs it about 60 ms on the longest task (531 → 593 ms median). The 1x row and the map-closed row were measured on the build before the per-family font change, which neither path exercises; the other rows are the final build.
 
 ## 4. What did not work, and why it is recorded
 
