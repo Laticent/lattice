@@ -147,8 +147,11 @@ function familyReflowingComponents() {
       const p = path.join(d, e.name);
       if (e.isDirectory()) { walk(p); continue; }
       if (!p.endsWith('.css')) continue;
-      // Comment-stripped: a `[data-family]` quoted in prose is not a rule.
-      if (/\[data-family/.test(fs.readFileSync(p, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''))) {
+      // Comment-stripped: a `[data-family]` quoted in prose is not a rule. Two mechanisms reflow a component by the
+      // page: the deck's `data-family` stamp, and a `@container lattice` query on the room the slide has (#2988's
+      // text-room threshold), which #3131 moved kanban and roadmap onto. Reading only the first dropped both from the
+      // roster as if they had stopped reflowing, and never saw journey, which has only ever used the second.
+      if (/\[data-family|@container\s+lattice\b/.test(fs.readFileSync(p, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''))) {
         out.add(path.basename(path.dirname(p)));
       }
     }
@@ -1004,7 +1007,7 @@ const CONFORMANCE_ONLY = process.argv.includes('--conformance');
 const IS_CLI = require.main === module;
 
 module.exports = {
-  classTokens, galleryCandidates, clipDeck, conformanceDeck, descopeFamily, SPLIT_ONLY_MARKER,
+  classTokens, galleryCandidates, clipDeck, conformanceDeck, descopeFamily, familyReflowingComponents, SPLIT_ONLY_MARKER,
 };
 
 if (IS_CLI && process.argv.includes('--ladder')) process.exit(ladderReport());
