@@ -4042,6 +4042,41 @@ async function renderBody(browser, g, closeBrowser) {
     return { slides: pages.length, pages, reverted, detail };
   }, 'apply guards trim');
 
+  // MEASURED LOGO-WALL COLUMNS (owner, 2026-11-15; fit-everywhere-model.md §25). The wall was stamped from
+  // the string, with estimates (lib/core/logo-wall-pack.js `stampWall`). Here the page measures every
+  // captioned wall it drew (`measureWall`); a wall whose caption runs past its cell, or whose rows run
+  // below the stage, is re-planned from the measurement with the same `planWall` and stamped again, in the
+  // deliverable string and the page alike. A wall that fits is not touched, and a deck with none costs
+  // one evaluate and no reload.
+  {
+    const measured = await g(() => page.evaluate(`(() => { const measure = ${logoWallPack.measureWall.toString()}; return [...document.querySelectorAll('section.logo-wall')].map((s) => { const ul = s.querySelector(':scope > .cell-stage > ul[data-logo-wall]'); const m = ul ? measure(ul) : null; return m && m.over ? m : null; }); })()`), 'measure logo walls') || [];
+    if (measured.some(Boolean)) {
+      const aspect = slideW / slideH;
+      let k = -1;
+      const at = cleanDocHtml.search(/<section\b/);
+      const head = at < 0 ? cleanDocHtml : cleanDocHtml.slice(0, at);
+      const body = at < 0 ? '' : splitSections(cleanDocHtml.slice(at)).map((p) => {
+        if (p.type !== 'section') return p.text;
+        const html = `${p.openTag}${p.inner}</section>`;
+        if (!` ${readClassAttr(p.openTag) || ''} `.includes(' logo-wall ')) return html;
+        k += 1;
+        return measured[k] ? logoWallPack.restampWall(html, aspect, measured[k]) : html;
+      }).join('');
+      const next = head + body;
+      if (next !== cleanDocHtml) {
+        cleanDocHtml = next;
+        fs.writeFileSync(outHtml, cleanDocHtml);
+        await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (logo walls)');
+        await g(() => page.evaluate(async () => {
+          try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+          for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
+        }), 'load fonts (logo walls)');
+        await settleDeferredMedia(' (logo walls)');
+        await awaitPluginFigures(' (logo walls)');
+      }
+    }
+  }
+
   // STRUCTURAL auto-split — ONE pass, before anything is measured.
   //
   // Every enrolled slide whose collection holds more than one member becomes

@@ -141,6 +141,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/chart-finishes-continuation.md', 'roadmap slides: a `{date}` pill on each phase header'],
   ['examples/chart-phone-responsive.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
+  ['examples/logo-wall-measured.md', 'logo-wall marks with a `{tier}` caption pill: the pill widths are what the measured columns read'],
 ]);
 
 /** The decks the `inline-code: literal` register turns the grammar off for. */

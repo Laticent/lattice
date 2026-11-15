@@ -284,3 +284,58 @@ test('the packed CSS reads every stamped property', () => {
   // After the family reflow, so a packed wall's columns come from the packer.
   assert.ok(CSS.indexOf('ul[data-logo-wall="packed"]') > CSS.indexOf('[data-family="tall"]'));
 });
+
+// MEASURED COLUMNS (owner, 2026-11-15; fit-everywhere-model.md §25). The page measures a captioned wall it
+// drew (`measureWall`); only a wall that overflowed is re-planned from the measurement.
+const { restampWall } = require('../../../lib/core/logo-wall-pack');
+
+test('a measured plan drops columns only while the measured caption is wider than the cell', () => {
+  const eight = Array(8).fill(3);
+  const base = { family: 'square', slideAspect: 1, captions: true };
+  const perRow = (p) => Math.max(...p.result.rows.map((r) => r.length));
+  // At the measured spacing (--sp-xl, 0.06875 of the list at square) a four-column cell is
+  // (1 - 3 x 0.06875) / 4 = 0.198 of the list. A caption just under it keeps four; just over it, three.
+  assert.equal(perRow(planWall(eight, { ...base, measured: { captionW: 0.19, captionH: 0.1, stage: 0.9 } })), 4);
+  assert.equal(perRow(planWall(eight, { ...base, measured: { captionW: 0.2, captionH: 0.1, stage: 0.9 } })), 3);
+});
+
+test('a measured plan packs against the measured room, so its rows and captions fit it', () => {
+  const m = { captionW: 0.25, captionH: 0.123, stage: 0.642 };
+  const plan = planWall(Array(8).fill(3), { family: 'square', slideAspect: 1, captions: true, measured: m });
+  assert.equal(plan.mode, 'packed');
+  const gy = Number(/--logo-gy:([\d.]+)/.exec(plan.listStyle)[1]);
+  const rows = plan.result.rows;
+  const drawn = rows.reduce((t, row) => t + Math.max(...row.map((i) => plan.result.rects[i].h)), 0) + (rows.length - 1) * gy + rows.length * m.captionH;
+  // Planned against the estimates instead (a taller stage, a shorter caption), the marks come out taller
+  // and these rows run past the room the page measured.
+  assert.ok(drawn <= m.stage + 1e-3, `drawn ${drawn} past the measured room ${m.stage}`);
+});
+
+test('a measured plan that cannot pack changes nothing: restampWall keeps the stamp the wall has', () => {
+  const svg = '<svg viewBox="0 0 30 10"></svg>';
+  const li = (name) => `<li><span class="logo-mark" role="img">${svg}</span><ul><li>${name}</li></ul></li>`;
+  const section = `<section class="logo-wall" data-family="square"><div class="cell-stage"><ul>${['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map(li).join('')}</ul></div></section>`;
+  const once = stampWall(section, 1);
+  // Captions that take nearly all the room leave the marks under the legibility floor: the plan falls back.
+  const m = { captionW: 0.25, captionH: 0.3, stage: 0.5 };
+  assert.equal(planWall(Array(8).fill(3), { family: 'square', slideAspect: 1, captions: true, measured: m }).mode, 'fallback');
+  assert.equal(restampWall(once, 1, m), once);
+});
+
+test('restampWall takes the whole old stamp off, captions included, and keeps the author\'s styles', () => {
+  const svg = '<svg viewBox="0 0 30 10"></svg>';
+  const li = (name) => `<li><span class="logo-mark" role="img">${svg}</span><ul><li>${name}</li><li><code>{Seed}</code></li></ul></li>`;
+  const section = `<section class="logo-wall" data-family="square"><div class="cell-stage"><ul style="color:red">${['A', 'B', 'C', 'D', 'E'].map(li).join('')}</ul></div></section>`;
+  const once = stampWall(section, 1);
+  assert.match(once, /data-logo-wall="packed"/);
+  const again = restampWall(once, 1, { captionW: 0.25, captionH: 0.1, stage: 0.8 });
+  // One stamp per tag: no item carries two sets of `--logo-cell`, however deep its caption list sits.
+  for (const tag of again.match(/<li[^>]*>/g)) assert.ok((tag.match(/--logo-cell:/g) || []).length <= 1, tag);
+  assert.equal((again.match(/data-logo-wall=/g) || []).length, 1);
+  assert.match(again, /style="[^"]*color:red/);
+  // Only the stamp's own properties come off: an author's `--logo-ink` stays.
+  const inked = stampWall(section.replace('<li><span', '<li style="--logo-ink:red"><span'), 1);
+  assert.match(inked, /--logo-ink:red/);
+  assert.match(restampWall(inked, 1, { captionW: 0.25, captionH: 0.1, stage: 0.8 }), /--logo-ink:red/);
+  assert.notEqual(again, once, 'the measured plan differs from the estimated one');
+});
