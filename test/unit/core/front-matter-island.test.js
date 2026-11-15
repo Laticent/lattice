@@ -2,13 +2,14 @@
 // The front-matter island (lib/core/front-matter-island.mjs): where front matter ends and its key lines, read once,
 // and the readers that now pick from that one list (engine `parseFrontMatter`, `frontMatterValue`,
 // `topLevelFrontMatterValue`, the splitter's `frontMatterBlockOf`). The differential at the bottom holds each moved
-// reader to the regex it replaced, kept here verbatim, over a seeded walk of front-matter shapes (HARD RULE #32: the
-// seed is printed and fixed).
+// reader to the code it replaced on main at 72bd2d9 (copied below: `lastFrontMatterMatch` verbatim, the others with
+// only their shared helpers inlined), over a seeded walk of front-matter shapes (HARD RULE #32: the seed is printed
+// and fixed).
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { frontMatterIsland, frontMatterKeys, FRONT_MATTER_FENCE, topLevelKey, looseKey } = require('../../../lib/core/front-matter-island.mjs');
+const { frontMatterIsland, frontMatterKeys, frontMatterMatch, FRONT_MATTER_FENCE, topLevelKey, looseKey } = require('../../../lib/core/front-matter-island.mjs');
 const { parseFrontMatter } = require('../../../lib/engine/directives.js');
 const { frontMatterValue, topLevelFrontMatterValue, frontMatterScalar, isPresetKey } = require('../../../lib/core/front-matter-key.js');
 const { FRONT_MATTER } = require('../../../lib/core/boundary-parser.mjs');
@@ -61,6 +62,52 @@ test('a lone CR: the register readers read lines as the island does', () => {
   assert.equal(topLevelFrontMatterValue('mode: a\rmode: b', 'mode'), 'b');
 });
 
+test('raw CRLF `---` then `---` is no front matter, as the engine reads it after S0', () => {
+  // The boundary parser's old fence split the `\r\n` in two and found an empty block, and the plugin writer then
+  // wrote into the middle of a line end (red team, 2026-11-15).
+  const src = '---\r\n---\r\n# Agenda\r\n\r\n- one\r\n';
+  assert.equal(frontMatterIsland(src), null);
+  assert.equal(frontMatterIsland('---\n---\n# Agenda\n'), null);
+  assert.equal(frontMatterBlockOf(src), '');
+  // The plugin writer adds a block of its own and keeps the author's two lines, as on main.
+  const { writeDeckPlugins } = require('../../../lib/core/deck-plugins.mjs');
+  assert.equal(writeDeckPlugins(src, ['mermaid']), `---\r\nplugins: [mermaid]\r\n---\r\n\r\n${src}`);
+});
+
+test('the plugin admission reads a lone-CR front matter line by line, as the island finds it', () => {
+  const { deckPluginList, deckClassTokens, writeDeckPlugins } = require('../../../lib/core/deck-plugins.mjs');
+  const src = '---\rtheme: x\rplugins: [mermaid]\rclass: kpi\r---\r# A\r';
+  assert.deepEqual(deckPluginList(src), ['mermaid']);
+  assert.deepEqual(deckClassTokens(src), ['kpi']);
+  assert.equal(writeDeckPlugins(src, ['mermaid', 'math']), src.replace('[mermaid]', '[mermaid, math]'));
+});
+
+test('a key main read by its regex head: `a.b`, `$x` and `1x` now read as the whole key', () => {
+  // Main's loose reader picked its column-0 line by the key's head up to the first `.` or `$` (`a`, nothing for
+  // `$x`); the island matches the name. No register name holds either character.
+  assert.equal(frontMatterValue('  a.b: nested\na.b: top', 'a.b'), 'top');
+  assert.equal(frontMatterValue('  $x: nested\n$x: top', '$x'), 'top');
+  assert.equal(frontMatterValue('1x: first\n1x: last', '1x'), 'last');
+});
+
+test('the island: a block scalar body span and each key\'s parent', () => {
+  const y = 'foo:\n  footer: x\n  sub:\n    deep: 1\nstyle: |\n  a { b: c }\n\n  d\n\nz: 1\ne: |\nq: 2';
+  const keys = frontMatterKeys(y);
+  assert.deepEqual(keys.map((k) => [k.name, k.parent]), [['foo', -1], ['footer', 0], ['sub', 0], ['deep', 2], ['style', -1], ['z', -1], ['e', -1], ['q', -1]]);
+  const style = keys.find((k) => k.name === 'style');
+  assert.equal(y.slice(style.bodyFrom, style.bodyTo), '  a { b: c }\n\n  d');
+  const e = keys.find((k) => k.name === 'e');
+  assert.equal(e.bodyFrom, e.bodyTo, 'an empty body');
+  assert.equal(keys.find((k) => k.name === 'z').bodyFrom, -1);
+  assert.ok(Object.isFrozen(keys) && Object.isFrozen(keys[0]));
+});
+
+test('frontMatterMatch: the block and its YAML, as the converted readers held them', () => {
+  assert.deepEqual(frontMatterMatch('---\na: 1\n---\nbody'), ['---\na: 1\n---\n', 'a: 1']);
+  assert.deepEqual(frontMatterMatch('---\r\na: 1\r\n---x'), ['---\r\na: 1\r\n---', 'a: 1']);
+  assert.equal(frontMatterMatch('# no front matter'), null);
+});
+
 test('the picks: top-level last wins, loose falls back to the first indented line', () => {
   const keys = frontMatterKeys('a:\n  mode: n1\n  mode: n2\nmode: t1\nmode: t2\nb:\n  only: x');
   assert.equal(topLevelKey(keys, 'mode').raw.trim(), 't2');
@@ -108,12 +155,21 @@ function oldParseFrontMatter(src) {
   return { directives, body: src.slice(m[0].length) };
 }
 const esc = (k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-/** `frontMatterValue`'s line pick before the island (the preset fallback is unchanged and shared). */
+/** lib/core/front-matter-key.js `lastFrontMatterMatch` on main, verbatim (comments dropped). */
+function oldLastFrontMatterMatch(text, re) {
+  const src = String(text ?? '');
+  const head = /^\^(?:\\s\*|\[ \\t\]\*)?([A-Za-z_][\w-]*)/.exec(re.source);
+  if (head) {
+    const keyLine = new RegExp(`^${esc(head[1])}[ \\t]*:`);
+    const lines = src.split('\n');
+    const top = lines.findLastIndex((l) => keyLine.test(l));
+    if (top >= 0) return new RegExp(re.source, re.flags.replace('g', '')).exec(lines[top].replace(/^(\s*[\w-]+)[ \t]+:/, '$1:'));
+  }
+  return new RegExp(re.source, re.flags.replace('g', '')).exec(src);
+}
+/** `frontMatterValue`'s line pick on main (the preset fallback after it is unchanged and shared). */
 function oldLooseRaw(fm, key) {
-  const text = oldWithoutBlockScalarBodies(fm);
-  const top = text.split('\n').findLast((l) => new RegExp(`^${esc(key)}[ \\t]*:`).test(l));
-  const re = new RegExp(`^[ \\t]*${esc(key)}[ \\t]*:[ \\t]*(.*)$`, 'm');
-  const m = top !== undefined ? re.exec(top.replace(/^(\s*[\w-]+)[ \t]+:/, '$1:')) : re.exec(text);
+  const m = oldLastFrontMatterMatch(oldWithoutBlockScalarBodies(String(fm ?? '')), new RegExp(`^[ \\t]*${esc(key)}[ \\t]*:[ \\t]*(.*)$`, 'm'));
   return m ? frontMatterScalar(m[1]) : null;
 }
 function oldTopLevel(fm, key) {
@@ -136,7 +192,13 @@ function rng(seed) {
   };
 }
 
-const KEYS = ['theme', 'class', 'mode', 'color-mode', 'footer', 'style', 'lift', 'a.b', '$x', 'preset'];
+const KEYS = ['theme', 'class', 'mode', 'color-mode', 'footer', 'style', 'lift', 'a.b', '$x', 'preset', '1x'];
+/**
+ * Keys main's loose reader could not pick a line for: it read the key back out of its own regex with
+ * `[A-Za-z_][\w-]*`, which stops at a `.` or `$` and fails on a leading digit (then the FIRST match at any indent
+ * stood in for the last top-level one). Pinned below, not compared.
+ */
+const HEAD_CUT = new Set(['a.b', '$x', '1x']);
 const VALUES = ['cuoio', ' dark  ', "'q # x' # c", '"a\\"b"', '#fff', '', ' |', ' >-', ' |2+', 'x # note', ': y', 'http://x'];
 const INDENTS = ['', '', '', '  ', '    ', '\t'];
 function atom(r) {
@@ -144,7 +206,7 @@ function atom(r) {
   switch (Math.floor(r() * 7)) {
     case 0: return '';
     case 1: return `${pick(INDENTS)}# a comment`;
-    case 2: return `${pick(INDENTS)}- item`;
+    case 2: return `${pick(INDENTS)}${pick(['- item', `- ${pick(KEYS)}: x`, `"${pick(KEYS)}": q`])}`;
     case 3: return `${pick(INDENTS)}${pick(KEYS)} :${pick(VALUES)}`;
     default: return `${pick(INDENTS)}${pick(KEYS)}:${pick(VALUES)}`;
   }
@@ -156,7 +218,7 @@ test('differential: the island readers equal the regexes they replaced on 4,000 
   let compared = 0;
   for (let n = 0; n < 4000; n++) {
     const eol = ['\n', '\n', '\n', '\r\n', '\r'][Math.floor(r() * 5)];
-    const lines = Array.from({ length: 1 + Math.floor(r() * 8) }, () => atom(r));
+    const lines = Array.from({ length: Math.floor(r() * 15) }, () => atom(r));
     const yaml = lines.join(eol);
     const closer = ['---', '---', '---x', '---  '][Math.floor(r() * 4)];
     const tail = r() < 0.2 ? '' : `${eol}# Body${eol}`;
@@ -166,13 +228,19 @@ test('differential: the island readers equal the regexes they replaced on 4,000 
     // raw-bytes caller ever handed one to the old regex, which then missed the block the engine would find.
     if (eol === '\r') assert.notEqual(parseFrontMatter(src).body, src, why);
     else assert.deepEqual(parseFrontMatter(src), oldParseFrontMatter(src), why);
-    assert.equal(frontMatterIsland(src)?.yaml, /^---(?:\r\n|\r|\n)([\s\S]*?)(?:\r\n|\r|\n)---(?:\r\n|\r|\n)?/.exec(src)?.[1], why);
+    const island = frontMatterIsland(src);
+    if (eol !== '\r') assert.equal(island?.yaml, /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(src)?.[1], why);
+    if (island) {
+      assert.ok(island.yamlFrom <= island.yamlTo && island.yamlTo < island.closeEnd && island.closeEnd <= island.end, why);
+      assert.equal(src.slice(island.yamlFrom, island.yamlTo), island.yaml, why);
+      assert.equal(src.slice(island.closeEnd - 3, island.closeEnd), '---', why);
+    }
     for (const key of KEYS) {
       // A preset-family key that is absent or empty falls back to `preset:`, a rule the island did not change.
       // Lone `\r`: the old loose reader found its column-0 line by `split('\n')`, so it saw one line and fell back to
       // the first indented match; the island reads `\r` as the line end it is. Pinned below, not compared.
       if (eol === '\r') continue;
-      if (!isPresetKey(key)) assert.equal(frontMatterValue(yaml, key), oldLooseRaw(yaml, key), `${why} key ${key}`);
+      if (!isPresetKey(key) && !HEAD_CUT.has(key)) assert.equal(frontMatterValue(yaml, key), oldLooseRaw(yaml, key), `${why} key ${key}`);
       assert.equal(topLevelFrontMatterValue(yaml, key), oldTopLevel(yaml, key), `${why} key ${key}`);
     }
     // The splitter: identical unless the closer carries trailing blanks, where the island ends at `---` (the engine's).

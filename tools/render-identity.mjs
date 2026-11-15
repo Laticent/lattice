@@ -181,9 +181,10 @@ for (const p of sourceChanged) {
   removed.splice(removed.indexOf(p), 1);
 }
 const lintSame = JSON.stringify(here.lint) === JSON.stringify(there.lint);
-// Compared: the stylesheets both trees have. A file in one tree only is listed, not failed: the other tree is a fresh
-// worktree that ran only the CSS steps above, so a stylesheet a FULL `npm run build` writes (the VS Code bundles,
-// build-marp-vscode-css.js) sits in this tree alone and once read as four stylesheets that "differ".
+// Compared: the stylesheets both trees have. A file only HERE is listed, not failed: the other tree is a fresh worktree
+// that ran only the CSS steps above, so a stylesheet a FULL `npm run build` writes (the VS Code bundles,
+// build-marp-vscode-css.js) sits in this tree alone and once read as four stylesheets that "differ". A file only THERE
+// is a stylesheet the CSS build no longer writes, which `--strict` fails on like any other unpaired output.
 const cssNames = Object.keys(here.css).filter((n) => n in there.css).sort();
 const cssChanged = cssNames.filter((n) => here.css[n] !== there.css[n]);
 const cssOneSided = [...Object.keys(here.css).filter((n) => !(n in there.css)).map((n) => `${n} (here only)`), ...Object.keys(there.css).filter((n) => !(n in here.css)).map((n) => `${n} (there only)`)].sort();
@@ -209,4 +210,5 @@ else {
   for (const p of removed) console.log(`  removed: ${p}`);
 }
 const unpaired = sourceChanged.length + added.length + removed.length;
-process.exit(changed.length || cssChanged.length || !lintSame || (STRICT && unpaired) ? 1 : 0);
+const cssLost = Object.keys(there.css).some((n) => !(n in here.css));
+process.exit(changed.length || cssChanged.length || !lintSame || (STRICT && (unpaired || cssLost)) ? 1 : 0);

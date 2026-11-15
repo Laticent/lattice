@@ -95,6 +95,19 @@ describe('inlineSiblingLeaves', () => {
 		expect(isRemoteUrl('sample:photo-pano.jpg')).toBe(false);
 		expect(isRemoteUrl('blob:x')).toBe(true);
 	});
+	it('inlines a sibling whose one require is an ESM sibling, hoisting that import to the outer module', () => {
+		// resolve-spectrum.js requires front-matter-key.js, which reads its keys from front-matter-island.mjs.
+		const dir = path.join(REPO, 'lib', 'core');
+		const imports: string[] = [];
+		const { body } = hoistEsmSiblings(fs.readFileSync(path.join(dir, 'resolve-spectrum.js'), 'utf8'));
+		const inlined = inlineSiblingLeaves(body, dir, imports);
+		expect(inlined).not.toBeNull();
+		expect(inlined).not.toMatch(/\brequire\s*\(/);
+		expect(imports.join('\n')).toBe("import * as __latticeEsm_front_matter_key_0 from './front-matter-island.mjs';");
+		const out = viteCjsLibDev(REPO).load(path.join(dir, 'resolve-spectrum.js'));
+		expect(out).toContain("import * as __latticeEsm_front_matter_key_0 from './front-matter-island.mjs';");
+		expect(out).toContain("import * as __latticeEsm0 from './front-matter-island.mjs';");
+	});
 	it('refuses a require that is not a require-free sibling leaf', () => {
 		const dir = path.join(REPO, 'lib', 'core');
 		expect(inlineSiblingLeaves("const a = require('./bg-image');\nmodule.exports = { a };", dir)).toBeNull(); // sibling has its own requires
