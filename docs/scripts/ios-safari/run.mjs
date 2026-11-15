@@ -121,7 +121,12 @@ async function createSession() {
 				},
 				{ timeoutMs: SESSION_TIMEOUT_MS },
 			);
-			fs.writeFileSync(WASTE_FILE, `${Math.round((tryT0 - t0) / 1000)}\n`);
+			// A lost write only leaves the next device's estimate cautious; it must never fail a session we just made.
+			try {
+				fs.writeFileSync(WASTE_FILE, `${Math.round((tryT0 - t0) / 1000)}\n`);
+			} catch (err) {
+				console.log(`${LABEL}: could not record session waste (${String(err.message).slice(0, 200)}); the next device is costed without it`);
+			}
 			return made;
 		} catch (e) {
 			const message = String(e.message);
