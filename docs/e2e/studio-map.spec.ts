@@ -229,6 +229,8 @@ test('the arrow keys walk the rail slide by slide and keyboard focus stays on it
  * sub-pixel disagreement with the observer cannot hold the wait open. Live tiles there sit 60px or more from it.
  */
 async function poolFilled(page: Page) {
+	// The rail promotes its live tiles one at a time after load (MapRail `ramp`), so the map is full only once the ramp is done.
+	await expect(page.locator(`${RAIL} [data-ramp="done"]`)).toHaveCount(1, { timeout: 30_000 });
 	await expect
 		.poll(
 			() =>
@@ -325,20 +327,36 @@ async function openTen(page: Page, slots: string | null) {
 	await expect.poll(() => page.locator(`${RAIL} button[data-unit]`).count()).toBeGreaterThan(3);
 }
 const liveTiles = (page: Page) => page.locator(`${RAIL} button[data-tier="live"]`).count();
-const railFrames = (page: Page) => page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length);
+// The PEAK of rail frames mounted at once. A reading is not enough: a tile gives its frame back once its poster is
+// captured (StudioMap.tsx, stills stay stills), so the count rises while the ramp promotes tiles and falls as their
+// posters arrive. Installed before the page loads.
+async function trackPeakFrames(page: Page) {
+	await page.addInitScript(() => {
+		const w = window as unknown as { __peakFrames: number };
+		w.__peakFrames = 0;
+		new MutationObserver(() => {
+			w.__peakFrames = Math.max(w.__peakFrames, document.querySelectorAll('[data-map-rail] iframe').length);
+		}).observe(document, { childList: true, subtree: true });
+	});
+}
+const peakFrames = (page: Page) => page.evaluate(() => (window as unknown as { __peakFrames: number }).__peakFrames);
 
 test('a pool ceiling lowered to 3 caps the live tiles at 3 through settle, and the frames with them', async ({ page }) => {
+	await trackPeakFrames(page);
 	await openTen(page, '3');
-	await expect.poll(() => railFrames(page), { message: 'the pool never mounted its frames' }).toBe(3);
+	await expect.poll(() => peakFrames(page), { message: 'the pool never mounted its frames' }).toBe(3);
 	await expect.poll(() => liveTiles(page), { message: 'the rail asked for more live tiles than the pool reported it holds' }).toBe(3);
-	test.info().annotations.push({ type: 'capped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
+	// And never past it: the ceiling held for the whole fill, not only at the moment it was read.
+	expect(await peakFrames(page)).toBe(3);
+	test.info().annotations.push({ type: 'capped', description: `live ${await liveTiles(page)}, peak frames ${await peakFrames(page)}` });
 });
 
 test('THE ARM: the same deck without the ceiling asks for more than 3 live tiles', async ({ page }) => {
+	await trackPeakFrames(page);
 	await openTen(page, null);
 	await expect.poll(() => liveTiles(page)).toBeGreaterThan(3);
-	await expect.poll(() => railFrames(page)).toBeGreaterThan(3);
-	test.info().annotations.push({ type: 'uncapped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
+	await expect.poll(() => peakFrames(page)).toBeGreaterThan(3);
+	test.info().annotations.push({ type: 'uncapped', description: `live ${await liveTiles(page)}, peak frames ${await peakFrames(page)}` });
 });
 
 // The Article view unmounts the preview pane, and the way back mounts a new one. The map comes back in the slide
