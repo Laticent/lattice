@@ -150,4 +150,9 @@ test('the handheld chrome rule covers phone and tablet and excludes the rest of 
   const chrome = m[1].split(',').map((t) => t.trim()).sort();
   const type = css.match(/section:where\(\[data-family="square"\]\):not\(([^)]*)\)\s*\{/)[1].split(',').map((t) => t.trim()).filter((t) => t !== '.venue-tablet').sort();
   assert.deepEqual(chrome, type);
+  // The decision cover's handheld title size (decision.styles.css, §25) keys on the same sections.
+  const dec = fs.readFileSync(path.join(__dirname, '../../../lib/components/comparison/decision/decision.styles.css'), 'utf8');
+  const d = dec.match(/section:where\(\[data-family="square"\], \[data-family="tall"\], \[data-family="strip"\]\):not\(([^)]*)\)\.decision-cover \.split-feat-h \{ font-size: var\(--fs-h1\); \}/);
+  assert.ok(d, 'no handheld decision-cover rule in decision.styles.css');
+  assert.deepEqual(d[1].split(',').map((t) => t.trim()).sort(), type);
 });

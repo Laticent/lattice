@@ -179,6 +179,12 @@ section.decision-cover .split-feat-h {
   font-size: var(--fs-hero); font-weight: 800; line-height: var(--lh-tight);
   color: var(--on-accent); padding: var(--sp-xs) 0 var(--sp-md); max-width: 11em;
 }
+/* A slide read in a hand (the phone default and `venue: phone` / `tablet` on a square, tall or strip deck)
+   sets the cover's title at h1, as every other cover does (split-panel's note: a heading can be a full
+   sentence, and hero overflows the cover past ~10 words). At hero x1.4 a two-line verdict ran five lines
+   and clipped the cover (fit-everywhere-model.md §25). The exclusions are the handheld chrome rule's
+   (stage.css), held equal by resolve-venue.test.js. */
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame).decision-cover .split-feat-h { font-size: var(--fs-h1); }
 section.decision-cover .split-feat-lede { font-size: var(--fs-emphasis); line-height: var(--lh-snug); opacity: 0.92; max-width: 20em; }
 section.decision-points .split-runhead {
   font-family: var(--runhead-face);

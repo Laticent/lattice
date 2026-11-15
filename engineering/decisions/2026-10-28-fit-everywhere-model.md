@@ -1374,3 +1374,19 @@ B bought 13 more slides for the reader's place in the deck; the adaptive form (c
 fits with it) was not measured, and would make the chrome come and go within one deck. Neither alone
 clears the list: most remaining slides need their component fixed.
 
+
+## 25. The remaining phone-only clips, component by component (2026-11-15)
+
+With §23's seams and §24's chrome in, the export diff (`.scratch/export-diff.mjs square`, every gallery
+and example at the phone default against laptop) still finds 88 square slides that clip only at phone.
+None of the 88 is a seam the measured split misses for want of a rule shared across layouts; each is one
+component's own shape at x1.4, so each is fixed in its component, one commit apiece, re-measured after.
+
+| Group | Slides | Cause | Fix |
+|---|---|---|---|
+| `decision` cover | 6 | Its title is `--fs-hero`; every other cover sets `--fs-h1` (split-panel's note: a cover title can be a full sentence, and hero overflows past ~10 words). A two-line verdict ran five lines at x1.4 and pushed past the top of the frame. | On a slide read in a hand (§24's selector), the cover title is `--fs-h1`. Laptop and the rooms keep hero. `resolve-venue.test.js` holds the venue list to the type table's. |
+
+`title` (9 slides) is not fixed here. Each is a title slide whose lede runs a paragraph long, and the fix
+the precedent points at (split-panel's lede page, §21) would make an anchor split. `lib/core/split-facts.js`
+records title, divider and topic as anchors that never split, and moving `closing` off that row took an
+owner ruling, so the title's is put to the owner.
