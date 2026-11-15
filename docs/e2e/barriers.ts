@@ -1,4 +1,4 @@
-import type { Frame, Page } from '@playwright/test';
+import { expect, type Frame, type Page } from '@playwright/test';
 
 // Barriers for "and then nothing happened" (HARD RULE #32). An absence check has no event of its own to wait for, so
 // these specs used to wait a fixed interval. Each helper here waits instead for an ORDERED event that comes after the
@@ -114,4 +114,27 @@ export async function motionSettled(target: Page | Frame, within: string): Promi
 		await Promise.all(root.getAnimations({ subtree: true }).filter(finite).map((a) => a.finished.catch(() => undefined)));
 	}, within);
 	await layoutSettled(target);
+}
+
+/**
+ * Two screenshots of the page in a row are identical: what a picture of a settled layout waits for after a resize. Every
+ * shot is taken with `animations: 'disabled'`, which runs a finite animation or transition to its end and holds an
+ * infinite one at its first frame. Without that, an infinite animation never lets two shots match when the shots fall
+ * half a cycle apart: the Studio's drawn caret blinks every 530 ms (`lx-caret-blink`, 1.06 s), and on WebKit one poll
+ * of a 300 ms interval plus a ~220 ms screenshot took 520 to 570 ms, so every shot caught the caret in the other state
+ * for 15 s (nightly run 43712760849, plugin-slots.spec.ts on webkit-tablet).
+ */
+export async function pictureStill(page: Page, timeout = 15_000): Promise<void> {
+	let previous = '';
+	await expect
+		.poll(
+			async () => {
+				const current = (await page.screenshot({ animations: 'disabled' })).toString('base64');
+				const same = current === previous;
+				previous = current;
+				return same;
+			},
+			{ message: 'two screenshots in a row were never identical', timeout, intervals: [300] },
+		)
+		.toBe(true);
 }

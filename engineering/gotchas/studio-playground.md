@@ -1883,7 +1883,7 @@ never turn "passed in headless" into "works on iOS."
 
 ## A Compose e2e spec types on the wrong line, misses a pill, or reads an element that is not drawn yet, only under load
 
-- **Symptom** — a Compose spec passes alone and fails about one run in four to ten under the full suite: typed text lands on the line the caret left (`Line four` before `Line three`), a counted ArrowRight walk ends on text instead of a pill (`.ProseMirror-selectednode` count 0), or `getComputedStyle` gets `null` right after the deck opens. Seen on `compose-soft-break.spec.ts`, `compose-pill-editor.spec.ts` and `compose-spark-editor.spec.ts`, on `main` and PR branches alike.
+- **Symptom** — a Compose spec passes alone and fails about one run in four to ten under the full suite: typed text lands on the line the caret left (`Line four` before `Line three`), a counted ArrowRight walk ends on text instead of a pill (`.ProseMirror-selectednode` count 0), or `getComputedStyle` gets `null` right after the deck opens. Seen on `compose-soft-break.spec.ts`, `compose-pill-editor.spec.ts` and `compose-spark-editor.spec.ts`, on `main` and PR branches alike; and on `filo-live.spec.ts`, where the host's click, End and Shift+Home before typing "Gone" lost the selection and the word went in at the end of the paragraph instead of replacing it (nightly run 43712760849: ProseMirror's 20 ms focus timer ran 52 ms after the click, behind Compose's repaint of the slide pill).
 - **Cause** — the spec acted before the state it needed existed (F3 in `engineering/decisions/2026-11-06-flaky-tests.md`). ProseMirror learns where a click, a DOM `setBaseAndExtent` or a native arrow put the caret only from `selectionchange`, a queued task, so a key sent before it lands at the old caret. And for 20 ms after the editor GAINS focus, ProseMirror's `focus` handler may write its own selection back to the DOM: a native caret key pressed in that window, before its `selectionchange` is read, is undone (the first ArrowRight after a click and Home was lost in 6 of 24 runs without a wait, 0 of 24 with one; no person types that fast after a click). And the pills, sparks and preview are drawn on their own schedules after the deck opens.
 - **Fix** — wait for the signal, then act: `caretSettled(page)` after any click or `setBaseAndExtent` that a key press follows, and `pressSettled` for native caret keys (`docs/e2e/studio-fixture.ts`; it compares the caret's NODES, because two lines of equal length at the same offset read alike to any description of them); `editorFocusSettled` after the click that focuses the editor and before native caret keys (a 20 ms timer started after the focus runs after ProseMirror's: same-delay timers run in start order); check the caret after each press (`walkOntoFirstPill` in `compose-pill-editor.spec.ts`); poll until the element exists before reading it; and read a menu's state from its trigger's `aria-expanded` (`openStripMenu`), never from its visibility, which an exit animation or a lazy chunk misreports. A Radix menu that fades out stays mounted, and its press-outside watcher can close the next menu a press opens: give such a menu `data-[state=closed]:animate-none!` (the strip menu and the Insert menu do). Never a retry or a sleep (HARD RULE #32).
 - **Triggered by** — any e2e spec that types or presses keys in Compose, or reads a drawn inline object.
@@ -2173,3 +2173,19 @@ never turn "passed in headless" into "works on iOS."
   opened by typing can also open before the key under test, so "the key opened it" passes on a key that does nothing.
 - **Fix** — wait for a positive option first, then read the absence; and test a key at a spot that opens nothing by
   itself (a bare `<!-- _class: ` stays quiet until a letter or the key). `editor-completion-keys.spec.ts` does both.
+
+## An e2e that waits for "two screenshots in a row identical" times out on a page with nothing moving
+
+- **Symptom** — a poll that compares each `page.screenshot()` with the one before times out after 15 s, and the failure
+  screenshot shows a settled page. `plugin-slots.spec.ts` on `webkit-tablet` (nightly run 43712760849): 6 of 10 local
+  runs red, at the first of its three widths.
+- **Cause** — an infinite animation on the page. The Studio's drawn caret (`lx-ghost-caret-cm`, shown in an editor
+  without focus) blinks every 530 ms (`lx-caret-blink`, 1.06 s). On WebKit, one poll round of a 300 ms interval plus a
+  ~220 ms screenshot took 520 to 570 ms, so consecutive shots fell half a blink apart and never matched.
+- **Fix** — `pictureStill(page)` (`docs/e2e/barriers.ts`) takes every shot with `animations: 'disabled'`, which runs a
+  finite animation to its end and holds an infinite one at its first frame, so only a real change in layout keeps two
+  shots apart. A JS-driven ticker still fails it, as it should. Use it instead of a hand-rolled screenshot poll.
+- **Triggered by** — a screenshot-equality wait on any page that shows a blinking caret, a spinner or another infinite
+  animation.
+- **Removable when** — never: an infinite animation never settles.
+- **Commits** — PR for `fix/e2e-filo-live-plugin-slots` (2026-11-15).
