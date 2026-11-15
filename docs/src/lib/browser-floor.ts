@@ -11,7 +11,7 @@
 
 export interface BrowserFloor {
 	/** What the notice's ES5 user-agent reader calls this browser (old-browser-notice.es5.js). */
-	id: 'chrome' | 'edge' | 'firefox' | 'safari' | 'ios' | 'samsung' | 'opera';
+	id: 'chrome' | 'edge' | 'edge-legacy' | 'firefox' | 'safari' | 'ios' | 'samsung' | 'opera';
 	/** The browser's name as a reader knows it. */
 	name: string;
 	/** The oldest supported version, as the browser numbers it. */
@@ -43,6 +43,17 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		min: '111',
 		steps: ['Open the menu: the three dots at the top right.', 'Choose Help and feedback, then About Microsoft Edge.', 'Edge downloads the update. Select Restart when it is ready.'],
 		link: 'https://support.microsoft.com/topic/microsoft-edge-update-settings-af8aaca2-1b69-4870-94fe-18822dbb7ef1',
+	},
+	{
+		// The original Edge (EdgeHTML, versions 12 to 18). It updated only with Windows, and Microsoft retired it in 2021, so
+		// no update brings it to the floor: the reader installs the current Edge. Seen for real: Edge 15 on Windows 10 (the
+		// owner's screenshot, 2026-11-15).
+		id: 'edge-legacy',
+		name: 'Edge',
+		min: '111',
+		note: 'This is the original Edge, which Microsoft stopped updating in 2021. No update brings it up to date, but the current Edge installs in its place.',
+		steps: ['Open microsoft.com/edge.', 'Download and install Microsoft Edge.', 'Open this page again in the new Edge.'],
+		link: 'https://www.microsoft.com/edge',
 	},
 	{
 		id: 'firefox',
@@ -91,9 +102,9 @@ export const OLD_WINDOWS = {
 	link: 'https://support.microsoft.com/windows/windows-7-support-ended-on-january-14-2020-b75d4580-2cc7-895a-2c9c-1466d9a53962',
 };
 
-/** "Chrome 111+, Edge 111+, …" for a sentence, in table order (iOS is said with Safari). */
+/** "Chrome 111, Edge 111, …" for a sentence, in table order (iOS is said with Safari, the original Edge with Edge). */
 export function floorSummary(): string {
-	return BROWSER_FLOOR.filter((b) => b.id !== 'ios')
+	return BROWSER_FLOOR.filter((b) => b.id !== 'ios' && b.id !== 'edge-legacy')
 		.map((b) => `${b.name} ${b.min}`)
 		.join(', ');
 }

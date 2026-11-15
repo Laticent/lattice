@@ -473,6 +473,19 @@ versions and how to update, and it looks like the site, not like an error page.
   the page on "Continue anyway", across a reload, with no page errors, at 1440 and 390 px in both modes. Firefox 115 ESR
   was downloaded but could not be launched in the sandbox, and real Safari 15 / iOS 15 was not reachable: both
   **UNVERIFIED**.
+- **The owner's real legacy Edge (EdgeHTML 15, Windows 10, 2026-11-15).** The check fired and the notice showed, but it
+  looked broken, for three reasons, each fixed and each pinned by a test:
+  1. **Solid brown over the text.** The site sets `::selection { background: var(--accent) }`, a tint where `color-mix()`
+     works. An engine without `color-mix()` paints it solid, and a selection on the page beneath, smeared by the blur,
+     read as a solid block. The notice now sets its own selection colors (`Highlight` / `HighlightText`, the system's
+     readable pair) and makes the page beneath unselectable while it shows. Reproduced on real Chromium 101, which also
+     lacks `color-mix()`: select-all before the fix took 10,214 characters, mostly from the page beneath, all in solid
+     accent; after, it takes the notice's 700, in the system highlight.
+  2. **A card far too wide.** EdgeHTML 15 has no CSS grid, but the wide-screen rules still widened the card. They now sit
+     inside `@supports (display: grid)`, so an engine without grid keeps the narrow stacked card.
+  3. **Wrong steps.** The original Edge (`Edge/12` to `Edge/18`) updates only with Windows and was retired in 2021. It now
+     gets its own entry: "the original Edge, which Microsoft stopped updating in 2021", the steps to install the current
+     Edge, and a link to microsoft.com/edge. The current Edge (`Edg/`) keeps its own steps.
 
 ## 7. Decisions (owner, 2026-11-12)
 

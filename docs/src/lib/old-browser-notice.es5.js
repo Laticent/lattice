@@ -36,7 +36,9 @@
 			return { id: 'ios', version: m ? m[1] + '.' + m[2] : null };
 		}
 		if ((m = /SamsungBrowser\/(\d+)/.exec(ua))) return { id: 'samsung', version: m[1] };
-		if ((m = /Edge?\/(\d+)/.exec(ua))) return { id: 'edge', version: m[1] };
+		// The original Edge (EdgeHTML, "Edge/12" to "Edge/18") updates with Windows and was retired in 2021; the current one is "Edg/".
+		if ((m = /Edge\/(\d+)/.exec(ua))) return { id: 'edge-legacy', version: m[1] };
+		if ((m = /Edg\/(\d+)/.exec(ua))) return { id: 'edge', version: m[1] };
 		if ((m = /OPR\/(\d+)/.exec(ua))) return { id: 'opera', version: m[1] };
 		if ((m = /Firefox\/(\d+)/.exec(ua))) return { id: 'firefox', version: m[1], android: android };
 		if ((m = /Chrome\/(\d+)/.exec(ua))) return { id: 'chrome', version: m[1], android: android };
@@ -78,7 +80,7 @@
 			steps: a ? b.android.steps : b.steps,
 			after: a ? null : b.after,
 			link: a ? b.android.link : b.link,
-			linkText: 'How to update ' + (b.id === 'ios' ? 'your iPhone or iPad' : b.name),
+			linkText: b.id === 'edge-legacy' ? 'Get the current Edge' : 'How to update ' + (b.id === 'ios' ? 'your iPhone or iPad' : b.name),
 		};
 	}
 
@@ -95,6 +97,9 @@
 		'border:1px solid rgba(127,127,127,.25);border:' + RULE + ';box-shadow:0 40px 90px -30px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.06);' +
 		'opacity:0;-webkit-transform:translateY(10px);transform:translateY(10px);-webkit-transition:opacity .5s ease,-webkit-transform .5s ease;transition:opacity .5s ease,transform .5s ease}' +
 		'#ID.lob-in .lob-card{opacity:1;-webkit-transform:none;transform:none}' +
+		// The notice's own selection colors. The site's `::selection` is a tint made with `color-mix()`; a browser without
+		// it paints the raw accent, which hid the heading in legacy Edge. The system's own pair is readable everywhere.
+		'#ID ::selection{background:Highlight;color:HighlightText}#ID ::-moz-selection{background:Highlight;color:HighlightText}' +
 		// A visually hidden span: read aloud, never shown ("opens in a new tab").
 		'#ID .lob-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}' +
 		'#ID .lob-eyebrow{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin:0;padding:0 0 18px;' +
@@ -133,10 +138,11 @@
 		'#ID .lob-go{font:inherit;font-weight:600;padding:0;background:none;border:0;color:inherit;color:var(--text-body,CanvasText);text-decoration:underline;cursor:pointer}' +
 		// Wide screens: the slide sits beside the words, so the whole card fits a 1440 x 900 screen without scrolling. Grid
 		// is in every browser this is for (Chrome 57, Safari 10.1, Firefox 52); one without it keeps the stacked layout.
-		'@media (min-width:980px){#ID .lob-stage{-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:32px 32px 40px}' +
+		// `@supports` first: legacy Edge (EdgeHTML 15) has no grid, and the wide card without its two columns ran far too wide.
+		'@supports (display:grid){@media (min-width:980px){#ID .lob-stage{-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:32px 32px 40px}' +
 		'#ID .lob-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);grid-template-areas:"head media" "body media" "foot media";' +
 		'grid-column-gap:44px;max-width:76rem;padding:36px 44px}' +
-		'#ID .lob-head{grid-area:head}#ID .lob-body{grid-area:body}#ID .lob-foot{grid-area:foot}#ID figure{grid-area:media;-webkit-align-self:center;align-self:center;padding:0}}' +
+		'#ID .lob-head{grid-area:head}#ID .lob-body{grid-area:body}#ID .lob-foot{grid-area:foot}#ID figure{grid-area:media;-webkit-align-self:center;align-self:center;padding:0}}}' +
 		'@media (max-width:560px){#ID .lob-stage{padding:16px 12px 32px}#ID .lob-card{padding:22px 18px;border-radius:18px}#ID h1{font-size:28px}' +
 		'#ID .lob-spec{display:block}#ID .lob-spec div+div{border-left:0;border-top:' + RULE + '}' +
 		'#ID .lob-secondary{padding:12px 0}}' +
@@ -283,12 +289,16 @@
 		var k;
 		for (i = 0; i < kids.length; i++) {
 			k = kids[i];
-			touched.push({ el: k, hidden: k.getAttribute('aria-hidden'), inert: k.hasAttribute('inert'), filter: k.style.filter, webkit: k.style.webkitFilter, events: k.style.pointerEvents });
+			touched.push({ el: k, hidden: k.getAttribute('aria-hidden'), inert: k.hasAttribute('inert'), css: k.style.cssText });
 			k.setAttribute('aria-hidden', 'true');
 			k.setAttribute('inert', '');
 			k.style.filter = 'blur(14px) saturate(1.15)';
 			k.style.webkitFilter = 'blur(14px) saturate(1.15)';
 			k.style.pointerEvents = 'none';
+			// Nothing beneath can be selected either: a selection there shows through the blur as a solid block.
+			k.style.webkitUserSelect = 'none';
+			k.style.msUserSelect = 'none';
+			k.style.userSelect = 'none';
 		}
 		var overflow = root.style.overflow;
 		root.style.overflow = 'hidden';
@@ -315,9 +325,8 @@
 				if (t.hidden === null) t.el.removeAttribute('aria-hidden');
 				else t.el.setAttribute('aria-hidden', t.hidden);
 				if (!t.inert) t.el.removeAttribute('inert');
-				t.el.style.filter = t.filter;
-				t.el.style.webkitFilter = t.webkit;
-				t.el.style.pointerEvents = t.events;
+				// The whole inline style as it was: the blur, the pointer and the selection settings in one step.
+				t.el.style.cssText = t.css;
 			}
 			root.style.overflow = overflow;
 			screen.parentNode.removeChild(screen);

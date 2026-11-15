@@ -11,3 +11,5 @@
 - The notice is built for every reader: a screen reader hears its heading and lead as it opens, the update steps are a
   numbered list, the technical detail sits behind "Technical details", links that open a new tab say so, and keyboard
   focus stays inside the notice instead of wandering into the blurred page beneath.
+- The notice also reads correctly in the original Edge (EdgeHTML): readable selection colors, a narrow card where CSS
+  grid is missing, and steps that install the current Edge, since the original one no longer updates.

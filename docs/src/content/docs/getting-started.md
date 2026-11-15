@@ -103,7 +103,8 @@ An older browser sees a notice that names what it is missing and how to
 update. Older browsers also stop getting security fixes, so updating protects
 more than Lattice. On an iPhone or iPad every browser runs on Safari's engine,
 so updating iOS is what updates them. Windows 7 and 8 can't run any browser
-this new; Lattice needs Windows 10 or later there.
+this new; Lattice needs Windows 10 or later there. The original Edge (versions 12 to
+18) stopped updating in 2021; install the current Edge in its place.
 
 The command line renders with the Chrome or Chromium installed on your machine
 (`CHROME_PATH`), not with your web browser, so this list does not apply to it.

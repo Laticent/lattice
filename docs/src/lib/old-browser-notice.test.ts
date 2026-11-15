@@ -99,6 +99,7 @@ describe('what it says to each browser', () => {
 		['Chrome 100 on Android', 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.79 Mobile Safari/537.36', 'Chrome 100', 'Chrome 111 or newer', 'https://play.google.com/store/apps/details?id=com.android.chrome', 'How to update Chrome'],
 		['Chrome 105 on Windows 10', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36', 'Chrome 105', 'Chrome 111 or newer', 'https://support.google.com/chrome/answer/95414', 'How to update Chrome'],
 		['Edge 109 on Windows 10', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.78', 'Edge 109', 'Edge 111 or newer', BROWSER_FLOOR.find((b) => b.id === 'edge')?.link, 'How to update Edge'],
+		['the original Edge 15 on Windows 10 (the owner saw it)', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063', 'Edge 15', 'Edge 111 or newer', 'https://www.microsoft.com/edge', 'Get the current Edge'],
 		['Firefox 115 on a Mac', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:115.0) Gecko/20100101 Firefox/115.0', 'Firefox 115', 'Firefox 128 or newer', 'https://support.mozilla.org/kb/update-firefox-latest-release', 'How to update Firefox'],
 		['Samsung Internet 19', 'Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/19.0 Chrome/102.0.5005.125 Mobile Safari/537.36', 'Samsung Internet 19', 'Samsung Internet 22 or newer', 'https://play.google.com/store/apps/details?id=com.sec.android.app.sbrowser', 'How to update Samsung Internet'],
 		['Opera 90', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36 OPR/90.0.4480.54', 'Opera 90', 'Opera 97 or newer', 'https://www.opera.com/download', 'How to update Opera'],
@@ -194,6 +195,32 @@ describe('its structure, for a reader who listens or tabs', () => {
 	});
 });
 
+describe('what an old engine gets wrong', () => {
+	it('sets its own readable selection colors: the site tints a selection with color-mix(), which an old engine paints solid', () => {
+		run('SomeBrowser/1.0');
+		const css = document.getElementById('lattice-old-browser-style')?.textContent ?? '';
+		expect(css).toContain('#lattice-old-browser ::selection{background:Highlight;color:HighlightText}');
+	});
+
+	it('keeps the two-column card behind @supports (display:grid), so an engine without grid keeps the narrow stacked card', () => {
+		run('SomeBrowser/1.0');
+		const css = document.getElementById('lattice-old-browser-style')?.textContent ?? '';
+		expect(css).toMatch(/@supports \(display:grid\)\{@media \(min-width:980px\)\{[^@]*display:grid/);
+		expect(css.slice(0, css.indexOf('@supports'))).not.toContain('display:grid');
+	});
+
+	it('tells the original Edge that no update reaches the floor, and where the current Edge is', () => {
+		const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063');
+		expect(screen.querySelector('.lob-note')?.textContent).toMatch(/original Edge, which Microsoft stopped updating in 2021/);
+		expect(text(screen, 'ol li')[0]).toBe('Open microsoft.com/edge.');
+	});
+
+	it('the current Edge ("Edg/") is not taken for the original one', () => {
+		const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.78');
+		expect(screen.querySelector('.lob-primary')?.textContent).toMatch(/^How to update Edge/);
+	});
+});
+
 describe('the page beneath', () => {
 	it('is blurred and hidden while the notice shows, and given back exactly on Continue anyway', () => {
 		const main = document.createElement('main');
@@ -205,6 +232,7 @@ describe('the page beneath', () => {
 		expect(main.getAttribute('aria-hidden')).toBe('true');
 		expect(main.style.filter).toContain('blur(');
 		expect(main.style.pointerEvents).toBe('none');
+		expect(main.style.userSelect).toBe('none');
 		expect(main.hasAttribute('inert')).toBe(true);
 
 		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
@@ -218,6 +246,7 @@ describe('the page beneath', () => {
 		after.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
 		expect(document.activeElement).toBe(after);
 		expect(main.style.filter).toBe('');
+		expect(main.style.userSelect).toBe('');
 		expect(aside.getAttribute('aria-hidden')).toBe('false');
 		expect(aside.style.filter).toBe('grayscale(1)');
 		expect(sessionStorage.getItem('lattice-old-browser-continue')).toBe('1');
