@@ -25,14 +25,73 @@ export function slotShows(slot: HTMLElement | undefined, props: PooledPreviewPro
 	}
 }
 
+/** The faces a slide's text is drawn in (family lowercased and unquoted, weight, style), from every element's computed
+ *  style. Exported for pool-capture.test.ts. */
+export function facesOf(section: HTMLElement): Array<{ family: string; weight: number; style: string }> {
+	const win = section.ownerDocument.defaultView ?? window;
+	const out = new Map<string, { family: string; weight: number; style: string }>();
+	const add = (cs: CSSStyleDeclaration) => {
+		const weight = Number.parseInt(cs.fontWeight, 10) || 400;
+		const style = cs.fontStyle === 'normal' ? 'normal' : 'italic';
+		// Every family in the stack: the builder keeps the vendored ones, and the first of those is the one drawn.
+		for (const f of cs.fontFamily.split(',')) {
+			const family = f.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+			if (family) out.set(`${family}\u0000${weight}\u0000${style}`, { family, weight, style });
+		}
+	};
+	for (const el of [section, ...section.querySelectorAll<HTMLElement>('*')]) {
+		const own = win.getComputedStyle(el);
+		add(own);
+		// What a pseudo-element draws, in its own face: a timeline's step counters are `::before` in the label face, which
+		// no element on the slide may use.
+		for (const pseudo of ['::before', '::after']) {
+			const ps = win.getComputedStyle(el, pseudo);
+			if (ps.content && ps.content !== 'none' && ps.content !== 'normal') add(ps);
+		}
+		// A list item's marker draws in its own face too (a sketch deck sets `li::marker` in its display face), and its
+		// `content` is `normal` by default, so it is read whenever the element is a list item.
+		if (own.display.includes('list-item')) add(win.getComputedStyle(el, '::marker'));
+	}
+	return [...out.values()];
+}
+
+/**
+ * What one slide draws, for its font sheet: the export's `deckTextOf` (export/deck-export.js) scoped to a slide. Its
+ * text, what pseudo-elements draw through `content:`, and its icon glyphs (each a `::before` from `data-glyph`, in no
+ * text node), skipping an `icon-svg` slide, which draws its icons as <svg>. Exported for pool-capture.test.ts.
+ */
+export function slideTextOf(section: HTMLElement, pseudoText: (root: Element) => string): string {
+	const glyphs = section.classList.contains('icon-svg') ? '' : [...section.querySelectorAll('[data-glyph]')].map((el) => el.getAttribute('data-glyph') || '').join('');
+	return `${section.textContent || ''}\n${pseudoText(section)}\n${glyphs}`;
+}
+
+/**
+ * The font sheet for one slide: the text faces it draws, plus the icon faces and emoji slices it draws
+ * (font-embed.js `buildFamilyFontCss`, which encodes each face once a page). NULL WHEN A FACE CANNOT BE HAD: a poster
+ * stays on screen and in storage (StudioMap.tsx), so one drawn in a fallback face after a failed fetch would be the
+ * re-wrapped, overlapping picture this sheet exists to prevent, kept for good. No poster is the better answer: the
+ * tile's live frame keeps drawing it, and a later capture tries again.
+ */
+async function embedCssFor(section: HTMLElement): Promise<string | null> {
+	try {
+		const [{ buildFamilyFontCss }, { pseudoContentText }] = await Promise.all([import('../../playground/font-embed.js'), import('../../../../lib/core/slide-camera.mjs')]);
+		return await buildFamilyFontCss(facesOf(section), slideTextOf(section, pseudoContentText));
+	} catch {
+		return null;
+	}
+}
+
 /** `captureSlot`'s answer when the reader scrolled while its code loaded: nothing was captured; queue it again. */
 export const SCROLLED = 'scrolled' as const;
 
 /**
  * Rasterize the slide a slot's frame shows, at the slot's own size (times the device's pixel ratio), as a JPEG.
  * `still` is asked again once the picture is drawn: a slot re-pointed mid-capture yields null, never another slide's
- * picture. Fonts are not embedded (the export's `fontEmbedCSS` costs a fetch per face); at a map tile's size a
- * fallback face is not legible either way, and the live picture replaces the poster when the tile is live again.
+ * picture. THE SLIDE'S OWN FONTS ARE EMBEDDED: the faces it draws (family, weight, style), out of the export's vendored faces
+ * (playground/font-embed.js), plus its icon faces and emoji slices, so a capture carries a few faces, not the whole
+ * block; and a slide whose faces cannot be had gets no poster (`embedCssFor`). A poster
+ * stays on screen once it exists (StudioMap.tsx), so it must match the live tile: drawn in a fallback face it
+ * re-wrapped titles and overlapped dense columns.
  *
  * `quiet` is asked once more right before the clone starts, after the capture code has loaded. The pool checked that
  * the scroller was still before it ran this, but the imports below are awaits, and a scroll that landed during them
@@ -59,6 +118,8 @@ export async function captureSlot(slot: HTMLDivElement | undefined, still: () =>
 			import('./export/capture-ribbon.js'),
 			import('../../../../lib/core/capture-style-properties.mjs'),
 		]);
+		const fontEmbedCSS = await embedCssFor(section);
+		if (fontEmbedCSS === null) return null;
 		if (!quiet()) return SCROLLED;
 		// A `performance` entry per capture: its WALL time, from the clone to the JPEG, across awaits (image inlining and the
 		// encode may run off the main thread). It bounds the main-thread cost; a long-task reading is what pins it down.
@@ -71,7 +132,7 @@ export async function captureSlot(slot: HTMLDivElement | undefined, still: () =>
 		// `borderImageSource` override alone changed nothing). The export never meets it because it writes the live node,
 		// whose computed alias then reads `none` too. WebKit copies `cssText` instead and was right all along.
 		const style = { transform: 'none', margin: '0', outline: 'none', ...(ribbon.borderImageSource ? { webkitBorderImage: 'none' } : {}), ...ribbon };
-		const canvas = await toCanvas(section, { width: w, height: h, pixelRatio: (box.width * dpr) / w, skipFonts: true, includeStyleProperties: captureStyleProperties(), style });
+		const canvas = await toCanvas(section, { width: w, height: h, pixelRatio: (box.width * dpr) / w, ...(fontEmbedCSS ? { fontEmbedCSS } : { skipFonts: true }), includeStyleProperties: captureStyleProperties(), style });
 		const blob = still() ? await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.82)) : null;
 		performance.measure('lattice-poster-capture', { start: t0, end: performance.now(), detail: { kept: !!blob, bytes: blob?.size ?? 0 } });
 		return blob;
