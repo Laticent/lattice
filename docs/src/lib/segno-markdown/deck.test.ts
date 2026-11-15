@@ -85,6 +85,22 @@ describe('the deck model', () => {
 		expect(m.slideText(1)).toBe('\n```js\n---\n```\n');
 	});
 
+	it('lists containers and table rows with their open lines and depth, outermost first, after a break too', () => {
+		const c = deckModel('- a\n  > q\n- b\n\n---\n\n1. x\n\n| h |\n|---|\n| v |\n', { parser, frontMatter: null });
+		expect(c.containers.map((r) => [r.type, r.fromLine, r.toLine, r.level, r.slide])).toEqual([
+			// markdown-it's own `token.map`s for this source: a list's range takes in the blank line that ends it.
+			['bullet_list', 0, 4, 0, 0],
+			['list_item', 0, 2, 1, 0],
+			['blockquote', 1, 2, 2, 0],
+			['list_item', 2, 4, 1, 0],
+			['ordered_list', 6, 8, 0, 1],
+			['list_item', 6, 8, 1, 1],
+			['table', 8, 11, 0, 1],
+			['tr', 8, 9, 2, 1],
+			['tr', 10, 11, 2, 1],
+		]);
+	});
+
 	it('says when the body opens with a break, which the engine drops a group for', () => {
 		expect(deckModel('---\n\n# A\n', { parser, frontMatter: null }).leadingEmpty).toBe(true);
 		// A reference definition is source with no tokens, so the break is still the first token: the engine

@@ -1,0 +1,303 @@
+#!/usr/bin/env node
+/**
+ * The reference diff of the lint-core rewrite (engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §6):
+ * run lint-core as main has it and the new `deck` ruleset (lib/authoring/squadra, `lintDeck`) over the same corpora and
+ * compare what each reports, finding by finding.
+ *
+ * THE REFERENCE IS MAIN, RUN FROM A WORKTREE (tools/squadra/reference-tree.js): lint-core and every module it loads,
+ * checked out at the commit this branch left main at, its libraries built there. Nothing this branch edits can reach
+ * it, so there is no list of lint-core's inputs to keep, and nothing to freeze. When the branch takes main, the merge-base
+ * moves and the next run builds the newer reference (about 19 s, once per commit). Two earlier designs, a frozen copy of
+ * lint-core.js and a gate over a list of its inputs, both missed inputs this branch had already edited.
+ *
+ * The corpora (tools/squadra/corpus.js):
+ *   1. every source the lint unit tests hand the linter, recorded by running them (`--corpus <file>` reuses one,
+ *      `--save-corpus <file>` keeps the recording for the next run);
+ *   2. mutated decks: each corpus-1 source with a finding, spliced after the first slide of one of a spread of
+ *      `--hosts` tracked decks (8 by default, taken in turn), so a rule meets real decks around the case its tests wrote;
+ *   3. the tracked decks as they are (`lint:deck --all`'s set).
+ *
+ * HOW TWO FINDINGS MATCH. On rule (the new id without its `deck/` prefix), severity, slide, message, and the TEXT of
+ * the line the finding starts on, trimmed: lint-core names its line by text, so two findings on two identical lines
+ * compare alike on both sides, where comparing line numbers would make a false difference. A lint-core finding whose
+ * line text is not a line of its slide (`fixLineIndex` cannot place it) matches on the other four alone and is counted
+ * as UNLOCATED, so the report says how many matches the line did not check.
+ *
+ * A rule is MIGRATED when the new ruleset defines `deck/<rule>`. The diff is held only on migrated rules (and on
+ * Squadra's own `squadra/*` findings, which always count). Every difference in one must be fixed, or explained in
+ * tools/squadra/explained.json, one entry per kind of difference:
+ *
+ *   { "<rule>": [ { "kind": "lint", "match": "<regex on the message>", "why": "<the reason it is intended>" },
+ *                 { "kind": "fix",  "match": "<regex on the source name>", "why": "…" } ] }
+ *
+ * An entry that explains no difference is STALE and fails the run, so the file cannot quietly switch a rule off.
+ *
+ * `--fix` adds the fix diff: Fix all through lint-core (`applyAllFixes`) and through `fixDeck`, compared as
+ * text. A source whose two results differ is attributed to the rules whose findings changed under either fix (each
+ * path's findings before and after, compared as multisets). It is held when every one of those rules is migrated; a
+ * difference no rule accounts for is unexplained and fails.
+ *
+ * The diff must RUN: it fails when the corpora gave the reference no finding at all, because a diff over sources with
+ * nothing to compare proves nothing.
+ *
+ * Usage:
+ *   node tools/squadra-reference-diff.js [--corpus <inputs.jsonl>] [--save-corpus <file>] [--hosts N] [--fix]
+ *     [--json] [--out <file.md>] [--rules a,b] (hold only these lint-core rule names) [--examples N]
+ * Exits 1 on an unexplained difference in a migrated rule, a stale explanation, or a run with no reference finding;
+ * exits 2 when the reference cannot be built (no merge-base with main).
+ */
+
+const fs = require('node:fs');
+const path = require('node:path');
+const { ROOT, fold, recordLintInputs, splice, trackedDecks, hostsOf } = require('./squadra/corpus');
+
+const argv = process.argv.slice(2);
+const flag = (name, dflt) => {
+  const i = argv.indexOf(name);
+  return i >= 0 ? argv[i + 1] : dflt;
+};
+const HOSTS = Number(flag('--hosts', 8));
+const EXAMPLES = Number(flag('--examples', 3));
+const OUT = flag('--out', null);
+const ONLY = flag('--rules', null)?.split(',').filter(Boolean) ?? null;
+const FIX = argv.includes('--fix');
+const JSON_OUT = argv.includes('--json');
+const EXPLAINED_FILE = path.join(__dirname, 'squadra', 'explained.json');
+
+const { buildVocab } = require('../lib/authoring/lint');
+const { deckRuleset, fixDeck, lintDeck } = require('../lib/authoring/squadra');
+const { loadReference } = require('./squadra/reference-tree');
+
+/** The reference, loaded on first use: lint-core and its helpers from the worktree of the merge-base. */
+let reference = null;
+const ref = () => reference ?? (reference = loadReference());
+
+const PREFIX = 'deck/';
+
+/** A lint-core finding as the diff compares it. `text` is null when `fixLineIndex` cannot place its line. */
+function oldRecords(text, vocab, R = ref()) {
+  const lines = text.split('\n');
+  const seps = R.separatorLines(lines);
+  const fm = R.core.fmChunks(text);
+  const fenced = R.fencedLines(text);
+  return R.core.lintTextWith(text, vocab).map((f) => {
+    const i = R.core.fixLineIndex(lines, seps, fm, f, fenced);
+    return { rule: f.rule, severity: f.severity, slide: f.slide ?? 0, message: f.message, line: i + 1, text: i >= 0 ? lines[i].trim() : null };
+  });
+}
+
+/** A Squadra finding as the diff compares it: the text of the line its span starts on, trimmed. */
+function newRecords(text, vocab) {
+  const lines = text.split('\n');
+  return lintDeck(text, { vocab }).map((f) => ({
+    rule: f.rule.startsWith(PREFIX) ? f.rule.slice(PREFIX.length) : f.rule,
+    severity: f.severity,
+    slide: f.location?.slide ?? 0,
+    message: f.message,
+    line: f.start.line,
+    text: (lines[f.start.line - 1] ?? '').trim(),
+  }));
+}
+
+const loose = (r) => `${r.rule}\u0001${r.severity}\u0001${r.slide}\u0001${r.message}`;
+const exact = (r) => `${loose(r)}\u0001${r.text}`;
+
+/**
+ * Match two lists of records: exactly first (with the line text), then each unlocated old record against what is
+ * left on the other four fields. Returns what matched and what each side has alone.
+ */
+function match(olds, news) {
+  const take = (pool, k) => {
+    const list = pool.get(k);
+    return list?.length ? list.pop() : null;
+  };
+  const group = (list, keyOf) => {
+    const m = new Map();
+    for (const r of list) m.set(keyOf(r), [...(m.get(keyOf(r)) ?? []), r]);
+    return m;
+  };
+  const byExact = group(news, exact);
+  const same = [];
+  const pending = [];
+  for (const r of olds) {
+    if (r.text !== null && take(byExact, exact(r))) same.push(r);
+    else pending.push(r);
+  }
+  const byLoose = group([...byExact.values()].flat(), loose);
+  const matchedUnlocated = [];
+  const oldOnly = [];
+  for (const r of pending) {
+    if (r.text === null && take(byLoose, loose(r))) matchedUnlocated.push(r);
+    else oldOnly.push(r);
+  }
+  return { same, matchedUnlocated, oldOnly, newOnly: [...byLoose.values()].flat() };
+}
+
+/** The rules whose findings differ, as multisets on the loose key, between two lists. */
+function changedRules(before, after) {
+  const counts = (records) => {
+    const m = new Map();
+    for (const r of records) m.set(loose(r), (m.get(loose(r)) ?? 0) + 1);
+    return m;
+  };
+  const a = counts(before);
+  const b = counts(after);
+  const out = new Set();
+  for (const k of new Set([...a.keys(), ...b.keys()])) if ((a.get(k) ?? 0) !== (b.get(k) ?? 0)) out.add(k.split('\u0001')[0]);
+  return out;
+}
+
+/** The entries of explained.json, each with a hit counter, so an entry nothing used is reported stale. */
+function loadExplained(file = EXPLAINED_FILE) {
+  const raw = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+  const out = [];
+  for (const [rule, list] of Object.entries(raw)) {
+    for (const e of Array.isArray(list) ? list : []) out.push({ rule, kind: e.kind, re: new RegExp(e.match), why: e.why, hits: 0 });
+  }
+  return out;
+}
+function explain(entries, rule, kind, subject) {
+  const e = entries.find((x) => x.rule === rule && x.kind === kind && x.re.test(subject));
+  if (e) e.hits++;
+  return e ?? null;
+}
+
+function main() {
+  let R;
+  try {
+    R = ref();
+  } catch (e) {
+    console.error(`[squadra-reference-diff] no reference: ${e.message}`);
+    return 2;
+  }
+  // Each side lints with its own vocabulary: the reference with main's manifests, the new ruleset with the branch's.
+  const refVocab = R.buildVocab();
+  const vocab = buildVocab();
+  const migrated = new Set(deckRuleset(vocab).rules.map((r) => (r.id.startsWith(PREFIX) ? r.id.slice(PREFIX.length) : r.id)));
+  const held = (rule) => (rule.startsWith('squadra/') || migrated.has(rule)) && (!ONLY || ONLY.includes(rule));
+  const explained = loadExplained();
+
+  const recording = recordLintInputs(flag('--corpus', null));
+  const save = flag('--save-corpus', null);
+  if (save) fs.writeFileSync(save, `${recording.inputs.map((s) => JSON.stringify(s)).join('\n')}\n`);
+  const decks = trackedDecks();
+  const hosts = hostsOf(decks, HOSTS);
+  // One source at a time: the mutated corpus alone is tens of thousands of whole decks, and holding them all ran the
+  // heap out (2026-11-15, 59,353 recorded inputs). Each input with a finding goes into ONE host, the hosts in turn, so
+  // every host is used and every input meets a host around it, at an eighth of the cost of every input in every host.
+  function* sources() {
+    let n = 0;
+    for (const text of recording.inputs) yield { corpus: 'tests', name: `test input ${++n}`, text };
+    let k = 0;
+    for (const text of recording.inputs) {
+      if (!hosts.length || !R.core.lintTextWith(text, refVocab).length) continue;
+      const h = hosts[k++ % hosts.length];
+      yield { corpus: 'mutated', name: `${h.path} + test input`, text: splice(fold(h.text), text) };
+    }
+    for (const d of decks) yield { corpus: 'decks', name: d.path, text: d.text };
+  }
+
+  const perRule = new Map();
+  const tally = (rule) => perRule.get(rule) ?? perRule.set(rule, { rule, old: 0, new: 0, same: 0, unlocated: 0, oldOnlyCount: 0, newOnlyCount: 0, oldOnly: [], newOnly: [] }).get(rule);
+  const byCorpus = {};
+  let oldTotal = 0;
+  const fixStats = { compared: 0, same: 0, held: [], notMigrated: 0 };
+  for (const s of sources()) {
+    byCorpus[s.corpus] = (byCorpus[s.corpus] ?? 0) + 1;
+    const olds = oldRecords(s.text, refVocab, R);
+    const news = newRecords(s.text, vocab);
+    oldTotal += olds.length;
+    for (const r of olds) tally(r.rule).old++;
+    for (const r of news) tally(r.rule).new++;
+    const m = match(olds, news);
+    for (const r of m.same) tally(r.rule).same++;
+    for (const r of m.matchedUnlocated) {
+      tally(r.rule).same++;
+      tally(r.rule).unlocated++;
+    }
+    // The lists only feed the migrated rules' failures and examples; a rule not yet migrated needs its count alone,
+    // and keeping every one of its findings is what grew the heap without bound.
+    for (const r of m.oldOnly) {
+      tally(r.rule).oldOnlyCount++;
+      if (held(r.rule)) tally(r.rule).oldOnly.push({ source: s.name, ...r });
+    }
+    for (const r of m.newOnly) {
+      tally(r.rule).newOnlyCount++;
+      if (held(r.rule)) tally(r.rule).newOnly.push({ source: s.name, ...r });
+    }
+
+    if (FIX) {
+      const oldText = R.core.applyAllFixes(s.text, refVocab);
+      const newText = fixDeck(s.text, { vocab }).text;
+      fixStats.compared++;
+      if (oldText === newText) {
+        fixStats.same++;
+        continue;
+      }
+      const rules = new Set([...changedRules(olds, oldRecords(oldText, refVocab, R)), ...changedRules(news, newRecords(newText, vocab))]);
+      if (rules.size && ![...rules].every(held)) {
+        fixStats.notMigrated++;
+        continue;
+      }
+      fixStats.held.push({ source: s.name, rules: [...rules] });
+    }
+  }
+
+  const rows = [...perRule.values()].sort((a, b) => b.old + b.new - (a.old + a.new) || (a.rule < b.rule ? -1 : 1));
+  const heldRows = rows.filter((r) => held(r.rule));
+  const failures = [];
+  for (const r of heldRows) {
+    for (const [side, list] of [['only in lint-core', r.oldOnly], ['only in Squadra', r.newOnly]]) {
+      const open = list.filter((x) => !explain(explained, r.rule, 'lint', x.message));
+      if (open.length) failures.push(`${r.rule}: ${open.length} finding${open.length === 1 ? '' : 's'} ${side} with no lint entry in explained.json (first: ${open[0].source}, slide ${open[0].slide}: ${open[0].message})`);
+    }
+  }
+  for (const d of fixStats.held) {
+    if (!d.rules.length) failures.push(`fix: ${d.source} fixes differently and no rule's findings changed to account for it`);
+    else for (const rule of d.rules) if (!explain(explained, rule, 'fix', d.source)) failures.push(`fix: ${d.source} fixes differently (${rule}), with no fix entry in explained.json`);
+  }
+  for (const e of explained) {
+    if (!migrated.has(e.rule)) failures.push(`explained.json: ${e.rule} is not a rule the ruleset defines`);
+    else if (!e.hits && (e.kind === 'lint' || FIX)) failures.push(`explained.json: the ${e.kind} entry /${e.re.source}/ for ${e.rule} explains no difference (stale)`);
+  }
+  if (!oldTotal) failures.push('the corpora gave the reference no finding: a diff over nothing proves nothing');
+
+  const notMigrated = rows.filter((r) => !held(r.rule));
+  const out = [];
+  out.push('# Squadra reference diff', '');
+  out.push(`Corpora: ${Object.entries(byCorpus).map(([k, v]) => `${k} ${v}`).join(', ')} sources (${recording.tests} lint test files, exit ${recording.testExit}).`);
+  out.push(`Reference: lint-core at ${R.sha.slice(0, 9)} (main where this branch left it). Reference findings: ${oldTotal}. Rules the ruleset defines: ${migrated.size}.`, '');
+  out.push('## Migrated rules', '');
+  if (!heldRows.length) out.push('None yet.', '');
+  else {
+    out.push('| Rule | lint-core | Squadra | Same | of which unlocated | Only lint-core | Only Squadra |', '|---|---:|---:|---:|---:|---:|---:|');
+    for (const r of heldRows) out.push(`| ${r.rule} | ${r.old} | ${r.new} | ${r.same} | ${r.unlocated} | ${r.oldOnly.length} | ${r.newOnly.length} |`);
+    out.push('');
+    for (const r of heldRows) {
+      for (const [label, list] of [['only in lint-core', r.oldOnly], ['only in Squadra', r.newOnly]]) {
+        for (const x of list.slice(0, EXAMPLES)) out.push(`- \`${r.rule}\` ${label}: ${x.source}, slide ${x.slide}, line ${x.line}: ${x.message}`);
+      }
+    }
+    out.push('');
+  }
+  if (explained.length) {
+    out.push('## Explained differences', '');
+    for (const e of explained) out.push(`- \`${e.rule}\` ${e.kind} /${e.re.source}/ (${e.hits} hit${e.hits === 1 ? '' : 's'}): ${e.why}`);
+    out.push('');
+  }
+  out.push('## Not yet migrated', '', `${notMigrated.length} rules, ${notMigrated.reduce((n, r) => n + r.old, 0)} reference findings.`, '');
+  out.push('| Rule | lint-core findings |', '|---|---:|');
+  for (const r of notMigrated) out.push(`| ${r.rule} | ${r.old} |`);
+  out.push('');
+  if (FIX) out.push('## Fix diff', '', `Compared on ${fixStats.compared} sources: ${fixStats.same} identical; ${fixStats.held.length} differ on migrated rules (or on none); ${fixStats.notMigrated} differ on rules not yet migrated.`, '');
+  out.push(failures.length ? `## FAIL\n\n${failures.map((f) => `- ${f}`).join('\n')}\n` : '## PASS\n');
+  const report = out.join('\n');
+  if (OUT) fs.writeFileSync(OUT, report);
+  if (JSON_OUT) console.log(JSON.stringify({ oldTotal, migrated: [...migrated], rows: rows.map(({ oldOnly, newOnly, oldOnlyCount, newOnlyCount, ...r }) => ({ ...r, oldOnly: oldOnlyCount, newOnly: newOnlyCount })), fix: FIX ? { ...fixStats, held: fixStats.held.length } : null, failures }, null, 2));
+  else console.log(report);
+  return failures.length ? 1 : 0;
+}
+
+if (require.main === module) process.exitCode = main();
+
+module.exports = { oldRecords, newRecords, match, changedRules, loadExplained, explain, ROOT };
