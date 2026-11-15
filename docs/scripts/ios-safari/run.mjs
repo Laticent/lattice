@@ -84,9 +84,11 @@ const NO_SESSION = 3;
  * was refused at once with "The Safari instance is already paired with another WebDriver session" (2026-11-10, run
  * 42819824102) or hung (2026-11-15). run.sh's in-place attempt relaunches Safari first, and on 2026-11-15 that attempt had a
  * session 23 s after the relaunch. The wait between attempts stays 20 s (2 s for the old Safari to go, 18 s for the new).
+ * SAFARI_RELAUNCH_MS sets that wait for test/unit/tools/ios-safari-session.test.js only; unset, it is the same 2 s and 18 s.
  */
 const ATTEMPTS = Number(process.env.SESSION_ATTEMPTS || 3);
 const SESSION_TIMEOUT_MS = Number(process.env.SESSION_TIMEOUT_MS || 150000);
+const RELAUNCH_MS = Number(process.env.SAFARI_RELAUNCH_MS || 20000);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** One simctl call, bounded: a hung simctl must not hold the job either. A failure is logged, not fatal: the session decides. */
 const simctl = (...args) => {
@@ -121,12 +123,12 @@ async function createSession() {
 			if (!/session not created/.test(message)) throw e;
 			console.log(`${LABEL}: session not created (attempt ${attempt} of ${ATTEMPTS}): ${message.slice(0, 200)}; relaunching Safari and trying again in 20 s`);
 			if (MAC) {
-				await sleep(20000);
+				await sleep(RELAUNCH_MS);
 			} else {
 				simctl('terminate', UDID, 'com.apple.mobilesafari');
-				await sleep(2000);
+				await sleep(Math.min(2000, RELAUNCH_MS));
 				simctl('launch', UDID, 'com.apple.mobilesafari');
-				await sleep(18000);
+				await sleep(RELAUNCH_MS - Math.min(2000, RELAUNCH_MS));
 			}
 		}
 	}

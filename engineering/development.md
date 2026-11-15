@@ -698,12 +698,12 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   a boot, a session and a probe, not the last one's retries). One that does not fit is not started: `run.sh` prints and writes
   `not run: out of time: <device> (… s gone, needs about … s, budget … s)` to `platform-suite-artifacts/out-of-time` and exits
   **1**, never 0 and never 3. Before this, only a device's own second start was budgeted: main's nightly of 2026-11-15 (run
-  43712612297) spent 1031 s on the iPad, started the iPhone at 1064 s, and was cancelled at 30 minutes with no result for it.
+  43712612297) spent 1031 s on the iPad, started the iPhone at 1064 s, and was canceled at 30 minutes with no result for it.
   `test/unit/tools/ios-safari-suite-budget.test.js` drives the real `run.sh` with macOS stubbed out.
   **Every session request is bounded.** `run.mjs` gives each `POST /session` 150 s (`SESSION_TIMEOUT_MS`): safaridriver gives up
   on a simulator by itself after about 100–117 s, but on 2026-11-15 the attempt after such a timeout got no reply for 305 s,
   until Node's own headers timeout. A request past the bound exits 3. Between attempts `run.mjs` relaunches the simulator's
-  Safari (2 s, then 18 s): a timed-out session leaves Safari paired with it, so the next attempt was refused ("already paired",
+  Safari (2 s, then 18 s; `test/unit/tools/ios-safari-session.test.js` drives both against a fake safaridriver): a timed-out session leaves Safari paired with it, so the next attempt was refused ("already paired",
   2026-11-10) or hung (2026-11-15). The first attempt's own timeout is the simulator's: it hit 5 of the 11 nightlies from
   2026-11-05 to 11-15, on either device, after the same boot and launch steps as the runs it spared, so it stays bounded
   and retried rather than fixed here.
