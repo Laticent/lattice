@@ -1385,6 +1385,19 @@ component's own shape at x1.4, so each is fixed in its component, one commit api
 | Group | Slides | Cause | Fix |
 |---|---|---|---|
 | `decision` cover | 6 | Its title is `--fs-hero`; every other cover sets `--fs-h1` (split-panel's note: a cover title can be a full sentence, and hero overflows past ~10 words). A two-line verdict ran five lines at x1.4 and pushed past the top of the frame. | On a slide read in a hand (§24's selector), the cover title is `--fs-h1`. Laptop and the rooms keep hero. `resolve-venue.test.js` holds the venue list to the type table's. |
+| `authority-chain bracket` | 2 | At x1.4 a square slide has under 23em of text room, so the chain takes its narrow-room rules. There the citation chip stayed on one line, and beside a `bracket` tier label a long citation ("Charter of Fundamental Rights, Art. 8") ran past its card. The rows also left the min-content rail for flex rows, so each label sized to itself and the citations zig-zagged. | In narrow room the chip wraps at its spaces, and `bracket` keeps the grid rail, so a page's rows share one text x. Fixed at portrait and story too; no slide clips that did not before (gallery, legal gallery and two examples, at square, portrait and story, against HEAD). Each page of a split run takes its own widest label, so the text x can differ between pages. `authority-chain-bracket-phone.test.js`. |
+
+`logo-wall` (6 captioned walls) is not fixed yet. At four columns a pill ("Enterprise") is wider than its
+cell at x1.4 and runs past the slide's edge. Three columns fixed those six, but the independent checker
+showed the rule regressed walls that fit before: on `examples/logo-wall.md` four columns fit at x1.4, and
+three halved the marks and tripped the type floor. Scaling the packer's stage estimate by the step also
+moved walls at the room venues and tipped some into the fallback grid, where they lose whole rows. A
+character-count width estimate does not hold either: caption width measured 1.94 times larger at hall
+(x1.5) than at laptop. The column count has to come from caption widths measured in the page, which the
+CLI's string stamp cannot see, so the change was withdrawn and this group stays open.
+
+`authority-chain branching` (3 slides) is not fixed yet: it authors one tier with four or five sub-items,
+so the item axis finds one member and the chain never splits. Its seam is the sub-items.
 
 `title` (9 slides) is not fixed here. Each is a title slide whose lede runs a paragraph long, and the fix
 the precedent points at (split-panel's lede page, §21) would make an anchor split. `lib/core/split-facts.js`
