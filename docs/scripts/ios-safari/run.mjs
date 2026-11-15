@@ -187,12 +187,25 @@ async function studioPage(id, file, fn, { seed = true } = {}) {
  * one they took the job to 27.6 minutes of its 30.
  */
 async function runStudioProbe(id) {
-	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
-	const panes = await studioPage(id, 'panes-probe.js', 'latticePanesProbe');
+	// A probe that fails gets its own screenshot NOW, before the next probe loads a fresh page over it: the session's one
+	// screenshot is taken at the end, and on 2026-11-15 (run 43712612297) it showed the Compose probe's page, three probes
+	// after the panes probe that failed.
+	const shotIfFailed = async (name, r) => {
+		if (r?.ok) return r;
+		try {
+			const png = await wd('GET', `/session/${id}/screenshot`);
+			fs.writeFileSync(path.join(OUT, `${PROBE}-${LABEL}-${name}.png`), Buffer.from(png, 'base64'));
+		} catch (e) {
+			console.log(`${LABEL}: no screenshot of the failed ${name} probe (${e.message})`);
+		}
+		return r;
+	};
+	const preview = await shotIfFailed('preview', await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
+	const panes = await shotIfFailed('panes', await studioPage(id, 'panes-probe.js', 'latticePanesProbe'));
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
-	const focus = await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe');
+	const focus = await shotIfFailed('sheet-focus', await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe'));
 	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
-	const compose = await studioPage(id, 'compose-probe.js', 'latticeComposeProbe', { seed: false });
+	const compose = await shotIfFailed('compose', await studioPage(id, 'compose-probe.js', 'latticeComposeProbe', { seed: false }));
 	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
 	// which never shows the keyboard or runs Safari's own tap-to-focus path.
 	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
