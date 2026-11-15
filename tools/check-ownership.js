@@ -10478,7 +10478,7 @@ function checkSquadraBoundary(errors, dir = SQUADRA_DIR) {
 // ── Calco (docs/src/lib/calco) — the office-export library ──────────────────
 // Calco's reader ships into a headless page as `fn.toString()` source, so a value import
 // would be a free variable inside the shipped function. Like Trama it has NO dependencies,
-// not even `node:`: JSZip, PptxGenJS and the font pinner arrive as arguments, and type-only
+// not even `node:`: JSZip and the font pinner arrive as arguments, and type-only
 // imports are erased (2026-10-06-calco-office-export-library.md).
 const CALCO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'calco');
 function checkCalcoBoundary(errors, dir = CALCO_DIR) {
@@ -10487,7 +10487,7 @@ function checkCalcoBoundary(errors, dir = CALCO_DIR) {
     allowBare: new Set(),
     describe: (rel, spec) =>
       `${rel} imports '${spec}', which escapes the Calco folder. Calco ships its reader as ` +
-      `serialized source and takes JSZip, PptxGenJS and the font pinner as arguments, so ` +
+      `serialized source and takes JSZip and the font pinner as arguments, so ` +
       `every import must resolve inside docs/src/lib/calco/ ` +
       `(engineering/decisions/2026-10-06-calco-office-export-library.md).`,
   });

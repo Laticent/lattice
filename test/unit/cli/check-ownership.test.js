@@ -2096,14 +2096,14 @@ describe('check-ownership', () => {
       assert.doesNotMatch(stripJsComments("export {};\n/** import x from 'y' */"), /import x/);
     });
 
-    test('Calco admits no dependency at all: JSZip and PptxGenJS are passed in', () => {
+    test('Calco admits no dependency at all: JSZip is passed in', () => {
       const live = [];
       checkCalcoBoundary(live);
       assert.deepEqual(live, [], live.join('\n'));
       assert.deepEqual(run(checkCalcoBoundary, "import type { Deck } from './types';\nexport { readSlide } from './reader';"), []);
       for (const src of [
         "import JSZip from 'jszip';",
-        "import PptxGenJS from 'pptxgenjs';",
+        "import JSZip2 from 'jszip/dist/jszip.min.js';",
         "import fs from 'node:fs';",
         "import { x } from '@laticent/trama';",
         "import { TEXT_FACES } from '../../../../lib/fonts/text-faces.js';",

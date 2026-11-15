@@ -6,7 +6,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
-const PptxGenJS = require('pptxgenjs');
 const { captureOfficeSlides, imageMime, imageExt, writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_PNG, ONE_PX_JPEG, style, frame } = require('./_fixtures');
 
@@ -36,12 +35,12 @@ describe('calco picture — the writers name the part by its bytes', () => {
   });
 
   test('.pptx: a JPEG slide is an image/jpeg part with a jpeg content type', async () => {
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deckOf(ONE_PX_JPEG), 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, deckOf(ONE_PX_JPEG), 'nodebuffer'));
     const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/[^/]+\.\w+$/.test(n));
     assert.equal(media.length, 1);
     assert.match(media[0], /\.jpe?g$/);
     assert.match(await zip.file('[Content_Types].xml').async('string'), /Extension="jpe?g" ContentType="image\/jpe?g"/);
-    const png = await JSZip.loadAsync(await writePptx(PptxGenJS, deckOf(ONE_PX_PNG), 'nodebuffer', JSZip));
+    const png = await JSZip.loadAsync(await writePptx(JSZip, deckOf(ONE_PX_PNG), 'nodebuffer'));
     assert.ok(Object.keys(png.files).some((n) => /^ppt\/media\/.*\.png$/.test(n)));
   });
 });

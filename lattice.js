@@ -901,7 +901,7 @@ if (!mdFile || !outFile) {
 }
 
 // Output format is driven by the output extension: `.pptx` → image-per-slide
-// PowerPoint (owned, via pptxgenjs), `.png` → one PNG per slide (`<base>.NNN.png`),
+// PowerPoint (owned, Calco's writer), `.png` → one PNG per slide (`<base>.NNN.png`),
 // `.zip` → an IMAGE SET (a zip of one raster per slide — PNG/JPEG/WebP — plus opt-in
 // thumbnails and standalone chart/diagram SVGs), `.html` → the rendered HTML as the
 // DELIVERABLE (no PDF at all), `.pdf` → the vector, selectable-text path. PPTX/PNG/
