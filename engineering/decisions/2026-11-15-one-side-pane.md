@@ -110,6 +110,16 @@ and 9.65:1 for the label in all 36. **D**, the same chip with the OTHER mode's a
 (gold on ink in Cuoio), is the follow-up: AA in all 36, the accent shows in 19, and its fallback is B,
 so it only adds. It is a new generated token across every selected control, so it is its own PR.
 
+## 3c. Compose's drawn caret follows a pane swap (found by the owner while testing)
+
+While Compose is not focused (clicking a rail button blurs it) it draws its caret (`ghostCaretPlugin`, ComposeView.tsx).
+It was `position: fixed` from viewport coordinates, re-measured only on focus, blur, scroll, window resize and an edit,
+so opening or closing a pane re-flowed the column under it and left it where the text had been, outside the editor's
+clipping: 311px off the title's first letter after Coach closed, measured. It now sits in the host (`.cs-host`, made
+`position: relative`) in content coordinates, so it scrolls and clips with the text, and a ResizeObserver on the host
+and the document re-measures it after layout and before paint, so it never trails a frame. Guard:
+`docs/e2e/one-side-pane.spec.ts` "Compose's drawn caret stays on its text", on Chromium, WebKit and Gecko.
+
 ## 4. Do not regress — the traps this area has already paid for
 
 Each line names the guard. A change to panes re-checks every one.

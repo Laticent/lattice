@@ -7,7 +7,7 @@ import { CHROME, expect, gotoStudio, openChat, test } from './studio-fixture';
 const dockedPanes = (page: import('@playwright/test').Page) =>
 	page.evaluate(() => [...document.querySelectorAll('[data-studio-split] [data-studio-pane]')].map((p) => p.id));
 
-test.describe('desktop @webkit-tablet @gecko', () => {
+test.describe('desktop @crosswidth @webkit-tablet @gecko', () => {
 	test.skip(({ viewport }) => (viewport?.width ?? 1440) < 1100, 'the activity rail is a desktop surface');
 
 	test('every rail pane replaces the one showing: never more than one docked column', async ({ page }) => {
@@ -60,9 +60,55 @@ test.describe('desktop @webkit-tablet @gecko', () => {
 		await expect(page.getByRole('button', { name: CHROME.library, exact: true }).first()).toHaveAttribute('aria-pressed', 'true');
 		await expect(page.getByRole('button', { name: 'Back to Chat' })).toHaveCount(0);
 	});
+	// The drawn caret Compose shows while the editor is not focused (clicking a rail button blurs it) has to stay on its
+	// text when a pane opens or closes and the column re-flows. It was `position: fixed` from viewport coordinates and
+	// was not re-measured on a layout change, so it stood where the text had been and bled outside the editor (owner,
+	// 2026-11-15). The caret sits at the START of the title, so its offset from the title's block is the same at any width.
+	test('Compose\'s drawn caret stays on its text, inside the editor, when a pane opens and closes', async ({ page }) => {
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await gotoStudio(page);
+		await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
+		const title = page.locator('#studio-pane-editor .cs-host .ProseMirror h1').first();
+		await expect(title).toBeVisible();
+		await title.click();
+		await page.keyboard.press('Home');
+		const ghost = page.locator('#studio-pane-editor .lx-ghost-caret');
+		// Its offset from the start of the title's text, and whether it lies inside the editor's scroll box.
+		const fit = () =>
+			page.evaluate(() => {
+				const g = document.querySelector<HTMLElement>('#studio-pane-editor .lx-ghost-caret');
+				const h = document.querySelector<HTMLElement>('#studio-pane-editor .cs-host .ProseMirror h1');
+				const host = document.querySelector<HTMLElement>('#studio-pane-editor .cs-host');
+				if (!g || !h || !host || getComputedStyle(g).display === 'none') return null;
+				const walker = document.createTreeWalker(h, NodeFilter.SHOW_TEXT);
+				const text = walker.nextNode() as Text | null;
+				if (!text) return null;
+				const r = document.createRange();
+				r.setStart(text, 0);
+				r.setEnd(text, 1);
+				const glyph = r.getBoundingClientRect();
+				const c = g.getBoundingClientRect();
+				const box = host.getBoundingClientRect();
+				return {
+					dx: Math.round(c.left - glyph.left),
+					dy: Math.round(c.top + c.height / 2 - (glyph.top + glyph.height / 2)),
+					inside: c.left >= box.left - 2 && c.right <= box.right + 2 && c.top >= box.top - 2 && c.bottom <= box.bottom + 2,
+				};
+			});
+		for (const step of ['open', 'close', 'open', 'close']) {
+			await page.getByRole('button', { name: CHROME.coach, exact: true }).first().click();
+			await expect(page.getByRole('button', { name: CHROME.coach, exact: true }).first()).toHaveAttribute('aria-pressed', step === 'open' ? 'true' : 'false');
+			await expect(ghost).toBeVisible();
+			// Within 3px of the title's first letter, on its line, inside the editor: the column re-flowed under it.
+			await expect.poll(fit, { message: `after Coach ${step}` }).toMatchObject({ inside: true });
+			const f = await fit();
+			expect(Math.abs(f?.dx ?? 99), `drawn caret ${f?.dx}px from the title's first letter after Coach ${step}`).toBeLessThanOrEqual(3);
+			expect(Math.abs(f?.dy ?? 99), `drawn caret ${f?.dy}px off the title's line after Coach ${step}`).toBeLessThanOrEqual(4);
+		}
+	});
 });
 
-test.describe('tablet @webkit-tablet @gecko', () => {
+test.describe('tablet @crosswidth @webkit-tablet @gecko', () => {
 	test.skip(({ viewport }) => (viewport?.width ?? 1440) < 1100, 'driven from the desktop project at 820');
 
 	test('Esc in the docked settings closes them and keeps focus on a control, not <body> (no rail at this width)', async ({ page }) => {
