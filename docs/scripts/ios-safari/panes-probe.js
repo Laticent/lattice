@@ -84,12 +84,24 @@ async function latticePanesProbe() {
 		if (!pass) throw new Error(`${name}: ${detail}`);
 	};
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+	/**
+	 * ONE BUDGET FOR THE WHOLE PROBE. run.mjs gives a probe's execute-script 360 s (`script: 360000`), and this probe's waits
+	 * add up past it: 150 s for the first render, up to three pastes that can each wait 150 s for the editor and 8 s for the
+	 * slide count, then 60 s, 30 s and three moves of 20 s. Past 360 s Safari would end the script with a bare script timeout,
+	 * and the wait's own message (what the preview held) would be lost. So every wait is cut to what is left of 330 s, the
+	 * script limit less 30 s to send the result back, and says so when it was cut. Each wait keeps its own bound below that.
+	 */
+	const BUDGET_MS = 330000;
+	const probeT0 = Date.now();
+	const left = () => BUDGET_MS - (Date.now() - probeT0);
 	const until = async (fn, ms, what) => {
 		const t0 = Date.now();
+		const bound = Math.max(0, Math.min(ms, left()));
+		const cut = bound < ms ? ` (cut from ${ms} ms: the probe's ${BUDGET_MS / 1000} s budget is spent)` : '';
 		for (;;) {
 			const v = fn();
 			if (v) return v;
-			if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}`);
+			if (Date.now() - t0 > bound) throw new Error(`timed out after ${bound} ms waiting for ${what}${cut}`);
 			await sleep(100);
 		}
 	};
@@ -145,7 +157,8 @@ async function latticePanesProbe() {
 	/** Replace the deck source the way a person pasting does: one insertText into the focused editor. */
 	const setDeck = async (text) => {
 		// Re-taps the Markdown source pane until the editor shows, and never taps the inert skeleton (show-editor.js, #2911).
-		const el = await latticeShowDeckEditor();
+		// The editor wait (show-editor.js, 150 s by default) takes its share of the probe's budget too.
+		const el = await latticeShowDeckEditor(Math.max(1000, Math.min(150000, left())));
 		el.focus();
 		if (el instanceof HTMLTextAreaElement) {
 			el.select();
