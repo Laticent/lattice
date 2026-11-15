@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import * as React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildDeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { createFocusHub } from '@/lib/fuoco/hub';
@@ -106,6 +107,44 @@ describe('StudioMap', () => {
 		});
 		// Captured all the same: the pool offered each picture, and a poster exists under each frame.
 		expect(tile(0)?.querySelector('img')).not.toBeNull();
+	});
+
+	it('keeps a slide live whose own text names a photo in another case', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n![bg](Asset:hero)\n').ui);
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		// Once its poster exists (an img under the frame), a plain slide would switch to it; this one must stay live.
+		await waitFor(() => expect(tile(1)?.querySelector('img')).not.toBeNull());
+		expect(tile(0)?.dataset.shows).toBe('poster');
+		expect(tile(1)?.dataset.shows).toBe('live');
+	});
+
+	it('keeps every slide live when the custom theme\'s CSS names a photo', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		const { ui } = setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n');
+		render(React.cloneElement(ui, { extraTheme: { name: 'mine', css: 'section { background: url(asset:hero) center / cover; }' } }));
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		await waitFor(() => {
+			expect(tile(0)?.dataset.shows).toBe('live');
+			expect(tile(1)?.dataset.shows).toBe('live');
+		});
+		expect(tile(0)?.querySelector('img')).not.toBeNull(); // captured all the same: the frame is kept, not the picture
+	});
+
+	it('keeps a slide live when a directive carried onto it names a photo', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n<!-- backgroundImage: url(asset:hero) -->\n\n# Two\n\n---\n\n# Three\n').ui);
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		// Slide three's text names no photo; the directive carried from slide two does. Once its poster exists it must stay live.
+		await waitFor(() => expect(tile(2)?.querySelector('img')).not.toBeNull());
+		expect(tile(0)?.dataset.shows).toBe('poster');
+		expect(tile(2)?.dataset.shows).toBe('live');
 	});
 
 	it('picks through the shell: a tile asks for its chunk and heading section', () => {

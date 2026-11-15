@@ -40,7 +40,8 @@ export function facesOf(section: HTMLElement): Array<{ family: string; weight: n
 		}
 	};
 	for (const el of [section, ...section.querySelectorAll<HTMLElement>('*')]) {
-		add(win.getComputedStyle(el));
+		const own = win.getComputedStyle(el);
+		add(own);
 		// What a pseudo-element draws, in its own face: a timeline's step counters are `::before` in the label face, which
 		// no element on the slide may use.
 		for (const pseudo of ['::before', '::after']) {
@@ -49,7 +50,7 @@ export function facesOf(section: HTMLElement): Array<{ family: string; weight: n
 		}
 		// A list item's marker draws in its own face too (a sketch deck sets `li::marker` in its display face), and its
 		// `content` is `normal` by default, so it is read whenever the element is a list item.
-		if (win.getComputedStyle(el).display === 'list-item') add(win.getComputedStyle(el, '::marker'));
+		if (own.display.includes('list-item')) add(win.getComputedStyle(el, '::marker'));
 	}
 	return [...out.values()];
 }

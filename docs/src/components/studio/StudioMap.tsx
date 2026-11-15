@@ -290,14 +290,15 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 			//
 			// A slide that shows a library photo (`asset:name`) is the exception: the photo can be replaced under the same name, so
 			// its slide text, and with it the poster's key, does not change when its picture does. Its frame keeps drawing.
-			if (!usesAsset && !ASSET.test(text) && cache.has(keyOf(i))) return null;
+			// The slide's text and the directives carried onto it from earlier slides (`carriedAt`, in its key too).
+			if (!usesAsset && !ASSET.test(text) && !ASSET.test(carriedAt[i] ?? '') && cache.has(keyOf(i))) return null;
 			const hit = liveCache.get(i);
 			if (hit) return hit;
 			const face = <PooledThumbFace options={look.options} sample={look.sample} slideIndex={i} slideCount={look.items.length} slideMarkdown={look.front + text} drawn={hasDrawnFence(text)} paletteOverride={look.paletteOverride} extraTheme={look.extraTheme} modeOverride={look.modeOverride} extraCss={look.extraCss} className="size-full" onPicture={(capture) => onPictureRef.current(i, capture)} />;
 			liveCache.set(i, face);
 			return face;
 		},
-		[look, liveCache, textOf, cache, keyOf, posterRev, usesAsset],
+		[look, liveCache, textOf, cache, keyOf, posterRev, usesAsset, carriedAt],
 	);
 
 	// A hidden slide (`<!-- hide -->`) wears the eye-off mark on its tile, as its pill does (SlideRail.tsx): it stays in
