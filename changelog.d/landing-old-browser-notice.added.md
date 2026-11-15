@@ -15,5 +15,5 @@
   grid is missing, and steps that install the current Edge, since the original one no longer updates.
 - The notice is self-contained: it lists the supported browsers itself, in a collapsed "Supported browsers" section
   beside "Technical details", instead of linking to another page of the site, which an old browser could not show
-  properly either. Both sections collapse in the original Edge too. Its only link goes to the browser maker's own update
+  properly either. Both sections open with the same simple button in every browser. Its only link goes to the browser maker's own update
   page.

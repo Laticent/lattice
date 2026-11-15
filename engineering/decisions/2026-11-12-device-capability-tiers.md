@@ -476,9 +476,12 @@ versions and how to update, and it looks like the site, not like an error page.
 - **Self-contained (owner, same day).** The notice links to no other page of this site: a browser too old for the landing
   page is too old for Getting started too, so a "Supported browsers" link sent the reader to a second broken page. The
   supported list (`supportedList()` in `browser-floor.ts`) travels inside the notice instead, collapsed in the footer as
-  "Supported browsers" beside "Technical details", for every reader (the owner asked for both to collapse alike). The
-  original Edge before 79 has no `<details>` and shows it always open, so `collapsible()` falls back there to a real
-  button with `aria-expanded` that shows and hides the content. The one
+  "Supported browsers" beside "Technical details", for every reader (the owner asked for both to collapse alike). Both
+  are one button disclosure in every engine (`collapsible()`: a real `<button>` with `aria-expanded` and `aria-controls`
+  that shows and hides its section, under a drawn triangle), never `<details>`. The first build used `<details>` with a
+  button fallback chosen by a feature test; in the owner's browser the test guessed wrong, so the engine drew its own
+  arrow beside ours and kept the content shut. Browsers disagree about `<details>`, and the notice exists for the ones
+  that disagree most. The one
   link left goes off the site, to the browser maker's own update page. A unit test fails on any link that is not
   `https://`.
 - **The owner's real legacy Edge (EdgeHTML 15, Windows 10, 2026-11-15).** The check fired and the notice showed, but it

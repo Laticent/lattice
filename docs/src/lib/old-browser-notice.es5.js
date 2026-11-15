@@ -121,7 +121,7 @@
 		'#ID .lob-note+ol,#ID .lob-note+ul{padding-top:8px}' +
 		'#ID ol,#ID ul{margin:0;padding:16px 0 0 1.4em}' +
 		'#ID .lob-supported{font-size:15px}' +
-		'#ID details .lob-supported{padding-top:6px}' +
+		'#ID .lob-section .lob-supported{padding-top:6px}' +
 		'#ID h2+.lob-note{padding-top:0}' +
 		// A browser we can't name gets no button row, so its note keeps that row's gap above the footer rule.
 		'#ID h2+.lob-note:last-child{padding-bottom:24px}' +
@@ -132,16 +132,15 @@
 		'#ID .lob-primary{padding:12px 22px;border-radius:999px;background:var(--accent,Highlight);color:white;color:var(--on-accent,var(--bg,Canvas))}' +
 		'#ID .lob-primary:hover{text-decoration:underline}' +
 		// Keyboard focus is always visible, in the accent, on every control.
-		'#ID a:focus,#ID button:focus,#ID summary:focus{outline:2px solid var(--accent,Highlight);outline-offset:3px}' +
+		'#ID a:focus,#ID button:focus{outline:2px solid var(--accent,Highlight);outline-offset:3px}' +
 		'#ID .lob-foot{padding:20px 0 0;border-top:' + RULE + '}' +
-		'#ID .lob-foot p,#ID .lob-foot summary{font-size:15px;color:var(--text-muted,GrayText)}' +
-		'#ID details{padding:12px 0 0}' +
-		'#ID summary{cursor:pointer}' +
-		// The fallback toggle looks like the summary it stands in for, with a drawn triangle (no typed glyph) that turns.
+		'#ID .lob-foot p,#ID .lob-foot .lob-supported{font-size:15px;color:var(--text-muted,GrayText)}' +
+		'#ID .lob-section{padding:12px 0 0}' +
+		// A section's toggle: its label after a drawn triangle (no typed glyph, #29) that turns when the section opens.
 		'#ID .lob-toggle{position:relative;font:inherit;color:inherit;background:none;border:0;padding:0 0 0 16px;cursor:pointer;text-align:left}' +
 		'#ID .lob-toggle:before{content:"";display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;border-color:transparent transparent transparent currentColor;padding:0;position:absolute;left:0;top:.45em;-webkit-transition:transform .15s;transition:transform .15s}' +
 		'#ID .lob-toggle[aria-expanded="true"]:before{-webkit-transform:rotate(90deg);transform:rotate(90deg)}' +
-		'#ID details p{padding:6px 0 0}' +
+		'#ID .lob-section p+p{padding:6px 0 0}' +
 		'#ID .lob-continue{padding:12px 0 0}' +
 		'#ID .lob-go{font:inherit;font-weight:600;padding:0;background:none;border:0;color:inherit;color:var(--text-body,CanvasText);text-decoration:underline;cursor:pointer}' +
 		// Wide screens: the slide sits beside the words, so the whole card fits a 1440 x 900 screen without scrolling. Grid
@@ -189,22 +188,23 @@
 		return a;
 	}
 
+	var sections = 0;
+
 	/**
-	 * A collapsed section: `<details>` where the browser knows it, and the same behavior by hand where it doesn't (the
-	 * original Edge, before version 79, shows `<details>` always open with its summary as plain text). The fallback keeps
-	 * the same markup, so every engine reads the same structure, and drives it with `aria-expanded` on a real button.
+	 * A collapsed section, opened by a real button, the same in every engine. Not `<details>`: browsers disagree about it
+	 * (the original Edge has none; another engine the owner tried drew its own arrow beside ours and kept the content
+	 * shut), and a feature test for it guessed wrong. A button with `aria-expanded` and `aria-controls` is the
+	 * disclosure pattern screen readers know, and it needs nothing these browsers lack.
 	 */
 	function collapsible(label, content) {
-		var d = el('details');
-		var summary = el('summary', '', label);
-		d.appendChild(summary);
-		d.appendChild(content);
-		if ('open' in d) return d;
+		var wrap = el('div', 'lob-section');
+		var p = el('p', 'lob-section-head');
 		var b = el('button', 'lob-toggle', label);
+		sections += 1;
+		content.id = ID + '-section-' + sections;
 		b.type = 'button';
 		b.setAttribute('aria-expanded', 'false');
-		summary.removeChild(summary.firstChild);
-		summary.appendChild(b);
+		b.setAttribute('aria-controls', content.id);
 		content.style.display = 'none';
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		b.onclick = function () {
@@ -212,7 +212,10 @@
 			b.setAttribute('aria-expanded', opening ? 'true' : 'false');
 			content.style.display = opening ? '' : 'none';
 		};
-		return d;
+		p.appendChild(b);
+		wrap.appendChild(p);
+		wrap.appendChild(content);
+		return wrap;
 	}
 
 	function show() {

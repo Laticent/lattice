@@ -143,10 +143,11 @@ describe('what it says to each browser', () => {
 		['a browser it cannot name', 'SomeBrowser/1.0'],
 	])('%s gets the supported list collapsed in the footer, like the technical details', (_name, ua) => {
 		const screen = run(ua);
-		const summaries = Array.from(screen.querySelectorAll('footer details summary')).map((s) => s.textContent);
-		expect(summaries).toEqual(['Supported browsers', 'Technical details']);
-		const supported = screen.querySelector('footer details');
-		expect(supported?.hasAttribute('open')).toBe(false);
+		const toggles = Array.from(screen.querySelectorAll<HTMLButtonElement>('footer .lob-toggle'));
+		expect(toggles.map((t) => t.textContent)).toEqual(['Supported browsers', 'Technical details']);
+		const supported = document.getElementById(toggles[0].getAttribute('aria-controls') ?? '');
+		expect(toggles[0].getAttribute('aria-expanded')).toBe('false');
+		expect(supported?.style.display).toBe('none');
 		expect(Array.from(supported?.querySelectorAll('li') ?? []).map((li) => li.textContent)).toEqual(supportedList());
 		expect(supportedList()).toEqual([
 			'Chrome 111 or newer',
@@ -162,7 +163,7 @@ describe('what it says to each browser', () => {
 	it('names every missing feature, says why updating matters, and shows the slide for the mode', () => {
 		document.documentElement.setAttribute('data-mode', 'dark');
 		const screen = run('SomeBrowser/1.0', ['CSS :has()', 'CSS color-mix()', 'CSS @property']);
-		expect(screen.querySelector('details p')?.textContent).toContain('This browser is missing CSS :has(), CSS color-mix() and CSS @property, which Lattice needs.');
+		expect(screen.querySelector('.lob-section p + p')?.textContent).toContain('This browser is missing CSS :has(), CSS color-mix() and CSS @property, which Lattice needs.');
 		expect(screen.textContent).toContain('stop getting security fixes');
 		expect(screen.querySelector<HTMLImageElement>('figure img')?.getAttribute('src')).toBe('/old-browser/hero-dark.jpg');
 		expect(screen.querySelector('h1')?.textContent).toBe('Lattice needs a newer browser.');
@@ -204,8 +205,8 @@ describe('its structure, for a reader who listens or tabs', () => {
 
 	it('keeps the jargon behind "Technical details" and says what Continue anyway costs', () => {
 		const screen = run('SomeBrowser/1.0');
-		const tech = Array.from(screen.querySelectorAll('details')).find((d) => d.querySelector('summary')?.textContent === 'Technical details');
-		expect(tech?.hasAttribute('open')).toBe(false);
+		const tech = Array.from(screen.querySelectorAll('.lob-toggle')).find((t) => t.textContent === 'Technical details');
+		expect(tech?.getAttribute('aria-expanded')).toBe('false');
 		expect(screen.querySelector('.lob-continue')?.textContent).toBe('You can still look around, but parts of the site may not work. Continue anyway');
 		expect(screen.querySelector('.lob-go')?.getAttribute('type')).toBe('button');
 	});
@@ -252,31 +253,28 @@ describe('what an old engine gets wrong', () => {
 	});
 });
 
-describe('collapsed sections in an engine without <details> (the original Edge, before 79)', () => {
-	it('fall back to a button that opens and closes them, starting closed', () => {
-		const proto = HTMLDetailsElement.prototype as unknown as Record<string, unknown>;
-		const real = Object.getOwnPropertyDescriptor(proto, 'open');
-		delete proto.open;
-		try {
-			const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063');
-			const toggles = Array.from(screen.querySelectorAll<HTMLButtonElement>('footer summary .lob-toggle'));
-			expect(toggles.map((t) => t.textContent)).toEqual(['Supported browsers', 'Technical details']);
-			const list = screen.querySelector<HTMLElement>('footer .lob-supported');
-			expect(toggles[0].getAttribute('aria-expanded')).toBe('false');
-			expect(list?.style.display).toBe('none');
-			toggles[0].click();
-			expect(toggles[0].getAttribute('aria-expanded')).toBe('true');
-			expect(list?.style.display).toBe('');
-			toggles[0].click();
-			expect(list?.style.display).toBe('none');
-		} finally {
-			if (real) Object.defineProperty(proto, 'open', real);
-		}
-	});
-
-	it('an engine with <details> gets no fallback button', () => {
-		const screen = run('SomeBrowser/1.0');
-		expect(screen.querySelector('.lob-toggle')).toBeNull();
+describe('collapsed sections: one button disclosure in every engine, never <details>', () => {
+	it.each([
+		['the original Edge 15', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063'],
+		['an engine it cannot name', 'SomeBrowser/1.0'],
+	])('in %s, a button opens and closes each section, starting closed', (_name, ua) => {
+		const screen = run(ua);
+		// No <details> or <summary> anywhere: each engine draws those its own way, and one drew a second arrow beside ours.
+		expect(screen.querySelectorAll('details, summary')).toHaveLength(0);
+		const toggles = Array.from(screen.querySelectorAll<HTMLButtonElement>('footer .lob-toggle'));
+		expect(toggles.map((t) => t.type)).toEqual(['button', 'button']);
+		const list = document.getElementById(toggles[0].getAttribute('aria-controls') ?? '');
+		expect(list?.classList.contains('lob-supported')).toBe(true);
+		expect(toggles[0].getAttribute('aria-expanded')).toBe('false');
+		expect(list?.style.display).toBe('none');
+		toggles[0].click();
+		expect(toggles[0].getAttribute('aria-expanded')).toBe('true');
+		expect(list?.style.display).toBe('');
+		toggles[0].click();
+		expect(list?.style.display).toBe('none');
+		// The two sections open on their own.
+		expect(toggles[1].getAttribute('aria-expanded')).toBe('false');
+		expect(new Set(toggles.map((t) => t.getAttribute('aria-controls'))).size).toBe(2);
 	});
 });
 
