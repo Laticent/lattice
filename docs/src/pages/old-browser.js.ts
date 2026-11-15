@@ -1,12 +1,13 @@
 // Serves /old-browser.js: the landing page's old-browser notice (lib/old-browser-notice.es5.js) with its data in front, as
 // `var LOB = {...}`. The data comes from the TypeScript that owns it (browser-floor.ts), so the notice, the Studio's decline
-// screen and the docs' "Supported browsers" table read one list. Built once, at build time, into a static file; only a
+// screen and the docs' "Supported browsers" table read one list. The notice links to no other page of this site: a
+// browser too old for this page is too old for those, so the supported list travels inside it. Built once, at build time, into a static file; only a
 // browser that fails the landing page's feature check (index.astro) ever downloads it.
 //
 // The notice source is ES5 and goes out as written: Vite does not transform a `?raw` import, which is the point.
 
 import { joinBase } from '../lib/base-url.mjs';
-import { BROWSER_FLOOR, floorSummary, OLD_WINDOWS } from '../lib/browser-floor';
+import { BROWSER_FLOOR, OLD_WINDOWS, supportedList } from '../lib/browser-floor';
 import notice from '../lib/old-browser-notice.es5.js?raw';
 
 export function GET(): Response {
@@ -14,8 +15,8 @@ export function GET(): Response {
 	const data = {
 		floor: BROWSER_FLOOR,
 		oldWindows: OLD_WINDOWS,
-		summary: floorSummary(),
-		supportedHref: url('getting-started/#supported-browsers'),
+		// The supported list travels with the notice: no link to another page of the site, which this browser can't show.
+		supported: supportedList(),
 		mark: url('lattice-mark-min.svg'),
 		slide: {
 			light: url('old-browser/hero-light.jpg'),

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { parse } from 'acorn';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GET } from '../pages/old-browser.js';
-import { BROWSER_FLOOR } from './browser-floor';
+import { BROWSER_FLOOR, supportedList } from './browser-floor';
 import { OLD_BROWSER_CHECKS, oldBrowserCheckScript } from './old-browser-check';
 import notice from './old-browser-notice.es5.js?raw';
 
@@ -118,14 +118,40 @@ describe('what it says to each browser', () => {
 	it('a browser whose user agent claims a new enough version gets the general advice, never a contradiction', () => {
 		const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
 		expect(screen.querySelector('.lob-spec')).toBeNull();
-		expect(text(screen, '.lob-note')).toEqual(['Update to Chrome 111, Edge 111, Firefox 128, Safari 16.4, Samsung Internet 22, Opera 97 or newer, then open this page again.']);
-		expect(screen.querySelector<HTMLAnchorElement>('.lob-primary')?.getAttribute('href')).toBe('/getting-started/#supported-browsers');
+		expect(text(screen, '.lob-note')).toEqual(['Update to one of these browsers, then open this page again:']);
+		expect(text(screen, '.lob-body .lob-supported li')).toEqual(supportedList());
 	});
 
-	it('an unknown browser gets the general advice', () => {
+	it('an unknown browser gets the supported list in full, and nothing to click away to', () => {
 		const screen = run('SomeBrowser/1.0');
 		expect(screen.querySelector('.lob-spec')).toBeNull();
-		expect(screen.querySelector('.lob-primary')?.textContent).toBe('Supported browsers');
+		expect(screen.querySelector('.lob-actions')).toBeNull();
+		expect(text(screen, '.lob-body .lob-supported li')).toContain('Safari 16.4 or newer on a Mac');
+	});
+
+	it('links to no page of this site: the only link goes to the browser maker', () => {
+		for (const ua of ['SomeBrowser/1.0', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15']) {
+			const screen = run(ua);
+			const hrefs = Array.from(screen.querySelectorAll('a')).map((a) => a.getAttribute('href') ?? '');
+			for (const h of hrefs) expect(h).toMatch(/^https:\/\//);
+			document.body.innerHTML = '';
+			document.head.innerHTML = '';
+		}
+	});
+
+	it('a named browser keeps the supported list one tap away, inside the notice', () => {
+		const screen = run('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15');
+		const supported = Array.from(screen.querySelectorAll('footer details')).find((d) => d.querySelector('summary')?.textContent === 'Supported browsers');
+		expect(Array.from(supported?.querySelectorAll('li') ?? []).map((li) => li.textContent)).toEqual(supportedList());
+		expect(supportedList()).toEqual([
+			'Chrome 111 or newer',
+			'Edge 111 or newer',
+			'Firefox 128 or newer',
+			'Safari 16.4 or newer on a Mac',
+			'iOS 16.4 or newer on iPhone and iPad, for every browser there',
+			'Samsung Internet 22 or newer',
+			'Opera 97 or newer',
+		]);
 	});
 
 	it('names every missing feature, says why updating matters, and shows the slide for the mode', () => {
@@ -173,8 +199,8 @@ describe('its structure, for a reader who listens or tabs', () => {
 
 	it('keeps the jargon behind "Technical details" and says what Continue anyway costs', () => {
 		const screen = run('SomeBrowser/1.0');
-		expect(screen.querySelector('details summary')?.textContent).toBe('Technical details');
-		expect(screen.querySelector('details')?.hasAttribute('open')).toBe(false);
+		const tech = Array.from(screen.querySelectorAll('details')).find((d) => d.querySelector('summary')?.textContent === 'Technical details');
+		expect(tech?.hasAttribute('open')).toBe(false);
 		expect(screen.querySelector('.lob-continue')?.textContent).toBe('You can still look around, but parts of the site may not work. Continue anyway');
 		expect(screen.querySelector('.lob-go')?.getAttribute('type')).toBe('button');
 	});

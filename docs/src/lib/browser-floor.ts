@@ -108,3 +108,12 @@ export function floorSummary(): string {
 		.map((b) => `${b.name} ${b.min}`)
 		.join(', ');
 }
+
+/**
+ * The supported browsers as a reader says them, one per line ("Safari 16.4 or newer on a Mac"). The notice shows this list
+ * itself: it must never send a reader to another page of the site, which their browser can't show properly either.
+ */
+export function supportedList(): string[] {
+	const where: Partial<Record<BrowserFloor['id'], string>> = { safari: ' on a Mac', ios: ' on iPhone and iPad, for every browser there' };
+	return BROWSER_FLOOR.filter((b) => b.id !== 'edge-legacy').map((b) => `${b.name} ${b.min} or newer${where[b.id] ?? ''}`);
+}

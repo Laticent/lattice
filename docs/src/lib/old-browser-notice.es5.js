@@ -107,7 +107,7 @@
 		'#ID .lob-eyebrow img{width:22px;height:22px;padding:0 10px 0 0}' +
 		'#ID h1{margin:0;padding:0 0 10px;font:700 34px/1.1 var(--font-display,Georgia,"Times New Roman",serif);letter-spacing:-.01em;color:inherit;color:var(--text-heading,CanvasText);outline:none}' +
 		'#ID h2{margin:0;padding:0 0 12px;font:600 12px/1 ' + MONO + ';letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted,GrayText)}' +
-		'#ID p,#ID ol,#ID dl,#ID dd{margin:0;font-size:16px;line-height:1.6}' +
+		'#ID p,#ID ol,#ID ul,#ID dl,#ID dd{margin:0;font-size:16px;line-height:1.6}' +
 		'#ID .lob-lead{padding:0 0 22px;font-size:17px}' +
 		'#ID figure{margin:0;padding:0 0 22px}' +
 		'#ID figure img{display:block;width:100%;height:auto;border-radius:12px;border:' + RULE + ';box-shadow:0 18px 40px -24px rgba(0,0,0,.5)}' +
@@ -118,15 +118,19 @@
 		'#ID .lob-spec dt{padding:0 0 6px;font:600 11px/1 ' + MONO + ';letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted,GrayText)}' +
 		'#ID .lob-spec dd{font:700 20px/1.2 var(--font-display,Georgia,serif);color:var(--text-heading,CanvasText)}' +
 		'#ID .lob-note{padding:16px 0 0}' +
-		'#ID .lob-note+ol{padding-top:8px}' +
-		'#ID ol{padding:16px 0 0 1.4em}' +
+		'#ID .lob-note+ol,#ID .lob-note+ul{padding-top:8px}' +
+		'#ID ol,#ID ul{margin:0;padding:16px 0 0 1.4em}' +
+		'#ID .lob-supported{font-size:15px}' +
+		'#ID details .lob-supported{padding-top:6px}' +
+		// With no button row after it, the inline list keeps the button row's gap above the footer rule.
+		'#ID .lob-body .lob-supported{padding-bottom:24px}' +
+		'#ID h2+.lob-note{padding-top:0}' +
 		'#ID li{padding:0 0 6px 4px}' +
 		'#ID .lob-after{padding:4px 0 0;font-size:15px;color:var(--text-muted,GrayText)}' +
 		'#ID .lob-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:18px 0 24px}' +
 		'#ID .lob-actions a{display:inline-block;font-size:16px;font-weight:600;text-decoration:none}' +
 		'#ID .lob-primary{padding:12px 22px;border-radius:999px;background:var(--accent,Highlight);color:white;color:var(--on-accent,var(--bg,Canvas))}' +
-		'#ID .lob-secondary{padding:12px 4px 12px 22px;color:var(--accent,Highlight)}' +
-		'#ID .lob-secondary:hover,#ID .lob-primary:hover{text-decoration:underline}' +
+		'#ID .lob-primary:hover{text-decoration:underline}' +
 		// Keyboard focus is always visible, in the accent, on every control.
 		'#ID a:focus,#ID button:focus,#ID summary:focus{outline:2px solid var(--accent,Highlight);outline-offset:3px}' +
 		'#ID .lob-foot{padding:20px 0 0;border-top:' + RULE + '}' +
@@ -145,7 +149,7 @@
 		'#ID .lob-head{grid-area:head}#ID .lob-body{grid-area:body}#ID .lob-foot{grid-area:foot}#ID figure{grid-area:media;-webkit-align-self:center;align-self:center;padding:0}}}' +
 		'@media (max-width:560px){#ID .lob-stage{padding:16px 12px 32px}#ID .lob-card{padding:22px 18px;border-radius:18px}#ID h1{font-size:28px}' +
 		'#ID .lob-spec{display:block}#ID .lob-spec div+div{border-left:0;border-top:' + RULE + '}' +
-		'#ID .lob-secondary{padding:12px 0}}' +
+		'}' +
 		'@media (prefers-reduced-motion:reduce){#ID .lob-card{-webkit-transition:none;transition:none}}';
 
 	function el(tag, cls, text) {
@@ -161,6 +165,14 @@
 		c.appendChild(el('dt', '', label));
 		c.appendChild(el('dd', '', value));
 		return c;
+	}
+
+	/** The supported browsers, as a list, from the data the endpoint put in front of this file. */
+	function supportedList() {
+		var ul = el('ul', 'lob-supported');
+		var j;
+		for (j = 0; j < LOB.supported.length; j++) ul.appendChild(el('li', '', LOB.supported[j]));
+		return ul;
 	}
 
 	/** A link that opens a new tab says so to a screen reader, which can't see where it went. */
@@ -255,19 +267,30 @@
 			}
 			if (said.after) body.appendChild(el('p', 'lob-after', said.after));
 		} else {
-			body.appendChild(el('p', 'lob-note', 'Update to ' + LOB.summary + ' or newer, then open this page again.'));
+			// A browser we can't name: the supported list itself, in full, with nothing to click away to.
+			body.appendChild(el('p', 'lob-note', 'Update to one of these browsers, then open this page again:'));
+			body.appendChild(supportedList());
 		}
-		var actions = el('p', 'lob-actions');
-		var supported = el('a', said ? 'lob-secondary' : 'lob-primary', 'Supported browsers');
-		supported.href = LOB.supportedHref;
-		if (said) actions.appendChild(newTabLink('lob-primary', said.linkText, said.link));
-		actions.appendChild(supported);
-		body.appendChild(actions);
+		var actions;
+		if (said) {
+			// The one link in the notice leads off the site, to the browser maker's own update page, which an old browser can
+			// open. Nothing links to another page of this site: it would be as broken here as this one.
+			actions = el('p', 'lob-actions');
+			actions.appendChild(newTabLink('lob-primary', said.linkText, said.link));
+			body.appendChild(actions);
+		}
 		card.appendChild(body);
 
 		// 4. Why it matters, the technical detail for whoever wants it, and the way past.
 		var foot = el('footer', 'lob-foot');
 		foot.appendChild(el('p', '', 'Browsers this old also stop getting security fixes, which makes them unsafe to use on the web.'));
+		var supported;
+		if (said) {
+			supported = el('details');
+			supported.appendChild(el('summary', '', 'Supported browsers'));
+			supported.appendChild(supportedList());
+			foot.appendChild(supported);
+		}
 		var details = el('details');
 		details.appendChild(el('summary', '', 'Technical details'));
 		details.appendChild(el('p', '', 'This browser is missing ' + list + ', which Lattice needs. Lattice checks for features, not version numbers.'));

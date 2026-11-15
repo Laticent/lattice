@@ -473,6 +473,12 @@ versions and how to update, and it looks like the site, not like an error page.
   the page on "Continue anyway", across a reload, with no page errors, at 1440 and 390 px in both modes. Firefox 115 ESR
   was downloaded but could not be launched in the sandbox, and real Safari 15 / iOS 15 was not reachable: both
   **UNVERIFIED**.
+- **Self-contained (owner, same day).** The notice links to no other page of this site: a browser too old for the landing
+  page is too old for Getting started too, so a "Supported browsers" link sent the reader to a second broken page. The
+  supported list (`supportedList()` in `browser-floor.ts`) travels inside the notice instead: in full under "How to update"
+  when the browser can't be named, and in a collapsed "Supported browsers" `details` in the footer when it can. The one
+  link left goes off the site, to the browser maker's own update page. A unit test fails on any link that is not
+  `https://`.
 - **The owner's real legacy Edge (EdgeHTML 15, Windows 10, 2026-11-15).** The check fired and the notice showed, but it
   looked broken, for three reasons, each fixed and each pinned by a test:
   1. **Solid brown over the text.** The site sets `::selection { background: var(--accent) }`, a tint where `color-mix()`

@@ -39,10 +39,12 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an old browser gets an hon
 	await expect(notice.getByRole('heading', { name: 'Lattice needs a newer browser.' })).toBeFocused();
 	await expect(notice.locator('details')).toContainText('This browser is missing CSS :has(), which Lattice needs.');
 	await expect(notice).toContainText('stop getting security fixes');
-	// A current engine made to fail the probe: its user agent says it is new enough, so it gets the general advice and
-	// the docs link, never "you have Chrome 150; Lattice needs 111" (the per-browser wording is unit-tested).
-	await expect(notice).toContainText('Chrome 111, Edge 111, Firefox 128, Safari 16.4');
-	await expect(notice.getByRole('link', { name: 'Supported browsers' })).toHaveAttribute('href', /getting-started\/#supported-browsers$/);
+	// A current engine made to fail the probe: its user agent says it is new enough, so it gets the general advice and the
+	// supported list, never "you have Chrome 150; Lattice needs 111" (the per-browser wording is unit-tested).
+	await expect(notice).toContainText('Update to one of these browsers, then open this page again:');
+	// Self-contained: the supported list is in the notice, and no link leads to another page of this site.
+	await expect(notice.locator('.lob-supported li')).toContainText(['Chrome 111 or newer', 'Edge 111 or newer', 'Firefox 128 or newer']);
+	await expect(notice.locator('a[href^="/"], a:not([href^="http"])')).toHaveCount(0);
 	// The slide the reader is missing has loaded, in the page's mode.
 	const slide = notice.locator('figure img');
 	await expect(slide).toHaveAttribute('src', /old-browser\/hero-(light|dark)\.jpg$/);
