@@ -1034,11 +1034,36 @@ class SlideView {
 		this.pill.append(ghost);
 		const w = Math.ceil(ghost.getBoundingClientRect().width);
 		ghost.remove();
-		// Zero with chips to measure means the slide is not laid out yet (a collapsed pass): measure again next time.
-		if (w === 0 && keys.size) return;
+		// Zero with chips to measure means the slide is not laid out yet (a collapsed pass). "Measure again next time" left
+		// it to whatever editor update came next, so a first visit could show the pill at its unreserved width (169px on
+		// the title slide) and then grow to 232px with no caret move: the toolbar jump the iOS Compose probe saw once in
+		// five runs (2026-11-15). Measure again the moment the pill has a size instead, after layout and before paint.
+		if (w === 0 && keys.size) {
+			this.reserveWhenLaidOut();
+			return;
+		}
 		this.fmtGroup.style.setProperty('--cs-fmt-min', `${w}px`);
 		// A block with no style to offer (a list item) keeps the slot and its divider, so the doors do not slide over.
 		this.fmtGroup.toggleAttribute('data-reserved', w > 0);
+	}
+	private layoutWatch: ResizeObserver | null = null;
+	/** Re-run the reserve once the pill is laid out; one observer at a time, gone on destroy or after it fires. */
+	private reserveWhenLaidOut() {
+		if (this.layoutWatch || typeof ResizeObserver === 'undefined' || this.ac.signal.aborted) return;
+		const watch = new ResizeObserver(() => {
+			if (!this.pill.getBoundingClientRect().width) return;
+			watch.disconnect();
+			this.layoutWatch = null;
+			if (this.ac.signal.aborted) return;
+			this.reserveFormatWidth();
+			if (this.dom.classList.contains('cs-slide-active')) this.holdPillWidth();
+		});
+		this.layoutWatch = watch;
+		watch.observe(this.pill);
+		this.ac.signal.addEventListener('abort', () => {
+			watch.disconnect();
+			this.layoutWatch = null;
+		});
 	}
 	/** Every style the slide offers in any of its blocks: the caret placed at each top-level block, asked in turn. */
 	private slideFormatKeys(): Set<Reg> {
