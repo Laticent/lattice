@@ -27,6 +27,7 @@ import { takePendingSelection } from '@/lib/compose/pending-selection';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
+import { applySlideLayout, layoutBlocker, restoreSlide, type SlideLayoutChoice, slideComponent, slideFit, slideStarter } from '@/lib/compose/slide-layout';
 import { stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { type CarriedColumn, lineOffsetIn, plainColumnOf, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { ensurePluginData } from '@/lib/ensure-plugin-data';
@@ -575,6 +576,10 @@ function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 // kernel's rule (`slidePanes`), read per doc and memoized by doc identity, the stateMarkerPlugin pattern.
 const paneKey = new PluginKey<DecorationSet>('cs-panes');
 
+/** What the layout menu (LayoutMenu.tsx, rendered by StudioShell) needs to open for one slide: which slide, and the
+ *  pill button to anchor a popover to. The menu reads the rest through the handle (`layoutOf`). */
+export type LayoutRequest = { slideIndex: number; anchor: HTMLElement };
+
 /** A pick from the pane gallery: the component, its look's modifiers, and its gallery skeleton
  *  when the pane starts fresh (null when it keeps its text). */
 export type PanePick = { cls: string; modifiers: string[]; skeleton: string | null };
@@ -781,6 +786,12 @@ class SlideView {
 	// The slot the Insert menu island is portaled into, and whether it is mounted (only the active slide's bar is shown).
 	private insertSlot: HTMLElement;
 	private insertMounted = false;
+	// THE LAYOUT BUTTON — the slide's component by name, as the pill's first control on the active slide and as a quiet copy
+	// on every other slide (the pill is hidden there), so the column of slides reads as a list of layouts. One control in
+	// two places: the same name, the same chevron, the same menu. engineering/decisions/2026-11-15-compose-layout-button.md.
+	private layoutBtn: HTMLButtonElement;
+	private ghostBtn: HTMLButtonElement;
+	private layoutSig = '';
 	constructor(
 		node: PMNode,
 		public view: EditorView,
@@ -797,6 +808,8 @@ class SlideView {
 		private mountInsert?: (slot: HTMLElement | null, owner: SlideView) => void,
 		// What a delete of slide `i` takes, in words ("“Pricing” (3 slides)"), read lazily like the rest.
 		private describeDelete?: (index: number) => string,
+		// The layout button's opener (LayoutMenu.tsx, via StudioShell): the slide, and the button to anchor the menu to.
+		private openLayout?: (getPos: () => number | undefined, anchor: HTMLElement) => void,
 	) {
 		this.node = node;
 		this.locked = !!node.attrs.locked;
@@ -855,7 +868,7 @@ class SlideView {
 		// FIRST in the bar, before the Format group. On a narrow pane the bar wraps (CSS), with this pair
 		// and the insert doors on the first row.
 		const history = document.createElement('div');
-		history.className = 'cs-sb-actions';
+		history.className = 'cs-sb-actions cs-sb-hist';
 		history.setAttribute('role', 'group');
 		history.setAttribute('aria-label', 'History');
 		history.append(this.undoBtn, this.redoBtn);
@@ -876,9 +889,12 @@ class SlideView {
 		this.insertSlot.className = 'cs-ins-slot';
 		actions.append(this.insertSlot);
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
-		pill.append(history, historyDiv, this.fmtGroup, div, actions);
+		this.layoutBtn = this.layoutButton('cs-sb-layout');
+		this.ghostBtn = this.layoutButton('cs-sb-layout cs-sb-ghost');
+		pill.append(this.layoutBtn, history, historyDiv, this.fmtGroup, div, actions);
 
-		bar.append(line, pill);
+		bar.append(line, pill, this.ghostBtn);
+		this.syncLayout();
 		const content = document.createElement('div');
 		content.className = 'cs-slide-content';
 		dom.append(bar, content);
@@ -1222,6 +1238,75 @@ class SlideView {
 		nodes.splice(i, 1);
 		this.commit(nodes, i);
 	}
+	/** One layout button: the slide's component name and a chevron. The quiet copy (`ghost`) on an inactive slide
+	 *  first makes its slide the active one, then opens the menu from the pill's button, so the menu always has one anchor. */
+	private layoutButton(cls: string): HTMLButtonElement {
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = cls;
+		b.setAttribute('aria-haspopup', 'dialog');
+		const name = document.createElement('span');
+		name.className = 'cs-lb-name';
+		const chev = document.createElement('span');
+		chev.className = 'cs-lb-chev';
+		chev.innerHTML = lucideSvg('chevron-down');
+		b.append(name, chev);
+		b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
+		const ghost = cls.includes('cs-sb-ghost');
+		b.addEventListener(
+			'click',
+			(e) => {
+				e.preventDefault();
+				if (layoutBlocker(this.node) || !this.openLayout) return;
+				this.writeOpenNote();
+				if (ghost) this.activate();
+				// The pill's button is the anchor even when the quiet copy was tapped: the pill shows the moment the slide is active.
+				// It also takes focus before the menu opens, so the menu gives focus back to it on close (a sheet returns focus to
+				// what held it at open, components/ui/sheet.tsx), and a phone's keyboard goes down while the author chooses.
+				requestAnimationFrame(() => {
+					this.layoutBtn.focus({ preventScroll: true });
+					this.openLayout?.(() => this.getPos(), this.layoutBtn);
+				});
+			},
+			{ signal: this.ac.signal },
+		);
+		return b;
+	}
+	/** Make this the active slide without taking keyboard focus (on a phone, focus would raise the keyboard over the menu). */
+	private activate() {
+		const pos = this.getPos();
+		const sel = TextSelection.near(this.view.state.doc.resolve(pos + 1));
+		this.view.dispatch(this.view.state.tr.setSelection(sel));
+	}
+	/** Name the slide's component on both buttons, and disable them on a slide Compose cannot rewrite. */
+	private syncLayout() {
+		const cls = slideComponent(this.node);
+		const shown = cls === 'content' ? 'text' : cls;
+		const blocked = layoutBlocker(this.node);
+		const sig = `${shown}|${blocked}|${!!this.openLayout}`;
+		if (sig === this.layoutSig) return;
+		this.layoutSig = sig;
+		// Disabled, never absent, where Compose cannot rewrite the class: the name still reads, and the title says where to change it.
+		for (const b of [this.layoutBtn, this.ghostBtn]) {
+			(b.firstChild as HTMLElement).textContent = shown;
+			b.disabled = !!blocked || !this.openLayout;
+			b.title = blocked ?? 'Change this slide’s layout';
+			b.setAttribute('aria-label', `Layout: ${shown}. ${blocked ?? 'Change layout'}`);
+		}
+		// The quiet copy is a second way to the same menu: one tab stop per slide is the pill's button.
+		this.ghostBtn.tabIndex = -1;
+		// A WHOLE-PIXEL width. The name is text, so its width is fractional, and the pill (centered) then sat on a half pixel that
+		// rounded one way or the other as the Format group beside it settled: the toolbar moved 1px while the caret moved
+		// (compose-toolbar-steady.spec.ts). Measured after layout; a hidden pill still has a box.
+		requestAnimationFrame(() => {
+			if (this.ac.signal.aborted) return;
+			for (const b of [this.layoutBtn, this.ghostBtn]) {
+				b.style.minWidth = '';
+				const w = b.getBoundingClientRect().width;
+				if (w) b.style.minWidth = `${Math.ceil(w)}px`;
+			}
+		});
+	}
 	private toggleCollapse() {
 		// Folding or unfolding closes an open note: its pill may be one the fold hides, and a panel with no visible pill is a dead end.
 		// Its words are written first (`btn` does it on every control, and asks again here for the answer), because the panel leaves the page
@@ -1239,6 +1324,7 @@ class SlideView {
 		this.stateful = isStatefulClass(node);
 		this.dom.classList.toggle('cs-slide-locked', this.locked);
 		this.dom.dataset.directives = JSON.stringify((node.attrs.directives as string[]) || []);
+		this.syncLayout();
 		this.applyDecos(decorations);
 		return true;
 	}
@@ -2395,6 +2481,14 @@ export type ComposeHandle = {
 	/** Undo that pick, but only while nothing has been written since (the token is the document
 	 *  the pick produced): an Undo toast must never undo the author's later typing. */
 	undoPane: (token: unknown) => boolean;
+	/** The layout menu's reading of slide `index`: the component it holds, a fit test for every other one (whether it would keep
+	 *  the slide's text), and the slide as it stands, to put back on Undo. Null when the slide is gone or locked. */
+	layoutOf: (index: number) => { current: string; fit: (cls: string) => 'keeps' | 'fresh'; original: unknown } | null;
+	/** Give slide `index` a layout (slide-layout.ts `applySlideLayout`), as its own history step: its class `tokens`, and, when
+	 *  `skeleton` is set, that component's starter in place of the slide's body. False when nothing changed. */
+	applyLayout: (index: number, choice: { tokens: string[]; skeleton: string | null }) => boolean;
+	/** Put slide `index` back as `layoutOf` read it: the layout menu's Undo, one step for a whole visit. */
+	restoreLayout: (index: number, original: unknown) => boolean;
 	/** Show the text a Filo undo or redo produced, now, even while the editor has focus (an outside
 	 *  change is parked until blur; an undo must not be, or ⌘Z would look like it did nothing and the
 	 *  next keystroke would put the undone change back). Only the slides that differ change. */
@@ -2405,7 +2499,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: (peek?: boolean) => { slide: number; line?: string | null; col?: CarriedColumn; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string; live?: boolean }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete, live = false }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: (peek?: boolean) => { slide: number; line?: string | null; col?: CarriedColumn; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLayoutMenu?: (req: LayoutRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string; live?: boolean }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLayoutMenu, onOpenLibrary, pluginKinds, onRetire, describeDelete, live = false }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2654,6 +2748,36 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const v = viewRef.current;
 			if (!v || v.state.doc !== token) return false;
 			composeHistory.run('undo');
+			return true;
+		},
+		layoutOf(index: number) {
+			const v = viewRef.current;
+			if (!v || index < 0 || index >= v.state.doc.childCount) return null;
+			const slide = v.state.doc.child(index);
+			if (layoutBlocker(slide)) return null;
+			return { current: slideComponent(slide), fit: slideFit(slide, paneNeedsRef.current, document), original: slide };
+		},
+		applyLayout(index: number, choice: { tokens: string[]; skeleton: string | null }) {
+			const v = viewRef.current;
+			if (!v || index < 0 || index >= v.state.doc.childCount || !choice.tokens.length) return false;
+			let pos = 0;
+			for (let i = 0; i < index; i++) pos += v.state.doc.child(i).nodeSize;
+			// A closing blockquote stays in the starter only for a component that reads one as its own, as in `applyPane`.
+			const keepQuote = (paneNeedsRef.current?.[choice.tokens[0]]?.slots || []).some((sel) => sel.includes('blockquote'));
+			const layout: SlideLayoutChoice = { tokens: choice.tokens, starter: choice.skeleton === null ? null : slideStarter(choice.skeleton, keepQuote) };
+			const tr = applySlideLayout(v.state, pos, layout);
+			if (!tr) return false;
+			v.dispatch(tr.setMeta(STEP_LABEL, 'Change layout'));
+			return true;
+		},
+		restoreLayout(index: number, original: unknown) {
+			const v = viewRef.current;
+			if (!v || index < 0 || index >= v.state.doc.childCount || !original) return false;
+			let pos = 0;
+			for (let i = 0; i < index; i++) pos += v.state.doc.child(i).nodeSize;
+			const tr = restoreSlide(v.state, pos, original as PMNode);
+			if (!tr) return false;
+			v.dispatch(tr.setMeta(STEP_LABEL, 'Undo layout change'));
 			return true;
 		},
 		applyHistory(text: string) {
@@ -2917,6 +3041,16 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	paneNeedsRef.current = paneNeeds;
 	const onOpenPanePickerRef = React.useRef(onOpenPanePicker);
 	onOpenPanePickerRef.current = onOpenPanePicker;
+	// The layout button's opener, held by every SlideView: one stable function that reads the latest prop, like `openPane`.
+	const onOpenLayoutMenuRef = React.useRef(onOpenLayoutMenu);
+	onOpenLayoutMenuRef.current = onOpenLayoutMenu;
+	const openLayout = React.useCallback((getPos: () => number | undefined, anchor: HTMLElement) => {
+		const v = viewRef.current;
+		const at = getPos();
+		const opener = onOpenLayoutMenuRef.current;
+		if (!v || at === undefined || !opener) return;
+		opener({ slideIndex: v.state.doc.resolve(at).index(0), anchor });
+	}, []);
 	const openPane = React.useCallback<PaneOpen>((getPos, paneIndex) => {
 		const v = viewRef.current;
 		const at = getPos();
@@ -3222,7 +3356,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, mountInsert, (i) => describeDeleteRef.current?.(i) ?? 'this slide'),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, mountInsert, (i) => describeDeleteRef.current?.(i) ?? 'this slide', onOpenLayoutMenuRef.current ? openLayout : undefined),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
 					image: imageNodeView,
 					inline_math: mathInlineNodeView,
@@ -3678,6 +3812,22 @@ function ComposeStyles() {
 			.cs-pill-btn svg{display:block;width:13px;height:13px}
 			.cs-pill-btn:hover:not(:disabled){color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			.cs-pill-btn:disabled{opacity:.35;cursor:default}
+			/* THE LAYOUT BUTTON — the slide's component by name, with a chevron: the "Normal text ▾" a word processor puts first in its
+			   toolbar. The pill's first control on the active slide; a quiet copy (.cs-sb-ghost) sits on the line of every other slide,
+			   in the space the hidden pill reserves, so focusing a slide moves nothing. Its hit area reaches 38px (44px on a phone)
+			   without taking room from its neighbors. engineering/decisions/2026-11-15-compose-layout-button.md. */
+			.cs-sb-layout{flex:none;position:relative;display:inline-flex;align-items:center;gap:3px;height:22px;max-width:min(22ch,100%);padding:0 4px 0 7px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--text-heading,#0a1628);font-family:var(--font-mono,ui-monospace,monospace);font-size:11px;font-weight:600;letter-spacing:.01em;cursor:pointer;transition:color .12s,background .12s,border-color .12s}
+			.cs-sb-layout::after{content:"";position:absolute;inset:-8px -2px}
+			.cs-sb-layout .cs-lb-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+			.cs-sb-layout .cs-lb-chev{flex:none;display:flex;color:var(--text-muted,#6b7f9a)}
+			.cs-sb-layout .cs-lb-chev svg{width:12px;height:12px}
+			.cs-sb-layout:hover:not(:disabled){color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-sb-layout[aria-expanded="true"]{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-sb-layout:disabled{opacity:.5;cursor:default}
+			.cs-sb-layout:focus-visible{outline:2px solid var(--accent,#006fa8);outline-offset:1px}
+			.cs-sb-ghost{grid-area:1/1;justify-self:center;z-index:1;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-weight:500;padding:0 6px 0 9px}
+			.cs-sb-ghost:hover:not(:disabled){border-color:var(--border,#e4eaf2)}
+			.cs-slide-active > .cs-slide-bar > .cs-sb-ghost{visibility:hidden}
 			/* COLLAPSED — the slide's TITLE, with the ellipsis riding the same line.
 			   Keeping merely the FIRST block showed the eyebrow instead (an eyebrow is
 			   p:has(> code:only-child) placed BEFORE the heading — see lib/base/base.docs.md),
@@ -3916,8 +4066,11 @@ function ComposeStyles() {
 					   the doors; row two the Format group, whose width the slide reserves (SlideView.reserveFormatWidth),
 					   so the caret moving inside the slide never resizes it. A fixed full width did that too, but left
 					   wide empty margins on most slides (owner, 2026-11-11, on an iPhone). */
-					.cs-sb-pill{display:inline-grid;grid-template-columns:auto auto auto;grid-template-areas:"h d a" "f f f";justify-content:center;justify-items:center;column-gap:3px;row-gap:3px;max-width:calc(100% - 68px)}
-					.cs-sb-pill > .cs-sb-actions:first-child{grid-area:h}
+					.cs-sb-pill{display:inline-grid;grid-template-columns:auto auto auto;grid-template-areas:"h d a" "l f f";justify-content:center;justify-items:center;column-gap:3px;row-gap:3px;max-width:calc(100% - 68px)}
+					/* The layout button leads ROW TWO, beside the block's styles: row one is what you can DO, row two is what this IS (the
+					   slide's layout, the block's style). On row one it pushed the pill to within 20px of the end caps at 390px. */
+					.cs-sb-pill > .cs-sb-layout{grid-area:l;justify-self:start;max-width:16ch}
+					.cs-sb-pill > .cs-sb-hist{grid-area:h;justify-self:end}
 					.cs-sb-pill > .cs-sb-actions:last-child{grid-area:a}
 					.cs-sb-pill > .cs-sb-div:not(.cs-sb-div-hist){grid-area:d;display:block}
 					.cs-sb-pill > .cs-sb-div-hist{display:none}
@@ -3931,15 +4084,20 @@ function ComposeStyles() {
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-host .cs-pane-change,.cs-host .cs-pane-add-title{min-height:32px}
-				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
+				.cs-slide-bar{margin:0 0 6px;padding:12px 4px 6px}
 				/* The ACTIVE slide's bar stays on screen while its slide scrolls under it. A phone's keyboard scrolls the
 				   pane to keep the caret in view, which left the bar half above the top edge, its buttons clipped and
 				   hard to hit (reported from a real iPhone). Opaque, so text never shows through the hairline; the
 				   containing block is the slide, so the bar leaves with its slide and the next slide's bar takes over. */
-				.cs-slide-active > .cs-slide-bar{position:sticky;top:0;z-index:20;margin-top:0;padding-top:12px;padding-bottom:6px;background:var(--bg,#fff)}
+				.cs-slide-active > .cs-slide-bar{position:sticky;top:0;z-index:20;background:var(--bg,#fff)}
+				/* EVERY bar on a phone has the spacing the sticky one needs (12px of padding above for the opaque band, 6px below),
+				   so focusing a slide changes only its stickiness and background, never its box. The active bar used to swap its
+				   12px top MARGIN for padding: an inactive bar's top margin collapses out through its slide, an active one's could
+				   not, and the slide's text moved 5.6px down on every focus (measured; compose-layout-button.spec.ts). */
 				.cs-sb-line{height:28px}
 				.cs-sc-cap{width:28px;height:28px}
 				.cs-sc-cap svg{width:15px;height:15px}
+				.cs-sb-layout{height:28px;font-size:11.5px}
 				.cs-sb-pill{gap:4px;padding:4px 6px;border-radius:14px}
 				.cs-sb-div{height:16px}
 				.cs-fmt-btn{min-width:28px;height:28px;padding:0 9px;font-size:12px}

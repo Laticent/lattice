@@ -52,7 +52,7 @@ export type SlidePanes = { direction: PaneDirection; panes: PaneInfo[] };
 
 /** Whether a paragraph is a pill: one run of inline code and nothing else — code ONLY, as the
  *  kernel's `isPillLine` and the engine's code-only paragraph read it (a bold pill is not one). */
-function isPill(node: PMNode): boolean {
+export function isPill(node: PMNode): boolean {
 	if (node.type.name !== 'paragraph' || node.childCount !== 1) return false;
 	const only = node.firstChild;
 	return !!only?.isText && only.marks.length === 1 && only.marks[0].type.name === 'code';
@@ -144,13 +144,13 @@ export function paneLabel(direction: PaneDirection, index: number): string {
 }
 
 /** The slide node at `slidePos` in `doc` and the position of its first child, or null. */
-function slideAt(doc: PMNode, slidePos: number): { slide: PMNode; start: number } | null {
+export function slideAt(doc: PMNode, slidePos: number): { slide: PMNode; start: number } | null {
 	const slide = doc.nodeAt(slidePos);
 	return slide && slide.type.name === 'slide' ? { slide, start: slidePos + 1 } : null;
 }
 
 /** The position of child `k` of a node whose content starts at `start`. */
-function childPos(parent: PMNode, start: number, k: number): number {
+export function childPos(parent: PMNode, start: number, k: number): number {
 	let pos = start;
 	for (let i = 0; i < k; i++) pos += parent.child(i).nodeSize;
 	return pos;
@@ -220,6 +220,13 @@ export function paneFit(slide: PMNode, info: SlidePanes, index: number, needs: P
 	const { from, to } = paneBodyRange(slide, info, index);
 	const nodes: PMNode[] = [];
 	for (let k = from; k < to; k++) if (slide.child(k).type.name !== 'comment') nodes.push(slide.child(k));
+	return bodyFit(slide, nodes, info.panes[index].cls, needs, doc);
+}
+
+/** The fit test itself, over a body's nodes: shared by a pane (`paneFit`) and a whole slide
+ *  (slide-layout.ts `slideFit`), so the two can never disagree about what "keeps your text" means.
+ *  `current` is the component the body holds now. */
+export function bodyFit(slide: PMNode, nodes: PMNode[], current: string, needs: PaneNeeds, doc: Document): (cls: string) => 'keeps' | 'fresh' {
 	const section = doc.createElement('section');
 	if (nodes.length) section.append(DOMSerializer.fromSchema(slide.type.schema).serializeFragment(Fragment.from(nodes), { document: doc }));
 	const hasNumber = [...section.querySelectorAll('code, td')].some((el) => /\d/.test(el.textContent || ''));
@@ -241,7 +248,6 @@ export function paneFit(slide: PMNode, info: SlidePanes, index: number, needs: P
 			return false;
 		}
 	};
-	const current = info.panes[index].cls;
 	const known = Object.keys(needs).length > 0;
 	return (cls) => {
 		// A component that owns its `###`s (team-profile) holds them as its own anatomy: under any
