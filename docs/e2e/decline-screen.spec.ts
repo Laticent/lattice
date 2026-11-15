@@ -45,19 +45,20 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a pinned decline covers th
 	await expect(page.locator(SCREEN)).toHaveCount(0);
 });
 
-test('@crosswidth @webkit-phone @webkit-tablet @gecko a browser without CSS :has() is declined by name, unpinned', async ({ page }) => {
+test('@crosswidth @webkit-phone @webkit-tablet @gecko a browser without CSS :has() gets the site-wide notice, not a second screen', async ({ page }) => {
 	await page.addInitScript(() => {
 		const real = CSS.supports.bind(CSS);
 		CSS.supports = ((a: string, b?: string) => (b === undefined && /:has\(/.test(a) ? false : b === undefined ? real(a) : real(a, b))) as typeof CSS.supports;
 	});
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
-	const screen = page.locator(SCREEN);
-	await expect(screen).toBeVisible({ timeout: 150_000 });
-	await expect(screen).toContainText("It needs CSS :has(), which this browser doesn't support.");
-	expect(await tier(page)).toBe('unsupported');
-	// The decline is saved, so the next visit declines from its first paint. Saved once the CPU probe has answered: until
-	// then the tier is interim and nothing is written (device-tier.ts), and on WebKit the screen can show first.
+	// A missing feature is the site-wide old-browser notice's to say, on every route (old-browser.spec.ts); the Studio's
+	// own screen stays for the hardware floor.
+	await expect(page.locator('[data-testid="old-browser"]')).toBeVisible();
+	await expect(page.locator('[data-testid="old-browser"]')).toContainText('This browser is missing CSS :has()');
+	// The tier still records the decline, so the next visit knows from its first paint. Saved once the CPU probe has
+	// answered: until then the tier is interim and nothing is written (device-tier.ts).
 	await expect.poll(() => page.evaluate(() => localStorage.getItem('lattice-device-tier')), { timeout: 150_000 }).toBe('unsupported');
+	await expect(page.locator(SCREEN)).toHaveCount(0);
 });
 
 test('@crosswidth @webkit-phone @gecko unpinned, a supported browser is never declined', async ({ page }) => {

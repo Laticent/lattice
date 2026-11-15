@@ -17,7 +17,10 @@ beforeEach(() => {
 	localStorage.clear();
 	for (const f of Object.values(screen)) f.mockReset();
 });
-afterEach(() => root.removeAttribute('data-device-tier'));
+afterEach(() => {
+	root.removeAttribute('data-device-tier');
+	root.removeAttribute('data-old-browser');
+});
 
 describe('startDeviceGate', () => {
 	it('shows the decline when the tier reads unsupported, and hides it when the tier moves off', async () => {
@@ -38,6 +41,35 @@ describe('startDeviceGate', () => {
 		expect(root.getAttribute('data-device-tier')).toBe('lite');
 		await vi.waitFor(() => expect(screen.showLiteBanner).toHaveBeenCalled());
 		expect(screen.showDecline).not.toHaveBeenCalled();
+	});
+
+	it('leaves a missing feature to the site-wide old-browser notice: no second screen over it', async () => {
+		// The <head> check marked the page and showed its notice (old-browser-check.es5.js); the tier says unsupported too.
+		root.setAttribute('data-old-browser', '');
+		root.setAttribute('data-device-tier', 'unsupported');
+		startDeviceGate();
+		// A decline would arrive through a dynamic import: wait until every import has settled (a signal, not a duration).
+		await vi.dynamicImportSettled();
+		expect(screen.showDecline).not.toHaveBeenCalled();
+		expect(root.getAttribute('data-device-tier')).toBe('unsupported');
+	});
+
+	it("the notice's Continue anyway runs the app as LITE under its banner, on the notice's event", async () => {
+		root.setAttribute('data-old-browser', '');
+		root.setAttribute('data-device-tier', 'unsupported');
+		startDeviceGate();
+		// What the notice does on Continue anyway: set the tier's own continue key, then fire the event.
+		sessionStorage.setItem('lattice-device-continue', '1');
+		document.dispatchEvent(new Event('lattice-old-browser-continue'));
+		expect(root.getAttribute('data-device-tier')).toBe('lite');
+		await vi.waitFor(() => expect(screen.showLiteBanner).toHaveBeenCalled());
+		expect(screen.showDecline).not.toHaveBeenCalled();
+	});
+
+	it('without the old-browser mark, a hardware decline still gets its own screen', async () => {
+		root.setAttribute('data-device-tier', 'unsupported');
+		startDeviceGate();
+		await vi.waitFor(() => expect(screen.showDecline).toHaveBeenCalledTimes(1));
 	});
 
 	it('with decide, applies a pin, else the saved tier, before the app runs; a value that is not a tier is ignored', () => {

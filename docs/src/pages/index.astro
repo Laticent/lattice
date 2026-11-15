@@ -46,7 +46,6 @@ import ResourceHints from '../components/site/ResourceHints.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import PlaygroundWarm from '../components/site/PlaygroundWarm.astro';
 import { sourceHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
-import { oldBrowserCheckScript } from '../lib/old-browser-check';
 
 // Astro evaluates this frontmatter at build time with cwd = docs/, so anchor
 // repo reads to cwd (import.meta.url is unreliable once the page is bundled).
@@ -221,13 +220,7 @@ const nextSteps = nextStepsFor(url);
 				} catch (e) {}
 			})();
 		</script>
-		{/* OLD-BROWSER CHECK (engineering/decisions/2026-11-12-device-capability-tiers.md §6.2). Tests the features only a
-		    browser's age takes away, from the Studio's own probe table, and when one is missing loads /old-browser.js
-		    (pages/old-browser.js.ts), which covers the page with an honest notice. Features only, never hardware. A CLASSIC
-		    script in ES5 (lib/old-browser-check.es5.js, inlined by old-browser-check.ts and parsed as ES5 by a unit test),
-		    because the browsers it is for may not parse our bundled modules; the notice lives in a static file so the page's
-		    HTML stays small and a current browser downloads nothing. */}
-		<script is:inline set:html={oldBrowserCheckScript(url('old-browser.js'))} />
+		{/* The old-browser check is in every page's <head>, this one included: src/plugins/old-browser-check.mjs. */}
 	</head>
 	<body>
 		<SiteHeader palettes={palettes} />

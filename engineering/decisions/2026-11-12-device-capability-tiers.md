@@ -473,6 +473,26 @@ versions and how to update, and it looks like the site, not like an error page.
   the page on "Continue anyway", across a reload, with no page errors, at 1440 and 390 px in both modes. Firefox 115 ESR
   was downloaded but could not be launched in the sandbox, and real Safari 15 / iOS 15 was not reachable: both
   **UNVERIFIED**.
+- **Site-wide, as one build-time interceptor (owner, same day: "should this be a global filter/interceptor"; every
+  page).** The check is no longer in `index.astro`: `src/plugins/old-browser-check.mjs` is an Astro integration that
+  puts it in the `<head>` of every page the build emits, through `injectScript('head-inline', …)`. No route can forget
+  it or opt out, and a new route gets it with nothing to wire (203 of 203 built pages carry it; the other HTML files in
+  `dist/` are one-line redirect stubs to checked pages, plus the service worker's static `offline/` page). Rejected: a
+  server-side interceptor reading the user agent (Cloudflare middleware). It would gate on versions a browser can
+  misreport, need `Vary: User-Agent` and so a cache entry per browser, and turn a static site into one that runs code on
+  every request.
+  - **One screen per browser.** A missing feature is the notice's to say on every route, because it runs in browsers
+    too old to parse the Studio's bundled gate (measured: on real Chromium 101 the Studio's own screen did show, but
+    Edge 15 has no ES modules). `device-gate.ts` shows no screen of its own when `<html data-old-browser>` is set, and
+    keeps its screen for the hardware floor. The notice's "Continue anyway" also sets the device tier's own
+    `lattice-device-continue` and fires `lattice-old-browser-continue`, so the Studio and the Playground then run as
+    Lite under their banner, as their own "Continue anyway" did.
+  - **What the app adds after the notice shows** (the Studio mounts toasts and portals into `<body>`) joins the page
+    beneath through a `MutationObserver`, and is given back on "Continue anyway".
+  - **Measured:** real Chromium 101 shows the same notice on `/`, `/studio/`, `/playground/`, `/getting-started/` and
+    `/components/`, focus on the heading, no second screen; on the Studio, "Continue anyway" brings the Lite banner.
+    Route budgets: every route stays under its `htmlRaw` ceiling (Studio 245.8 of 247.5 KB, Getting started 89.3 of
+    91.7, home 118.6 of 119.1).
 - **Self-contained (owner, same day).** The notice links to no other page of this site: a browser too old for the landing
   page is too old for Getting started too, so a "Supported browsers" link sent the reader to a second broken page. The
   supported list (`supportedList()` in `browser-floor.ts`) travels inside the notice instead, collapsed in the footer as
@@ -503,8 +523,9 @@ versions and how to update, and it looks like the site, not like an error page.
 1. **Decline on features and hardware**, best effort: the floor in §3.1, two agreeing signals, with the
    micro-benchmark and `detect-gpu` filling the gaps the browser's own numbers leave.
 2. **The decline screen keeps a "continue anyway" link.** The session then runs as LITE with a banner that stays up.
-3. **The gate covers the Studio, the Playground and Present.** Docs pages serve everyone. The landing page serves every
-   machine, but since 2026-11-15 tells a browser too old to run it so, and asks for an update (§6.2).
+3. **The gate covers the Studio, the Playground and Present.** Since 2026-11-15 a browser too old for the site, on any
+   page including the docs, gets the site-wide old-browser notice (§6.2); the device gate's own screen is for the
+   hardware floor. Every machine that can run the site is still served.
 4. **LITE triggers as proposed:** a software GPU, or ≤ 4 GB reported, or ≤ 4 cores reported outside Safari, or the
    boot probe. Any one is enough.
 

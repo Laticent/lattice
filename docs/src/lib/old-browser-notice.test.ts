@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'acorn';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GET } from '../pages/old-browser.js';
 import { BROWSER_FLOOR, supportedList } from './browser-floor';
 import { OLD_BROWSER_CHECKS, oldBrowserCheckScript } from './old-browser-check';
@@ -275,6 +275,30 @@ describe('collapsed sections: one button disclosure in every engine, never <deta
 		// The two sections open on their own.
 		expect(toggles[1].getAttribute('aria-expanded')).toBe('false');
 		expect(new Set(toggles.map((t) => t.getAttribute('aria-controls'))).size).toBe(2);
+	});
+});
+
+describe('on the Studio and the Playground', () => {
+	it("Continue anyway also sets the device tier's continue key and tells the page, so the app runs as Lite", () => {
+		const heard = vi.fn();
+		document.addEventListener('lattice-old-browser-continue', heard);
+		const screen = run('SomeBrowser/1.0');
+		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
+		expect(sessionStorage.getItem('lattice-old-browser-continue')).toBe('1');
+		expect(sessionStorage.getItem('lattice-device-continue')).toBe('1');
+		expect(heard).toHaveBeenCalledTimes(1);
+		document.removeEventListener('lattice-old-browser-continue', heard);
+	});
+
+	it('what an app adds to <body> after the notice shows joins the page beneath, and is given back', async () => {
+		const screen = run('SomeBrowser/1.0');
+		const toast = document.createElement('div');
+		document.body.append(toast);
+		await vi.waitFor(() => expect(toast.getAttribute('aria-hidden')).toBe('true'));
+		expect(toast.style.pointerEvents).toBe('none');
+		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
+		expect(toast.hasAttribute('aria-hidden')).toBe(false);
+		expect(toast.style.cssText).toBe('');
 	});
 });
 

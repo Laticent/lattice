@@ -124,3 +124,27 @@ test('@crosswidth @webkit-phone @gecko the notice has no axe findings in either 
 		}
 	}
 });
+
+test('@crosswidth @webkit-phone @gecko every kind of page carries the check: the apps and the docs show the same notice', async ({ page }) => {
+	await withoutHas(page);
+	for (const route of ['/studio/', '/playground/', '/getting-started/', '/components/']) {
+		await page.goto(route, { waitUntil: 'domcontentloaded' });
+		const notice = page.locator(NOTICE);
+		await expect(notice, route).toBeVisible();
+		await expect(notice.getByRole('heading', { name: 'Lattice needs a newer browser.' }), route).toBeFocused();
+		// One screen: the Studio's own decline never stacks on the notice.
+		await expect(page.locator('[data-testid="device-decline"]'), route).toHaveCount(0);
+	}
+});
+
+test('@crosswidth @gecko on the Studio, Continue anyway runs the app as Lite under its banner', async ({ page }) => {
+	await withoutHas(page);
+	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
+	const notice = page.locator(NOTICE);
+	await expect(notice).toBeVisible();
+	await notice.getByRole('button', { name: 'Continue anyway' }).click();
+	await expect(notice).toHaveCount(0);
+	await expect(page.locator('[data-testid="device-banner"]')).toBeVisible({ timeout: 60_000 });
+	await expect(page.locator('html')).toHaveAttribute('data-device-tier', 'lite', { timeout: 60_000 });
+	await expect(page.locator('[data-testid="device-decline"]')).toHaveCount(0);
+});

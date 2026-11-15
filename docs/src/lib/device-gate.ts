@@ -4,7 +4,8 @@
 // chunk) over the page; when the tier moves off it, the screen goes. A tab that chose "continue anyway" (sessionStorage is
 // per tab) does not see the screen again: the gate turns the attribute to "lite" at once and shows the Lite banner instead.
 //
-// Owner's scope (§7.3): the Studio (and Present, which runs inside it) and the Playground. The Studio decides its tier in
+// Owner's scope (§7.3): the Studio (and Present, which runs inside it) and the Playground; a missing FEATURE is now the
+// site-wide notice's to say on every route (§6.2), so this gate's screen is for the hardware floor. The Studio decides its tier in
 // its own warm-up after the first slide; on the Playground the gate also applies a pin or the saved tier before the app
 // runs, and starts the decision once the page is idle. Landing and docs pages carry no gate and serve everyone.
 //
@@ -13,6 +14,14 @@
 import { CONTINUE_KEY, TIER_KEY } from './device-tier-keys';
 
 const TIERS = /^(full|lite|unsupported)$/;
+
+/**
+ * The site-wide old-browser check (old-browser-check.es5.js, in every page's <head>) marks <html data-old-browser> when a
+ * required feature is missing and shows its own notice. That notice owns the feature decline on every route, because it
+ * runs in browsers too old to parse this module: so the gate shows no screen of its own for such a browser. Its
+ * "Continue anyway" sets CONTINUE_KEY too, and says so with this event, so the Studio then runs as LITE under its banner.
+ */
+export const OLD_BROWSER_CONTINUE_EVENT = 'lattice-old-browser-continue';
 
 function continued(): boolean {
 	try {
@@ -40,6 +49,8 @@ export function startDeviceGate({ decide = false }: { decide?: boolean } = {}): 
 			return;
 		}
 		if (tier === 'unsupported' && !shown) {
+			// An old browser already has the site-wide notice over the page; a second screen would only stack on it.
+			if (root.hasAttribute('data-old-browser')) return;
 			shown = true;
 			void import('./decline-screen').then((m) => m.showDecline());
 		} else if (tier !== 'unsupported' && shown) {
@@ -51,6 +62,7 @@ export function startDeviceGate({ decide = false }: { decide?: boolean } = {}): 
 		else if (document.getElementById('lattice-device-banner')) void import('./decline-screen').then((m) => m.hideLiteBanner());
 	};
 	new MutationObserver(check).observe(root, { attributes: true, attributeFilter: ['data-device-tier'] });
+	document.addEventListener(OLD_BROWSER_CONTINUE_EVENT, check);
 	check();
 	if (decide) {
 		const run = () => void import('./device-tier').then((m) => m.ensureDeviceTier(window));

@@ -334,9 +334,9 @@
 		// where the browser knows `inert`, from the keyboard. Every attribute and style is given back on "Continue anyway".
 		var touched = [];
 		var kids = document.body.children;
-		var k;
-		for (i = 0; i < kids.length; i++) {
-			k = kids[i];
+		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
+		var hide = function (k) {
+			if (k === screen || k.nodeType !== 1 || k.tagName === 'SCRIPT') return;
 			touched.push({ el: k, hidden: k.getAttribute('aria-hidden'), inert: k.hasAttribute('inert'), css: k.style.cssText });
 			k.setAttribute('aria-hidden', 'true');
 			k.setAttribute('inert', '');
@@ -347,6 +347,22 @@
 			k.style.webkitUserSelect = 'none';
 			k.style.msUserSelect = 'none';
 			k.style.userSelect = 'none';
+		};
+		for (i = 0; i < kids.length; i++) hide(kids[i]);
+		// An app keeps adding to <body> after this shows (the Studio mounts toasts and portals): each joins the page beneath.
+		var watcher = null;
+		if (window.MutationObserver) {
+			// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
+			watcher = new MutationObserver(function (records) {
+				var r;
+				var n;
+				// A notice taken off the page some other way stops watching: it no longer owns what lies beneath.
+				if (!screen.parentNode) {
+					watcher.disconnect();
+					return;
+				}
+				for (r = 0; r < records.length; r++) for (n = 0; n < records[r].addedNodes.length; n++) hide(records[r].addedNodes[n]);
+			});
 		}
 		var overflow = root.style.overflow;
 		root.style.overflow = 'hidden';
@@ -364,8 +380,11 @@
 		go.onclick = function () {
 			try {
 				sessionStorage.setItem(KEY, '1');
+				// The Studio and the Playground read their own key: continuing here runs them as Lite for this tab.
+				sessionStorage.setItem(LOB.deviceContinueKey, '1');
 			} catch (_e) {}
 			document.removeEventListener('focusin', keep, true);
+			if (watcher) watcher.disconnect();
 			var j;
 			var t;
 			for (j = 0; j < touched.length; j++) {
@@ -379,9 +398,15 @@
 			root.style.overflow = overflow;
 			screen.parentNode.removeChild(screen);
 			style.parentNode.removeChild(style);
+			// Tell the page (device-gate.ts on the Studio and the Playground); `createEvent` because these browsers may not
+			// construct events with `new Event`.
+			var ev = document.createEvent('Event');
+			ev.initEvent(LOB.continueEvent, false, false);
+			document.dispatchEvent(ev);
 		};
 
 		document.body.appendChild(screen);
+		if (watcher) watcher.observe(document.body, { childList: true });
 		title.focus();
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		setTimeout(function () {

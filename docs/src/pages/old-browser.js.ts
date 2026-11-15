@@ -8,6 +8,8 @@
 
 import { joinBase } from '../lib/base-url.mjs';
 import { BROWSER_FLOOR, OLD_WINDOWS, supportedList } from '../lib/browser-floor';
+import { OLD_BROWSER_CONTINUE_EVENT } from '../lib/device-gate';
+import { CONTINUE_KEY } from '../lib/device-tier-keys';
 import notice from '../lib/old-browser-notice.es5.js?raw';
 
 export function GET(): Response {
@@ -17,6 +19,10 @@ export function GET(): Response {
 		oldWindows: OLD_WINDOWS,
 		// The supported list travels with the notice: no link to another page of the site, which this browser can't show.
 		supported: supportedList(),
+		// On the Studio and the Playground, Continue anyway also means "run as Lite": the notice sets the device tier's own
+		// continue key and fires this event, so device-gate.ts takes it from there (Lite mode and its banner).
+		deviceContinueKey: CONTINUE_KEY,
+		continueEvent: OLD_BROWSER_CONTINUE_EVENT,
 		mark: url('lattice-mark-min.svg'),
 		slide: {
 			light: url('old-browser/hero-light.jpg'),
