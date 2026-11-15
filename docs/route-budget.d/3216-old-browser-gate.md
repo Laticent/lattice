@@ -1,0 +1,3 @@
+studio: +119
+playground: +119
+The device gate (`docs/src/lib/device-gate.ts`, eager on the Studio and the Playground) defers to the site-wide old-browser notice: it shows no screen of its own while `<html data-old-browser>` marks a notice that is showing, takes the screen back when the notice failed to load, reads the notice's "continued" mark and event so the app runs as Lite, and returns a stop function for its tests. Measured with `measure-route-base.sh origin/main`: `device-gate` +119 gzip bytes on both routes. Given back first: the decline logic for a missing feature now lives in the notice, which only an old browser downloads; nothing else in the eager chunk could go without losing the hardware-floor screen.
