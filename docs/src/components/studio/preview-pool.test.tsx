@@ -34,7 +34,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, tierSlotCaps } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, listenForReader, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, readerQuietFor, tierSlotCaps } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -949,5 +949,21 @@ describe('tierSlotCaps — the device tier', () => {
 	it('holds a LITE device to 6 to 12 frames, and a host asking for fewer keeps its own (device-capability-tiers §4)', () => {
 		expect(tierSlotCaps(BASE_SLOTS, HARD_MAX_SLOTS, true)).toEqual({ baseSlots: 6, maxSlots: 12 });
 		expect(tierSlotCaps(4, 8, true)).toEqual({ baseSlots: 4, maxSlots: 8 });
+	});
+});
+
+// A capture is one main-thread task that cannot be interrupted (up to ~390 ms at 4x CPU with the slide's fonts embedded),
+// so it waits for the READER to be still, not only the scroller: one started mid-word made the next keystroke wait.
+describe('the capture gate waits for the reader as well as the scroller', () => {
+	it('goes only once the scroller and the reader have both been still long enough', () => {
+		expect(captureWait(CAPTURE_QUIET_MS, CAPTURE_INPUT_QUIET_MS)).toBe(0);
+		expect(captureWait(CAPTURE_QUIET_MS, 0)).toBe(CAPTURE_INPUT_QUIET_MS);
+		expect(captureWait(0, CAPTURE_INPUT_QUIET_MS)).toBe(CAPTURE_QUIET_MS);
+		expect(captureWait(CAPTURE_QUIET_MS, CAPTURE_INPUT_QUIET_MS - 100)).toBe(100);
+	});
+	it('hears a keystroke anywhere on the page', () => {
+		listenForReader();
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+		expect(readerQuietFor()).toBeLessThan(CAPTURE_INPUT_QUIET_MS);
 	});
 });

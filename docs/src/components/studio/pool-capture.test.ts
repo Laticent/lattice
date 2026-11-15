@@ -12,7 +12,8 @@ const FACES = "@font-face{font-family:'Inter';font-weight:400;src:url(data:font/
 // The builder writes the rules of the families it is asked for; `fonts.fail` makes a face unobtainable.
 const fonts = vi.hoisted(() => ({ fail: false, asked: [] as string[][] }));
 vi.mock('../../playground/font-embed.js', () => ({
-	buildFamilyFontCss: async (families: string[]) => {
+	buildFamilyFontCss: async (faces: Array<{ family: string }>) => {
+		const families = faces.map((f) => f.family);
 		fonts.asked.push(families);
 		if (fonts.fail) throw new Error('font fetch failed');
 		return FACES.split('@font-face')

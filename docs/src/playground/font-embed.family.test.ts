@@ -18,9 +18,11 @@ afterEach(() => {
 
 import { buildFamilyFontCss, FACES } from './font-embed.js';
 
+const face = (family: string, weight = 400, style = 'normal') => ({ family, weight, style });
+
 describe('buildFamilyFontCss', () => {
 	it('writes rules for the families asked for and fetches only their faces', async () => {
-		const css = await buildFamilyFontCss(['outfit']);
+		const css = await buildFamilyFontCss([face('outfit')]);
 		expect(css).toContain("font-family:'Outfit'");
 		expect(css).not.toContain('Playfair');
 		const outfit = FACES.filter((f: { family: string }) => f.family === 'Outfit').length;
@@ -28,20 +30,28 @@ describe('buildFamilyFontCss', () => {
 		expect(fetched.length).toBeLessThanOrEqual(outfit);
 	});
 	it('encodes a face once a page: asking again fetches nothing', async () => {
-		await buildFamilyFontCss(['outfit']);
+		await buildFamilyFontCss([face('outfit')]);
 		const before = fetched.length;
-		expect(await buildFamilyFontCss(['outfit'])).toContain("font-family:'Outfit'");
+		expect(await buildFamilyFontCss([face('outfit')])).toContain("font-family:'Outfit'");
 		expect(fetched.length).toBe(before);
 	});
 	it('adds the icon faces and the emoji slice only when the slide draws them', async () => {
-		const plain = await buildFamilyFontCss(['outfit'], 'Plain words');
+		const plain = await buildFamilyFontCss([face('outfit')], 'Plain words');
 		expect(plain).not.toContain('Lattice Icons');
 		expect(plain).not.toContain('Noto Color Emoji');
-		expect(await buildFamilyFontCss(['outfit'], 'An icon \uE000')).toContain("font-family:'Lattice Icons'");
-		expect(await buildFamilyFontCss(['outfit'], 'A smile \u{1F600}')).toContain("font-family:'Noto Color Emoji'");
+		expect(await buildFamilyFontCss([face('outfit')], 'An icon \uE000')).toContain("font-family:'Lattice Icons'");
+		expect(await buildFamilyFontCss([face('outfit')], 'A smile \u{1F600}')).toContain("font-family:'Noto Color Emoji'");
 	});
 	it('rejects when a face answers with an error, rather than encoding the error page as a font', async () => {
 		net.status = 404;
-		await expect(buildFamilyFontCss(['fraunces'])).rejects.toThrow(/HTTP 404/);
+		await expect(buildFamilyFontCss([face('fraunces')])).rejects.toThrow(/HTTP 404/);
+	});
+	it('embeds the weight a slide draws, not every weight of its family, and the nearest one for a weight not vendored', async () => {
+		const css = await buildFamilyFontCss([face('outfit', 400)]);
+		expect(css.match(/font-family:'Outfit'/g)).toHaveLength(1);
+		expect(css).toContain('font-weight:400');
+		const heavy = await buildFamilyFontCss([face('outfit', 800)]);
+		expect(heavy).toContain('font-weight:700');
+		expect(heavy.match(/font-family:'Outfit'/g)).toHaveLength(1);
 	});
 });

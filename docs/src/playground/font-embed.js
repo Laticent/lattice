@@ -177,23 +177,41 @@ function buildTextFontCss() {
 	return cssPromise;
 }
 
-// ONE SLIDE'S FACES, for a caller that draws a few families many times: the slide map's posters
-// (studio/pool-capture.ts). The text rules are the CLI block's, written by the same writer, but only for `families`
-// (lowercased names), and each face is fetched and encoded once a page. The whole block encodes every vendored
+// ONE SLIDE'S FACES, for a caller that draws a few faces many times: the slide map's posters
+// (studio/pool-capture.ts). The text rules are the CLI block's, written by the same writer, but only for the faces the
+// slide draws, `{ family (lowercased), weight, style }`, each matched to the vendored face the browser would pick (same
+// style where there is one, the nearest weight), and each face is fetched and encoded once a page. ONLY THE FACES DRAWN,
+// not every weight of a drawn family: the picture's fonts are parsed on the main thread when it is drawn, and embedding
+// every weight made a capture ~150 ms longer at 4x CPU, long enough to make a keystroke wait (typing probe,
+// 2026-11-15-studio-map-load-cost.md). The whole block encodes every vendored
 // face in one go, which on a first capture was a single main-thread task of over a second at 4x CPU
 // (`npm run perf:load`, MAP=1 CPU=4); a slide uses two or three of them. `text` is what the slide draws (its text,
 // pseudo-element content and icon glyphs, as the export's `deckTextOf` reads it): the Lattice Icons faces come with it
 // when it draws an icon, and the Noto Color Emoji slices its emoji need, by the export's own rules (`drawsIcons`,
 // `slicesFor`). Rejects when a face cannot be had, so the caller can refuse to keep a picture drawn without it.
 const faceRules = new Map();
-export async function buildFamilyFontCss(families, text = '') {
-	const want = new Set(families);
+/** The vendored face the browser would draw `face` with: its family, the same style if one is vendored, the nearest weight. */
+function vendoredFaceFor({ family, weight, style }) {
+	const same = EMBED_FACES.filter((f) => f.family.toLowerCase() === family);
+	const styled = same.filter((f) => f.style === style);
+	const pool = styled.length ? styled : same;
+	let best = null;
+	for (const f of pool) if (!best || Math.abs(f.weight - weight) < Math.abs(best.weight - weight)) best = f;
+	return best;
+}
+
+export async function buildFamilyFontCss(faces, text = '') {
+	const picked = new Set();
+	for (const face of faces) {
+		const f = vendoredFaceFor(face);
+		if (f) picked.add(f);
+	}
 	const extras = Promise.all([
 		drawsIcons(text) ? buildIconFontCss() : '',
 		...emojiCore.EMOJI_SLICES.filter((s) => emojiCore.slicesFor(text).includes(s.file)).map(emojiSliceRule),
 	]);
 	const rules = await Promise.all(
-		EMBED_FACES.filter((f) => want.has(f.family.toLowerCase())).map((f) => {
+		[...picked].map((f) => {
 			const key = `${f.family} ${f.weight} ${f.style}`;
 			if (!faceRules.has(key)) {
 				const rule = faceBase64(FACE_URL.get(key)).then((b64) => faceRuleCore.faceRuleCss(f, 'swap', b64));

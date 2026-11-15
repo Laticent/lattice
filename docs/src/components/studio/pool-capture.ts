@@ -25,17 +25,22 @@ export function slotShows(slot: HTMLElement | undefined, props: PooledPreviewPro
 	}
 }
 
-/** The families a slide's text is drawn in, lowercased and unquoted, from every element's computed `font-family`. */
-export function familiesOf(section: HTMLElement): string[] {
+/** The faces a slide's text is drawn in (family lowercased and unquoted, weight, style), from every element's computed
+ *  style. Exported for pool-capture.test.ts. */
+export function facesOf(section: HTMLElement): Array<{ family: string; weight: number; style: string }> {
 	const win = section.ownerDocument.defaultView ?? window;
-	const out = new Set<string>();
+	const out = new Map<string, { family: string; weight: number; style: string }>();
 	for (const el of [section, ...section.querySelectorAll<HTMLElement>('*')]) {
-		for (const f of win.getComputedStyle(el).fontFamily.split(',')) {
-			const name = f.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
-			if (name) out.add(name);
+		const cs = win.getComputedStyle(el);
+		const weight = Number.parseInt(cs.fontWeight, 10) || 400;
+		const style = cs.fontStyle === 'normal' ? 'normal' : 'italic';
+		// Every family in the stack: the builder keeps the vendored ones, and the first of those is the one drawn.
+		for (const f of cs.fontFamily.split(',')) {
+			const family = f.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+			if (family) out.set(`${family}\u0000${weight}\u0000${style}`, { family, weight, style });
 		}
 	}
-	return [...out].sort();
+	return [...out.values()];
 }
 
 /**
@@ -49,7 +54,7 @@ export function slideTextOf(section: HTMLElement, pseudoText: (root: Element) =>
 }
 
 /**
- * The font sheet for one slide: its text families, plus the icon faces and emoji slices it draws
+ * The font sheet for one slide: the text faces it draws, plus the icon faces and emoji slices it draws
  * (font-embed.js `buildFamilyFontCss`, which encodes each face once a page). NULL WHEN A FACE CANNOT BE HAD: a poster
  * stays on screen and in storage (StudioMap.tsx), so one drawn in a fallback face after a failed fetch would be the
  * re-wrapped, overlapping picture this sheet exists to prevent, kept for good. No poster is the better answer: the
@@ -58,7 +63,7 @@ export function slideTextOf(section: HTMLElement, pseudoText: (root: Element) =>
 async function embedCssFor(section: HTMLElement): Promise<string | null> {
 	try {
 		const [{ buildFamilyFontCss }, { pseudoContentText }] = await Promise.all([import('../../playground/font-embed.js'), import('../../../../lib/core/slide-camera.mjs')]);
-		return await buildFamilyFontCss(familiesOf(section), slideTextOf(section, pseudoContentText));
+		return await buildFamilyFontCss(facesOf(section), slideTextOf(section, pseudoContentText));
 	} catch {
 		return null;
 	}
@@ -70,7 +75,7 @@ export const SCROLLED = 'scrolled' as const;
 /**
  * Rasterize the slide a slot's frame shows, at the slot's own size (times the device's pixel ratio), as a JPEG.
  * `still` is asked again once the picture is drawn: a slot re-pointed mid-capture yields null, never another slide's
- * picture. THE SLIDE'S OWN FONTS ARE EMBEDDED: the families it draws in, out of the export's vendored faces
+ * picture. THE SLIDE'S OWN FONTS ARE EMBEDDED: the faces it draws (family, weight, style), out of the export's vendored faces
  * (playground/font-embed.js), plus its icon faces and emoji slices, so a capture carries a few faces, not the whole
  * block; and a slide whose faces cannot be had gets no poster (`embedCssFor`). A poster
  * stays on screen once it exists (StudioMap.tsx), so it must match the live tile: drawn in a fallback face it

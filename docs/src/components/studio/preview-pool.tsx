@@ -135,7 +135,8 @@ type Tile = {
 /**
  * A still picture of what a slot shows: a JPEG of the slide at the tile's size, or null when the slot moved on to
  * another tile before the capture ran, or the capture failed. Rasterized with html-to-image (the export's route) and
- * run only after the pool's scroller has been still for CAPTURE_QUIET_MS, one capture at a time.
+ * run only after the pool's scroller has been still for CAPTURE_QUIET_MS and the reader for CAPTURE_INPUT_QUIET_MS, one
+ * capture at a time.
  */
 export type CapturePicture = () => Promise<Blob | null>;
 /** Told each time the tile's own picture has rendered in a pooled frame, with a way to capture it. */
@@ -144,6 +145,30 @@ export type PictureHandler = (capture: CapturePicture) => void;
 /** How long the pool's scroller must be still before a capture runs. A capture clones and inlines a slide on the main
  *  thread, so it never competes with a scroll the reader is making. */
 export const CAPTURE_QUIET_MS = 300;
+/** How long the READER must be still (no key, pointer, wheel or input anywhere on the page) before a capture runs. A
+ *  capture is one main-thread task that cannot be interrupted, and with the slide's fonts embedded it measured up to
+ *  ~390 ms at 4x CPU; one that starts mid-word makes the next keystroke wait for it. A poster is never urgent: the live
+ *  frame shows the slide meanwhile. Measured with a typing probe (map open, 4x CPU, 2026-11-15-studio-map-load-cost.md). */
+export const CAPTURE_INPUT_QUIET_MS = 1500;
+
+/** The last time the reader touched the page, shared by every pool. Listened for once, in the capture phase, passively. */
+let lastInput = 0;
+let inputHeard = false;
+function hearInput() {
+	if (inputHeard || typeof window === 'undefined') return;
+	inputHeard = true;
+	const mark = () => {
+		lastInput = Date.now();
+	};
+	for (const type of ['keydown', 'pointerdown', 'wheel', 'input', 'compositionupdate']) window.addEventListener(type, mark, { capture: true, passive: true });
+}
+/** Exported for preview-pool.test.tsx: the clock the capture gate reads. */
+export const readerQuietFor = () => Date.now() - lastInput;
+/** How long a capture must still wait, given how long the scroller and the reader have each been still: 0 means go.
+ *  Pure, for preview-pool.test.tsx. */
+export const captureWait = (scrollStill: number, readerStill: number) => Math.max(0, CAPTURE_QUIET_MS - scrollStill, CAPTURE_INPUT_QUIET_MS - readerStill);
+/** Exported for preview-pool.test.tsx: start listening for the reader's input, as the first capture does. */
+export const listenForReader = () => hearInput();
 /** How long a slot must go without another render before its picture is offered for capture. A re-point that lands while
  *  a render is in flight is deferred and runs after it, and the in-flight render's own report would otherwise offer a
  *  picture of the slide the slot is leaving. */
@@ -675,11 +700,13 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 	const quietTimer = React.useRef(0);
 	const drainCaptures = React.useCallback(() => {
 		if (!alive.current || capturing.current || captureQueue.current.length === 0 || quietTimer.current) return;
-		const still = Date.now() - lastScroll.current;
+		hearInput();
+		// Both gates: the pool's scroller still for CAPTURE_QUIET_MS, and the reader for CAPTURE_INPUT_QUIET_MS.
+		const wait = captureWait(Date.now() - lastScroll.current, readerQuietFor());
 		const go = () => {
 			quietTimer.current = 0;
 			if (!alive.current) return;
-			if (Date.now() - lastScroll.current < CAPTURE_QUIET_MS) return drainCaptures();
+			if (captureWait(Date.now() - lastScroll.current, readerQuietFor()) > 0) return drainCaptures();
 			const job = captureQueue.current.shift();
 			if (!job) return;
 			capturing.current = true;
@@ -692,7 +719,7 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 		quietTimer.current = window.setTimeout(() => {
 			if (idle) idle(go, { timeout: 1000 });
 			else go();
-		}, Math.max(0, CAPTURE_QUIET_MS - still));
+		}, wait);
 	}, []);
 	// Follow the device tier: when `html[data-device-tier]` changes, re-render (new caps) and run a pass (trim to them).
 	React.useEffect(() => {
@@ -762,9 +789,9 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 									}, 250);
 									return;
 								}
-								const got = same() ? await captureSlot(slotEls.current.get(index), same, () => Date.now() - lastScroll.current >= CAPTURE_QUIET_MS) : null;
-								// The reader scrolled while the capture code loaded: back to the front of the queue, which waits
-								// for the scroller to be quiet again before it runs anything.
+								const got = same() ? await captureSlot(slotEls.current.get(index), same, () => captureWait(Date.now() - lastScroll.current, readerQuietFor()) === 0) : null;
+								// The reader scrolled or typed while the capture code loaded: back to the front of the queue, which
+								// waits for the scroller and the reader to be quiet again before it runs anything.
 								if (got === SCROLLED) {
 									// A pool that is gone drains nothing: answer now, or the caller waits for good.
 									if (!alive.current) return resolve(null);
