@@ -52,3 +52,22 @@ test(`CONTROL: on ${process.platform}, a browser started without the sandbox rea
     await browser.close();
   }
 });
+
+// TEMPORARY PROBE (not for merge): read the layer 40 times in a row and print every reading, so a Windows runner shows
+// what a disagreeing read sees. Never fails.
+test(`PROBE: 40 consecutive reads on ${process.platform}`, { timeout: 600000 }, async (t) => {
+  const sandbox = await launchCodeSandbox(puppeteer, { executablePath: CHROME });
+  try {
+    t.diagnostic(`first read: ${sandbox.layer.os}`);
+    const tally = {};
+    for (let i = 0; i < 40; i++) {
+      const diag = {};
+      const on = await rendererSandboxed(sandbox.browser, sandbox.pid, process.platform, diag);
+      tally[String(on)] = (tally[String(on)] || 0) + 1;
+      if (on !== true || i < 2) t.diagnostic(`read ${i}: ${on} ${JSON.stringify(diag.seen ?? [])}`);
+    }
+    t.diagnostic(`tally ${JSON.stringify(tally)}`);
+  } finally {
+    await sandbox.close();
+  }
+});
