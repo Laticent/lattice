@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { triage, artifactFor, noSessionMarks, lines } = require(path.join(__dirname, '..', '..', '..', 'tools', 'platform-suites-triage.js'));
+const { triage, artifactFor, noSessionMarks, outOfTimeMarks, lines } = require(path.join(__dirname, '..', '..', '..', 'tools', 'platform-suites-triage.js'));
 
 const ran = (name, conclusion) => ({ name, status: 'completed', conclusion, steps: [{ name: 'Suite' }], runner_name: 'GitHub Actions 1', html_url: `https://x/${name}` });
 
@@ -67,4 +67,29 @@ test('marks are read from one folder per artifact', () => {
 test('each failed job gets a line that says what happened', () => {
   const body = lines([{ name: 'x (macos-26)', conclusion: 'cancelled', kind: 'no-runner', url: 'u' }]);
   assert.match(body, /no runner/);
+});
+
+test('an iOS job with the out-of-time mark is a named finding: alerted now, never held for a re-run', () => {
+  const job = ran('ios-safari-studio (macos-26)', 'failure');
+  const line = 'not run: out of time: iPhone (1064 s gone, needs about 600 s, budget 1560 s)';
+  const r = triage([job], new Set(), new Map([['platform-suite-ios-safari-studio-macos-26', line]]));
+  assert.equal(r.verdict, 'finding');
+  assert.equal(r.failed[0].kind, 'out-of-time');
+  assert.match(lines(r.failed), /a device was not run: the job had no time left to start it: not run: out of time: iPhone \(1064 s gone/);
+  // Out of time wins over a no-session mark on the same artifact: a re-run would hide that the job does not fit.
+  const both = triage([job], new Set(['platform-suite-ios-safari-studio-macos-26']), new Map([['platform-suite-ios-safari-studio-macos-26', line]]));
+  assert.equal(both.verdict, 'finding');
+});
+
+test('out-of-time marks are read from one folder per artifact, every device line kept', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'triage-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'platform-suite-ios-safari-studio-macos-26'));
+    fs.writeFileSync(path.join(dir, 'platform-suite-ios-safari-studio-macos-26', 'out-of-time'), 'not run: out of time: iPhone (a)\nnot run: out of time: iPad (b)\n');
+    fs.mkdirSync(path.join(dir, 'platform-suite-ios-safari-jpeg-macos-26'));
+    assert.deepEqual([...outOfTimeMarks(dir)], [['platform-suite-ios-safari-studio-macos-26', 'not run: out of time: iPhone (a); not run: out of time: iPad (b)']]);
+    assert.equal(outOfTimeMarks(path.join(dir, 'absent')).size, 0);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

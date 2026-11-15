@@ -581,7 +581,9 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `tools/platform-suites-triage.js`: a job GitHub gave no runner (no steps), and an iOS job whose `run.sh` wrote `no-session`,
   ran no test. When every failure is one of those, the first attempt files nothing and
   `.github/workflows/platform-suites-supervisor.yml` re-runs the failed jobs once; a failure on that re-run is filed. Any real
-  failure is filed at once and never re-run. The hand-off is an `alert-held` artifact: the supervisor acts only on a held
+  failure is filed at once and never re-run. So is an iOS job whose `run.sh` wrote `out-of-time` (a device it had no time left to
+  start, below): the triage names it `out-of-time`, a finding with the device's line, because a re-run would hide that the
+  job does not fit its 30 minutes. The hand-off is an `alert-held` artifact: the supervisor acts only on a held
   run, and files the alert itself whenever it does not start the re-run, so a held failure is never left unfiled. Dispatch with
   `simulate=no-session` to exercise the path: every iOS suite reports "no probe ran" without starting a simulator, and the
   alert is written to the run's summary instead of the issue.
@@ -691,6 +693,13 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   its second start still gets the third session attempt `main` always made, in place. A probe failure (exit 1) is never
   retried. When every device that failed did so before any probe ran, `run.sh` exits 3 and writes
   `platform-suite-artifacts/no-session`, which hands the job to the supervisor above.
+  **The next device's budget.** Before each device after the first, `run.sh` asks `suite-budget.mjs` whether it still ends by
+  `SUITE_DEADLINE`, costed at what the device before it took less the time its failed session starts wasted (a fresh device pays
+  a boot, a session and a probe, not the last one's retries). One that does not fit is not started: `run.sh` prints and writes
+  `not run: out of time: <device> (… s gone, needs about … s, budget … s)` to `platform-suite-artifacts/out-of-time` and exits
+  **1**, never 0 and never 3. Before this, only a device's own second start was budgeted: main's nightly of 2026-11-15 (run
+  43712612297) spent 1031 s on the iPad, started the iPhone at 1064 s, and was cancelled at 30 minutes with no result for it.
+  `test/unit/tools/ios-safari-suite-budget.test.js` drives the real `run.sh` with macOS stubbed out.
 
 ## Integration test cache
 
