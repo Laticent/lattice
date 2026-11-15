@@ -300,7 +300,13 @@ export function BarIcon({ label, hint, caption, active, recent, onClick, childre
 						// with zero new tokens (every palette already carries both, high-contrast by
 						// construction since they're the theme's primary text/background pair). Reported as
 						// too subtle to read at a glance; the rail's accent-soft tint is unchanged (scoped fix).
-						? (bar ? 'bg-[var(--text-heading)] text-[var(--bg)]' : 'bg-[var(--accent-soft)] text-[var(--accent)]')
+						// The desktop RAIL now takes the same ink chip (owner, 2026-11-15, option B in the
+						// selected-state comparison): the accent-soft tint it had cleared 3:1 against the rail in
+						// 0 of 36 palette×mode combinations (1.01:1 in cuoio light), so the open pane barely
+						// showed. Measured in the live Studio, the ink chip clears 9.88:1 against the rail and its
+						// label 9.65:1 against the chip in all 36. A brand-accent label on this chip is the
+						// follow-up (option D), which falls back to exactly this.
+						? 'bg-[var(--text-heading)] text-[var(--bg)]'
 						: 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
 			)}
 		>

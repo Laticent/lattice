@@ -100,6 +100,16 @@ removing the path would be a second change in the same PR.
   reveal or the quiet state). A tooltip or menu left open is a Radix layer and takes the first press, so
   Esc closes the innermost layer first, as it does everywhere else in the app.
 
+## 3b. The rail's selected chip (owner pick: option B)
+
+The rail's selected state was a pale accent tint that cleared 3:1 against the rail in none of the 36
+palette × mode combinations (1.01:1 in cuoio light). Five looks were measured in the live Studio and
+scored (the "Selected-State Options" artifact). The owner chose **B**: the theme's `--text-heading` as
+the chip and `--bg` as the label, the Read/Write/Craft switch's look. It clears 9.88:1 against the rail
+and 9.65:1 for the label in all 36. **D**, the same chip with the OTHER mode's accent as the label
+(gold on ink in Cuoio), is the follow-up: AA in all 36, the accent shows in 19, and its fallback is B,
+so it only adds. It is a new generated token across every selected control, so it is its own PR.
+
 ## 4. Do not regress — the traps this area has already paid for
 
 Each line names the guard. A change to panes re-checks every one.
