@@ -7,7 +7,7 @@ import { CHROME, expect, gotoStudio, openChat, test } from './studio-fixture';
 const dockedPanes = (page: import('@playwright/test').Page) =>
 	page.evaluate(() => [...document.querySelectorAll('[data-studio-split] [data-studio-pane]')].map((p) => p.id));
 
-test.describe('desktop', () => {
+test.describe('desktop @webkit-tablet @gecko', () => {
 	test.skip(({ viewport }) => (viewport?.width ?? 1440) < 1100, 'the activity rail is a desktop surface');
 
 	test('every rail pane replaces the one showing: never more than one docked column', async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe('desktop', () => {
 	});
 });
 
-test.describe('tablet', () => {
+test.describe('tablet @webkit-tablet @gecko', () => {
 	test.skip(({ viewport }) => (viewport?.width ?? 1440) < 1100, 'driven from the desktop project at 820');
 
 	test('Esc in the docked settings closes them and keeps focus on a control, not <body> (no rail at this width)', async ({ page }) => {
