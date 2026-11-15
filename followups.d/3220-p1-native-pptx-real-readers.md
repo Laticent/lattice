@@ -29,8 +29,12 @@ verify    — tier 1 checker on the screenshots against the LibreOffice renders 
 ## PowerPoint for Windows: opened (2026-11-15)
 
 The owner opened all 8 export sign-off files from `f3ead5f` (sha256 prefixes in PR #3220's body) in PowerPoint for
-Windows, Microsoft 365, with no repair prompt, and judged the decks good. That closes the Windows half of the done-when.
-Still open: PowerPoint for macOS, Keynote and Google Slides (import), and the screenshots this note asks for.
+Windows, Microsoft 365, with no repair prompt, and judged the decks good. The owner's screenshots, taken at 5:52 to
+5:55 PM on 2026-11-15 and shared in the #3220 session, show slide 1 and the slide 21 card grid of both `gallery-light.pptx`
+(20.9 MB) and `gallery-light-editable.pptx` (3.66 MB). All 120 slides are listed in each, and the status bar reads
+"Accessibility: Good to go". The editable file draws in its embedded faces (Playfair Display, Outfit, JetBrains Mono),
+not Calibri, with every card, tag and footer where the picture puts them. That closes the Windows half of the
+done-when. Still open: PowerPoint for macOS, Keynote and Google Slides (import).
 
 ## Apple's importer, main (pptxgenjs) against this branch (2026-11-15)
 
