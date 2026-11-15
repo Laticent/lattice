@@ -336,8 +336,23 @@
 		var kids = document.body.children;
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		var hide = function (k) {
+			var t;
 			if (k === screen || k.nodeType !== 1 || k.tagName === 'SCRIPT') return;
-			touched.push({ el: k, hidden: k.getAttribute('aria-hidden'), inert: k.hasAttribute('inert'), css: k.style.cssText });
+			// A node the app moves within <body> arrives again as "added": it keeps its first snapshot, or Continue anyway would
+			// restore the blur it was given the first time.
+			for (t = 0; t < touched.length; t++) if (touched[t].el === k) return;
+			touched.push({
+				el: k,
+				hidden: k.getAttribute('aria-hidden'),
+				inert: k.hasAttribute('inert'),
+				// Only the properties this notice changes, so a style the app sets meanwhile survives Continue anyway.
+				filter: k.style.filter,
+				webkitFilter: k.style.webkitFilter,
+				pointerEvents: k.style.pointerEvents,
+				userSelect: k.style.userSelect,
+				webkitUserSelect: k.style.webkitUserSelect,
+				msUserSelect: k.style.msUserSelect,
+			});
 			k.setAttribute('aria-hidden', 'true');
 			k.setAttribute('inert', '');
 			k.style.filter = 'blur(14px) saturate(1.15)';
@@ -378,6 +393,8 @@
 
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		go.onclick = function () {
+			// Said on the page too, for a tab whose storage throws (an old Safari private window): device-gate.ts reads both.
+			root.setAttribute('data-old-browser', 'continued');
 			try {
 				sessionStorage.setItem(KEY, '1');
 				// The Studio and the Playground read their own key: continuing here runs them as Lite for this tab.
@@ -392,8 +409,12 @@
 				if (t.hidden === null) t.el.removeAttribute('aria-hidden');
 				else t.el.setAttribute('aria-hidden', t.hidden);
 				if (!t.inert) t.el.removeAttribute('inert');
-				// The whole inline style as it was: the blur, the pointer and the selection settings in one step.
-				t.el.style.cssText = t.css;
+				t.el.style.filter = t.filter;
+				t.el.style.webkitFilter = t.webkitFilter;
+				t.el.style.pointerEvents = t.pointerEvents;
+				t.el.style.userSelect = t.userSelect;
+				t.el.style.webkitUserSelect = t.webkitUserSelect;
+				t.el.style.msUserSelect = t.msUserSelect;
 			}
 			root.style.overflow = overflow;
 			screen.parentNode.removeChild(screen);

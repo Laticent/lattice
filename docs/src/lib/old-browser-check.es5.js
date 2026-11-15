@@ -39,5 +39,11 @@ function latticeOldBrowserCheck(checks, src) {
 	window.__latticeOldBrowser = missing;
 	var s = document.createElement('script');
 	s.src = src;
+	// If the notice cannot load (offline, a network error), say so on the page: the Studio's own gate then shows its
+	// screen instead of deferring to a notice that will never come (device-gate.ts).
+	// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
+	s.onerror = function () {
+		document.documentElement.setAttribute('data-old-browser', 'failed');
+	};
 	document.head.appendChild(s);
 }

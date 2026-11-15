@@ -24,6 +24,8 @@ const TIERS = /^(full|lite|unsupported)$/;
 export const OLD_BROWSER_CONTINUE_EVENT = 'lattice-old-browser-continue';
 
 function continued(): boolean {
+	// The site-wide notice marks the page when its reader continued, for a tab whose storage throws.
+	if (document.documentElement.getAttribute('data-old-browser') === 'continued') return true;
 	try {
 		return sessionStorage.getItem(CONTINUE_KEY) === '1';
 	} catch {
@@ -31,8 +33,18 @@ function continued(): boolean {
 	}
 }
 
+/**
+ * Whether the site-wide notice is saying it: the page is marked, and the notice did not fail to load. `failed` (set by the
+ * <head> check when /old-browser.js cannot load) gives the decline back to this gate, so a reader is never left with no
+ * screen at all.
+ */
+function noticeOwnsIt(root: HTMLElement): boolean {
+	const mark = root.getAttribute('data-old-browser');
+	return mark !== null && mark !== 'failed';
+}
+
 /** Watch the tier and show or hide the decline. `decide`: also apply the saved tier and start the decision (the Playground). */
-export function startDeviceGate({ decide = false }: { decide?: boolean } = {}): void {
+export function startDeviceGate({ decide = false }: { decide?: boolean } = {}): () => void {
 	const root = document.documentElement;
 	if (decide && !root.hasAttribute('data-device-tier')) {
 		try {
@@ -50,7 +62,7 @@ export function startDeviceGate({ decide = false }: { decide?: boolean } = {}): 
 		}
 		if (tier === 'unsupported' && !shown) {
 			// An old browser already has the site-wide notice over the page; a second screen would only stack on it.
-			if (root.hasAttribute('data-old-browser')) return;
+			if (noticeOwnsIt(root)) return;
 			shown = true;
 			void import('./decline-screen').then((m) => m.showDecline());
 		} else if (tier !== 'unsupported' && shown) {
@@ -61,7 +73,8 @@ export function startDeviceGate({ decide = false }: { decide?: boolean } = {}): 
 		if (continued()) void import('./decline-screen').then((m) => m.showLiteBanner());
 		else if (document.getElementById('lattice-device-banner')) void import('./decline-screen').then((m) => m.hideLiteBanner());
 	};
-	new MutationObserver(check).observe(root, { attributes: true, attributeFilter: ['data-device-tier'] });
+	const watcher = new MutationObserver(check);
+	watcher.observe(root, { attributes: true, attributeFilter: ['data-device-tier', 'data-old-browser'] });
 	document.addEventListener(OLD_BROWSER_CONTINUE_EVENT, check);
 	check();
 	if (decide) {
@@ -71,4 +84,9 @@ export function startDeviceGate({ decide = false }: { decide?: boolean } = {}): 
 		if (document.readyState === 'complete') later();
 		else addEventListener('load', later, { once: true });
 	}
+	// The pages never stop the gate; a test does, so one test's gate cannot answer another's attribute or event.
+	return () => {
+		watcher.disconnect();
+		document.removeEventListener(OLD_BROWSER_CONTINUE_EVENT, check);
+	};
 }

@@ -84,6 +84,13 @@ describe('the inline check in <head>', () => {
 		expect((window as unknown as { __latticeOldBrowser: string[] }).__latticeOldBrowser).toEqual(['CSS :has()', 'CSS color-mix()']);
 	});
 
+	it('marks the page "failed" when the notice cannot load, so the app can say it instead', () => {
+		const script = check(/:has\(/);
+		expect(document.documentElement.getAttribute('data-old-browser')).toBe('');
+		script?.onerror?.(new Event('error'));
+		expect(document.documentElement.getAttribute('data-old-browser')).toBe('failed');
+	});
+
 	it('marks the page but loads nothing once this tab chose Continue anyway', () => {
 		sessionStorage.setItem('lattice-old-browser-continue', '1');
 		expect(check(/:has\(/)).toBeNull();
@@ -299,6 +306,34 @@ describe('on the Studio and the Playground', () => {
 		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
 		expect(toast.hasAttribute('aria-hidden')).toBe(false);
 		expect(toast.style.cssText).toBe('');
+	});
+
+	it('a node the app moves within <body> is given back unblurred, and a style the app set meanwhile survives', async () => {
+		const portal = document.createElement('div');
+		document.body.append(portal);
+		const screen = run('SomeBrowser/1.0');
+		const toast = document.createElement('div');
+		document.body.append(toast);
+		await vi.waitFor(() => expect(toast.getAttribute('aria-hidden')).toBe('true'));
+		// The app moves both (appendChild of a node already in <body> reports it as added again), and styles one.
+		document.body.append(portal);
+		document.body.append(toast);
+		toast.style.top = '12px';
+		await vi.waitFor(() => expect(portal.getAttribute('aria-hidden')).toBe('true'));
+		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
+		for (const n of [portal, toast]) {
+			expect(n.hasAttribute('aria-hidden')).toBe(false);
+			expect(n.style.filter).toBe('');
+			expect(n.style.pointerEvents).toBe('');
+		}
+		expect(toast.style.top).toBe('12px');
+	});
+
+	it('Continue anyway also marks the page, for a tab whose storage throws', () => {
+		const screen = run('SomeBrowser/1.0');
+		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
+		expect(document.documentElement.getAttribute('data-old-browser')).toBe('continued');
+		document.documentElement.removeAttribute('data-old-browser');
 	});
 });
 
