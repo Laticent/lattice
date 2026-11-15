@@ -411,27 +411,49 @@ CompressionStream, relative colors, `requestIdleCallback`) is **not** on it.
 
 The owner widened §7.3 for the landing page: "Old browsers just don't have the features we need and they are inherently
 insecure. We are not able to serve people with these browsers faithfully, so we just need to let them know, be honest with
-them and ask them to upgrade." Docs pages still carry nothing.
+them and ask them to upgrade." Docs pages still carry nothing. Two follow-up decisions the same day: the notice states
+versions and how to update, and it looks like the site, not like an error page.
 
-- **Features only, never hardware.** The landing page serves every machine that can run it. It checks the required
-  features only a browser's AGE takes away (`OLD_BROWSER_FEATURES` in `device-profile.ts`: `:has()`, container queries,
-  `structuredClone`). Workers and IndexedDB stay off it: a current browser can have them switched off for privacy, the
-  notice would then wrongly call it old, and the landing page uses neither. The tests come from the same
-  `FEATURE_PROBES` table `readSignals` uses, so the Studio and the landing page cannot test different things.
-- **A classic ES5 inline script, not a module.** The Studio's gate starts from a bundled module. A browser old enough to
-  lack `:has()` may not parse that bundle at all, so a module-based check would fail silently for exactly the people it
-  is for. The landing page's check is an inline `<script>` in `<head>` (about 900 bytes, which fits the home route's
-  `htmlRaw` ceiling); when a feature is missing it sets `data-old-browser` on `<html>` and loads
-  `docs/public/old-browser.js`, a static ES5 file the build does not touch. A current browser never downloads it.
-- **What it says.** The title "This browser is too old for Lattice.", the missing features by name, that browsers this
-  old stop getting security fixes, and to update to a current Chrome, Edge, Safari or Firefox (or the device, if it can
-  no longer install one). "Continue anyway" dismisses it for the rest of the tab (`lattice-old-browser-continue` in
-  sessionStorage). It hides the page from assistive technology with `aria-hidden`, since `inert` is too new for these
-  browsers, and gives back only what it hid.
-- **Verified.** `docs/e2e/old-browser.spec.ts` on Chromium (1440 and 390 px), WebKit (phone and tablet) and Firefox:
-  `:has()` turned off in the page, then `structuredClone` too, and a current browser that neither sees the notice nor
-  fetches the file. A REAL old browser (Safari 15, Chrome 100) is **UNVERIFIED** from here: the e2e makes a current
-  engine answer no to the probe, it does not run an old engine.
+- **The floor (owner's pick).** Chrome and Edge 111, Safari 16.4 (iOS 16.4 for every iPhone and iPad browser), Firefox
+  128, Samsung Internet 22, Opera 97, all from 2023 or later (Firefox 128 is July 2024 and an extended-support release). It
+  is the site's CSS framework's floor: Tailwind 4 needs `color-mix()` (Chrome 111) and `@property` (Safari 16.4, Firefox 128).
+  Lattice's own needs (`:has()` at Chrome 105 / Safari 15.4 / Firefox 121, container queries at Safari 16.0, `structuredClone`)
+  sit below it. The rejected option kept that lower floor and let readers into a gap where the site's styling breaks. The
+  versions are vendor and Tailwind documentation, not measured here: no engine older than the current Playwright builds was run.
+- **Features decide, versions only speak.** Two probes joined `FEATURE_PROBES`, `colorMix` and `registerProperty`, so the
+  tests line up with the table. `OLD_BROWSER_FEATURES` is every required feature but Workers and IndexedDB, which a current
+  browser can have switched off for privacy; the Studio declines on all seven. The versions live in `browser-floor.ts` with
+  each browser's update steps and its vendor's update page (every link checked on 2026-11-15). The notice reads the user agent
+  only to word its advice: "You have Safari 15.6. Lattice needs Safari 16.4 or newer", then the steps. A user agent it can't
+  read, or one that claims a new enough version, gets the general advice instead of a contradiction. Windows 7 and 8 get
+  their own line: Chrome and Edge stopped at 109 there and Firefox at 115, so no browser on them reaches the floor.
+- **One list, four readers.** The landing page's inline check, the notice, the Studio's decline screen (`declineWords` now
+  names the versions) and the docs' "Supported browsers" table in `getting-started.md` all read `device-profile.ts` and
+  `browser-floor.ts`; a unit test holds the docs table to the list.
+- **The look (owner's pick, "B").** The landing page stays visible behind the notice, blurred (`filter: blur`, with its
+  `-webkit-` twin) under a veil in the palette's background and a faint accent glow. A card in the site's own type (the
+  display face for the headline and the version strip, the mono face for the eyebrow and caption, the accent for the
+  button) holds one real slide, the landing page's hero waterfall rendered by the engine to a 32 KB JPEG per mode
+  (`docs/public/old-browser/hero-{light,dark}.jpg`), with "Lattice turns a few lines of plain text into slides like this
+  one." On screens 980 px and wider the slide sits beside the words, so the card fits 1440 x 900 without scrolling.
+  Rejected: A (the same card without the slide), which shows less of what the reader is missing, and C (a full editorial
+  page with a slideshow), which costs the most and has the most to break in an old browser. To re-render the slide after
+  the hero changes: `lattice <deck>.md <out>.png` on the hero source with `theme: cuoio` and `color-mode: light|dark`, then
+  `convert <png> -resize 1120x -strip -interlace JPEG -quality 82 <jpg>`.
+- **Built so the browsers it is for can run it.** The inline check in `index.astro` is a classic ES5 script (about 1 KB;
+  the home route's `htmlRaw` ends at 118.6 KB of its 119.1 KB ceiling). When a feature is missing it sets
+  `data-old-browser` on `<html>` and loads `/old-browser.js`, which `src/pages/old-browser.js.ts` builds from
+  `old-browser-notice.es5.js` with the floor table in front. The notice is ES5 (a unit test parses the served file with
+  `ecmaVersion: 5`) and its CSS uses only what these browsers have: flexbox, grid with a stacked fallback, custom
+  properties with a plain fallback, `filter`. It hides the page from assistive technology with `aria-hidden` (`inert` is too
+  new for them), turns off pointer events beneath, puts focus on the heading, and gives every touched style and attribute
+  back exactly on "Continue anyway", which lasts for the tab. A current browser never downloads the notice or the images.
+- **Verified.** `old-browser-notice.test.ts` runs the served file in jsdom for ten user agents (Safari, iOS, Chrome on iOS,
+  Chrome on Android and Windows, Edge, Firefox, Samsung Internet, Opera, Windows 7), the contradiction and unknown cases,
+  the restore, and the docs table. `docs/e2e/old-browser.spec.ts` runs on Chromium (1440 and 390 px), WebKit (phone and
+  tablet) and Firefox. Screenshots at 1440, 820 and 390 px, light and dark, are in the PR. A REAL old browser (Safari 15,
+  Chrome 100) is **UNVERIFIED** from here: the e2e makes a current engine answer no to the probe and spoofs its user agent;
+  it does not run an old engine.
 
 ## 7. Decisions (owner, 2026-11-12)
 

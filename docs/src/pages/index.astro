@@ -224,8 +224,8 @@ const OLD_BROWSER_CHECKS = OLD_BROWSER_FEATURES.map((f) => ({ label: FEATURE_LAB
 			})();
 		</script>
 		{/* OLD-BROWSER CHECK (engineering/decisions/2026-11-12-device-capability-tiers.md §6.2). Tests the features only a
-		    browser's age takes away, from the Studio's own probe table, and when one is missing loads /old-browser.js,
-		    which covers the page with an honest notice. Features only, never hardware. A CLASSIC script in ES5, because
+		    browser's age takes away, from the Studio's own probe table, and when one is missing loads /old-browser.js
+		    (pages/old-browser.js.ts), which covers the page with an honest notice. Features only, never hardware. A CLASSIC script in ES5, because
 		    the browsers it is for may not parse our bundled modules; the notice lives in a static file so the page's HTML
 		    stays small and a current browser downloads nothing. */}
 		<script is:inline define:vars={{ OLD_BROWSER_CHECKS, OLD_BROWSER_SRC: url('old-browser.js') }}>
@@ -233,7 +233,10 @@ const OLD_BROWSER_CHECKS = OLD_BROWSER_FEATURES.map((f) => ({ label: FEATURE_LAB
 				var m = [];
 				for (var i = 0; i < OLD_BROWSER_CHECKS.length; i++) {
 					var c = OLD_BROWSER_CHECKS[i], ok = false;
-					try { ok = c.css ? !!(window.CSS && CSS.supports(c.css)) : typeof window[c.global] !== 'undefined'; } catch (e) {}
+					try {
+						if (c.css) ok = !!(window.CSS && CSS.supports(c.css));
+						else { var v = window, p = c.global.split('.'); for (var j = 0; j < p.length && v != null; j++) v = v[p[j]]; ok = typeof v !== 'undefined'; }
+					} catch (e) {}
 					if (!ok) m.push(c.label);
 				}
 				if (!m.length) return;

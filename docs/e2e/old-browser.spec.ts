@@ -30,17 +30,28 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an old browser gets an hon
 	await page.goto('/', { waitUntil: 'domcontentloaded' });
 	const notice = page.locator(NOTICE);
 	await expect(notice).toBeVisible();
-	await expect(notice.getByRole('heading', { name: 'This browser is too old for Lattice.' })).toBeFocused();
-	await expect(notice).toContainText("Lattice needs CSS :has(), which this browser doesn't support");
+	await expect(notice.getByRole('heading', { name: 'Lattice needs a newer browser.' })).toBeFocused();
+	await expect(notice).toContainText('Missing here: CSS :has().');
 	await expect(notice).toContainText('stop getting security fixes');
-	await expect(notice).toContainText('Update to a current Chrome, Edge, Safari or Firefox');
-	// The page beneath is hidden from assistive technology while the notice shows.
+	// A current engine made to fail the probe: its user agent says it is new enough, so it gets the general advice and
+	// the docs link, never "you have Chrome 150; Lattice needs 111" (the per-browser wording is unit-tested).
+	await expect(notice).toContainText('Chrome 111, Edge 111, Firefox 128, Safari 16.4');
+	await expect(notice.getByRole('link', { name: 'Supported browsers' })).toHaveAttribute('href', /getting-started\/#supported-browsers$/);
+	// The slide the reader is missing has loaded, in the page's mode.
+	const slide = notice.locator('figure img');
+	await expect(slide).toHaveAttribute('src', /old-browser\/hero-(light|dark)\.jpg$/);
+	await expect.poll(() => slide.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1120);
+	// The page beneath stays in view but blurred, out of reach and hidden from assistive technology.
 	await expect(page.locator('body > main')).toHaveAttribute('aria-hidden', 'true');
+	await expect(page.locator('body > main')).toHaveCSS('pointer-events', 'none');
+	await expect(notice.getByRole('button', { name: 'Continue anyway' })).toBeAttached();
+	await notice.getByRole('button', { name: 'Continue anyway' }).scrollIntoViewIfNeeded();
 	await expect(notice.getByRole('button', { name: 'Continue anyway' })).toBeInViewport({ ratio: 1 });
 
 	await notice.getByRole('button', { name: 'Continue anyway' }).click();
 	await expect(notice).toHaveCount(0);
 	await expect(page.locator('body > main')).not.toHaveAttribute('aria-hidden', 'true');
+	await expect(page.locator('body > main')).toHaveCSS('pointer-events', 'auto');
 
 	// The rest of this tab stays past it: a reload does not show it again.
 	await page.reload({ waitUntil: 'load' });
@@ -52,7 +63,7 @@ test('@crosswidth @webkit-phone @gecko every missing feature is named', async ({
 	await withoutHas(page);
 	await withoutStructuredClone(page);
 	await page.goto('/', { waitUntil: 'domcontentloaded' });
-	await expect(page.locator(NOTICE)).toContainText("Lattice needs CSS :has() and structuredClone(), which this browser doesn't support");
+	await expect(page.locator(NOTICE)).toContainText('Missing here: CSS :has() and structuredClone().');
 });
 
 test('@crosswidth @webkit-phone @gecko a current browser never sees the notice or downloads it', async ({ page }) => {

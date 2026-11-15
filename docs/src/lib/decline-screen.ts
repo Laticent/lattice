@@ -7,6 +7,7 @@
 //
 // Loaded only when the tier reads "unsupported" (device-gate.ts), so no page pays for it at startup.
 
+import { floorSummary } from './browser-floor';
 import { continueAnyway, ensureDeviceTier, type TierState } from './device-tier';
 import { browserName, reportRows, reportText } from './system-report';
 
@@ -24,7 +25,7 @@ export function declineWords(s: Pick<TierState, 'profile' | 'pinned'>): { lead: 
 		const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 		return {
 			lead: `It needs ${list}, which this browser doesn't support.`,
-			advice: 'Use a current Chrome, Edge, Safari or Firefox.',
+			advice: `Use ${floorSummary()} or newer.`,
 		};
 	}
 	if (floors.length) {
@@ -35,7 +36,7 @@ export function declineWords(s: Pick<TierState, 'profile' | 'pinned'>): { lead: 
 	}
 	return {
 		lead: s.pinned === 'unsupported' ? 'This page was opened with ?tier=unsupported, which shows this screen on purpose.' : 'Lattice could not confirm this browser can run it.',
-		advice: 'Use a current Chrome, Edge, Safari or Firefox.',
+		advice: `Use ${floorSummary()} or newer.`,
 	};
 }
 

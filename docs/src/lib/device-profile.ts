@@ -15,9 +15,9 @@ export type Tier = 'full' | 'lite' | 'unsupported';
 export type TierOverride = 'auto' | Tier;
 
 /** A feature the app cannot run without. Each is on the list because something breaks without it. */
-export type RequiredFeature = 'worker' | 'indexedDB' | 'cssHas' | 'containerQueries' | 'structuredClone';
+export type RequiredFeature = 'worker' | 'indexedDB' | 'cssHas' | 'containerQueries' | 'structuredClone' | 'colorMix' | 'registerProperty';
 
-export const REQUIRED_FEATURES: readonly RequiredFeature[] = ['worker', 'indexedDB', 'cssHas', 'containerQueries', 'structuredClone'];
+export const REQUIRED_FEATURES: readonly RequiredFeature[] = ['worker', 'indexedDB', 'cssHas', 'containerQueries', 'structuredClone', 'colorMix', 'registerProperty'];
 
 /** What a person reads when the feature is missing. */
 export const FEATURE_LABEL: Record<RequiredFeature, string> = {
@@ -26,9 +26,12 @@ export const FEATURE_LABEL: Record<RequiredFeature, string> = {
 	cssHas: 'CSS :has()',
 	containerQueries: 'CSS container queries',
 	structuredClone: 'structuredClone()',
+	colorMix: 'CSS color-mix()',
+	registerProperty: 'CSS @property',
 };
 
-type GlobalName = 'Worker' | 'indexedDB' | 'structuredClone';
+/** A global that must exist; a dotted name is a property path from `window` (`CSS.registerProperty`). */
+type GlobalName = 'Worker' | 'indexedDB' | 'structuredClone' | 'CSS.registerProperty';
 
 /**
  * How each required feature is tested: a `CSS.supports` condition, or a global that must exist. `readSignals` reads this
@@ -41,14 +44,17 @@ export const FEATURE_PROBES: Record<RequiredFeature, { css: string } | { global:
 	cssHas: { css: 'selector(:has(a))' },
 	containerQueries: { css: 'container-type: inline-size' },
 	structuredClone: { global: 'structuredClone' },
+	// The two the site's CSS framework sets the floor with (Tailwind 4: Chrome 111, Safari 16.4, Firefox 128; browser-floor.ts).
+	colorMix: { css: 'color: color-mix(in srgb, red, blue)' },
+	registerProperty: { global: 'CSS.registerProperty' },
 };
 
 /**
  * The required features the landing page checks: the ones only a browser's AGE can take away. Workers and IndexedDB stay
  * off it, because a current browser can have them switched off for privacy, and the landing page does not use either; the
- * Studio still declines on all five.
+ * Studio still declines on all seven.
  */
-export const OLD_BROWSER_FEATURES: readonly RequiredFeature[] = ['cssHas', 'containerQueries', 'structuredClone'];
+export const OLD_BROWSER_FEATURES: readonly RequiredFeature[] = ['cssHas', 'containerQueries', 'structuredClone', 'colorMix', 'registerProperty'];
 
 export interface DeviceSignals {
 	/** Required features, true when present. */
@@ -283,7 +289,11 @@ export function browserEnv(win: Window & typeof globalThis): BrowserEnv {
 				return false;
 			}
 		},
-		has: (g) => typeof (win as unknown as Record<string, unknown>)[g] !== 'undefined',
+		has: (g) => {
+			let v: unknown = win;
+			for (const k of g.split('.')) v = v == null ? undefined : (v as Record<string, unknown>)[k];
+			return typeof v !== 'undefined';
+		},
 		webglRenderer: () => {
 			try {
 				const gl = win.document.createElement('canvas').getContext('webgl');

@@ -31,7 +31,7 @@ function fakeWin({ renderer = 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060)', search 
 	};
 	const win = {
 		navigator: { deviceMemory: 16, hardwareConcurrency: 8, userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0 Safari/537.36' },
-		CSS: { supports: () => true },
+		CSS: { supports: () => true, registerProperty: () => {} },
 		Worker: function Worker() {},
 		indexedDB: {},
 		structuredClone: () => null,
