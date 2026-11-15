@@ -31,11 +31,12 @@ test(`MEASURED: the code sandbox's OS layer is read, not assumed, on ${process.p
     const { layer } = sandbox;
     const diag = {};
     // Read again with the diagnostics on, so a failure says what the probe saw.
-    const again = layer.os === 'off' ? false : await rendererSandboxed(sandbox.browser, sandbox.pid, process.platform, diag);
+    // Read again with the diagnostics on, OFF included: when the launch itself measured OFF, this is what shows why.
+    const again = await rendererSandboxed(sandbox.browser, sandbox.pid, process.platform, diag);
     assert.notEqual(layer.os, 'unmeasured', `the layer could not be measured here: ${layer.summary}; the probe saw ${JSON.stringify(diag.seen ?? [])}`);
     if (process.platform === 'darwin' || process.platform === 'win32') {
       assert.equal(layer.os, 'on', `${process.platform} runs Chromium's sandbox, and the layer read ${layer.os}: ${layer.summary}; tried ${layer.tried.join('; ')}; the probe saw ${JSON.stringify(diag.seen ?? [])}`);
-      assert.equal(again, true);
+      assert.equal(again, true, `the second read did not agree: the probe saw ${JSON.stringify(diag.seen ?? [])}`);
     }
   } finally {
     await sandbox.close();
