@@ -234,7 +234,8 @@ async function poolFilled(page: Page) {
 			() =>
 				page.evaluate(() => {
 					const band = 150 - 8;
-					const tiles = [...document.querySelectorAll('[data-map-rail] button[data-tier="live"]')];
+					// What SHOWS a frame, not what the plan calls live: a tile with a fresh poster shows the poster (StudioMap.tsx).
+					const tiles = [...document.querySelectorAll('[data-map-rail] button[data-shows="live"]')];
 					// The observer's root: the nearest scrolling ancestor of a tile, as `scrollParent` finds it.
 					let root: Element | null = tiles[0]?.parentElement ?? null;
 					while (root && !/(auto|scroll|overlay)/.test(getComputedStyle(root).overflowX + getComputedStyle(root).overflowY)) root = root.parentElement;
@@ -277,7 +278,7 @@ async function reusesFrames(page: Page) {
 	// them. Counted IN VIEW: the strip keeps a live tile ready just past its edge, and the pool frames what can be seen.
 	const live = await page.evaluate(() => {
 		const rail = document.querySelector('[data-map-rail]')?.getBoundingClientRect();
-		return [...document.querySelectorAll('[data-map-rail] button[data-tier="live"]')].filter((b) => {
+		return [...document.querySelectorAll('[data-map-rail] button[data-shows="live"]')].filter((b) => {
 			const r = b.getBoundingClientRect();
 			return rail && r.right > rail.left && r.left < rail.right && r.bottom > rail.top && r.top < rail.bottom;
 		}).length;

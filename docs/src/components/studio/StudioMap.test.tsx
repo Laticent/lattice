@@ -5,10 +5,21 @@ import { createFocusHub } from '@/lib/fuoco/hub';
 
 // The pool draws iframes; what is under test is the host: which units the rail lists, which one it
 // calls focused, and what a pick or a step asks the shell for.
-vi.mock('./preview-pool', () => ({
-	PreviewPool: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-	PooledThumbFace: (p: { slideIndex?: number; slideMarkdown?: string }) => <i data-live-face={p.slideIndex} data-md={p.slideMarkdown} />,
-}));
+// `capturing` turns on the pool's poster capture for the tests that need one: a face then hands its picture over once
+// mounted, as the real pool does once the tile has rendered and the rail is still.
+const pool = vi.hoisted(() => ({ capturing: false }));
+vi.mock('./preview-pool', async () => {
+	const React = await import('react');
+	return {
+		PreviewPool: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+		PooledThumbFace: (p: { slideIndex?: number; slideMarkdown?: string; onPicture?: (c: () => Promise<Blob | null>) => void }) => {
+			React.useEffect(() => {
+				if (pool.capturing) p.onPicture?.(async () => new Blob(['jpeg'], { type: 'image/jpeg' }));
+			}, [p.onPicture]);
+			return <i data-live-face={p.slideIndex} data-md={p.slideMarkdown} />;
+		},
+	};
+});
 
 import StudioMap from './StudioMap';
 
@@ -16,7 +27,10 @@ beforeAll(() => {
 	Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 148 });
 	Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 600 });
 });
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	pool.capturing = false;
+});
 
 // Four authored slides; the second heading-splits into two rendered slides: five parts.
 const DECK = '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n## Two B\n\n---\n\n# Three\n\n---\n\n# Four\n';
@@ -48,6 +62,20 @@ describe('StudioMap', () => {
 		});
 		expect(first?.getAttribute('data-md')).toContain('theme: indaco');
 		expect(first?.getAttribute('data-md')).toContain('# One');
+	});
+
+	// STILLS STAY STILLS: a frame exists to make a poster. Once the tile's poster is captured the tile shows it and its
+	// frame goes back to the pool, so an unchanged map holds no engine documents (StudioMap.tsx `live`).
+	it('shows a tile\'s poster in place of its live frame once the poster is captured', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup().ui);
+		const tile = () => document.querySelector<HTMLElement>('button[data-unit="0"]');
+		await waitFor(() => expect(tile()?.dataset.shows).toBe('poster'));
+		expect(tile()?.dataset.tier).toBe('live'); // still planned live: the host drew the poster instead
+		expect(document.querySelector('[data-live-face="0"]')).toBeNull();
+		expect(tile()?.querySelector('img')).not.toBeNull();
 	});
 
 	it('picks through the shell: a tile asks for its chunk and heading section', () => {

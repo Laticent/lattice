@@ -427,6 +427,11 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 		<ol className="relative m-0 list-none p-0" style={vertical ? { height: geo.total, width: '100%' } : { width: geo.total, height: '100%' }}>
 			{units.map((i) => {
 				const tier = plan.tiers.get(i) ?? (posterFloor ? 'poster' : 'wireframe');
+				// What the tile DRAWS, which a host can narrow below its tier: a live tile whose host returns no frame (the
+				// Studio, once a poster exists) shows its poster. `data-tier` stays the plan; `data-shows` is the picture.
+				const liveNode = tier === 'live' && live ? live(i) : null;
+				const posterNode = poster && (tier === 'poster' || (tier === 'live' && posterFloor)) ? poster(i) : null;
+				const shows = liveNode ? 'live' : posterNode ? 'poster' : tier === 'placeholder' ? 'placeholder' : 'sketch';
 				const on = i === focus;
 				const at = PAD + i * geo.pitch;
 				// The window mounts a few tiles of a long deck, so each says where it sits in the whole list: a screen reader
@@ -440,6 +445,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 							aria-label={label(i)}
 							tabIndex={i === tabStop ? 0 : -1}
 							data-tier={tier}
+							data-shows={shows}
 							data-unit={i}
 							className={cn(
 								'group relative block size-full select-none text-left outline [-webkit-touch-callout:none] outline-2 outline-offset-[3px] transition-[outline-color]',
@@ -457,8 +463,8 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 										<Sketch wire={wire(i)} aspect={aspect} />
 									</span>
 								)}
-								{poster && (tier === 'poster' || (tier === 'live' && posterFloor)) ? <span className="pointer-events-none absolute inset-0 block">{poster(i)}</span> : null}
-								{tier === 'live' && live ? <span className="pointer-events-none absolute inset-0 block">{live(i)}</span> : null}
+								{posterNode ? <span className="pointer-events-none absolute inset-0 block">{posterNode}</span> : null}
+								{liveNode ? <span className="pointer-events-none absolute inset-0 block">{liveNode}</span> : null}
 								{mark ? <span aria-hidden className={cn('pointer-events-none absolute top-1 z-10 flex', band ? 'left-1' : 'right-1')}>{mark(i)}</span> : null}
 							</span>
 							{band ? (

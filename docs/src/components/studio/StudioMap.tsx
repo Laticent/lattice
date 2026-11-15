@@ -18,8 +18,10 @@
 //     (`people`) and, outside the Read stop, the slide's component class as a caption (`classLabels`).
 //   · POSTERS. Once a tile's live picture has rendered and the rail is still, the pool captures it
 //     (preview-pool.tsx `onPicture`) and the picture goes into a content-addressed cache
-//     (map-rail/poster-cache.ts). A tile past the live budget then shows it instead of a sketch, and so does a
-//     live tile while its frame is being re-pointed during a fast scroll. The rail's mounted window is pinned.
+//     (map-rail/poster-cache.ts). From then on the tile shows the poster and its frame goes back to the pool:
+//     a live frame exists to make a poster, not to keep showing what one already shows. Posters are kept across
+//     visits (map-rail/poster-store.ts), so a returning reader's map mounts no frames for an unchanged deck.
+//     The rail's mounted window is pinned.
 //
 // Loaded only when the map is on (React.lazy in StudioShell): the Studio's eager bundle is budgeted.
 
@@ -85,9 +87,6 @@ const POSTER_BYTES = 8 * 1024 * 1024;
 /** The posters kept across visits (map-rail/poster-store.ts): a returning reader's map paints them before any live frame
  *  mounts. One store for the module, opened on first use; its keys are complete addresses, so it is shared safely. */
 const STORE = createPosterStore('lattice-studio-posters');
-/** Whether a tile with a fresh poster keeps showing it and mounts no live frame. OFF: under measurement
- *  (`npm run perf:load`, RETURN=1) and awaiting the owner's call, because a poster is drawn with fallback fonts. */
-const SKIP_LIVE = false;
 
 /** A plain (non-underscore) directive comment carries onto every later slide, Marp's rule, so it is part of what a
  *  slide looks like even though it is not in the slide's text. `header` and `footer` set their own slide
@@ -272,8 +271,12 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 			// Until the pictures catch up with an edit, a tile whose slide changed keeps its sketch: a stale
 			// picture of another slide, or one past the settled deck's end, is worse than none.
 			if (!it || text !== textOf(i)) return null;
-			// A tile whose poster is fresh shows it and mounts no frame (SKIP_LIVE).
-			if (SKIP_LIVE && cache.has(keyOf(i))) return null;
+			// STILLS STAY STILLS. A tile whose poster is fresh shows it and mounts no frame: the poster is a capture of this
+			// same slide in this same look (the key says so) with the slide's own fonts embedded (pool-capture.ts), so a frame
+			// would draw the same picture at the cost of a whole engine document. A frame mounts only to make a poster: a
+			// first visit, an edited slide, a new look. Measured with `npm run perf:load` (RETURN=1 CPU=4): a returning
+			// reader's map went from 7 live frames to none, and the load's Speed Index from 3.4 s to 2.7 s.
+			if (cache.has(keyOf(i))) return null;
 			const hit = liveCache.get(i);
 			if (hit) return hit;
 			const face = <PooledThumbFace options={look.options} sample={look.sample} slideIndex={i} slideCount={look.items.length} slideMarkdown={look.front + text} drawn={hasDrawnFence(text)} paletteOverride={look.paletteOverride} extraTheme={look.extraTheme} modeOverride={look.modeOverride} extraCss={look.extraCss} className="size-full" onPicture={(capture) => onPictureRef.current(i, capture)} />;

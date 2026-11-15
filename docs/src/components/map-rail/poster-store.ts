@@ -26,10 +26,24 @@ export interface PosterStore {
 const STORE = 'posters';
 const AT = 'at';
 
+/** A picture is stored as its BYTES and type, not as a Blob: Blobs in IndexedDB have failed in WebKit before, and a
+ *  structured-clone fake (the unit tests') drops them to a plain object. Bytes clone everywhere. */
 interface Row {
 	key: string;
-	blob: Blob;
+	bytes: ArrayBuffer;
+	type: string;
 	at: number;
+}
+
+/** A Blob's bytes. `FileReader` where `Blob.arrayBuffer` is missing: Safari before 14, and jsdom. */
+function bytesOf(blob: Blob): Promise<ArrayBuffer> {
+	if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
+	return new Promise((resolve, reject) => {
+		const r = new FileReader();
+		r.onload = () => resolve(r.result as ArrayBuffer);
+		r.onerror = () => reject(r.error);
+		r.readAsArrayBuffer(blob);
+	});
 }
 
 const settle = <T>(req: IDBRequest<T>) =>
@@ -73,7 +87,8 @@ export function createPosterStore(name: string, { max = 400 }: { max?: number } 
 				const d = await open();
 				if (!d) return null;
 				const row = (await settle(d.transaction(STORE, 'readonly').objectStore(STORE).get(key))) as Row | undefined;
-				return row?.blob instanceof Blob ? row.blob : null;
+				// Tested by its tag, not `instanceof`: the bytes may come from another realm (a frame, a test's DOM).
+				return row && Object.prototype.toString.call(row.bytes) === '[object ArrayBuffer]' ? new Blob([row.bytes], { type: row.type }) : null;
 			} catch {
 				return null;
 			}
@@ -82,9 +97,11 @@ export function createPosterStore(name: string, { max = 400 }: { max?: number } 
 			try {
 				const d = await open();
 				if (!d) return;
+				// Read the bytes BEFORE the transaction opens: one that awaits anything else closes itself.
+				const bytes = await bytesOf(blob);
 				const tx = d.transaction(STORE, 'readwrite');
 				const os = tx.objectStore(STORE);
-				os.put({ key, blob, at: Date.now() } satisfies Row);
+				os.put({ key, bytes, type: blob.type, at: Date.now() } satisfies Row);
 				const over = (await settle(os.count())) - max;
 				if (over > 0) {
 					// Oldest writes first, through the index, inside the same transaction as the write.

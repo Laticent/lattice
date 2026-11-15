@@ -25,14 +25,61 @@ export function slotShows(slot: HTMLElement | undefined, props: PooledPreviewPro
 	}
 }
 
+/** The families a slide's text is drawn in, lowercased and unquoted, from every element's computed `font-family`. */
+export function familiesOf(section: HTMLElement): string[] {
+	const win = section.ownerDocument.defaultView ?? window;
+	const out = new Set<string>();
+	for (const el of [section, ...section.querySelectorAll<HTMLElement>('*')]) {
+		for (const f of win.getComputedStyle(el).fontFamily.split(',')) {
+			const name = f.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+			if (name) out.add(name);
+		}
+	}
+	return [...out].sort();
+}
+
+/** The `@font-face` rules of `css` whose family is in `families`. `css` is the export's text-face block
+ *  (playground/font-embed.js), one `@font-face{font-family:'X';…}` rule per face. Exported for pool-capture.test.ts. */
+export function facesFor(css: string, families: readonly string[]): string {
+	const want = new Set(families);
+	return css
+		.split('@font-face')
+		.filter((rule) => {
+			const m = /font-family:\s*['"]?([^'";]+)/.exec(rule);
+			return !!m && want.has(m[1].trim().toLowerCase());
+		})
+		.map((rule) => `@font-face${rule}`)
+		.join('');
+}
+
+/** One embed sheet per set of families: a map's slides share a handful of sets, so each is filtered once a page. */
+const embeds = new Map<string, Promise<string>>();
+function embedCssFor(families: string[]): Promise<string> {
+	const key = families.join('\u0000');
+	let p = embeds.get(key);
+	if (!p) {
+		p = import('../../playground/font-embed.js')
+			.then(({ buildFontEmbedCss }) => buildFontEmbedCss('', { emoji: 'system' }))
+			.then((css: string) => facesFor(css, families))
+			.catch(() => {
+				embeds.delete(key); // a later capture retries; this one goes without
+				return '';
+			});
+		embeds.set(key, p);
+	}
+	return p;
+}
+
 /** `captureSlot`'s answer when the reader scrolled while its code loaded: nothing was captured; queue it again. */
 export const SCROLLED = 'scrolled' as const;
 
 /**
  * Rasterize the slide a slot's frame shows, at the slot's own size (times the device's pixel ratio), as a JPEG.
  * `still` is asked again once the picture is drawn: a slot re-pointed mid-capture yields null, never another slide's
- * picture. Fonts are not embedded (the export's `fontEmbedCSS` costs a fetch per face); at a map tile's size a
- * fallback face is not legible either way, and the live picture replaces the poster when the tile is live again.
+ * picture. THE SLIDE'S OWN FONTS ARE EMBEDDED: the families it draws in, out of the export's vendored faces
+ * (playground/font-embed.js), filtered per slide so a capture carries a few faces, not the whole block. A poster
+ * stays on screen once it exists (StudioMap.tsx), so it must match the live tile: drawn in a fallback face it
+ * re-wrapped titles and overlapped dense columns.
  *
  * `quiet` is asked once more right before the clone starts, after the capture code has loaded. The pool checked that
  * the scroller was still before it ran this, but the imports below are awaits, and a scroll that landed during them
@@ -59,6 +106,7 @@ export async function captureSlot(slot: HTMLDivElement | undefined, still: () =>
 			import('./export/capture-ribbon.js'),
 			import('../../../../lib/core/capture-style-properties.mjs'),
 		]);
+		const fontEmbedCSS = await embedCssFor(familiesOf(section));
 		if (!quiet()) return SCROLLED;
 		// A `performance` entry per capture: its WALL time, from the clone to the JPEG, across awaits (image inlining and the
 		// encode may run off the main thread). It bounds the main-thread cost; a long-task reading is what pins it down.
@@ -71,7 +119,7 @@ export async function captureSlot(slot: HTMLDivElement | undefined, still: () =>
 		// `borderImageSource` override alone changed nothing). The export never meets it because it writes the live node,
 		// whose computed alias then reads `none` too. WebKit copies `cssText` instead and was right all along.
 		const style = { transform: 'none', margin: '0', outline: 'none', ...(ribbon.borderImageSource ? { webkitBorderImage: 'none' } : {}), ...ribbon };
-		const canvas = await toCanvas(section, { width: w, height: h, pixelRatio: (box.width * dpr) / w, skipFonts: true, includeStyleProperties: captureStyleProperties(), style });
+		const canvas = await toCanvas(section, { width: w, height: h, pixelRatio: (box.width * dpr) / w, ...(fontEmbedCSS ? { fontEmbedCSS } : { skipFonts: true }), includeStyleProperties: captureStyleProperties(), style });
 		const blob = still() ? await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.82)) : null;
 		performance.measure('lattice-poster-capture', { start: t0, end: performance.now(), detail: { kept: !!blob, bytes: blob?.size ?? 0 } });
 		return blob;

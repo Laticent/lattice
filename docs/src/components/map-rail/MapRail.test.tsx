@@ -69,6 +69,37 @@ describe('MapRail', () => {
 		expect(t.some(([, tier]) => tier === 'wireframe')).toBe(true);
 	});
 
+	// STILLS FIRST (`ramp`): no tile is live at mount; they go live one per step, the focused tile first, until the window
+	// holds what it would have held without the ramp. Stepped with fake timers (jsdom has no requestIdleCallback, so each
+	// step is a timer), so the test waits on no clock.
+	it('with ramp, mounts no live tile at first and promotes them one per step, the focused one first', () => {
+		const full = (() => {
+			render(<MapRail {...props({ count: 40, focus: 6, live: (i) => <i data-live={i} />, liveBudget: 3 })} />);
+			const n = tiers().filter(([, tier]) => tier === 'live').length;
+			cleanup();
+			return n;
+		})();
+		vi.useFakeTimers();
+		try {
+			render(<MapRail {...props({ count: 40, focus: 6, live: (i) => <i data-live={i} />, liveBudget: 3, ramp: true })} />);
+			const live = () => tiers().filter(([, tier]) => tier === 'live').map(([u]) => u);
+			// One promotion is two timers: the wait after the last promotion (none before the first), then the idle wait.
+			const step = () => {
+				act(() => vi.advanceTimersToNextTimer());
+				act(() => vi.advanceTimersToNextTimer());
+			};
+			expect(live()).toEqual([]);
+			step();
+			expect(live()).toEqual([6]);
+			step();
+			expect(live()).toHaveLength(2);
+			for (let i = 0; i < full + 2; i++) step();
+			expect(live()).toHaveLength(full);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	// A pool that reports its capacity, the way PreviewPool's `onSettle` does, from a layout effect.
 	function Pool({ capacity, report, children }: { capacity: number; report: (p: { capacity: number }) => void; children: React.ReactNode }) {
 		React.useLayoutEffect(() => report({ capacity }), [capacity, report]);
