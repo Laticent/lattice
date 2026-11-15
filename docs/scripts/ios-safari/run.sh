@@ -181,7 +181,7 @@ for family in $families; do
   # past the deadline is not started, and the job is red with `not run: out of time` (suite-budget.mjs).
   if [ -n "$last_cost" ]; then
     brc=0
-    node docs/scripts/ios-safari/suite-budget.mjs --device "$family" --gone "$SECONDS" --cost "$last_cost" --deadline 60 --mark "$OUT_OF_TIME_MARK" || brc=$?
+    node docs/scripts/ios-safari/suite-budget.mjs --device "$family" --gone "$SECONDS" --cost "$last_cost" --deadline "$deadline" --mark "$OUT_OF_TIME_MARK" || brc=$?
     if [ "$brc" = 10 ]; then status=1; out_of_time=1; left=$((left - 1)); continue; fi
     if [ "$brc" != 0 ]; then echo "$family: the budget check itself failed (exit $brc)" >&2; status=1; probe_failed=1; left=$((left - 1)); continue; fi
   fi
