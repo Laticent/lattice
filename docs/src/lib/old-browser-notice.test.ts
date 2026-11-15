@@ -55,17 +55,19 @@ describe('what it says to each browser', () => {
 		['Chrome 109 on Windows 7', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36', 'Windows 7', 'Windows 10 or later', 'https://support.microsoft.com/windows/windows-7-support-ended-on-january-14-2020-b75d4580-2cc7-895a-2c9c-1466d9a53962', 'About older Windows'],
 	])('%s', (_name, ua, have, need, link, linkText) => {
 		const screen = run(ua);
-		expect(text(screen, '.lob-spec strong')).toEqual([have, need]);
+		expect(text(screen, '.lob-spec dd')).toEqual([have, need]);
 		const primary = screen.querySelector<HTMLAnchorElement>('.lob-primary');
 		expect(primary?.href).toBe(link);
-		expect(primary?.textContent).toBe(linkText);
+		// The visible label, then what a screen reader adds: where the link goes.
+		expect(primary?.textContent).toBe(`${linkText} (opens in a new tab)`);
+		expect(primary?.querySelector('.lob-sr')?.textContent).toBe(' (opens in a new tab)');
 		expect(primary?.rel).toBe('noopener');
 	});
 
 	it('a browser whose user agent claims a new enough version gets the general advice, never a contradiction', () => {
 		const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
 		expect(screen.querySelector('.lob-spec')).toBeNull();
-		expect(text(screen, '.lob-steps')).toEqual(['Update to Chrome 111, Edge 111, Firefox 128, Safari 16.4, Samsung Internet 22, Opera 97 or newer, then come back.']);
+		expect(text(screen, '.lob-note')).toEqual(['Update to Chrome 111, Edge 111, Firefox 128, Safari 16.4, Samsung Internet 22, Opera 97 or newer, then open this page again.']);
 		expect(screen.querySelector<HTMLAnchorElement>('.lob-primary')?.getAttribute('href')).toBe('/getting-started/#supported-browsers');
 	});
 
@@ -78,12 +80,67 @@ describe('what it says to each browser', () => {
 	it('names every missing feature, says why updating matters, and shows the slide for the mode', () => {
 		document.documentElement.setAttribute('data-mode', 'dark');
 		const screen = run('SomeBrowser/1.0', ['CSS :has()', 'CSS color-mix()', 'CSS @property']);
-		expect(screen.textContent).toContain('Missing here: CSS :has(), CSS color-mix() and CSS @property.');
+		expect(screen.querySelector('details p')?.textContent).toContain('This browser is missing CSS :has(), CSS color-mix() and CSS @property, which Lattice needs.');
 		expect(screen.textContent).toContain('stop getting security fixes');
 		expect(screen.querySelector<HTMLImageElement>('figure img')?.getAttribute('src')).toBe('/old-browser/hero-dark.jpg');
 		expect(screen.querySelector('h1')?.textContent).toBe('Lattice needs a newer browser.');
 		expect(document.activeElement).toBe(screen.querySelector('h1'));
 		document.documentElement.removeAttribute('data-mode');
+	});
+});
+
+describe('its structure, for a reader who listens or tabs', () => {
+	it('is an alert dialog named by its heading and described by its lead', () => {
+		const screen = run('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15');
+		expect(screen.getAttribute('role')).toBe('alertdialog');
+		expect(screen.getAttribute('aria-modal')).toBe('true');
+		expect(document.getElementById(screen.getAttribute('aria-labelledby') ?? '')?.tagName).toBe('H1');
+		expect(document.getElementById(screen.getAttribute('aria-describedby') ?? '')?.textContent).toMatch(/^Lattice turns a few lines/);
+		// The decorations say nothing.
+		for (const d of screen.querySelectorAll('.lob-veil, .lob-glow')) expect(d.getAttribute('aria-hidden')).toBe('true');
+		expect(screen.querySelector<HTMLImageElement>('.lob-eyebrow img')?.alt).toBe('');
+	});
+
+	it('reads in order: header, figure, a titled section, footer', () => {
+		const screen = run('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15');
+		const card = screen.querySelector('.lob-card');
+		expect(Array.from(card?.children ?? []).map((c) => c.tagName)).toEqual(['HEADER', 'FIGURE', 'SECTION', 'FOOTER']);
+		const section = screen.querySelector('section');
+		expect(section?.firstElementChild?.tagName).toBe('H2');
+		expect(document.getElementById(section?.getAttribute('aria-labelledby') ?? '')?.textContent).toBe('How to update');
+		// One h1 and one h2: a heading list a screen reader can jump through.
+		expect(Array.from(screen.querySelectorAll('h1, h2, h3')).map((h) => h.tagName)).toEqual(['H1', 'H2']);
+	});
+
+	it('gives the versions as a description list and the steps as a numbered list', () => {
+		const screen = run('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15');
+		expect(text(screen, 'dl dt')).toEqual(['You have', 'Lattice needs']);
+		expect(screen.querySelector('.lob-note')?.textContent).toBe('Safari updates with macOS.');
+		expect(text(screen, 'ol li')).toEqual(BROWSER_FLOOR.find((b) => b.id === 'safari')?.steps);
+		expect(screen.querySelector('.lob-after')?.textContent).toMatch(/^On older Macs/);
+	});
+
+	it('keeps the jargon behind "Technical details" and says what Continue anyway costs', () => {
+		const screen = run('SomeBrowser/1.0');
+		expect(screen.querySelector('details summary')?.textContent).toBe('Technical details');
+		expect(screen.querySelector('details')?.hasAttribute('open')).toBe(false);
+		expect(screen.querySelector('.lob-continue')?.textContent).toBe('You can still look around, but parts of the site may not work. Continue anyway');
+		expect(screen.querySelector('.lob-go')?.getAttribute('type')).toBe('button');
+	});
+
+	it('brings focus that leaves the notice back to its heading', () => {
+		const link = document.createElement('a');
+		link.href = '#x';
+		link.textContent = 'a link on the page beneath';
+		document.body.append(link);
+		const screen = run('SomeBrowser/1.0');
+		expect(document.activeElement).toBe(screen.querySelector('h1'));
+		link.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+		expect(document.activeElement).toBe(screen.querySelector('h1'));
+		// Inside the notice, focus goes where the reader sends it.
+		const go = screen.querySelector<HTMLButtonElement>('.lob-go');
+		go?.focus();
+		expect(document.activeElement).toBe(go);
 	});
 });
 
@@ -98,10 +155,18 @@ describe('the page beneath', () => {
 		expect(main.getAttribute('aria-hidden')).toBe('true');
 		expect(main.style.filter).toContain('blur(');
 		expect(main.style.pointerEvents).toBe('none');
+		expect(main.hasAttribute('inert')).toBe(true);
 
 		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
 		expect(document.querySelector('[data-testid="old-browser"]')).toBeNull();
 		expect(main.hasAttribute('aria-hidden')).toBe(false);
+		expect(main.hasAttribute('inert')).toBe(false);
+		// Focus no longer snaps back once the notice has gone.
+		const after = document.createElement('button');
+		document.body.append(after);
+		after.focus();
+		after.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+		expect(document.activeElement).toBe(after);
 		expect(main.style.filter).toBe('');
 		expect(aside.getAttribute('aria-hidden')).toBe('false');
 		expect(aside.style.filter).toBe('grayscale(1)');

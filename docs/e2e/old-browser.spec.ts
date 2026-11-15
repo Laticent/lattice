@@ -1,5 +1,11 @@
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+
+const AXE_SRC = fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8');
+/** The same rule set as axe-site.spec.ts: WCAG 2.0 to 2.2 A and AA, plus axe's best practices. */
+const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa', 'best-practice'];
 
 // The landing page's old-browser notice (engineering/decisions/2026-11-12-device-capability-tiers.md §6.2), on every engine
 // and width the decline-screen spec runs on.
@@ -31,7 +37,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an old browser gets an hon
 	const notice = page.locator(NOTICE);
 	await expect(notice).toBeVisible();
 	await expect(notice.getByRole('heading', { name: 'Lattice needs a newer browser.' })).toBeFocused();
-	await expect(notice).toContainText('Missing here: CSS :has().');
+	await expect(notice.locator('details')).toContainText('This browser is missing CSS :has(), which Lattice needs.');
 	await expect(notice).toContainText('stop getting security fixes');
 	// A current engine made to fail the probe: its user agent says it is new enough, so it gets the general advice and
 	// the docs link, never "you have Chrome 150; Lattice needs 111" (the per-browser wording is unit-tested).
@@ -63,7 +69,7 @@ test('@crosswidth @webkit-phone @gecko every missing feature is named', async ({
 	await withoutHas(page);
 	await withoutStructuredClone(page);
 	await page.goto('/', { waitUntil: 'domcontentloaded' });
-	await expect(page.locator(NOTICE)).toContainText('Missing here: CSS :has() and structuredClone().');
+	await expect(page.locator(NOTICE).locator('details')).toContainText('This browser is missing CSS :has() and structuredClone(), which Lattice needs.');
 });
 
 test('@crosswidth @webkit-phone @gecko a current browser never sees the notice or downloads it', async ({ page }) => {
@@ -75,4 +81,37 @@ test('@crosswidth @webkit-phone @gecko a current browser never sees the notice o
 	await expect(page.locator('html')).not.toHaveAttribute('data-old-browser', '');
 	await expect(page.locator(NOTICE)).toHaveCount(0);
 	expect(fetched).toEqual([]);
+});
+
+test('@crosswidth @webkit-phone @gecko the notice has no axe findings in either color mode, and Tab never leaves it', async ({ page }) => {
+	await withoutHas(page);
+	for (const colorScheme of ['light', 'dark'] as const) {
+		await page.emulateMedia({ colorScheme });
+		await page.goto('/', { waitUntil: 'load' });
+		const notice = page.locator(NOTICE);
+		await expect(notice).toBeVisible();
+		// The card fades in; axe measures contrast, so it waits for the finished state, not a duration.
+		await expect.poll(() => notice.locator('.lob-card').evaluate((c) => getComputedStyle(c).opacity)).toBe('1');
+		await page.evaluate(() => document.fonts.ready);
+		await page.evaluate(AXE_SRC);
+		const found = await page.evaluate(
+			(values) =>
+				(window as unknown as { axe: { run: (c: Document, o: object) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe
+					.run(document, { runOnly: { type: 'tag', values } })
+					.then((r) => r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)),
+			AXE_TAGS,
+		);
+		expect(found, `axe findings in ${colorScheme} mode`).toEqual([]);
+
+		// A keyboard reader cycles through the notice's controls and the browser's own UI, never the blurred page beneath.
+		for (let i = 0; i < 8; i++) {
+			await page.keyboard.press('Tab');
+			const where = await page.evaluate(() => {
+				const a = document.activeElement;
+				if (!a || a === document.body || a === document.documentElement) return 'browser';
+				return a.closest('[data-testid="old-browser"]') ? 'notice' : `page: ${a.tagName} ${a.textContent?.trim().slice(0, 40)}`;
+			});
+			expect(where, `Tab ${i + 1} in ${colorScheme} mode`).toMatch(/^(notice|browser)$/);
+		}
+	}
 });

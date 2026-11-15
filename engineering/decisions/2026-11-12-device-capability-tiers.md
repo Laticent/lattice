@@ -440,6 +440,19 @@ versions and how to update, and it looks like the site, not like an error page.
   page with a slideshow), which costs the most and has the most to break in an old browser. To re-render the slide after
   the hero changes: `lattice <deck>.md <out>.png` on the hero source with `theme: cuoio` and `color-mode: light|dark`, then
   `convert <png> -resize 1120x -strip -interlace JPEG -quality 82 <jpg>`.
+- **Semantic and readable (owner's ask, same day).** The notice is an `alertdialog` (`aria-modal`), named by its `h1`
+  and described by its lead, so a screen reader announces both as it opens. Inside, an `article` holds a `header` (eyebrow,
+  heading, lead), a `figure` (the slide, with alt text that says what the chart shows), a `section` titled by an `h2` "How
+  to update" (the versions as a `dl` of "You have" / "Lattice needs", a one-line note, the steps as an `ol`, one action per
+  step, and the links), and a `footer` (the security line; the feature names behind a collapsed `details` "Technical
+  details", so the jargon is there for whoever wants it; and "Continue anyway" after the sentence that says what it costs:
+  "parts of the site may not work"). The `article` keeps the header and footer from reading as the page's own banner and
+  footer landmarks. A link that opens a new tab says so to a screen reader. Every control has a visible accent focus
+  ring. The page beneath gets `inert` where the browser knows it, and for browsers that don't, focus that leaves the notice
+  is brought back to its heading, so a keyboard reader never lands on a link they can't see (the first build let Tab walk
+  into the blurred page; axe does not catch that, a keyboard walk did). axe (WCAG 2.0 to 2.2 A and AA plus best practices)
+  finds nothing on the notice in either mode, and `axe-site.spec.ts` stays clean on `/getting-started/` with the new
+  table at 1440, 820 and 390 px.
 - **Built so the browsers it is for can run it.** The inline check in `index.astro` is a classic ES5 script (about 1 KB;
   the home route's `htmlRaw` ends at 118.6 KB of its 119.1 KB ceiling). When a feature is missing it sets
   `data-old-browser` on `<html>` and loads `/old-browser.js`, which `src/pages/old-browser.js.ts` builds from

@@ -8,3 +8,6 @@
 - The Studio and the Playground now decline browsers older than Chrome 111, Safari 16.4 or Firefox 128 (they need CSS
   `color-mix()` and `@property`, which the site's CSS framework relies on), and the decline screen names the versions to
   update to instead of "a current browser".
+- The notice is built for every reader: a screen reader hears its heading and lead as it opens, the update steps are a
+  numbered list, the technical detail sits behind "Technical details", links that open a new tab say so, and keyboard
+  focus stays inside the notice instead of wandering into the blurred page beneath.
