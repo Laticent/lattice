@@ -434,3 +434,15 @@ test('splitAlign moves only the alignments the table form re-applies, and leaves
   assert.deepEqual(splitAlign('text-align:end'), { align: null, rest: 'text-align:end' });
   assert.deepEqual(splitAlign('text-align: start; color: red'), { align: null, rest: 'text-align: start; color: red' });
 });
+
+// EVERY CARD TABLE SWITCHES BELOW 24em (owner, 2026-11-15; fit-everywhere-model.md §25). Up to four columns
+// switched below 20em, which a phone square (about 23em) never reached, so a three-column table ran off the
+// page. One block now serves every column count, and no card block is left at 20em to undercut it.
+test('one card block, below 24em, for every column count', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.table-reflow.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const blocks = css.split('@container').slice(1).map((b) => ({ head: b.slice(0, b.indexOf('{')).trim(), body: b }));
+  const cards = blocks.filter((b) => /table\.lat-reflow-cards:not\(\.lat-reflow-held\)\s*\{\s*display:\s*block/.test(b.body) || /table\.lat-reflow-cards:not\(\.lat-reflow-held\)(:has\([^)]*\))?\s*\{\s*display:\s*block/.test(b.body));
+  assert.equal(cards.length, 1, cards.map((b) => b.head).join(' | '));
+  assert.equal(cards[0].head, '(width < 24em)');
+  assert.doesNotMatch(cards[0].body, /lat-reflow-cards:not\(\.lat-reflow-held\):has\(> thead > tr > :nth-child\(5\)\)/, 'no five-column-only card rule is left');
+});

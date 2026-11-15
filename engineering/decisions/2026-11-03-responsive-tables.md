@@ -155,6 +155,14 @@ The switch widths stay low (20em, 24em, 18em) in this change. With the fit check
 which would switch more tables on today's slides where the cards fit; that changes existing exports, so it is
 a separate, reviewed step.
 
+**That step was taken on 2026-11-15 (owner ruling; fit-everywhere-model.md §25):** a card table of up to four
+columns now switches below 24em, as one of five or more already did, so every card table switches at the same
+width. The phone square reads about 23em at its x1.4 type, so a three-column table there kept its grid and ran
+off the page's edge. Measured on the 87 decks that hold a table, at square, portrait, story and 16:9: six
+clipped pages fixed (`video-plugin.md` and `media/README.md`, at every phone size), none made worse, 16:9
+unchanged. A table between 20em and 24em that fit as a grid now draws as cards; the fit check above still
+holds it in its grid when the cards would overflow.
+
 ## The fluid view is a paged host
 
 Follow-up p10 asked the fluid view to declare itself continuous (`data-lattice-flow="continuous"`), so
