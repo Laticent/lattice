@@ -1050,20 +1050,20 @@ class SlideView {
 	/** Re-run the reserve once the pill is laid out; one observer at a time, gone on destroy or after it fires. */
 	private reserveWhenLaidOut() {
 		if (this.layoutWatch || typeof ResizeObserver === 'undefined' || this.ac.signal.aborted) return;
-		const watch = new ResizeObserver(() => {
-			if (!this.pill.getBoundingClientRect().width) return;
+		const stop = () => {
 			watch.disconnect();
 			this.layoutWatch = null;
-			if (this.ac.signal.aborted) return;
+		};
+		const watch = new ResizeObserver(() => {
+			if (!this.pill.getBoundingClientRect().width) return;
+			stop();
+			this.ac.signal.removeEventListener('abort', stop);
 			this.reserveFormatWidth();
 			if (this.dom.classList.contains('cs-slide-active')) this.holdPillWidth();
 		});
 		this.layoutWatch = watch;
 		watch.observe(this.pill);
-		this.ac.signal.addEventListener('abort', () => {
-			watch.disconnect();
-			this.layoutWatch = null;
-		});
+		this.ac.signal.addEventListener('abort', stop, { once: true });
 	}
 	/** Every style the slide offers in any of its blocks: the caret placed at each top-level block, asked in turn. */
 	private slideFormatKeys(): Set<Reg> {
