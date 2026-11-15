@@ -22,9 +22,14 @@ import { Check, LayoutTemplate } from 'lucide-react';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { PersistentSurface, usePersistentIds } from '@/components/ui/persistent-surface';
+import { notify, notifyAction } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
+import type { ComposeHandle, LayoutRequest } from './ComposeView';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
+import type { ComponentEntry } from './SlidePicker';
+import { applyVariant, componentLooks, variantActive } from './slide-variants';
 
 /** One layout on offer: its class, how a person reads its name, why to pick it, and the slide as it would draw. */
 export type LayoutChoice = { name: string; when: string; sample: string };
@@ -279,6 +284,150 @@ function LayoutMenuBody({ open, slideNumber, sample, current, looks, keeps, fres
 			</div>
 		</div>
 	);
+}
+
+// ── THE HOST — everything between Compose's request and the menu, in this lazy chunk rather than the shell ───────────────
+// What the menu offers for one slide, what each pick writes (through Compose, `applyLayout`: its own history step, shown at
+// once), and the one Undo for the whole visit on close (`restoreLayout`). The family on offer is the one the slide STARTED the
+// visit with, so the list does not reshuffle under the author's finger after each pick. It lived in StudioShell first, and put
+// 1,179 bytes into the Studio's startup script (docs/route-budget.json); here it loads with the menu.
+
+type Visit = { req: LayoutRequest; index: number; original: unknown; start: string; startCls: string };
+
+export function LayoutMenuHost({ req, onDone, compose, slides, components, frontMatter, axes, phone, preview }: {
+	/** The open request, or null when the menu is closed. */
+	req: LayoutRequest | null;
+	onDone: () => void;
+	compose: React.RefObject<ComposeHandle | null>;
+	/** The deck's slides as source chunks, by full-deck index (Compose's index). */
+	slides: string[];
+	components: ComponentEntry[];
+	frontMatter: string;
+	/** The vocabulary's exclusive axes: `applyVariant`'s fallback after a component's own. */
+	axes: Record<string, readonly string[]>;
+	phone: boolean;
+	preview: LayoutMenuProps['preview'];
+}) {
+	const visit = React.useRef<Visit | null>(null);
+	const slidesNow = React.useRef(slides);
+	slidesNow.current = slides;
+	// A new request starts a visit: what the slide was, so the visit can be put back in one step.
+	if (req && visit.current?.req !== req) {
+		const info = compose.current?.layoutOf(req.slideIndex);
+		visit.current = info ? { req, index: req.slideIndex, original: info.original, start: slides[req.slideIndex] ?? '', startCls: info.current } : null;
+	}
+	const v = req ? visit.current : null;
+	// Gone between the tap and the open (the slide was deleted or locked): nothing to show.
+	React.useEffect(() => {
+		if (req && !v) onDone();
+	}, [req, v, onDone]);
+	const menu = React.useMemo(() => {
+		const c = compose.current;
+		if (!v || !c) return null;
+		const info = c.layoutOf(v.index);
+		if (!info) return null;
+		const chunk = slides[v.index] ?? '';
+		const byName = new Map(components.map((x) => [x.name, x]));
+		const current = info.current;
+		const start = byName.get(v.startCls);
+		const cur = byName.get(current);
+		const tokens = getClassTokens(chunk);
+		const variants = layoutVariants(cur);
+		const variantAxes = cur?.variantAxes ?? [];
+		// A pane host (`columns`, `rows`) holds panes; it changes only into another host, and a single layout only into a single one.
+		const isHost = (n: string) => !!byName.get(n)?.hosts;
+		const family = [v.startCls, ...(start?.related ?? []).map((r) => r.name)];
+		if (!family.includes(current)) family.splice(1, 0, current);
+		// A manifest's `when` is a clause ("row of 2-3 metrics…"); the menu shows it as a line of its own, so it opens on a capital.
+		// The slide's own layout says what it is for in the first sentence of its purpose; the rest is advice for authors.
+		const sentence = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+		const purpose = (t: string) => t.split(/(?<=\.)\s/)[0] ?? '';
+		const whenOf = (n: string) => sentence(n === v.startCls ? purpose(start?.purpose ?? '') : (start?.related?.find((r) => r.name === n)?.when ?? byName.get(n)?.purpose ?? ''));
+		const keeps: LayoutChoice[] = [];
+		const fresh: LayoutChoice[] = [];
+		for (const n of family) {
+			const e = byName.get(n);
+			if (!e || e.bucket === 'local' || isHost(n) !== isHost(current) || keeps.some((k) => k.name === n) || fresh.some((k) => k.name === n)) continue;
+			const fit = n === current ? 'keeps' : info.fit(n);
+			// A starter Compose could not edit would lock the slide the moment it landed: not offered (the pane gallery's rule).
+			if (fit === 'fresh' && !c.starterEditable(e.skeleton)) continue;
+			const sample = frontMatter + (fit === 'keeps' ? setClassTokens(chunk, [n, ...keptModifiers(tokens, cur, e)]) : e.skeleton);
+			(fit === 'keeps' ? keeps : fresh).push({ name: n, when: whenOf(n), sample });
+		}
+		const present = new Set(tokens);
+		const looks = componentLooks(variants, axes, variantAxes);
+		const anyOn = looks.some((l) => variantActive(present, l.token));
+		return { index: v.index, chunk, current, keeps, fresh, looks: looks.map((l) => ({ token: l.token, label: l.label, on: l.token ? variantActive(present, l.token) : !anyOn })), variants, variantAxes, cur };
+	}, [v, slides, components, axes, frontMatter, compose]);
+	// Kept through the close, so the surface runs its own close and keeps its frames: the menu shows the last slide it was open on.
+	const shown = React.useRef<{ menu: NonNullable<typeof menu>; anchor: HTMLElement } | null>(null);
+	if (menu && req) shown.current = { menu, anchor: req.anchor };
+	const onLook = (token: string) => {
+		if (!menu) return;
+		const next = applyVariant(menu.chunk, token, axes, menu.variants, menu.variantAxes);
+		compose.current?.applyLayout(menu.index, { tokens: getClassTokens(next), skeleton: null });
+	};
+	const onPick = (name: string, starts: boolean) => {
+		const target = components.find((x) => x.name === name);
+		if (!menu || !target) return;
+		const tokens = [name, ...keptModifiers(getClassTokens(menu.chunk), menu.cur, target)];
+		compose.current?.applyLayout(menu.index, { tokens, skeleton: starts ? target.skeleton : null });
+	};
+	const onClose = () => {
+		const done = visit.current;
+		visit.current = null;
+		onDone();
+		if (!done) return;
+		const end = slidesNow.current[done.index];
+		if (end === undefined || end === done.start) return;
+		const cls = getClassTokens(end)[0] ?? 'content';
+		notifyAction(`Slide ${done.index + 1} is now ${cls === 'content' ? 'text' : cls}.`, {
+			label: 'Undo',
+			onClick: () => {
+				// Only while the slide is as the menu left it: an Undo here must never take back typing done since.
+				const ok = slidesNow.current[done.index] === end && compose.current?.restoreLayout(done.index, done.original);
+				if (!ok) notify('That slide has changed since. Undo in the toolbar takes it back one step at a time.');
+			},
+		});
+	};
+	const s = shown.current;
+	if (!s) return null;
+	return (
+		<LayoutMenu
+			open={!!req && !!menu}
+			phone={phone}
+			anchor={s.anchor}
+			slideNumber={s.menu.index + 1}
+			sample={frontMatter + s.menu.chunk}
+			current={s.menu.current}
+			looks={s.menu.looks}
+			keeps={s.menu.keeps}
+			fresh={s.menu.fresh}
+			preview={preview}
+			onLook={onLook}
+			onPick={onPick}
+			onClose={onClose}
+		/>
+	);
+}
+
+/** The looks the layout menu offers for a component: its declared variants, less those that are a way of WRITING the slide
+ *  rather than a class (cards-grid `numbered` is an ordered list, not a token: its own sample's `_class` leaves it out). */
+function layoutVariants(entry: ComponentEntry | undefined): string[] {
+	if (!entry) return [];
+	const grammar = entry.variantSkeletons ?? [];
+	return (entry.variants ?? []).filter((v) => {
+		const g = grammar.find((x) => x.name === v);
+		return !g || getClassTokens(g.sample).includes(v.split(/\s+/)[0]);
+	});
+}
+
+/** The modifiers a slide keeps when it changes layout: every token after the component that the old layout did not own as a
+ *  look and the new one accepts (a `scale-l`, a `tint-…`, an `insight-…`), so a change of layout never drops the author's settings. */
+function keptModifiers(tokens: string[], from: ComponentEntry | undefined, to: ComponentEntry): string[] {
+	const own = new Set((from?.variants ?? []).flatMap((v) => v.split(/\s+/)));
+	const accepts = new Set((to.effectiveVariants ?? []).flatMap((v) => v.split(/\s+/)));
+	return tokens.slice(1).filter((t) => !own.has(t) && accepts.has(t));
 }
 
 export default LayoutMenu;

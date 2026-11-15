@@ -70,7 +70,7 @@ import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName
 import { activeMode, MODES } from '../../lib/mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
-import { canEditClass, getClassTokens, setClassTokens } from '../../lib/slide-directives';
+import { canEditClass, getClassTokens } from '../../lib/slide-directives';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
@@ -161,7 +161,7 @@ import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, set
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { deckCaption, sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
-import { applyVariant, componentLooks, variantActive } from './slide-variants';
+import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
@@ -220,7 +220,7 @@ const Fabricate = React.lazy(() => {
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 // Shown once on a first visit and once at the end of the welcome tour, so it rides its own chunk.
 const WelcomeCard = React.lazy(() => import('./WelcomeCard').then((m) => ({ default: m.WelcomeCard })));
-const LayoutMenu = React.lazy(() => import('./LayoutMenu'));
+const LayoutMenuHost = React.lazy(() => import('./LayoutMenu').then((m) => ({ default: m.LayoutMenuHost })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 // The slide map is loaded when the reader first turns it on (the eager bundle is budgeted).
 const StudioMap = React.lazy(() => import('./StudioMap'));
@@ -6100,110 +6100,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const reshapeVariantAxes = React.useMemo(() => reshapeEntry?.variantAxes ?? [], [reshapeEntry]);
 	const onReshape = (token: string) => mutateSlideFromPanel((c) => applyVariant(c, token, reshapeAxes, reshapeVariants, reshapeVariantAxes));
 
-	// THE LAYOUT MENU (LayoutMenu.tsx) — what Compose's layout button opens for one slide: its looks, and the layouts its
-	// manifest names as near alternatives. Every pick is written by Compose (`applyLayout`, its own history step) and shows at
-	// once; closing keeps what was picked and offers one Undo for the whole visit (`restoreLayout`). The family on offer is the
-	// one the slide STARTED the visit with, so the list does not reshuffle under the author's finger after each pick.
-	// engineering/decisions/2026-11-15-compose-layout-button.md.
+	// THE LAYOUT MENU (LayoutMenu.tsx) — what Compose's layout button opens for one slide. Everything it does lives in its own
+	// lazy chunk (`LayoutMenuHost`): the shell keeps the request and the mount, so the Studio's startup script pays for neither
+	// the menu nor the logic that builds it (docs/route-budget.json). Mounted on the first request and kept, so its preview
+	// frames survive between opens. engineering/decisions/2026-11-15-compose-layout-button.md.
 	const [layoutReq, setLayoutReq] = React.useState<LayoutRequest | null>(null);
-	const layoutVisit = React.useRef<{ index: number; original: unknown; start: string; startCls: string } | null>(null);
-	const slidesNowRef = React.useRef(slides);
-	slidesNowRef.current = slides;
-	const onOpenLayoutMenu = React.useCallback((req: LayoutRequest) => {
-		const info = composeRef.current?.layoutOf(req.slideIndex);
-		if (!info) return;
-		layoutVisit.current = { index: req.slideIndex, original: info.original, start: slidesNowRef.current[req.slideIndex] ?? '', startCls: info.current };
-		setLayoutReq(req);
-	}, []);
-	const layoutMenu = React.useMemo(() => {
-		const visit = layoutVisit.current;
-		const compose = composeRef.current;
-		if (!layoutReq || !visit || !compose) return null;
-		const info = compose.layoutOf(visit.index);
-		if (!info) return null;
-		const chunk = slides[visit.index] ?? '';
-		const byName = new Map(components.map((c) => [c.name, c]));
-		const current = info.current;
-		const start = byName.get(visit.startCls);
-		const cur = byName.get(current);
-		const tokens = getClassTokens(chunk);
-		const variants = layoutVariants(cur);
-		const variantAxes = cur?.variantAxes ?? [];
-		// A pane host (`columns`, `rows`) holds panes; it changes only into another host, and a single layout only into a single one.
-		const isHost = (n: string) => !!byName.get(n)?.hosts;
-		const family = [visit.startCls, ...(start?.related ?? []).map((r) => r.name)];
-		if (!family.includes(current)) family.splice(1, 0, current);
-		// A manifest's `when` is a clause ("row of 2-3 metrics…"); the menu shows it as a line of its own, so it opens on a capital.
-		const sentence = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
-		// The slide's own layout says what it is for in the first sentence of its purpose; the rest is advice for authors.
-		const purpose = (t: string) => t.split(/(?<=\.)\s/)[0] ?? '';
-		const whenOf = (n: string) => sentence(n === visit.startCls ? purpose(start?.purpose ?? '') : (start?.related?.find((r) => r.name === n)?.when ?? byName.get(n)?.purpose ?? ''));
-		const keeps: { name: string; when: string; sample: string }[] = [];
-		const fresh: { name: string; when: string; sample: string }[] = [];
-		for (const n of family) {
-			const e = byName.get(n);
-			if (!e || e.bucket === 'local' || isHost(n) !== isHost(current) || keeps.some((k) => k.name === n) || fresh.some((k) => k.name === n)) continue;
-			const fit = n === current ? 'keeps' : info.fit(n);
-			// A starter Compose could not edit would lock the slide the moment it landed: not offered (the pane gallery's rule).
-			if (fit === 'fresh' && !compose.starterEditable(e.skeleton)) continue;
-			const sample = (previewFm ?? '') + (fit === 'keeps' ? setClassTokens(chunk, [n, ...keptModifiers(tokens, cur, e)]) : e.skeleton);
-			(fit === 'keeps' ? keeps : fresh).push({ name: n, when: whenOf(n), sample });
-		}
-		const present = new Set(tokens);
-		const looks = componentLooks(variants, reshapeAxes, variantAxes);
-		const anyOn = looks.some((l) => variantActive(present, l.token));
-		return {
-			index: visit.index,
-			chunk,
-			current,
-			keeps,
-			fresh,
-			looks: looks.map((l) => ({ token: l.token, label: l.label, on: l.token ? variantActive(present, l.token) : !anyOn })),
-			variants,
-			variantAxes,
-			cur,
-		};
-	}, [layoutReq, slides, components, reshapeAxes, previewFm]);
-	// Kept through the close, so the sheet or popover runs its own close (the animation, and focus back to the button): the
-	// menu shows the last slide it was open on, and opens fresh on the next request.
-	const shownLayout = React.useRef<{ menu: NonNullable<typeof layoutMenu>; anchor: HTMLElement } | null>(null);
-	if (layoutMenu && layoutReq) shownLayout.current = { menu: layoutMenu, anchor: layoutReq.anchor };
-	const onLayoutLook = React.useCallback(
-		(token: string) => {
-			const m = layoutMenu;
-			if (!m) return;
-			const next = applyVariant(m.chunk, token, reshapeAxes, m.variants, m.variantAxes);
-			composeRef.current?.applyLayout(m.index, { tokens: getClassTokens(next), skeleton: null });
-		},
-		[layoutMenu, reshapeAxes],
-	);
-	const onLayoutPick = React.useCallback(
-		(name: string, starts: boolean) => {
-			const m = layoutMenu;
-			const target = components.find((c) => c.name === name);
-			if (!m || !target) return;
-			const tokens = [name, ...keptModifiers(getClassTokens(m.chunk), m.cur, target)];
-			composeRef.current?.applyLayout(m.index, { tokens, skeleton: starts ? target.skeleton : null });
-		},
-		[layoutMenu, components],
-	);
-	const onLayoutClose = React.useCallback(() => {
-		const visit = layoutVisit.current;
-		layoutVisit.current = null;
-		setLayoutReq(null);
-		if (!visit) return;
-		const end = slidesNowRef.current[visit.index];
-		if (end === undefined || end === visit.start) return;
-		const cls = getClassTokens(end)[0] ?? 'content';
-		notifyAction(`Slide ${visit.index + 1} is now ${cls === 'content' ? 'text' : cls}.`, {
-			label: 'Undo',
-			onClick: () => {
-				// Only while the slide is as the menu left it: an Undo here must never take back typing done since.
-				const ok = slidesNowRef.current[visit.index] === end && composeRef.current?.restoreLayout(visit.index, visit.original);
-				if (!ok) notify('That slide has changed since. Undo in the toolbar takes it back one step at a time.');
-			},
-		});
-	}, []);
+	const layoutMounted = useLatch(!!layoutReq);
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
@@ -7630,7 +7532,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<React.Suspense fallback={<ComposeSkeleton />}>
 				{/* Held on a phone until the first slide, exactly as the Editor below: ProseMirror is the largest
 				    piece of startup the first slide does not need, and Compose is now the default (2026-11-10). */}
-				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={onOpenLayoutMenu} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
+				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={setLayoutReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
@@ -9276,22 +9178,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			)}
 			{insertMounted && <SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />}
-			{shownLayout.current && (
+			{layoutMounted && (
 				<React.Suspense fallback={null}>
-					<LayoutMenu
-						open={!!layoutReq}
+					<LayoutMenuHost
+						req={layoutReq}
+						onDone={() => setLayoutReq(null)}
+						compose={composeRef}
+						slides={slides}
+						components={components}
+						frontMatter={previewFm ?? ''}
+						axes={reshapeAxes}
 						phone={mobile}
-						anchor={shownLayout.current.anchor}
-						slideNumber={shownLayout.current.menu.index + 1}
-						sample={(previewFm ?? '') + shownLayout.current.menu.chunk}
-						current={shownLayout.current.menu.current}
-						looks={shownLayout.current.menu.looks}
-						keeps={shownLayout.current.menu.keeps}
-						fresh={shownLayout.current.menu.fresh}
 						preview={{ options: deckOptions, paletteOverride: preview.paletteOverride, extraTheme: preview.extraTheme, modeOverride: preview.modeOverride, extraCss: previewExtraCss }}
-						onLook={onLayoutLook}
-						onPick={onLayoutPick}
-						onClose={onLayoutClose}
 					/>
 				</React.Suspense>
 			)}
@@ -9545,21 +9443,3 @@ function TextRow({ label, desc, help, find, value, placeholder, onCommit }: { la
 	);
 }
 
-/** The looks the layout menu offers for a component: its declared variants, less those that are a way of WRITING the slide
- *  rather than a class (cards-grid `numbered` is an ordered list, not a token: its own sample's `_class` leaves it out). */
-function layoutVariants(entry: ComponentEntry | undefined): string[] {
-	if (!entry) return [];
-	const grammar = entry.variantSkeletons ?? [];
-	return (entry.variants ?? []).filter((v) => {
-		const g = grammar.find((x) => x.name === v);
-		return !g || getClassTokens(g.sample).includes(v.split(/\s+/)[0]);
-	});
-}
-
-/** The modifiers a slide keeps when it changes layout: every token after the component that the old layout did not own as a
- *  look and the new one accepts (a `scale-l`, a `tint-…`, an `insight-…`), so a change of layout never drops the author's settings. */
-function keptModifiers(tokens: string[], from: ComponentEntry | undefined, to: ComponentEntry): string[] {
-	const own = new Set((from?.variants ?? []).flatMap((v) => v.split(/\s+/)));
-	const accepts = new Set((to.effectiveVariants ?? []).flatMap((v) => v.split(/\s+/)));
-	return tokens.slice(1).filter((t) => !own.has(t) && accepts.has(t));
-}
