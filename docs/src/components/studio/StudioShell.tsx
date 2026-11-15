@@ -5313,6 +5313,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						if (holder.style.cursor) holder.style.cursor = '';
 						return;
 					}
+					watchCollagePacks(frame);
 					const overCopy = hoverCodeCopyAt(frame, hoverAt.x, hoverAt.y);
 					const overPhoto = hoverCollageAt(frame, hoverAt.x, hoverAt.y);
 					// The frame takes no pointer events, so its own `cursor:` never applies: the holder wears it.
@@ -5321,6 +5322,27 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				}
 			});
 		};
+		// A COLLAGE THAT PACKS UNDER A STILL POINTER. A live collage lays its photos out only once it has measured them:
+		// the frame's runtime holds the list at `data-collage="measuring"` and, when the last photo's size lands, stamps
+		// the packed grid and sets `packed` or `fallback` (collage.transform.js `stampLive`). That moves every tile, and it
+		// is neither a pointer move nor a render the host commits, so a hit-test run while the photos were still loading
+		// kept its answer: no `zoom-in` over a photo that had since packed under the pointer (collage-lightbox.spec.ts:254
+		// under load). One observer watches the stamp in whichever document the hover last read and asks for one more
+		// hit-test. A full write replaces the document, so the next hit-test moves the observer onto the new one.
+		let watchedDoc: Document | null = null;
+		const packWatch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => scheduleHover());
+		function watchCollagePacks(frame: HTMLIFrameElement) {
+			let doc: Document | null = null;
+			try {
+				doc = frame.contentDocument;
+			} catch (_e) {
+				return; // a cross-origin frame cannot be observed
+			}
+			if (!packWatch || !doc || doc === watchedDoc) return;
+			packWatch.disconnect();
+			packWatch.observe(doc, { subtree: true, attributes: true, attributeFilter: ['data-collage'] });
+			watchedDoc = doc;
+		}
 		const onHover = (e: PointerEvent) => {
 			if (e.pointerType !== 'mouse') return;
 			hoverAt = { x: e.clientX, y: e.clientY };
@@ -5349,6 +5371,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			holder.removeEventListener('pointerleave', onLeave);
 			if (hoverRaf) cancelAnimationFrame(hoverRaf);
 			hoverFrame()?.removeEventListener('load', scheduleHover);
+			packWatch?.disconnect();
+			watchedDoc = null;
 		};
 		// ZOOM owns the preview's whole input stream — swipe and wheel navigation
 		// included. A NATIVE-listener controller rather than the React
