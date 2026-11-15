@@ -2,12 +2,14 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadStudioPanels, waitForPanels } from '@/test/panels';
+import { loadFabricate, loadStudioPanels, waitForPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
 import { TOURS } from './tours';
 
-// The Studio's panels load on first open; load them up front so no test races a shell.
-beforeAll(loadStudioPanels);
+// The Studio's panels load on first open; load them up front so no test races a shell. Fabricate too
+// (`loadFabricate`): the file opens it. 30 s, over vitest's 10 s hook default: under 4-way CPU contention the
+// two loads took 5.3-5.9 s across 10 runs. A hang still fails, at 30 s.
+beforeAll(() => Promise.all([loadStudioPanels(), loadFabricate()]), 30_000);
 
 // Most flows here exercise the FULL-density Studio against the original deck set
 // (the 6-slide "Q3 Board Review" active). Seed a returning-user state — the saved
