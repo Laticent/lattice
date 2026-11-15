@@ -1,4 +1,4 @@
-// Tiny but STRUCTURALLY VALID images for tests. A restore parses what it stores (media-scrub.ts), so a few
+// Tiny but STRUCTURALLY VALID images for tests. A restore parses what it stores (`@laticent/lastra` `cleanerFor`), so a few
 // signature bytes are no longer enough: these walk as real PNG, WebP and JPEG files. `seed` makes the bytes
 // differ so two photos are two photos. Not imported by app code.
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));

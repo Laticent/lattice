@@ -2758,11 +2758,14 @@ test('player: assetBaseUrl leaves absolute, data and remote srcs alone', async (
 	// no-op — so passing a base must not disturb anything that was already resolvable.
 	const doc = docHtml.replace(
 		'<p>Intro paragraph.</p>',
-		'<p>Intro paragraph.</p><img src="https://example.test/a.png" alt=""><img src="data:image/gif;base64,R0lGOD" alt="">',
+		// A whole 1 x 1 GIF with nothing to clean: the player's metadata pass (lib/export/player-images.mjs) leaves it byte
+		// for byte, so what this pins is the base URL's reach. (A fragment such as `R0lGOD` is not a picture the cleaner can
+		// read, and the player replaces it with the drawn stand-in: player-images.test.js.)
+		'<p>Intro paragraph.</p><img src="https://example.test/a.png" alt=""><img src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACwAAAAAAQABAAACAkQBADs=" alt="">',
 	);
 	const { html } = await buildPlayerHtml({ docHtml: doc, source, now: 0, assetBaseUrl: 'file:///deck/' });
 	assert.match(html, /src="https:\/\/example\.test\/a\.png"/, 'a remote src is untouched');
-	assert.match(html, /src="data:image\/gif;base64,R0lGOD"/, 'a data: src is untouched');
+	assert.match(html, /src="data:image\/gif;base64,R0lGODlhAQABAIAAAP\/\/\/wAAACwAAAAAAQABAAACAkQBADs="/, 'a data: src is untouched');
 });
 
 test('prunePlayerCss keeps the Anima live-stage rules the static DOM never shows', () => {

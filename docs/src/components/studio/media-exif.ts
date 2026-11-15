@@ -1,6 +1,6 @@
 // Read what a photo's own file says about itself — a description, who made it, when it was taken, and
 // whether it carried a location — BEFORE the importer scrubs or re-encodes it. The stored bytes never
-// keep any of it (media-scrub.ts, the canvas re-encode), so this is the one chance to read it. Decision
+// keep any of it (the image library's cleaners, the canvas re-encode), so this is the one chance to read it. Decision
 // note: engineering/decisions/2026-10-12-library-media-assets.md §Editing a photo's metadata.
 //
 // WHAT IS KEPT AND WHAT IS NOT. Four things come out: a description, a credit, a date taken, and a yes/no

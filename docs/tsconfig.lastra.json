@@ -1,0 +1,27 @@
+{
+  "//": "Isolated STANDALONE typecheck for the Lastra library. It compiles ONLY the pure core with no DOM lib and `types: []` (no repo tsconfig, no @types/node): the library is bytes in, bytes out, and runs on the CLI, in the browser and in a worker alike (the PNG writer finds CompressionStream on globalThis at run time). If it ever reaches for the DOM or Node, this fails. Run: `npm run check:lastra`. The import-boundary gate (tools/check-ownership.js checkLastraBoundary) guards runtime imports; this guards the type surface.",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "customConditions": [
+      "@laticent/source"
+    ],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "src/lib/lastra/**/*.ts"
+  ],
+  "exclude": [
+    "src/lib/lastra/**/*.test.ts",
+    "src/lib/lastra/decode/test-support.ts"
+  ]
+}

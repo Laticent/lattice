@@ -1,7 +1,7 @@
 // Remove embedded metadata, location above all, from a stored MP4 or QuickTime clip WITHOUT re-encoding it.
 // Decision note: engineering/decisions/2026-10-12-library-media-assets.md ("Clip location data").
 //
-// WHY THIS IS NOT THE PHOTO SCRUBBER. A photo is rebuilt from the blocks it needs (`media-scrub.ts`). A clip cannot be:
+// WHY THIS IS NOT THE PHOTO SCRUBBER. A photo is rebuilt from the blocks it needs (`@laticent/lastra` `cleanerFor`). A clip cannot be:
 // dropping a box changes the size of every box above it, and the sample tables inside `moov` hold ABSOLUTE byte offsets
 // into `mdat`, so removing bytes in front of `mdat` would corrupt the file. So each metadata box is OVERWRITTEN IN PLACE
 // as a `free` box of the same size, with a zeroed payload. Every other byte, every size and every offset stays where it

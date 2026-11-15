@@ -5,8 +5,8 @@
 // canvas, encode) and is exercised against a real browser, not jsdom — jsdom has no image
 // decoder, so a test there would only confirm a stub (HARD RULE #23).
 
+import { cleanAsync } from '@laticent/lastra';
 import { type FileMeta, readFileMeta } from './media-exif';
-import { scrubberFor } from './media-scrub';
 import { isIsoVideo, MAX_MEDIA_FILE_BYTES, type MediaKind, mediaNameFromFile, type NewMedia, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
 
 /** The long edge a stored photo is capped to. A slide shows at most ~1920 px wide, so pixels
@@ -98,7 +98,7 @@ const SVG_TARGET_EDGE = 2048;
  *   - AVIF is re-encoded to JPEG like the rest: its metadata sits in a container a byte scrub does not
  *     parse here, and a canvas re-encode removes it. (An AVIF with transparency loses it; rare for photos.)
  *   - PNG, WebP and GIF that are kept are stored with their pixels untouched and their metadata blocks
- *     (EXIF, XMP, text, comments) cut out by `media-scrub.ts`, so animation and transparency survive and
+ *     (EXIF, XMP, text, comments) cut out by the image library's cleaners (`@laticent/lastra` `cleanAsync`, which yields to the page), so animation and transparency survive and
  *     location does not.
  *   - EVERYTHING ELSE (BMP, TIFF, ICO, an unknown `image/*`) is re-encoded to PNG, so a type the
  *     Library does not store never reaches a backup that would have to drop it.
@@ -215,8 +215,8 @@ async function encodeAs(file: File, bitmap: ImageBitmap, mime: string, format: P
 	// lossless type they asked for and under the cap, since re-encoding it could only grow it.
 	const keep = (format === 'original' && keepable) || (long <= MAX_IMAGE_EDGE && ((format === 'png' && mime === 'image/png') || (format === 'webp' && mime === 'image/webp')));
 	if (keep) {
-		const scrub = scrubberFor(mime);
-		const cleaned = scrub ? scrub(new Uint8Array(await file.arrayBuffer())) : null;
+		// Async: a 50 MB photo cleaned in one go holds the page for most of a second.
+		const cleaned = await cleanAsync(mime, new Uint8Array(await file.arrayBuffer()));
 		if (cleaned) return { blob: new Blob([cleaned as BlobPart], { type: mime }), mime, width: bitmap.width, height: bitmap.height, original: true };
 	}
 	// Re-encode. `original` that could not be kept (HEIC, AVIF, an unreadable file) keeps the closest type.
@@ -239,9 +239,12 @@ async function encodeAs(file: File, bitmap: ImageBitmap, mime: string, format: P
 	return { blob, mime: blob.type || target, width, height, original: false };
 }
 
+/** Bytes read to sniff a picture's type: an AVIF names its brand among the compatible brands after the first 16. */
+const SNIFF_BYTES = 64;
+
 /** The type the bytes say a file is, as the importer reads it. */
 async function sniffedMime(file: File): Promise<string> {
-	return sniffImageMime(new Uint8Array(await file.slice(0, 16).arrayBuffer())) ?? mimeOf(file);
+	return sniffImageMime(new Uint8Array(await file.slice(0, SNIFF_BYTES).arrayBuffer())) ?? mimeOf(file);
 }
 
 export type FormatSizes = {
@@ -301,7 +304,7 @@ export async function importImage(file: File, scope: string, format?: PhotoForma
 	if (file.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is ${Math.round(file.size / 1_048_576)} MB; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
 	// The bytes decide what a file is, not its extension: a JPEG named `.png` carries the phone's GPS and
 	// would otherwise skip the re-encode that removes it.
-	const sniffed = sniffImageMime(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+	const sniffed = sniffImageMime(new Uint8Array(await file.slice(0, SNIFF_BYTES).arrayBuffer()));
 	const mime = sniffed ?? mimeOf(file);
 	if (mime === 'image/svg+xml') {
 		const { blob, width, height } = await rasterizeSvg(file);
@@ -316,8 +319,7 @@ export async function importImage(file: File, scope: string, format?: PhotoForma
 			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: e.blob, mime: e.mime, bytes: e.blob.size, width: e.width, height: e.height, sourceName: file.name, original: e.original, ...fromFile };
 		}
 		const plan = planImage(mime, bitmap.width, bitmap.height);
-		const scrub = !plan.reencode ? scrubberFor(mime) : undefined;
-		const cleaned = scrub ? scrub(new Uint8Array(await file.arrayBuffer())) : null;
+		const cleaned = !plan.reencode ? await cleanAsync(mime, new Uint8Array(await file.arrayBuffer())) : null;
 		if (!plan.reencode && cleaned) {
 			return { kind: 'image', name: mediaNameFromFile(file.name, 'image'), scope, blob: new Blob([cleaned as BlobPart], { type: mime }), mime, bytes: cleaned.length, width: plan.width, height: plan.height, sourceName: file.name, original: true, ...fromFile };
 		}

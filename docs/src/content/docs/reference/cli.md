@@ -36,6 +36,12 @@ npx lattice completion <bash | zsh | fish | powershell>
 Named flags win over positional arguments when you give both. Flags that take
 a value accept `--flag value` and `--flag=value`.
 
+The input is a Markdown deck or a `.lattice` project file from the Studio. The
+CLI tells them apart by their bytes, not their names: a zip is read as a
+`.lattice`, with the Studio's own checks, and any other binary file is refused.
+A `.lattice` brings its photos (as the Library stored them) and its packages,
+which are used for that render only and never installed.
+
 ## Output formats
 
 The output file's extension picks the format. There is no other way to choose
@@ -49,6 +55,7 @@ it.
 | `.png` | One PNG per slide, named `<output>.001.png`, `<output>.002.png`, … |
 | `.zip` | An image set: one image per slide, plus thumbnails and chart SVGs. See [Image set](#image-set) |
 | `.html` | The rendered HTML as the deliverable, with no PDF. See [HTML output](#html-output) |
+| `.lattice` | A project file the Studio opens: the deck, the installed theme and components it uses, and its photos. Written without a render. Photos from a `.lattice` input and from an `assets/` folder are carried the way the Studio keeps an original: the location, camera data, text and comments are removed and the pixels are kept, so a photo the Studio made comes out byte for byte. A photo the CLI cannot clean (a HEIC, an AVIF, a damaged file), or an `assets/` link that points outside the deck's folder, is left out and named with the reason |
 | no extension | A PDF, plus the HTML sidecar as the deliverable |
 
 For a `.pdf`, `.pptx`, `.odp`, `.png` or `.zip`, the render captures from an
@@ -75,6 +82,7 @@ instead.
 | `--allow-remote` | Let the render fetch web images, media and fonts, and let the plain `.html` keep remote scripts, frames and stylesheets. Off by default, so web images show as placeholders and a remote `<script src>`, `<iframe>` or `<link rel=stylesheet>` in the `.html` is refused |
 | `--keep-html` | Keep the `<output>.html` sidecar beside a `.pdf`/`.pptx`/`.odp`/`.png`/`.zip` instead of deleting it on success. Also via `LATTICE_KEEP_HTML=1` |
 | `--packages <dir>` | Use `<dir>` as the package store for this run |
+| `--trust` | With a `.lattice` input, run the code in the components and plugins the file carries, for this render only. Nothing is written to the trust store; an installed code package still needs `lattice packages trust` |
 | `--disable-plugin <names>` | Switch plugins off for this run, comma-separated (`mermaid,math`) or repeated. The engine and the plugins' bakes both skip them, so the PDF, images and PowerPoint show their source, and a deck's `plugins:` list cannot turn them back on. A `--fluid` or `--player` page shows their source too. An unknown name fails the run |
 | `--default-plugins <names>` | Narrow the default plugin set for this run, comma-separated, or `none` (default: every shipped plugin). A plugin outside it loads only when the deck lists it in `plugins:` or a component the deck uses requires it; one that does not load exports as source on every output. An unknown name fails the run |
 | `--overflow-marker <level>` | What a clipped slide shows: `reader` (default, a "Content clipped" tag), `author` (red ring and "Overflows" flag) or `off` |
@@ -89,7 +97,7 @@ instead.
 | `--paper <size>` | Fit each slide onto `auto`, `letter`, `legal` or `a4` paper with a 9 mm margin. Text is not selectable |
 | `--orientation <o>` | `auto`, `landscape` or `portrait` for `--paper`. On its own, implies `--paper auto` |
 | `--embed-source` | Attach the deck's Markdown to the PDF. Includes speaker notes unless you add `--strip-notes` |
-| `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes` |
+| `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes`. Photos ride along the way a `.lattice` output carries them, up to 32 MB |
 | `--steps` | One page per step of every `_build` or `_focusSteps` slide, each lit or revealed at its step. Every page keeps its slide's page number, and speaker notes and alt text ride on each. Also applies to `.pptx`, `.odp` and images; a `.html` player walks the steps live instead. The Studio's "One page per step" switch |
 | `--chrome-pdf` | Print with Chrome's PDF printer instead of Lattice's writer |
 | `--keep-vector-images` | Keep SVG images as vectors. By default they become 2x PNG, because some viewers mishandle clipped SVG |
