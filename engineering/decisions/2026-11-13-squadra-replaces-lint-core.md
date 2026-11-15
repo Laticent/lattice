@@ -289,6 +289,14 @@ lint-core at `caf4115a9`: 87,953 reference findings across 177 rules, none migra
 on 90,552 sources, the other 1,217 differing only on unmigrated rules. PASS, exit 0, 804 s. With an empty ruleset this
 proves the harness at full scale, not any rule: each family's commit runs it with its rules held.
 
+**The arms on the streaming tool (2026-11-15, the fourth card grader's raise).** The grader held the card at `high`
+because every arm had run on the tool before streaming. The temporary rule went back in, with a switch for its message
+and one for its fix, and ran `--fix` on the same 3,003-input subset with the 8 hosts in turn (1,431 mutated decks, 519
+tracked). Faithful: 24 of 24 matched, Fix all identical on 4,888 of 4,953 sources and none differing on the rule, PASS,
+exit 0. Message changed: 24 only in lint-core and 24 only in Squadra, FAIL, exit 1. Fix changed: 9 sources fixed
+differently, each attributed to the rule, FAIL, exit 1. The counts are below the earlier 36 and 14 because each input
+now meets one host, not eight. The rule was removed and the stamps restored byte for byte.
+
 **Carried into step 4, from the same review.**
 - Notes are inert, and `<!-- _clas: kpi -->` is a note. A rule that reports or fixes a misspelled directive reads with
   `inert: 'include'` and declares `changes: inert`.
