@@ -5326,8 +5326,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// the frame's runtime holds the list at `data-collage="measuring"` and, when the last photo's size lands, stamps
 		// the packed grid and sets `packed` or `fallback` (collage.transform.js `stampLive`). That moves every tile, and it
 		// is neither a pointer move nor a render the host commits, so a hit-test run while the photos were still loading
-		// kept its answer: no `zoom-in` over a photo that had since packed under the pointer (collage-lightbox.spec.ts:254
-		// under load). One observer watches the stamp in whichever document the hover last read and asks for one more
+		// kept its answer: no `zoom-in` over a photo that had since packed under the pointer (collage-lightbox.spec.ts, "a
+		// photo that packs under a still mouse"; the likely cause of the :254 flake). One observer watches the stamp in whichever document the hover last read and asks for one more
 		// hit-test. A full write replaces the document, so the next hit-test moves the observer onto the new one.
 		let watchedDoc: Document | null = null;
 		const packWatch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => scheduleHover());

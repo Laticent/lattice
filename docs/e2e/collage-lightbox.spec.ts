@@ -614,7 +614,8 @@ test('@parity a two-finger pinch zooms the open photo and does not step; one fin
 
 // A collage packs only once it has measured its photos (collage.transform.js `stampLive`), and that moves every tile under
 // a still mouse with no pointer move and no render the host commits. A hit-test run while the photos were loading kept
-// its miss, so the cursor never became `zoom-in` over the photo that then packed under it: :254 under load, 1 run in 55.
+// its miss, so the cursor never became `zoom-in` over the photo that then packed under it. A probe caught it on main 7 runs
+// in 52 under load; it is the likely cause of :254's flake (1 in 55), which never failed locally (PR #3218).
 // Here the photos are held until the mouse is in place, so the hit-test runs before the pack on every run.
 test('@smoke @gecko a photo that packs under a still mouse gets the zoom cursor', async ({ page }) => {
 	const photosDeck = ['---', 'marp: true', '---', '', '## Words first', '', 'Nothing to measure here.', '', '---', '', '<!-- _class: collage -->', '', '## Photos', '', grid].join('\n');
