@@ -71,6 +71,12 @@ test('@crosswidth @webkit-phone @gecko unpinned, a supported browser is never de
 test('@crosswidth @webkit-phone @gecko a pinned decline covers the Playground too', async ({ page }) => {
 	await page.goto('/playground/?tier=unsupported', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator(SCREEN)).toBeVisible({ timeout: 60_000 });
+	// The pin outlives the Playground's own address-bar write. The walk writes `?c=…&view=read` once the app is up, and the
+	// tier runtime reads `?tier=` again when the page goes idle: a write that dropped the pin first took the screen down
+	// (3 of 50 at 4 workers on WebKit). Wait for the write, then read the address the runtime will read.
+	await expect.poll(() => new URL(page.url()).searchParams.get('c'), { timeout: 60_000 }).not.toBeNull();
+	expect(new URL(page.url()).searchParams.get('tier')).toBe('unsupported');
+	await expect(page.locator(SCREEN)).toBeVisible();
 	await page.locator(SCREEN).getByRole('button', { name: 'Continue anyway' }).click();
 	await expect(page.locator(BANNER)).toBeVisible();
 	expect(await tier(page)).toBe('lite');
