@@ -10,7 +10,8 @@ summary: >
 
 # Squadra replaces lint-core, in one PR (2026-11-13)
 
-Status: in progress; decided by the owner on 2026-11-13. Step 2, the foundation, is built (§10). Supersedes the migration plan of `2026-10-26-squadra-lint-library.md` §6 (M1b onward) and
+Status: in progress; decided by the owner on 2026-11-13. Step 2, the foundation, is built (§10); steps 1 and 2 merged
+on their own in #3198, and step 3, the front-matter island, is built in its own PR (§7, §11). Supersedes the migration plan of `2026-10-26-squadra-lint-library.md` §6 (M1b onward) and
 its `design.md` §15.3–§15.5 (rule-by-rule migration, the bridge, the legacy-shape adapter). The library's own design
 (`design.md` §1–§14) stands.
 
@@ -141,6 +142,11 @@ representative demo deck is rendered in dark and light and sent to the owner for
 
 One branch, one PR, one commit per step. Sessions hand the branch over explicitly (HARD RULE #31: the owner names the
 branch and says the previous session is finished).
+
+**Changed 2026-11-15 (owner).** Steps 1 and 2 merged on their own, in #3198 (`72bd2d9`), and step 3 is its own PR from
+`main`. Neither moves a rule or a consumer, so `main` still runs one linter: lint-core, unchanged. The one-PR rule now
+covers what is left, steps 4 to 6, where a rule leaves lint-core, so the guarantee of §1 (no second linter on `main` at
+any point) is unchanged. Step 3 is safe alone because it changes no deck's render or lint (§11).
 
 1. This decision doc.
 2. Foundation: the `./runtime` entry and build-time stamps; `lattice-deck`'s full tree from the islands on `main`
@@ -328,3 +334,64 @@ goes red with the hook recording nothing.
   vocabulary, or the rule is refused (visibly, as `squadra/rule-refused`).
 - The stamps step runs after the stage catalog; a vocabulary input generated later in the build would leave the stamps
   one build stale. Moot while the ruleset is empty; checked when the first rule reads a generated table.
+
+## 11. Step 3 landed: the front-matter island (2026-11-15)
+
+Built on `claude/squadra-lint-front-matter-ktsbt9`, cut from `main` at `72bd2d9`, in its own PR (§7).
+
+**The island.** `lib/core/front-matter-island.mjs` gives two answers once, for every reader. Where the front matter
+ends: `FRONT_MATTER_FENCE`, the engine's fence (`^---\r?\n…\r?\n---\r?\n?` on the S0 text its door hands it) with a lone
+`\r` also read as a line end, so a reader handed raw bytes finds the block the engine finds after S0. It is the very
+literal `lib/core/boundary-parser.mjs` ran as `FRONT_MATTER`, which now re-exports it. Its keys: `frontMatterKeys` reads
+each line once into its indent, name, raw value and the spans of the name and value, and skips a block scalar's body (the
+lines under `style: |`, by YAML's rule). A name is `[A-Za-z_$][\w$.-]*`, the widest any reader asked for. Each reader
+then selects from the one list, and that selection is all that differs between them:
+
+| Reader | Its selection |
+|---|---|
+| the engine's directives (`parseFrontMatter`, lib/engine/directives.js) | column 0, a name of `[A-Za-z_]\w*`, every line in order, so the last wins |
+| `topLevelFrontMatterValue` (lib/core/front-matter-key.js) | the last column-0 line for the name |
+| `frontMatterValue` (the ~20 register resolvers read through it) | the last column-0 line, else the first at any indent |
+| `lattice-deck` | every key, as an `fm-key` node |
+
+**What reads it.** The engine (`parseFrontMatter`, and `slides.js`'s two deck-class reads, which had their own fence); the
+register readers in `front-matter-key.js`; the splitter (`frontMatterBlockOf` in lib/core/slide-boundaries.mjs, and every
+caller of the boundary parser's `FRONT_MATTER`); the deck model (`deckModel` passes the fence to the Segno package, whose
+default is the same pattern on S0); the plugin admission (`lib/core/deck-plugins.mjs`); and `lattice-deck`. In the tree
+the `front-matter` node gains an `fm-key` child per key line (attrs `name`, `value` as `frontMatterScalar` cleans it,
+`raw`, `indent`, `top`, `blockScalar`; parts `name` and `value`, in source offsets through a BOM and CRLF), and the
+language gains the fact `deck.settings`: the top-level keys, Map name → `fm-key`, the last line winning. `slide.directives`
+stays the comments' directives, as `meta-scan.mjs` resolves them; the front-matter family (step 4) decides whether a rule
+wants the two joined. The language's version is 2, so the stamps moved.
+
+**It changes no deck.** `npm run identity:check -- --strict` against `main`: 471 paired decks render byte-identical, lint
+identical (31 findings each side), no stylesheet differs. (Its first run listed four VS Code stylesheets as differing:
+they are written only by the full `npm run build`, which the tool does not run in its fresh `main` worktree, so they sat on
+one side. The tool now lists a one-sided stylesheet as such instead of failing on it.) The corpus has no deck on any edge
+the readers used to disagree on, so a seeded differential (test/unit/core/front-matter-island.test.js, 4,000 front
+matters over `\n`, CRLF and lone `\r` ends, `---x` and `---  ` closers, block scalars, nested and repeated keys, quoted
+values and comments) holds each moved reader to the regex it replaced, kept in the test verbatim. Equal everywhere but
+three places, each pinned:
+- **A lone `\r`.** The engine never sees one (its door folds it), so only a raw-bytes caller of `parseFrontMatter` (the
+  Studio's share export reads the player config with it) saw the old regex miss the block; it now finds what the engine
+  renders. The loose register reader found its column-0 line by `split('\n')` and now reads `\r` as a line end.
+- **U+2028 and U+2029 are text**, as they are to markdown-it and YAML 1.2. The engine's `(.*)$` dropped such a line and
+  the loose reader's `m` flag split it.
+- **The splitter ends a block at the engine's `---`.** `frontMatterBlockOf` took the blanks after a closing `---   `
+  into the block; the engine leaves them in the body as a blank line. The block is shorter by those blanks and
+  `chunkBoundaryLines` now counts the body's first line by `\n`, as `meta-scan.mjs` already did, so every boundary line
+  is the same (pinned).
+Two more corrections the island makes, outside the corpus: `slides.js`'s deck-class reads required a line end after the
+closer, so a front-matter-only file or a `---x` closer hid the deck's `inline-code-literal` class from them while the
+engine applied the rest of its front matter.
+
+**Not moved, and why.**
+- **lint-core's own front-matter reads** (44 copies of the engine's old fence, its `fmChunks`, its `withoutBlockScalarBodies`
+  line scans). Each rule that holds one moves to a Squadra rule reading `fm-key` in step 4, and step 6 deletes lint-core;
+  converting them first is throwaway work, and the reference diff compares against `main`'s lint-core either way.
+  `withoutBlockScalarBodies` stays in front-matter-key.js for those scans until then.
+- **About 30 other copies of a front-matter fence** outside the engine's path: register resolvers that cut the block
+  out before calling the (now island-backed) key readers, export helpers, review and fact-check cores, and the Studio's
+  own readers (docs/src/lib/front-matter.ts and its nine writers, followups.d/3042-p3). Most differ from the island only
+  on an edge (a required trailing line end, `---[ \t]*` closers, a tolerated BOM), so each conversion is a small
+  behavior change to check on its own. Listed in followups.d/3042-p4-front-matter-fence-copies.md.

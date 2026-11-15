@@ -742,6 +742,9 @@ docblock are gone (lint-core.js: 28 lines in, 255 out).
 - **The front matter, through the register grammar**, and **the Mermaid fence matcher.** Each changes the bytes an
   export bakes (a BOM-led deck's front matter; a fence inside an HTML block), so each waits for the owner's sign-off on
   dark and light renders. Neither was started.
+  *(2026-11-15: the front matter landed as the front-matter island, lib/core/front-matter-island.mjs, and it moved no
+  export bytes after all: the engine's door has stripped a BOM since #1357, so the island reads the S0 text the engine
+  already read. 471 decks render byte-identical. 2026-11-13-squadra-replaces-lint-core.md §11.)*
 - **lint-core's other comment scans.** About sixteen sites still find `<!--` by regex or `indexOf`. Some read the
   RENDERED body (`withoutHtmlComments`, the unterminated-comment rule), where a browser's comment rules, inline
   comments included, are the right model, so they are not islands. The rest each need their own look, one at a time,

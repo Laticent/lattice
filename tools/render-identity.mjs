@@ -181,14 +181,18 @@ for (const p of sourceChanged) {
   removed.splice(removed.indexOf(p), 1);
 }
 const lintSame = JSON.stringify(here.lint) === JSON.stringify(there.lint);
-const cssNames = [...new Set([...Object.keys(here.css), ...Object.keys(there.css)])].sort();
+// Compared: the stylesheets both trees have. A file in one tree only is listed, not failed: the other tree is a fresh
+// worktree that ran only the CSS steps above, so a stylesheet a FULL `npm run build` writes (the VS Code bundles,
+// build-marp-vscode-css.js) sits in this tree alone and once read as four stylesheets that "differ".
+const cssNames = Object.keys(here.css).filter((n) => n in there.css).sort();
 const cssChanged = cssNames.filter((n) => here.css[n] !== there.css[n]);
+const cssOneSided = [...Object.keys(here.css).filter((n) => !(n in there.css)).map((n) => `${n} (here only)`), ...Object.keys(there.css).filter((n) => !(n in here.css)).map((n) => `${n} (there only)`)].sort();
 
 const result = {
   ref: REF,
   decks: Object.keys(here.decks).length,
   paired: Object.keys(here.decks).filter((k) => there.decks[k]).length,
-  changed, sourceChanged, added, removed, lintSame, cssChanged, stylesheets: cssNames.length, strict: STRICT,
+  changed, sourceChanged, added, removed, lintSame, cssChanged, cssOneSided, stylesheets: cssNames.length, strict: STRICT,
   lintFindings: { here: here.lint.length, there: there.lint.length },
 };
 if (JSON_OUT) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -199,6 +203,7 @@ else {
     `${cssNames.length} stylesheets, ${cssChanged.length} differ.`);
   for (const c of changed) console.log(`  differs: ${c.path}${c.was !== c.path ? ` (was ${c.was})` : ''}${c.html ? ' html' : ''}${c.error ? ` error: ${c.error}` : ''}`);
   for (const n of cssChanged) console.log(`  stylesheet differs: ${n}`);
+  for (const n of cssOneSided) console.log(`  stylesheet in one tree only, not compared: ${n}`);
   for (const p of sourceChanged) console.log(`  source changed: ${p}`);
   for (const p of added) console.log(`  added:   ${p}`);
   for (const p of removed) console.log(`  removed: ${p}`);
