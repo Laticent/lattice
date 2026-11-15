@@ -254,8 +254,18 @@ refuses to run when any of them differs from the merge-base with main (`REFERENC
 cannot drift with no edit to lint-core.js; the step that moves one freezes a copy, or opts in with
 `--allow-moved-reference` and says why in its commit.
 
-**What the failing arm did not cover.** It changed a message, so it exercised that field and not severity, slide or
-line text (those are covered by the matcher's unit tests) and not the `--fix` path. And while most rules are still
+**The fix diff can fail too (2026-11-15, the third card grader's raise).** The grader held the card at `high` because
+no run had ever turned the fix diff red. The same temporary rule, now carrying lint-core's fix (delete the comment's
+line when the comment is redundant and the line occurs once on its slide, as an `edits` `deleteLine`), ran
+`squadra:reference-diff --fix` on the subset against the live lint-core. Faithful: the lint diff matched 36 of 36 and
+the fix diff found 6,291 of 6,384 sources identical, 0 differing on the rule, PASS, exit 0. With only the fix changed
+(rewrite the comment instead of deleting its line): the lint diff still matched 36 of 36, and 14 sources fixed
+differently, each attributed to the rule, FAIL, exit 1. Those 14 are the sources where lint-core fixes it, all
+identical on the faithful run. The rule compiler also refused the first fixture, whose bad example lint-core does not
+fix. The rule was removed and the stamps restored byte for byte.
+
+**What the failing arms did not cover.** One changed a message, one changed a fix, so severity, slide and line text
+are covered by the matcher's unit tests rather than a real run. And while most rules are still
 unmigrated, the fix diff skips every source with an unmigrated rule's fix in it; the report prints that count, so a
 family's commit says how many sources its fix diff actually compared.
 
