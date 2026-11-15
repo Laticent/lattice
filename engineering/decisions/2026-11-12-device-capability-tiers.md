@@ -407,13 +407,39 @@ CompressionStream, relative colors, `requestIdleCallback`) is **not** on it.
   pinned decline, continue anyway, the banner across a reload, `:has()` switched off unpinned, no decline unpinned on a
   supported browser, the Playground, and the setting. Screenshots at 1440, 820 and 390 px, dark and light, are in the PR.
 
+### 6.2 The landing page's old-browser notice (2026-11-15)
+
+The owner widened §7.3 for the landing page: "Old browsers just don't have the features we need and they are inherently
+insecure. We are not able to serve people with these browsers faithfully, so we just need to let them know, be honest with
+them and ask them to upgrade." Docs pages still carry nothing.
+
+- **Features only, never hardware.** The landing page serves every machine that can run it. It checks the required
+  features only a browser's AGE takes away (`OLD_BROWSER_FEATURES` in `device-profile.ts`: `:has()`, container queries,
+  `structuredClone`). Workers and IndexedDB stay off it: a current browser can have them switched off for privacy, the
+  notice would then wrongly call it old, and the landing page uses neither. The tests come from the same
+  `FEATURE_PROBES` table `readSignals` uses, so the Studio and the landing page cannot test different things.
+- **A classic ES5 inline script, not a module.** The Studio's gate starts from a bundled module. A browser old enough to
+  lack `:has()` may not parse that bundle at all, so a module-based check would fail silently for exactly the people it
+  is for. The landing page's check is an inline `<script>` in `<head>` (about 900 bytes, which fits the home route's
+  `htmlRaw` ceiling); when a feature is missing it sets `data-old-browser` on `<html>` and loads
+  `docs/public/old-browser.js`, a static ES5 file the build does not touch. A current browser never downloads it.
+- **What it says.** The title "This browser is too old for Lattice.", the missing features by name, that browsers this
+  old stop getting security fixes, and to update to a current Chrome, Edge, Safari or Firefox (or the device, if it can
+  no longer install one). "Continue anyway" dismisses it for the rest of the tab (`lattice-old-browser-continue` in
+  sessionStorage). It hides the page from assistive technology with `aria-hidden`, since `inert` is too new for these
+  browsers, and gives back only what it hid.
+- **Verified.** `docs/e2e/old-browser.spec.ts` on Chromium (1440 and 390 px), WebKit (phone and tablet) and Firefox:
+  `:has()` turned off in the page, then `structuredClone` too, and a current browser that neither sees the notice nor
+  fetches the file. A REAL old browser (Safari 15, Chrome 100) is **UNVERIFIED** from here: the e2e makes a current
+  engine answer no to the probe, it does not run an old engine.
 
 ## 7. Decisions (owner, 2026-11-12)
 
 1. **Decline on features and hardware**, best effort: the floor in §3.1, two agreeing signals, with the
    micro-benchmark and `detect-gpu` filling the gaps the browser's own numbers leave.
 2. **The decline screen keeps a "continue anyway" link.** The session then runs as LITE with a banner that stays up.
-3. **The gate covers the Studio, the Playground and Present.** Landing and docs pages serve everyone.
+3. **The gate covers the Studio, the Playground and Present.** Docs pages serve everyone. The landing page serves every
+   machine, but since 2026-11-15 tells a browser too old to run it so, and asks for an update (§6.2).
 4. **LITE triggers as proposed:** a software GPU, or ≤ 4 GB reported, or ≤ 4 cores reported outside Safari, or the
    boot probe. Any one is enough.
 

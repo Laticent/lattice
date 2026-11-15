@@ -46,6 +46,7 @@ import ResourceHints from '../components/site/ResourceHints.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import PlaygroundWarm from '../components/site/PlaygroundWarm.astro';
 import { sourceHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
+import { FEATURE_LABEL, FEATURE_PROBES, OLD_BROWSER_FEATURES } from '../lib/device-profile';
 
 // Astro evaluates this frontmatter at build time with cwd = docs/, so anchor
 // repo reads to cwd (import.meta.url is unreliable once the page is bundled).
@@ -186,6 +187,8 @@ const studioData = {
 // copy — card 4's body carries an inline link, and JSX can't appear in Astro
 // frontmatter.
 const nextSteps = nextStepsFor(url);
+// The old-browser check's list (inline script in <head>): the same probes and labels the Studio's device profile uses.
+const OLD_BROWSER_CHECKS = OLD_BROWSER_FEATURES.map((f) => ({ label: FEATURE_LABEL[f], ...FEATURE_PROBES[f] }));
 ---
 
 <!doctype html>
@@ -218,6 +221,28 @@ const nextSteps = nextStepsFor(url);
 					else if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
 						r.setAttribute('data-mode', 'dark');
 				} catch (e) {}
+			})();
+		</script>
+		{/* OLD-BROWSER CHECK (engineering/decisions/2026-11-12-device-capability-tiers.md §6.2). Tests the features only a
+		    browser's age takes away, from the Studio's own probe table, and when one is missing loads /old-browser.js,
+		    which covers the page with an honest notice. Features only, never hardware. A CLASSIC script in ES5, because
+		    the browsers it is for may not parse our bundled modules; the notice lives in a static file so the page's HTML
+		    stays small and a current browser downloads nothing. */}
+		<script is:inline define:vars={{ OLD_BROWSER_CHECKS, OLD_BROWSER_SRC: url('old-browser.js') }}>
+			(function () {
+				var m = [];
+				for (var i = 0; i < OLD_BROWSER_CHECKS.length; i++) {
+					var c = OLD_BROWSER_CHECKS[i], ok = false;
+					try { ok = c.css ? !!(window.CSS && CSS.supports(c.css)) : typeof window[c.global] !== 'undefined'; } catch (e) {}
+					if (!ok) m.push(c.label);
+				}
+				if (!m.length) return;
+				document.documentElement.setAttribute('data-old-browser', '');
+				try { if (sessionStorage.getItem('lattice-old-browser-continue') === '1') return; } catch (e) {}
+				window.__latticeOldBrowser = m;
+				var s = document.createElement('script');
+				s.src = OLD_BROWSER_SRC;
+				document.head.appendChild(s);
 			})();
 		</script>
 	</head>

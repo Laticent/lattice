@@ -28,6 +28,28 @@ export const FEATURE_LABEL: Record<RequiredFeature, string> = {
 	structuredClone: 'structuredClone()',
 };
 
+type GlobalName = 'Worker' | 'indexedDB' | 'structuredClone';
+
+/**
+ * How each required feature is tested: a `CSS.supports` condition, or a global that must exist. `readSignals` reads this
+ * table, and so does the landing page's inline old-browser check (`pages/index.astro`), so the two can never test
+ * different things.
+ */
+export const FEATURE_PROBES: Record<RequiredFeature, { css: string } | { global: GlobalName }> = {
+	worker: { global: 'Worker' },
+	indexedDB: { global: 'indexedDB' },
+	cssHas: { css: 'selector(:has(a))' },
+	containerQueries: { css: 'container-type: inline-size' },
+	structuredClone: { global: 'structuredClone' },
+};
+
+/**
+ * The required features the landing page checks: the ones only a browser's AGE can take away. Workers and IndexedDB stay
+ * off it, because a current browser can have them switched off for privacy, and the landing page does not use either; the
+ * Studio still declines on all five.
+ */
+export const OLD_BROWSER_FEATURES: readonly RequiredFeature[] = ['cssHas', 'containerQueries', 'structuredClone'];
+
 export interface DeviceSignals {
 	/** Required features, true when present. */
 	features: Record<RequiredFeature, boolean>;
@@ -215,7 +237,7 @@ export function runCpuProbe({ now, unit = probeUnit, windows = 7, windowMs = 20 
 export interface BrowserEnv {
 	navigator: { deviceMemory?: number; hardwareConcurrency?: number; userAgent?: string };
 	supports: (condition: string) => boolean;
-	has: (global: 'Worker' | 'indexedDB' | 'structuredClone') => boolean;
+	has: (global: GlobalName) => boolean;
 	/** The WebGL renderer string, or `null` when no WebGL context can be made. */
 	webglRenderer: () => string | null;
 }
@@ -235,13 +257,12 @@ export function readSignals(env: BrowserEnv): DeviceSignals {
 	const memory = env.navigator.deviceMemory;
 	const cores = env.navigator.hardwareConcurrency;
 	return {
-		features: {
-			worker: env.has('Worker'),
-			indexedDB: env.has('indexedDB'),
-			cssHas: env.supports('selector(:has(a))'),
-			containerQueries: env.supports('container-type: inline-size'),
-			structuredClone: env.has('structuredClone'),
-		},
+		features: Object.fromEntries(
+			REQUIRED_FEATURES.map((f) => {
+				const probe = FEATURE_PROBES[f];
+				return [f, 'css' in probe ? env.supports(probe.css) : env.has(probe.global)];
+			}),
+		) as Record<RequiredFeature, boolean>,
 		renderer: env.webglRenderer(),
 		gpuTier: null,
 		memoryGB: typeof memory === 'number' && memory > 0 ? memory : null,
