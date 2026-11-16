@@ -2,8 +2,9 @@
 status: in-progress
 summary: >
   Each brand theme now curates a status TRIPLET per status: the fill, the ink ON it and its edge. Fills are deep on
-  the light face and glowing on the dark one, so each clears 4.5:1 against its slide as painted and keeps 3:1 at the
-  back of a lit hall (`npm run check:glance`). The ink is the slide's own paper or night, AA 4.5:1 on the fill.
+  the light face and glowing on the dark one, so each clears 4.5:1 as painted against every surface a status mark sits
+  on (the slide, the card, the hero tile, its own row tint) and keeps 3:1 at the back of a lit hall
+  (`npm run check:glance`). The ink is the slide's own paper or night, AA 4.5:1 on the fill.
   The hues come from the theme's own brand and chart colors. The trio keeps at least half of its recorded colorblind
   separation; the a11y palettes are unchanged. Amends the one-ink rule of 2026-10-24-status-is-one-system.md.
 ---
@@ -42,7 +43,7 @@ Per brand theme, per face, per `marks:` intensity, solved by `tools/curate-statu
 
 | Part | Token | Rule |
 |---|---|---|
-| Fill | `--X-mark`, `--X-vivid-mark` | >= 4.5:1 against `--bg` as painted; hue from the theme's nearest brand or chart color in the status band |
+| Fill | `--X-mark`, `--X-vivid-mark` | >= 4.5:1 as painted against every surface a status mark sits on: `--bg`, `--bg-alt` (a kpi card), `--accent-soft` (a hero tile) and its own row tint `--X-bg` composited over `--bg` (a checklist disc on its row); hue from the theme's nearest brand or chart color in the status band |
 | Ink on the fill | `--X-on-mark` | the slide's paper (light) or night (dark); >= 4.5:1 on the fill |
 | Edge | `--X-edge-mark`, `--X-vivid-edge-mark` | the fill itself (it already clears 4.5:1 off the slide) |
 | Signal ring | `--warn-signal-mark`, `--fail-signal-mark` | the status hue at the opposite lightness, >= 3.2:1 against both intensities' fill; on the dark face also >= 2:1 off the slide (`deepRing`) |
@@ -56,6 +57,13 @@ The `a11y-*` palettes curate none of these. The base declares each new token's d
 ink `--on-mark`, a border in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it
 does not inherit onyx's triplet: the a11y palettes render pixel-identical to the pre-triplet engine (measured on the
 demo deck, both a11y-base and a11y-deuteranopia), and so does any theme the Studio derives (follow-up below).
+
+**Row tints moved in two themes.** The surface rule could not be met at "half" on two faces, because their row tint
+was far off the house norm. Carbone's dark rows were 18% of a bright status ink, against 12% everywhere else; a pass
+disc then needed a fill as light as fail, and the trio kept only 40% of its colorblind separation. Concrete's light
+slide is mid-gray, and a 12% tint darkens it further, so the deep fills crowded toward black (also 40%). Carbone's
+dark rows are now 12%, the house norm, and concrete's light rows 10%, which three other themes use. Both faces then
+solve at "half", and the owner's number stands.
 
 ## 4. How it is wired
 
@@ -78,6 +86,10 @@ demo deck, both a11y-base and a11y-deuteranopia), and so does any theme the Stud
 
 ## 5. Measured
 
+- The first cut measured each fill against `--bg` only. `check:glance` on all 28 brand faces then found three marks
+  below 3:1 at the hall back row: carbone dark's checklist pass disc on its row tint (2.34:1) and kpi pass pill on
+  its card (2.87:1), and concrete light's warn disc on its row tint (2.82:1). That is why the contract names every
+  surface.
 - `node tools/curate-status-triplets.js --check`: all 14 brand themes meet the contract, and the tool reproduces the
   shipped theme values byte for byte (`--keep=0.5` against the pre-triplet record).
 - Colorblind separation: 0 brand pairs below half of the record (worst kept 50.0%, atelier muted dark pass^fail,

@@ -87,14 +87,14 @@
    * theme's own brand and chart colors; the trio keeps at least half of its recorded colorblind separation
    * (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the full floors. The two exceptions
    * also wear a SIGNAL ring, the same hue at the opposite lightness. Solved by tools/curate-status-triplets.js. */
-  --pass-mark: light-dark(#2A6821, #89C97F);
-  --warn-mark: light-dark(#8F661E, #C39854);
-  --fail-mark: light-dark(#7C2F00, #FFA67E);
-  --pass-vivid-mark: light-dark(#116900, #4EA842);
-  --warn-vivid-mark: light-dark(#936500, #CE9428);
-  --fail-vivid-mark: light-dark(#792F00, #FF9C6F);
-  --warn-signal-mark: light-dark(#FFC25F, #684600);
-  --fail-signal-mark: light-dark(#FFB798, #9F3F00);
+  --pass-mark: light-dark(#14550A, #89C97F);
+  --warn-mark: light-dark(#896016, #C39854);
+  --fail-mark: light-dark(#883500, #FFA67E);
+  --pass-vivid-mark: light-dark(#0C5600, #86E279);
+  --warn-vivid-mark: light-dark(#8B5F00, #CE9428);
+  --fail-vivid-mark: light-dark(#883500, #FF996A);
+  --warn-signal-mark: light-dark(#FFBD50, #684600);
+  --fail-signal-mark: light-dark(#FFB798, #9D3E00);
   --info-mark: light-dark(#164376, #74A3DD);
   --info-vivid-mark: light-dark(#004485, #6EAFFF);
   --mute-mark: light-dark(#5C6979, #92A0B1);
@@ -106,14 +106,14 @@
   --fail-on-mark: light-dark(#FAF7F0, #1E1A14);
   --info-on-mark: light-dark(#FAF7F0, #1E1A14);
   --mute-on-mark: light-dark(#FAF7F0, #1E1A14);
-  --pass-edge-mark: light-dark(#2A6821, #89C97F);
-  --warn-edge-mark: light-dark(#8F661E, #C39854);
-  --fail-edge-mark: light-dark(#7C2F00, #FFA67E);
+  --pass-edge-mark: light-dark(#14550A, #89C97F);
+  --warn-edge-mark: light-dark(#896016, #C39854);
+  --fail-edge-mark: light-dark(#883500, #FFA67E);
   --info-edge-mark: light-dark(#164376, #74A3DD);
   --mute-edge-mark: light-dark(#5C6979, #92A0B1);
-  --pass-vivid-edge-mark: light-dark(#116900, #4EA842);
-  --warn-vivid-edge-mark: light-dark(#936500, #CE9428);
-  --fail-vivid-edge-mark: light-dark(#792F00, #FF9C6F);
+  --pass-vivid-edge-mark: light-dark(#0C5600, #86E279);
+  --warn-vivid-edge-mark: light-dark(#8B5F00, #CE9428);
+  --fail-vivid-edge-mark: light-dark(#883500, #FF996A);
   --info-vivid-edge-mark: light-dark(#004485, #6EAFFF);
   /* What a mark ON a status solid steps toward: away from the status ink, so toward white under the night ink on the
    * dark face (risk-matrix's critical band, a state-chart status row's chip). */

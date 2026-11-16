@@ -169,14 +169,14 @@
    * theme's own brand and chart colors; the trio keeps at least half of its recorded colorblind separation
    * (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the full floors. The two exceptions
    * also wear a SIGNAL ring, the same hue at the opposite lightness. Solved by tools/curate-status-triplets.js. */
-  --pass-mark: light-dark(#00561A, #3A9C4C);
-  --warn-mark: light-dark(#856213, #BD9851);
-  --fail-mark: light-dark(#9D034D, #FF90B0);
-  --pass-vivid-mark: light-dark(#005118, #36CB58);
-  --warn-vivid-mark: light-dark(#876200, #C89522);
-  --fail-vivid-mark: light-dark(#99004A, #FF87AA);
-  --warn-signal-mark: light-dark(#FFBE2A, #62470C);
-  --fail-signal-mark: light-dark(#FFB1C5, #A31F54);
+  --pass-mark: light-dark(#00561A, #55B564);
+  --warn-mark: light-dark(#846111, #D7B16A);
+  --fail-mark: light-dark(#9D034D, #FFA1BA);
+  --pass-vivid-mark: light-dark(#005118, #3DD05C);
+  --warn-vivid-mark: light-dark(#856000, #CD9A29);
+  --fail-vivid-mark: light-dark(#99004A, #FF90B0);
+  --warn-signal-mark: light-dark(#FFBE2A, #684A00);
+  --fail-signal-mark: light-dark(#FFB1C5, #A82559);
   --info-mark: light-dark(#0F4FBA, #84B1FF);
   --info-vivid-mark: light-dark(#004CC3, #84B1FF);
   --mute-mark: light-dark(#5A6475, #9AA5B8);
@@ -188,14 +188,14 @@
   --fail-on-mark: light-dark(#F6F6F7, #1A1A1C);
   --info-on-mark: light-dark(#F6F6F7, #1A1A1C);
   --mute-on-mark: light-dark(#F6F6F7, #1A1A1C);
-  --pass-edge-mark: light-dark(#00561A, #3A9C4C);
-  --warn-edge-mark: light-dark(#856213, #BD9851);
-  --fail-edge-mark: light-dark(#9D034D, #FF90B0);
+  --pass-edge-mark: light-dark(#00561A, #55B564);
+  --warn-edge-mark: light-dark(#846111, #D7B16A);
+  --fail-edge-mark: light-dark(#9D034D, #FFA1BA);
   --info-edge-mark: light-dark(#0F4FBA, #84B1FF);
   --mute-edge-mark: light-dark(#5A6475, #9AA5B8);
-  --pass-vivid-edge-mark: light-dark(#005118, #36CB58);
-  --warn-vivid-edge-mark: light-dark(#876200, #C89522);
-  --fail-vivid-edge-mark: light-dark(#99004A, #FF87AA);
+  --pass-vivid-edge-mark: light-dark(#005118, #3DD05C);
+  --warn-vivid-edge-mark: light-dark(#856000, #CD9A29);
+  --fail-vivid-edge-mark: light-dark(#99004A, #FF90B0);
   --info-vivid-edge-mark: light-dark(#004CC3, #84B1FF);
   /* What a mark ON a status solid steps toward: away from the status ink, so toward white under the night ink on the
    * dark face (risk-matrix's critical band, a state-chart status row's chip). */
@@ -223,9 +223,9 @@
    *
    * The dark arm is untouched — 18% of the bright dark ink over graphite was
    * already a clean wash, because there the ink is the LIGHT end of the mix. */
-  --pass-bg: light-dark(color-mix(in srgb, #5FED6C 30%, transparent), color-mix(in srgb, var(--pass) 18%, transparent));
-  --fail-bg: light-dark(color-mix(in srgb, #FFA69D 30%, transparent), color-mix(in srgb, var(--fail) 18%, transparent));
-  --warn-bg: light-dark(color-mix(in srgb, #FFA565 26%, transparent), color-mix(in srgb, var(--warn) 18%, transparent));
+  --pass-bg: light-dark(color-mix(in srgb, #5FED6C 30%, transparent), color-mix(in srgb, var(--pass) 12%, transparent));
+  --fail-bg: light-dark(color-mix(in srgb, #FFA69D 30%, transparent), color-mix(in srgb, var(--fail) 12%, transparent));
+  --warn-bg: light-dark(color-mix(in srgb, #FFA565 26%, transparent), color-mix(in srgb, var(--warn) 12%, transparent));
 
   /* The ramp anchor, and the ramp's two POLES with it — carbone is the palette
    * that has to state both, because it is the one whose canvas does not follow

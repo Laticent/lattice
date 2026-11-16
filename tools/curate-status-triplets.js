@@ -4,8 +4,9 @@
  *
  * The contract (engineering/decisions/2026-11-16-status-triplets.md), per brand theme, per face, per `marks:` intensity:
  *
- *   FILL   each status solid clears 4.5:1 against its slide AS PAINTED, so it keeps 3:1 at the back of a lit hall
- *          (`npm run check:glance`). Deep on the light face, glowing on the dark one.
+ *   FILL   each status solid clears 4.5:1 AS PAINTED against every surface a status mark sits on: the slide, the
+ *          card (`--bg-alt`), the hero tile (`--accent-soft`) and its own status row tint (`--X-bg` over the slide),
+ *          so it keeps 3:1 at the back of a lit hall (`npm run check:glance`). Deep on light, glowing on dark.
  *   INK    the text and drawn mark ON the fill is the slide's own paper (light) or night (dark), and clears 4.5:1 on it.
  *   EDGE   the fill's border is the fill itself: it already clears 4.5:1 off the slide, so it needs no darker rim.
  *   HUE    each status takes the hue of the theme's own brand or chart color nearest its band (pass green, warn amber,
@@ -99,7 +100,22 @@ function themeFacts(theme) {
     anchor[s] = best ? { from: best.from, h: best.h, c: Math.min(0.18, Math.max(0.1, best.c)) } : { from: 'band', h: center, c: 0.13 };
   }
   anchor.mute = { from: 'neutral', h: anchor.info.h, c: 0.03 };
-  return { get, anchor, light: { bg: get('bg', false), text: get('bg', false), accent: get('accent', false) }, dark: { bg: get('bg', true), text: get('bg', true), accent: get('accent', true) } };
+  // Every surface a status mark sits on: the slide, the card, the hero tile, and its own row tint over the slide.
+  const over = (expr, dark, bg) => {
+    const v = String(resolveTokenExpr(V[expr], V, dark) || '');
+    if (/^#[0-9a-f]{6}$/i.test(v)) return v.toUpperCase();
+    const m = v.match(/^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/);
+    if (!m || !bg) return null;
+    const a = Number(m[4]), b = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
+    return `#${[1, 2, 3].map((i, k) => Math.round(Number(m[i]) * a + b[k] * (1 - a)).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+  };
+  const face = (dark) => {
+    const bg = get('bg', dark);
+    const common = ['bg-alt', 'accent-soft'].map((t) => over(t, dark, bg)).filter(Boolean);
+    const ground = Object.fromEntries(['pass', 'warn', 'fail'].map((st) => [st, over(`${st}-bg`, dark, bg)]));
+    return { bg, text: get('bg', dark), accent: get('accent', dark), surfaces: (st) => [bg, ...common, ...(ground[st] ? [ground[st]] : [])] };
+  };
+  return { get, anchor, light: face(false), dark: face(true) };
 }
 
 function separationOk(theme, intensity, face, fills, baseline, keep) {
@@ -147,7 +163,7 @@ function solve(theme, facts, baseline, keep) {
         const list = [];
         for (let L = 0.2; L <= 0.96; L += 0.005) {
           const f = ok(L, C(s), hueOf(s));
-          if (cr(f, bg) >= FILL_MIN && cr(text, f) >= INK_MIN) list.push([L, f]);
+          if (facts[face].surfaces(s).every((x) => cr(f, x) >= FILL_MIN) && cr(text, f) >= INK_MIN) list.push([L, f]);
         }
         return list.filter(([L]) => Math.abs(L - TARGET[face][s]) <= WINDOW);
       };
@@ -243,7 +259,7 @@ function audit(theme, facts, baseline, keep) {
         const f = pick(tok(s), dark), ink = pick(`${s}-on-mark`, dark);
         fills[s] = f;
         if (!f || !ink) { bad.push(`${face} ${intensity} --${tok(s)} or --${s}-on-mark does not resolve`); continue; }
-        if (cr(f, bg) < FILL_MIN) bad.push(`${face} ${intensity} --${tok(s)} ${cr(f, bg).toFixed(2)}:1 off the slide (floor ${FILL_MIN})`);
+        for (const x of facts[face].surfaces(s)) if (cr(f, x) < FILL_MIN) bad.push(`${face} ${intensity} --${tok(s)} ${cr(f, x).toFixed(2)}:1 against ${x === bg ? 'the slide' : x} (floor ${FILL_MIN})`);
         if (cr(ink, f) < INK_MIN) bad.push(`${face} ${intensity} --${s}-on-mark ${cr(ink, f).toFixed(2)}:1 on its fill (floor ${INK_MIN})`);
       }
       if (TRIO.every((s) => fills[s]) && !separationOk(theme, intensity, face, fills, baseline, keep)) bad.push(`${face} ${intensity}: the trio keeps less than ${keep} of its recorded colorblind separation`);
