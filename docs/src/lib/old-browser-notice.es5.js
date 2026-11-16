@@ -9,7 +9,7 @@
 // The CSS is old-browser CSS too: flexbox, custom properties, `filter` with its -webkit- twin, and nothing that needs
 // `:has()`, container queries or `color-mix()`.
 //
-// The look (owner's pick, "B"): the landing page stays behind the notice, blurred and veiled in the palette, and a card in
+// The look (owner's pick, "B", refined to the site's own style): the site's top bar over its flat background, and a card in
 // the site's own type holds one real slide rendered by the engine, so the reader sees what is waiting for them.
 
 // biome-ignore lint/complexity/useArrowFunction: ES5 on purpose: this file runs in browsers too old for the modern form.
@@ -90,13 +90,10 @@
 	var CSS_TEXT =
 		'#ID{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;overflow:auto;-webkit-overflow-scrolling:touch;' +
 		'font-family:var(--font-body,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif);color:black;color:var(--text-body,CanvasText);text-align:left}' +
-		// The veil starts opaque, the same color the <head> check painted while it hid the page, so the notice's first frame
-		// matches the last hidden one; then it thins to show the blurred page as the glow and the card come in, together.
-		'#ID .lob-veil{position:fixed;top:0;right:0;bottom:0;left:0;background:white;background:var(--bg,Canvas);opacity:1;-webkit-transition:opacity .5s ease;transition:opacity .5s ease}' +
-		'#ID .lob-glow{position:fixed;top:0;right:0;bottom:0;left:0;opacity:0;-webkit-transition:opacity .5s ease;transition:opacity .5s ease;background:radial-gradient(60% 50% at 50% 30%,var(--accent,Highlight),transparent 70%)}' +
-		// It ends nearly opaque: the site's own flat background, with the page behind only a hint. An old browser draws that
-		// page broken, and blurred at a thin veil it averaged to a muddy tan (the owner's legacy Edge).
-		'#ID.lob-in .lob-veil{opacity:.9}#ID.lob-in .lob-glow{opacity:.07}' +
+		// The site's own flat background, solid from the first frame to the last, in the same color the <head> check painted
+		// while it hid the page. Nothing beneath shows through, so nothing can flicker: an old browser draws that page
+		// broken (orange chart bars, in the owner's legacy Edge), and an earlier thin veil and accent glow let it bleed.
+		'#ID .lob-veil{position:fixed;top:0;right:0;bottom:0;left:0;background:white;background:var(--bg,Canvas)}' +
 		// The site's top bar, as every page has it: the mark and the wordmark over a hairline, 61 px tall.
 		'#ID .lob-bar{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:61px;box-sizing:border-box;padding:0 40px;' +
 		'background:white;background:var(--bg,Canvas);border-bottom:' + RULE + '}' +
@@ -143,7 +140,12 @@
 		'#ID .lob-body{padding-bottom:24px}' +
 		'#ID li{padding:0 0 6px 4px}' +
 		'#ID .lob-after{padding:4px 0 0;font-size:15px;color:var(--text-muted,GrayText)}' +
-		'#ID .lob-cant{padding:14px 0 0;font-size:15px;color:var(--text-muted,GrayText)}' +
+		// "Can't update?" as a short labeled block: the question, then one line for a work device and one for your own.
+		'#ID .lob-cant{padding:18px 0 0}' +
+		'#ID .lob-cant-q{font-size:15px;font-weight:600;color:var(--text-heading,CanvasText)}' +
+		'#ID .lob-cant-ways{list-style:none;padding:4px 0 0}' +
+		'#ID .lob-cant-ways li{padding:2px 0 0;font-size:15px;color:var(--text-body,CanvasText)}' +
+		'#ID .lob-cant-ways strong{font-weight:600;color:var(--text-heading,CanvasText)}' +
 		'#ID .lob-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:18px 0 0}' +
 		// The site's primary button: 40 px tall, 6 px corners, 14 px at weight 500.
 		'#ID .lob-actions a{display:inline-block;font-size:14px;font-weight:500;line-height:40px;text-decoration:none}' +
@@ -171,7 +173,7 @@
 		'@media (max-width:560px){#ID .lob-bar{padding:0 16px}#ID .lob-stage{padding:16px 12px 32px}#ID .lob-card{padding:22px 18px}#ID h1{font-size:28px}' +
 		'#ID .lob-spec{display:block}#ID .lob-spec div+div{border-left:0;border-top:' + RULE + '}' +
 		'}' +
-		'@media (prefers-reduced-motion:reduce){#ID .lob-card,#ID .lob-veil,#ID .lob-glow{-webkit-transition:none;transition:none}}';
+		'@media (prefers-reduced-motion:reduce){#ID .lob-card{-webkit-transition:none;transition:none}}';
 
 	function el(tag, cls, text) {
 		var e = document.createElement(tag);
@@ -223,6 +225,14 @@
 		}
 		wrap.appendChild(ul);
 		return wrap;
+	}
+
+	/** One way forward when the reader can't update: a short bold lead-in ("On a work device:"), then what to do. */
+	function way(lead, rest) {
+		var li = el('li');
+		li.appendChild(el('strong', '', lead));
+		li.appendChild(document.createTextNode(' ' + rest));
+		return li;
 	}
 
 	/** A link that opens a new tab says so to a screen reader, which can't see where it went. */
@@ -286,11 +296,8 @@
 		screen.setAttribute('aria-describedby', ID + '-lead');
 		screen.setAttribute('data-testid', 'old-browser');
 		var veil = el('div', 'lob-veil');
-		var glow = el('div', 'lob-glow');
 		veil.setAttribute('aria-hidden', 'true');
-		glow.setAttribute('aria-hidden', 'true');
 		screen.appendChild(veil);
-		screen.appendChild(glow);
 		// The site's top bar, so the notice reads as a page of the site. Branding only: the heading says what this is, so
 		// assistive technology skips it.
 		var bar = el('div', 'lob-bar');
@@ -368,8 +375,16 @@
 		// Every reader who can't update gets a way forward that respects their organization: on a work device, the IT team
 		// (never a way around them); on their own, the browsers that work. Never another device (the owner's infosec rule;
 		// browser-floor.ts). Old Windows says both in its note.
+		var cant;
+		var ways;
 		if (!oldWindows) {
-			body.appendChild(el('p', 'lob-cant', "Can't update? On a work device, your IT team manages updates: ask them. On your own device, any browser under Supported browsers works."));
+			cant = el('div', 'lob-cant');
+			cant.appendChild(el('p', 'lob-cant-q', "Can't update?"));
+			ways = el('ul', 'lob-cant-ways');
+			ways.appendChild(way('On a work device:', 'ask your IT team. They manage its updates.'));
+			ways.appendChild(way('On your own device:', 'use any browser in the Supported browsers list below.'));
+			cant.appendChild(ways);
+			body.appendChild(cant);
 		}
 		card.appendChild(body);
 
@@ -389,7 +404,7 @@
 		stage.appendChild(card);
 		screen.appendChild(stage);
 
-		// The page beneath stays in view, blurred, and out of reach: hidden from assistive technology, from the pointer and,
+		// The page beneath stays behind the solid veil and out of reach: hidden from assistive technology, from the pointer and,
 		// where the browser knows `inert`, from the keyboard. Every attribute and style is given back on "Continue anyway".
 		var touched = [];
 		var kids = document.body.children;
@@ -398,15 +413,13 @@
 			var t;
 			if (k === screen || k.nodeType !== 1 || k.tagName === 'SCRIPT') return;
 			// A node the app moves within <body> arrives again as "added": it keeps its first snapshot, or Continue anyway would
-			// restore the blur it was given the first time.
+			// restore the hidden state it was given the first time.
 			for (t = 0; t < touched.length; t++) if (touched[t].el === k) return;
 			touched.push({
 				el: k,
 				hidden: k.getAttribute('aria-hidden'),
 				inert: k.hasAttribute('inert'),
 				// Only the properties this notice changes, so a style the app sets meanwhile survives Continue anyway.
-				filter: k.style.filter,
-				webkitFilter: k.style.webkitFilter,
 				pointerEvents: k.style.pointerEvents,
 				userSelect: k.style.userSelect,
 				webkitUserSelect: k.style.webkitUserSelect,
@@ -414,10 +427,8 @@
 			});
 			k.setAttribute('aria-hidden', 'true');
 			k.setAttribute('inert', '');
-			k.style.filter = 'blur(14px) saturate(1.15)';
-			k.style.webkitFilter = 'blur(14px) saturate(1.15)';
 			k.style.pointerEvents = 'none';
-			// Nothing beneath can be selected either: a selection there shows through the blur as a solid block.
+			// Nothing beneath can be selected either (a select-all would reach the hidden page).
 			k.style.webkitUserSelect = 'none';
 			k.style.msUserSelect = 'none';
 			k.style.userSelect = 'none';
@@ -468,8 +479,6 @@
 				if (t.hidden === null) t.el.removeAttribute('aria-hidden');
 				else t.el.setAttribute('aria-hidden', t.hidden);
 				if (!t.inert) t.el.removeAttribute('inert');
-				t.el.style.filter = t.filter;
-				t.el.style.webkitFilter = t.webkitFilter;
 				t.el.style.pointerEvents = t.pointerEvents;
 				t.el.style.userSelect = t.userSelect;
 				t.el.style.webkitUserSelect = t.webkitUserSelect;
@@ -487,7 +496,7 @@
 
 		document.body.appendChild(screen);
 		if (watcher) watcher.observe(document.body, { childList: true });
-		// The <head> check hid the page before its first paint (old-browser-check.es5.js); it comes back now, blurred.
+		// The <head> check hid the page before its first paint (old-browser-check.es5.js); the solid veil covers it from now on.
 		var pageHider = document.getElementById('lattice-old-browser-veil');
 		if (pageHider) pageHider.parentNode.removeChild(pageHider);
 		title.focus();

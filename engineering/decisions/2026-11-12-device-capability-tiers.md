@@ -498,6 +498,17 @@ versions and how to update, and it looks like the site, not like an error page.
     starts in, and the veil and glow fade in with the card (0.5 s) instead of arriving in one frame. Real Chromium 101,
     transitions paused with `getAnimations()` at 0/250/500 ms: the notice's first frame equals the hidden page (light
     250,247,242 both), then eases to its end state; before, it jumped at once (to 244,239,230).
+  - **No burnt-orange flicker (owner, after the color-shift fix).** The veil had thinned to 0.9 over a blurred page,
+    with an accent glow: in legacy Edge the page beneath is the broken rendering, full of orange chart bars, and both let
+    it bleed through. The veil is now solid site background from the first frame, with no glow, and the page beneath is
+    no longer blurred (nothing shows through to blur; it only cost old devices GPU work). It stays hidden from assistive
+    technology, the pointer and selection, as before. Real Chromium 101, transitions paused at 0/100/250/400/500 ms:
+    the margins outside the card are one flat color in every frame, 250,247,242 light and 21,17,13 dark. This retires
+    the "blurred page behind" glimpse of design B; matching the site's look had already reduced it to a hint, and in
+    the browsers that see this notice it was showing a broken page.
+  - **"Can't update?" as a labeled block (owner).** A bold question, then "On a work device: ask your IT team. They
+    manage its updates." and "On your own device: use any browser in the Supported browsers list below.", in place of
+    one long sentence.
   - **The site's own look (owner: "the color palette and styling should match the real website").** Measured on the
     landing page, then matched: the site's 61 px top bar with the mark and wordmark over a hairline; cards with 12 px
     corners, a 1 px `--border` hairline and no shadow; the primary button at 40 px, 6 px corners, 14 px weight 500; mono

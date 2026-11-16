@@ -60,7 +60,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an old browser gets an hon
 	const slide = notice.locator('figure img');
 	await expect(slide).toHaveAttribute('src', /old-browser\/hero-(light|dark)\.jpg$/);
 	await expect.poll(() => slide.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1120);
-	// The page beneath stays in view but blurred, out of reach and hidden from assistive technology.
+	// The page beneath sits behind the solid veil, out of reach and hidden from assistive technology.
 	await expect(page.locator('body > main')).toHaveAttribute('aria-hidden', 'true');
 	await expect(page.locator('body > main')).toHaveCSS('pointer-events', 'none');
 	await expect(notice.getByRole('button', { name: 'Continue anyway' })).toBeAttached();

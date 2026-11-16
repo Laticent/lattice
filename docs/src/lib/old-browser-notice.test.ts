@@ -128,14 +128,17 @@ describe('the inline check in <head>', () => {
 			expect(document.documentElement.getAttribute('data-old-browser')).toBe('failed');
 		});
 
-		it('the notice takes it away as it shows, with the page blurred', () => {
+		it('the notice takes it away as it shows, with the page behind its solid veil and out of reach', () => {
 			check(/:has\(/);
 			expect(hider()).not.toBeNull();
 			const main = document.createElement('main');
 			document.body.append(main);
 			run('SomeBrowser/1.0');
 			expect(hider()).toBeNull();
-			expect(main.style.filter).toContain('blur(');
+			expect(main.getAttribute('aria-hidden')).toBe('true');
+			// Solid: nothing of the page can show through (no blur, no glow to bleed it).
+			expect(main.style.filter).toBe('');
+			expect(document.querySelector('.lob-glow')).toBeNull();
 		});
 	});
 
@@ -176,7 +179,13 @@ describe('what it says to each browser', () => {
 		expect(primary?.querySelector('.lob-sr')?.textContent).toBe(' (opens in a new tab)');
 		expect(primary?.rel).toBe('noopener');
 		// And a way forward for whoever can't update: the IT team, or this address on another device.
-		expect(screen.querySelector('.lob-cant')?.textContent).toBe("Can't update? On a work device, your IT team manages updates: ask them. On your own device, any browser under Supported browsers works.");
+		// "Can't update?" as a labeled block: the question, then a work-device line and an own-device line.
+		expect(screen.querySelector('.lob-cant-q')?.textContent).toBe("Can't update?");
+		expect(text(screen, '.lob-cant-ways li')).toEqual([
+			'On a work device: ask your IT team. They manage its updates.',
+			'On your own device: use any browser in the Supported browsers list below.',
+		]);
+		expect(text(screen, '.lob-cant-ways strong')).toEqual(['On a work device:', 'On your own device:']);
 	});
 
 	it.each([
@@ -264,7 +273,7 @@ describe("the infosec rule: a work device goes to IT, never around it; the reade
 		// Never: moving to another device.
 		expect(words).not.toMatch(/another device|other device|newer (phone|device|computer)|home computer|use your phone/i);
 		// A work device is always sent to IT.
-		expect(words).toMatch(/On a work (device|computer|Mac|phone|iPhone or iPad), (your IT team|ask your IT team)/);
+		expect(words).toMatch(/On a work (device|computer|Mac|phone|iPhone or iPad)[,:] (your IT team|ask your IT team)/);
 		// Installing a browser is only ever offered to a reader on their own device.
 		for (const sentence of words.split(/(?<=[.?])\s*/)) {
 			if (/\b(install|any browser)\b/i.test(sentence) && /Chrome|Firefox|Edge|browser/.test(sentence) && !/install (the|it)\b|Install the update|installs from/i.test(sentence)) {
@@ -282,7 +291,7 @@ describe('its structure, for a reader who listens or tabs', () => {
 		expect(document.getElementById(screen.getAttribute('aria-labelledby') ?? '')?.tagName).toBe('H1');
 		expect(document.getElementById(screen.getAttribute('aria-describedby') ?? '')?.textContent).toMatch(/^Lattice turns a few lines/);
 		// The decorations say nothing.
-		for (const d of screen.querySelectorAll('.lob-veil, .lob-glow')) expect(d.getAttribute('aria-hidden')).toBe('true');
+		expect(screen.querySelector('.lob-veil')?.getAttribute('aria-hidden')).toBe('true');
 		// The site's top bar is branding only: hidden from assistive technology, its mark without alt text.
 		expect(screen.querySelector('.lob-bar')?.getAttribute('aria-hidden')).toBe('true');
 		expect(screen.querySelector<HTMLImageElement>('.lob-bar img')?.alt).toBe('');
@@ -439,7 +448,7 @@ describe('on the Studio and the Playground', () => {
 });
 
 describe('the page beneath', () => {
-	it('is blurred and hidden while the notice shows, and given back exactly on Continue anyway', () => {
+	it('is hidden and out of reach while the notice shows, and given back exactly on Continue anyway', () => {
 		const main = document.createElement('main');
 		const aside = document.createElement('aside');
 		aside.setAttribute('aria-hidden', 'false');
@@ -447,7 +456,7 @@ describe('the page beneath', () => {
 		document.body.append(main, aside);
 		const screen = run('SomeBrowser/1.0');
 		expect(main.getAttribute('aria-hidden')).toBe('true');
-		expect(main.style.filter).toContain('blur(');
+		expect(main.style.filter).toBe('');
 		expect(main.style.pointerEvents).toBe('none');
 		expect(main.style.userSelect).toBe('none');
 		expect(main.hasAttribute('inert')).toBe(true);
