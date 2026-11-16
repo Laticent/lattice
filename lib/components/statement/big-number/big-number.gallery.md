@@ -26,7 +26,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: big-number -->
+<!-- _class: big-number venue-laptop -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · big-number — Ten digits is the practical ceiling." -->
 
