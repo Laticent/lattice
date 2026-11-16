@@ -1,16 +1,19 @@
 ---
 status: proposed
-summary: Chart detail cards come to the exported HTML player (Present and Read views, a viewer toggle on by default, an author switch to ship without them), drawn by Fumetto (`@laticent/fumetto`), a new zero-dependency popover library in the sibling family. A spike places cards identically to Floating UI on 5,000 seeded cases in Chromium, WebKit and Firefox at 1.0 KB gzipped against 6.9 KB, and at least 3 times faster per placement (speed varies by run and engine; WebKit is the slowest case). Floating UI and Radix leave the hard part (intent, top layer, fullscreen, focus, touch) to the caller, and every popover bug we have logged lives there. Reverses the 2026-07-07 player non-goal for this one interaction.
+summary: Chart detail cards come to the exported HTML player (Present and Read views, a viewer toggle on by default, an author switch to ship without them), drawn by Cenno (`@laticent/cenno`), a new zero-dependency popover library in the sibling family. A spike places cards identically to Floating UI on 5,000 seeded cases in Chromium, WebKit and Firefox at 1.0 KB gzipped against 6.9 KB, and at least 3 times faster per placement (speed varies by run and engine; WebKit is the slowest case). Floating UI and Radix leave the hard part (intent, top layer, fullscreen, focus, touch) to the caller, and every popover bug we have logged lives there. Reverses the 2026-07-07 player non-goal for this one interaction.
 ---
 
-# Fumetto: our popover library, and chart detail cards in the player (2026-11-16)
+# Cenno: our popover library, and chart detail cards in the player (2026-11-16)
 
 **Status: proposed.** The owner asked for this on 2026-11-16 and settled the first round of
 decisions the same day (§10). This note is the design. Nothing in the player changes until the
 owner has seen it, and every slice that changes exported bytes stops for sign-off (QUALITY BAR).
 
-*Fumetto* is Italian for a comic strip's speech balloon: a card with a tail that points at who is
-speaking.
+*Cenno* is Italian for a nod or a small sign: *fare un cenno* is to signal to someone with a nod
+or a gesture. A popover is that: a small sign that appears beside a thing and points to it. The
+owner picked the name on 2026-11-16 over *Fumetto* (a speech balloon, but also the everyday word
+for comics) and *Cartiglio* (the painted scroll that names a figure), partly because the family
+already has several names starting with F (Filo, Fluido, Fuoco).
 
 ## 1. The ask
 
@@ -103,18 +106,18 @@ package doesn't ship one.
 
 ## 5. The spike: does a zero-dependency engine hold up?
 
-`2026-11-16-fumetto-popover-library/spike/place.mjs` is a synchronous placement kernel: side and
+`2026-11-16-cenno-popover-library/spike/place.mjs` is a synchronous placement kernel: side and
 alignment, gap, flip to the opposite side (Floating UI's `bestFit`), shift along the cross axis,
 the room left for a tall card, an arrow offset, a visual-viewport-aware measure, and a
 rAF-coalesced tracker for scroll, resize, zoom and fullscreen. `spike/harness.mjs` builds it and
 Floating UI with the same features through esbuild, then runs both on the same 5,000 seeded cases
 in a real browser. Half the anchors are cursor points (a chart reveal), half are boxes (a button).
-Run it with `node engineering/decisions/2026-11-16-fumetto-popover-library/spike/harness.mjs
+Run it with `node engineering/decisions/2026-11-16-cenno-popover-library/spike/harness.mjs
 [--engine chromium|webkit|firefox] [--seed N] [--cases N]`.
 
 Measured on 2026-11-16, seed `20261116`:
 
-| | Floating UI 1.8.0 | Fumetto spike |
+| | Floating UI 1.8.0 | Cenno spike |
 |---|---|---|
 | Minified | 17.1 KB | **2.2 KB** |
 | Gzip -9 | 6.9 KB | **1.0 KB** |
@@ -137,21 +140,21 @@ the harness report 4995 / 5000. The file was then restored byte for byte.
   writing, and an anchor that scrolls out of view (hide the card). Floating UI handles those today;
   each one becomes a parity case before it ships.
 
-## 6. Fumetto: the design
+## 6. Cenno: the design
 
 ### The refusal
 
-**A card never appears anywhere but where it belongs.** Fumetto measures and places in the same
+**A card never appears anywhere but where it belongs.** Cenno measures and places in the same
 frame, so a card never paints at (0, 0) or at last frame's spot. It never sits between the pointer
 and the thing it points at. It never fights for a z-index: it uses the browser's top layer, which
 sits above everything, fullscreen included.
 
 ### The model
 
-- **Anchor.** An element, a rect, or a point. A rect can carry a `frame` (an iframe) and Fumetto
+- **Anchor.** An element, a rect, or a point. A rect can carry a `frame` (an iframe) and Cenno
   adds the frame's offset and scale, so the Studio's cross-iframe case is a first-class input, not
   a caller's chore.
-- **Card.** Any element. Fumetto never styles content; it sets position, `max-height`/`max-width`
+- **Card.** Any element. Cenno never styles content; it sets position, `max-height`/`max-width`
   and an arrow offset as CSS custom properties.
 - **Placement.** `place(anchor, card, bounds, options)`, the pure kernel from the spike. Runs in a
   worker, in Node, or in a test with no DOM.
@@ -163,28 +166,28 @@ sits above everything, fullscreen included.
   `press` (tap or click to pin; tap outside or Escape to close), `focus`, and `manual`. On a
   coarse pointer, hover falls back to press.
 - **Access.** The card gets an id and a role; the anchor gets `aria-describedby` or
-  `aria-expanded`/`aria-controls` to match. Fumetto never moves focus unless the caller asks
+  `aria-expanded`/`aria-controls` to match. Cenno never moves focus unless the caller asks
   (`trapFocus` for a dialog-like card), and on close it returns focus only if it took it.
   Reduced motion turns off its enter and exit transitions.
 
 ### API sketch (to be finalized in the build slice)
 
 ```js
-import { place } from '@laticent/fumetto';          // pure geometry
-import { createFumetto } from '@laticent/fumetto';  // the DOM layer
+import { place } from '@laticent/cenno';          // pure geometry
+import { createCenno } from '@laticent/cenno';  // the DOM layer
 
-const fm = createFumetto();                          // one per page; owns the layer
+const fm = createCenno();                          // one per page; owns the layer
 const card = fm.open(anchor, cardEl, { side: 'bottom', align: 'start', gap: 12, pad: 8, intent: 'hover' });
 card.move(nextAnchor);                               // re-anchor without a close/open flash
 card.close();
 ```
 
-`@laticent/fumetto/react` wraps the same calls in a hook and a component, with React as an
+`@laticent/cenno/react` wraps the same calls in a hook and a component, with React as an
 optional peer.
 
 ### What it owns that the stack we use now does not
 
-| Problem | Floating UI DOM | Radix Popover | Fumetto |
+| Problem | Floating UI DOM | Radix Popover | Cenno |
 |---|---|---|---|
 | Collision geometry (flip, shift, size, arrow) | yes | via Floating UI | yes, synchronous |
 | Hover intent and a safe corridor | React package only | no | yes |
@@ -205,8 +208,8 @@ These are proposals for the owner (§10).
 
 ### Non-goals
 
-- Menus, selects, comboboxes and dialogs as full widgets. Fumetto is the positioning and lifecycle
-  layer under them. shadcn stays the Studio's widget kit; its Popover may move onto Fumetto later,
+- Menus, selects, comboboxes and dialogs as full widgets. Cenno is the positioning and lifecycle
+  layer under them. shadcn stays the Studio's widget kit; its Popover may move onto Cenno later,
   but that is not this work.
 - Virtual lists or anything that scrolls inside the card. The card sets `max-height` and the
   content scrolls itself.
@@ -221,10 +224,10 @@ and mark selectors, the hit test, `infoFor` (label, value, color, body, meta), d
 digit keys. It must be inlinable the way `present-transport.mjs` is: self-contained functions,
 pinned by `test/unit/export/inlinable-kernels.test.js`. Then:
 
-- **The player** inlines the kernel and Fumetto's built IIFE string, the way
+- **The player** inlines the kernel and Cenno's built IIFE string, the way
   `anima-player-bundle.generated.mjs` ships Anima.
 - **The Studio and Playground** call the same kernel. `chart-detail-layer.tsx` becomes a thin
-  adapter, and its card moves onto `@laticent/fumetto/react` in the same slice that proves it in
+  adapter, and its card moves onto `@laticent/cenno/react` in the same slice that proves it in
   the player. That deletes the `z-[140]` stacking fix and the pointer-wrapper override.
 - **Present** in the Studio rides along with the Studio.
 
@@ -272,7 +275,7 @@ not the slide. Slice 2 proves it first on the real player.
 
 ### What stays the same
 
-- **A deck without detail cards exports byte-identical.** The kernel and Fumetto are inlined only
+- **A deck without detail cards exports byte-identical.** The kernel and Cenno are inlined only
   when the deck has `template.chart-detail`, so the `html-player` golden holds. Same rule as
   narration and Anima.
 - **The no-JavaScript floor** (`2026-09-29-player-no-js-controls.md`) is unchanged: without
@@ -282,14 +285,15 @@ not the slide. Slice 2 proves it first on the real player.
 ## 8. The mark (logo brief)
 
 Built to `2026-07-18-sibling-brand-system.md`, three assets
-(`docs/public/fumetto-{mark,mark-min,lockup}.svg`):
+(`docs/public/cenno-{mark,mark-min,lockup}.svg`):
 
-- **Metaphor.** A speech balloon whose tail lands on the ringed hub. The hub is the anchor, the
-  tail is the placement, the balloon is the card. Behind it, three faint ghost balloons on the
-  other sides: the places flip considered and rejected. The one solid balloon is the choice.
+- **Metaphor.** A nod toward the ringed hub. The hub is the anchor. A rounded card sits beside
+  it, tilted a few degrees toward the hub, with a short pointer closing the gap: the card nods at
+  what it describes. Around the hub, three faint ghost cards on the other sides: the places flip
+  considered and rejected. The one solid card is the choice.
 - **Palette.** One new primary and accent, at least 0.069 OKLab from every sibling in light and
   dark (§ Palette diversity), measured when the mark is built and recorded in that note.
-- **Min mark.** The balloon and hub alone, legible at favicon size.
+- **Min mark.** The tilted card and hub alone, legible at favicon size.
 
 ## 9. Risks and open questions
 
@@ -304,7 +308,7 @@ Built to `2026-07-18-sibling-brand-system.md`, three assets
   fallback is not optional.
 - **Fullscreen order.** A top-layer card opened before fullscreen starts sits under the fullscreen
   element. The layer re-shows the card on `fullscreenchange`; tested on the real player.
-- **Size.** Proposed budget for the player's added script, kernel plus Fumetto: at or under 8 KB
+- **Size.** Proposed budget for the player's added script, kernel plus Cenno: at or under 8 KB
   gzipped, measured on the demo deck.
 
 ## 10. Owner decisions
@@ -315,15 +319,16 @@ Settled 2026-11-16:
 2. **Our own library**, generic and zero-dependency, minified, documented, with a mark. Not
    Floating UI underneath.
 3. **A viewer button, on by default, and an author switch.**
+4. **The name Cenno** (`@laticent/cenno`), private until the family's release. The record was
+   drafted as *Fumetto* and renamed before merge.
 
 Proposed here, for the owner to confirm before slice 1:
 
-4. The name **Fumetto** (`@laticent/fumetto`), private until the family's release.
-5. The byte budgets: Fumetto's DOM entry at or under 4 KB gzipped, the player's added script at or
+5. The byte budgets: Cenno's DOM entry at or under 4 KB gzipped, the player's added script at or
    under 8 KB gzipped.
 6. The author switch as an export option (`--strip-chart-details` plus the Studio export dialog)
    rather than front matter.
-7. The Studio's chart card moves onto Fumetto in slice 3, retiring its z-index and pointer
+7. The Studio's chart card moves onto Cenno in slice 3, retiring its z-index and pointer
    overrides.
 
 ## 11. Order of work
@@ -333,9 +338,9 @@ exported bytes stops for the owner's sign-off with dark and light players (QUALI
 
 | # | Slice | Proves | Gate |
 |---|---|---|---|
-| 1 | **Fumetto core** in `docs/src/lib/fumetto/`: `place`, `measure`, `track`, layer, intent, access; README; the spike's harness as its parity suite (Chromium, WebKit, Firefox) plus clipping, transform, RTL and hide cases; byte budget in its build | the library stands alone | unit + parity suites, budget |
+| 1 | **Cenno core** in `docs/src/lib/cenno/`: `place`, `measure`, `track`, layer, intent, access; README; the spike's harness as its parity suite (Chromium, WebKit, Firefox) plus clipping, transform, RTL and hide cases; byte budget in its build | the library stands alone | unit + parity suites, budget |
 | 2 | **Shared reveal kernel** in `lib/runtime/chart-reveal/`, and the player wired to it in the Present view | deck CSS reaches the card; scaled stage; fullscreen | real player in Chromium and WebKit; owner sign-off |
-| 3 | **Studio, Playground and Present** moved onto the kernel and `fumetto/react` | one reveal everywhere; the two Radix workarounds deleted | `docs/e2e/chart-detail-reveal`, `chart-popup-dismiss` and `present-chart-card` specs, at three widths |
+| 3 | **Studio, Playground and Present** moved onto the kernel and `cenno/react` | one reveal everywhere; the two Radix workarounds deleted | `docs/e2e/chart-detail-reveal`, `chart-popup-dismiss` and `present-chart-card` specs, at three widths |
 | 4 | **Read view, viewer button, author switch**, demo deck `examples/player-chart-details.md` | the remaining surfaces | owner sign-off; the html-player golden unchanged for decks without details |
 | 5 | **The mark** and the docs page | the family look | brand note updated with the measured palette distance |
 

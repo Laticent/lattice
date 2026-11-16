@@ -1,6 +1,6 @@
-// Fumetto spike harness: size, parity and speed of `place.mjs` against Floating UI, in a real browser.
+// Cenno spike harness: size, parity and speed of `place.mjs` against Floating UI, in a real browser.
 //
-//   node engineering/decisions/2026-11-16-fumetto-popover-library/spike/harness.mjs [--seed N] [--cases N] [--engine chromium|webkit|firefox]
+//   node engineering/decisions/2026-11-16-cenno-popover-library/spike/harness.mjs [--seed N] [--cases N] [--engine chromium|webkit|firefox]
 //
 // 1. SIZE   esbuild-minifies both engines with the SAME feature set (place + flip + shift + size +
 //           arrow + offset + an auto-update tracker) and reports raw and gzip bytes.
@@ -29,7 +29,7 @@ const SEED = arg('--seed', 20261116);
 const CASES = arg('--cases', 5000);
 console.log(`seed ${SEED}, cases ${CASES}`);
 
-const tmp = mkdtempSync(path.join(tmpdir(), 'fumetto-'));
+const tmp = mkdtempSync(path.join(tmpdir(), 'cenno-'));
 const esbuild = (entry, out) =>
 	execFileSync(
 		path.join(docs, 'node_modules/.bin/esbuild'),
@@ -38,7 +38,7 @@ const esbuild = (entry, out) =>
 	);
 
 // ── 1. SIZE ─────────────────────────────────────────────────────────────────
-const fuEntry = path.join(docs, '.fumetto-spike-fu.js');
+const fuEntry = path.join(docs, '.cenno-spike-fu.js');
 writeFileSync(
 	fuEntry,
 	"import {computePosition,flip,shift,offset,size,arrow,autoUpdate} from '@floating-ui/dom';\n" +
@@ -59,7 +59,7 @@ const fm = readFileSync(fmOut);
 const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
 console.log('\nSIZE (minified · gzip -9)');
 console.log(`  Floating UI  ${kb(fu.length)} · ${kb(gzipSync(fu, { level: 9 }).length)}`);
-console.log(`  Fumetto      ${kb(fm.length)} · ${kb(gzipSync(fm, { level: 9 }).length)}`);
+console.log(`  Cenno        ${kb(fm.length)} · ${kb(gzipSync(fm, { level: 9 }).length)}`);
 
 // ── 2 + 3. PARITY and SPEED, in Chromium ──────────────────────────────────────
 // Playwright resolves from the docs workspace too (the e2e suite's copy). `--engine webkit` runs the
@@ -149,4 +149,4 @@ console.log(`\nPARITY  ${CASES - result.diffs}/${CASES} identical (side + positi
 for (const d of result.sample) console.log('  differs:', JSON.stringify(d));
 console.log(`\nSPEED (${CASES} placements, measuring the card each time)`);
 console.log(`  Floating UI  ${result.fuMs.toFixed(1)} ms  (${((result.fuMs / CASES) * 1000).toFixed(1)} µs each)`);
-console.log(`  Fumetto      ${result.fmMs.toFixed(1)} ms  (${((result.fmMs / CASES) * 1000).toFixed(1)} µs each)`);
+console.log(`  Cenno        ${result.fmMs.toFixed(1)} ms  (${((result.fmMs / CASES) * 1000).toFixed(1)} µs each)`);

@@ -1,4 +1,4 @@
-// Fumetto spike — a synchronous, zero-dependency placement kernel.
+// Cenno spike — a synchronous, zero-dependency placement kernel.
 //
 // NOT the library. This file exists to answer two questions the decision record asks, with numbers:
 // how small a zero-dependency engine with Floating UI's everyday feature set can be, and whether it
