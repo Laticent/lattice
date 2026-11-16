@@ -164,6 +164,8 @@
     "theme-catalog:check": "node tools/build-theme-catalog.js --check",
     "player-core:build": "node tools/build-player-core.js",
     "player-core:check": "node tools/build-player-core.js --check",
+    "chart-reveal-player:build": "node tools/build-chart-reveal-player.js",
+    "chart-reveal-player:check": "node tools/build-chart-reveal-player.js --check",
     "anima-player:build": "node tools/build-anima-player.js",
     "anima-player:check": "node tools/build-anima-player.js --check",
     "guide-player:build": "node tools/build-guide-player.js",

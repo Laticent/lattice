@@ -5827,6 +5827,9 @@ const SANCTIONED_MARK_IDENTITY = [
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],
+  // The chart-reveal player bundle is GENERATED from lib/runtime/chart-reveal (tools/build-chart-reveal-player.js);
+  // it carries the model's READS of a mark's label and value, listed for the census total, not as an emitter.
+  ['export/chart-reveal-player-bundle.generated.mjs', true, true],
   // matrix-grid's filled cell, named by its own label ("Junior") — written here rather than in the
   // component because both render paths (markdown-it and the live DOM) build cells through it.
   ['core/matrix-grid-cells.js', true, false],

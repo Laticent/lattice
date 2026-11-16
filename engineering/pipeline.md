@@ -139,6 +139,16 @@ wins over a deck's `read: true`, and when both come from the same kind of source
 (two flags, or two keys) `--fluid` wins. Whichever loses is named on stderr; none of
 them is dropped silently, which they were until #2271.
 
+**A player's charts open their detail cards.** When a deck carries a chart detail (a mark with a
+`>` description or nested bullets, written as `<template class="chart-detail">`), the `--player`
+page answers in Present the way the Studio does: hover a mark (or tap it on a phone) and its card
+opens beside it; digits 1-9 open mark *n* and 0 or Escape closes; each such chart is one Tab stop
+whose arrow keys walk its marks without turning the slide. The card is drawn by Cenno
+(`docs/src/lib/cenno/`) from the same model the Studio reads (`lib/runtime/chart-reveal/model.mjs`),
+skinned by the deck theme in either mode, and its description keeps the deck's own pills and
+sparks. The bundle (about 9 KB gzipped) ships only with such a deck, so every other player is
+byte-identical. Design and decisions: `engineering/decisions/2026-11-16-cenno-popover-library.md`.
+
 **The reading article follows the deck's `color-mode:`**, which the slide sections
 carry and `--read` removes with them: `dark`/`light` as declared, `print` as a light
 canvas (a B&W handout is one), `system` as `light dark` so the reader's OS decides, and

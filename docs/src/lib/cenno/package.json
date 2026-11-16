@@ -1,6 +1,7 @@
 {
   "name": "@laticent/cenno",
   "version": "0.1.0",
+  "private": true,
   "description": "A small sign beside a thing that points to it: popovers, tooltips and detail cards with no dependencies. Synchronous placement that matches Floating UI, the top layer above fullscreen, steady size under pinch zoom, hover intent with a grace corridor, tap-to-pin on touch, and a card anatomy hosts skin with tokens and named parts.",
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",

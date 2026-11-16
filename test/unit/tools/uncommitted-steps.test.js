@@ -175,6 +175,9 @@ const EXPECTED_PR_OWNED = new Set([
   // Measured 2026-11-16 against a timestamped tree: its whole write set is docs/src/lib/cenno/README.md
   // (the per-module size table between its markers), which git tracks, and only when the table changed.
   'build-cenno-sizes.js',
+  // Measured 2026-11-16 against a timestamped tree: its whole write set is
+  // lib/export/chart-reveal-player-bundle.generated.mjs, which git tracks — player-core imports it.
+  'build-chart-reveal-player.js',
   // Measured 2026-09-28: writes exactly docs/src/lib/segno/notation.generated.ts, which git
   // tracks — the docs site and Vitest import it. Since Segno phase 3 (2026-10-06) also
   // lib/core/flowchart-row.generated.js, tracked too: `splitRow` requires it; and since phase 3's

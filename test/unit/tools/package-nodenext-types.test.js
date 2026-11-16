@@ -33,7 +33,6 @@ const PACKAGES = {
 	lente: ['.'],
 	vetrina: ['.', './react'],
 	fuoco: ['.', './react'],
-	cenno: ['.'],
 	mosaico: ['.'],
 	fluido: ['.'],
 	squadra: ['.', './driver', './markdown', './runtime'],

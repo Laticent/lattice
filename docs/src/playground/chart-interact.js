@@ -33,7 +33,26 @@ import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/d
 // test, the label proxies, the hold zone and the emphasis — is shared with the exported HTML player
 // (HARD RULE #1). This file is the Studio's HOST for it: the iframe bridge, the pinned hit-surface,
 // the popover and the timers. engineering/decisions/2026-11-16-cenno-popover-library.md §7.
-import * as M from '../../../lib/runtime/chart-reveal/model.mjs';
+import {
+  CHART_SVG_SEL,
+  revealable as canReveal,
+  chartSvgIn,
+  markCount as countMarks,
+  DETAILS_SEL,
+  detailFor,
+  emphasize as emphasizeMarks,
+  inHoldZone as inMarkHoldZone,
+  MARK_SEL,
+  markIndex,
+  infoFor as markInfo,
+  marksFor as marksAt,
+  markEls as marksOf,
+  namedMark,
+  nearestMark,
+  sectionScale,
+  TPL_SEL,
+  unemphasize,
+} from '../../../lib/runtime/chart-reveal/model.mjs';
 import { frameGeom as sharedFrameGeom } from './frame-geom.js';
 
 const REDUCED = (() => {
@@ -70,7 +89,6 @@ const escText = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<'
 export function createChartInteract({ stage, getFrame, lift = true, onReveal, onDetail, hoverAny = false }) {
 
   // Chart-family vocabulary: one per kind, shared with the player (lib/runtime/chart-reveal/model.mjs).
-  const { CHART_SVG_SEL, MARK_SEL, DETAILS_SEL, TPL_SEL, markIndex, chartSvgIn } = M;
 
   // Parent chrome: a transparent container (pointer-events:none — lets the
   // capture layer/HUD through) holding the hit-surface and the popover, which
@@ -109,11 +127,10 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   const frameGeom = () => sharedFrameGeom(getFrame());
 
   // ── the current chart, through the shared model ─────────────────────────────
-  const markEls = () => M.markEls(chartEl);
-  const marksFor = (i) => M.marksFor(chartEl, i);
-  const markCount = () => M.markCount(chartEl);
-  const infoFor = (i) => M.infoFor(curSection, chartEl, i);
-  const { namedMark, nearestMark } = M;
+  const markEls = () => marksOf(chartEl);
+  const marksFor = (i) => marksAt(chartEl, i);
+  const markCount = () => countMarks(chartEl);
+  const infoFor = (i) => markInfo(curSection, chartEl, i);
 
   // ── geometry ──────────────────────────────────────────────────────────────
   // Map the chart's box (measured inside the iframe) into stage coordinates and
@@ -305,7 +322,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   // whose value is not a number draws no rect, so marks run 0, 2), and a count of 2 locked mark 2 —
   // and its name, since the name became a tap target — out of ever opening. `sliceN` is the fallback
   // for a chart whose marks do not query.
-  const revealable = (i) => M.revealable(chartEl, i, sliceN);
+  const revealable = (i) => canReveal(chartEl, i, sliceN);
 
   function reveal(i) {
     if (!interactive()) return;
@@ -318,8 +335,8 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     // so a multi-chart preview reads the HOVERED chart's detail, not the first
     // chart in the doc. See infoFor().
     const { label, value, dot } = infoFor(i);
-    // The template's OWN items only (M.detailFor): the first is the description, the rest the meta line.
-    const d = M.detailFor(detailsEl, i);
+    // The template's OWN items only (detailFor): the first is the description, the rest the meta line.
+    const d = detailFor(detailsEl, i);
     const body = d.body ? d.body.innerHTML.trim() : '';
     const meta = d.meta.map((n) => n.innerHTML.trim()).join(' · ');
     // Two reveal depths (the data-viz "details-on-demand" model). Every mark is
@@ -429,11 +446,11 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     if (stopAutoUpdate) { stopAutoUpdate(); stopAutoUpdate = null; }
   }
 
-  // EMPHASIS — dim the rest, lift the one, never move the data (M.emphasize, with the rules for each
+  // EMPHASIS — dim the rest, lift the one, never move the data (emphasize, with the rules for each
   // geometry, the matrix chart and the Anima clone).
   function emphasize(i) {
     if (!chartEl || !curSection) return;
-    M.emphasize(chartEl, i, { lift, reduced: REDUCED });
+    emphasizeMarks(chartEl, i, { lift, reduced: REDUCED });
   }
 
   function clear() {
@@ -446,7 +463,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     pop.classList.remove('show');
     // Reset the lift/dim we applied (a no-op on an anima chart, whose inline styles are the renderer's
     // baked frame — emphasize never touched them).
-    M.unemphasize(chartEl);
+    unemphasize(chartEl);
   }
 
   // ── keyboard: number keys reveal; 0/Esc clear ───────────────────────────────
@@ -513,12 +530,12 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   // the pinned hit-surface clears only on pointerleave, so it never edge-flickers.
   let hoverClearTimer = 0;
   function cancelHoverClear() { if (hoverClearTimer) { clearTimeout(hoverClearTimer); hoverClearTimer = 0; } }
-  // HOLD ZONE (M.inHoldZone): the open mark's box grown by HOLD_SLIDE_PX slide px, so a pointer that
+  // HOLD ZONE (inHoldZone): the open mark's box grown by HOLD_SLIDE_PX slide px, so a pointer that
   // slips into the gap between marks keeps the card instead of flickering it.
   const HOLD_SLIDE_PX = 10;
   function inHoldZone(e) {
     if (openSlice < 0 || !curSection) return false;
-    return M.inHoldZone(chartEl, openSlice, e.clientX, e.clientY, HOLD_SLIDE_PX * M.sectionScale(curSection));
+    return inMarkHoldZone(chartEl, openSlice, e.clientX, e.clientY, HOLD_SLIDE_PX * sectionScale(curSection));
   }
   function onDocMove(e) {
     // resolveAt → setChart may clear() (which nulls ptr) when the hovered chart

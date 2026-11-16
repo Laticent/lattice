@@ -191,6 +191,10 @@ const STEPS = [
   // nothing caught it, because dist/ is gitignored and `build:check
   // --exclude-uncommitted` skips the emulator by design.
   { label: 'anima-player bundle (engine export)', script: 'build-anima-player.js' },
+  // The chart reveal (Cenno + the shared chart model) for the exported player, injected only when a deck
+  // carries a chart detail (engineering/decisions/2026-11-16-cenno-popover-library.md §7). Like the Anima
+  // bundle above, player-core imports the committed string, so it builds before anything that bundles it.
+  { label: 'chart-reveal player bundle (engine export)', script: 'build-chart-reveal-player.js' },
   // The Guide for narrated exports, ahead of the emulator for the anima bundle's reason: the
   // emulator's graph reaches lib/export/player-core.mjs, which imports this generated file. It
   // reads SOURCES, never the background library dists, so it has no join to wait on.

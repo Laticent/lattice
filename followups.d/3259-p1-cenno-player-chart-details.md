@@ -5,7 +5,7 @@ recorded: 2026-11-16
 area: engine
 severity: high
 swimlane: engineering/decisions/2026-11-16-cenno-popover-library.md §11
-deferred: large — five build slices (decision §11), each its own commit with exported-bytes sign-off; every owner decision is settled (§10)
+deferred: large — slices 1 (Cenno core) and 2 (the shared model and the player's Present view) landed in #3259; slices 3 to 5 (Studio and Present on the kernel, the Read view with the toggle and the details: register, the mark and docs page) are each a PR-sized change with exported-bytes sign-off (decision §11, §12)
 source: https://github.com/Laticent/lattice/pull/3259
 ---
 

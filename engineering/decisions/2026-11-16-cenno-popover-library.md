@@ -1,13 +1,13 @@
 ---
-status: proposed
+status: in-progress
 summary: Chart detail cards come to the exported HTML player (Present and Read views, a `details:` front-matter key for the starting state, an export toggle and CLI flag that override it, and a reader button that can always turn them off), drawn by Cenno (`@laticent/cenno`), a new zero-dependency popover library in the sibling family. A spike places cards identically to Floating UI on 5,000 seeded cases in Chromium, WebKit and Firefox at 1.0 KB gzipped against 6.9 KB, and at least 3 times faster per placement (speed varies by run and engine; WebKit is the slowest case). Floating UI and Radix leave the hard part (intent, top layer, fullscreen, focus, touch) to the caller, and every popover bug we have logged lives there. Reverses the 2026-07-07 player non-goal for this one interaction.
 ---
 
 # Cenno: our popover library, and chart detail cards in the player (2026-11-16)
 
-**Status: proposed.** The owner asked for this on 2026-11-16 and settled the first round of
-decisions the same day (§10). This note is the design. Nothing in the player changes until the
-owner has seen it, and every slice that changes exported bytes stops for sign-off (QUALITY BAR).
+**Status: in progress.** The owner asked for this on 2026-11-16 and settled every decision the
+same day (§10). Slices 1 and 2 are built (§12, Progress); slice 2 changes exported bytes, so it
+waits for the owner's sign-off on dark and light players before slices 3 to 5 (QUALITY BAR).
 
 *Cenno* is Italian for a nod or a small sign: *fare un cenno* is to signal to someone with a nod
 or a gesture. A popover is that: a small sign that appears beside a thing and points to it. The
@@ -166,8 +166,9 @@ sits above everything, fullscreen included.
   `press` (tap or click to pin; tap outside or Escape to close), `focus`, and `manual`. On a
   coarse pointer, hover falls back to press.
 - **Access.** The card gets an id and a role; the anchor gets `aria-describedby` or
-  `aria-expanded`/`aria-controls` to match. Cenno never moves focus unless the caller asks
-  (`trapFocus` for a dialog-like card), and on close it returns focus only if it took it.
+  `aria-expanded`/`aria-controls` to match. Cenno never moves focus; if focus was inside a press
+  card when it closes, it goes back to the trigger. (No focus trap is built: full dialogs are a
+  non-goal, below.)
   Reduced motion turns off its enter and exit transitions.
 
 ### API sketch (to be finalized in the build slice)
@@ -224,10 +225,16 @@ The owner asked that the library be designed around how a host styles its popups
 the structure inside them, so the Studio and the player can look and behave alike. Three layers,
 each optional:
 
-1. **Tokens.** Every visual property Cenno owns is a CSS custom property on the card, with a
-   neutral default: `--cenno-bg`, `--cenno-fg`, `--cenno-border`, `--cenno-radius`,
-   `--cenno-shadow`, `--cenno-pad`, `--cenno-max-width`, `--cenno-gap` (anchor distance),
-   `--cenno-arrow-size`, `--cenno-motion` (duration; zero under reduced motion). A host maps its
+1. **Tokens.** Every visual property Cenno owns reads a CSS custom property: `--cenno-bg`,
+   `--cenno-fg`, `--cenno-border`, `--cenno-border-width`, `--cenno-radius`, `--cenno-shadow`,
+   `--cenno-pad`, `--cenno-gap` (space between the card's parts), `--cenno-max-width`,
+   `--cenno-line-height`, `--cenno-arrow-size`, `--cenno-motion` (zero under reduced motion). As
+   built, the defaults are declared ONCE on `:root` and `:host` inside `:where()`, with the
+   browser's system colors (`Canvas`, `CanvasText`, `GrayText`), so an unstyled card follows light
+   and dark mode and any host value wins at zero specificity. (A `--cenno-font` token was dropped:
+   `inherit` as a custom property's value inherits the PROPERTY, so on `:root` it resolved to
+   nothing and reset the card to the browser's default font. The card takes the page's font; a
+   host sets `font` on `.cenno`.) A host maps its
    own theme onto them in one rule: the Studio maps its app tokens (`--popover`, `--border`), the
    player maps the deck theme's tokens, so the card is palette-blind the way `lattice.css` is
    (HARD RULE #3). Cenno ships no colors of its own beyond the neutral fallback.
@@ -263,8 +270,10 @@ part names, not pixels.
 
 Move the framework-free half of `chart-interact.js` into `lib/runtime/chart-reveal/`: the chart
 and mark selectors, the hit test, `infoFor` (label, value, color, body, meta), dimming, and the
-digit keys. It must be inlinable the way `present-transport.mjs` is: self-contained functions,
-pinned by `test/unit/export/inlinable-kernels.test.js`. Then:
+digit keys. As built, `model.mjs` holds those rules and `reveal.mjs` the in-document interaction;
+`tools/build-chart-reveal-player.js` bundles both with Cenno (from source) into one committed
+IIFE string, the way `anima-player-bundle.generated.mjs` ships Anima, rather than `.toString()`
+inlining, which cannot carry an import. Then:
 
 - **The player** inlines the kernel and Cenno's built IIFE string, the way
   `anima-player-bundle.generated.mjs` ships Anima.
@@ -353,10 +362,11 @@ There are three kinds of zoom, and they behave differently.
   and `elementFromPoint` and `getBoundingClientRect` use the same space and include every CSS
   transform. So a mark is found correctly at any zoom of any kind.
 - **The touch target must stay a screen size, not a CSS size.** A heatmap's 69 px cell is about
-  19 px on a phone's scaled slide. The reveal kernel takes a hit radius in *screen* pixels (44 by
-  default) and converts it to CSS pixels by dividing by the combined scale (slide transform times
-  `visualViewport.scale`), then picks the nearest mark inside it. Zooming in makes marks easier
-  to hit, never harder.
+  19 px on a phone's scaled slide. As built, a pointer that misses every mark takes the nearest
+  mark whose OUTLINE is within reach, and the reach is in *screen* pixels (22 on touch, 6 for a
+  mouse: the Studio's values, kept). The slide's transform is already folded into the outline
+  points (`getScreenCTM`); the reveal divides the reach by `visualViewport.scale` for a pinch.
+  Zooming in makes marks easier to hit, never harder.
 - **A zoom gesture is never a tap.** A gesture that ever held two pointers, or panned past the
   threshold while zoomed, opens no card. This is the rule `createZoomGesture` applies to swipes.
   - **In the Studio**, the reveal reads it from `createZoomGesture` directly.
@@ -473,3 +483,43 @@ exported bytes stops for the owner's sign-off with dark and light players (QUALI
 
 Novel work with real blast radius, so the adversarial trio (red team, inversion, checker) reviews
 what ships at the end of slice 4, not each draft (HARD RULE #25).
+
+## 12. Progress
+
+**Slice 1, Cenno core: built** (`docs/src/lib/cenno/`, `"private": true` until slice 5 gives it its docs page and nav entry, as the owner asked: private now, published later). Placement, measuring, the card lifecycle,
+the top layer and fullscreen, steady size under pinch, tracking, intents, the card anatomy and the
+stylesheet; 5.2 KB gzipped in all, with the per-module table in its README kept current by
+`build:check`. Tests: 37 in jsdom (`place.test.ts`, `cenno.test.ts`) and `docs/e2e/cenno-parity.spec.ts`
+in Chromium at desktop and phone width, Firefox and WebKit (2,000-case Floating UI parity, the top
+layer, fullscreen, a transformed host, a scaled iframe, clipping, and a real pinch in Chromium).
+Each test was shown to fail on a deliberate break, then 70/70 repeated and 35/35 under load.
+
+**Slice 2, the shared model and the player's Present view: built, awaiting the owner's sign-off.**
+- `lib/runtime/chart-reveal/model.mjs` now holds the Studio's chart rules; `chart-interact.js`
+  calls it with no change in behavior (its 61 vitest cases and the 114 chart component tests pass
+  unchanged).
+- The detail BODY renderer moved beside the model, into `detail.mjs` (`renderDeckDetail`, the Studio's `DeckHtml`
+  algorithm: a shadow root with the deck's CSS, the slide's ancestor chain as empty copies, the
+  slide's custom properties, author `style` attributes stripped, paint containment). One change
+  the player forced: a copied chain now drops `data-lattice-slide`, the hook every surface SIZES a
+  slide with; keeping it laid the description out as a whole slide (a 472 px card for one line).
+  A host also names its own chrome attributes to drop (the player's `data-lp-view`).
+- `reveal.mjs` drives the player: hover, tap, digits, a chart as one Tab stop with arrow keys
+  (it keeps the kernel's own `aria-labelledby` name and adds `aria-keyshortcuts`), close on slide
+  or view change. The player mounts it from inside its own scope and passes its `pinch` flag.
+- The Studio pays for sharing: about 150 bytes gzipped of eager JavaScript on the Studio, Playground and
+  home routes (each rule now takes the chart and section as parameters). Given back first: the
+  player-only renderer lives in `detail.mjs`, not the model, and `chart-interact.js` uses named imports
+  (a namespace import kept every export, 568 bytes); the rest is declared in
+  `docs/route-budget.d/3259-shared-chart-model.md`. `reveal.mjs` takes Cenno's factory as a parameter,
+  so shipped `lib/` loads no package the published engine does not install; the bundle entry imports it.
+- The bundle is 23.3 KB minified, about 9 KB gzipped, and ships only with a deck that carries
+  `<template class="chart-detail"`; detection is a substring test (a regex for it was rated
+  polynomial by the census). The html-player golden holds.
+- Tests: `test/unit/export/player-chart-reveal.test.js` (when it ships; the script runs in JSDOM)
+  and `docs/e2e/player-chart-reveal.spec.ts` on the real exported file in Chromium at desktop and
+  phone width, Firefox and WebKit: hover, dimming and leaving; digits; a focused chart's arrow keys
+  (with a control arm proving the arrows otherwise turn the slide); closing on a slide turn; tap,
+  re-tap and tap-away on a touch screen. Every test failed on a deliberate break, then 50/50
+  repeated and 25/25 under load.
+
