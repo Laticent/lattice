@@ -157,8 +157,12 @@ describe('markdownToSlice', () => {
 		expect(isSettingsBlock('themee: x\npaginate: true')).toBe(true);
 		expect(isSettingsBlock('\n# Plan\n\nGoal: ship Q3\n')).toBe(false);
 		expect(isSettingsBlock('Owner: Ana')).toBe(false);
-		// A flow map closed at column 0, and a bare list dash (the checker on 34f18d3c).
-		expect(isSettingsBlock('theme: cuoio\npptx: {\n  a: 1\n}')).toBe(true);
+		// A bare list dash (the checker on 34f18d3c).
+		// A flow map closed at column 0 is a shape Marp rejects; it reads as slide text, the visible failure.
+		expect(isSettingsBlock('theme: cuoio\npptx: {\n  a: 1\n  }')).toBe(true);
+		expect(isSettingsBlock('theme: cuoio\npptx: {\n  a: 1\n}')).toBe(false);
+		// A line of slide text that merely starts with a key's name is not that key (the checker on 31c16ce9).
+		expect(isSettingsBlock('mode is dark\nmode: dark')).toBe(false);
 		expect(isSettingsBlock('keywords:\n-\n- b\ntheme: cuoio')).toBe(true);
 		expect(isSettingsBlock('theme: cuoio\nSome prose here.')).toBe(false);
 		expect(isSettingsBlock('')).toBe(false);

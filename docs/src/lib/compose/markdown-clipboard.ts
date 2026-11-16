@@ -135,7 +135,7 @@ export function isSettingsBlock(inner: string): boolean {
 	// The lines `keyGroups` could not put under a key ride at the head of the next group or in the tail; each must be a note.
 	for (const g of groups) {
 		const lines = g.text.split('\n');
-		const keyAt = lines.findIndex((l) => l.startsWith(g.key));
+		const keyAt = lines.findIndex((l) => l.startsWith(g.key) && /^[ \t]*:/.test(l.slice(g.key.length)));
 		if (lines.slice(0, keyAt).some((l) => !isNote(l))) return false;
 	}
 	if (tail.split('\n').some((l) => !isNote(l))) return false;

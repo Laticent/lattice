@@ -165,9 +165,12 @@ sticks); no notice for a paste the guard refused; a drag that carries HTML besid
 misreading front matter in a new way, the owner pointed at the existing work: `keyGroups`
 (`lib/core/front-matter-groups.js`) already reads a front-matter body's top-level keys for the Marp-bundle exporter,
 the runtime's merge, the settings-block fold and the legend. The paste merge and `isSettingsBlock` now read keys with
-it (HARD RULE #15), and its own gaps were fixed in place for every caller: a list at its key's own column, a quoted
-value or flow map running past its key's line. The first of those was a live Marp-export bug: the stray `- lead` made
-Marp reject the bundle's whole front matter (measured with marp-core 4.4.0: no footer, no page numbers, no `invert`).
+it (HARD RULE #15), and its one real gap was fixed in place for every caller: a list at its key's own column. That
+was a live Marp-export bug: the stray `- lead` made Marp reject the bundle's whole front matter (measured with
+marp-core 4.4.0: no footer, no page numbers, no `invert`). A first cut also followed a quoted value or a flow map that
+continues at column 0; the checker on 31c16ce9 measured that Marp rejects both shapes anyway, and that tracking an
+open quote let one apostrophe (`title: 'Tis the season`) swallow every key after it, in the Marp bundle split and the
+legend. It was taken out, with tests at both callers.
 The longer-term home is Segno's front-matter island (followups.d/3042-p1), which is blocked on its own export
 sign-off.
 

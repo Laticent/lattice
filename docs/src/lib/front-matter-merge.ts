@@ -18,6 +18,11 @@ export function frontMatterKeys(block: string): string[] {
 
 type Entry = { key: string; pre: string[]; body: string[] };
 
+/** Is `line` the key line `key:` itself, not a stray line that merely starts with the key's name (`themes are…`)? */
+export function isKeyLine(line: string, key: string): boolean {
+	return line.startsWith(key) && /^[ \t]*:/.test(line.slice(key.length));
+}
+
 /** `keyGroups`' groups as entries: the lines that lead a group (`pre`: the note above the key), and the key line with
  *  its value (`body`). */
 function entriesOf(inner: string): { entries: Entry[]; tail: string } {
@@ -26,7 +31,7 @@ function entriesOf(inner: string): { entries: Entry[]; tail: string } {
 		const lines = g.text.split('\n');
 		// The key's own line: everything above it (a comment, or a line the reader could not place under a key, such as
 		// a quoted `"theme":` the engine does not read either) leads the entry and is never compared or replaced.
-		const at = Math.max(0, lines.findIndex((l) => l.startsWith(g.key)));
+		const at = Math.max(0, lines.findIndex((l) => isKeyLine(l, g.key)));
 		return { key: g.key, pre: lines.slice(0, at), body: lines.slice(at) };
 	});
 	return { entries, tail };

@@ -83,14 +83,29 @@ describe('mergeFrontMatterBlocks: read by the shared keyGroups reader', () => {
 		expect(mergeFrontMatterBlocks('---\ntheme: indaco\n---\n\n', '---\ntheme:cuoio\n---')).toEqual({ block: '---\ntheme:cuoio\n---\n\n', changed: ['theme'] });
 	});
 
+	// Indented, the form YAML and Marp accept; a continuation at column 0 is a shape Marp rejects (#3234).
 	it('replaces a quoted value continued on the next line whole', () => {
-		const deck = '---\ntitle: "Q3 review\nAgenda, part two: costs"\ntheme: indaco\n---\n\n';
+		const deck = '---\ntitle: "Q3 review\n  Agenda, part two: costs"\ntheme: indaco\n---\n\n';
 		expect(mergeFrontMatterBlocks(deck, '---\ntitle: X\n---').block).toBe('---\ntitle: X\ntheme: indaco\n---\n\n');
 	});
 
 	it('keeps a key that holds a colon of its own', () => {
 		const deck = '---\ntitle: >\n  folded\nhttps://example.com: x\ntheme: indaco\n---\n\n';
 		expect(mergeFrontMatterBlocks(deck, '---\ntitle: y\n---').block).toBe('---\ntitle: y\nhttps://example.com: x\ntheme: indaco\n---\n\n');
+	});
+});
+
+// The checker on 31c16ce9: the key line is matched exactly, not by its name's prefix.
+describe('mergeFrontMatterBlocks: the key line is the key line', () => {
+	it("keeps a stray line that only starts with a key's name", () => {
+		expect(mergeFrontMatterBlocks('---\nthemes are nice\ntheme: x\n---\n\n', '---\ntheme: y\n---').block).toBe('---\nthemes are nice\ntheme: y\n---\n\n');
+	});
+
+	it('an apostrophe in a deck value swallows nothing, and a paste applies once', () => {
+		const deck = "---\ntitle: 'Tis the season\ntheme: x\nmode: light\n---\n\n";
+		const first = mergeFrontMatterBlocks(deck, '---\nmode: dark\n---');
+		expect(first.block).toBe("---\ntitle: 'Tis the season\ntheme: x\nmode: dark\n---\n\n");
+		expect(mergeFrontMatterBlocks(first.block, '---\nmode: dark\n---').changed).toEqual([]);
 	});
 });
 
