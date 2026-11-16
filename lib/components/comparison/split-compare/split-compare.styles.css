@@ -122,6 +122,12 @@ section.split-compare[data-orientation="portrait"],
 section.split-compare[data-orientation="square"] { flex-direction: column; }
 section.split-compare:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .compare-left { width: auto; }
 section.split-compare:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .options { grid-template-columns: 1fr; }
+/* An option's own page in a split run, on a slide read in a hand (fit-everywhere-model.md §24's selector): the question
+ * banner over the option takes `--sp-md` above and below instead of `--sp-xl`, and the heading no gap under it. The
+ * banner repeats the cover's question, so it is the page's running head, not its subject; at x1.4 its full padding
+ * pushed a 45-word option 43px past the page (system-design-foundations.md 180). The cover keeps its own. */
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame, .keeps-laptop).split-compare[data-split-role="body"] .compare-left { padding-block: var(--sp-md); }
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame, .keeps-laptop).split-compare[data-split-role="body"] .compare-left h2 { padding-bottom: 0; }
 
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
