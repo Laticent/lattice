@@ -135,9 +135,15 @@ async function visibleFractions(page: Page): Promise<{ ofItself: number; ofPane:
 		const pane = win.innerHeight;
 		const bottom = top + pane;
 		return Array.from(secs, (el) => {
-			const h = el.getBoundingClientRect().height;
+			// The rect plus the scroll, the way the app's `frameBands` places a slide. NOT `offsetTop`: `.lattice` is the
+			// offsetParent (its `filter`), so `offsetTop` leaves out the frame's html and body padding and put every slide
+			// about 36px above where it is. A slide the app rightly kept at more than half visible then measured 36 to 48%
+			// here, and the swipe test went red whenever a flick came to rest near that line (mobile-touch, under load).
+			const r = el.getBoundingClientRect();
+			const h = r.height;
 			if (h <= 0 || pane <= 0) return { ofItself: 0, ofPane: 0 };
-			const seen = Math.max(0, Math.min(bottom, el.offsetTop + h) - Math.max(top, el.offsetTop));
+			const at = r.top + top;
+			const seen = Math.max(0, Math.min(bottom, at + h) - Math.max(top, at));
 			return { ofItself: seen / h, ofPane: seen / pane };
 		});
 	});
