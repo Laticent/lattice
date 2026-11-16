@@ -317,8 +317,16 @@ export async function buildFontEmbedCss(text = '', fonts) {
 
 // Inject the embedded faces into `doc` (idempotent) and wait until every face is
 // usable, so the live nodes html-to-image clones are laid out with real metrics
-// rather than the fallback face's. Best-effort: never rejects.
-export async function ensureFontsLoaded(doc, css) {
+// rather than the fallback face's. Best-effort: never rejects. `faces` is what to
+// wait for: every vendored face by default (the exports), or only the faces one
+// slide draws (the chat's `render_slide` look, deck-export.js `rasterizeSlidePreview`),
+// so a load for a face the slide never uses does not fetch it.
+/**
+ * @param {Document} doc
+ * @param {string} css
+ * @param {Array<{ family: string, weight: number | string, style: string }>} [faces]
+ */
+export async function ensureFontsLoaded(doc, css, faces = [...FACES, ...ICON_FACES]) {
 	try {
 		if (!doc.getElementById(STYLE_ID)) {
 			const style = doc.createElement('style');
@@ -327,7 +335,7 @@ export async function ensureFontsLoaded(doc, css) {
 			doc.head.appendChild(style);
 		}
 		await Promise.all(
-			[...FACES, ...ICON_FACES].map((f) => doc.fonts.load(`${f.style} ${f.weight} 1em '${f.family}'`).catch(() => {})),
+			faces.map((f) => doc.fonts.load(`${f.style} ${f.weight} 1em '${f.family}'`).catch(() => {})),
 		);
 		await doc.fonts.ready;
 	} catch (_e) {

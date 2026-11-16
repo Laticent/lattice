@@ -583,7 +583,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake, steps }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake, steps }, { releaseDiagrams = true, previewFonts = false } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	let stepCounts = null;
@@ -631,6 +631,9 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			// `forceSectionVisibleForCapture` cannot save it: that forces the SECTION visible,
 			// and this is an explicit `visibility:hidden` on a descendant <code>.
 			diagrams: false,
+			// `previewFonts`: the runtime waits for the faces the laid-out slides use, not every declared face. Only the chat's
+			// one-slide look asks for it (`rasterizeSlidePreview`); every export keeps the force-load (deck-preview.js).
+			previewFonts,
 			contentVisibility: false, cursor: false, sync: false, printRules: false });
 		// An EXPORT frame says so: with the block the runtime draws the export's marker level rather
 		// than the authoring one. Only the Webpage bake passes a level today; the rasterizers keep
@@ -1189,7 +1192,7 @@ const glyphTextOf = (doc) =>
 		.join('');
 const deckTextOf = (doc) => `${doc?.body?.textContent || ''}\n${pseudoContentText(doc?.body)}\n${glyphTextOf(doc)}`;
 
-async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
+async function sectionsOf(frame, fonts, { iconShapes = false, only } = {}) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
 	clearDataUriMemo();
@@ -1217,7 +1220,23 @@ async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
 	// with their fonts already resolved instead of racing the lazy loader.
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
 	// markdown kernels above stay unit-testable) — same split as jspdf and Calco's writers.
-	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
+	const { buildFontEmbedCss, buildFamilyFontCss, ensureFontsLoaded, ICON_FACES } = await loadFontEmbed();
+	// ONE SLIDE'S FONTS, for a caller that shoots one section (`rasterizeSlidePreview`, the chat's `render_slide`): only
+	// the faces that slide draws, its icon faces and emoji slices, by the slide map's own rules (pool-capture.ts
+	// `facesOf` / `slideTextOf`, font-embed.js `buildFamilyFontCss`), and only those are waited for. The whole block
+	// fetched and loaded every vendored face, 130 woff2 for one title slide, which pushed a loaded render past its 15 s
+	// budget (draft-fit.ts). A face that cannot be had falls through to the whole block, so the look is never drawn in a
+	// fallback face. Every export leaves `only` unset and takes the path below, unchanged.
+	const one = only === undefined ? null : sections[only];
+	if (one) {
+		const [{ facesOf, slideTextOf }, { pseudoContentText }] = await Promise.all([import('../pool-capture'), import('../../../../../lib/core/slide-camera.mjs')]);
+		const faces = facesOf(one);
+		const css = await buildFamilyFontCss(faces, slideTextOf(one, pseudoContentText)).catch(() => null);
+		if (css !== null) {
+			await ensureFontsLoaded(doc, css, [...faces, ...ICON_FACES.filter((f) => css.includes(f.family))]);
+			return { sections, fontEmbedCSS: css };
+		}
+	}
 	const fontEmbedCSS = await buildFontEmbedCss(deckTextOf(doc), fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
 	return { sections, fontEmbedCSS };
@@ -2913,13 +2932,15 @@ function dataUrlToBlob(dataUrl) {
 /**
  * One rendered slide as a small JPEG data URL, for the Studio chat's `render_slide`: a look for the
  * model, never an export. It reuses the export's capture (the same frame, fonts and fixups) so the
- * model sees what an export would draw, and it changes nothing any export writes.
+ * model sees what an export would draw, and it changes nothing any export writes. It embeds and loads only the faces
+ * this slide draws (`sectionsOf`'s `only`), so a look at a title slide does not fetch every vendored font.
  * `index` is the rendered section (0-based); `url` is null when the deck has no such section.
  */
 export async function rasterizeSlidePreview(render, index, maxWidth = 768) {
-	const { frame, dispose } = await createCaptureFrame(render);
+	const { frame, dispose } = await createCaptureFrame(render, { previewFonts: true });
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		// `only`: the fonts this one slide draws, not the whole block (`sectionsOf`).
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, undefined, { only: index });
 		const section = sections[index];
 		if (!section) return { url: null, sections: sections.length };
 		const ratio = Math.min(1, maxWidth / slideGeom(section).w);
