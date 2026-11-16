@@ -67,6 +67,33 @@
     "cat-7",
     "cat-8"
   ],
+  "variantAxes": [
+    {
+      "label": "Panel",
+      "exclusive": true,
+      "members": [
+        "metric",
+        "pullquote",
+        "steps",
+        "watermark",
+        "proof"
+      ]
+    },
+    {
+      "label": "Tint",
+      "exclusive": true,
+      "members": [
+        "cat-1",
+        "cat-2",
+        "cat-3",
+        "cat-4",
+        "cat-5",
+        "cat-6",
+        "cat-7",
+        "cat-8"
+      ]
+    }
+  ],
   "slots": {
     "eyebrow": {
       "selector": "p:first-of-type > code",

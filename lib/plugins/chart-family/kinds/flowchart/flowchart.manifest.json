@@ -99,6 +99,16 @@
     "curved",
     "rearrange"
   ],
+  "variantAxes": [
+    {
+      "label": "Direction",
+      "exclusive": true,
+      "members": [
+        "lr",
+        "tb"
+      ]
+    }
+  ],
   "segno": {
     "style": {
       "label": "a flowchart style",

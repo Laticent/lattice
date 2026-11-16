@@ -125,6 +125,18 @@
     "swimlane",
     "weighted"
   ],
+  "variantAxes": [
+    {
+      "label": "View",
+      "exclusive": true,
+      "members": [
+        "heatmap",
+        "curve",
+        "swimlane",
+        "weighted"
+      ]
+    }
+  ],
   "excludes": [
     "claim-bleed"
   ],

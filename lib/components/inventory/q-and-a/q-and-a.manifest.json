@@ -74,6 +74,19 @@
     "grid",
     "solo"
   ],
+  "variantAxes": [
+    {
+      "label": "Layout",
+      "exclusive": true,
+      "members": [
+        "spine",
+        "rail",
+        "tab",
+        "grid",
+        "solo"
+      ]
+    }
+  ],
   "excludes": [
     "accent"
   ],

@@ -67,6 +67,26 @@
     "flex-meta",
     "fixed"
   ],
+  "variantAxes": [
+    {
+      "label": "Style",
+      "exclusive": true,
+      "members": [
+        "def",
+        "metric",
+        "spec",
+        "register"
+      ]
+    },
+    {
+      "label": "Slack column",
+      "exclusive": true,
+      "members": [
+        "flex-name",
+        "flex-meta"
+      ]
+    }
+  ],
   "slots": {
     "title": {
       "selector": "h2",

@@ -71,6 +71,18 @@
     "sides",
     "bio"
   ],
+  "variantAxes": [
+    {
+      "label": "Composition",
+      "exclusive": true,
+      "members": [
+        "lead",
+        "bench",
+        "sides",
+        "bio"
+      ]
+    }
+  ],
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",

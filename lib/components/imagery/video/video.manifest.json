@@ -36,6 +36,16 @@
     "gallery",
     "qr"
   ],
+  "variantAxes": [
+    {
+      "label": "Composition",
+      "exclusive": true,
+      "members": [
+        "companion",
+        "gallery"
+      ]
+    }
+  ],
   "slots": {
     "heading": {
       "selector": "h2",

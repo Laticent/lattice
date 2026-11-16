@@ -68,6 +68,27 @@
     "stats",
     "decompose"
   ],
+  "variantAxes": [
+    {
+      "label": "Layout",
+      "exclusive": true,
+      "members": [
+        "feature",
+        "derivation",
+        "theorem",
+        "compare",
+        "canvas",
+        "matrix",
+        "stats"
+      ]
+    },
+    {
+      "label": "Matrix form",
+      "members": [
+        "decompose"
+      ]
+    }
+  ],
   "slots": {
     "eyebrow": {
       "selector": "p:first-child > code",

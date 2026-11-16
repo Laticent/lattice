@@ -98,6 +98,16 @@
     "shared-axis",
     "own-axis"
   ],
+  "variantAxes": [
+    {
+      "label": "Scale",
+      "exclusive": true,
+      "members": [
+        "shared-axis",
+        "own-axis"
+      ]
+    }
+  ],
   "variantDocs": {
     "shared-axis": {
       "label": "shared-axis",

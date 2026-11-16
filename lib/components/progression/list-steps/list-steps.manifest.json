@@ -70,6 +70,39 @@
     "roman",
     "capsule"
   ],
+  "variantAxes": [
+    {
+      "label": "Composition",
+      "exclusive": true,
+      "members": [
+        "vertical",
+        "chevron",
+        "converge",
+        "ghost",
+        "timeline",
+        "capsule"
+      ]
+    },
+    {
+      "label": "Prefix word",
+      "exclusive": true,
+      "members": [
+        "phase",
+        "stage",
+        "milestone",
+        "rank",
+        "tier"
+      ]
+    },
+    {
+      "label": "Counter",
+      "exclusive": true,
+      "members": [
+        "lettered",
+        "roman"
+      ]
+    }
+  ],
   "slots": {
     "title": {
       "selector": "h2",

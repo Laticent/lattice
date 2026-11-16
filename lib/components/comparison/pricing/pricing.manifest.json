@@ -57,6 +57,16 @@
     "two",
     "four"
   ],
+  "variantAxes": [
+    {
+      "label": "Columns",
+      "exclusive": true,
+      "members": [
+        "two",
+        "four"
+      ]
+    }
+  ],
   "excludes": [
     "accent"
   ],
