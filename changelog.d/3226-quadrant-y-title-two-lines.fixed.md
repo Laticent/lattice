@@ -1,0 +1,1 @@
+- **quadrant:** a y-axis title that wraps to two lines (`Ability to execute`) no longer loses its first line past the chart's left edge. The band beside the plane holds both lines. A long x-axis title now wraps under the plane instead of running off the right edge, because its wrap is measured as it paints: in capitals, bold and tracked.
