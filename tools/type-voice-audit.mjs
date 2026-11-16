@@ -230,8 +230,15 @@ async function main() {
   const r = spawnSync(process.execPath, [path.join(ROOT, 'dist', 'lattice.js'), md, html, '-q'], { stdio: 'inherit' });
   if (r.status !== 0) { console.error('render failed'); process.exit(r.status || 1); }
 
-  const { chromium } = require('playwright');
-  const browser = await chromium.launch();
+  // The docs workspace owns Playwright; the root package does not depend on it, so a bare
+  // `require('playwright')` resolves only where a global copy happens to exist (the cloud
+  // sandbox) and fails on CI. The browser is the Chrome every render path finds
+  // (`detectChromeExecutable`: CHROME_PATH, then puppeteer's cache), because the nightly
+  // installs Playwright's WebKit and Firefox but not its Chromium.
+  const { chromium } = await import(path.join(ROOT, 'docs/node_modules/@playwright/test/index.mjs'));
+  const { detectChromeExecutable } = require('../lib/core/chrome-exec.js');
+  const executablePath = detectChromeExecutable();
+  const browser = await chromium.launch(executablePath ? { executablePath } : {});
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   await page.goto(`file://${html}`);
   await page.evaluate(() => document.fonts.ready);
