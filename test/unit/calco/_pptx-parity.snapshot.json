@@ -1,0 +1,1769 @@
+{
+ "rich": {
+  "size": [
+   12192000,
+   6858000
+  ],
+  "title": "Rich & <deck>",
+  "subject": "Every feature",
+  "creator": "Calco test",
+  "fonts": [],
+  "slides": [
+   {
+    "layout": {
+     "bg": {
+      "color": "003D66"
+     },
+     "objects": [
+      {
+       "kind": "sp",
+       "ph": "title",
+       "box": [
+        609630,
+        186720,
+        9715500,
+        381030
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "square",
+        "inset": [
+         91440,
+         91440,
+         91440,
+         91440
+        ],
+        "paras": [
+         {
+          "runs": [
+           {
+            "t": "Title",
+            "color": "000000",
+            "alpha": 100000
+           }
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "kind": "sp",
+       "name": "Header",
+       "box": [
+        285750,
+        385602,
+        4190970,
+        381030
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "none",
+        "inset": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "anchor": "t",
+        "paras": [
+         {
+          "algn": "l",
+          "lnSpc": 100000,
+          "runs": [
+           {
+            "t": "Deck",
+            "sz": 900,
+            "font": "Outfit",
+            "color": "112233",
+            "alpha": 100000
+           }
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "kind": "sp",
+       "name": "Footer",
+       "box": [
+        285750,
+        6633972,
+        4190970,
+        381030
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "none",
+        "inset": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "anchor": "t",
+        "paras": [
+         {
+          "algn": "l",
+          "lnSpc": 100000,
+          "runs": [
+           {
+            "t": "Foot",
+            "sz": 900,
+            "i": true,
+            "font": "Outfit",
+            "color": "112233",
+            "alpha": 100000
+           }
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "kind": "sp",
+       "ph": "sldNum",
+       "box": [
+        11087100,
+        6633972,
+        819120,
+        381030
+       ],
+       "geom": "rect",
+       "text": {
+        "inset": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "paras": [
+         {
+          "algn": "r",
+          "runs": [
+           {
+            "t": "1002",
+            "field": "slidenum"
+           }
+          ]
+         }
+        ]
+       }
+      }
+     ]
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Slide 1",
+      "descr": "First \"slide\" <one>",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "png:a7c3b756173296d4",
+      "locked": true
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.1",
+      "box": [
+       957285,
+       957285,
+       2847990,
+       1514521
+      ],
+      "geom": "roundRect",
+      "adj": 5977,
+      "fill": {
+       "color": "F2F5FA",
+       "alpha": 100000
+      },
+      "line": {
+       "color": "898E95",
+       "alpha": 100000,
+       "w": 9525,
+       "dash": "solid"
+      },
+      "shadow": {
+       "blur": 76200,
+       "dist": 38100,
+       "dir": 5400000,
+       "color": "000000",
+       "alpha": 20000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Rule 1.2",
+      "box": [
+       990478,
+       2438522,
+       2781513,
+       23683
+      ],
+      "geom": "cust",
+      "path": [
+       [
+        "M",
+        0,
+        0
+       ],
+       [
+        "C",
+        15179,
+        15179,
+        35753,
+        23683,
+        57241,
+        23683
+       ],
+       [
+        "L",
+        2724272,
+        23683
+       ],
+       [
+        "C",
+        2745760,
+        23683,
+        2766334,
+        15179,
+        2781513,
+        0
+       ]
+      ],
+      "pathSize": [
+       2781513,
+       23683
+      ],
+      "line": {
+       "color": "2E608A",
+       "alpha": 100000,
+       "w": 28575,
+       "dash": "solid"
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Label 1.3",
+      "box": [
+       962040,
+       962040,
+       761970,
+       228600
+      ],
+      "geom": "cust",
+      "path": [
+       [
+        "M",
+        95280,
+        0
+       ],
+       [
+        "L",
+        761970,
+        0
+       ],
+       [
+        "L",
+        761970,
+        161940
+       ],
+       [
+        "C",
+        761970,
+        198791,
+        732160,
+        228600,
+        695310,
+        228600
+       ],
+       [
+        "L",
+        0,
+        228600
+       ],
+       [
+        "L",
+        0,
+        95280
+       ],
+       [
+        "C",
+        0,
+        42611,
+        42611,
+        0,
+        95280,
+        0
+       ],
+       [
+        "Z"
+       ]
+      ],
+      "pathSize": [
+       761970,
+       228600
+      ],
+      "fill": {
+       "color": "2E608A",
+       "alpha": 100000
+      },
+      "text": {
+       "wrap": "none",
+       "inset": [
+        95250,
+        42672,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Build",
+           "sz": 900,
+           "font": "Outfit",
+           "color": "FFFFFF",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Text 1.2",
+      "box": [
+       1143000,
+       1527048,
+       2419320,
+       228600
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Owns the policy.",
+           "sz": 1350,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Rule 1.4",
+      "box": [
+       381030,
+       4762470,
+       5715000,
+       0
+      ],
+      "geom": "line",
+      "line": {
+       "color": "898E95",
+       "alpha": 50000,
+       "w": 19050,
+       "dash": "dash"
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.5",
+      "group": "Group 5",
+      "box": [
+       4572000,
+       857250,
+       2857500,
+       1904970
+      ],
+      "geom": "rect",
+      "fill": {
+       "color": "FFFFFF",
+       "alpha": 100000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.6",
+      "group": "Group 5 / Group 5.6",
+      "box": [
+       4762470,
+       952530,
+       1143000,
+       285750
+      ],
+      "geom": "roundRect",
+      "adj": 50000,
+      "fill": {
+       "color": "FFEEDD",
+       "alpha": 80000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.7",
+      "group": "Group 5 / Group 5.6",
+      "box": [
+       4810110,
+       1047720,
+       95280,
+       95280
+      ],
+      "geom": "roundRect",
+      "adj": 50000,
+      "fill": {
+       "color": "FF0000",
+       "alpha": 100000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.8",
+      "descr": "A \"wash\" & <more>",
+      "box": [
+       7619970,
+       2857500,
+       1904970,
+       952530
+      ],
+      "geom": "rect",
+      "fill": {
+       "gradient": [
+        {
+         "pos": 0,
+         "color": "336699",
+         "alpha": 100000
+        },
+        {
+         "pos": 100000,
+         "color": "99CCFF",
+         "alpha": 50000
+        }
+       ],
+       "angle": 2700000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Mark 1.9",
+      "box": [
+       8096280,
+       4762470,
+       190470,
+       190470
+      ],
+      "geom": "cust",
+      "path": [
+       [
+        "M",
+        0,
+        95280
+       ],
+       [
+        "L",
+        76170,
+        171450
+       ],
+       [
+        "L",
+        190470,
+        0
+       ]
+      ],
+      "pathSize": [
+       190470,
+       190470
+      ],
+      "line": {
+       "color": "008800",
+       "alpha": 100000,
+       "w": 19050,
+       "dash": "sysDot",
+       "cap": "rnd",
+       "join": "round"
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Mark 1.10",
+      "box": [
+       8572500,
+       4762470,
+       190470,
+       190470
+      ],
+      "geom": "cust",
+      "path": [
+       [
+        "M",
+        0,
+        0
+       ],
+       [
+        "L",
+        190470,
+        0
+       ],
+       [
+        "C",
+        190470,
+        95280,
+        95280,
+        190470,
+        0,
+        190470
+       ],
+       [
+        "Z"
+       ]
+      ],
+      "pathSize": [
+       190470,
+       190470
+      ],
+      "fill": {
+       "color": "880000",
+       "alpha": 100000
+      }
+     },
+     {
+      "kind": "pic",
+      "name": "Picture 1.11",
+      "descr": "Logo",
+      "box": [
+       9525030,
+       476220,
+       952530,
+       952530
+      ],
+      "image": "png:a7c3b756173296d4",
+      "svg": "svg:0ea6867e76b7cebb"
+     },
+     {
+      "kind": "pic",
+      "name": "Picture 1.12",
+      "descr": "Picture 1.12",
+      "box": [
+       9525030,
+       1904970,
+       952530,
+       952530
+      ],
+      "image": "jpeg:8454551154ccfac1"
+     },
+     {
+      "kind": "sp",
+      "ph": "title",
+      "box": [
+       609630,
+       186720,
+       9715500,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "One",
+           "sz": 3000,
+           "b": true,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Subtitle 1",
+      "box": [
+       552480,
+       3009930,
+       6515100,
+       1143000
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "ctr",
+         "lnSpc": 119048,
+         "runs": [
+          {
+           "t": "Small ",
+           "sz": 2100,
+           "cap": "small",
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          },
+          {
+           "t": "under",
+           "sz": 2100,
+           "u": "sng",
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          },
+          {
+           "t": " strike",
+           "sz": 2100,
+           "strike": "sngStrike",
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          },
+          {
+           "t": " faint",
+           "sz": 2100,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 50000
+          },
+          {
+           "t": " flat",
+           "sz": 2100,
+           "font": "Outfit",
+           "color": "888888",
+           "alpha": 100000
+          }
+         ]
+        },
+        {
+         "algn": "ctr",
+         "lnSpc": 119048,
+         "runs": []
+        },
+        {
+         "algn": "ctr",
+         "lnSpc": 119048,
+         "runs": [
+          {
+           "t": "HI<&>\"'",
+           "sz": 2100,
+           "b": true,
+           "spc": 113,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000,
+           "highlight": "E6F0F5"
+          },
+          {
+           "t": "🙂",
+           "sz": 2100,
+           "font": "Noto Color Emoji",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "ph": "sldNum",
+      "box": [
+       11087100,
+       6633972,
+       819120,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "paras": [
+        {
+         "algn": "r",
+         "runs": [
+          {
+           "t": "1",
+           "field": "slidenum"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ],
+    "notes": "Line one\nLine <two> & three"
+   },
+   {
+    "layout": {
+     "bg": {
+      "color": "003D66"
+     },
+     "objects": [
+      {
+       "kind": "sp",
+       "ph": "title",
+       "box": [
+        609630,
+        186720,
+        9715500,
+        381030
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "square",
+        "inset": [
+         91440,
+         91440,
+         91440,
+         91440
+        ],
+        "paras": [
+         {
+          "runs": [
+           {
+            "t": "Title",
+            "color": "000000",
+            "alpha": 100000
+           }
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "kind": "sp",
+       "name": "Header",
+       "box": [
+        285750,
+        385602,
+        4190970,
+        381030
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "none",
+        "inset": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "anchor": "t",
+        "paras": [
+         {
+          "algn": "l",
+          "lnSpc": 100000,
+          "runs": [
+           {
+            "t": "Deck",
+            "sz": 900,
+            "font": "Outfit",
+            "color": "112233",
+            "alpha": 100000
+           }
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "kind": "sp",
+       "name": "Footer",
+       "box": [
+        285750,
+        6633972,
+        4190970,
+        381030
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "none",
+        "inset": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "anchor": "t",
+        "paras": [
+         {
+          "algn": "l",
+          "lnSpc": 100000,
+          "runs": [
+           {
+            "t": "Foot",
+            "sz": 900,
+            "i": true,
+            "font": "Outfit",
+            "color": "112233",
+            "alpha": 100000
+           }
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "kind": "sp",
+       "ph": "sldNum",
+       "box": [
+        11087100,
+        6633972,
+        819120,
+        381030
+       ],
+       "geom": "rect",
+       "text": {
+        "inset": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "paras": [
+         {
+          "algn": "r",
+          "runs": [
+           {
+            "t": "1002",
+            "field": "slidenum"
+           }
+          ]
+         }
+        ]
+       }
+      }
+     ]
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Slide 2",
+      "descr": "Slide 2",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "png:a7c3b756173296d4",
+      "locked": true
+     },
+     {
+      "kind": "sp",
+      "ph": "title",
+      "box": [
+       609630,
+       186720,
+       9715500,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Two",
+           "sz": 3000,
+           "b": true,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "ph": "sldNum",
+      "box": [
+       11087100,
+       6633972,
+       819120,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "paras": [
+        {
+         "algn": "r",
+         "runs": [
+          {
+           "t": "2",
+           "field": "slidenum"
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ],
+    "notes": ""
+   },
+   {
+    "layout": {
+     "bg": {
+      "image": "jpeg:8454551154ccfac1"
+     },
+     "objects": [
+      {
+       "kind": "sp",
+       "ph": "title",
+       "box": [
+        609630,
+        186720,
+        9715500,
+        381030
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "square",
+        "inset": [
+         91440,
+         91440,
+         91440,
+         91440
+        ],
+        "paras": [
+         {
+          "runs": [
+           {
+            "t": "Title",
+            "color": "000000",
+            "alpha": 100000
+           }
+          ]
+         }
+        ]
+       }
+      }
+     ]
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Slide 3",
+      "descr": "Slide 3",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "jpeg:8454551154ccfac1",
+      "locked": true
+     },
+     {
+      "kind": "sp",
+      "ph": "title",
+      "box": [
+       609630,
+       186720,
+       9715500,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Three",
+           "sz": 3000,
+           "b": true,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Slide number 3",
+      "box": [
+       11087100,
+       6633972,
+       819120,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "r",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "3",
+           "field": "slidenum",
+           "sz": 900,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ],
+    "notes": "Third"
+   },
+   {
+    "layout": {
+     "objects": [
+      {
+       "kind": "sp",
+       "ph": "title",
+       "box": [
+        609630,
+        548640,
+        10972800,
+        960120
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "square",
+        "inset": [
+         91440,
+         91440,
+         91440,
+         91440
+        ],
+        "paras": [
+         {
+          "runs": [
+           {
+            "t": "Title",
+            "color": "000000",
+            "alpha": 100000
+           }
+          ]
+         }
+        ]
+       }
+      }
+     ]
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Picture 4.1",
+      "descr": "Logo",
+      "box": [
+       9525030,
+       476220,
+       952530,
+       952530
+      ],
+      "image": "png:a7c3b756173296d4"
+     },
+     {
+      "kind": "sp",
+      "name": "Text 4.1",
+      "box": [
+       952530,
+       1915668,
+       6515100,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "No picture slide",
+           "sz": 2100,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ],
+    "notes": ""
+   }
+  ]
+ },
+ "plain": {
+  "size": [
+   12192000,
+   6858000
+  ],
+  "title": "deck",
+  "subject": "PptxGenJS Presentation",
+  "creator": "Calco",
+  "fonts": [],
+  "slides": [
+   {
+    "layout": {
+     "objects": []
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Image 0",
+      "descr": "Slide 1",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "png:a7c3b756173296d4"
+     },
+     {
+      "kind": "sp",
+      "name": "Text 1.1",
+      "box": [
+       952530,
+       1866930,
+       6515100,
+       761970
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 119048,
+         "runs": [
+          {
+           "t": "Plain",
+           "sz": 2100,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        },
+        {
+         "algn": "l",
+         "lnSpc": 119048,
+         "runs": [
+          {
+           "t": "two lines",
+           "sz": 2100,
+           "i": true,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ],
+    "notes": "n"
+   }
+  ]
+ },
+ "portrait": {
+  "size": [
+   6858000,
+   12191695
+  ],
+  "title": "Portrait",
+  "subject": "PptxGenJS Presentation",
+  "creator": "Calco",
+  "fonts": [],
+  "slides": [
+   {
+    "layout": {
+     "objects": []
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Image 0",
+      "descr": "Slide 1",
+      "box": [
+       0,
+       0,
+       6858000,
+       12191695
+      ],
+      "image": "jpeg:8454551154ccfac1"
+     },
+     {
+      "kind": "sp",
+      "name": "Text 1.1",
+      "box": [
+       508041,
+       1904970,
+       6349959,
+       508041
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Tall",
+           "sz": 3000,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ],
+    "notes": ""
+   }
+  ]
+ },
+ "cards": {
+  "size": [
+   12192000,
+   6858000
+  ],
+  "title": "deck",
+  "subject": "PptxGenJS Presentation",
+  "creator": "Calco",
+  "fonts": [],
+  "slides": [
+   {
+    "layout": {
+     "objects": []
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Image 0",
+      "descr": "Slide 1",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "png:a7c3b756173296d4"
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.1",
+      "group": "Group 1",
+      "box": [
+       952530,
+       952530,
+       2857500,
+       952530
+      ],
+      "geom": "rect",
+      "fill": {
+       "color": "EEEEEE",
+       "alpha": 100000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Text 1.1",
+      "group": "Group 1",
+      "box": [
+       1143000,
+       1146018,
+       2419320,
+       228600
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Alone",
+           "sz": 1350,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.2",
+      "group": "Group 2 / Group 2.2",
+      "box": [
+       5715000,
+       952530,
+       1143000,
+       285750
+      ],
+      "geom": "roundRect",
+      "adj": 50000,
+      "fill": {
+       "color": "FFEEDD",
+       "alpha": 100000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.3",
+      "group": "Group 2 / Group 2.2",
+      "box": [
+       5762640,
+       1047720,
+       95280,
+       95280
+      ],
+      "geom": "roundRect",
+      "adj": 50000,
+      "fill": {
+       "color": "FF0000",
+       "alpha": 100000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.4",
+      "box": [
+       952530,
+       3810030,
+       1904970,
+       761970
+      ],
+      "geom": "rect",
+      "fill": {
+       "color": "DDDDDD",
+       "alpha": 100000
+      }
+     }
+    ],
+    "notes": ""
+   }
+  ]
+ },
+ "fonts": {
+  "size": [
+   12192000,
+   6858000
+  ],
+  "title": "deck",
+  "subject": "PptxGenJS Presentation",
+  "creator": "Calco",
+  "fonts": [
+   {
+    "typeface": "Outfit",
+    "slots": [
+     "regular",
+     "bold"
+    ]
+   },
+   {
+    "typeface": "Outfit SemiBold",
+    "slots": [
+     "regular"
+    ]
+   }
+  ],
+  "slides": [
+   {
+    "layout": {
+     "objects": []
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Image 0",
+      "descr": "Slide 1",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "png:a7c3b756173296d4"
+     },
+     {
+      "kind": "sp",
+      "name": "Text 1.1",
+      "box": [
+       952530,
+       950427,
+       6515100,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "w400",
+           "sz": 2100,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Text 1.2",
+      "box": [
+       952530,
+       1521927,
+       6515100,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "w600",
+           "sz": 2100,
+           "font": "Outfit SemiBold",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Text 1.3",
+      "box": [
+       952530,
+       2093427,
+       6515100,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "w700",
+           "sz": 2100,
+           "b": true,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Text 1.4",
+      "box": [
+       952530,
+       2664927,
+       6515100,
+       381030
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "w800",
+           "sz": 2100,
+           "b": true,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     }
+    ],
+    "notes": ""
+   }
+  ]
+ },
+ "cli-pictures": {
+  "size": [
+   12192000,
+   6858000
+  ],
+  "title": "Pictures & <notes>",
+  "subject": "CLI",
+  "creator": "Lattice",
+  "fonts": [],
+  "slides": [
+   {
+    "layout": {
+     "objects": []
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Image 0",
+      "descr": "A chart \"rising\"",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "png:a7c3b756173296d4"
+     }
+    ],
+    "notes": "First note\nsecond line"
+   },
+   {
+    "layout": {
+     "objects": []
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Image 0",
+      "descr": "Slide 2",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "jpeg:8454551154ccfac1"
+     }
+    ],
+    "notes": ""
+   },
+   {
+    "layout": {
+     "objects": []
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Image 0",
+      "descr": "Slide 3",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "png:a7c3b756173296d4"
+     }
+    ],
+    "notes": "Third"
+   }
+  ]
+ },
+ "cli-square": {
+  "size": [
+   12191695,
+   12191695
+  ],
+  "title": "Square",
+  "subject": "PptxGenJS Presentation",
+  "creator": "Lattice",
+  "fonts": [],
+  "slides": [
+   {
+    "layout": {
+     "objects": []
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Image 0",
+      "descr": "Slide 1",
+      "box": [
+       0,
+       0,
+       12191695,
+       12191695
+      ],
+      "image": "png:a7c3b756173296d4"
+     }
+    ],
+    "notes": ""
+   }
+  ]
+ }
+}

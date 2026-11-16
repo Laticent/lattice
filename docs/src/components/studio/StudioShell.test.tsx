@@ -57,7 +57,7 @@ vi.mock('@/components/DeckPreview', () => ({
 }));
 
 // The Share exporters drive the engine render + heavy lazy chunks (jspdf, jszip,
-// pptxgenjs) — out of scope for a jsdom shell test. Mock them so we assert the
+// Calco's office writers) — out of scope for a jsdom shell test. Mock them so we assert the
 // WIRING (the right export runs on the right click) without booting the engine.
 const shareSpies = vi.hoisted(() => ({
 	shareMarkdown: vi.fn(async () => {}),
