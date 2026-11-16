@@ -65,7 +65,7 @@
   },
   "lib/components/anchor/divider/divider.gallery.md": {
     "portrait@hall": {
-      "clip": 2,
+      "clip": 1,
       "unreadable": 0,
       "lost": 0
     },

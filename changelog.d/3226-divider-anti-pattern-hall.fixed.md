@@ -1,0 +1,1 @@
+- **divider:** the gallery's "When NOT to reach for divider" slide fits at a hall venue on square, portrait and story boxes. Two anti-pattern cards were too long for a page of their own once the slide splits one card a page; they now say the same thing in about 20 words. The divider docs keep the anchor-chrome rule, now in the component's purpose.
