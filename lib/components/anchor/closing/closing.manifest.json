@@ -157,6 +157,7 @@
     "axis": "item",
     "perPage": 1,
     "onlyVariant": "index",
+    "otherwise": { "strategy": "lede-page", "note": "Any other closing whose message overflows the page (measured) keeps its eyebrow and heading and gives the message a page of its own after it, on the same canvas (owner, 2026-11-16, \"lede page, all\"; fit-everywhere-model.md §25). lib/core/carousel.js lede-page." },
     "note": "Only the `index` variant splits (owner, 2026-11-13): a see-also list that overflows becomes an accent cover and its own rows paginated. Any other closing, one line or two, never splits (onlyVariant). lib/core/carousel.js cover-paginate."
   }
 }

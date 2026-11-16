@@ -154,3 +154,7 @@ section.closing.index :is(ul,ol) li code {
 section.closing.index:where([data-family="square"], [data-family="tall"], [data-family="strip"]) :is(ul,ol) li {
   font-size:var(--fs-body); text-wrap:balance;
 }
+
+/* A closing's lede page (lib/core/carousel.js `lede-page`; owner, 2026-11-16) carries the message, not the
+   bookend's accent: the `spectrum` bar stays on the cover, as it does for a title's lede page. */
+section.closing-lede.spectrum::before { display: none; }

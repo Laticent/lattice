@@ -1,0 +1,1 @@
+- A `closing`, `topic` or `divider` slide whose text runs past a phone page now keeps its heading on the first page and gives the rest a page of its own, as `title` already does. A slide that fits is never split, and nothing changes at laptop or room sizes. `split.otherwise` (manifest) names the recipe for the slides an `onlyVariant` leaves out.

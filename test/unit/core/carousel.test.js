@@ -1072,6 +1072,9 @@ const pcSection = { openTag: pcBase.openTag, inner: pcBase.inner.replaceAll('§'
 // only on a MEASURED overflow (`atSeam`).
 const ttlTag = '<section data-lattice-slide="1" id="s1" class="title">';
 const ttlInner = '<header>H</header><p><code>Eyebrow</code></p>\n<h1>The title.</h1>\n<p>First lede.</p>\n<p>Second lede.</p><footer>F</footer>';
+// lede-page: the same split for every other anchor (owner, 2026-11-16), here a closing: eyebrow, `h2` heading, message.
+const ldTag = '<section data-lattice-slide="2" id="s2" class="closing">';
+const ldInner = '<header>H</header><p><code>Eyebrow</code></p>\n<h2>The heading.</h2>\n<p>The message.</p>\n<p>Its second paragraph.</p><footer>F</footer>';
 
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
@@ -1093,6 +1096,7 @@ const STRATEGY_CASES = [
   // passage reads only a MEASURED plan: two sentences, then the gloss's two items, two a page.
   ['passage',        pcSection.openTag, pcSection.inner, { strategy: 'passage', plan: [2, 2] }],
   ['title-lede',     ttlTag,            ttlInner,        { strategy: 'title-lede', atSeam: true }],
+  ['lede-page',      ldTag,             ldInner,         { strategy: 'lede-page', atSeam: true }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to

@@ -20,6 +20,7 @@
   ],
   "description": "Section boundary slide. Dark canvas with a single heading.",
   "purpose": "Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise.",
+  "split": { "strategy": "lede-page", "note": "A divider whose paragraph overflows the page (measured) keeps its eyebrow and heading and gives the paragraph a page of its own after it, on the same canvas (owner, 2026-11-16, \"lede page, all\"; fit-everywhere-model.md §25). One that fits never splits. lib/core/carousel.js lede-page." },
   "variants": [
     "numbered",
     "light",
