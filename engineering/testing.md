@@ -51,7 +51,8 @@ the right input. A transform emits the right markup. Failures point at one funct
   test cannot show that something fits, overlaps or stays on screen.
 - **No real browser timing.** jsdom runs microtasks and timers, not paint or the compositor.
   A test that passes in jsdom says nothing about a frame painting late.
-- **Testing Library waits 3 s by default** (`asyncUtilTimeout`). A lazy module that loads inside
+- **Testing Library gives up after 3 s here.** `docs/vitest.setup.ts` sets `asyncUtilTimeout` to
+  3 s (the library's own default is 1 s). A lazy module that loads inside
   that window is a race (Part 3, #3233).
 
 ## Integration tier
@@ -95,6 +96,7 @@ produce the slides we expect, with the page count we expect.
   a device either.
 - **Emulated touch is not a finger.** Playwright's `hasTouch` sends synthetic touch events. Gesture
   timing and long-press detection belong to the platform, so test them in the iOS Simulator suites, not with `hasTouch`.
+- **CI runs Playwright with 2 workers**; #34's load evidence runs at 4, as a margin.
 - **CI load is not your laptop's.** A loaded runner reorders paints, timers and network replies.
   A race that never fails in a single-worker run can fail at 4 workers (Part 2).
 - **Per-PR coverage is the smoke subset.** A spec outside `@smoke` runs only in the nightly.
@@ -202,9 +204,11 @@ green on both in the PR body, so nobody repeats it.
 
 ## When to stop
 
-If a test fails only above the load CI runs (CI runs 4 workers), and passes 50 or more runs at 4
-workers, record that evidence in the PR or the decision note and change no code. Hardening a test
-against a load CI never runs costs time CI will never repay.
+CI runs Playwright with 2 workers (`workers: isCI ? 2 : undefined` in `docs/playwright.config.ts`).
+HARD RULE #34 asks for evidence at 4 workers, twice that load, as a margin. If a test fails only
+above 4 workers, and passes 50 or more runs at 4 workers, record that evidence in the PR or the
+decision note and change no code. Hardening a test against a load CI never runs costs time CI will
+never repay.
 
 State the numbers: the load that broke it, the load CI runs, and the green run count.
 
@@ -272,8 +276,8 @@ run, before changing the tap. Status and next step: `followups.d/3223-p1-ipad-co
 
 ## Testing Library's hidden 3 s clock and lazy panels
 
-**Trap.** Testing Library's `waitFor` and `findBy*` give up after `asyncUtilTimeout`, 3 s by
-default, without saying so in the test. A lazy React module that loads inside that window races it.
+**Trap.** Testing Library's `waitFor` and `findBy*` give up after `asyncUtilTimeout`, which
+`docs/vitest.setup.ts` sets to 3 s (the library's default is 1 s). Nothing in the test says so. A lazy React module that loads inside that window races it.
 
 **Example.** Fabricate is its own `React.lazy` split. Under 4 CPU burners its first open took
 1485–1945 ms cold, and `studio.theme-depth` went red once in 64 runs.
