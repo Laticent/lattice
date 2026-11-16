@@ -3,7 +3,7 @@
 // It docks at the top of the editor pane, under the edit bar, so it never covers the text it searches. One row finds:
 // the field, "3/12", previous, next, match case, the replace toggle and close. A second row, only when asked, replaces:
 // the replacement, Replace (this match) and All (one undo step). It reads no editor itself: it drives a `FindTarget`
-// (lib/find-replace.ts) the shell hands it for the editor on screen, and runs the query again when that editor changes.
+// (lib/find-types.ts) the shell hands it for the editor on screen, and runs the query again when that editor changes.
 //
 // Keys: Enter finds the next match, Shift+Enter the previous; Enter in the replace field replaces; Escape closes, clears
 // the highlights and gives the text its focus back. Lazy: none of it is in the Studio's startup script.
@@ -11,7 +11,7 @@
 import { CaseSensitive, ChevronDown, ChevronUp, Replace, TextSearch, X } from 'lucide-react';
 import * as React from 'react';
 import { Tip } from '@/components/ui/tooltip';
-import { type FindStatus, type FindTarget, NO_MATCHES } from '@/lib/find-replace';
+import { type FindStatus, type FindTarget, NO_MATCHES } from '@/lib/find-types';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 
@@ -21,55 +21,66 @@ const FIELD =
 	'h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 font-sans text-[13px] normal-case tracking-normal text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-[var(--accent)]';
 const TEXT_BTN = 'h-7 shrink-0 rounded-md border border-border px-2 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:pointer-events-none disabled:opacity-40';
 
-export function FindBar({ target, targetKey, initial, onClose }: {
-	/** The editor on screen's find target, or null while none is mounted. */
-	target: FindTarget | null;
-	/** Changes when the editor on screen changes (Compose ↔ Source), so the query runs again on the new one. */
+export function FindBar({ getTarget, targetKey, seed, seedKey, onClose }: {
+	/** The editor on screen's find target, read live (null while none is mounted). */
+	getTarget: () => FindTarget | null;
+	/** Changes when the editor on screen changes (a mode switch, or a new view of it), so the query runs again there. */
 	targetKey: string;
-	/** Text to search for at once (a selection when the bar opened). */
-	initial?: string;
+	/** Text to search for (a selection when the bar opened, or when ⌘F was pressed again); empty keeps the field. */
+	seed?: string;
+	/** Changes on every ⌘F, so a second press re-seeds and focuses the field without resetting the rest of the bar. */
+	seedKey: number;
 	onClose: () => void;
 }) {
-	const [search, setSearch] = React.useState(initial ?? '');
+	const [search, setSearch] = React.useState(seed ?? '');
 	const [replace, setReplace] = React.useState('');
 	const [caseSensitive, setCaseSensitive] = React.useState(false);
 	const [showReplace, setShowReplace] = React.useState(false);
 	const [status, setStatus] = React.useState<FindStatus>(NO_MATCHES);
 	const findRef = React.useRef<HTMLInputElement>(null);
-	const targetRef = React.useRef(target);
-	targetRef.current = target;
+	const getTargetRef = React.useRef(getTarget);
+	getTargetRef.current = getTarget;
+	const target = () => getTargetRef.current();
 
 	// The query runs whenever it, or the editor on screen, changes.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: targetKey is the trigger for a new editor; the target is read live.
 	React.useEffect(() => {
-		setStatus(targetRef.current?.setQuery({ search, replace, caseSensitive }) ?? NO_MATCHES);
+		setStatus(target()?.setQuery({ search, replace, caseSensitive }) ?? NO_MATCHES);
 	}, [search, replace, caseSensitive, targetKey]);
 	// Highlights go with the bar.
-	React.useEffect(() => () => targetRef.current?.clear(), []);
+	React.useEffect(() => () => getTargetRef.current()?.clear(), []);
+	// Every ⌘F (the first one included): take the selection it carried, and the focus.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: seedKey is the trigger; the seed travels with it.
 	React.useEffect(() => {
+		if (seed) setSearch(seed);
 		findRef.current?.focus();
 		findRef.current?.select();
-	}, []);
+	}, [seedKey]);
 
 	const run = (fn: (t: FindTarget) => FindStatus) => {
-		const t = targetRef.current;
+		const t = target();
 		if (t) setStatus(fn(t));
 	};
 	const replaceAll = () => {
-		const t = targetRef.current;
+		const t = target();
 		if (!t) return;
 		const n = t.replaceAll();
 		setStatus(t.setQuery({ search, replace, caseSensitive }));
 		notify(n ? `Replaced ${n} ${n === 1 ? 'match' : 'matches'}.` : 'Nothing to replace.');
 	};
 	const close = () => {
-		targetRef.current?.clear();
+		target()?.clear();
 		onClose();
 	};
 	const onKey = (e: React.KeyboardEvent) => {
 		if (e.key === 'Escape') {
 			e.preventDefault();
 			close();
+		} else if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'f') {
+			// ⌘F inside the bar stays in the bar, not the browser's own find.
+			e.preventDefault();
+			findRef.current?.focus();
+			findRef.current?.select();
 		}
 	};
 	const count = !search ? '' : status.count ? `${status.current || '–'}/${status.count}` : 'None';

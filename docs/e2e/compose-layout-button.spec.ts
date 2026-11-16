@@ -42,6 +42,10 @@ const ghost = (page: Page, i: number) => page.locator('.cs-slide').nth(i).locato
 /** The pill's button on the active slide. */
 const pillButton = (page: Page) => page.locator('.cs-slide-active .cs-sb-pill .cs-sb-layout');
 const menu = (page: Page) => page.getByRole('dialog', { name: /^Layout of slide \d+$/ });
+const freshRows = (page: Page) => menu(page).getByRole('group', { name: 'Starts from an example' });
+/** A layout row, in either list: an option where it keeps the text, a button where it starts from an example (it asks
+ *  first, and a listbox may hold nothing but options). */
+const layoutRow = (page: Page, name: RegExp) => menu(page).getByRole('option', { name }).or(freshRows(page).getByRole('button', { name }));
 
 test('@crosswidth @webkit-phone @gecko every slide names its layout, and the quiet copy opens the menu on its own slide', async ({ page }) => {
 	await openDeck(page);
@@ -55,7 +59,7 @@ test('@crosswidth @webkit-phone @gecko every slide names its layout, and the qui
 	await expect(page.locator('.cs-slide').nth(0)).toHaveClass(/cs-slide-active/);
 	// The layout in effect is the selected row, and the manifest's alternatives follow with their reasons.
 	await expect(menu(page).getByRole('option', { name: /^big-number/, selected: true })).toBeVisible();
-	await expect(menu(page).getByRole('option', { name: /^stats.*row of 2-3 metrics/i })).toBeVisible();
+	await expect(layoutRow(page, /^stats.*row of 2-3 metrics/i)).toBeVisible();
 	await expect(pillButton(page)).toHaveAttribute('aria-expanded', 'true');
 });
 
@@ -78,25 +82,24 @@ test('@crosswidth @webkit-phone @gecko a look applies at once, the menu stays op
 test('@crosswidth @webkit-phone @gecko a layout that reads the text keeps it; one that cannot asks before replacing it', async ({ page }) => {
 	await openDeck(page);
 	await pillButton(page).click();
-	await menu(page).getByRole('option', { name: /^big-number/ }).click();
+	await layoutRow(page, /^big-number/).click();
 	await expect.poll(() => deckSource(page)).toContain('<!-- _class: big-number -->\n\n## By the numbers.');
 	expect(await deckSource(page)).toContain('   - components');
 	// The family stays the one the slide started with, so `stats` is still on offer to go back to.
-	await menu(page).getByRole('option', { name: /^stats/ }).click();
+	await layoutRow(page, /^stats/).click();
 	await expect.poll(() => deckSource(page)).toContain('<!-- _class: stats -->\n\n## By the numbers.');
-	const fresh = menu(page).getByRole('listbox', { name: 'Starts from an example' });
-	if (await fresh.count()) {
-		const first = fresh.getByRole('option').first();
-		const name = ((await first.locator('.font-mono').textContent()) || '').trim();
-		await first.click();
-		await menu(page).getByRole('button', { name: 'Keep my text' }).click();
-		expect(await deckSource(page)).toContain('   - components');
-		await first.click();
-		await menu(page).getByRole('button', { name: 'Replace text' }).click();
-		await expect.poll(() => deckSource(page)).toContain(`<!-- _class: ${name}`);
-		expect(await deckSource(page)).toContain('## By the numbers.');
-		expect(await deckSource(page)).not.toContain('   - components');
-	}
+	// A stats slide's text does not fit every layout, so the second list is there: a row in it asks before it replaces.
+	const first = freshRows(page).getByRole('button').first();
+	await expect(first).toBeVisible();
+	const name = ((await first.locator('.font-mono').textContent()) || '').trim();
+	await first.click();
+	await menu(page).getByRole('button', { name: 'Keep my text' }).click();
+	expect(await deckSource(page)).toContain('   - components');
+	await first.click();
+	await menu(page).getByRole('button', { name: 'Replace text' }).click();
+	await expect.poll(() => deckSource(page)).toContain(`<!-- _class: ${name}`);
+	expect(await deckSource(page)).toContain('## By the numbers.');
+	expect(await deckSource(page)).not.toContain('   - components');
 	await page.keyboard.press('Escape');
 	await expect(menu(page)).toBeHidden();
 	// One Undo takes back the whole visit, however many picks it held.

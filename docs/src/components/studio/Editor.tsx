@@ -11,7 +11,8 @@ import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
-import { cmFindExtension, cmFindTarget, type FindTarget } from '@/lib/find-replace';
+import { cmFindExtension, cmFindTarget } from '@/lib/find-replace';
+import type { FindTarget } from '@/lib/find-types';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
 import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { notify } from '@/lib/notify';
@@ -453,6 +454,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	value: string;
 	/** ⌘F / Ctrl+F in the text: open the Studio's find bar (FindBar.tsx) rather than the browser's, which cannot replace. */
 	onFind?: () => void;
+	/** A new CodeMirror view exists (mount, deck switch): the find bar runs its query again on it. */
+	onView?: () => void;
 	/** Every change to the document, with what changed when the editor knows it (an author's edit
 	 *  or a command; not the `value` sync, whose text the shell already holds). */
 	onChange: (next: string, change?: EditorChange) => void;
@@ -541,11 +544,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
-}>(function Editor({ value, onFind, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionLoading = false, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, latestValue, className }, ref) {
+}>(function Editor({ value, onFind, onView, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionLoading = false, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, latestValue, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onFindRef = React.useRef(onFind);
 	onFindRef.current = onFind;
+	const onViewRef = React.useRef(onView);
+	onViewRef.current = onView;
 	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
 	const collabRef = React.useRef(collab);
 	collabRef.current = collab;
@@ -1240,6 +1245,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			};
 			const view = new EditorView({ parent: hostRef.current, state: EditorState.create(seed) });
 			viewRef.current = view;
+			onViewRef.current?.();
 			// THE LATEST-REF BELONGS TO THE COMPONENT, NOT THE VIEW, so a new view leaves it holding
 			// the OLD one's answer — and the update listener above only emits on a CHANGE, so
 			// nothing corrects it.

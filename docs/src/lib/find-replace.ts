@@ -1,34 +1,15 @@
-// FIND AND REPLACE — one model for both editors (the find bar, FindBar.tsx; owner, 2026-11-15).
+// FIND AND REPLACE IN SOURCE — the find bar's target over CodeMirror (the find bar, FindBar.tsx; owner, 2026-11-15).
 //
-// The find bar does not know which editor is on screen. It talks to a `FindTarget`: Source's is CodeMirror's own search
-// (@codemirror/search, `cmFindTarget` below), Compose's is ProseMirror's (prosemirror-search, ComposeView `findTarget`).
-// Both search the text literally, case-insensitive unless asked, and both apply Replace all as ONE undo step.
-//
-// A status is the number of matches and which one the selection is on (1-based; 0 when the selection is on none), so the
-// bar can say "3 of 12".
+// The find bar does not know which editor is on screen. It talks to a `FindTarget` (find-types.ts): Source's is
+// CodeMirror's own search (@codemirror/search, `cmFindTarget` below), Compose's is ProseMirror's (prosemirror-search,
+// compose/find-target.ts). Both search the text literally, case-insensitive unless asked, and both apply Replace all as ONE
+// undo step. Only Source's editor imports this file, so Compose never loads CodeMirror's search.
 
 import { closeSearchPanel, findNext, findPrevious, getSearchQuery, openSearchPanel, replaceAll, replaceNext, SearchQuery, search, searchPanelOpen, setSearchQuery } from '@codemirror/search';
 import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
-export type FindQuery = { search: string; replace: string; caseSensitive: boolean };
-export type FindStatus = { count: number; current: number };
-export const NO_MATCHES: FindStatus = { count: 0, current: 0 };
-
-export interface FindTarget {
-	/** Search for `query`, highlight every match, and say how many there are. Moves nothing. */
-	setQuery(query: FindQuery): FindStatus;
-	/** Select the next match after the selection (wrapping), and bring it into view. */
-	next(): FindStatus;
-	/** Select the match before the selection (wrapping). */
-	prev(): FindStatus;
-	/** Replace the selected match, if the selection is on one, then select the next. */
-	replace(): FindStatus;
-	/** Replace every match as one undo step. Returns how many were replaced. */
-	replaceAll(): number;
-	/** Drop the highlights (the bar closed). */
-	clear(): void;
-}
+import { type FindStatus, type FindTarget, NO_MATCHES } from './find-types';
 
 // ── Source (CodeMirror) ─────────────────────────────────────────────────────────────────────────────────────────────────
 // CodeMirror draws its match highlights only while its search panel is open, so the panel opens with an EMPTY body: the find

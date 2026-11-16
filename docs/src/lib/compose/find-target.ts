@@ -1,4 +1,4 @@
-// FIND AND REPLACE IN COMPOSE — the find bar's target over the ProseMirror document (lib/find-replace.ts has the model).
+// FIND AND REPLACE IN COMPOSE — the find bar's target over the ProseMirror document (lib/find-types.ts has the model).
 //
 // prosemirror-search keeps the query and draws the highlights (`search()` in Compose's plugins). This adds what the bar needs
 // on top: a count and a position ("3 of 12"), a selection that comes into view inside Compose's own scroller, and replace
@@ -11,7 +11,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { getSearchState, SearchQuery, type SearchResult, setSearchState } from 'prosemirror-search';
 import { type EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type FindQuery, type FindStatus, type FindTarget, NO_MATCHES } from '../find-replace';
+import { type FindQuery, type FindStatus, type FindTarget, NO_MATCHES } from '../find-types';
 import { closeFiloGroup } from './filo-history';
 
 /** Whether `pos` sits in a slide Compose cannot edit. */

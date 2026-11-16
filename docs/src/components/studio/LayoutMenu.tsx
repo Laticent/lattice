@@ -25,6 +25,7 @@ import { PersistentSurface, usePersistentIds } from '@/components/ui/persistent-
 import { notify, notifyAction } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import { keptModifiers } from '../../lib/compose/slide-layout';
 import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
 import type { ComposeHandle, LayoutRequest } from './ComposeView';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
@@ -179,8 +180,9 @@ function LayoutMenuBody({ open, slideNumber, sample, current, looks, keeps, fres
 			<React.Fragment key={c.name}>
 				<button
 					type="button"
-					role="option"
-					aria-selected={on}
+					// A row that starts from an example asks first (its confirm opens under it), so the example rows are a group of
+					// buttons rather than options: a listbox may hold nothing but options.
+					{...(isFresh ? {} : { role: 'option', 'aria-selected': on })}
 					data-nav=""
 					onClick={() => {
 						if (on) return;
@@ -268,7 +270,8 @@ function LayoutMenuBody({ open, slideNumber, sample, current, looks, keeps, fres
 						<div id="lm-fresh" className="px-1 pb-1 pt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
 							Starts from an example
 						</div>
-						<div role="listbox" aria-labelledby="lm-fresh" className="flex flex-col gap-0.5 pb-2">
+						{/* biome-ignore lint/a11y/useSemanticElements: a labeled list of buttons, not a form field set. */}
+						<div role="group" aria-labelledby="lm-fresh" className="flex flex-col gap-0.5 pb-2">
 							{fresh.map((c) => row(c, true))}
 						</div>
 					</>
@@ -349,7 +352,7 @@ export function LayoutMenuHost({ req, onDone, compose, slides, components, front
 			const fit = n === current ? 'keeps' : info.fit(n);
 			// A starter Compose could not edit would lock the slide the moment it landed: not offered (the pane gallery's rule).
 			if (fit === 'fresh' && !c.starterEditable(e.skeleton)) continue;
-			const sample = frontMatter + (fit === 'keeps' ? setClassTokens(chunk, [n, ...keptModifiers(tokens, cur, e)]) : e.skeleton);
+			const sample = frontMatter + (fit === 'keeps' ? setClassTokens(chunk, [n, ...keptModifiers(tokens, cur)]) : e.skeleton);
 			(fit === 'keeps' ? keeps : fresh).push({ name: n, when: whenOf(n), sample });
 		}
 		const present = new Set(tokens);
@@ -368,7 +371,7 @@ export function LayoutMenuHost({ req, onDone, compose, slides, components, front
 	const onPick = (name: string, starts: boolean) => {
 		const target = components.find((x) => x.name === name);
 		if (!menu || !target) return;
-		const tokens = [name, ...keptModifiers(getClassTokens(menu.chunk), menu.cur, target)];
+		const tokens = [name, ...keptModifiers(getClassTokens(menu.chunk), menu.cur)];
 		compose.current?.applyLayout(menu.index, { tokens, skeleton: starts ? target.skeleton : null });
 	};
 	const onClose = () => {
@@ -418,14 +421,6 @@ function layoutVariants(entry: ComponentEntry | undefined): string[] {
 		const g = grammar.find((x) => x.name === v);
 		return !g || getClassTokens(g.sample).includes(v.split(/\s+/)[0]);
 	});
-}
-
-/** The modifiers a slide keeps when it changes layout: every token after the component that the old layout did not own as a
- *  look and the new one accepts (a `scale-l`, a `tint-…`, an `insight-…`), so a change of layout never drops the author's settings. */
-function keptModifiers(tokens: string[], from: ComponentEntry | undefined, to: ComponentEntry): string[] {
-	const own = new Set((from?.variants ?? []).flatMap((v) => v.split(/\s+/)));
-	const accepts = new Set((to.effectiveVariants ?? []).flatMap((v) => v.split(/\s+/)));
-	return tokens.slice(1).filter((t) => !own.has(t) && accepts.has(t));
 }
 
 export default LayoutMenu;

@@ -6109,6 +6109,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// FIND AND REPLACE (FindBar.tsx): the bar under the edit bar, for whichever editor is on screen. Opening it seeds the
 	// field with a one-line selection, as an editor's ⌘F does; a second ⌘F while it is open re-seeds and focuses it.
 	const [find, setFind] = React.useState<{ seed: string; n: number } | null>(null);
+	// Counts the editor views created while the bar is open (a mode or deck switch builds a new one), so the bar runs its
+	// query again on the new view: the target is read live, but nothing else tells the bar its old view is gone.
+	const findOpenRef = React.useRef(false);
+	findOpenRef.current = !!find;
+	const [findView, setFindView] = React.useState(0);
+	const onEditorView = React.useCallback(() => {
+		if (findOpenRef.current) setFindView((n) => n + 1);
+	}, []);
+	const findTarget = React.useCallback(() => (editModeRef.current === 'compose' ? composeRef.current?.findTarget() : editorRef.current?.findTarget()) ?? null, []);
 	const openFind = React.useCallback(() => {
 		// The editor's own selection, not the browser's: Compose's lives in ProseMirror's state.
 		let picked = '';
@@ -7470,6 +7479,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// from it hangs from the More button.
 	const [moreFit, setMoreFit] = React.useState(0);
 	const [reshapeFromMore, setReshapeFromMore] = React.useState<HTMLElement | null>(null);
+	const moreOpensPopoverRef = React.useRef<HTMLElement | null>(null);
 	// Undo and Redo: in the editor's edit bar on desktop and tablet (they act on the whole deck, so they sit with the deck's
 	// editor controls, not on each slide's pill: owner, 2026-11-15), and in the phone's tail, where there is no edit bar. A
 	// screen with no ⌘Z needs them (an iPad with no keyboard, a phone): WebKit offers its own undo only while its own undo list
@@ -7571,10 +7581,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<Button variant="ghost" size="icon-sm" aria-label="More editor actions" data-more=""><Ellipsis className="size-[18px]" /></Button>
 						</DropdownMenuTrigger>
 					</Tip>
-					<DropdownMenuContent align="end" className="w-56">
+					{/* A pick that opens a popover (Reshape) opens it once the menu has CLOSED, and keeps the focus off the trigger:
+					    opened while the menu still traps the focus, or handed the focus back to the trigger, the popover reads the
+					    focus leaving it as a dismissal and closes the moment it opens. */}
+					<DropdownMenuContent
+						align="end"
+						className="w-56"
+						onCloseAutoFocus={(e) => {
+							const anchor = moreOpensPopoverRef.current;
+							if (!anchor) return;
+							moreOpensPopoverRef.current = null;
+							e.preventDefault();
+							setReshapeFromMore(anchor);
+						}}
+					>
 						{moreFit >= 5 && <DropdownMenuItem onSelect={openFind} className="gap-2"><TextSearch className="size-4" />Find and replace</DropdownMenuItem>}
 						{moreFit >= 5 && issues > 0 && <DropdownMenuItem onSelect={() => { revealCraftDock(); setActiveAssistant('coach'); }} className="gap-2"><AlertTriangle className="size-4 text-[var(--warn)]" />{issues} issue{issues > 1 ? 's' : ''}: open the Coach</DropdownMenuItem>}
-						{moreFit >= 3 && <DropdownMenuItem disabled={reshapeVariants.length === 0} onSelect={() => setReshapeFromMore(document.querySelector('#studio-pane-editor [aria-label="More editor actions"]') as HTMLElement | null)} className="gap-2"><Shapes className="size-4" />Reshape slide…</DropdownMenuItem>}
+						{moreFit >= 3 && <DropdownMenuItem disabled={reshapeVariants.length === 0} onSelect={() => { moreOpensPopoverRef.current = document.querySelector('#studio-pane-editor [aria-label="More editor actions"]') as HTMLElement | null; }} className="gap-2"><Shapes className="size-4" />Reshape slide…</DropdownMenuItem>}
 						{moreFit >= 3 && <DropdownMenuItem disabled={!fixableIssues} onSelect={fixAllIssues} className="gap-2"><ListChecks className="size-4" />Fix all issues</DropdownMenuItem>}
 						{moreFit >= 2 && <DropdownMenuItem onSelect={() => setHistoryOpen(true)} className="gap-2"><History className="size-4" />Version history</DropdownMenuItem>}
 						{moreFit >= 2 && compact && <DropdownMenuItem onSelect={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} className="gap-2"><FileSliders className="size-4" />Slide settings</DropdownMenuItem>}
@@ -7588,10 +7611,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{find && (
 				<React.Suspense fallback={null}>
 					<FindBar
-						key={find.n}
-						initial={find.seed}
-						target={(editMode === 'compose' ? composeRef.current?.findTarget() : editorRef.current?.findTarget()) ?? null}
-						targetKey={editMode}
+						seed={find.seed}
+						seedKey={find.n}
+						getTarget={findTarget}
+						targetKey={`${editMode}#${findView}`}
 						onClose={() => {
 							setFind(null);
 							// Back to the text the author was searching.
@@ -7604,14 +7627,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<React.Suspense fallback={<ComposeSkeleton />}>
 				{/* Held on a phone until the first slide, exactly as the Editor below: ProseMirror is the largest
 				    piece of startup the first slide does not need, and Compose is now the default (2026-11-10). */}
-				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={setLayoutReq} onFind={openFind} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
+				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={setLayoutReq} onFind={openFind} onView={onEditorView} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} onFind={openFind} value={source} latestValue={latestSource} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionSamples={completionSamples} completionLoading={catalogLoading} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} onFind={openFind} onView={onEditorView} value={source} latestValue={latestSource} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionSamples={completionSamples} completionLoading={catalogLoading} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too

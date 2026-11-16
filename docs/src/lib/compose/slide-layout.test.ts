@@ -9,7 +9,7 @@ import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { deckToDoc, emitDeck, initBaseline } from './deck-doc';
 import { paneNeedsFrom } from './pane-needs';
-import { applySlideLayout, layoutBlocker, restoreSlide, slideBodyRange, slideComponent, slideFit, slideStarter } from './slide-layout';
+import { applySlideLayout, keptModifiers, layoutBlocker, restoreSlide, slideBodyRange, slideComponent, slideFit, slideStarter } from './slide-layout';
 
 const DIST = join(__dirname, '../../../../dist/docs');
 const grammar = JSON.parse(readFileSync(join(DIST, 'grammar.json'), 'utf8'));
@@ -94,5 +94,18 @@ describe('applySlideLayout writes one class line and nothing else, unless it is 
 		expect(back).not.toBeNull();
 		expect(emit(s.apply(back!), state)).toBe(STATS);
 		expect(restoreSlide(state, 0, original)).toBeNull();
+	});
+});
+
+describe('a change of layout keeps every class the author added, and drops only the old layout’s own looks', () => {
+	const grid = { variants: ['three', 'four', 'numbered'] };
+	it('drops the old layout’s looks and keeps base modifiers and deck-local classes, in order', () => {
+		expect(keptModifiers(['cards-grid', 'four', 'scale-l', 'my-brand', 'tint-cool'], grid)).toEqual(['scale-l', 'my-brand', 'tint-cool']);
+	});
+	it('keeps everything when the old layout is not in the catalog', () => {
+		expect(keptModifiers(['house-layout', 'four', 'scale-l'], undefined)).toEqual(['four', 'scale-l']);
+	});
+	it('splits a multi-word look into the tokens it owns', () => {
+		expect(keptModifiers(['timeline', 'vertical', 'dense', 'scale-s'], { variants: ['vertical dense'] })).toEqual(['scale-s']);
 	});
 });

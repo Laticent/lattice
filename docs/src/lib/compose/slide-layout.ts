@@ -109,3 +109,12 @@ export function restoreSlide(state: EditorState, slidePos: number, original: PMN
 export function slideStarter(skeleton: string, keepQuote: boolean): string {
 	return paneStarter(skeleton, keepQuote);
 }
+
+/** The modifiers a slide keeps when it changes layout (the layout menu, LayoutMenu.tsx): every token after the component
+ *  except the looks the OLD layout owned (cards-grid `four` means nothing on `stats`). Base modifiers (`scale-l`, `tint-…`)
+ *  and a deck's own classes stay: a change of layout never drops a class the author added, even one the catalog does not
+ *  know, and `lint:deck` says so if the new layout cannot use it. */
+export function keptModifiers(tokens: readonly string[], from: { variants?: readonly string[] } | undefined): string[] {
+	const own = new Set((from?.variants ?? []).flatMap((v) => v.split(/\s+/)));
+	return tokens.slice(1).filter((t) => !own.has(t));
+}

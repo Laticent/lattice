@@ -92,6 +92,34 @@ test('@crosswidth ⌘F in either editor opens the find bar on the selected word'
 	await expect(bar(page).getByRole('textbox', { name: 'Find' })).toHaveValue('The pilot ran six weeks.');
 });
 
+test('@crosswidth the find bar follows a switch of editor, and a second ⌘F keeps what the bar was set to', async ({ page }) => {
+	test.skip(isPhone(page), 'a phone has no hardware ⌘F, and switches editor from its drawer');
+	await open(page, 'source');
+	await openFind(page);
+	await bar(page).getByRole('textbox', { name: 'Find' }).fill('pilot');
+	await bar(page).getByRole('button', { name: 'Match case' }).click();
+	await bar(page).getByRole('button', { name: 'Show replace' }).click();
+	await bar(page).getByRole('textbox', { name: 'Replace with' }).fill('trial');
+	await expect(bar(page).getByText(/\/3$/)).toBeVisible();
+	await expect(page.locator('.cm-searchMatch')).toHaveCount(3);
+	// The bar stays open across the switch and searches the editor that came up: its highlights, its count, its steps.
+	await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
+	await page.locator('.cs-host .ProseMirror').waitFor();
+	await expect(page.locator('.cs-host .ProseMirror-search-match')).toHaveCount(3);
+	await expect(bar(page).getByText(/\/3$/)).toBeVisible();
+	await bar(page).getByRole('textbox', { name: 'Find' }).press('Enter');
+	await expect(bar(page).getByText(/^[1-3]\/3$/)).toBeVisible();
+	// ⌘F again, from the text: the field takes the focus, and the replacement, Match case and the replace row stay.
+	await page.locator('.cs-host .ProseMirror li').first().click();
+	await page.keyboard.press('ControlOrMeta+f');
+	await expect(bar(page).getByRole('textbox', { name: 'Find' })).toBeFocused();
+	await expect(bar(page).getByRole('textbox', { name: 'Replace with' })).toHaveValue('trial');
+	await expect(bar(page).getByRole('button', { name: 'Match case' })).toHaveAttribute('aria-pressed', 'true');
+	// ⌘F inside the bar stays in the bar.
+	await page.keyboard.press('ControlOrMeta+f');
+	await expect(bar(page).getByRole('textbox', { name: 'Find' })).toBeFocused();
+});
+
 test('@crosswidth in Compose, Replace all leaves a slide Compose cannot edit alone', async ({ page }) => {
 	// Strikethrough is a construct Compose cannot round-trip, so that slide is edited in Source.
 	const deck = `${DECK}\n---\n\n## Old pilot\n\n~~The pilot that stopped.~~\n`;
@@ -124,4 +152,28 @@ test('@crosswidth at the editor pane’s minimum width the edit bar fits its box
 	for (const name of ['Reshape slide…', 'Fix all issues', 'Version history']) await expect(menu.getByRole('menuitem', { name })).toBeVisible();
 	await menu.getByRole('menuitem', { name: 'Version history' }).click();
 	await expect(page.getByRole('dialog', { name: /Version history/ })).toBeVisible();
+});
+
+test('@crosswidth Reshape picked from More opens, and stays open, at the pane’s minimum width', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone has no edit bar');
+	await open(page, 'source', DECK.replace('## Pilot results', '<!-- _class: cards-grid -->\n\n## Pilot results'));
+	await page.locator('.cm-line', { hasText: 'The pilot ran six weeks' }).click();
+	const row = page.locator('#studio-pane-editor [data-slot="edit-bar"]');
+	await page.evaluate(() => {
+		const pane = document.querySelector('#studio-pane-editor') as HTMLElement;
+		pane.style.flex = '0 0 300px';
+		pane.style.maxWidth = '300px';
+	});
+	await expect(row.getByRole('button', { name: 'Reshape slide', exact: true })).toBeHidden();
+	await row.getByRole('button', { name: 'More editor actions', exact: true }).click();
+	await page.getByRole('menu').getByRole('menuitem', { name: 'Reshape slide…' }).click();
+	// The menu is gone and the focus has settled: the picker is still open, and holds the focus. (It used to open for a
+	// moment and close as the menu handed the focus back to its trigger.)
+	await expect(page.getByRole('menu')).toBeHidden();
+	const picker = page.getByRole('dialog', { name: 'Reshape slide: pick a look' });
+	await expect(picker).toBeVisible();
+	await expect.poll(() => picker.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+	await expect(picker).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(picker).toBeHidden();
 });
