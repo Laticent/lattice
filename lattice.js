@@ -1229,7 +1229,7 @@ const { paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 const { fontFaceCss, emojiFaceCss, iconFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { drawIconsAsSvg, drawsIconGlyphs } = require('./lib/fonts/icon-fallback.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
-const { HOLD_UNFIT_REFLOW_SRC } = require('./lib/core/table-reflow-fit');
+const { HOLD_UNFIT_REFLOW_SRC, FORCE_OVERFLOWING_REFLOW_SRC } = require('./lib/core/table-reflow-fit');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
 // This was open-coded here as `/\bguards-strict\b/.test(cls) && !/\bguards-loose\b/`,
@@ -4073,6 +4073,39 @@ async function renderBody(browser, g, closeBrowser) {
         }), 'load fonts (logo walls)');
         await settleDeferredMedia(' (logo walls)');
         await awaitPluginFigures(' (logo walls)');
+      }
+    }
+  }
+
+  // MEASURED TABLE SWITCH (owner, 2026-11-15; fit-everywhere-model.md §25). A table whose grid runs past its
+  // width takes its narrow layout (lib/core/table-reflow-fit.js `forceOverflowingReflow`, which marks its stage
+  // `--lat-reflow-force: 1`). BEFORE the split, so the split measures the layout the reader gets, and written
+  // into the deliverable string too, so the split's reload and a plain `.html` keep it. A table that fits is
+  // not touched, and a deck with none costs one evaluate and no reload.
+  {
+    const forced = await g(() => page.evaluate(`(${FORCE_OVERFLOWING_REFLOW_SRC})(document)`), 'force overflowing tables') || [];
+    if (forced.some(Boolean)) {
+      let k = -1;
+      const at = cleanDocHtml.search(/<section\b/);
+      const head = at < 0 ? cleanDocHtml : cleanDocHtml.slice(0, at);
+      const body = at < 0 ? '' : splitSections(cleanDocHtml.slice(at)).map((p) => {
+        if (p.type !== 'section') return p.text;
+        k += 1;
+        const inner = forced[k] ? p.inner.replace('<div class="cell-stage">', '<div class="cell-stage" style="--lat-reflow-force:1">') : p.inner;
+        return `${p.openTag}${inner}</section>`;
+      }).join('');
+      // ALWAYS reload once anything was forced, even when no mark reached the string: the page then shows
+      // exactly what the file holds, so the split never measures a layout the deliverable does not have.
+      cleanDocHtml = head + body;
+      fs.writeFileSync(outHtml, cleanDocHtml);
+      {
+        await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (tables)');
+        await g(() => page.evaluate(async () => {
+          try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+          for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
+        }), 'load fonts (tables)');
+        await settleDeferredMedia(' (tables)');
+        await awaitPluginFigures(' (tables)');
       }
     }
   }

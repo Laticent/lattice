@@ -16,6 +16,7 @@
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
 import resolveGuards from '../../../lib/core/resolve-guards.js';
+import tableReflowFit from '../../../lib/core/table-reflow-fit.js';
 
 const { fitPacks } = resolveGuards;
 
@@ -182,6 +183,12 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 		// The deck unsplit but STAMPED: a slide's number comes from the split pass, and the plan is
 		// keyed by it, so the frame measures the engine's own whole pass, not the raw render.
 		let fontsLoaded = await settle(frame, buildDoc(split(html, 'whole').html), settleMs, cancelled);
+		// A table whose grid runs past the slide takes its narrow layout before anything is measured, as the CLI
+		// does before its split (lib/core/table-reflow-fit.js `forceOverflowingReflow`; owner, 2026-11-15), so the
+		// plan reads the layout the reader gets. Not left to the frame's own runtime, whose pass waits on an
+		// animation frame that WebKit does not run in an off-screen frame.
+		const FORCE = `(${tableReflowFit.FORCE_OVERFLOWING_REFLOW_SRC})(document)`;
+		inFrame(frame, FORCE);
 		const remembered = memory ? Object.keys(memory).filter((n) => memory[n]?.split) : [];
 		const facts = inFrame<unknown[]>(frame, `(${fitMeasure.MEASURE_FIT_SRC})(${PROBE_ARGS}, ${JSON.stringify(remembered)})`);
 		// No slide found is not "every slide fits": it is a frame this module could not read.
@@ -194,6 +201,7 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 			split: async (plan: Record<string, unknown>) => {
 				const r = split(html, plan);
 				if (!(await settle(frame, buildDoc(r.html), settleMs, cancelled))) fontsLoaded = false;
+				inFrame(frame, FORCE);
 				return r;
 			},
 			verify: async () => inFrame<Record<string, number>>(frame, `(${fitMeasure.OVERFLOW_BY_SLIDE_SRC})(${PROBE_ARGS})`) ?? {},
