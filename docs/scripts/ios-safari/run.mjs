@@ -168,75 +168,6 @@ async function runStudioProbe(id) {
 	};
 }
 
-
-/** A capture-phase log of what the page sees of one tap, in `window.__tapLog`: each touch, pointer and mouse event, selectionchange and contextmenu. */
-// Function declarations, not consts: the probes start from top-level code above, before a later `const` line has run.
-function tapLogInstall() {
-	return `
-	const log = (window.__tapLog = { t0: performance.now(), events: [] });
-	const name = (el) => (el && el.nodeType === 1 ? el.tagName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
-	if (!window.__tapLogOn) {
-		window.__tapLogOn = true;
-		for (const type of ['touchstart', 'touchend', 'touchcancel', 'pointerdown', 'pointerup', 'pointercancel', 'mousedown', 'mouseup', 'click', 'contextmenu']) {
-			window.addEventListener(type, (e) => {
-				const L = window.__tapLog;
-				if (!L) return;
-				const pt = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
-				L.events.push({ type, t: Math.round(performance.now() - L.t0), x: Math.round(pt.clientX), y: Math.round(pt.clientY), target: name(e.target), pointerType: e.pointerType || '' });
-			}, { capture: true, passive: true });
-		}
-		document.addEventListener('selectionchange', () => {
-			const L = window.__tapLog;
-			if (!L) return;
-			const sel = getSelection();
-			const node = sel && sel.anchorNode;
-			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) });
-		}, { capture: true, passive: true });
-	}`;
-}
-
-/** After a diagnostic tap: wait until the selection has stopped changing for 20 frames (at most 3 s), then read it and the tap log. */
-function tapSettleRead() {
-	return `const done = arguments[arguments.length - 1];
-	const t0 = performance.now();
-	let last = '';
-	let still = 0;
-	const read = () => {
-		const sel = getSelection();
-		const node = sel && sel.anchorNode;
-		const key = (sel ? String(sel) : '') + '|' + (sel && sel.isCollapsed) + '|' + (window.__tapLog ? window.__tapLog.events.length : 0);
-		still = key === last ? still + 1 : 0;
-		last = key;
-		if (still >= 20 || performance.now() - t0 > 3000) done({ caret: !!(sel && sel.isCollapsed && node), picked: sel ? String(sel).slice(0, 40) : '', where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing', log: window.__tapLog || null });
-		else requestAnimationFrame(read);
-	};
-	read();`;
-}
-
-/** One line for the tap log: the time from touchstart to touchend as the page saw it, where each event landed and on what, and the selection changes. */
-function summarizeTapLog(log) {
-	if (!log?.events) return 'no log';
-	const ev = log.events;
-	if (!ev.length) return 'NO EVENTS';
-	const first = (type) => ev.find((e) => e.type === type);
-	const ts = first('touchstart');
-	const te = first('touchend') || first('touchcancel');
-	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
-	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${e.text}"`} in ${e.target}` : `${e.type}@${e.t} ${e.x},${e.y} ${e.target}`));
-	return `${held}; ${parts.slice(0, 14).join(' | ')}${parts.length > 14 ? ` | +${parts.length - 14} more` : ''}`;
-}
-
-/** The WebDriver round trip for a no-op script, the baseline the tap's gesture time is read against (median of three). */
-async function wdRoundTrip(id) {
-	const times = [];
-	for (let i = 0; i < 3; i++) {
-		const t = Date.now();
-		await wd('POST', `/session/${id}/execute/sync`, { script: 'return 1;', args: [] });
-		times.push(Date.now() - t);
-	}
-	return times.sort((a, b) => a - b)[1];
-}
-
 /**
  * A WebDriver touch tap on a Compose paragraph, as a finger does it: the caret lands in that paragraph, the editor has the
  * focus, and the paragraph carries the caret-line mark (`cs-active-line`). Also records whether the software keyboard came
@@ -283,12 +214,6 @@ async function composeTouchTap(id) {
 		});
 		if (!at.hit) return { ok: false, steps, error: `the paragraph never held still under its tap point: at ${at.x},${at.y} the page shows ${at.under} (still for ${at.still} frames)` };
 		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-		// WHAT THE PAGE SEES (followups.d/3223-p1, the coordinator's condition: prove the cause before changing the tap). A
-		// capture-phase log of every touch, pointer and mouse event, with its time, its clientX/clientY and its target, and of
-		// each selectionchange and contextmenu, read back after the tap beside the point WebDriver was sent and the WebDriver
-		// round trip. The tap itself is unchanged.
-		const rtt = await wdRoundTrip(id);
-		await run(tapLogInstall());
 		// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
 		// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
 		// selected the word under the finger, so the paragraph held a range, not a caret, and correctly got no caret-line mark.
@@ -315,36 +240,10 @@ async function composeTouchTap(id) {
 				};
 				read();`,
 		});
-		const landed = summarizeTapLog(await run('return window.__tapLog || null;'));
-		console.log(`${LABEL}: compose tap log: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
 		step('a touch tap puts the caret in the tapped paragraph', seen.inP && seen.caret, `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms${seen.caret ? '' : `, but it SELECTED "${seen.picked}" (read as a long press)`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}`);
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
-		step('what the page saw of the tap (detail only)', true, `sent ${at.x},${at.y}; ${landed}`);
-		// DIAGNOSTIC ONLY, AFTER THE VERDICT: the same tap again, each logged the same way, with a growing hold between down and
-		// up, to find the hold the page sees at which Safari stops reading a tap (the failing runs selected text as a long press).
-		// These taps decide nothing.
-		const HOLDS = [0, 0, 150, 300, 500, 800];
-		const TAP_REPEATS = HOLDS.length;
-		for (let n = 1; n <= TAP_REPEATS; n++) {
-			const hold = HOLDS[n - 1];
-			// A second tap at the same point inside the multi-tap window is a double tap (it selects a word, a third selects the
-			// paragraph: measured in Playwright's WebKit). The window is a duration by its nature, so the repeats are spaced by one
-			// second, which is longer than it, and the verdict tap above has no tap before it.
-			await new Promise((r) => setTimeout(r, 1000));
-			await run('document.activeElement?.blur?.(); getSelection()?.removeAllRanges();');
-			await run(tapLogInstall());
-			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-			const t0 = Date.now();
-			await wd('POST', `/session/${id}/actions`, {
-				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, ...(hold ? [{ type: 'pause', duration: hold }] : []), { type: 'pointerUp', button: 0 }] }],
-			});
-			const ms = Date.now() - t0;
-			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-			const after = await wd('POST', `/session/${id}/execute/async`, { args: [], script: tapSettleRead() });
-			console.log(`${LABEL}: compose tap log (diagnostic ${n}/${TAP_REPEATS}, hold ${hold} ms): sent ${at.x},${at.y}; gesture ${ms} ms; page saw ${summarizeTapLog(after.log)}; result ${after.caret ? 'caret' : `SELECTED "${after.picked}"`} in ${after.where}`);
-		}
 		return { ok: steps.every((x) => x.pass), steps };
 	} catch (e) {
 		return { ok: false, steps, error: String(e.message || e) };
