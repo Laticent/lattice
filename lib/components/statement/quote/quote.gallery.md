@@ -35,7 +35,7 @@ A pulled quotation, centered, with attribution.
 
 ---
 
-<!-- _class: quote -->
+<!-- _class: quote venue-laptop -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · quote — Forty words; the type steps down once." -->
 
