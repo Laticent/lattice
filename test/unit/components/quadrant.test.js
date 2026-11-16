@@ -1416,3 +1416,23 @@ describe('quadrant — per-slide sizing never trades attribution for type', () =
       `this slide can carry more than the old constant ${FS_ITEM}, got ${size}`);
   });
 });
+
+describe('quadrant — a two-line y title keeps both lines on the canvas (followups.d/3226-p2)', () => {
+  // The y title is rotated -90° and set to its bottom line, so a second line stacks to the LEFT. The chart-form
+  // band held one line, and "ABILITY TO" fell past x = 0 at square@hall (the fit nightly's quadrant rise).
+  const { formGeom } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
+  const { withRoles, stepPx } = require('../../../lib/plugins/chart-family/shared/chart-roles');
+  const groups = ['Leaders', 'Challengers', 'Visionaries', 'Niche players'].map((name) => ({ name, items: [] }));
+  const geom = (yLabel) => withRoles(stepPx(), 972 / 320, () => formGeom(320, 320, { groups }, {
+    x: { label: 'Completeness of vision', min: 0, max: 100 },
+    y: { label: yLabel, min: 0, max: 100 },
+  }));
+
+  test('a title that wraps reserves a second line; one that fits keeps one', () => {
+    const one = geom('Reach');
+    const two = geom('Ability to execute against the plan this year and next');
+    const axisFs = one.yTitleX / 1.05; // one line reserves 1.05 em, as before this fix
+    assert.ok(Math.abs(two.yTitleX - (one.yTitleX + axisFs * 1.2)) < 1e-9, `two lines reserve one more line: ${two.yTitleX} vs ${one.yTitleX}`);
+    assert.ok(two.plot.x0 > one.plot.x0, 'and the plane starts further right to make room');
+  });
+});
