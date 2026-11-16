@@ -709,6 +709,25 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await waitFor(() => expect(advanced).toHaveFocus());
 	});
 
+	// The pane's reset (2026-11-15-one-side-pane.md §3d): a header button that undoes THIS VISIT, disabled until the
+	// visit changed something, and one Undo step. For Deck settings, that is the front matter as the pane found it.
+	it("Deck settings' header reset undoes the visit's changes, and is off until there are some", async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		const reset = await screen.findByRole('button', { name: 'Reset deck settings' });
+		expect(reset).toBeDisabled();
+		const pages = screen.getByRole('switch', { name: 'Page numbers' });
+		const was = pages.getAttribute('aria-checked');
+		await user.click(pages);
+		await waitFor(() => expect(screen.getByRole('switch', { name: 'Page numbers' })).not.toHaveAttribute('aria-checked', was ?? ''));
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Reset deck settings' })).toBeEnabled());
+		await user.click(screen.getByRole('button', { name: 'Reset deck settings' }));
+		await waitFor(() => expect(screen.getByRole('switch', { name: 'Page numbers' })).toHaveAttribute('aria-checked', was ?? ''));
+		expect(screen.getByRole('button', { name: 'Reset deck settings' })).toBeDisabled();
+		// One Undo step, with the toast that offers it.
+		expect(await screen.findByText(/Reset deck settings/)).toBeInTheDocument();
+	});
+
 	it('reaches Fabricate from the launcher (not a deck mode)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));

@@ -61,7 +61,9 @@ const PANELS: Panel[] = [
 		name: 'Slide settings',
 		chunk: chunkRe('SlideContext'),
 		open: (page) => page.getByRole('button', { name: CHROME.slideSettings, exact: true }).first().click(),
-		frame: (page) => [page.getByText('No changes yet'), page.getByRole('button', { name: 'Reset slide' })],
+		// The tier switch both draw, and the header's reset (StudioShell draws it in both states, so it guards the header
+		// against shifting when the body arrives; 2026-11-15-one-side-pane.md §3d).
+		frame: (page) => [page.getByRole('button', { name: /^Basic slide settings/ }).first(), page.getByRole('button', { name: 'Reset slide settings' }).first()],
 		sheet: false,
 	},
 ];

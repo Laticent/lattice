@@ -85,6 +85,8 @@ describe('settings rows that can be marked', () => {
 		for (const sw of CONTENT_SWITCHES) rows.add(slug(sw.label));
 		// Every Slide-panel edit goes through one generic label, "This slide": it names no row, so it is not one.
 		rows.delete('this-slide');
+		// The Deck pane's reset undoes the whole visit (2026-11-15-one-side-pane.md §3d): it names no row either.
+		rows.delete('reset-deck-settings');
 		expect([...FOCUS_ROWS].sort()).toEqual([...rows].sort());
 	});
 

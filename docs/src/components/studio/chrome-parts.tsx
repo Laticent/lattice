@@ -185,9 +185,11 @@ export function SlideCount({ n, total }: { n: number; total: number }) {
 // surface you're on (the transient `quietened` overlay lights Write without moving the
 // saved posture). Matches the segmented-control idiom (bordered group, card-lift active).
 export const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.ReactNode }[] = [
-	{ id: 'read', label: 'Read', hint: 'Read — just the slides', icon: <BookOpen className="size-4" /> },
-	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },
-	{ id: 'craft', label: 'Craft', hint: 'Craft — every panel', icon: <Layers className="size-4" /> },
+	// 14px icons at a 1.75 stroke beside 12.5px words, so the word leads (owner, 2026-11-15, from a design
+	// review): a 16px, 2px-stroke icon outweighed a 12px word, the rail's problem at a fifth of the strength.
+	{ id: 'read', label: 'Read', hint: 'Read — just the slides', icon: <BookOpen className="size-3.5" strokeWidth={1.75} /> },
+	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-3.5" strokeWidth={1.75} /> },
+	{ id: 'craft', label: 'Craft', hint: 'Craft — every panel', icon: <Layers className="size-3.5" strokeWidth={1.75} /> },
 ];
 export function PostureDial({ posture, quietened, revealCraft, onChange }: { posture: Posture; quietened: boolean; revealCraft: boolean; onChange: (p: Posture) => void }) {
 	// Light the EFFECTIVE stop — a transient reveal shows Craft, a quiet shows Write —
@@ -243,7 +245,7 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 						      monochrome ones included. Gold stays for the two hero verbs, Present and Compose
 						      (EditModeToggle). The TRANSIENT stop keeps the quieter 12% mix with the dashed
 						      outline, which is what tells "showing now" apart from "your saved home". */}
-						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition-colors', BAR_SEGMENT, lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[var(--text-heading)] text-[var(--bg)] shadow-sm') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
+						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-[5px] rounded-md px-2.5 text-[12.5px] font-semibold transition-colors', BAR_SEGMENT, lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[var(--text-heading)] text-[var(--bg)] shadow-sm') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
 							{/* The words are not optional. They shipped as desktop-only for one release
 							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
 							    the one control in this row that cannot survive it: a touch user between 700
@@ -284,8 +286,23 @@ export function BarIcon({ label, hint, caption, active, recent, onClick, childre
 			data-demo={demo}
 			onClick={onClick}
 			className={cn(
-				'group/bar relative flex min-h-11 flex-col items-center justify-center gap-0.5 font-semibold leading-none transition-colors',
-				bar ? 'min-w-0 flex-1 gap-[3px] rounded-none px-1 py-1.5 text-[9px]' : 'w-11 gap-0.5 rounded-xl py-2 text-[8.5px]',
+				// The RAIL's caption is 10px with no tracking, in body text (owner, 2026-11-15, from a design
+				// review; 2026-11-15-one-side-pane.md §3e). It was 8.5px with tight
+				// tracking in the muted color under an 18px, 2px-stroke icon: the smallest text in the Studio,
+				// about 4 device pixels of x-height on a 1x laptop, with roughly ten times the word's ink in the
+				// icon, so the words read as a footnote. A 2x screen and the phone hid it. Measured: "Library"
+				// is 33px at 10px, inside the 44px cell, so the 46px rail does not grow.
+				// The rail also takes a 16px icon at a 1.75 stroke (the selector outranks each icon's own size
+				// class). The phone BAR keeps its 9px caption and 17px icons, which the owner judged fine there,
+				// and takes only the body-text color: the shell places everything under that bar from its frozen
+				// height (`mobileBarH`), so its geometry stays exactly as measured.
+				'group/bar relative flex min-h-11 flex-col items-center justify-center gap-[3px] font-semibold leading-none transition-colors',
+				// The size comes AFTER `leading-none`, on purpose: `cn` (tailwind-merge) drops a line-height
+				// that precedes a font size, so the caption keeps the app's inherited 1.6 line box, which the
+				// phone bar's frozen height in the instant shell (`mobileBarH`) and its @minfont growth are
+				// measured against. Putting the size first kept `leading-none` and moved the slide box 4px off
+				// at a raised minimum font.
+				bar ? 'min-w-0 flex-1 rounded-none px-1 py-1.5 text-[9px]' : 'w-11 rounded-xl py-2 text-[10px] [&_svg]:size-4 [&_svg]:[stroke-width:1.75]',
 				// `brand` is Compose's cell (EditModeToggle's `segmentTone` says why): its word and icon stay gold
 				// (`--lx-compose`) whether or not it is the pane on screen. Selected, it takes the header toggle's light chip,
 				// not the bar's ink cell: gold on ink fails contrast (about 2.6:1 in cuoio light, 2:1 dark, 1:1 in a
@@ -307,7 +324,9 @@ export function BarIcon({ label, hint, caption, active, recent, onClick, childre
 						// label 9.65:1 against the chip in all 36. A brand-accent label on this chip is the
 						// follow-up (option D), which falls back to exactly this.
 						? 'bg-[var(--text-heading)] text-[var(--bg)]'
-						: 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
+						// Body text, not muted: the caption is the only thing that names the control (about 8.5:1
+						// against the rail in cuoio light, where muted read 4.65:1 and lost more at this size).
+						: 'text-[var(--text-body)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
 			)}
 		>
 			{/* Active marker: the rail variant gets a left-edge rule (VSCode-style, on a
@@ -334,7 +353,7 @@ export function BarIcon({ label, hint, caption, active, recent, onClick, childre
 			)}
 			{recent && !active && !bar && <span aria-hidden="true" data-recent="" className="absolute -left-[6px] top-1/2 size-[5px] -translate-y-1/2 rounded-full bg-[var(--accent)]" />}
 			{children}
-			<span className="tracking-tight">{caption}</span>
+			<span>{caption}</span>
 			{typeof badge === 'number' && badge > 0 && (
 				<span aria-hidden="true" className="absolute -top-1 -right-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-[1.5px] border-[var(--bg-alt)] bg-[var(--warn-fill)] px-[3px] font-mono text-[9px] font-bold leading-none text-white">{badge > 99 ? '99+' : badge}</span>
 			)}

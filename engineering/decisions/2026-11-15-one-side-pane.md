@@ -162,6 +162,42 @@ Guard: `StudioShell.test.tsx` "every docked pane wears the shared header", red w
 Not changed here, and visible: the Settings column sits on `--bg` and the tool panes on the card color, so the
 column's tint still changes when the slot swaps between them.
 
+## 3e. Labels that read, and a reset in every pane that edits (owner, from a design review)
+
+**The owner's report:** on a laptop and a desktop the rail's captions and Read/Write/Craft were hard to read and
+"the icons overpower them"; the phone looked fine. Measured on the built Studio, then reviewed by an independent
+design reviewer with screenshots at 1x and 2x:
+
+| Element | Before | After (owner's picks) |
+|---|---|---|
+| Rail caption | Outfit 8.5px/600, tracking -0.21px, muted (4.65:1 light, 6.13:1 dark) under an 18px, 2px-stroke icon | 10px/600, no tracking, `--text-body` (7.8:1 light, 10.15:1 dark) under a 16px, 1.75-stroke icon |
+| Read/Write/Craft | 12px words beside 16px, 2px-stroke icons | 12.5px words beside 14px, 1.75-stroke icons, 5px gap |
+| Phone bar caption | 9px, muted, 17px icons | 9px, `--text-body`, 17px icons (geometry unchanged) |
+
+The cause, ranked by the reviewer: the size (8.5px is about 4 device pixels of x-height at 1x, the smallest text in
+the Studio), the icon carrying about ten times the word's ink, the muted color losing more contrast than its ratio
+says at that size, and tracking tightened where small text needs it open. Weight 600 was not the problem. A 2x
+screen and the phone hid all of it. "Library", the longest caption, is 33px at 10px, inside the 44px cell, so the
+46px rail does not grow. Captions stay on the rail (words-on-controls is a recorded decision, and the tooltip never
+reaches a touch laptop).
+
+**The phone bar's geometry is held on purpose.** The instant shell places everything under it from a frozen height
+(`PREVIEW_CHROME.mobileBarH`, 49px), and the @minfont cases in `studio-instant-shell.spec.ts` pin how the slide box
+lands when a reader raises the minimum font. Giving the bar 16px icons or a 10px caption on a `leading-none` line
+moved that box 4px off. Note the trap that caused the second: `cn` (tailwind-merge) DROPS a line-height that
+precedes a font size, so the captions have always inherited the app's 1.6 line box; listing the size first kept
+`leading-none` and shrank the bar 4px. The size stays after `leading-none` in `BarIcon`.
+
+**Reset.** Every pane that edits something (Slide settings, Deck settings) has a `PanelResetButton` in its header,
+left of the collapse; a pane that edits nothing has none. It UNDOES THIS VISIT: Slide settings puts the slide back
+as it was when the pane opened (the body's existing baseline, now reported to the header via `onResetChange`); Deck
+settings puts the front matter back as it was when the pane opened (`deckBaseline`, taken per show), leaving the
+slides below untouched. One Undo step with the Undo toast, so no confirm. Disabled until the visit changed
+something, and drawn by the shell from the first frame so the header never shifts when the body loads. The body's
+old "Reset slide" row is gone. A per-field reset (the preset picker's "Reset to Classic") stays beside its field.
+Guards: `StudioShell.test.tsx` "Deck settings' header reset" (red with a no-op reset), the `SlideContext.test.tsx`
+reset cases, and `e2e/panel-shells.spec.ts`, which pins the header's reset as a frame piece.
+
 ## 4. Do not regress — the traps this area has already paid for
 
 Each line names the guard. A change to panes re-checks every one.

@@ -1,4 +1,4 @@
-import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, RotateCcw, Sparkles, Unlock, Upload } from 'lucide-react';
+import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSearchButton, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
@@ -400,10 +400,6 @@ export function LensesShell({ children }: { children?: React.ReactNode }) {
 
 // ── Slide settings ───────────────────────────────────────────────────────────
 
-/** Slide settings' Reset button, shared with `SlideContext.tsx`. Disabled until the slide is edited. */
-export const RESET_SLIDE_BUTTON =
-	'inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-default disabled:border-transparent disabled:text-muted-foreground disabled:opacity-50 disabled:hover:bg-transparent';
-
 /** A settings row: its label on the left, its control on the right. */
 function SettingRowBlock() {
 	return (
@@ -415,7 +411,7 @@ function SettingRowBlock() {
 }
 
 /**
- * The slide as it was when Slide settings opened: the baseline "Reset slide" reverts to. On a
+ * The slide as it was when Slide settings opened: the baseline the pane's reset reverts to. On a
  * cold open the panel mounts only when its code arrives, so the shell records the baseline at the
  * moment of opening, and the loaded panel takes it over once (`SlideContext.tsx`). Without this,
  * an edit made while the shell was up would become part of the baseline and survive a Reset.
@@ -451,13 +447,6 @@ export function SlideSettingsShell({
 			{children ?? (
 				<>
 					<Inert>
-						<div className="flex items-center justify-between border-b border-border py-2">
-							<span className="text-[11px] text-muted-foreground">No changes yet</span>
-							<button type="button" disabled className={RESET_SLIDE_BUTTON}>
-								<RotateCcw className="size-3" />
-								Reset slide
-							</button>
-						</div>
 						<SettingsTierSwitch tier={tier} onTierChange={() => {}} scope="Slide" />
 					</Inert>
 					<div className="pt-1">

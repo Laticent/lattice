@@ -22,7 +22,7 @@ import {
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
 import { Frozen, ScrollTopOnMount, useEverTrue, useShowCount } from '@/components/ui/keep-mounted';
-import { PanelBody, PanelDrillBack, PanelEmpty, PanelHeader, PanelNav, PanelSearchButton, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelBody, PanelDrillBack, PanelEmpty, PanelHeader, PanelNav, PanelResetButton, PanelSearchButton, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
 import { filteringProps, SettingsBasicFoot, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsTierSwitch, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
@@ -7131,9 +7131,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// another is not open to them.
 	useViewKey('inspector', settingsShown ? (activeSettings ?? 'none') : 'none');
 	useViewKey('section', settingsShown && activeSettings === 'deck' && settingsTier === 'advanced' && settingsView === 'group' ? deckTab : null);
+	// THE PANE'S RESET (§3d of 2026-11-15-one-side-pane.md): it undoes this visit. The Slide body owns its
+	// baseline and reports here; the Deck baseline is the front matter as it was when Deck settings opened,
+	// taken on each show (`deckShows`), never on an edit, so it holds still while the author experiments.
+	const [slideReset, setSlideReset] = React.useState<{ dirty: boolean; reset: () => void } | null>(null);
+	const [deckBaseline, setDeckBaseline] = React.useState<string | null>(null);
 	const settingsShows = useShowCount(settingsShown);
 	const deckShows = useShowCount(settingsShown && inspectorScope === 'deck');
 	const slideShows = useShowCount(settingsShown && inspectorScope === 'slide');
+	React.useEffect(() => {
+		if (deckShows > 0) setDeckBaseline(frontMatterBlock(sourceRef.current));
+	}, [deckShows]);
+	const deckDirty = deckBaseline !== null && frontMatterBlock(source) !== deckBaseline;
+	// One Undo step with the Undo toast (settingsWrite), restoring only the front matter: the slides
+	// below it keep every edit made in the editor meanwhile.
+	const resetDeck = () => {
+		if (deckBaseline === null) return;
+		settingsWrite('Reset deck settings', (s) => deckBaseline + stripFrontMatter(s));
+	};
 	const deckEver = useEverTrue(settingsShown && inspectorScope === 'deck');
 	const deckScrollRef = React.useRef<HTMLDivElement>(null);
 	// THE SCOPE THE PANEL SHOWS. Closed, `inspectorScope` falls back to 'slide', and the kept panel
@@ -7144,6 +7159,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [lastScope, setLastScope] = React.useState(inspectorScope);
 	if (settingsShown && lastScope !== inspectorScope) setLastScope(inspectorScope);
 	const panelScope = settingsShown ? inspectorScope : lastScope;
+	const settingsReset = panelScope === 'deck'
+		? <PanelResetButton label="Reset deck settings" hint="Undo this visit: put the deck's settings back as they were when you opened them" disabled={!deckDirty} onClick={resetDeck} />
+		: <PanelResetButton label="Reset slide settings" hint="Undo this visit: put this slide back as it was when you opened settings" disabled={!slideReset?.dirty} onClick={() => slideReset?.reset()} />;
 
 	const inspectorBody = (
 		// `SETTING_SCOPE` makes this body the container the rows measure themselves against,
@@ -7230,7 +7248,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<PanelHeader
 					icon={panelScope === 'deck' ? <SlidersHorizontal /> : <FileSliders />}
 					title={PANE_NAME[panelScope]}
-					actions={searchingHere ? undefined : <PanelSearchButton label={`Search ${panelScope} settings`} onClick={() => (panelScope === 'deck' ? setDeckSearching : setSlideSearching)(true)} />}
+					actions={<>{searchingHere ? null : <PanelSearchButton label={`Search ${panelScope} settings`} onClick={() => (panelScope === 'deck' ? setDeckSearching : setSlideSearching)(true)} />}{settingsReset}</>}
 					onClose={collapsePane}
 					closeLabel="Collapse settings"
 					collapse={bp === 'tablet' ? 'right' : 'left'}
@@ -7341,7 +7359,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{panelScope === 'slide' && (
 				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
-					{(SlideContextBody) => <SlideContextBody open reportSection={settingsShown && inspectorScope === 'slide'} deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} />}
+					{(SlideContextBody) => <SlideContextBody open reportSection={settingsShown && inspectorScope === 'slide'} deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} onResetChange={setSlideReset} />}
 				</PanelLoader>
 			)}
 		</>
@@ -8965,6 +8983,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<PanelHeader
 								icon={<Settings2 />}
 								title="Settings"
+								actions={settingsReset}
 							/>
 							{/* No outer overflow: the scope body owns its own scroll region (like the
 							    desktop column), so the sheet never nests two scrollbars. */}

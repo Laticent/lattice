@@ -1,4 +1,4 @@
-import { ChevronLeft, PanelLeftClose, PanelRightClose, SearchIcon, XIcon } from 'lucide-react';
+import { ChevronLeft, PanelLeftClose, PanelRightClose, RotateCcw, SearchIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { DIALOG_BOX } from '@/components/ui/dialog';
@@ -1048,6 +1048,27 @@ export function PanelSearchButton({ label, onClick }: { label: string; onClick: 
 			<Button type="button" variant="outline" size="icon-sm" aria-label={label} onClick={onClick} data-panel-search-button="" className="shrink-0">
 				<SearchIcon className="size-4" />
 			</Button>
+		</Tip>
+	);
+}
+
+/**
+ * A pane's RESET, in its header beside the collapse (§3d of 2026-11-15-one-side-pane.md): every pane
+ * that edits something draws it, and a pane that edits nothing (Coach, Chat, the Library) draws none.
+ * It UNDOES THIS VISIT: what the pane changed since it opened goes back, as one Undo step with the
+ * Undo toast, so it needs no confirm. Disabled until something changed, and drawn from the first
+ * frame so the header never shifts when the pane's body loads. The name says the scope
+ * ("Reset slide settings"), never a bare "Reset".
+ */
+export function PanelResetButton({ label, hint, disabled, onClick }: { label: string; hint: string; disabled: boolean; onClick?: () => void }) {
+	return (
+		<Tip label={disabled ? 'Nothing to reset: no changes since you opened this' : hint}>
+			{/* A disabled <button> gets no pointer events, so the tooltip rides on a wrapper. */}
+			<span className="inline-flex shrink-0">
+				<Button type="button" variant="outline" size="icon-sm" aria-label={label} disabled={disabled} onClick={onClick} data-panel-reset="">
+					<RotateCcw className="size-4" />
+				</Button>
+			</span>
 		</Tip>
 	);
 }
