@@ -139,7 +139,10 @@ section :where(pre).lat-code .ln.lat-mark {
 }
 section :where(pre).lat-code .ln[data-diff="ins"] { background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent); }
 section :where(pre).lat-code .ln[data-diff="del"] { background-color: color-mix(in srgb, var(--syntax-deleted) 14%, transparent); }
-section :where(pre).lat-code .lat-diff-mark { display: inline-block; width: 2ch; }
+/* `text-indent: 0`: a wrapped line hangs its continuation by indenting the line -2ch (the wrap rule above), and the
+ * mark is an inline-block that inherited it, so its glyph sat 2ch left of its own box and the panel's edge cut it in
+ * half on every phone diff (code-plugin.md 4). */
+section :where(pre).lat-code .lat-diff-mark { display: inline-block; width: 2ch; text-indent: 0; }
 section :where(pre).lat-code .ln[data-diff="ins"] .lat-diff-mark { color: var(--syntax-inserted); }
 section :where(pre).lat-code .ln[data-diff="del"] .lat-diff-mark { color: var(--syntax-deleted); }
 

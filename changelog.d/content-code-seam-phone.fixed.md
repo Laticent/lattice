@@ -1,0 +1,2 @@
+- On a phone, a slide whose body is one code block now splits the block between lines when it is too tall for the page, as a `code` slide does, instead of clipping its last lines.
+- On a phone, a diff block's `+` and `-` marks sit inside the code panel instead of half outside it.
