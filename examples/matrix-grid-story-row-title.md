@@ -96,9 +96,9 @@ On a portrait or story box the row title lies flat above the grid, and the colum
 ---
 
 <!-- _class: matrix-grid -->
-<!-- _footer: "Column axis only · unchanged" -->
+<!-- _footer: "Column axis only · it wraps too" -->
 
-`[Wider reach]`
+`[Breadth of reach across the whole organization and beyond it]`
 
 ## A grid that names only its columns.
 

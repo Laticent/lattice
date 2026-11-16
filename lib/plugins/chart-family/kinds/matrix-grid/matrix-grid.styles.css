@@ -425,10 +425,11 @@ section.matrix-grid:where([data-family="strip"]) .matrix-grid-figure td {
  * column, the row title first, the column title second, the table last. So a long title WRAPS and its
  * band grows with it. An absolute one-line band cut a 60-character row title at the box's edge, silently,
  * because the probe does not read pseudo-element text (this PR's checker). Left-aligned, over the row
- * labels it names; stacked, so two long titles cannot collide.
+ * labels it names; stacked, so two long titles cannot collide. A grid that names only its columns flows the
+ * same way, so its title wraps too rather than running off the box (160px past it at story on main).
  * `data-row-up` is the same text with the arrow the right way up: the gutter's copy is emitted pre-flipped
  * (▼) for the 180° turn (matrix-grid.transform.js), and a flat label has no turn to undo. */
-section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure[data-row-axis] {
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure:is([data-row-axis], [data-col-axis]) {
   display: flex;
   flex-direction: column;
   padding-inline-start: 0;
@@ -448,7 +449,7 @@ section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-g
   justify-content: flex-start;
   padding-bottom: var(--sp-2xs);
 }
-section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure[data-row-axis][data-col-axis]::after {
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure[data-col-axis]::after {
   position: static;
   order: -1;
   height: auto;
