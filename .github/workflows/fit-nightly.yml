@@ -91,7 +91,9 @@ jobs:
       - name: Resolve the puppeteer Chromium
         id: chrome
         run: |
-          CHROME="$(node -p "require('puppeteer').executablePath()")"
+          # `executablePath()` returns a Promise from puppeteer 24 on (#3190 moved us to 25), so `node -p` printed
+          # `Promise { ... }` and every nightly that resolves Chrome died here. Promise.resolve() awaits either shape.
+          CHROME="$(node -e "Promise.resolve(require('puppeteer').executablePath()).then((p) => console.log(p), (e) => { console.error(e.message); console.log(''); })")"
           if [ ! -x "$CHROME" ]; then
             echo "::error::puppeteer resolved $CHROME but nothing executable is there — the browser cache did not restore and npm ci did not download it."
             exit 1

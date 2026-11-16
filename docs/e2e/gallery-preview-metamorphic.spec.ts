@@ -380,6 +380,24 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 			if (cycle === 0) await openAddSlide(page, compact);
 			else await reopen(page, compact);
 			await firstBandPainted(page);
+			// PRIME THE POOL before the first count, so (c) compares against a pool at its high-water
+			// mark. The pool makes a slot for a tile SHAPE (a Mermaid tile, a local component's CSS)
+			// only when one of its 220ms passes runs while that tile is in band, and a flick crosses
+			// rows faster than that: which shapes a flick catches depends on where its passes happen
+			// to fall. Measured at 1440x900 under 8-way load, 5 runs in 8 failed (c) with 5 to 9
+			// documents, and every one was a NEW slot (`createElement('iframe')` and its first
+			// `srcdoc`) for a tile the first flick had crossed between passes; no kept frame was
+			// rewritten, and all eight runs ended at the same total. A stepped walk rests on every
+			// row, so every shape gets its slot before close #1 is counted.
+			if (cycle === 0) {
+				const bottom = await page.evaluate((sel) => {
+					const el = document.querySelectorAll(sel)[0] as HTMLElement | undefined;
+					return el ? el.scrollHeight - el.clientHeight : 0;
+				}, SCROLLER);
+				await stepTo(page, bottom);
+				await jumpTo(page, 0);
+				await quiesced(page);
+			}
 			await flick(page, true);
 			await quiesced(page);
 			opened.push(await mounted(page));

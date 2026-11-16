@@ -20,8 +20,14 @@ describe('hasContent — the empty-deck guard (K1: never fabricate a grade)', ()
 });
 
 describe('assessDeck', () => {
+	// Null means a newer assessment on the same lane replaced this one; each test here asks once.
+	const assess = async (...args: Parameters<typeof assessDeck>) => {
+		const a = await assessDeck(...args);
+		if (!a) throw new Error('the assessment was replaced by a newer one');
+		return a;
+	};
 	it('returns a content-false assessment (NOT a grade) for an empty deck', async () => {
-		const a = await assessDeck('', { names: ['title'] });
+		const a = await assess('', { names: ['title'] });
 		expect(a.hasContent).toBe(false);
 		expect(a.scorecard).toBeNull();
 		expect(a.findings).toEqual([]);
@@ -30,7 +36,7 @@ describe('assessDeck', () => {
 		// No lint vocab → lint findings are skipped, but the review layer + scorecard still
 		// run (a lint-less grade is degraded, not fabricated). The empty-deck K1 guard above
 		// is what prevents a fake grade — not the vocab.
-		const a = await assessDeck('<!-- _class: title -->\n# Hi\n\n---\n\n## Two', null);
+		const a = await assess('<!-- _class: title -->\n# Hi\n\n---\n\n## Two', null);
 		expect(a.hasContent).toBe(true);
 		expect(a.scorecard).not.toBeNull();
 		expect(typeof a.scorecard?.craft.band).toBe('string');

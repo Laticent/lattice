@@ -12,7 +12,11 @@
 // (standalone routes), Header (docs zone), and features.astro — the same reach as
 // PerfOverlay; a module-level singleton claim in the island makes a double-include
 // a no-op.
-import StorageOverlay from './StorageOverlay.tsx';
+//
+// The same island also carries the System panel's gate (?system; SystemOverlay.tsx), through
+// SiteDiagnostics.tsx: one island instead of two, because every island adds a tag to every page's HTML
+// and the Studio's HTML is held to a ceiling (check:route-budget).
+import SiteDiagnostics from './SiteDiagnostics.tsx';
 ---
 
-<StorageOverlay client:only="react" />
+<SiteDiagnostics client:only="react" />

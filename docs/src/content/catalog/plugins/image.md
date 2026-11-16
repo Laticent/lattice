@@ -118,6 +118,6 @@ The plugin reads the record while Lattice parses your Markdown, and the slide's 
 
 ## What it doesn't do
 
-- **It doesn't read Marp's keywords.** `lint:deck` warns on `![bg …]` and `--fix` writes the record, moving the placement to the slide (`left` becomes `mirror`, a background becomes `bleed`).
+- **It doesn't read Marp's keywords.** `lint:deck` warns on `![bg …]` and `--fix` writes Markdown's picture, `![title](src)`, moving the placement to the slide (`left` becomes `mirror`, a background becomes `bleed`).
 - **It doesn't fetch web pictures on its own.** A web address follows the deck's web-image policy, and the linter names it.
 - **It doesn't seat two panels.** An `image` slide has one photo and a `bleed` slide one background; a second record lands over the first, two pictures on lines of their own leave the slide with none, and the linter says so (`image-extra-panel`). Use `collage` for several.

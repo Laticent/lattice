@@ -584,7 +584,7 @@ for signal in calibrator.intake.unscored():
 
 Think deeper, plan longer, decide once — the mandate fit on a napkin, so the venue got two days. The lake was booked for inspiration and used mostly for phone calls.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -597,7 +597,7 @@ Think deeper, plan longer, decide once — the mandate fit on a napkin, so the v
 
 Same lake, same mandate, opposite wall — the afternoon was the morning, flipped, which was also true of the discussion.
 
-![bg left](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -610,7 +610,7 @@ Same lake, same mandate, opposite wall — the afternoon was the morning, flippe
 
 Shown whole, on a matte, with a placard — evidence handling for a whiteboard that held the four framework parts and one org chart nobody claims to have drawn.
 
-![bg](sample:photo-square.jpg)
+![A figure on a green shore under a pale sun](sample:photo-square.jpg)
 
 ---
 
@@ -621,7 +621,7 @@ Shown whole, on a matte, with a placard — evidence handling for a whiteboard t
 
 The grounds, edge to edge — we will reference this view in three consecutive planning cycles and visit it in none. The card keeps the arithmetic legible over the scenery.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 ---
 
@@ -634,7 +634,7 @@ The grounds, edge to edge — we will reference this view in three consecutive p
 
 The climb produced two insights and one signed waiver. The photo runs taller than the argument beside it, which the facilitator called a metaphor.
 
-![bg](sample:photo-tall.jpg)
+![A figure before violet hills and a pale sun](sample:photo-tall.jpg)
 
 ---
 
@@ -645,7 +645,7 @@ The climb produced two insights and one signed waiver. The photo runs taller tha
 
 The line the room will repeat, set over the view that produced it. This one made the T-shirts before it made the plan.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -679,7 +679,7 @@ Ownership of the weights, the CSV retirement date, and who carries the pager —
 
 The mandate, projected after dinner, stayed legible — the room got darker and the words did not.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 ---
 
@@ -875,9 +875,9 @@ The struck card stays on the slide — the framework logs its rejected options t
 
 ## Day two opened from the other shore.
 
-Same lake, opposite bank, one session earlier than scheduled. The image card crosses to the left and the text pads to match — `![bg left]` still works, for the traditionalists. The lake is unchanged.
+Same lake, opposite bank, one session earlier than scheduled. The image card crosses to the left and the text pads to match — the same picture, placed on the left by `mirror`. The lake is unchanged.
 
-![bg left](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 

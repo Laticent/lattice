@@ -104,11 +104,20 @@ so React builds a fresh frame (written before it is inserted) instead of setting
 `doc`), all built and sanitized upstream. No allowlist changes. The gates key on the builders, not the assignment, and
 `build:check` passes all four #22 checks. The frame's CSP, nonce and sandbox are unchanged.
 
-**Not changed, and why.** The export capture frame (`deck-export.js` `createCaptureFrame`) and the player prune frame
-(`player-prune-browser.ts`) append an empty frame and then write it, so by §2 they are uncontrolled on Firefox and an
-offline Firefox export would miss its runtime and fonts. That is pre-existing and on the export path, which needs the
-owner's sign-off, so it is recorded as a follow-up rather than changed here. The sandboxed draw and code-package frames
-have an opaque origin, which is never a worker client in any engine; the draw host already falls back for that.
+**The export frames (2026-11-13, follow-up 3159-p4).** The export capture frame (`deck-export.js` `createCaptureFrame`)
+and the player prune frame (`player-prune-browser.ts`) were appended empty and then written. Measured on `main` before
+changing them, that shape was controlled on Firefox after all: the write lands in the same task as the append, and Gecko
+treats it as the frame's first navigation. An offline Firefox export on `main` drew the same image set as online, with
+`lattice-runtime.js` and `mermaid.min.js` served 200 by the worker. The defect was latent: one task boundary between the
+append and the write (a `setTimeout(0)`, measured) left the capture document with no controller, its runtime and Mermaid
+failed with status 0, and the diagram slide exported differently offline. `mountLiveFrame` hit it because a write came
+after an `await`. Both frames now write through `writeSrcdoc` with `host`, so they no longer depend on what runs between
+the append and the write; with the same `setTimeout(0)` added, the fixed capture frame stays controlled.
+`docs/e2e/studio-export-offline.spec.ts` (`@gecko`) exports an image set online and again offline and requires the same
+bytes. Online exports are unchanged: 36 files (PDF, PowerPoint, LibreOffice, images, webpage, narrated player; a chart, a
+diagram and a narrated deck; dark and light) match before and after apart from each export's own clock fields (PR body).
+The sandboxed draw and code-package frames have an opaque origin, which is never a worker client in any engine; the draw
+host already falls back for that.
 
 **Behavior a reviewer should know about.**
 - After a re-insert, `frame.contentDocument` is a fresh `about:blank` until the new document commits, where an in-place
@@ -199,8 +208,6 @@ frame's document through `page.evaluate` instead.
 
 **Open, for the owner:**
 
-1. **Offline Firefox export** (§4): write the capture and prune frames before appending them. That should leave online
-   export bytes unchanged, but proving it needs a before/after export comparison, and the export path needs sign-off.
-   `followups.d/3159-p4-…`.
+1. ~~**Offline Firefox export**~~ (§4): done 2026-11-13, latent rather than live; see §4, "The export frames".
 2. **Upstream reports** to Mozilla (§2) and Playwright (the guard above). Drafts are in PR #3159's body; filing them is
    outward-facing. `followups.d/3159-p5-…`.

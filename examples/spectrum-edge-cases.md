@@ -94,7 +94,7 @@ Change the edge and watch the slides below.
 
 The bar lies over the photo and takes no room from it.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 ---
 

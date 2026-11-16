@@ -109,7 +109,7 @@ same tap flow and got the single ink, so the device differs. Two causes fit, and
 
 - **A per-read cap of 1.2 s.** `pickedInk` raced each read against 1.2 s, a leftover from when the read ran inside the lint pass. On a device where
   loading or decoding the photo takes longer, every attempt timed out and the tooltip ended on both. The read now runs inside the tooltip, so the
-  cap protects nothing and is gone; the sampler keeps its own 4 s load timeout. An e2e slows every image `onload` by 3.5 s (a network delay would
+  cap protects nothing and is gone; the sampler kept its own 4 s load timeout (gone too, 2026-11-13, below). An e2e slows every image `onload` by 3.5 s (a network delay would
   not work: the preview already loaded the photo, so the read is a memory-cache hit) and fails with the cap put back.
 - **A tap that opens the tooltip before its caret move lands.** A slide judged "not on screen" now keeps checking for 1.2 s before offering both,
   and the slide on screen waits up to 6 s, showing "Reading the photo…" once the read takes longer than 0.4 s. Not reproduced in emulation.
@@ -391,3 +391,44 @@ theme's text color. In a light deck that is a dark navy, and a render showed the
 dark scrim (follow-up from #2932). `image.styles.css` now gives a statement's `li` the paragraph's `--_card-body-ink` and
 shadow, and nothing else: its size and width stay as they were. With the row paired to the scrim like the paragraph,
 `inkTargets` in `photo-verdict.ts` reads `li` on a statement again, and the strongest scrim is an upper bound for it too.
+
+## Found on the iPad simulator: the sampler's own 4 s cap (2026-11-13)
+
+The `ios-safari-photo` nightly at 985dfba failed its iPad leg: "timed out after 30000 ms waiting for the Coach photo finding on
+slide 2", while slide 1 and the iPhone leg passed. The screenshot shows slide 2 on screen and the Coach holding lint's
+`thin-card-no-ink`, but no measured finding. Slide 1's photo is an inline `data:` PNG; slide 2's is `sample:photo-wide.svg`, a
+fetch. `loadPhoto` (`card-ink-sampler.ts`) gave up on a photo after 4 s and returned null, and the watch
+(`coach/photo-contrast-watch.ts`) reads a slide once, so the slide stayed unmeasured until the next edit, though the photo
+arrived a moment later. On Playwright WebKit at the iPad's 1032 px, holding that photo's response 5 s reproduced the exact
+message 2 of 2 times; 2.5 s and no delay passed. The earlier e2e slowed `onload` by 2.5 and 3.5 s, both under the cap, which
+is why it passed.
+
+- **Fixed: no deadline on the photo load.** The image's own `load` or `error` decides. Every caller already drops an answer
+  for a slide it has left, and the editor tooltip says "Checking the photo…" until the photo is in. With the fix, the same
+  harness passes with the photo held 5 s and 12 s, and `photo-contrast-coach.spec.ts` holds the read's photo at the network,
+  fast-forwards the page clock a minute, then releases it and expects the finding (red with the cap put back).
+- **Not changed:** the watch still reads a slide once. A read that runs before the preview has drawn the slide also returns
+  null and is not tried again; it is not what failed here and was not reproduced.
+
+
+## Reproduced under load: the read that ran before the preview drew the slide (2026-11-15)
+
+The gap the entry above left open. `photo-contrast-coach.spec.ts:91` (the 390 px arm, `webkit-phone`) went red once in a full
+`webkit-phone` run at 4 workers, and 13 of 100 times when it ran beside the whole project as load. It passed 20 of 20 alone,
+and on Chromium at 6× and 20× CPU throttling. The trace shows the order: on a phone the deck is typed in Source and the test
+taps Preview. The watch's one read fires 900 ms after the last change, while the pane is still swapping. It finds the preview
+not yet showing the slide and returns null. Switching to Preview changes none of the watch's inputs (slide, mode, palette,
+deck text), so nothing read again, and the Coach never showed the finding. An author on a phone who types in Source and opens
+Preview hits the same thing on a busy device.
+
+- **Fixed: a paint re-reads an unmeasured slide.** `DeckPreview` gains `onPaint`, which fires once the frame SHOWS a render:
+  at commit for a patch, and on the frame's `load` for a full write that still held the old document at commit. `onRender`
+  fires at commit in both cases, so a read on it could still see the old slide (the card checker on #3211). `StudioShell`
+  keeps a listener set on `onPaint` and passes a subscription to `usePhotoContrast`. While
+  the slide's last read came back empty, a paint schedules another read (after the same 900 ms settle). A paint that lands
+  during a read that then comes back empty reads once more, so a read racing the paint cannot strand the slide. A measured
+  slide takes no further reads, and the shell does not re-render on a paint (a listener set, not state).
+- **Pinned by** `coach/photo-contrast-watch.test.tsx`: an empty read and then a paint (red on the old watch), a paint during an
+  empty read (red with the second read removed), no reads after a measured one, and the listener leaving on unmount. And by
+  `DeckPreview.test.tsx`: `onPaint` at commit for a patch (red without the commit call), and not until `load` for a write
+  that still held the old document (red without the stale-document check).

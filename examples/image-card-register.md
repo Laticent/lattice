@@ -12,7 +12,7 @@ image-card: top-right soft sm compact
 
 `image-card: top-right soft sm compact` sets this card, and every image slide after it.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -22,7 +22,7 @@ image-card: top-right soft sm compact
 
 Top right, at 80% strength, in the smaller type.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 ---
 
@@ -32,7 +32,7 @@ Top right, at 80% strength, in the smaller type.
 
 `at-bl` brings this card back to the bottom left; it stays soft, small and compact.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -42,7 +42,7 @@ Top right, at 80% strength, in the smaller type.
 
 `card-lg card-regular` makes this card large and roomy, still top right and soft.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -60,4 +60,4 @@ This prose slide keeps its own bottom-left tint and its regular spacing: the dec
 
 A solid dark card with white words, top right, small and compact from the deck.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)

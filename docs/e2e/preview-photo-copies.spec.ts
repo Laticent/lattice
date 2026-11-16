@@ -3,7 +3,7 @@
 //
 //  1. The copy worker runs in the Studio page, which no frame content-security policy governs. It must never be
 //     handed a web origin the reader did not allow: not through a `style=` inside an image's alt text or a
-//     link's title, not through markup in a comment, not through a `![bg]` from a refused origin. The first
+//     link's title, not through markup in a comment, not through a `bleed` photo from a refused origin. The first
 //     version read markup with regexes and fetched all three (a tracking beacon on open).
 //  2. Only `background` / `background-image` are rewritten: a chart's gradient fill (`fill:url(#…)`) is not a
 //     photo, and the first version blanked it.
@@ -35,7 +35,9 @@ title: Photo copies
 
 ---
 
-![bg](https://evil.example/blocked.jpg)
+<!-- _class: content bleed -->
+
+![Blocked](https://evil.example/blocked.jpg)
 
 ## A web background the reader never allowed
 
@@ -60,7 +62,7 @@ title: Photo copies
 
 ## A real photo
 
-![bg](sample:photo-wide.jpg)
+![A lake](sample:photo-wide.jpg)
 `;
 
 test('photo copies never reach a refused origin, leave chart fills alone, and show the photo as a copy @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {

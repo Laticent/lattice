@@ -4,6 +4,7 @@ import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Ch
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
+import { samplesBaseFor } from '@/lib/samples-base';
 import './asset-render-hook';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -49,6 +50,7 @@ import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensI
 import { fillFromConnections, SELECTION_FILLED_EVENT } from '@/lib/model-selection.js';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
+import { analysisText } from '@/lib/payload-elision';
 import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
@@ -583,6 +585,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		});
 	}, [filo]);
 	/** A `source` the editor has already moved past: one of its own emissions, not the newest. */
+	/** The shell's newest text, which every writer sets before its render (see `latestValue` on the editor). */
+	const latestSource = React.useCallback(() => sourceRef.current, []);
 	const isStaleEditorEcho = React.useCallback((text: string) => {
 		const e = editorEchoesRef.current;
 		return e.length > 0 && text !== e[e.length - 1] && e.includes(text);
@@ -1740,6 +1744,25 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			}),
 		[],
 	);
+	// Lattice's sample art, for `sample:` inside an image reference: the names the site stages beside the files
+	// (docs/scripts/sync-playground-assets.mjs writes samples/index.json), fetched on first use and kept. A failed
+	// fetch is not kept, so the next menu tries again.
+	const samplesListRef = React.useRef<Promise<string[]> | null>(null);
+	const themeBaseForSamples = options?.themeBase ?? null;
+	const completionSamples = React.useCallback(() => {
+		if (!samplesListRef.current) {
+			const base = themeBaseForSamples ? samplesBaseFor(themeBaseForSamples) : undefined;
+			if (!base) return Promise.resolve([] as string[]);
+			samplesListRef.current = fetch(`${base}index.json`)
+				.then((r) => (r.ok ? (r.json() as Promise<unknown>) : Promise.reject(new Error(String(r.status)))))
+				.then((names) => (Array.isArray(names) ? names.filter((n): n is string => typeof n === 'string') : []))
+				.catch(() => {
+					samplesListRef.current = null;
+					return [] as string[];
+				});
+		}
+		return samplesListRef.current;
+	}, [themeBaseForSamples]);
 	// Saved (Fabricated) FINISHES from the same shared library (kind:'finish') — a
 	// finish designed + saved in the Finish faculty lands here, becomes pickable in
 	// the Inspector Finish menu, and renders in the deck preview (its CSS injected +
@@ -1774,6 +1797,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Motion tab shows it under Play/Style/Speed: those three state the intent, this states what
 	// the intent actually produces.
 	const motionTargets = React.useMemo(() => readTargets(source), [source]);
+	// The component catalog is still on its way: no rows yet, a URL to fetch, and retries left (the effect above stops after
+	// four). The editor says "Loading suggestions…" for an empty Ctrl-Space meanwhile, never "No suggestions here".
+	const catalogLoading = !components.length && !!catalogUrl && catalogAttempt <= 3;
 	// The add-slide gallery = your saved local components (first) + the built-in catalog.
 	// Locals carry their own `css` so the gallery previews them STYLED (per-tile extraCss —
 	// the engine theme doesn't know a local `.name` rule).
@@ -2362,7 +2388,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		const id = deck.id;
 		// A deck with no image-shaped web reference never loads the scanner (or the kernel).
-		if (!mayReferenceWebImage(source)) {
+		if (!mayReferenceWebImage(analysisText(source))) {
 			setWebScan({ id, summary: NO_WEB_IMAGES_EAGER });
 			return;
 		}
@@ -4155,6 +4181,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				setDeckHasContent(a.hasContent);
 				setFindings(a.findings);
 				setAssessing(false);
+				// The length of the text this assessment answered for, on the root (as the editor stamps its lint pass,
+				// `data-linted-chars`), so a test can wait for THIS text's assessment instead of racing it: on a deck of
+				// phone photos one pass holds Firefox's main thread for seconds. Read by no app code. Length only, so it tells
+				// apart texts of different lengths only (see the editor's note).
+				rootRef.current?.setAttribute('data-assessed-chars', String(source.length));
 			});
 		}, 400);
 		return () => {
@@ -5218,7 +5249,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		rehoverRef.current?.();
 	}, [viewIndex]);
 	// Each render the live preview commits can change what is under a still pointer, so it asks for one more hit-test too.
+	// The photo verdict (coach/photo-contrast-watch.ts) hears when the preview has painted, so a read that ran before the
+	// paint (a phone swapping from Source to Preview) is taken again. A listener set rather than state: a paint must not
+	// re-render the shell, and the verdict re-reads only while its slide is unmeasured.
+	const previewPaintListeners = React.useRef(new Set<() => void>());
+	const onPreviewPaint = React.useCallback((listener: () => void) => {
+		previewPaintListeners.current.add(listener);
+		return () => {
+			previewPaintListeners.current.delete(listener);
+		};
+	}, []);
 	const onLivePreviewRender = React.useCallback(() => rehoverRef.current?.(), []);
+	// The verdict listens to `onPaint`, not `onRender`: a full write commits before the frame shows the new document, and a
+	// read on the commit could still see the old slide (DeckPreview `firePaint`).
+	const onLivePreviewPaint = React.useCallback(() => {
+		for (const listener of previewPaintListeners.current) listener();
+	}, []);
 	// The holder element itself, for the live pointer layer (which reads pointer moves on it).
 	const previewHolderElRef = React.useRef<HTMLDivElement | null>(null);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
@@ -5282,6 +5328,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						if (holder.style.cursor) holder.style.cursor = '';
 						return;
 					}
+					watchCollagePacks(frame);
 					const overCopy = hoverCodeCopyAt(frame, hoverAt.x, hoverAt.y);
 					const overPhoto = hoverCollageAt(frame, hoverAt.x, hoverAt.y);
 					// The frame takes no pointer events, so its own `cursor:` never applies: the holder wears it.
@@ -5290,6 +5337,27 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				}
 			});
 		};
+		// A COLLAGE THAT PACKS UNDER A STILL POINTER. A live collage lays its photos out only once it has measured them:
+		// the frame's runtime holds the list at `data-collage="measuring"` and, when the last photo's size lands, stamps
+		// the packed grid and sets `packed` or `fallback` (collage.transform.js `stampLive`). That moves every tile, and it
+		// is neither a pointer move nor a render the host commits, so a hit-test run while the photos were still loading
+		// kept its answer: no `zoom-in` over a photo that had since packed under the pointer (collage-lightbox.spec.ts, "a
+		// photo that packs under a still mouse"; the likely cause of the :254 flake). One observer watches the stamp in whichever document the hover last read and asks for one more
+		// hit-test. A full write replaces the document, so the next hit-test moves the observer onto the new one.
+		let watchedDoc: Document | null = null;
+		const packWatch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => scheduleHover());
+		function watchCollagePacks(frame: HTMLIFrameElement) {
+			let doc: Document | null = null;
+			try {
+				doc = frame.contentDocument;
+			} catch (_e) {
+				return; // a cross-origin frame cannot be observed
+			}
+			if (!packWatch || !doc || doc === watchedDoc) return;
+			packWatch.disconnect();
+			packWatch.observe(doc, { subtree: true, attributes: true, attributeFilter: ['data-collage'] });
+			watchedDoc = doc;
+		}
 		const onHover = (e: PointerEvent) => {
 			if (e.pointerType !== 'mouse') return;
 			hoverAt = { x: e.clientX, y: e.clientY };
@@ -5318,6 +5386,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			holder.removeEventListener('pointerleave', onLeave);
 			if (hoverRaf) cancelAnimationFrame(hoverRaf);
 			hoverFrame()?.removeEventListener('load', scheduleHover);
+			packWatch?.disconnect();
+			watchedDoc = null;
 		};
 		// ZOOM owns the preview's whole input stream — swipe and wheel navigation
 		// included. A NATIVE-listener controller rather than the React
@@ -5866,7 +5936,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const activeChunk = slides[activeFullIndex] ?? '';
 	// THE PHOTO VERDICT for the slide on screen (photo-verdict.ts), measured in the preview. One read feeds both views: the
 	// Coach's `photo-contrast` finding and the editor's measured underline and `thin-card-no-ink` fix, so they cannot disagree.
-	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex, source, `${mode}|${palette}|${source}`);
+	// The context is an object, new when the mode, the palette or the deck's text is (anything outside the slide that changes
+	// what the preview paints): a string of all three was built on every render, 16 MB on a deck of phone photos.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the three inputs are the context's identity; the body reads none of them.
+	const photoContext = React.useMemo(() => ({}), [mode, palette, source]);
+	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex, source, photoContext, onPreviewPaint);
 	// The one click the photo verdict offers, the same edit the editor's button makes (photo-verdict.ts `applyFix`). Never
 	// applied on its own. Loaded with the verdict, which is already in memory by the time a button shows.
 	const pinActiveSlide = React.useCallback(
@@ -6332,10 +6406,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		async (draft: string) => {
 			const diagrams = extractDiagrams(draft);
 			const [a, errs] = await Promise.all([
-				assessDeck(draft, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes),
+				// A one-off lane: every draft the agent writes gets its own answer, and none replaces the Coach's pass.
+				assessDeck(draft, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes, null),
 				diagrams.length ? import('./mermaid-parse').then((m) => m.checkDiagrams(diagrams, options?.runtimeUrl ?? '')).catch(() => undefined) : Promise.resolve(undefined),
 			]);
-			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}) };
+			return { findings: a?.findings ?? [], ...(errs ? { diagrams: errs } : {}) };
 		},
 		[lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride, editorPalettes, options?.runtimeUrl],
 	);
@@ -7318,7 +7393,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} latestValue={latestSource} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionSamples={completionSamples} completionLoading={catalogLoading} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too
@@ -7502,7 +7577,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>

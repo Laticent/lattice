@@ -1,3 +1,5 @@
+import { isLiteDevice } from '@/lib/device-lite.js';
+import { ensureDeviceTier } from '@/lib/device-tier';
 import typographyCore from '../../../../lib/core/resolve-typography.js';
 import emojiFacesCore from '../../../../lib/fonts/emoji-faces.js';
 import iconFacesCore from '../../../../lib/fonts/icon-faces.js';
@@ -134,11 +136,28 @@ export type WarmUpInputs = {
 	firstSlide?: Promise<unknown>;
 	/** Resolves at the next quiet moment (`first-slide.ts` › whenQuiet). Passed in for the same reason. */
 	quiet?: () => Promise<unknown>;
+	/** Is this a LITE device? Read after the tier is applied. Injected by tests, so the runner's own machine never decides. */
+	lite?: () => boolean;
 };
 
 /** Start the warm-up. Returns a cancel function. */
-export function startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed, themeBase = null, firstSlide = Promise.resolve(), quiet = () => Promise.resolve() }: WarmUpInputs): () => void {
-	const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+/** Decide the device tier for this visit, after the first slide (device-capability-tiers.md, slice 1b). It rides this
+ * chunk because the chunk already arrives after the first slide, so the profile code adds no startup bytes; the CPU probe
+ * runs in a worker, at most once a day. A failure leaves the tier the page's inline boot script applied. */
+function startTier(): void {
+	try {
+		ensureDeviceTier(window);
+	} catch {}
+}
+
+export function startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed, themeBase = null, firstSlide = Promise.resolve(), quiet = () => Promise.resolve(), lite: isLite = isLiteDevice }: WarmUpInputs): () => void {
+	startTier();
+	// A LITE device prefetches nothing on a guess (device-capability-tiers §4): Compose, Present, the reading view, Fabricate
+	// and the font faces load when first opened. That is Save-Data's list plus Fabricate, which Save-Data keeps for a browser
+	// that has opened it. Read after startTier(), which applies this visit's tier synchronously. The clip notice and hide-ops
+	// stay: they are small, and a first edit needs them.
+	const lite = isLite();
+	const saveData = lite || (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
 	if (katexUrl) katexWarm ??= warmable(() => fetch(katexUrl));
 	// Every runtime-drawn plugin's library (Mermaid's today), beside the runtime — the files the
 	// preview frames' plugin host loads, so the first diagram reads them from cache.
@@ -148,5 +167,5 @@ export function startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fab
 		? []
 		: [composeWarm, presentWarm, readArticleWarm, ...(katexUrl && katexWarm ? [katexWarm] : []), ...(diagramLibs.length && diagramLibWarm ? [diagramLibWarm] : [])];
 	const fonts = !saveData && themeBase ? fontWarmsFor(themeBase, firstSlide, quiet) : [];
-	return warmPanels([clipNoticeWarm, hideOpsWarm, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : []), ...fonts]);
+	return warmPanels([clipNoticeWarm, hideOpsWarm, ...surfaces, ...(fabricateUsed && !lite ? [fabricateWarm] : []), ...fonts]);
 }

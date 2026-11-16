@@ -157,8 +157,14 @@ let cssPromise = null;
 const FACE_URL = new Map(FACES.map((f) => [`${f.family} ${f.weight} ${f.style}`, f.url]));
 const EMBED_FACES = textFacesCore.TEXT_FACES.filter((f) => FACE_URL.has(`${f.family} ${f.weight} ${f.style}`));
 
-async function faceBase64(url) {
-	const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+async function faceBase64(url, { strict = false } = {}) {
+	const res = await fetch(url);
+	// STRICT for the slide map's posters (`buildFamilyFontCss`): an error page is not a font, and a poster drawn without
+	// its face is kept for good, so a failed face must fail the poster. The export path keeps its old behavior, where an
+	// HTTP error is encoded as a face that does not load and the export completes in a fallback face; changing that is
+	// an export-behavior call (followups.d/3212-p3-export-font-http-error.md).
+	if (strict && !res.ok) throw new Error(`font ${url}: HTTP ${res.status}`);
+	const bytes = new Uint8Array(await res.arrayBuffer());
 	return bytesToBase64(bytes);
 }
 
@@ -174,21 +180,91 @@ function buildTextFontCss() {
 	return cssPromise;
 }
 
+// ONE SLIDE'S FACES, for a caller that draws a few faces many times: the slide map's posters
+// (studio/pool-capture.ts). The text rules are the CLI block's, written by the same writer, but only for the faces the
+// slide draws, `{ family (lowercased), weight, style }`, each matched to the vendored face the browser would pick (same
+// style where there is one, the nearest weight), and each face is fetched and encoded once a page. ONLY THE FACES DRAWN,
+// not every weight of a drawn family: the picture's fonts are parsed on the main thread when it is drawn, and embedding
+// every weight made a capture ~150 ms longer at 4x CPU, long enough to make a keystroke wait (typing probe,
+// 2026-11-15-studio-map-load-cost.md). The whole block encodes every vendored
+// face in one go, which on a first capture was a single main-thread task of over a second at 4x CPU
+// (`npm run perf:load`, MAP=1 CPU=4); a slide uses two or three of them. `text` is what the slide draws (its text,
+// pseudo-element content and icon glyphs, as the export's `deckTextOf` reads it): the Lattice Icons faces come with it
+// when it draws an icon, and the Noto Color Emoji slices its emoji need, by the export's own rules (`drawsIcons`,
+// `slicesFor`). Rejects when a face cannot be had, so the caller can refuse to keep a picture drawn without it.
+//
+// ITS OWN CACHE, STRICT, FORGETTING FAILURES. Every face here, text, icon and emoji, is fetched strictly (an HTTP error
+// is a failure, not a face) into `faceRules`, and a failed fetch is dropped so the next capture asks again. It shares
+// nothing with the export's caches (`cssPromise`, `iconCssPromise`, `emojiRules`), so a poster can neither change what
+// an export embeds nor poison an export's cache with a failure (followups.d/3212-p3-export-font-http-error.md).
+const faceRules = new Map();
+function strictRule(key, url, write) {
+	if (!faceRules.has(key)) {
+		const rule = faceBase64(url, { strict: true }).then(write);
+		rule.catch(() => faceRules.delete(key)); // a later capture retries
+		faceRules.set(key, rule);
+	}
+	return faceRules.get(key);
+}
+/**
+ * The weight CSS font matching draws for `want` out of `have` (CSS Fonts 4 §5.2, font-weight). Not "the nearest": from
+ * 400 to 500 the browser tries weights up to 500 first, then lighter ones, then heavier; below 400 it tries lighter then
+ * heavier; above 500, heavier then lighter. So 500 out of {400, 600} is 400, and 520 out of {400, 700} is 700.
+ * Exported for font-embed.family.test.ts.
+ */
+export function cssWeightFor(want, have) {
+	const up = have.filter((w) => w >= want).sort((a, b) => a - b);
+	const down = have.filter((w) => w < want).sort((a, b) => b - a);
+	if (want >= 400 && want <= 500) return up.find((w) => w <= 500) ?? down[0] ?? up[0];
+	return want < 400 ? (have.includes(want) ? want : (down[0] ?? up[0])) : (up[0] ?? down[0]);
+}
+
+/** The vendored face the browser would draw `face` with: its family, the same style if one is vendored, then the weight
+ *  CSS matching picks (`cssWeightFor`). */
+function vendoredFaceFor({ family, weight, style }) {
+	const same = EMBED_FACES.filter((f) => f.family.toLowerCase() === family);
+	const styled = same.filter((f) => f.style === style);
+	const pool = styled.length ? styled : same;
+	if (!pool.length) return null;
+	const w = cssWeightFor(weight, pool.map((f) => f.weight));
+	return pool.find((f) => f.weight === w) ?? null;
+}
+
+export async function buildFamilyFontCss(faces, text = '') {
+	const picked = new Set();
+	for (const face of faces) {
+		const f = vendoredFaceFor(face);
+		if (f) picked.add(f);
+	}
+	const textRules = [...picked].map((f) => {
+		const key = `${f.family} ${f.weight} ${f.style}`;
+		return strictRule(key, FACE_URL.get(key), (b64) => faceRuleCore.faceRuleCss(f, 'swap', b64));
+	});
+	const iconRules = drawsIcons(text) ? ICON_FACES.map((f) => strictRule(`icon ${f.family} ${f.weight} ${f.style}`, f.url, (b64) => faceRuleCore.faceRuleCss(f, 'block', b64))) : [];
+	const need = new Set(emojiCore.slicesFor(text));
+	const emoji = emojiCore.EMOJI_SLICES.filter((sl) => need.has(sl.file)).map((sl) => strictRule(`emoji ${sl.file}`, EMOJI_URL[`../../../assets/fonts/${sl.file}.woff2`], (b64) => emojiRuleCss(sl.range, b64)));
+	// One await over all of them: a text face and an extra that both fail reject once, with nothing left unhandled.
+	return (await Promise.all([...textRules, ...iconRules, ...emoji])).join('');
+}
+
 // Noto Color Emoji ships as 11 unicode-range slices (lib/fonts/emoji-faces.js), the same files the CLI
 // reads from assets/fonts/. Vite bundles them as URLs; an export inlines only the slices its text needs.
 const EMOJI_URL = import.meta.glob('../../../assets/fonts/noto-color-emoji-*.woff2', { eager: true, query: '?url', import: 'default' });
 const emojiRules = new Map();
+
+function emojiRuleCss(range, b64) {
+	return (
+		`@font-face{font-family:'${emojiCore.EMOJI_FAMILY}';font-style:normal;font-weight:400;font-display:swap;` +
+		`src:url(data:font/woff2;base64,${b64}) ${emojiCore.EMOJI_SRC_FORMAT};unicode-range:${range};}`
+	);
+}
 
 async function emojiSliceRule({ file, range }) {
 	if (!emojiRules.has(file)) {
 		const url = EMOJI_URL[`../../../assets/fonts/${file}.woff2`];
 		emojiRules.set(
 			file,
-			faceBase64(url).then(
-				(b64) =>
-					`@font-face{font-family:'${emojiCore.EMOJI_FAMILY}';font-style:normal;font-weight:400;font-display:swap;` +
-					`src:url(data:font/woff2;base64,${b64}) ${emojiCore.EMOJI_SRC_FORMAT};unicode-range:${range};}`,
-			),
+			faceBase64(url).then((b64) => emojiRuleCss(range, b64)),
 		);
 	}
 	return emojiRules.get(file);

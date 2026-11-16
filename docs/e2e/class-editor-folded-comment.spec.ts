@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, openSection, persistedSource, test, typeDeck } from './studio-fixture';
+import { expect, gotoStudio, openSlideLook, persistedSource, test, typeDeck } from './studio-fixture';
 
 // The Studio's class editor reads the comments the ENGINE reads a directive from (lib/core/meta-record.mjs
 // `commentBlocks`, Segno P3): a `_class` comment that an HTML block swallows (`<div>` / `<!-- _class: kpi -->` /
@@ -10,17 +10,6 @@ import { CHROME, expect, gotoStudio, openSection, persistedSource, test, typeDec
 
 const FOLDED = '<div>\n<!-- _class: kpi -->\n</div>\n\n## Folded\n';
 const PLAIN = '<!-- _class: kpi -->\n\n## Plain\n';
-
-async function openSlideLook(page: Page): Promise<void> {
-	// At 390px the bottom bar's Settings opens both scopes behind a Slide | Deck switch.
-	const slideButton = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
-	if (await slideButton.count()) await slideButton.first().click();
-	else {
-		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
-		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
-	}
-	await openSection(page, CHROME.slideTab.look);
-}
 
 const compact = (page: Page) => page.getByRole('switch', { name: 'Compact spacing' }).filter({ visible: true }).first();
 

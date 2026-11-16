@@ -181,7 +181,7 @@ describe('checkVerbatimDistCopies — mode and table', () => {
     // The mirror of the stale-SOURCE arm above, and the hole it closes is worse: a missing
     // copy is TOLERATED (a cold checkout has no dist/), so a typo or a renamed output
     // directory disables an entry permanently and silently. CI always has dist/ — it runs
-    // `build:uncommitted` before `build:check` — so this fires there; it skips on a cold
+    // `build:uncommitted` (npm ci's `prepare`) before `build:check` — so this fires there; it skips on a cold
     // clone rather than failing it. Raised by the maker-checker pass on #2204.
     if (!fs.existsSync(path.join(ROOT, 'dist'))) return;
     const missing = DIST_VERBATIM_COPIES

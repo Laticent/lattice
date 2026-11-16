@@ -115,28 +115,30 @@ test('browserFetchDataUri refuses a non-image (a static host 404 page) and an ov
 	assert.equal((await ok('https://studio.test/x')).dataUri, 'data:image/png;base64,AAAA');
 });
 
-// REAL engine output, not hand-written markup: the engine writes each background twice, once as
-// the declaration and once as a `--background-image:"url(\"…\")"` STRING. Reading the string as a
-// url() fetched `/%22/x/%22` and reported a missing picture on every `![bg]` slide.
-test('engine output: ![bg], ![bg left] and a video poster each fetch ONCE, the real address only', async () => {
+// REAL engine output, not hand-written markup: the engine writes a slide background (a `backgroundImage` directive, and
+// `![bg]` until the engine stopped reading it) twice, once as the declaration and once as a `--background-image:"url(\"…\")"`
+// STRING. Reading the string as a url() fetched `/%22/x/%22` and reported a missing picture on every such slide.
+test('engine output: a directive background, a bleed photo, an image panel and a video poster each fetch ONCE, the real address only', async () => {
 	const { inlineUrlMedia } = await load();
 	const engine = require('../../../lib/engine');
 	const md = [
 		'---', 'theme: indaco', '---', '',
-		'![bg](/img/full.webp)', '', '# Full', '', '---', '',
-		'![bg left](/img/half.webp)', '', '# Half', '', '---', '',
+		'<!-- _backgroundImage: url(/img/directive.webp) -->', '', '# Directive', '', '---', '',
+		'<!-- _class: content bleed -->', '', '![Full](/img/full.webp)', '', '# Full', '', '---', '',
+		'<!-- _class: image mirror -->', '', '![Half](/img/half.webp)', '', '# Half', '', '---', '',
 		'<!-- _class: video -->', '', '## Watch.', '', '`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", poster="/img/poster.webp"}`', '',
 	].join('\n');
 	const { html } = await engine.render(md);
-	const table = Object.fromEntries(['full', 'half', 'poster'].map((n) => [`https://studio.test/img/${n}.webp`, { dataUri: 'data:image/webp;base64,UklG' }]));
+	assert.match(html, /--background-image:&quot;url\(/, 'the informational string this guards is in the engine output');
+	const table = Object.fromEntries(['directive', 'full', 'half', 'poster'].map((n) => [`https://studio.test/img/${n}.webp`, { dataUri: 'data:image/webp;base64,UklG' }]));
 	const fetchDataUri = fakeFetch(table);
 	const r = await inlineUrlMedia(html, { baseUrl: BASE, origins: ORIGINS, fetchDataUri });
 	assert.deepEqual([...fetchDataUri.calls].sort(), Object.keys(table).sort());
 	assert.deepEqual(r.missing, []);
-	assert.equal(r.count, 3);
+	assert.equal(r.count, 4);
 	// Every REAL declaration now carries the picture; only the informational string names the path.
 	const decls = [...r.html.matchAll(/[\s;"]background-image:url\((?:&quot;|["'])?([^"'&)]{0,12})/g)].map((m) => m[1]);
-	assert.ok(decls.length >= 3, `found ${decls.length} background declarations`);
+	assert.ok(decls.length >= 4, `found ${decls.length} background declarations`);
 	assert.ok(decls.every((d) => d.startsWith('data:image/')), decls.join(' | '));
 });
 

@@ -134,7 +134,7 @@
   "commonMistakes": [
     {
       "mistake": "Writing the photos as `![bg](path)` background images.",
-      "fix": "`collage` reads inline photos in a list, one per bullet: `- ![Alt](path.jpg)`. The `bg` syntax belongs to `image`."
+      "fix": "`collage` reads inline photos in a list, one per bullet: `- ![Alt](path.jpg)`. Marp's `bg` keyword is retired: it draws an ordinary picture."
     },
     {
       "mistake": "Nesting a caption under each photo.",

@@ -241,7 +241,7 @@ for (const vw of WIDTHS) {
 	});
 }
 
-// PNG, WebP and GIF are kept as given, but their metadata blocks are cut out (media-scrub.ts). A byte
+// PNG, WebP and GIF are kept as given, but their metadata blocks are cut out (`@laticent/lastra` `cleanerFor`). A byte
 // scrub must leave a picture the browser still decodes, so this drives the real importer and then asks the
 // real decoder, on every engine.
 test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks lose them and still decode @webkit-tablet @gecko', async ({ page }) => {

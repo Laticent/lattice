@@ -1,0 +1,1 @@
+- The Library now keeps a photo as you added it by default: **Keep original** is preselected when you add photos, instead of JPEG. Location and camera details are still removed. A `.lattice` project then carries your originals, and each other export still offers **Smaller file** or **Original quality**. A choice you made before is remembered and still wins.

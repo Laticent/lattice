@@ -29,8 +29,26 @@ describe('StorageOverlay is included on every surface', () => {
 		});
 	}
 
-	it('the .astro wrapper mounts the island client-only', () => {
-		expect(read('components/site/StorageOverlay.astro')).toMatch(/<StorageOverlay\s+client:only="react"\s*\/>/);
+	// The wrapper mounts ONE island that carries both the Storage overlay and the System panel's gate
+	// (SiteDiagnostics.tsx): a second island would add a tag to every page's HTML, and the Studio's HTML
+	// sits at its route-budget ceiling.
+	it('the .astro wrapper mounts the shared island client-only', () => {
+		expect(read('components/site/StorageOverlay.astro')).toMatch(/<SiteDiagnostics\s+client:only="react"\s*\/>/);
+	});
+
+	it('the shared island renders the Storage overlay and the System panel gate', () => {
+		const s = read('components/site/SiteDiagnostics.tsx');
+		expect(s).toMatch(/import StorageOverlay from '\.\/StorageOverlay'/);
+		expect(s).toMatch(/import SystemOverlay from '\.\/SystemOverlay'/);
+		expect(s).toMatch(/<StorageOverlay\s*\/>/);
+		expect(s).toMatch(/<SystemOverlay\s*\/>/);
+	});
+
+	it('the System gate loads its panel lazily, so a page with it off downloads none of it', () => {
+		const s = read('components/site/SystemOverlay.tsx');
+		expect(s).toMatch(/import\('\.\/SystemOverlayPanel'\)/);
+		expect(s).not.toMatch(/from '\.\/SystemOverlayPanel'/);
+		expect(s).not.toMatch(/from '@\/lib\/(device-profile|system-report)'/);
 	});
 });
 

@@ -108,6 +108,10 @@ const STEPS = [
   // early because the collage transform requires `@laticent/mosaico` at load time, so any step
   // that loads the component transforms (the runtime, the CLI, the docs-site cores) needs its dist/.
   { label: 'Mosaico library dist (ESM + CJS + .d.ts)', script: 'build-mosaico-lib.js', uncommitted: true },
+  // Lastra, the image library (2026-11-13-image-library.md). FOREGROUND and early for the same reason: the image
+  // layout's shape (lib/core/image-dimensions.js, which the transformer registry loads) requires `@laticent/lastra`,
+  // and the PDF writer, player-core and CLI bundles inline it through the export spine.
+  { label: 'Lastra library dist (ESM + CJS + .d.ts)', script: 'build-lastra-lib.js', uncommitted: true },
   // Fluido, the fit-policy core (2026-10-27-fluid-layout-library.md). FOREGROUND and early for the
   // same reason: the split kernels require `@laticent/fluido` at load time.
   { label: 'Fluido library dist (ESM + CJS + .d.ts)', script: 'build-fluido-lib.js', uncommitted: true },
@@ -272,6 +276,11 @@ const STEPS = [
   // before anything that copies themes/ into dist/.
   { label: 'categorical on-canvas ink (themes/*.css)', script: 'derive-cat-ink.js' },
   { label: 'chart categorical ink (themes/*.css)', script: 'derive-chart-cat-ink.js' },
+  // The deck lint ruleset's stamps (2026-11-13-squadra-replaces-lint-core.md §3.4): every rule in
+  // lib/authoring/rules/ compiled strictly against its fixtures, and the digests the browser's
+  // `@laticent/squadra/runtime` checks written to verified.generated.json. AFTER the Squadra dist and the
+  // stage catalog: it loads both, and lint's vocabulary reads the generated pane and venue tables.
+  { label: 'deck lint ruleset stamps (lib/authoring/rules/verified.generated.json)', script: 'build-squadra-stamps.js' },
   // THE THREE INDEXES — `uncommitted` + `validates`. Each is generated from a folder of
   // one-file-per-item sources (tools/ headers + package.json scripts, the decision notes,
   // the gotcha topic files) into dist/engineering/, and none is committed: a committed index is a
@@ -427,7 +436,7 @@ async function main(argv) {
   // on a tree that has never been built it fails on the absence of the very files
   // this script exists to produce.
   //
-  // CI uses it as a bootstrap: `build:uncommitted` then `build:check`. That order
+  // CI uses it as a bootstrap: `npm ci` (whose `prepare` runs it) then `build:check`. That order
   // matters and is the whole point — building EVERYTHING first would rewrite the
   // committed artifacts too, so the freshness check after it would compare fresh
   // against fresh and pass vacuously. Generating only the uncommitted half gives
@@ -479,10 +488,17 @@ async function main(argv) {
     // The guard loads the transformer registry, whose collage transform requires
     // `@laticent/mosaico` (2026-10-16-mosaico-layout-library.md).
     'docs/src/lib/mosaico/dist/index.cjs',
+    // …and the image layout's shape reads picture headers through `@laticent/lastra` (2026-11-13-image-library.md).
+    'docs/src/lib/lastra/dist/index.cjs',
     // …and the split kernels require `@laticent/fluido` (2026-10-27-fluid-layout-library.md).
     'docs/src/lib/fluido/dist/index.cjs',
     // …and lint-core's fix path requires `@laticent/squadra/driver` (2026-10-26-squadra-lint-library.md).
     'docs/src/lib/squadra/dist/driver.cjs',
+    // …and the deck ruleset's stamps step compiles with the main entry, and the entry loads the runtime and the
+    // Markdown language (2026-11-13-squadra-replaces-lint-core.md), so a dist built before those entries is cold.
+    'docs/src/lib/squadra/dist/index.cjs',
+    'docs/src/lib/squadra/dist/markdown.cjs',
+    'docs/src/lib/squadra/dist/runtime.cjs',
   ];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');

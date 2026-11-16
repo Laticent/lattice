@@ -729,8 +729,8 @@ const PROBES = {
     // background image and the layout measurement after it — it does not:
     // `wrapImageTextToDom` is pure DOM, folding the slide's prose into a panel and
     // leaving an image-only slide alone. jsdom is enough.
-    body: '![bg](./photo.jpg)\n\n## The site today\n\nTwo thirds of the floor is unused after the move.',
-    // The runtime's input carries no `![bg]`: on the engine side that image is lifted
+    body: '![The site](./photo.jpg)\n\n## The site today\n\nTwo thirds of the floor is unused after the move.',
+    // The runtime's input carries no picture: on the engine side the slide's photo is lifted
     // out of the prose flow before this transform sees it, and marp-core's own
     // advanced-background machinery takes it on the export side. What the row claims
     // is which PROSE nodes get folded, so the probe compares that structure.

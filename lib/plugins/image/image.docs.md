@@ -93,7 +93,7 @@ finished page, and every picture, a plugin's own included, still waits for the r
 
 | Rule | When |
 |---|---|
-| `image-marp-keyword` | A Marp `![bg …](…)` line. Retired: `--fix` rewrites it into the record and moves its placement to the slide (`left` becomes `mirror`; on a slide that is not an `image` slide, the slide gains `bleed`). |
+| `image-marp-keyword` | A Marp `![bg …](…)` line. Retired: `--fix` rewrites it into Markdown's picture, `![title](src)`, which the slide places as it would the record, and moves its placement to the slide (`left` becomes `mirror`; on a slide that is not an `image` slide, the slide gains `bleed`). |
 | `image-not-alone` | A record in running text, which stays code. |
 | `image-extra-panel` | A second photo on a slide that seats one: a second record, which lands over the first, or two `![title](src)` pictures on lines of their own, so neither becomes the photo. |
 | `image-web-source` | A picture from another site. Save it beside the deck instead. |

@@ -263,12 +263,9 @@ const REQUIRED_THEME_TOKENS = Object.freeze([
 // any ad-hoc name. `--fs-scale` is the cqi scale base the 12 derive from. A new
 // `--fs-*` DECLARATION outside this set is the regression this gate blocks;
 // adding a 13th role token is a deliberate act that updates this list + the doc.
-const CANONICAL_FS_TOKENS = Object.freeze(new Set([
-  '--fs-meta', '--fs-body-compact', '--fs-body', '--fs-message', '--fs-emphasis',
-  '--fs-h1', '--fs-h2', '--fs-h3', '--fs-h4', '--fs-h5', '--fs-h6',
-  '--fs-hero',
-  '--fs-scale',
-]));
+// The list lives in lib/core/type-tokens.js, with each token's role, so the Studio's CSS completion
+// offers exactly the names this gate accepts.
+const CANONICAL_FS_TOKENS = require('../lib/core/type-tokens.js').TYPE_TOKEN_NAMES;
 
 // ── Selector parsing (paren-aware) ────────────────────────────────────────
 
@@ -7225,6 +7222,13 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + 'compares like with like. It reads repo-committed decks (and seeded fuzz inputs) and writes nothing; an on-demand diagnostic.',
   },
   {
+    file: 'tools/squadra/corpus.js',
+    why: 'the corpora the Squadra diffs (tools/squadra-reference-diff.js, the lint-core rewrite\'s reference diff) '
+       + 'COMPARE, not author input it renders: the lint unit tests\' own inputs, recorded while they run, and the '
+       + 'tracked decks they are spliced into. It folds them as `lint:deck --fix` folds a deck at its read, so the frozen '
+       + 'lint-core and the new ruleset see the same text; an on-demand diagnostic that writes a report, never a deck.',
+  },
+  {
     file: 'tools/squadra-fix-diff.js',
     why: 'folds the sources it COMPARES, not author input it renders: the lint unit tests\' own '
        + 'inputs (recorded while they run) and the REPO-COMMITTED tracked decks, which `.gitattributes` '
@@ -8464,7 +8468,7 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'The `text` read is `wrapImageText`\'s empty-fold check, which only decides whether to wrap. The `url()` writes are `liftBgImages` (the author\'s `![bg]` markdown, rewritten in the SOURCE before the render) and `resolveInlineImageSrcs`, which maps an address already in the page to the same file and never invents one. The door drops any address a plugin invents (lib/core/door-attr.mjs `doorFilterAttr`) before this pass sees the page.',
+      'The `text` read is `wrapImageText`\'s empty-fold check, which only decides whether to wrap. The `url()` writes are `bgDiv`/`bgPanel`, the panel the Export-to-Marp source lift writes for an author\'s `![bg]` markdown (lib/core/bg-image-lift.js; the engine itself stopped reading `![bg]` on 2026-11-13), and `resolveInlineImageSrcs`, which maps an address already in the page to the same file and never invents one. The door drops any address a plugin invents (lib/core/door-attr.mjs `doorFilterAttr`) before this pass sees the page.',
   },
   {
     file: 'lib/core/css-scan.js',
@@ -8541,11 +8545,11 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   {
     file: 'lib/export/player-images.mjs',
     reads: ['regex'],
-    sinks: { 'set-attribute': 1 },
+    sinks: { 'css-url': 1, 'set-attribute': 1 },
     guards: 0,
     guard: 'none',
     why:
-      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text.',
+      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The `url(${next})` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
   },
   {
     file: 'lib/integrations/markdown-it/plugins.js',
@@ -8872,12 +8876,13 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/transformers/logo-marks.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads back the `--logo-mask:url(\'…\')` it wrote.' },
   { file: 'lib/transformers/prose-projection.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: finds `url(#id)` fragment references, to follow a chart\'s own gradient ids; a fragment never fetches.' },
   { file: 'lib/components/connect/_qr-card/qr-general.transform.js', shape: 'attr-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `<a href>` markdown-it rendered from the card\'s own link, to draw it as a QR code; a link, never fetched.' },
+  { file: 'lib/core/payload-elision.js', shape: 'url-reader', count: 1, why: 'NOT A FETCH DECISION: `OPENER` asks whether a `data:` URI\'s base64 opens where a URL value does (`](`, `url(`, `=`), only to decide which runs the readers may skip and put back; a run it rejects is read whole. The web-image blocker (`blockWebImages`) does not consult it and reads every character (PR #3153).' },
   { file: 'lib/authoring/lint-core.js', shape: 'url-reader', count: 1, why: 'A PREFILTER: `findWebMarkup` skips a deck that holds no tag, no `url(`, no `style:` and no Mermaid fence; everything it lets through is read with `scanHtml` and `cssRefSpans`. A miss here would skip a deck that holds no such text.' },
   { file: 'lib/authoring/lint-core.js', shape: 'attr-reader', count: 1, why: 'LINT, NOT AN ADDRESS: `author-script-defers` tells an inline `<script>` from one with a `src`; it reads no address.' },
   { file: 'lib/core/pdf-compose/read-slide.mjs', shape: 'url-reader', count: 7, why: 'ENGINE-WRITTEN: the PDF composer reads the COMPUTED style of the rendered slide (masks, gradients, backgrounds) to draw native shapes; the render already blocked every web address before it runs.' },
   { file: 'docs/src/lib/calco/picture.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: Calco tests a computed background for the presence of a picture, to pick a tone; a presence test, never a fetch decision.' },
   { file: 'docs/src/lib/calco/reader.ts', shape: 'url-reader', count: 4, why: 'ENGINE-WRITTEN: Calco reads computed styles of the rendered slide (a picture present, an SVG data: mask) to build native shapes; the render already blocked.' },
-  { file: 'docs/src/components/studio/card-ink-sampler.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture off a panel\'s own `style.backgroundImage` (the engine\'s `![bg]` panel) to sample its tone.' },
+  { file: 'docs/src/components/studio/card-ink-sampler.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture off a panel\'s own `style.backgroundImage` (the engine\'s `.lattice-bg` photo panel) to sample its tone.' },
   { file: 'docs/src/components/studio/photo-verdict.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same panel read as card-ink-sampler.ts, for the photo verdict.' },
   { file: 'lib/export/html-player.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: matches the `--background-image:"url(\\"file://…\\")"` marker the engine writes for a local picture, to inline it.' },
   { file: 'lib/export/player-core.mjs', shape: 'url-reader', count: 3, why: 'ENGINE-WRITTEN: two skip url() tokens while minifying the player\'s own sheet; one reads the `@font-face` urls of the player\'s own fonts.' },
@@ -10250,11 +10255,15 @@ function unreadableModuleCalls(src, fileName = 'x.ts') {
  * Report every import in `dir` that leaves it, except a `node:` built-in when `allowNode` and a bare
  * specifier named exactly in `allowBare`. `describe(rel, spec)` writes the error for a boundary hit.
  */
-function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe }) {
+function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe, testHelpers = new Set(), allowBareUnder = new Map() }) {
   if (!fs.existsSync(dir)) return;
   const root = path.resolve(dir);
+  const relToRoot = (abs) => path.relative(root, abs).split(path.sep).join('/');
+  // A helper is named by its `.ts` path; an import may spell it `./x.js`, `./x.ts` or `./x` (extensionless).
+  const isHelper = (abs) => testHelpers.has(relToRoot(abs).replace(/\.[cm]?[jt]sx?$/, '') + '.ts');
   for (const file of listPackageSources(root)) {
     if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
+    if (isHelper(file)) continue; // a test helper with a non-test name, listed by the package's gate
     const rel = relPosix(ROOT, file);
     const raw = fs.readFileSync(file, 'utf8');
     for (const problem of unreadableModuleCalls(raw, file)) errors.push(`${rel} ${problem}`);
@@ -10268,13 +10277,16 @@ function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe
         if (spec.startsWith('.')) {
           const target = path.resolve(path.dirname(file), spec);
           if (target !== root && !target.startsWith(root + path.sep)) errors.push(describe(rel, spec));
-          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec)) {
+          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec) || isHelper(target)) {
             errors.push(`${rel} imports '${spec}', a test module. Test files are not gated, so production code may not reach through one.`);
           }
           continue;
         }
         if (allowNode && spec.startsWith('node:')) continue;
         if (allowBare.has(spec)) continue;
+        // A bare name allowed only below one folder (a package's subpath importing its own root by name).
+        const under = allowBareUnder.get(spec);
+        if (under !== undefined && relToRoot(file).startsWith(under)) continue;
         errors.push(describe(rel, spec));
       }
     }
@@ -10346,6 +10358,30 @@ function checkMosaicoBoundary(errors, dir = MOSAICO_DIR) {
       `dependency-free so it runs the same on the CLI, in the browser and in a worker: every ` +
       `import must resolve inside docs/src/lib/mosaico/ ` +
       `(engineering/decisions/2026-10-16-mosaico-layout-library.md §5).`,
+  });
+}
+
+// ── Lastra (docs/src/lib/lastra) — the image library ─────────────────────────
+// Lastra is bytes in, bytes out: the same header reader, cleaners, resize and writers run on the CLI, in the
+// browser and in a worker, so it has NO dependencies, not even `node:`. Decoding with a canvas, reading a file
+// and the `images:` words belong to Lattice, which calls it (engineering/decisions/2026-11-13-image-library.md §3).
+const LASTRA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lastra');
+function checkLastraBoundary(errors, dir = LASTRA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    // The decoders (`@laticent/lastra/decode`) import the root by the package's own name, so the two entries
+    // share one LastraError; a self-reference resolves inside the folder. Only under decode/: a root-entry file
+    // that imported its own package by name would import itself.
+    allowBareUnder: new Map([['@laticent/lastra', 'decode/']]),
+    // decode/test-support.ts builds fixtures with node:fs and node:zlib for the decode tests. It is excluded
+    // from the package's files, its declarations and check:lastra by name, and production code may not
+    // import it.
+    testHelpers: new Set(['decode/test-support.ts']),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Lastra folder. @laticent/lastra is pure and dependency-free so ` +
+      `it runs the same on the CLI, in the browser and in a worker: every import must resolve inside ` +
+      `docs/src/lib/lastra/ (engineering/decisions/2026-11-13-image-library.md §3).`,
   });
 }
 
@@ -13180,6 +13216,14 @@ const NUL_BINARY_EXTENSIONS = [
   '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
 ];
 
+// Binary extensions that hold only inside one folder: a corpus whose files take a name no other part of
+// the tree should use. Scoped, so a `.z` anywhere else is unclassified and fails the partition test
+// instead of being skipped. `nul-byte-gate.test.js` fails on an entry no tracked file matches.
+const NUL_BINARY_FOLDERS = [
+  // lastra's inflate oracle: raw zlib streams, some deliberately damaged (tools/lastra-corpus/generate.py).
+  { dir: 'docs/src/lib/lastra/decode/fixtures/zlib/', ext: '.z' },
+];
+
 /**
  * The verdict, as a PURE function of a file list and a reader — which is what
  * makes the FAILURE branch exercisable. `checkCommittedPdfs` above carries the
@@ -14555,7 +14599,7 @@ function verbatimCopyProblems(entry, root = ROOT) {
 // guard for this arm alone; every other arm here is mode-blind.
 //
 // WHAT IT CANNOT CATCH, stated because a gate that quietly measures nothing is the
-// failure this repo keeps paying for. On CI the freshness job runs `build:uncommitted`
+// failure this repo keeps paying for. On CI the freshness job's `npm ci` runs `build:uncommitted`
 // BEFORE `build:check`, so dist/ is regenerated from source moments earlier and a
 // hand-edited copy cannot survive to be seen. What survives that bootstrap — and what
 // this arm therefore does catch on CI — is a BUILDER that stops copying verbatim. The
@@ -15443,6 +15487,7 @@ function run() {
   checkSegnoMarkdownBoundary(errors);
   checkFiloCommitPath(errors);
   checkMosaicoBoundary(errors);
+  checkLastraBoundary(errors);
   checkFluidoBoundary(errors);
   checkSquadraBoundary(errors);
   checkPaginationOwners(errors);
@@ -15522,6 +15567,7 @@ module.exports = {
   checkFiloCommitPath,
   SANCTIONED_UNDO_STACKS,
   checkMosaicoBoundary,
+  checkLastraBoundary,
   checkFluidoBoundary,
   checkSquadraBoundary,
   checkPaginationOwners,
@@ -15571,6 +15617,7 @@ module.exports = {
   findNulBytes,
   auditNulBytes,
   NUL_BINARY_EXTENSIONS,
+  NUL_BINARY_FOLDERS,
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,

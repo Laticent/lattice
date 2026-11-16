@@ -1,4 +1,4 @@
-import { expect, gotoStudio, openChatAtWidth, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, isPhone, openChatAtWidth, setEditorContent, test } from './studio-fixture';
 
 // THE MODEL SPINE on the real Studio (engineering/decisions/2026-11-07-studio-model-spine.md).
 //
@@ -89,8 +89,31 @@ async function openWorkspaceAi(page: Page) {
 		await page.getByRole('button', { name: /^(Menu|More controls)$/ }).click();
 		await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
 	}
+	return showWorkspaceAi(page);
+}
+
+/** The open Workspace's AI tab, and its two model cards. */
+async function showWorkspaceAi(page: Page) {
 	await page.getByRole('tab', { name: 'AI' }).click();
 	return { chat: page.getByTestId('chat-model-card'), voice: page.getByTestId('voice-model-card') };
+}
+
+/**
+ * Put the chat away before reaching for the Workspace. On a phone the chat is a bottom sheet, and a phone user leaves
+ * it with its back control, so that is what this taps. Not Escape: a key press makes the focus the sheet hands back to
+ * its launcher a keyboard focus (`:focus-visible`), so the Chat cell's hint opens as it should for a keyboard user
+ * (ui/tooltip.tsx `KeyboardFocusTip`), and at 390px that hint sits over the header's Workspace settings button. Since
+ * #3155 made the sheet's overlay leave after its box, the hint is always up before the overlay is gone, and the click
+ * landed on the hint every run. Wider, the chat sits at the side, where the hint covers no header control, and Escape
+ * closes it.
+ */
+async function closeChat(page: Page) {
+	if (isPhone(page)) {
+		await page.getByRole('dialog', { name: 'Chat' }).getByRole('button', { name: /^Back\b/ }).click();
+		await expect(page.locator('[data-slot="sheet-overlay"]')).toHaveCount(0);
+		return;
+	}
+	await page.keyboard.press('Escape');
 }
 
 async function useBuiltIn(page: Page) {
@@ -175,7 +198,7 @@ test('@crosswidth @webkit-tablet @gecko the chip names the model that answered, 
 	await send(page, 'again');
 	await expect.poll(() => seen.chat.at(-1)).toBe('test/big');
 	// The Workspace shows the same selection (on a phone the chat is a sheet: close it first).
-	await page.keyboard.press('Escape');
+	await closeChat(page);
 	const ws = await openWorkspaceAi(page);
 	await expect(ws.chat.getByTestId('chat-model-card-name')).toHaveText('Big Model');
 });
@@ -404,12 +427,21 @@ test('@crosswidth @webkit-tablet @gecko a chat model the config retires stops ch
 	expect(await page.evaluate(() => (window as unknown as { __promptApiUsed: number }).__promptApiUsed)).toBe(0);
 	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ provider: 'openrouter', model: 'qwen/qwq-32b' });
 	await shot(page, `chat-retired-${page.viewportSize()?.width}`);
-	// On a phone the chat is a sheet, and the first Escape only leaves the composer: press until the sheet is gone.
-	await expect(async () => {
-		await page.keyboard.press('Escape');
-		await expect(page.locator('[data-slot="sheet-overlay"][data-state="open"]')).toHaveCount(0, { timeout: 1000 });
-	}).toPass({ timeout: 10_000 });
-	const ws = await openWorkspaceAi(page);
+	// The refused send opened the Workspace over the chat (ArchitectChat's `onConnect`). On a phone that sheet is what
+	// the author is looking at, so read the AI tab there: going back out to the header's Workspace settings button by
+	// keyboard pops the Chat cell's hint over it (see closeChat). Wider, the first Escape only leaves the composer: press
+	// until every sheet is gone, then open the Workspace from the header.
+	let ws: Awaited<ReturnType<typeof showWorkspaceAi>>;
+	if (isPhone(page)) {
+		await expect(page.getByRole('dialog', { name: 'Workspace' })).toBeVisible();
+		ws = await showWorkspaceAi(page);
+	} else {
+		await expect(async () => {
+			await page.keyboard.press('Escape');
+			await expect(page.locator('[data-slot="sheet-overlay"][data-state="open"]')).toHaveCount(0, { timeout: 1000 });
+		}).toPass({ timeout: 10_000 });
+		ws = await openWorkspaceAi(page);
+	}
 	await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveText('Model retired');
 });
 

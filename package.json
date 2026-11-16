@@ -51,6 +51,7 @@
     "docs/src/lib/calco",
     "docs/src/lib/filo",
     "docs/src/lib/fuoco",
+    "docs/src/lib/lastra",
     "docs/src/lib/lente",
     "docs/src/lib/markup",
     "docs/src/lib/ltt",
@@ -176,6 +177,8 @@
     "cadenza-lib:check": "node tools/build-cadenza-lib.js --check",
     "calco-lib:build": "node tools/build-calco-lib.js",
     "calco-lib:check": "node tools/build-calco-lib.js --check",
+    "lastra-lib:build": "node tools/build-lastra-lib.js",
+    "lastra-lib:check": "node tools/build-lastra-lib.js --check",
     "mosaico-lib:build": "node tools/build-mosaico-lib.js",
     "mosaico-lib:check": "node tools/build-mosaico-lib.js --check",
     "fluido-lib:build": "node tools/build-fluido-lib.js",
@@ -202,6 +205,7 @@
     "squadra-lib:build": "node tools/build-squadra-lib.js",
     "squadra-lib:check": "node tools/build-squadra-lib.js --check",
     "squadra:fix-diff": "node tools/squadra-fix-diff.js",
+    "squadra:reference-diff": "node tools/squadra-reference-diff.js",
     "ltt-lib:build": "node tools/build-ltt-lib.js",
     "ltt-lib:check": "node tools/build-ltt-lib.js --check",
     "ltt-schema:build": "node tools/build-ltt-schema.js",
@@ -386,6 +390,7 @@
     "@laticent/cadenza": "^0.1.0",
     "@laticent/calco": "^0.1.0",
     "@laticent/fluido": "^0.1.0",
+    "@laticent/lastra": "^0.1.0",
     "@laticent/ltt": "^0.1.0",
     "@laticent/markup": "^0.1.0",
     "@laticent/mosaico": "^0.1.0",
@@ -407,7 +412,7 @@
     "parse5": "^8.0.1",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^3.12.0",
-    "puppeteer": "^23.0.0",
+    "puppeteer": "^25.17.0",
     "qrcode": "^1.5.4",
     "quickjs-emscripten-core": "0.31.0",
     "roughjs": "^4.6.6",
@@ -473,6 +478,9 @@
   "overrides": {
     "@mermaid-js/mermaid-cli": {
       "puppeteer": "$puppeteer"
+    },
+    "pptxgenjs": {
+      "image-size": "^2.1.0"
     },
     "marp-core-4.0.1": {
       "@marp-team/marpit": "3.1.2"

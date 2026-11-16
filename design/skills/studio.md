@@ -113,6 +113,17 @@ print, an image set, a `.lattice` project and a Marp bundle. PDF and PowerPoint 
 | ⌘. / Ctrl+. | Quiet the screen to Write; Esc clears it |
 | `?` | The shortcuts list |
 
+In the **editor** (the Markdown source and the CSS fields):
+
+| Keys (Mac / Windows, Linux) | Does |
+|---|---|
+| ⌥Esc or ⌃Space / Ctrl+Space | Show suggestions. macOS takes ⌃Space to switch the keyboard input source unless that shortcut is off, so ⌥Esc is the Mac key that always works |
+| ↩ or Tab / Enter or Tab | Accept the highlighted suggestion |
+| Esc | Close the suggestions |
+
+Where nothing completes, the editor says "No suggestions here". On a blank line of a slide, the key offers what a line
+starts with: a layout directive, a record, a say line, a note, a heading, a list item, a fence, a new slide.
+
 In the **slide strip** (Tab to a slide, then):
 
 | Keys (Mac / Windows, Linux) | Does |

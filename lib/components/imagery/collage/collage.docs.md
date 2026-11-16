@@ -24,7 +24,7 @@ Use when several photographs make the argument together: a product line, a site,
 
 ### Common mistakes
 
-- **Writing the photos as `![bg](path)` background images.** `collage` reads inline photos in a list, one per bullet: `- ![Alt](path.jpg)`. The `bg` syntax belongs to `image`.
+- **Writing the photos as `![bg](path)` background images.** `collage` reads inline photos in a list, one per bullet: `- ![Alt](path.jpg)`. Marp's `bg` keyword is retired: it draws an ordinary picture.
 - **Nesting a caption under each photo.** A collage has no per-photo captions. Write one description paragraph after the title and subtitle.
 - **Writing hints that are not on the hint list, such as `big` or `centre`.** An unknown word voids the whole span: nothing in it applies and nothing is drawn for it. Lint names the word. The words are `hero`, `top`, `bottom`, `left`, `right`, `center` and a ratio like `3:2`.
 

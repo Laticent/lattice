@@ -64,7 +64,7 @@ The deck-wide registers and every structural transform make it. Six constructs d
 
 The `![bg]` lift is baked into the exported deck; the text panel is folded by the runtime. Either one alone renders wrong.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 ---
 

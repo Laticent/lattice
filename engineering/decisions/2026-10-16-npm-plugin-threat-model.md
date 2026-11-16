@@ -304,6 +304,12 @@ runners: the `os-sandbox-measure` platform suite (`.github/platform-suites.json`
 Windows, its control reads a `--no-sandbox` browser as `false`, and the npm admission test runs the real
 door on both.
 
+*Amended 2026-11-15:* on Windows a renderer that is still starting is listed `Not Sandboxed`, its other
+columns empty, until the browser applies its policy (a windows-2025 runner: 1 read in 40, and the launch
+then measured OFF). `judgeWindowsReads` reads the page again, and a renderer counts as unsandboxed only
+when the same process reads so in two reads in a row, as every renderer of a `--no-sandbox` browser does.
+A reading that never settles in five reads fails closed (`false`), so the default stays refusal.
+
 **One approval per pin** (2026-10-19, was one per name). `lattice packages fetch` and `trust plugin/<name> <dir>`
 grant an npm plugin's approval with `keep` (`lib/packages/trust.js`): the earlier approvals of that name stay under its
 entry's `pins`, most recent first, up to eight, each with the OS layer it was approved at. Two projects that pin

@@ -465,7 +465,7 @@ type ScannedTag = { nameEnd: number; name: string; attrs: ScannedAttr[] };
 export type RemoteRefLike = {
 	// remote-ref.js declares its tags as plain objects (its JSDoc); they carry the ScannedTag fields.
 	scanHtml: (html: string) => { tags: object[]; risky: boolean };
-	decodeEntitiesMapped: (v: string, opts?: { attribute?: boolean }) => { text: string; map: number[] };
+	decodeEntitiesMapped: (v: string, opts?: { attribute?: boolean }) => { text: string; map: ArrayLike<number> };
 	cssRefSpans: (css: string) => CssSpan[];
 	withOwnOrigin: (allowed: string[]) => string[];
 	webOrigin: (u: string) => string | null;

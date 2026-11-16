@@ -186,8 +186,14 @@ if (existsSync(fmtDir)) {
 // insert skeletons named `logo-1.svg` and `portrait.jpg`, which existed nowhere) failed
 // silently. One folder is the whole contract now: a file in it is servable, one outside is not.
 const samplesDir = join(repoRoot, 'lib', 'samples');
+// The names, for the Studio editor's `sample:` completion (docs/src/components/studio/editor-complete.ts
+// `makeAssetCompletion`): staged as samples/index.json below, read from the site on first use.
+const sampleNames = [];
 for (const file of readdirSync(samplesDir)) {
-  if (/\.(svg|png|jpe?g|webp|gif)$/i.test(file)) assets.push([`samples/${file}`, join(samplesDir, file)]);
+  if (/\.(svg|png|jpe?g|webp|gif)$/i.test(file)) {
+    assets.push([`samples/${file}`, join(samplesDir, file)]);
+    sampleNames.push(file);
+  }
 }
 // The names the site served BEFORE the move, kept so a deck someone saved in the Studio from
 // an old component sample or gallery (`![](ada.svg)`, `![bg](image/sample-photo-wide.svg)`)
@@ -350,6 +356,7 @@ for (const { slug } of exampleDecks) {
 // The curated showcase + family decks stage the same way, under galleries/curated/ so an
 // example slug can never collide with a curated id. The route's props carry only id/label/slides.
 generated.push(
+  ['samples/index.json', JSON.stringify(sampleNames.sort())],
   ...loadGalleries(repoRoot).map((g) => [`galleries/curated/${g.id}.md`, g.source]),
   ['galleries/index.json', JSON.stringify(exampleDecks.map(({ slug, title, slides }) => ({ id: slug, title, slides })))],
   ...exampleDecks.map((d) => [`galleries/${d.slug}.md`, d.source]),

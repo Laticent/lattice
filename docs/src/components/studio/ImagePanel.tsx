@@ -1,14 +1,14 @@
 // THE IMAGE EDITOR — point and click, never type the syntax.
 //
 // The image's panel in Compose's editor host (InlineObjectEditor.tsx): which photo, what it shows (the description a screen
-// reader says), and, for a background, which side of the slide it takes. Design:
+// reader says), and where the slide places it. Design:
 // engineering/decisions/2026-10-21-compose-point-and-click.md §6.
 //
 //   · `ImagePanel` is the controls and nothing else. It is handed the image's attributes and reports one change per pick
 //     (`{ alt }`, `{ src }`); the host writes it through `editImage` (lib/compose/image-objects.ts), which replaces the node as its
 //     own undo step.
-//   · A background's alt text is a directive (`bg right:40%`), not a description. The panel shows its side as three chips and
-//     writes only the side word, so every other keyword the author typed (`blur`, a share) survives.
+//   · An old Marp picture's alt text is a keyword (`bg right:40%`), not a description, so it gets no description row. Lattice draws
+//     it as a picture in the text since 2026-11-13; the Placement chips turn it into the slide's photo (`placeImage`).
 //   · "Replace photo" opens the same picker the Image door uses (PhotoPicker.tsx). The host holds the editor open while it is up.
 //   · "Remove" takes the image off the slide. The slide's other settings (the card, its band and opacity) stay in the slide
 //     settings panel, which a layout like `image` already has.
@@ -104,7 +104,11 @@ export function ImagePanel({ fields, onEdit, onRemove, onDone, holdOpen, onOpenL
 								else setRefused(null);
 							}}
 						/>
-						<p className="text-[11px] text-muted-foreground">The slide places the photo: beside the text, behind it, or in it.</p>
+						<p className="text-[11px] text-muted-foreground">
+							{background
+								? 'Written with Marp’s retired bg keyword, so it shows in the text. Pick where the slide places it.'
+								: 'The slide places the photo: beside the text, behind it, or in it.'}
+						</p>
 					</Field>
 				) : null}
 				{background ? null : (

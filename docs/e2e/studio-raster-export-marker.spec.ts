@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import JSZip from 'jszip';
-import { expect, gotoStudio, persistedSource, setEditorContent, shareExport, test } from './studio-fixture';
+import { expect, gotoStudio, persistedSource, shareExport, test, typeDeck } from './studio-fixture';
 
 // THE RASTER EXPORTS SHOW A READER THE EXPORT SETTING'S MARKER, NOT THE AUTHOR'S (followups.d/2739-p6).
 // The Studio's PDF, images and PowerPoint exports rasterize a capture frame whose runtime paints the
@@ -28,15 +28,6 @@ async function leftEdge(page: import('@playwright/test').Page, png: Buffer): Pro
 		const d = ctx.getImageData(1, Math.floor(bmp.height / 2), 1, 1).data;
 		return [d[0], d[1], d[2]] as [number, number, number];
 	}, png.toString('base64'));
-}
-
-/** Write the deck at any width: at phone width the editor sits behind the Source cell, so open it and come back to Preview. */
-async function writeDeck(page: import('@playwright/test').Page, md: string): Promise<void> {
-	// The editor is on screen at desktop width; at phone width it is behind the Source cell.
-	const phone = !(await page.getByLabel('Deck source').isVisible());
-	if (phone) await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
-	await setEditorContent(page, md);
-	if (phone) await page.getByRole('button', { name: 'Preview', exact: true }).click();
 }
 
 const isAuthorRed = ([r, g, b]: [number, number, number]) => r > 180 && g < 100 && b < 80;
@@ -65,7 +56,10 @@ const isPill = ([r, g, b]: [number, number, number]) => !(r > 240 && g > 240 && 
 
 async function exportOverflowDeck(page: import('@playwright/test').Page, format: 'pdf' | 'images' | 'pptx' | 'print') {
 	await gotoStudio(page);
-	await writeDeck(page, DECK);
+	// `typeDeck` picks the phone path by the viewport's width. The helper it replaces asked whether the editor was
+	// visible at one instant, and on a loaded runner the desktop editor was not yet on screen, so it took the phone path
+	// and waited for a "Preview" button only the phone layout has (1 of 30 loaded runs, 2026-11-12).
+	await typeDeck(page, DECK);
 	await expect.poll(() => persistedSource(page)).toContain('# Overflows');
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const download = page.waitForEvent('download', { timeout: 240_000 });

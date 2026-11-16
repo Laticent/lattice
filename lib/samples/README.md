@@ -5,7 +5,7 @@ portraits, logos and video poster that the component templates, the galleries an
 decks show. A deck names one with `sample:` and the file name:
 
 ```markdown
-![bg](sample:photo-wide.svg)
+![A lake at dusk](sample:photo-wide.svg)
 - ![Acme](sample:logo-acme.svg)
   - ![](sample:portrait-ada.svg)
 logo: sample:logo-acme-mark.svg

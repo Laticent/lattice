@@ -7,14 +7,14 @@ import { CHROME, expect, gotoStudio, persistedSource, test, typeDeck } from './s
 
 // `card-clear` drops the card's backing, so the theme's own (dark, in light mode) ink sits on a dark photo.
 // A heading alone, so the pin's verdict is the heading's: the theme's muted body ink is a second text the pin must also clear.
-const DARK_PHOTO_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![bg](sample:photo-wide.svg)\n';
+const DARK_PHOTO_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n';
 // With a paragraph the muted body ink on this photo stays under 4.5:1 even pinned dark, so no pin is offered: the card ink is.
-const BODY_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\nThe words sit right on the photo.\n\n![bg](sample:photo-wide.svg)\n';
+const BODY_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\nThe words sit right on the photo.\n\n![A harbor](sample:photo-wide.svg)\n';
 // The mirror case: a bright photo under light ink (a dark deck), where the fix is to pin the slide light.
 const BRIGHT_PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA1klEQVR42u3SMQ0AAAgEsfcvEwEMKMADYWxSBZfLdMFZJMBAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgPi0bG28SdoIc2AAAAABJRU5ErkJggg==';
-const BRIGHT_PHOTO_DECK = `---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![bg](${BRIGHT_PHOTO})\n`;
+const BRIGHT_PHOTO_DECK = `---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![A harbor](${BRIGHT_PHOTO})\n`;
 // A solid card carries the theme's own contrast, whatever the photo is.
-const SOLID_CARD_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight -->\n\n## A quiet harbor.\n\nThe words sit on a card.\n\n![bg](sample:photo-wide.svg)\n';
+const SOLID_CARD_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight -->\n\n## A quiet harbor.\n\nThe words sit on a card.\n\n![A harbor](sample:photo-wide.svg)\n';
 
 async function openCoach(page: import('@playwright/test').Page): Promise<void> {
 	const coach = page.getByRole('button', { name: CHROME.coach }).filter({ visible: true });
@@ -224,7 +224,7 @@ test('a deck-level image-card register change clears the finding without touchin
 
 // The preview follows the caret even where it is parked (the phone's Source tab): crossing to a slide draws it once, and the
 // editor re-lints after, so the tooltip for the slide the caret is on reads ITS photo and offers the single ink.
-const THREE = ['---\ntitle: Photos\n---\n', ...[1, 2, 3].map((n) => `\n<!-- _class: image spotlight card-clear -->\n\n## Slide ${n}\n\n![bg](sample:photo-wide.svg)\n`)].join('\n---\n').replace('---\n\n---\n', '---\n\n');
+const THREE = ['---\ntitle: Photos\n---\n', ...[1, 2, 3].map((n) => `\n<!-- _class: image spotlight card-clear -->\n\n## Slide ${n}\n\n![A harbor](sample:photo-wide.svg)\n`)].join('\n---\n').replace('---\n\n---\n', '---\n\n');
 for (const width of [1440, 390]) {
 	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
 	test(`moving the caret to another slide gives that slide's tooltip the single ink (${width}px)${engines}`, async ({ page }) => {
@@ -415,7 +415,7 @@ test('a statement the Coach flags is underlined in the editor too, and the edito
 	await expect(finding).toContainText('Setting the card ink dark', { timeout: 20_000 });
 	const said = (await finding.textContent())?.trim() ?? '';
 
-	const underline = page.locator('.cm-line', { hasText: '![bg]' }).locator('.cm-lintRange-warning');
+	const underline = page.locator('.cm-line', { hasText: '![A harbor]' }).locator('.cm-lintRange-warning');
 	await expect(underline).toHaveCount(1, { timeout: 20_000 });
 	await underline.hover();
 	const tip = page.locator('.cm-tooltip-lint');
@@ -423,7 +423,7 @@ test('a statement the Coach flags is underlined in the editor too, and the edito
 	await tip.locator('.cm-diagnosticAction', { hasText: 'Set card ink dark' }).click();
 	await expect.poll(() => persistedSource(page)).toMatch(/_class: image statement card-clear ink-dark/);
 	await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
-	await expect(page.locator('.cm-line', { hasText: '![bg]' }).locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
+	await expect(page.locator('.cm-line', { hasText: '![A harbor]' }).locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
 });
 
 // The fix lands on the slide you are looking at, and the preview STAYS there. A one-slide edit used to rewrite the whole
@@ -445,18 +445,50 @@ test('a Coach fix on the first slide keeps the preview on that slide', async ({ 
 	await expect(label).toContainText('Slide 1 / 2');
 });
 
+// A photo that arrives late is still measured, however late. The read used to give up on the photo after 4 s and was never
+// tried again for that slide, so on a cold iPad simulator (the ios-safari-photo nightly at 985dfba) slide 2 never got its
+// finding. Hold the photo for the Coach's read at the network, jump the page's clock far past any deadline with it still
+// held (advanced, not waited for: HARD RULE #32), then let it through: the finding must land.
+test('a photo that arrives after a long wait is still measured, and the Coach shows its finding', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.clock.install();
+	let release!: () => void;
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	let readAsked = false;
+	await page.route('**/samples/photo-wide.svg', async (route) => {
+		// The preview frame's own loads go through; the Studio page's load of the photo is the Coach's read.
+		if (route.request().frame() === page.mainFrame()) {
+			readAsked = true;
+			await held;
+		}
+		await route.continue();
+	});
+	await gotoStudio(page);
+	await typeDeck(page, DARK_PHOTO_DECK);
+	await expect.poll(() => readAsked, { timeout: 20_000 }).toBe(true);
+	await page.clock.fastForward(60_000);
+	release();
+	await openCoach(page);
+	await expect(page.getByText(/^The text on this photo reads at [\d.]+:1 \(needs 4\.5:1\)/).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
+});
+
 // A tooltip opened BEFORE the slide on screen is measured must not go on disagreeing with the Coach while it stays open: when
-// the measured verdict lands, it takes the Coach's words and button in place. Every photo read is slowed from the first
-// script, so the tooltip opens first.
+// the measured verdict lands, it takes the Coach's words and button in place. The Coach's read of the photo is held at the
+// network until the tooltip is open, so the tooltip opens first by construction. A fixed head start (every photo load
+// slowed 2.5 s) raced the lint, which runs in a worker since PR #3153: on a loaded runner the lint could land after the
+// measurement, and the tooltip opened on the Coach's words already (HARD RULE #32: wait for a signal, not a duration).
 test('a tooltip opened before the measurement takes the Coach words when it lands', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
-	await page.addInitScript(() => {
-		Object.defineProperty(HTMLImageElement.prototype, 'onload', {
-			configurable: true,
-			set(fn: (e: Event) => void) {
-				this.addEventListener('load', (e: Event) => setTimeout(() => fn.call(this, e), 2500));
-			},
-		});
+	let release!: () => void;
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	await page.route('**/samples/photo-wide.svg', async (route) => {
+		// The preview frame's own loads go through; the Studio page's load of the photo is the Coach's read.
+		if (route.request().frame() === page.mainFrame()) await held;
+		await route.continue();
 	});
 	await gotoStudio(page);
 	await typeDeck(page, BODY_DECK);
@@ -467,6 +499,7 @@ test('a tooltip opened before the measurement takes the Coach words when it land
 	await page.evaluate(() => {
 		(window as unknown as { __tip: Element | null }).__tip = document.querySelector('.cm-tooltip-lint');
 	});
+	release();
 	await expect(tip).toContainText(/The text on this photo reads at/, { timeout: 20_000 });
 	expect(await page.evaluate(() => (window as unknown as { __tip: Element | null }).__tip === document.querySelector('.cm-tooltip-lint')), 'the tooltip was replaced, not upgraded in place').toBe(true);
 	// The measured sentence the tooltip took: "The text on this photo reads at N:1 (needs 4.5:1)."

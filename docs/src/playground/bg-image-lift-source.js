@@ -1,6 +1,6 @@
 // WHERE THE MARP EXPORT'S `![bg]` LIFT COMES FROM, in the browser: `esm/bg-image-lift.js`, an entry of the ESM
-// engine build (tools/build-playground.js). Every render lifts `![bg]` on the engine's own tokens; only the Marp
-// bundle, which ships Markdown, rewrites the source (lib/core/bg-image-lift.js). So the line walk is its own
+// engine build (tools/build-playground.js). No render of ours reads `![bg]` (the engine stopped on 2026-11-13); only the Marp
+// bundle, which ships Markdown that Marp reads, rewrites the source (lib/core/bg-image-lift.js). So the line walk is its own
 // load: not in the engine's byte budget (docs/route-budget.json engineJsGz), and not a CommonJS file with
 // requires imported from docs/src, which the dev server cannot serve (vite-cjs-lib-dev.mjs).
 //

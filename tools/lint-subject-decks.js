@@ -22,11 +22,6 @@ const SANCTIONED_SUBJECT_DECKS = Object.freeze([
     why: 'the demo deck for followups.d/2609-p2: it shows a chart drawing no value for `--5`, `(840` and `1,2,3`, so the warning is the point',
   },
   {
-    file: 'examples/bg-split-ratio.md',
-    rule: 'bg-ratio-unread',
-    why: 'the demo deck for followups.d/2739-p4: it shows `![bg left:40%]` keeping its panel at the layout\'s own share, so the note that the ratio is not read is the point',
-  },
-  {
     file: 'examples/web-images.md',
     rule: 'web-image',
     why: 'the demo deck for web images: it shows the placeholder an image from another site becomes, so every slide that carries one is the point (security spine S1)',

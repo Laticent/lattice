@@ -68,7 +68,7 @@ The scoring model is the most configurable component, and therefore the most arg
 
 Think deeper, plan longer, decide once — the mandate fit on a napkin, so the venue got two days. The lake was booked for inspiration and used mostly for phone calls.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 

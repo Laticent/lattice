@@ -16,7 +16,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 | Slot | Selector | Required | Description |
 |---|---|---|---|
-| `image` | `.lattice-bg` | yes | Marp background image syntax: `![bg](path)` or `![bg right](path)` — rendered as a CSS background-image on the `.lattice-bg` panel (no `<img>`). To try a composition before you have the photo, use a sample: `![bg](sample:photo-wide.svg)`, or `photo-tall`, `photo-pano` and `photo-square` (the full set is in `lib/samples/README.md`). |
+| `image` | `.lattice-bg` | yes | The photo, as Markdown's picture alone on its line: `![A name](path "A longer description")`. The slide places it on its photo panel (`mirror` moves the panel to the left). To try a composition before you have the photo, use a sample: `![A lake at dusk](sample:photo-wide.svg)`, or `photo-tall`, `photo-pano` and `photo-square` (the full set is in `lib/samples/README.md`). The `@image{…}` record places the same way and takes a frame, a finish and a tone. |
 | `heading` | `h2` | no | Optional heading in the text slot. |
 | `body` | `p` | no | Optional caption or body text. |
 
@@ -36,7 +36,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 ### Common mistakes
 
-- **Giving the photo a second lone picture, or putting Marp's side keywords in its alt (`![bg left](path)`).** The photo is the slide's ONE lone picture: `![A name](path "A longer description")` alone on its line, or `@image{path, title="…"}`. The slide places it on its panel, and `mirror` moves it to the left. A second lone picture, or a `![bg]` or record already on the slide, keeps the other picture in the text, and an `http:` address is not placed (use `https:`). `![bg]` still renders until the deck sweep moves it to the slide's class.
+- **Giving the photo a second lone picture, or putting Marp's side keywords in its alt (`![bg left](path)`).** The photo is the slide's ONE lone picture: `![A name](path "A longer description")` alone on its line, or `@image{path, title="…"}`. The slide places it on its panel, and `mirror` moves it to the left. A second lone picture, or a `![bg]` or record already on the slide, keeps the other picture in the text, and an `http:` address is not placed (use `https:`). `lint:deck --fix` rewrites an old `![bg …]` line into the picture and the slide's class.
 - **Naming a composition class (`image spotlight`, `image gallery`, …) reflexively instead of leaving it unset.** The composition RESOLVES from the photo's own aspect ratio plus the deck orientation — an explicit class always wins over the resolver, so naming one out of habit can force a crop (e.g. `spotlight`'s full-bleed cover) that the auto-picked `clean`/`split` composition would have avoided.
 - **Adding a card control (`at-*`, `card-*`, `ink-*`) to a `clean`, `split` or `gallery` slide.** Those compositions set the text beside the photo, not over it, so there is no card to move. The card controls act only on `spotlight` and `statement` — name one of those first: `image spotlight at-tr card-sm`.
 
@@ -59,9 +59,9 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 ## Text leads; the image earns its place.
 
-Swap the bg image below for your own asset — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.
+Swap the picture below for your own photo, and name it — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ## Anatomy
@@ -93,7 +93,7 @@ Drops the caption chrome.
 
 Two-thirds of trials that reach the first generated report convert; the ones that stall almost never do.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `split` — split
@@ -107,7 +107,7 @@ A portrait gets its full column.
 
 A portrait photo wants its full height. We give it a column and let the argument run alongside.
 
-![bg](sample:photo-tall.svg)
+![A figure before violet hills and a pale sun](sample:photo-tall.svg)
 ```
 
 ### `spotlight` — spotlight
@@ -121,7 +121,7 @@ A panorama owns the frame.
 
 When the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.
 
-![bg](sample:photo-pano.svg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.svg)
 ```
 
 ### `gallery` — gallery
@@ -135,7 +135,7 @@ The exhibit on a matte with a placard.
 
 The whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.
 
-![bg](sample:photo-square.svg)
+![A figure on a green shore under a pale sun](sample:photo-square.svg)
 ```
 
 ### `statement` — statement
@@ -149,7 +149,7 @@ The title rides the photo on a scrim.
 
 The title rides the photo on a scrim — a deliberate, editorial choice.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `mirror` — mirror
@@ -163,7 +163,7 @@ The image lands on the left.
 
 Text leads from the right; image anchors from the left.
 
-![bg left](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `at-tl` — Top left
@@ -177,7 +177,7 @@ The text card sits in the top-left corner.
 
 Move the card to wherever the photo is quiet, so the subject keeps the frame.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `at-top` — Top center
@@ -191,7 +191,7 @@ The text card sits centered along the top.
 
 The scrim follows the words to the top edge.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `at-tr` — Top right
@@ -205,7 +205,7 @@ The text card sits in the top-right corner.
 
 The subject sits low and left, so the words take the open sky.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `at-center` — Center
@@ -219,7 +219,7 @@ The text card sits in the middle of the slide.
 
 A radial scrim darkens only the middle.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `at-bl` — Bottom left
@@ -233,7 +233,7 @@ The text card sits in the bottom-left corner — the default.
 
 Name it to return a slide to bottom left inside a deck that moved it.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `at-bottom` — Bottom center
@@ -247,7 +247,7 @@ The text card sits centered along the bottom.
 
 A caption band under the subject, centered on the slide.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `at-br` — Bottom right
@@ -261,7 +261,7 @@ The text card sits in the bottom-right corner.
 
 The scrim flips to darken the right side.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `card-solid` — Solid backing
@@ -275,7 +275,7 @@ The card or scrim at full strength — the default.
 
 Full legibility over any photo. This is the default.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `card-soft` — Soft backing
@@ -289,7 +289,7 @@ The card or scrim at 80%, so the photo glows through.
 
 The panel drops to 80% and loses its lift shadow.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `card-sheer` — Sheer backing
@@ -303,7 +303,7 @@ The card or scrim at 55%, a tint more than a panel.
 
 At 55% the photo reads through; pair it with an ink that suits the photo.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `card-clear` — Clear backing
@@ -317,7 +317,7 @@ No card and no scrim: the words ride the photo.
 
 Only for a photo with a calm, dark patch where the words land.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `ink-light` — Light ink
@@ -331,7 +331,7 @@ White words on a dark backing.
 
 The card turns dark to match, whatever the deck palette.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `ink-dark` — Dark ink
@@ -345,7 +345,7 @@ Near-black words on a light backing.
 
 For a bright photo: the scrim turns light and the title goes dark.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `card-sm` — Small card
@@ -359,7 +359,7 @@ A narrower card with smaller type, so the photo breathes.
 
 Smaller type and a narrower card leave the photo the slide.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `card-md` — Medium card
@@ -373,7 +373,7 @@ The default card width and type.
 
 Name it to return a slide to the default inside a deck that resized it.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `card-lg` — Large card
@@ -387,7 +387,7 @@ A wider card with larger type, for a message that leads.
 
 Wider card, bigger heading, room for a longer line.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `card-regular` — Regular density
@@ -401,7 +401,7 @@ The default card spacing, so one slide can step out of a deck-wide compact.
 
 In a deck that sets `image-card: compact`, this slide keeps the roomier card.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `band` — Full-width band
@@ -415,7 +415,7 @@ Stretches the card across the slide along the top or bottom edge, so the middle 
 
 The heading takes the left column and the text the right, in one short strip along the edge.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ### `card-float` — Floating card
@@ -429,7 +429,7 @@ The default floating card, so one slide can step out of a deck-wide band.
 
 In a deck that sets `image-card: bottom band`, this slide keeps the floating card.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```
 
 ## Media inside

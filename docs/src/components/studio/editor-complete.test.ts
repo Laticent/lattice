@@ -4,12 +4,14 @@ import { createRequire } from 'node:module';
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 
 import { readFileSync } from 'node:fs';
-import { CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import { CompletionContext, type CompletionResult, type CompletionSource } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
+import { playgroundCompletionSources } from '@/playground/complete.js';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
-import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
+import lintCore from '../../../../lib/authoring/lint-core.js';
+import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, frontMatterKeysSet, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -36,10 +38,8 @@ describe('makeStudioCompletion', () => {
 		expect(r?.from).toBe('<!-- _class: '.length);
 	});
 
-	it('completes fenced-block languages after ```', () => {
-		const r = complete('```');
-		expect(labels(r)).toContain('mermaid');
-		expect(labels(r)).toContain('chart');
+	it('leaves fenced-block languages to the shared source (context-sources.js)', () => {
+		expect(complete('```')).toBeNull();
 	});
 
 	it('completes front-matter keys inside the --- block', () => {
@@ -782,5 +782,154 @@ describe('marks: completes one word per axis', () => {
 		expect(nextAxisWords('marks', 'pigment ', words)).toEqual(['muted', 'vivid']);
 		expect(nextAxisWords('marks', 'vivid ', words)).toEqual(['pigment', 'etch', 'tone']);
 		expect(nextAxisWords('marks', 'etch vivid', words)).toEqual([]);
+	});
+});
+
+// Slice 1 of the autocomplete audit (engineering/decisions/2026-11-13-studio-autocomplete-audit.md): the Studio's deck
+// editor and the Playground's run the same slide-context sources (playground/context-sources.js). Each probe asks every
+// source an EXPLICIT question (Ctrl-Space) at the end of `doc`, the way CodeMirror does, and merges what they answer.
+describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
+	const CATALOG = [
+		{ name: 'cards-grid', bucket: 'inventory', description: 'Cards', skeleton: '<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body.' },
+		{ name: 'table', bucket: 'evidence', description: 'A table', skeleton: '<!-- _class: table -->\n\n| a | b |', focusAxes: ['row', 'col', 'cell'] },
+		{ name: 'map', bucket: 'chart', description: 'A map', skeleton: '<!-- _class: map -->\n\n- California: 4' },
+		{ name: 'flowchart', bucket: 'chart', description: 'A flowchart', skeleton: '<!-- _class: flowchart -->\n\n- A -> B' },
+	];
+	const lintVocab = buildVocab();
+	// The flowchart words come through the lint core; here it is loaded directly rather than through the site's lazy door.
+	const loadFlowchart = async () => lintCore;
+	const studio = studioCompletionSources(makeStudioCompletion(CATALOG), () => null, CATALOG, registerValueLists(lintVocab), loadFlowchart);
+	const playground = playgroundCompletionSources({ catalog: CATALOG, vocab: lintVocab, loadFlowchart });
+	async function ask(sources: CompletionSource[], doc: string): Promise<string[]> {
+		const context = new CompletionContext(EditorState.create({ doc }), doc.length, true);
+		const got = await Promise.all(sources.map((s) => s(context)));
+		return got.flatMap((r) => (r ? r.options.map((o) => o.label) : []));
+	}
+	const FM = '---\ntitle: T\n---\n\n';
+	const FLOW = `${FM}<!-- _class: flowchart -->\n\n## Flow\n\n- Storefront => Payments\n- Payments\n- Ledger\n- Risk\n  - KYC check\n`;
+	// [what, doc, a label both editors must offer, a label neither may offer]
+	const PROBES: [string, string, string, string | null][] = [
+		['a slide directive name', `${FM}<!-- _`, '_header', null],
+		['a _focusStyle value', `${FM}<!-- _focusStyle: `, 'spotlight', null],
+		['a _focus axis, narrowed by the layout', `${FM}<!-- _class: table -->\n\n<!-- _focus: `, 'row', 'item'],
+		['a nested backdrop axis, never a deck key', '---\nbackdrop:\n  ', 'strength', 'title'],
+		['a mermaid keyword', `${FM}\`\`\`mermaid\nflow`, 'flowchart', null],
+		['the slot skeleton on an empty classed slide', `${FM}<!-- _class: cards-grid -->\n\n`, 'skeleton', null],
+		['a map region (the lazily loaded data source)', `${FM}<!-- _class: map -->\n\n- Fra`, 'France', null],
+		// Slice 3.
+		['a slide directive value', `${FM}<!-- _paginate: `, 'false', null],
+		['a note channel after <!--', `${FM}<!-- sa`, 'say', null],
+		['a TeX command in inline math', `${FM}Growth $g = \\fr`, '\\frac', null],
+		['a TeX command in a display block', `${FM}$$\n\\sum_{i=1}^{n} \\al`, '\\alpha', null],
+		['a TeX command in a math fence', `${FM}\`\`\`math\n\\sq`, '\\sqrt', null],
+		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- _class: -->', null],
+		['the plugin fences after ```', `${FM}\`\`\``, 'functionplot', 'chart'],
+		['a flowchart name after an arrow', `${FLOW}- Storefront -> Le`, 'Ledger', 'Storefront -> Le'],
+		['a flowchart group name after an arrow', `${FLOW}- Ledger => Ri`, 'Risk', null],
+		['a flowchart span word', `${FLOW}- Ledger \`dia`, 'diamond', null],
+		['a flowchart status in a record', `${FLOW}- Ledger \`{cylinder, do`, 'done', null],
+		['a flowchart arrow after a name', `${FLOW}- Ledger -`, '->', null],
+		['an arrow to chain after a target', `${FLOW}- Ledger -> Payments =`, '=>', null],
+	];
+	for (const [what, doc, want, never] of PROBES) {
+		it(`both editors complete ${what}`, async () => {
+			const s = await ask(studio, doc);
+			const p = await ask(playground, doc);
+			expect(s).toContain(want);
+			expect(p).toContain(want);
+			if (never) {
+				expect(s).not.toContain(never);
+				expect(p).not.toContain(never);
+			}
+		});
+	}
+
+	it('code is never math: a shell line continuation, a `$VAR`, an inline code span', async () => {
+		expect(await ask(studio, `${FM}\`\`\`bash\ncp $SRC \\`)).toEqual([]);
+		expect(await ask(studio, `${FM}\`\`\`bash\necho $$\n\`\`\`\n\nText \\fr`)).not.toContain('\\frac');
+		expect(await ask(studio, `${FM}Run \`echo $PATH\` then \\fr`)).not.toContain('\\frac');
+	});
+
+	it('a bare backslash opens TeX only on Ctrl-Space, never while typing', async () => {
+		const doc = `${FM}Rate $r = \\`;
+		const typed = new CompletionContext(EditorState.create({ doc }), doc.length, false);
+		const got = await Promise.all(studio.map((s) => s(typed)));
+		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('\\frac');
+		expect(await ask(studio, doc)).toContain('\\frac');
+	});
+
+	it('a backslash outside math, or after a closed `$…$`, offers no TeX', async () => {
+		expect(await ask(studio, `${FM}A path C:\\Users\\fr`)).not.toContain('\\frac');
+		expect(await ask(studio, `${FM}Costs $5 and $10 then \\fr`)).not.toContain('\\frac');
+		expect(await ask(studio, `${FM}An escaped \\$ sign \\fr`)).not.toContain('\\frac');
+	});
+
+	it('a word that is not a slide directive gets no directive values (it is a speaker note)', async () => {
+		expect(await ask(studio, `${FM}<!-- cards: `)).toEqual([]);
+	});
+
+	it('the insert list stays out of the front matter, fences and lines with text', async () => {
+		expect(await ask(studio, '---\ntitle: T\n')).not.toContain('<!-- _class: -->');
+		expect(await ask(studio, `${FM}\`\`\`js\n`)).not.toContain('<!-- _class: -->');
+		expect(await ask(studio, `${FM}Prose`)).not.toContain('<!-- _class: -->');
+	});
+
+	it('the insert list opens only on Ctrl-Space, never while typing', async () => {
+		const doc = `${FM}# Title\n\n`;
+		const typed = new CompletionContext(EditorState.create({ doc }), doc.length, false);
+		const got = await Promise.all(studio.map((s) => s(typed)));
+		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('<!-- _class: -->');
+	});
+
+	it('the map completer loads only on a map slide', async () => {
+		const elsewhere = await ask(studio, `${FM}<!-- _class: cards-grid -->\n\n- Fra`);
+		expect(elsewhere).not.toContain('France');
+	});
+});
+
+// Slice 2 of the audit: a key the front matter already sets is not offered again, and picking a key whose value
+// completes opens that value's menu (the second half is driven in the real Studio, docs/e2e/editor-completion-keys.spec.ts).
+describe('front-matter keys already set', () => {
+	const lines = (doc: string) => doc.split('\n');
+	it('reads the top-level keys of the leading block, skipping the line being typed', () => {
+		const doc = '---\ntheme: indaco\nbackdrop:\n  strength: 0.5\nthe\n---\n\nfooter: not front matter';
+		const l = lines(doc);
+		expect([...frontMatterKeysSet((n) => l[n - 1], l.length, 5)]).toEqual(['theme', 'backdrop']);
+	});
+	it('reads nothing without a leading block', () => {
+		const l = lines('# Title\ntheme: x');
+		expect(frontMatterKeysSet((n) => l[n - 1], l.length, 0).size).toBe(0);
+	});
+	it('a key already set is not offered, and the others still are', () => {
+		const offered = labels(complete('---\ntheme: indaco\nthe'));
+		expect(offered).not.toContain('theme');
+		expect(labels(complete('---\nthe'))).toContain('theme');
+	});
+	it('the key being retyped on its own line is still offered', () => {
+		const doc = '---\nthem\n---';
+		expect(labels(complete(doc, '---\nthem'.length))).toContain('theme');
+	});
+});
+
+// Slice 3's empty-Library gap: an image reference completes Lattice's sample art (`sample:<name>`) beside the photos.
+describe('makeAssetCompletion: sample art', () => {
+	const samples = makeAssetCompletion(() => [], () => ['photo-wide.jpg', 'logo-acme.svg']);
+	const at = async (doc: string) => {
+		const got = await samples(new CompletionContext(EditorState.create({ doc }), doc.length, false));
+		return got ? got.options.map((o) => o.label) : [];
+	};
+	it('offers the samples inside an image reference, even with no Library photos', async () => {
+		expect(await at('![Team](')).toEqual(['sample:photo-wide.jpg', 'sample:logo-acme.svg']);
+		expect(await at('![Team](sam')).toEqual(['sample:photo-wide.jpg', 'sample:logo-acme.svg']);
+		expect(await at('![Team](sample:ph')).toEqual(['sample:photo-wide.jpg', 'sample:logo-acme.svg']);
+	});
+	it('stays out of a reference that is neither (a URL, an asset)', async () => {
+		expect(await at('![Team](https:')).toEqual([]);
+		expect(await at('![Team](as')).toEqual([]);
+	});
+	it('an editor without the sample list offers none', async () => {
+		const none = makeAssetCompletion(() => []);
+		const got = await none(new CompletionContext(EditorState.create({ doc: '![a](' }), 5, false));
+		expect(got).toBeNull();
 	});
 });

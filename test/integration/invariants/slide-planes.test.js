@@ -121,7 +121,7 @@ footer: "Footer Text"
 
 <!-- _class: image -->
 
-![bg](sample:logo-acme-mark.svg)
+![Acme](sample:logo-acme-mark.svg)
 
 ## A photo panel, a scrim and a prose panel
 

@@ -474,7 +474,10 @@ describe('word-cloud', () => {
     const out = applyToRenderedHtml(doc);
     const canvases = out.match(/word-cloud-canvas/g) || [];
     assert.equal(canvases.length, 2);
-    assert.match(out, /<section id="3" class="roadmap"[\s\S]*<ul>/);
+    // Locate the section with svg-tags, then look for its `<ul>` after it — not a
+    // `<section …>[\s\S]*<ul>` scrape (js/polynomial-redos, #1958 §3, §7).
+    const roadmap = tagsOf(out, 'section').find((t) => t.attrs.id === '3' && t.attrs.class === 'roadmap');
+    assert.ok(roadmap && out.indexOf('<ul>', roadmap.end) >= 0, 'the roadmap section passes through with its list');
   });
 });
 

@@ -32,14 +32,16 @@ test('a relative prose image resolves against the deck folder, not the output fo
   assert.ok(html.includes(`src="${deckUrl}pic.jpg"`), 'prose image src is an absolute file:// URL beside the deck');
 });
 
-test('![bg] on a plain slide is painted by the engine, not lifted into a sizeless .lattice-bg div', () => {
-  const { html } = exportHtml('# T\n\n![bg contain](sample:photo-pano.jpg)\n');
-  assert.ok(!html.includes('class="lattice-bg'), 'no lattice-bg div on a non-image slide');
-  assert.match(html, /<section[^>]*background-image:url\([^)]*photo-pano\.jpg/, 'the section carries the picture');
-  assert.match(html, /<section[^>]*background-size:contain/, 'the contain keyword survives');
+test('the photo a bleed or an image slide places is its .lattice-bg panel, the sample resolved', () => {
+  for (const cls of ['content bleed', 'image']) {
+    const { html } = exportHtml(`<!-- _class: ${cls} -->\n\n# T\n\n![Pano](sample:photo-pano.jpg)\n`);
+    assert.match(html, /<div class="lattice-bg[^>]*background-image:url\([^)]*photo-pano\.jpg/, cls);
+  }
 });
 
-test('![bg] on an image slide is still lifted to .lattice-bg', () => {
-  const { html } = exportHtml('<!-- _class: image -->\n\n# T\n\n![bg](sample:photo-pano.jpg)\n');
-  assert.ok(html.includes('class="lattice-bg'), 'image slide keeps its lattice-bg div');
+test('a Marp `![bg]` exports as an ordinary picture since the engine break (2026-11-13), not a background', () => {
+  const { html } = exportHtml('# T\n\n![bg contain](sample:photo-pano.jpg)\n');
+  assert.ok(!html.includes('class="lattice-bg'), 'no panel');
+  assert.doesNotMatch(html, /<section[^>]*background-image:url/, 'no section background');
+  assert.match(html, /<img [^>]*photo-pano\.jpg/, 'an ordinary picture');
 });

@@ -541,7 +541,8 @@ export const appToast = toastText;
  * On mobile/tablet the editor lives behind the Edit pane, so we do NOT gate on it
  * here.
  */
-export async function gotoStudio(page: Page): Promise<void> {
+/** `query`: a search string for the Studio URL (`?tier=lite`), for a spec that pins the device tier. */
+export async function gotoStudio(page: Page, { query = '' }: { query?: string } = {}): Promise<void> {
 	// Seed the Craft posture BEFORE the island hydrates, so the full surface (the
 	// left activity bar + docked Architect/Inspector) is present — most specs drive
 	// it. The shipped default is the calm Write stop, which has no activity bar, so
@@ -604,7 +605,7 @@ export async function gotoStudio(page: Page): Promise<void> {
 			w.__latticeDeliveredCaret = snap();
 		});
 	});
-	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
+	await page.goto(`/studio/${query}`, { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
 }
 
@@ -938,10 +939,15 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
  * document on `webkit-tablet` on the first press.
  *
  * So: press, then CHECK THE OBSERVABLE and take the other modifier if the first did
- * nothing. The check is `window.getSelection()` — a standard API on the real editor —
- * rather than a re-derivation of CodeMirror's own platform sniff, which would just be the
- * same guess in a new place. (CodeMirror virtualizes long documents, so the selected
- * STRING covers only the rendered lines; empty-vs-not is the signal, never its length.)
+ * nothing. The observable is CODEMIRROR'S OWN STATE SELECTION, which must span the whole
+ * document, rather than a re-derivation of CodeMirror's platform sniff, which would just be the
+ * same guess in a new place. It used to be `window.getSelection()`, and that was wrong: on
+ * `webkit-phone`, Ctrl+A is not CodeMirror's select-all, so WebKit runs a NATIVE select-all,
+ * the DOM selection fills at once, and CodeMirror's state stays the click's caret until it
+ * syncs from the DOM asynchronously. Under load the Delete reached CodeMirror's keymap first
+ * and removed one character: 10 of 80 runs at 4 workers left the welcome deck minus one
+ * character (1,695 of 1,696), with no transaction between the two keys. Meta+A, which is
+ * CodeMirror's select-all there, went 0 of 80. Reading the state selection is engine-agnostic.
  */
 async function selectAllInEditor(page: Page): Promise<void> {
 	// Read the probe off the DECK SOURCE editor specifically, never a bare `.cm-content`.
@@ -961,21 +967,36 @@ async function selectAllInEditor(page: Page): Promise<void> {
 			const el = document.querySelector('[aria-label="Deck source"]');
 			if (!el) return null;
 			if (el instanceof HTMLTextAreaElement) {
-				return { selected: el.selectionEnd - el.selectionStart, rendered: el.value.length };
+				return { from: el.selectionStart, to: el.selectionEnd, len: el.value.length };
 			}
-			return { selected: (window.getSelection()?.toString() ?? '').length, rendered: (el.textContent ?? '').length };
+			// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle (as demo-mobile.spec.ts does).
+			const handle = el as any;
+			const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
+			if (!view) return null;
+			const { from, to } = view.state.selection.main;
+			return { from, to, len: view.state.doc.length };
 		});
 	for (const combo of ['ControlOrMeta+a', 'Meta+a']) {
 		await page.keyboard.press(combo);
 		const seen = await probe();
-		if (!seen) throw new Error('setEditorContent: no element labelled `Deck source` — the editor is not on this page');
-		// An ALREADY-EMPTY document selects to an empty string too, and that is a success, not a
-		// missed keystroke: without this arm the helper would newly throw on a deck it used to
-		// clear happily. It is gated on having actually FOUND the editor, so it can no longer
-		// stand in for one that is absent.
-		if (seen.selected > 0 || seen.rendered === 0) return;
+		if (!seen) throw new Error('setEditorContent: no element labelled `Deck source` (or no editor view behind it) — the editor is not on this page');
+		// The whole document, from 0 to its length. An ALREADY-EMPTY document is 0..0 and passes
+		// too, which is right: it is gated on having actually FOUND the editor.
+		if (seen.from === 0 && seen.to === seen.len) return;
 	}
 	throw new Error('setEditorContent: neither ControlOrMeta+a nor Meta+a selected the editor document');
+}
+
+/** Open the current slide's Slide settings at its Look section, at any width. Wide layouts show a Slide settings
+ *  button; at phone width (390px) the bottom bar's Settings opens both scopes behind a Slide | Deck switch. */
+export async function openSlideLook(page: Page): Promise<void> {
+	const slideButton = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
+	if (await slideButton.count()) await slideButton.first().click();
+	else {
+		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
+		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
+	}
+	await openSection(page, CHROME.slideTab.look);
 }
 
 /**
@@ -984,7 +1005,7 @@ async function selectAllInEditor(page: Page): Promise<void> {
  * (list auto-continuation) would rewrite a multi-line deck typed key-by-key —
  * `---` separators land inside auto-continued bullets and slides merge.
  */
-export async function setEditorContent(page: Page, text: string, opts: { timeout?: number } = {}): Promise<void> {
+export async function setEditorContent(page: Page, text: string): Promise<void> {
 	await focusEditor(page);
 	await selectAllInEditor(page);
 	await page.keyboard.press('Delete');
@@ -1001,12 +1022,10 @@ export async function setEditorContent(page: Page, text: string, opts: { timeout
 	// as a confusing assertion three steps later in the spec (HARD RULE #33). The poll compares a
 	// fingerprint the page computes, not the text itself: a deck with inline phone photos is 14 MB,
 	// and copying it out of the browser on every poll took up to 10 s a read, so one slow read under
-	// CI load outlasted the poll (export-photo-size.spec.ts, studio-smoke on #3161). That cut the
-	// cost of a read to about 0.1 s, but not the wait: after a 14 MB insert the Studio holds the main
-	// thread for about 16 s, and no read answers until it lets go. A spec that loads a deck that heavy
-	// says so with `timeout`; every other deck keeps the 15 s default, so a mix still fails fast.
+	// CI load outlasted the poll (export-photo-size.spec.ts, studio-smoke on #3161). The Studio's own
+	// freeze on a deck that heavy was fixed at its cause in #3153, so every deck uses the 15 s default.
 	await expect
-		.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given', timeout: opts.timeout })
+		.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given' })
 		.toEqual(fingerprint(text));
 }
 
@@ -1086,6 +1105,28 @@ export function deckEditorText(page: Page): Promise<string | null> {
 		const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
 		return view ? view.state.doc.toString() : null;
 	});
+}
+
+/**
+ * Replace the editor document with `text` the way an author does with a big deck: copy it, select all, paste. For a deck of
+ * megabytes, `setEditorContent`'s `insertText` is the wrong door: it types the text as one composition into the editor's
+ * DOM, and the browser lays all of it out before CodeMirror reads it back. Measured on a deck of three phone photos (16 MB):
+ * 287 s of that on WebKit and 8 s on Firefox, against 8.6 s for the whole paste-and-settle on WebKit. A paste reaches
+ * CodeMirror as clipboard data and never enters the DOM. Chromium needs the clipboard permission; Firefox and WebKit let
+ * a page in a secure context write it.
+ */
+export async function pasteIntoEditor(page: Page, text: string, opts: { timeout?: number } = {}): Promise<void> {
+	if (page.context().browser()?.browserType().name() === 'chromium') await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+	await page.evaluate((t) => navigator.clipboard.writeText(t), text);
+	await focusEditor(page);
+	await selectAllInEditor(page);
+	await page.keyboard.press('ControlOrMeta+v');
+	// Prove the paste, as setEditorContent proves its insert: a paste that lost the selection or dropped its data fails
+	// here, naming the helper, instead of as a missing slide later. The fingerprint is computed in the page (two numbers
+	// cross the protocol, not the deck).
+	await expect
+		.poll(() => deckEditorFingerprint(page), { message: 'pasteIntoEditor: the editor does not hold exactly the deck it was given', timeout: opts.timeout })
+		.toEqual(fingerprint(text));
 }
 
 /** Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): the
@@ -1208,7 +1249,7 @@ export { expect };
 // whenever the assertions before the Enter all passed on their first poll, which is a matter of when the
 // menu happened to appear. So the helper records
 // when the menu opened, from the page, and polls until it is older than the delay and enabled.
-const CM_INTERACTION_DELAY_MS = 75;
+export const CM_INTERACTION_DELAY_MS = 75;
 
 export async function watchMenuOpen(page: Page) {
 	await page.evaluate(() => {

@@ -61,16 +61,25 @@ describe('the slide places the picture', () => {
   });
 });
 
-describe('Marp\'s keywords to a record (§8 decision 2)', () => {
+describe('Marp\'s keywords to Markdown\'s picture, the record\'s shortcut (§8 decision 2)', () => {
   test('placement moves to the slide, and what was never drawn is named', () => {
-    assert.deepEqual(migrateBgLine('![bg left:40% blur:10px](sample:photo-wide.svg)', ['image']), { record: '`@image{sample:photo-wide.svg}`', addClass: 'mirror', dropped: [':40%', 'blur:10px'] });
-    assert.deepEqual(migrateBgLine('![bg](p.jpg "The lake")', ['content', 'dark']), { record: '`@image{p.jpg, description="The lake"}`', addClass: 'bleed', dropped: [] });
+    assert.deepEqual(migrateBgLine('![bg left:40% blur:10px](sample:photo-wide.svg)', ['image']), { record: '![](sample:photo-wide.svg)', addClass: 'mirror', dropped: [':40%', 'blur:10px'] });
+    assert.deepEqual(migrateBgLine('![bg](p.jpg "The lake")', ['content', 'dark']), { record: '![The lake](p.jpg)', addClass: 'bleed', dropped: [] });
     assert.equal(migrateBgLine('![bg right](p.jpg)', ['image']).addClass, null);
     assert.equal(migrateBgLine('Some text ![bg](p.jpg)', ['image']), null, 'only a line that is one directive');
   });
 
-  test('an address Segno cannot read bare is quoted', () => {
-    assert.equal(migrateBgLine('![bg](my%20photo,v2.jpg)', ['image']).record, '`@image{"my%20photo,v2.jpg"}`');
+  test('the description becomes the name, escaped, and never reads as the keyword again', () => {
+    assert.equal(migrateBgLine('![bg](p.jpg "A [draft] a\\b")', ['image']).record, '![A \\[draft\\] a\\\\b](p.jpg)');
+    assert.equal(migrateBgLine('![bg](p.jpg "bg of the lake")', ['image']).record, '![Image: bg of the lake](p.jpg)');
+    assert.equal(migrateBgLine('  ![bg](p.jpg "a `b` c")', ['image']).record, '  ![a `b` c](p.jpg)', 'a backtick is safe in a name');
+  });
+
+  test('the migrated line is the slide\'s placed picture, as the record was', () => {
+    for (const cls of ['image', 'image mirror', 'content dark bleed']) {
+      const out = html(deck(cls, migrateBgLine('![bg](p.jpg "The lake")', cls.split(' ')).record));
+      assert.match(out, /class="lattice-bg/, cls);
+    }
   });
 
   test('the class line gains the word once', () => {
@@ -79,6 +88,68 @@ describe('Marp\'s keywords to a record (§8 decision 2)', () => {
     assert.equal(classLineWith('Not a comment', 'mirror'), null);
   });
 
+});
+
+describe('every `![bg]` the engine no longer reads is named, and `--fix` only rewrites what keeps the photo (the trio on the engine break)', () => {
+  const { fixAllDetailed } = require('../../../lib/authoring/lint-core.js');
+  const vocab = buildVocab();
+  const keyword = (md) => (lintText(md, vocab).findings || lintText(md, vocab)).filter((f) => f.rule === 'image-marp-keyword');
+  const fixed = (md) => fixAllDetailed(md, vocab).text;
+
+  test('a `![bg]` anywhere markdown reads a picture is named, not only one at the start of a line', () => {
+    for (const body of ['Intro ![bg](x.jpg) text', '- ![bg](x.jpg)', '> ![bg left](x.jpg)', '![ bg](x.jpg)', '| ![bg](x.jpg) | y |\n|---|---|', '## ![bg](x.jpg) Seven', '![BG right](x.jpg)']) {
+      const f = keyword(deck('content', body));
+      assert.equal(f.length, 1, body);
+      assert.ok(f[0].line.includes('x.jpg'), `${body}: the finding names the line`);
+    }
+  });
+
+  test('a `![bg]` in prose keeps the slide\'s real photo out of its panel, and the lint says why', () => {
+    const md = deck('image', '![The lake](sample:photo-wide.svg)\n\nSee the map ![bg](logo.svg) here.');
+    assert.doesNotMatch(html(md), /class="lattice-bg /, 'rule 5: the kernel declines the photo');
+    assert.equal(keyword(md).length, 1, 'and the lint names the `![bg]` that caused it');
+  });
+
+  test('two `![bg]` on one slide: named, never rewritten into two pictures that place neither', () => {
+    for (const body of ['![bg](a.jpg)\n![bg](b.jpg)', '![bg](a.jpg)\n\n![bg](b.jpg)']) {
+      const md = deck('content', body);
+      assert.ok(keyword(md).length >= 2, body);
+      assert.equal(fixed(md), md, `${body}: no machine fix`);
+    }
+  });
+
+  test('a `![bg]` sharing its paragraph with text, or beside another lone picture, is not rewritten', () => {
+    for (const [cls, body] of [['image', '![bg right](x.jpg)\nA caption on the next line.'], ['image', '![bg right](photo.jpg)\n\n![Acme](logo.png)'], ['content', '![bg](photo.jpg)\n\n![Chart](chart.png)']]) {
+      const md = deck(cls, body);
+      assert.equal(keyword(md).length, 1, body);
+      assert.equal(fixed(md), md, `${body}: no machine fix`);
+    }
+  });
+
+  test('the plain case still rewrites, and the result is the slide\'s photo', () => {
+    const md = deck('content dark', '![bg](photo.jpg "The lake")');
+    const out = fixed(md);
+    assert.match(out, /<!-- _class: content dark bleed -->/);
+    assert.match(out, /^!\[The lake\]\(photo\.jpg\)$/m);
+    assert.match(html(out), /class="lattice-bg /);
+    assert.equal(keyword(out).length, 0);
+  });
+
+  test('a pasted phone photo (a multi-megabyte `data:` address) is placed, and its address comes back byte for byte', () => {
+    const { placedPictureInSlide } = require('../../../lib/core/placed-picture.js');
+    const { boundaryParser } = require('../../../lib/core/boundary-parser.js');
+    const big = `data:image/jpeg;base64,${'AbC+/9'.repeat(100_000)}==`;
+    const small = 'data:image/png;base64,AAAA';
+    for (const src of [big, small]) {
+      const pic = placedPictureInSlide(deck('image', `![Phone photo](${src})`), ['image'], { md: boundaryParser });
+      assert.equal(pic?.src, src, src.slice(0, 30));
+    }
+  });
+
+  test('a Library photo described "BG …" is the author\'s words, so it is still placed', () => {
+    const out = engine.render('<!-- _class: image -->\n\n# Team\n\n![](asset:team)\n', undefined, { assetUrls: { team: 'https://x.example/t.jpg' }, assetAlts: { team: 'BG team at the offsite' } }).html;
+    assert.match(out, /class="lattice-bg /);
+  });
 });
 
 describe('Export-to-Marp writes Marp\'s own spelling', () => {
@@ -141,7 +212,6 @@ describe('the trio\'s findings on slice 3 stay fixed', () => {
 
   test('the migration refuses to rewrite what it would change, and never edits a second directive', () => {
     assert.ok(migrateBgLine('![bg](x&#39;a.jpg)', ['image']).unsafe);
-    assert.ok(migrateBgLine('![bg](a.jpg "a `b` c")', ['image']).unsafe);
     assert.equal(migrateBgLine('    ![bg](a.jpg)', ['content']), null, 'an indented code block');
     assert.equal(classLineWith('<!-- _class: content --><!-- _paginate: false -->', 'bleed'), null);
   });

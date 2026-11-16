@@ -6,7 +6,7 @@
 // a separate on-demand bundle at all.
 //
 // Idempotent: a module-level singleton keyed by URL, same as ensureEngine.
-import { engineBase, engineBaseFor } from './engine-base';
+import { engineBase, engineBaseFor, scriptTagFor } from './engine-base';
 
 const loaders = new Map<string, Promise<void>>();
 const POLL_MS = 50;
@@ -23,6 +23,19 @@ export function ensureKatexProvider(url: string): Promise<void> {
 
 	const existing = loaders.get(url);
 	if (existing) return existing;
+	// The KaTeX provider lives beside the engine, so it is same-origin. The barrier is INLINE at the sink because CodeQL js/xss-through-dom reads it here and
+	// not through a helper: an empty URL, or one holding a quote, angle bracket, backtick, backslash or
+	// whitespace, is refused; the rest is resolved and refused unless it shares this page's origin AND
+	// scheme (which also turns away `javascript:`, `data:` and a same-origin `blob:`). Only the resolved
+	// href reaches the sink.
+	let resolved: URL | null = null;
+	try {
+		if (url && !/[<>"'`\\\s]/.test(url)) resolved = new URL(url, window.location.href);
+	} catch {
+		// an unparseable URL is refused just below
+	}
+	if (resolved === null || resolved.origin !== window.location.origin || resolved.protocol !== window.location.protocol) return Promise.reject(new Error(`katex provider URL refused: ${url}`));
+	const safeSrc = resolved.href;
 
 	const p = new Promise<void>((resolve, reject) => {
 		let attempts = 0;
@@ -45,10 +58,10 @@ export function ensureKatexProvider(url: string): Promise<void> {
 			return false;
 		};
 
-		const already = document.querySelector<HTMLScriptElement>(`script[data-lattice-katex-provider][src="${cssEscape(url)}"]`);
+		const already = scriptTagFor('data-lattice-katex-provider', safeSrc);
 		if (!already) {
 			const s = document.createElement('script');
-			s.src = url;
+			s.src = safeSrc;
 			s.defer = true;
 			s.setAttribute('data-lattice-katex-provider', '');
 			s.addEventListener('load', () => finish());
@@ -89,9 +102,4 @@ export function katexProviderUrlFor(engineUrl: string): string | null {
 export function deriveKatexProviderUrl(): string | null {
 	const base = engineBase();
 	return base === null ? null : `${base}lattice-katex.js`;
-}
-
-// Minimal attribute-selector escape for the URL (mirrors load-engine.ts).
-function cssEscape(value: string): string {
-	return value.replace(/["\\]/g, '\\$&');
 }

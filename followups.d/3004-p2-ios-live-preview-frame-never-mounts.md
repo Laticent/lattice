@@ -26,4 +26,4 @@ done when — the cause is named (the frame is never created, is created and dis
             that never settles on iOS), and the first render reaches the live frame in every one of 5
             dispatched runs of ios-safari-photo on both devices.
 evidence  — the dispatched runs, and the failing runs' previewState() messages before and after.
-verify    — platform-suites.yml dispatch, suites=ios-safari-photo,ios-safari-studio
+verify    — platform-suites.yml dispatch, suites=ios-safari-photo,ios-safari-studio-ipad,ios-safari-studio-iphone

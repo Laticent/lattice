@@ -33,8 +33,14 @@ const {
 } = require('../../../lib/plugins/chart-family/kinds/heatmap/heatmap.transform');
 
 const md = new MarkdownIt({ html: true });
-/** The `<table>` HTML of an authored body — what the kernel takes. */
-const tbl = (body) => (md.render(body).match(/<table>[\s\S]*<\/table>/) || [''])[0];
+/** The `<table>` HTML of an authored body — what the kernel takes. Sliced, not scraped: the earlier
+ *  `/<table>[\s\S]*<\/table>/` was js/polynomial-redos (#1958 §3, §7). */
+const tbl = (body) => {
+  const html = md.render(body);
+  const open = html.indexOf('<table>');
+  const close = html.indexOf('</table>', open);
+  return open < 0 || close < 0 ? '' : html.slice(open, close + '</table>'.length);
+};
 
 /** A matrix as an author writes it: header names the columns, each row leads with
  *  its label, a BLANK cell is a crossing nobody measured. */
@@ -301,7 +307,9 @@ describe('heatmap — the quantized ramp', () => {
     const anchorPct = css.match(/--heatmap-base:\s*color-mix\(in oklab, var\(--muted-mark\) ([\d.]+)%/);
     assert.ok(anchorPct, 'could not find --heatmap-base in the stylesheet');
     const ANCHOR = Number(anchorPct[1]);
-    for (const decl of css.match(/--heatmap-base:[^;]+;/g) || []) {
+    // Split on `;`, not a `--heatmap-base:[^;]+;` scrape (js/polynomial-redos, #1958 §3): each
+    // declaration is one `;`-delimited segment, and a segment naming the token carries its value.
+    for (const decl of css.split(';').filter((seg) => seg.includes('--heatmap-base:'))) {
       assert.ok(decl.includes(`var(--muted-mark) ${ANCHOR}%`),
         `a second --heatmap-base declaration uses a different anchor than ${ANCHOR}% — the two canvases would diverge`);
     }

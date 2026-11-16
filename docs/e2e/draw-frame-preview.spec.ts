@@ -1,3 +1,4 @@
+import { pictureStill } from './barriers';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // ── The previews draw function-plot (and, in the next steps, Mermaid and math) in a SANDBOXED DRAW FRAME, not in the
@@ -75,18 +76,7 @@ test(`function-plot draws in the preview through a sandboxed draw frame, and its
 	]) {
 		await page.setViewportSize({ width, height });
 		await expect(plot).toBeVisible();
-		let previous = '';
-		await expect
-			.poll(
-				async () => {
-					const current = (await page.screenshot()).toString('base64');
-					const same = current === previous;
-					previous = current;
-					return same;
-				},
-				{ timeout: 15_000, intervals: [300] },
-			)
-			.toBe(true);
+		await pictureStill(page);
 		if (evidence) await page.screenshot({ path: `${evidence}/draw-frame-plot${baseline ? '-baseline' : ''}-${browserName}-${width}.png` });
 	}
 });
@@ -199,18 +189,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			]) {
 				await page.setViewportSize({ width, height });
 				await expect(flow).toBeVisible();
-				let previous = '';
-				await expect
-					.poll(
-						async () => {
-							const current = (await page.screenshot()).toString('base64');
-							const same = current === previous;
-							previous = current;
-							return same;
-						},
-						{ timeout: 15_000, intervals: [300] },
-					)
-					.toBe(true);
+				await pictureStill(page);
 				await page.screenshot({ path: `${evidence}/draw-frame-mermaid${baseline ? '-baseline' : ''}-${browserName}-${width}.png` });
 			}
 		}

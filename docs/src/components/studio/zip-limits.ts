@@ -17,6 +17,7 @@
 // The numbers live in lib/packages/limits.js, shared with the CLI's `lattice packages add`.
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import limits from '../../../../lib/packages/limits.js';
+import zipLimits from '../../../../lib/packages/zip-limits.js';
 
 /** A JSZip file entry. Its `internalStream`, which the capped read uses, is missing from
  *  JSZip's published types, so the entry is passed through untyped. */
@@ -35,17 +36,12 @@ export const MAX_EMBEDDED_PAYLOAD_BYTES: number = MAX_ZIP_BYTES + MAX_EMBEDDED_M
 /** Most entries an asset archive may hold. */
 export const MAX_ZIP_ENTRIES: number = limits.MAX_ZIP_ENTRIES;
 
-/** The uncompressed size an entry declares, or 0 when it declares none. */
-export function declaredInflatedBytes(entry: unknown): number {
-	return Number((entry as { _data?: { uncompressedSize?: number } })?._data?.uncompressedSize) || 0;
-}
-
-/** Every file entry in a loaded archive (directories excluded). */
-function fileEntries(zip: LoadedZip): unknown[] {
-	return Object.values(zip.files).filter((e) => !e.dir);
-}
-
 type LoadedZip = { files: Record<string, { dir?: boolean }> };
+
+/** The uncompressed size an entry declares, or 0 when it declares none (lib/packages/zip-limits.js, shared with the CLI). */
+export function declaredInflatedBytes(entry: unknown): number {
+	return zipLimits.declaredInflatedBytes(entry);
+}
 
 /**
  * Refuse an archive whose entry count or declared inflated total is over the caps.
@@ -53,15 +49,11 @@ type LoadedZip = { files: Record<string, { dir?: boolean }> };
  *
  * `paths` limits the size sum to the entries the caller will actually read. An asset
  * bundle carries showcase PDFs the importer never opens, and a user's own large
- * export must not be refused on re-import for bytes nobody inflates.
+ * export must not be refused on re-import for bytes nobody inflates. One copy, shared
+ * with the CLI's `.lattice` reader (lib/packages/zip-limits.js).
  */
 export function assertZipWithinLimits(zip: LoadedZip, message: string, paths?: Iterable<string>): void {
-	const entries = fileEntries(zip);
-	if (entries.length > MAX_ZIP_ENTRIES) throw new Error(message);
-	const counted = paths ? [...new Set(paths)].map((p) => zip.files[p]).filter(Boolean) : entries;
-	let total = 0;
-	for (const e of counted) total += declaredInflatedBytes(e);
-	if (total > MAX_INFLATED_BYTES) throw new Error(message);
+	zipLimits.assertZipWithinLimits(zip, message, paths);
 }
 
 /**

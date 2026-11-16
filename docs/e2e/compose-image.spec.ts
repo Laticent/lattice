@@ -53,8 +53,9 @@ test.describe('compose images', () => {
 		await expect(harbor).toBeVisible();
 		await expect.poll(() => harbor.evaluate((el: HTMLImageElement) => (el.complete ? el.naturalWidth : -1))).toBe(800);
 		expect(await harbor.getAttribute('src')).toMatch(/^blob:/);
-		// A placed picture says where the slide puts it (an old `![bg right]` is the photo panel on the right), and is drawn too.
-		await expect(page.locator('.cs-img-badge')).toHaveText(/^Panel · Right$/);
+		// A picture carries a placement badge only where the slide places it. An old `![bg right]` is drawn in the text since the
+		// engine break (2026-11-13), so nothing on this `content` slide is placed and no badge shows.
+		await expect(page.locator('.cs-img-badge')).toHaveCount(0);
 		// A web image is a stand-in that says what it is. Compose never reaches the network for it.
 		await expect(page.locator('.cs-img-stand')).toContainText('Elsewhere');
 		expect(requested.filter((u) => new URL(u).hostname === 'example.com')).toEqual([]);
@@ -127,9 +128,10 @@ test.describe('compose images', () => {
 	test('Placement sets the SLIDE\'s class and never writes `![bg]`; an old `![bg]` picture loses its keywords @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 		const ONE = ['<!-- _class: content -->', '', '## A forest', '', 'Words beside it.', '', '![bg right:40% blur](asset:forest "Pines at dusk")'].join('\n');
 		await openWithPhotos(page, ONE);
-		await page.getByRole('button', { name: 'Edit background image' }).click();
+		await page.getByRole('button', { name: 'Edit image written with Marp\'s retired bg keyword' }).click();
 		await expect(panel(page).getByRole('textbox', { name: 'Description' })).toHaveCount(0);
-		await expect(panel(page).getByRole('radio', { name: 'Placement: Right side' })).toHaveAttribute('aria-checked', 'true');
+		// The engine draws it in the text now, and the control says so; a placement turns it into the slide's photo.
+		await expect(panel(page).getByRole('radio', { name: 'Placement: In the text' })).toHaveAttribute('aria-checked', 'true');
 		await panel(page).getByRole('radio', { name: 'Placement: Left side' }).click();
 		await expect.poll(() => savedDeck(page)).toBe(ONE.replace('<!-- _class: content -->', '<!-- _class: image mirror -->').replace('![bg right:40% blur](asset:forest "Pines at dusk")', '![Pines at dusk](asset:forest)'));
 		await expect(page.locator('.cs-img-badge')).toHaveText(/^Panel · Left$/);

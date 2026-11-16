@@ -31,12 +31,13 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
+const { resolveChrome } = require('../../helpers/chrome');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const FPS = 30;
 const FRAME = 1000 / FPS;
 const LEAD = 40;
-const CHROME = () => process.env.CHROME_PATH || require('puppeteer').executablePath();
+const CHROME = () => process.env.CHROME_PATH || resolveChrome();
 
 /** A mono 24 kHz WAV: `lead` ms of silence, then a 440 Hz tone for `ms`, with 5 ms fades. */
 function tone(ms, lead = LEAD, rate = 24000) {

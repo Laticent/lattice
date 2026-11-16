@@ -14,18 +14,31 @@ const origin = (u: string) => {
 };
 
 describe('prefetch', () => {
-	it('warms a copy for every allowed photo, background or prose, and none for a refused origin', () => {
+	it('warms a copy for every allowed photo, placed or prose, and none for a refused origin', () => {
 		const warm = vi.fn((_url: string, _prose?: boolean) => true);
 		const md = [
-			'![bg](https://images.example/a.jpg)',
+			'<!-- _class: image -->\n\n## T\n\n![The lake](https://images.example/a.jpg)',
 			'![A harbor](https://images.example/b.jpg)',
 			'![Team](<https://images.example/c.jpg>)',
-			'![bg](https://evil.example/d.jpg)',
+			// A Marp `![bg]` is an ordinary picture since the engine break (2026-11-13): a prose copy, not a panel's.
+			'![bg](https://images.example/f.jpg)',
+			'<!-- _class: image -->\n\n## T\n\n![Refused](https://evil.example/d.jpg)',
 			'![Beacon](https://evil.example/e.jpg)',
 		].join('\n\n---\n\n');
 		prefetch(frame(), md, ['https://images.example'], origin, warm);
-		// A background's copy, then the prose photos' wrapped ones (`true`), which an <img> looks for.
-		expect(warm.mock.calls).toEqual([['https://images.example/a.jpg'], ['https://images.example/b.jpg', true], ['https://images.example/c.jpg', true]]);
+		// The placed photo's copy first, then the prose photos' wrapped ones (`true`), which an <img> looks for.
+		expect(warm.mock.calls).toEqual([
+			['https://images.example/a.jpg'],
+			['https://images.example/b.jpg', true],
+			['https://images.example/c.jpg', true],
+			['https://images.example/f.jpg', true],
+		]);
+	});
+
+	it('a class carried from an earlier slide places the photo there too', () => {
+		const warm = vi.fn((_url: string, _prose?: boolean) => true);
+		prefetch(frame(), '<!-- class: image -->\n\n## One\n\n---\n\n## Two\n\n![The lake](https://images.example/g.jpg)', ['https://images.example'], origin, warm);
+		expect(warm.mock.calls).toEqual([['https://images.example/g.jpg']]);
 	});
 
 	it('loads no prose photo into the frame where there are no copies (no warm)', () => {

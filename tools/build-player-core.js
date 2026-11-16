@@ -76,6 +76,10 @@ const BUILD_OPTIONS = {
   // red on CI, pointing at the wrong file. Nothing in this graph is TypeScript, so there is no
   // tsconfig setting this bundle legitimately needs.
   tsconfigRaw: '{}',
+  // The image library's CommonJS build, as tools/build-cli.js reads it: it stays inside its own function, so none of its
+  // top-level names can make esbuild rename a same-named local elsewhere in this bundle. Scope-hoisting its ES build
+  // turned a player function's `info` into `info2`, which changes the bytes of every function an export ships as source.
+  alias: { '@laticent/lastra': path.join(ROOT, 'docs', 'src', 'lib', 'lastra', 'dist', 'index.cjs') },
   format: 'esm',
   platform: 'browser',
   target: ['chrome109'],

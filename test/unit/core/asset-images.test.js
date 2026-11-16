@@ -65,12 +65,12 @@ describe('asset: — grammar and resolver', () => {
 describe('asset: — every engine path that paints a picture', () => {
   const render = (md, assetUrls = URLS) => engine.render(md, 'indaco', { assetUrls }).html;
 
-  test('an image slide background', () => {
-    assert.match(render('<!-- _class: image -->\n\n## T\n\n![bg](asset:hero)\n'), new RegExp(`url\\('${B}1111'\\)`));
+  test('an image slide\'s photo panel', () => {
+    assert.match(render('<!-- _class: image -->\n\n## T\n\n![Hero](asset:hero)\n'), new RegExp(`url\\('${B}1111'\\)`));
   });
 
-  test('a section background on any other slide', () => {
-    assert.match(render('## T\n\n![bg](asset:hero)\n'), new RegExp(`${B}1111`));
+  test('a bleed slide\'s background', () => {
+    assert.match(render('<!-- _class: content bleed -->\n\n## T\n\n![Hero](asset:hero)\n'), new RegExp(`url\\('${B}1111'\\)`));
   });
 
   test('a prose image', () => {
@@ -151,8 +151,9 @@ describe('asset: — an empty alt is filled from the photo description', () => {
       assert.doesNotMatch(out, /background-image:url/, alt);
       assert.match(out, new RegExp(`<img[^>]*alt="${alt}"`), alt);
     }
-    // And an author's own `![bg …]` still works with a description present.
-    assert.match(render('<!-- _class: image -->\n\n## T\n\n![bg](asset:hero)\n', { hero: 'bg contain' }), new RegExp(`url\\('${B}1111'\\)`));
+    // And on an `image` slide the picture is still the slide's photo: the description the engine filled in is the author's words,
+    // never Marp's keyword (lib/core/placed-picture.mjs `isMarpKeywordPicture`).
+    assert.match(render('<!-- _class: image -->\n\n## T\n\n![](asset:hero)\n', { hero: 'bg contain' }), new RegExp(`url\\('${B}1111'\\)`));
   });
 
   test('a name with no description, a missing photo and a non-string value leave alt empty', () => {

@@ -58,7 +58,7 @@ test('a photographic slide exports as a small JPEG and a flat slide stays a PNG'
 		return c.toDataURL('image/jpeg', 0.85);
 	});
 	const deck = [
-		`<!-- _class: image spotlight -->\n\n## A photograph carries this slide.\n\n![bg](${photo})`,
+		`<!-- _class: image spotlight -->\n\n## A photograph carries this slide.\n\n![A photograph](${photo})`,
 		'<!-- _class: big-number -->\n\n`Flat`\n\n- 42\n  - plain text on a plain color.',
 	].join('\n\n---\n\n');
 	await setEditorContent(page, deck);

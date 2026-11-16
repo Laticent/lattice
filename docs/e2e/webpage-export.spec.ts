@@ -361,32 +361,47 @@ test('the Studio webpage export stands down loudly when NO cut reproduces the de
 	expect(said, 'the warning names the fix').toMatch(/move the note inside an item, or out of the list/);
 });
 
-test('the Studio webpage export styles a <section> nested in a slide as a panel, not a slide', async ({ page }, testInfo) => {
+test('the Studio webpage export keeps an author <section> inside its slide, and styles a nested section as a panel', async ({ page }, testInfo) => {
 	test.setTimeout(180_000);
-	// The Studio player used to DELETE the `article.lattice > ` prefix, turning "a slide" into "any
-	// section": a raw `<section>` an author nests in a slide took the 1280×720 slide box,
-	// `overflow:hidden`, and inside a `dark` slide the light tokens, and both slides clipped. It
-	// now runs the CLI's own `unwrapFlatSheet` (lib/export/unwrap-flat-sheet.mjs).
+	// Two guarantees, each where it can fail.
+	//
+	// 1. An author's raw `<section>` cannot make a slide. Since #3112 the engine reserves the tag
+	//    (lib/core/reserved-attrs.mjs, followups 3051-p10): a raw `</section><section>` used to close the
+	//    engine's slide and open a numbered one. The tag is renamed `x-section`, and the sanitized
+	//    player drops it and KEEPS ITS CONTENT. So the export holds one slide, the panel's words are in it,
+	//    and no section of the author's survives (the earlier version of this test expected one to).
+	// 2. The player's sheet styles only a TOP-LEVEL section as a slide. The Studio player used to delete
+	//    the `article.lattice > ` prefix, turning "a slide" into "any section": a nested one took the
+	//    1280x720 box, `overflow:hidden` and, in a `dark` slide, the light tokens. It now runs the CLI's
+	//    `unwrapFlatSheet` (lib/export/unwrap-flat-sheet.mjs). No author can nest one any more (1.), so
+	//    the section is placed in the exported page's DOM directly, under the shipped sheet.
 	const DECK = ['---', 'theme: indaco', '---', '', '<!-- _class: dark -->', '', '# Dark slide', '', '<section class="note">', 'A nested panel.', '</section>', ''];
 	const file = await exportWebpage(page, testInfo, DECK.join('\n'), { as: 'nested-section.html' });
 	const viewer = await page.context().newPage();
 	await viewer.goto(`file://${file}`);
 	const got = await viewer.evaluate(() => {
-		const slide = document.querySelector('section[data-lattice-slide]') as HTMLElement;
-		const nested = slide.querySelector('section') as HTMLElement;
-		const box = (el: HTMLElement) => ({ w: el.getBoundingClientRect().width, overflow: getComputedStyle(el).overflow, bg: getComputedStyle(slide).getPropertyValue('--bg').trim(), nestedBg: getComputedStyle(el).getPropertyValue('--bg').trim() });
-		return { slide: box(slide), nested: nested ? box(nested) : null };
+		const slides = document.querySelectorAll('section[data-lattice-slide]');
+		const slide = slides[0] as HTMLElement;
+		const authored = { slides: slides.length, text: slide.textContent || '', sections: slide.querySelectorAll('section, x-section').length };
+		const nested = document.createElement('section');
+		nested.className = 'note';
+		nested.textContent = 'A nested panel.';
+		(slide.querySelector('h1')?.parentElement ?? slide).append(nested);
+		const box = (el: HTMLElement) => ({ w: el.getBoundingClientRect().width, overflow: getComputedStyle(el).overflow, bg: getComputedStyle(el).getPropertyValue('--bg').trim() });
+		return { authored, slide: box(slide), nested: box(nested) };
 	});
 	await viewer.close();
-	expect(got.nested, 'the nested section survives into the export').not.toBeNull();
+	expect(got.authored.slides, 'the author’s section made no slide of its own').toBe(1);
+	expect(got.authored.text, 'the panel’s words stay in the slide').toContain('A nested panel.');
+	expect(got.authored.sections, 'the reserved tag does not reach the player').toBe(0);
 	expect(got.slide.overflow, 'the top-level slide is still a slide').toBe('hidden');
-	expect(got.nested?.overflow, 'the nested section is not given the slide’s overflow').not.toBe('hidden');
-	expect(got.nested?.w, 'the nested section is not given the slide’s 1280px box').toBeLessThan(got.slide.w);
-	expect(got.nested?.nestedBg, 'the nested section inherits the dark slide’s tokens').toBe(got.slide.bg);
+	expect(got.nested.overflow, 'the nested section is not given the slide’s overflow').not.toBe('hidden');
+	expect(got.nested.w, 'the nested section is not given the slide’s 1280px box').toBeLessThan(got.slide.w);
+	expect(got.nested.bg, 'the nested section inherits the dark slide’s tokens').toBe(got.slide.bg);
 });
 
 // PICTURES BY URL (followup 2358-p2). The player's policy is `img-src data:`, so a picture it
-// shows has to be IN the file. The Studio used to embed nothing, and a `![bg]` panel, an `<img>`
+// shows has to be IN the file. The Studio used to embed nothing, and a photo panel, an `<img>`
 // and a video poster from the site's own origin all came out blank while the preview showed
 // them. Now each is fetched from this origin and embedded; a picture it could not fetch, and one
 // from another site (never fetched at export time), are named in the completion toast.
@@ -397,7 +412,9 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 		'theme: indaco',
 		'---',
 		'',
-		'![bg left](/showcase/roadmap.light.webp)',
+		'<!-- _class: image mirror -->',
+		'',
+		'![The roadmap](/showcase/roadmap.light.webp)',
 		'',
 		'# A same-origin background',
 		'',
@@ -426,9 +443,8 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
 	const got = await viewer.evaluate(() => {
 		const slides = [...document.querySelectorAll('section[data-lattice-slide]')] as HTMLElement[];
-		// The Studio's engine draws `![bg left]` on the slide itself (web mode); the CLI's split
-		// panel is `.lattice-bg`. Read whichever carries the picture.
-		const bg = (slides[0]?.querySelector('.lattice-bg') as HTMLElement | null) ?? slides[0] ?? null;
+		// The `image mirror` slide's photo is its `.lattice-bg` panel.
+		const bg = slides[0]?.querySelector('.lattice-bg') as HTMLElement | null;
 		const imgs = [...(slides[1]?.querySelectorAll('img') ?? [])] as HTMLImageElement[];
 		const poster = slides[2]?.querySelector('a.video-poster') as HTMLElement | null;
 		const thumb = document.querySelector('#lp-article .lp-video-thumb') as HTMLElement | null;
@@ -446,7 +462,7 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 		};
 	});
 	await viewer.close();
-	expect(got.bg, 'the ![bg] panel carries its picture').toMatch(/^url\("data:image\/webp;base64,/);
+	expect(got.bg, 'the photo panel carries its picture').toMatch(/^url\("data:image\/webp;base64,/);
 	expect(got.icon, 'the <img> is embedded and decodes').toEqual({ src: 'data:image/png;base64,', loaded: true });
 	expect(got.poster, 'the video poster is embedded').toMatch(/^url\("data:image\/webp;base64,/);
 	expect(got.thumb, 'Read · Article keeps the embedded poster').toMatch(/^url\("?data:image\/webp;base64,/);

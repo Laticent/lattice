@@ -15,16 +15,24 @@ import { preloadEntry } from '@/lib/ensure-charts';
 
 /* global __LATTICE_ASSET_BASE__ */
 
+// The engine's own directory once the page has loaded it; the build's asset directory before
+// then (a surface can reach the lint before the engine). Both name the same files.
+const lintCoreBase = () => engineBase() ?? __LATTICE_ASSET_BASE__;
+
+/** The lint core's address, or null when it is not an asset of this page. The Studio's lint worker
+ *  (studio/lint/lint-worker.js) imports the same file, so the browser fetches and caches it once. */
+export function lintCoreUrl() {
+	return sameOriginAsset(lintCoreBase(), 'esm/lint.js')?.href ?? null;
+}
+
 /** The lint core's module namespace. Rejects with a ChunkLoadError when it will not load. */
 export async function loadLintCore() {
-	// The engine's own directory once the page has loaded it; the build's asset directory before
-	// then (a surface can reach the lint before the engine). Both name the same files.
-	const base = engineBase() ?? __LATTICE_ASSET_BASE__;
-	const url = sameOriginAsset(base, 'esm/lint.js');
+	const base = lintCoreBase();
+	const url = lintCoreUrl();
 	try {
 		if (!url) throw new Error(`the lint core is not an asset of this page: ${base}esm/lint.js`);
 		void preloadEntry(base, 'lint.js');
-		return await import(/* @vite-ignore */ url.href);
+		return await import(/* @vite-ignore */ url);
 	} catch (cause) {
 		const err = new Error(chunkLoadMessage(), { cause });
 		err.name = 'ChunkLoadError';

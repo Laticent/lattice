@@ -62,6 +62,8 @@ import { bakedFigureOpenTag } from '../../../../../lib/plugins/mermaid/shared/ba
 import initDirectiveCore from '../../../../../lib/plugins/mermaid/shared/init-directive.js';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
+import { exportInFlight } from '../../../lib/device-lite.js';
+import { writeSrcdoc } from '../../../lib/srcdoc-write.js';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
@@ -381,7 +383,8 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// resolves it from the workspace setting (share-export.ts).
 	// `withRuntimeScriptsReport` also drops the deck's own executable HTML (marp-cli would run it on the
 	// recipient's machine) and says what it dropped; this function returns that for the toast.
-	// The Marp bundle ships Markdown, so it keeps the SOURCE lift of `![bg]`; every render lifts on the engine's tokens.
+	// The Marp bundle ships Markdown, and Export-to-Marp writes a placed photo as `![bg]` for Marp, so it keeps the SOURCE lift
+	// of `![bg]`; no render of ours reads `![bg]` since 2026-11-13.
 	// Imported here, not at the top: Node's unit tests import this module, and the loader names `@/` paths.
 	const { liftImageBgImages } = await (await import('../../../playground/bg-image-lift-source.js')).loadBgImageLift();
 	// Lattice scopes a plain `<!-- header: H -->` (and `footer:`) to its own slide; Marp carries it onto
@@ -591,7 +594,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 	const frame = document.createElement('iframe');
 	frame.title = 'Export render';
 	frame.style.cssText = `width:${gw}px;height:${gh}px;border:0;`;
-	host.appendChild(frame);
+	// The frame goes into the page only once its `srcdoc` is set (`writeSrcdoc` below). Firefox hands a srcdoc document
+	// the page's service worker only in that order, and an offline export needs the worker for the runtime, the theme's
+	// fonts and Mermaid. Appending the frame empty worked only while nothing awaited between the append and the write
+	// (engineering/decisions/2026-11-12-gecko-srcdoc-rewrite-controller.md §4).
 	document.body.appendChild(host);
 	const dispose = () => host.remove();
 	try {
@@ -638,7 +644,7 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// stalls on a slow/failed face), leaving the mobile progress card stuck with
 		// no error and no Retry. A slightly-early capture is safe: sectionsOf →
 		// ensureFontsLoaded re-waits afterward with the embedded data-URI faces.
-		await withTimeout(new Promise((res) => { frame.addEventListener('load', () => res(), { once: true }); frame.srcdoc = frameDoc; }), 10000);
+		await withTimeout(new Promise((res) => { frame.addEventListener('load', () => res(), { once: true }); writeSrcdoc(frame, frameDoc, host); }), 10000);
 		const win = frame.contentWindow;
 		const doc = frame.contentDocument;
 		if (!doc) throw new Error('Could not prepare the export render.');
@@ -1879,13 +1885,15 @@ function canUsePdfWorker() {
 // which blows iOS Safari's per-tab memory ceiling and crashes the export
 // mid-deck. A window of 2 keeps the pipeline overlapped (main draws slide N+1
 // while the worker encodes slide N) with bounded memory; 1 would serialize the
-// lanes and give back part of the speed win.
-const PDF_WORKER_MAX_IN_FLIGHT = 2;
+// lanes and give back part of the speed win. A LITE device takes that trade (`exportInFlight`, device-lite.js): one
+// bitmap at a time, slower, the same bytes, because the worker still writes the slides in index order.
+
 
 async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, meta, pageFormat, annotations, log) {
 	const worker = new Worker(new URL('./pdf-export-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
+		const maxInFlight = exportInFlight();
 		let acked = 0;
 		let wake = null;
 		let failure = null;
@@ -1920,7 +1928,7 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 			// Backpressure: wait for the worker's ack before growing the in-flight
 			// window. Raced against `done` so a worker-side error breaks the wait
 			// (rejects) instead of deadlocking the loop.
-			while (i - acked >= PDF_WORKER_MAX_IN_FLIGHT) {
+			while (i - acked >= maxInFlight) {
 				await Promise.race([done, new Promise((r) => { wake = r; })]);
 				if (failure) throw failure;
 			}
@@ -2509,8 +2517,7 @@ function canUsePptxWorker() {
 
 // At most this many slides may sit transferred-but-unassembled in the worker's queue —
 // the same bound, for the same reason, as the PDF lane's. Each is a full PNG, and an
-// unbounded queue grows with however far the worker falls behind the clone + draw.
-const PPTX_WORKER_MAX_IN_FLIGHT = 2;
+// unbounded queue grows with however far the worker falls behind the clone + draw. `exportInFlight()`: 2, or 1 on LITE.
 
 /**
  * Build the .pptx in a worker: this thread only clones and draws.
@@ -2525,6 +2532,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 	const worker = new Worker(new URL('./pptx-assemble-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
+		const pptxInFlight = exportInFlight();
 		let acked = 0;
 		let wake = null;
 		let failure = null;
@@ -2549,7 +2557,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 		worker.postMessage({ type: 'init', layout, props });
 		for (let i = 0; i < total; i++) {
 			if (failure) throw failure;
-			while (i - acked >= PPTX_WORKER_MAX_IN_FLIGHT) {
+			while (i - acked >= pptxInFlight) {
 				await Promise.race([done, new Promise((r) => { wake = r; })]);
 				if (failure) throw failure;
 			}

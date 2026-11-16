@@ -35,12 +35,16 @@ async function warmOnline(
 	page: Page,
 	origin: string,
 	names: Array<string | RegExp>,
-	{ fabricateUsed = false, diagramsUsed = false, saveData = false, mathDeck = false } = {},
+	{ fabricateUsed = false, diagramsUsed = false, saveData = false, mathDeck = false, tier = 'full' as 'full' | 'lite' } = {},
 ): Promise<void> {
 	await page.addInitScript(
-		([used, diagrams, save, math, mathSource]) => {
+		([used, diagrams, save, math, mathSource, perf]) => {
 			try {
 				localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft', editMode: 'source' }));
+				// The device tier, set through Performance mode (the person's own setting). The warm-up is FULL behavior: a
+				// LITE device prefetches nothing on a guess (device-capability-tiers §4.2), and this runner draws in
+				// software, so unpinned it reads as LITE (HARD RULE #32: the runner's GPU never decides a result).
+				localStorage.setItem('lattice-device-tier-override', perf);
 				if (used) localStorage.setItem('lattice-studio-fabricate-used', '1');
 				if (diagrams) localStorage.setItem('lattice-studio-diagrams-used', '1');
 				// The starter deck's stored source (studio-store.ts SRC_PREFIX), as a JSON string.
@@ -48,7 +52,7 @@ async function warmOnline(
 			} catch {}
 			if (save) Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
 		},
-		[fabricateUsed, diagramsUsed, saveData, mathDeck, MATH_DECK] as const,
+		[fabricateUsed, diagramsUsed, saveData, mathDeck, MATH_DECK, tier] as const,
 	);
 	await page.goto(`${origin}/studio/`, { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => navigator.serviceWorker.ready);
@@ -175,6 +179,22 @@ test('under Save-Data the warm-up fetches the six panels but not Present or the 
 		await warmOnline(page, origin, ['LensesPanel'], { saveData: true, diagramsUsed: true });
 		const surfaces = [...['ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'].map(chunk), KATEX, MERMAID];
 		expect(hits.filter((p) => surfaces.some((re) => re.test(p))), 'Save-Data warmed a surface no visitor downloaded before').toEqual([]);
+	} finally {
+		server.closeAllConnections();
+		server.close();
+	}
+});
+
+test('on a LITE device the warm-up fetches the six panels but no surface, not even Fabricate for a browser that used it', async ({ page }) => {
+	test.setTimeout(180_000);
+	const { server, origin, hits } = await serveDist();
+	try {
+		// The last of the six panels, so the queue has reached the point where the surfaces would start. Flagged as a
+		// Fabricate and diagram user, so skipping both is LITE's doing (device-capability-tiers §4.2), not the flags'.
+		await warmOnline(page, origin, ['LensesPanel'], { tier: 'lite', fabricateUsed: true, diagramsUsed: true });
+		expect(await page.evaluate(() => document.documentElement.getAttribute('data-device-tier'))).toBe('lite');
+		const surfaces = [...['ComposeView', 'PresentOverlay', 'ReadArticle', 'Fabricate'].map(chunk), KATEX, MERMAID];
+		expect(hits.filter((p) => surfaces.some((re) => re.test(p))), 'LITE warmed a surface on a guess').toEqual([]);
 	} finally {
 		server.closeAllConnections();
 		server.close();

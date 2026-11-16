@@ -13,7 +13,7 @@ header: "Lattice · statement list rows"
 - The plan ships in two phases
 - We hire after the second close
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -26,7 +26,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 - Revenue up 14% on the year
 - Churn down to 3.1%
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -38,7 +38,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 2. Open the Lisbon office
 3. Ship the desktop app
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -49,7 +49,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 - Margins hold through the downturn
 - The plan ships in two phases
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -60,7 +60,7 @@ The rows under it take the same ink as this line, so the list reads as one block
 - Less scrim, more photo
 - The rows stay white with their shadow
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -71,4 +71,4 @@ The rows under it take the same ink as this line, so the list reads as one block
 - Heading on the left
 - Rows on the right
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)

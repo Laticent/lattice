@@ -18,7 +18,7 @@ function layoutOf(n: number, pitch: number, height: number, viewport: number, sc
 
 function rig(source = deck) {
 	const log: string[] = [];
-	const state = { editing: true, editor: true, active: true, canPick: true, now: 0, ed: 0, pv: 0, previewOk: true };
+	const state = { editing: true, editor: true, active: true, canPick: true, now: 0, ed: 0, pv: 0, previewOk: true, showTarget: true };
 	const rafs: Array<{ id: number; cb: () => void }> = [];
 	let ids = 0;
 	const owedEvents: Array<"editor" | "preview"> = [];
@@ -56,7 +56,9 @@ function rig(source = deck) {
 		markPages: (p) => log.push(`mark ${p ? p.join(',') : 'none'}`),
 		show: (page, o) => {
 			log.push(`page ${page} instant=${o.instant}`);
-			return true;
+			// Where the host's smooth scroll is heading, as PlaygroundApp's `showPreviewPage` reports it. The scroll
+			// itself is the test's to play out, frame by frame, with `scrollPreview`.
+			return state.showTarget ? clamp(centeredAt(pvLayout(parts), page), pvLayout(parts)) : true;
 		},
 		editing: () => state.editing,
 		active: () => state.active,
@@ -481,6 +483,47 @@ describe('a pick moves the caret', () => {
 		r.scrollPreview(600);
 		expect(r.hub.get()).toMatchObject({ origin: 'rail', flat: 3 });
 		expect(r.state.ed).toBeCloseTo(r.map().toA(600), 6);
+	});
+
+	it('a frame stall in the middle of a pick does not let the slide it is passing take the focus', async () => {
+		// The busy-page case: the smooth scroll is half way when the page stops delivering frames for longer than the
+		// stillness window. The preview is still between where the pick started and where it is going, so it is the
+		// pick in flight, not the reader stopping there.
+		const r = rig();
+		await r.land();
+		r.hub.go('rail', { flat: 3 });
+		r.frame();
+		r.state.now += 20;
+		r.scrollPreview(600);
+		r.state.now += 300; // the stall: no scroll event, then a frame
+		r.frame();
+		expect(r.hub.get()).toMatchObject({ origin: 'rail', flat: 3 });
+		// The editor re-anchoring meanwhile is a follower; it must not drive the preview off the pick's path.
+		const before = r.state.pv;
+		r.scrollEditor(r.state.ed + 40);
+		expect(r.state.pv).toBe(before);
+		// …and the pick, once it arrives and holds still, names its own slide.
+		const target = Math.max(0, Math.min(centeredAt(r.pvLayout(SLIDES), 3), maxScroll(r.pvLayout(SLIDES))));
+		r.state.now += 20;
+		r.scrollPreview(target);
+		r.state.now += 300;
+		r.frame();
+		expect(r.hub.get().flat).toBe(3);
+	});
+
+	it('a pick whose host scrolls the preview by other means keeps the stillness rule alone', async () => {
+		// Explore's walk moves the preview itself (`show` returns `true`, no offset): nothing is known about the trip,
+		// so a stall there reads as the scroll having stopped, which is the rule this surface had before.
+		const r = rig();
+		r.state.showTarget = false;
+		await r.land();
+		r.hub.go('rail', { flat: 3 });
+		r.frame();
+		r.state.now += 20;
+		r.scrollPreview(600);
+		r.state.now += 300;
+		r.frame();
+		expect(r.hub.get().origin).toBe('preview');
 	});
 
 	it('once a pick has settled, the reader scrolling the preview to another slide names that slide', async () => {

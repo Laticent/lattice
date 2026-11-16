@@ -92,6 +92,7 @@
       }
     },
     "lint": [
+      "image-marp-keyword",
       "image-not-alone",
       "image-extra-panel",
       "image-web-source"

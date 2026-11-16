@@ -610,6 +610,14 @@ const pgData = {
 			})();
 		</script>
 
+		<!-- The device gate (engineering/decisions/2026-11-12-device-capability-tiers.md §6, §7.3): applies a ?tier= pin or
+		     the saved tier, decides this visit's tier once the page is idle, and shows the decline screen when it reads
+		     "unsupported". Everything past the attribute read loads on demand. -->
+		<script>
+			import { startDeviceGate } from '../lib/device-gate';
+			startDeviceGate({ decide: true });
+		</script>
+
 		<!-- Guided tour: the Tour button and the first-visit offer. The offer is a card
 		     in the island (PlaygroundTourCard); the tour itself is a narrated Vetrina
 		     run that targets the live DOM by selector, so it starts after hydration. -->

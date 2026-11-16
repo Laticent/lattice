@@ -11,7 +11,7 @@ header: "Lattice · image band"
 
 The card stretches the full width along the bottom edge. The heading takes the left column and the text takes the right, so the strip stays short.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -21,7 +21,7 @@ The card stretches the full width along the bottom edge. The heading takes the l
 
 Soft backing lets the sky show through, and whatever sits below the strip stays in full view.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 ---
 
@@ -31,7 +31,7 @@ Soft backing lets the sky show through, and whatever sits below the strip stays 
 
 The title steps down one size to fit its column, and the scrim fades out sooner than it does for a corner card.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -41,7 +41,7 @@ The title steps down one size to fit its column, and the scrim fades out sooner 
 
 `ink-dark` flips the scrim light, so a bright sky carries dark type.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 ---
 
@@ -51,7 +51,7 @@ The title steps down one size to fit its column, and the scrim fades out sooner 
 
 `card-sm` and `compact` tighten the strip further for a photo that has to carry the slide.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -59,7 +59,7 @@ The title steps down one size to fit its column, and the scrim fades out sooner 
 
 ## A heading alone fills the strip.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 ---
 
@@ -69,7 +69,7 @@ The title steps down one size to fit its column, and the scrim fades out sooner 
 
 On a corner it does nothing, so this card stays a corner card.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -79,7 +79,7 @@ On a corner it does nothing, so this card stays a corner card.
 
 The divider follows the deck's spectrum: a quiet accent tint by default, the full gradient with `with-spectrum-trim`.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -89,7 +89,7 @@ The divider follows the deck's spectrum: a quiet accent tint by default, the ful
 
 A thin backing needs a matching ink. The line under the heading takes no space.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 ---
 
@@ -99,4 +99,4 @@ A thin backing needs a matching ink. The line under the heading takes no space.
 
 The same stacked statement with no line under the heading.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)

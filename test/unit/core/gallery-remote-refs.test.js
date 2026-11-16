@@ -117,6 +117,8 @@ const FETCHES = {
   'a mermaid image shape': '```mermaid\nflowchart LR\nA@{ img: "https://evil.test/i.png" }\n```\n',
   'mermaid themeCSS': '```mermaid\n%%{init: {"themeCSS": ".node rect{fill:url(https://evil.test/t.svg)}"}}%%\nflowchart LR\nA-->B\n```\n',
   '<style> url()': '<style>section{background:url("https://evil.test/a")}</style>',
+  // An ordinary picture since the engine break (2026-11-13): it used to be a background the scheme allowlist dropped.
+  'a protocol-relative Marp `![bg]` picture': '![bg right](//evil.test/a.jpg)',
 };
 
 const BENIGN = {
@@ -137,8 +139,6 @@ const BENIGN = {
   'the vendored dagre build beside the deck': '<script src="lattice-dagre-min.js"></script>',
   'a gallery written against the pre-rename name (.min.js, before 2026-09-29)': '<script src="../mermaid-v11.min.js"></script>',
   'shipped-style front matter': '---\nmarp: true\ntheme: indaco\npaginate: true\nheader: "Lattice · closing"\n---\n\n<!-- _class: title silent -->\n\n# Hi\n',
-  // Dropped at render by the scheme allowlist (lib/core/url-scheme.js), so nothing is fetched and nothing is reported.
-  'a protocol-relative Marp background image': '![bg right](//evil.test/a.jpg)',
   'a plain mermaid diagram': '```mermaid\nflowchart LR\nA-->B\n```\n',
   'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n',
 };

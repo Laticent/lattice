@@ -12,25 +12,25 @@ header: "Lattice · Slide backgrounds"
 
 `Fix · Slide backgrounds`
 
-The CLI now draws `![bg]` the way the Studio always has
+Add `bleed` to the slide, and its one picture fills it
 
 ---
 
-<!-- _class: content dark -->
+<!-- _class: content dark bleed -->
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 `Full-bleed background`
 
 ## The photo is the slide's background.
 
-<!-- A ![bg] on a slide that is not `image` is the slide's own background, cropped to fill it. The CLI used to drop it: the picture drew nothing in the PDF, the HTML or the player. -->
+<!-- On a `bleed` slide, the one picture alone on its line is the slide's background, cropped to fill it. Marp's old `![bg]` keyword is retired: `lint:deck --fix` writes this form. -->
 
 ---
 
-<!-- _class: content dark -->
+<!-- _class: content dark bleed -->
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 `Any picture`
 
@@ -44,15 +44,15 @@ The CLI now draws `![bg]` the way the Studio always has
 
 ## Beside the text, use the image layout.
 
-`![bg right](…)` on an `image` slide sets the picture next to the words. On any other slide, `lint:deck` now warns that `right` does nothing.
+On an `image` slide the same picture sits next to the words; `image mirror` puts it on the left.
 
-![bg right](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
-<!-- _class: content dark -->
+<!-- _class: content dark bleed -->
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 `Same in every export`
 
@@ -69,4 +69,4 @@ The CLI now draws `![bg]` the way the Studio always has
 
 ## A background is a background.
 
-Write `![bg]` on any slide, or use `image` to set it beside the text.
+Write `![A name](photo.jpg)` and give the slide `bleed`, or `image` to set it beside the text.

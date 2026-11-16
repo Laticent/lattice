@@ -35,7 +35,9 @@ left      — each needs a decision, not a test edit:
               14 passed). The three marked (main) were green at 8a755f69, so a commit on main between the two broke them
               (#3048 or #3054 touched the Studio):
               - playground-first-paint.spec.ts:990: the newcomer bake's element is null (`hasAttribute` of null).
-              - workspace-backup-size.spec.ts:85: a 67 MiB backup restores 0 of its 10 reference docs.
+              - workspace-backup-size.spec.ts:85: FIXED on claude/flaky-e2e-export (2026-11-12). The fixture's PDF data
+                URLs repeated a padded base64 block, so they did not decode and ran past the 5 MiB cap, and the restore
+                (#3094) rightly refused all ten; the fixture now encodes one buffer whole.
             - passed on a re-run with no change, so red only under the full run's load (cause unknown, HARD RULE #32):
               stage-window:335, studio-map-posters:87,
               supplied-page-position:18, compose-pill-editor:259 (#3150).
@@ -119,8 +121,10 @@ fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each
             wider: 24 loaded runs per case (desktop 6 workers, webkit-phone 4), main 0 and 1 of 48, the PR 4 and 3,
             and 24 and 24 of 24 after the poll kept its own value and required a real accent.
             Four others failed only under load on BOTH builds, 6 loaded runs each, main against the PR:
-            export-photo-size:26 5 and 5, deck-drop-import:234 1 and 0, present-beat:231 1 and 0, lenses:21 0 and 0
-            (it failed once in the full run). Not investigated.
+            export-photo-size:26 5 and 5 (FIXED on claude/flaky-e2e-export, 2026-11-12: two per-edit costs that scaled
+            with the deck's size held the main thread, and the spec now waits for the lint and the Coach to answer for its
+            deck), deck-drop-import:234 1 and 0, present-beat:231 1 and 0, lenses:21 0 and 0 (it failed once in the full
+            run). Not investigated.
 
 2026-11-12 — fixed at their causes on `claude/compose-e2e-flakes` (engineering/gotchas/studio-playground.md, the
             Compose e2e entry): compose-pill-editor:259 and compose-spark-editor:108 (read the drawn pill/spark once,

@@ -427,6 +427,24 @@ iframe.live {
 	50% { opacity: 0.6; }
 	100% { background-position: 0 0; opacity: 1; }
 }
+/* LITE device tier: no backdrop blur anywhere in the app chrome (device-capability-tiers §4). A backdrop filter
+   re-samples everything behind its box on every frame that box or its backdrop moves, which a software renderer pays
+   for on the CPU. `!important` because some surfaces set the filter inline (the Vetrina tour stage). The named
+   glass surfaces (the site header, the chart popover) turn opaque in their own stylesheets; the remaining
+   Tailwind `backdrop-blur` pills sit on fills of 85% or more, which read cleanly without the blur. */
+:root[data-device-tier='lite'] *,
+:root[data-device-tier='lite'] *::before,
+:root[data-device-tier='lite'] *::after {
+	/* One property per rule: written together, the CSS minifier kept only the prefixed one (Chromium and Gecko kept
+	   their blur), and written alone, it dropped the prefix Safari before 18 still reads. */
+	backdrop-filter: none !important;
+}
+/* `html`, not `:root`, so the minifier does not fold this rule back into the one above. */
+html[data-device-tier='lite'] *,
+html[data-device-tier='lite'] *::before,
+html[data-device-tier='lite'] *::after {
+	-webkit-backdrop-filter: none !important;
+}
 /* Present-mode section title cross-fade (2026-07-12 redesign): the title rises + fades
  * in as the deck crosses a section boundary. Reduced-motion callers drop the animation. */
 @keyframes lx-fade-rise {

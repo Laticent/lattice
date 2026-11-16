@@ -23,6 +23,7 @@
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
 import { unclosedSectionAt } from '@laticent/markup';
+import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
@@ -45,6 +46,7 @@ import { math as MATH } from '../../../lib/plugins/detect.generated.mjs';
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
 import { pluginDataMissing } from '../lib/ensure-plugin-data';
+import { liveMediaAttr } from '../lib/live-media-attr';
 import { ensureEngine } from '../lib/load-engine';
 import { renderMarkdown } from '../lib/render-engine';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../lib/render-metrics';
@@ -1334,14 +1336,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
 			// `data-lattice-live-media`: this frame is ON SCREEN, so a picture still loading shows the
-			// Underpainting (lib/core/image-painting.js). An export capture never sets it.
+			// Underpainting (lib/core/image-painting.js), held still on a LITE device (live-media-attr.ts). An export capture never sets it.
 			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (chromeless ? ' data-lattice-chromeless' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(drawn && !!runtimeUrl) +
 			// `data-lattice-preview`: a person reads this frame, so the runtime settles only the faces its
 			// laid-out text uses and re-measures when a later one lands (lib/runtime/index.js
 			// `isPreviewFonts`). Without it the runtime force-loads every declared face (28 files, the
 			// emoji subsets among them), `fonts.ready` goes pending again, and the reveal below waits out
 			// its whole PREVIEW_FONT_GATE_MS backstop on a cold load: about 1.5 s on the phone profile.
-			' data-lattice-live-media data-lattice-preview><head><meta charset="utf-8">' +
+			liveMediaAttr() + ' data-lattice-preview><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
 			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked, scriptNonce: PREVIEW_SCRIPT_NONCE }) +
@@ -1803,13 +1805,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// silently redefine the number (a 40× jump that reads as a content explosion, not as a
 		// changed denominator). Report the SHOWN slide's bytes; `slideMarkdown` is that slide.
 		const shownBytes = opts?.slideMarkdown?.length ?? markdown.length;
+		// The deck as its READERS scan it: a phone photo's base64 is a short stand-in, so the checks below (math, the shown
+		// slide's position, the deck-derived facts) ask what the deck says without walking megabytes of picture
+		// (src/lib/payload-elision.ts). Lines and slides stay where they are. The render itself takes `markdown`.
+		const scan = analysisText(markdown);
 		// KaTeX's 20 faces are stripped from the registered theme until a source actually
 		// contains math (2026-08-17 loading audit §9.6). Gate on the engine's detector with code
 		// skipped (`sourceHasMathOutsideCode`): math inside a code span or fence never renders, and
 		// counting it loaded the faces and re-registered lattice.css before the welcome deck's first
 		// slide (Studio performance audit, PR #2868). AWAIT it as part of themeReady so the first
 		// math slide already has its faces — no fallback-font flash.
-		const katexReady = sourceHasMathOutsideCode(markdown) ? themes.ensureKatexFaces() : Promise.resolve();
+		const katexReady = sourceHasMathOutsideCode(scan) ? themes.ensureKatexFaces() : Promise.resolve();
 		const themeReady = extra
 			? themes.ensureBase().then(() => {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited
@@ -1836,7 +1842,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// nothing. A caller that passes `slideIndex` without `slideMarkdown` has no slice to
 				// fall back to, so it keeps the deck render and the narrowing it asked for.
 				const canDivert = typeof opts?.slideIndex === 'number' && !!opts.slideMarkdown;
-				const wantsContext = typeof opts?.slideIndex === 'number' && (!canDivert || needsDeckContext(markdown));
+				const wantsContext = typeof opts?.slideIndex === 'number' && (!canDivert || needsDeckContext(scan));
 				const renderSource = wantsContext || !canDivert ? markdown : (opts?.slideMarkdown as string);
 				// SUPPLIED DECK POSITION for the slice path. When we render the shown slide alone,
 				// the engine would number it "1 of 1" — so hand it the position the caller already
@@ -1883,7 +1889,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const renderedBase = run?.renderedBase ?? opts?.slideIndex ?? 0;
 				const renderedTotal = run ? run.renderedTotal : opts?.slideCount;
 				const panePage = run?.panePage ?? 0;
-				const slicePage = renderSource !== markdown ? supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount, paneCounts) : undefined;
+				const slicePage = renderSource !== markdown ? supplyablePosition(scan, opts?.slideIndex, opts?.slideCount, paneCounts) : undefined;
 				// `sample:<name>` images resolve into the staged lib/samples/ copy (./samples-base.ts),
 				// and a bare relative ref resolves against the same folder. Hoisted out of the try
 				// below so the deck-context fallback render can reuse it.
@@ -1983,7 +1989,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// the same gate makes the "math" chip mean precisely "this render
 						// triggered a KaTeX load"; stripping code here would hide math whose cost
 						// the engine still paid (e.g. a `$…$` inside a code fence).
-						s.math = sourceHasMath(markdown);
+						s.math = sourceHasMath(scan);
 						s.overflow = 0;
 					}
 				} catch (e) {
@@ -2196,7 +2202,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					recordFidelity({
 						slideIndex,
 						path: painted,
-						facts: painted === 'whole-deck' ? deckDerivedFactsFor(markdown) : [],
+						facts: painted === 'whole-deck' ? deckDerivedFactsFor(scan) : [],
 						page: painted === 'slice' ? slicePage : undefined,
 						// A slice with NO supplied position numbered itself 1 of 1 — honest, but not the
 						// deck's truth. Reported on the fallback slice too, which supplies nothing at all.
@@ -2210,7 +2216,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										// all is what separates "the fail-closed guard refused" from every other
 										// residual, and inferring that from the rendered "1 of 1" pagination
 										// mis-attributes a supplied-but-wrong position to a guard that is working.
-										const comparePage = supplyablePosition(markdown, slideIndex, slideCount, paneCounts);
+										const comparePage = supplyablePosition(scan, slideIndex, slideCount, paneCounts);
 										const [sliceOut, deckOut] = await Promise.all([
 											// The COUNTERFACTUAL fast route, rendered the way the fast route would
 											// really render it — including the position it would really supply. Passing

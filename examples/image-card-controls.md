@@ -11,7 +11,7 @@ header: "Lattice · image card controls"
 
 Solid, medium, theme ink. Every control below changes one thing about it.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -21,7 +21,7 @@ Solid, medium, theme ink. Every control below changes one thing about it.
 
 The small card steps the type down, so the photo carries the slide.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -31,7 +31,7 @@ The small card steps the type down, so the photo carries the slide.
 
 `card-soft` thins the panel to 80%; `ink-light` sets white words on a dark card.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 ---
 
@@ -41,7 +41,7 @@ The small card steps the type down, so the photo carries the slide.
 
 `card-sheer` drops the panel to 55%; `ink-dark` sets near-black words on a light tint.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -51,7 +51,7 @@ The small card steps the type down, so the photo carries the slide.
 
 A wider card and a larger heading, centered on the slide.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -61,7 +61,7 @@ A wider card and a larger heading, centered on the slide.
 
 The scrim follows the words to the top edge.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -71,7 +71,7 @@ The scrim follows the words to the top edge.
 
 `card-sheer` leaves the scrim at 55% strength.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 ---
 
@@ -81,7 +81,7 @@ The scrim follows the words to the top edge.
 
 For a bright photo, the title goes dark and the scrim turns light.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -91,7 +91,7 @@ For a bright photo, the title goes dark and the scrim turns light.
 
 Padding and the edge inset drop to 70%, so a small card hugs its corner.
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
@@ -101,4 +101,4 @@ Padding and the edge inset drop to 70%, so a small card hugs its corner.
 
 The title settles closer to the corner and the body tightens.
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)

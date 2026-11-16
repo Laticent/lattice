@@ -4,3 +4,8 @@
 export async function loadLintCore() {
 	return import('./authoring-core.generated.js');
 }
+
+/** No worker under vitest: the Studio's lint client finds no address and lints on the calling thread. */
+export function lintCoreUrl() {
+	return null;
+}

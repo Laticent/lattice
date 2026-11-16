@@ -1,0 +1,4 @@
+---
+group: Lint & audit
+---
+The reference diff of the lint-core rewrite (2026-11-13-squadra-replaces-lint-core §6): lint-core as main has it at the merge-base, run from a git worktree under .scratch/squadra-reference/ (about 19 s to build once per commit) and the new `deck` ruleset (`lintDeck`) over the lint tests' own inputs, each of those inputs spliced into one of eight tracked decks in turn, and the tracked decks, compared on rule, severity, slide, message and line. Held on the rules the ruleset defines; every difference must be fixed or listed in tools/squadra/explained.json. `--fix` adds the Fix-all diff. Exits 1 on an unexplained or stale difference, or when the reference found nothing. On demand, about 13 minutes over the full recording (measured 2026-11-15) (`--corpus` reuses a recording of the lint tests' inputs). Needs Node 22.15 or later (`module.registerHooks`, for the isolation check); an older Node stops with that message.

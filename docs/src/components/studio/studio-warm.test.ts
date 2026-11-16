@@ -6,7 +6,7 @@ import { startStudioWarmUp, WARM_FONT_FILES, warmable } from './studio-warm';
 // handed. What each surface actually loads, and that it opens offline, is
 // docs/e2e/studio-warm-offline.spec.ts on the built site.
 
-function queueFor(inputs: { katexUrl?: string | null; diagramRuntimeUrl?: string | null; fabricateUsed?: boolean; themeBase?: string | null; firstSlide?: Promise<unknown> }): ReadonlyArray<Warmable> {
+function queueFor(inputs: { katexUrl?: string | null; diagramRuntimeUrl?: string | null; fabricateUsed?: boolean; themeBase?: string | null; firstSlide?: Promise<unknown>; lite?: boolean }): ReadonlyArray<Warmable> {
 	let queue: ReadonlyArray<Warmable> = [];
 	startStudioWarmUp({
 		warmPanels: (q) => {
@@ -17,6 +17,7 @@ function queueFor(inputs: { katexUrl?: string | null; diagramRuntimeUrl?: string
 		diagramRuntimeUrl: inputs.diagramRuntimeUrl ?? null,
 		fabricateUsed: inputs.fabricateUsed ?? false,
 		themeBase: inputs.themeBase ?? null,
+		lite: () => inputs.lite ?? false,
 		...(inputs.firstSlide ? { firstSlide: inputs.firstSlide } : {}),
 	});
 	return queue;
@@ -61,6 +62,11 @@ describe('startStudioWarmUp', () => {
 		Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
 		expect(queueFor({ katexUrl: '/k.js', diagramRuntimeUrl: '/lattice-runtime.js' })).toHaveLength(2);
 		expect(queueFor({ fabricateUsed: true })).toHaveLength(3);
+	});
+
+	it('on a LITE device keeps only the clip notice and Hide/Show: no surfaces, no Fabricate, no fonts (device-capability-tiers §4)', () => {
+		expect(queueFor({ lite: true, katexUrl: '/k.js', diagramRuntimeUrl: '/lattice-runtime.js', fabricateUsed: true, themeBase: '/themes/' })).toHaveLength(2);
+		expect(queueFor({ lite: false, fabricateUsed: true, themeBase: '/themes/' }).length).toBeGreaterThan(6);
 	});
 });
 
@@ -130,6 +136,7 @@ describe('startStudioWarmUp — fonts', () => {
 			fabricateUsed: false,
 			themeBase: '/playground/v/f4/themes/',
 			quiet,
+			lite: () => false,
 		});
 		const loading = queue[5].load();
 		for (let i = 0; i < 10; i++) await Promise.resolve();

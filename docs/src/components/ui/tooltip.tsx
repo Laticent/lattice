@@ -200,6 +200,17 @@ function KeyboardFocusTip({
   // test reads the element that took focus, which may be inside a wrapping span. Hover is untouched.
   const [open, setOpen] = React.useState(false)
   const dropOpen = React.useRef(false)
+  // A HINT THAT FOCUS OPENED NEVER TAKES A PRESS. Escape that closes a sheet hands focus back to its
+  // launcher as a keyboard focus, so the launcher's hint opens and stays until focus moves. On a phone
+  // the Chat launcher's hint sat over "Workspace settings" in the header, and the next tap landed on
+  // the hint, not the button: one tap eaten. A focus-opened hint is read, never hovered, so it lets the
+  // pointer through, and so does Radix's positioning wrapper around it (`lx-tip-passthrough`, the
+  // `:has()` rule in styles/tailwind.css). A hint the pointer is on keeps its hit box, which lets the
+  // pointer move onto it without closing it (WCAG 1.4.13). That holds when the pointer was ALREADY resting
+  // on the trigger as focus arrived (no `pointerenter` fires then), so the focus asks `:hover` too.
+  // e2e/model-spine.spec.ts, `mobile` project; tooltip.test.tsx.
+  const [viaFocus, setViaFocus] = React.useState(false)
+  const onPointerEnter = React.useCallback(() => setViaFocus(false), [])
   const onFocusCapture = React.useCallback((e: React.FocusEvent) => {
     let keyboard = true
     try {
@@ -207,7 +218,18 @@ function KeyboardFocusTip({
     } catch {
       // An engine without `:focus-visible` keeps Radix's default.
     }
-    if (keyboard) return
+    if (keyboard) {
+      // Only on a device that can hover: a touch screen leaves `:hover` on the last thing tapped, so a
+      // phone with a keyboard (tap the launcher, press Escape) would read the finger as a resting pointer.
+      let hovered = false
+      try {
+        hovered = !window.matchMedia("(hover: none)").matches && (e.currentTarget as Element).matches(":hover")
+      } catch {
+        // No `:hover` or media query to ask: treat the pointer as elsewhere.
+      }
+      setViaFocus(!hovered)
+      return
+    }
     // Radix asks to open synchronously, from its own focus handler in this same event.
     dropOpen.current = true
     window.setTimeout(() => {
@@ -216,6 +238,11 @@ function KeyboardFocusTip({
   }, [])
   const onOpenChange = React.useCallback((next: boolean) => {
     if (next && dropOpen.current) return
+    // NOT reset on close: a closing hint stays on screen through its fade-out, and clearing the flag then
+    // gave it its hit box back mid-fade. The tap that moved focus off the launcher went down on Workspace
+    // settings and came up on the fading hint, so no click fired (model-spine on `mobile`, 20 of 20). Every
+    // open sets the flag again before it matters: a keyboard focus recomputes it, a hover follows a
+    // `pointerenter`, and a non-keyboard focus drops the open.
     setOpen(next)
   }, [])
   return (
@@ -224,13 +251,14 @@ function KeyboardFocusTip({
         asChild
         ref={hintRef}
         onFocusCapture={onFocusCapture}
+        onPointerEnter={onPointerEnter}
         {...(describes || alsoDescribedBy || description === null
           ? { "aria-describedby": [describes ? hintId : null, alsoDescribedBy].filter(Boolean).join(" ") || undefined }
           : {})}
       >
         {children}
       </TooltipTrigger>
-      <TooltipContent side={side} align={align} sideOffset={sideOffset} className={className}>
+      <TooltipContent side={side} align={align} sideOffset={sideOffset} className={cn(viaFocus && "lx-tip-passthrough pointer-events-none", className)}>
         {label}
       </TooltipContent>
     </Tooltip>

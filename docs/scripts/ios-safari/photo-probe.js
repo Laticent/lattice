@@ -21,8 +21,8 @@ async function latticePhotoProbe() {
 	const BRIGHT =
 		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA1klEQVR42u3SMQ0AAAgEsfcvEwEMKMADYWxSBZfLdMFZJMBAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgPi0bG28SdoIc2AAAAABJRU5ErkJggg==';
 	const SLIDES = [
-		['<!-- _class: image statement card-clear -->', '## A quiet harbor.', 'The words sit straight on a bright photo.', `![bg](${BRIGHT})`],
-		['<!-- _class: image spotlight card-clear -->', '## A dark photo.', 'The theme ink sits on a dark picture.', '![bg](sample:photo-wide.svg)'],
+		['<!-- _class: image statement card-clear -->', '## A quiet harbor.', 'The words sit straight on a bright photo.', `![A bright harbor](${BRIGHT})`],
+		['<!-- _class: image spotlight card-clear -->', '## A dark photo.', 'The theme ink sits on a dark picture.', '![A dark lake](sample:photo-wide.svg)'],
 		['## Next steps', 'A plain slide after the photos.'],
 	];
 	// No front matter: a select-all-and-insert in WebKit can leave a blank first line, and front matter that does not start the
@@ -192,6 +192,19 @@ async function latticePhotoProbe() {
 	/** Open the editor's lint tooltip on the range on the line holding `text`, with a pointer move over it, and read it. */
 	const editorTooltip = async (text) => {
 		await openSource();
+		// BRING THE LINE'S START INTO VIEW FIRST. A photo written as data: text is one very long line, and CodeMirror puts
+		// only the part of a long line that is in view into the page: with the editor scrolled to the line's tail (an iPhone
+		// run, 43714043372, after the rebuilt editor kept its scroll), its start, the text this looks for and the warning's
+		// underline were not in the page at all, so the wait ran out with the warning present. The editor's own document
+		// says where the text is; its scroll effect puts the line's start at the top of the view.
+		await until(() => {
+			// The view, through the handle EditorView.findFromDOM uses (docs/e2e/markdown-stress.spec.ts).
+			const view = document.querySelector('[aria-label="Deck source"]')?.cmTile?.root?.view ?? document.querySelector('.cm-content')?.cmTile?.root?.view;
+			const at = view ? view.state.doc.toString().indexOf(text) : -1;
+			if (at < 0) return null;
+			view.dispatch({ effects: view.constructor.scrollIntoView(at, { y: 'start' }) });
+			return true;
+		}, 10000, `the editor's document to hold "${text}"`);
 		const range = await until(() => {
 			const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes(text));
 			return line?.querySelector('.cm-lintRange-warning');
@@ -252,7 +265,7 @@ async function latticePhotoProbe() {
 		const said1 = finding1.textContent.trim();
 		step('slide 1: the Coach flags the statement under 4.5:1', /reads at [0-3]\.\d:1 \(needs 4\.5:1\)/.test(said1), said1);
 		step('slide 1: the Coach offers the dark card ink', coachButton()?.textContent.trim() === 'Set card ink dark', coachButton()?.textContent);
-		const tip1 = await editorTooltip('![bg](data:');
+		const tip1 = await editorTooltip('![A bright harbor](data:');
 		step('slide 1: the editor says what the Coach says', tip1.text.includes(said1), tip1.text);
 		step('slide 1: the editor offers the same button', tip1.button === 'Set card ink dark', tip1.button);
 
@@ -277,7 +290,7 @@ async function latticePhotoProbe() {
 		step('slide 1: the preview never left the slide while the fix landed', seen.size === 1 && seen.has(HEADINGS[0]), [...seen].join(' | '));
 		await openSource();
 		await sleep(1500);
-		const left = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![bg](data:'))?.querySelector('.cm-lintRange-warning');
+		const left = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'))?.querySelector('.cm-lintRange-warning');
 		step('slide 1: the editor warning clears too', !left, left ? 'still underlined' : '');
 
 		// 3. A thin spotlight card: the Coach and the editor tooltip agree word for word.

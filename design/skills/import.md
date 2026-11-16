@@ -29,7 +29,7 @@ is getting text into Markdown and then shaping it.
   line, a `##` heading that is a full sentence making a claim, and a body
   sized to its component.
 - **Foreign syntax is gone.** No Marp theme names, `<!-- paginate -->`
-  comments, `![bg left:40%]` sizes or remote images left for the linter to
+  comments, `![bg …]` keywords or remote images left for the linter to
   find.
 - **Clean bytes.** LF line endings, no byte-order mark.
 - **Lint-clean**: zero errors and zero warnings.
@@ -132,8 +132,7 @@ and its background-image size syntax. `lint:deck` names each one.
    |---|---|---|
    | `unknown-theme` | `theme: gaia` / `default` | a Lattice palette name from the message |
    | `paginate-comment-retired` | `<!-- paginate: false -->` / `<!-- _paginate: … -->` | `no-pagination` on the slide's `_class:` |
-   | `bg-side-unread` | `![bg right:40%](…)` on a plain slide | `<!-- _class: image -->` and `![bg right](…)` |
-   | `bg-ratio-unread` | a `:40%` panel size | drop the ratio; the layout sets its share |
+   | `image-marp-keyword` | any `![bg …](…)` line | `--fix`: Markdown's picture, `![A name](…)`, with the slide's `image` (`mirror` for left) or `bleed`; then name the photo |
    | `web-image` | a picture loaded from a URL | save it beside the deck, link by relative path |
    | `unknown-class` | a Marp class such as `invert` | a Lattice component, or delete it |
    | `card-style-inline-title` | `- **Title.** body` bullets | `--fix`, or nested `- Title` / `  - body` |

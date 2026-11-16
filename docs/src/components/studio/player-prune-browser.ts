@@ -13,6 +13,7 @@
 //
 // The bundle (css-tree, `subset-font`, the woff2 codec) is heavy, so this module loads on
 // demand, only when the author exports a webpage, never on the initial Studio load.
+import { writeSrcdoc } from '@/lib/srcdoc-write.js';
 import { prunePlayerHtml, setColorWasm, setSubsetWasm, subsetEmbeddedFonts } from '@/playground/player-prune.generated.js';
 
 export type PruneResult = {
@@ -46,7 +47,8 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 		const frame = document.createElement('iframe');
 		frame.setAttribute('aria-hidden', 'true');
 		frame.style.cssText = 'width:1280px;height:720px;border:0;';
-		host.appendChild(frame);
+		// The frame joins the page only once its `srcdoc` is set (`writeSrcdoc`), the order in which Firefox gives a srcdoc
+		// document the page's service worker (engineering/decisions/2026-11-12-gecko-srcdoc-rewrite-controller.md §4).
 		document.body.appendChild(host);
 		// On a pathological stall, FAIL SAFE (ship the full player) rather than prune against an
 		// under-rendered frame, as the CLI aborts on a load timeout. srcdoc parses its DOM
@@ -54,7 +56,7 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 		const loaded = await new Promise<boolean>((res) => {
 			const t = window.setTimeout(() => res(false), 15000);
 			frame.addEventListener('load', () => { window.clearTimeout(t); res(true); }, { once: true });
-			frame.srcdoc = html;
+			writeSrcdoc(frame, html, host);
 		});
 		const doc = frame.contentDocument;
 		if (!loaded || !doc) {

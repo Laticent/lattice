@@ -397,6 +397,16 @@ export function mapBasemapFor(info) {
 
 // ── Surface C: skeleton drop-in ──────────────────────────────────────────────
 
+// Is the whole line one HTML comment: `<!--`, anything that stays on the line, `-->`, with
+// optional whitespace around it? The same predicate as `/^\s*<!--.*-->\s*$/`, written
+// without a regex because CodeQL's js/bad-tag-filter reads that one as an HTML filter that
+// misses `--!>` (#1958 §7). It classifies an editor line; it filters nothing. `trim()`
+// removes exactly the characters `\s` matches, and `.` matches anything but a line terminator.
+export function isCommentLine(text) {
+	const t = String(text).trim();
+	return t.length >= 7 && t.startsWith('<!--') && t.endsWith('-->') && !/[\n\r\u2028\u2029]/.test(t);
+}
+
 // True when the slide owning `directiveLine` has an EMPTY body: every line from
 // the directive down to the next slide break (`---`) or EOF is blank or itself
 // an HTML-comment directive line. Gates skeleton insertion so it never clobbers
@@ -409,7 +419,7 @@ export function slideBodyEmpty(getLine, total, directiveLine, skipLine = 0) {
 		const text = getLine(n) ?? '';
 		if (SLIDE_BREAK.test(text)) break; // reached the next slide
 		if (text.trim() === '') continue; // blank
-		if (/^\s*<!--.*-->\s*$/.test(text)) continue; // another directive line
+		if (isCommentLine(text)) continue; // another directive line
 		return false; // real content present
 	}
 	return true;
@@ -422,7 +432,7 @@ export function slideBodyEmpty(getLine, total, directiveLine, skipLine = 0) {
 export function skeletonBody(skeleton) {
 	const lines = String(skeleton || '').split('\n');
 	let i = 0;
-	while (i < lines.length && (lines[i].trim() === '' || /^\s*<!--.*-->\s*$/.test(lines[i]))) i++;
+	while (i < lines.length && (lines[i].trim() === '' || isCommentLine(lines[i]))) i++;
 	return lines.slice(i).join('\n').replace(/\s+$/, '');
 }
 

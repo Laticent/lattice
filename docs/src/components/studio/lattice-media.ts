@@ -9,6 +9,8 @@
 // copy of it: the write side is `packMedia`, and the read side is `restoreMedia`, which treats the
 // file as untrusted. A `.lattice` is a file from anyone, exactly as a backup is.
 
+// A DEFAULT import: a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs). Shared with the CLI's writer.
+import limits from '../../../../lib/packages/limits.js';
 import type { LatticeMedia } from './lattice-file';
 import { listMedia, namesOf, visibleMedia } from './media-store';
 import { assetNamesIn } from './media-urls';
@@ -17,7 +19,7 @@ import { MAX_LATTICE_MEDIA_BYTES } from './zip-limits';
 
 /** Most photos one `.lattice` carries. A reader refuses an archive of more than 2000 entries outright, so the
  *  writer stops well short of it rather than make a file nobody can open. */
-export const MAX_LATTICE_PHOTOS = 1000;
+export const MAX_LATTICE_PHOTOS: number = limits.MAX_LATTICE_PHOTOS;
 
 export type PhotoSummary = {
 	/** Photos the deck names that this browser holds and the open deck can see. */

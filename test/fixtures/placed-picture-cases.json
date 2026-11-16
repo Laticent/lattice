@@ -1,5 +1,5 @@
 {
- "$comment": "The cases every reader of 'is this picture the slide's placed photo?' must answer alike. The rule is one kernel, lib/core/placed-picture.mjs; its readers are the engine and Export-to-Marp (test/unit/plugins/image-address.test.js), Compose's badge and the Studio's photo finder `photoAt` (docs/src/lib/compose/placed-picture-parity.test.ts), and the image lint. `addr` is the picture in question; `placed` is the engine's answer, which the others must match. `crowded`: the image lint's `image-extra-panel` flags this picture (several lone pictures and no other photo, so none is placed); every other case it leaves alone. `carried`: the answer depends on a `<!-- class: … -->` from an earlier slide, which `photoAt` cannot see (it reads one slide's text). `carriedBackground`: it depends on a `backgroundImage` from the front matter or an earlier slide, which neither Studio reader is handed yet (followups.d/3126-p3-studio-carried-class.md). PR #3126, followups.d/3126-p2-one-placed-picture-rule.md.",
+ "$comment": "The cases every reader of 'is this picture the slide's placed photo?' must answer alike. The rule is one kernel, lib/core/placed-picture.mjs; its readers are the engine and Export-to-Marp (test/unit/plugins/image-address.test.js), Compose's badge and the Studio's photo finder `photoAt` (docs/src/lib/compose/placed-picture-parity.test.ts), and the image lint. `addr` is the picture in question; `placed` is the engine's answer, which the others must match. `crowded`: the image lint's `image-extra-panel` flags this picture (several lone pictures and no other photo, so none is placed); every other case it leaves alone. A case that depends on a `<!-- class: … -->` or a `backgroundImage` carried from the front matter or an earlier slide runs through every reader too: the Studio reads the carries from the whole deck (lib/core/slide-carried.mjs, docs/src/lib/slide-carried.ts; Compose from its document). PR #3126, followups.d/3126-p2-one-placed-picture-rule.md.",
  "cases": [
   {
    "name": "a lone picture between blank lines",
@@ -108,8 +108,7 @@
    "name": "a carried class from the slide before",
    "md": "---\ntheme: indaco\n---\n\n<!-- class: image -->\n\n## One\n\n---\n\n## Two\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
-   "placed": true,
-   "carried": true
+   "placed": true
   },
   {
    "name": "a deck-wide `class: bleed`",
@@ -176,15 +175,13 @@
    "name": "a front-matter `backgroundImage` is every slide's photo",
    "md": "---\ntheme: indaco\nbackgroundImage: url(https://x.test/bg.jpg)\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
-   "placed": false,
-   "carriedBackground": true
+   "placed": false
   },
   {
    "name": "a running `backgroundImage` from the slide before",
    "md": "---\ntheme: indaco\n---\n\n<!-- backgroundImage: url(https://x.test/bg.jpg) -->\n## One\n\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
-   "placed": false,
-   "carriedBackground": true
+   "placed": false
   },
   {
    "name": "a running `backgroundImage` cancelled by the slide's own `none`",
@@ -213,6 +210,18 @@
   {
    "name": "a deck with CRLF line endings",
    "md": "---\r\ntheme: indaco\r\n---\r\n\r\n<!-- _class: image -->\r\n## T\r\n\r\n![Lake](https://x.test/p.jpg)\r\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a slide's own `_backgroundImage: none` lifts a carried background",
+   "md": "---\ntheme: indaco\nbackgroundImage: url(https://x.test/bg.jpg)\n---\n\n<!-- _class: image -->\n<!-- _backgroundImage: none -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a running `class:` set two slides back still carries",
+   "md": "---\ntheme: indaco\n---\n\n<!-- class: content bleed -->\n\n## One\n\n---\n\n## Two\n\n---\n\n## Three\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
   }

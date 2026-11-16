@@ -1675,7 +1675,7 @@ never turn "passed in headless" into "works on iOS."
 
 - **Symptom** — a collage photo does not pop under the mouse in the Studio, though it does in the Playground. Any other hover effect that lives in the slide's CSS is dead in the same way.
 - **Cause** — the preview box is `pointer-events-none` (`StudioShell.tsx`, `previewBoxRef`) so a swipe over the slide reaches the swipe container instead of being swallowed by the engine's iframe. A box that takes no pointer events never matches `:hover` for anything inside it.
-- **Mitigation** — the holder hit-tests the pointer itself on `pointermove` (`previewHolderRef`) and marks what is under it with `data-host-hover`; the slide's CSS reads the marker beside `:hover`. Code-block copy buttons were first (`hoverCodeCopyAt`, `code.styles.css`); collage tiles follow (`hoverCollageAt`, `collage.styles.css`). Each bridge clears only its own markers and writes an attribute only on a change, because a write to the frame's DOM that changes nothing still wakes its mutation observers.
+- **Mitigation** — the holder hit-tests the pointer itself on `pointermove` (`previewHolderRef`) and marks what is under it with `data-host-hover`; the slide's CSS reads the marker beside `:hover`. Code-block copy buttons were first (`hoverCodeCopyAt`, `code.styles.css`); collage tiles follow (`hoverCollageAt`, `collage.styles.css`). Each bridge clears only its own markers and writes an attribute only on a change, because a write to the frame's DOM that changes nothing still wakes its mutation observers. A pointer that stops moving is hit-tested again whenever what is under it can change without a pointer move: on a slide change, on each render the preview commits, and when a collage in the frame packs. A live collage packs only once its photos are measured (`stampLive` sets `data-collage` from `measuring` to `packed` or `fallback`), so a hit-test run while they loaded missed every tile; `watchCollagePacks` observes that attribute and asks for one more (`collage-lightbox.spec.ts`, "a photo that packs under a still mouse").
 - **Triggered by** — a mouse over the Studio's live preview. A touch tap goes through the click bridges (`tapCollageAt`, `tapCodeCopyAt`).
 - **Removable when** — the preview box can take pointer events without swallowing swipes.
 - **Commits** — the PR that added `hoverCollageAt`; `docs/e2e/collage-lightbox.spec.ts` drives it with a real mouse.
@@ -1863,6 +1863,15 @@ never turn "passed in headless" into "works on iOS."
 - **Removable when** — Radix describes a closed tooltip trigger.
 - **Commits** — the docs-perf PR of 2026-11-09 (#3108).
 
+## A keyboard-opened hint eats the tap on the button under it
+
+- **Symptom** — after Escape closes the chat sheet on a phone, the first tap on Workspace settings does nothing. Playwright reports `tooltip-content … intercepts pointer events` (`e2e/model-spine.spec.ts:87`, `mobile`, red on every run).
+- **Cause** — Escape hands focus back to the sheet's launcher, and that focus counts as `:focus-visible`, so `Tip` opens the launcher's hint, as it should for a keyboard reader. The hint stays open until focus moves. The Chat hint renders above its button, over the header, and a Radix tooltip takes pointer events (its hoverable content, WCAG 1.4.13), so the tap landed on the hint.
+- **Mitigation** — `Tip` (`docs/src/components/ui/tooltip.tsx`) marks a hint that keyboard focus opened `lx-tip-passthrough pointer-events-none`, and clears the mark when the pointer enters the trigger. The hint alone is not enough: Radix renders it inside its own `[data-radix-popper-content-wrapper]`, which keeps `pointer-events:auto` and still took the tap, so `docs/src/styles/tailwind.css` frees the wrapper with `:has(> .lx-tip-passthrough)`, the chart card's fix (`chart-interact.css`). A hint the pointer is on keeps its hit area, including one the pointer was already resting on when focus arrived (the focus asks `:hover`, but only where `(hover: none)` is false, because a touch screen leaves `:hover` on the last thing tapped). Pinned by `tooltip.test.tsx` (the classes, the hover and touch cases, and the stylesheet rule as text) and the two `model-spine` tests on `mobile`.
+- **Triggered by** — a hint that keyboard focus can open over another control.
+- **Removable when** — never; a hint opened by focus is read, not hovered.
+- **Commits** — the e2e P1/P2 flake PR of 2026-11-13.
+
 ## A dialog's description is read after every control inside it
 
 - **Symptom** — on an iPhone, VoiceOver reads each control in a sheet or dialog, its own description, and then the dialog's description again: "Run a command or jump somewhere in the Studio" after every command palette row (owner, PR #3108).
@@ -1874,7 +1883,7 @@ never turn "passed in headless" into "works on iOS."
 
 ## A Compose e2e spec types on the wrong line, misses a pill, or reads an element that is not drawn yet, only under load
 
-- **Symptom** — a Compose spec passes alone and fails about one run in four to ten under the full suite: typed text lands on the line the caret left (`Line four` before `Line three`), a counted ArrowRight walk ends on text instead of a pill (`.ProseMirror-selectednode` count 0), or `getComputedStyle` gets `null` right after the deck opens. Seen on `compose-soft-break.spec.ts`, `compose-pill-editor.spec.ts` and `compose-spark-editor.spec.ts`, on `main` and PR branches alike.
+- **Symptom** — a Compose spec passes alone and fails about one run in four to ten under the full suite: typed text lands on the line the caret left (`Line four` before `Line three`), a counted ArrowRight walk ends on text instead of a pill (`.ProseMirror-selectednode` count 0), or `getComputedStyle` gets `null` right after the deck opens. Seen on `compose-soft-break.spec.ts`, `compose-pill-editor.spec.ts` and `compose-spark-editor.spec.ts`, on `main` and PR branches alike; and on `filo-live.spec.ts`, where the host's click, End and Shift+Home before typing "Gone" lost the selection and the word went in at the end of the paragraph instead of replacing it (nightly run 43712760849: ProseMirror's 20 ms focus timer ran 52 ms after the click, behind Compose's repaint of the slide pill).
 - **Cause** — the spec acted before the state it needed existed (F3 in `engineering/decisions/2026-11-06-flaky-tests.md`). ProseMirror learns where a click, a DOM `setBaseAndExtent` or a native arrow put the caret only from `selectionchange`, a queued task, so a key sent before it lands at the old caret. And for 20 ms after the editor GAINS focus, ProseMirror's `focus` handler may write its own selection back to the DOM: a native caret key pressed in that window, before its `selectionchange` is read, is undone (the first ArrowRight after a click and Home was lost in 6 of 24 runs without a wait, 0 of 24 with one; no person types that fast after a click). And the pills, sparks and preview are drawn on their own schedules after the deck opens.
 - **Fix** — wait for the signal, then act: `caretSettled(page)` after any click or `setBaseAndExtent` that a key press follows, and `pressSettled` for native caret keys (`docs/e2e/studio-fixture.ts`; it compares the caret's NODES, because two lines of equal length at the same offset read alike to any description of them); `editorFocusSettled` after the click that focuses the editor and before native caret keys (a 20 ms timer started after the focus runs after ProseMirror's: same-delay timers run in start order); check the caret after each press (`walkOntoFirstPill` in `compose-pill-editor.spec.ts`); poll until the element exists before reading it; and read a menu's state from its trigger's `aria-expanded` (`openStripMenu`), never from its visibility, which an exit animation or a lazy chunk misreports. A Radix menu that fades out stays mounted, and its press-outside watcher can close the next menu a press opens: give such a menu `data-[state=closed]:animate-none!` (the strip menu and the Insert menu do). Never a retry or a sleep (HARD RULE #32).
 - **Triggered by** — any e2e spec that types or presses keys in Compose, or reads a drawn inline object.
@@ -1913,6 +1922,28 @@ never turn "passed in headless" into "works on iOS."
 - **Mitigation** — `PresentOverlay.tsx` attaches the listener in `useLayoutEffect`, inside the commit that shows the
   dialog. A surface whose keys must work the instant it appears binds them in a layout effect.
 
+## Escape does nothing while Present is open, under load, and the next click times out on Present's toolbar
+
+- **Symptom** — Present is open and settled, Escape is pressed and Present stays open for good; the next click in the
+  Studio fails with "Present dialog subtree intercepts pointer events". `e2e/studio-warm-offline.spec.ts` (the
+  "every on-demand Studio surface" sweep) failed 5 of 130 runs under load (2 to 4 workers, with the unit suite or
+  another e2e run beside it). It reads like a
+  closing dialog that still takes hits, but Present has no exit fade: it was never closed.
+- **Cause** — Present's key effect subscribed its handler itself, so a change to any of its deps (`NAV`,
+  `overviewOpen`, …) swapped the `window` listener. The shell's own `window` keydown listener comes first in the list
+  and sets state; React renders that in the microtask after the listener returns, still inside the same dispatch. If
+  that render changes a dep, the old listener is skipped as removed, and the new one was not on the list when dispatch
+  reached the window. Chromium runs neither (measured; Firefox happened to run the old one in the same experiment),
+  so the key is lost.
+- **Mitigation** — `PresentOverlay.tsx` subscribes one listener per open (`[open]`), which calls `keyRef.current`; the
+  deps-driven layout effect only re-points the ref. `e2e/present.spec.ts` "an Escape still reaches Present when a
+  render re-wires its keys mid-delivery" stages the order: a listener ahead of Present's turns the Escape into a `g`
+  in a microtask.
+- **Triggered by** — any `window`/`document` key or pointer listener whose effect lists changing deps; the listener
+  must be stable while the surface is up, and read changing state through a ref.
+- **Removable when** — never; it is how event dispatch works.
+- **Commits** — the flaky-e2e PR for followups 3159-p6 and 3159-p7.
+
 ## A dialog opened again right after it closed sits under its own dimming
 
 - **Symptom** — the photo-format dialog (or any `DialogContent` / `SheetContent`) opens dimmed; a click on its button lands on the overlay and closes it. Seen adding photos one after another; an in-page `button.click()` in `e2e/library-images-render.spec.ts` had hidden it, a real Playwright click timed out with "dialog-overlay intercepts pointer events".
@@ -1930,6 +1961,31 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — a new async step between boot and the first Explore; a new condition in `reusableFrame`.
 - **Removable when** — never; they are ordering rules.
 - **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## On a loaded machine, a quick Explore and back leaves the Playground preview covered for seconds
+
+- **Symptom** — Explore, Edit, Explore a frame or two apart, wide layout: the preview stays covered (`.pg-preview-wrap`
+  without `is-live`) well after Explore's slide has landed. Shown on desktop and webkit-tablet by the spec's "never
+  holds Explore's reveal for Edit's realign" (red 4 of 17 without the fix). The gecko flake of "a quick Explore and
+  back, 0 frames apart … (wide)" (1 in 20 on main at 22c3dc7) looks the same but is NOT shown to be this. It never
+  reproduced afterwards: 342 gecko runs at 4 workers under heavy CPU load, on current main and on 22c3dc7's
+  PlaygroundApp, all green, so its followup was closed. If it goes red again, read `data-hold` on the wrapper at the
+  moment it fails: it names the hold the reveal was waiting on.
+- **Cause** — the reveal waits for every hold to lift, and the realign hold is Edit's (the preview follows the
+  editor's caret first). The Edit in between set it, and its settle loop starts two frames after that switch, so after
+  the next one; in Explore the sync's realign usually cannot be paid (the editor pane is hidden), so the loop asked for
+  all 60 of its frames before giving up: about a second idle, more on a loaded machine. It is rare on gecko: 1 of 60
+  instrumented runs under load held on it (1031 ms), and 0 of 40 in a later round.
+- **Mitigation** — `PlaygroundApp.tsx`: entering Explore clears `realignPendingRef`, and `realignSeqRef` ties each settle
+  loop to the switch that started it, so an overtaken loop stops on its next frame. `playground-sync.ts` `enterExplore()`
+  drops the sync's owed realign too, so no frame load in Explore pays it by scrolling the preview to the editor's slide
+  mid-landing; `leaveExplore` owes it again on the way back. The reveal publishes what it waits for as `data-hold`
+  on the wrapper; the spec's "never holds Explore's reveal for Edit's realign" asserts on it. Without the fix that case
+  went red in 4 of 17 runs across desktop and webkit-tablet; with it, nothing can set the hold in Explore.
+- **Triggered by** — a new hold on the reveal, or a new async step a switch starts and a later switch can overtake.
+- **Removable when** — never; holds that belong to one view have to be dropped by the switch that leaves it.
+- **Commits** — the flaky-e2e PR for followups 3159-p6 and 3159-p7.
+
 ## An e2e key pressed in a fresh Stage window is lost, 1 run in 12 under load
 
 - **Symptom** — `docs/e2e/stage-window.spec.ts` opens the Stage, sees the deck painted, presses ArrowRight twice, and
@@ -1996,3 +2052,140 @@ never turn "passed in headless" into "works on iOS."
   the island. A click in that window has no handler behind it.
 - **Fix** — wait for hydration before the first click: Astro removes the island's `ssr` attribute when it finishes, so
   poll for `astro-island[component-url*="NavActions"]:not([ssr])` (as `site-chrome-first-paint.spec.ts` does).
+
+## A deck with phone photos freezes the Studio for many seconds, and a test's click times out at "scrolling into view"
+
+- **Symptom** — after a deck with a few phone photos (each a multi-megabyte `data:` URI) lands in the editor, Firefox's
+  main thread blocks for 10 to 30 s at a time. A Playwright `click` then fails at "scrolling into view if needed" after its
+  15 s action budget, though the button is visible, enabled and stable. `export-photo-size.spec.ts` on `gecko` failed this
+  way on every run on `main` in November 2026 (followups 3040-p1 read it as a slow slide rail).
+- **Cause** — two per-edit costs that scale with the deck's SIZE, run for every slide on every render. The slide-metadata
+  memo (`lib/core/meta-memo.mjs`) flat-copied each slide's text into its key through `JSON.parse(JSON.stringify(…))`. A
+  photo slide is about 5 MB, past the memo's 2,000,000-character cap, so every read missed, copied 5 MB, and evicted every
+  other slide; the next write evicted the copy. And `splitSlideChunks` (`lib/core/slide-boundaries.mjs`) re-split and
+  re-joined the whole 16 MB text on each of its 35 calls per edit (the linter's rules, the editor, the outline).
+- **How to tell** — record a Gecko profile: launch Firefox with `MOZ_PROFILER_STARTUP=1`,
+  `MOZ_PROFILER_STARTUP_FEATURES=js,stackwalk` and `MOZ_PROFILER_SHUTDOWN=<file>` (Playwright `launchOptions.env`), then
+  count samples per JS function on the `Web Content` process's `GeckoMain` thread. On Chromium, a CDP `Profiler.start`
+  around the edit shows the same functions.
+- **Fix, part 1** — the memo neither stores nor looks up a key longer than its cap (it could never hit), and
+  `splitSlideChunks` keeps its last answer beside the boundary memo entry it was cut from. Counted in
+  `test/unit/core/meta-memo.test.js`, `slide-boundaries.test.js` and the bench's `memoDatasets` row: copies per keystroke
+  15,000,391 to 61, cuts 35 to 1. That took the worst stall from 28.7 s to 11.2 s.
+  The directive editors' `commentBlocks` memo (`lib/core/meta-record.mjs`) had the same flaw with a different bound: it
+  was capped by COUNT (512 texts), so it kept every photo slide it was asked about, and each lookup flattened and compared
+  the whole text, since the editor hands it a new string each time. It now reads a text past 1,000,000 characters without
+  the memo, and holds 4,000,000 characters at most in all; `blocksStats.heldChars` counts what it keeps
+  (`test/unit/core/meta-record.test.js`, the bench's `memoDatasets` row: 15,000,881 characters held for the three photo
+  slides and the plain slides beside them, now 632, the plain slides alone).
+- **Fix, part 2: readers stop walking a photo's base64** — no reader of a deck needs a payload's bytes, and every one
+  walked them: lint-core, review-core, the engine's `render`, the preview's HTML and CSS scanners, the source checks one
+  preview render makes, a photo address reader that tested a regex per character. Two remedies, chosen by what the reader
+  decides:
+  - **Readers that only describe the deck skip the payload** through one kernel, `lib/core/payload-elision.js`, and put
+    it back in what they return: lint-core, review-core, the engine's `render`, the Studio's source checks and the
+    editor's fold. A payload is narrow (a `data:` URI's run where a URL value opens, `](` `url(` `=`, with no `=` but its
+    padding, not ending in `/`, followed by a character that ends a URL), because a looser run can hide syntax: inside a
+    tag `/` ends an attribute name, so `data:a/b;base64,AAAA…/src="https://…"` carries a real `src`. The engine, lint and
+    review skip even less (`lib/core/image-line-payloads.js`, each with its own block parser): only a line that is one
+    markdown image AND that markdown-it's own
+    block pass (`lib/core/boundary-parser.mjs`, the engine's block grammar with every plugin block rule) reads as a
+    paragraph by itself, outside the front matter; never in a deck holding `$$`, never on the code door's passes; and
+    it renders the whole text if a stand-in does not come out whole or reaches an output field that is not a string. A
+    line scan for fences and math was tried first, and an independent checker broke it three times (a stray `$$` let
+    KaTeX draw the marker as glyphs; an info-string line paired as a closer; a nested-list fence went unseen): ask the
+    parser, never re-derive its grammar. The block pass costs about 80 ms on a 16 MB deck and reads no inline text; lint and review each pay one in the
+    lint worker (lint plus review on three photos: 93-97 ms, against 48-49 ms when they skipped every payload). A stand-in is the payload's own first
+    960 characters, then a marker, so a rule that quotes a line cut short quotes the author's characters.
+  - **The web-image blocker skips nothing**: it decides what a page may fetch. It reads every character, fast: the
+    entity decoder and the CSS string reader copy runs instead of characters (`lib/core/web-ref-readers.js`,
+    `css-token-readers.js`), which took a photo slide from 1.2 s to 0.1 s in Node.
+  Both were found by the checker; `test/unit/core/payload-elision*.test.js` compare each skipping reader with skipping on
+  and off on the same input and pin the checker's attacks.
+- **Fix, part 3: the rest of the per-edit cost** — the editor's lint and the Coach's assessment run in one worker
+  (`docs/src/components/studio/lint/`), sharing a pass when their vocabularies agree; the Reshape picker builds its tiles
+  only while open; the photo verdict's key is an object, not a string holding the slide; the editor turns its document
+  into a string once per version. On the spec's deck in Firefox, the longest stall is now about 0.8 s after the paste,
+  about 0.5 s after a keystroke in text, and about 1.5 s after a keystroke on a photo's own line, which is no longer one
+  image and is read whole (WebKit: 0.6, 0.5 and 0.9 s).
+- **Measuring it** — `insertText` is the wrong way to put a deck of megabytes into the editor: it types the text into the
+  editor's DOM as one composition, and the browser lays all of it out before CodeMirror reads it (8 s on Firefox, 287 s
+  on WebKit). Paste it instead (`pasteIntoEditor` in `docs/e2e/studio-fixture.ts`), as an author does. Two more traps: a
+  memo or hook dependency keyed by a string that CONTAINS the slide (`${index}|${chunk}`) makes Firefox flatten and
+  compare megabytes on every render; and `npm run build:e2e`'s log still holds the last run's `EXIT` line while a new
+  build runs, so delete it before waiting on it.
+
+## A workspace restore says "Workspace restored" but a reference doc never comes back
+
+- **Symptom** — the restore toast reads "Workspace restored · 1 deck", and the Library has none of the backup's PDFs.
+  `workspace-backup-size.spec.ts`'s 67 MiB case found zero of ten.
+- **Cause** — the restore refuses a reference-doc row whose `dataUrl` is not decodable base64 or is longer than a 5 MiB PDF
+  encodes to (`workspace-backup.ts`, the reference-doc lane), and names it in the toast's "Not restored" list. A test that
+  builds its PDF by repeating the base64 of a block puts the block's `==` padding in the middle of the string, which no
+  decoder accepts, and runs past the cap.
+- **Fix** — encode the whole byte buffer once (`Buffer.toString('base64')`), and have the test assert the toast has no
+  "Not restored" line, so a refused row is named instead of counted as missing later.
+
+## A restore test misses the "Workspace restored" toast, though the restore worked
+
+- **Symptom** — under load, `expect(toast).toContainText('Workspace restored…')` times out, and the failure screenshot
+  shows a freshly loaded Studio with no toast and no Workspace sheet. 1 of 15 loaded runs of
+  `workspace-backup-size.spec.ts` on 2026-11-12.
+- **Cause** — a successful restore shows its toast for 1.1 s and then reloads the page (`WorkspaceSheet.tsx`,
+  `setTimeout(() => location.reload(), 1100)`). A poll on a loaded runner can miss that window, and a
+  `waitForEvent('load')` armed after the toast can miss the reload as well.
+- **Fix** — record toasts from inside the page into `sessionStorage`, which survives the reload, and arm the wait for the
+  reload's navigation before the restore starts (`recordToasts` and `restoreAndReload` in that spec). Read the toast from
+  the record afterwards; never poll a toast that a reload is about to take away.
+
+## An e2e that waits for "every animation to finish" never returns in the Studio
+
+- **Symptom** — `page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)))` hangs until the test
+  times out, on every engine, with nothing on screen moving. `e2e/chat-photos.spec.ts:516` (the phone composer) failed
+  this way on desktop, mobile and webkit-phone from #3128 on.
+- **Cause** — the Studio runs an animation that never ends by design: the editor's drawn caret
+  (`.lx-ghost-caret-cm` / `.lx-ghost-caret`, `lx-caret-blink … infinite` in `styles/tailwind.css`) blinks for as long
+  as the editor lacks focus, which is whenever a sheet or dialog has it. Its `finished` promise never settles.
+- **Mitigation** — wait on the animations of the element that is moving, not the document's:
+  `el.closest('[role="dialog"]').getAnimations({ subtree: true })`, as `chat-photos.spec.ts` now does, or
+  `locator.evaluate((el) => el.getAnimations())` (`compose-fenced-code.spec.ts`, `library-image-metadata.spec.ts`).
+  A count of RUNNING animations that skips infinite ones (`plugin-address-attack.spec.ts`) also works.
+- **Triggered by** — any new looping animation (a caret, a spinner, a pulse) on a page a spec waits on.
+- **Removable when** — never; a blinking caret is correct, and the wait was the wrong signal.
+- **Commits** — fix(e2e) chat-photos composer wait, 2026-11-13.
+
+## A controlled CodeMirror field drops letters typed quickly
+
+- **Symptom** — typing fast into the Theme CSS field loses letters: `font-sze`, `var(-accent`. Seen on Firefox at
+  Playwright's full typing speed, 4 runs in 5; never at 40 ms a key, and never in the deck editor.
+- **Cause** — `CodeField` tells the parent each edit through `onChange`, and the parent's re-render brings the text back
+  as `value` a keystroke or more later. The field's sync effect read any `value` that differed from its document as an
+  outside change and wrote it over the document, erasing the letters typed since.
+- **Fix** — the field remembers the texts it emitted and ignores a `value` that is one of them (`CodeField.tsx`
+  `emittedRef`), as the deck editor's `isStaleEcho` does. Pinned by `editor-completion-keys.spec.ts` "typing fast into a
+  CSS field loses no characters". Any other controlled CodeMirror surface needs the same echo check.
+
+## An e2e that asserts a completion option is ABSENT passes before the menu opens
+
+- **Symptom** — a test asserts `getByRole('option', { name: /^theme/ })` `toHaveCount(0)` and stays green with the
+  filter it guards removed.
+- **Cause** — the menu opens asynchronously, so `toHaveCount(0)` is true at once, before any option exists. A menu
+  opened by typing can also open before the key under test, so "the key opened it" passes on a key that does nothing.
+- **Fix** — wait for a positive option first, then read the absence; and test a key at a spot that opens nothing by
+  itself (a bare `<!-- _class: ` stays quiet until a letter or the key). `editor-completion-keys.spec.ts` does both.
+
+## An e2e that waits for "two screenshots in a row identical" times out on a page with nothing moving
+
+- **Symptom** — a poll that compares each `page.screenshot()` with the one before times out after 15 s, and the failure
+  screenshot shows a settled page. `plugin-slots.spec.ts` on `webkit-tablet` (nightly run 43712760849): 6 of 10 local
+  runs red, at the first of its three widths.
+- **Cause** — an infinite animation on the page. The Studio's drawn caret (`lx-ghost-caret-cm`, shown in an editor
+  without focus) blinks every 530 ms (`lx-caret-blink`, 1.06 s). On WebKit, one poll round of a 300 ms interval plus a
+  ~220 ms screenshot took 520 to 570 ms, so consecutive shots fell half a blink apart and never matched.
+- **Fix** — `pictureStill(page)` (`docs/e2e/barriers.ts`) takes every shot with `animations: 'disabled'`, which runs a
+  finite animation to its end and holds an infinite one at its first frame, so only a real change in layout keeps two
+  shots apart. A JS-driven ticker still fails it, as it should. Use it instead of a hand-rolled screenshot poll.
+- **Triggered by** — a screenshot-equality wait on any page that shows a blinking caret, a spinner or another infinite
+  animation.
+- **Removable when** — never: an infinite animation never settles.
+- **Commits** — PR for `fix/e2e-filo-live-plugin-slots` (2026-11-15).

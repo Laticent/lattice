@@ -9,6 +9,7 @@ import { buildVocabSets } from '@/lib/editor-diagnostics.js';
 import { splitSlides as studioSplitSlides } from '../../../lib/deck-lint';
 import { stripFrontMatter } from '../../../lib/front-matter';
 import type { Finding } from '../architect';
+import { assessWith } from '../lint/assess-kernel.js';
 
 export type ScoreCategory = { key: string; half: 'craft' | 'style'; label: string; score: number | null; na?: boolean; notes: string[] };
 export type ScoreHalf = { score: number; band: string; summary: string };
@@ -50,40 +51,36 @@ export function hasContent(src: string): boolean {
 
 /** The real deck assessment: the engine scorecard + the union of lint + review
  *  findings. Returns an empty, content-false assessment (not a grade) for a blank deck.
- *  Never throws into render. */
-export async function assessDeck(source: string, lintVocab: unknown, components: CoachComponent[] = [], extraNames: string[] = [], extraFinishes: string[] = [], profileOverride?: string, extraThemes: string[] = []): Promise<CoachAssessment> {
+ *  Never throws into render. Runs in the Studio's lint worker (lint/lint-client.js), where it shares the editor's lint
+ *  pass, and on the main thread where no worker can run. Resolves null when a newer assessment replaced this one before
+ *  it started: its deck is already stale, and the caller drops it. */
+export async function assessDeck(source: string, lintVocab: unknown, components: CoachComponent[] = [], extraNames: string[] = [], extraFinishes: string[] = [], profileOverride?: string, extraThemes: string[] = [], lane: string | null = 'coach'): Promise<CoachAssessment | null> {
 	const src = String(source ?? '');
 	if (!hasContent(src)) return { hasContent: false, scorecard: null, findings: [] };
 	const v = lintVocab as { names?: unknown } | null;
+	// Lint needs the page vocabulary; the review layer + scorecard don't. If the vocab
+	// is absent (e.g. a bare render), still produce the real review-based scorecard —
+	// a lint-less grade is degraded, not fabricated. Never fake a grade only for an
+	// empty deck (handled above by hasContent).
+	let vocab: ReturnType<typeof buildVocabSets> | null = null;
+	if (v?.names) {
+		vocab = buildVocabSets(lintVocab);
+		for (const n of extraNames) if (n) vocab.names.add(n);
+		if (extraFinishes.length) vocab.finishNames = [...(vocab.finishNames || []), ...extraFinishes];
+		// A saved theme is a theme this deck can name; the page vocab carries only the shipped ones,
+		// so without these `unknown-theme` would dock the Craft score of a deck on a saved theme.
+		if (extraThemes.length) vocab.themeNames = [...(vocab.themeNames || []), ...extraThemes];
+	}
 	try {
+		// Loaded on the first assessment, which waits for the first slide: off the Studio's startup path.
+		const { assessOffThread } = await import('../lint/lint-client.js');
+		const off = await assessOffThread(lane, src, vocab, components, profileOverride);
+		if ('superseded' in off) return null;
+		if ('threw' in off) return { hasContent: true, scorecard: null, findings: [] };
+		if (!('fallback' in off)) return { hasContent: true, scorecard: off.scorecard as DeckScorecard | null, findings: off.findings as Finding[] };
 		const m = await core();
-		const lintCore = m.lintCore;
-		const reviewCore = m.reviewCore;
-		const scorecard = m.scorecard;
-		if (!reviewCore?.reviewText || !scorecard?.scoreDeck) return { hasContent: true, scorecard: null, findings: [] };
-		// Lint needs the page vocabulary; the review layer + scorecard don't. If the vocab
-		// is absent (e.g. a bare render), still produce the real review-based scorecard —
-		// a lint-less grade is degraded, not fabricated. Never fake a grade only for an
-		// empty deck (handled above by hasContent).
-		let lint: Finding[] = [];
-		if (v?.names && lintCore?.lintTextWith) {
-			const vocab = buildVocabSets(lintVocab);
-			for (const n of extraNames) if (n) vocab.names.add(n);
-			if (extraFinishes.length) vocab.finishNames = [...(vocab.finishNames || []), ...extraFinishes];
-			// A saved theme is a theme this deck can name; the page vocab carries only the shipped ones,
-			// so without these `unknown-theme` would dock the Craft score of a deck on a saved theme.
-			if (extraThemes.length) vocab.themeNames = [...(vocab.themeNames || []), ...extraThemes];
-			lint = lintCore.lintTextWith(src, vocab) as Finding[];
-		}
-		const bucketMap = new Map(components.filter((c) => c.bucket).map((c) => [c.name, c.bucket]));
-		const densityMap = new Map(components.filter((c) => c.density != null).map((c) => [c.name, c.density]));
-		// The profile override rides into BOTH: review-core needs it to pick the prose
-		// budgets a finding fires against, and the scorecard needs it to resolve the same
-		// genre for the Style half. Passing it to only one would grade a deck against a
-		// profile whose findings were generated under a different one.
-		const review = reviewCore.reviewText(src, { bucketOf: (n: string) => bucketMap.get(n) ?? null, densityOf: (n: string) => densityMap.get(n) ?? null, profileOverride }) as Finding[];
-		const sc = scorecard.scoreDeck({ source: src, lintFindings: lint, reviewFindings: review, profileOverride }) as DeckScorecard;
-		return { hasContent: true, scorecard: sc, findings: [...lint, ...review] };
+		const out = assessWith(m, src, vocab, components, profileOverride);
+		return { hasContent: true, scorecard: out.scorecard as DeckScorecard | null, findings: out.findings as Finding[] };
 	} catch {
 		return { hasContent: true, scorecard: null, findings: [] };
 	}

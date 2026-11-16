@@ -84,7 +84,7 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at setup almost never do.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 ---
 

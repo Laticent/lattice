@@ -74,7 +74,7 @@ What the map holds depends on the host:
 | Studio preview, presenter | `URL.createObjectURL(blob)`, revoked when the deck closes or the asset changes |
 | Studio export (webpage, PDF, PowerPoint, image set) | a `data:` URI built from the photo's bytes (`dataUrlsFor`, `media-urls.ts`). A `blob:` URL dies with the tab, so a saved file would ship a dead link, and a capture frame may not fetch one. The Share sheet adds a note when a named photo is not in this browser's Library |
 | `.lattice`, Markdown, Marp exports | the bytes travel: the `.lattice` as `media/`, Markdown and Marp as `photos/<name>.<ext>` with the reference rewritten to that path (§6; only image references outside code fences are rewritten). A photo the file cannot hold stays as written and is named in the toast |
-| CLI | not supported; the reference passes through untouched. A CLI deck uses a relative path. (No `lint:deck` rule yet.) |
+| CLI | a `file:` URL to `assets/<name>.<ext>` beside the deck (`lib/export/deck-assets.js`, #2771; `lint:deck` warns `asset-missing`). A `.lattice` input is unpacked first into a private folder whose `assets/` holds the file's photos as their stored bytes (`lib/export/lattice-input.js`, 2026-11-13), so the same map serves both |
 
 A reference the map cannot satisfy (asset deleted, deck opened on another browser) renders the
 existing missing-image placeholder and the export still completes.
@@ -171,8 +171,8 @@ the import's own encoder (`media-import.ts` `measureFormats`, a sample of up to 
 
 | Choice | Stores | Cost |
 |---|---|---|
-| Keep original | the file's pixels and type, metadata cut (`media-scrub.ts`), no resize; HEIC and AVIF become JPEG | largest |
-| JPEG (default) | lossy q0.88, long edge at most 2560 px, transparency painted white | |
+| Keep original (default since 2026-11-13) | the file's pixels and type, metadata cut (`media-scrub.ts`), no resize; HEIC and AVIF become JPEG | largest |
+| JPEG (the default until 2026-11-13) | lossy q0.88, long edge at most 2560 px, transparency painted white | |
 | WebP | lossy q0.82, same cap, transparency kept; hidden where the browser cannot write WebP | about two thirds of JPEG |
 | PNG | lossless, same cap; a PNG already under the cap is kept as it is | several times JPEG for a photograph |
 
@@ -180,6 +180,14 @@ PNG is offered but not recommended for photographs: on a photo-like test image P
 against 0.9 and 1.3 MB for JPEG (synthetic proxy, `python3` + PIL; no real photos were reachable). The last choice is remembered.
 Each option's one-line meaning is on the dialog, since the choice decides what the photo can do later (a `.lattice` carries
 128 MB of photos, `MAX_LATTICE_MEDIA_BYTES`).
+
+**Keep original is the default (owner, 2026-11-13).** A `.lattice` is Lattice's file format, so it carries each photo as the
+author added it; every other export (PDF, PowerPoint, LibreOffice, the webpage, the image set) decides by its own Pictures
+choice whether to send a smaller copy. A JPEG re-encode at intake lost the original before any of those choices could be made:
+the owner's 19-photo deck from 2026-10-21 has no originals left to export. `DEFAULT_PHOTO_FORMAT` in `PhotoFormatDialog.tsx`
+holds the default, and a remembered choice still wins. The cost is storage: a phone photo is kept at 3 to 6 MB instead of about
+1 MB, so a deck of them reaches the 128 MB `.lattice` cap at about 25 to 40 photos. Whether that cap should rise is open
+(`followups.d/`, recorded with the PR that made this change). The chat's own intake keeps the automatic policy above.
 
 ### 4. Quotas and limits
 
@@ -230,6 +238,7 @@ mention its photos. What each one does, as built and checked on the real Studio 
 | Marp | The bundle gains the same `photos/` folder and rewrite. It is not `assets/`, which already holds Lattice's sample art: a Library photo named like a sample file would have overwritten it. | Same as Markdown |
 | Re-openable PDF, PowerPoint | The embedded `.lattice` carries the photos the deck names, up to `MAX_EMBEDDED_MEDIA_BYTES` (32 MB). The importer's embedded-payload cap rose from 25 MB to 25 MB + 32 MB to match. | Unit round-trip (`embedded-photos.test.ts`); real Chromium e2e: a second profile imports the PDF and draws the photo. PowerPoint shares the code path but is not driven |
 | Workspace backup | `media/` holds the bytes, `media.json` indexes them (§9). A restore puts them back to the same deck. | Chromium, WebKit, Firefox: back up, delete both photos, restore, bytes and scopes equal |
+| Back into the CLI (`lattice deck.lattice out.pdf`) | The CLI opens the `.lattice` with the Studio's reader (`lib/packages/lattice-read.mjs`), reads the photos the deck names (each row's file, type and bytes checked; `readLatticePhotos`) and renders them as stored; the export's image policy applies as it does to any picture. Nothing is saved: no Library, no package store. The file's packages are used for that render only (owner ruling 2026-11-13). The CLI also WRITES a `.lattice` (`lattice deck.md deck.lattice`, and `--reopenable`'s copy): photos from a `.lattice` input are cleaned when the file is unpacked (a Studio-made one comes out byte for byte), and photos from `assets/` are cleaned as the Studio's "Keep original" stores one, read only through the render's confiner, (`@laticent/lastra` `cleanerFor`, the Library's row, `original: true`); one the CLI cannot clean is left out and named with the reason (`photosToCarry`, `lib/export/lattice-input.js`). | CLI integration tests (`lattice-output.test.js`: pass-through bytes, a GPS JPEG and a text-chunk PNG cleaned, a damaged file named, `--reopenable` photos; unit: the byte cap); (`test/integration/export/lattice-input.test.js`: the PDF holds the photo's own JPEG bytes); the owner's two photo decks rendered to PDF with every photo present |
 
 **How the `.lattice` carries photos (2026-10-13).** The owner's iPhone showed "the photos it names … are
 not inside this file" over a project file whose whole job is to be opened elsewhere. Four choices:

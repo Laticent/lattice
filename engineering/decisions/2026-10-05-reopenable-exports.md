@@ -139,8 +139,10 @@ attach (`embedInPdfBytes`) and the PPTX repack (`embedInPptxBytes`). The Studio'
 `lattice-file.ts` and `embedded-source.ts` are now Blob adapters over it, and the CLI calls it
 directly (HARD RULE #1). It is a CommonJS leaf that takes pdf-lib and JSZip as arguments: the
 Studio bundles its own copies from `docs/node_modules`, and a `require` inside a `lib/` file
-would have shipped the root copy beside them. The READ half (extract, caps) stays in the Studio,
-the only reader.
+would have shipped the root copy beside them. The READ half (extract, caps) stayed in the Studio,
+the only reader, until 2026-11-13: it is now `lib/packages/lattice-read.mjs`, shared by the
+Studio's import and the CLI's `.lattice` input (`lattice deck.lattice deck.pdf`). It sits in
+`lib/packages`, not here, because it reads through that layer's capped zip reader.
 
 **What the CLI puts in it.**
 

@@ -67,7 +67,7 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { skipUnlessCI } = require('../../helpers/chrome');
+const { resolveChrome, skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync, execFileSync } = require('node:child_process');
@@ -145,11 +145,9 @@ function marpEnv() {
 	// (`npm ci` puts it in ~/.cache/puppeteer, which the integration job caches).
 	// Point it at that one rather than hoping a system Chrome exists.
 	if (!env.CHROME_PATH) {
-		try {
-			env.CHROME_PATH = require('puppeteer').executablePath();
-		} catch {
-			/* leave unset — marp-cli falls back to its own finder */
-		}
+		// The puppeteer cache scan; puppeteer's own resolver is async from 24 on.
+		const chrome = resolveChrome();
+		if (chrome) env.CHROME_PATH = chrome; // else marp-cli falls back to its own finder
 	}
 	return env;
 }

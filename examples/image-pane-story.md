@@ -16,12 +16,12 @@ On a 9:16 deck two panes do not fit side by side, so each becomes its own page. 
 
 ---
 
-<!-- _class: columns -->
+<!-- _class: columns bleed -->
 
 ## The site, then the plan
 
 <!-- _pane: image -->
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 <!-- _pane: list -->
 ### What changes
@@ -31,12 +31,12 @@ On a 9:16 deck two panes do not fit side by side, so each becomes its own page. 
 
 ---
 
-<!-- _class: columns -->
+<!-- _class: columns bleed -->
 
 ## A tall photo, then the numbers
 
 <!-- _pane: image -->
-![bg](sample:photo-tall.jpg)
+![A figure before violet hills and a pale sun](sample:photo-tall.jpg)
 
 <!-- _pane: list -->
 ### Three numbers
@@ -47,7 +47,7 @@ On a 9:16 deck two panes do not fit side by side, so each becomes its own page. 
 
 ---
 
-<!-- _class: columns -->
+<!-- _class: columns bleed -->
 
 ## The square shot
 
@@ -58,7 +58,7 @@ On a 9:16 deck two panes do not fit side by side, so each becomes its own page. 
 - The image page follows it
 
 <!-- _pane: image -->
-![bg](sample:photo-square.jpg)
+![A figure on a green shore under a pale sun](sample:photo-square.jpg)
 
 ---
 
@@ -66,7 +66,7 @@ On a 9:16 deck two panes do not fit side by side, so each becomes its own page. 
 
 ## A plain image slide, for comparison
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 The same panel, written as one slide.
 

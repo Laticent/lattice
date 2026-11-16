@@ -44,6 +44,11 @@
 	transition: opacity 0.18s ease, transform 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
 	pointer-events: none;
 }
+/* LITE device tier: an opaque card, no blur (device-capability-tiers §4). */
+:root[data-device-tier='lite'] .db-pp-chartpop {
+	background: var(--bg);
+	backdrop-filter: none;
+}
 .db-pp-chartpop.show {
 	opacity: 1;
 	transform: none;

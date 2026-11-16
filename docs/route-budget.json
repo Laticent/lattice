@@ -10,7 +10,7 @@
       },
       "htmlRaw": {
         "soft": 226628,
-        "hard": 249291
+        "hard": 253440
       },
       "engineJsGz": {
         "soft": 648151,
@@ -48,7 +48,7 @@
       "html": "index.html",
       "eagerJsGz": {
         "soft": 291531,
-        "hard": 320684
+        "hard": 322048
       },
       "htmlRaw": {
         "soft": 110840,
@@ -86,7 +86,7 @@
       },
       "engineJsGz": {
         "soft": 310700,
-        "hard": 341770
+        "hard": 350208
       }
     }
   }

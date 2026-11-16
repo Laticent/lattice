@@ -84,7 +84,13 @@ async function settle(page: Page, timeout = 10_000) {
 				/* mid-navigation */
 			}
 			const pos = document.querySelector('#pg-walk .pg-walk-pos')?.textContent?.trim();
-			return `${pos}|${Math.round(sy)}|${h}|${vis}`;
+			// THE LAND, as the app publishes it (`data-pg-land`). A land waits on the fit agent
+			// and then scrolls, and on a loaded box it can sit with every readout above still for
+			// longer than two polls. It covers the land only: before a render resolves (a gallery
+			// fetch, say) the attribute still reads the previous land's `done`, so a caller that
+			// needs a new deck waits for that deck's own position first, as the fit-window test does.
+			const land = document.documentElement.dataset.pgLand ?? 'none';
+			return `${pos}|${Math.round(sy)}|${h}|${vis}|${land}`;
 		});
 	let last = '';
 	let quiet = 0;
@@ -95,7 +101,7 @@ async function settle(page: Page, timeout = 10_000) {
 		.poll(
 			async () => {
 				const now = await read();
-				quiet = now === last ? quiet + 1 : 0;
+				quiet = now === last && !now.endsWith('|pending') ? quiet + 1 : 0;
 				last = now;
 				return quiet;
 			},
@@ -466,9 +472,30 @@ test('a step taken while a fresh deck is still being fit lands on the slide it a
 	// with the bar still reading "1 / 58", and nothing would ever correct it: the document
 	// did not clamp the scroll, so no scroll event fired.
 	await gotoExplore(page);
+	const before = (await page.locator('#pg-walk .pg-walk-pos').textContent())?.trim() ?? '';
 	await page.locator('#pg-galleries-trigger').click();
 	await page.getByRole('button', { name: /Jargon/ }).click();
-	await expect(page.locator('#pg-walk .pg-walk-pos')).toContainText('/');
+	// WAIT FOR THE GALLERY'S OWN POSITION, polled every frame, and step at once. The bar still
+	// reads the OLD deck's "1 / 15" for a moment after the click, so `toContainText('/')` passed
+	// on it and the step went to a deck that was about to be replaced; and when the check came
+	// late it retried on its 100-500ms back-off, so the step landed after the fit and the test
+	// never entered the window it is named for. The gallery's "1 / 58" appears while its land is
+	// still pending (the fit window), and a frame-rate poll steps inside it.
+	//
+	// …ONCE THE KEY CAN REACH THE DECK. For a frame or two the closing Galleries dialog still
+	// holds focus, and `isTypingTarget` (lib/deck-nav.ts) rightly leaves a key aimed at an
+	// overlay alone. Measured: a step polled on the bar alone went to the dialog's Jargon button
+	// and was dropped in 9 runs of 10. With focus out of the overlays as well, 12 of 12 single-
+	// worker runs pressed while `data-pg-land` was still `pending`, and 9 of 12 at four workers.
+	await page.waitForFunction(
+		(old) => {
+			const t = document.querySelector('#pg-walk .pg-walk-pos')?.textContent?.trim() ?? '';
+			const overlay = document.activeElement?.closest('[role="menu"],[role="menubar"],[role="listbox"],[role="combobox"],[role="dialog"],[role="alertdialog"]');
+			return /^\d+\s*\/\s*\d+$/.test(t) && t !== old && !overlay;
+		},
+		before,
+		{ polling: 'raf' },
+	);
 	// Deliberately WITHOUT settling: the point is to step inside the fit window.
 	await page.keyboard.press('PageDown');
 	await settle(page);

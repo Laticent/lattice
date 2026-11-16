@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Announce } from '@/lib/announce';
+import { isLiteDevice } from '@/lib/device-lite.js';
 import { readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
@@ -397,7 +398,11 @@ export function TtsSettings() {
 		<div>
 			{header}
 			{!avail.kokoroSupported ? (
-				<p className="text-[11px] text-muted-foreground">On-device voice needs a desktop browser — this device uses the cloud voice for read-aloud instead.</p>
+				<p className="text-[11px] text-muted-foreground">
+					{isLiteDevice()
+						? 'On-device voice is off in Lite mode: this device is too slow or short of memory for the 80 MB model. Pick a cloud voice for read-aloud.'
+						: 'On-device voice needs a desktop browser — this device uses the cloud voice for read-aloud instead.'}
+				</p>
 			) : (
 				<div>
 					<div className={cn('flex items-center gap-3 rounded-xl border px-3 py-2.5', ready ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>

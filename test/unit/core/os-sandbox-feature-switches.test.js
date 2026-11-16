@@ -25,8 +25,9 @@ test('arguments without a feature switch pass through untouched', () => {
   assert.deepEqual(mergeFeatureSwitches(args), args);
 });
 
-test("the sandbox launch keeps puppeteer's disabled features, IsolateSandboxedIframes included, and adds its own", () => {
-  const defaults = puppeteer.defaultArgs({ headless: true });
+test("the sandbox launch keeps puppeteer's disabled features, IsolateSandboxedIframes included, and adds its own", async () => {
+  // `defaultArgs` returns a Promise from puppeteer 24 on, as `launchAsUser` awaits it.
+  const defaults = await puppeteer.defaultArgs({ headless: true });
   const merged = mergeFeatureSwitches([...defaults, ...SANDBOX_LAUNCH_ARGS]);
   assert.equal(switches(merged, '--disable-features').length, 1, 'Chromium reads only the last copy, so there must be one');
   const off = features(merged, '--disable-features');

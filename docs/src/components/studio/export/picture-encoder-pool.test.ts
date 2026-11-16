@@ -152,3 +152,11 @@ describe('sharedPictureEncoder', () => {
 		vi.useRealTimers();
 	});
 });
+
+describe('poolSize and the device tier', () => {
+	it('at most 2 encoders on FULL; one on LITE whatever the cores (device-capability-tiers §4)', async () => {
+		const { poolSize } = await import('./picture-encoder-pool.js');
+		expect([2, 4, 8].map((c) => poolSize(c, false))).toEqual([1, 2, 2]);
+		expect([2, 4, 8].map((c) => poolSize(c, true))).toEqual([1, 1, 1]);
+	});
+});

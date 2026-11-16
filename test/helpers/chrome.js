@@ -20,26 +20,19 @@
  */
 
 const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 
 /** Best-effort Chromium path: an explicit env pin, else the puppeteer cache. */
 function resolveChrome() {
   for (const env of ['CHROME_PATH', 'PUPPETEER_EXECUTABLE_PATH']) {
     if (process.env[env] && fs.existsSync(process.env[env])) return process.env[env];
   }
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  // Last resort: puppeteer's own resolver. It throws when nothing is installed.
-  try {
-    const p = require('puppeteer').executablePath();
-    if (p && fs.existsSync(p)) return p;
-  } catch { /* no browser */ }
+  // The puppeteer cache, in every platform's layout (lib/core/chrome-exec.js owns the layouts), newest build first.
+  const { ownHomes, puppeteerCacheBrowsers } = require('../../lib/core/chrome-exec.js');
+  const found = puppeteerCacheBrowsers([...new Set([...ownHomes(), '/root'])]).sort().reverse();
+  if (found.length) return found[0];
+  // No call to puppeteer's own resolver here: from puppeteer 24 on `executablePath()` returns a
+  // Promise, and this resolver has to stay synchronous for `describe(…, { skip })`. The cache scan
+  // above is where that resolver looks by default.
   return undefined;
 }
 

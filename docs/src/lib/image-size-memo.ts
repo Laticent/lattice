@@ -11,8 +11,12 @@
 // it is written (lib/core/image-aspect.js `stampImageSections`).
 
 import families from '../../../lib/adaptive/families.js';
-import bgDirective from '../../../lib/core/bg-directive.js';
+import { boundaryParser } from '../../../lib/core/boundary-parser.mjs';
 import imageAspect from '../../../lib/core/image-aspect.js';
+import { placedPictureInSlide } from '../../../lib/core/placed-picture.mjs';
+import { slideRanges } from './deck-lint';
+import { stripFrontMatter } from './front-matter';
+import { slidePlacingAt } from './slide-carried';
 
 type Geom = { width: number; height: number };
 
@@ -65,8 +69,11 @@ export function prefetch(fr: HTMLIFrameElement | null | undefined, markdown: str
 	if (!W || typeof W.Image !== 'function') return;
 	const allowed = new Set(allow);
 	let started = 0;
-	for (const m of String(markdown).matchAll(new RegExp(bgDirective.BG_RE.source, 'gm'))) {
-		const url = String(m[2] || '').trim().split(/\s+/)[0];
+	const panels = panelPhotos(markdown);
+	// A panel photo is the picture a slide places (Markdown's picture on an `image` or `bleed` slide), asked of the kernel every
+	// reader asks, with what the slide inherits from the deck. Never Marp's `![bg]`, which the engine draws in the text since
+	// 2026-11-13: matching `![bg]` here is how a swept deck's photos stopped being measured ahead.
+	for (const url of panels) {
 		if (!/^https?:\/\//i.test(url) || IMAGE_BUCKETS.has(url) || IMAGE_PENDING.has(url)) continue;
 		const origin = webOrigin(url);
 		if (!origin || !allowed.has(origin)) continue;
@@ -92,10 +99,30 @@ export function prefetch(fr: HTMLIFrameElement | null | undefined, markdown: str
 	// measure for, but its preview-sized copy is made ahead the same way, so the slide the reader turns
 	// to next shows the copy and never decodes the original.
 	if (!warm) return;
-	for (const m of String(markdown).matchAll(/!\[(?!\s*bg\b)[^\]]*\]\(\s*<?(https?:\/\/[^\s)>]+)/gim)) {
+	for (const m of String(markdown).matchAll(/!\[[^\]]*\]\(\s*<?(https?:\/\/[^\s)>]+)/gm)) {
+		if (panels.has(m[1])) continue;
 		const origin = webOrigin(m[1]);
 		if (!origin || !allowed.has(origin)) continue;
 		if (++started > 24) break;
 		warm(m[1], true);
 	}
+}
+
+/** The address of every picture a slide of `markdown` places as its photo, as written. */
+function panelPhotos(markdown: string): Set<string> {
+	const source = String(markdown);
+	const body = stripFrontMatter(source);
+	const head = source.length - body.length;
+	const out = new Set<string>();
+	for (const r of slideRanges(body)) {
+		// Only a web address is prefetched, so a slide with no lone `http(s)` picture is never parsed: a pasted phone photo is a
+		// multi-megabyte `data:` address, which the parse would read in full on every navigation.
+		const text = body.slice(r.from, r.to);
+		if (!/^[ \t]{0,3}!\[[^\]\n]*\]\(\s*<?https?:/im.test(text)) continue;
+		const placing = slidePlacingAt(source, head + r.from);
+		if (!placing) continue;
+		const pic = placedPictureInSlide(text, placing.classes, { md: boundaryParser, backgroundImage: placing.backgroundImage });
+		if (pic?.src) out.add(String(pic.src).trim());
+	}
+	return out;
 }

@@ -54,7 +54,7 @@ The full Marpit pipeline, re-implemented as 7 modules:
 | `slides.js` | slide tokenizer (`---` → sections) |
 | `directives.js` | front-matter / comment directive parser |
 | `css.js` | `ThemeSet.pack` + `scaffold.js` + `printable.js` — selector scoping, `@page` / print, `@import` / `@size` |
-| `background-image.js` | `![bg]` plugin |
+| `background-image.js` | `sample:` / `asset:` picture names (it drew `![bg]` until 2026-11-13; Lattice no longer reads the keyword) |
 | `themes.js` | theme registry |
 | `math.js` | marp-core math → KaTeX (ours) |
 | `index.js` | the orchestrator |
