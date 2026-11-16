@@ -2,7 +2,8 @@ import { Check, Clapperboard, Download, FileBox, FileText, Image as ImageIcon, I
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSearchButton, PanelSearchRow, PanelSection, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
+import { PanelSearchButton, PanelSearchRow } from '@/components/ui/panel-actions';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import { notify } from '@/lib/notify';

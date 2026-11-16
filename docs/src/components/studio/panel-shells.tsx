@@ -1,7 +1,8 @@
 import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSearchButton, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelSearchButton } from '@/components/ui/panel-actions';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { SettingsTierSwitch } from '@/components/ui/settings-view';
 import { Textarea } from '@/components/ui/textarea';

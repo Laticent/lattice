@@ -1,7 +1,7 @@
 import { Check, ChevronDown, ChevronRight, LayoutList, List } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { PanelSearchButton, PanelSearchRow } from '@/components/ui/panel';
+import { PanelSearchButton, PanelSearchRow } from '@/components/ui/panel-actions';
 import type { PillTab } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import { useIsomorphicLayoutEffect } from '@/components/ui/use-isomorphic-layout-effect';

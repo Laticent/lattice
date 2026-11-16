@@ -22,7 +22,8 @@ import {
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
 import { Frozen, ScrollTopOnMount, useEverTrue, useShowCount } from '@/components/ui/keep-mounted';
-import { PanelBody, PanelDrillBack, PanelEmpty, PanelHeader, PanelNav, PanelResetButton, PanelSearchButton, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelBody, PanelDrillBack, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelResetButton, PanelSearchButton } from '@/components/ui/panel-actions';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
 import { filteringProps, SettingsBasicFoot, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsTierSwitch, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
