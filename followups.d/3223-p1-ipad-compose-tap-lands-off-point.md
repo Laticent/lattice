@@ -5,13 +5,14 @@ recorded: 2026-11-15
 area: infra
 severity: high
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md
-deferred: blocked — the owner has not yet approved a branch for it
+deferred: off-path — the compose tap (`composeTouchTap`); #3223 changes the session start and the panes probe, and the owner approved branch claude/webkit-shadow-and-ipad-tap for this fix
 source: https://github.com/Laticent/lattice/pull/3223
 ---
 
 # The iPad's Compose touch tap lands somewhere other than the point it was sent to
 
-owner     — the session that recorded this (PR #3223's), once a branch is approved. Ref #2911, where the nightly alerts land.
+owner     — the session that recorded this (PR #3223's), on branch claude/webkit-shadow-and-ipad-tap, which the owner
+            approved for it. The PR from that branch deletes this file when it lands. Ref #2911, where the nightly alerts land.
 why now   — `ios-safari-studio` is red on the iPad at the compose tap, and #3213's fix did not change that. Dispatch
             43760667692 (at d11b28b4f, with #3213 in): `FAIL compose tap · a touch tap puts the caret in the tapped paragraph
             ("First point" at 93,478 (held still 5 frames), gesture 739 ms, but it SELECTED "Workspace stop / Lattice Studio"
