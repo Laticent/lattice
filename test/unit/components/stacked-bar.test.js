@@ -426,7 +426,9 @@ describe('stacked-bar kernel', () => {
       withRoles(stepPx(), 972 / 320, () => F.withForm({ w: 320, h: 320 }, () => {
         const svg = buildStackedBar(parseStackedBar(ul(rows)), { classTokens: [] });
         const h = Number(svg.match(/viewBox="0 0 [\d.]+ ([\d.]+)"/)[1]);
-        const names = [...svg.matchAll(/<text class="cart-cat"[^>]*>[\s\S]*?<\/text>/g)].map((m) => [...m[0].matchAll(/y="([\d.]+)"/g)].map((y) => Number(y[1])));
+        // Split, not a lazy `<text …>[\s\S]*?</text>` regex: CodeQL flags that shape as polynomial.
+        const names = svg.split('<text class="cart-cat"').slice(1)
+          .map((seg) => [...seg.slice(0, seg.indexOf('</text>')).matchAll(/ y="([\d.]+)"/g)].map((y) => Number(y[1])));
         assert.ok(names.length === 4 && names.every((ys) => ys.length === 2), 'the case is real: every name takes two lines');
         const lowest = Math.max(...names.flat()) + cart.FS.cat * 0.25;
         assert.ok(lowest <= h, `the year line ends at ${lowest.toFixed(2)}, past the ${h}-unit drawing`);
