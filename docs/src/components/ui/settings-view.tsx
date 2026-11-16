@@ -1,7 +1,7 @@
-import { Check, ChevronDown, ChevronRight, LayoutList, List, Search } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, LayoutList, List } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { PanelSearch } from '@/components/ui/panel';
+import { PanelSearchButton, PanelSearchRow } from '@/components/ui/panel';
 import type { PillTab } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import { useIsomorphicLayoutEffect } from '@/components/ui/use-isomorphic-layout-effect';
@@ -591,6 +591,7 @@ export function SettingsToolbar({
 	onSearchingChange,
 	scope,
 	tier = 'advanced',
+	searchButton = true,
 	className,
 }: {
 	view: SettingsView;
@@ -603,64 +604,38 @@ export function SettingsToolbar({
 	scope: string;
 	/** In the BASIC tier the layout toggle has nothing to lay out, so it is not drawn. */
 	tier?: SettingsTier;
+	/** False where the panel's HEADER carries the search button (the docked column, §3d of
+	 *  2026-11-15-one-side-pane.md); the open field still lands here, in the row under it. */
+	searchButton?: boolean;
 	className?: string;
 }) {
-	const inputRef = React.useRef<HTMLInputElement>(null);
-	// Focus on OPEN only — re-focusing on every keystroke would fight a caret the user
-	// moved, and re-focusing on close would drag the panel back to a field that is gone.
-	React.useEffect(() => {
-		if (searching) inputRef.current?.focus();
-	}, [searching]);
-
 	const close = React.useCallback(() => {
 		onQueryChange('');
 		onSearchingChange(false);
 	}, [onQueryChange, onSearchingChange]);
 
 	if (searching) {
+		// ONE trailing button in the field, and it follows the field's state: clear the TEXT while
+		// there is text (a person mid-search wants the field back empty, not gone — and on a phone
+		// that keeps the keyboard up), close the FIELD once there is not. This used to be two ✕
+		// side by side: measured on a real 390x844 phone, a 24px "Clear search" 19px from a 28px
+		// "Close search" on a 293px row, and three ✕ inside 100px of the docked panel counting the
+		// panel's own collapse. `PanelSearchRow` (ui/panel.tsx) owns that and the Escape exit now.
 		return (
-			// Escape is the way out, on the key already under the finger — and it has to be
-			// caught on the ROW rather than the input, because the clear affordance inside
-			// PanelSearch is a sibling button that can hold focus too.
-			// biome-ignore lint/a11y/noStaticElementInteractions: a keyboard escape hatch over a row of real controls, not a control itself.
-			<div onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }} className={cn('flex items-center gap-1.5 pt-2.5', className)}>
-				<PanelSearch
-					inputRef={inputRef}
-					value={query}
-					onChange={onQueryChange}
-					// ONE trailing button, and the field decides which job it is doing: clear the
-					// TEXT while there is text (a person mid-search wants the field back empty,
-					// not gone — and on a phone that keeps the keyboard up), close the FIELD once
-					// there is not.
-					//
-					// This used to be two: `PanelSearch`'s own clear, and a second ✕ drawn beside
-					// it here. Measured on a real 390x844 phone, deck scope, query "page": a 24px
-					// "Clear search" at x=305 and a 28px "Close search" at x=348 — same glyph,
-					// two sizes, 19px apart, on a 293px row. The docked desktop panel was worse:
-					// three ✕ inside 100px of its 296px, counting the panel's own collapse. The
-					// two jobs are real, but they are never both wanted at once.
-					onClear={() => onQueryChange('')}
-					onClose={close}
-					placeholder={`Search ${scope.toLowerCase()} settings…`}
-					label={`Search ${scope.toLowerCase()} settings`}
-					className="flex-1 py-1.5"
-				/>
-			</div>
+			<PanelSearchRow
+				query={query}
+				onQueryChange={onQueryChange}
+				onClose={close}
+				placeholder={`Search ${scope.toLowerCase()} settings…`}
+				label={`Search ${scope.toLowerCase()} settings`}
+				className={cn('pt-2.5', className)}
+			/>
 		);
 	}
 
 	return (
 		<div className={cn('flex items-center justify-end gap-1 pt-2.5', className)}>
-			<Tip label={`Search ${scope.toLowerCase()} settings`}>
-				<button
-					type="button"
-					aria-label={`Search ${scope.toLowerCase()} settings`}
-					onClick={() => onSearchingChange(true)}
-					className="grid size-7 place-items-center rounded-md border border-border bg-background text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] hover:text-[var(--accent)]"
-				>
-					<Search className="size-4" />
-				</button>
-			</Tip>
+			{searchButton && <PanelSearchButton label={`Search ${scope.toLowerCase()} settings`} onClick={() => onSearchingChange(true)} />}
 			{/* One segmented control, two states, in the shape the editor's Markdown/Compose
 			    switch already uses — so a second toggle in the same app reads as the same
 			    kind of thing. A plain wrapper, not `role="group"`: the two buttons carry

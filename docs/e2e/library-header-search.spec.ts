@@ -1,14 +1,15 @@
 import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
-// THE LIBRARY'S HEADER SEARCH IS AS TALL AS THE BUTTON BESIDE IT.
+// THE LIBRARY'S SEARCH FOLLOWS THE PANES' ONE PATTERN (engineering/decisions/2026-11-15-one-side-pane.md §3d).
 //
-// On a tablet the Library keeps its search in the 56px header next to the Import button. The field was 44px tall
-// against a 32px button: on a touch screen its text is 16px (the coarse-pointer rule that stops iOS zooming into a
-// focused field) and the box grew around it. Reported from the owner's tablet while testing PR #2897; measured 44 vs 32
-// on an 810px iPad profile. `PanelSearch size="sm"` is a fixed 32px box for a header row.
+// A search button in the header, the same height as the Import button beside it, opens the field in a row under the
+// header, focused; Escape closes and clears it and leaves the Library open. The field used to sit open in the header,
+// the one pane whose search did. Before that it was 44px tall beside a 32px Import on a tablet (the 16px text a coarse
+// pointer gets so iOS does not zoom into a focused field), reported from the owner's tablet while testing PR #2897, so
+// the heights are still compared, now between the two buttons.
 //
-// Touch on, because the 16px text only applies to a coarse pointer. A phone docks the search at the bottom instead,
-// so 390 is not in this list.
+// Touch on, because the coarse-pointer sizing only applies to a coarse pointer. A phone docks the search at the bottom
+// instead, so 390 is not in this list.
 
 test.use({ hasTouch: true });
 
@@ -16,7 +17,7 @@ for (const vp of [
 	{ width: 1440, height: 900 },
 	{ width: 820, height: 1180 },
 ]) {
-	test(`@crosswidth @webkit-tablet @gecko the Library header search matches the Import button at ${vp.width}px`, async ({ page }, testInfo) => {
+	test(`@crosswidth @webkit-tablet @gecko the Library's search opens from a header button as tall as Import, at ${vp.width}px`, async ({ page }, testInfo) => {
 		test.skip(testInfo.project.name === 'mobile', 'a phone docks the search at the bottom; the widths are set here');
 		await page.setViewportSize(vp);
 		await gotoStudio(page);
@@ -26,22 +27,39 @@ for (const vp of [
 			await page.getByRole('button', { name: CHROME.deckSettingsAt.tabletMenu }).first().press('Enter');
 			await page.getByRole('menuitem', { name: /Library/ }).first().click();
 		}
-		const search = page.getByRole('textbox', { name: 'Search library' });
-		await expect(search).toBeVisible();
-		const measure = () =>
-			search.evaluate((input) => {
-				const box = input.parentElement as HTMLElement;
-				const row = box.parentElement?.closest('.h-14') ?? box.parentElement;
-				const button = row?.querySelector('button[aria-label="Import files"]');
-				return { row: row?.getBoundingClientRect().width ?? 0, field: box.getBoundingClientRect().height, button: button?.getBoundingClientRect().height ?? -1, font: getComputedStyle(input).fontSize };
+		const button = page.getByRole('button', { name: 'Search library', exact: true });
+		const importButton = page.getByRole('button', { name: 'Import files', exact: true });
+		// The signal: the REAL Library has mounted (its file input exists only there), not the loading shell that draws
+		// the same two buttons inert. Gecko swapped one for the other between two reads, so Import read 0px. Then both
+		// heights are read in ONE pass and compared once, so a mismatch still fails.
+		await expect(page.getByTestId('library-import-input')).toBeAttached();
+		await expect(button).toBeVisible();
+		await expect(importButton).toBeVisible();
+		const heights = () =>
+			page.evaluate(() => {
+				const h = (name: string) => [...document.querySelectorAll<HTMLElement>(`button[aria-label="${name}"]`)].find((b) => b.checkVisibility?.() ?? true)?.getBoundingClientRect().height ?? 0;
+				return { search: h('Search library'), import: h('Import files') };
 			});
-		// The signal: the header row has laid out with the Import button in it. The docked panel opens from zero width, and
-		// read the moment the field is visible the row was still 0px wide without the button in it (2 of 5 runs, every
-		// engine: "button 0"). Then the two heights are compared ONCE, so the 44-vs-32 mismatch this spec exists for
-		// still fails, where polling until they agree would not.
-		await expect.poll(async () => { const m = await measure(); return m.row > 0 && m.button > 0; }, { message: 'the Library header never laid out its Import button' }).toBe(true);
-		const sizes = await measure();
-		expect(Math.abs(sizes.field - sizes.button), `field ${sizes.field}px beside a ${sizes.button}px button (text ${sizes.font})`).toBeLessThanOrEqual(1);
-		await page.screenshot({ path: testInfo.outputPath('library-header.png') });
+		await expect.poll(async () => { const m = await heights(); return m.search > 0 && m.import > 0; }, { message: 'the Library header never laid out its buttons' }).toBe(true);
+		const { search: searchH, import: importH } = await heights();
+		expect(Math.abs(searchH - importH), `search button ${searchH}px beside a ${importH}px Import`).toBeLessThanOrEqual(1);
+		// Open: the field, focused, and no field before it.
+		await expect(page.getByRole('textbox', { name: 'Search library' })).toHaveCount(0);
+		await button.click();
+		const field = page.getByRole('textbox', { name: 'Search library' });
+		await expect(field).toBeFocused();
+		await page.screenshot({ path: testInfo.outputPath('library-search-open.png') });
+		await field.fill('cuoio');
+		// Escape closes and clears; the Library stays open.
+		await field.press('Escape');
+		await expect(field).toHaveCount(0);
+		await expect(button).toBeVisible();
+		// The Library is still open: on a tablet it is a sheet, whose own Escape (a document listener in the capture
+		// phase) used to close it along with the search (found by the checker on #3222).
+		await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+		// Focus is back on the search button, in the pane, not on <body>.
+		await expect(button).toBeFocused();
+		await button.click();
+		await expect(page.getByRole('textbox', { name: 'Search library' })).toHaveValue('');
 	});
 }

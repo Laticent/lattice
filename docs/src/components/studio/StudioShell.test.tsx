@@ -954,6 +954,30 @@ describe('StudioShell — desktop activity bar', () => {
 		expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveAttribute('aria-pressed', 'false');
 	});
 
+	// The house style (§3d of 2026-11-15-one-side-pane.md): every docked pane wears the SAME header (the
+	// shared PanelHeader: its name as a heading, then a collapse) and the collapse behaves as Esc does.
+	// Four of these drew an 11px uppercase label with no way out but the rail, so swapping panes in the
+	// one slot swapped the header's design too.
+	it('every docked pane wears the shared header, named for the pane, and its collapse returns focus to the rail', async () => {
+		const user = setup();
+		const panes: [rail: string, name: string, collapse: string][] = [
+			['Toggle Coach', 'Coach', 'Collapse Coach'],
+			['Toggle Chat', 'Chat', 'Collapse Chat'],
+			['Toggle Live', 'Live', 'Collapse Live'],
+			['Toggle Reader views', 'Reader views', 'Collapse Reader views'],
+			['Deck scope', 'Deck settings', 'Collapse settings'],
+			['Slide settings', 'Slide settings', 'Collapse settings'],
+		];
+		for (const [rail, name, collapse] of panes) {
+			await user.click(screen.getAllByRole('button', { name: rail })[0]);
+			expect(screen.getAllByRole('button', { name: rail })[0]).toHaveAttribute('aria-pressed', 'true');
+			expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: collapse }));
+			expect(screen.getAllByRole('button', { name: rail })[0]).toHaveAttribute('aria-pressed', 'false');
+			await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole('button', { name: rail })[0]));
+		}
+	});
+
 	it('marks the pane that last held the slot on the rail, so getting back is one visible click', async () => {
 		const user = setup();
 		const recentOn = (name: string) => screen.getByRole('button', { name }).querySelector('[data-recent]') !== null;

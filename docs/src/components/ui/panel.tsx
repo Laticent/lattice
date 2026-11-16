@@ -1,5 +1,6 @@
-import { ChevronLeft, SearchIcon, XIcon } from 'lucide-react';
+import { ChevronLeft, PanelLeftClose, PanelRightClose, SearchIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
+import { Button } from '@/components/ui/button';
 import { DIALOG_BOX } from '@/components/ui/dialog';
 import { PersistentSurface } from '@/components/ui/persistent-surface';
 import {
@@ -9,6 +10,7 @@ import {
 	SheetTitle,
 	sheetBox,
 } from '@/components/ui/sheet';
+import { Tip } from '@/components/ui/tooltip';
 import { useOverlayBack } from '@/lib/overlay-back';
 import { useIsPhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
@@ -699,8 +701,12 @@ export function PanelSheet({
 }
 
 /** The POINTER dismissal. A phone gets `PanelBack` instead — see PanelHeader. */
-function PanelCloseButton({ label, onClose }: { label: string; onClose?: () => void }) {
+function PanelCloseButton({ label, onClose, collapse }: { label: string; onClose?: () => void; collapse?: 'left' | 'right' }) {
 	const inSheet = React.useContext(PanelSheetCtx);
+	// A DOCKED column collapses toward the side it docks on, in the glyph the preview's own collapse
+	// already uses (`PanelRightClose`); a sheet closes, so it keeps the ✕
+	// (engineering/decisions/2026-11-15-one-side-pane.md §3d).
+	const Glyph = collapse && !inSheet ? (collapse === 'left' ? PanelLeftClose : PanelRightClose) : XIcon;
 	const btn = (
 		<button
 			type="button"
@@ -715,7 +721,7 @@ function PanelCloseButton({ label, onClose }: { label: string; onClose?: () => v
 				'grid size-[30px] shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[color-mix(in_srgb,var(--text-heading)_8%,transparent)] hover:text-[var(--text-heading)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]',
 			)}
 		>
-			<XIcon className="size-[18px]" />
+			<Glyph className="size-[18px]" />
 		</button>
 	);
 	// In a Sheet, SheetClose drives Radix's dismiss (focus return, escape parity);
@@ -751,6 +757,7 @@ export function PanelHeader({
 	onClose,
 	showClose = true,
 	closeLabel = 'Close',
+	collapse,
 	border = true,
 	className,
 }: {
@@ -760,13 +767,16 @@ export function PanelHeader({
 	/** Trailing controls placed before the close (import, add, …). */
 	actions?: React.ReactNode;
 	/** Let the actions give up width instead of holding it (`shrink-0`). For a header whose
-	 *  action is a search field — it has to fit a docked column's minimum, not push the
-	 *  trailing button out of the panel. */
+	 *  action can run long (Chat's model chip, the Library's Import label) — it has to fit a
+	 *  docked column's minimum, not push the trailing button out of the panel. */
 	fluidActions?: boolean;
 	/** Docked-column close handler (ignored inside a Sheet — SheetClose owns it). */
 	onClose?: () => void;
 	showClose?: boolean;
 	closeLabel?: string;
+	/** A docked column: draw the trailing control as a COLLAPSE toward this side instead of a ✕.
+	 *  Ignored inside a Sheet, which closes. */
+	collapse?: 'left' | 'right';
 	border?: boolean;
 	className?: string;
 }) {
@@ -844,7 +854,7 @@ export function PanelHeader({
 				<span className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink-[1000]' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
 			) : null}
 			{/* The X is the POINTER affordance now; on a phone `back` above replaced it. */}
-			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} /> : null}
+			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} collapse={collapse} /> : null}
 		</div>
 	);
 }
@@ -1019,6 +1029,95 @@ export function PanelSearch({
 					<XIcon className="size-4" />
 				</button>
 			) : null}
+		</div>
+	);
+}
+
+/**
+ * A panel's search, CLOSED: one icon button in the header's actions (§3d of
+ * engineering/decisions/2026-11-15-one-side-pane.md). Every pane that searches opens it the same
+ * way: this button, then `PanelSearchRow` under the header, focused. The Library used to keep its
+ * field open in the header and Settings drew this button in its scope band, so the same job had
+ * two shapes. The same outline `icon-sm` button as every other header action (Reader views' Add,
+ * the Library's Import), so a header's actions share one height; PanelHeader lifts them all to the
+ * 44px floor on a phone.
+ */
+export function PanelSearchButton({ label, onClick }: { label: string; onClick: () => void }) {
+	return (
+		<Tip label={label}>
+			<Button type="button" variant="outline" size="icon-sm" aria-label={label} onClick={onClick} data-panel-search-button="" className="shrink-0">
+				<SearchIcon className="size-4" />
+			</Button>
+		</Tip>
+	);
+}
+
+/**
+ * A panel's search, OPEN: the field, focused as it mounts. Escape closes and clears it, and closing
+ * (by Escape or by the field's own "Close search") hands focus back to the pane's search button, so a
+ * keyboard user stays in the pane rather than on <body>, where the pane's own Esc would no longer reach.
+ *
+ * Escape is caught on WINDOW in the capture phase, the first listener there is. A sheet's dismissal
+ * (Radix's `useEscapeKeydown`) listens on the document in the capture phase and runs before React
+ * dispatches anything, so a React `onKeyDown` with `stopPropagation` closed the search AND the whole
+ * Library sheet on a tablet (found by the checker on #3222). Stopping it at window keeps the sheet,
+ * the docked pane's collapse (a window listener in StudioShell) and every other Esc handler out of it.
+ */
+export function PanelSearchRow({
+	query,
+	onQueryChange,
+	onClose,
+	label,
+	placeholder,
+	size,
+	className,
+}: {
+	query: string;
+	onQueryChange: (q: string) => void;
+	/** Leave the search: the caller clears the query and shows the button again. */
+	onClose: () => void;
+	label: string;
+	placeholder: string;
+	size?: 'default' | 'sm';
+	className?: string;
+}) {
+	const inputRef = React.useRef<HTMLInputElement>(null);
+	const rowRef = React.useRef<HTMLDivElement>(null);
+	const closeRef = React.useRef(onClose);
+	closeRef.current = onClose;
+	// Close, then put focus on the search button that replaces the field, inside the same pane.
+	const close = React.useCallback(() => {
+		const pane = rowRef.current?.closest<HTMLElement>('[data-studio-pane], [data-settings-dock], [role="dialog"], [data-slot="persistent-surface"]') ?? null;
+		closeRef.current();
+		requestAnimationFrame(() => pane?.querySelector<HTMLElement>('[data-panel-search-button]')?.focus());
+	}, []);
+	// Focus on OPEN only: re-focusing on every keystroke would fight a caret the user moved.
+	React.useEffect(() => {
+		inputRef.current?.focus();
+	}, []);
+	React.useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== 'Escape' || !(e.target instanceof Node) || !rowRef.current?.contains(e.target)) return;
+			e.preventDefault();
+			e.stopPropagation();
+			close();
+		};
+		window.addEventListener('keydown', onKey, true);
+		return () => window.removeEventListener('keydown', onKey, true);
+	}, [close]);
+	return (
+		<div ref={rowRef} data-panel-search-row="" className={cn('flex items-center gap-1.5', className)}>
+			<PanelSearch
+				inputRef={inputRef}
+				value={query}
+				onChange={onQueryChange}
+				onClear={() => onQueryChange('')}
+				onClose={close}
+				placeholder={placeholder}
+				label={label}
+				size={size}
+				className="flex-1 py-1.5"
+			/>
 		</div>
 	);
 }

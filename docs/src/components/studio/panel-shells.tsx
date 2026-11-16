@@ -1,7 +1,7 @@
 import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, RotateCcw, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSearchButton, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { SettingsTierSwitch } from '@/components/ui/settings-view';
 import { Textarea } from '@/components/ui/textarea';
@@ -215,8 +215,12 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 	const bp = useBreakpoint();
 	const landscape = useLandscapePhone();
 	const phone = !docked && (bp === 'mobile' || landscape);
-	const search = (
-		<PanelSearch value="" onChange={() => {}} onClear={() => {}} placeholder={LIBRARY_HEADER.searchPlaceholder} label="Search library" size={phone ? 'default' : 'sm'} className={phone ? undefined : 'ml-1 flex-1'} />
+	// The Library's own controls, inert until it loads: the search BUTTON on a pointer surface, the
+	// docked field on a phone (Library.tsx, §3d of 2026-11-15-one-side-pane.md).
+	const search = phone ? (
+		<PanelSearch value="" onChange={() => {}} onClear={() => {}} placeholder={LIBRARY_HEADER.searchPlaceholder} label="Search library" />
+	) : (
+		<PanelSearchButton label="Search library" onClick={() => {}} />
 	);
 	const inner = (
 		<>
@@ -233,8 +237,9 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 					</Inert>
 				}
 				onClose={docked ? () => onOpenChange(false) : undefined}
+				closeLabel={docked ? 'Collapse Library' : 'Close'}
+				collapse="left"
 				fluidActions
-				showClose={!docked}
 			/>
 			<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
 				<Inert className="min-w-0 flex-1">
@@ -312,7 +317,7 @@ export function ChatEmptyCard({ aiReady, mode = 'review' }: { aiReady: boolean; 
 	);
 }
 
-export function ChatShell({ title, aiReady, deckId, children }: { title?: string; aiReady: boolean; deckId: string; children?: React.ReactNode }) {
+export function ChatShell({ aiReady, deckId, children }: { aiReady: boolean; deckId: string; children?: React.ReactNode }) {
 	// The saved thread decides what the panel opens on: the first-run card, or the conversation.
 	// Start reading the deck's chat (chat-store.ts) while the panel's code loads, and re-check once it has.
 	const [hasThread, setHasThread] = React.useState(() => loadChat(deckId).length > 0);
@@ -328,7 +333,6 @@ export function ChatShell({ title, aiReady, deckId, children }: { title?: string
 	}, [deckId]);
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			{title && <div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</div>}
 			<div className="min-h-0 flex-1 space-y-3 overflow-hidden px-3 py-3">
 				{children ??
 					(hasThread ? (

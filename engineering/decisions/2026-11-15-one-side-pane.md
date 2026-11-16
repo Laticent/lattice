@@ -120,6 +120,48 @@ clipping: 311px off the title's first letter after Coach closed, measured. It no
 and the document re-measures it after layout and before paint, so it never trails a frame. Guard:
 `docs/e2e/one-side-pane.spec.ts` "Compose's drawn caret stays on its text", on Chromium, WebKit and Gecko.
 
+## 3d. One pane header (owner: "there is no house style with the panes")
+
+One slot put every pane in the same place, which made their headers impossible to miss: measured at 1440px
+on the built Studio, the seven panes drew three designs. Coach, Chat, Live and Reader views drew an 11px
+uppercase mono label (about 34px tall, 40 with Chat's model chip) with no icon and no way out but the rail.
+The Library drew the shared `PanelHeader` with its search field open in it (about 56px) and no close. Settings
+drew a tinted band (about 45px) whose title was its scope ("Slide 1 override", "All 7 slides"), with search
+and a collapse. The phone and tablet sheets already all wore `PanelHeader`; only the docked column did not.
+
+The owner picked, from options put side by side:
+
+| Question | Pick |
+|---|---|
+| What every docked header carries | `PanelHeader`: icon chip, the pane's name (`PANE_NAME`), its actions, a trailing collapse |
+| How search works | One `PanelSearchButton` in the header opens `PanelSearchRow` under it, focused; Esc or an empty close puts the button back |
+| Where Settings' scope goes | The tinted band stays as the body's first row; the header says "Slide settings" / "Deck settings" |
+| Where it ships | In this PR: one slot is what put the headers in one place (HARD RULE #18) |
+
+How it is built:
+- `PanelHeader` takes `collapse: 'left' | 'right'`: a docked column draws `PanelLeftClose` / `PanelRightClose`
+  (the glyph the preview's own collapse uses) and a sheet keeps its ✕. The desktop docks collapse left; the
+  tablet's settings dock, on the right, collapses right.
+- `StudioShell` draws each docked pane's header with `dockHeader(id, icon, actions)`, and every collapse calls
+  `collapsePane`, the same function Esc calls, so the rail's last-used mark and the focus return (the rail
+  button, else the tablet's toolbar or "More controls") cannot drift between the two ways out. Accessible names:
+  "Collapse Coach", "Collapse Library", …, and "Collapse settings" (unchanged; the iOS probe and specs use it).
+- Chat and Live draw no header of their own any more. Every host (dock, tablet sheet, phone sheet) passes a
+  header node and they portal into it: Chat its cost readout, Live its session menu. The `title` props and their
+  uppercase-label branches are gone from `ArchitectChat`, `ChatShell` and `LivePanel`.
+- Reader views' Add button is the header's in the dock as in the sheet (`lensAddButton`).
+- `PanelSearchButton` is the outline `icon-sm` button every header action uses, so the Library's search and
+  Import share one height (pinned by `e2e/library-header-search.spec.ts`). `SettingsToolbar` uses
+  `PanelSearchRow` and takes `searchButton={false}` where the header carries the button; a phone sheet's band
+  keeps its own.
+- A phone is unchanged: each sheet keeps its leading back chevron (no X), and the Library keeps its search
+  docked at the bottom above the keyboard.
+
+Guard: `StudioShell.test.tsx` "every docked pane wears the shared header", red with Coach's old label.
+
+Not changed here, and visible: the Settings column sits on `--bg` and the tool panes on the card color, so the
+column's tint still changes when the slot swaps between them.
+
 ## 4. Do not regress — the traps this area has already paid for
 
 Each line names the guard. A change to panes re-checks every one.
