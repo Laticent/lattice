@@ -1,8 +1,12 @@
 import { compositionOf, effectiveCard, needsInk } from '../../../../lib/core/card-ink.mjs';
 import { describe, fixLabel, inkScenes, judge, SOLID, strongestScrim, TEXT_FLOOR } from '../../../../lib/core/photo-contrast.mjs';
-import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
+import { slideRanges, splitSlides } from '../../lib/deck-lint';
+import { stripFrontMatter } from '../../lib/front-matter';
+import { slidePlacingAt, unitPartStarts } from '../../lib/slide-carried';
+import { canEditClass, getClassTokens, setClassTokens } from '../../lib/slide-directives';
 import { headingOf, photoRefOf } from './card-ink-pick';
 import { boxInSection, CARD_CLASS, meanUnderBox, photoMatches, previewDocument, sameSlide } from './card-ink-sampler';
+import { replaceSlide } from './deck-ops';
 import { cachedFix, cardOf, estimateMean, hasBodyText, keepFix, photoUrl } from './photo-ink-read';
 import { deckImageCardClasses, setImageCard } from './slide-provenance';
 
@@ -144,7 +148,7 @@ function readPinned(section: HTMLElement, card: HTMLElement, pin: Pin, statement
  * text beside the picture). A statement is judged against its scrim at its strongest (see `strongestScrim`), so it is
  * flagged only when its words fail even there, which `card-clear` (no scrim at all) makes exact.
  */
-async function readLive(chunk: string, source: string, slideNumber: number): Promise<PhotoVerdict | null> {
+async function readLive(chunk: string, source: string, slideNumber: number, at?: number): Promise<PhotoVerdict | null> {
 	try {
 		const doc = previewDocument();
 		if (!doc) return null;
@@ -160,7 +164,7 @@ async function readLive(chunk: string, source: string, slideNumber: number): Pro
 		const panel = section.querySelector<HTMLElement>('.lattice-bg');
 		const card = section.querySelector<HTMLElement>('.image-text');
 		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
-		if (!panel || !card || !url || !photoMatches(photoRefOf(chunk, source), url)) return null;
+		if (!panel || !card || !url || !photoMatches(photoRefOf(chunk, source, at), url)) return null;
 		// The preview can still be showing the OLD render of this slide right after an edit.
 		if (getClassTokens(chunk).some((c) => (CARD_CLASS.test(c) || c === 'dark' || c === 'light') && !section.classList.contains(c))) return null;
 
@@ -191,10 +195,10 @@ async function readLive(chunk: string, source: string, slideNumber: number): Pro
  * the only photo warning the editor shows off screen. The current ink is not known (it is the theme's, on a page that is
  * not painted), so it names the fix and has no ratio.
  */
-async function readEstimate(chunk: string, source: string): Promise<PhotoVerdict | null> {
+async function readEstimate(chunk: string, source: string, at?: number): Promise<PhotoVerdict | null> {
 	const policy = cardPolicy(chunk, source);
 	if (!policy.inkFirst) return null;
-	const { ref, ...rest } = cardOf(chunk, source);
+	const { ref, ...rest } = cardOf(chunk, source, at);
 	if (!ref) return null;
 	const card = { ref, ...rest };
 	const kept = cachedFix(card);
@@ -221,24 +225,59 @@ async function readEstimate(chunk: string, source: string): Promise<PhotoVerdict
  * kept, so the next off-screen read (and the next page load) gets the measured fix rather than an estimate. `liveOnly`:
  * no estimate when the measure fails. Never throws.
  */
-export async function readVerdict(chunk: string, source: string, slideIndex: number, onScreen: boolean, liveOnly = false): Promise<PhotoVerdict | null> {
-	if (!photoRefOf(chunk, source)) return null;
+export async function readVerdict(chunk: string, source: string, slideIndex: number, onScreen: boolean, liveOnly = false, section = slideIndex, at?: number): Promise<PhotoVerdict | null> {
+	// `at`: where `chunk` starts in `source`, so what it inherits is read at its own place (see card-ink-pick.ts `photoRefOf`).
+	if (!photoRefOf(chunk, source, at)) return null;
 	if (onScreen) {
-		const live = await readLive(chunk, source, slideIndex + 1);
+		// `section`: the engine slide `chunk` is, 0-based (a `---` slide split on its headings is several). The preview frame holds
+		// the slide on screen, so this names a section only in a frame that holds more; the heading and photo guards decide.
+		const live = await readLive(chunk, source, section + 1, at);
 		if (live) {
-			const { ref, ...rest } = cardOf(chunk, source);
+			const { ref, ...rest } = cardOf(chunk, source, at);
 			if (ref && cardPolicy(chunk, source).inkFirst) keepFix({ ref, ...rest }, live.fix, live.fixRatio, 'live');
 			return live;
 		}
 		// The watch wants the measured answer or none: an estimate would load the photo again only to be thrown away.
 		if (liveOnly) return null;
 	}
-	return readEstimate(chunk, source).catch(() => null);
+	return readEstimate(chunk, source, at).catch(() => null);
 }
 
 /** The slide with `fix` applied: the one edit both views make, so a fix means the same thing wherever it is clicked. */
-export function applyFix(chunk: string, fix: Fix): string {
+export function applyFix(chunk: string, fix: Fix, inherited: readonly string[] = []): string {
+	// A slide (or heading part) with no class of its own takes a running `class:` from an earlier slide. Writing only the fix
+	// would replace that class for it, dropping its layout and its photo, so the inherited words are written first.
+	if (inherited.length && !getClassTokens(chunk).length) chunk = setClassTokens(chunk, [...inherited]);
 	if (fix === 'ink-light' || fix === 'ink-dark') return setImageCard(chunk, 'ink', fix.slice(4));
 	if (fix === SOLID) return setImageCard(chunk, 'backing', 'solid');
 	return setClassTokens(chunk, [...getClassTokens(chunk).filter((t) => t !== 'dark' && t !== 'light'), fix]);
+}
+
+/**
+ * The deck with `fix` written into heading part `part` of slide `slideIndex` (0-based, front matter not counted; a slide that
+ * does not split on its headings is one part), or null when that part cannot take it: no such slide or part, a `_class` the
+ * Studio cannot edit, or nothing would change. The class the part inherits is read at the part's own place in the deck
+ * (lib/slide-carried.ts `slidePlacingAt`), never by finding its text, which an identical earlier slide would answer for (the
+ * checker on #3239), and from `source` as it is now: the Coach passes the source its write is applied to. Here, not in the
+ * shell, so the part reader loads with the verdict and stays out of the Studio's startup bundle (route budget).
+ */
+export function applyFixToSlide(source: string, slideIndex: number, part: number, fix: Fix): string | null {
+	const body = stripFrontMatter(source);
+	const chunk = splitSlides(body)[slideIndex];
+	const range = slideRanges(body)[slideIndex];
+	if (chunk == null || !range) return null;
+	const starts = unitPartStarts(source, chunk);
+	const k = starts.length < 2 ? 0 : part;
+	if (k < 0 || k >= starts.length) return null;
+	const from = starts[k];
+	const to = starts[k + 1] ?? chunk.length;
+	const text = chunk.slice(from, to);
+	if (!canEditClass(text)) return null;
+	// `slideRanges` starts a slide at its first non-blank character; `splitSlides` may keep the blank lines before it.
+	const lead = chunk.length - chunk.trimStart().length;
+	const at = source.length - body.length + range.from - lead + from;
+	const next = chunk.slice(0, from) + applyFix(text, fix, slidePlacingAt(source, at)?.carried ?? []) + chunk.slice(to);
+	if (next === chunk) return null;
+	const out = replaceSlide(source, slideIndex, next).source;
+	return out === source ? null : out;
 }

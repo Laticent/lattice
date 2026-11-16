@@ -802,10 +802,19 @@ export const Editor = React.forwardRef<EditorHandle, {
 						if (fix) {
 							keepInkTooltip = fix.keepTooltipOnSameDiagnostics;
 							const text = docString(view.state.doc);
-							fix.attachInkFixes(thin, text, () => hubRef.current?.get().unitIndex, () => measuredPhotoRef.current);
+							fix.attachInkFixes(
+								thin,
+								text,
+								() => {
+									const f = hubRef.current?.get();
+									return f ? { unit: f.unitIndex, part: f.part ?? 0 } : undefined;
+								},
+								() => measuredPhotoRef.current,
+							);
 							if (photo && photoWanted) {
 								const ix = buildDeckIndex(text);
-								const flagged = thin.some((d) => Math.max(0, unitAt(ix, d.from)) === photo.slideIndex);
+								// Lint's warning on the same engine slide (the `---` slide, and its heading part when it splits) carries this verdict.
+								const flagged = thin.some((d) => Math.max(0, unitAt(ix, d.from)) === photo.slideIndex && (partAt(ix, d.from)?.part ?? 0) === (photo.part ?? 0));
 								const d = flagged ? null : fix.photoDiagnostic(view.state.doc, photo, () => measuredPhotoRef.current);
 								if (d) measured.push(d);
 							}

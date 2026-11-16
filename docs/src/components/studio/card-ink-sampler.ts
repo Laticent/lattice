@@ -12,6 +12,8 @@ import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
 
 /** The canvas the region is averaged on; small, because only the mean color is used. */
 const SAMPLE_PX = 24;
+/** The long side a photo is drawn at when it must be drawn whole before its box is read (see `meanUnderBox`). */
+const WHOLE_PX = 1024;
 
 export type Rgb = number[];
 
@@ -180,6 +182,20 @@ export async function meanUnderBox(url: string, panelW: number, panelH: number, 
 		const src = coverSourceRect(photo.naturalWidth, photo.naturalHeight, panelW, panelH, box);
 		if (!src) return null;
 		ctx.drawImage(photo, src.x, src.y, src.w, src.h, 0, 0, SAMPLE_PX, SAMPLE_PX);
+		const direct = meanRgb(ctx.getImageData(0, 0, SAMPLE_PX, SAMPLE_PX).data);
+		if (direct) return direct;
+		// Firefox draws NOTHING for a source rectangle of an SVG photo (no error, every pixel transparent), though it draws
+		// the whole image: the Coach's photo check never spoke in Gecko. So the photo is drawn whole onto a canvas first, at
+		// most WHOLE_PX on its long side, and the card's box is read from that canvas. A raster photo never gets here.
+		const k = Math.min(1, WHOLE_PX / Math.max(photo.naturalWidth, photo.naturalHeight));
+		const whole = document.createElement('canvas');
+		whole.width = Math.max(1, Math.round(photo.naturalWidth * k));
+		whole.height = Math.max(1, Math.round(photo.naturalHeight * k));
+		const wctx = whole.getContext('2d');
+		if (!wctx) return null;
+		wctx.drawImage(photo, 0, 0, whole.width, whole.height);
+		ctx.clearRect(0, 0, SAMPLE_PX, SAMPLE_PX);
+		ctx.drawImage(whole, src.x * k, src.y * k, Math.max(1, src.w * k), Math.max(1, src.h * k), 0, 0, SAMPLE_PX, SAMPLE_PX);
 	} else {
 		// A vector photo with no intrinsic size reports 0x0 and stretches to whatever it is drawn at,
 		// so draw it at a quarter of the panel and read the card's box from that.

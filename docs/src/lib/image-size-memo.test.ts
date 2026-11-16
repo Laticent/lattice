@@ -41,6 +41,14 @@ describe('prefetch', () => {
 		expect(warm.mock.calls).toEqual([['https://images.example/g.jpg']]);
 	});
 
+	it('a slide split on its headings places a photo per part, each under its own class', () => {
+		// The second heading opens an engine slide of its own, and its spot class is that part's (the checker on #3239: the
+		// prefetch read the whole slide under the first part's classes and warmed nothing as a panel).
+		const warm = vi.fn((_url: string, _prose?: boolean) => true);
+		prefetch(frame(), '## One\n\ntext\n\n<!-- _class: image -->\n## Two\n\n![The lake](https://images.example/h.jpg)', ['https://images.example'], origin, warm);
+		expect(warm.mock.calls).toEqual([['https://images.example/h.jpg']]);
+	});
+
 	it('loads no prose photo into the frame where there are no copies (no warm)', () => {
 		const loaded: string[] = [];
 		const W = {

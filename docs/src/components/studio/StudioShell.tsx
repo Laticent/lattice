@@ -42,7 +42,7 @@ import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } 
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { createFilo } from '@/lib/filo';
 import { createFocusHub } from '@/lib/fuoco/hub';
-import { partText, unitText } from '@/lib/fuoco/outline';
+import { flatPart, partStart, partText, unitText } from '@/lib/fuoco/outline';
 import { placeAt } from '@/lib/fuoco/place';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -6030,17 +6030,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// what the preview paints): a string of all three was built on every render, 16 MB on a deck of phone photos.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the three inputs are the context's identity; the body reads none of them.
 	const photoContext = React.useMemo(() => ({}), [mode, palette, source]);
-	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex, source, photoContext, onPreviewPaint);
+	// A `---` slide split on its headings is several engine slides: the photo read is the heading part on screen (the preview
+	// frame holds that one slide; its heading and photo address confirm it), while the finding keeps the `---` slide's number,
+	// as lint's findings do (PR #3239).
+	const activeParts = deckIndex.units[activeFullIndex]?.parts.length ?? 1;
+	// Clamped to the slide's parts: `partText` does not clamp, and a part past the end reads from the deck's start.
+	const activePart = activeParts > 1 ? Math.max(0, Math.min(viewSection, activeParts - 1)) : 0;
+	const photoChunk = activeParts > 1 ? partText(deckIndex, activeFullIndex, activePart) : activeChunk;
+	const photoSection = deckIndex.units[activeFullIndex] ? flatPart(deckIndex, activeFullIndex, activePart) : activeFullIndex;
+	// Where the part starts in the deck, so what it inherits is read at its own place, not by finding its text.
+	const photoAt = deckIndex.units[activeFullIndex] ? partStart(deckIndex, activeFullIndex, activePart) : undefined;
+	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(photoChunk, activeFullIndex, source, photoContext, onPreviewPaint, photoSection, photoAt);
 	// The one click the photo verdict offers, the same edit the editor's button makes (photo-verdict.ts `applyFix`). Never
 	// applied on its own. Loaded with the verdict, which is already in memory by the time a button shows.
 	const pinActiveSlide = React.useCallback(
 		(fix: Fix) =>
-			void import('./photo-verdict').then(({ applyFix }) => mutateSlideFromPanel((c) => (canEditClass(c) ? applyFix(c, fix) : c))),
-		[mutateSlideFromPanel],
+			// The fix is the heading part's own: written into that part's class, keeping a class it only inherits, and read from
+			// the source the write is applied to, not the one this render saw (the checker on #3239).
+			void import('./photo-verdict').then(({ applyFixToSlide }) => settingsWrite('This slide', (s) => applyFixToSlide(s, activeFullIndex, activePart, fix) ?? s)),
+		[settingsWrite, activeFullIndex, activePart],
 	);
 	// The editor's half: the verdict for the slide on screen, by source slide index (the full view only, as the spark
 	// measurement: a reader lens reshapes the set the preview shows).
-	const measuredPhoto = React.useMemo(() => (composeLens === 'full' && photoVerdict && photoFresh ? { slideIndex: activeFullIndex, verdict: photoVerdict } : null), [composeLens, photoVerdict, photoFresh, activeFullIndex]);
+	const measuredPhoto = React.useMemo(() => (composeLens === 'full' && photoVerdict && photoFresh ? { slideIndex: activeFullIndex, part: activePart, verdict: photoVerdict } : null), [composeLens, photoVerdict, photoFresh, activeFullIndex, activePart]);
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
 	// THE PANE GALLERY — Compose's "Change" on a pane bar opens the slide gallery in pane mode
 	// (SlidePicker `pane`): only the components that fit that pane, each saying whether it keeps the
@@ -6415,7 +6427,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								finding={f}
 								state={fixStates[key]}
 								canFix={ai.ready && !!f.slide && f.rule !== PHOTO_RULE}
-								pin={(f.rule === PHOTO_RULE || f.rule === 'thin-card-no-ink') && f.slide === activeFullIndex + 1 && canEditClass(activeChunk) ? (photoVerdict?.fix ?? null) : null}
+								pin={(f.rule === PHOTO_RULE || f.rule === 'thin-card-no-ink') && f.slide === activeFullIndex + 1 && canEditClass(photoChunk) ? (photoVerdict?.fix ?? null) : null}
 								pinLabel={photoVerdict?.label ?? null}
 								onPin={pinActiveSlide}
 								costLabel={fixCostLabel}

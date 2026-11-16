@@ -1073,6 +1073,24 @@ async function memoTier() {
     passTimes.sort((a, b) => a - b);
     const per = (k) => Math.round((elision.readStats[k] - at[k]) / 5);
     summary.push({ dataset: 'payload skip · 3 phone-photo slides', work: { lintChars: per('lintChars'), reviewChars: per('reviewChars'), renderChars: per('renderChars') }, ms: passTimes[2], p95: passTimes[4] });
+    // THE PICTURE SHORTCUT ON PHOTOS THE RENDER CANNOT SKIP: `![title](data:… "description")` is the record's shortcut on an
+    // `image` slide, and its description keeps the line out of the payload skip above, so the engine meets the whole
+    // address. The shortcut once wrote it into the record's text for the record reader to parse again (2.5 s against 1.5 s
+    // for the same deck as `![bg]`, media-plugins.md §9, 2026-11-16); `recordChars` is the record text the reader was handed per render.
+    if (elision.readStats.recordChars !== undefined) {
+      const described = [0, 1, 2].map((k) => `<!-- _class: image -->\n\n## A phone photo\n\n![Photo ${k + 1}](data:image/jpeg;base64,${String.fromCharCode(65 + k).repeat(3_500_000)} "Taken on a phone")`).join('\n\n---\n\n');
+      engine.render(described);
+      const rec = { ...elision.readStats };
+      const shortcutTimes = [];
+      for (let i = 0; i < 5; i++) {
+        const t = process.hrtime.bigint();
+        engine.render(described);
+        shortcutTimes.push(Number(process.hrtime.bigint() - t) / 1e6);
+      }
+      shortcutTimes.sort((a, b) => a - b);
+      const perR = (k) => Math.round((elision.readStats[k] - rec[k]) / 5);
+      summary.push({ dataset: 'picture shortcut · 3 described phone photos', work: { recordChars: perR('recordChars'), renderChars: perR('renderChars') }, ms: shortcutTimes[2], p95: shortcutTimes[4] });
+    }
   }
   console.log('\n=== META-MEMO · slide-metadata reads per keystroke on a deck of phone photos ===');
   for (const r of summary) console.log(`${r.dataset.padEnd(48)}${JSON.stringify(r.work).padEnd(40)}${r.ms.toFixed(3).padStart(11)}${r.p95.toFixed(3).padStart(9)}`);

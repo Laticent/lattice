@@ -1,0 +1,1 @@
+- On a deck that splits on headings (the default), a `---` slide with two headings and one picture under each now shows both pictures as placed in Compose, and the Studio's photo-contrast check reads them. Before, the Studio saw one slide with two loose pictures and placed neither, while the rendered deck placed both.

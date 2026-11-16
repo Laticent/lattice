@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { photoAt } from '../../components/studio/card-ink-pick';
+import { photoAt, photosAt } from '../../components/studio/card-ink-pick';
 import { slidePlacingOf } from '../slide-carried';
 import { deckSchema, deckToDoc } from './deck-doc';
 import { parseDeck } from './deck-source';
@@ -36,7 +36,8 @@ describe('Compose places the picture exactly where the engine does (test/fixture
 
 describe('the photo finder finds the photo the engine places (test/fixtures/placed-picture-cases.json)', () => {
 	// `photoAt` reads one slide's text; what the slide inherits (a carried class, a carried background, the deck's `class:`) is
-	// read from the whole deck as the Studio's callers read it (lib/slide-carried.ts). Every case runs.
+	// read from the whole deck as the Studio's callers read it (lib/slide-carried.ts). Every case runs. A `---` unit the engine
+	// draws as several slides (`split: headings`) has a photo per part: the picture is placed when some part places it.
 	for (const { name, md, addr, placed } of cases) {
 		it(name, () => {
 			const source = md.replace(/\r\n/g, '\n');
@@ -44,8 +45,10 @@ describe('the photo finder finds the photo the engine places (test/fixtures/plac
 			expect(slide, `no slide holds ${addr}`).toBeTruthy();
 			const placing = slidePlacingOf(source, slide?.raw ?? '');
 			expect(placing, `the deck reader found no slide for ${addr}`).toBeTruthy();
-			const found = photoAt(slide?.raw ?? '', placing ?? []);
-			expect(found?.ref === addr, name).toBe(placed);
+			const found = photosAt(slide?.raw ?? '', placing ?? []);
+			expect(found.some((f) => f?.ref === addr), name).toBe(placed);
+			// The unit's photo (`photoAt`, what a caller keyed on the unit reads) is its first part's that has one.
+			expect(photoAt(slide?.raw ?? '', placing ?? []), name).toEqual(found.find((f) => f) ?? null);
 		});
 	}
 });

@@ -39,7 +39,7 @@ import { flatPart, partText, unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { deckDerivedFactsFor, type SingleSlideOptions } from '@/playground/single-slide-render';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
-import { slideClass } from '../../lib/deck-lint';
+import { slideClass, slideClasses } from '../../lib/deck-lint';
 import { liveColor } from './live/live-model';
 import { type CapturePicture, PooledThumbFace, PreviewPool } from './preview-pool';
 import type { RailPerson } from './SlideRail';
@@ -344,10 +344,19 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		[items, people, hiddenAt],
 	);
 
+	// Every engine slide's class in deck order, so a slide that only inherits a running `class:` is named by it (PR #3239).
+	const deckClasses = React.useMemo(() => {
+		const texts: string[] = [];
+		for (let u = 0; u < index.units.length; u++) for (let k = 0; k < index.units[u].parts.length; k++) texts.push(partText(index, u, k));
+		return slideClasses(texts);
+	}, [index]);
 	// A markdown parse per slide, so cached by text: a keystroke re-derives only the slide it touched.
 	const classes = React.useRef(new Map<string, string>());
 	const caption = React.useCallback(
 		(i: number) => {
+			const it = items[i];
+			const inDeck = it ? deckClasses[flatPart(index, it.unit, it.section)] : undefined;
+			if (inDeck !== undefined) return inDeck;
 			const text = textOf(i);
 			let c = classes.current.get(text);
 			if (c === undefined) {
@@ -357,7 +366,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 			}
 			return c;
 		},
-		[textOf],
+		[textOf, items, index, deckClasses],
 	);
 
 	// The accessible name carries the class too, as a pill's does outside Read; the visible caption is aria-hidden.
