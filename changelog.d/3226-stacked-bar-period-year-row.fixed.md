@@ -1,0 +1,1 @@
+- **stacked-bar:** a two-line period name (`Q1 FY24`) no longer loses its second line below the chart. The band under the axis grows to hold both lines. When a period word is too wide for its bar beside the name column, the part names move to the key so the names do not run together.
