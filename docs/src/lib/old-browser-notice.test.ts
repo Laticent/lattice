@@ -484,6 +484,12 @@ describe('on the Studio and the Playground', () => {
 		expect(getComputedStyle(tinted).visibility).toBe('visible');
 	});
 
+	it('says plainly that the browser is too old, without defining the word for the reader', () => {
+		const lead = run('SomeBrowser/1.0').querySelector('.lob-lead')?.textContent ?? '';
+		expect(lead).toContain('Your browser is too old to run Lattice.');
+		expect(lead).not.toContain('the app you use');
+	});
+
 	it('?lob-debug prints the colors this engine computed, and nothing appears without it', () => {
 		expect(run('SomeBrowser/1.0').querySelector('[data-testid="lob-trace"]')).toBeNull();
 		document.body.innerHTML = '';

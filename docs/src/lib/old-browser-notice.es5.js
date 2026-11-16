@@ -370,7 +370,7 @@
 		title.id = ID + '-title';
 		title.tabIndex = -1;
 		head.appendChild(title);
-		var lead = el('p', 'lob-lead', 'Lattice turns a few lines of plain text into slides like this one. Your browser, the app you use to open websites, is too old to run Lattice. Updating it is free.');
+		var lead = el('p', 'lob-lead', 'Lattice turns a few lines of plain text into slides like this one. Your browser is too old to run Lattice. Updating it is free.');
 		lead.id = ID + '-lead';
 		head.appendChild(lead);
 		card.appendChild(head);
