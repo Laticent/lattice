@@ -1,0 +1,1 @@
+- **compare-prose:** a split page that holds one card (a hall venue puts each card on its own page) no longer draws the connector arrow in front of it. The arrow pushed the card past the slide's edge, cutting its right side. On a portrait or phone box the `axis` facet cards also take the full width and a smaller numeral, so each facet fits its page at hall.

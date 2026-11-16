@@ -88,6 +88,15 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
   display:grid; align-content:start; justify-items:start;
   font-weight:700; color:var(--text-heading);
 }
+/* ONE card, no connector. A split page (hall type puts each card on its own page) or an author's lone card
+ * leaves the list with one item; that item is both :first-child and :last-child, so it took order 3 and the
+ * connector sat in FRONT of it, still holding its own width and the --sp-lg gap. The card was pushed that far
+ * right and ran past the stage, which clips: the axis slide's split pages at square@hall lost the card's right
+ * edge (151px of connector and gap ahead of a 700px card). A connector between one card and nothing says
+ * nothing, so it goes. */
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):has(> li:only-child)::before {
+  display: none;
+}
 /* Cards bracket the connector slot: first before it, second after it. */
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:first-child { order:1; }
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:last-child { order:3; }
@@ -308,6 +317,13 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   align-self: center;
   width: 100%;
 }
+/* A TALL or STRIP box stacks the two facets in a column, so the cap no longer groups a pair, it only narrows each
+ * card: at portrait@hall a 700px card wrapped "You can do the cognitive work" two words a line and ran 93px past
+ * the stage on its split page (218px for the second facet, whose title took two lines too). The cards take the
+ * stage's width there. */
+section.compare-prose.axis:where([data-family="tall"], [data-family="strip"]):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) {
+  max-width: none;
+}
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
@@ -340,6 +356,12 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   line-height: 1;
   color: var(--accent);
   padding-bottom: var(--sp-3xs);
+}
+/* And the numeral steps one tier down there: at hall type --fs-h1 is ~110px of a stacked card, and on the second
+ * facet's split page (the heading's "(cont.)" on a line of its own, the next-page chip under the card) that tier
+ * was the last 19px the page did not have. --fs-h2 still out-sizes the card title. */
+section.compare-prose.axis:where([data-family="tall"], [data-family="strip"]):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li::before {
+  font-size: var(--fs-h2);
 }
 /* `axis` opts OUT of the family's corner-tag recipe. That recipe lifts a card's
  * leading <strong> into a flush top-left chip and reserves top padding for it —
