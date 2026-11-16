@@ -256,9 +256,9 @@ async function inlineArm() {
     return st;
   };
   const modelAll = (body) => {
-    const m = sm.deckModel(body, { parser: block, inline, frontMatter: null, raw: true, detail: true });
-    const b = m.blocks;
-    for (let i = 0; i < b.length; i++) if (b.tape[i * sm.STRIDE] === sm.KIND.inline) sm.inlineOf(m, i);
+    const m = sm.detailedModel(body, { parser: block, inline, frontMatter: null, raw: true });
+    // Every leaf, slide by slide, through the reader a whole-slide consumer uses (the adapter does the same).
+    for (let s = 0; s < m.segs.length; s++) sm.inlineSlide(m, s);
     return m;
   };
   const rows = [];
@@ -287,7 +287,7 @@ async function inlineArm() {
     for (let i = 0; i < 100; i++) {
       flip = !flip;
       m = sm.updateDeckModel(m, flip ? b : a, { from: at, toA: at + 1, toB: at + 1 });
-      for (const k of sm.slideLeaves(m, slide)) sm.inlineOf(m, k);
+      sm.inlineSlide(m, slide);
     }
   }, 20, 5) * 10;
   rows.push({ arm: 'gallery keystroke us (S1 + S2 of the slide)', us: keyUs, fullUs: best(() => modelAll(a), 20, 5) * 1000 });

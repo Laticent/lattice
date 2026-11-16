@@ -146,7 +146,8 @@ const CONTEXTS = [
 	(s) => `> ${s.replace(/\n/g, '\n> ')}`,
 	(s) => `- ${s.replace(/\n/g, '\n  ')}`,
 	(s) => `1. x\n2. ${s.replace(/\n/g, '\n   ')}`,
-	(s) => `| h | i |\n|---|:-:|\n| ${s.replace(/\n/g, ' ').replace(/\|/g, '\\|')} | z |`,
+	// Backslashes and pipes both escaped, so the document stays one cell and a backslash still reaches it as an escape.
+	(s) => `| h | i |\n|---|:-:|\n| ${s.replace(/\n/g, ' ').replace(/[\\|]/g, '\\$&')} | z |`,
 	(s) => `${s}\n===`,
 	(s) => `[a]: /ref "T"\n[A ]: <other>\n\n${s}`,
 ];
@@ -180,7 +181,8 @@ test('a seeded fuzz over the inline rule surface, in every leaf context: markdow
 			if (m.blocks.kinds[m.blocks.tape[i * 7]] !== 'inline') continue;
 			const leaf = leafText(m, i);
 			for (let c = 0; c < leaf.text.length; c++) {
-				const pinned = leaf.runs.some((_, k) => k % RSTRIDE === 0 && leaf.runs[k] <= c && leaf.runs[k + 2] === 1 && (k + RSTRIDE >= leaf.runs.length || leaf.runs[k + RSTRIDE] > c));
+				const r = leaf.runs;
+				const pinned = r?.some((_, k) => k % RSTRIDE === 0 && r[k] <= c && r[k + 2] === 1 && (k + RSTRIDE >= r.length || r[k + RSTRIDE] > c));
 				if (!pinned && m.body[leafToBody(leaf, c)] !== leaf.text[c]) {
 					bad.push(`seed ${seed} run ${n}: leaf ${JSON.stringify(leaf.text)} offset ${c} maps to ${JSON.stringify(m.body[leafToBody(leaf, c)])}`);
 					break;
