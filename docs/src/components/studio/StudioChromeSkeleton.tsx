@@ -1,12 +1,12 @@
 import {
-	ChevronDown, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, Play, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Undo2,
+	ChevronDown, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, Play, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, TextSearch, Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, PostureDial, SlideNavigator } from './chrome-parts';
+import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_FIT, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, PostureDial, SlideNavigator } from './chrome-parts';
 import { ChatIcon, FeedbackIcon, PreviewIcon } from './icons';
 import { LatticeMark } from './LatticeMark';
 import { LENSES } from './lens-picker';
@@ -51,8 +51,6 @@ import { LENSES } from './lens-picker';
 // measures these two rows against the app's own, and studio.astro's cinema rule hides the chrome by
 // them. Renaming one without updating both reds that spec — which is the point.
 const NOOP = () => {};
-// The shell draws its tablet pair with this same class (StudioShell `historyButtons`), so the pre-paint row matches the app's.
-const TOUCH_FIRST = 'hidden [@media(hover:none)_and_(pointer:coarse)]:inline-flex';
 
 /** The phone's eight-cell deck-actions bar — the app's own cells, in the app's own order. */
 function ActionBar() {
@@ -241,9 +239,6 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					</span>
 					<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours hidden text-[var(--text-body)] xl:inline-flex"><MonitorPlay className="size-[18px]" /></Button>
 					<Separator orientation="vertical" className={cn(BAR_RULE, 'hidden min-[1100px]:block')} />
-					{/* Undo · Redo on a touch-first tablet only: the same class as the app's own pair. */}
-					<Button variant="ghost" size="icon-sm" aria-label="Undo" className={TOUCH_FIRST} disabled><Undo2 className="size-[18px]" /></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Redo" className={TOUCH_FIRST} disabled><Redo2 className="size-[18px]" /></Button>
 					<Button size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
 					<Button variant="outline" size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>
@@ -333,20 +328,26 @@ export function StudioActivityRailSkeleton() {
 export function StudioEditorPaneSkeleton() {
 	return (
 		<>
-			<div data-slot="edit-bar" className="flex shrink-0 items-center gap-1 border-b border-border px-2.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+			<div data-slot="edit-bar" data-fit="0" className="group/editbar flex shrink-0 items-center gap-1 border-b border-border px-2.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				<EditModeToggle mode={null} />
+				{/* Undo · Redo, as the app's edit bar draws them (disabled: the shell has no history yet). */}
+				<Button variant="ghost" size="icon-sm" aria-label="Undo" disabled><Undo2 className="size-[18px]" /></Button>
+				<Button variant="ghost" size="icon-sm" aria-label="Redo" disabled><Redo2 className="size-[18px]" /></Button>
+				{/* The row's steps (EDIT_FIT) are the app's, and studio.astro measures this row as useRowFit measures the app's. */}
+				<Button variant="ghost" size="icon-sm" aria-label="Find and replace" className={EDIT_FIT.c}><TextSearch className="size-[18px]" /></Button>
 				<span className="flex-1" />
 				{/* The label spans ride the app's own container queries (`@[36rem]` / `@[34rem]`),
 				    which resolve against the EDITOR PANE — so `.ssr-editpane` carries
 				    `container-type: inline-size` in studio.astro, or every label here would
 				    resolve against the wrong box and the row would measure short. */}
-				<button type="button" aria-label="Reshape slide" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]"><Shapes className="size-3" /><span className="hidden @[36rem]:inline">Reshape</span></button>
+				<button type="button" aria-label="Reshape slide" className={cn('inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]', EDIT_FIT.b)}><Shapes className="size-3" /><span className="hidden @[36rem]:inline">Reshape</span></button>
 				{/* Inert in the app until the deck is linted, and the shell has linted nothing —
 				    so `disabled` here is the honest state, not a copy of a style. */}
-				<button type="button" aria-label="Fix all issues" disabled className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] opacity-40"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
-				<Button variant="ghost" size="icon-sm" aria-label="Version history"><History className="size-[18px]" /></Button>
+				<button type="button" aria-label="Fix all issues" disabled className={cn('inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] opacity-40', EDIT_FIT.b)}><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
+				<Button variant="ghost" size="icon-sm" aria-label="Version history" className={EDIT_FIT.a}><History className="size-[18px]" /></Button>
 				{/* Slide settings is `compact &&` in the app — on desktop the activity bar owns it. */}
-				<span className="ssr-slide-settings contents"><Button variant="ghost" size="icon-sm" aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></span>
+				<span className="ssr-slide-settings contents"><Button variant="ghost" size="icon-sm" aria-label="Slide settings" className={EDIT_FIT.a}><FileSliders className="size-[18px]" /></Button></span>
+				<Button variant="ghost" size="icon-sm" aria-label="More editor actions" className={EDIT_FIT.more}><MoreHorizontal className="size-[18px]" /></Button>
 				<Button variant="ghost" size="icon-sm" aria-label="Collapse editor"><PanelLeftClose className="size-4" /></Button>
 			</div>
 			<ComposeSkeleton className="ssr-body-compose" quiet />

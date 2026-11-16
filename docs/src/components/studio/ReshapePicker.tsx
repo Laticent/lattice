@@ -1,6 +1,6 @@
 import { Shapes } from 'lucide-react';
 import * as React from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
@@ -14,7 +14,7 @@ import { applyVariant, componentLooks, type VariantAxis, variantActive, variantN
 // so you never end up with two members of the same family. See
 // engineering/decisions/2026-07-18-slide-variants-in-gallery.md.
 
-export function ReshapePicker({ chunk, variants, axes, variantAxes, options, frontMatter, paletteOverride, extraTheme, modeOverride, extraCss, onReshape, compact, disabled }: {
+export function ReshapePicker({ chunk, variants, axes, variantAxes, options, frontMatter, paletteOverride, extraTheme, modeOverride, extraCss, onReshape, compact, disabled, className, open: openProp, onOpenChange, anchor }: {
 	/** The current slide's source chunk. */
 	chunk: string;
 	/** The current component's variant tokens (its offered looks). */
@@ -35,8 +35,21 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 	/** No looks to offer — render the trigger inert rather than dropping it (see the note on
 	 *  the trigger). Keeps the toolbar's control set constant across slides and pre-paint. */
 	disabled?: boolean;
+	/** The trigger's classes (the edit bar moves it into its More menu when the row runs out of room). */
+	className?: string;
+	/** Open from outside (the More menu's "Reshape slide"), hung from `anchor` instead of the trigger. */
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	anchor?: HTMLElement | null;
 }) {
-	const [open, setOpen] = React.useState(false);
+	const [ownOpen, setOwnOpen] = React.useState(false);
+	const open = openProp ?? ownOpen;
+	const setOpen = (v: boolean) => {
+		setOwnOpen(v);
+		onOpenChange?.(v);
+	};
+	const anchorRef = React.useRef<HTMLElement | null>(anchor ?? null);
+	anchorRef.current = anchor ?? null;
 	// Read once per slide text, not once per render: the shell re-renders on every edit, and a slide that holds a phone
 	// photo is megabytes of text.
 	const classTokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
@@ -45,6 +58,7 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
+			{anchor && <PopoverAnchor virtualRef={anchorRef as React.RefObject<HTMLElement>} />}
 			<Tip label="Reshape — recast this slide to another look">
 				<PopoverTrigger asChild>
 					{/* DISABLED, NOT ABSENT, when the slide's component offers no looks. The caller used
@@ -54,7 +68,7 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 					    the row at all without knowing the boot slide's component. `disabled` is the
 					    idiom the neighboring "Fix all issues" already uses for exactly this — a
 					    control that is always there and sometimes inert. */}
-					<button type="button" aria-label="Reshape slide" disabled={disabled} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:pointer-events-none disabled:opacity-40">
+					<button type="button" aria-label="Reshape slide" disabled={disabled} className={cn('inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:pointer-events-none disabled:opacity-40', className)}>
 						<Shapes className="size-3" />
 						<span className={cn(!compact && 'hidden @[36rem]:inline')}>Reshape</span>
 					</button>
