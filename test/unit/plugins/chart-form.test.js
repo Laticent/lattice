@@ -327,6 +327,27 @@ test('a gantt on a phone page sets every name whole at its role size, and keys e
   assert.match(html, /data-pos="above"/, 'a name too long for its bar and its row sits on its own line above the bar');
 });
 
+// Maker-checker on #3221: the tall canvas's fallback ring took its width from the leaf names, and a name that cannot
+// wrap left it no width at all, so the ring search returned non-finite geometry and the whole deck failed to render.
+test('a tiered hub-spoke on a phone page renders when a leaf name is one word wider than the page holds', () => {
+  const deck = `---\ntheme: indaco\nsize: mobile\n---\n\n<!-- _class: hub-spoke tiered -->\n\n## Long leaf, few spokes\n\n` +
+    '- Platform org\n  - Payments\n    - Internationalizationservices\n  - Data\n    - Warehousingorchestration\n';
+  const html = createEngine().render(deck).html;
+  assert.match(html, /data-chart-form="fit"/);
+  assert.doesNotMatch(html, /NaN|Infinity/, 'every position is a finite number');
+});
+
+// Maker-checker on #3221: the dumbbell's value-label cap grew from 30 to 60 units for the phone ladder's 12pt, and
+// landscape got the wider cap too, so `−$123.4M` printed whole into its row's name. The cap scales with the value role.
+test('a landscape dumbbell keeps its 30-unit value cap; the phone ladder widens it with the value role', () => {
+  const deck = (size) => `---\ntheme: indaco\n${size ? `size: ${size}\n` : ''}---\n\n<!-- _class: slope dumbbell -->\n\n## Losses.\n\n` +
+    '- Northern Territories Group\n  - FY24 `-$123.4M`\n  - FY25 `-$118.7M`\n- Meridian Partners\n  - FY24 `-$104.2M`\n  - FY25 `-$99.8M`\n';
+  const land = createEngine().render(deck(null)).html;
+  assert.match(land, /slope-value[^>]*>(?:<[^>]+>)*[^<]*…/, 'landscape cuts a value wider than 30 units, as it did before #3221');
+  const phone = createEngine().render(deck('mobile')).html;
+  assert.match(phone, /class="cart-svg/);
+});
+
 test('a keyed column stack on a phone page keeps a plot wide enough for its totals', () => {
   const deck = '---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: stacked-bar -->\n\n`Ceded premium by layer`\n\n## Every layer costs less in 2027; the bottom layer saves most.\n\n' +
     '- 2026\n  - Layer 1 `USD 18.4mn`\n  - Layer 2 `USD 14.6mn`\n  - Layer 3 `USD 13.0mn`\n- 2027\n  - Layer 1 `USD 15.9mn`\n  - Layer 2 `USD 13.8mn`\n  - Layer 3 `USD 12.6mn`\n';
