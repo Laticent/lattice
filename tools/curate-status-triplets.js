@@ -2,30 +2,40 @@
 /**
  * curate-status-triplets — solve each brand theme's status TRIPLET (fill, ink on it, edge) and write it into the theme.
  *
- * The contract (engineering/decisions/2026-11-16-status-triplets.md), per brand theme, per face, per `marks:` intensity:
+ * The contract (engineering/decisions/2026-11-16-status-triplets.md), per brand theme, per `marks:` intensity.
  *
+ * THE LIGHT FACE curates a triplet:
  *   FILL   each status solid clears 4.5:1 AS PAINTED against every surface a status mark sits on: the slide, the
  *          card (`--bg-alt`), the hero tile (`--accent-soft`), its own status row tint (`--X-bg` over the slide) and a
- *          kanban card, plain or washed in that status (computed per candidate fill, since the wash is the fill's),
- *          so it keeps 3:1 at the back of a lit hall (`npm run check:glance`). Deep on light, glowing on dark.
- *   INK    the text and drawn mark ON the fill is the slide's own paper (light) or night (dark), and clears 4.5:1 on it.
- *   EDGE   the fill's border is the fill itself: it already clears 4.5:1 off the slide, so it needs no darker rim.
+ *          kanban card, keyline or washed in that status (computed per candidate fill, since the wash is the fill's),
+ *          so it keeps 3:1 at the back of a lit hall (`npm run check:glance`).
+ *   INK    the text and drawn mark ON the fill is the slide's own paper, and clears 4.5:1 on it.
+ *   EDGE   the fill's border is the fill itself: it already clears 4.5:1 off every surface.
  *   HUE    each status takes the hue of the theme's own brand or chart color nearest its band (pass green, warn amber,
  *          fail red, info blue), so the trio reads as the theme's and not a stock traffic light.
+ *   URGENCY  blocked is never quieter than at risk: fail stands off the slide at least as far as warn does, and is at
+ *          least as saturated.
+ *   RING   warn and fail wear a SIGNAL ring at the opposite lightness, >= 3.2:1 against both intensities' fill.
+ *   Inside those limits it picks the lightness closest to a designed target (`TARGET`, L 0.44-0.52).
+ *
+ * THE DARK FACE is a chart solid like the categories beside it (the owner's call: one design language over back-row
+ * reach), solved the way lib/theme/chart-solids.js `solveStatusSet` solves it: the one ink `--on-mark` at 4.6:1 on
+ * the fill, 3:1 off the slide, each status at its `DARK_SPREAD` position (at risk lightest, done deepest, blocked
+ * between and the most saturated), `STATUS_CHROMA` scaled by the palette's strength, the theme's hues held inside
+ * `HUE_BAND`, a bright ring 2:1 off the fill and 3.2:1 off every dark surface, and an edge in the status ink `--X`.
+ * Where the trio would keep too little colorblind separation or sit on the accent, done turns toward blue-green and
+ * blocked toward red, the least total turn that holds.
+ *
+ * BOTH FACES:
  *   CVD    the pass / warn / fail fills keep at least `--keep` of their recorded colorblind separation, pair by pair,
  *          under every simulated deficiency (test/fixtures/status-fill-cvd-baseline.json; lib/theme/cvd.js). The default,
  *          1, is the ratchet test/unit/palette/cvd-trio-floor.test.js holds, so a rerun can never erode it. The
  *          2026-11-16 retune ran at `--keep=0.5` against the pre-triplet record, the owner's pick.
- *   URGENCY  blocked is never quieter than at risk: on every face fail stands off the slide at least as far as warn
- *          does, and is at least as saturated (an inversion review found warn the loudest mark on every dark face).
  *   ACCENT every status fill sits at least 0.08 (OKLab) from the theme's accent, so an at-risk pill cannot read as
  *          the gold of a KPI number beside it.
- *   RING   warn and fail wear a SIGNAL ring at the opposite lightness, >= 3.2:1 against both intensities' fill; on the
- *          dark face the deep ring also clears 2:1 off the slide (lib/theme/chart-solids.js `deepRing`), so a dark fail
- *          fill too deep to hold such a ring is not a candidate.
+ *   SHADE  `--status-shade-mark`, what a mark ON a status solid steps toward, lies away from the status ink.
  *
- * Inside those limits it picks the lightness closest to a designed target (light: fills near L 0.44-0.52; dark: near
- * L 0.70-0.82). The `a11y-*` palettes are never touched: they curate their own colorblind floors and keep the one ink.
+ * The `a11y-*` palettes are never touched: they curate their own colorblind floors and keep the one ink.
  *
  * Usage:
  *   node tools/curate-status-triplets.js [theme...] [--keep=1] [--baseline=FILE] [--check]
@@ -49,7 +59,7 @@ const FILL_MIN = 4.5;
 const INK_MIN = 4.5;
 /** Centre hue and half-width of each status's band, in OKLCH degrees. */
 const BAND = { pass: [150, 40], warn: [75, 25], fail: [22, 25], info: [250, 55] };
-const TARGET = { light: { pass: 0.46, warn: 0.52, fail: 0.44, info: 0.46, mute: 0.5 }, dark: { pass: 0.74, warn: 0.7, fail: 0.78, info: 0.76, mute: 0.72 } };
+const TARGET = { light: { pass: 0.46, warn: 0.52, fail: 0.44, info: 0.46, mute: 0.5 } };
 const ACCENT_MIN = 0.08;
 /**
  * A face where the accent floor cannot be met with the rest of the contract, named with the floor it does meet and why.
@@ -126,12 +136,12 @@ function themeFacts(theme, V = mergedVars(theme)) {
     if (!v) throw new Error(`${theme}: the washed kanban card for ${st} does not resolve on the ${k} face`);
     return v;
   };
+  // The light face: every surface a status fill is held against.
   const face = (dark) => {
     const bg = hex(get('bg', dark));
     if (!bg) throw new Error(`${theme}: --bg does not resolve to a hex on the ${dark ? 'dark' : 'light'} face`);
     const fixed = [['the slide', bg], ['--bg-alt', over('bg-alt', dark, bg)], ['--accent-soft', over('accent-soft', dark, bg)]];
-    if (dark) fixed.push(['a kanban card', hex(resolveTokenExpr(KANBAN.lift, V, true))]);
-    fixed.push(['a keyline kanban card', hex(resolveTokenExpr(KANBAN.keyline[dark ? 'dark' : 'light'], V, dark))]);
+    fixed.push(['a keyline kanban card', hex(resolveTokenExpr(KANBAN.keyline.light, V, false))]);
     const ground = Object.fromEntries(['pass', 'warn', 'fail'].map((st) => [st, over(`${st}-bg`, dark, bg)]));
     // Named surfaces, first name wins where two tokens paint the same color.
     const surfaces = (st, fill) => {
@@ -145,8 +155,11 @@ function themeFacts(theme, V = mergedVars(theme)) {
   // against a typical palette's. A muted palette's status stays muted beside its categories, a rich one's rich.
   const catC = [1, 2, 3, 4, 5, 6].map((i) => get(`chart-cat${i}`, false)).filter((v) => /^#[0-9a-f]{6}$/i.test(v)).map((v) => hexToOklch(v).C);
   const strength = Math.min(1.2, Math.max(0.75, catC.reduce((a, c) => a + c, 0) / catC.length / 0.11));
-  const dark = face(true);
-  dark.ink = get('on-mark', true);
+  // The dark face: a chart solid is held against the slide alone, and its ring against every dark surface (as
+  // chart-solids holds it); the cards are where a ring sits nearest the slide's lightness.
+  const darkBg = hex(get('bg', true));
+  if (!darkBg) throw new Error(`${theme}: --bg does not resolve to a hex on the dark face`);
+  const dark = { bg: darkBg, accent: get('accent', true), ink: get('on-mark', true), ringGrounds: [darkBg, over('bg-alt', true, darkBg)] };
   return { get, anchor, strength, light: face(false), dark };
 }
 
@@ -218,10 +231,12 @@ function solveDark(theme, facts, baseline, keep) {
     for (let p = 0; p <= turn && !out; p += 5) {
       const hue = { ...base, pass: Math.min(HUE_BAND.pass[1], base.pass + p), fail: Math.max(HUE_BAND.fail[0], base.fail - (turn - p)) };
       const o = set(hue);
-      if (['muted', 'vivid'].every((i) => separationOk(theme, i, 'dark', o[i], baseline, keep))) out = o;
+      const trio = (i) => Object.fromEntries(TRIO.map((s) => [s, o[i][s]]));
+      if (['muted', 'vivid'].every((i) => separationOk(theme, i, 'dark', o[i], baseline, keep)
+        && offAccent(trio(i), facts.dark.accent, accentFloor(theme, 'dark')))) out = o;
     }
   }
-  if (!out) throw new Error(`${theme} dark: no hue turn inside the status bands keeps ${keep} of the colorblind separation`);
+  if (!out) throw new Error(`${theme} dark: no hue turn inside the status bands keeps ${keep} of the colorblind separation and clears the accent`);
   // The ring: the status hue in its signal band, bright, 2:1 off its mid-tone fill and 3:1 off the slide.
   out.rings = {};
   for (const s of ['warn', 'fail']) {
@@ -231,7 +246,7 @@ function solveDark(theme, facts, baseline, keep) {
     const fill = out.muted[s];
     let ring = brightFill(h, C, fill, SIGNAL_DARK_FILL, hexToOklch(fill).L);
     if (cr(ring, out.vivid[s]) < SIGNAL_DARK_FILL) ring = brightFill(h, C, out.vivid[s], SIGNAL_DARK_FILL, hexToOklch(ring).L);
-    if (cr(ring, bg) < SIGNAL) ring = brightFill(h, C, bg, SIGNAL, hexToOklch(ring).L);
+    for (const g of facts.dark.ringGrounds) if (cr(ring, g) < SIGNAL) ring = brightFill(h, C, g, SIGNAL, hexToOklch(ring).L);
     out.rings[s] = ring.toUpperCase();
   }
   return out;
@@ -369,8 +384,15 @@ function audit(theme, facts, baseline, keep) {
         const onFill = dark ? SIGNAL_DARK_FILL : SIGNAL;
         if (ring && f && cr(ring, f) < onFill) bad.push(`${face} --${s}-signal-mark ${cr(ring, f).toFixed(2)}:1 on --${t} (floor ${onFill})`);
       }
-      if (dark && ring && cr(ring, bg) < SIGNAL) bad.push(`dark --${s}-signal-mark ${cr(ring, bg).toFixed(2)}:1 off the slide (floor ${SIGNAL})`);
+      if (dark && ring) for (const g of facts.dark.ringGrounds) if (cr(ring, g) < SIGNAL) bad.push(`dark --${s}-signal-mark ${cr(ring, g).toFixed(2)}:1 off ${g === bg ? 'the slide' : `--bg-alt ${g}`} (floor ${SIGNAL})`);
     }
+  }
+  // SHADE: what a mark ON a status solid steps toward lies away from the status ink, so a chip or a critical band never
+  // steps toward its own text (the red team's state-chart finding).
+  for (const [face, dark] of [['light', false], ['dark', true]]) {
+    const shade = pick('status-shade-mark', dark), ink = pick('pass-on-mark', dark);
+    if (!shade || !ink) { bad.push(`${face} --status-shade-mark or --pass-on-mark does not resolve`); continue; }
+    if (cr(shade, ink) < 7) bad.push(`${face} --status-shade-mark ${shade} sits ${cr(shade, ink).toFixed(2)}:1 from the status ink ${ink}; it must step away from it (floor 7)`);
   }
   return bad;
 }

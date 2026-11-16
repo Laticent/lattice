@@ -34,10 +34,10 @@ Five prototype rounds on mustard, indaco and crepuscolo, each graded by an indep
   under every simulated deficiency. Brand themes do not owe the colorblind floors; the a11y palettes do, and every
   status mark also draws its meaning (check, dash, cross).
 - **The dark face: one design language (picked: B, after option A shipped glowing dark fills).** Option A first made
-  the dark fills glow too (lightness 0.67-0.81), so they cleared 4.5:1 off every surface. Set beside a category chart
-  they read as a second system: the category fills sit at 0.55-0.58, and the glowing status fills were pastels next to
+  the dark fills glow too (lightness 0.67-0.83), so they cleared 4.5:1 off every surface. Set beside a category chart
+  they read as a second system: the category fills sit at 0.47-0.59, most at 0.55-0.58, and the glowing status fills were pastels next to
   them. The owner chose matching the categories over back-row reach on dark: "they match, but status is hard to read
-  from the back again." Light already matched (status 0.38-0.51 against categories 0.36-0.48).
+  from the back again." Light already matched (status 0.30-0.51 against categories 0.29-0.49).
 
 The dark face did not need a new design. The system already had one, and the first cut of B rediscovered it the hard
 way: 2026-10-24-status-is-one-system.md §3 records that under the one ink a dark fill "tops out near 0.18 luminance"
@@ -64,14 +64,15 @@ Per brand theme, per face, per `marks:` intensity, solved by `tools/curate-statu
 | Order | URGENCY: blocked stands off the slide at least as far as at risk, and is at least as saturated | the established dark order (`DARK_SPREAD`): at risk lightest, done deepest, blocked between and the most saturated |
 | Accent | every status fill >= 0.08 (OKLab) from the accent | the same; no exemption is needed any more |
 | Colorblind | the fill trio keeps >= half of the 2026-11-15 record, pair by pair; re-recorded, then held as a ratchet | the same |
-| Shade (`--status-shade-mark`) | black: what a mark ON a status solid steps toward, away from its light ink | black, for the same reason |
+| Shade (`--status-shade-mark`) | black: what a mark ON a status solid steps toward, away from its light ink | black, for the same reason; on both faces the audit holds it 7:1 or more from the status ink, so a chip never steps toward its own text |
 
 Hue fallback: a slot with no brand or chart color in its band takes the band's center hue, and the list is pinned
 (`test/unit/tools/curate-status-triplets.test.js`): ardesia pass, warn and fail (a slate palette with no green, amber
 or red), atelier pass, brina warn, crepuscolo fail, laguna warn.
 
 On dark, at risk's anchors (69-97 degrees, amber to yellow) all sit outside the band (45-62), so every theme's dark at
-risk is the band's edge, as on `main`. Done keeps the theme's own hue in nine themes: brina, carta, crepuscolo and
+risk is the band's edge, as on `main`. Done keeps the theme's own hue (or, for ardesia and atelier, the band-center
+fallback; magnolia's 168 degrees sits at the band's 165 edge) in nine themes: brina, carta, crepuscolo and
 indaco turn it 10 degrees toward blue-green and laguna 15, to keep half. Blocked keeps its own hue in nine: carbone and
 indaco move into the band from a raspberry (and atelier by one degree), and carta and crepuscolo turn it toward red.
 
@@ -111,8 +112,8 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
 
 ## 5. Measured
 
-- **One design language.** Dark status fills sit at lightness 0.46-0.57 beside category fills at 0.55-0.58 (onyx's
-  categories 0.47-0.59), against 0.67-0.81 for the glowing cut. Rendered: a category chart beside a status chart under
+- **One design language.** Dark status fills sit at lightness 0.46-0.57 beside category fills at 0.47-0.59 (most at
+  0.55-0.58), against 0.67-0.83 for the glowing cut. Rendered: a category chart beside a status chart under
   pigment, etch and tone on indaco, onyx, mustard, carta, ardesia and cuoio dark, each pair reading in one register.
   Blocked stays the most saturated mark, which is the chart solids' design ("the exceptions carry the color"); beside
   ardesia's near-gray categories that reads as a status should.
@@ -127,6 +128,8 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   worst 3.05:1 (concrete). Glance counts an HTML box as a status mark only when it is painted with one of the slide's
   status fills, compared as pixels, measures `::before` discs and the risk key, and a surface the solver cannot resolve
   stops it.
+- `test/unit/tools/curate-status-triplets.test.js` breaks each dark rule on indaco (a glowing fill, a fill too deep for
+  the slide, a night ink, an edge in the fill, a shade toward the ink) and requires the audit to report it.
 - `node tools/curate-status-triplets.js --check`: all 14 brand themes meet the contract, and the tool reproduces the
   shipped theme values byte for byte (`--keep=0.5` against the pre-triplet record).
 - Colorblind separation: 0 brand pairs below half of the record on either face; 0 a11y pairs moved. Every status mark

@@ -13,8 +13,8 @@
  *      near-black one the colorblind palettes wear on the dark face (how far, the 7:1 and 4.6:1 bars, is
  *      chart-solids.test.js). A STATUS fill sits on the far side of ITS OWN ink, `--X-on-mark` (THE STATUS TRIPLET,
  *      engineering/decisions/2026-11-16-status-triplets.md): a brand palette's status ink is its paper on the light
- *      face and its night on the dark one, so its dark-face status fills glow, as a colorblind palette's do; a palette
- *      that curates no triplet keeps `--on-mark`, so for it nothing changed;
+ *      face, and on the dark one the one ink `--on-mark`, where its status fills are chart solids like its categories;
+ *      a palette that curates no triplet keeps `--on-mark` on both faces, so for it nothing changed;
  *   3. each signal ring is the status color at the OPPOSITE lightness to its fill, and clears 3:1 against the neighbor
  *      opposite it in lightness and SIGNAL_DARK_FILL against the other: a deep fill on a light slide takes a bright
  *      ring 3:1 off the fill; a mid-tone fill on a dark slide a bright ring 3:1 off the slide; a bright fill (a

@@ -100,12 +100,13 @@
   --pass: light-dark(#00472b, #b4ffd1);
   --warn: light-dark(#805401, #f4bf63);
   --fail: light-dark(#47000f, #f07f92);
-  /* THE STATUS FILLS (base.tokens.css § STATUS, IN TWO JOBS). One solid per status, deep on the light face and
-   * glowing on the dark one, so every fill clears 4.5:1 against its slide as painted and keeps 3:1 at the back of
-   * a lit hall (`npm run check:glance`). `marks: pigment muted|vivid` picks the intensity. The hues are this
-   * theme's own brand and chart colors; the trio keeps at least half of its recorded colorblind separation
-   * (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the full floors. The two exceptions
-   * also wear a SIGNAL ring, the same hue at the opposite lightness. Solved by tools/curate-status-triplets.js. */
+  /* THE STATUS FILLS (base.tokens.css § STATUS, IN TWO JOBS). One solid per status. On the light face a deep fill that
+   * clears 4.5:1 against every surface it sits on, so it reads at the back of a lit hall (`npm run check:glance`). On
+   * the dark face a chart solid like the categories beside it (lib/theme/chart-solids.js): white at 4.6:1 on it, 3:1
+   * off the slide, done deepest and at risk lightest. `marks: pigment muted|vivid` picks the intensity. The hues are
+   * this theme's own brand and chart colors (held inside the status bands on dark); the trio keeps at least half of
+   * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
+   * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
   --pass-mark: light-dark(#005423, #4D6752);
   --warn-mark: light-dark(#865900, #9D6A3C);
   --fail-mark: light-dark(#8C2C30, #B24548);
@@ -117,9 +118,10 @@
   --info-mark: light-dark(#006278, #427D8F);
   --info-vivid-mark: light-dark(#006278, #0C7F99);
   --mute-mark: light-dark(#4F666E, #626B6E);
-  /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each
-   * status fill is the slide's own paper (light) or night (dark), and the fill's border is the fill itself, because
-   * every fill already clears 4.5:1 against its slide. Solved by tools/curate-status-triplets.js. */
+  /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each status
+   * fill, and its border. Light: the slide's own paper, and the fill itself (it clears 4.5:1 against every surface).
+   * Dark: the one ink, and the status ink `--X` (a rim that stands the mid-tone fill off a tinted row or a card).
+   * Solved by tools/curate-status-triplets.js. */
   --pass-on-mark: light-dark(#FAFAF9, #FFFFFF);
   --warn-on-mark: light-dark(#FAFAF9, #FFFFFF);
   --fail-on-mark: light-dark(#FAFAF9, #FFFFFF);
@@ -134,8 +136,8 @@
   --warn-vivid-edge-mark: light-dark(#865900, var(--warn));
   --fail-vivid-edge-mark: light-dark(#9D0321, var(--fail));
   --info-vivid-edge-mark: light-dark(#006278, var(--info));
-  /* What a mark ON a status solid steps toward: away from the status ink, so toward white under the night ink on the
-   * dark face (risk-matrix's critical band, a state-chart status row's chip). */
+  /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
+   * (risk-matrix's critical band, a state-chart status row's chip). */
   --status-shade-mark: light-dark(#000000, #000000);
   /* The shade under the ONE ink (category and neutral tiles): white text, so it steps toward black. */
   --on-mark-shade: #000000;

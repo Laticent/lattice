@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
-const { themeFacts, KANBAN } = require('../../../tools/curate-status-triplets.js');
+const { themeFacts, audit, KANBAN } = require('../../../tools/curate-status-triplets.js');
 const { mergedVars } = require('../../../tools/composed-contrast.js');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -49,13 +49,30 @@ test('the kanban surfaces the solver models are the mixes the kanban CSS paints'
   }
 });
 
-test('a status mark is checked against every kanban card it can sit on', () => {
-  const names = (face, st) => themeFacts('onyx')[face].surfaces(st, '#808080').map((x) => x.name);
+test('a light-face status mark is checked against every kanban card it can sit on', () => {
+  // The dark face is a chart solid held to the slide alone; its status-ink edge stands it off a card.
+  const names = (st) => themeFacts('onyx').light.surfaces(st, '#808080').map((x) => x.name);
   for (const st of ['pass', 'warn', 'fail', 'info', 'mute']) {
-    assert.ok(names('light', st).includes('its washed kanban card'), `${st} light: washed card`);
-    assert.ok(names('dark', st).includes('a kanban card'), `${st} dark: lifted card`);
-    assert.ok(names('dark', st).includes('a keyline kanban card') || names('dark', st).length >= 5, `${st} dark: keyline card`);
+    assert.ok(names(st).includes('its washed kanban card'), `${st}: washed card`);
+    assert.ok(names(st).includes('a keyline kanban card') || names(st).length >= 5, `${st}: keyline card`);
   }
+});
+
+test('the dark-face audit holds a status to the chart-solid contract', () => {
+  // Each arm breaks one dark rule on indaco and must be reported; the shipped values must report nothing.
+  const baseline = JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/status-fill-cvd-baseline.json'), 'utf8'));
+  const V0 = mergedVars('indaco');
+  const run = (patch) => audit('indaco', themeFacts('indaco', { ...V0, ...patch }), baseline, 1);
+  assert.deepEqual(run({}), [], 'indaco as shipped');
+  const darkOf = (tok) => V0[tok].replace(/^light-dark\((#[0-9A-Fa-f]{6}),.*$/, '$1');
+  const arms = {
+    'a glowing fill under the one ink': [{ 'pass-mark': `light-dark(${darkOf('pass-mark')}, #85C67C)` }, /pass-on-mark .*on its fill/],
+    'a fill too deep to stand off the slide': [{ 'fail-mark': `light-dark(${darkOf('fail-mark')}, #3A0A10)` }, /fail-mark.*against the slide/],
+    'a night ink instead of the one ink': [{ 'warn-on-mark': 'light-dark(#FFFFFF, #001D33)' }, /warn-on-mark/],
+    'an edge in the fill instead of the status ink': [{ 'pass-edge-mark': V0['pass-mark'] }, /edge of --pass-mark is not its status ink/],
+    'a shade that steps toward the ink': [{ 'status-shade-mark': 'light-dark(#000000, #FFFFFF)' }, /dark --status-shade-mark/],
+  };
+  for (const [name, [patch, re]] of Object.entries(arms)) assert.ok(run(patch).some((b) => re.test(b)), `${name}: ${run(patch).join(' | ')}`);
 });
 
 test('a surface the tool cannot resolve stops it rather than being skipped', () => {
