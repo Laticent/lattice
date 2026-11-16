@@ -32,6 +32,33 @@ describe('mergeFrontMatterBlocks', () => {
 	});
 });
 
+// The checker's repros on 8ce6f60e (#3234). Each one was measured wrong before this fix.
+describe('mergeFrontMatterBlocks: the shapes real decks write', () => {
+	it('carries a list written at column 0 whole, and replaces one with a scalar without leaving its items behind', () => {
+		expect(mergeFrontMatterBlocks('---\ntheme: x\n---\n\n', '---\nclass:\n- lead\n- dark\n---').block).toBe('---\ntheme: x\nclass:\n- lead\n- dark\n---\n\n');
+		expect(mergeFrontMatterBlocks('---\nclass:\n- a\n---\n\n', '---\nclass:\n- b\n---')).toEqual({ block: '---\nclass:\n- b\n---\n\n', changed: ['class'] });
+		expect(mergeFrontMatterBlocks('---\nclass:\n- a\ntheme: x\n---\n\n', '---\nclass: lead\n---').block).toBe('---\nclass: lead\ntheme: x\n---\n\n');
+	});
+
+	it('keeps a nested map whole across a blank line inside it, both ways', () => {
+		const lenses = 'lenses:\n  a:\n    x: 1\n\n  b:\n    y: 2';
+		expect(mergeFrontMatterBlocks('---\ntheme: x\n---\n\n', `---\n${lenses}\n---`).block).toBe(`---\ntheme: x\n${lenses}\n---\n\n`);
+		expect(mergeFrontMatterBlocks('---\nstyle: |\n  a{}\n\n  b{}\ntheme: x\n---\n\n', '---\nstyle: |\n  c{}\n---').block).toBe('---\nstyle: |\n  c{}\ntheme: x\n---\n\n');
+	});
+
+	it('compares values, not text: a comment or extra spacing is not a change, and the deck keeps its line', () => {
+		const deck = '---\ntheme: cuoio # mine\n---\n\n';
+		expect(mergeFrontMatterBlocks(deck, '---\ntheme: cuoio\n---')).toEqual({ block: deck, changed: [] });
+		expect(mergeFrontMatterBlocks('---\ntheme:  cuoio\n---\n\n', "---\ntheme: 'cuoio'\n---").changed).toEqual([]);
+	});
+
+	it('applies a repeated pasted key once, by its last value, and is idempotent', () => {
+		const first = mergeFrontMatterBlocks('---\ntheme: indaco\n---\n\n', '---\ntheme: a\ntheme: b\n---');
+		expect(first).toEqual({ block: '---\ntheme: b\n---\n\n', changed: ['theme'] });
+		expect(mergeFrontMatterBlocks(first.block, '---\ntheme: a\ntheme: b\n---').changed).toEqual([]);
+	});
+});
+
 describe('frontMatterKeys', () => {
 	it('lists each key once, quoted or bare', () => {
 		expect(frontMatterKeys('---\n# c\n"theme": a\ntheme: b\nstyle: |\n  x: 1\n---\n')).toEqual(['theme', 'style']);

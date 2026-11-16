@@ -124,9 +124,30 @@ describe('markdownToSlice', () => {
 		expect(p.slice.content.child(0).textContent).toContain(first);
 	});
 
+	// The second checker on #3234.
+	it.each([
+		['a plugin register', '---\nicon: etch\n---\n\n# A\n', 'icon: etch'],
+		['an underscore key', '---\n_class: lead\n---\n\n# A\n', '_class: lead'],
+		['an unknown key beside a known one', '---\n$schema: ./x.json\ntheme: cuoio\n---\n\n# A\n', 'theme: cuoio'],
+	])('reads real front matter as settings: %s', (_, md, inFm) => {
+		expect(markdownToSlice(md).frontMatter).toContain(inFm);
+	});
+
+	it.each([
+		['a heading over a known key', '---\n# Speaker\n\nauthor: Ana Rossi\n---\n\n# Next\n', 'Speaker'],
+		['a break right under the slide text', '---\n# One\n\nGoal: ship\n---\n\n# Two\n', 'One'],
+	])('reads slide text as slides: %s', (_, md, first) => {
+		const p = markdownToSlice(md);
+		expect(p.frontMatter).toBe('');
+		expect(p.slides).toBe(2);
+		expect(p.slice.content.child(0).textContent).toContain(first);
+	});
+
 	it('tells settings from slide text', () => {
 		expect(isSettingsBlock('theme: cuoio\npaginate: true')).toBe(true);
-		expect(isSettingsBlock('# brand\ntheme: cuoio\nkeywords:\n- a\n- b\nstyle: |\n  h1 { x: 1; }')).toBe(true);
+		expect(isSettingsBlock('#brand\ntheme: cuoio\nkeywords:\n- a\n- b\nstyle: |\n  h1 { x: 1; }')).toBe(true);
+		// The documented tradeoff: a heading-shaped comment reads as Markdown, the failure the author can see.
+		expect(isSettingsBlock('# brand deck\ntheme: cuoio')).toBe(false);
 		expect(isSettingsBlock('themee: x\npaginate: true')).toBe(true);
 		expect(isSettingsBlock('\n# Plan\n\nGoal: ship Q3\n')).toBe(false);
 		expect(isSettingsBlock('Owner: Ana')).toBe(false);

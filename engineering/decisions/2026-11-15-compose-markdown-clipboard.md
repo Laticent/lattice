@@ -123,12 +123,22 @@ is real (bring a deck's look along with its slides), and the deck is Markdown, s
 was pasted. Shipped (`mergeFrontMatterBlocks`, `front-matter-merge.ts`, loaded on the first paste that carries
 settings so it costs no startup bytes):
 
-- each top-level key the paste carries (bare or quoted) replaces the deck's entry for that key whole, in place,
-  keeping the deck's comment above it; a key only the paste carries is added; a key only the deck carries keeps
-  its bytes; a key with the same value changes nothing and is not claimed;
+- an ENTRY is a column-0 key line and everything after it up to the next one (an indented body, a list written at
+  column 0, blank lines inside a nested map or block scalar); only the comments and blanks directly above the next
+  key move to that key;
+- each top-level key the paste carries (bare or quoted) replaces the deck's entry whole, in place, keeping the
+  deck's comment above it; a key only the paste carries is added; a key only the deck carries keeps its bytes;
+- values are compared, not text (a one-line value by the engine's own `frontMatterScalar`): a comment or extra
+  spacing is not a change, and the deck keeps its line; a key the paste repeats counts once, by its last value;
 - the block always closes with `---` on its own line, whatever the pasted text ended with;
-- a leading `---` block that names no setting is not front matter: it is slides copied from the middle of a deck,
-  starting at a break, and is read as that break (the checker on #3234 found the first slide vanishing);
+- **settings or slides?** A leading `---` block is settings (`isSettingsBlock`) when at least one key is one the
+  engine knows (`lib/core/deck-settings.js`, with the plugins' registers and the `_` keys) and no line is
+  Markdown: every line is a key (known or not), an indented line, a list item, a comment or a blank, and none is a
+  heading. Otherwise it is slides copied from the middle of a deck, starting at a break: the text is rebuilt so its
+  closing `---` stays a break rather than a setext underline. "Goal: ship Q3" names no setting, and a heading
+  marks a slide. The one ambiguity, a heading-shaped YAML comment (`# brand deck`), resolves toward the visible
+  failure: those settings paste as slide text the author can see and undo, where the opposite reading lost a slide
+  without a word;
 - the merge rides the same transaction as the slides, so one Undo takes back both;
 - the Studio names the keys it changed ("Applied the pasted deck's settings (theme, paginate)"), and says so when
   the pasted settings are the ones the deck already has;
@@ -146,6 +156,12 @@ merge ask: the source-pattern strip replaced by the render gate (§3); slides pl
 for blocks; table cells; plain-text copy of unformatted runs; `__x__`; a paste of `---` alone; locked slides
 copied as bytes; plain-paste detection read from ProseMirror (Shift+Insert is not plain; a stale Shift no longer
 sticks); no notice for a paste the guard refused; a drag that carries HTML beside its file stays ProseMirror's.
+
+Review rounds on this half: a maker-checker review of the first cut (a run of slides starting at `---` lost its
+first slide), the card's grader (the first fix still passed any "Word: text" line), and a second checker (column-0
+lists dropped, nested maps cut at a blank line, plugin keys refused, text compared instead of values, repeated keys
+not idempotent, a closing `---` read as a setext underline). Every finding has a unit test that fails on the code
+before its fix.
 
 ## 7. Evidence
 

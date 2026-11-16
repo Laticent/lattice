@@ -14,6 +14,7 @@ import { Fragment, type Node as PMNode, Slice } from 'prosemirror-model';
 import { AllSelection, type EditorState, Plugin, PluginKey, Selection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import deckSettings from '../../../../lib/core/deck-settings.js';
+import pluginRegisters from '../../../../lib/plugins/registers.generated.js';
 import { innerFrontMatter } from '../front-matter';
 import { normalizeSourceText } from '../normalize-source-text';
 import { CLIP_ORIGIN } from './clip-origin';
@@ -109,28 +110,34 @@ function keepEdgeSpaces(content: Fragment, text: string): Fragment {
 	return Fragment.from(nodes);
 }
 
-/** A top-level settings line in a front-matter block: a key, bare or quoted, then a colon. */
+/** A top-level key line, bare or quoted: the key is captured for the known-key test. */
 const SETTING_LINE = /^(?:"([^"\n]+)"|'([^'\n]+)'|([A-Za-z_][\w-]*))[ \t]*:/;
+/** Any line YAML could read as a top-level key (`$schema:`, `x.y:`), known to Lattice or not. */
+const KEYISH_LINE = /^[^\s#-][^:\n]*:(?:[ \t]|$)/;
+/** A Markdown heading. YAML reads `# Speaker` as a comment too, and the two cannot be told apart by shape. */
+const HEADING_LINE = /^#{1,6}[ \t]+\S/;
 
 /**
  * Is a leading `---` block a deck's SETTINGS, or a run of slides copied from the middle of a deck that starts at a
- * break? Settings only when every line has a settings shape (a key, an indented continuation, a list item under a
- * key, a comment or a blank) AND at least one key is one the engine knows (`lib/core/deck-settings.js`, the table
- * the linter and the Studio read). A slide holds a heading or prose, and "Goal: ship Q3" or "Owner: Ana" is a
- * line a business slide writes; neither names a deck setting. Read as settings, the first slide vanished into the
- * deck's YAML (the checker, then the card's grader, on #3234). A deck whose block holds one misspelled key beside
- * real ones still reads as settings.
+ * break? Settings when at least one key is one the engine knows (`lib/core/deck-settings.js`, with the plugins'
+ * registers and the `_` keys) and no line is Markdown: every line is a key (known or not), an indented line, a list
+ * item, a comment or a blank, and none is a heading. "Goal: ship Q3" and "Owner: Ana" name no setting, and a slide
+ * that holds a heading is a slide; read as settings, the first pasted slide vanished into the deck's YAML (the
+ * checker, then the card's grader, then a second checker, on #3234).
+ *
+ * The one ambiguity is resolved toward the VISIBLE failure: a heading-shaped YAML comment (`# brand deck`) makes a
+ * real settings block paste as slide text the author can see and undo, where the opposite reading lost a slide
+ * without a word.
  */
 export function isSettingsBlock(inner: string): boolean {
 	let known = false;
-	let keyed = false;
 	for (const line of inner.split('\n')) {
-		if (!line.trim() || /^[ \t]*#/.test(line)) continue;
+		if (HEADING_LINE.test(line)) return false;
+		if (!line.trim() || /^#/.test(line) || /^[ \t]+\S/.test(line) || /^-[ \t]/.test(line)) continue;
 		const m = SETTING_LINE.exec(line);
-		if (m) {
-			keyed = true;
-			if (deckSettings.isDeckSettingKey(m[1] ?? m[2] ?? m[3])) known = true;
-		} else if (!(keyed && (/^[ \t]+\S/.test(line) || /^-[ \t]/.test(line)))) return false;
+		const key = m ? (m[1] ?? m[2] ?? m[3]) : null;
+		if (key && (key.startsWith('_') || deckSettings.isDeckSettingKey(key, pluginRegisters.PLUGIN_REGISTERS))) known = true;
+		else if (!KEYISH_LINE.test(line)) return false;
 	}
 	return known;
 }
@@ -158,7 +165,9 @@ export function markdownToSlice(md: string): MarkdownPaste {
 	// of a deck, starting at a break. Read as front matter, its first slide vanished (or was written into the deck's
 	// own block); read the `---` as the break it is (the checker on #3234).
 	if (fm && !isSettingsBlock(innerFrontMatter(fm))) {
-		text = text.replace(/^---[ \t]*\n/, '');
+		// Rebuilt, not just stripped of its first line: the closing `---` must stay a break, and right under a line of
+		// text it would read as that line's setext underline, folding the first slide into the caret's paragraph.
+		text = `${innerFrontMatter(fm).replace(/\n+$/, '')}\n\n---\n\n${text.slice(fm.length)}`;
 		({ fm, slides } = parseDeck(text));
 	}
 	const empty = (x: { raw: string }) => !x.raw.trim();
