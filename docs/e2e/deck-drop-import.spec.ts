@@ -293,7 +293,14 @@ test.describe('native drags (Chromium CDP)', () => {
 					await page.screenshot({ path: out });
 				},
 			});
-			await page.clock.resume();
+			// Past the sign's 1000 ms dead-man timer in the page's own time, and the clock stays paused. It was `resume()`, and
+			// a running clock is not one clock: Playwright keeps one per frame, and `pauseAt` throws if ANY frame is already past
+			// its target. `pauseFrames` reads only the main frame. A frame whose document is born later (the srcdoc preview
+			// re-renders after a resize) replays Playwright's log of clock calls, and a log ending in `resume` adds every real
+			// millisecond since the resume. A nightly trace read 81 ms of main-frame time across 2.1 s of real time, then a
+			// srcdoc document booted, and the pause named a moment already past ("Cannot fast-forward to the past",
+			// 2026-11-16). A log ending paused adds no real time, so every frame sits at the time the test reads.
+			await page.clock.runFor(1100);
 			await expect(sign(page)).toBeHidden();
 		}
 		expect(await activeSource(page)).toBe(SCRATCH);
