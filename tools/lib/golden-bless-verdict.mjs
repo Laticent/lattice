@@ -197,6 +197,22 @@ export function verdict(rows, seen, written, { maxPageFraction = MAX_PAGE_FRACTI
 }
 
 /**
+ * Does the source explain a page-count change? Only when the deck or gallery gained or lost
+ * EXACTLY as many slides as the PDF gained or lost pages. Owner's call, 2026-11-16 (#3235):
+ * "the source changed at all" was too loose, because a typo fix next to an engine change that
+ * adds a page would excuse it. A change of zero pages (a page resized) is never explained by
+ * the source, and a missing count on any side means the bot cannot tell, so the golden is held.
+ *
+ * @param {{oldPages?: number, newPages?: number, oldSlides?: number, newSlides?: number}} c
+ */
+export function slidesExplainPages({ oldPages, newPages, oldSlides, newSlides } = {}) {
+  const counts = [oldPages, newPages, oldSlides, newSlides];
+  if (!counts.every((n) => Number.isInteger(n) && n >= 0)) return false;
+  const pageDelta = newPages - oldPages;
+  return pageDelta !== 0 && pageDelta === newSlides - oldSlides;
+}
+
+/**
  * WHICH GOLDENS TONIGHT'S BLESS RE-RECORDS — the 2026-11-16 design, rollout step 1
  * (engineering/decisions/2026-11-16-blessing-invariants-attribution.md §5, §10).
  *
@@ -213,25 +229,10 @@ export function verdict(rows, seen, written, { maxPageFraction = MAX_PAGE_FRACTI
  *
  * @param {ReturnType<typeof goldenRows>} rows  the check's rows
  * @param {string[]} written                    golden PDFs the bless changed or created on disk
- * @param {{created?: string[]}} [opts]         goldens rendered for the first time tonight
+ * @param {{created?: string[], explained?: string[], blessHeld?: boolean}} [opts]  first renders; page changes
+ *   the slides explain (`slidesExplainPages`); the owner's `bless_held` dispatch
  * @returns {{bless: string[], held: {golden: string, why: string}[]}}
  */
-/**
- * Does the source explain a page-count change? Only when the deck or gallery gained or lost
- * EXACTLY as many slides as the PDF gained or lost pages. Owner's call, 2026-11-16 (#3235):
- * "the source changed at all" was too loose, because a typo fix next to an engine change that
- * adds a page would excuse it. A change of zero pages (a page resized) is never explained by
- * the source, and a missing count on any side means the bot cannot tell, so the golden is held.
- *
- * @param {{oldPages?: number, newPages?: number, oldSlides?: number, newSlides?: number}} c
- */
-export function slidesExplainPages({ oldPages, newPages, oldSlides, newSlides } = {}) {
-  const counts = [oldPages, newPages, oldSlides, newSlides];
-  if (!counts.every((n) => Number.isInteger(n) && n >= 0)) return false;
-  const pageDelta = newPages - oldPages;
-  return pageDelta !== 0 && pageDelta === newSlides - oldSlides;
-}
-
 export function partition(rows, written, { created = [], explained = [], blessHeld = false } = {}) {
   const explainedSet = new Set(explained);
   const byGolden = new Map(rows.map((r) => [r.golden, r]));
