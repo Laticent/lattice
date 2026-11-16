@@ -1660,6 +1660,10 @@ function activeLinePlugin(): Plugin {
 	});
 }
 
+/** A Markdown paste's network check (markdown-clipboard.ts): the engine render and spine read Insert uses for a sample
+ *  slide, loaded on the first paste so the eager bundle carries none of it. */
+const pasteRemoteRefs = async (md: string): Promise<string[]> => (await import('./library/gallery-gate')).galleryRemoteRefs(md);
+
 function ghostCaretPlugin(): Plugin {
 	return new Plugin({
 		view(view) {
@@ -3179,7 +3183,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
 						onOpenChange: (open) => setObjEdit(open),
-					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }).concat(ghostCaretPlugin(), activeLinePlugin(), markdownClipboardPlugin((message) => notify(message))),
+					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }).concat(ghostCaretPlugin(), activeLinePlugin(), markdownClipboardPlugin((message) => notify(message), pasteRemoteRefs)),
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>

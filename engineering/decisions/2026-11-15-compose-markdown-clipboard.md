@@ -3,8 +3,9 @@ status: shipped
 summary: >
   Compose's clipboard speaks Markdown. A Markdown paste is parsed the way a deck is opened (slides, layouts,
   formatting) instead of being saved escaped; a copy writes the selection's Markdown to text/plain; a deck file
-  dropped on Compose opens as a new deck instead of vanishing. A pasted deck's front matter is set aside, and a
-  pasted directive that would fetch from another site is left out. Prior-art survey for the front-matter call.
+  dropped on Compose opens as a new deck instead of vanishing. Pasted slides land between slides, never splitting
+  one. A Markdown paste is rendered through the engine and refused whole if it would load anything from another
+  site. A pasted deck's front matter is set aside. Prior-art survey for the front-matter call; trio findings.
 ---
 
 # Compose's clipboard speaks Markdown (2026-11-15)
@@ -32,41 +33,61 @@ the selection first (the note plugin).
 stays lossless (directives ride the CLIP_ORIGIN bridge) and a paste into a document or an email keeps its
 formatting. `text/plain` carries the Markdown, by what is selected:
 
-- a run inside one block: its inline Markdown (`Hello **world**`); inside a code block, the code as is;
+- a run inside one block: its inline Markdown (`Hello **world**`) when it has formatting, and the bare text when
+  it has none, so `-3% churn` does not reach a title field as `\-3% churn`; inside a code block, the code as is;
 - anything else inside ONE slide, even all of it: its blocks' Markdown, without the slide's layout comment. A
-  text selection pasted elsewhere should add text; a `<!-- _class -->` line would make it a new slide. (A first
-  cut included the layout when the selection covered the slide; selecting a one-heading slide's text then
-  copied a slide, which the unit suite caught.)
+  text selection pasted elsewhere should add text; a `<!-- _class -->` line would make it a new slide;
 - across slides: each slide with its directives, joined by `---`;
-- the whole deck: the deck file, front matter included.
+- the whole deck: the deck file, front matter included. In a one-slide deck, selecting all of it is the deck.
 
-**Paste** (`pasteAsMarkdown` decides, `markdownToSlice` builds):
+A locked slide copies as its exact bytes (`raw`); the serializer would write its strikethrough as `\~\~`.
+
+**Paste** (`pasteAsMarkdown` decides, `markdownToSlice` builds, `placeSlides` places):
 
 | Clipboard | Path |
 |---|---|
 | this session's own HTML (CLIP_ORIGIN) | ProseMirror's HTML path, unchanged (lossless) |
 | HTML with structure (`h1`–`h6`, `p`, lists, tables: a web page, Google Docs, Word) | HTML path, unchanged: its structure says more than its text |
-| HTML without structure (VS Code's colored `div`s and `span`s) + Markdown text | **Markdown** |
-| text only, reading as Markdown (`looksLikeMarkdown`: a heading, list, quote, rule, fence, table row, directive, or inline emphasis, code or link) | **Markdown** |
-| ⌘⇧V, a caret in a code block, or text with no Markdown in it | ProseMirror's literal text path |
+| HTML without structure whose words match `text/plain` (VS Code's colored `div`s and `span`s) | **Markdown** |
+| HTML without structure whose words do NOT match | HTML path: a page's copy handler can set the two independently, and the HTML is what the author saw |
+| text only, reading as Markdown (`looksLikeMarkdown`: a heading, list, quote, rule, fence, table row, directive, or inline emphasis, code or link; not `__x__`, which is far more often `__init__`) | **Markdown** |
+| plain paste (ProseMirror's own test: Shift held, not Shift+Insert), a caret in a code block, or text with no Markdown in it | ProseMirror's literal text path |
+| a caret in a table cell, with Markdown that is more than inline text | literal text path: blocks or slides there split the table |
 
-`markdownToSlice` normalizes the text (BOM, CRLF: `normalizeSourceText`, as every ingest does) and parses it
-with `parseDeck`, the reader that opens a deck. Prose with no break and no directive goes in at the caret,
-opened so it joins the paragraph there, with the leading and trailing spaces Markdown would trim put back (the
-e2e suite caught `start.Then`). Anything with a slide break or a directive becomes whole slides. Prose Compose
-cannot round-trip becomes a **locked** slide carrying its bytes as pasted; `emitDeck` now emits `raw` for a
-locked slide with no baseline entry, since a locked slide cannot change.
+`markdownToSlice` normalizes the text (BOM, CRLF: `normalizeSourceText`, as every ingest does) and parses it with
+`parseDeck`, the reader that opens a deck.
 
-## 3. Two guards
+- **One paragraph** is inline text: it joins the caret's paragraph, with the edge spaces Markdown trims put back.
+- **Several blocks** (a heading and bullets) are a CLOSED slice: each keeps its type and the caret's paragraph is
+  split around them. An open slice folded the heading into the paragraph (`First para.Heading`).
+- **Slides** (a break, a directive, or prose Compose cannot round-trip, which becomes a locked slide carrying its
+  bytes) go BETWEEN slides (`placeSlides`): after the caret's slide, before it when the caret is at its very
+  start, and in place of it when it is an empty slide with no layout. Inserted at the caret, they split the slide
+  and the tail kept its layout: a big-number slide became two. Slide tools add pasted slides after the current
+  one. A break at the very start or end of the text adds no empty slide; a paste of `---` alone adds one.
+- `emitDeck` emits `raw` for a locked slide with no baseline entry, since a locked slide cannot change.
 
-**Remote directives are left out** (`stripRemoteDirectives`). Compose does not show directives, so a pasted one
-is content the author never sees, and one pointing at another site reaches the export, which fetches it. That
-is the threat CLIP_ORIGIN closes for the HTML path (`2026-08-17-theme-css-is-a-preview-sink.md`). A directive
-comment whose value holds `url(`, a scheme or a protocol-relative path is dropped outside fenced code, and the
-Studio says how many. Layouts and other directives pass. The Markdown pane shows directives and is where to add
-one on purpose.
+The Studio says when a paste was not what the text alone suggests: front matter set aside, prose that became a
+locked slide, a paste the structural guard refused.
 
-**Front matter is never applied.** See §5.
+## 3. The paste is checked before it lands
+
+A Markdown paste is new content from outside, and Compose shows neither directives nor more than a raw block's
+first lines, so a pasted reference to another site is one the author never sees, in every preview and export
+(HARD RULE #22). The first cut stripped remote directive comments with a pattern over the source. The red team
+bypassed it six ways: a nested comment the single pass rebuilt, record directives (`<!-- {footer=…} -->`),
+fence lines markdown-it does not read as fences, unquoted `src=` in a footer, and raw HTML blocks. A pattern
+cannot be made to agree with the renderer; `remote-ref.js`'s header lists eleven more spellings.
+
+So the paste gets the gate Insert gives a sample slide (`gallery-gate.ts` `galleryRemoteRefs`): the text, front
+matter aside, is **rendered through the engine**, alone and as inserted after a slide, and the markup is read
+with the spine's `remoteRefsInHtml`, along with reference definitions and Mermaid fences. Any address at all, or
+a check that cannot run, **refuses the paste whole** with a message and inserts nothing. Markdown that loads
+from another site goes in through Source, where the author sees it. Every raw block the paste built also meets
+`isRawBlockText`, the gate a pasted raw block meets on the HTML path.
+
+The check is asynchronous (the engine renders the text), so the paste lands a moment after ⌘V; the
+transaction is built from the editor's state at that moment.
 
 ## 4. A file dropped on Compose opens as a new deck
 
@@ -97,13 +118,21 @@ from third-party tutorials, and Keynote's from forum reports only.
 The pattern: **the destination wins by default, and overriding is offered after the paste.** Every option must
 also rule out the decay into a rule plus a `theme: x` heading, which is what Compose would otherwise produce.
 Shipped: the front matter is recognized and set aside, the slides take the open deck's look, and the Studio
-says the settings were not applied. Whether the message should carry an action ("Open as its own deck" or
-"Apply them") is put to the owner.
+says the settings were not applied. Whether the message should carry an action ("Apply them", or "Open as its
+own deck") is put to the owner.
 
-## 6. Evidence
+## 6. The adversarial trio (2026-11-15)
 
-- Unit: `markdown-clipboard.test.ts` (signals, path choice, remote directives, slices, copy shapes, round trip);
-  `deck-drop.test.ts` (a file over Compose is the shell's). Failing arm: reverting the `emitDeck` locked branch
-  turns the locked-slide test red.
-- E2E: `e2e/compose-markdown-clipboard.spec.ts` on the real Studio, desktop Chromium, Firefox (`gecko`) and
-  WebKit (`webkit-tablet`).
+Red team, Munger inversion and an independent checker ran on the first commit. Every finding was fixed before the
+merge ask: the source-pattern strip replaced by the render gate (§3); slides placed between slides; closed slices
+for blocks; table cells; plain-text copy of unformatted runs; `__x__`; a paste of `---` alone; locked slides
+copied as bytes; plain-paste detection read from ProseMirror (Shift+Insert is not plain; a stale Shift no longer
+sticks); no notice for a paste the guard refused; a drag that carries HTML beside its file stays ProseMirror's.
+
+## 7. Evidence
+
+- Unit: `markdown-clipboard.test.ts` (signals, path choice, slices, placement, copy shapes, round trip, the plugin
+  with a stubbed check: lands, refuses, refuses when the check cannot run); `deck-drop.test.ts`.
+- E2E: `e2e/compose-markdown-clipboard.spec.ts` on the real Studio with the real engine check: desktop Chromium,
+  Firefox (`gecko`) and WebKit (`webkit-tablet`). Failing arms: with the refusal disabled, both remote-paste tests
+  go red; with slides inserted at the caret, the mid-slide test goes red.

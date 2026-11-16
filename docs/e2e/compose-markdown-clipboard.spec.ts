@@ -51,15 +51,31 @@ async function copy(page: Page): Promise<{ plain: string; html: string }> {
 }
 
 test.describe('Markdown on the Compose clipboard', () => {
-	test('@gecko @webkit-tablet a Markdown paste becomes slides, layouts and formatting, never escaped text', async ({ page }) => {
-		await openDeckInCompose(page, DECK);
-		await caretAfter(page, 'Where we start.');
-		await paste(page, { 'text/plain': PASTE });
-		await expect.poll(() => savedDeck(page)).toContain('<!-- _class: big-number -->');
+	// Twice: untagged for desktop Chromium, tagged for Firefox and WebKit (the desktop project leaves out `@webkit`).
+	for (const tags of ['', '@gecko @webkit-tablet ']) {
+		test(`${tags}a Markdown paste becomes slides, layouts and formatting, never escaped text`, async ({ page }) => {
+			await openDeckInCompose(page, DECK);
+			await caretAfter(page, 'Where we start.');
+			await paste(page, { 'text/plain': PASTE });
+			await expect.poll(() => savedDeck(page)).toContain('<!-- _class: big-number -->');
+			const saved = await savedDeck(page);
+			expect(saved).toContain('# Quarterly plan');
+			expect(saved).toContain('**Revenue** up 12%');
+			expect(saved).not.toMatch(/\\[-*#<]|\\---/);
+			await expect(page.locator('.cs-slide')).toHaveCount(3);
+		});
+	}
+
+	test('slides pasted mid-slide go after that slide and never split it', async ({ page }) => {
+		const two = ['<!-- _class: big-number -->', '', '# 42%', '', 'Gross margin is up. More here.'].join('\n');
+		await openDeckInCompose(page, two);
+		await caretAfter(page, 'Gross margin is up. More here.');
+		await page.keyboard.press('Home');
+		await paste(page, { 'text/plain': '## Summary\n\nWe grew.\n\n---\n\n## Risks\n\nChurn.' });
+		await expect.poll(() => savedDeck(page)).toContain('## Risks');
 		const saved = await savedDeck(page);
-		expect(saved).toContain('# Quarterly plan');
-		expect(saved).toContain('**Revenue** up 12%');
-		expect(saved).not.toMatch(/\\[-*#<]|\\---/);
+		expect(saved).toContain('Gross margin is up. More here.');
+		expect(saved.match(/_class: big-number/g)).toHaveLength(1);
 		await expect(page.locator('.cs-slide')).toHaveCount(3);
 	});
 
@@ -92,14 +108,21 @@ test.describe('Markdown on the Compose clipboard', () => {
 		await expect(toastText(page)).toContainText('were not applied');
 	});
 
-	test('a pasted directive that would fetch from another site is left out, with a message', async ({ page }) => {
-		await openDeckInCompose(page, DECK);
-		await caretAfter(page, 'Where we start.');
-		await paste(page, { 'text/plain': `<!-- _backgroundImage: url(https://example.com/b.png) -->\n\n# Away\n\n---\n\n${PASTE}` });
-		await expect.poll(() => savedDeck(page)).toContain('# Away');
-		expect(await savedDeck(page)).not.toContain('example.com');
-		await expect(toastText(page)).toContainText('left out');
-	});
+	// The engine renders the paste and the spine reads the markup (HARD RULE #22). One spelling a source pattern missed
+	// (a record directive, from the red team) stands in for all of them: what matters is that the check is the renderer's.
+	for (const [label, payload] of [
+		['a background directive', '<!-- _backgroundImage: url(https://example.com/b.png) -->'],
+		['a record directive', '<!-- {footer="![](https://example.com/f.png)"} -->'],
+	] as const) {
+		test(`a paste that would load from another site is refused whole, with a message: ${label}`, async ({ page }) => {
+			await openDeckInCompose(page, DECK);
+			await caretAfter(page, 'Where we start.');
+			const before = await savedDeck(page);
+			await paste(page, { 'text/plain': `${payload}\n\n# Away\n\n---\n\n${PASTE}` });
+			await expect(toastText(page)).toContainText('loads something from another site');
+			expect(await savedDeck(page)).toBe(before);
+		});
+	}
 
 	test('a copy across slides puts their Markdown on text/plain, and the HTML copy stays', async ({ page }) => {
 		await openDeckInCompose(page, `${DECK}\n\n---\n\n<!-- _class: big-number -->\n\n# 42%\n\nGross **margin**`);
@@ -128,5 +151,14 @@ test.describe('Markdown on the Compose clipboard', () => {
 		}, PASTE);
 		await expect(page.locator('.cs-host .ProseMirror')).toContainText('Quarterly plan');
 		await expect(page.locator('.cs-host .ProseMirror')).not.toContainText('Kickoff');
+		// The open deck is still there, unchanged, beside the new one.
+		const decks = () =>
+			page.evaluate(() =>
+				Object.keys(localStorage)
+					.filter((k) => k.startsWith('lattice-studio-src-'))
+					.map((k) => localStorage.getItem(k) ?? ''),
+			);
+		await expect.poll(async () => (await decks()).some((d) => d.includes('Quarterly plan'))).toBe(true);
+		expect((await decks()).some((d) => d.includes('Where we start.'))).toBe(true);
 	});
 });

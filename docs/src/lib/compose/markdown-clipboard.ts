@@ -11,22 +11,24 @@
 // What it does NOT take over: Compose's own HTML (lossless already), rich HTML from a page or a document (its
 // structure is the better source), a paste inside a code block, and ⌘⇧V, which always pastes the text literally.
 import { Fragment, type Node as PMNode, Slice } from 'prosemirror-model';
-import { AllSelection, type EditorState, Plugin, PluginKey, Selection } from 'prosemirror-state';
+import { AllSelection, type EditorState, Plugin, PluginKey, Selection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import remoteRef from '../../../../lib/core/remote-ref.js';
+import { stripFrontMatter } from '../front-matter';
 import { normalizeSourceText } from '../normalize-source-text';
 import { CLIP_ORIGIN } from './clip-origin';
 import { deckSchema, SEP, serializeSlideNode, slideContent } from './deck-doc';
 import { latticeMarkdownSerializer } from './deck-markdown';
 import { hasLossyConstruct, parseDeck } from './deck-source';
+import { isRawBlockText } from './raw-block';
 
 // ── Reading: does this text mean Markdown? ──────────────────────────────────────────────────────────────
 
 /** Line-level marks only Markdown (or a deck) writes. One is enough: a plain sentence carries none, and a
  *  plain sentence pastes the same either way. */
 const BLOCK_SIGNAL = /^(?:#{1,6}\s+\S|\s{0,3}[-*+]\s+\S|\s{0,3}\d{1,3}[.)]\s+\S|>\s?\S|(?:---|\*\*\*|___)\s*$|```|~~~|\|.*\|\s*$|<!--\s*_?[A-Za-z][\w-]*\s*:)/m;
-/** Inline marks: emphasis, code, a link or an image. */
-const INLINE_SIGNAL = /\*\*[^*\n]+\*\*|__[^_\n]+__|(?:^|[\s(])\*[^*\s][^*\n]*\*|`[^`\n]+`|!?\[[^\]\n]+\]\([^)\s]+\)/;
+/** Inline marks: emphasis, code, a link or an image. Not `__x__`: in prose that is far more often an identifier
+ *  (`__init__`) than bold, and reading it as Markdown would eat the underscores. */
+const INLINE_SIGNAL = /\*\*[^*\n]+\*\*|(?:^|[\s(])\*[^*\s][^*\n]*\*|`[^`\n]+`|!?\[[^\]\n]+\]\([^)\s]+\)/;
 
 export function looksLikeMarkdown(text: string): boolean {
 	return BLOCK_SIGNAL.test(text) || INLINE_SIGNAL.test(text);
@@ -44,80 +46,41 @@ export function isOwnHtml(html: string): boolean {
 	return html.includes(CLIP_ORIGIN);
 }
 
-/** Should this paste go through the Markdown reader? `plain` is ⌘⇧V; `inCode` is a caret inside a code block. */
+/** The letters and digits of a string, in order: what a reader sees, with Markdown's punctuation set aside. */
+const words = (t: string): string => t.replace(/[^\p{L}\p{N}]+/gu, '');
+
+/** The visible text of a piece of HTML. Parsed inert (`DOMParser` runs no script and loads nothing). */
+function htmlText(html: string): string {
+	if (typeof DOMParser === 'undefined') return '';
+	return new DOMParser().parseFromString(html, 'text/html').body?.textContent ?? '';
+}
+
+/**
+ * Should this paste go through the Markdown reader? `plain` is ⌘⇧V; `inCode` is a caret inside a code block.
+ *
+ * When the clipboard ALSO holds structureless HTML (VS Code), Markdown is taken only if the two carry the same
+ * words. A page's copy handler can set the two flavors independently, and the HTML is what the author saw: a
+ * `text/plain` that says more than it is someone else's text (the red team's finding), so the HTML path takes it.
+ * VS Code's HTML is the source text itself, colored, so it always agrees.
+ */
 export function pasteAsMarkdown({ text, html, plain, inCode }: { text: string; html: string; plain: boolean; inCode: boolean }): boolean {
 	if (plain || inCode || !text.trim()) return false;
-	if (html && (isOwnHtml(html) || htmlHasStructure(html))) return false;
+	if (html && (isOwnHtml(html) || htmlHasStructure(html) || words(htmlText(html)) !== words(text))) return false;
 	return looksLikeMarkdown(text);
 }
 
 // ── Reading: Markdown → a slice of the deck schema ─────────────────────────────────────────────────────
 
-/** A directive comment: `<!-- _name: value -->`, or the global spelling without the `_`. */
-const DIRECTIVE_COMMENT = /<!--\s*_?[A-Za-z][\w-]*\s*:([\s\S]*?)-->/g;
-
-/**
- * Does a directive's value name something on another site? Asked of the security spine (HARD RULE #22;
- * 2026-11-03-security-findings-spine.md), never of a private pattern: `remoteCssRefs` reads it as CSS the way
- * the renderer does (`url(…)` in every spelling, escapes, strings), and `isRemoteUrl` is asked of each bare
- * address in it, which covers a value written as a link or an image (`![](https://…)`) rather than CSS.
- */
-function namesRemote(value: string): boolean {
-	if (remoteRef.remoteCssRefs(value).length > 0) return true;
-	return value.split(/[\s()<>"'[\]]+/).some((part) => part !== '' && remoteRef.isRemoteUrl(part));
-}
-
-/**
- * Drop every directive comment that would make the deck FETCH something (`_backgroundImage: url(https://…)`),
- * outside fenced code. Compose does not show directives, so a pasted one is content the author never sees; a
- * remote one reaches the export, which fetches it (HARD RULE #22's threat model, and the reason CLIP_ORIGIN
- * exists for the HTML path). The Markdown pane shows directives, and it is where to add one on purpose.
- */
-export function stripRemoteDirectives(md: string): { text: string; dropped: number } {
-	let dropped = 0;
-	let fence: string | null = null;
-	const out: string[] = [];
-	// Fences are line-scoped, so walk lines and only rewrite lines outside a fence. A comment that spans lines is
-	// matched on the joined run of non-fenced lines.
-	let run: string[] = [];
-	const flush = () => {
-		if (!run.length) return;
-		out.push(
-			run.join('\n').replace(DIRECTIVE_COMMENT, (c) => {
-				if (!namesRemote(c.replace(/^<!--\s*_?[A-Za-z][\w-]*\s*:/, '').replace(/-->$/, ''))) return c;
-				dropped++;
-				return '';
-			}),
-		);
-		run = [];
-	};
-	for (const line of md.split('\n')) {
-		const m = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
-		if (fence) {
-			out.push(line);
-			if (m && m[1][0] === fence[0] && m[1].length >= fence.length && !line.slice(m.index + m[0].length).trim()) fence = null;
-			continue;
-		}
-		if (m) {
-			flush();
-			fence = m[1];
-			out.push(line);
-			continue;
-		}
-		run.push(line);
-	}
-	flush();
-	return { text: out.join('\n'), dropped };
-}
-
 export type MarkdownPaste = {
 	slice: Slice;
-	/** Remote directive comments left out (see `stripRemoteDirectives`). */
-	dropped: number;
 	/** The pasted text's front matter, as written ('' when it had none). Never applied to the open deck. */
 	frontMatter: string;
 	/** Slides the paste brings, 0 when it is prose for the caret's slide. */
 	slides: number;
+	/** Of those, the ones Compose cannot edit (locked; edited in Source). */
+	locked: number;
+	/** True when the text had no slide break or directive, and became a slide only because Compose cannot edit it. */
+	lockedProse: boolean;
 };
 
 /**
@@ -146,10 +109,16 @@ function keepEdgeSpaces(content: Fragment, text: string): Fragment {
 }
 
 /**
- * Pasted Markdown → a slice. Prose with no slide break and no directive goes in AT THE CARET, opened so its
- * first and last paragraph join the paragraph it lands in. Anything with a slide break or a directive, and any
- * prose Compose cannot round-trip (it would be rewritten on the next save), becomes whole slides — the lossy
- * ones locked, carrying their bytes exactly as pasted.
+ * Pasted Markdown → a slice.
+ *
+ * PROSE (no slide break, no directive) goes in at the caret. ONE paragraph is inline text: the slice opens so it
+ * joins the paragraph there, with the edge spaces Markdown trims put back. Anything with block structure (a
+ * heading, a list, a quote, several paragraphs) is a CLOSED slice, so each block keeps its type and the caret's
+ * paragraph is split around it; opening it folded the heading or the first bullet into that paragraph (the
+ * inversion review measured `First para.Heading`).
+ *
+ * SLIDES (a break, a directive, or prose Compose cannot round-trip, which becomes a locked slide carrying its bytes
+ * as pasted) are placed BETWEEN slides by `placeSlides`, never at the caret.
  *
  * FRONT MATTER IS NOT APPLIED. A deck's settings (theme, size, pagination) are the open deck's, and a paste
  * never restyles it: the slides take the destination's look, as PowerPoint, Google Slides and Word all do by
@@ -157,18 +126,78 @@ function keepEdgeSpaces(content: Fragment, text: string): Fragment {
  * read as a slide break, a `theme: x` heading and a second break.
  */
 export function markdownToSlice(md: string): MarkdownPaste {
-	const { text, dropped } = stripRemoteDirectives(normalizeSourceText(md));
+	const text = normalizeSourceText(md);
 	const { fm, slides } = parseDeck(text);
-	const list = slides.filter((s, i) => i > 0 || s.raw.trim() || slides.length === 1);
-	const single = list.length === 1 && !list[0].directives.length && !hasLossyConstruct(list[0].prose) && !fm;
-	if (single) {
-		const content = keepEdgeSpaces(slideContent(list[0].prose, []), text);
-		return { slice: Slice.maxOpen(content), dropped, frontMatter: '', slides: 0 };
+	const empty = (x: { raw: string }) => !x.raw.trim();
+	// A break at the very start or end of the text (a `---` under a pasted section) adds no empty slide; a paste
+	// that is nothing but a break adds one empty slide.
+	let list = slides;
+	while (list.length > 1 && empty(list[0])) list = list.slice(1);
+	while (list.length > 1 && empty(list[list.length - 1])) list = list.slice(0, -1);
+	// A paste of nothing but a break (`---`) has no prose at all; the reader takes the lone `---` for an unclosed
+	// front matter fence. It means a new slide, so it adds one.
+	if (list.length === 1 && empty(list[0]) && !fm && text.trim()) {
+		const blank = deckSchema.nodes.slide.create(null, slideContent('', []));
+		return { slice: new Slice(Fragment.from(blank), 0, 0), frontMatter: '', slides: 1, locked: 0, lockedProse: false };
 	}
-	const nodes = list.map((s) =>
-		deckSchema.nodes.slide.create({ directives: s.directives, raw: s.raw, locked: hasLossyConstruct(s.prose) }, slideContent(s.prose, s.directives)),
+	const prose = slides.length === 1 && !list[0].directives.length && !fm;
+	if (prose && !hasLossyConstruct(list[0].prose)) {
+		const content = slideContent(list[0].prose, []);
+		const inline = content.childCount === 1 && content.child(0).type === deckSchema.nodes.paragraph;
+		const slice = inline ? Slice.maxOpen(keepEdgeSpaces(content, text)) : new Slice(content, 0, 0);
+		return { slice, frontMatter: '', slides: 0, locked: 0, lockedProse: false };
+	}
+	const nodes = list.map((x) =>
+		deckSchema.nodes.slide.create({ directives: x.directives, raw: x.raw, locked: hasLossyConstruct(x.prose) }, slideContent(x.prose, x.directives)),
 	);
-	return { slice: new Slice(Fragment.from(nodes), 0, 0), dropped, frontMatter: fm, slides: nodes.length };
+	const locked = nodes.filter((n) => n.attrs.locked).length;
+	return { slice: new Slice(Fragment.from(nodes), 0, 0), frontMatter: fm, slides: nodes.length, locked, lockedProse: prose };
+}
+
+/**
+ * Put pasted slides BETWEEN slides, never inside one. Slide nodes inserted at a caret mid-slide make ProseMirror
+ * split that slide, and the piece after the caret keeps the slide's layout: a big-number slide became two (the
+ * inversion review). Slide tools add pasted slides after the current one, and so does this:
+ *   · the selection is deleted first, as any paste deletes it;
+ *   · an EMPTY slide with no layout (a fresh "New slide") is replaced by the pasted slides;
+ *   · a caret at the very start of a slide puts them before it;
+ *   · anywhere else, after it.
+ * The caret lands at the end of the last pasted slide.
+ */
+export function placeSlides(state: EditorState, slides: Fragment): Transaction {
+	const tr = state.tr;
+	if (!state.selection.empty) tr.deleteSelection();
+	const $at = tr.selection.$from;
+	const slide = tr.doc.child($at.index(0));
+	const start = $at.before(1);
+	const end = $at.after(1);
+	const blank = !slide.attrs.locked && !(slide.attrs.directives as string[]).length && slide.childCount === 1 && slide.child(0).isTextblock && slide.child(0).content.size === 0;
+	let at: number;
+	if (blank) {
+		tr.replaceWith(start, end, slides);
+		at = start;
+	} else {
+		const first = Selection.findFrom(tr.doc.resolve(start + 1), 1, true);
+		at = first && $at.pos <= first.from ? start : end;
+		tr.insert(at, slides);
+	}
+	const caret = Selection.findFrom(tr.doc.resolve(Math.min(at + slides.size, tr.doc.content.size)), -1, true);
+	if (caret) tr.setSelection(caret);
+	return tr;
+}
+
+/**
+ * Every raw block a paste built passes the gate a pasted raw block meets on the HTML path (`isRawBlockText`):
+ * one block, bounded, no directive or slide rule inside. Compose shows a raw block's first lines only, so an
+ * unbounded one is text the author cannot see.
+ */
+export function rawBlocksOk(slice: Slice): boolean {
+	let ok = true;
+	slice.content.descendants((n) => {
+		if (n.type.name === 'raw_block' && !isRawBlockText(n.attrs.kind, n.attrs.text)) ok = false;
+		return ok;
+	});
+	return ok;
 }
 
 // ── Writing: a selection → its Markdown ──────────────────────────────────────────────────────────────
@@ -185,6 +214,12 @@ function innerTextblock(slide: PMNode, openStart: number, openEnd: number): PMNo
 		e--;
 	}
 	return null;
+}
+
+/** A slide's Markdown for the clipboard. A LOCKED slide is one Compose cannot round-trip, and it cannot change, so
+ *  its `raw` IS its source: the serializer would write its strikethrough as `\~\~` (the red team's finding). */
+function slideMarkdown(slide: PMNode): string {
+	return slide.attrs.locked && slide.attrs.raw ? (slide.attrs.raw as string) : serializeSlideNode(slide);
 }
 
 /** Does the selection cover the whole deck? */
@@ -213,15 +248,21 @@ export function sliceToMarkdown(slice: Slice, state: EditorState): string {
 		return slice.content.textBetween(0, slice.content.size, '\n\n');
 	}
 	if (coversDeck(state)) {
-		const body = slides.map(serializeSlideNode).join(SEP);
+		const body = slides.map(slideMarkdown).join(SEP);
 		const fm = (state.doc.attrs.frontMatter as string) || '';
 		return fm ? fm + body : body;
 	}
-	if (slides.length > 1) return slides.map(serializeSlideNode).join(SEP);
+	if (slides.length > 1) return slides.map(slideMarkdown).join(SEP);
 	const only = slides[0];
 	const block = innerTextblock(only, slice.openStart - 1, slice.openEnd - 1);
 	if (block) {
 		if (block.type.spec.code) return block.textContent;
+		// Plain text with no formatting copies as itself: `-3% churn` must not reach a title field as `\-3% churn`.
+		let plain = true;
+		block.forEach((n) => {
+			if (!n.isText || n.marks.length) plain = false;
+		});
+		if (plain) return block.textContent;
 		const para = deckSchema.nodes.paragraph.create(null, block.content);
 		return latticeMarkdownSerializer.serialize(deckSchema.nodes.slide.create(null, para)).replace(/\n+$/, '');
 	}
@@ -230,8 +271,10 @@ export function sliceToMarkdown(slice: Slice, state: EditorState): string {
 
 /** A drag that carries files (a deck from the desktop), not text or a node from the editor itself. */
 function carriesFiles(event: DragEvent): boolean {
-	const types = event.dataTransfer?.types;
-	return !!types && Array.from(types).includes('Files');
+	const types = Array.from(event.dataTransfer?.types ?? []);
+	// A file from the desktop carries `Files` alone. An image dragged from another page carries its HTML too, and
+	// that stays ProseMirror's, as it was.
+	return types.includes('Files') && !types.includes('text/html') && !types.includes('text/uri-list');
 }
 
 // ── The plugin ─────────────────────────────────────────────────────────────────────────────────────
@@ -244,42 +287,90 @@ export type ClipboardNotice = (message: string) => void;
 export function pasteNotice(p: MarkdownPaste): string | null {
 	const parts: string[] = [];
 	if (p.frontMatter) parts.push("The pasted deck's settings (theme, size, pagination) were not applied — this deck keeps its own. Open it as its own deck to keep them.");
-	if (p.dropped) parts.push(`${p.dropped === 1 ? 'A background or link to another site was' : `${p.dropped} backgrounds or links to other sites were`} left out. Add it in Markdown if you meant it.`);
+	if (p.lockedProse) parts.push('That text uses Markdown Compose cannot edit (such as strikethrough or a footnote), so it was added as its own slide. Edit it in Source.');
+	else if (p.locked) parts.push(`${p.locked === 1 ? 'One pasted slide uses' : `${p.locked} pasted slides use`} Markdown Compose cannot edit, so ${p.locked === 1 ? 'it is' : 'they are'} edited in Source.`);
 	return parts.length ? parts.join(' ') : null;
+}
+
+/** What a Markdown paste would load from the network, rendered through the engine and read with the security
+ *  spine's `remoteRefsInHtml` (HARD RULE #22): the gate Insert uses for a sample slide (`gallery-gate.ts`). The
+ *  Studio hands it in (ComposeView), because the engine lives a layer above this module. */
+export type RemoteCheck = (md: string) => Promise<string[]>;
+
+/** ProseMirror's own plain-paste test (prosemirror-view `input.ts`): Shift held at the paste, and the paste not
+ *  Shift+Insert (key code 45), which is how Windows and Linux paste with no other modifier. Read from the view
+ *  so the two can never disagree; an editor without the field takes the paste as ordinary. */
+function plainPaste(view: EditorView): boolean {
+	const input = (view as unknown as { input?: { shiftKey?: boolean; lastKeyCode?: number | null } }).input;
+	return !!input?.shiftKey && input.lastKeyCode !== 45;
+}
+
+/** Is the caret inside a table cell? A cell takes inline text; a block or a slide pasted there splits the table. */
+function inTableCell(state: EditorState): boolean {
+	const { $from } = state.selection;
+	for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.spec.tableRole === 'cell' || $from.node(d).type.spec.tableRole === 'header_cell') return true;
+	return false;
 }
 
 /**
  * Markdown in, Markdown out. Must sit AFTER any plugin whose `handlePaste` moves the selection first (the note
  * plugin does), because this one reads the selection it is pasting over.
+ *
+ * A Markdown paste is CHECKED BEFORE IT LANDS: the text is rendered through the engine and every address the
+ * markup would fetch is read with the spine's reader. Any at all, or a check that cannot run, refuses the paste
+ * with a message, and nothing is inserted. A private pattern over the source cannot be made to agree with the
+ * renderer; the red team bypassed one six ways (nested comments, record directives, fences markdown-it does not
+ * read as fences, unquoted attributes, raw HTML), and `remote-ref.js`'s header lists eleven more.
  */
-export function markdownClipboardPlugin(notice: ClipboardNotice): Plugin {
-	// ⌘⇧V. ProseMirror tracks the same key for its own plain-text paste, privately; this is ours.
-	let shift = false;
-	const paste = (view: EditorView, md: string): boolean => {
+export function markdownClipboardPlugin(notice: ClipboardNotice, check: RemoteCheck): Plugin {
+	const land = async (view: EditorView, md: string): Promise<void> => {
 		const p = markdownToSlice(md);
-		view.dispatch(view.state.tr.replaceSelection(p.slice).scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
+		if (!rawBlocksOk(p.slice)) {
+			notice('That Markdown holds an HTML block Compose cannot show whole, so it was not pasted. Paste it in Source.');
+			return;
+		}
+		let refs: string[];
+		try {
+			// Front matter is set aside, never applied, so it is not what the check reads.
+			refs = await check(stripFrontMatter(normalizeSourceText(md)));
+		} catch {
+			notice('That Markdown could not be checked, so it was not pasted. Try again in a moment, or paste it in Source.');
+			return;
+		}
+		if (refs.length) {
+			notice('That Markdown loads something from another site, so it was not pasted. Paste it in Source if you trust it.');
+			return;
+		}
+		if ((view as unknown as { isDestroyed?: boolean }).isDestroyed) return;
+		const state = view.state;
+		const tr = p.slides ? placeSlides(state, p.slice.content) : state.tr.replaceSelection(p.slice);
+		view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
+		// The structural guard may refuse it (a locked slide): then nothing landed, and nothing is said about it.
+		if (view.state.doc === state.doc) {
+			notice('Nothing was pasted: this part of the deck is edited in Source.');
+			return;
+		}
 		const why = pasteNotice(p);
 		if (why) notice(why);
-		return true;
 	};
 	return new Plugin({
 		key: markdownClipboardKey,
 		props: {
 			clipboardTextSerializer: (slice, view) => sliceToMarkdown(slice, view.state),
-			handleKeyDown(_view, event) {
-				shift = event.shiftKey;
-				return false;
-			},
 			handlePaste(view, event) {
 				const data = event.clipboardData;
-				const plain = shift;
-				shift = false;
 				if (!data) return false;
 				const text = data.getData('text/plain');
 				const html = data.getData('text/html');
 				const inCode = !!view.state.selection.$from.parent.type.spec.code;
-				if (!pasteAsMarkdown({ text, html, plain, inCode })) return false;
-				return paste(view, text);
+				if (!pasteAsMarkdown({ text, html, plain: plainPaste(view), inCode })) return false;
+				// In a table cell only inline text goes in; anything with blocks or slides takes the literal path.
+				if (inTableCell(view.state)) {
+					const p = markdownToSlice(text);
+					if (p.slides || p.slice.openStart === 0) return false;
+				}
+				void land(view, text);
+				return true;
 			},
 			handleDOMEvents: {
 				// A FILE dropped on Compose opens as a new deck, as it does anywhere else in the Studio (the shell's
