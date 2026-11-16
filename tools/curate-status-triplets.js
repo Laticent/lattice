@@ -72,6 +72,7 @@ const LIGHT_SPREAD = 0.06;
 const LIGHT_RED = { L: 0.38, C: 0.14 };
 /** A light face that cannot take the full spread, named with the spread it does take and why; held by the audit. */
 const SPREAD_EXEMPT = {
+  // Waives the full spread AND the reads-red floor (LIGHT_RED): concrete's blocked sits at L 0.35.
   concrete: { spread: 0.02, why: 'concrete\'s light slide is a mid-gray (#B8B8B5), and its row tint darkens it further, so a fill that '
     + 'clears 4.5:1 against every surface sits at L 0.35 or deeper; under that ceiling a trio 0.03 apart or more keeps '
     + 'less than half its colorblind separation. 0.02 is the reachable maximum.' },

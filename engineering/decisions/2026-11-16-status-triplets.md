@@ -90,7 +90,9 @@ lift at risk if it comes closer to their gold accent, so their light faces hold 
 0.08 (`ACCENT_EXEMPT`, named and audited). Burgundy holds 0.04 too, for blocked: its accent is itself a deep red, so
 a blocked that reads red sits 0.048 from it (0.072 vivid); its at risk stays 0.15 away. The cost: in cuoio and mustard done
 deepens to a near-black green to keep the trio apart for a colorblind reader, and at risk is a dark gold, since a light
-fill under the slide's paper at 4.5:1 cannot be a bright amber. Concrete keeps its deep fills (`SPREAD_EXEMPT`).
+fill under the slide's paper at 4.5:1 cannot be a bright amber. Concrete keeps its deep fills: its `SPREAD_EXEMPT`
+entry waives both the full spread (it holds 0.02) and the reads-red floor (its blocked, `#73000B`, sits at L 0.35), since
+its mid-gray slide leaves no lighter fill that clears 4.5:1 against every surface.
 
 The `a11y-*` palettes curate none of this. The base declares each triplet token's default as the one-ink pair (the ink
 `--on-mark`, an edge in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it does
