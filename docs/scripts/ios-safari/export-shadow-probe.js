@@ -46,7 +46,7 @@ const EXPORT_SHADOW_DECK = [
 ].join('\n');
 
 // biome-ignore lint/correctness/noUnusedVariables: run.mjs calls it by name.
-async function latticeExportShadowProbe() {
+function exportShadowHelpers() {
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 	const until = async (fn, ms, what) => {
 		const t0 = Date.now();
@@ -67,8 +67,13 @@ async function latticeExportShadowProbe() {
 			return null;
 		}
 	};
-	const narrow = innerWidth <= 699;
-	const t = { start: performance.now() };
+	return { until, named, frameDoc };
+}
+
+/** Step 1, on a fresh Studio page: the deck in, the page marked, the share sheet replaced. run.mjs reads memory after it. */
+// biome-ignore lint/correctness/noUnusedVariables: run.mjs calls it by name.
+async function latticeExportShadowPrepare() {
+	const { until, named, frameDoc } = exportShadowHelpers();
 	try {
 		await until(() => window.__latticeRenderMetrics, 150000, "the Studio's first render");
 		window.__exportMarker = `m${Math.random().toString(36).slice(2)}`;
@@ -84,34 +89,46 @@ async function latticeExportShadowProbe() {
 			document.execCommand('selectAll');
 			document.execCommand('insertText', false, EXPORT_SHADOW_DECK);
 		}
-		if (narrow) (await until(() => named(/^Preview$/), 15000, 'the Preview button')).click();
+		if (innerWidth <= 699) (await until(() => named(/^Preview$/), 15000, 'the Preview button')).click();
 		// The frame renders the slide under the caret, the deck's last one after the paste: any of its headings means the deck is in.
 		await until(() => /A lifted card|Cards that lift|A square photo/.test(frameDoc()?.body?.textContent || ''), 90000, 'the deck in the preview');
-		let opts = null;
-		let files = null;
+		window.__exportShare = { opts: null, files: null };
 		window.addEventListener('lattice:notify-action', (e) => {
-			opts = e.detail?.opts || null;
+			window.__exportShare.opts = e.detail?.opts || null;
 		});
 		Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
 		Object.defineProperty(navigator, 'share', {
 			value: async (d) => {
-				files = d.files;
+				window.__exportShare.files = d.files;
 			},
 			configurable: true,
 		});
-		t.export = performance.now();
+		return { ok: true, marker: window.__exportMarker, timeOrigin: performance.timeOrigin, width: innerWidth };
+	} catch (e) {
+		return { ok: false, error: String(e?.message || e), marker: window.__exportMarker || null, timeOrigin: performance.timeOrigin, width: innerWidth };
+	}
+}
+
+/** Step 2, on the same page: Share > Images (.zip) > Download images, then the Save toast's own onClick. Returns the zip. */
+// biome-ignore lint/correctness/noUnusedVariables: run.mjs calls it by name.
+async function latticeExportShadowRun() {
+	const { until, named } = exportShadowHelpers();
+	const share = window.__exportShare;
+	try {
+		if (!share) throw new Error('the prepare step did not run on this page');
+		const t0 = performance.now();
 		(await until(() => named(/^Share$/), 30000, 'the Share button')).click();
 		(await until(() => named(/^Images \(\.zip\)/), 15000, 'the Images (.zip) row')).click();
 		(await until(() => named(/^Download images/), 15000, 'the Download images button')).click();
-		await until(() => opts, 240000, 'the Save toast');
-		t.toast = performance.now();
-		opts.onClick();
-		await until(() => files, 15000, 'the shared file');
-		const f = files[0];
+		await until(() => share.opts, 240000, 'the Save toast');
+		const exportMs = Math.round(performance.now() - t0);
+		share.opts.onClick();
+		await until(() => share.files, 15000, 'the shared file');
+		const f = share.files[0];
 		const bytes = new Uint8Array(await f.arrayBuffer());
 		let bin = '';
 		for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode(...bytes.subarray(k, k + 0x8000));
-		return { ok: true, name: f.name, size: f.size, b64: btoa(bin), exportMs: Math.round(t.toast - t.export), marker: window.__exportMarker, timeOrigin: performance.timeOrigin, width: innerWidth };
+		return { ok: true, name: f.name, size: f.size, b64: btoa(bin), exportMs, marker: window.__exportMarker, timeOrigin: performance.timeOrigin, width: innerWidth };
 	} catch (e) {
 		return { ok: false, error: String(e?.message || e), marker: window.__exportMarker || null, timeOrigin: performance.timeOrigin, width: innerWidth };
 	}

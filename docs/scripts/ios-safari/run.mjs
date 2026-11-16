@@ -204,6 +204,12 @@ async function exportShadowProbe(id) {
 	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
 	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
 	const total = (m) => Math.round([...m.values()].reduce((a, b) => a + b, 0));
+	// Step 1 on a fresh Studio page (the deck in), then the memory baseline, so the reading is the export's alone.
+	const prep = await studioPage(id, 'export-shadow-probe.js', 'latticeExportShadowPrepare');
+	if (!prep.ok) {
+		step('export: the Studio exported the deck', false, `prepare: ${prep.error}`);
+		return { ok: false, steps, error: `export: prepare: ${prep.error}` };
+	}
 	let base = null;
 	try {
 		base = await simulatorWebContentMB();
@@ -225,16 +231,17 @@ async function exportShadowProbe(id) {
 	})();
 	let r;
 	try {
-		r = await studioPage(id, 'export-shadow-probe.js', 'latticeExportShadowProbe');
+		const probe = withEditorHelper(fs.readFileSync(path.join(here, 'export-shadow-probe.js'), 'utf8'));
+		r = await wd('POST', `/session/${id}/execute/async`, { script: `${probe}\nconst done = arguments[arguments.length - 1];\nlatticeExportShadowRun().then(done, (e) => done({ ok: false, error: String(e) }));`, args: [] });
 	} catch (e) {
-		r = { ok: false, error: `the export script ended without an answer: ${String(e.message || e).slice(0, 300)}` };
+		r = { ok: false, error: `the export script ended without an answer: ${String(e.message || e).slice(0, 300)}`, marker: prep.marker, timeOrigin: prep.timeOrigin };
 	}
 	polling = false;
 	await poll;
 	const after = await wd('POST', `/session/${id}/execute/sync`, { script: 'return { marker: window.__exportMarker || null, timeOrigin: performance.timeOrigin };', args: [] }).catch((e) => ({ error: String(e.message || e) }));
-	const reloaded = !(r.marker && after.marker === r.marker && after.timeOrigin === r.timeOrigin);
-	step('export: the page was not reloaded during the export', !reloaded, `marker before ${r.marker}, after ${after.marker}; timeOrigin before ${r.timeOrigin}, after ${after.timeOrigin}${after.error ? `; ${after.error}` : ''}`);
-	step('export: peak WebKit memory growth during the export (detail only)', true, peak ? `+${peak.grew} MB over a ${peak.baseMB} MB baseline (peak total ${peak.total} MB), vmmap physical footprint of the simulator's WebContent and GPU processes` : 'not measured (no vmmap reading)');
+	const reloaded = !(prep.marker && after.marker === prep.marker && after.timeOrigin === prep.timeOrigin);
+	step('export: the page was not reloaded during the export', !reloaded, `marker before ${prep.marker}, after ${after.marker}; timeOrigin before ${prep.timeOrigin}, after ${after.timeOrigin}${after.error ? `; ${after.error}` : ''}`);
+	step('export: peak WebKit memory growth during the export (detail only)', true, peak ? `+${peak.grew} MB over a ${peak.baseMB} MB baseline read after the deck was in and before Share (peak total ${peak.total} MB), vmmap physical footprint of the simulator's WebContent and GPU processes` : 'not measured (no vmmap reading)');
 	if (!r.ok) {
 		step('export: the Studio exported the deck', false, r.error);
 		return { ok: false, steps, error: `export: ${r.error}` };
@@ -290,7 +297,6 @@ async function runStudioProbe(id) {
 		}
 		return r;
 	};
-	const exported = await shotIfFailed('export-shadow', await exportShadowProbe(id));
 	const preview = await shotIfFailed('preview', await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
 	const panes = await shotIfFailed('panes', await studioPage(id, 'panes-probe.js', 'latticePanesProbe'));
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
@@ -300,6 +306,8 @@ async function runStudioProbe(id) {
 	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
 	// which never shows the keyboard or runs Safari's own tap-to-focus path.
 	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
+	// LAST, so the deck it types (which the Studio keeps) cannot change any probe's first visit (dispatch 43874898779).
+	const exported = await shotIfFailed('export-shadow', await exportShadowProbe(id));
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
 		ok: !!exported.ok && !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
