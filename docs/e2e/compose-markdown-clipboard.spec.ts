@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import type { Page } from '@playwright/test';
 import { openDeckInCompose, savedDeck } from './compose-insert';
 import { expect, test, toastText } from './studio-fixture';
@@ -52,7 +53,7 @@ async function copy(page: Page): Promise<{ plain: string; html: string }> {
 
 test.describe('Markdown on the Compose clipboard', () => {
 	// Twice: untagged for desktop Chromium, tagged for Firefox and WebKit (the desktop project leaves out `@webkit`).
-	for (const tags of ['', '@gecko @webkit-tablet ']) {
+	for (const tags of ['@crosswidth ', '@gecko @webkit-tablet @webkit-phone ']) {
 		test(`${tags}a Markdown paste becomes slides, layouts and formatting, never escaped text`, async ({ page }) => {
 			await openDeckInCompose(page, DECK);
 			await caretAfter(page, 'Where we start.');
@@ -166,5 +167,77 @@ test.describe('Markdown on the Compose clipboard', () => {
 			);
 		await expect.poll(async () => (await decks()).some((d) => d.includes('Quarterly plan'))).toBe(true);
 		expect((await decks()).some((d) => d.includes('Where we start.'))).toBe(true);
+	});
+
+	// THE REAL BROWSER PIPELINE (Chromium): the system clipboard written as an app writes it, and real keystrokes, so
+	// the browser itself builds the paste and copy events; and a file dropped through CDP's drag input, which is how the
+	// browser delivers an OS drag. The synthetic events above cover the other engines; these cover the browser's own path.
+	test.describe('through the real clipboard and drag pipeline', () => {
+		test.beforeEach(async ({ page, browserName }) => {
+			test.skip(browserName !== 'chromium', 'the clipboard permissions and CDP drag input are Chromium’s');
+			await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+		});
+
+		/** Put flavors on the system clipboard the way VS Code or a chat app does. */
+		const writeClipboard = (page: Page, data: Record<string, string>) =>
+			page.evaluate(async (d) => {
+				const item: Record<string, Blob> = {};
+				for (const [type, value] of Object.entries(d)) item[type] = new Blob([value], { type });
+				await navigator.clipboard.write([new ClipboardItem(item)]);
+			}, data);
+
+		test('⌘V of Markdown copied from a code editor (HTML + text) lands as slides', async ({ page }) => {
+			await openDeckInCompose(page, DECK);
+			await caretAfter(page, 'Where we start.');
+			const vscode = `<meta charset="utf-8"><div style="white-space: pre;">${PASTE.split('\n').map((l) => `<div><span>${l.replace(/</g, '&lt;')}</span></div>`).join('')}</div>`;
+			await writeClipboard(page, { 'text/plain': PASTE, 'text/html': vscode });
+			await page.keyboard.press('ControlOrMeta+v');
+			await expect.poll(() => savedDeck(page)).toContain('<!-- _class: big-number -->');
+			expect(await savedDeck(page)).not.toMatch(/\\[-*#<]|\\---/);
+			await expect(page.locator('.cs-slide')).toHaveCount(3);
+		});
+
+		test('⌘⇧V pastes the same Markdown as plain text, and Shift+Insert pastes it as Markdown', async ({ page }) => {
+			await openDeckInCompose(page, DECK);
+			await caretAfter(page, 'Where we start.');
+			await writeClipboard(page, { 'text/plain': ' see **this**' });
+			await page.keyboard.press('ControlOrMeta+Shift+v');
+			// Plain: the asterisks are text, which the deck must write escaped so they stay text.
+			await expect.poll(() => savedDeck(page)).toContain('see \\*\\*this\\*\\*');
+			await page.keyboard.press('End');
+			await writeClipboard(page, { 'text/plain': ' and **that**' });
+			await page.keyboard.press('Shift+Insert');
+			await expect.poll(() => savedDeck(page)).toContain('and **that**');
+		});
+
+		test('⌘C across slides puts their Markdown on the system clipboard', async ({ page }) => {
+			await openDeckInCompose(page, `${DECK}\n\n---\n\n<!-- _class: big-number -->\n\n# 42%\n\nGross **margin**`);
+			await page.locator('.cs-host .ProseMirror').getByText('Kickoff', { exact: true }).click();
+			await page.keyboard.press('ControlOrMeta+a');
+			await page.keyboard.press('ControlOrMeta+a');
+			await writeClipboard(page, { 'text/plain': 'sentinel' });
+			await page.keyboard.press('ControlOrMeta+c');
+			await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).not.toBe('sentinel');
+			const plain = await page.evaluate(() => navigator.clipboard.readText());
+			expect(plain).toContain('<!-- _class: big-number -->');
+			expect(plain).toMatch(/\n---\n/);
+			expect(plain).toContain('Gross **margin**');
+		});
+
+		test('a deck file dropped through the browser drag input opens as a new deck', async ({ page }) => {
+			await openDeckInCompose(page, DECK);
+			const file = test.info().outputPath('dropped.md');
+			fs.writeFileSync(file, PASTE);
+			const box = await page.locator('.cs-host .ProseMirror').boundingBox();
+			if (!box) throw new Error('no editor');
+			const cdp = await page.context().newCDPSession(page);
+			const at = { x: box.x + 60, y: box.y + 60 };
+			const data = { items: [], files: [file], dragOperationsMask: 1 };
+			await cdp.send('Input.dispatchDragEvent', { type: 'dragEnter', ...at, data });
+			await cdp.send('Input.dispatchDragEvent', { type: 'dragOver', ...at, data });
+			await cdp.send('Input.dispatchDragEvent', { type: 'drop', ...at, data });
+			await expect(page.locator('.cs-host .ProseMirror')).toContainText('Quarterly plan');
+			await expect(page.locator('.cs-host .ProseMirror')).not.toContainText('Kickoff');
+		});
 	});
 });
