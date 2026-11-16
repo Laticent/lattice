@@ -337,6 +337,26 @@ test('a tiered hub-spoke on a phone page renders when a leaf name is one word wi
   assert.doesNotMatch(html, /NaN|Infinity/, 'every position is a finite number');
 });
 
+// Card grader on #3221: preferring the oval on a tie in broken floors left the demo deck's `Accounts` leaf drawn inside
+// its `Core banking` branch at mobile (centers 3.6 units apart, branch radius 13). Every leaf's center stays outside
+// its branch's disc.
+test('a tiered hub-spoke on a phone page draws no leaf inside its own branch', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const deck = fs.readFileSync(path.join(__dirname, '../../../examples/chart-phone-clips.md'), 'utf8');
+  const html = createEngine().render(deck).html;
+  const svg = html.slice(html.indexOf('hub-spoke-svg'));
+  const nodes = [...svg.matchAll(/class="hub-spoke-(node hub-spoke-branch|leaf)"[^>]*data-label="([^"]*)"[^>]*d="M(-?[\d.]+),(-?[\d.]+)A([\d.]+)/g)]
+    .map(([, kind, label, x, y, r]) => ({ branch: kind !== 'leaf', label, cx: +x + +r, cy: +y, r: +r }));
+  assert.ok(nodes.filter((n) => !n.branch).length >= 9, 'the demo deck draws nine leaves');
+  let branch = null;
+  for (const n of nodes) {
+    if (n.branch) { branch = n; continue; }
+    const d = Math.hypot(n.cx - branch.cx, n.cy - branch.cy);
+    assert.ok(d > branch.r, `${n.label} sits ${d.toFixed(1)} from ${branch.label}, inside its ${branch.r}-unit disc`);
+  }
+});
+
 // Maker-checker on #3221: the dumbbell's value-label cap grew from 30 to 60 units for the phone ladder's 12pt, and
 // landscape got the wider cap too, so `−$123.4M` printed whole into its row's name. The cap scales with the value role.
 test('a landscape dumbbell keeps its 30-unit value cap; the phone ladder widens it with the value role', () => {
