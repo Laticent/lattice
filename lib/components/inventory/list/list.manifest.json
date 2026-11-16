@@ -77,6 +77,26 @@
     "roman",
     "bullet"
   ],
+  "variantAxes": [
+    {
+      "label": "Register",
+      "exclusive": true,
+      "members": [
+        "takeaway",
+        "principles"
+      ]
+    },
+    {
+      "label": "Counter",
+      "exclusive": true,
+      "members": [
+        "numbered",
+        "lettered",
+        "roman",
+        "bullet"
+      ]
+    }
+  ],
   "slots": {
     "title": {
       "selector": "h2",

@@ -79,6 +79,18 @@
     "preemption",
     "lane"
   ],
+  "variantAxes": [
+    {
+      "label": "Arrangement",
+      "exclusive": true,
+      "members": [
+        "hierarchy",
+        "bands",
+        "preemption",
+        "lane"
+      ]
+    }
+  ],
   "slots": {
     "heading": {
       "selector": "h2",

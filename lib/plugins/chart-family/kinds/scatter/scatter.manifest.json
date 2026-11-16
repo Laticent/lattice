@@ -155,6 +155,16 @@
     "bubble",
     "trend"
   ],
+  "variantAxes": [
+    {
+      "label": "Variant",
+      "exclusive": true,
+      "members": [
+        "bubble",
+        "trend"
+      ]
+    }
+  ],
   "variantDocs": {
     "bubble": {
       "label": "bubble",

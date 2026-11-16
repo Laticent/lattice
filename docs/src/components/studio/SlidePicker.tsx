@@ -62,6 +62,14 @@ export type PickerItem = {
 	/** The component's own grouping of those variants (manifest `variantAxes`): which
 	 *  are mutually exclusive and which stack. Absent until a manifest declares it. */
 	variantAxes?: VariantAxis[];
+	/** The layouts the manifest names as near alternatives, with when to use each (Compose's layout menu). */
+	related?: { name: string; when: string }[];
+	/** A pane host's panes (`columns`, `rows`); absent on a single layout. */
+	hosts?: unknown;
+	/** Every token the component accepts on its `_class`: its looks and the shared modifiers. */
+	effectiveVariants?: string[];
+	/** Variants whose authoring grammar differs from the base skeleton, each with its sample slide. */
+	variantSkeletons?: { name: string; caption?: string; sample: string }[];
 };
 
 // Back-compat alias: StudioShell's `insertComponents` and the editor completions

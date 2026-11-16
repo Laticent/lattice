@@ -87,6 +87,16 @@
     "three",
     "numbered"
   ],
+  "variantAxes": [
+    {
+      "label": "Columns",
+      "exclusive": true,
+      "members": [
+        "three",
+        "four"
+      ]
+    }
+  ],
   "slots": {
     "title": {
       "selector": "h2",

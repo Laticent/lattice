@@ -85,6 +85,17 @@
     "timeline",
     "editorial"
   ],
+  "variantAxes": [
+    {
+      "label": "Look",
+      "exclusive": true,
+      "members": [
+        "cards",
+        "timeline",
+        "editorial"
+      ]
+    }
+  ],
   "slots": {
     "eyebrow": {
       "selector": "p:first-child > code",

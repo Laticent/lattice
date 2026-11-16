@@ -108,6 +108,16 @@
     "unnumbered",
     "rearrange"
   ],
+  "variantAxes": [
+    {
+      "label": "Direction",
+      "exclusive": true,
+      "members": [
+        "lr",
+        "tb"
+      ]
+    }
+  ],
   "slots": {
     "title": {
       "selector": "h2",

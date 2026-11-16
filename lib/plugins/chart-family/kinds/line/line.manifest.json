@@ -64,6 +64,17 @@
     "stacked-area",
     "step"
   ],
+  "variantAxes": [
+    {
+      "label": "Shape",
+      "exclusive": true,
+      "members": [
+        "area",
+        "stacked-area",
+        "step"
+      ]
+    }
+  ],
   "tags": [
     "metric",
     "board-deck",

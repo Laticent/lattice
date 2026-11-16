@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Undo2, Upload, UsersRound, Volume2, Wand2, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Ellipsis, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, TextSearch, Trash2, Undo2, Upload, UsersRound, Volume2, Wand2, X } from 'lucide-react';
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
@@ -80,12 +80,12 @@ import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACT
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
-import type { ComposeHandle, PaneRequest } from './ComposeView';
+import type { ComposeHandle, LayoutRequest, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
-import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
+import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_FIT, EDIT_FIT_LEVELS, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
@@ -220,6 +220,8 @@ const Fabricate = React.lazy(() => {
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 // Shown once on a first visit and once at the end of the welcome tour, so it rides its own chunk.
 const WelcomeCard = React.lazy(() => import('./WelcomeCard').then((m) => ({ default: m.WelcomeCard })));
+const FindBar = React.lazy(() => import('./FindBar'));
+const LayoutMenuHost = React.lazy(() => import('./LayoutMenu').then((m) => ({ default: m.LayoutMenuHost })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 // The slide map is loaded when the reader first turns it on (the eager bundle is budgeted).
 const StudioMap = React.lazy(() => import('./StudioMap'));
@@ -6111,6 +6113,36 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const reshapeVariantAxes = React.useMemo(() => reshapeEntry?.variantAxes ?? [], [reshapeEntry]);
 	const onReshape = (token: string) => mutateSlideFromPanel((c) => applyVariant(c, token, reshapeAxes, reshapeVariants, reshapeVariantAxes));
 
+	// THE LAYOUT MENU (LayoutMenu.tsx) — what Compose's layout button opens for one slide. Everything it does lives in its own
+	// lazy chunk (`LayoutMenuHost`): the shell keeps the request and the mount, so the Studio's startup script pays for neither
+	// the menu nor the logic that builds it (docs/route-budget.json). Mounted on the first request and kept, so its preview
+	// frames survive between opens. engineering/decisions/2026-11-15-compose-layout-button.md.
+	const [layoutReq, setLayoutReq] = React.useState<LayoutRequest | null>(null);
+	// FIND AND REPLACE (FindBar.tsx): the bar under the edit bar, for whichever editor is on screen. Opening it seeds the
+	// field with a one-line selection, as an editor's ⌘F does; a second ⌘F while it is open re-seeds and focuses it.
+	const [find, setFind] = React.useState<{ seed: string; n: number } | null>(null);
+	// Counts the editor views created while the bar is open (a mode or deck switch builds a new one), so the bar runs its
+	// query again on the new view: the target is read live, but nothing else tells the bar its old view is gone.
+	const findOpenRef = React.useRef(false);
+	findOpenRef.current = !!find;
+	const [findView, setFindView] = React.useState(0);
+	const onEditorView = React.useCallback(() => {
+		if (findOpenRef.current) setFindView((n) => n + 1);
+	}, []);
+	const findTarget = React.useCallback(() => (editModeRef.current === 'compose' ? composeRef.current?.findTarget() : editorRef.current?.findTarget()) ?? null, []);
+	const openFind = React.useCallback(() => {
+		// The editor's own selection, not the browser's: Compose's lives in ProseMirror's state.
+		let picked = '';
+		if (editModeRef.current === 'compose') picked = composeRef.current?.selectedText() ?? '';
+		else {
+			const sel = editorRef.current?.getSelection();
+			picked = sel && !sel.empty ? sel.text : '';
+		}
+		picked = picked.trim();
+		setFind((f) => ({ seed: picked && !picked.includes('\n') && picked.length <= 120 ? picked : (f?.seed ?? ''), n: (f?.n ?? 0) + 1 }));
+	}, []);
+	const layoutMounted = useLatch(!!layoutReq);
+
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
 	// Auto's apply: the History checkpoint is written and CONFIRMED before the deck changes, because
@@ -7454,7 +7486,25 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The header keeps `Compose · Source` worded until the pane cannot hold them: measured, not a breakpoint,
 	// because what else sits in the row moves the width they need (use-row-fit.ts). Level 1 drops the issue
 	// pill's word, level 2 the mode words.
-	const editBarRef = useRowFit(3, `${issues}|${hasSelection}|${newSlideShown}|${compact}|${split.collapsed}|${mobile}|${editMode}`);
+	const editBarRef = useRowFit(EDIT_FIT_LEVELS, `${issues}|${hasSelection}|${newSlideShown}|${compact}|${split.collapsed}|${mobile}|${editMode}`);
+	// The edit bar's More menu (EDIT_FIT): what the row moved out at its current step, read when the menu opens. Reshape opened
+	// from it hangs from the More button.
+	const [moreFit, setMoreFit] = React.useState(0);
+	const [reshapeFromMore, setReshapeFromMore] = React.useState<HTMLElement | null>(null);
+	const moreOpensPopoverRef = React.useRef<HTMLElement | null>(null);
+	// Undo and Redo: in the editor's edit bar on desktop and tablet (they act on the whole deck, so they sit with the deck's
+	// editor controls, not on each slide's pill: owner, 2026-11-15), and in the phone's tail, where there is no edit bar. A
+	// screen with no ⌘Z needs them (an iPad with no keyboard, a phone): WebKit offers its own undo only while its own undo list
+	// holds something (docs/scripts/ios-safari/undo-probe.js, measured in Mobile Safari 26.5).
+	// A press never takes focus from the text (`onMouseDown` prevented, as the pill's buttons do): focus leaving Compose would
+	// end an IME composition the undo is meant to wait out, and on a phone it would drop the keyboard.
+	const keepFocus = (e: React.MouseEvent) => e.preventDefault();
+	const historyButtons = (className: string) => (
+		<>
+			<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className={className} disabled={!filoCan.undo && !liveShared} onMouseDown={keepFocus} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
+			<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className={className} disabled={!filoCan.redo && !liveShared} onMouseDown={keepFocus} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
+		</>
+	);
 	const editorPane = (
 		<section
 			id="studio-pane-editor"
@@ -7476,10 +7526,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The pane's title IS its mode switch, Compose first (2026-11-10-compose-first.md): the word
 				    `EDIT` that sat here named neither mode and cost the width the two words need. */}
 				<EditModeToggle mode={editMode} onPick={setEditMode} />
+				{/* Undo · Redo act on the whole deck, so they sit with the deck's editor controls, not on each slide's pill
+				    (owner, 2026-11-15). The phone has no edit bar: its pair is in the header. */}
+				{historyButtons('')}
+				<Tip label="Find and replace (⌘F)"><Button variant="ghost" size="icon-sm" aria-label="Find and replace" data-out={EDIT_FIT.c} aria-pressed={!!find} onClick={() => (find ? setFind(null) : openFind())}><TextSearch className="size-[18px]" /></Button></Tip>
 				<span className="flex-1" />
 				{issues > 0 && (
 					<Tip label={issueHint}>
-						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]"><AlertTriangle className="size-3" /><span className="group-data-[fit=1]/editbar:hidden group-data-[fit=2]/editbar:hidden">{issues} issue{issues > 1 ? 's' : ''}</span><span className="hidden group-data-[fit=1]/editbar:inline group-data-[fit=2]/editbar:inline">{issues}</span></button>
+						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]" data-out={EDIT_FIT.c}><AlertTriangle className="size-3" /><span data-out={EDIT_FIT.issueLong}>{issues} issue{issues > 1 ? 's' : ''}</span><span data-in="1">{issues}</span></button>
 					</Tip>
 				)}
 				{hasSelection && (
@@ -7518,32 +7572,81 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    deck, and the pre-paint shell could not draw the row at all without resolving the
 				    boot slide's component against the catalog. `disabled` is what "Fix all issues"
 				    two lines down already does. */}
-				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={deckOptions} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} />
-				<Tip label="Fix all issues"><button type="button" onClick={fixAllIssues} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
+				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={deckOptions} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} data-out={EDIT_FIT.b} open={reshapeFromMore ? true : undefined} anchor={reshapeFromMore} onOpenChange={(o) => !o && setReshapeFromMore(null)} />
+				<Tip label="Fix all issues"><button type="button" onClick={fixAllIssues} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" data-out={EDIT_FIT.b} disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
-				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>
+				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" data-out={EDIT_FIT.a}><History className="size-[18px]" /></Button></Tip>
 				{/* Slide-settings launcher — on DESKTOP the activity bar's Slide icon owns this
 				    (a duplicate here would break the e2e strict 'Slide settings' locator); on
 				    tablet/mobile the editor header is the opener. */}
-				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
+				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" data-out={EDIT_FIT.a}><FileSliders className="size-[18px]" /></Button></Tip>}
+				{/* MORE: what the row has moved out to fit its pane (EDIT_FIT), in the row's own order. Shown from step 2 by CSS; its
+				    items are read from the row's step when it opens, so it lists exactly what the row is not showing. */}
+				<DropdownMenu
+					onOpenChange={(o) => {
+						if (o) setMoreFit(Number((document.querySelector('#studio-pane-editor [data-slot="edit-bar"]') as HTMLElement | null)?.dataset.fit ?? 0));
+					}}
+				>
+					<Tip label="More editor actions">
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="icon-sm" aria-label="More editor actions" data-more=""><Ellipsis className="size-[18px]" /></Button>
+						</DropdownMenuTrigger>
+					</Tip>
+					{/* A pick that opens a popover (Reshape) opens it once the menu has CLOSED, and keeps the focus off the trigger:
+					    opened while the menu still traps the focus, or handed the focus back to the trigger, the popover reads the
+					    focus leaving it as a dismissal and closes the moment it opens. */}
+					<DropdownMenuContent
+						align="end"
+						className="w-56"
+						onCloseAutoFocus={(e) => {
+							const anchor = moreOpensPopoverRef.current;
+							if (!anchor) return;
+							moreOpensPopoverRef.current = null;
+							e.preventDefault();
+							setReshapeFromMore(anchor);
+						}}
+					>
+						{moreFit >= 5 && <DropdownMenuItem onSelect={openFind} className="gap-2"><TextSearch className="size-4" />Find and replace</DropdownMenuItem>}
+						{moreFit >= 5 && issues > 0 && <DropdownMenuItem onSelect={() => { revealCraftDock(); setActiveAssistant('coach'); }} className="gap-2"><AlertTriangle className="size-4 text-[var(--warn)]" />{issues} issue{issues > 1 ? 's' : ''}: open the Coach</DropdownMenuItem>}
+						{moreFit >= 3 && <DropdownMenuItem disabled={reshapeVariants.length === 0} onSelect={() => { moreOpensPopoverRef.current = document.querySelector('#studio-pane-editor [aria-label="More editor actions"]') as HTMLElement | null; }} className="gap-2"><Shapes className="size-4" />Reshape slide…</DropdownMenuItem>}
+						{moreFit >= 3 && <DropdownMenuItem disabled={!fixableIssues} onSelect={fixAllIssues} className="gap-2"><ListChecks className="size-4" />Fix all issues</DropdownMenuItem>}
+						{moreFit >= 2 && <DropdownMenuItem onSelect={() => setHistoryOpen(true)} className="gap-2"><History className="size-4" />Version history</DropdownMenuItem>}
+						{moreFit >= 2 && compact && <DropdownMenuItem onSelect={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} className="gap-2"><FileSliders className="size-4" />Slide settings</DropdownMenuItem>}
+					</DropdownMenuContent>
+				</DropdownMenu>
 				{splitUsable && (
 					<Tip label="Collapse editor — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse editor" onClick={() => collapseFromHeader('a')}><PanelLeftClose className="size-4" /></Button></Tip>
 				)}
 			</div>
 			)}
+			{find && (
+				<React.Suspense fallback={null}>
+					<FindBar
+						seed={find.seed}
+						seedKey={find.n}
+						getTarget={findTarget}
+						targetKey={`${editMode}#${findView}`}
+						onClose={() => {
+							setFind(null);
+							// Back to the text the author was searching.
+							(document.querySelector('#studio-pane-editor .cs-host .ProseMirror, #studio-pane-editor .cm-content') as HTMLElement | null)?.focus({ preventScroll: true });
+						}}
+					/>
+				</React.Suspense>
+			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
 				{/* Held on a phone until the first slide, exactly as the Editor below: ProseMirror is the largest
 				    piece of startup the first slide does not need, and Compose is now the default (2026-11-10). */}
-				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
+				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={setLayoutReq} onFind={openFind} onView={onEditorView} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} latestValue={latestSource} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionSamples={completionSamples} completionLoading={catalogLoading} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} onFind={openFind} onView={onEditorView} value={source} latestValue={latestSource} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionSamples={completionSamples} completionLoading={catalogLoading} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too
@@ -7998,19 +8101,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		</div>
 	);
 
-	// Undo and Redo for a screen with no ⌘Z: in the phone's tail, and before Present on a touch-first
-	// tablet (an iPad with no keyboard), where a reload leaves the system's own undo (shake, the
-	// keyboard bar's undo key) nothing to send: WebKit offers it only while its own undo list holds
-	// something (docs/scripts/ios-safari/undo-probe.js, measured in Mobile Safari 26.5).
-	// The tablet pair shows by CSS alone (`(hover: none) and (pointer: coarse)`), the same class the pre-paint skeleton
-	// uses (StudioChromeSkeleton TOUCH_FIRST), so the two rows match at hand-off and no media hook rides the eager
-	// bundle. Elsewhere it is display:none, which keeps it out of the accessibility tree as well.
-	const historyButtons = (className: string) => (
-		<>
-			<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className={className} disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
-			<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className={className} disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
-		</>
-	);
 	const feedbackButton = (
 		<Tip label="Send feedback">
 			<Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>
@@ -8624,7 +8714,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{(LivePill) => <LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />}
 					</PanelLoader>
 				)}
-				{!mobile && historyButtons('hidden [@media(hover:none)_and_(pointer:coarse)]:inline-flex')}
 				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
@@ -8679,6 +8768,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onFixAll={fixAllIssues}
 						fixableIssues={fixableIssues}
 						onVersionHistory={() => setHistoryOpen(true)}
+						onFind={openFind}
 						onLenses={() => setLensesOpen(true)}
 						onLive={openLive}
 						demoActive={demoActive}
@@ -9186,6 +9276,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			)}
 			{insertMounted && <SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />}
+			{layoutMounted && (
+				<React.Suspense fallback={null}>
+					<LayoutMenuHost
+						req={layoutReq}
+						onDone={() => setLayoutReq(null)}
+						compose={composeRef}
+						slides={slides}
+						components={components}
+						frontMatter={previewFm ?? ''}
+						axes={reshapeAxes}
+						phone={mobile}
+						preview={{ options: deckOptions, paletteOverride: preview.paletteOverride, extraTheme: preview.extraTheme, modeOverride: preview.modeOverride, extraCss: previewExtraCss }}
+					/>
+				</React.Suspense>
+			)}
 			{paneMounted && <SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />}
 			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
 			    Files grays out anything `accept` does not name, and `.lattice` has no
@@ -9435,3 +9540,4 @@ function TextRow({ label, desc, help, find, value, placeholder, onCommit }: { la
 		</Field>
 	);
 }
+

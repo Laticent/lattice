@@ -81,6 +81,18 @@
     "trajectory",
     "spotlight"
   ],
+  "variantAxes": [
+    {
+      "label": "Layout",
+      "exclusive": true,
+      "members": [
+        "ops",
+        "compliance",
+        "trajectory",
+        "spotlight"
+      ]
+    }
+  ],
   "slots": {
     "title": {
       "selector": "h2",
