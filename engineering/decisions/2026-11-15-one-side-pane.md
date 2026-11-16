@@ -221,6 +221,16 @@ Each line names the guard. A change to panes re-checks every one.
 - Every dock shares `DOCK` = min 280 / default 320 / max 480; the editor and preview floor at 300 and
   fold to a 46px rail (`dock-layout.ts`, `preview-rect.ts`). Guard: `e2e/studio-dock-sizing.spec.ts`,
   rewritten here to pin the one-pane contract at 1100, 1280, 1440, 1920 and 2560.
+- A window resize puts the widths back once it settles (`use-resizable-split.ts`, the resize sync). The panels are
+  sized in percentages and clamped at their px floors, so a dock pushed to 280 in a narrow window used to keep that
+  larger share when the window grew: 371px at 1440 instead of 320. A panel set nobody dragged now returns to the
+  ideal layout; a set the person dragged (any divider in it, the editor|preview one included) returns to its saved
+  shares, which the library clamps to the floors again, so a dragged width holds at the window width it was dragged
+  at and scales with the window otherwise. A drag made while a side was collapsed is not saved, and the sync leaves
+  that set as it is. The sync skips a drag in progress, builds its target from the group's own ids (a stored layout
+  with a stray key used to throw "Invalid N panel layout"), and fires `lattice:split-resize-settled` when it has run.
+  ⌘K "Reset split" clears the saved set, so the next settled resize lays the docks out at their ideal widths, as a
+  reload already did. Guards: the four resize tests in `e2e/studio-dock-sizing.spec.ts`.
 - The pre-paint shell clamps a restored split by the SAME minimums (`preview-rect.ts`). A saved layout
   for the old four-panel key can no longer be reached and must not leak in. Guard: the "returning
   visitor with a saved TWO-dock layout" test.

@@ -1,1 +1,2 @@
 - Studio: every docked pane (Settings, Coach, Chat, Live, Reader views, Library) now sits on one background, the same as their phone and tablet sheets, so the side column no longer changes tint when you switch panes.
+- Studio: after the window shrinks and grows again, the side panels go back to the widths you left them at, or to the defaults if you never dragged a divider (a docked pane used to come back at 371px instead of 320).
