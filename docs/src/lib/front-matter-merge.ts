@@ -5,8 +5,10 @@
 import frontMatterKey from '../../../lib/core/front-matter-key.js';
 import { frontMatterBlock, innerFrontMatter } from './front-matter';
 
-/** A top-level key line: a bare key, or a quoted one (`"theme": …`), which YAML reads the same. */
-const KEY_LINE = /^(?:"([^"\n]+)"|'([^'\n]+)'|([A-Za-z_][\w-]*))[ \t]*:/;
+/** A top-level key line: a quoted key (`"theme": …`, which YAML reads as `theme`), or any column-0 text before a
+ *  colon that YAML would read as a key (`theme:`, `$schema:`, `x.y:`). Every one is an entry of its own, so a key
+ *  Lattice does not know is kept whole rather than swallowed by the key above it (the checker on 34f18d3c). */
+const KEY_LINE = /^(?:"([^"\n]+)"|'([^'\n]+)'|([^\s#\-"'][^:\n]*?))[ \t]*:(?:[ \t]|$)/;
 const keyOf = (line: string): string | null => {
 	const m = KEY_LINE.exec(line);
 	return m ? (m[1] ?? m[2] ?? m[3]) : null;
@@ -34,7 +36,7 @@ type Entry = { key: string; pre: string[]; body: string[] };
  * ride in `head`. The checker on #3234 found the earlier, indentation-only rule dropping column-0 lists and cutting
  * a nested map at its first blank line.
  */
-function frontMatterEntries(inner: string): { head: string[]; entries: Entry[] } {
+function frontMatterEntries(inner: string): { head: string[]; entries: Entry[]; tail: string[] } {
 	const head: string[] = [];
 	const entries: Entry[] = [];
 	for (const line of inner.split('\n')) {
@@ -50,16 +52,23 @@ function frontMatterEntries(inner: string): { head: string[]; entries: Entry[] }
 		} else if (entries.length) entries[entries.length - 1].body.push(line);
 		else head.push(line);
 	}
-	return { head, entries };
+	// The notes after the LAST key are the block's own, not that key's: replacing it must not delete them.
+	const last = entries[entries.length - 1];
+	let cut = last ? last.body.length : 0;
+	while (last && cut > 1 && isNote(last.body[cut - 1])) cut--;
+	const tail = last ? last.body.splice(cut) : [];
+	return { head, entries, tail };
 }
 
-/** An entry's VALUE, for comparison: a one-line value read by the engine's own scalar rule (`frontMatterScalar`, so
- *  `cuoio`, `'cuoio'` and `cuoio  # mine` are one value), a longer one by its lines with spacing evened out. */
+/** An entry's VALUE, for comparison. A one-line value is read by the engine's own scalar rule (`frontMatterScalar`, so
+ *  `cuoio`, `'cuoio'` and `cuoio  # mine` are one value). A longer one is its lines EXACTLY, with only trailing spaces
+ *  and blank lines evened out: inside a `style: |` body a `#` is CSS (`color: #111`) and indentation is structure,
+ *  so neither may be stripped (the checker on 34f18d3c: a real CSS change compared equal and was never applied). */
 function entryValue(e: Entry): string {
 	const first = e.body[0].slice(e.body[0].indexOf(':') + 1);
-	const rest = e.body.slice(1).filter((l) => l.trim() && !/^[ \t]*#/.test(l));
+	const rest = e.body.slice(1).filter((l) => l.trim());
 	if (!rest.length) return frontMatterKey.frontMatterScalar(first);
-	return [first.trim(), ...rest.map((l) => l.replace(/[ \t]+#.*$/, '').replace(/[ \t]+/g, ' ').trimEnd())].join('\n');
+	return [first.trim(), ...rest.map((l) => l.trimEnd())].join('\n');
 }
 
 /**
@@ -104,7 +113,7 @@ export function mergeFrontMatterBlocks(deckBlock: string, pastedBlock: string): 
 		changed.push(e.key);
 	}
 	if (!changed.length) return { block: deckBlock, changed };
-	const inner = [...deck.head, ...deck.entries.flatMap((e) => [...e.pre, ...e.body])].join('\n').replace(/\n+$/, '');
+	const inner = [...deck.head, ...deck.entries.flatMap((e) => [...e.pre, ...e.body]), ...deck.tail].join('\n').replace(/\n+$/, '');
 	const open = /^---[ \t]*\r?\n/.exec(deckBlock)?.[0] ?? '---\n';
 	const close = deckBlock.slice(open.length + deckInner.length);
 	return { block: open + inner + close, changed };

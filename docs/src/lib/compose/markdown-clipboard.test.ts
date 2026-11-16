@@ -151,6 +151,9 @@ describe('markdownToSlice', () => {
 		expect(isSettingsBlock('themee: x\npaginate: true')).toBe(true);
 		expect(isSettingsBlock('\n# Plan\n\nGoal: ship Q3\n')).toBe(false);
 		expect(isSettingsBlock('Owner: Ana')).toBe(false);
+		// A flow map closed at column 0, and a bare list dash (the checker on 34f18d3c).
+		expect(isSettingsBlock('theme: cuoio\npptx: {\n  a: 1\n}')).toBe(true);
+		expect(isSettingsBlock('keywords:\n-\n- b\ntheme: cuoio')).toBe(true);
 		expect(isSettingsBlock('theme: cuoio\nSome prose here.')).toBe(false);
 		expect(isSettingsBlock('')).toBe(false);
 	});

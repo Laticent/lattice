@@ -133,7 +133,8 @@ export function isSettingsBlock(inner: string): boolean {
 	let known = false;
 	for (const line of inner.split('\n')) {
 		if (HEADING_LINE.test(line)) return false;
-		if (!line.trim() || /^#/.test(line) || /^[ \t]+\S/.test(line) || /^-[ \t]/.test(line)) continue;
+		// Blank, comment, indented, a list item (`- a`, or a bare `-`), or the column-0 close of a flow map or list.
+		if (!line.trim() || /^#/.test(line) || /^[ \t]+\S/.test(line) || /^-(?:[ \t]|$)/.test(line) || /^[\]}]/.test(line)) continue;
 		const m = SETTING_LINE.exec(line);
 		const key = m ? (m[1] ?? m[2] ?? m[3]) : null;
 		if (key && (key.startsWith('_') || deckSettings.isDeckSettingKey(key, pluginRegisters.PLUGIN_REGISTERS))) known = true;

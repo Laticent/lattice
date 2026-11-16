@@ -128,15 +128,19 @@ settings so it costs no startup bytes):
   key move to that key;
 - each top-level key the paste carries (bare or quoted) replaces the deck's entry whole, in place, keeping the
   deck's comment above it; a key only the paste carries is added; a key only the deck carries keeps its bytes;
-- values are compared, not text (a one-line value by the engine's own `frontMatterScalar`): a comment or extra
-  spacing is not a change, and the deck keeps its line; a key the paste repeats counts once, by its last value;
+- values are compared, not text: a one-line value by the engine's own `frontMatterScalar` (a trailing comment or
+  extra spacing is not a change, and the deck keeps its line), a block value by its exact lines (inside `style: |`
+  a `#` is CSS and indentation is structure); a key the paste repeats counts once, by its last value;
+- any column-0 key YAML would read (`$schema:`, `x.y:`) is an entry of its own, and the notes after the last key
+  are the block's, so replacing a key never deletes a key or a comment beside it;
 - the block always closes with `---` on its own line, whatever the pasted text ended with;
 - **settings or slides?** A leading `---` block is settings (`isSettingsBlock`) when at least one key is one the
   engine knows (`lib/core/deck-settings.js`, with the plugins' registers and the `_` keys) and no line is
   Markdown: every line is a key (known or not), an indented line, a list item, a comment or a blank, and none is a
   heading. Otherwise it is slides copied from the middle of a deck, starting at a break: the text is rebuilt so its
   closing `---` stays a break rather than a setext underline. "Goal: ship Q3" names no setting, and a heading
-  marks a slide. The one ambiguity, a heading-shaped YAML comment (`# brand deck`), resolves toward the visible
+  marks a slide. The one ambiguity, a heading-shaped YAML comment (`# brand deck`) anywhere in the block, resolves
+  toward the visible
   failure: those settings paste as slide text the author can see and undo, where the opposite reading lost a slide
   without a word;
 - the merge rides the same transaction as the slides, so one Undo takes back both;
@@ -160,8 +164,10 @@ sticks); no notice for a paste the guard refused; a drag that carries HTML besid
 Review rounds on this half: a maker-checker review of the first cut (a run of slides starting at `---` lost its
 first slide), the card's grader (the first fix still passed any "Word: text" line), and a second checker (column-0
 lists dropped, nested maps cut at a blank line, plugin keys refused, text compared instead of values, repeated keys
-not idempotent, a closing `---` read as a setext underline). Every finding has a unit test that fails on the code
-before its fix.
+not idempotent, a closing `---` read as a setext underline), and a third (the value comparison stripping `#` and
+indentation inside block values, a trailing comment and unknown key lines deleted with the last key). Every finding
+has a unit test that fails on the code before its fix. Measured on the repo's 444 decks with front matter: 4 test
+fixtures carry a heading-shaped comment mid-block and would paste as slide text.
 
 ## 7. Evidence
 

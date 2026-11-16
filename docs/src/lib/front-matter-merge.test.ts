@@ -59,6 +59,23 @@ describe('mergeFrontMatterBlocks: the shapes real decks write', () => {
 	});
 });
 
+// The checker on 34f18d3c (#3234). Each was measured wrong on that commit.
+describe('mergeFrontMatterBlocks: a block value is compared exactly, and nothing of the deck is lost', () => {
+	it('applies a real change inside a block value: `#` there is CSS, and indentation is structure', () => {
+		expect(mergeFrontMatterBlocks('---\ntheme: cuoio\nstyle: |\n  h1 { color: #111; }\n---\n\n', '---\nstyle: |\n  h1 { color: #f00; }\n---').changed).toEqual(['style']);
+		expect(mergeFrontMatterBlocks('---\nheader: |\n  # Acme\n---\n\n', '---\nheader: |\n  # Beta\n---').changed).toEqual(['header']);
+		expect(mergeFrontMatterBlocks('---\npptx:\n  a:\n    b: 1\n---\n\n', '---\npptx:\n  a:\n  b: 1\n---').changed).toEqual(['pptx']);
+	});
+
+	it("keeps the deck's comment after its last key when that key is replaced", () => {
+		expect(mergeFrontMatterBlocks('---\ntheme: indaco\n# keep me\n---\n\n', '---\ntheme: cuoio\n---').block).toBe('---\ntheme: cuoio\n# keep me\n---\n\n');
+	});
+
+	it('keeps a key line Lattice does not know as an entry of its own', () => {
+		expect(mergeFrontMatterBlocks('---\ntheme: indaco\nx.y: 1\n$schema: ./s.json\n---\n\n', '---\ntheme: cuoio\n---').block).toBe('---\ntheme: cuoio\nx.y: 1\n$schema: ./s.json\n---\n\n');
+	});
+});
+
 describe('frontMatterKeys', () => {
 	it('lists each key once, quoted or bare', () => {
 		expect(frontMatterKeys('---\n# c\n"theme": a\ntheme: b\nstyle: |\n  x: 1\n---\n')).toEqual(['theme', 'style']);
