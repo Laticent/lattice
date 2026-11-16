@@ -2,7 +2,7 @@
 origin: 3259
 priority: P1
 recorded: 2026-11-16
-area: export
+area: engine
 severity: high
 swimlane: engineering/decisions/2026-11-16-fumetto-popover-library.md §11
 deferred: blocked — the owner confirms §10 items 4 to 7 (name, byte budgets, author switch shape, Studio migration) before slice 1; the build is five slices, too large for the design PR
