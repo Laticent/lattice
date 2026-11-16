@@ -35,8 +35,13 @@ test('a deck that only NAMES the tag in prose, or has no chart detail, ships non
   }
   // The PLAYER is byte-identical: the two decks differ in their slides (and the Read view's copy of
   // them), never in a script the player runs. The full-file golden is test/unit/export/html-player.test.js.
-  const scripts = (h) => [...h.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).filter((t) => !t.startsWith('{'));
-  assert.deepEqual(scripts(prose), scripts(plain));
+  // Parsed, not pattern-matched (CodeQL: a regex for <script> misses <SCRIPT> and friends); scripts are
+  // read, never run. Data blocks (JSON) carry the deck itself, so only executable scripts are compared.
+  const scripts = (h) =>
+    [...new JSDOM(h).window.document.querySelectorAll('script')].filter((el) => !/json/i.test(el.type)).map((el) => el.textContent);
+  const ran = scripts(plain);
+  assert.ok(ran.length > 0, 'the comparison is not vacuous');
+  assert.deepEqual(scripts(prose), ran);
 });
 
 test('the inlined reveal mounts, makes the chart one Tab stop, and a digit opens its card', async () => {
@@ -60,9 +65,7 @@ test('the inlined reveal mounts, makes the chart one Tab stop, and a digit opens
   const svg = d.querySelector('.lp-frame.lp-active .funnel-svg');
   // JSDOM lays nothing out, so the reveal sees a zero-width chart and leaves it alone; a real
   // browser gives it a box. Give it one and re-run the slide hook the player calls on every turn.
-  w.SVGElement.prototype.getBoundingClientRect = function () {
-    return { x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 60, width: 100, height: 60, toJSON() {} };
-  };
+  w.SVGElement.prototype.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 60, width: 100, height: 60, toJSON() {} });
   d.querySelector('#lp-next')?.click();
   d.querySelector('#lp-prev')?.click();
   await clock.settle();
