@@ -5,7 +5,7 @@ recorded: 2026-11-15
 area: chart
 severity: medium
 swimlane: engineering/decisions/2026-10-28-fit-everywhere-model.md
-deferred: large — a layout fix in a separate component, with its own demo deck and review (HARD RULE #17); fit debt that predates #3190 (all rising on Nov 13)
+deferred: off-path — a pre-existing clip in a separate component this diff does not touch; it was already rising on Nov 13, before #3190, and gets its own PR, demo deck and review (#17)
 source: https://github.com/Laticent/lattice/pull/3226
 ---
 
