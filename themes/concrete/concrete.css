@@ -102,12 +102,12 @@
    * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
   --pass-mark: light-dark(#00381B, #516E5A);
-  --warn-mark: light-dark(#593800, #9D6939);
+  --warn-mark: light-dark(#5A3700, #9D6939);
   --fail-mark: light-dark(#73000B, #B94943);
-  --pass-vivid-mark: light-dark(#00381B, #2C7449);
-  --warn-vivid-mark: light-dark(#523A00, #AA6416);
-  --fail-vivid-mark: light-dark(#71000A, #C33F3B);
-  --warn-signal-mark: light-dark(#FFBC61, #D2A53B);
+  --pass-vivid-mark: light-dark(#003A1C, #2C7449);
+  --warn-vivid-mark: light-dark(#5A3700, #AA6416);
+  --fail-vivid-mark: light-dark(#73000B, #C33F3B);
+  --warn-signal-mark: light-dark(#FFBC68, #D2A53B);
   --fail-signal-mark: light-dark(#FFB5AD, #EE857C);
   --info-mark: light-dark(#004E5C, #3D7D8C);
   --info-vivid-mark: light-dark(#004E5C, #008096);
@@ -122,13 +122,13 @@
   --info-on-mark: light-dark(#B8B8B5, #FFFFFF);
   --mute-on-mark: light-dark(#B8B8B5, #FFFFFF);
   --pass-edge-mark: light-dark(#00381B, var(--pass));
-  --warn-edge-mark: light-dark(#593800, var(--warn));
+  --warn-edge-mark: light-dark(#5A3700, var(--warn));
   --fail-edge-mark: light-dark(#73000B, var(--fail));
   --info-edge-mark: light-dark(#004E5C, var(--info));
   --mute-edge-mark: light-dark(#344B51, var(--mute));
-  --pass-vivid-edge-mark: light-dark(#00381B, var(--pass));
-  --warn-vivid-edge-mark: light-dark(#523A00, var(--warn));
-  --fail-vivid-edge-mark: light-dark(#71000A, var(--fail));
+  --pass-vivid-edge-mark: light-dark(#003A1C, var(--pass));
+  --warn-vivid-edge-mark: light-dark(#5A3700, var(--warn));
+  --fail-vivid-edge-mark: light-dark(#73000B, var(--fail));
   --info-vivid-edge-mark: light-dark(#004E5C, var(--info));
   /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
    * (risk-matrix's critical band, a state-chart status row's chip). */

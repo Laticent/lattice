@@ -10,5 +10,8 @@
 - **Status fills are no longer dimmed on top.** On a dark slide the risk matrix's bands and key, and a slope chart's
   signal lines, wear the status fill as the theme curated it instead of one taken 28-42% toward the slide, on every
   palette, the `a11y-*` ones included.
+- **Under the tone finish a status reads beside its category shades.** A status keeps its own hue under tone at one
+  level, now 40% on a light slide and 80% on a dark one (was 30% and 35%), so a tone status chart no longer looks faded
+  next to its pie, and no longer all but vanishes on a dark slide.
 - **Concrete's light status rows are a quieter tint** (10%), so a status disc stands off its row on concrete's
   mid-gray slide.

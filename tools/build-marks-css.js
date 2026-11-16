@@ -81,6 +81,15 @@ const TONE_PIE_D = [100, 83, 66, 50, 36, 28, 22, 18];
 // engineering/decisions/2026-09-07-chart-design-language/); the two modes differ.
 const TONE_TEXT = [30, 27, 24, 21, 18, 15, 12, 9];
 const TONE_TEXT_D = [35, 31, 28, 24, 21, 17, 14, 10];
+/**
+ * TONE'S ONE STATUS LEVEL, per mode (#2908: one status level per finish). A status keeps its own hue under tone; this
+ * is how strongly. It was the text level (30% light, 35% dark), a pale wash beside tone's category shades (which start at
+ * 92%), and on a dark slide a wash that all but vanished. The 2026-11-16 status triplets made each status a curated
+ * solid that sits with the categories, so tone now takes it further: 40% on light (the most at which the heading ink keeps
+ * 4.5:1 on every theme; concrete's mid-gray slide and laguna's done set it), 80% on dark, where the text is the status's
+ * own ink (`--finish-status-k-d`). tools/chart-finish-reach.mjs holds every text run. engineering/decisions/2026-11-16-status-triplets.md §4.
+ */
+const TONE_STATUS = [40, 80];
 
 /** The levels, per finish (finish-coherence.md §Levels). `[light, dark]` pairs. */
 const F = {
@@ -196,10 +205,13 @@ const textInk = (finish) => (finish === 'pigment' ? 'var(--chart-on-mark)' : 'va
  * the theme's curated solid, so its text is that status's curated ink, `--status-on-ink` (set per member from `data-s`,
  * chart-family.styles.css, and `--chart-on-mark` on the frame, so every element has one). Under etch and tone a status
  * body is a pale wash like a category's, so its text is the finish's own ink, `--text-heading`. The finish picks with a
- * PERCENT, not a fallback chain (this file emits none, marks-css.test.js): `--finish-status-k` is 0% under pigment and
- * 100% under etch and tone, and a color-mix at 0% or 100% IS the one color it names. One expression, every finish.
+ * PERCENT, not a fallback chain (this file emits none, marks-css.test.js): `--finish-status-k` (light) and
+ * `--finish-status-k-d` (dark) are 0% under pigment, 100% under etch, and under tone 100% on light (a pale wash) and 0%
+ * on dark, where tone's status body is a strong mix of the fill (TONE_STATUS) and so takes the status's own ink. A
+ * color-mix at 0% or 100% IS the one color it names. One expression, every finish.
  */
-const statusInk = () => 'color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink))';
+const statusInk = () => 'light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), '
+  + 'color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink)))';
 const hueOf = (n) => `var(--chart-cat-${n}-hue)`;
 const inkOf = (n) => `var(--chart-cat-${n}-ink)`;
 const mix = (hue, pct) => (pct === '100%' ? hue : `color-mix(in oklab, ${hue} ${pct}, ${BASE})`);
@@ -392,7 +404,7 @@ const T = {
   hue: (n) => `--finish-hue-${n}`, body: (n) => `--finish-body-${n}`, bodyD: (n) => `--finish-body-d-${n}`,
   text: (n) => `--finish-text-${n}`, textD: (n) => `--finish-text-d-${n}`,
   layer: (n) => `--finish-layer-${n}`, layerInk: (n) => `--finish-layer-ink-${n}`,
-  status: '--finish-status', statusD: '--finish-status-d', statusText: '--finish-status-text', statusTextD: '--finish-status-text-d', statusK: '--finish-status-k',
+  status: '--finish-status', statusD: '--finish-status-d', statusText: '--finish-status-text', statusTextD: '--finish-status-text-d', statusK: '--finish-status-k', statusKD: '--finish-status-k-d',
   rampLo: '--finish-ramp-lo', rampK: '--finish-ramp-k', rampDLo: '--finish-ramp-d-lo', rampDK: '--finish-ramp-d-k',
   rampTextLo: '--finish-ramp-text-lo', rampTextK: '--finish-ramp-text-k',
   rampTextDLo: '--finish-ramp-text-d-lo', rampTextDK: '--finish-ramp-text-d-k',
@@ -415,6 +427,10 @@ function finishTokens(name) {
     `${T.statusBase}: ${STATUS_BASE[name]}`,
     `${T.ink}: ${textInk(name)}`,
     `${T.statusK}: ${name === 'pigment' ? '0%' : '100%'}`,
+    // Tone's dark status body is a strong mix of its fill (TONE_STATUS), so its text is that status's own ink, curated for
+    // the fill (white on a brand theme, near-black on an a11y palette's bright dark face); on light it is a pale enough
+    // wash for the heading ink.
+    `${T.statusKD}: ${name === 'etch' ? '100%' : '0%'}`,
     `${T.edge}: ${num(f.edge)}`,
     `${T.edgeText}: ${num(f.edgeBackdrop)}`,
     // 1 keeps a pill's, bar's and key tile's border; 0 drops it, so an ink edge drawn as an inset ring has no halo outside it.
@@ -440,8 +456,8 @@ function finishTokens(name) {
   // marks share one strength: a progress bar has no text on it, but nothing about it earns a louder status than a gantt
   // bar that does, so the plain level IS the text level (owner's rule on #2908: stronger only for an evidenced reason with
   // no alternative). Pigment's two levels were already one (100%).
-  d.push(`${T.status}: ${tone ? TONE_TEXT[0] : f.backdrop[0]}%`, `${T.statusD}: ${tone ? TONE_TEXT_D[0] : f.backdrop[1]}%`);
-  d.push(`${T.statusText}: ${tone ? TONE_TEXT[0] : f.backdrop[0]}%`, `${T.statusTextD}: ${tone ? TONE_TEXT_D[0] : f.backdrop[1]}%`);
+  d.push(`${T.status}: ${tone ? TONE_STATUS[0] : f.backdrop[0]}%`, `${T.statusD}: ${tone ? TONE_STATUS[1] : f.backdrop[1]}%`);
+  d.push(`${T.statusText}: ${tone ? TONE_STATUS[0] : f.backdrop[0]}%`, `${T.statusTextD}: ${tone ? TONE_STATUS[1] : f.backdrop[1]}%`);
   d.push(`${T.rampLo}: ${f.ramp[0]}%`, `${T.rampK}: ${f.ramp[1]}`);
   // A text-free ramp on a dark slide: tone lifts its floor, so a map's low regions stand off the navy land (the tone audit).
   d.push(`${T.rampDLo}: ${(f.rampD || f.ramp)[0]}%`, `${T.rampDK}: ${(f.rampD || f.ramp)[1]}`);
@@ -1138,4 +1154,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { build, F, KANBAN_CODE_CAP, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };
+module.exports = { build, F, KANBAN_CODE_CAP, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, TONE_STATUS, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };

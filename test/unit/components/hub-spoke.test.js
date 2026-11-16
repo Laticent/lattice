@@ -815,7 +815,7 @@ describe('hub-spoke — icon ink under a chart finish', () => {
     assert.match(decl(bodyOf(MOVERS, `.hub-spoke-icon${SLOTS}`), '--hs-icon-ink'), /^light-dark\(color\(from var\(--finish-mark-body-l\) xyz-d65 [\s\S]*?\), color\(from var\(--finish-mark-body-d\) xyz-d65 /, 'etch and tone, every slot: each arm reads its own level');
     // A STATUS disc under pigment is the theme's status solid, so its icon takes that status's own ink (THE STATUS
     // TRIPLET, engineering/decisions/2026-11-16-status-triplets.md), picked by the finish's percent: 0% under pigment.
-    assert.equal(decl(bodyOf(PIGMENT, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), 'color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink))', 'pigment, a status');
+    assert.equal(decl(bodyOf(PIGMENT, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), 'light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink)))', 'pigment, a status');
     assert.match(decl(bodyOf(MOVERS, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), /var\(--hs-state-hue\)/, 'etch and tone, a status');
   });
 

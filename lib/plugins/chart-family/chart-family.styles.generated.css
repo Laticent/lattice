@@ -16,6 +16,7 @@ figure.marks-pigment,
   --finish-status-base: var(--chart-cat-base);
   --finish-ink: var(--chart-on-mark);
   --finish-status-k: 0%;
+  --finish-status-k-d: 0%;
   --finish-edge: 1;
   --finish-edge-text: 1;
   --finish-border: 1;
@@ -98,6 +99,7 @@ figure.marks-etch,
   --finish-status-base: var(--bg);
   --finish-ink: var(--text-heading);
   --finish-status-k: 100%;
+  --finish-status-k-d: 100%;
   --finish-edge: 2.6;
   --finish-edge-text: 3;
   --finish-border: 0;
@@ -180,6 +182,7 @@ figure.marks-tone,
   --finish-status-base: var(--bg);
   --finish-ink: var(--text-heading);
   --finish-status-k: 100%;
+  --finish-status-k-d: 0%;
   --finish-edge: 1;
   --finish-edge-text: 2.5;
   --finish-border: 0;
@@ -239,10 +242,10 @@ figure.marks-tone,
   --finish-text-d-8: 29%;
   --finish-layer-8: 0.074;
   --finish-layer-ink-8: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg));
-  --finish-status: 30%;
-  --finish-status-d: 35%;
-  --finish-status-text: 30%;
-  --finish-status-text-d: 35%;
+  --finish-status: 40%;
+  --finish-status-d: 80%;
+  --finish-status-text: 40%;
+  --finish-status-text-d: 80%;
   --finish-ramp-lo: 10%;
   --finish-ramp-k: 0.82;
   --finish-ramp-d-lo: 40%;
@@ -444,8 +447,8 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.state-node, .sta
   background: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-status-base))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * var(--finish-edge-text)) var(--fill-ink) !important;
   --chart-ring: calc(var(--state-signal-w) * var(--finish-edge-text)) !important;
-  color: color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)) !important;
-  --state-node-ink: color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)) !important;
+  color: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
+  --state-node-ink: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -454,8 +457,8 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.state-node, .sta
   background: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-base-d))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * var(--finish-edge-text)) var(--fill-ink) !important;
   --chart-ring: calc(var(--state-signal-w) * var(--finish-edge-text)) !important;
-  color: color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)) !important;
-  --state-index-ink: color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)) !important;
+  color: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
+  --state-index-ink: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -528,7 +531,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.fc-node[data-s]:not(
   background: light-dark(color-mix(in oklab, var(--fc-hue) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--fc-hue) var(--finish-status-text-d), var(--finish-status-base))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * var(--finish-edge-text)) var(--fc-hue-mark) !important;
   --chart-ring: calc(var(--state-signal-w) * var(--finish-edge-text)) !important;
-  color: color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)) !important;
+  color: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -537,7 +540,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.fc-node:not([data-s]
   background: light-dark(color-mix(in oklab, var(--fc-hue) var(--finish-status-text), var(--finish-base)), color-mix(in oklab, var(--fc-hue) var(--finish-status-text-d), var(--finish-base-d))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * var(--finish-edge-text)) var(--fc-hue-mark) !important;
   --chart-ring: calc(var(--state-signal-w) * var(--finish-edge-text)) !important;
-  color: color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)) !important;
+  color: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -546,7 +549,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.chart-status[data-s]
   background: light-dark(color-mix(in oklab, var(--chart-status-hue) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--chart-status-hue) var(--finish-status-text-d), var(--finish-status-base))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * var(--finish-edge-text)) var(--chart-status-ink) !important;
   --chart-ring: calc(var(--state-signal-w) * var(--finish-edge-text)) !important;
-  color: color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)) !important;
+  color: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
 }
 }
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.waterfall-bar[data-s="up"]),
@@ -592,7 +595,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(polygon.chart-sig
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-bar-label[data-pos="inside"]:not([data-s="deferred"]), .state-node-group:not([data-text]) > .state-label-t:not([data-s="deferred"]), .state-index-t[data-s], .state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t, .fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-bar-label[data-pos="inside"]:not([data-s="deferred"]), .state-node-group:not([data-text]) > .state-label-t:not([data-s="deferred"]), .state-index-t[data-s], .state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t, .fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name) {
-  fill: color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)) !important;
+  fill: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
 }
 }
 
@@ -686,7 +689,7 @@ figure:is(.marks-etch, .marks-tone) :where(.hub-spoke-icon:is([data-hue="1"], [d
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-pigment :where(.hub-spoke-icon[data-s]),
 figure.marks-pigment :where(.hub-spoke-icon[data-s]) {
-  --hs-icon-ink: color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)) !important;
+  --hs-icon-ink: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {

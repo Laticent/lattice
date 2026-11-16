@@ -94,6 +94,14 @@ fill under the slide's paper at 4.5:1 cannot be a bright amber. Concrete keeps i
 entry waives both the full spread (it holds 0.02) and the reads-red floor (its blocked, `#73000B`, sits at L 0.35), since
 its mid-gray slide leaves no lighter fill that clears 4.5:1 against every surface.
 
+**The light hues are banded, as the dark ones are.** A third scoring still put cuoio's, mustard's and burgundy's light
+at risk at khaki (82-84 degrees, anchored on a gold accent) and their light trio at olive-black / khaki / oxblood. The
+owner set the bar: no worse than `main` (scored on the same rubric: light 6.5, dark 6), aiming for 9. So the light face now
+holds each status inside the chart solids' bands too (`LIGHT_BAND`): done 120-165, at risk 45-70 (a gold at most, not
+khaki), blocked 20-32, pilot 200-255 (out to a theme's own brand blue; pilot is not in the colorblind trio). The theme's
+own hue is kept wherever it falls inside its band. At risk now sits at about 70 degrees on every theme: amber has little
+room to differ between brands, and the per-theme character shows in done, blocked, pilot and each fill's depth instead.
+
 The `a11y-*` palettes curate none of this. The base declares each triplet token's default as the one-ink pair (the ink
 `--on-mark`, an edge in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it does
 not inherit onyx's triplet. Any theme the Studio derives keeps the pair too (follow-up below).
@@ -127,6 +135,14 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   set of vivid fills was "a fire-engine block" there. The bands, key and lines now wear `--state-X-hue` on both faces;
   critical keeps its one designed step (82% fail toward `--status-shade-mark`, as risk-matrix.styles.css has it).
   Washes stay washes: kanban cards, journey moods, bullet bands and state-chart groups are tints by design.
+
+- **Tone's one status level** (`tools/build-marks-css.js` `TONE_STATUS`). Under tone a status kept its own hue at the
+  text level, a 30% wash on light and 35% on dark, beside category shades that start at 92%: on light the status chart
+  read faded next to its pie, and on dark it all but vanished. It is now 40% on light, the most at which the heading
+  ink keeps 4.5:1 on every theme (concrete's mid-gray slide and laguna's done set it), and 80% on dark, still one level
+  per finish (#2908). On dark the body is a strong mix of the fill, so its text is the status's own ink
+  (`--finish-status-k-d`: white on a brand theme, near-black on an a11y palette's bright dark face); a first cut kept the
+  heading ink there and `tools/chart-finish-reach.mjs` found 192 text runs under 4.5:1, most on the a11y palettes.
 
 ## 5. Measured
 

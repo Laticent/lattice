@@ -68,6 +68,10 @@ const clampRed = (h) => Math.min(FAIL_RED[1], Math.max(FAIL_RED[0], ((h + 180) %
 /** On the light face at risk sits at least this much lighter than blocked, so the two exceptions never read as one
  * heavy mass (the order the dark face takes from `DARK_SPREAD`, and `main`'s light bars, where at risk is lightest). */
 const LIGHT_SPREAD = 0.06;
+/** The light face's status bands: the chart solids' bands, with a little more room where a theme's own hue still reads as
+ * its status (at risk up to a gold of 70 degrees, not the khaki past it; pilot out to a brand blue, which the colorblind
+ * trio does not include), so the statuses keep some of each theme's character. */
+const LIGHT_BAND = { ...HUE_BAND, warn: [45, 70], info: [200, 255] };
 /** On the light face blocked must READ red, not maroon or brown: a deep, saturated fill reads as a dark earth tone. */
 const LIGHT_RED = { L: 0.38, C: 0.14 };
 /** A light face that cannot take the full spread, named with the spread it does take and why; held by the audit. */
@@ -85,10 +89,10 @@ const ACCENT_MIN = 0.08;
  * Not a waiver: the audit holds the face to its own floor, so it can only improve. Fails on a stale entry.
  */
 const ACCENT_EXEMPT = Object.fromEntries(['burgundy', 'cuoio', 'mustard'].map((t) => [`${t}:light`, { floor: 0.04,
-  why: 'cuoio and mustard: at risk sits beside a gold accent, and at the full 0.08 floor it could only stay apart by going '
-    + 'darker, so blocked had to sink below it and read maroon-black rather than red. Burgundy: its accent is a deep red, '
-    + 'so a blocked that reads red (LIGHT_RED) sits 0.048 from it. At 0.04 both exceptions read as themselves; the drawn '
-    + 'mark and the pill still set a status apart from a decorative accent.' }]));
+  why: 'cuoio and mustard: their at risk, held to the amber band, still sits beside a gold accent; burgundy: its accent is '
+    + 'a deep red, so a blocked that reads red (LIGHT_RED) sits beside it. At the full 0.08 floor no trio that also keeps '
+    + 'half its colorblind separation lets both exceptions read as themselves; 0.04 is the reachable floor. The drawn mark '
+    + 'and the pill still set a status apart from a decorative accent.' }]));
 const accentFloor = (theme, face) => ACCENT_EXEMPT[`${theme}:${face}`]?.floor ?? ACCENT_MIN;
 /** A dark-face status fill off its slide: the chart solid's floor (lib/theme/chart-solids.js `darkTone`). */
 const DARK_OFF_SLIDE = 3.05;
@@ -285,7 +289,11 @@ function solve(theme, facts, baseline, keep) {
       // read calmer than the amber beside it.
       const chroma = (s) => (s === 'fail' ? Math.max(facts.anchor.fail.c, facts.anchor.warn.c) : facts.anchor[s].c);
       const C = (s) => Math.min(0.24, Math.max(s === 'fail' ? LIGHT_RED.C : 0, chroma(s)) * (s === 'mute' ? 1 : boost));
-      const hueOf = (s) => (s === 'warn' ? facts.anchor.warn.h + warnShift : s === 'fail' ? clampRed(facts.anchor.fail.h) : facts.anchor[s].h);
+      // The theme's own hue, held inside the chart solids' status bands, as on the dark face: an at-risk anchored on a
+      // gold accent reads khaki, and a blocked on a magenta reads as a category.
+      const inBand = (s, h) => { const [lo, hi] = LIGHT_BAND[s]; return Math.min(hi, Math.max(lo, h)); };
+      const hueOf = (s) => (s === 'mute' ? facts.anchor.mute.h : s === 'fail' ? clampRed(facts.anchor.fail.h)
+        : inBand(s, facts.anchor[s].h + (s === 'warn' ? warnShift : 0)));
       const cands = (s) => {
         const list = [];
         for (let L = 0.2; L <= 0.96; L += 0.005) {
