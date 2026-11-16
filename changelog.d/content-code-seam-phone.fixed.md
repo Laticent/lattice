@@ -1,2 +1,3 @@
-- On a phone, a slide whose body is one code block now splits the block between lines when it is too tall for the page, as a `code` slide does, instead of clipping its last lines.
-- On a phone, a diff block's `+` and `-` marks sit inside the code panel instead of half outside it.
+- On a phone, a slide whose body is one code block too tall for the page splits the block between lines, as a `code` slide does, instead of clipping its last lines. A block that fits stays whole.
+- On a phone, a diff block's `+` and `-` marks sit inside the code panel instead of half outside it, and no longer overprint a numbered block's line numbers.
+- A split whose note was folded under its last page, and then ran past that page, puts the note back on its own closing page instead of clipping.

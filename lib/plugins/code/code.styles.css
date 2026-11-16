@@ -82,7 +82,10 @@ section .hljs-strong { font-weight: 700; }
  * follows the theme; the +/- that starts the line carries the meaning without color. Each band runs
  * the panel's full width (an inline-block as wide as the line box), so a short line does not leave
  * a ragged edge. highlight.js wraps exactly one line's text in each span, never the newline. */
-section .hljs-addition, section .hljs-deletion { display: inline-block; min-width: 100%; }
+/* `text-indent: 0`, as `.lat-diff-mark` below: on a phone a numbered block's line hangs its continuation with a
+ * negative indent, and these inline-blocks inherited it, so the +/- and the first letters overprinted the line
+ * numbers (checker, 2026-11-16). */
+section .hljs-addition, section .hljs-deletion { display: inline-block; min-width: 100%; text-indent: 0; }
 section .hljs-addition {
   color: var(--syntax-inserted);
   background-color: color-mix(in srgb, var(--syntax-inserted) 14%, transparent);

@@ -400,3 +400,24 @@ describe('planFromFacts, members side by side (§17; checker, 2026-11-05)', () =
     assert.equal(run.fellBack, 0);
   });
 });
+
+// A FOLD THAT OVERFLOWS IS UNDONE FIRST. The plan folded a slide's beats onto its one body page (an estimate), the
+// page ran over, and a one-member plan has no room to tighten, so the slide went back whole and clipped (a content
+// slide of one short code block and its note; checker, 2026-11-16). The loop now sends the beats back to the closing
+// page, once, and keeps them there on every replan.
+test('a folded slide whose body overflows is unfolded before anything else, and stays unfolded', async () => {
+  const facts = [{ ...over('1', [706], 929), coda: 120 }];
+  const plans = [];
+  let n = 0;
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: Object.keys(plan) }; },
+    // The folded page runs 23px over; unfolded, it fits.
+    verify: async () => (n++ === 0 ? { 1: 23 } : {}),
+    foldable: async () => ['1'],
+  });
+  assert.deepEqual(plans[0]['1'], { sizes: [1], foldCoda: true }, 'the plan folds first');
+  assert.deepEqual(plans[1]['1'], [1], 'then unfolds');
+  assert.equal(run.fellBack, 0, 'and the slide is not sent back whole');
+  assert.deepEqual(run.plan['1'], [1], 'the fold pass after the loop does not fold it again');
+});
