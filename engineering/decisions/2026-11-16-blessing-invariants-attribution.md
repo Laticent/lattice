@@ -1,11 +1,11 @@
 ---
-status: proposed
+status: in-progress
 summary: Proposal for blessing that one human can sustain. Today a nightly bot finds drift on main and asks the owner afterward, record by record, and its bless PR waits for a person (#3118 sat from Nov 10). Proposed. (1) A handful of universal INVARIANTS (a new clip or overflow, a page added, removed or resized, a phone rule going inert, a component leaving the clipping roster, contrast under its floor) are never re-recorded automatically; a PR that breaks one on purpose declares it in an exception file the owner approves at merge, and the merge is the bless. (2) All other drift is ATTRIBUTED to the merge that caused it by rendering at merge commits, re-recorded one golden at a time, and the bless PR merges itself for every golden that is attributed and breaks no invariant. (3) The owner gets a DIGEST, not questions: a receipt on each PR showing what it actually moved, worst pages first. (4) Records, sanctions and the tools that measure them are FENCED so no PR or agent can re-record a regression away. (5) Drift no merge explains (runner, Dependabot, nondeterminism) is classed as platform drift and handled once, not nightly. Reviewed by the adversarial trio on 2026-11-16, whose findings reshaped the first draft (§9).
 ---
 
 # Blessing one human can sustain: invariants, attribution, receipts
 
-**Date:** 2026-11-16 · **Status:** proposed · **Scope:** how a change to what slides look like
+**Date:** 2026-11-16 · **Status:** approved by the owner 2026-11-16; rollout step 1 next · **Scope:** how a change to what slides look like
 becomes the new recorded truth: the committed goldens (`golden-bless.yml`), the oracles in
 `test/oracle/`, `SANCTIONED_CLIPS` in `tools/check-chart-fit.js`, and the ceilings in
 `docs/route-budget.json`. **Supersedes, if approved:** rollout step 4 of
@@ -180,6 +180,8 @@ Each step has a measured exit before the next starts.
 On the day step 1 starts, bless once to a fresh baseline, so the queue starts empty.
 
 ## 11. Decisions this needs from the owner (once)
+
+**Approved by the owner on 2026-11-16 ("i approve"), every item below.** Each rule-text change lands in the rollout step that makes it true, not before: CLAUDE.md rule 7 and the `workflow.md` Evidence sentence with step 1, the `exceptions` card line (HARD RULE #28) with step 2.
 
 - The design itself.
 - The CI checks it adds: the fence (§7), exception files (§3), and the attribution step (§4).
