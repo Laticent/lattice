@@ -351,7 +351,8 @@ the editor's `scrollIntoView` for the line before waiting on it (#3213).
 
 **Trap.** ProseMirror learns of a DOM selection only from the browser's queued `selectionchange`
 event. A test that sets a selection directly (`setBaseAndExtent`, `addRange`) leaves the editor
-with no selection until that event arrives, which can be late under load. A person's mouse or
+with no selection until that event arrives. #3260 never caught the trigger in a trace; a late event
+under load is the explanation that fits the symptom. A person's mouse or
 keyboard selection goes through ProseMirror's own handlers and never hits this.
 
 **Example.** `compose-refine.spec.ts:92` set a selection, then waited for the Refine button, which
