@@ -777,6 +777,18 @@ section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage > ul.
   --person-size: 17cqi;
 }
 
+/* `sides` on a square slide read in a hand (§24's selector). Each roster has half the slide, and at the x1.4 phone
+   step a 14cqi portrait left its name and role about 220px: "Solution Architect" ran past the column and the slide
+   clipped it (examples/team-profile.md; fit-everywhere-model.md §25). A 10cqi portrait, `bench`'s square size, gives
+   the text the room, and each roster takes exactly half: `1fr` has an `auto` floor, so a column grew to its longest
+   word and pushed the pair 15 to 90px past the stage. Held to half, "OPERATIONS" still ran 19px into the gutter
+   beside the dividing rule, so the rosters and their labels take `--sp-lg` sides instead of `--sp-xl` (45px against
+   67px at x1.4; 89px still flanks the rule). Laptop and the rooms keep all three; tall and strip stack their rosters
+   (below) and set their own. The exclusions are the handheld chrome rule's (stage.css), held equal by
+   resolve-venue.test.js. */
+section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame).team-profile.sides > .cell-stage { --person-size: 10cqi; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame).team-profile.sides > .cell-stage > :is(h3, ul.team-roster) { padding-inline: var(--sp-lg); }
+
 
 /* The hero stacks in a narrow box — a 20cqi portrait beside a headline leaves the
  * words about eight characters of column. */

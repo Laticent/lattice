@@ -160,4 +160,9 @@ test('the handheld chrome rule covers phone and tablet and excludes the rest of 
   const c = cp.match(/section:where\(\[data-family="square"\], \[data-family="tall"\], \[data-family="strip"\]\):not\(([^)]*)\)\.compare-split-points \.split-pt-b \{ font-size: var\(--fs-body\);/);
   assert.ok(c, 'no handheld compare-split-points rule in compare-prose.styles.css');
   assert.deepEqual(c[1].split(',').map((t) => t.trim()).sort(), type);
+  // And team-profile sides' square portrait (team-profile.styles.css, §25): square only, since tall and strip stack.
+  const tp = fs.readFileSync(path.join(__dirname, '../../../lib/components/inventory/team-profile/team-profile.styles.css'), 'utf8');
+  const t = tp.match(/section:where\(\[data-family="square"\]\):not\(([^)]*)\)\.team-profile\.sides > \.cell-stage \{ --person-size: 10cqi; grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\); \}/);
+  assert.ok(t, 'no handheld team-profile sides rule in team-profile.styles.css');
+  assert.deepEqual(t[1].split(',').map((x) => x.trim()).sort(), type);
 });
