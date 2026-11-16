@@ -14,6 +14,10 @@ source: https://github.com/Laticent/lattice/pull/3239
 why now   — #3239 made the Studio's readers place one picture per heading part (`photosAt`, card-ink-pick.ts), so Compose
             and the engine agree. The callers keyed on the unit still read one photo per unit, `photoAt`, which is the first
             part's: a photo in a later part is placed and drawn but never contrast-checked, and the ink fix cannot pick for it.
+            Seen on phones too (390px, Chromium and WebKit): the Coach is a sheet over a hidden preview, and that preview
+            does not follow the caret between heading parts of one `---` slide (moving between `---` slides it does), so
+            after editing the second part and returning to the first, the check measures the second part's section and stays
+            silent. readLive (photo-verdict.ts) picks `sections[slideIndex]` by the unit index, not the part.
 where     — `usePhotoContrast` (coach/photo-contrast-watch.ts), photo-verdict.ts, photo-ink-read.ts, thin-card-fix.ts,
             SlideContext.tsx `readBehindCard`; the deck index's parts (docs/src/lib/deck-outline/deck-outline.ts `partBase`).
 done when — on a deck whose second heading part places a dark photo under dark words, the Coach names that slide, and the
