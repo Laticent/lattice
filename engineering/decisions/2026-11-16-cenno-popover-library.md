@@ -173,12 +173,12 @@ sits above everything, fullscreen included.
 ### API sketch (to be finalized in the build slice)
 
 ```js
-import { place } from '@laticent/cenno';          // pure geometry
+import { place } from '@laticent/cenno';        // pure geometry
 import { createCenno } from '@laticent/cenno';  // the DOM layer
 
-const fm = createCenno();                          // one per page; owns the layer
-const card = fm.open(anchor, cardEl, { side: 'bottom', align: 'start', gap: 12, pad: 8, intent: 'hover' });
-card.move(nextAnchor);                               // re-anchor without a close/open flash
+const cn = createCenno();                       // one per page; owns the layer
+const card = cn.open(anchor, cardEl, { side: 'bottom', align: 'start', gap: 12, pad: 8, intent: 'hover' });
+card.move(nextAnchor);                          // re-anchor without a close/open flash
 card.close();
 ```
 
