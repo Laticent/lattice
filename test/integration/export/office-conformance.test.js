@@ -7,6 +7,11 @@
  *
  * The Open XML SDK needs a .NET SDK. Locally it skips, with the reason, when `dotnet` is absent;
  * on CI (`CI` set) its absence fails the run.
+ *
+ * ROUND TRIP (engineering/decisions/2026-11-13-native-pptx-writer.md §How it is proven, 2): LibreOffice headless opens
+ * every exported .pptx and converts it to PDF. The PDF has one page per slide, and each page carries the text of its
+ * slide's text boxes (letters and digits, compared without case or spacing, since LibreOffice draws small caps and
+ * letter-spaced runs its own way). It needs `soffice` and `pdftotext`; no CI job installs LibreOffice yet.
  */
 const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
@@ -15,12 +20,16 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const JSZip = require('jszip');
-const { checkPptxSchema, checkOpenXml, checkOdp, openXmlAvailable } = require('../../conformance/office/office-conformance');
+const { checkPptxSchema, checkOpenXml, checkOdp, openXmlAvailable, has } = require('../../conformance/office/office-conformance');
+const { readPptx } = require('../../helpers/pptx-readback');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 // focus + focus-highlight-axes: the focus treatments, whose column pictures, free text and inset-outline cards
 // are the editable export's hardest z-order and stroke cases (#2933).
 const DECKS = ['accent-finishes', 'card-tags', 'sample-images', 'marks', 'calco-edge-cases', 'focus', 'focus-highlight-axes'];
+const PICTURE_DECK = 'calco-edge-cases';
+/** Every .pptx the checks open: the editable decks, and the picture-per-slide one. */
+const pptxFiles = (out) => [...DECKS.map((d) => out[`${d}.pptx`]), out[`${PICTURE_DECK}.picture.pptx`]];
 
 describe('office export conformance', () => {
   const out = {};
@@ -34,6 +43,10 @@ describe('office export conformance', () => {
         out[`${deck}.${ext}`] = file;
       }
     }
+    // The plain picture-per-slide .pptx goes through the same Calco writer; one deck of it rides along to every check.
+    const picture = path.join(tmp, `${PICTURE_DECK}.picture.pptx`);
+    execFileSync('node', [path.join(ROOT, 'lattice.js'), path.join(ROOT, 'examples', `${PICTURE_DECK}.md`), picture, '-q'], { cwd: ROOT, stdio: 'ignore', timeout: 240_000 });
+    out[`${PICTURE_DECK}.picture.pptx`] = picture;
   });
 
   const openXml = (t) => {
@@ -56,10 +69,13 @@ describe('office export conformance', () => {
       assert.deepEqual(await checkOdp(fs.readFileSync(out[`${deck}.odp`])), []);
     });
   }
+  test(`${PICTURE_DECK}.picture.pptx: schema and unique shape ids`, async () => {
+    assert.deepEqual(await checkPptxSchema(fs.readFileSync(out[`${PICTURE_DECK}.picture.pptx`])), []);
+  });
 
   test('Open XML SDK validator: every exported .pptx is clean', (t) => {
     if (!openXml(t)) return;
-    const files = DECKS.map((d) => out[`${d}.pptx`]);
+    const files = pptxFiles(out);
     const bad = checkOpenXml(files).filter((r) => r.errors.length);
     assert.deepEqual(bad.map((r) => `${path.basename(r.file)}: ${r.errors[0].id} ${r.errors[0].description}`), []);
   });
@@ -98,6 +114,72 @@ describe('office export conformance', () => {
       const zip = await JSZip.loadAsync(fs.readFileSync(out['card-tags.odp']));
       const compressed = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
       assert.ok((await checkOdp(compressed)).some((f) => f.part === 'mimetype'));
+    });
+  });
+
+  // ci-skip: no CI job installs LibreOffice (apt-get install libreoffice-impress-nogui poppler-utils); run it where soffice
+  // is installed. Whether CI should install it is an open question on the PR that added this check.
+  describe('LibreOffice round trip', { skip: !(has('soffice') && has('pdftotext', ['-v'])) && 'soffice or pdftotext is not installed' }, () => {
+    /** Letters and digits only, lower-cased: what survives any reader's spacing, small caps and line breaking. */
+    const squash = (t) => t.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+    /**
+     * The text one slide must show: every run in its own text boxes and in the text its layout draws on it (a header or
+     * footer two slides share; a layout's placeholder is a prompt, never drawn), as squashed strings of two characters
+     * or more. A one-character run (a page number) is left out: it would match almost any page.
+     */
+    const runsOf = (objects) => objects.flatMap((o) => o.text?.paras.flatMap((p) => p.runs.map((r) => squash(r.t))) || []);
+    const expected = (slide) => [...runsOf(slide.objects), ...runsOf(slide.layout.objects.filter((o) => !o.ph))].filter((t) => t.length >= 2);
+    let pdfDir;
+    const convert = (files) => {
+      pdfDir = pdfDir || fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-office-rt-'));
+      // A private profile: a user's own LibreOffice settings (or a running instance) must not change the result.
+      execFileSync('soffice', [`-env:UserInstallation=file://${path.join(pdfDir, 'profile')}`, '--headless', '--convert-to', 'pdf', '--outdir', pdfDir, ...files], { stdio: 'ignore', timeout: 600_000 });
+    };
+    const pages = (pdf) => {
+      const out = execFileSync('pdftotext', ['-layout', pdf, '-'], { encoding: 'utf8' }).split('\f');
+      if (out.length && !out[out.length - 1].trim()) out.pop();
+      return out;
+    };
+    /** Every way a converted file falls short of its deck: a page count that differs, or a run of text a page lacks. */
+    const findings = async (pptxBytes, pdf) => {
+      const deck = await readPptx(pptxBytes);
+      const got = pages(pdf);
+      const found = [];
+      if (got.length !== deck.slides.length) found.push(`${got.length} pages for ${deck.slides.length} slides`);
+      deck.slides.forEach((slide, i) => {
+        const page = squash(got[i] || '');
+        for (const t of expected(slide)) if (!page.includes(t)) found.push(`slide ${i + 1} lacks "${t}"`);
+      });
+      return found;
+    };
+
+    test('every exported .pptx opens, one page per slide, each page with its slide\'s text', async () => {
+      const files = pptxFiles(out);
+      convert(files);
+      for (const f of files) {
+        const pdf = path.join(pdfDir, `${path.basename(f, '.pptx')}.pdf`);
+        assert.ok(fs.existsSync(pdf), `LibreOffice could not open ${path.basename(f)}`);
+        assert.deepEqual(await findings(fs.readFileSync(f), pdf), [], path.basename(f));
+      }
+    });
+
+    test('ARM THAT FAILS: a slide whose text LibreOffice does not draw, and a slide that is not there, are flagged', async () => {
+      const src = out['card-tags.pptx'];
+      const pdf = path.join(pdfDir || '', 'card-tags.pdf');
+      if (!fs.existsSync(pdf)) convert([src]);
+      const bytes = fs.readFileSync(src);
+      const deck = await readPptx(bytes);
+      const word = expected(deck.slides[0])[0];
+      assert.ok(word, 'the fixture needs text on slide 1');
+      // Ask a page for text its slide never had: the comparison must notice.
+      const zip = await JSZip.loadAsync(bytes);
+      const slide1 = await zip.file('ppt/slides/slide1.xml').async('string');
+      zip.file('ppt/slides/slide1.xml', slide1.replace(/<a:t>([^<]{2,})<\/a:t>/, '<a:t>$1 Zqxjvw</a:t>'));
+      assert.ok((await findings(await zip.generateAsync({ type: 'nodebuffer' }), pdf)).some((f) => /slide 1 lacks .*zqxjvw/.test(f)));
+      // A PDF one page short.
+      const short = path.join(pdfDir, 'short.pdf');
+      execFileSync('pdfseparate', ['-f', '1', '-l', '1', pdf, short]);
+      assert.ok((await findings(bytes, short)).some((f) => /pages for/.test(f)));
     });
   });
 });

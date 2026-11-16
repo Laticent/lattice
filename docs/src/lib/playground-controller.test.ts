@@ -22,6 +22,7 @@ import {
 	resolveStartupView,
 	slideTranscript,
 	walkChipLabel,
+	withPlaygroundQuery,
 } from './playground-controller';
 
 const CATALOG: Catalog = {
@@ -196,6 +197,16 @@ describe('URL scheme — parse and serialize', () => {
 		expect(playgroundQuery({ c: 'kpi', view: 'read', s: 'variant:dense' })).toBe('?c=kpi&view=read&s=variant%3Adense');
 		expect(playgroundQuery({ c: 'kpi', view: 'read', s: 'title' })).toBe('?c=kpi&view=read');
 		expect(playgroundQuery({})).toBe('');
+	});
+
+	test('rewrites only its own keys and keeps every other one (a `?tier=` pin survives the walk)', () => {
+		// The tier runtime reads `?tier=` again once the page is idle; a walk that dropped it un-pinned the decline screen.
+		expect(withPlaygroundQuery('?tier=unsupported', { c: 'actors', view: 'read' })).toBe('?tier=unsupported&c=actors&view=read');
+		expect(withPlaygroundQuery('?tier=lite&c=kpi&view=read&s=variant%3Adense', { c: 'actors', view: 'read' })).toBe('?tier=lite&c=actors&view=read');
+		// Leaving Explore strips the Playground's keys, and only those.
+		expect(withPlaygroundQuery('?c=kpi&view=read&tier=unsupported', {})).toBe('?tier=unsupported');
+		expect(withPlaygroundQuery('?c=kpi&view=read&s=x&v=y', {})).toBe('');
+		expect(withPlaygroundQuery('', { c: 'kpi', view: 'read' })).toBe(playgroundQuery({ c: 'kpi', view: 'read' }));
 	});
 
 	test('an explicit ?view= wins over the persisted view, loses to a handoff', () => {

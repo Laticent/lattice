@@ -109,7 +109,7 @@ test('engine: every committed example deck renders identically twice', () => {
 	// would not have caught all four sequences.
 	const dir = path.join(ROOT, 'examples');
 	const drifted = [];
-	for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.md'))) {
+	for (const f of fs.readdirSync(dir).filter((n) => (n.endsWith('.md') && !n.endsWith('.tmp.md')))) {
 		const src = fs.readFileSync(path.join(dir, f), 'utf8');
 		// Two SEPARATE renders — textually identical calls, which is the whole point: they must
 		// return the same bytes. (Held in locals so this does not read as a self-comparison.)
@@ -236,7 +236,7 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 // which is what makes this an invariant and not a backlog.
 test('engine: no shipped example deck renders a duplicate id', () => {
 	const dir = path.join(ROOT, 'examples');
-	const decks = fs.readdirSync(dir).filter((f) => f.endsWith('.md'));
+	const decks = fs.readdirSync(dir).filter((f) => (f.endsWith('.md') && !f.endsWith('.tmp.md')));
 	assert.ok(decks.length > 100, `fixture broken: found only ${decks.length} example decks`);
 	const offenders = [];
 	for (const deck of decks) {

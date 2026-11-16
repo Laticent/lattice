@@ -1,5 +1,5 @@
 /**
- * Unit: Calco's PPTX font embedding (docs/src/lib/calco/sfnt.ts and `embedPptxFonts` in
+ * Unit: Calco's PPTX font embedding (docs/src/lib/calco/sfnt.ts and `planEmbedding` and the font parts in
  * pptx.ts). A real shipped face is renamed and wrapped as Embedded OpenType; the written
  * `.pptx` carries it in `ppt/fonts/`, lists it in `p:embeddedFontLst`, and asks for it by
  * its per-weight family name.
@@ -7,7 +7,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
-const PptxGenJS = require('pptxgenjs');
 const { canEmbedAsEot, embeddingAllowed, familyNameOf, planEmbedding, pptxFaceName, renameFace, toEot, writePptx } = require('@laticent/calco');
 const { ONE_PX_PNG, style, frame, ttf } = require('./_fixtures');
 
@@ -120,38 +119,31 @@ describe('calco sfnt', () => {
 });
 
 describe('calco pptx — embedded fonts', () => {
-  async function written(withZip) {
+  async function written() {
     const face = await ttf();
     const deck = {
       width: 1280, height: 720,
       fonts: [{ family: 'Outfit', weight: 600, italic: false, bytes: face }],
       slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'Hello', style: style({ weight: 600 }) }]])] }],
     };
-    return JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', withZip ? JSZip : undefined));
+    return JSZip.loadAsync(await writePptx(JSZip, deck, 'nodebuffer'));
   }
 
   test('the face rides in ppt/fonts as EOT, listed, related and typed', async () => {
-    const zip = await written(true);
+    const zip = await written();
     const fonts = Object.keys(zip.files).filter((n) => n.startsWith('ppt/fonts/'));
     assert.equal(fonts.length, 1);
     assert.match(fonts[0], /\.fntdata$/);
     const pres = await zip.file('ppt/presentation.xml').async('string');
     assert.match(pres, /embedTrueTypeFonts="1"/);
-    assert.match(pres, /<p:notesSz[^>]*\/><p:embeddedFontLst><p:embeddedFont><p:font typeface="Outfit SemiBold"[^>]*\/><p:regular r:id="(rIdCalcoFont\d+)"\/><\/p:embeddedFont><\/p:embeddedFontLst>/);
+    assert.match(pres, /<p:notesSz[^>]*\/><p:embeddedFontLst><p:embeddedFont><p:font typeface="Outfit SemiBold"[^>]*\/><p:regular r:id="(rId\d+)"\/><\/p:embeddedFont><\/p:embeddedFontLst>/);
     const rels = await zip.file('ppt/_rels/presentation.xml.rels').async('string');
-    assert.match(rels, /Id="rIdCalcoFont\d+" Type="http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/font" Target="fonts\/calco-font\d+\.fntdata"/);
+    const rid = pres.match(/<p:regular r:id="(rId\d+)"/)[1];
+    assert.match(rels, new RegExp(`Id="${rid}" Type="http://schemas\\.openxmlformats\\.org/officeDocument/2006/relationships/font" Target="fonts/font\\d+\\.fntdata"`));
     assert.match(await zip.file('[Content_Types].xml').async('string'), /Extension="fntdata" ContentType="application\/x-fontdata"/);
     const slide = await zip.file('ppt/slides/slide1.xml').async('string');
     assert.match(slide, /<a:latin typeface="Outfit SemiBold"/);
     assert.doesNotMatch(slide, / b="1"/, 'the weight is in the family, not a synthetic bold');
-  });
-
-  test('without JSZip the faces are named, bold or not, as before', async () => {
-    const zip = await written(false);
-    assert.equal(Object.keys(zip.files).filter((n) => n.startsWith('ppt/fonts/')).length, 0);
-    const slide = await zip.file('ppt/slides/slide1.xml').async('string');
-    assert.match(slide, /<a:latin typeface="Outfit"/);
-    assert.match(slide, / b="1"/);
   });
 
   const deckWith = async (fonts, weights) => ({
@@ -167,7 +159,7 @@ describe('calco pptx — embedded fonts', () => {
     const deck = await deckWith([{ family: 'Outfit', weight: 400, italic: false, bytes: face }, { family: 'Outfit', weight: 600, italic: false, bytes: cff }], [400, 600, 700]);
     const plan = planEmbedding(deck);
     assert.deepEqual(plan.faces.map((f) => f.name), ['Outfit']);
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, deck, 'nodebuffer'));
     const slide = await zip.file('ppt/slides/slide1.xml').async('string');
     const runs = [...slide.matchAll(/<a:rPr([^>]*)>[\s\S]*?<a:latin typeface="([^"]+)"/g)].map((m) => `${m[2]}${/ b="1"/.test(m[1]) ? ' bold' : ''}`);
     assert.deepEqual(runs, ['Outfit', 'Outfit bold', 'Outfit bold']);
@@ -189,7 +181,7 @@ describe('calco pptx — embedded fonts', () => {
     deck.slides[0].frames.push(pf(400, false, 100), pf(700, false, 160), pf(700, true, 220));
     const plan = planEmbedding(deck);
     assert.deepEqual(plan.faces.map((f) => `${f.name}/${f.slot}`), ['Playfair Display/regular', 'Playfair Display/bold', 'Playfair Display/boldItalic']);
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, deck, 'nodebuffer'));
     const pres = await zip.file('ppt/presentation.xml').async('string');
     assert.match(pres, /<p:embeddedFont><p:font typeface="Playfair Display"[^>]*\/><p:regular r:id="[^"]+"\/><p:bold r:id="[^"]+"\/><p:boldItalic r:id="[^"]+"\/><\/p:embeddedFont>/);
     const slide = await zip.file('ppt/slides/slide1.xml').async('string');
@@ -209,16 +201,15 @@ describe('calco pptx — embedded fonts', () => {
     assert.deepEqual(planEmbedding(deck).faces.map((f) => `${f.name}/${f.slot}`), ['Playfair Display/regular', 'Playfair Display Bold Italic/regular']);
   });
 
-  test('every PptxGenJS output type still works with fonts embedded', async () => {
+  test('every JSZip output type works with fonts embedded', async () => {
     const face = await ttf();
     const deck = await deckWith([{ family: 'Outfit', weight: 400, italic: false, bytes: face }], [400]);
-    const b64 = await writePptx(PptxGenJS, deck, 'base64', JSZip);
+    const b64 = await writePptx(JSZip, deck, 'base64');
     const zip = await JSZip.loadAsync(b64, { base64: true });
-    assert.ok(zip.file('ppt/fonts/calco-font1.fntdata'));
-    assert.ok((await writePptx(PptxGenJS, deck, 'arraybuffer', JSZip)) instanceof ArrayBuffer);
-    // PptxGenJS's STREAM is a Node buffer; JSZip cannot stream, so Calco asks it for one.
-    assert.ok(Buffer.isBuffer(await writePptx(PptxGenJS, deck, 'STREAM', JSZip)));
+    assert.ok(zip.file('ppt/fonts/font1.fntdata'));
+    assert.ok((await writePptx(JSZip, deck, 'arraybuffer')) instanceof ArrayBuffer);
+    assert.ok(Buffer.isBuffer(await writePptx(JSZip, deck, 'nodebuffer')));
     const bare = await deckWith([], [400]);
-    assert.ok(Buffer.isBuffer(await writePptx(PptxGenJS, bare, 'STREAM', JSZip)), 'STREAM with no face to embed');
+    assert.ok(Buffer.isBuffer(await writePptx(JSZip, bare, 'nodebuffer')), 'with no face to embed');
   });
 });

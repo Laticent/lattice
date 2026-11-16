@@ -12,11 +12,11 @@ const { createEngine } = require('../../../lib/engine');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const decks = [
-  ...fs.readdirSync(path.join(ROOT, 'examples')).filter((f) => f.endsWith('.md')).map((f) => path.join('examples', f)),
-  ...fs.readdirSync(path.join(ROOT, 'test/integration/baseline-decks')).filter((f) => f.endsWith('.md')).map((f) => path.join('test/integration/baseline-decks', f)),
+  ...fs.readdirSync(path.join(ROOT, 'examples')).filter((f) => f.endsWith('.md') && !f.endsWith('.tmp.md')).map((f) => path.join('examples', f)),
+  ...fs.readdirSync(path.join(ROOT, 'test/integration/baseline-decks')).filter((f) => f.endsWith('.md') && !f.endsWith('.tmp.md')).map((f) => path.join('test/integration/baseline-decks', f)),
   // The exemplars (the template decks), each in its own folder.
   ...fs.readdirSync(path.join(ROOT, 'exemplars'), { withFileTypes: true }).filter((d) => d.isDirectory())
-    .flatMap((d) => fs.readdirSync(path.join(ROOT, 'exemplars', d.name)).filter((f) => f.endsWith('.md')).map((f) => path.join('exemplars', d.name, f))),
+    .flatMap((d) => fs.readdirSync(path.join(ROOT, 'exemplars', d.name)).filter((f) => f.endsWith('.md') && !f.endsWith('.tmp.md')).map((f) => path.join('exemplars', d.name, f))),
 ];
 
 test('every shipped deck renders byte-identical HTML and CSS in record form and in directive-comment form', async () => {

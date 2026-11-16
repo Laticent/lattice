@@ -696,3 +696,42 @@ describe('calco reader: a right-to-left grid row measures its counter from the r
     assert.ok(counter.w < 60, `the counter covers ${counter.w}px, its row`);
   });
 });
+
+describe('calco reader: what a run says about its language and its kind of face', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(`<!doctype html><html lang="fr"><head><style>
+      body { margin: 0; font-family: "No Such Face", sans-serif; }
+      section { width: 1280px; height: 720px; position: relative; background: #fff; color: #000; }
+      p { position: absolute; left: 64px; margin: 0; font-size: 24px; }
+      .code { font-family: "No Such Mono", monospace; }
+      .nogeneric { font-family: "No Such Face"; }
+    </style></head><body><section id="l">
+      <p style="top: 100px">Bonjour</p>
+      <p style="top: 200px" lang="it-IT">Ciao</p>
+      <p style="top: 300px" class="code">let x</p>
+      <p style="top: 400px" class="nogeneric">Plain</p>
+    </section></body></html>`, { waitUntil: 'load' });
+    res = await (await page.$('#l')).evaluate(readSlide);
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  const run = (text) => res.frames.flatMap((f) => f.lines.flat()).find((r) => r.text.trim() === text);
+
+  test('a run takes the nearest lang, the page\'s when it has none of its own', () => {
+    assert.equal(run('Bonjour').style.lang, 'fr');
+    assert.equal(run('Ciao').style.lang, 'it-IT');
+  });
+
+  test('a run carries the last CSS generic of its stack, and none when the stack names none', () => {
+    assert.equal(run('Bonjour').style.generic, 'sans-serif');
+    assert.equal(run('let x').style.generic, 'monospace');
+    assert.equal(run('Plain').style.generic, undefined);
+  });
+});

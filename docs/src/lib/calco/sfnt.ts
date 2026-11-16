@@ -303,3 +303,37 @@ export function toEot(ttf: Uint8Array, names: { family: string; style?: string; 
 	out.set(ttf, at);
 	return out;
 }
+
+/**
+ * What a reader that lacks a face needs to pick a stand-in: the face's PANOSE number (OS/2) and its Windows pitch and
+ * family byte, read from the face's own tables. The byte's low bits are the pitch (1 fixed, 2 variable) and its high
+ * nibble the family (0x10 roman, 0x20 swiss, 0x30 modern, 0x40 script, 0x50 decorative), as `LOGFONT.lfPitchAndFamily`
+ * spells them and as DrawingML's `pitchFamily` repeats them. A monospaced face is modern, so a reader that has no
+ * JetBrains Mono substitutes a fixed-pitch face rather than Arial. `null` when the face has no OS/2 to read.
+ */
+export function fontClass(bytes: Uint8Array): { panose: string | null; pitchFamily: number } | null {
+	try {
+		const { tables } = readTables(bytes);
+		const os2 = tables.find((t) => t.tag === 'OS/2')?.data;
+		if (!os2 || os2.length < 42) return null;
+		const post = tables.find((t) => t.tag === 'post')?.data;
+		const panose = [...os2.slice(32, 42)];
+		const familyClass = os2[30];
+		const fixed = (!!post && post.length >= 16 && new DataView(post.buffer, post.byteOffset, post.byteLength).getUint32(12) !== 0) || (panose[0] === 2 && panose[3] === 9);
+		let family = 0;
+		if (fixed) family = 0x30;
+		else if ([1, 2, 3, 4, 5, 7].includes(familyClass)) family = 0x10;
+		else if (familyClass === 8) family = 0x20;
+		else if (familyClass === 10) family = 0x40;
+		else if (familyClass === 9 || familyClass === 12) family = 0x50;
+		else if (panose[0] === 3) family = 0x40;
+		else if (panose[0] === 4 || panose[0] === 5) family = 0x50;
+		else if (panose[0] === 2) family = panose[1] >= 11 && panose[1] <= 13 ? 0x20 : panose[1] >= 2 ? 0x10 : 0;
+		return {
+			panose: panose.some((b) => b) ? panose.map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase() : null,
+			pitchFamily: family | (fixed ? 1 : 2),
+		};
+	} catch {
+		return null;
+	}
+}

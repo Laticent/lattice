@@ -28,7 +28,7 @@ function markdownIn(dir, out = []) {
     if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist') continue;
     const full = path.join(dir, e.name);
     if (e.isDirectory()) markdownIn(full, out);
-    else if (e.name.endsWith('.md')) out.push(full);
+    else if (e.name.endsWith('.md') && !e.name.endsWith('.tmp.md')) out.push(full);
   }
   return out;
 }

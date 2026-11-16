@@ -17,6 +17,19 @@ import { expect, gotoStudio, persistedSource, shareExport, test, typeDeck } from
 const LONG = Array.from({ length: 14 }, (_, i) => `- item ${i + 1}: a long line of text that keeps going so the slide holds far too much to fit`).join('\n');
 const DECK = `---\ntheme: indaco\n---\n\n# Fits\n\nA short slide.\n\n---\n\n# Overflows\n\n${LONG}\n`;
 
+/**
+ * The media part a slide's own picture shows (the `<p:pic>` Calco's writer names "Slide N", first on the slide), found
+ * through the slide's relationships, or null when the slide has none. Media parts are named by a hash of their bytes,
+ * so a part's file name says nothing about which slide uses it.
+ */
+async function slidePicture(zip: JSZip, n: number): Promise<string | null> {
+	const xml = await zip.file(`ppt/slides/slide${n}.xml`)?.async('string');
+	const rels = await zip.file(`ppt/slides/_rels/slide${n}.xml.rels`)?.async('string');
+	const rid = xml?.match(new RegExp(`<p:cNvPr id="\\d+" name="Slide ${n}"[^>]*/>[\\s\\S]*?<a:blip r:embed="(rId\\d+)"`))?.[1];
+	const target = rid && rels?.match(new RegExp(`Id="${rid}"[^>]*Target="\\.\\./media/([^"]+)"`))?.[1];
+	return target ? `ppt/media/${target}` : null;
+}
+
 /** The left-edge, mid-height pixel of a PNG, decoded in the page. */
 async function leftEdge(page: import('@playwright/test').Page, png: Buffer): Promise<[number, number, number]> {
 	return page.evaluate(async (b64) => {
@@ -82,13 +95,14 @@ test('the Studio images export shows no authoring ring on a clipped slide @cross
 test('the Studio PowerPoint export shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
 	test.setTimeout(300_000);
 	const zip = await JSZip.loadAsync(fs.readFileSync(await exportOverflowDeck(page, 'pptx')));
-	const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/image-2-.*\.png$/.test(n))[0];
+	const media = await slidePicture(zip, 2);
 	expect(media, 'the clipped slide picture is in the deck').toBeTruthy();
-	const px = await leftEdge(page, Buffer.from(await zip.files[media].async('uint8array')));
+	const px = await leftEdge(page, Buffer.from(await zip.files[media as string].async('uint8array')));
 	expect(isAuthorRed(px), `left edge ${px} is the author ring`).toBe(false);
-	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[media].async('uint8array')))), 'the clipped slide carries the reader pill').toBe(true);
-	const fits = Object.keys(zip.files).filter((n) => /^ppt\/media\/image-1-.*\.png$/.test(n))[0];
-	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[fits].async('uint8array')))), 'the fitting slide has no pill').toBe(false);
+	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[media as string].async('uint8array')))), 'the clipped slide carries the reader pill').toBe(true);
+	const fits = await slidePicture(zip, 1);
+	expect(fits, 'the fitting slide picture is in the deck').toBeTruthy();
+	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[fits as string].async('uint8array')))), 'the fitting slide has no pill').toBe(false);
 });
 
 test('the Studio PDF export shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {

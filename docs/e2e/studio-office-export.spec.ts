@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import type JSZip from 'jszip';
 import { currentSlide, expect, gotoStudio, railButtons, setEditorContent, test, toastText } from './studio-fixture';
 
 // The Studio's Editable text export (PowerPoint and LibreOffice) runs the same capture the CLI does
@@ -25,6 +26,27 @@ test.beforeEach(async ({ page }) => {
 });
 
 // The same conformance checks the CLI export is held to (test/conformance/office/office-conformance.js).
+/**
+ * The media part a slide's own picture shows (the `<p:pic>` Calco's writer names "Slide N", first on the slide), found
+ * through the slide's relationships, or null when the slide has none. Media parts are named by a hash of their bytes,
+ * so a part's file name says nothing about which slide uses it.
+ */
+async function slidePicture(zip: JSZip, n: number): Promise<string | null> {
+	const xml = await zip.file(`ppt/slides/slide${n}.xml`)?.async('string');
+	const rels = await zip.file(`ppt/slides/_rels/slide${n}.xml.rels`)?.async('string');
+	const rid = xml?.match(new RegExp(`<p:cNvPr id="\\d+" name="Slide ${n}"[^>]*/>[\\s\\S]*?<a:blip r:embed="(rId\\d+)"`))?.[1];
+	const target = rid && rels?.match(new RegExp(`Id="${rid}"[^>]*Target="\\.\\./media/([^"]+)"`))?.[1];
+	return target ? `ppt/media/${target}` : null;
+}
+
+/** How many of a deck's slides carry a whole-slide picture of their own. */
+async function slidesWithPicture(zip: JSZip): Promise<number> {
+	const n = Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f)).length;
+	let count = 0;
+	for (let i = 1; i <= n; i++) if (await slidePicture(zip, i)) count++;
+	return count;
+}
+
 const conformance = createRequire(import.meta.url)('../../test/conformance/office/office-conformance.js') as {
 	checkPptxSchema(bytes: Buffer): Promise<unknown[]>;
 	checkOdp(bytes: Buffer): Promise<unknown[]>;
@@ -64,9 +86,8 @@ test('@gecko @webkit-tablet an editable PowerPoint export carries live text and 
 	expect(await layoutOf(2)).toBe(await layoutOf(3));
 	expect(slide2).toContain('Why now');
 	expect(slide3).toContain('What we ask');
-	// The picture-only export names one full-slide image per slide; the editable one does not.
-	const fullPictures = Object.keys(zip.files).filter((n) => /^ppt\/media\/image-\d+-1\.(png|jpe?g)$/.test(n));
-	expect(fullPictures.length).toBeLessThan(3);
+	// The picture-only export gives every slide a whole-slide picture; the editable one lifts the text and shapes off it.
+	expect(await slidesWithPicture(zip)).toBeLessThan(3);
 });
 
 test('@gecko @webkit-tablet an editable LibreOffice export carries live text and master pages', async ({ page }) => {
@@ -88,5 +109,5 @@ test('a slide the capture cannot process still exports, as a picture, and the ex
 	const { name, zip } = await exportEditable(page, /^PowerPoint/, /^Download PowerPoint/);
 	expect(name).toMatch(/\.pptx$/);
 	await expect(toastText(page)).toContainText('one picture in the file');
-	expect(Object.keys(zip.files).filter((n) => /^ppt\/media\/image-\d+-1\.(png|jpe?g)$/.test(n))).toHaveLength(3);
+	expect(await slidesWithPicture(zip)).toBe(3);
 });
