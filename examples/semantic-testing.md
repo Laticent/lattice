@@ -109,7 +109,7 @@ Ask the room for a test they wrote last week, and have them state its mission in
 
 <!-- _class: flowchart -->
 
-## A tool becomes a strategy once it names its evidence.
+## Only a tool that names its evidence is a strategy.
 
 - Mission: why -> Objective: what -> Strategy: how -> Tactic: with what -> Evidence: what happened -> Risk reduced: what changed
 
@@ -121,7 +121,7 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 
 <!-- describe: A flowchart of six steps in two rows: mission, why; objective, what; strategy, how; tactic, with what; evidence, what happened; risk reduced, what changed. A footnote contrasts a tactic, use a fault-injection proxy, with an objective, a retried transfer settles exactly once. -->
 
-<!-- say: A tool becomes a strategy once it names its evidence. Take the transfer. The mission: no money is lost or duplicated. The objective: a retried transfer settles exactly once. The strategy: replay requests under injected timeouts. The tactic: a fault injection proxy, which is a relay that drops or delays traffic on purpose. The evidence: ledger totals before and after. The risk reduced: we now know retries are safe under those timeouts. Naming a tool, such as Playwright, names only the tactic. -->
+<!-- say: Only a tool that names its evidence is a strategy. Take the transfer. The mission: no money is lost or duplicated. The objective: a retried transfer settles exactly once. The strategy: replay requests under injected timeouts. The tactic: a fault injection proxy, which is a relay that drops or delays traffic on purpose. The evidence: ledger totals before and after. The risk reduced: we now know retries are safe under those timeouts. Naming a tool, such as Playwright, names only the tactic. -->
 
 ---
 
@@ -147,19 +147,19 @@ Each mission names a risk to reduce, whatever scope the test runs at.
 1. Unit
    - Does the logic work? Risk: a wrong result.
 2. Integration
-   - Do the interactions work? Risk: parts disagree.
+   - Do the interactions work? Risk: parts disagree at boundaries.
 3. System
-   - Does it hold up in production? Risk: the whole fails.
+   - Does it hold up in production? Risk: it fails in production.
 4. Experience
-   - Can users reach their goal? Risk: they cannot.
+   - Can users reach their goal? Risk: users get stuck.
 5. Safety
-   - Can it avoid unacceptable harm? Risk: harm happens.
+   - Can it avoid unacceptable harm? Risk: unacceptable harm.
 
 <!-- Stress two things. First, the missions overlap: one scenario can produce evidence for all five, and one test run can serve two. Second, Experience and Safety work starts at design time, long before a system exists to test. A threat model and a usability study of a paper prototype are both evidence.
 
 The word System here means production parity. That is narrower than the ISTQB use, where system testing means testing the complete integrated system against its requirements. -->
 
-<!-- describe: A claim beside a numbered ledger of the five missions, each with the question it answers and the risk it reduces. Unit: does the logic work? The risk is a wrong result. Integration: do the interactions work? The risk is that parts disagree. System: does it hold up in production? The risk is that the whole fails. Experience: can users reach their goal? The risk is that they cannot. Safety: can it avoid unacceptable harm? The risk is that harm happens. The claim: each mission names a risk to reduce, whatever scope the test runs at. -->
+<!-- describe: A claim beside a numbered ledger of the five missions, each with the question it answers and the risk it reduces. Unit: does the logic work? The risk is a wrong result. Integration: do the interactions work? The risk is that parts disagree at boundaries. System: does it hold up in production? The risk is that it fails in production. Experience: can users reach their goal? The risk is that users get stuck. Safety: can it avoid unacceptable harm? The risk is unacceptable harm. The claim: each mission names a risk to reduce, whatever scope the test runs at. -->
 
 <!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: the risk is logic that gives a wrong result. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? System: the whole misbehaves in production. Does it hold up in production? Experience: people cannot reach their goal. Can they reach it? Safety: the operation causes unacceptable harm. Can it avoid that harm? -->
 
@@ -412,7 +412,7 @@ Ask: "Which of our five missions would have caught this?" Safety, run at System 
 
 <!-- _class: cards-stack -->
 
-## Confirm what you know, and search for the unimagined.
+## Confirm the known, and search for what you never imagined.
 
 - Knowns
   - We know the condition and the expected result. Example-based tests and contract tests confirm it.
@@ -433,7 +433,7 @@ The cards describe the dominant intent. Fuzzing can confirm robustness against a
 
 <!-- describe: Three stacked cards. Knowns: we know the condition and the expected result; example-based tests and contract tests confirm it. Known unknowns: we know the class of risk, not the case; property tests, fuzzing and fault injection generate cases. Unknown unknowns: we know nothing yet; exploratory testing, chaos experiments and incident review make a surprise more likely. Footnote: discovery raises the odds of a useful surprise, and no technique guarantees completeness. -->
 
-<!-- say: Confirm what you know, and search for the unimagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents. -->
+<!-- say: Confirm the known, and search for what you never imagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents. -->
 
 ---
 <!-- _class: table table-fill -->
@@ -538,7 +538,7 @@ Coverage is still useful in one direction: an uncovered line is certainly untest
 
 `Flakiness`
 
-## Treat every flaky test as a defect with a cause.
+## Treat each flaky test as a defect; find its cause.
 
 A flaky test passes and fails on the same code. Automatic retries hide all three of its common causes.
 
@@ -681,7 +681,7 @@ Testing in production is legitimate only with guardrails: limit the blast radius
 
 <!-- _class: flowchart -->
 
-## An escaped defect exposes both the product and its tests.
+## An escaped defect reveals gaps in product and tests alike.
 
 - Incident -> Fix the product & Find the surviving assumption
 - Find the surviving assumption -> Name the missing evidence -> Add the cheapest test
@@ -698,7 +698,7 @@ This is a blameless review question. The goal is a better system; nobody is hunt
 
 <!-- describe: A flowchart. An incident leads to fixing the product, and to finding the surviving assumption, then naming the missing evidence, then adding the cheapest test. A dashed line, keyed as the payoff, runs from that test to a final box: next defect caught earlier. -->
 
-<!-- say: An escaped defect exposes both the product and its tests. After an incident, fix the product. Then find the assumption that survived, name the evidence that was missing, and add the cheapest test that would have caught it. That feeds back into earlier detection next time. -->
+<!-- say: An escaped defect reveals gaps in product and tests alike. After an incident, fix the product. Then find the assumption that survived, name the evidence that was missing, and add the cheapest test that would have caught it. That feeds back into earlier detection next time. -->
 
 ---
 
@@ -722,7 +722,7 @@ Give the room a full minute. Take three answers before the reveal. Expect System
 
 `Reveal`
 
-## The sentence names tool, place and scenario, but no mission.
+## No mission: just a tool, a place and a scenario.
 
 - Playwright
   - The tactic: how the test is exercised.
@@ -785,7 +785,7 @@ This is the slide to leave up during questions. -->
 
 <!-- _class: decision -->
 
-## Start with the mission your project has least evidence for.
+## Start with the mission you have the least evidence for.
 
 `The ask`
 
@@ -802,7 +802,7 @@ The two rejected options are the usual reflexes. Both make a dashboard move with
 
 <!-- describe: A decision slide, subtitled the ask, with three cards. Strengthen the weakest mission: add one test or review this week, with its mission and evidence named. Why not more end to end tests: more of the same scope adds runtime and no new kind of evidence. Why not a coverage target: coverage measures lines run, and cannot see which risks a suite detects. -->
 
-<!-- say: Here is the ask. Start with the mission your project has least evidence for, and add one test or review for it this week, with its mission and evidence named. More end to end tests would add runtime and no new kind of evidence. A coverage target would measure lines run, and miss which risks the suite detects. -->
+<!-- say: Here is the ask. Start with the mission your project has the least evidence for, and add one test or review for it this week, with its mission and evidence named. More end to end tests would add runtime and no new kind of evidence. A coverage target would measure lines run, and miss which risks the suite detects. -->
 
 ---
 
@@ -818,7 +818,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 
 <!-- describe: Closing slide: good testing buys evidence where being wrong would cost the most, with the question, which mission has the least evidence in your project? -->
 
-<!-- say: Good testing buys evidence where being wrong would cost most. Which mission has the least evidence in your project? -->
+<!-- say: Good testing buys evidence where being wrong would cost the most. Which mission has the least evidence in your project? -->
 
 ---
 
