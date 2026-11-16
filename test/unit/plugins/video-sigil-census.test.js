@@ -1,4 +1,4 @@
-'use strict';
+
 /**
  * §8 decision 3 of engineering/decisions/2026-10-16-media-plugins.md: `>` became a Segno tag (`>{…}` is `@video{…}`). A tag
  * also stops a top-level value from starting with it, so a slot that read an inline code span starting with `>` (`>50%`) would
@@ -27,8 +27,8 @@ function decks() {
       else if (keep(e.name)) out.push(p);
     }
   };
-  walk(path.join(ROOT, 'examples'), (n) => n.endsWith('.md'));
-  walk(path.join(ROOT, 'test/integration/baseline-decks'), (n) => n.endsWith('.md'));
+  walk(path.join(ROOT, 'examples'), (n) => (n.endsWith('.md') && !n.endsWith('.tmp.md')));
+  walk(path.join(ROOT, 'test/integration/baseline-decks'), (n) => (n.endsWith('.md') && !n.endsWith('.tmp.md')));
   walk(path.join(ROOT, 'lib'), (n) => n.endsWith('.gallery.md'));
   return out.sort();
 }

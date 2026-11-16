@@ -69,7 +69,7 @@ describe('photo skip: lint and review find what the whole text gives', () => {
 
 	test('every example deck, with a picture in every form', () => {
 		const dir = path.join(__dirname, '../../../examples');
-		const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
+		const files = fs.readdirSync(dir).filter((f) => (f.endsWith('.md') && !f.endsWith('.tmp.md'))).sort();
 		assert.ok(files.length > 300, 'the corpus is the examples folder');
 		const differ = [];
 		let skipped = 0;

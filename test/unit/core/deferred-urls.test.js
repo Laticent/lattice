@@ -112,7 +112,7 @@ function decks() {
   const out = [['shapes', SHAPES], ['gallery', withAssets(fs.readFileSync(path.join(ROOT, 'test/integration/baseline-decks/gallery.md'), 'utf8'))]];
   const ex = path.join(ROOT, 'examples');
   for (const f of fs.readdirSync(ex).sort()) {
-    if (!f.endsWith('.md') || f === 'README.md') continue;
+    if (!(f.endsWith('.md') && !f.endsWith('.tmp.md')) || f === 'README.md') continue;
     const md = fs.readFileSync(path.join(ex, f), 'utf8');
     if (!/!\[|<img\b|asset:/.test(md)) continue;
     out.push([f, withAssets(md)]);

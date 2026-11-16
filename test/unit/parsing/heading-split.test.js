@@ -186,7 +186,7 @@ function hasBodySeparator(src) {
 // List *.md directly under dir (non-recursive), absolute paths.
 function globMd(dir) {
   if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => path.join(dir, f));
+  return fs.readdirSync(dir).filter((f) => (f.endsWith('.md') && !f.endsWith('.tmp.md'))).map((f) => path.join(dir, f));
 }
 
 // Force a deck's front matter to a given split mode (insert or replace the key).

@@ -26,7 +26,7 @@ function markdownFiles(dir, out = []) {
     if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) markdownFiles(p, out);
-    else if (e.name.endsWith('.md')) out.push(p);
+    else if ((e.name.endsWith('.md') && !e.name.endsWith('.tmp.md'))) out.push(p);
   }
   return out;
 }

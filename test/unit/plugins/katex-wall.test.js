@@ -26,7 +26,7 @@ function formulas() {
     'lib/plugins/math/math.fixtures.md',
     'lib/plugins/math/math.docs.md',
     'test/integration/baseline-decks/gallery.md',
-    ...fs.readdirSync(path.join(ROOT, 'examples')).filter((f) => f.endsWith('.md')).map((f) => `examples/${f}`),
+    ...fs.readdirSync(path.join(ROOT, 'examples')).filter((f) => (f.endsWith('.md') && !f.endsWith('.tmp.md'))).map((f) => `examples/${f}`),
   ];
   const out = new Map();
   for (const f of files) {
