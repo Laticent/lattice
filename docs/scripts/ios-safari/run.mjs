@@ -322,10 +322,13 @@ async function composeTouchTap(id) {
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
 		step('what the page saw of the tap (detail only)', true, `sent ${at.x},${at.y}; ${landed}`);
-		const TAP_REPEATS = 6;
-		// DIAGNOSTIC ONLY, AFTER THE VERDICT: the same tap again, six times, each logged the same way, so one dispatch shows the
-		// page's view of passing AND failing taps (the failure is intermittent). These taps decide nothing.
+		// DIAGNOSTIC ONLY, AFTER THE VERDICT: the same tap again, each logged the same way, with a growing hold between down and
+		// up, to find the hold the page sees at which Safari stops reading a tap (the failing runs selected text as a long press).
+		// These taps decide nothing.
+		const HOLDS = [0, 0, 150, 300, 500, 800];
+		const TAP_REPEATS = HOLDS.length;
 		for (let n = 1; n <= TAP_REPEATS; n++) {
+			const hold = HOLDS[n - 1];
 			// A second tap at the same point inside the multi-tap window is a double tap (it selects a word, a third selects the
 			// paragraph: measured in Playwright's WebKit). The window is a duration by its nature, so the repeats are spaced by one
 			// second, which is longer than it, and the verdict tap above has no tap before it.
@@ -335,12 +338,12 @@ async function composeTouchTap(id) {
 			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 			const t0 = Date.now();
 			await wd('POST', `/session/${id}/actions`, {
-				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, ...(hold ? [{ type: 'pause', duration: hold }] : []), { type: 'pointerUp', button: 0 }] }],
 			});
 			const ms = Date.now() - t0;
 			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 			const after = await wd('POST', `/session/${id}/execute/async`, { args: [], script: tapSettleRead() });
-			console.log(`${LABEL}: compose tap log (diagnostic ${n}/${TAP_REPEATS}): sent ${at.x},${at.y}; gesture ${ms} ms; page saw ${summarizeTapLog(after.log)}; result ${after.caret ? 'caret' : `SELECTED "${after.picked}"`} in ${after.where}`);
+			console.log(`${LABEL}: compose tap log (diagnostic ${n}/${TAP_REPEATS}, hold ${hold} ms): sent ${at.x},${at.y}; gesture ${ms} ms; page saw ${summarizeTapLog(after.log)}; result ${after.caret ? 'caret' : `SELECTED "${after.picked}"`} in ${after.where}`);
 		}
 		return { ok: steps.every((x) => x.pass), steps };
 	} catch (e) {
