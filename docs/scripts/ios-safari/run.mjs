@@ -181,7 +181,11 @@ function tapLogInstall() {
 				const L = window.__tapLog;
 				if (!L) return;
 				const pt = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
-				L.events.push({ type, t: Math.round(performance.now() - L.t0), x: Math.round(pt.clientX), y: Math.round(pt.clientY), target: name(e.target), pointerType: e.pointerType || '' });
+				// The EVENT's own time (e.timeStamp, the same clock as performance.now()), not the listener's: a main thread blocked
+				// between touchstart and touchend must not lengthen the hold the guard reads. lag is how late the listener ran.
+				const now = performance.now();
+				const at = e.timeStamp > 0 && e.timeStamp <= now ? e.timeStamp : now;
+				L.events.push({ type, t: Math.round(at - L.t0), lag: Math.round(now - at), x: Math.round(pt.clientX), y: Math.round(pt.clientY), target: name(e.target), pointerType: e.pointerType || '' });
 			}, { capture: true, passive: true });
 		}
 		document.addEventListener('selectionchange', () => {
@@ -203,7 +207,7 @@ function summarizeTapLog(log) {
 	const ts = first('touchstart');
 	const te = first('touchend') || first('touchcancel');
 	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
-	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${e.text}"`} in ${e.target}` : `${e.type}@${e.t} ${e.x},${e.y} ${e.target}`));
+	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${e.text}"`} in ${e.target}` : `${e.type}@${e.t}${e.lag ? `(+${e.lag})` : ''} ${e.x},${e.y} ${e.target}`));
 	return `${held}; ${parts.slice(0, 14).join(' | ')}${parts.length > 14 ? ` | +${parts.length - 14} more` : ''}`;
 }
 
@@ -326,16 +330,21 @@ async function composeTouchTap(id) {
 		step('what the page saw of the tap (detail only)', true, tries.map((t, i) => `delivery ${i + 1}: sent ${at.x},${at.y}; ${t.landed}`).join(' || '));
 		// A POSITIVE CONTROL for the guard, after the verdict and deciding nothing: one long press made on purpose (a 500 ms hold,
 		// which the simulator stretches further), then the re-delivery the guard asks for. It shows, on the real simulator, that
-		// the page's log reads a long press as one and that the tap delivered after it puts the caret back.
-		await new Promise((r) => setTimeout(r, 1000));
-		const forced = await deliver('control-1', 500);
-		const forcedCall = tapVerdict({ caret: forced.seen.inP && forced.seen.caret, hold: forced.hold, delivery: 1 });
-		let recovered = null;
-		if (forcedCall === 'redeliver') {
+		// the page's log reads a long press as one and that the tap delivered after it puts the caret back. It costs 9 to 14 s
+		// a device (dispatch 43804038465), and its own try: a WebDriver error inside it is recorded here, never a red job.
+		try {
 			await new Promise((r) => setTimeout(r, 1000));
-			recovered = await deliver('control-2');
+			const forced = await deliver('control-1', 500);
+			const forcedCall = tapVerdict({ caret: forced.seen.inP && forced.seen.caret, hold: forced.hold, delivery: 1 });
+			let recovered = null;
+			if (forcedCall === 'redeliver') {
+				await new Promise((r) => setTimeout(r, 1000));
+				recovered = await deliver('control-2');
+			}
+			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall}${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
+		} catch (e) {
+			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `not run: ${String(e.message || e).slice(0, 200)}`);
 		}
-		step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall}${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
 		return { ok: steps.every((x) => x.pass), steps };
 	} catch (e) {
 		return { ok: false, steps, error: String(e.message || e) };

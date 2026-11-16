@@ -29,6 +29,14 @@ test('the hold is touchstart to the first touchend or touchcancel after it', asy
   assert.equal(tapHold(null), null);
 });
 
+test('the hold is the events\' own times, not when the listener ran: a blocked main thread does not make a long press', async () => {
+  const { tapHold, tapVerdict } = await load();
+  // A 40 ms tap whose touchend listener ran 700 ms late (lag): the page was busy, the finger was not held.
+  const busy = { events: [{ type: 'touchstart', t: 100, lag: 0 }, { type: 'touchend', t: 140, lag: 700 }] };
+  assert.equal(tapHold(busy), 40);
+  assert.equal(tapVerdict({ caret: false, hold: tapHold(busy), delivery: 1 }), 'fail', 'a missed short tap on a busy page is a real failure');
+});
+
 test('a caret passes, whatever the hold', async () => {
   const { tapVerdict } = await load();
   assert.equal(tapVerdict({ caret: true, hold: 49, delivery: 1 }), 'pass');

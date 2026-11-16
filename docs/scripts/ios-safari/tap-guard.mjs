@@ -18,7 +18,8 @@ export const LONG_PRESS_MS = 500;
 
 /**
  * The hold the page saw: the time from the first touchstart to the first touchend (or touchcancel) after it, in ms, or null
- * when the log holds no such pair (the page saw no touch at all).
+ * when the log holds no such pair (the page saw no touch at all). `t` is each event's own time (`e.timeStamp`), never when
+ * its listener ran (`lag` records that), so a main thread blocked mid-gesture cannot turn a tap into a long press here.
  * @param {{ events?: Array<{ type: string, t: number }> } | null | undefined} log  `window.__tapLog` from run.mjs
  * @returns {number | null}
  */
