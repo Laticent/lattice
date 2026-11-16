@@ -18,8 +18,9 @@
  *              markdown-it's block parse, a keystroke's incremental update on the gallery, and the
  *              token-for-token differential on every file of the corpus. Exits 1 on any difference.
  *   --inline   S2, the inline pass (P4, @laticent/segno-markdown's InlineParser through lib/core/model-tokens.mjs):
- *              S0-S2 (the model with every leaf read) against markdown-it's block + inline parse on the three
- *              decks, the inline parse alone on the same leaves, a keystroke that re-reads the edited slide's
+ *              the three speed figures of the pipeline doc's §Speed targets on the three decks: S0-S1 against
+ *              markdown-it's block parse (as --model measures it), the inline parse alone on the same leaves, and
+ *              S0-S2 (the model with every leaf read) against markdown-it's block + inline parse; then a keystroke that re-reads the edited slide's
  *              leaves, corpus throughput, and the token adapter's field-for-field parity on every corpus file.
  *              Exits 1 on any difference. `--spec DIR` adds the CommonMark spec metric: DIR holds the
  *              `commonmark-spec` package (`npm pack commonmark-spec@0.31.2`, unpacked), whose examples are run
@@ -261,9 +262,17 @@ async function inlineArm() {
     for (let s = 0; s < m.segs.length; s++) sm.inlineSlide(m, s);
     return m;
   };
+  // The block pass (S0-S1), measured as --model measures it, so this arm reports all three speed figures the
+  // pipeline doc tracks (§Speed targets): S1 against markdown-it's block parse (target 3x), the inline parse alone
+  // (target 4x) and S0-S2 (a tracked metric).
+  const dm = await import(path.join(ROOT, 'lib/core/deck-model.mjs'));
+  const { boundaryParser: bp } = await import(path.join(ROOT, 'lib/core/boundary-parser.mjs'));
   const rows = [];
   for (const [label, file] of DECKS) {
     const body = normalizeSource(fs.readFileSync(path.join(ROOT, file), 'utf8')).replace(FRONT_MATTER, '');
+    const mdBlockMs = best(() => bp.block.parse(body, bp, {}, []), 100, 200);
+    const modelBlockMs = best(() => dm.bodyModel(body), 100, 200);
+    rows.push({ arm: `${label} S0-S1 ms`, markdownItMs: mdBlockMs, modelMs: modelBlockMs, speedup: mdBlockMs / modelBlockMs });
     const mdMs = best(() => mdParse(md, body), 60, 60);
     const modelMs = best(() => modelAll(body), 60, 60);
     rows.push({ arm: `${label} S0-S2 ms`, markdownItMs: mdMs, modelMs, speedup: mdMs / modelMs });
