@@ -1,5 +1,5 @@
 {
- "$comment": "The cases every reader of 'is this picture the slide's placed photo?' must answer alike. The rule is one kernel, lib/core/placed-picture.mjs; its readers are the engine and Export-to-Marp (test/unit/plugins/image-address.test.js), Compose's badge and the Studio's photo finder `photoAt` (docs/src/lib/compose/placed-picture-parity.test.ts), and the image lint. `addr` is the picture in question; `placed` is the engine's answer, which the others must match. `crowded`: the image lint's `image-extra-panel` flags this picture (several lone pictures and no other photo, so none is placed); every other case it leaves alone. A case that depends on a `<!-- class: … -->` or a `backgroundImage` carried from the front matter or an earlier slide runs through every reader too: the Studio reads the carries from the whole deck (lib/core/slide-carried.mjs, docs/src/lib/slide-carried.ts; Compose from its document). PR #3126, followups.d/3126-p2-one-placed-picture-rule.md.",
+ "$comment": "The cases every reader of 'is this picture the slide's placed photo?' must answer alike. The rule is one kernel, lib/core/placed-picture.mjs; its readers are the engine and Export-to-Marp (test/unit/plugins/image-address.test.js), Compose's badge and the Studio's photo finder `photoAt` (docs/src/lib/compose/placed-picture-parity.test.ts), and the image lint. `addr` is the picture in question; `placed` is the engine's answer, which the others must match. `crowded`: the image lint's `image-extra-panel` flags this picture (several lone pictures and no other photo, so none is placed); every other case it leaves alone. A case that depends on a `<!-- class: … -->` or a `backgroundImage` carried from the front matter or an earlier slide runs through every reader too: the Studio reads the carries from the whole deck (lib/core/slide-carried.mjs, docs/src/lib/slide-carried.ts; Compose from its document). A `split: headings` unit holding two engine slides is read part by part by every reader (lib/core/placed-picture.mjs `headingPartStarts`). PR #3126, followups.d/3126-p2-one-placed-picture-rule.md.",
  "cases": [
   {
    "name": "a lone picture between blank lines",
@@ -224,6 +224,30 @@
    "md": "---\ntheme: indaco\n---\n\n<!-- class: content bleed -->\n\n## One\n\n---\n\n## Two\n\n---\n\n## Three\n\n![Lake](https://x.test/p.jpg)\n",
    "addr": "https://x.test/p.jpg",
    "placed": true
+  },
+  {
+   "name": "split: headings, a lone picture under each heading: the first part places its own",
+   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/a.jpg",
+   "placed": true
+  },
+  {
+   "name": "split: headings, a lone picture under each heading: the second part places its own",
+   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/b.jpg",
+   "placed": true
+  },
+  {
+   "name": "split: headings with a spot class: the first part is the image slide",
+   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- _class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/a.jpg",
+   "placed": true
+  },
+  {
+   "name": "split: headings with a spot class: the second part is not, so its picture stays in the text",
+   "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- _class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/b.jpg",
+   "placed": false
   }
  ]
 }

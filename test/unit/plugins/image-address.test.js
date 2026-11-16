@@ -407,3 +407,19 @@ describe('the shortcut hands its record a marker, not a pasted photo\'s address 
     assert.ok(plain.includes(`url('${svg}')`));
   });
 });
+
+describe('a unit the engine draws as several slides is cut where the engine cuts it (media-plugins.md §9, 2026-11-16)', () => {
+  test('`headingPartStarts` names each heading part, the engine\'s own cut, through a pasted photo', async () => {
+    const { headingPartStarts, slidePictureCount } = await import('../../../lib/core/placed-picture.mjs');
+    const { boundaryParser } = await import('../../../lib/core/boundary-parser.mjs');
+    const photo = `data:image/png;base64,${'QUJD'.repeat(3000)}`;
+    const unit = `<!-- class: image -->\n## One\n\n![A](${photo})\n\n<!-- _class: image mirror -->\n## Two\n\n![B](b.jpg)\n`;
+    const starts = headingPartStarts(unit, boundaryParser);
+    // The second part starts at its lead-in comment, which the engine pulls back onto the heading's slide.
+    assert.deepEqual(starts, [0, unit.indexOf('<!-- _class: image mirror')]);
+    assert.deepEqual(starts.map((s, k) => slidePictureCount(unit.slice(s, starts[k + 1]), boundaryParser)), [1, 1]);
+    // One heading, or a heading in a fence, is one part.
+    assert.deepEqual(headingPartStarts('## One\n\ntext\n', boundaryParser), [0]);
+    assert.deepEqual(headingPartStarts('## One\n\n```\n## not a heading\n```\n', boundaryParser), [0]);
+  });
+});

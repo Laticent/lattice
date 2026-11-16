@@ -1,6 +1,6 @@
 import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
 import { compositionOf, effectiveCard, inkOf, needsInk, pickCardInk, THIN_BACKING } from '../../../../lib/core/card-ink.mjs';
-import { placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
+import { headingPartStarts, placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
 import { deckPlacingClasses } from '../../lib/deck-placing-classes';
 import { type SlidePlacing, slidePlacingOf } from '../../lib/slide-carried';
 import { getClassTokens } from '../../lib/slide-directives';
@@ -67,8 +67,32 @@ function recordAddress(body: string): string | null {
  * `slidePlacingAt` / `slidePlacingOf`): the classes the engine resolves for it (its own or the carried `class:`, plus the
  * deck's), and whether a carried background is already its photo. A bare class list is the classes the slide receives
  * besides the `_class` in `chunk` (the deck's `class:` tokens), for a caller with no deck in hand.
+ *
+ * A unit the engine draws as several slides (`split: headings`, `placing.parts`) is read part by part, each with its own
+ * placing, and this is the first part's photo that has one; `photosAt` gives every part's.
  */
 export function photoAt(chunk: string, placing: SlidePlacing | readonly string[] = []): { ref: string; index: number } | null {
+	for (const found of photosAt(chunk, placing)) if (found) return found;
+	return null;
+}
+
+/** Each engine slide's photo in this unit, in order (one entry when the unit is one slide). `index` is in `chunk`. */
+export function photosAt(chunk: string, placing: SlidePlacing | readonly string[] = []): Array<{ ref: string; index: number } | null> {
+	const parts = isPlacing(placing) ? placing.parts : undefined;
+	if (parts && parts.length > 1) {
+		const starts = headingPartStarts(chunk, boundaryParser);
+		// The parts are cut by the same call as the placings; a chunk that cuts otherwise (an edit in flight) is read whole.
+		if (starts.length === parts.length) {
+			return starts.map((from, k) => {
+				const found = photoInSlide(chunk.slice(from, starts[k + 1] ?? chunk.length), parts[k]);
+				return found ? { ref: found.ref, index: found.index + from } : null;
+			});
+		}
+	}
+	return [photoInSlide(chunk, placing)];
+}
+
+function photoInSlide(chunk: string, placing: SlidePlacing | readonly string[]): { ref: string; index: number } | null {
 	const rec = /^[ \t]*`@image\{([^`\n]*)\}`[ \t]*$/m.exec(chunk);
 	if (rec) {
 		const ref = recordAddress(rec[1]);

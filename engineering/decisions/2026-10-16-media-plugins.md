@@ -1311,3 +1311,17 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   the record text the reader is handed, and the bench's `picture shortcut · 3 described phone photos` row gates on it:
   10,500,246 → 225 characters per render, median 2,464 → 1,574 ms. Output is byte-identical (150 slide shapes compared before
   and after, and test/unit/plugins/image-address.test.js holds a held and a hand-written record to the same bytes).
+- 2026-11-16: **the Studio's photo readers read a `split: headings` unit part by part** (followups.d/3126-p3-studio-heading-split-photo.md,
+  now deleted). A `---` unit with two headings is two engine slides, and the engine places one lone picture per part; Compose
+  and `photoAt` read the whole unit, saw two lone pictures and placed neither, so the photo-contrast check stayed silent there.
+  The cut is now one kernel call, `headingPartStarts` (lib/core/placed-picture.mjs), over the engine's own
+  `headingSplitPoints` with a long `data:` payload stood in for first. The Studio's carry walk (docs/src/lib/slide-carried.ts)
+  hands the parts to `slidesCarried` as the slides they are, so a `_class` in the first part stays there and a running `class:`
+  carries into the next; `slidePlacingAt` answers for the part holding the offset and lists every part's placing (`parts`).
+  `photosAt` (card-ink-pick.ts) gives each part's photo and `photoAt` the first part's that has one, which is what the callers
+  keyed on the unit (the photo check, the ink fix, SlideContext) read: re-keying them on parts was not needed for the check to
+  speak, and a caller that samples a later part's preview slide would be new work. Compose's `placementAt` finds the picture's
+  part in its slide node; a picture in a later part is placed by what that part resolves, and its Placement control stays shut,
+  because the slide's `_class` governs only the first part. The shared table gains four `split: headings` rows (a running
+  class: both parts place; a spot class: only the first), red on Compose and `photoAt` before (6 failures) and green on all
+  five readers after.
