@@ -187,13 +187,14 @@ const lintSame = JSON.stringify(here.lint) === JSON.stringify(there.lint);
 // is a stylesheet the CSS build no longer writes, which `--strict` fails on like any other unpaired output.
 const cssNames = Object.keys(here.css).filter((n) => n in there.css).sort();
 const cssChanged = cssNames.filter((n) => here.css[n] !== there.css[n]);
+const cssLostNames = Object.keys(there.css).filter((n) => !(n in here.css)).sort();
 const cssOneSided = [...Object.keys(here.css).filter((n) => !(n in there.css)).map((n) => `${n} (here only)`), ...Object.keys(there.css).filter((n) => !(n in here.css)).map((n) => `${n} (there only)`)].sort();
 
 const result = {
   ref: REF,
   decks: Object.keys(here.decks).length,
   paired: Object.keys(here.decks).filter((k) => there.decks[k]).length,
-  changed, sourceChanged, added, removed, lintSame, cssChanged, cssOneSided, stylesheets: cssNames.length, strict: STRICT,
+  changed, sourceChanged, added, removed, lintSame, cssChanged, cssOneSided, cssLost: cssLostNames, stylesheets: cssNames.length, strict: STRICT,
   lintFindings: { here: here.lint.length, there: there.lint.length },
 };
 if (JSON_OUT) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -205,10 +206,11 @@ else {
   for (const c of changed) console.log(`  differs: ${c.path}${c.was !== c.path ? ` (was ${c.was})` : ''}${c.html ? ' html' : ''}${c.error ? ` error: ${c.error}` : ''}`);
   for (const n of cssChanged) console.log(`  stylesheet differs: ${n}`);
   for (const n of cssOneSided) console.log(`  stylesheet in one tree only, not compared: ${n}`);
+  if (STRICT) for (const n of cssLostNames) console.log(`  FAILS --strict: ${n} is a stylesheet the other tree writes and this one no longer does`);
   for (const p of sourceChanged) console.log(`  source changed: ${p}`);
   for (const p of added) console.log(`  added:   ${p}`);
   for (const p of removed) console.log(`  removed: ${p}`);
 }
 const unpaired = sourceChanged.length + added.length + removed.length;
-const cssLost = Object.keys(there.css).some((n) => !(n in here.css));
+const cssLost = cssLostNames.length > 0;
 process.exit(changed.length || cssChanged.length || !lintSame || (STRICT && (unpaired || cssLost)) ? 1 : 0);

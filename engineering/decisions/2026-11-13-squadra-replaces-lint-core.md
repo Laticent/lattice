@@ -428,6 +428,17 @@ island read a lone `\r`. All are fixed in the second commit. Fixing them also su
 shim (docs/src/plugins/vite-cjs-lib-dev.mjs) refused 13 register resolvers once front-matter-key.js required the
 island; it now hoists a sibling's own `.mjs` require too (pinned in its vitest).
 
+A second independent checker then read the commits the trio had not seen (the render-path conversion, and the trim
+that moved key nesting and block-scalar body spans into `lattice-deck`). Its seeded runs found no reader outside the
+edges above: 200,000 inputs against each old fence (the sites that required a line end after the closer differed only
+where the block now ends at a closer with none), and 200,000 mixed line-end inputs through `fence()`'s offset mapping,
+none split a `\r\n`. It found three small things, fixed here: the plugin writer chose a lone-`\r` line end for an LF
+deck holding one stray `\r` in its prose (it now does so only for a deck with no `\n`; pinned, and the pin goes red
+with the old rule); the dev shim would bind one import name twice for a sibling required twice (each inlined copy now
+has its own; pinned in the vitest); and `render-identity` printed no reason when `--strict` failed on a stylesheet only
+`main` writes (it now names it, and `--json` carries `cssLost`). The identity check on the final head reads 471 decks
+byte-identical, lint identical, 0 stylesheets differing, exit 0.
+
 **Not moved, and why.**
 - **lint-core's front-matter reads** (44 copies of the engine's old fence, its `fmChunks`, its line scans through
   `withoutBlockScalarBodies`). Step 4 moves each rule onto `fm-key`, and step 6 deletes lint-core; converting them first

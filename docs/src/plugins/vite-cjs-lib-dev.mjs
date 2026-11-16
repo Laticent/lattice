@@ -42,6 +42,7 @@ const wrapModule = (src) => `(() => {\nconst module = { exports: {} };\nconst ex
  */
 export function inlineSiblingLeaves(src, dir, imports = []) {
 	let refused = false;
+	let copy = 0;
 	const out = src.replace(REQUIRE_SIBLING, (_whole, _q, name) => {
 		let sibling;
 		try {
@@ -52,7 +53,9 @@ export function inlineSiblingLeaves(src, dir, imports = []) {
 		}
 		// A sibling may itself require an ESM sibling (`front-matter-key.js` reads the front-matter island): that
 		// `require` is hoisted to an import of the outer module, pushed onto `imports`, under a name of its own.
-		const esm = hoistEsmSiblings(sibling, `__latticeEsm_${name.replace(/\W/g, '_')}_`);
+		// The name carries a per-call copy number, so a sibling required twice, or two siblings whose names differ only in
+		// a non-word character, never bind the same identifier twice.
+		const esm = hoistEsmSiblings(sibling, `__latticeEsm_${name.replace(/\W/g, '_')}_${copy++}_`);
 		if (!IS_CJS_LEAF(esm.body)) refused = true;
 		if (esm.imports) imports.push(esm.imports);
 		return wrapModule(esm.body);

@@ -82,6 +82,15 @@ test('the plugin admission reads a lone-CR front matter line by line, as the isl
   assert.equal(writeDeckPlugins(src, ['mermaid', 'math']), src.replace('[mermaid]', '[mermaid, math]'));
 });
 
+test('the plugin writer keeps an LF deck LF when its prose holds a stray CR (independent check, 2026-11-16)', () => {
+  const { writeDeckPlugins } = require('../../../lib/core/deck-plugins.mjs');
+  assert.equal(
+    writeDeckPlugins('---\ntheme: indaco\nmode: x\n---\n\n# Slide\n\nText with a stray \r here\n', ['mermaid']),
+    '---\ntheme: indaco\nmode: x\nplugins: [mermaid]\n---\n\n# Slide\n\nText with a stray \r here\n',
+  );
+  assert.equal(writeDeckPlugins('# Slide\n\nText \r here\n', ['mermaid']), '---\nplugins: [mermaid]\n---\n\n# Slide\n\nText \r here\n');
+});
+
 test('a key main read by its regex head: `a.b`, `$x` and `1x` now read as the whole key', () => {
   // Main's loose reader picked its column-0 line by the key's head up to the first `.` or `$` (`a`, nothing for
   // `$x`); the island matches the name. No register name holds either character.
