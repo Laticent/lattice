@@ -189,6 +189,11 @@ section.compare-prose.decision > .cell-stage > :is(ul, ol)::after {
   white-space: nowrap;
   z-index: 2;
 }
+/* The label names the connector, so a one-card list (a split page, or a lone card) drops it with the connector:
+ * left alone it floated in the middle of the card, where a longer body runs into it. */
+section.compare-prose.decision > .cell-stage > :is(ul, ol):has(> li:only-child)::after {
+  display: none;
+}
 
 /* vertical: stack the two cards; the connector slot becomes the divider ROW between
  * them (flex column — the cards' order:1/3 + connector order:2 carry over from the
