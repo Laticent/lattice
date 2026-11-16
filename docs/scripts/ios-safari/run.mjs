@@ -92,10 +92,11 @@ const RELAUNCH_MS = Number(process.env.SAFARI_RELAUNCH_MS || 20000);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /**
  * One simctl call, bounded: a hung simctl must not hold the job either. A failure is logged, not fatal: the session decides.
- * 60 s, not run.sh's LAUNCH_LIMIT (480 s): that limit covers Safari's FIRST launch after a boot, which took 156 s and 252 s
- * on run 43370280534. This relaunch hits an already booted device; it took about 12 s on run 43776570714. A relaunch past
- * 60 s is logged and the retry still runs; if that retry fails, run.mjs exits 3 and run.sh reboots for its second start,
- * which pays the long first launch under its own limit. A 480 s cap here would let one stuck relaunch spend 8 minutes first.
+ * 60 s, well under the 480 s that run.sh allows Safari's FIRST launch after a boot (its LAUNCH_LIMIT, from #3168): first
+ * launches took 156 s and 252 s on run 43370280534, and 123 s on 43784118094. This relaunch hits an already booted device;
+ * it took about 12 s on run 43776570714 and about 31 s on 43784118094. A relaunch past 60 s is logged and the retry still
+ * runs; if that retry fails, run.mjs exits 3 and run.sh reboots for its second start, which pays the long first launch
+ * under its own limit. A 480 s cap here would let one stuck relaunch spend 8 minutes first.
  */
 const simctl = (...args) => {
 	try {
