@@ -10,6 +10,7 @@ import { clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, type 
 import { type AcronymRegistry, spokenAt } from './normalize.js';
 import { splitParagraphs, splitWords } from './segment.js';
 import type { LexiconMap } from './symbols.js';
+import type { TermMap } from './terms.js';
 
 // The data model — `Word`, `Cue`, `CaptionTrack` — is the core of the Lattice Timing Track and
 // lives in `@laticent/ltt`, the one place a type in that format is defined
@@ -49,6 +50,9 @@ export interface BuildOptions {
   /** The deck's read-aloud lexicon (`lexicon:` front-matter): token (glyph or whole word) → spoken
    *  form, beating the built-in Speech Symbol Commons. Author wins — see symbols.ts. */
   lexicon?: LexiconMap;
+  /** The deck's TERM registry (`terms:` front-matter, absorbing `acronyms:` and `lexicon:`): written
+   *  key → what the voice says. Beats both on a clash; one matcher reads all three (terms.ts). */
+  terms?: TermMap;
 }
 
 /**
@@ -139,7 +143,7 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
 
       // `spokenAt` needs the words either side (the direction dedupe, a short month beside a
       // date), which only this loop can see — `toSpoken` is per-token and cannot look around.
-      const spoken = spokenAt(displays, i, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon });
+      const spoken = spokenAt(displays, i, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon, terms: opts.terms });
       const pause = pauseAfter(display);
       // Phrase-final lengthening: a word before a boundary (it carries trailing punctuation)
       // stretches, so its highlight holds a beat longer instead of the cursor running ahead.

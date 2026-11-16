@@ -143,7 +143,7 @@
       "description": "Use when writing speaker notes, say: lines, review comments or captions, or when reviewing a deck against the notes rubric.",
       "kind": "make",
       "studio": true,
-      "tokens": 5397
+      "tokens": 5571
     },
     {
       "name": "studio",

@@ -776,7 +776,9 @@ describe('regions, short months and cohort columns read without an acronyms: blo
 	});
 	it('lets the author win over every new entry', () => {
 		const acronyms = new Map([['EMEA', 'Europe, the Middle East and Africa'], ['M2', 'M 2'], ['Jan', 'Jan']]);
-		expect(toSpokenText('EMEA M2 Jan 2026', { acronyms })).toBe('Europe, the Middle East and Africa M 2 Jan two thousand twenty-six');
+		// A registry value is normalized like the text around it (2026-11-16-terms-registry.md §4), so the
+		// author's `M 2` reads "M two" — still not the cohort column's "month two".
+		expect(toSpokenText('EMEA M2 Jan 2026', { acronyms })).toBe('Europe, the Middle East and Africa M two Jan two thousand twenty-six');
 	});
 	it('stays out of a non-English deck', () => {
 		expect(toSpokenText('Jan 2026 Feb M1', { lang: 'fr' })).toBe('Jan 2026 Feb M1');

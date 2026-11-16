@@ -411,7 +411,10 @@ describe('one sentence times identically through the deck producer and both narr
 	const spans = [{ start, end: start + 'grew 18%'.length, weight: 1.6 }];
 	const pace = 'moderate' as const;
 
-	const deck = buildReadAlong([text], { voice: { model: 'm', voice: 'v', speed: 1 }, pace, acronyms, lexicon, lang, emphasis: [spans] });
+	// The deck producer takes the ONE merged term map (`termsSpokenMap` merges lexicon < acronyms); the
+	// tour narrator still accepts the two maps a host may hold, and Cadenza merges them the same way.
+	const terms = new Map([...lexicon, ...acronyms]);
+	const deck = buildReadAlong([text], { voice: { model: 'm', voice: 'v', speed: 1 }, pace, terms, lang, emphasis: [spans] });
 	const deckWords = trackToWords(deck.slides[0].track);
 	const inputs = { pace, acronyms, lexicon, lang, emphasis: (t: string) => (t === text ? spans : undefined) };
 

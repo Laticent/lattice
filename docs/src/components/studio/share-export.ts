@@ -1361,8 +1361,7 @@ type ReadAlongCore = {
 		opts: {
 			voice: { model: string; voice: string; speed: number };
 			pace?: string;
-			acronyms?: ReadonlyMap<string, string>;
-			lexicon?: ReadonlyMap<string, string>;
+			terms?: ReadonlyMap<string, string>;
 			lang?: string;
 			/** Per-slide emphasis spans, parallel to `texts` — see lib/core/read-along-build.js. */
 			emphasis?: readonly (readonly { start: number; end: number; weight: number }[] | undefined)[];
@@ -1467,8 +1466,7 @@ export async function shareCaptions(
 	// Keyed by AUTHORED slide number, re-keyed to the shown slides' positions.
 	const authoredSay = resolveNarrationMod.frontMatterSayMap(source);
 	const fmSayMap = new Map(authored.flatMap((a, i) => (authoredSay.has(a + 1) ? [[i + 1, authoredSay.get(a + 1) as string] as const] : [])));
-	const acronyms = resolveNarrationMod.acronymSpokenMap(source);
-	const lexicon = resolveNarrationMod.lexiconMap(source); // author lexicon beats the built-in commons
+	const terms = resolveNarrationMod.termsSpokenMap(source); // `terms:` + the `acronyms:` / `lexicon:` it absorbs
 	const lang = resolveNarrationMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
 	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
 	// by construction). Failure leaves the projection empty, exactly as the CLI's does
@@ -1507,11 +1505,10 @@ export async function shareCaptions(
 	const readAlong = readAlongCore.buildReadAlong(slideTexts, {
 		emphasis,
 		// Voice is metadata only — captions time off `pace`, not the voice (regenerate
-		// mode has no audio). Mirrors the CLI's default; the deck acronym registry expands.
+		// mode has no audio). Mirrors the CLI's default; the deck's term registry applies.
 		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
 		pace: 'moderate',
-		acronyms,
-		lexicon,
+		terms,
 		lang: lang ?? undefined,
 		// The NEUTRAL greeting and the closing: a caption file has no viewer clock. The same key
 		// reading and the same text as the CLI's sidecar (lib/core/resolve-bookends.mjs).

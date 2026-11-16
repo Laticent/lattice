@@ -453,13 +453,12 @@ export async function sentenceHash(spoken: string): Promise<string> {
 export function warmNarration(
 	text: string,
 	signal?: AbortSignal,
-	acronyms?: ReadonlyMap<string, string>,
+	terms?: ReadonlyMap<string, string>,
 	lang?: string,
-	lexicon?: ReadonlyMap<string, string>,
 ): void {
-	// MUST pass the same `acronyms`, `lang` AND `lexicon` play() will use, or the warmed spoken
+	// MUST pass the same `terms` AND `lang` play() will use, or the warmed spoken
 	// sentences won't match the ones synthesized on playback — every prefetch a cache miss.
-	const sentences = spokenSentences(text, acronyms, lang, lexicon);
+	const sentences = spokenSentences(text, terms, lang);
 	if (!sentences.length) return;
 	// getVoice() is the SAME memoized singleton play() uses — this never spins up
 	// a second instance, and it's a no-op microtask once a reader has already
@@ -472,9 +471,9 @@ export function warmNarration(
  *  `cue.words[].spoken` join `play()` uses, so anything derived from this lines up with
  *  the cache keys playback will look up. Shared by the warm-ahead and the prepare pass;
  *  a second, plainer split here would silently make every prefetch a cache miss. */
-function spokenSentences(text: string, acronyms?: ReadonlyMap<string, string>, lang?: string, lexicon?: ReadonlyMap<string, string>): string[] {
+function spokenSentences(text: string, terms?: ReadonlyMap<string, string>, lang?: string): string[] {
 	if (!text) return [];
-	const track = buildTrack(text, { acronyms, lang, lexicon });
+	const track = buildTrack(text, { terms, lang });
 	return track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
 }
 
@@ -492,11 +491,10 @@ function spokenSentences(text: string, acronyms?: ReadonlyMap<string, string>, l
 export function warmNarrationWindow(
 	texts: string[],
 	signal?: AbortSignal,
-	acronyms?: ReadonlyMap<string, string>,
+	terms?: ReadonlyMap<string, string>,
 	lang?: string,
-	lexicon?: ReadonlyMap<string, string>,
 ): void {
-	for (const text of texts) warmNarration(text, signal, acronyms, lang, lexicon);
+	for (const text of texts) warmNarration(text, signal, terms, lang);
 }
 
 /**
@@ -511,8 +509,8 @@ export function useReadAloud(
 	text: string,
 	opts?: {
 		onFinish?: () => void;
-		acronyms?: ReadonlyMap<string, string>;
-		lexicon?: ReadonlyMap<string, string>;
+		/** The deck's term registry (`termsSpokenMap`): written key → what the voice says. */
+		terms?: ReadonlyMap<string, string>;
 		lang?: string;
 		muted?: boolean;
 		debug?: boolean;
@@ -526,10 +524,9 @@ export function useReadAloud(
 	// One word-timed track per slide. The voice speaks Cadenza's SPOKEN expansion (so
 	// "$4.2M" is said "four point two million dollars"), while the cursor highlights the
 	// DISPLAY words — the measured onset re-anchors the right cue, so they stay aligned.
-	// The deck's acronym registry (author pronunciations) rides into every track; the
-	// deck's `lang` gates the English say-as so a non-English deck isn't anglicized (#919).
-	const acronyms = opts?.acronyms;
-	const lexicon = opts?.lexicon;
+	// The deck's term registry (author pronunciations — `terms:`, `acronyms:`, `lexicon:`) rides into
+	// every track; the deck's `lang` gates the English say-as so a non-English deck isn't anglicized (#919).
+	const terms = opts?.terms;
 	const lang = opts?.lang;
 	// Voice muted — captions still run (the silent cadence estimate), no TTS is attached. Read via
 	// a ref so play() sees the current value without re-creating the reader (present redesign S3).
@@ -540,7 +537,7 @@ export function useReadAloud(
 	const debugLabelRef = React.useRef(debugLabel);
 	debugLabelRef.current = debugLabel;
 	const emphasis = opts?.emphasis;
-	const track = React.useMemo(() => buildTrack(text, { acronyms, emphasis, lang, lexicon }), [text, acronyms, emphasis, lang, lexicon]);
+	const track = React.useMemo(() => buildTrack(text, { terms, emphasis, lang }), [text, terms, emphasis, lang]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
 	// The sentence the Guide is on: the reader's, or the next one once it is GUIDE_LEAD_MS away.
@@ -1402,9 +1399,9 @@ export function useReadAloud(
  */
 export function spokenSentencesPerSlide(
 	texts: string[],
-	opts?: { acronyms?: ReadonlyMap<string, string>; lang?: string; lexicon?: ReadonlyMap<string, string> },
+	opts?: { terms?: ReadonlyMap<string, string>; lang?: string },
 ): string[][] {
-	return texts.map((t) => spokenSentences(t, opts?.acronyms, opts?.lang, opts?.lexicon));
+	return texts.map((t) => spokenSentences(t, opts?.terms, opts?.lang));
 }
 
 export async function narrationReadiness(perSlide: string[][]): Promise<number[]> {
@@ -1896,9 +1893,41 @@ export async function previewTtsVoice(o: { rung: VoiceTier; voice?: string; mode
 	}
 	const s = await v.synthSample({ ...o, speed });
 	if (!s.ok || !s.bytes) return { ok: false, error: s.error || 'no audio returned' };
+	return playPreviewBytes(stage, s.bytes, s.key);
+}
+
+/**
+ * Speak ONE line in the reader's current voice — the Terms editor's ▶, so an author hears how a term
+ * will be said before a slide uses it. `text` is already the SPOKEN form (the editor runs it through
+ * Cadenza with the deck's terms). Uses the same ladder a read uses (`synthOne`), and the browser
+ * speechSynthesis rung plays itself when that is the active one. Never throws.
+ */
+export async function speakLinePreview(text: string, lang?: string): Promise<{ ok: boolean; error?: string }> {
+	const line = String(text ?? '').trim();
+	if (!line) return { ok: false, error: 'nothing to say' };
+	const v = await getVoice();
+	if (!v) return { ok: false, error: 'voice unavailable' };
+	const stage = getStage();
+	try {
+		stage.unlock();
+	} catch {
+		/* best-effort */
+	}
+	const s = await v.synthOne({ text: line });
+	if (!s) return { ok: false, error: 'no voice is ready' };
+	if (!s.bytes) {
+		v.speakThis(line, undefined, lang); // the speechSynthesis rung: it plays itself
+		return { ok: true };
+	}
+	return playPreviewBytes(stage, s.bytes, s.key);
+}
+
+/** Play preview bytes on the shared stage: barge in on any earlier preview, and report a clip that
+ *  never ends (a context stuck suspended) instead of hanging the caller's "Playing…" state. */
+async function playPreviewBytes(stage: Stage, bytes: Bytes, key: string): Promise<{ ok: boolean; error?: string }> {
 	try {
 		previewHandle?.stop(); // barge-in on a prior sample
-		const clip = await stage.decode(s.bytes, s.key);
+		const clip = await stage.decode(bytes, key);
 		const handle = stage.play(clip);
 		previewHandle = handle;
 		let playTimer: ReturnType<typeof setTimeout> | undefined;

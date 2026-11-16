@@ -16,6 +16,7 @@ import { type CalibrationState, rateScale as rateScaleFor } from './calibrate.js
 import type { AcronymRegistry } from './normalize.js';
 import { makeReader, type Reader, type ReaderOptions } from './reader.js';
 import type { LexiconMap } from './symbols.js';
+import type { TermMap } from './terms.js';
 import { type BuildOptions, buildTrack, type CaptionTrack, type EmphasisSpan } from './track.js';
 import { toSrt, toVtt } from './vtt.js';
 
@@ -32,6 +33,7 @@ type _NarrationSetterMap = {
 	rate: 'rateScale';
 	calibration: 'rateScale';
 	lexicon: 'lexicon';
+	terms: 'terms';
 	emphasis: 'emphasis';
 };
 type _EveryBuildOptionCovered = _RequireNever<Exclude<keyof BuildOptions, _NarrationSetterMap[keyof _NarrationSetterMap]>>;
@@ -50,6 +52,8 @@ export interface Narration {
 	calibration(state: CalibrationState | null | undefined): this;
 	/** The deck's read-aloud lexicon (token → spoken form, beating the built-in symbol commons). */
 	lexicon(map: LexiconMap): this;
+	/** The deck's term registry (written key → spoken form; beats `acronyms` and `lexicon`). */
+	terms(map: TermMap): this;
 	/** Emphasis spans over the text — which ranges matter, and how much. Char offsets into the same
 	 *  string this was configured with. Omit for ordinary, unweighted narration. */
 	emphasis(spans: readonly EmphasisSpan[]): this;
@@ -99,6 +103,10 @@ export function narration(text: string): Narration {
 		},
 		lexicon(map) {
 			opts.lexicon = map;
+			return b;
+		},
+		terms(map) {
+			opts.terms = map;
 			return b;
 		},
 		toTrack() {

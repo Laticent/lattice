@@ -178,17 +178,16 @@ async function main(argv) {
 
   // Narration acronym-discovery pass (§16): list multi-letter all-caps tokens that read
   // letter-by-letter in narration because NOTHING expands them — not the built-in lexicon and
-  // not the deck's own `acronyms:` registry — so the author can register the ones they want
+  // not the deck's own `terms:` registry (or the `acronyms:` / `lexicon:` it absorbs) — so the author can register the ones they want
   // spoken as words. Advisory (never affects the exit code). Off under --all (the gallery sweep
   // would list every acronym as noise). Uses the shared front-matter parser (HARD RULE #1) and
   // cadenza's normalizer (Node layer can require the built package; lint-core cannot).
   const doDiscover = !flags.has('--all');
-  let acronymSpokenMap = null;
-  let lexiconMap = null;
+  let termsSpokenMap = null;
   let unmatchedAcronyms = null;
   let unspokenTokens = null;
   if (doDiscover) {
-    ({ acronymSpokenMap, lexiconMap } = await import('../lib/core/resolve-narration.mjs'));
+    ({ termsSpokenMap } = await import('../lib/core/resolve-narration.mjs'));
     ({ unmatchedAcronyms, unspokenTokens } = require('@laticent/cadenza'));
   }
 
@@ -287,7 +286,7 @@ async function main(argv) {
       for (const s of reviewText(source, { bucketOf, densityOf })) suggestions.push({ file, ...s });
     }
     if (doDiscover) {
-      const unknown = unmatchedAcronyms(narrationText(source), { acronyms: acronymSpokenMap(source) })
+      const unknown = unmatchedAcronyms(narrationText(source), { terms: termsSpokenMap(source) })
         .filter((t) => !COMMON_INITIALISMS.has(t)); // format/web initialisms read fine letter-by-letter
       if (unknown.length) {
         suggestions.push({
@@ -296,7 +295,7 @@ async function main(argv) {
           rule: 'narration-acronyms',
           severity: 'suggestion',
           message: `${unknown.length} all-caps token(s) will read letter-by-letter in narration: ${unknown.join(', ')}.`,
-          fix: `Register any you want spoken as words in the deck's acronyms: front matter, e.g.\nacronyms:\n  ${unknown[0]}: <spoken expansion>`,
+          fix: `Say how you want any of them spoken in the deck's terms: front matter, e.g.\nterms:\n  ${unknown[0]}: { expansion: <what it stands for>, pronounce: <how to say it> }\nA plain value (${unknown[0]}: <spoken form>) is what the voice says.`,
         });
       }
       // The SIBLING discovery pass (§P3): slash, ratio and identifier shapes that reach the
@@ -305,7 +304,7 @@ async function main(argv) {
       // glyph. The author knows which one they meant, so this coaches rather than decides.
       // Advisory, like the acronym pass beside it, and off under --all for the same reason.
       // See engineering/decisions/2026-09-21-token-passthrough-coaching.md.
-      const unspoken = unspokenTokens(narrationText(source), { lexicon: lexiconMap(source) });
+      const unspoken = unspokenTokens(narrationText(source), { terms: termsSpokenMap(source) });
       if (unspoken.length) {
         suggestions.push({
           file,
@@ -313,7 +312,7 @@ async function main(argv) {
           rule: 'narration-passthrough',
           severity: 'suggestion',
           message: `${unspoken.length} token(s) will read as glyphs in narration, because a slash or a colon means several different things and the normalizer will not guess: ${unspoken.join(', ')}.`,
-          fix: `Say how you want each one read, in the deck's lexicon: front matter, e.g.\nlexicon:\n  ${unspoken[0]}: <spoken form>\nA ratio reads "x to y", a rate reads "x per y", an alternative reads "x or y" — only you know which.`,
+          fix: `Say how you want each one read, in the deck's terms: front matter, e.g.\nterms:\n  "${unspoken[0]}": <spoken form>\nA ratio reads "x to y", a rate reads "x per y", an alternative reads "x or y" — only you know which.`,
         });
       }
     }
