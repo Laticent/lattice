@@ -1,6 +1,7 @@
 import { compositionOf, effectiveCard, needsInk } from '../../../../lib/core/card-ink.mjs';
 import { describe, fixLabel, inkScenes, judge, SOLID, strongestScrim, TEXT_FLOOR } from '../../../../lib/core/photo-contrast.mjs';
-import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
+import { editHeadingPart, slidePlacingOf } from '../../lib/slide-carried';
+import { canEditClass, getClassTokens, setClassTokens } from '../../lib/slide-directives';
 import { headingOf, photoRefOf } from './card-ink-pick';
 import { boxInSection, CARD_CLASS, meanUnderBox, photoMatches, previewDocument, sameSlide } from './card-ink-sampler';
 import { cachedFix, cardOf, estimateMean, hasBodyText, keepFix, photoUrl } from './photo-ink-read';
@@ -245,4 +246,13 @@ export function applyFix(chunk: string, fix: Fix, inherited: readonly string[] =
 	if (fix === 'ink-light' || fix === 'ink-dark') return setImageCard(chunk, 'ink', fix.slice(4));
 	if (fix === SOLID) return setImageCard(chunk, 'backing', 'solid');
 	return setClassTokens(chunk, [...getClassTokens(chunk).filter((t) => t !== 'dark' && t !== 'light'), fix]);
+}
+
+/**
+ * `fix` written into heading part `part` of one `---` slide (`unit`), keeping a class that part only inherits; a part whose
+ * class the Studio cannot edit is left as it is. Here, not in the shell, so the part reader (lib/slide-carried.ts) loads with
+ * the verdict and stays out of the Studio's startup bundle (route budget, PR #3239).
+ */
+export function applyFixInPart(source: string, unit: string, part: number, fix: Fix): string {
+	return editHeadingPart(source, unit, part, (p) => (canEditClass(p) ? applyFix(p, fix, slidePlacingOf(source, p)?.carried ?? []) : p));
 }

@@ -71,7 +71,6 @@ import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName
 import { activeMode, MODES } from '../../lib/mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
-import { editHeadingPart, slidePlacingOf } from '../../lib/slide-carried';
 import { canEditClass, getClassTokens } from '../../lib/slide-directives';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
@@ -5951,12 +5950,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// applied on its own. Loaded with the verdict, which is already in memory by the time a button shows.
 	const pinActiveSlide = React.useCallback(
 		(fix: Fix) =>
-			void import('./photo-verdict').then(({ applyFix }) =>
-				// The fix is the heading part's own: written into that part's class, keeping a class it only inherits.
-				mutateSlideFromPanel((c) =>
-					editHeadingPart(source, c, activePart, (p) => (canEditClass(p) ? applyFix(p, fix, slidePlacingOf(source, p)?.carried ?? []) : p)),
-				),
-			),
+			// The fix is the heading part's own: written into that part's class, keeping a class it only inherits.
+			void import('./photo-verdict').then(({ applyFixInPart }) => mutateSlideFromPanel((c) => applyFixInPart(source, c, activePart, fix))),
 		[mutateSlideFromPanel, source, activePart],
 	);
 	// The editor's half: the verdict for the slide on screen, by source slide index (the full view only, as the spark
