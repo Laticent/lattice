@@ -72,6 +72,20 @@ section.checklist > .cell-stage > :is(ul, ol) > li > .lat-pill {
   margin-inline-start:auto;
   align-self:center;
 }
+/* On a slide read in a hand (fit-everywhere-model.md §24's selector) a row's pill takes at most 45% of the row, and a
+ * longer one wraps inside itself. The pill never wrapped (`white-space: nowrap`, the pills plugin) and the text before
+ * it is an anonymous flex item with no floor, so a long pill held its full width and squeezed the text to one word a
+ * line, 1252px tall at x1.4 (system-design-foundations.md 199). A short pill is narrower than the cap and is unchanged:
+ * a first cut that let every pill drop under its text split a checklist that fit (inline-run-labels.md 3). */
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame, .keeps-laptop).checklist > .cell-stage > :is(ul, ol) > li > .lat-pill {
+  /* Its own width up to the cap, never less: free to wrap, the pill also shrank, one word a line, and words broke
+   * at hyphens ("repu-diation"). */
+  flex-shrink: 0;
+  max-width: 45%;
+  white-space: normal;
+  hyphens: manual;
+  text-align: center;
+}
 section.checklist > .cell-stage > ul > li::marker,
 section.checklist > .cell-stage > ol > li::marker { content:''; }
 
