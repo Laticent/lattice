@@ -239,6 +239,18 @@ Each line names the guard. A change to panes re-checks every one.
 
 ## 5. Verification
 
-To be filled before the merge ask, per HARD RULE #23: the real Studio at 1440, 820 and 390, light and
-dark; the e2e specs above; and every iOS-only behavior marked UNVERIFIED until the owner checks it on a
-phone.
+Per HARD RULE #23, each claim names its surface.
+
+| Surface | What ran | Result |
+|---|---|---|
+| Mobile Safari 26.5 in the **iOS Simulator**, iPhone at 402px (platform-suites dispatch 43813078296, `ios-safari-studio-iphone`, on 01af168) | studio, panes, sheet-focus and compose probes | pass: the drawn caret within 1px at rest, with Coach opened and closed, and after a scroll; the toolbar holds; a tap places the caret |
+| Same run, iPad at 1032px (`ios-safari-studio-ipad`) | the same probes, the caret checked through a docked and closed settings column | pass |
+| Built Studio in Playwright Chromium, WebKit and Gecko at 1440, 820 and 390 (projects desktop, tablet, tablet-touch, mobile, webkit-tablet, gecko, webkit-phone, minfont) | the pane, sheet, focus, shell-parity and chrome specs (`one-side-pane`, `library-header-search`, `panel-shells`, `settings-reopen`, `studio-shell-parity`, `studio-instant-shell`, `library-card-fit` and the rest named in the commits) | pass (142 and 133 in the two last sweeps) |
+| jsdom | docs vitest | pass (studio and ui: 340 files; the whole docs suite: 665 files) |
+| Screenshots of the built Studio, light and dark, 1x and 2x | every docked header; the rail and Read/Write/Craft before and after; the tablet dock; both open searches; the reset off and on; the phone settings sheet | sent to the owner in the session |
+
+**UNVERIFIED:** a physical iPhone or iPad. The simulator runs real Mobile Safari, but its touches are synthesized,
+so the feel of a finger (the tap, the sheet swipe, the keyboard) is for the owner to check on a device.
+
+Carried over, not caused here: the iPad Compose tap reads as a long press now and then on `main` too (another
+session tracks it); the Settings column's tint differs from the tool panes' (§3d).
