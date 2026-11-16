@@ -119,9 +119,14 @@ Every chart concept has **one flat solid**, curated per theme: a category is `--
 (seed `--chart-catN`), a status `--state-X-hue` (seed the base status FILL `--X-mark`), and a mark with
 neither `--chart-neutral-hue` (seed `--chart-neutral-mark`).
 
-**One ink.** Every chart fill, a category, the neutral or a status, is DEEP enough to carry white text
-(`--chart-on-mark`, which is `--on-mark` on every one: one token, declared once on the frame and never re-pointed). At most two charts share a slide, and two text colors side by side read as two
-systems, so the ink never changes with the kind. This replaced a scheme where a status was a BRIGHT fill under
+**One ink for categories; a curated ink per status.** Every CATEGORY fill and the neutral is DEEP enough to carry
+white text (`--chart-on-mark`, which is `--on-mark`: one token, declared once on the frame and never re-pointed). At
+most two charts share a slide, and two text colors side by side read as two systems, so a category's ink never changes
+with the kind. A STATUS fill wears its theme's STATUS TRIPLET instead (engineering/decisions/2026-11-16-status-
+triplets.md): the fill, the ink on it (`--X-on-mark`, read as `--status-on-ink` per member) and its edge
+(`--X-edge-mark`). A brand theme's status fills are deep on the light face under its paper and glowing on the dark
+face under its night, so each clears 4.5:1 against the slide and still reads at the back of a lit hall
+(`npm run check:glance`); a theme that curates no triplet keeps the one ink. This replaced a scheme where a status was a BRIGHT fill under
 near-black text ("text color carries the kind"); it kept the meanings apart, but a status chart beside a category
 chart wore two inks, and on a light slide the bright fills were the quietest marks on it.
 

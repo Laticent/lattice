@@ -163,22 +163,45 @@
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
   --pass: light-dark(#19531F, #92ffa6);   /* 7.74 on card / dark unchanged */
   --fail: light-dark(#580006, #ffaba7);   /* 10.92 on the composed band / dark unchanged */
-  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). ONE INK: a status is a DEEP fill under white, like a
-   * category: done a quiet sage, at risk a burnt orange, blocked a crimson. Two intensities, picked with
-   * `marks: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
-   * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
-   * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-mark: light-dark(#254A28, #4A704B);
-  --warn-mark: light-dark(#8B4600, #B65D00);
-  --fail-mark: light-dark(#9D0800, #DA1000);
-  --pass-vivid-mark: light-dark(#004E11, #007820);
-  --warn-vivid-mark: light-dark(#8B4600, #B65D00);
-  --fail-vivid-mark: light-dark(#9D0800, #DA1000);
-  --warn-signal-mark: light-dark(#FD9900, #FD9800);
-  --fail-signal-mark: light-dark(#FF7744, #FF7A4A);
-  --info-mark: light-dark(#005E85, #1E7CA9);
-  --info-vivid-mark: light-dark(#005E85, #007DAF);
-  --mute-mark: light-dark(#4B5157, #686E74);
+  /* THE STATUS FILLS (base.tokens.css § STATUS, IN TWO JOBS). One solid per status, deep on the light face and
+   * glowing on the dark one, so every fill clears 4.5:1 against its slide as painted and keeps 3:1 at the back of
+   * a lit hall (`npm run check:glance`). `marks: pigment muted|vivid` picks the intensity. The hues are this
+   * theme's own brand and chart colors; the trio keeps at least half of its recorded colorblind separation
+   * (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the full floors. The two exceptions
+   * also wear a SIGNAL ring, the same hue at the opposite lightness. Solved by tools/curate-status-triplets.js. */
+  --pass-mark: light-dark(#00561A, #3A9C4C);
+  --warn-mark: light-dark(#856213, #BD9851);
+  --fail-mark: light-dark(#9D034D, #FF90B0);
+  --pass-vivid-mark: light-dark(#005118, #36CB58);
+  --warn-vivid-mark: light-dark(#876200, #C89522);
+  --fail-vivid-mark: light-dark(#99004A, #FF87AA);
+  --warn-signal-mark: light-dark(#FFBE2A, #62470C);
+  --fail-signal-mark: light-dark(#FFB1C5, #A31F54);
+  --info-mark: light-dark(#0F4FBA, #84B1FF);
+  --info-vivid-mark: light-dark(#004CC3, #84B1FF);
+  --mute-mark: light-dark(#5A6475, #9AA5B8);
+  /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each
+   * status fill is the slide's own paper (light) or night (dark), and the fill's border is the fill itself, because
+   * every fill already clears 4.5:1 against its slide. Solved by tools/curate-status-triplets.js. */
+  --pass-on-mark: light-dark(#F6F6F7, #1A1A1C);
+  --warn-on-mark: light-dark(#F6F6F7, #1A1A1C);
+  --fail-on-mark: light-dark(#F6F6F7, #1A1A1C);
+  --info-on-mark: light-dark(#F6F6F7, #1A1A1C);
+  --mute-on-mark: light-dark(#F6F6F7, #1A1A1C);
+  --pass-edge-mark: light-dark(#00561A, #3A9C4C);
+  --warn-edge-mark: light-dark(#856213, #BD9851);
+  --fail-edge-mark: light-dark(#9D034D, #FF90B0);
+  --info-edge-mark: light-dark(#0F4FBA, #84B1FF);
+  --mute-edge-mark: light-dark(#5A6475, #9AA5B8);
+  --pass-vivid-edge-mark: light-dark(#005118, #36CB58);
+  --warn-vivid-edge-mark: light-dark(#876200, #C89522);
+  --fail-vivid-edge-mark: light-dark(#99004A, #FF87AA);
+  --info-vivid-edge-mark: light-dark(#004CC3, #84B1FF);
+  /* What a mark ON a status solid steps toward: away from the status ink, so toward white under the night ink on the
+   * dark face (risk-matrix's critical band, a state-chart status row's chip). */
+  --status-shade-mark: light-dark(#000000, #FFFFFF);
+  /* The shade under the ONE ink (category and neutral tiles): white text, so it steps toward black. */
+  --on-mark-shade: #000000;
   --warn: light-dark(#A55400, #fa7419);   /* 4.60 on card; pills sanctioned both faces */
   /* THE WASHES ARE CURATED ON THE LIGHT FACE, not derived from the ink.
    *

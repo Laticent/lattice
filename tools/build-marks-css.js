@@ -191,6 +191,15 @@ const ONE_INK = 'var(--chart-cat-1-ink)';
  *            chart-contrast.test.js holds `--text-heading` (at least 6.9:1 on a category fill, 5.46:1 on a status).
  */
 const textInk = (finish) => (finish === 'pigment' ? 'var(--chart-on-mark)' : 'var(--text-heading)');
+/**
+ * The ink for TEXT on a STATUS mark (engineering/decisions/2026-11-16-status-triplets.md). Under pigment a status body is
+ * the theme's curated solid, so its text is that status's curated ink, `--status-on-ink` (set per member from `data-s`,
+ * chart-family.styles.css, and `--chart-on-mark` on the frame, so every element has one). Under etch and tone a status
+ * body is a pale wash like a category's, so its text is the finish's own ink, `--text-heading`. The finish picks with a
+ * PERCENT, not a fallback chain (this file emits none, marks-css.test.js): `--finish-status-k` is 0% under pigment and
+ * 100% under etch and tone, and a color-mix at 0% or 100% IS the one color it names. One expression, every finish.
+ */
+const statusInk = () => 'color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink))';
 const hueOf = (n) => `var(--chart-cat-${n}-hue)`;
 const inkOf = (n) => `var(--chart-cat-${n}-ink)`;
 const mix = (hue, pct) => (pct === '100%' ? hue : `color-mix(in oklab, ${hue} ${pct}, ${BASE})`);
@@ -383,7 +392,7 @@ const T = {
   hue: (n) => `--finish-hue-${n}`, body: (n) => `--finish-body-${n}`, bodyD: (n) => `--finish-body-d-${n}`,
   text: (n) => `--finish-text-${n}`, textD: (n) => `--finish-text-d-${n}`,
   layer: (n) => `--finish-layer-${n}`, layerInk: (n) => `--finish-layer-ink-${n}`,
-  status: '--finish-status', statusD: '--finish-status-d', statusText: '--finish-status-text', statusTextD: '--finish-status-text-d',
+  status: '--finish-status', statusD: '--finish-status-d', statusText: '--finish-status-text', statusTextD: '--finish-status-text-d', statusK: '--finish-status-k',
   rampLo: '--finish-ramp-lo', rampK: '--finish-ramp-k', rampDLo: '--finish-ramp-d-lo', rampDK: '--finish-ramp-d-k',
   rampTextLo: '--finish-ramp-text-lo', rampTextK: '--finish-ramp-text-k',
   rampTextDLo: '--finish-ramp-text-d-lo', rampTextDK: '--finish-ramp-text-d-k',
@@ -405,6 +414,7 @@ function finishTokens(name) {
     `${T.baseD}: ${BODY_BASE_D[name]}`,
     `${T.statusBase}: ${STATUS_BASE[name]}`,
     `${T.ink}: ${textInk(name)}`,
+    `${T.statusK}: ${name === 'pigment' ? '0%' : '100%'}`,
     `${T.edge}: ${num(f.edge)}`,
     `${T.edgeText}: ${num(f.edgeBackdrop)}`,
     // 1 keeps a pill's, bar's and key tile's border; 0 drops it, so an ink edge drawn as an inset ring has no halo outside it.
@@ -558,14 +568,14 @@ function build() {
     if (s.paint === 'bg') decls.push(`--chart-ring: ${tRing(kTok)}`);
     // A status pill's gradient is a background-IMAGE; the shorthand clears it.
     if (s.bears && s.paint === 'bg') {
-      decls.push(`color: ${tv(T.ink)}`);
+      decls.push(`color: ${statusInk()}`);
       // A state tile's INDEX numeral takes its ink from `--state-index-ink`, which the member fixes to
       // `--text-body` (state-chart.styles.css). That held on the shipped tint, and on a stated tile's
       // vivid hue, but the neutral tile's finish body is darker than its shipped tint: cuoio's numeral fell
       // from 5.95:1 to 4.31:1. Where the finish moves the body, the numeral picks its ink from it too.
       // A status tile's own name and badge read `--state-node-ink` (the status ink), solved for the shipped tint.
-      if (s.nodeInk) decls.push(`--state-node-ink: ${tv(T.ink)}`);
-      if (s.indexInk) decls.push(`--state-index-ink: ${tv(T.ink)}`);
+      if (s.nodeInk) decls.push(`--state-node-ink: ${statusInk()}`);
+      if (s.indexInk) decls.push(`--state-index-ink: ${statusInk()}`);
     }
     // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
     // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
@@ -612,7 +622,7 @@ function build() {
     '.state-index-t[data-s]',
     '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t',
     '.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name',
-  ].join(', '), [`fill: ${tv(T.ink)}`])));
+  ].join(', '), [`fill: ${statusInk()}`])));
 
   // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
   // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
@@ -676,7 +686,7 @@ function build() {
   // The disc's body is the mark's own (THE SLOT), and the icon is a mark of the same slot: one rule for every slot.
   w(supports(rule(MOVERS, `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${`light-dark(${inkOn('var(--finish-mark-body-l)')}, ${inkOn('var(--finish-mark-body-d)')})`}`])));
   const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
-  w(supports(rule('pigment', '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${tv(T.ink)}`])));
+  w(supports(rule('pigment', '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${statusInk()}`])));
   w(supports(rule(MOVERS, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: light-dark(${inkOn(tmix(hsStatus.hue, T.status, T.statusBase))}, ${inkOn(tmix(hsStatus.hue, T.statusD, T.statusBase))})`])));
 
   // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
@@ -1048,7 +1058,7 @@ function build() {
         // toward the slide (light keeps the full solid).
         w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: ${ld(`var(--state-${st}-hue)`, `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`)}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       }
-      w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${ld('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))')}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${ld('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark))', 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))')}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A timeline's dots are hollow rings by default; pigment is the solid finish, so its dot is filled with its own ink.
       w(rule(name, '.timeline-dot', ['--timeline-dot-fill: var(--timeline-dot-ink)']));
       // The risk KEY's discs wear the same band fill as the cells (tamed on dark), not the vivid status hue.
@@ -1059,7 +1069,7 @@ function build() {
         // The number picks black or white from its OWN disc: the shipped ink assumes the vivid solid, which the dark mix is not.
         w(supports(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: ${ld(inkOn(kl), inkOn(kd))}`])));
       }
-      const cl = 'color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))';
+      const cl = 'color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark))';
       const cd = 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))';
       w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${ld(cl, cd)}`]));
       w(supports(rule(name, '.risk-key-number[data-band="critical"]', [`fill: ${ld(inkOn(cl), inkOn(cd))}`])));

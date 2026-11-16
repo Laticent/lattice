@@ -104,22 +104,45 @@
   --pass: light-dark(#054b22, #a0ff7f);
   --warn: light-dark(#8d5200, #d38c25);
   --fail: light-dark(#4d0003, #ffaba8);
-  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). ONE INK: a status is a DEEP fill under white, like a
-   * category: done a quiet sage, at risk a burnt orange, blocked a crimson. Two intensities, picked with
-   * `marks: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
-   * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
-   * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-mark: light-dark(#2B4832, #496750);
-  --warn-mark: light-dark(#824B0D, #A16831);
-  --fail-mark: light-dark(#971919, #BA3E37);
-  --pass-vivid-mark: light-dark(#004D22, #216E3B);
-  --warn-vivid-mark: light-dark(#854A00, #AD6200);
-  --fail-vivid-mark: light-dark(#9E000D, #C5302D);
-  --warn-signal-mark: light-dark(#EF9C40, #EB983B);
-  --fail-signal-mark: light-dark(#F17D72, #EE7B6F);
-  --info-mark: light-dark(#265E7C, #447B9A);
-  --info-vivid-mark: light-dark(#005E85, #1A7CAA);
-  --mute-mark: light-dark(#564E52, #70676B);
+  /* THE STATUS FILLS (base.tokens.css § STATUS, IN TWO JOBS). One solid per status, deep on the light face and
+   * glowing on the dark one, so every fill clears 4.5:1 against its slide as painted and keeps 3:1 at the back of
+   * a lit hall (`npm run check:glance`). `marks: pigment muted|vivid` picks the intensity. The hues are this
+   * theme's own brand and chart colors; the trio keeps at least half of its recorded colorblind separation
+   * (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the full floors. The two exceptions
+   * also wear a SIGNAL ring, the same hue at the opposite lightness. Solved by tools/curate-status-triplets.js. */
+  --pass-mark: light-dark(#00622A, #69C27E);
+  --warn-mark: light-dark(#8B5F19, #C09251);
+  --fail-mark: light-dark(#913F50, #F79AA9);
+  --pass-vivid-mark: light-dark(#006B2E, #3DC569);
+  --warn-vivid-mark: light-dark(#926000, #CD8D25);
+  --fail-vivid-mark: light-dark(#850C36, #FF92A5);
+  --warn-signal-mark: light-dark(#FFBC5D, #654100);
+  --fail-signal-mark: light-dark(#FFB2BE, #AB244C);
+  --info-mark: light-dark(#006180, #67BDE3);
+  --info-vivid-mark: light-dark(#006180, #37C1F5);
+  --mute-mark: light-dark(#526771, #92A9B4);
+  /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each
+   * status fill is the slide's own paper (light) or night (dark), and the fill's border is the fill itself, because
+   * every fill already clears 4.5:1 against its slide. Solved by tools/curate-status-triplets.js. */
+  --pass-on-mark: light-dark(#F0EDE6, #0F0E0C);
+  --warn-on-mark: light-dark(#F0EDE6, #0F0E0C);
+  --fail-on-mark: light-dark(#F0EDE6, #0F0E0C);
+  --info-on-mark: light-dark(#F0EDE6, #0F0E0C);
+  --mute-on-mark: light-dark(#F0EDE6, #0F0E0C);
+  --pass-edge-mark: light-dark(#00622A, #69C27E);
+  --warn-edge-mark: light-dark(#8B5F19, #C09251);
+  --fail-edge-mark: light-dark(#913F50, #F79AA9);
+  --info-edge-mark: light-dark(#006180, #67BDE3);
+  --mute-edge-mark: light-dark(#526771, #92A9B4);
+  --pass-vivid-edge-mark: light-dark(#006B2E, #3DC569);
+  --warn-vivid-edge-mark: light-dark(#926000, #CD8D25);
+  --fail-vivid-edge-mark: light-dark(#850C36, #FF92A5);
+  --info-vivid-edge-mark: light-dark(#006180, #37C1F5);
+  /* What a mark ON a status solid steps toward: away from the status ink, so toward white under the night ink on the
+   * dark face (risk-matrix's critical band, a state-chart status row's chip). */
+  --status-shade-mark: light-dark(#000000, #FFFFFF);
+  /* The shade under the ONE ink (category and neutral tiles): white text, so it steps toward black. */
+  --on-mark-shade: #000000;
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

@@ -9,9 +9,12 @@
  *
  *   1. the chart family hands every kind the same ink: the frame declares `--chart-on-mark` once, as `--on-mark`,
  *      and no rule re-points it, so a category and a status cannot drift apart;
- *   2. every category, the neutral and every status fill sits on the far side of that ink: darker than a white ink,
- *      brighter than the near-black one the colorblind palettes wear on the dark face (how far, the 7:1 and 4.6:1
- *      bars, is chart-solids.test.js);
+ *   2. every category and the neutral sits on the far side of that ink: darker than a white ink, brighter than the
+ *      near-black one the colorblind palettes wear on the dark face (how far, the 7:1 and 4.6:1 bars, is
+ *      chart-solids.test.js). A STATUS fill sits on the far side of ITS OWN ink, `--X-on-mark` (THE STATUS TRIPLET,
+ *      engineering/decisions/2026-11-16-status-triplets.md): a brand palette's status ink is its paper on the light
+ *      face and its night on the dark one, so its dark-face status fills glow, as a colorblind palette's do; a palette
+ *      that curates no triplet keeps `--on-mark`, so for it nothing changed;
  *   3. each signal ring is the status color at the OPPOSITE lightness to its fill, and clears 3:1 against the neighbor
  *      opposite it in lightness and SIGNAL_DARK_FILL against the other: a deep fill on a light slide takes a bright
  *      ring 3:1 off the fill; a mid-tone fill on a dark slide a bright ring 3:1 off the slide; a bright fill (a
@@ -92,8 +95,12 @@ describe('one ink: every fill sits under the one ink', () => {
           const bad = [];
           const lightInk = L(ink) > 0.5;
           if (!lightInk && !(theme.startsWith('a11y-') && mode === 'dark')) bad.push('only a colorblind palette\'s dark face wears the near-black ink');
-          for (const t of [...CATEGORIES, ...fills]) {
+          for (const t of CATEGORIES) {
             if (lightInk ? L(c(t)) >= L(ink) : L(c(t)) <= L(ink)) bad.push(`--${t} is not on the far side of the ink`);
+          }
+          for (const t of fills) {
+            const own = resolve(`var(--${t.split('-')[0]}-on-mark, var(--on-mark))`, vars, mode);
+            if (L(own) > 0.5 ? L(c(t)) >= L(own) : L(c(t)) <= L(own)) bad.push(`--${t} is not on the far side of its own ink`);
           }
           assert.deepEqual(bad, []);
         });
@@ -113,7 +120,7 @@ describe('one ink: each signal ring stands off the neighbor opposite it', () => 
           for (const s of ['warn', 'fail']) {
             const ring = c(`${s}-signal-mark`);
             const fill = c(intensity === 'vivid' ? `${s}-vivid-mark` : `${s}-mark`);
-            const brightFill = L(fill) > L(c('on-mark'));
+            const brightFill = L(fill) > L(resolve(`var(--${s}-on-mark, var(--on-mark))`, vars, mode));
             const r = contrast(ring, fill);
             const bg = contrast(ring, c('bg'));
             if (brightFill ? L(ring) >= L(fill) : L(ring) <= L(fill)) bad.push(`--${s}-signal-mark is not at the opposite lightness to its fill`);

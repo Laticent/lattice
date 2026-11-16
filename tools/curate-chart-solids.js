@@ -22,6 +22,10 @@
  * design: on the dark face every chart fill is BRIGHT under a near-black ink (still one ink per slide), and they solve
  * their status fills as a trio that clears every colorblind floor (test/unit/palette/cvd-trio-floor.test.js).
  *
+ * A BRAND theme that curates THE STATUS TRIPLET (it declares `--pass-on-mark`; engineering/decisions/2026-11-16-status-
+ * triplets.md) owns its status fills, rings and inks through tools/curate-status-triplets.js, so this tool leaves its
+ * status block alone and solves only its categories and neutral. The `a11y-*` palettes are solved here as before.
+ *
  * CURATED, NOT GENERATED. This rewrites the seed literals in the theme file that OWNS them. It is not part of
  * `npm run build`; the palette gates (test/unit/palette/chart-solids.test.js, chart-one-ink.test.js) hold every
  * theme to the bar, so a value an author hand-tunes afterwards stays tuned as long as it clears them. After a run,
@@ -188,7 +192,8 @@ function solveTheme(theme) {
   // Status: only a theme that owns its trio declares fills; one that inherits wears its owner's. One ink: the status
   // fills carry `--on-mark`, the same ink as the categories. A colorblind palette always declares its set, `a11y-base` included: it turns the dark face around
   // (bright fills under a near-black ink), so the brand set it would inherit from its parent would carry the wrong ink.
-  if (owns('pass') || a11y) {
+  const triplet = !a11y && owns('pass-on-mark');
+  if ((owns('pass') || a11y) && !triplet) {
     const darkFace = [R(raw.bg, true), R(raw['bg-alt'], true)].filter(isHex);
     const hue = Object.fromEntries(['pass', 'warn', 'fail', 'info', 'mute'].map((s) => [s, hexToOklch(arm(s, false)).h]));
     const accent = R(raw.accent, false);

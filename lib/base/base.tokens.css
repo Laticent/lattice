@@ -636,10 +636,11 @@
    * the pass/warn/fail trio stays apart for a colorblind reader (test/unit/palette/cvd-trio-floor.test.js).
    *
    * `--pass-mark` … `--mute-mark` are the status as a FILL a label sits on: a gantt bar, a state tile, a pill.
-   * ONE INK (engineering/chart-styling.md §3): every chart fill, a category or a status, carries WHITE text, so two
-   * charts on one slide never wear two text colors. A status fill is DEEP in its own hue: done a quiet sage, at risk a
-   * burnt orange, blocked a crimson, info a deep cyan-blue, deferred a deep gray. Text on it clears 7:1 on the light
-   * face and 4.6:1 on the dark face (test/unit/palette/chart-solids.test.js). Two intensities, picked with
+   * These engine values, and every `a11y-*` palette, keep ONE INK on it (engineering/chart-styling.md §3): a DEEP fill
+   * in its own hue under WHITE text, 7:1 on the light face and 4.6:1 on the dark one (test/unit/palette/chart-solids.test.js).
+   * A brand theme curates THE STATUS TRIPLET instead (engineering/decisions/2026-11-16-status-triplets.md): deep fills
+   * on the light face, glowing ones on the dark, each 4.5:1 off its slide, with the ink on them (`--X-on-mark`) and
+   * their edge (`--X-edge-mark`) curated beside them; their defaults are just below `--on-mark`. Two intensities, picked with
    * `marks:` (resolve-marks.js): MUTED, the default (`--X-mark`), where done stays quiet and the
    * exceptions carry the color; VIVID (`--X-vivid-mark`), every status rich, done an emerald. `--mute-mark` is a
    * neutral and has no vivid. A status shares a lightness with the categories, so the chart family tells it apart by
@@ -672,6 +673,27 @@
   --fail-signal-mark: light-dark(#FD7468, #FF7E72);
   /* The ink on a solid: white, on a category, the neutral and a status alike. */
   --on-mark: #FFFFFF;
+  /* THE STATUS TRIPLET's defaults (§ THE STATUS TRIPLET ON THIS SLIDE, below): a theme that curates no per-status
+   * ink or border keeps the pre-triplet pair, the one ink on every fill and a border in the status's slide ink. */
+  --pass-on-mark: var(--on-mark);
+  --warn-on-mark: var(--on-mark);
+  --fail-on-mark: var(--on-mark);
+  --info-on-mark: var(--on-mark);
+  --mute-on-mark: var(--on-mark);
+  --pass-edge-mark: var(--pass);
+  --warn-edge-mark: var(--warn);
+  --fail-edge-mark: var(--fail);
+  --info-edge-mark: var(--info);
+  --mute-edge-mark: var(--mute);
+  --pass-vivid-edge-mark: var(--pass-edge-mark);
+  --warn-vivid-edge-mark: var(--warn-edge-mark);
+  --fail-vivid-edge-mark: var(--fail-edge-mark);
+  --info-vivid-edge-mark: var(--info-edge-mark);
+  /* What a mark ON a status solid steps toward: away from the status ink. Black under the one white ink; a palette whose
+   * dark face is bright under a near-black ink (`--on-mark-shade`, the a11y palettes) or a brand theme's glowing dark face
+   * under its night ink steps toward white. */
+  --on-mark-shade: #000000;
+  --status-shade-mark: var(--on-mark-shade);
 
   /* ── Panel edge mark ──────────────────────────────────────────────────
    * The color of the top-edge rule the split frames paint over their featured
@@ -1286,18 +1308,39 @@
  * pointer, every copy of the line above still lands on the vivid fill wherever the slide sets the pointer.
  * `section.` / `figure.` name the slide and Read·Article's re-hosted chart, which Marpit maps to the slide
  * itself; the bare class keeps any other element that carries the token. */
+/* THE STATUS TRIPLET ON THIS SLIDE (engineering/decisions/2026-11-16-status-triplets.md). Each status mark wears
+ * three colors: its fill (`--state-X-hue`, above), the text and drawn mark ON that fill (`--state-X-on`), and the
+ * fill's border (`--state-X-edge`). A theme curates them per status as `--X-on-mark` and `--X-edge-mark` (plus
+ * `--X-vivid-edge-mark` for the vivid register). Their defaults (beside `--on-mark`, above) are the old pair: the one
+ * shared ink `--on-mark` on every fill, and a border in the status's slide ink `--X`. A theme that sets none of them,
+ * as the a11y palettes, which curate their own floors, do not, renders byte-identical. The pointers live in the same slide-level block
+ * as the fill, through the same private `--_state-X-*` pointer, for the same two reasons given above. */
 :root, section:not(section section) {
   --state-pass-hue: var(--_state-pass-hue, var(--pass-mark));
   --state-warn-hue: var(--_state-warn-hue, var(--warn-mark));
   --state-fail-hue: var(--_state-fail-hue, var(--fail-mark));
   --state-info-hue: var(--_state-info-hue, var(--info-mark));
   --state-mute-hue: var(--mute-mark);
+  --state-pass-on-ink: var(--pass-on-mark);
+  --state-warn-on-ink: var(--warn-on-mark);
+  --state-fail-on-ink: var(--fail-on-mark);
+  --state-info-on-ink: var(--info-on-mark);
+  --state-mute-on-ink: var(--mute-on-mark);
+  --state-pass-edge: var(--_state-pass-edge, var(--pass-edge-mark));
+  --state-warn-edge: var(--_state-warn-edge, var(--warn-edge-mark));
+  --state-fail-edge: var(--_state-fail-edge, var(--fail-edge-mark));
+  --state-info-edge: var(--_state-info-edge, var(--info-edge-mark));
+  --state-mute-edge: var(--mute-edge-mark);
 }
 section.marks-vivid, figure.marks-vivid, .marks-vivid {
   --_state-pass-hue: var(--pass-vivid-mark);
   --_state-warn-hue: var(--warn-vivid-mark);
   --_state-fail-hue: var(--fail-vivid-mark);
   --_state-info-hue: var(--info-vivid-mark);
+  --_state-pass-edge: var(--pass-vivid-edge-mark);
+  --_state-warn-edge: var(--warn-vivid-edge-mark);
+  --_state-fail-edge: var(--fail-vivid-edge-mark);
+  --_state-info-edge: var(--info-vivid-edge-mark);
 }
 
 /* ── Spacing scale (proportional to the 1280px HD baseline) ────────────

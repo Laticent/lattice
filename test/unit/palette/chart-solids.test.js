@@ -10,6 +10,12 @@
  *                           still clears, so it can stand off the dark slide (an `a11y-*` palette's dark face is
  *                           bright under a near-black ink, at 7:1, chart-one-ink.test.js).
  *   2. a solid on the slide >= 3:1 against `--bg` (WCAG 1.4.11, a graphical object), by itself: no rim rescues it.
+ *
+ * THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md) changes the STATUS rows on a brand palette:
+ * its text is that status's own ink (`--X-on-mark`, the slide's paper on the light face and its night on the dark
+ * one), held to AA 4.5:1 on both faces, and the solid itself clears 4.5:1 against the slide (the DISTANCE floor), not
+ * 3:1, so it still reads from the back of a lit hall (`npm run check:glance`). An `a11y-*` palette curates no triplet,
+ * so its status rows keep the one ink and the bars above, exactly as before.
  *   3. a status as ink      a status LINE or TEXT paints the slide ink `--pass` … `--mute`, so it clears 4.5:1 off the
  *                           slide on both faces (cvd-trio-floor.test.js holds the trio apart for the colorblind floors).
  *
@@ -29,6 +35,17 @@ const TEXT = 7;
 const MARK = 3;
 const DARK = 4.5;
 const INK_TEXT = 4.5;
+const TRIPLET_TEXT = 4.5;
+const DISTANCE = 4.5;
+/** A theme curates the triplet when its status EDGE is its fill (the option-A design), read from its own tokens, not
+ * its name: a brand theme that curated none would keep the slide-ink border and so the one-ink bars above. */
+const curatesTriplet = (theme) => {
+  const vars = loadThemeChain(theme);
+  return ['light', 'dark'].every((m) => {
+    const fill = resolve('var(--pass-mark)', vars, m), edge = resolve('var(--pass-edge-mark, var(--pass))', vars, m);
+    return fill && edge && JSON.stringify(fill) === JSON.stringify(edge);
+  });
+};
 /**
  * Each INTENSITY of `marks:` names its own fills (base.tokens.css § STATUS, IN TWO JOBS), so the status rows
  * read the base tokens directly rather than the chart family's `--state-*` (which the `vivid` rule remaps on a slide,
@@ -36,8 +53,8 @@ const INK_TEXT = 4.5;
  */
 const STATUS = ['pass', 'warn', 'fail', 'info', 'mute'];
 const INTENSITIES = {
-  muted: (s) => ({ t: `${s}-mark`, ink: 'on-mark' }),
-  vivid: (s) => ({ t: s === 'mute' ? 'mute-mark' : `${s}-vivid-mark`, ink: 'on-mark' }),
+  muted: (s) => ({ t: `${s}-mark`, ink: `${s}-on-mark`, status: true }),
+  vivid: (s) => ({ t: s === 'mute' ? 'mute-mark' : `${s}-vivid-mark`, ink: `${s}-on-mark`, status: true }),
 };
 const SOLIDS = (intensity) => [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ t: `chart-cat-${n}-hue`, ink: 'on-mark' })),
@@ -53,15 +70,17 @@ describe('chart solids: text on every solid clears its bar, and every solid has 
         const bg = resolve('var(--bg)', vars, mode);
         assert.ok(bg, 'the canvas resolves');
         const bad = [];
-        for (const { t, ink: inkTok } of SOLIDS(intensity)) {
+        const triplet = curatesTriplet(theme);
+        for (const { t, ink: inkTok, status } of SOLIDS(intensity)) {
           const c = resolve(`var(--${t})`, vars, mode);
-          const ink = resolve(`var(--${inkTok})`, vars, mode);
+          const ink = resolve(`var(--${inkTok}, var(--on-mark))`, vars, mode);
           if (!c || !ink) { bad.push(`--${t} or its ink --${inkTok} did not resolve`); continue; }
           const text = contrast(c, ink);
-          const bar = mode === 'dark' ? DARK : TEXT;
-          if (text < bar) bad.push(`--${t}: text ${text.toFixed(2)}:1 (bar ${bar})`);
+          const bar = status && triplet ? TRIPLET_TEXT : mode === 'dark' ? DARK : TEXT;
+          if (text < bar) bad.push(`--${t}: text ${text.toFixed(2)}:1 on --${inkTok} (bar ${bar})`);
           const mark = contrast(c, bg);
-          if (mark < MARK) bad.push(`--${t}: against the slide ${mark.toFixed(2)}:1`);
+          const floor = status && triplet ? DISTANCE : MARK;
+          if (mark < floor) bad.push(`--${t}: against the slide ${mark.toFixed(2)}:1 (floor ${floor})`);
         }
         for (const s of STATUS) {
           const ink = resolve(`var(--${s})`, vars, mode);
