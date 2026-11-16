@@ -55,8 +55,10 @@ Per brand theme, per face, per `marks:` intensity, solved by `tools/curate-statu
 
 The `a11y-*` palettes curate none of these. The base declares each new token's default as the pre-triplet pair (the one
 ink `--on-mark`, a border in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it
-does not inherit onyx's triplet: the a11y palettes render pixel-identical to the pre-triplet engine (measured on the
-demo deck, both a11y-base and a11y-deuteranopia), and so does any theme the Studio derives (follow-up below).
+does not inherit onyx's triplet: the a11y palettes rendered pixel-identical to the pre-triplet engine (measured on the
+demo deck, both a11y-base and a11y-deuteranopia), and so does any theme the Studio derives (follow-up below). One later
+change reaches them on purpose: §4 "No second adjustment" stops dimming the risk matrix and a slope chart's signal lines
+on the dark face, for every palette.
 
 **Row tints moved in two themes.** The surface rule could not be met at "half" on two faces, because their row tint
 sat far off its slide. Carbone's dark rows were 18% of a bright status ink; ten brand themes use 12% and carta, cuoio
@@ -92,6 +94,13 @@ now none does (worst 4.51:1 as the browser paints it, magnolia light at-risk).
 - **Components.** kpi pills, policy badges and regulatory-update tiers read `--state-X-on-ink`, and kpi's rim and
   policy's badge edge read `--state-X-edge`. The risk matrix's key numbers follow their band; its target ring and path
   wear the status ink, which a brand theme curates as one ink across its statuses.
+- **No second adjustment on a curated fill.** A status solid wears the theme's fill as the theme curated it; only a
+  finish (etch, tone) changes its strength. The pigment finish used to take the risk bands, the risk key and a slope
+  chart's signal lines 28-42% toward the slide on the dark face, because the one shared set of vivid fills was "a
+  fire-engine block" there. The curated fills are tuned for that face, so the dims are gone (the owner's call,
+  2026-11-16): the bands, key and lines wear `--state-X-hue` on both faces, critical keeps its one designed step (82%
+  fail toward `--status-shade-mark`, as risk-matrix.styles.css has it), and each key number wears its status's ink.
+  Washes stay washes: kanban cards, journey moods, bullet bands and state-chart groups are tints by design.
 
 ## 5. Measured
 

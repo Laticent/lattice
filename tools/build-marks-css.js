@@ -1053,29 +1053,27 @@ function build() {
       // the slide by itself and seamed with the canvas. Critical is the DEEPEST step, the vivid fail fill taken 18%
       // toward black, so it outranks `high` in both intensities; its ring and marks come from the kernel
       // (risk-matrix.styles.css says the same).
+      // The band is the theme's CURATED status fill on both faces, unmodified: each brand theme tunes it to stand off its
+      // slide (engineering/decisions/2026-11-16-status-triplets.md). A dark-face dim, from when the fills were one vivid
+      // set no theme had tuned, is gone; only the finishes (etch, tone) change a status's strength.
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
-        // On a dark slide the vivid status hue is a fire-engine block, louder than every other pigment chart, so dark takes it 28%
-        // toward the slide (light keeps the full solid).
-        w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: ${ld(`var(--state-${st}-hue)`, `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`)}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+        w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       }
-      w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${ld('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark))', 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))')}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      const CRITICAL = 'color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark))';
+      w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${CRITICAL}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A timeline's dots are hollow rings by default; pigment is the solid finish, so its dot is filled with its own ink.
       w(rule(name, '.timeline-dot', ['--timeline-dot-fill: var(--timeline-dot-ink)']));
-      // The risk KEY's discs wear the same band fill as the cells (tamed on dark), not the vivid status hue.
+      // The risk KEY's discs wear the same band fill as the cells, and each number its status's curated ink.
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
-        const kl = `var(--state-${st}-hue)`;
-        const kd = `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`;
-        w(rule(name, `.risk-key-marker[data-band="${band}"]`, [`fill: ${ld(kl, kd)}`]));
-        // The number picks black or white from its OWN disc: the shipped ink assumes the vivid solid, which the dark mix is not.
-        w(supports(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: ${ld(inkOn(kl), inkOn(kd))}`])));
+        w(rule(name, `.risk-key-marker[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`]));
+        w(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: var(--state-${st}-on-ink)`]));
       }
-      const cl = 'color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark))';
-      const cd = 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))';
-      w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${ld(cl, cd)}`]));
-      w(supports(rule(name, '.risk-key-number[data-band="critical"]', [`fill: ${ld(inkOn(cl), inkOn(cd))}`])));
-      // A slope's signal lines wear the status hue, not its text ink (which is neon on a dark slide): the same solid a risk cell takes.
-      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]', [`stroke: ${ld('var(--state-pass-hue)', 'color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))')}`])));
-      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="down"]', [`stroke: ${ld('var(--state-fail-hue)', 'color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))')}`])));
+      w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${CRITICAL}`]));
+      w(rule(name, '.risk-key-number[data-band="critical"]', ['fill: var(--state-fail-on-ink)']));
+      // A slope's signal lines wear the curated status fill, not its text ink (which is neon on a dark slide): the same
+      // solid a risk cell takes, unmodified on both faces.
+      w(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]', ['stroke: var(--state-pass-hue)']));
+      w(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="down"]', ['stroke: var(--state-fail-hue)']));
       // A waterfall's Plan and Actual are totals, not a direction: the neutral solid, the bar's full strength.
       w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${ONE}`, `stroke: ${ONE}`]));
       // The hub-spoke HUB is the one mark with no category and no status: the first hue, or the neutral solid on a chart whose
