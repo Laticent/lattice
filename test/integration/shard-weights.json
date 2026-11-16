@@ -50,6 +50,7 @@
   "test/integration/invariants/functionplot-utf8.test.js": 20.9,
   "test/integration/invariants/jank-sweep.test.js": 196.3,
   "test/integration/invariants/legibility-watcher.test.js": 60,
+  "test/integration/invariants/model-parse-identity.test.js": 12.6,
   "test/integration/invariants/overflow-slide-scope.test.js": 3,
   "test/integration/invariants/pagination-one-mark.test.js": 5.7,
   "test/integration/invariants/palette-sweep-gallery-jargon.test.js": 131.4,
