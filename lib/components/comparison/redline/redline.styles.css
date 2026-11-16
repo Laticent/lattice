@@ -51,6 +51,10 @@ section.redline > .cell-stage > p:has(> code:only-child):not(:where([data-prose]
  * hand-drawn clause box. Same fix in citation-card + regulatory-update. */
 section.redline > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) > code {
   background:none; border:none; padding:0; color:inherit; font-family:inherit;
+  /* The citation, never an eyebrow. On the page a split gives the why list (carousel.js `noteOwn`; owner,
+     2026-11-16) the citation is the stage's first paragraph, and the engine's eyebrow rule set its code large and
+     italic; every other page reads it at this size, upright. */
+  font-size:.85em; font-style:normal;
 }
 section.redline > .cell-stage > blockquote {
   padding:var(--sp-md) var(--sp-lg);

@@ -130,10 +130,12 @@ describe('measuredSplit: the verify loop', () => {
     assert.ok(!Object.hasOwn(plans.at(-1), '2'), 'slide 2 is back on today\'s split');
     assert.ok(Array.isArray(plans.at(-1)['1']), 'slide 1 keeps its plan');
   });
-  test('a slide whose split never read the plan is not tightened', async () => {
+  test('a slide whose split never read the plan is not tightened (it gets one noteOwn split, no tighter room)', async () => {
     let splits = 0;
-    await measuredSplit({ facts, pack, packer: 'greedy', split: async () => { splits++; return { planned: [] }; }, verify: async () => ({ 1: 40 }) });
-    assert.equal(splits, 1);
+    const plans = [];
+    await measuredSplit({ facts, pack, packer: 'greedy', split: async (plan) => { splits++; plans.push(JSON.parse(JSON.stringify(plan))); return { planned: [] }; }, verify: async () => ({ 1: 40 }) });
+    assert.equal(splits, 2, 'the plan, then the one noteOwn retry (2026-11-16), and no more');
+    assert.deepEqual(plans[1]['1'].sizes ?? plans[1]['1'], plans[0]['1'], 'the room was not tightened');
   });
   test('at most three verify rounds', async () => {
     let splits = 0;
@@ -248,6 +250,24 @@ test('the measure and the verify release every hold first, so every surface meas
 // THE LEDE PAGE OUTLIVES A FALLBACK, AND IS JUDGED ON ITS OWN (checker, 2026-11-16). A slide sent back to today's
 // split had its entry deleted, `ledePage` with it, so the cover clipped again; and a lede page's overflow was keyed
 // as the slide's body, so the loop tightened rows that could not help it.
+// THE GLOSS'S OWN PAGE (owner, 2026-11-16; fit-everywhere-model.md §25). A strategy that pages by its own seams
+// (redline's before and after) reads no plan sizes, so the loop had no room to tighten and gave the slide up while its
+// last page, the after passage with its why list riding, still overflowed. It now tries `noteOwn` once first.
+test('a body overflow on a slide the plan does not drive is split once more with noteOwn, then given up', async () => {
+  const facts = [over('1', [300, 300, 300], 700)];
+  const plans = [];
+  let n = 0;
+  await measuredSplit({
+    facts, pack, packer: 'greedy',
+    // The strategy reads no plan: the split reports nothing planned.
+    split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: [] }; },
+    verify: async () => (n++ === 0 ? { 1: 61 } : {}),
+  });
+  assert.equal(plans[0]['1']?.noteOwn, undefined, 'the first split carries no flag');
+  assert.equal(plans[1]['1'].noteOwn, true, 'the next one does');
+  assert.equal(plans.length, 2, 'once: the clean verify ends the loop');
+});
+
 test('a slide sent back to today\'s split keeps its lede page', async () => {
   const facts = [over('1', [300, 300, 300, 300], 700)];
   let n = 0;
