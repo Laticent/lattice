@@ -32,16 +32,34 @@ export function tapHold(log) {
 }
 
 /**
+ * Did Safari ACT on a long press? True when the log holds a selection that is not a caret (a word, or the legend a long press
+ * jumps to) after the first touchstart. A long hold alone does not show it: the page's touch times include the time a
+ * stalled simulator took to dispatch them, and real taps that placed the caret showed holds of 1018 ms, 6335 ms and 25154 ms
+ * (dispatches 43817085692, 43811508778, 43851595030). Every forced or swept long press selected text about 650 to 720 ms in.
+ * Events are taken in log order, not by time, because selectionchange is stamped at listener time and touches at event time.
+ * @param {{ events?: Array<{ type: string, collapsed?: boolean, text?: string }> } | null | undefined} log
+ * @returns {boolean}
+ */
+export function pressSelected(log) {
+	const events = log?.events || [];
+	const start = events.findIndex((e) => e.type === 'touchstart');
+	if (start < 0) return false;
+	return events.slice(start + 1).some((e) => e.type === 'selectionchange' && e.collapsed === false && !!e.text);
+}
+
+/**
  * What the probe does after one delivered tap.
  * - `pass`: the caret is in the tapped paragraph.
- * - `redeliver`: no caret, and the page saw a long press on the FIRST delivery: the stimulus was not a tap.
- * - `fail-long-press`: no caret, and the re-delivery was a long press too. The step fails, naming the hold.
- * - `fail`: no caret after a gesture the page saw as a tap, or no touch seen at all. A real failure, never re-delivered.
- * @param {{ caret: boolean, hold: number | null, delivery: number }} r  `delivery` counts from 1
+ * - `redeliver`: no caret, and on the FIRST delivery the page saw a long press that Safari acted on (held LONG_PRESS_MS or
+ *   more AND a non-caret selection, see `pressSelected`): the stimulus was not a tap.
+ * - `fail-long-press`: no caret, and the re-delivery was such a long press too. The step fails, naming the hold.
+ * - `fail`: no caret after anything else: a short hold, a long hold with no selection (a stall, not a press), or no touch
+ *   seen at all. A real failure, never re-delivered.
+ * @param {{ caret: boolean, hold: number | null, selected: boolean, delivery: number }} r  `delivery` counts from 1
  * @returns {'pass' | 'redeliver' | 'fail-long-press' | 'fail'}
  */
-export function tapVerdict({ caret, hold, delivery }) {
+export function tapVerdict({ caret, hold, selected, delivery }) {
 	if (caret) return 'pass';
-	if (hold === null || hold < LONG_PRESS_MS) return 'fail';
+	if (hold === null || hold < LONG_PRESS_MS || selected !== true) return 'fail';
 	return delivery === 1 ? 'redeliver' : 'fail-long-press';
 }

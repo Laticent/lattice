@@ -53,8 +53,44 @@ test('a short tap that misses the caret fails at once: never re-delivered', asyn
 test('a long press is re-delivered once, and a second long press fails with the hold named', async () => {
   const { tapVerdict, LONG_PRESS_MS } = await load();
   assert.equal(LONG_PRESS_MS, 500);
-  assert.equal(tapVerdict({ caret: false, hold: 500, delivery: 1 }), 'redeliver');
-  assert.equal(tapVerdict({ caret: false, hold: 632, delivery: 1 }), 'redeliver');
-  assert.equal(tapVerdict({ caret: false, hold: 1630, delivery: 2 }), 'fail-long-press');
-  assert.equal(tapVerdict({ caret: false, hold: 49, delivery: 2 }), 'fail', 'a short re-delivery that misses is a real failure');
+  assert.equal(tapVerdict({ caret: false, hold: 500, selected: true, delivery: 1 }), 'redeliver');
+  assert.equal(tapVerdict({ caret: false, hold: 632, selected: true, delivery: 1 }), 'redeliver');
+  assert.equal(tapVerdict({ caret: false, hold: 1630, selected: true, delivery: 2 }), 'fail-long-press');
+  assert.equal(tapVerdict({ caret: false, hold: 49, selected: false, delivery: 2 }), 'fail', 'a short re-delivery that misses is a real failure');
+});
+
+// Shapes from real dispatches (run.mjs's window.__tapLog): a long press Safari acted on selects text; a stalled tap does not.
+const pressLog = {
+  events: [
+    { type: 'pointerdown', t: 20 },
+    { type: 'touchstart', t: 20 },
+    { type: 'selectionchange', t: 762, collapsed: false, text: 'point' },
+    { type: 'touchend', t: 1238 },
+    { type: 'selectionchange', t: 1981, collapsed: false, text: 'Workspace stop' },
+  ],
+}; // dispatch 43817085692, iPad control-1: hold 1218 ms
+const stallLog = {
+  events: [
+    { type: 'pointerdown', t: 97 },
+    { type: 'touchstart', t: 97 },
+    { type: 'touchend', t: 25251 },
+    { type: 'selectionchange', t: 25260, collapsed: true, text: '' },
+  ],
+}; // dispatch 43851595030, iPhone delivery 1: hold 25154 ms, and the caret landed
+
+test('pressSelected: a long press Safari acted on selects text after touchstart; a stall and a caret do not', async () => {
+  const { pressSelected, tapHold } = await load();
+  assert.equal(pressSelected(pressLog), true);
+  assert.equal(pressSelected(stallLog), false, 'a caret is a collapsed selection');
+  assert.equal(tapHold(stallLog), 25154);
+  assert.equal(pressSelected({ events: [{ type: 'selectionchange', collapsed: false, text: 'x' }, { type: 'touchstart', t: 1 }] }), false, 'a selection before the touch is not this press');
+  assert.equal(pressSelected(null), false);
+});
+
+test('a long hold with no selection is a stall, not a long press: a missed caret then fails, never re-delivered', async () => {
+  const { tapVerdict, tapHold, pressSelected } = await load();
+  const verdict = (log, delivery = 1) => tapVerdict({ caret: false, hold: tapHold(log), selected: pressSelected(log), delivery });
+  assert.equal(verdict(stallLog), 'fail', 'a 25 s stall that missed the caret is a real failure');
+  assert.equal(verdict(pressLog), 'redeliver', 'a 1218 ms hold that selected "point" was a long press');
+  assert.equal(tapVerdict({ caret: false, hold: 6335 }), 'fail', 'selected must be stated: an omitted flag never re-delivers');
 });

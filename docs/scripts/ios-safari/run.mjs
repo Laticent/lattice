@@ -23,7 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
-import { LONG_PRESS_MS, tapHold, tapVerdict } from './tap-guard.mjs';
+import { LONG_PRESS_MS, pressSelected, tapHold, tapVerdict } from './tap-guard.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = process.env.WEBDRIVER_URL || 'http://localhost:4444';
@@ -302,20 +302,21 @@ async function composeTouchTap(id) {
 					read();`,
 			});
 			const hold = tapHold(seen.log);
+			const selected = pressSelected(seen.log);
 			const landed = summarizeTapLog(seen.log);
-			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
-			return { seen, tapMs, hold, landed };
+			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? ', with a long-press selection' : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
+			return { seen, tapMs, hold, selected, landed };
 		};
 		// THE PRECONDITION, NOT A RETRY (tap-guard.mjs; the flaky-test coordinator's approval, 2026-11-16). A gesture the page saw
 		// held for LONG_PRESS_MS or more was a long press, not the tap this step tests, and is delivered once more after the
 		// multi-tap window (a second tap inside it is a double tap, which selects a word: a duration by its nature). A short tap
 		// that misses the caret fails at once.
 		const tries = [await deliver(1)];
-		let decision = tapVerdict({ caret: tries[0].seen.inP && tries[0].seen.caret, hold: tries[0].hold, delivery: 1 });
+		let decision = tapVerdict({ caret: tries[0].seen.inP && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1 });
 		if (decision === 'redeliver') {
 			await new Promise((r) => setTimeout(r, 1000));
 			tries.push(await deliver(2));
-			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, delivery: 2 });
+			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2 });
 		}
 		const { seen, tapMs } = tries.at(-1);
 		const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
@@ -335,7 +336,7 @@ async function composeTouchTap(id) {
 		try {
 			await new Promise((r) => setTimeout(r, 1000));
 			const forced = await deliver('control-1', 500);
-			const forcedCall = tapVerdict({ caret: forced.seen.inP && forced.seen.caret, hold: forced.hold, delivery: 1 });
+			const forcedCall = tapVerdict({ caret: forced.seen.inP && forced.seen.caret, hold: forced.hold, selected: forced.selected, delivery: 1 });
 			let recovered = null;
 			if (forcedCall === 'redeliver') {
 				await new Promise((r) => setTimeout(r, 1000));
