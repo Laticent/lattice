@@ -11,9 +11,15 @@
  *           appears exactly once, each heading on the page with its first entry; each heading carries its authored
  *           ordinal, so a page that opens on the third band still colors it as the third
  *
+ *   INSIGHT a key insight after the bands closes the last page once (the dispatcher folded it a second time after the
+ *           envelope had; checker, 2026-11-16)
+ *   NUMBERS a default `regulatory-update` with `###` groups restarts each group's count on its page (no run offset)
+ *   ROSTERS a `team-profile sides` (two `###` rosters, no recipe) keeps its measured split: no person repeats
+ *
  * FALSIFIABLE: without the carousel branch the run repeats Amended and Enforced and the export prints OVERFLOW; without
  * the measure's headed members the plan sizes the Added list and the split falls back to it; without the ordinal stamp
- * the page opening on Amended reads `data-split-nth` nowhere. Needs Chromium (CHROME_PATH).
+ * the page opening on Amended reads `data-split-nth` nowhere; folding again in the dispatcher prints the insight twice;
+ * the run offset shows the State group as 03 04; measuring every layout's groups repeats a roster on each page. Needs Chromium (CHROME_PATH).
  */
 
 const { test, before, after } = require('node:test');
@@ -57,6 +63,67 @@ size: square
 1. FTC v. Avast
    - \`§5 unfairness\`
    - $16.5M consent order finalized; 20-year compliance program.
+
+> Enforcement, not new statute, moved the quarter.
+
+---
+
+<!-- _class: regulatory-update -->
+
+## Default variant with groups.
+
+### Federal
+
+1. Federal act one
+   - \`Sec 1\`
+   - Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+2. Federal act two
+   - \`Sec 2\`
+   - Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+
+### State
+
+1. State act one
+   - \`Sec 1\`
+   - Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+2. State act two
+   - \`Sec 2\`
+   - Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+
+### Local
+
+1. Local act one
+   - \`Sec 1\`
+   - Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+2. Local act two
+   - \`Sec 2\`
+   - Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+
+---
+
+<!-- _class: team-profile sides -->
+
+\`team-profile sides\`
+
+## sides faces two rosters across the table, each under its own label.
+
+### Your team
+
+- Ada Okafor
+  - \`VP Operations\`
+- Priya Raman
+  - \`Head of Delivery\`
+- Nia Bello
+  - \`Data Lead\`
+
+### Our team
+
+- Marcus Vale
+  - \`Account Director\`
+- Tomas Lindqvist
+  - \`Solutions Architect\`
+- Jonah Reyes
+  - \`Customer Success\`
 `;
 
 let dir;
@@ -73,7 +140,7 @@ before(() => {
   const html = fs.readFileSync(pdf.replace(/\.pdf$/, '.html'), 'utf8');
   pages = splitSections(html.slice(html.indexOf('<section'))).filter((p) => p.type === 'section')
     // Less the run's relationship signal (`.lat-split-rel`), which names the next page's first entry on purpose.
-    .map((p) => ({ role: (p.openTag.match(/data-split-role="([a-z]+)"/) || [])[1], inner: p.inner }))
+    .map((p) => ({ slide: (p.openTag.match(/data-lattice-slide="(\d+)/) || [])[1], openTag: p.openTag, role: (p.openTag.match(/data-split-role="([a-z]+)"/) || [])[1], inner: p.inner }))
     .map((p) => ({ ...p, text: p.inner.replace(/<div class="lat-split-rel"[\s\S]*?<\/div>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ') }));
 });
 after(() => {
@@ -82,8 +149,9 @@ after(() => {
 
 test('GROUPS: the bands split between groups, each heading once with its list, each keeping its ordinal', () => {
   assert.doesNotMatch(log, /OVERFLOW/, log);
-  const body = pages.filter((p) => p.role === 'body');
-  assert.ok(pages.some((p) => p.role === 'cover') && body.length >= 2, `a cover and two or more pages: ${pages.map((p) => p.role).join(' ')}`);
+  const run = pages.filter((p) => p.slide === '1');
+  const body = run.filter((p) => p.role === 'body');
+  assert.ok(run.some((p) => p.role === 'cover') && body.length >= 2, `a cover and two or more pages: ${run.map((p) => p.role).join(' ')}`);
   for (const e of ENTRIES) assert.equal(body.filter((p) => p.text.includes(e)).length, 1, `${e} appears once`);
   BANDS.forEach(([band, first], k) => {
     const heads = body.flatMap((p) => [...p.inner.matchAll(/<h3\b([^>]*)>([^<]*)<\/h3>/g)].filter((m) => m[2].trim() === band).map((m) => ({ p, attrs: m[1] })));
@@ -91,4 +159,24 @@ test('GROUPS: the bands split between groups, each heading once with its list, e
     assert.ok(heads[0].p.text.includes(first), `${band} sits on the page with ${first}`);
     assert.match(heads[0].attrs, new RegExp(`data-split-nth="${k + 1}"`), `${band} keeps ordinal ${k + 1}`);
   });
+});
+
+test('INSIGHT: the key insight closes the run once', () => {
+  const run = pages.filter((p) => p.slide === '1');
+  const n = run.reduce((k, p) => k + (p.text.match(/Enforcement, not new statute/g) || []).length, 0);
+  assert.equal(n, 1, `the insight prints ${n} times`);
+});
+
+test('NUMBERS: a page of groups restarts each group\'s count, as the whole slide does', () => {
+  const body = pages.filter((p) => p.slide === '2' && p.role === 'body');
+  assert.ok(body.length >= 2, `the grouped default splits: ${body.length} body pages`);
+  assert.ok(body.some((p) => /data-split-nth="2"/.test(p.inner)), 'a page opens partway through the groups');
+  for (const p of body) assert.doesNotMatch(p.openTag, /--lat-split-offset/, 'no run offset on a page of groups');
+});
+
+test('ROSTERS: a team-profile sides split repeats no person', () => {
+  const body = pages.filter((p) => p.slide === '3' && p.role === 'body');
+  for (const who of ['Ada Okafor', 'Priya Raman', 'Nia Bello', 'Marcus Vale', 'Tomas Lindqvist', 'Jonah Reyes']) {
+    assert.ok(body.filter((p) => p.text.includes(who)).length <= 1, `${who} appears on more than one page`);
+  }
 });

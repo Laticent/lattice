@@ -1,1 +1,2 @@
 - A `regulatory-update diff-bands` slide too tall for a phone page now splits between its `###` groups, each heading on the page with its list. Before, it paged its largest list and printed every other group on each page, or, with one entry per group, did not split and clipped. A page that opens partway through keeps each band's color.
+- A `regulatory-update` split whose measured plan folds its key insight onto the last page prints it once (it printed twice).

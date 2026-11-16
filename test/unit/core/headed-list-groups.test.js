@@ -6,6 +6,8 @@
  *   ORDINALS  each top-level `h3` gains `data-split-nth`, 1-based, in order; nothing else changes
  *   SPLIT     on a measured plan the run pages whole groups: no group repeats, the later page opens on its own band
  *   NO-PLAN   without a measured plan the slide is left to today's split (one-entry lists: none)
+ *   SCOPE     only the listed cover-paginate layouts take the branch (team-profile sides kept its item cut)
+ *   FOLD      a measured fold prints the key insight once (the dispatcher folded it again; checker, 2026-11-16)
  *
  * FALSIFIABLE: without the carousel branch SPLIT pages the first list and repeats the other groups (or declines);
  * without the stamp ORDINALS and SPLIT find no `data-split-nth`.
@@ -56,4 +58,23 @@ test('SPLIT: a measured plan pages whole groups, the later page opening on its o
 test('NO-PLAN: with no measured plan and one-entry lists, nothing splits', () => {
   const s = slideOf('regulatory-update diff-bands', '## T.\n\n### Added\n\n1. One\n   - First.\n\n### Amended\n\n1. Two\n   - Second.');
   assert.equal(carouselize(s.openTag, s.inner, recipe(), 1, 'regulatory-update'), null);
+});
+
+test('SCOPE: every layout the measure reads as groups splits with cover-paginate, and no other layout takes the branch', () => {
+  const { HEADED_GROUP_LAYOUTS } = require('../../../lib/core/fit-measure');
+  const all = loadAll();
+  for (const name of HEADED_GROUP_LAYOUTS) assert.equal(all.find((m) => m.name === name)?.split?.strategy, 'cover-paginate', name);
+  // The same shape on a layout outside the list keeps today's item cut, which a block plan does not place.
+  const s = slideOf('content', '## T.\n\n### One\n\n- a\n- b\n\n### Two\n\n- c\n- d');
+  const parts = carouselize(s.openTag, s.inner, { strategy: 'cover-paginate', plan: [2, 2] }, 1, 'content');
+  assert.ok(!parts || !parts.some((p) => /data-split-nth/.test(p)), 'no group split outside the list');
+});
+
+test('FOLD: a measured fold puts the key insight on the last page once', () => {
+  const s = slideOf('regulatory-update diff-bands', `${BANDS}\n\n> The one insight.`);
+  const parts = carouselize(s.openTag, s.inner, { ...recipe(), plan: [2, 4], foldCoda: true }, 1, 'regulatory-update');
+  assert.ok(parts, 'splits');
+  const n = parts.join('').match(/The one insight\./g)?.length || 0;
+  assert.equal(n, 1, `the insight prints ${n} times`);
+  assert.match(parts[parts.length - 1], /The one insight\./, 'on the last page');
 });
