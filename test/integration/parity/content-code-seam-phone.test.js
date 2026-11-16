@@ -18,7 +18,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { splitSections } = require('@laticent/markup');
+const { splitSections, removeTags } = require('@laticent/markup');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const LINES = ['def fetch(url):', 'return requests.get(url)', 'for attempt in range(3):', 'try:', 'timeout=5', 'except Timeout:', 'sleep(2 ** attempt)'];
@@ -57,7 +57,7 @@ before(() => {
   log = `${r.stdout}${r.stderr}`;
   const html = fs.readFileSync(pdf.replace(/\.pdf$/, '.html'), 'utf8');
   pages = splitSections(html.slice(html.indexOf('<section'))).filter((p) => p.type === 'section')
-    .map((p) => ({ role: (p.openTag.match(/data-split-role="([a-z]+)"/) || [])[1], text: p.inner.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&') }));
+    .map((p) => ({ role: (p.openTag.match(/data-split-role="([a-z]+)"/) || [])[1], text: removeTags(p.inner) }));
 });
 after(() => {
   if (dir) fs.rmSync(dir, { recursive: true, force: true });
