@@ -347,6 +347,22 @@ start while the editor was scrolled to its tail, and the warning it waited for w
 **Do instead.** Find text through the editor's own document (the `cmTile` view handle) and dispatch
 the editor's `scrollIntoView` for the line before waiting on it (#3213).
 
+## A test-set selection reaches ProseMirror late
+
+**Trap.** ProseMirror learns of a DOM selection only from the browser's queued `selectionchange`
+event. A test that sets a selection directly (`setBaseAndExtent`, `addRange`) leaves the editor
+with no selection until that event arrives, which can be late under load. A person's mouse or
+keyboard selection goes through ProseMirror's own handlers and never hits this.
+
+**Example.** `compose-refine.spec.ts:92` set a selection, then waited for the Refine button, which
+needs a selection. It failed once in 251 runs on `webkit-tablet`, and about once in 790 under a
+stress recipe (four CPU burners, the live device tier).
+
+**Do instead.** Dispatch the event yourself right after setting the selection:
+`document.dispatchEvent(new Event('selectionchange'))`. A dispatched event runs ProseMirror's
+listener synchronously, so the editor has read the selection before the test moves on. The same
+recipe then passed 1,000 of 1,000 (#3260).
+
 ## A verdict read once, before the pane paints
 
 **Trap.** A check that reads the page once, on a timer, can read before the thing it measures has
