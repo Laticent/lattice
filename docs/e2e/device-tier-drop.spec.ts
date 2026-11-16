@@ -1,8 +1,12 @@
 import { expect, gotoStudio, test } from './studio-fixture';
 
+// No pinned tier (playwright.config.ts `tierPin`): the drop needs the live tier.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 // A MID-SESSION DROP TO LITE, on the real Studio (lib/device-tier.ts `startDeviceTier`, `onDrop`): a visit that starts at
-// Full and is then measured slow switches to Lite at once and says so in a notice. Every other Studio spec pins its tier
-// (`gotoStudio`'s `liveTier`), so this drop is covered here, on purpose, and nowhere by accident.
+// Full and is then measured slow switches to Lite at once and says so in a notice. Every page load in the suite starts
+// with its engine's tier pinned (playwright.config.ts `tierPin`), which takes the drop away from every spec that does not
+// opt out; this one opts out, so the drop is covered here, on purpose.
 //
 // HARD RULE #32: the runner's machine never decides. Every signal that could start this visit at Lite reads strong:
 // - the GPU: a stubbed renderer string, since CI draws in software;
@@ -47,7 +51,7 @@ test('a visit measured slow after it starts drops to Lite and says so', async ({
 			setTimeout(block, 50);
 		});
 	});
-	await gotoStudio(page, { liveTier: true });
+	await gotoStudio(page);
 	// The notice is the proof the visit started at Full: `onDrop` fires only on a change from Full to Lite.
 	await expect(page.getByText(/Lattice switched to Lite mode to stay smooth\. Lattice fell behind while starting up\./)).toBeVisible({ timeout: 30_000 });
 	expect(await tier(page)).toBe('lite');

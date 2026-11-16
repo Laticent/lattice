@@ -1,6 +1,9 @@
 import type { Page } from '@playwright/test';
 import { expect, gotoStudio, openSection, test } from './studio-fixture';
 
+// A spec about the device tier: no pinned tier (playwright.config.ts `tierPin`), so the live tier decides.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 // The decline screen, "continue anyway" and the Performance mode setting, on the real Studio and Playground
 // (engineering/decisions/2026-11-12-device-capability-tiers.md §6, §7). Every engine and width the device-tier specs run on.
 //
@@ -83,8 +86,7 @@ test('@crosswidth @webkit-phone @gecko a pinned decline covers the Playground to
 });
 
 test('@crosswidth @gecko the Performance mode setting switches the tier at once and keeps it for the next visit', async ({ page }) => {
-	// The live tier: this test starts from the shipped Auto and changes it.
-	await gotoStudio(page, { liveTier: true });
+	await gotoStudio(page);
 	await runtimeRan(page);
 	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
 	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeVisible();

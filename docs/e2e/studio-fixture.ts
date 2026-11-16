@@ -541,17 +541,8 @@ export const appToast = toastText;
  * On mobile/tablet the editor lives behind the Edit pane, so we do NOT gate on it
  * here.
  */
-/**
- * `query`: a search string for the Studio URL (`?tier=lite`), for a spec that pins the device tier.
- * `liveTier`: let the device tier decide from this machine, as a real visit does. Off by default: a spec that is not about
- * the tier runs at Lite, chosen the way a person chooses it (Performance mode: Lite). Lite is what CI already gets: its
- * browsers draw in software, a weak signal (device-profile.ts `classify`). A machine with a real GPU started at Full instead,
- * and a loaded run's probe could then drop the Studio to Lite mid-test. That drop's "switched to Lite mode" notice once sat over the chat's Send button for a whole
- * click budget (chat-photos.spec.ts, 1/50 at 4 workers): its timer pauses while the pointer hovers it, and a click retry
- * hovers it. A spec that already stored an override keeps it, and a `?tier=` pin outranks it. `device-tier-drop.spec.ts`
- * covers the drop itself, on purpose.
- */
-export async function gotoStudio(page: Page, { query = '', liveTier = false }: { query?: string; liveTier?: boolean } = {}): Promise<void> {
+/** `query`: a search string for the Studio URL (`?tier=lite`), for a spec that pins the device tier. */
+export async function gotoStudio(page: Page, { query = '' }: { query?: string } = {}): Promise<void> {
 	// Seed the Craft posture BEFORE the island hydrates, so the full surface (the
 	// left activity bar + docked Architect/Inspector) is present — most specs drive
 	// it. The shipped default is the calm Write stop, which has no activity bar, so
@@ -578,16 +569,6 @@ export async function gotoStudio(page: Page, { query = '', liveTier = false }: {
 			/* storage unavailable — the app falls back to its default */
 		}
 	}, storeSource);
-	if (!liveTier) {
-		await page.addInitScript(() => {
-			try {
-				// lib/device-tier-keys.ts OVERRIDE_KEY. Set only when absent, so a spec's own choice stands across reloads.
-				if (localStorage.getItem('lattice-device-tier-override') === null) localStorage.setItem('lattice-device-tier-override', 'lite');
-			} catch {
-				/* storage unavailable: the tier decides as it would for a visitor */
-			}
-		});
-	}
 	// On a desktop (fine-pointer) project, pressing Play starts the on-device voice's ~80 MB
 	// download in the background (the desktop default — voice-model.js › summonDefaultVoice).
 	// Refuse to construct its worker, so a spec never pulls kokoro-js and the model weights over
