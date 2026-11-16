@@ -1,6 +1,9 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './studio-fixture';
 
+// A spec about the device tier: no pinned tier (playwright.config.ts `tierPin`), so the live tier decides.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 // The device tier's slice 1b on the real Studio: the inline boot script applies a saved tier (or a `?tier=` pin)
 // before first paint, and lib/device-tier.ts decides this visit's tier after the first slide, saves it for the next
 // visit, and caches the CPU probe it runs in a worker. engineering/decisions/2026-11-12-device-capability-tiers.md.
