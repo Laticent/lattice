@@ -9008,7 +9008,8 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //                       function the same file built from one: `const ratio = best(poisoned) / best(clean)` where
 //                       `poisoned` times a call is caught.
 //                       Also a timing the page measured itself: the `.duration` of a value built from
-//                       `performance.getEntries*()`, or a key copied from one (`({ ms: m.duration })`, then `worst.ms`).
+//                       `performance.getEntries*()`, a key copied from one (`({ ms: m.duration })`, then `worst.ms`), or
+//                       a value that is one (`entries.map((e) => e.duration)`). An `expect`'s message argument is not read.
 //   unseeded-random F5  `Math.random()`.
 //   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
 //                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
@@ -9165,11 +9166,43 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
     grew = false;
     for (const init of inits) if (!entryInits.has(init) && touchesEntries(init)) { entryInits.add(init); grew = true; }
   }
+  // An entry reached as a callback's parameter: `m` in `getEntriesByType('measure').map((m) => m.duration)`, or in a
+  // `.reduce` over a value built from one.
+  const isEntryParam = (id) => {
+    for (let p = id.parent; p; p = p.parent) {
+      if (!ts.isFunctionLike(p) || !p.parameters?.some((q) => ts.isIdentifier(q.name) && q.name.text === id.text)) continue;
+      const call = p.parent;
+      return !!(call && ts.isCallExpression(call) && ts.isPropertyAccessExpression(call.expression) && touchesEntries(call.expression.expression));
+    }
+    return false;
+  };
+  const isEntryDurationRead = (c) =>
+    ts.isPropertyAccessExpression(c) && durationKeys.has(c.name.text) && (touchesEntries(c.expression) || (ts.isIdentifier(c.expression) && isEntryParam(c.expression)));
+  // A VALUE that is an entry's duration, followed to a fixpoint: `const ms = await page.evaluate(() =>
+  // getEntriesByName('x')[0].duration)`, `const ds = entries.map((e) => e.duration)`. An object literal does not pass it on,
+  // so the record `({ name: m.name, ms: m.duration })` taints only its `ms` (above), never `measures.length`.
+  const entryDurations = new Set();
+  const holdsEntryDuration = (node) => {
+    let hit = false;
+    const walk = (c) => {
+      if (hit || ts.isObjectLiteralExpression(c)) return;
+      if (isEntryDurationRead(c)) { hit = true; return; }
+      if (ts.isIdentifier(c)) { const d = resolve(c); if (d && entryDurations.has(d)) { hit = true; return; } }
+      c.forEachChild(walk);
+    };
+    walk(node);
+    return hit;
+  };
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const init of inits) if (!entryDurations.has(init) && holdsEntryDuration(init)) { entryDurations.add(init); grew = true; }
+  }
   const readsEntryDuration = (node) => {
     let hit = false;
     each(node, (c) => {
-      if (hit || !ts.isPropertyAccessExpression(c) || !durationKeys.has(c.name.text)) return;
-      if (touchesEntries(c.expression)) hit = true;
+      if (hit) return;
+      if (isEntryDurationRead(c)) hit = true;
+      else if (ts.isIdentifier(c)) { const d = resolve(c); if (d && entryDurations.has(d)) hit = true; }
     });
     return hit;
   };
@@ -9195,7 +9228,10 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       if (p && ts.isNewExpression(p) && ts.isIdentifier(p.expression) && p.expression.text === 'Promise') add('fixed-sleep', n);
     } else if (SLEEP_HELPERS.has(name) && ts.isIdentifier(n.expression) && n.arguments.length === 1 && !ts.isFunctionLike(n.arguments[0])) add('fixed-sleep', n);
     else if ((name === 'expect' && ts.isIdentifier(n.expression)) || (ts.isIdentifier(n.expression) && n.expression.text === 'assert') || (ts.isPropertyAccessExpression(n.expression) && ts.isIdentifier(n.expression.expression) && n.expression.expression.text === 'assert')) {
-      if (n.arguments.some((a) => touchesClock(a))) add('clock-assert', n);
+      // `expect(value, message)`: the message is what a failure prints, not what is asserted, so a timing interpolated
+      // into it ("worst ${ms} ms") does not make a count assertion a stopwatch.
+      const asserted = name === 'expect' ? n.arguments.slice(0, 1) : n.arguments;
+      if (asserted.some((a) => touchesClock(a))) add('clock-assert', n);
     }
   });
 
