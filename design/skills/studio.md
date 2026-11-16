@@ -143,8 +143,12 @@ opens the presenter's second window; Esc leaves.
 
 **Common jobs**
 
-1. **Start a deck**: ⌘K → "New deck", then write in Compose. To bring in a
-   whole Markdown deck, paste it into Source.
+1. **Start a deck**: ⌘K → "New deck", then write in Compose. Markdown pasted
+   into Compose arrives as slides, layouts and formatting (⌘⇧V pastes it as
+   plain text). A pasted deck's front matter is not applied, so to bring in a
+   whole deck with its theme, paste it into Source or open the file. Copying
+   from Compose gives Markdown: a phrase as `**bold**`, slides with their
+   layouts and `---` breaks, the whole deck as the deck file.
 2. **Open a file**: "Import deck…" or drop the file on the Studio. It opens
    `.md`, `.lattice`, and a webpage, PDF or PowerPoint that Lattice exported
    re-openable. See `import.md`.

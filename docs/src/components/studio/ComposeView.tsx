@@ -20,6 +20,7 @@ import { descriptionAsAlt, insertImage, insertImageBlocker } from '@/lib/compose
 import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, type PluginKindEntry, repaintObjects, setPluginKindProvider } from '@/lib/compose/inline-objects';
 import { insertLineBreak } from '@/lib/compose/line-break-command';
 import { linkAt, linkBlocker, selectedLink, startLink } from '@/lib/compose/link-commands';
+import { markdownClipboardPlugin } from '@/lib/compose/markdown-clipboard';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { takePendingSelection } from '@/lib/compose/pending-selection';
@@ -3178,7 +3179,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
 						onOpenChange: (open) => setObjEdit(open),
-					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }).concat(ghostCaretPlugin(), activeLinePlugin()),
+					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }).concat(ghostCaretPlugin(), activeLinePlugin(), markdownClipboardPlugin((message) => notify(message))),
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
