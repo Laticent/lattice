@@ -196,6 +196,86 @@ async function studioPage(id, file, fn, { seed = true } = {}) {
  * on a slow runner. The photo memory arms (PROBE=photo-memory, #2998) are a suite of their own for the same reason: inside this
  * one they took the job to 27.6 minutes of its 30.
  */
+// TEMPORARY (PR 3241, reverted after its dispatch): a real Studio Share > Images export in Mobile Safari
+// (export-shadow-probe.js), with the exported slide measured here, a reload check, and the simulator's WebKit memory sampled
+// throughout (photo-memory.mjs's vmmap reader: the Mac's accounting of the simulator's processes, not an iPhone's).
+async function exportShadowProbe(id) {
+	const steps = [];
+	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
+	const total = (m) => Math.round([...m.values()].reduce((a, b) => a + b, 0));
+	let base = null;
+	try {
+		base = await simulatorWebContentMB();
+	} catch (e) {
+		console.log(`${LABEL}: export memory: no baseline (${e.message})`);
+	}
+	let polling = true;
+	let peak = null;
+	const poll = (async () => {
+		while (polling) {
+			try {
+				const m = await simulatorWebContentMB();
+				if (base && (!peak || growthMB(base, m).grew > peak.grew)) peak = { ...growthMB(base, m), total: total(m) };
+			} catch {
+				/* a reading failed: the next one counts */
+			}
+			await new Promise((r) => setTimeout(r, 1000));
+		}
+	})();
+	let r;
+	try {
+		r = await studioPage(id, 'export-shadow-probe.js', 'latticeExportShadowProbe');
+	} catch (e) {
+		r = { ok: false, error: `the export script ended without an answer: ${String(e.message || e).slice(0, 300)}` };
+	}
+	polling = false;
+	await poll;
+	const after = await wd('POST', `/session/${id}/execute/sync`, { script: 'return { marker: window.__exportMarker || null, timeOrigin: performance.timeOrigin };', args: [] }).catch((e) => ({ error: String(e.message || e) }));
+	const reloaded = !(r.marker && after.marker === r.marker && after.timeOrigin === r.timeOrigin);
+	step('export: the page was not reloaded during the export', !reloaded, `marker before ${r.marker}, after ${after.marker}; timeOrigin before ${r.timeOrigin}, after ${after.timeOrigin}${after.error ? `; ${after.error}` : ''}`);
+	step('export: peak WebKit memory growth during the export (detail only)', true, peak ? `+${peak.grew} MB over a ${peak.baseMB} MB baseline (peak total ${peak.total} MB), vmmap physical footprint of the simulator's WebContent and GPU processes` : 'not measured (no vmmap reading)');
+	if (!r.ok) {
+		step('export: the Studio exported the deck', false, r.error);
+		return { ok: false, steps, error: `export: ${r.error}` };
+	}
+	const { default: JSZip } = await import('jszip');
+	const { PNG } = await import('pngjs');
+	const zip = await JSZip.loadAsync(Buffer.from(r.b64, 'base64'));
+	const names = Object.keys(zip.files).filter((n) => /slides\/.*\.png$/.test(n)).sort();
+	const first = names.find((n) => /-01\.png$/.test(n));
+	step('export: the Studio exported the deck', !!first, `${r.name}, ${r.size} bytes, ${names.length} slide PNGs, ${r.exportMs} ms from Share to the Save toast, page ${r.width} px wide`);
+	if (!first) return { ok: false, steps, error: 'export: no slide 1 in the zip' };
+	const buf = await zip.files[first].async('nodebuffer');
+	fs.writeFileSync(path.join(OUT, `export-shadow-${LABEL}-01.png`), buf);
+	const { width: w, height: h, data: d } = PNG.sync.read(buf);
+	const at = (x, y) => (y * w + x) * 4;
+	const bg = [d[at(w >> 1, h - 3)], d[at(w >> 1, h - 3) + 1], d[at(w >> 1, h - 3) + 2]];
+	const off = (x, y) => Math.max(Math.abs(d[at(x, y)] - bg[0]), Math.abs(d[at(x, y) + 1] - bg[1]), Math.abs(d[at(x, y) + 2] - bg[2])) > 6;
+	let left = w;
+	let right = -1;
+	let bottom = -1;
+	for (let y = Math.round(h * 0.08); y < Math.round(h * 0.9); y++) {
+		for (let x = w >> 1; x < w - 4; x++) {
+			if (!off(x, y)) continue;
+			left = Math.min(left, x);
+			right = Math.max(right, x);
+			bottom = Math.max(bottom, y);
+		}
+	}
+	let firstX = -1;
+	for (let x = left; x <= right; x++) {
+		if (off(x, bottom - 4)) {
+			firstX = x;
+			break;
+		}
+	}
+	const start = firstX < 0 ? null : Math.round(((firstX - left) / (right - left)) * 1000) / 1000;
+	console.log(`${LABEL}: export shadow probe: ${w}x${h}; card ${left}..${right}, bottom ${bottom}; shadow band starts at x ${firstX}, ${start} of the card width; reloaded ${reloaded}; memory ${peak ? `+${peak.grew} MB (peak ${peak.total} MB)` : 'not measured'}`);
+	step("export: the exported image card's shadow starts near the card's left edge", start !== null && start < 0.1, `starts ${start} of the card width along (x ${firstX} of a card ${left}..${right}), ${w}x${h} PNG`);
+	return { ok: steps.every((x) => x.pass), steps };
+}
+
 async function runStudioProbe(id) {
 	// A probe that fails gets its own screenshot NOW, before the next probe loads a fresh page over it: the session's one
 	// screenshot is taken at the end, and on 2026-11-15 (run 43712612297) it showed the Compose probe's page, three probes
@@ -210,6 +290,7 @@ async function runStudioProbe(id) {
 		}
 		return r;
 	};
+	const exported = await shotIfFailed('export-shadow', await exportShadowProbe(id));
 	const preview = await shotIfFailed('preview', await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
 	const panes = await shotIfFailed('panes', await studioPage(id, 'panes-probe.js', 'latticePanesProbe'));
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
@@ -221,11 +302,11 @@ async function runStudioProbe(id) {
 	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!exported.ok && !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
+		error: [exported.error, preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap)],
+		steps: [...named('export', exported), ...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap)],
 	};
 }
 
