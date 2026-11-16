@@ -153,7 +153,7 @@ Each row names the risk a mission reduces, whatever scope the test runs at.
    - Do the interactions work?
 3. System
    - The assembled whole behaves differently in production.
-   - Does the whole behave like production?
+   - Does it work under production conditions?
 4. Experience
    - People cannot reach the outcome they want.
    - Can users reach their intended outcome?
@@ -165,9 +165,9 @@ Each row names the risk a mission reduces, whatever scope the test runs at.
 
 The word System here means production parity. That is narrower than the ISTQB use, where system testing means testing the complete integrated system against its requirements. -->
 
-<!-- describe: A ranked list of five missions, each with the risk it reduces and its question. Unit: logic gives a wrong result inside one unit; does the logic work? Integration: parts disagree at their boundaries; do the interactions work? System: the assembled whole behaves differently in production; does the whole behave like production? Experience: people cannot reach the outcome they want; can users reach the outcome they intended? Safety: the operation causes unacceptable harm; can it avoid unacceptable harm? The lede says each row names the risk a mission reduces, whatever scope the test runs at. -->
+<!-- describe: A ranked list of five missions, each with the risk it reduces and its question. Unit: logic gives a wrong result inside one unit; does the logic work? Integration: parts disagree at their boundaries; do the interactions work? System: the assembled whole behaves differently in production; does it work under production conditions? Experience: people cannot reach the outcome they want; can users reach the outcome they intended? Safety: the operation causes unacceptable harm; can it avoid unacceptable harm? The lede says each row names the risk a mission reduces, whatever scope the test runs at. -->
 
-<!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: logic gives a wrong result inside one unit. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? Production parity means an environment that matches production wherever it could change the result. System: the assembled whole behaves differently in production. Does it behave like production? Experience: people cannot reach the outcome they want. Safety: the operation causes unacceptable harm. -->
+<!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: logic gives a wrong result inside one unit. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? System: the assembled whole behaves differently in production. Does it work under production conditions? Experience: people cannot reach the outcome they want. Can they reach it? Safety: the operation causes unacceptable harm. Can it avoid that harm? -->
 
 ---
 
@@ -267,7 +267,7 @@ Parity does not mean testing in production, and it does not mean using customer 
 
 <!-- describe: A split slide. The left panel states that production parity means matching every condition that could change the answer, and that two servers on the same version can still behave differently. The right side lists four areas: technology, infrastructure, runtime and operations, each with examples. -->
 
-<!-- say: Production parity means matching every condition that could change the answer. Two servers on the same version can still behave differently. Check four areas: technology, such as versions and configuration; infrastructure, such as network and storage; runtime, such as load, concurrency and data skew; and operations, such as access control, failover and limits. -->
+<!-- say: Production parity means a test environment that matches production wherever it could change the result. Two servers on the same version can still behave differently. Check four areas: technology, such as versions and configuration; infrastructure, such as network and storage; runtime, such as load, concurrency and data skew; and operations, such as access control, failover and limits. -->
 
 ---
 
@@ -431,7 +431,7 @@ The columns describe the dominant intent. Fuzzing can confirm robustness against
 
 <!-- _class: glossary -->
 
-## Five techniques find defects nobody wrote a case for.
+## Five techniques reach cases nobody wrote a test for.
 
 - Chaos experiment
   - Injects real failures into a running system to test a stated hypothesis.
@@ -456,7 +456,7 @@ Chaos: the hypothesis comes first, for example "losing one broker node does not 
 
 <!-- describe: A glossary of five techniques. Chaos experiment: injects real failures into a running system to test a stated hypothesis. Fuzzing: feeds generated, often malformed input to find crashes and hangs. Metamorphic testing: checks a relation between runs when no exact answer exists. Mutation testing: plants small faults in the code and checks that some test fails. Property based testing: checks a rule that must always hold across generated inputs, then shrinks failures. -->
 
-<!-- say: Five techniques find defects that nobody wrote a test case for. A chaos experiment injects real failures to test a hypothesis. Fuzzing feeds generated, often malformed input. Metamorphic testing checks a relation between two runs when no exact answer exists. Mutation testing plants small faults and checks that some test fails. Property based testing checks a rule that must always hold, across many generated inputs. -->
+<!-- say: Five techniques reach cases that nobody wrote a test for. A chaos experiment injects real failures to test a hypothesis. Fuzzing feeds generated, often malformed input. Metamorphic testing checks a relation between two runs when no exact answer exists. Mutation testing plants small faults and checks that some test fails. Property based testing checks a rule that must always hold, across many generated inputs. -->
 
 ---
 
@@ -534,7 +534,7 @@ Coverage is still useful in one direction: an uncovered line is certainly untest
 
 `Flakiness`
 
-## Every flaky test is a defect with a findable cause.
+## Treat every flaky test as a defect and find its cause.
 
 A flaky test passes and fails on the same code. Automatic retries hide all three of its common causes.
 
@@ -547,13 +547,13 @@ A flaky test passes and fails on the same code. Automatic retries hide all three
 
 <!-- Industry data backs this up. Luo and colleagues' 2014 study of flaky tests in open-source projects found asynchronous waits were the largest single cause, ahead of concurrency and test-order dependence. Google has reported that about one in six of its tests (16%) showed some flakiness.
 
-The cost is not the failed run. It is that the team learns to ignore red, and the next real failure gets re-run instead of read.
+The real cost is that the team learns to ignore red, and the next real failure gets re-run instead of read.
 
 The practice: keep the trace from the failure, reproduce it under load, fix the cause, and only then call it fixed. -->
 
-<!-- describe: A split slide. The left panel defines a flaky test as one that passes and fails on the same code, and says automatic retries hide all three of its common causes. The right side lists the causes with fixes: async waits, wait for a signal instead of a fixed sleep; concurrency and test order, give each test its own data, port and folder; clock, randomness and network, pin, seed and stub them. -->
+<!-- describe: A split slide headed: treat every flaky test as a defect and find its cause. The left panel defines a flaky test as one that passes and fails on the same code, and says automatic retries hide all three of its common causes. The right side lists the causes with fixes: async waits, wait for a signal instead of a fixed sleep; concurrency and test order, give each test its own data, port and folder; clock, randomness and network, pin, seed and stub them. -->
 
-<!-- say: Every flaky test is a defect with a cause you can find. A flaky test passes and fails on the same code. The three common causes are these. Async waits: wait for a signal the code emits instead of a fixed sleep. Concurrency and test order: give each test its own data, port and folder. The clock, randomness and the network: pin, seed and stub them. Automatic retries hide all three, so turn retries off and fix the first red run. -->
+<!-- say: Treat every flaky test as a defect, and find its cause. A flaky test passes and fails on the same code. The three common causes are these. Async waits: wait for a signal the code emits instead of a fixed sleep. Concurrency and test order: give each test its own data, port and folder. The clock, randomness and the network: pin, seed and stub them. Automatic retries hide all three, so turn retries off and fix the first red run. -->
 
 ---
 
@@ -568,15 +568,15 @@ The practice: keep the trace from the failure, reproduce it under load, fix the 
 - Isolation
   - The test can run alone, with no hidden side effects or shared global state.
 
-> Telemetry shows what your assertions never thought to check.
+> Telemetry can show failures no assertion checks.
 
 <!-- A system that is hard to test usually has a design problem: time read straight from the wall clock, state hidden inside a singleton, side effects with no trace.
 
 Analyzers matter here. A system test can assert "HTTP 200" and pass, while the traces show the retry rate up tenfold and the queue growing. Combine the assertion with what the telemetry says before you call the run green. -->
 
-<!-- describe: Three cards: controllability, the test can create the condition it needs; observability, the test can see what happened through logs, metrics, traces and analyzers; isolation, the test can run alone. A key insight bar reads: telemetry shows what your assertions never thought to check. -->
+<!-- describe: Three cards: controllability, the test can create the condition it needs; observability, the test can see what happened through logs, metrics, traces and analyzers; isolation, the test can run alone. A key insight bar reads: telemetry can show failures no assertion checks. -->
 
-<!-- say: Testability is an architecture decision, made long before the first test. Controllability means the test can create the condition it needs, such as an injected clock or failure point. Observability means it can see what happened, through logs, metrics and traces. Isolation means it can run alone. Telemetry shows what your assertions never thought to check. -->
+<!-- say: Testability is an architecture decision, made long before the first test. Controllability means the test can create the condition it needs, such as an injected clock or failure point. Observability means it can see what happened, through logs, metrics and traces. Isolation means it can run alone. Telemetry can show failures no assertion checks. -->
 
 ---
 
@@ -671,9 +671,9 @@ Testing in production is legitimate only with guardrails: limit the blast radius
 
 - Incident -> Fix the product & Find the assumption that survived
 - Find the assumption that survived -> Name the missing evidence -> Add the cheapest test that would catch it
-- Add the cheapest test that would catch it -> Incident `dashed`
+- Add the cheapest test that would catch it -> Next defect caught earlier `dashed`
 
-`[{dashed, Earlier detection next time}]`
+`[{dashed, The payoff}]`
 
 
 <!-- Fixing the bug repairs the product. Asking why the tests missed it repairs the testing system.
@@ -682,7 +682,7 @@ The reflex after an incident is to add a slow end-to-end test. Resist it. Ask wh
 
 This is a blameless review question. The goal is a better system; nobody is hunting for a culprit. -->
 
-<!-- describe: A flowchart. An incident leads to fixing the product, and to finding the assumption that survived, then naming the missing evidence, then adding the cheapest test that would catch it. A dashed line runs from that test back to the incident, keyed as earlier detection next time. -->
+<!-- describe: A flowchart. An incident leads to fixing the product, and to finding the assumption that survived, then naming the missing evidence, then adding the cheapest test that would catch it. A dashed line, keyed as the payoff, runs from that test to a final box: next defect caught earlier. -->
 
 <!-- say: An escaped defect is evidence about two systems: the product and its tests. After an incident, fix the product. Then find the assumption that survived, name the evidence that was missing, and add the cheapest test that would have caught it. That feeds back into earlier detection next time. -->
 
@@ -725,7 +725,7 @@ If the goal is that the assembled transfer works at production parity, it is Sys
 
 Mission decides the classification. Fidelity decides whether the evidence is good enough. -->
 
-<!-- describe: A table that breaks the sentence down. Playwright: tactic. Staging: environment. Transfer flow: scenario. Mission: missing. A footnote maps three possible goals to System, Experience and Safety. -->
+<!-- describe: A table that breaks the sentence down. Playwright: tactic. Staging: environment. Transfer flow: scenario. Mission: missing. A footnote maps three goals: a transfer at parity under load is System; users understanding it is Experience; a double send is Safety. -->
 
 <!-- say: The answer: the sentence names a tool, a place and a scenario, and no mission. Playwright is a tactic. Staging is an environment. The transfer flow is a scenario. If the goal is a transfer at parity under load, it is System. If it is whether users understand it, it is Experience. If it is whether a double click sends twice, it is Safety. -->
 
@@ -763,7 +763,7 @@ This is the slide to leave up during questions. -->
 
 <!-- describe: Two columns of numbered axioms. Evidence: 1, mission determines classification; 2, testing produces evidence, not certainty; 3, each mission reduces a different class of risk; 4, fidelity must match the evidence required; 5, unexpected behavior deserves investigation. Practice: 6, effort is justified by marginal risk reduction; 7, a test must be able to fail meaningfully; 8, testability requires control and observation; 9, local correctness does not guarantee global safety; 10, incidents expose gaps in the product and the tests. -->
 
-<!-- say: Ten axioms hold the framework together. Mission determines classification. Testing produces evidence, never certainty. Each mission reduces a different class of risk. Fidelity must match the evidence required. Unexpected behavior deserves investigation. Effort is justified by marginal risk reduction. A test must be able to fail meaningfully. Testability requires control and observation. Local correctness does not guarantee global safety. And incidents expose gaps in the product and the tests. -->
+<!-- say: Ten axioms hold the framework together. Mission determines classification. Testing produces evidence, not certainty. Each mission reduces a different class of risk. Fidelity must match the evidence required. Unexpected behavior deserves investigation. Effort is justified by marginal risk reduction. A test must be able to fail meaningfully. Testability requires control and observation. Local correctness does not guarantee global safety. And incidents expose gaps in the product and the tests. -->
 
 ---
 
@@ -841,7 +841,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 - Test surface
   - The states, boundaries and dependencies around a critical path.
 
-<!-- Residual risk needs an owner. Risk that nobody accepted is not accepted; it is unnoticed. -->
+<!-- Residual risk needs an owner. If nobody accepted a risk, nobody noticed it. -->
 
 <!-- describe: A glossary of eight terms. Evidence: observations that change how much confidence is justified. Fidelity: how closely a test's conditions match production. Fidelity gap: a difference from production that limits what a result can claim. Invariant: a property that must hold under every defined condition. Mission: the risk a test exists to reduce. Residual risk: risk left after testing, accepted by a named owner. Test oracle: the source that decides what correct behavior is. Test surface: the states, boundaries and dependencies around a critical path. -->
 
@@ -879,10 +879,10 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 - When can five passing tests share one wrong oracle?
 - How could a fully authorized workflow still cause financial harm?
 - What would your most expensive test catch that a cheap one cannot?
-- Which mission has the weakest evidence in your project?
+- What would a customer or regulator say your tests miss?
 
 <!-- Good for a team retrospective or a follow-up session. Each question has an answer in the deck; the interesting part is the answer for your own system. -->
 
-<!-- describe: A list of six discussion questions: can a test use a real database and still be integration; what evidence would show staging has enough production parity; when can five passing tests share one wrong oracle; how could a fully authorized workflow still cause financial harm; what would your most expensive test catch that a cheap one cannot; which mission has the weakest evidence in your project. -->
+<!-- describe: A list of six discussion questions: can a test use a real database and still be integration; what evidence would show staging has enough production parity; when can five passing tests share one wrong oracle; how could a fully authorized workflow still cause financial harm; what would your most expensive test catch that a cheap one cannot; what would a customer or regulator say your tests miss. -->
 
-<!-- say: Six questions turn the framework into a team discussion. Can a test use a real database and still be integration? What evidence would show staging has enough parity? When can five passing tests share one wrong oracle? How could a fully authorized workflow still cause harm? What would your most expensive test catch that a cheap one cannot? Which mission has the weakest evidence in your project? -->
+<!-- say: Six questions turn the framework into a team discussion. Can a test use a real database and still be integration? What evidence would show staging has enough parity? When can five passing tests share one wrong oracle? How could a fully authorized workflow still cause harm? What would your most expensive test catch that a cheap one cannot? And what would a customer or regulator say your tests miss? -->
