@@ -157,13 +157,13 @@ Each mission names a risk to reduce, whatever scope the test runs at.
 4. Experience
    - Can users reach their goal? Risk: users get stuck.
 5. Safety
-   - Can it avoid unacceptable harm? Risk: unacceptable harm.
+   - Can it avoid unacceptable harm? Risk: an operation causes harm.
 
 <!-- Stress two things. First, the missions overlap: one scenario can produce evidence for all five, and one test run can serve two. Second, Experience and Safety work starts at design time, long before a system exists to test. A threat model and a usability study of a paper prototype are both evidence.
 
 The word System here means production parity. That is narrower than the ISTQB use, where system testing means testing the complete integrated system against its requirements. -->
 
-<!-- describe: A claim beside a numbered ledger of the five missions, each with the question it answers and the risk it reduces. Unit: does the logic work? The risk is a wrong result. Integration: do the interactions work? The risk is that parts disagree at boundaries. System: does it hold up in production? The risk is that it fails in production. Experience: can users reach their goal? The risk is that users get stuck. Safety: can it avoid unacceptable harm? The risk is unacceptable harm. The claim: each mission names a risk to reduce, whatever scope the test runs at. -->
+<!-- describe: A claim beside a numbered ledger of the five missions, each with the question it answers and the risk it reduces. Unit: does the logic work? The risk is a wrong result. Integration: do the interactions work? The risk is that parts disagree at boundaries. System: does it hold up in production? The risk is that it fails in production. Experience: can users reach their goal? The risk is that users get stuck. Safety: can it avoid unacceptable harm? The risk is that an operation causes harm. The claim: each mission names a risk to reduce, whatever scope the test runs at. -->
 
 <!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: the risk is logic that gives a wrong result. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? System: the whole misbehaves in production. Does it hold up in production? Experience: people cannot reach their goal. Can they reach it? Safety: the operation causes unacceptable harm. Can it avoid that harm? -->
 
@@ -1123,7 +1123,7 @@ The two rejected options are the usual reflexes. Both make a dashboard move with
 
 <!-- _class: closing silent -->
 
-## Good testing buys evidence where being wrong would cost most.
+## Good testing buys evidence where being wrong costs the most.
 
 `Which mission has the least evidence in your project?`
 
@@ -1131,9 +1131,9 @@ The two rejected options are the usual reflexes. Both make a dashboard move with
 
 Closing ask: each person names one mission that is weakly evidenced in their current project, and one concrete test or review they will add this week. Collect them; revisit them at the next session. -->
 
-<!-- describe: Closing slide: good testing buys evidence where being wrong would cost the most, with the question, which mission has the least evidence in your project? -->
+<!-- describe: Closing slide: good testing buys evidence where being wrong costs the most, with the question, which mission has the least evidence in your project? -->
 
-<!-- say: Good testing buys evidence where being wrong would cost the most. Which mission has the least evidence in your project? -->
+<!-- say: Good testing buys evidence where being wrong costs the most. Which mission has the least evidence in your project? -->
 
 ---
 
