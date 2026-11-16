@@ -491,8 +491,19 @@ versions and how to update, and it looks like the site, not like an error page.
     second download and shows once the page is parsed, so the page used to paint first, broken. The `<head>` check now
     adds `body{visibility:hidden}` before the first paint when a feature is missing, and the notice removes it as it
     shows, with the page already blurred. Two exits keep a reader from a blank page: the check lifts it when
-    `/old-browser.js` fails to load, and after 8 s if the notice never appears. Real Chromium 101, with the notice's
+    `/old-browser.js` fails to load, and after 8 s if the notice never appears; both also mark the page `failed`, so the
+    Studio's own gate shows its screen (the 8 s case was the follow-up review's D1). Real Chromium 101, with the notice's
     download held 2 s: before, the unblurred page showed mid-gap; after, only the background, then the notice.
+  - **No color shift on the handoff (owner).** The page-hider paints `html` in `--bg`, the color the notice's veil
+    starts in, and the veil and glow fade in with the card (0.5 s) instead of arriving in one frame. Real Chromium 101,
+    transitions paused with `getAnimations()` at 0/250/500 ms: the notice's first frame equals the hidden page (light
+    250,247,242 both), then eases to its end state; before, it jumped at once (to 244,239,230).
+  - **The site's own look (owner: "the color palette and styling should match the real website").** Measured on the
+    landing page, then matched: the site's 61 px top bar with the mark and wordmark over a hairline; cards with 12 px
+    corners, a 1 px `--border` hairline and no shadow; the primary button at 40 px, 6 px corners, 14 px weight 500; mono
+    eyebrows at weight 500 with 0.16em tracking; a square-framed slide like the landing page's "After" panel. The veil
+    now ends at 0.9, the site's flat background with the blurred page only a hint behind it: an old browser draws that
+    page broken, and at the earlier 0.62 it averaged to a muddy tan in the owner's legacy Edge.
   - **Minified at build time.** The integration runs the check through esbuild (`target: 'es5'`) before injecting it:
     1,268 bytes on every page, so the home page stays at 118.7 of its 119.1 KB ceiling with the flash fix included.
     esbuild refuses to emit anything newer than ES5, so a `const` slipped into the source fails the build, and

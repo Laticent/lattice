@@ -89,12 +89,23 @@
 	var CSS_TEXT =
 		'#ID{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;overflow:auto;-webkit-overflow-scrolling:touch;' +
 		'font-family:var(--font-body,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif);color:black;color:var(--text-body,CanvasText);text-align:left}' +
-		'#ID .lob-veil{position:fixed;top:0;right:0;bottom:0;left:0;background:white;background:var(--bg,Canvas);opacity:.62}' +
-		'#ID .lob-glow{position:fixed;top:0;right:0;bottom:0;left:0;opacity:.16;background:radial-gradient(60% 50% at 50% 30%,var(--accent,Highlight),transparent 70%)}' +
+		// The veil starts opaque, the same color the <head> check painted while it hid the page, so the notice's first frame
+		// matches the last hidden one; then it thins to show the blurred page as the glow and the card come in, together.
+		'#ID .lob-veil{position:fixed;top:0;right:0;bottom:0;left:0;background:white;background:var(--bg,Canvas);opacity:1;-webkit-transition:opacity .5s ease;transition:opacity .5s ease}' +
+		'#ID .lob-glow{position:fixed;top:0;right:0;bottom:0;left:0;opacity:0;-webkit-transition:opacity .5s ease;transition:opacity .5s ease;background:radial-gradient(60% 50% at 50% 30%,var(--accent,Highlight),transparent 70%)}' +
+		// It ends nearly opaque: the site's own flat background, with the page behind only a hint. An old browser draws that
+		// page broken, and blurred at a thin veil it averaged to a muddy tan (the owner's legacy Edge).
+		'#ID.lob-in .lob-veil{opacity:.9}#ID.lob-in .lob-glow{opacity:.07}' +
+		// The site's top bar, as every page has it: the mark and the wordmark over a hairline, 61 px tall.
+		'#ID .lob-bar{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:61px;box-sizing:border-box;padding:0 40px;' +
+		'background:white;background:var(--bg,Canvas);border-bottom:' + RULE + '}' +
+		'#ID .lob-bar img{width:30px;height:30px}' +
+		'#ID .lob-bar span{padding:0 0 0 12px;font:400 26px/1 var(--font-display,Georgia,serif);color:var(--text-heading,CanvasText)}' +
 		'#ID .lob-stage{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;' +
-		'-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;min-height:100%;box-sizing:border-box;padding:7vh 16px 48px}' +
-		'#ID .lob-card{width:100%;max-width:38rem;box-sizing:border-box;padding:32px;border-radius:22px;background:white;background:var(--bg,Canvas);' +
-		'border:1px solid rgba(127,127,127,.25);border:' + RULE + ';box-shadow:0 40px 90px -30px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.06);' +
+		'-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;min-height:100%;box-sizing:border-box;padding:48px 16px 48px}' +
+		// The site's card: 12 px corners, a hairline in --border, no shadow.
+		'#ID .lob-card{width:100%;max-width:38rem;box-sizing:border-box;padding:32px;border-radius:12px;background:white;background:var(--bg,Canvas);' +
+		'border:1px solid rgba(127,127,127,.25);border:' + RULE + ';' +
 		'opacity:0;-webkit-transform:translateY(10px);transform:translateY(10px);-webkit-transition:opacity .5s ease,-webkit-transform .5s ease;transition:opacity .5s ease,transform .5s ease}' +
 		'#ID.lob-in .lob-card{opacity:1;-webkit-transform:none;transform:none}' +
 		// The notice's own selection colors. The site's `::selection` is a tint made with `color-mix()`; a browser without
@@ -103,19 +114,18 @@
 		// A visually hidden span: read aloud, never shown ("opens in a new tab").
 		'#ID .lob-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}' +
 		'#ID .lob-eyebrow{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin:0;padding:0 0 18px;' +
-		'font:600 12px/1 ' + MONO + ';letter-spacing:.14em;text-transform:uppercase;color:var(--accent,Highlight)}' +
-		'#ID .lob-eyebrow img{width:22px;height:22px;padding:0 10px 0 0}' +
+		'font:500 12px/1 ' + MONO + ';letter-spacing:.16em;text-transform:uppercase;color:var(--accent,Highlight)}' +
 		'#ID h1{margin:0;padding:0 0 10px;font:700 34px/1.1 var(--font-display,Georgia,"Times New Roman",serif);letter-spacing:-.01em;color:inherit;color:var(--text-heading,CanvasText);outline:none}' +
-		'#ID h2{margin:0;padding:0 0 12px;font:600 12px/1 ' + MONO + ';letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted,GrayText)}' +
+		'#ID h2{margin:0;padding:0 0 12px;font:500 12px/1 ' + MONO + ';letter-spacing:.16em;text-transform:uppercase;color:var(--text-muted,GrayText)}' +
 		'#ID p,#ID ol,#ID ul,#ID dl,#ID dd{margin:0;font-size:16px;line-height:1.6}' +
 		'#ID .lob-lead{padding:0 0 22px;font-size:17px}' +
 		'#ID figure{margin:0;padding:0 0 22px}' +
-		'#ID figure img{display:block;width:100%;height:auto;border-radius:12px;border:' + RULE + ';box-shadow:0 18px 40px -24px rgba(0,0,0,.5)}' +
+		'#ID figure img{display:block;width:100%;height:auto;border:' + RULE + '}' +
 		'#ID figcaption{padding:10px 0 0;font-size:14px;line-height:1.5;color:var(--text-muted,GrayText)}' +
-		'#ID .lob-spec{display:-webkit-box;display:-webkit-flex;display:flex;padding:0;border-radius:14px;background:var(--bg-alt,transparent);border:' + RULE + ';overflow:hidden}' +
+		'#ID .lob-spec{display:-webkit-box;display:-webkit-flex;display:flex;padding:0;border-radius:12px;background:var(--bg-alt,transparent);border:' + RULE + ';overflow:hidden}' +
 		'#ID .lob-spec div{-webkit-box-flex:1;-webkit-flex:1 1 0;flex:1 1 0;padding:14px 18px}' +
 		'#ID .lob-spec div+div{border-left:' + RULE + '}' +
-		'#ID .lob-spec dt{padding:0 0 6px;font:600 11px/1 ' + MONO + ';letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted,GrayText)}' +
+		'#ID .lob-spec dt{padding:0 0 6px;font:500 11px/1 ' + MONO + ';letter-spacing:.16em;text-transform:uppercase;color:var(--text-muted,GrayText)}' +
 		'#ID .lob-spec dd{font:700 20px/1.2 var(--font-display,Georgia,serif);color:var(--text-heading,CanvasText)}' +
 		'#ID .lob-note{padding:16px 0 0}' +
 		'#ID .lob-note+ol,#ID .lob-note+ul{padding-top:8px}' +
@@ -128,8 +138,9 @@
 		'#ID li{padding:0 0 6px 4px}' +
 		'#ID .lob-after{padding:4px 0 0;font-size:15px;color:var(--text-muted,GrayText)}' +
 		'#ID .lob-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:18px 0 24px}' +
-		'#ID .lob-actions a{display:inline-block;font-size:16px;font-weight:600;text-decoration:none}' +
-		'#ID .lob-primary{padding:12px 22px;border-radius:999px;background:var(--accent,Highlight);color:white;color:var(--on-accent,var(--bg,Canvas))}' +
+		// The site's primary button: 40 px tall, 6 px corners, 14 px at weight 500.
+		'#ID .lob-actions a{display:inline-block;font-size:14px;font-weight:500;line-height:40px;text-decoration:none}' +
+		'#ID .lob-primary{padding:0 16px;border-radius:6px;background:var(--accent,Highlight);color:white;color:var(--on-accent,var(--bg,Canvas))}' +
 		'#ID .lob-primary:hover{text-decoration:underline}' +
 		// Keyboard focus is always visible, in the accent, on every control.
 		'#ID a:focus,#ID button:focus{outline:2px solid var(--accent,Highlight);outline-offset:3px}' +
@@ -150,10 +161,10 @@
 		'#ID .lob-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);grid-template-areas:"head media" "body media" "foot media";' +
 		'grid-column-gap:44px;max-width:76rem;padding:36px 44px}' +
 		'#ID .lob-head{grid-area:head}#ID .lob-body{grid-area:body}#ID .lob-foot{grid-area:foot}#ID figure{grid-area:media;-webkit-align-self:center;align-self:center;padding:0}}}' +
-		'@media (max-width:560px){#ID .lob-stage{padding:16px 12px 32px}#ID .lob-card{padding:22px 18px;border-radius:18px}#ID h1{font-size:28px}' +
+		'@media (max-width:560px){#ID .lob-bar{padding:0 16px}#ID .lob-stage{padding:16px 12px 32px}#ID .lob-card{padding:22px 18px}#ID h1{font-size:28px}' +
 		'#ID .lob-spec{display:block}#ID .lob-spec div+div{border-left:0;border-top:' + RULE + '}' +
 		'}' +
-		'@media (prefers-reduced-motion:reduce){#ID .lob-card{-webkit-transition:none;transition:none}}';
+		'@media (prefers-reduced-motion:reduce){#ID .lob-card,#ID .lob-veil,#ID .lob-glow{-webkit-transition:none;transition:none}}';
 
 	function el(tag, cls, text) {
 		var e = document.createElement(tag);
@@ -245,6 +256,16 @@
 		glow.setAttribute('aria-hidden', 'true');
 		screen.appendChild(veil);
 		screen.appendChild(glow);
+		// The site's top bar, so the notice reads as a page of the site. Branding only: the heading says what this is, so
+		// assistive technology skips it.
+		var bar = el('div', 'lob-bar');
+		bar.setAttribute('aria-hidden', 'true');
+		var mark = el('img');
+		mark.src = LOB.mark;
+		mark.alt = '';
+		bar.appendChild(mark);
+		bar.appendChild(el('span', '', 'Lattice'));
+		screen.appendChild(bar);
 		var stage = el('div', 'lob-stage');
 		// An article: the notice is one self-contained piece, so its header and footer belong to it, not to the page (inside a
 		// plain div they would be read as the site's own banner and footer landmarks).
@@ -252,12 +273,7 @@
 
 		// 1. What this is: the heading and one sentence.
 		var head = el('header', 'lob-head');
-		var eyebrow = el('p', 'lob-eyebrow');
-		var mark = el('img');
-		mark.src = LOB.mark;
-		mark.alt = '';
-		eyebrow.appendChild(mark);
-		eyebrow.appendChild(document.createTextNode('Browser update needed'));
+		var eyebrow = el('p', 'lob-eyebrow', 'Browser update needed');
 		head.appendChild(eyebrow);
 		var title = el('h1', '', 'Lattice needs a newer browser.');
 		title.id = ID + '-title';

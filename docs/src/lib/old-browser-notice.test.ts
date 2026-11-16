@@ -102,7 +102,7 @@ describe('the inline check in <head>', () => {
 			check(/^$/);
 			expect(hider()).toBeNull();
 			check(/:has\(/);
-			expect(hider()?.textContent).toBe('body{visibility:hidden}');
+			expect(hider()?.textContent).toBe('html{background:white;background:var(--bg,Canvas)}body{visibility:hidden}');
 		});
 
 		it('not once this tab chose Continue anyway', () => {
@@ -117,13 +117,15 @@ describe('the inline check in <head>', () => {
 			expect(hider()).toBeNull();
 		});
 
-		it('shows the page again after 8 s if the notice never appears, and not before', () => {
+		it('shows the page again after 8 s if the notice never appears, and marks it "failed" so the app can say it', () => {
 			vi.useFakeTimers();
 			check(/:has\(/);
 			vi.advanceTimersByTime(7999);
 			expect(hider()).not.toBeNull();
+			expect(document.documentElement.getAttribute('data-old-browser')).toBe('');
 			vi.advanceTimersByTime(1);
 			expect(hider()).toBeNull();
+			expect(document.documentElement.getAttribute('data-old-browser')).toBe('failed');
 		});
 
 		it('the notice takes it away as it shows, with the page blurred', () => {
@@ -234,7 +236,10 @@ describe('its structure, for a reader who listens or tabs', () => {
 		expect(document.getElementById(screen.getAttribute('aria-describedby') ?? '')?.textContent).toMatch(/^Lattice turns a few lines/);
 		// The decorations say nothing.
 		for (const d of screen.querySelectorAll('.lob-veil, .lob-glow')) expect(d.getAttribute('aria-hidden')).toBe('true');
-		expect(screen.querySelector<HTMLImageElement>('.lob-eyebrow img')?.alt).toBe('');
+		// The site's top bar is branding only: hidden from assistive technology, its mark without alt text.
+		expect(screen.querySelector('.lob-bar')?.getAttribute('aria-hidden')).toBe('true');
+		expect(screen.querySelector<HTMLImageElement>('.lob-bar img')?.alt).toBe('');
+		expect(screen.querySelector('.lob-bar span')?.textContent).toBe('Lattice');
 	});
 
 	it('reads in order: header, figure, a titled section, footer', () => {

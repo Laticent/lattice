@@ -20,3 +20,5 @@
   page.
 - An old browser no longer glimpses the broken page while the notice loads: the page stays hidden until the notice
   shows it, blurred behind it.
+- The notice looks like the rest of the site: the site's top bar, its flat background, its card and button styles, with
+  no color jump as it appears.

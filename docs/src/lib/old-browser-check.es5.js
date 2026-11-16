@@ -41,7 +41,8 @@ function latticeOldBrowserCheck(checks, src) {
 	// until then the reader would see the broken page. The notice takes this away as it shows, with the page blurred.
 	var veil = document.createElement('style');
 	veil.id = 'lattice-old-browser-veil';
-	veil.appendChild(document.createTextNode('body{visibility:hidden}'));
+	// Painted in the color the notice's veil starts in, so nothing shifts when it takes over.
+	veil.appendChild(document.createTextNode('html{background:white;background:var(--bg,Canvas)}body{visibility:hidden}'));
 	document.head.appendChild(veil);
 	// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 	var lift = function () {
@@ -60,6 +61,9 @@ function latticeOldBrowserCheck(checks, src) {
 	// And if the notice loads but never shows (a browser older than any tested), the page comes back: never a blank one.
 	// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 	setTimeout(function () {
-		if (!document.getElementById('lattice-old-browser')) lift();
+		if (document.getElementById('lattice-old-browser')) return;
+		lift();
+		// And say so, as a failed download does, so the Studio's own gate shows its screen (device-gate.ts).
+		document.documentElement.setAttribute('data-old-browser', 'failed');
 	}, 8000);
 }
