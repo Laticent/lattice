@@ -29,15 +29,29 @@ await page.evaluate(([n, burn]) => lsPrepare(n, burn), [SLIDES, 0]);
 await page.evaluate(([b, r]) => lsBurn(b, r), [BURN, Number(process.env.BURN_REST ?? BURN / 2)]);
 const second = await page.evaluate(() => lsTarget());
 if (!second) throw new Error('no centerable slide with its line on screen');
+// RESIZE_TO=WxH grows the page after the pick, as Mobile Safari's frame grew on the iPad (dispatch 43796904267): the
+// slide picked at the short height may not be centerable at the real one, and the loop below must pick again.
+if (process.env.RESIZE_TO) {
+	const [w, h] = process.env.RESIZE_TO.split('x').map(Number);
+	const was = await page.evaluate(() => document.getElementById('preview').contentWindow.innerHeight);
+	await page.setViewportSize({ width: w, height: h });
+	await page.waitForFunction((v) => document.getElementById('preview').contentWindow.innerHeight !== v, was);
+}
 const TARGETS = [1, second];
 const rows = [];
 for (let i = 0; i < TAPS; i++) {
+	if (i % 2 === 1 && !(await page.evaluate((n) => lsCenterable(n), TARGETS[1]))) {
+		const next = await page.evaluate(() => lsTarget());
+		if (!next) throw new Error(`slide ${TARGETS[1]} can no longer be centered and no other slide can`);
+		console.log(`the preview changed height, so slide ${TARGETS[1]} can no longer be centered: tapping slide ${next} instead`);
+		TARGETS[1] = next;
+	}
 	const slide = TARGETS[i % TARGETS.length];
 	const before = await page.evaluate(() => lsBefore());
 	await page.locator('.cm-line', { hasText: new RegExp(`^- point ${slide}\\.3$`) }).click({ position: { x: 40, y: 6 } });
 	rows.push(await page.evaluate(([s, b]) => lsAfter(s, b), [slide, before]));
 }
 const v = verdict(rows);
-console.log(`${vw}x${vh} burn ${BURN} ms, second slide ${second}: ${v.ok ? 'PASS' : 'FAIL'} — ${v.jumps} of ${v.taps} taps moved the editor, worst ${Math.round(v.worst)} px`);
+console.log(`${vw}x${vh} burn ${BURN} ms, second slide ${second}${TARGETS[1] !== second ? ` then ${TARGETS[1]}` : ''}: ${v.ok ? 'PASS' : 'FAIL'} — ${v.uncentered} uncentered and ${v.jumps} of ${v.taps} taps moved the editor, worst ${Math.round(v.worst)} px`);
 await browser.close();
 process.exit(v.ok ? 0 : 1);

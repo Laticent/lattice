@@ -191,21 +191,58 @@ function lsCenter(slide) {
 	return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) };
 }
 
-/** The first slide after the first that a tap can be made on (its line is on screen) and that the preview CAN center
- *  (centering it needs a scroll between 16 px and the page's end). A tall preview pane cannot center slide 2: it would need
- *  a negative scroll. 0 when there is none. */
-// biome-ignore lint/correctness/noUnusedVariables: see above
-function lsTarget() {
-	const sc = lsScroller().getBoundingClientRect();
+/** Whether the preview CAN center slide `n` at the page's present geometry: centering it needs a scroll between 16 px and
+ *  16 px short of the page's end. A tall preview pane cannot center slide 2: it would need a negative scroll. It reads the
+ *  layout only, never where the preview is scrolled, so it cannot excuse a sync that scrolled to the wrong place. */
+function lsCenterable(n) {
 	const win = lsPreview().contentWindow;
 	const room = lsPreview().contentDocument.documentElement.scrollHeight - win.innerHeight;
+	const r = lsSections()[n - 1]?.getBoundingClientRect();
+	if (!r) return false;
+	const need = win.scrollY + r.top + r.height / 2 - win.innerHeight / 2;
+	return need >= 16 && need <= room - 16;
+}
+
+/** The preview's height, its page's height and every slide's box in page coordinates, as one string. */
+function lsGeometry() {
+	const win = lsPreview().contentWindow;
+	const boxes = [...lsSections()].map((el) => {
+		const r = el.getBoundingClientRect();
+		return `${Math.round(r.top + win.scrollY)}+${Math.round(r.height)}`;
+	});
+	return `${win.innerHeight}|${lsPreview().contentDocument.documentElement.scrollHeight}|${boxes.join(',')}`;
+}
+
+/** Wait until the preview's geometry has held still for `ms`. On the iPad Simulator the frame was 1077 px tall when the
+ *  probe tapped (dispatch 43796904267), where centering slide 2 needs a scroll of -77 px; slide 2 reads as centerable only
+ *  at 891 px or less, so the probe had picked it before the frame reached its height, and every tap on it failed for the
+ *  page's geometry, not the sync's. */
+async function lsSettled(ms = 600, limit = 15000) {
+	const t0 = Date.now();
+	let last = lsGeometry();
+	let since = Date.now();
+	for (;;) {
+		await lsSleep(50);
+		const now = lsGeometry();
+		if (now !== last) {
+			last = now;
+			since = Date.now();
+		} else if (Date.now() - since >= ms) return last;
+		if (Date.now() - t0 > limit) throw new Error(`the preview's geometry did not hold still for ${ms} ms within ${limit} ms (last: ${now})`);
+	}
+}
+
+/** The first slide after the first that a tap can be made on (its line is on screen) and that the preview can center
+ *  (`lsCenterable`), read once the preview's geometry has settled. 0 when there is none. */
+// biome-ignore lint/correctness/noUnusedVariables: see above
+async function lsTarget() {
+	await lsSettled();
+	const sc = lsScroller().getBoundingClientRect();
 	const lines = [...document.querySelectorAll('.cm-line')];
 	for (let n = 2; n <= lsSections().length; n++) {
 		const line = lines.find((l) => l.textContent === `- point ${n}.3`)?.getBoundingClientRect();
 		if (!line || line.top < sc.top + 10 || line.bottom > sc.bottom - 10) continue;
-		const r = lsSections()[n - 1].getBoundingClientRect();
-		const need = win.scrollY + r.top + r.height / 2 - win.innerHeight / 2;
-		if (need >= 16 && need <= room - 16) return n;
+		if (lsCenterable(n)) return n;
 	}
 	return 0;
 }

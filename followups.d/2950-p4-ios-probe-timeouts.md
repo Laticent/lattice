@@ -10,15 +10,17 @@ deferred: off-path — Studio and Playground behavior the probes test (editor lo
 
 # Chase the iOS probe timeouts that are not start failures
 
-why now   — three probe steps timed out in iOS Simulator runs after the session had started, so each is a real
+why now   — two probe steps timed out in iOS Simulator runs after the session had started, so each is a real
             assertion about the app, not the harness (a fourth, the iPad photo measurement, is now issue #2967):
             - the Studio editor's 90 s wait on the iPhone (run 40757556454; on PR 2959's dispatches, runs on
               b0479e9 and 04c0b1d, though main's nightlies passed it). PR 2959's undo probe hit a similar wait and
               fixed it in its own probe (a phone opens on the preview, so the editor mounts only once its pane is
               shown); whether that is this probe's cause is not shown, since main passes the same probe;
             - the Coach button's 15 s wait on the iPad (run 40693703379);
-            - two of four quiet focus-sync taps left uncentered (run 40751811918).
             The Coach sheet's close step also timed out once (run 40793148479); #2961 fixed that one in the probe.
+            A third, two of four quiet focus-sync taps left uncentered (run 40751811918), has the signature of the
+            probe picking its target before Mobile Safari's frame reached its height, shown in dispatch 43796904267
+            (that run's log holds no frame data); the probe now waits for the height and re-checks.
 where     — `docs/scripts/ios-safari/studio-probe.js`, `photo-probe.js`, `focus-sync-probe.js`, and the Studio code
             each names.
 done when — each is reproduced and fixed, or shown to be the probe's own timing and the probe made robust, with

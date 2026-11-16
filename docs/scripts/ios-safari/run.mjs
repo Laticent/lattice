@@ -593,9 +593,23 @@ async function runFocusSyncProbe(id) {
 		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] });
 		await call('lsWatch()');
 		const second = await call('lsTarget()');
+		if (second?.error) throw new Error(second.error);
 		if (!second) throw new Error('no slide after the first can be both tapped (its line on screen) and centered by the preview on this device');
 		const TARGETS = [1, second];
 		console.log(`${LABEL}: tapping slide 1 and slide ${second} alternately`);
+		/** The slide tap `i` aims at. The preview can still change height after the pick, and a slide it can no longer
+		 *  center fails every tap for the page's geometry, not the sync's: pick again, and say so in the log. */
+		const aim = async (i) => {
+			if (i % 2 === 0) return 1;
+			if (!(await call(`lsCenterable(${TARGETS[1]})`))) {
+				const next = await call('lsTarget()');
+				if (next?.error) throw new Error(next.error);
+				if (!next) throw new Error(`slide ${TARGETS[1]} can no longer be centered and no other slide can: ${await call(`lsFrame(${TARGETS[1]})`)}`);
+				console.log(`${LABEL}: the preview changed height, so slide ${TARGETS[1]} can no longer be centered: tapping slide ${next} instead`);
+				TARGETS[1] = next;
+			}
+			return TARGETS[1];
+		};
 		const rows = [];
 		const methods = new Set();
 		/** One tap on the line of `slide`: an element click first, then a touch tap by coordinates if the caret did not land. */
@@ -671,7 +685,7 @@ async function runFocusSyncProbe(id) {
 		};
 		// Four taps on a quiet page first: they tell a tap that never lands (the harness) from one the burner starves.
 		const quiet = [];
-		for (let i = 0; i < 4; i++) quiet.push(await tap(`quiet tap ${i + 1}`, TARGETS[i % TARGETS.length]));
+		for (let i = 0; i < 4; i++) quiet.push(await tap(`quiet tap ${i + 1}`, await aim(i)));
 		const q = verdict(quiet);
 		result.steps.push({ name: 'four taps on a quiet page', pass: q.ok, detail: `${q.uncentered} left the slide uncentered, ${q.jumps} moved the editor; landed by ${[...methods].join(', ')}` });
 		if (q.uncentered) {
@@ -680,7 +694,7 @@ async function runFocusSyncProbe(id) {
 			result.steps.push({ name: 'a slide that did not center', pass: false, detail: `${await call(`lsState(${quiet[miss].slide})`)} frame: ${await call(`lsFrame(${quiet[miss].slide})`)}` });
 		}
 		await call(`lsBurn(${burn})`);
-		for (let i = 0; i < TAPS; i++) rows.push(await tap(`tap ${i + 1}`, TARGETS[i % TARGETS.length]));
+		for (let i = 0; i < TAPS; i++) rows.push(await tap(`tap ${i + 1}`, await aim(i)));
 		const v = verdict(rows);
 		result.steps.push({ name: `${v.taps} taps under the burner (${burn} ms)`, pass: v.ok, detail: `${v.uncentered} left the slide uncentered, ${v.jumps} moved the editor, worst ${Math.round(v.worst)} px` });
 		result.rows = rows;

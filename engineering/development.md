@@ -672,8 +672,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   Playground's two-pane layout, which starts above 820 px): `run.mjs` makes real WebDriver taps on editor lines (an element
   click; the harness found nothing else was needed) while `focus-sync-probe.js` keeps the page busy, and the suite fails when a tap
   moves the editor 2 px or more or leaves its slide uncentered. Two measured traps: a pane taller than the slide's offset cannot
-  center slide 2 (it would need a negative scroll), so `lsTarget` picks the first later slide whose line is on screen and which
-  the preview can center; and a burner that never rests (work 150 ms every 100 ms) stalls iOS taps (`touchstart` arrives,
+  center slide 2 (it would need a negative scroll), so `lsTarget` waits until the preview's geometry has held still for 600 ms,
+  then picks the first later slide whose line is on screen and which the preview can center (`lsCenterable`), and the tap loop
+  picks again, with a log line, if the pane grows after that (in dispatch 43796904267 the iPad's frame was 1077 px at the
+  taps, and slide 2 counts as centerable only at 891 px or less, so the pick was made before the frame reached its height and
+  slide 2 failed every tap: `RESIZE_TO=1032x1376 VIEWPORT=1032x1000` on the selftest reproduces it); and a burner that never rests (work 150 ms every 100 ms) stalls iOS taps (`touchstart` arrives,
   `touchend` never does), so it works 150 ms and rests 75 ms (`FOCUS_SYNC_BURN_MS`, default 150). `node
   docs/scripts/ios-safari/focus-sync.selftest.mjs` runs the same loop on Playwright WebKit (`VIEWPORT=1032x1376` for the iPad
   Pro shape): on the code before `2937-p2` 37 of 40 taps move the editor, on the fix 0 of 40; without the burner both pass, and
