@@ -149,7 +149,76 @@ async function studioPage(id, file, fn, { seed = true } = {}) {
  * on a slow runner. The photo memory arms (PROBE=photo-memory, #2998) are a suite of their own for the same reason: inside this
  * one they took the job to 27.6 minutes of its 30.
  */
+// TEMPORARY (PR 3241, reverted after its dispatch): the slide camera's WebKit shadow fix in real Mobile Safari. It bundles
+// lib/core/slide-camera.mjs twice (as shipped, and with the bitmap path forced off, the old camera), draws a slide with the
+// image layout's card lift (0.6cqi 0.8cqi 0 -0.1cqi at 1280 px: 7.68px 10.24px 0 -1.28px) at 2x through each, and reads
+// where the shadow starts along the card's bottom band, as docs/e2e/camera-webkit-shadow.spec.ts does.
+async function cameraShadowProbe(id) {
+	const steps = [];
+	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+	try {
+		const esbuild = (await import('esbuild')).default;
+		const CAM = path.join(ROOT, 'lib', 'core', 'slide-camera.mjs');
+		const bundle = async (name, forceOld) =>
+			(await esbuild.build({
+				stdin: { contents: `import { captureSlideCanvas, scaledDrawDropsShadow } from './lib/core/slide-camera.mjs'; globalThis.${name} = { captureSlideCanvas, scaledDrawDropsShadow };`, resolveDir: ROOT, loader: 'js' },
+				bundle: true,
+				format: 'iife',
+				platform: 'browser',
+				write: false,
+				logLevel: 'error',
+				plugins: forceOld
+					? [{ name: 'old-path', setup: (b) => b.onLoad({ filter: /slide-camera\.mjs$/ }, (a) => {
+							const src = fs.readFileSync(a.path, 'utf8');
+							const out = src.replace('scale !== 1 && (await scaledDrawDropsShadow())', 'false');
+							if (out === src) throw new Error('the old-path switch did not apply');
+							return { contents: out, loader: 'js', resolveDir: path.dirname(CAM) };
+						}) }]
+					: [],
+			})).outputFiles[0].text;
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: await bundle('__camNew', false), args: [] });
+		await wd('POST', `/session/${id}/execute/sync`, { script: await bundle('__camOld', true), args: [] });
+		const r = await wd('POST', `/session/${id}/execute/async`, {
+			args: [],
+			script: `const done = arguments[arguments.length - 1];
+				(async () => {
+					document.body.innerHTML = '';
+					document.body.style.margin = '0';
+					const sec = document.createElement('section');
+					sec.style.cssText = 'width:1280px;height:720px;background:#fff;position:relative;display:block;margin:0;transform:none';
+					const card = document.createElement('div');
+					card.style.cssText = 'position:absolute;left:690px;top:187px;width:552px;height:345px;background:#fff;border-radius:12px;box-shadow:7.68px 10.24px 0 -1.28px rgba(0,0,0,.13), inset 0 0 0 1px rgba(0,0,0,.09)';
+					sec.appendChild(card);
+					document.body.appendChild(sec);
+					const read = async (cam) => {
+						const c = await cam.captureSlideCanvas(sec, { scale: 2 });
+						const g = c.getContext('2d');
+						const row = g.getImageData(0, (187 + 345 + 4) * 2, c.width, 1).data;
+						let first = -1;
+						for (let x = 0; x < c.width; x++) if (row[x * 4] < 250) { first = x / 2; break; }
+						const inside = g.getImageData(966 * 2, 360 * 2, 1, 1).data;
+						return { width: c.width, first, start: first < 0 ? null : Math.round(((first - 690) / 552) * 1000) / 1000, fill: [inside[0], inside[1], inside[2], inside[3]] };
+					};
+					const probe = await __camNew.scaledDrawDropsShadow();
+					const fixed = await read(__camNew);
+					const old = await read(__camOld);
+					done({ probe, fixed, old, ua: navigator.userAgent });
+				})().catch((e) => done({ error: String(e && e.stack || e) }));`,
+		});
+		if (r.error) return { ok: false, steps, error: `camera probe: ${r.error.slice(0, 300)}` };
+		console.log(`${LABEL}: camera shadow probe: scaledDrawDropsShadow() = ${r.probe}; fixed ${JSON.stringify(r.fixed)}; old path ${JSON.stringify(r.old)}`);
+		step('scaledDrawDropsShadow() in this Safari (detail only)', true, String(r.probe));
+		step('the camera draws the card-lift shadow from near the card edge at 2x', r.fixed.start !== null && r.fixed.start < 0.1 && r.fixed.fill[3] === 255, `starts ${r.fixed.start} of the card width along (x ${r.fixed.first}); canvas ${r.fixed.width} px; card fill ${r.fixed.fill}`);
+		step('the old camera path on the same Safari (detail only)', true, `starts ${r.old.start} of the card width along (x ${r.old.first})`);
+		return { ok: steps.every((x) => x.pass), steps };
+	} catch (e) {
+		return { ok: false, steps, error: `camera probe: ${String(e.message || e).slice(0, 300)}` };
+	}
+}
+
 async function runStudioProbe(id) {
+	const camera = await cameraShadowProbe(id);
 	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
 	const panes = await studioPage(id, 'panes-probe.js', 'latticePanesProbe');
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
@@ -161,11 +230,11 @@ async function runStudioProbe(id) {
 	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!camera.ok && !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
+		error: [camera.error, preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap)],
+		steps: [...named('camera', camera), ...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap)],
 	};
 }
 
