@@ -90,16 +90,22 @@ test('a key main read by its regex head: `a.b`, `$x` and `1x` now read as the wh
   assert.equal(frontMatterValue('1x: first\n1x: last', '1x'), 'last');
 });
 
-test('the island: a block scalar body span and each key\'s parent', () => {
+test('the island marks a block scalar body; lattice-deck gives its span and each key\'s parent', () => {
   const y = 'foo:\n  footer: x\n  sub:\n    deep: 1\nstyle: |\n  a { b: c }\n\n  d\n\nz: 1\ne: |\nq: 2';
   const keys = frontMatterKeys(y);
-  assert.deepEqual(keys.map((k) => [k.name, k.parent]), [['foo', -1], ['footer', 0], ['sub', 0], ['deep', 2], ['style', -1], ['z', -1], ['e', -1], ['q', -1]]);
-  const style = keys.find((k) => k.name === 'style');
-  assert.equal(y.slice(style.bodyFrom, style.bodyTo), '  a { b: c }\n\n  d');
-  const e = keys.find((k) => k.name === 'e');
-  assert.equal(e.bodyFrom, e.bodyTo, 'an empty body');
-  assert.equal(keys.find((k) => k.name === 'z').bodyFrom, -1);
+  assert.deepEqual(keys.map((k) => [k.name, k.bodyEnd]), [['foo', 0], ['footer', 0], ['sub', 0], ['deep', 0], ['style', 9], ['z', 0], ['e', 11], ['q', 0]]);
   assert.ok(Object.isFrozen(keys) && Object.isFrozen(keys[0]));
+  const { latticeDeck } = require('../../../lib/authoring/squadra/lattice-deck.js');
+  for (const eol of ['\n', '\r\n']) {
+    const src = `---${eol}${y.replace(/\n/g, eol)}${eol}---${eol}# A${eol}`;
+    const fm = latticeDeck.parse({ text: src }).tree.kids.find((k) => k.kind === 'front-matter');
+    assert.deepEqual(fm.kids.map((k) => [k.attrs.name, k.attrs.parent, k.attrs.parentIndex]), [['foo', '', -1], ['footer', 'foo', 0], ['sub', 'foo', 0], ['deep', 'sub', 2], ['style', '', -1], ['z', '', -1], ['e', '', -1], ['q', '', -1]]);
+    const style = fm.kids.find((k) => k.attrs.name === 'style');
+    assert.equal(src.slice(style.parts.body.from, style.parts.body.to), `  a { b: c }${eol}${eol}  d`, JSON.stringify(eol));
+    const e = fm.kids.find((k) => k.attrs.name === 'e');
+    assert.equal(e.parts.body.from, e.parts.body.to, 'an empty body');
+    assert.equal(fm.kids.find((k) => k.attrs.name === 'z').parts.body, undefined);
+  }
 });
 
 test('frontMatterMatch: the block and its YAML, as the converted readers held them', () => {

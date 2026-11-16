@@ -348,10 +348,11 @@ Built on `claude/squadra-lint-front-matter-ktsbt9`, cut from `main` at `72bd2d9`
   reader therefore finds what the engine renders, by construction. (`FRONT_MATTER_FENCE`, the regex the boundary parser
   exports as `FRONT_MATTER` for its regex callers, stays the literal it always was; it can split a raw `\r\n`, and its
   raw-bytes callers move to `frontMatterMatch` in the follow-up below.)
-- **Its keys** (`frontMatterKeys`). Each line is read once into its indent, name, raw value, the spans of the name and
-  value, the key it nests under (`parent`) and, for a block scalar (`style: |`), the span of its body, whose lines are
-  never keys (YAML's rule). A name is `[\w$][\w$.-]*`, wider than any reader asked for, so no reader loses a key. The
-  list is frozen.
+- **Its keys** (`frontMatterKeys`). Each line is read once into its indent, name, raw value and the spans of the name
+  and value; a block scalar (`style: |`) records where its body ends, and the body's lines are never keys (YAML's
+  rule). A name is `[\w$][\w$.-]*`, wider than any reader asked for, so no reader loses a key. The list is frozen.
+  The key each nests under and the body's span are `lattice-deck`'s to work out: this module ships in every docs page
+  that reads a register (1,035 bytes gzipped), so it carries only what those readers use.
 
 Each reader then selects from the one list, and that selection is all that differs between them:
 
