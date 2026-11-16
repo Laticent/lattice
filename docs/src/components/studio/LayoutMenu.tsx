@@ -393,9 +393,13 @@ export function LayoutMenuHost({ req, onDone, compose, slides, components, front
 	};
 	const s = shown.current;
 	if (!s) return null;
+	// Open while there is a request for a slide the menu can show. A render where Compose cannot read the slide for a moment
+	// (its view rebuilt, a resync after a save's echo) keeps the menu on the slide it is showing: closing and reopening for
+	// that one render would reset the open question under the author's finger (the menu treats each open as a new visit).
+	const holding = !!v && s.menu.index === v.index;
 	return (
 		<LayoutMenu
-			open={!!req && !!menu}
+			open={!!req && (!!menu || holding)}
 			phone={phone}
 			anchor={s.anchor}
 			slideNumber={s.menu.index + 1}
