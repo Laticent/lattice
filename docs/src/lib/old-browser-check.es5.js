@@ -1,5 +1,6 @@
-// The landing page's old-browser CHECK (engineering/decisions/2026-11-12-device-capability-tiers.md §6.2): the small,
-// eager half that runs in <head> on every visit. old-browser-check.ts inlines this function into index.astro, called with
+// The site's old-browser CHECK (engineering/decisions/2026-11-12-device-capability-tiers.md §6.2): the small,
+// eager half that runs in <head> on every visit. old-browser-check.ts inlines this function into every page's <head>
+// (the plugins/old-browser-check.mjs integration), called with
 // the probe table and the notice's address. It tests each feature; if one is missing it marks <html data-old-browser> and
 // loads /old-browser.js (the notice). A current browser does nothing else.
 //
@@ -38,7 +39,7 @@ function latticeOldBrowserCheck(checks, src) {
 	} catch (_e) {}
 	window.__latticeOldBrowser = missing;
 	// Hide the page before its first paint: the notice comes in a second download and shows once the page is parsed, and
-	// until then the reader would see the broken page. The notice takes this away as it shows, with the page blurred.
+	// until then the reader would see the broken page. The notice takes this away as it shows, its solid veil over the page.
 	var veil = document.createElement('style');
 	veil.id = 'lattice-old-browser-veil';
 	// Painted in the color the notice's veil starts in, so nothing shifts when it takes over.

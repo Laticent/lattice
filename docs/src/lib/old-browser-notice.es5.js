@@ -1,12 +1,12 @@
-// The landing page's old-browser notice (engineering/decisions/2026-11-12-device-capability-tiers.md §6.2).
+// The site's old-browser notice (engineering/decisions/2026-11-12-device-capability-tiers.md §6.2).
 //
 // Served as /old-browser.js by src/pages/old-browser.js.ts, which puts `var LOB = {...}` in front of this file: the floor
-// table and update steps (browser-floor.ts), the slide images and the docs link. The landing page's inline check
-// (index.astro) loads it only when a required feature is missing, with the missing names in `window.__latticeOldBrowser`.
+// table and update steps (browser-floor.ts), the slide images and the supported list. The inline check in every
+// page's <head> (old-browser-check.es5.js) loads it only when a required feature is missing, with the missing names in `window.__latticeOldBrowser`.
 //
 // ES5 ON PURPOSE: `var`, `function`, no arrows, template strings, optional chaining, trailing commas or modules. It runs
 // in exactly the browsers that can't parse our bundled JavaScript; old-browser-notice.test.ts parses it as ES5.
-// The CSS is old-browser CSS too: flexbox, custom properties, `filter` with its -webkit- twin, and nothing that needs
+// The CSS is old-browser CSS too: flexbox, custom properties, and nothing that needs
 // `:has()`, container queries or `color-mix()`.
 //
 // The look (owner's pick, "B", refined to the site's own style): the site's top bar over its flat background, and a card in
@@ -503,6 +503,9 @@
 		// The <head> check hid the page before its first paint (old-browser-check.es5.js); the solid veil covers it from now on.
 		var pageHider = document.getElementById('lattice-old-browser-veil');
 		if (pageHider) pageHider.parentNode.removeChild(pageHider);
+		// A notice that arrived after the head check gave up on it (8 s, old-browser-check.es5.js) takes the page back: the
+		// mark returns from "failed", so the Studio's gate takes its own screen down rather than stacking one on this.
+		if (root.getAttribute('data-old-browser') === 'failed') root.setAttribute('data-old-browser', '');
 		title.focus();
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		setTimeout(function () {

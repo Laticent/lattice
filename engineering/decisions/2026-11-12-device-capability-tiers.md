@@ -494,6 +494,11 @@ versions and how to update, and it looks like the site, not like an error page.
     `/old-browser.js` fails to load, and after 8 s if the notice never appears; both also mark the page `failed`, so the
     Studio's own gate shows its screen (the 8 s case was the follow-up review's D1). Real Chromium 101, with the notice's
     download held 2 s: before, the unblurred page showed mid-gap; after, only the background, then the notice.
+    **A notice that arrives after the 8 s give-up** (a slow connection) still shows, and takes the page back: it resets
+    the `failed` mark to `''`, and `device-gate.ts` takes down the decline it showed meanwhile, so the reader ends on one
+    screen, never two stacked (the round-8 checker's finding). Real Chromium 101, `/old-browser.js` held 10 s on
+    `/studio/`: at 8.5 s the Studio's decline showed, at the end only the notice; with the reset removed from the served
+    file, both screens stayed stacked.
   - **No color shift on the handoff (owner).** The page-hider paints `html` in `--bg`, the color the notice's veil
     starts in, and the veil and glow fade in with the card (0.5 s) instead of arriving in one frame. Real Chromium 101,
     transitions paused with `getAnimations()` at 0/250/500 ms: the notice's first frame equals the hidden page (light

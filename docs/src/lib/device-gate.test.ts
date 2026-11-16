@@ -84,6 +84,15 @@ describe('startDeviceGate', () => {
 		await vi.waitFor(() => expect(screen.showDecline).toHaveBeenCalledTimes(1));
 	});
 
+	it('a notice that arrives after the gate showed its screen (the mark leaves "failed") takes that screen down', async () => {
+		root.setAttribute('data-old-browser', 'failed');
+		root.setAttribute('data-device-tier', 'unsupported');
+		start();
+		await vi.waitFor(() => expect(screen.showDecline).toHaveBeenCalledTimes(1));
+		root.setAttribute('data-old-browser', '');
+		await vi.waitFor(() => expect(screen.hideDecline).toHaveBeenCalledTimes(1));
+	});
+
 	it('a page the notice marked "continued" runs as LITE even when session storage holds nothing', async () => {
 		root.setAttribute('data-old-browser', 'continued');
 		root.setAttribute('data-device-tier', 'unsupported');

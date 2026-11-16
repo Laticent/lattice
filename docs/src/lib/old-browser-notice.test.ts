@@ -128,6 +128,13 @@ describe('the inline check in <head>', () => {
 			expect(document.documentElement.getAttribute('data-old-browser')).toBe('failed');
 		});
 
+		it('a notice that arrives after the 8 s give-up clears the "failed" mark, so the app does not stack its own screen', () => {
+			document.documentElement.setAttribute('data-old-browser', 'failed');
+			run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36');
+			expect(document.documentElement.getAttribute('data-old-browser')).toBe('');
+			document.documentElement.removeAttribute('data-old-browser');
+		});
+
 		it('the notice takes it away as it shows, with the page behind its solid veil and out of reach', () => {
 			check(/:has\(/);
 			expect(hider()).not.toBeNull();
@@ -429,7 +436,7 @@ describe('on the Studio and the Playground', () => {
 		expect(toast.style.cssText).toBe('');
 	});
 
-	it('a node the app moves within <body> is given back unblurred, and a style the app set meanwhile survives', async () => {
+	it('a node the app moves within <body> is given back untouched, and a style the app set meanwhile survives', async () => {
 		const portal = document.createElement('div');
 		document.body.append(portal);
 		const screen = run('SomeBrowser/1.0');
@@ -444,7 +451,6 @@ describe('on the Studio and the Playground', () => {
 		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
 		for (const n of [portal, toast]) {
 			expect(n.hasAttribute('aria-hidden')).toBe(false);
-			expect(n.style.filter).toBe('');
 			expect(n.style.pointerEvents).toBe('');
 		}
 		expect(toast.style.top).toBe('12px');

@@ -65,7 +65,8 @@ export function startDeviceGate({ decide = false }: { decide?: boolean } = {}): 
 			if (noticeOwnsIt(root)) return;
 			shown = true;
 			void import('./decline-screen').then((m) => m.showDecline());
-		} else if (tier !== 'unsupported' && shown) {
+		} else if (shown && (tier !== 'unsupported' || noticeOwnsIt(root))) {
+			// Off the tier, or the notice arrived late and cleared its "failed" mark: one screen, never two stacked.
 			shown = false;
 			void import('./decline-screen').then((m) => m.hideDecline());
 		}

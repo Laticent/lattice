@@ -119,7 +119,7 @@ test('@crosswidth @webkit-phone @gecko the notice has no axe findings in either 
 		);
 		expect(found, `axe findings in ${colorScheme} mode`).toEqual([]);
 
-		// A keyboard reader cycles through the notice's controls and the browser's own UI, never the blurred page beneath.
+		// A keyboard reader cycles through the notice's controls and the browser's own UI, never the page beneath.
 		for (let i = 0; i < 8; i++) {
 			await page.keyboard.press('Tab');
 			const where = await page.evaluate(() => {

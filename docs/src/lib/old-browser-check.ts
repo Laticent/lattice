@@ -1,5 +1,6 @@
-// Builds the landing page's inline old-browser check (old-browser-check.es5.js) as one ES5 statement, with its data as JSON
-// literals, so the script that reaches the page is ES5 end to end. index.astro puts it in <head> with `set:html`.
+// Builds the site's inline old-browser check (old-browser-check.es5.js) as one ES5 statement, with its data as JSON
+// literals, so the script that reaches the page is ES5 end to end. The plugins/old-browser-check.mjs integration minifies it and puts it in
+// the <head> of every page.
 
 import { FEATURE_LABEL, FEATURE_PROBES, OLD_BROWSER_FEATURES } from './device-profile';
 import check from './old-browser-check.es5.js?raw';
