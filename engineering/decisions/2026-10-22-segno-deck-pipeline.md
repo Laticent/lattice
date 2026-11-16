@@ -749,6 +749,9 @@ islands.)*
   already read. The register GRAMMAR named here was not built: the island is a regex fence and a line loop, not a
   Segno-generated parser, and whether one should replace it is open for the owner
   (followups.d/3042-p2-front-matter-register-grammar.md). 2026-11-13-squadra-replaces-lint-core.md §11.)*
+  *(2026-11-16: the register grammar landed, a Segno grammar for the fence and each line plus a driver for where a block
+  scalar's body ends, the one rule no context-free grammar can state. 2026-11-13-squadra-replaces-lint-core.md §11,
+  "The register grammar landed".)*
 - **lint-core's other comment scans.** About sixteen sites still find `<!--` by regex or `indexOf`. Some read the
   RENDERED body (`withoutHtmlComments`, the unterminated-comment rule), where a browser's comment rules, inline
   comments included, are the right model, so they are not islands. The rest each need their own look, one at a time,
@@ -864,7 +867,7 @@ list:
 |---|---|
 | The Mermaid fence matcher (`mermaid-fences.js`) | Deleted by the plugin contract's D2 slice 3 and 4: every reader of a plugin's fences reads the engine's own block parse, `pluginFences` (lib/core/plugin-fences.mjs; engineering/decisions/2026-11-06-plugin-patterns.md §4). That parse is markdown-it as the engine configures it, so it is the engine's answer, not an approximation of it; it moves onto the model when P7 removes markdown-it |
 | `comments()`, the notes channel's reader (lib/core/meta-record.mjs) | **Moved here, below** |
-| `parseFrontMatter` | The front-matter island (PR #3228, landed 2026-11-16; engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §11), and the register grammar after it (§5 of that note) |
+| `parseFrontMatter` | The front-matter island (PR #3228, landed 2026-11-16; engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §11), and the register grammar under it (lib/core/front-matter-grammar.js, this PR; §11 "The register grammar landed") |
 | lint-core's ~16 comment scans | Out of this pipeline: Squadra deletes lint-core.js (followups.d/3194-p1-squadra-replaces-lint-core.md, §8 "lint-core.js is gone") |
 
 followups.d/3042-p1-segno-p3-the-remaining-islands.md is deleted with this change.

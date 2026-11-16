@@ -123,6 +123,9 @@ over the front matter, producing `fm-key` with name and value spans. Every front
 `directives.js` and `slides.js`, the splitter, the linter) reads it. It changes export bytes, so before merge a
 representative demo deck is rendered in dark and light and sent to the owner for sign-off (CLAUDE.md, export rule).
 
+*(2026-11-16: the register grammar landed, as a grammar plus a small driver, by the owner's choice; §11's "The register
+grammar landed" says what each half reads and why the split is where it is.)*
+
 ## 6. How the rewrite proves itself
 
 - **The reference diff.** The reference is lint-core as main has it where the branch left main, run from a git
@@ -386,6 +389,34 @@ was not considered while building this step, and the first version of this secti
 grammar replaces `frontMatterKeys` behind the same `fm-key` contract, or the hand-written island stands as the
 replacement for the grammar, is the owner's decision, recorded in followups.d/3042-p2-front-matter-register-grammar.md.
 Either way the readers are unchanged: they read `frontMatterFence` and `frontMatterKeys`, not a grammar's tokens.
+*(Decided 2026-11-16: the grammar, with a driver; see "The register grammar landed" below.)*
+
+**The register grammar landed (2026-11-16, PR #3263).** The owner chose a Segno grammar plus a small hand-written
+driver. `lib/core/front-matter-grammar.js` holds two rules: `fence` (the engine's `^---\n[\s\S]*?\n---\n?`, a stop, so
+the parse ends with the block and never reads the body) and `line` (one YAML line: indent, name, colon, and whether it
+is a block-scalar header, with the name, gap, indicator, comment and junk shapes `KEY_HEAD` and `BLOCK_SCALAR_HEAD`
+drew). `tools/build-segno-grammar.js` generates each rule's parser INTO a marked region of its driver,
+`front-matter-fence.mjs` and `front-matter-keys.mjs`. Not a `*.generated.js` of their own, as the other lib grammars
+have, because two constraints meet here: a CommonJS reader `require()`s each driver and an ES module that imports
+anything then fails under Playwright's loader (`playwright test --list` found 0 tests with one import added), while a
+CommonJS driver that requires a parser is a require chain the docs dev server's shim refuses (three of its tests went
+red). The fence region is its own parser, so the home page does not ship the line rule's tables.
+
+The driver does one thing the grammar cannot: it decides where a block scalar's body ends, every later line that is
+blank or indented DEEPER than the header. That compares an indent width with one read lines earlier. No context-free
+grammar can: cut "a header indented n, then lines each indented more than n" with a regular language to
+`s^n H s^m L s^k L` with m > n and k > n, and pumping on n breaks one of the two comparisons. So it is not LL(1), and
+Segno, which has no counter and no back-reference, cannot express it. Each line is parsed once and visited once; the
+bound is in the driver's header and counted by `keyWork`.
+
+| Held to | Result |
+|---|---|
+| test/unit/core/front-matter-grammar.test.js: `frontMatterKeys` against #3228's hand-written reader, verbatim, on 4,000 seeded front matters (seed 0x3263: wide names, gaps, every indicator shape, comment and junk tails, U+2028, tabs and Unicode spaces, CRLF and lone `\r`) | 0 differences; more than 300 block-scalar headers reached |
+| the same file: the fence against the old S0 regex on 4,000 seeded sources (seed 0x3264) | 0 differences |
+| test/unit/core/front-matter-island.test.js: #3228's own 4,000-case differential (seed 0x3242) | green |
+| a header 200 columns deep, 3,000 nested header-shaped body lines, 20,000 keys at every depth | 23,001 lines parsed, at most one outer and one body visit each |
+| failing arms | dropping the header's `wide` check turns both differentials red; a body skip removed costs 2,003,001 body visits for 4,001 lines; a yaml end off by one turns the fence differential red |
+| `npm run identity:check -- --strict` | 0 renders differ, lint identical, 0 stylesheets differ |
 
 **What reads it.**
 - **The engine:** `parseFrontMatter`; `slides.js`'s two deck-class reads; the pane render (lib/engine/index.js); the
