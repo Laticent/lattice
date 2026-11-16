@@ -213,10 +213,10 @@ function lsGeometry() {
 	return `${win.innerHeight}|${lsPreview().contentDocument.documentElement.scrollHeight}|${boxes.join(',')}`;
 }
 
-/** Wait until the preview's geometry has held still for `ms`. On the iPad Simulator the frame was at most 891 px tall
- *  when the probe picked its target and 1077 px when it tapped (dispatch 43796904267): at the short height slide 2 reads
- *  as centerable, at the real one centering it needs a scroll of -77 px, so every tap on it failed for the page's
- *  geometry, not the sync's. */
+/** Wait until the preview's geometry has held still for `ms`. On the iPad Simulator the frame was 1077 px tall when the
+ *  probe tapped (dispatch 43796904267), where centering slide 2 needs a scroll of -77 px; slide 2 reads as centerable only
+ *  at 891 px or less, so the probe had picked it before the frame reached its height, and every tap on it failed for the
+ *  page's geometry, not the sync's. */
 async function lsSettled(ms = 600, limit = 15000) {
 	const t0 = Date.now();
 	let last = lsGeometry();

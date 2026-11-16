@@ -18,8 +18,9 @@ why now   — two probe steps timed out in iOS Simulator runs after the session 
               shown); whether that is this probe's cause is not shown, since main passes the same probe;
             - the Coach button's 15 s wait on the iPad (run 40693703379);
             The Coach sheet's close step also timed out once (run 40793148479); #2961 fixed that one in the probe.
-            A third, two of four quiet focus-sync taps left uncentered (run 40751811918), was the probe picking its
-            target before Mobile Safari's frame reached its height; the probe now waits for it and re-checks.
+            A third, two of four quiet focus-sync taps left uncentered (run 40751811918), has the signature of the
+            probe picking its target before Mobile Safari's frame reached its height, shown in dispatch 43796904267
+            (that run's log holds no frame data); the probe now waits for the height and re-checks.
 where     — `docs/scripts/ios-safari/studio-probe.js`, `photo-probe.js`, `focus-sync-probe.js`, and the Studio code
             each names.
 done when — each is reproduced and fixed, or shown to be the probe's own timing and the probe made robust, with
