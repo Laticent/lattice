@@ -86,25 +86,28 @@ Timing matters, but it is a scheduling decision. A unit test runs at commit; a c
 <!-- say: The labels we use for tests answer five different questions. Mission asks what risk a test reduces. Scope asks how much it exercises. Tactic asks how. Timing asks when. Environment asks where. Only the mission says what a pass means. The five missions ahead reuse the names unit, integration and system, but each one names a risk to reduce, whatever scope the test runs at. -->
 
 ---
-
-<!-- _class: flowchart -->
+<!-- _class: table table-fill -->
 
 ## Six descriptors fit every test, and only the mission classifies it.
 
-- One test -> Mission: why it exists & Environment: where it runs & Scope: what it traverses & Tactic: how it exercises & Timing: when it runs & Oracle: what counts as correct
-- Mission: why it exists `decision`
+| Descriptor | Question it answers | Example for the transfer |
+| --- | --- | --- |
+| Mission | Why does the test exist? | No transfer is sent twice |
+| Environment | Where does it run? | Staging |
+| Scope | What does it traverse? | Client to ledger |
+| Tactic | How does it exercise the system? | Replayed requests with timeouts |
+| Timing | When does it run? | Nightly |
+| Oracle | What counts as correct? | One debit per transfer |
 
-`[{decision, Classifies the test}]`
-
-— Classify by the mission, then qualify the claim by the conditions the test actually ran under.
+— Classify by the mission, then qualify the claim by the conditions the test ran under.
 
 <!-- The vocabulary problem comes from collapsing these six into one word. "A Playwright test in staging" names a tactic and an environment.
 
 The rule: name the primary mission first. Then the environment, scope and oracle tell you how far the evidence reaches. A browser test in staging is not automatically a System test. If its objective is that customers understand the result, it serves Experience; if it is that a double-click never charges twice, it serves Safety. -->
 
-<!-- describe: A flowchart with one box, one test, branching to six descriptors: mission, why it exists, flagged as the one that classifies the test; environment, where it runs; scope, what it traverses; tactic, how it exercises; timing, when it runs; oracle, what counts as correct. -->
+<!-- describe: A table of six descriptors, the question each answers, and an example for the transfer. Mission: why does the test exist; no transfer is sent twice. Environment: where does it run; staging. Scope: what does it traverse; client to ledger. Tactic: how does it exercise the system; replayed requests with timeouts. Timing: when does it run; nightly. Oracle: what counts as correct; one debit per transfer. -->
 
-<!-- say: The five questions from earlier become six descriptors once you add the oracle, and only the mission classifies a test. The mission says why it exists. The environment says where it runs. The scope says what it traverses. The tactic says how it exercises the system. The timing says when it runs. The oracle says what counts as correct. Classify by the mission, then qualify the claim by the conditions the test actually ran under. -->
+<!-- say: The five questions from earlier become six descriptors once you add the oracle, and only the mission classifies a test. For the transfer: the mission is that no transfer is sent twice. The environment is staging. The scope runs from client to ledger. The tactic is replayed requests with timeouts. The timing is nightly. And the oracle is one debit per transfer. Classify by the mission, then qualify the claim by the conditions the test ran under. -->
 
 ---
 
@@ -162,36 +165,27 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 <!-- say: Part two. Five missions, each reducing a different kind of risk. We will follow one five hundred dollar transfer through all of them. -->
 
 ---
-
-<!-- _class: premise -->
+<!-- _class: table table-fill -->
 
 ## Each mission answers a question the others cannot.
 
-Each row names the risk a mission reduces, whatever scope the test runs at.
+| Mission | The risk it reduces | The question it answers |
+| --- | --- | --- |
+| Unit | Logic gives a wrong result | Does the logic work? |
+| Integration | Parts disagree at boundaries | Do the interactions work? |
+| System | The whole misbehaves in production | Does it hold up in production? |
+| Experience | People cannot reach their goal | Can users reach it? |
+| Safety | The operation causes unacceptable harm | Can it avoid unacceptable harm? |
 
-1. Unit
-   - Logic gives a wrong result inside one unit.
-   - Does the logic work?
-2. Integration
-   - Parts disagree at their boundaries.
-   - Do the interactions work?
-3. System
-   - The assembled whole behaves differently in production.
-   - Does it work under production conditions?
-4. Experience
-   - People cannot reach the outcome they want.
-   - Can users reach their intended outcome?
-5. Safety
-   - The operation causes unacceptable harm.
-   - Can it avoid unacceptable harm?
+— Each mission names a risk, whatever scope the test runs at.
 
 <!-- Stress two things. First, the missions overlap: one scenario can produce evidence for all five, and one test run can serve two. Second, Experience and Safety work starts at design time, long before a system exists to test. A threat model and a usability study of a paper prototype are both evidence.
 
 The word System here means production parity. That is narrower than the ISTQB use, where system testing means testing the complete integrated system against its requirements. -->
 
-<!-- describe: A ranked list of five missions, each with the risk it reduces and its question. Unit: logic gives a wrong result inside one unit; does the logic work? Integration: parts disagree at their boundaries; do the interactions work? System: the assembled whole behaves differently in production; does it work under production conditions? Experience: people cannot reach the outcome they want; can users reach the outcome they intended? Safety: the operation causes unacceptable harm; can it avoid unacceptable harm? The lede says each row names the risk a mission reduces, whatever scope the test runs at. -->
+<!-- describe: A table of five missions, the risk each reduces, and the question it answers. Unit: logic gives a wrong result; does the logic work? Integration: parts disagree at boundaries; do the interactions work? System: the whole misbehaves in production; does it hold up in production? Experience: people cannot reach their goal; can users reach it? Safety: the operation causes unacceptable harm; can it avoid unacceptable harm? Footnote: each mission names a risk, whatever scope the test runs at. -->
 
-<!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: logic gives a wrong result inside one unit. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? System: the assembled whole behaves differently in production. Does it work under production conditions? Experience: people cannot reach the outcome they want. Can they reach it? Safety: the operation causes unacceptable harm. Can it avoid that harm? -->
+<!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: the risk is logic that gives a wrong result. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? System: the whole misbehaves in production. Does it hold up in production? Experience: people cannot reach their goal. Can they reach it? Safety: the operation causes unacceptable harm. Can it avoid that harm? -->
 
 ---
 
@@ -237,27 +231,23 @@ Categories overlap by design. One test run can contribute evidence to several mi
 <!-- say: One transfer gives evidence to all five missions, and each has its own limit. Authorization and amount rules are Unit evidence, with dependencies controlled. One stored row and one event are Integration evidence, with local or virtual resources. Settlement under load and failover is System evidence, if parity and data are representative. Whether the customer knows the money moved needs representative users. And no duplicate charge across retries is judged on the whole operation. -->
 
 ---
-
-<!-- _class: glossary -->
+<!-- _class: table table-fill -->
 
 ## Five kinds of test double do five different jobs.
 
-- Dummy
-  - Fills a parameter list and is never used.
-- Fake
-  - A working but simplified version, such as an in-memory database.
-- Mock
-  - Holds expected calls and fails the test if they do not happen.
-- Spy
-  - A stub that also records how it was called, for checks afterward.
-- Stub
-  - Returns canned answers to the calls the test makes.
+| Double | What it does |
+| --- | --- |
+| Dummy | Fills a parameter list and is never used. |
+| Fake | A working but simplified version, such as an in-memory database. |
+| Mock | Fails the test if expected calls do not happen. |
+| Spy | A stub that records how it was called. |
+| Stub | Returns canned answers to the calls the test makes. |
 
 <!-- These are Gerard Meszaros's terms from xUnit Test Patterns (2007), popularized by Martin Fowler's essay "Mocks Aren't Stubs". "Test double" is the umbrella word, by analogy with a stunt double.
 
 Why it matters: a stub and a mock lead to different tests. A stub supports state verification, where you check the balance afterward. A mock does behavior verification, where you check that the ledger was called. Heavy mocking couples tests to implementation, so a harmless refactor turns them red. -->
 
-<!-- describe: A glossary of five test doubles. Dummy: fills a parameter list and is never used. Fake: a working but simplified version, such as an in memory database. Mock: holds expected calls and fails the test if they do not happen. Spy: a stub that also records how it was called. Stub: returns canned answers. -->
+<!-- describe: A table of five test doubles and what each does. Dummy: fills a parameter list and is never used. Fake: a working but simplified version, such as an in-memory database. Mock: fails the test if expected calls do not happen. Spy: a stub that records how it was called. Stub: returns canned answers to the calls the test makes. -->
 
 <!-- say: Five kinds of test double do five different jobs. A dummy fills a parameter and is never used. A fake is a simplified working version, like an in memory database. A mock expects certain calls and fails if they do not happen. A spy records how it was called. A stub returns canned answers. These are Gerard Meszaros's terms. -->
 
@@ -361,10 +351,10 @@ Synthetic data is often the safer and more repeatable choice. Masked production 
 
 ## Parity and test data decay unless someone checks them.
 
-- Production changes -> Parity and data drift -> Check what matters -> Still representative?
+- Production changes -> Drift -> Check -> Still representative?
 - Still representative? `diamond`
   - -yes-> Keep the evidence
-  - -no-> Refresh, or declare the gap -> Check what matters
+  - -no-> Refresh or declare the gap -> Check
 
 — Someone has to recheck parity and data on a schedule.
 
@@ -372,7 +362,7 @@ Synthetic data is often the safer and more repeatable choice. Masked production 
 
 Put a recurring check on the parity contract from the previous slide. Representative data drifts too: new products, new customer segments, seasonal patterns. When a check fails, either refresh the environment or data, or write down the new gap. -->
 
-<!-- describe: A flowchart: production changes lead to parity and data drift, then a check of what matters, then a diamond, still representative? Yes leads to keep the evidence. No leads to refresh, or declare the gap, which loops back to the check. A footnote says someone has to recheck parity and data on a schedule. -->
+<!-- describe: A flowchart: production changes lead to drift, then a check, then a diamond, still representative? Yes leads to keep the evidence. No leads to refresh or declare the gap, which loops back to the check. A footnote says someone has to recheck parity and data on a schedule. -->
 
 <!-- say: Parity and test data decay unless someone checks them. Production changes, so parity and data drift. Check what matters. If the environment is still representative, keep the evidence. If not, refresh it or declare the gap, and check again. Someone has to recheck parity on a schedule. -->
 
@@ -468,12 +458,18 @@ Harm can be financial, physical, legal, or a privacy loss. Security is one input
 <!-- say: Safety testing looks for harm from any cause, attackers included. Security asks whether an adversary can break confidentiality, integrity or availability, using threat models, penetration tests and security scans, and every control can pass while harm still happens. Safety asks whether the whole operation can cause unacceptable harm, using hazard analysis, fault injection and recovery drills. Sending a five hundred dollar transfer twice needs no attacker at all. -->
 
 ---
-
-<!-- _class: flowchart -->
+<!-- _class: table table-fill -->
 
 ## Safety judges the whole operation, people and processes included.
 
-- Safety: acceptable outcomes -> Software and data & Infrastructure and environment & People and operators & Processes and controls & Attackers and misuse & Failure and recovery
+| Area | A transfer harm it can cause |
+| --- | --- |
+| Software and data | A rounding rule moves the wrong amount |
+| Infrastructure | Failover replays queued transfers |
+| People and operators | A manual fix sends a payment twice |
+| Processes and controls | One person approves their own transfer |
+| Attackers and misuse | Stolen credentials drain an account |
+| Failure and recovery | A restore loses a day of settlements |
 
 — Penetration tests and chaos runs are tactics. Safety is the question they serve.
 
@@ -481,9 +477,9 @@ Harm can be financial, physical, legal, or a privacy loss. Security is one input
 
 Harm often comes from parts that each behave correctly, which is the next slide. -->
 
-<!-- describe: A flowchart with one box, safety: acceptable outcomes, branching to six areas: software and data; infrastructure and environment; people and operators; processes and controls; attackers and misuse; failure and recovery. -->
+<!-- describe: A table of six areas and a transfer harm each can cause. Software and data: a rounding rule moves the wrong amount. Infrastructure: failover replays queued transfers. People and operators: a manual fix sends a payment twice. Processes and controls: one person approves their own transfer. Attackers and misuse: stolen credentials drain an account. Failure and recovery: a restore loses a day of settlements. -->
 
-<!-- say: Safety judges the whole operation, people and processes included. It covers software and data, infrastructure and environment, people and operators, processes and controls, attackers and misuse, and failure and recovery. Penetration tests and chaos runs are tactics. Safety is the question they serve. Harm often comes from parts that each work correctly, as the next slide shows. -->
+<!-- say: Safety judges the whole operation, people and processes included. Each area can harm a transfer. In software and data, a rounding rule moves the wrong amount. In infrastructure, failover replays queued transfers. An operator's manual fix sends a payment twice. A weak control lets one person approve their own transfer. An attacker with stolen credentials drains an account. And a restore loses a day of settlements. Harm often comes from parts that each work correctly, as the next slide shows. -->
 
 ---
 
@@ -555,21 +551,17 @@ The columns describe the dominant intent. Fuzzing can confirm robustness against
 <!-- say: Confirm what you know, and search for what you have not imagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents. -->
 
 ---
-
-<!-- _class: glossary -->
+<!-- _class: table table-fill -->
 
 ## Five techniques reach cases nobody wrote a test for.
 
-- Chaos experiment
-  - Injects real failures into a running system to test a stated hypothesis.
-- Fuzzing
-  - Feeds generated, often malformed input to find crashes and hangs.
-- Metamorphic testing
-  - Checks a relation between runs when no exact answer exists.
-- Mutation testing
-  - Plants small faults in the code and checks that some test fails.
-- Property-based testing
-  - Checks a rule that must always hold across generated inputs, then shrinks failures.
+| Technique | What it does |
+| --- | --- |
+| Chaos experiment | Injects real failures to test a stated hypothesis. |
+| Fuzzing | Feeds generated, often malformed input to find crashes and hangs. |
+| Metamorphic testing | Checks a relation between runs when no exact answer exists. |
+| Mutation testing | Plants small faults and checks that a test fails. |
+| Property-based testing | Checks a rule over many generated inputs. |
 
 <!-- Give one transfer example per row.
 
@@ -581,7 +573,7 @@ Mutation: flip a > to >= in the overdraft check; if no test fails, the suite nev
 
 Chaos: the hypothesis comes first, for example "losing one broker node does not delay settlement past 2 seconds". -->
 
-<!-- describe: A glossary of five techniques. Chaos experiment: injects real failures into a running system to test a stated hypothesis. Fuzzing: feeds generated, often malformed input to find crashes and hangs. Metamorphic testing: checks a relation between runs when no exact answer exists. Mutation testing: plants small faults in the code and checks that some test fails. Property based testing: checks a rule that must always hold across generated inputs, then shrinks failures. -->
+<!-- describe: A table of five techniques and what each does. Chaos experiment: injects real failures to test a stated hypothesis. Fuzzing: feeds generated, often malformed input to find crashes and hangs. Metamorphic testing: checks a relation between runs when no exact answer exists. Mutation testing: plants small faults and checks that a test fails. Property based testing: checks a rule that must always hold across generated inputs, then shrinks failures. -->
 
 <!-- say: Five techniques reach cases that nobody wrote a test for. A chaos experiment injects real failures to test a hypothesis. Fuzzing feeds generated, often malformed input. Metamorphic testing checks a relation between two runs when no exact answer exists. Mutation testing plants small faults and checks that some test fails. Property based testing checks a rule that must always hold, across many generated inputs. -->
 
@@ -619,7 +611,7 @@ Metamorphic testing is the least known. It is useful wherever the right answer i
 
 - Wrong business assumption -> Unit: pass & Integration: pass & System: pass
 - Wrong business assumption `warn`
-- Independent oracle: customer, regulator, adversary -> Wrong outcome found
+- Independent oracle -> Wrong outcome found
 - Wrong outcome found -> Wrong business assumption `dashed`
 
 `[{warn, Shared wrong oracle}, {dashed, Exposes the assumption}]`
@@ -630,7 +622,7 @@ Running three tests is execution independence. It is not assumption independence
 
 The remedy is an oracle from a different source. -->
 
-<!-- describe: A flowchart. A wrong business assumption, flagged as a shared wrong oracle, leads to unit, integration and system tests that all pass. Separately, an independent oracle from a customer, regulator or adversary finds the wrong outcome, and a dashed line from that finding back to the assumption is keyed as exposing it. -->
+<!-- describe: A flowchart. A wrong business assumption, flagged as a shared wrong oracle, leads to unit, integration and system tests that all pass. Separately, an independent oracle finds the wrong outcome, and a dashed line from that finding back to the assumption is keyed as exposing it. -->
 
 <!-- say: Tests that share one wrong assumption are one piece of evidence. A test oracle decides what the right answer is. If one wrong business assumption feeds the unit, integration and system tests, all three pass. An independent oracle, from a customer, a regulator or an adversary, finds the wrong outcome and exposes the assumption. -->
 
@@ -682,10 +674,10 @@ Coverage is still useful in one direction: an uncovered line is certainly untest
 
 ## A green assertion can sit on top of a failing system.
 
-- Test run -> Assertion: HTTP 200 & Analyzers: logs, metrics, traces
-- Assertion: HTTP 200 -> Pass -> Read all the evidence together
-- Analyzers: logs, metrics, traces -> Retries up 900%, queue growing -> Read all the evidence together
-- Retries up 900%, queue growing `warn`
+- Test run -> Assertion: HTTP 200 & Telemetry
+- Assertion: HTTP 200 -> Pass -> Read both together
+- Telemetry -> Retries up 900% -> Read both together
+- Retries up 900% `warn`
 
 `[{warn, Hidden failure}]`
 
@@ -695,7 +687,7 @@ Coverage is still useful in one direction: an uncovered line is certainly untest
 
 Negative astonishment is behavior that looks harmful: investigate it even when the suite is green. Positive astonishment, an unexpectedly useful behavior, deserves a look too; it is often an undocumented assumption. -->
 
-<!-- describe: A flowchart. A test run leads to an assertion, HTTP 200, which passes, and to analyzers of logs, metrics and traces, which find retries up 900 percent and a growing queue, flagged as a hidden failure. Both lead to reading all the evidence together. -->
+<!-- describe: A flowchart. A test run leads to an assertion, HTTP 200, which passes, and to telemetry, which shows retries up 900 percent, flagged as a hidden failure. Both lead to reading both together. -->
 
 <!-- say: A green assertion can sit on top of a failing system. A test run checks that the response is status two hundred, success, and passes. Meanwhile its analyzers, the logs, metrics and traces, show retries up nine hundred percent and a growing queue. Read all the evidence together, and investigate anything that surprises you. -->
 
@@ -836,15 +828,16 @@ It is a decision aid, not a license to ignore rare catastrophic risks. Whoever a
 <!-- say: Blast radius, reversibility and diagnosis cost set how much evidence to buy. Blast radius means how many users or systems a failure can reach. A large blast radius needs more evidence and containment. A change that is hard to reverse needs stronger assurance before release. A catastrophic outcome justifies deep testing even for rare failures. A fast, safe rollback can justify less. And expensive diagnosis favors earlier, more localized detection. -->
 
 ---
-
-<!-- _class: flowchart -->
+<!-- _class: table table-fill -->
 
 ## An early failure is cheaper because it points at fewer causes.
 
-- Defect introduced -> Unit failure: one function & Integration failure: one boundary & System failure: many candidates & Production escape: customer harm, hardest diagnosis
-- Production escape: customer harm, hardest diagnosis `fail`
-
-`[{fail, Reaches customers}]`
+| Caught by | Failure points at | Diagnosis cost |
+| --- | --- | --- |
+| Unit test | One function | Minutes |
+| Integration test | One boundary | An hour |
+| System test | Many candidate causes | Days |
+| Production | Customer harm, then the search | Days, plus the damage |
 
 — The cost of a test includes the cost of understanding why it failed.
 
@@ -852,27 +845,32 @@ It is a decision aid, not a license to ignore rare catastrophic risks. Whoever a
 
 A System test that catches a logic bug has done its job, but leaves an expensive diagnosis. After the fix, add the cheapest test that would have caught it, and keep the System test for the evidence only it supplies. -->
 
-<!-- describe: A flowchart with one box, defect introduced, branching to four outcomes: unit failure, one function; integration failure, one boundary; system failure, many candidates; and production escape, customer harm and the hardest diagnosis, flagged as reaching customers. -->
+<!-- describe: A table of where a defect is caught, what the failure points at, and the diagnosis cost. Unit test: one function, minutes. Integration test: one boundary, an hour. System test: many candidate causes, days. Production: customer harm, then the search; days, plus the damage. -->
 
-<!-- say: An early failure is cheaper because it points at fewer causes. A unit failure points at one function. An integration failure points at one boundary. A system failure has many candidate causes. A defect that escapes to production costs customers money and is the hardest to diagnose. The cost of a test includes the cost of understanding why it failed. -->
+<!-- say: An early failure is cheaper because it points at fewer causes. A unit test failure points at one function and takes minutes to diagnose. An integration failure points at one boundary, perhaps an hour. A system failure has many candidate causes and can take days. A production failure adds customer harm before the search even starts. The cost of a test includes the cost of understanding why it failed. -->
 
 ---
-
-<!-- _class: flowchart -->
+<!-- _class: table table-fill -->
 
 ## Test the edges around a critical path, where costly defects hide.
 
-- Critical path: send a transfer -> Success & Declined by the bank & Duplicate request & Network timeout & Partial write & Session expires
+| Edge of "send a transfer" | What a test should prove |
+| --- | --- |
+| Declined by the bank | The customer sees why, and no money moves |
+| Duplicate request | Exactly one transfer settles |
+| Network timeout | A retry is safe and the status is honest |
+| Partial write | The ledger never shows half a transfer |
+| Session expires | Work in progress is kept or clearly lost |
 
-— Consequence decides whether a path is critical.
+— The success case is the middle of the road. Consequence decides whether a path is critical.
 
 <!-- A path earns the word critical through consequence, frequency, irreversibility, regulatory duty, how many things depend on it, or blast radius. A refund flow used ten times a day can be more critical than a search box used ten million times.
 
 Most suites walk down the middle of the road: the success case. The consequential defects tend to sit on the shoulders. Ask the room to add one more edge for the transfer. Good answers: the currency changes mid-flow, the account is frozen, the clock crosses midnight. -->
 
-<!-- describe: A flowchart with one box, critical path: send a transfer, branching to six cases: success, declined by the bank, duplicate request, network timeout, partial write, and session expires. A footnote reads: consequence decides whether a path is critical. -->
+<!-- describe: A table of five edges of sending a transfer and what a test should prove. Declined by the bank: the customer sees why, and no money moves. Duplicate request: exactly one transfer settles. Network timeout: a retry is safe and the status is honest. Partial write: the ledger never shows half a transfer. Session expires: work in progress is kept or clearly lost. Footnote: the success case is the middle of the road, and consequence decides whether a path is critical. -->
 
-<!-- say: Test the edges around a critical path, where costly defects hide. Sending a transfer succeeds in the happy case. Around it sit a decline by the bank, a duplicate request, a network timeout, a partial write, and a session that expires mid flow. Consequence decides whether a path is critical, and its edges deserve as much testing as its middle. -->
+<!-- say: Test the edges around a critical path, where costly defects hide. Sending a transfer succeeds in the happy case; that is the middle of the road. At the edges: a decline by the bank, where the customer should see why and no money moves. A duplicate request, where exactly one transfer settles. A network timeout, where a retry is safe and the status is honest. A partial write, where the ledger never shows half a transfer. And a session that expires, where work in progress is kept or clearly lost. -->
 
 ---
 
@@ -905,7 +903,7 @@ Testing in production is legitimate only with guardrails: limit the blast radius
 
 ## Judgment decides which checks are worth automating.
 
-- Judgment: mission and risk -> Oracle and evidence -> Automate the repeatable checks -> Results -> Interpret, revise assumptions -> Judgment: mission and risk
+- Judgment -> Oracle -> Automate -> Results -> Interpret -> Judgment
 
 — Exploratory testing and red teaming earn their value by changing direction mid-run.
 
@@ -913,7 +911,7 @@ Testing in production is legitimate only with guardrails: limit the blast radius
 
 Do not automate merely because you can. A usability observation or an adaptive red-team exercise loses most of its value as a fixed script. -->
 
-<!-- describe: A flowchart cycle: judgment, mission and risk; oracle and evidence; automate the repeatable checks; results; interpret and revise assumptions; and back to judgment. -->
+<!-- describe: A flowchart cycle: judgment, oracle, automate, results, interpret, and back to judgment. -->
 
 <!-- say: Judgment decides which checks are worth automating. Judgment picks the mission and risk, then the oracle and evidence. Automate the repeatable checks, collect the results, interpret them, and revise the assumptions, which feeds back into judgment. Exploratory testing and red teaming, where a team plays the attacker, earn their value by changing direction mid run. -->
 
@@ -923,9 +921,9 @@ Do not automate merely because you can. A usability observation or an adaptive r
 
 ## An escaped defect is evidence about two systems: the product and its tests.
 
-- Incident -> Fix the product & Find the assumption that survived
-- Find the assumption that survived -> Name the missing evidence -> Add the cheapest test that would catch it
-- Add the cheapest test that would catch it -> Next defect caught earlier `dashed`
+- Incident -> Fix the product & Find the surviving assumption
+- Find the surviving assumption -> Name the missing evidence -> Add the cheapest test
+- Add the cheapest test -> Next defect caught earlier `dashed`
 
 `[{dashed, The payoff}]`
 
@@ -936,7 +934,7 @@ The reflex after an incident is to add a slow end-to-end test. Resist it. Ask wh
 
 This is a blameless review question. The goal is a better system; nobody is hunting for a culprit. -->
 
-<!-- describe: A flowchart. An incident leads to fixing the product, and to finding the assumption that survived, then naming the missing evidence, then adding the cheapest test that would catch it. A dashed line, keyed as the payoff, runs from that test to a final box: next defect caught earlier. -->
+<!-- describe: A flowchart. An incident leads to fixing the product, and to finding the surviving assumption, then naming the missing evidence, then adding the cheapest test. A dashed line, keyed as the payoff, runs from that test to a final box: next defect caught earlier. -->
 
 <!-- say: An escaped defect is evidence about two systems: the product and its tests. After an incident, fix the product. Then find the assumption that survived, name the evidence that was missing, and add the cheapest test that would have caught it. That feeds back into earlier detection next time. -->
 
@@ -1135,99 +1133,84 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 <!-- say: The reference section follows, with definitions, mission specifications, tactics and more. -->
 
 ---
-
-<!-- _class: glossary -->
+<!-- _class: table table-fill -->
 
 ## What a test checks and claims rests on six terms.
 
-- Analyzer
-  - Inspects code, runtime or test output for undesirable behavior.
-- Assertion
-  - Compares one observation with one expected condition.
-- Critical path
-  - Behavior whose failure has material consequences.
-- Evidence
-  - Observations that change how much confidence is justified.
-- Fidelity gap
-  - A difference from production that limits what a result can claim.
-- Invariant
-  - A property that must hold under every defined condition.
+| Term | Definition |
+| --- | --- |
+| Analyzer | Inspects code, runtime or test output for undesirable behavior. |
+| Assertion | Compares one observation with one expected condition. |
+| Critical path | Behavior whose failure has material consequences. |
+| Evidence | Observations that change how much confidence is justified. |
+| Fidelity gap | A difference from production that limits a claim. |
+| Invariant | A property that must hold under every defined condition. |
 
 <!-- Definitions A to I. These are the framework's working definitions, not an industry standard. -->
 
-<!-- describe: A glossary of six terms. Analyzer: inspects code, runtime or test output for undesirable behavior. Assertion: compares one observation with one expected condition. Critical path: behavior whose failure has material consequences. Evidence: observations that change how much confidence is justified. Fidelity gap: a difference from production that limits what a result can claim. Invariant: a property that must hold under every defined condition. -->
+<!-- describe: A table of six terms and their definitions. Analyzer: inspects code, runtime or test output for undesirable behavior. Assertion: compares one observation with one expected condition. Critical path: behavior whose failure has material consequences. Evidence: observations that change how much confidence is justified. Fidelity gap: a difference from production that limits a claim. Invariant: a property that must hold under every defined condition. -->
 
 <!-- say: What a test checks, and what it can claim, rests on six terms. An analyzer inspects code, runtime or output for undesirable behavior. An assertion compares one observation with one expected condition. A critical path is behavior whose failure has material consequences. Evidence is observations that change how much confidence is justified. A fidelity gap limits what a result can claim. An invariant must hold under every defined condition. -->
 
 ---
-
-<!-- _class: glossary -->
+<!-- _class: table table-fill -->
 
 ## Mission, objective and strategy tie a test to its risk.
 
-- Mission
-  - The risk a test exists to reduce.
-- Objective
-  - A specific outcome that shows progress on the mission.
-- Residual risk
-  - Risk left after testing, accepted by a named owner.
-- Software defect
-  - A flaw in code or configuration that can cause a failure.
-- Strategy
-  - The approach chosen to reach an objective.
-- System under test
-  - The software whose behavior the test examines.
+| Term | Definition |
+| --- | --- |
+| Mission | The risk a test exists to reduce. |
+| Objective | A specific outcome that shows progress on the mission. |
+| Residual risk | Risk left after testing, accepted by a named owner. |
+| Software defect | A code or configuration flaw that can cause failure. |
+| Strategy | The approach chosen to reach an objective. |
+| System under test | The software whose behavior the test examines. |
 
 <!-- Definitions M to S. Mission, objective, strategy and tactic form one chain of intent; the evidence-chain slide in Part 1 walks it. -->
 
-<!-- describe: A glossary of six terms. Mission: the risk a test exists to reduce. Objective: a specific outcome that shows progress on the mission. Residual risk: risk left after testing, accepted by a named owner. Software defect: a flaw in code or configuration that can cause a failure. Strategy: the approach chosen to reach an objective. System under test: the software whose behavior the test examines. -->
+<!-- describe: A table of six terms and their definitions. Mission: the risk a test exists to reduce. Objective: a specific outcome that shows progress on the mission. Residual risk: risk left after testing, accepted by a named owner. Software defect: a flaw in code or configuration that can cause a failure. Strategy: the approach chosen to reach an objective. System under test: the software whose behavior the test examines. -->
 
 <!-- say: Mission, objective and strategy tie a test to its risk. The mission is the risk a test exists to reduce. An objective is a specific outcome that shows progress on it. Residual risk is risk left after testing, accepted by a named owner. A software defect is a flaw in code or configuration that can cause a failure. A strategy is the approach chosen to reach an objective. And the system under test is the software the test examines. -->
 
 ---
-
-<!-- _class: glossary -->
+<!-- _class: table table-fill -->
 
 ## A suite is built from the parts these terms name.
 
-- Tactic
-  - The technique or tool that carries out a strategy.
-- Test case
-  - Conditions, actions, inputs and the expected outcome.
-- Test group
-  - Related test cases kept together.
-- Test oracle
-  - The source that decides what correct behavior is.
-- Test suite
-  - Cases and groups run together for one purpose.
-- Test surface
-  - States, boundaries and dependencies around a critical path.
+| Term | Definition |
+| --- | --- |
+| Tactic | The technique or tool that carries out a strategy. |
+| Test case | Conditions, actions, inputs and the expected outcome. |
+| Test group | Related test cases kept together. |
+| Test oracle | The source that decides what correct behavior is. |
+| Test suite | Cases and groups run together for one purpose. |
+| Test surface | States, boundaries and dependencies around a critical path. |
 
 <!-- Definitions T. A test surface is what the critical-path slide calls the edges of the road. -->
 
-<!-- describe: A glossary of six terms. Tactic: the technique or tool that carries out a strategy. Test case: conditions, actions, inputs and the expected outcome. Test group: related test cases kept together. Test oracle: the source that decides what correct behavior is. Test suite: cases and groups run together for one purpose. Test surface: states, boundaries and dependencies around a critical path. -->
+<!-- describe: A table of six terms and their definitions. Tactic: the technique or tool that carries out a strategy. Test case: conditions, actions, inputs and the expected outcome. Test group: related test cases kept together. Test oracle: the source that decides what correct behavior is. Test suite: cases and groups run together for one purpose. Test surface: states, boundaries and dependencies around a critical path. -->
 
 <!-- say: A suite is built from the parts these terms name. A tactic is the technique or tool that carries out a strategy. A test case is conditions, actions, inputs and the expected outcome. A test group keeps related cases together. A test oracle decides what correct behavior is. A test suite runs cases and groups for one purpose. And a test surface is the states, boundaries and dependencies around a critical path. -->
 
 ---
-
-<!-- _class: table table-fill -->
+<!-- _class: cards-grid three -->
 
 ## A test's resources limit its claim without changing its mission.
 
-| Level | Collaborator | Resource |
-| --- | --- | --- |
-| Local | Team-run: real, or a fake | Team-run: real or simplified |
-| Virtual | Reproduces relevant behavior, injects faults | Reproduces relevant characteristics |
-| Production parity | The real implementation, or an equivalent | Keeps every material characteristic |
+- Local
+  - Run by the team: the real thing, a fake or a simplified copy.
+- Virtual
+  - Reproduces the behavior that matters, and can inject faults on demand.
+- Production parity
+  - The real implementation, or one that keeps every material characteristic.
 
-— A collaborator is a system the code relies on. A resource is an asset: a database, queue, network or device.
+> A collaborator is a system the code relies on; a resource is a database, queue, network or device.
 
 <!-- Resource choice alone never decides the category. The mission classifies the test; the fidelity of its collaborators and resources limits what the result can establish. -->
 
-<!-- describe: A table of three fidelity levels. Local: collaborator team run, real or a fake; resource team run, real or simplified. Virtual: collaborator reproduces relevant behavior and injects faults; resource reproduces relevant characteristics. Production parity: collaborator is the real implementation or an equivalent; resource keeps every material characteristic. -->
+<!-- describe: Three cards. Local: run by the team; the real thing, a fake or a simplified copy. Virtual: reproduces the behavior that matters, and can inject faults on demand. Production parity: the real implementation, or one that keeps every material characteristic. Key insight: a collaborator is a system the code relies on; a resource is a database, queue, network or device. -->
 
-<!-- say: A test's resources limit its claim without changing its mission. A collaborator is a system the code relies on; a resource is an asset, such as a database, queue, network or device. At the local level, a collaborator is team run, real or a fake, and so is a resource. At the virtual level, both reproduce the behavior that matters, and a virtual collaborator can inject faults. At production parity, the collaborator is the real implementation or an equivalent, and the resource keeps every material characteristic. -->
+<!-- say: A test's resources limit its claim without changing its mission. Local means run by the team: a collaborator is real or a fake, and a resource is real or simplified. Virtual reproduces the behavior that matters and can inject faults on demand. Production parity is the real implementation, or one that keeps every material characteristic. A collaborator is a system the code relies on; a resource is a database, queue, network or device. -->
 
 ---
 

@@ -138,36 +138,27 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 <!-- say: Part two. Five missions, each reducing a different kind of risk. We will follow one five hundred dollar transfer through all of them. -->
 
 ---
-
-<!-- _class: premise -->
+<!-- _class: table table-fill -->
 
 ## Each mission answers a question the others cannot.
 
-Each row names the risk a mission reduces, whatever scope the test runs at.
+| Mission | The risk it reduces | The question it answers |
+| --- | --- | --- |
+| Unit | Logic gives a wrong result | Does the logic work? |
+| Integration | Parts disagree at boundaries | Do the interactions work? |
+| System | The whole misbehaves in production | Does it hold up in production? |
+| Experience | People cannot reach their goal | Can users reach it? |
+| Safety | The operation causes unacceptable harm | Can it avoid unacceptable harm? |
 
-1. Unit
-   - Logic gives a wrong result inside one unit.
-   - Does the logic work?
-2. Integration
-   - Parts disagree at their boundaries.
-   - Do the interactions work?
-3. System
-   - The assembled whole behaves differently in production.
-   - Does it work under production conditions?
-4. Experience
-   - People cannot reach the outcome they want.
-   - Can users reach their intended outcome?
-5. Safety
-   - The operation causes unacceptable harm.
-   - Can it avoid unacceptable harm?
+— Each mission names a risk, whatever scope the test runs at.
 
 <!-- Stress two things. First, the missions overlap: one scenario can produce evidence for all five, and one test run can serve two. Second, Experience and Safety work starts at design time, long before a system exists to test. A threat model and a usability study of a paper prototype are both evidence.
 
 The word System here means production parity. That is narrower than the ISTQB use, where system testing means testing the complete integrated system against its requirements. -->
 
-<!-- describe: A ranked list of five missions, each with the risk it reduces and its question. Unit: logic gives a wrong result inside one unit; does the logic work? Integration: parts disagree at their boundaries; do the interactions work? System: the assembled whole behaves differently in production; does it work under production conditions? Experience: people cannot reach the outcome they want; can users reach the outcome they intended? Safety: the operation causes unacceptable harm; can it avoid unacceptable harm? The lede says each row names the risk a mission reduces, whatever scope the test runs at. -->
+<!-- describe: A table of five missions, the risk each reduces, and the question it answers. Unit: logic gives a wrong result; does the logic work? Integration: parts disagree at boundaries; do the interactions work? System: the whole misbehaves in production; does it hold up in production? Experience: people cannot reach their goal; can users reach it? Safety: the operation causes unacceptable harm; can it avoid unacceptable harm? Footnote: each mission names a risk, whatever scope the test runs at. -->
 
-<!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: logic gives a wrong result inside one unit. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? System: the assembled whole behaves differently in production. Does it work under production conditions? Experience: people cannot reach the outcome they want. Can they reach it? Safety: the operation causes unacceptable harm. Can it avoid that harm? -->
+<!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: the risk is logic that gives a wrong result. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? System: the whole misbehaves in production. Does it hold up in production? Experience: people cannot reach their goal. Can they reach it? Safety: the operation causes unacceptable harm. Can it avoid that harm? -->
 
 ---
 
@@ -194,27 +185,23 @@ Do not claim the missions are independent. The Safety row needs System-level con
 <!-- say: One five hundred dollar transfer raises a different question for each mission. Unit asks whether an unauthorized approver is rejected. Integration asks whether exactly one row is stored and one event sent. System asks whether the transfer settles under peak load and failover. Experience asks whether the customer knows the money moved. And Safety asks whether a retry or an operator could pay twice. -->
 
 ---
-
-<!-- _class: glossary -->
+<!-- _class: table table-fill -->
 
 ## Five kinds of test double do five different jobs.
 
-- Dummy
-  - Fills a parameter list and is never used.
-- Fake
-  - A working but simplified version, such as an in-memory database.
-- Mock
-  - Holds expected calls and fails the test if they do not happen.
-- Spy
-  - A stub that also records how it was called, for checks afterward.
-- Stub
-  - Returns canned answers to the calls the test makes.
+| Double | What it does |
+| --- | --- |
+| Dummy | Fills a parameter list and is never used. |
+| Fake | A working but simplified version, such as an in-memory database. |
+| Mock | Fails the test if expected calls do not happen. |
+| Spy | A stub that records how it was called. |
+| Stub | Returns canned answers to the calls the test makes. |
 
 <!-- These are Gerard Meszaros's terms from xUnit Test Patterns (2007), popularized by Martin Fowler's essay "Mocks Aren't Stubs". "Test double" is the umbrella word, by analogy with a stunt double.
 
 Why it matters: a stub and a mock lead to different tests. A stub supports state verification, where you check the balance afterward. A mock does behavior verification, where you check that the ledger was called. Heavy mocking couples tests to implementation, so a harmless refactor turns them red. -->
 
-<!-- describe: A glossary of five test doubles. Dummy: fills a parameter list and is never used. Fake: a working but simplified version, such as an in memory database. Mock: holds expected calls and fails the test if they do not happen. Spy: a stub that also records how it was called. Stub: returns canned answers. -->
+<!-- describe: A table of five test doubles and what each does. Dummy: fills a parameter list and is never used. Fake: a working but simplified version, such as an in-memory database. Mock: fails the test if expected calls do not happen. Spy: a stub that records how it was called. Stub: returns canned answers to the calls the test makes. -->
 
 <!-- say: Five kinds of test double do five different jobs. A dummy fills a parameter and is never used. A fake is a simplified working version, like an in memory database. A mock expects certain calls and fails if they do not happen. A spy records how it was called. A stub returns canned answers. These are Gerard Meszaros's terms. -->
 
@@ -370,7 +357,7 @@ Harm can be financial, physical, legal, or a privacy loss. Security is one input
 
 ## Three correct services can still send the same transfer twice.
 
-- Client times out and retries -> Gateway accepts each valid request -> Processor executes each valid request -> $500 sent twice
+- Client retries -> Gateway accepts -> Processor executes -> $500 sent twice
 - $500 sent twice `fail`
 
 `[{fail, Unsafe outcome}]`
@@ -383,7 +370,7 @@ The fix lives in the composition: an idempotency key that the client sends and t
 
 Ask: "Which of our five missions would have caught this?" Safety, run at System fidelity, with timeouts injected on purpose. -->
 
-<!-- describe: A flowchart of four boxes: client times out and retries; gateway accepts each valid request; processor executes each valid request; and a box flagged as an unsafe outcome, five hundred dollars sent twice. A footnote names the fix: an idempotency key that lets the processor recognize a retry. -->
+<!-- describe: A flowchart of four boxes: client retries; gateway accepts; processor executes; and a box flagged as an unsafe outcome, five hundred dollars sent twice. A footnote names the fix: an idempotency key that lets the processor recognize a retry. -->
 
 <!-- say: Three correct services can still send the same transfer twice. The client times out and retries. The gateway accepts each valid request. The processor executes each valid request. Every part meets its own contract, and the money goes out twice. The fix is an idempotency key: the client sends one key per transfer, and the processor recognizes a retry as the same request. -->
 
@@ -428,21 +415,17 @@ The columns describe the dominant intent. Fuzzing can confirm robustness against
 <!-- say: Confirm what you know, and search for what you have not imagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents. -->
 
 ---
-
-<!-- _class: glossary -->
+<!-- _class: table table-fill -->
 
 ## Five techniques reach cases nobody wrote a test for.
 
-- Chaos experiment
-  - Injects real failures into a running system to test a stated hypothesis.
-- Fuzzing
-  - Feeds generated, often malformed input to find crashes and hangs.
-- Metamorphic testing
-  - Checks a relation between runs when no exact answer exists.
-- Mutation testing
-  - Plants small faults in the code and checks that some test fails.
-- Property-based testing
-  - Checks a rule that must always hold across generated inputs, then shrinks failures.
+| Technique | What it does |
+| --- | --- |
+| Chaos experiment | Injects real failures to test a stated hypothesis. |
+| Fuzzing | Feeds generated, often malformed input to find crashes and hangs. |
+| Metamorphic testing | Checks a relation between runs when no exact answer exists. |
+| Mutation testing | Plants small faults and checks that a test fails. |
+| Property-based testing | Checks a rule over many generated inputs. |
 
 <!-- Give one transfer example per row.
 
@@ -454,7 +437,7 @@ Mutation: flip a > to >= in the overdraft check; if no test fails, the suite nev
 
 Chaos: the hypothesis comes first, for example "losing one broker node does not delay settlement past 2 seconds". -->
 
-<!-- describe: A glossary of five techniques. Chaos experiment: injects real failures into a running system to test a stated hypothesis. Fuzzing: feeds generated, often malformed input to find crashes and hangs. Metamorphic testing: checks a relation between runs when no exact answer exists. Mutation testing: plants small faults in the code and checks that some test fails. Property based testing: checks a rule that must always hold across generated inputs, then shrinks failures. -->
+<!-- describe: A table of five techniques and what each does. Chaos experiment: injects real failures to test a stated hypothesis. Fuzzing: feeds generated, often malformed input to find crashes and hangs. Metamorphic testing: checks a relation between runs when no exact answer exists. Mutation testing: plants small faults and checks that a test fails. Property based testing: checks a rule that must always hold across generated inputs, then shrinks failures. -->
 
 <!-- say: Five techniques reach cases that nobody wrote a test for. A chaos experiment injects real failures to test a hypothesis. Fuzzing feeds generated, often malformed input. Metamorphic testing checks a relation between two runs when no exact answer exists. Mutation testing plants small faults and checks that some test fails. Property based testing checks a rule that must always hold, across many generated inputs. -->
 
@@ -466,11 +449,11 @@ Chaos: the hypothesis comes first, for example "losing one broker node does not 
 
 `A test oracle decides what the right answer is.`
 
-- Wrong business rule -> Test expects the wrong value & Code implements the wrong rule
-- Test expects the wrong value -> Tests pass
-- Code implements the wrong rule -> Tests pass
-- Tests pass -> Customer gets the wrong outcome
-- Customer gets the wrong outcome `fail`
+- Wrong rule -> Wrong expected value & Wrong code
+- Wrong expected value -> Tests pass
+- Wrong code -> Tests pass
+- Tests pass -> Wrong outcome for the customer
+- Wrong outcome for the customer `fail`
 
 `[{fail, Harm reaches the customer}]`
 
@@ -482,7 +465,7 @@ When the same person, or the same misread requirement, writes both the code and 
 
 The remedy is independent evidence: an oracle from a different source. A regulator's worked example, a reconciliation against an external ledger, or a user who tries the feature. -->
 
-<!-- describe: A flowchart. A wrong business rule leads both to a test that expects the wrong value and to code that implements the wrong rule. Both lead to tests passing, which leads to a box flagged as harm reaching the customer: the customer gets the wrong outcome. Subtitle: a test oracle decides what the right answer is. Footnote: the remedy is an expected value from an independent source. -->
+<!-- describe: A flowchart. A wrong rule leads both to a wrong expected value and to wrong code. Both lead to tests passing, which leads to a box flagged as harm reaching the customer: the wrong outcome for the customer. Subtitle: a test oracle decides what the right answer is. Footnote: the remedy is an expected value from an independent source. -->
 
 <!-- say: A test passes when it shares the code's wrong assumption. A test oracle is how a test decides what the right answer is. If a wrong business rule shapes both the expected value and the code, the tests pass, and the customer still gets the wrong outcome. The remedy is an expected value from an independent source, such as a regulator's worked example. -->
 
@@ -621,22 +604,27 @@ K includes the hidden costs: run time on every commit, and the hours spent diagn
 <!-- say: Write the next test only if it buys more risk reduction than it costs. As a rough guide, the value of a test is the chance the defect exists, times the cost if it escapes, times how much the test improves our chance of catching it, minus the cost of writing, running and maintaining the test. Nobody computes this exactly. It names the four things to argue about. -->
 
 ---
-
-<!-- _class: flowchart -->
+<!-- _class: table table-fill -->
 
 ## Test the edges around a critical path, where costly defects hide.
 
-- Critical path: send a transfer -> Success & Declined by the bank & Duplicate request & Network timeout & Partial write & Session expires
+| Edge of "send a transfer" | What a test should prove |
+| --- | --- |
+| Declined by the bank | The customer sees why, and no money moves |
+| Duplicate request | Exactly one transfer settles |
+| Network timeout | A retry is safe and the status is honest |
+| Partial write | The ledger never shows half a transfer |
+| Session expires | Work in progress is kept or clearly lost |
 
-— Consequence decides whether a path is critical.
+— The success case is the middle of the road. Consequence decides whether a path is critical.
 
 <!-- A path earns the word critical through consequence, frequency, irreversibility, regulatory duty, how many things depend on it, or blast radius. A refund flow used ten times a day can be more critical than a search box used ten million times.
 
 Most suites walk down the middle of the road: the success case. The consequential defects tend to sit on the shoulders. Ask the room to add one more edge for the transfer. Good answers: the currency changes mid-flow, the account is frozen, the clock crosses midnight. -->
 
-<!-- describe: A flowchart with one box, critical path: send a transfer, branching to six cases: success, declined by the bank, duplicate request, network timeout, partial write, and session expires. A footnote reads: consequence decides whether a path is critical. -->
+<!-- describe: A table of five edges of sending a transfer and what a test should prove. Declined by the bank: the customer sees why, and no money moves. Duplicate request: exactly one transfer settles. Network timeout: a retry is safe and the status is honest. Partial write: the ledger never shows half a transfer. Session expires: work in progress is kept or clearly lost. Footnote: the success case is the middle of the road, and consequence decides whether a path is critical. -->
 
-<!-- say: Test the edges around a critical path, where costly defects hide. Sending a transfer succeeds in the happy case. Around it sit a decline by the bank, a duplicate request, a network timeout, a partial write, and a session that expires mid flow. Consequence decides whether a path is critical, and its edges deserve as much testing as its middle. -->
+<!-- say: Test the edges around a critical path, where costly defects hide. Sending a transfer succeeds in the happy case; that is the middle of the road. At the edges: a decline by the bank, where the customer should see why and no money moves. A duplicate request, where exactly one transfer settles. A network timeout, where a retry is safe and the status is honest. A partial write, where the ledger never shows half a transfer. And a session that expires, where work in progress is kept or clearly lost. -->
 
 ---
 
@@ -669,9 +657,9 @@ Testing in production is legitimate only with guardrails: limit the blast radius
 
 ## An escaped defect is evidence about two systems: the product and its tests.
 
-- Incident -> Fix the product & Find the assumption that survived
-- Find the assumption that survived -> Name the missing evidence -> Add the cheapest test that would catch it
-- Add the cheapest test that would catch it -> Next defect caught earlier `dashed`
+- Incident -> Fix the product & Find the surviving assumption
+- Find the surviving assumption -> Name the missing evidence -> Add the cheapest test
+- Add the cheapest test -> Next defect caught earlier `dashed`
 
 `[{dashed, The payoff}]`
 
@@ -682,7 +670,7 @@ The reflex after an incident is to add a slow end-to-end test. Resist it. Ask wh
 
 This is a blameless review question. The goal is a better system; nobody is hunting for a culprit. -->
 
-<!-- describe: A flowchart. An incident leads to fixing the product, and to finding the assumption that survived, then naming the missing evidence, then adding the cheapest test that would catch it. A dashed line, keyed as the payoff, runs from that test to a final box: next defect caught earlier. -->
+<!-- describe: A flowchart. An incident leads to fixing the product, and to finding the surviving assumption, then naming the missing evidence, then adding the cheapest test. A dashed line, keyed as the payoff, runs from that test to a final box: next defect caught earlier. -->
 
 <!-- say: An escaped defect is evidence about two systems: the product and its tests. After an incident, fix the product. Then find the assumption that survived, name the evidence that was missing, and add the cheapest test that would have caught it. That feeds back into earlier detection next time. -->
 
@@ -819,31 +807,24 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 <!-- say: Three reference pages follow, for after the session: key terms, common misconceptions, and questions for a team discussion. -->
 
 ---
-
-<!-- _class: glossary -->
+<!-- _class: table table-fill -->
 
 ## Eight terms carry most of the framework's precision.
 
-- Evidence
-  - Observations that change how much confidence is justified.
-- Fidelity
-  - How closely a test's conditions match production.
-- Fidelity gap
-  - A difference from production that limits what a result can claim.
-- Invariant
-  - A property that must hold under every defined condition.
-- Mission
-  - The risk a test exists to reduce.
-- Residual risk
-  - Risk left after testing, accepted by a named owner.
-- Test oracle
-  - The source that decides what correct behavior is.
-- Test surface
-  - The states, boundaries and dependencies around a critical path.
+| Term | Definition |
+| --- | --- |
+| Evidence | Observations that change how much confidence is justified. |
+| Fidelity | How closely a test's conditions match production. |
+| Fidelity gap | A difference from production that limits a claim. |
+| Invariant | A property that must hold under every defined condition. |
+| Mission | The risk a test exists to reduce. |
+| Residual risk | Risk left after testing, accepted by a named owner. |
+| Test oracle | The source that decides what correct behavior is. |
+| Test surface | The states, boundaries and dependencies around a critical path. |
 
 <!-- Residual risk needs an owner. If nobody accepted a risk, nobody noticed it. -->
 
-<!-- describe: A glossary of eight terms. Evidence: observations that change how much confidence is justified. Fidelity: how closely a test's conditions match production. Fidelity gap: a difference from production that limits what a result can claim. Invariant: a property that must hold under every defined condition. Mission: the risk a test exists to reduce. Residual risk: risk left after testing, accepted by a named owner. Test oracle: the source that decides what correct behavior is. Test surface: the states, boundaries and dependencies around a critical path. -->
+<!-- describe: A table of eight terms and their definitions. Evidence: observations that change how much confidence is justified. Fidelity: how closely a test's conditions match production. Fidelity gap: a difference from production that limits a claim. Invariant: a property that must hold under every defined condition. Mission: the risk a test exists to reduce. Residual risk: risk left after testing, accepted by a named owner. Test oracle: the source that decides what correct behavior is. Test surface: the states, boundaries and dependencies around a critical path. -->
 
 <!-- say: Eight terms carry most of the framework's precision. Evidence: observations that change how much confidence is justified. Fidelity: how closely a test's conditions match production. Fidelity gap: a difference from production that limits a claim. Invariant: a property that must always hold. Mission: the risk a test exists to reduce. Residual risk: risk left after testing, accepted by a named owner. Test oracle: the source that decides what correct behavior is. Test surface: the states, boundaries and dependencies around a critical path. -->
 
