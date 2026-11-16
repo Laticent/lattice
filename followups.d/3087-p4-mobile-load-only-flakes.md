@@ -98,3 +98,7 @@ revealed frame, polled). The evidence is in that PR.
             workers (--repeat-each=8, --retries=0): PR build 16 of 16; main 72bd2d9 15 of 16, the failure
             library-voice-spine:140. gallery-preview-metamorphic:370 also failed under load on the PR build; with nothing
             else running it went 12 of 12 on main and 12 of 12 on the PR. Not investigated past that.
+2026-11-16 — the same PR's clean full Chromium run (desktop, tablet, mobile; 4 workers, --retries=0; 1,903 passed, 4
+            failed, 63 skipped) lost compose-note-motion.spec.ts:260 and journeys/chart-export.spec.ts:124 besides
+            filo-undo:157 and present-beat:49 (both listed above). All four then passed alone, 2 of 2 each. The two new
+            ones were not compared against main under load.
