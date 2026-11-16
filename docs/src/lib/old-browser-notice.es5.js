@@ -89,7 +89,7 @@
 	var RULE = '1px solid var(--border,rgba(127,127,127,.25))';
 	var CSS_TEXT =
 		'#ID{position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;overflow:auto;-webkit-overflow-scrolling:touch;' +
-		'font-family:var(--font-body,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif);color:black;color:var(--text-body,CanvasText);text-align:left}' +
+		'font-family:var(--font-body,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif);font-weight:400;color:black;color:var(--text-body,CanvasText);text-align:left}' +
 		// The site's own flat background, solid from the first frame to the last, in the same color the <head> check painted
 		// while it hid the page. Nothing beneath shows through, so nothing can flicker: an old browser draws that page
 		// broken (orange chart bars, in the owner's legacy Edge), and an earlier thin veil and accent glow let it bleed.
@@ -142,13 +142,16 @@
 		'#ID .lob-after{padding:4px 0 0;font-size:15px;color:var(--text-muted,GrayText)}' +
 		// "Can't update?" as a short labeled block: the question, then one line for a work device and one for your own.
 		'#ID .lob-cant{padding:18px 0 0}' +
-		'#ID .lob-cant-q{font-size:15px;font-weight:600;color:var(--text-heading,CanvasText)}' +
+		// Body text stays at weight 400 everywhere in the notice, and emphasis comes from the heading color. The site loads
+		// Outfit one static weight at a time, and an old browser that meets a weight the page had not loaded yet draws the
+		// light 300 instead and never swaps (the owner's legacy Edge: the bold lead-ins came out thin).
+		'#ID .lob-cant-q{font-size:16px;font-weight:400;color:var(--text-heading,CanvasText)}' +
 		'#ID .lob-cant-ways{list-style:none;padding:4px 0 0}' +
 		'#ID .lob-cant-ways li{padding:2px 0 0;font-size:15px;color:var(--text-body,CanvasText)}' +
-		'#ID .lob-cant-ways strong{font-weight:600;color:var(--text-heading,CanvasText)}' +
+		'#ID .lob-cant-ways strong{font-weight:400;color:var(--text-heading,CanvasText)}' +
 		'#ID .lob-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:18px 0 0}' +
 		// The site's primary button: 40 px tall, 6 px corners, 14 px at weight 500.
-		'#ID .lob-actions a{display:inline-block;font-size:14px;font-weight:500;line-height:40px;text-decoration:none}' +
+		'#ID .lob-actions a{display:inline-block;font-size:15px;font-weight:400;line-height:40px;text-decoration:none}' +
 		'#ID .lob-primary{padding:0 16px;border-radius:6px;background:var(--accent,Highlight);color:white;color:var(--on-accent,var(--bg,Canvas))}' +
 		'#ID .lob-primary:hover{text-decoration:underline}' +
 		// Keyboard focus is always visible, in the accent, on every control.
@@ -157,12 +160,12 @@
 		'#ID .lob-foot p,#ID .lob-foot .lob-supported{font-size:15px;color:var(--text-muted,GrayText)}' +
 		'#ID .lob-section{padding:12px 0 0}' +
 		// A section's toggle: its label after a drawn triangle (no typed glyph, #29) that turns when the section opens.
-		'#ID .lob-toggle{position:relative;font:inherit;color:inherit;background:none;border:0;padding:0 0 0 16px;cursor:pointer;text-align:left}' +
+		'#ID .lob-toggle{position:relative;font:inherit;font-weight:400;color:inherit;background:none;border:0;padding:0 0 0 16px;cursor:pointer;text-align:left}' +
 		'#ID .lob-toggle:before{content:"";display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;border-color:transparent transparent transparent currentColor;padding:0;position:absolute;left:0;top:.45em;-webkit-transition:transform .15s;transition:transform .15s}' +
 		'#ID .lob-toggle[aria-expanded="true"]:before{-webkit-transform:rotate(90deg);transform:rotate(90deg)}' +
 		'#ID .lob-section p+p{padding:6px 0 0}' +
 		'#ID .lob-continue{padding:12px 0 0}' +
-		'#ID .lob-go{font:inherit;font-weight:600;padding:0;background:none;border:0;color:inherit;color:var(--text-body,CanvasText);text-decoration:underline;cursor:pointer}' +
+		'#ID .lob-go{font:inherit;font-weight:400;padding:0;background:none;border:0;color:inherit;color:var(--text-body,CanvasText);text-decoration:underline;cursor:pointer}' +
 		// Wide screens: the slide sits beside the words, so the whole card fits a 1440 x 900 screen without scrolling. Grid
 		// is in every browser this is for (Chrome 57, Safari 10.1, Firefox 52); one without it keeps the stacked layout.
 		// `@supports` first: legacy Edge (EdgeHTML 15) has no grid, and the wide card without its two columns ran far too wide.

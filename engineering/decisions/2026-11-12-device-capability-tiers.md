@@ -506,6 +506,11 @@ versions and how to update, and it looks like the site, not like an error page.
     the margins outside the card are one flat color in every frame, 250,247,242 light and 21,17,13 dark. This retires
     the "blurred page behind" glimpse of design B; matching the site's look had already reduced it to a hint, and in
     the browsers that see this notice it was showing a broken page.
+  - **Weight 400 throughout (owner: "formatting is off with bolding", legacy Edge).** The site loads Outfit one static
+    weight at a time (`fonts.css`), and the notice's bold lead-ins and button asked for 500 and 600, which the page had
+    not loaded: legacy Edge drew them in the light 300 it had and never swapped, so the "bold" text came out thinnest.
+    The notice now sets 400 on its root and every Outfit element, and carries emphasis in the heading color instead.
+    A unit test holds every element that sets a weight to 400 (red with a 600 put back).
   - **"Can't update?" as a labeled block (owner).** A bold question, then "On a work device: ask your IT team. They
     manage its updates." and "On your own device: use any browser in the Supported browsers list below.", in place of
     one long sentence.

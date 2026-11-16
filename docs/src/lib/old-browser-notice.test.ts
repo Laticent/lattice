@@ -345,6 +345,14 @@ describe('its structure, for a reader who listens or tabs', () => {
 });
 
 describe('what an old engine gets wrong', () => {
+	it("keeps body text at weight 400: an old browser draws a weight the page hasn't loaded as the light 300, for good", () => {
+		const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36');
+		// The root sets 400 for everything that inherits; these are the elements that set a weight of their own.
+		for (const sel of ['#lattice-old-browser', '.lob-cant-q', '.lob-cant-ways strong', '.lob-primary', '.lob-go', '.lob-toggle']) {
+			for (const el of screen.querySelectorAll(sel)) expect(getComputedStyle(el).fontWeight, sel).toBe('400');
+		}
+	});
+
 	it('sets its own readable selection colors: the site tints a selection with color-mix(), which an old engine paints solid', () => {
 		run('SomeBrowser/1.0');
 		const css = document.getElementById('lattice-old-browser-style')?.textContent ?? '';
