@@ -797,7 +797,7 @@ against 148.6 KB). So it is injected instead (lib/core/slide-boundaries.mjs `set
 front-matter reader (docs/src/lib/front-matter.ts `FM_RE`) swallows the blank lines after the closing `---`, and the
 engine's split keeps them in the body, so the two models' line numbers differ by those lines. A first cut handed the
 outline's model to the memo; it helped only a deck with no front matter, so it went. Sharing one model needs one
-front-matter split. (followups.d/3042-p3 was the BOM half of that and is closed, §The last P3 islands; the blank lines
+front-matter split. (followups.d/3042-p3-outline-front-matter-after-a-bom.md was the BOM half of that and is closed, §The last P3 islands; the blank lines
 the Studio's block swallows still differ.) The preview's sample is a
 third string by design.
 
@@ -864,10 +864,10 @@ list:
 |---|---|
 | The Mermaid fence matcher (`mermaid-fences.js`) | Deleted by the plugin contract's D2 slice 3 and 4: every reader of a plugin's fences reads the engine's own block parse, `pluginFences` (lib/core/plugin-fences.mjs; engineering/decisions/2026-11-06-plugin-patterns.md §4). That parse is markdown-it as the engine configures it, so it is the engine's answer, not an approximation of it; it moves onto the model when P7 removes markdown-it |
 | `comments()`, the notes channel's reader (lib/core/meta-record.mjs) | **Moved here, below** |
-| `parseFrontMatter` | The front-matter island (PR #3228; engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §11), and the register grammar after it (§5 of that note) |
+| `parseFrontMatter` | The front-matter island (PR #3228, landed 2026-11-16; engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §11), and the register grammar after it (§5 of that note) |
 | lint-core's ~16 comment scans | Out of this pipeline: Squadra deletes lint-core.js (followups.d/3194-p1-squadra-replaces-lint-core.md, §8 "lint-core.js is gone") |
 
-followups.d/3042-p1 is deleted with this change.
+followups.d/3042-p1-segno-p3-the-remaining-islands.md is deleted with this change.
 
 **`comments()` reads the deck model.** It was a text scan that skipped `fenceRanges` (lib/core/fence-ranges.mjs, a
 fence scan of its own). It now takes each `<!--` by the block the model says holds it:
@@ -901,7 +901,7 @@ test/unit/core/meta-record.test.js).
 | `npm run identity:check -- --strict` | 0 renders differ; the reader is Studio-only, so no export byte moves |
 | The Studio's own suites (`docs/src/components/studio`, slide-directives) | 331 files, 4,672 tests green |
 
-**The Studio reads front matter under a BOM (followups.d/3042-p3, closed).** The engine drops a leading BOM before it
+**The Studio reads front matter under a BOM (followups.d/3042-p3-outline-front-matter-after-a-bom.md, closed).** The engine drops a leading BOM before it
 looks for front matter (S0), so `\uFEFF---` / `theme: x` / `---` is the deck's settings. The Studio's reader
 (docs/src/lib/front-matter.ts `FM_RE`) did not skip it, so the outline listed `theme: x` as a slide and every
 front-matter control read nothing. `FM_RE` now takes the BOM as part of the block, and the writers keep it where it was:
@@ -911,9 +911,9 @@ a line splice leaves it alone, a block that empties keeps it, a new block goes a
 matter, so `\uFEFF---` is a break there as it is to the engine. Pinned in docs/src/lib/front-matter.test.ts and
 docs/src/lib/deck-outline/deck-outline.test.ts (each against `splitSourceToSections`). The other ways the Studio's fence
 is laxer than the engine's (trailing spaces after `---`, CRLF) are the fence copies PR #3228 lists
-(followups.d/3042-p3-front-matter-fence-copies.md on that branch).
+(followups.d/3042-p3-front-matter-fence-copies.md).
 
-**Math decks splice (followups.d/3042-p2, closed).** `updateDeckModel` parsed the deck from nothing whenever a
+**Math decks splice (followups.d/3042-p2-segno-math-decks-still-parse.md, closed).** `updateDeckModel` parsed the deck from nothing whenever a
 `scansAhead` rule (math's `$$`) had been tried above the reused tail, because such a rule reads past a break and its
 "no closer ahead" memo carries from one slide into the next. Both risks are narrower than "tried". The rule's
 contract, which math keeps, is that a try reads no line past the block it opens, and a try that declines after
@@ -932,7 +932,7 @@ gets the old rule exactly: every try counts as holding one.
 The math row now reads what every other row reads; the `$$` limit's extra 2 is gone. The milliseconds are commentary
 on a shared machine; the counts are the gate, and baseline.json is re-blessed with them.
 
-**The 1.0 left on every row is the edit's own work, not a parse of the deck.** followups.d/3042-p2 asked for 0, written
+**The 1.0 left on every row is the edit's own work, not a parse of the deck.** followups.d/3042-p2-segno-math-decks-still-parse.md asked for 0, written
 when the column counted only the deck readers; on 2026-11-06 the bench added the class editor's read (§The editors install
 the deriver: "The 1.1 left is that slide"). That read asks `commentBlocks(chunk)` for each slide, and the one chunk a
 keystroke changes is a text it has not seen, so it is parsed. Three things show it is necessary and minimal:
