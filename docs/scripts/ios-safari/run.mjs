@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
+import { LONG_PRESS_MS, tapHold, tapVerdict } from './tap-guard.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = process.env.WEBDRIVER_URL || 'http://localhost:4444';
@@ -168,6 +169,55 @@ async function runStudioProbe(id) {
 	};
 }
 
+// Function declarations, not consts: the probes start from top-level code above, before a later `const` line has run.
+function tapLogInstall() {
+	return `
+	const log = (window.__tapLog = { t0: performance.now(), events: [] });
+	const name = (el) => (el && el.nodeType === 1 ? el.tagName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
+	if (!window.__tapLogOn) {
+		window.__tapLogOn = true;
+		for (const type of ['touchstart', 'touchend', 'touchcancel', 'pointerdown', 'pointerup', 'pointercancel', 'mousedown', 'mouseup', 'click', 'contextmenu']) {
+			window.addEventListener(type, (e) => {
+				const L = window.__tapLog;
+				if (!L) return;
+				const pt = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e;
+				L.events.push({ type, t: Math.round(performance.now() - L.t0), x: Math.round(pt.clientX), y: Math.round(pt.clientY), target: name(e.target), pointerType: e.pointerType || '' });
+			}, { capture: true, passive: true });
+		}
+		document.addEventListener('selectionchange', () => {
+			const L = window.__tapLog;
+			if (!L) return;
+			const sel = getSelection();
+			const node = sel && sel.anchorNode;
+			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) });
+		}, { capture: true, passive: true });
+	}`;
+}
+
+/** One line for the tap log: the time from touchstart to touchend as the page saw it, where each event landed and on what, and the selection changes. */
+function summarizeTapLog(log) {
+	if (!log?.events) return 'no log';
+	const ev = log.events;
+	if (!ev.length) return 'NO EVENTS';
+	const first = (type) => ev.find((e) => e.type === type);
+	const ts = first('touchstart');
+	const te = first('touchend') || first('touchcancel');
+	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
+	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${e.text}"`} in ${e.target}` : `${e.type}@${e.t} ${e.x},${e.y} ${e.target}`));
+	return `${held}; ${parts.slice(0, 14).join(' | ')}${parts.length > 14 ? ` | +${parts.length - 14} more` : ''}`;
+}
+
+/** The WebDriver round trip for a no-op script, the baseline the tap's gesture time is read against (median of three). */
+async function wdRoundTrip(id) {
+	const times = [];
+	for (let i = 0; i < 3; i++) {
+		const t = Date.now();
+		await wd('POST', `/session/${id}/execute/sync`, { script: 'return 1;', args: [] });
+		times.push(Date.now() - t);
+	}
+	return times.sort((a, b) => a - b)[1];
+}
+
 /**
  * A WebDriver touch tap on a Compose paragraph, as a finger does it: the caret lands in that paragraph, the editor has the
  * focus, and the paragraph carries the caret-line mark (`cs-active-line`). Also records whether the software keyboard came
@@ -213,37 +263,79 @@ async function composeTouchTap(id) {
 				look();`,
 		});
 		if (!at.hit) return { ok: false, steps, error: `the paragraph never held still under its tap point: at ${at.x},${at.y} the page shows ${at.under} (still for ${at.still} frames)` };
-		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-		// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
-		// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
-		// selected the word under the finger, so the paragraph held a range, not a caret, and correctly got no caret-line mark.
-		const tapStart = Date.now();
-		await wd('POST', `/session/${id}/actions`, {
-			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
-		});
-		const tapMs = Date.now() - tapStart;
-		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-		const seen = await wd('POST', `/session/${id}/execute/async`, {
-			args: [],
-			script: `const done = arguments[arguments.length - 1];
-				const t0 = performance.now();
-				const read = () => {
-					const p = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex];
-					const sel = getSelection();
-					const node = sel && sel.anchorNode;
-					const inP = !!(p && node && p.contains(node));
-					const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
-					const marked = !!(p && p.classList.contains('cs-active-line'));
-					const caret = !!(sel && sel.isCollapsed);
-					if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className, where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing' });
-					else requestAnimationFrame(read);
-				};
-				read();`,
-		});
-		step('a touch tap puts the caret in the tapped paragraph', seen.inP && seen.caret, `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms${seen.caret ? '' : `, but it SELECTED "${seen.picked}" (read as a long press)`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}`);
+		// ONE DELIVERY: the touch, then what the page saw of it. WHAT THE PAGE SEES is a capture-phase log of every touch, pointer
+		// and mouse event (time, clientX/clientY, target) and of each selectionchange and contextmenu, read back beside the point
+		// WebDriver was sent. Its hold (touchstart to touchend) is logged on every delivery (followups.d/3223-p1).
+		const rtt = await wdRoundTrip(id);
+		const deliver = async (n, forcedHold = 0) => {
+			await run('document.activeElement?.blur?.(); getSelection()?.removeAllRanges();');
+			await run(tapLogInstall());
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
+			// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
+			// selected the word under the finger, so the paragraph held a range, not a caret, and correctly got no caret-line mark.
+			const tapStart = Date.now();
+			await wd('POST', `/session/${id}/actions`, {
+				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, ...(forcedHold ? [{ type: 'pause', duration: forcedHold }] : []), { type: 'pointerUp', button: 0 }] }],
+			});
+			const tapMs = Date.now() - tapStart;
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			const seen = await wd('POST', `/session/${id}/execute/async`, {
+				args: [],
+				script: `const done = arguments[arguments.length - 1];
+					const t0 = performance.now();
+					const read = () => {
+						const p = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex];
+						const sel = getSelection();
+						const node = sel && sel.anchorNode;
+						const inP = !!(p && node && p.contains(node));
+						const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
+						const marked = !!(p && p.classList.contains('cs-active-line'));
+						const caret = !!(sel && sel.isCollapsed);
+						if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className, where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing', log: window.__tapLog || null });
+						else requestAnimationFrame(read);
+					};
+					read();`,
+			});
+			const hold = tapHold(seen.log);
+			const landed = summarizeTapLog(seen.log);
+			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
+			return { seen, tapMs, hold, landed };
+		};
+		// THE PRECONDITION, NOT A RETRY (tap-guard.mjs; the flaky-test coordinator's approval, 2026-11-16). A gesture the page saw
+		// held for LONG_PRESS_MS or more was a long press, not the tap this step tests, and is delivered once more after the
+		// multi-tap window (a second tap inside it is a double tap, which selects a word: a duration by its nature). A short tap
+		// that misses the caret fails at once.
+		const tries = [await deliver(1)];
+		let decision = tapVerdict({ caret: tries[0].seen.inP && tries[0].seen.caret, hold: tries[0].hold, delivery: 1 });
+		if (decision === 'redeliver') {
+			await new Promise((r) => setTimeout(r, 1000));
+			tries.push(await deliver(2));
+			decision = tapVerdict({ caret: tries[1].seen.inP && tries[1].seen.caret, hold: tries[1].hold, delivery: 2 });
+		}
+		const { seen, tapMs } = tries.at(-1);
+		const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
+		const why =
+			decision === 'fail-long-press'
+				? `, but the simulator delivered a long press, not a tap, on both deliveries (holds ${holds}; iOS reads ${LONG_PRESS_MS} ms or more as a long press)`
+				: `${seen.caret ? '' : `, but it SELECTED "${seen.picked}"`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}`;
+		step('a touch tap puts the caret in the tapped paragraph', decision === 'pass', `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms, hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}${decision === 'pass' ? '' : why}`);
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
+		step('what the page saw of the tap (detail only)', true, tries.map((t, i) => `delivery ${i + 1}: sent ${at.x},${at.y}; ${t.landed}`).join(' || '));
+		// A POSITIVE CONTROL for the guard, after the verdict and deciding nothing: one long press made on purpose (a 500 ms hold,
+		// which the simulator stretches further), then the re-delivery the guard asks for. It shows, on the real simulator, that
+		// the page's log reads a long press as one and that the tap delivered after it puts the caret back.
+		await new Promise((r) => setTimeout(r, 1000));
+		const forced = await deliver('control-1', 500);
+		const forcedCall = tapVerdict({ caret: forced.seen.inP && forced.seen.caret, hold: forced.hold, delivery: 1 });
+		let recovered = null;
+		if (forcedCall === 'redeliver') {
+			await new Promise((r) => setTimeout(r, 1000));
+			recovered = await deliver('control-2');
+		}
+		step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall}${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
 		return { ok: steps.every((x) => x.pass), steps };
 	} catch (e) {
 		return { ok: false, steps, error: String(e.message || e) };
