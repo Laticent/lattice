@@ -35,7 +35,7 @@ At a hall venue the anti-pattern slide splits one card a page, so each card has 
 - Section title that doesn't earn a section
   - If the next few slides aren't one unit, use the `light` variant. Keep the dark divider for real section starts.
 - Header or footer overrides
-  - Don't blank them with `_header: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`.
+  - Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`.
 
 ---
 

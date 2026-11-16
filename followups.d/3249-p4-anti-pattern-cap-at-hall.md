@@ -1,12 +1,12 @@
 ---
-origin: 3226
-priority: P9
+origin: 3249
+priority: P4
 recorded: 2026-11-16
 area: docs
 severity: low
 swimlane: engineering/decisions/2026-10-28-fit-everywhere-model.md
 deferred: large — the cap is shared by every generated gallery; recalibrating it per venue repaginates all of them and needs its own sweep, golden review and decision note
-source: https://github.com/Laticent/lattice/pull/3226
+source: https://github.com/Laticent/lattice/pull/3249
 ---
 
 # The anti-pattern card's word cap is calibrated at design size, not at hall

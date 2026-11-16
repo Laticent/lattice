@@ -1,12 +1,12 @@
 ---
-origin: 3226
-priority: P8
+origin: 3249
+priority: P3
 recorded: 2026-11-16
 area: anchor
 severity: medium
 swimlane: engineering/decisions/2026-10-28-fit-everywhere-model.md
 deferred: off-path — a pre-existing overflow in the qr variant's layout, already counted in the fit baseline; the divider fix that found it is a copy fix to another slide, and this needs its own layout PR, demo deck and review (#17)
-source: https://github.com/Laticent/lattice/pull/3226
+source: https://github.com/Laticent/lattice/pull/3249
 ---
 
 # divider qr: the heading and the code overrun the bands at portrait@hall

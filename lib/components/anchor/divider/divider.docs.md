@@ -43,7 +43,7 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 - **More than five per deck.** Each divider is a hard context switch. Too many dilutes the signal and slows the audience. Group related content under fewer sections instead.
 - **Section title that doesn't earn a section.** If the next few slides aren't one unit, use the `light` variant. Keep the dark divider for real section starts.
-- **Header or footer overrides.** Don't blank them with `_header: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`.
+- **Header or footer overrides.** Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`.
 
 ## Authoring
 
