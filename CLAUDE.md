@@ -140,12 +140,16 @@ seen the options first. Born from a session that labeled 60 issues
    authorization** — a human approves every merge, and prior authorization does
    **not** carry forward. On my go-ahead, **squash-merge** by default. Full
    procedure: `workflow.md` §Merging.
-   *Scope: work you or I authored.* Three machine-generated PR classes
+   *Scope: work you or I authored.* Four machine-generated PR classes
    auto-merge themselves through the queue — the backlog mirror
    (`sync-backlog.yml`, a generated view of issues), the release (`release.yml`,
-   where **the dispatch is the authorization**), and **patch/minor dependency
-   bumps** (`dependabot-auto-merge.yml`; majors always wait for a human). None
-   is license to auto-merge anything you wrote.
+   where **the dispatch is the authorization**), **patch/minor dependency
+   bumps** (`dependabot-auto-merge.yml`; majors always wait for a human), and the
+   **nightly golden bless** (`golden-bless.yml`, per golden; a golden that adds,
+   removes or resizes a page its source's slide count does not explain is held until
+   the owner dispatches `bless_held` —
+   `engineering/decisions/2026-11-16-blessing-invariants-attribution.md`).
+   None is license to auto-merge anything you wrote.
 
 Rules 6–7 deliberately override the harness defaults (which hold off on PR
 creation and ask before watching). `doneMeansMerged` in `.claude/settings.json`

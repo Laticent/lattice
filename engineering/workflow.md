@@ -305,8 +305,9 @@ fastest inner loop — no preview tool needed.
 **No PDF in a pull request.** The nightly bless bot
 (`.github/workflows/golden-bless.yml`) is the one writer of committed
 PDFs: it re-renders every golden that drifted on `main`, renders the
-first PDF of a deck or gallery merged without one, and opens one PR a
-person merges. A pull request shows its visual change through
+first PDF of a deck or gallery merged without one, and opens one PR that
+merges itself; a golden that breaks the page-shape invariant is held and
+turns the night red (`decisions/2026-11-16-blessing-invariants-attribution.md`). A pull request shows its visual change through
 golden-diff's rendered before/after, and links the PDF of any new deck.
 The pre-commit hook that used to render and stage PDFs is gone; for a
 local look, `node tools/build-staged-pdfs.js <deck.md>` renders without
@@ -1423,14 +1424,13 @@ it. This broke every `sync-backlog` run for weeks (#1439). Full reasoning:
 
 **The rule has no exceptions, and that is the point.** A workflow that needs to
 change the repo does exactly what you do: pushes a branch, opens a PR, and lets
-the queue land it. Three workflows do this today — `sync-backlog.yml`,
-`release.yml` and `dependabot-auto-merge.yml` — and what makes them feel
-automatic is not a shortcut past the queue, it is that they also switch
-**auto-merge** on, so the queue merges the PR the moment `ci` is green. Same
-gate, no human. A fourth, `golden-bless.yml`, pushes and opens its PR the same
-way but leaves auto-merge OFF while it is in its dry run: it only comments
-whether its four merge rules hold, and a person merges or closes it
-(`decisions/2026-10-06-goldens-bot-blessed.md` §2.1).
+the queue land it. Four workflows do this today — `sync-backlog.yml`,
+`release.yml`, `dependabot-auto-merge.yml` and `golden-bless.yml` — and what
+makes them feel automatic is not a shortcut past the queue, it is that they also
+switch **auto-merge** on, so the queue merges the PR the moment `ci` is green.
+Same gate, no human. `golden-bless.yml` blesses per golden: a golden that adds,
+removes or resizes a page its source's slide count does not explain is held out of the PR and
+turns the night red (`decisions/2026-11-16-blessing-invariants-attribution.md`).
 
 ### The one thing that makes it possible: `AUTOMATION_PAT`
 
@@ -2073,6 +2073,13 @@ not "high with a caveat". Grade the axes first, then read off the floor:
 - **`low`** — something material is unverified or unverifiable from here, the
   change is expensive to undo, or a known defect ships deliberately. A `low` card
   is not forbidden; it is a card that must say plainly what I am accepting.
+
+**What the nightly bless verifies after merge does not lower Evidence.** A PR renders the
+goldens its diff can affect (golden-diff's cap is 40 galleries plus decks), not the whole
+corpus. The rest is checked after merge by the nightly bless against the invariants, and held
+there if it breaks one (`engineering/decisions/2026-11-16-blessing-invariants-attribution.md`).
+So goldens a PR could not render do not lower its Evidence axis, provided its own renders and the
+fast checks it can run passed. Do not render the whole corpus to raise a card.
 
 **Every card names the ONE thing that would raise it.** That line is the most
 useful in the card. It used to be an offer to the owner (merge anyway, or spend ten more

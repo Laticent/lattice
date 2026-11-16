@@ -12,9 +12,12 @@
 //   2. (Folded into step 1. It was a second render of every drifted golden.)
 //   3. Render the goldens that do not exist yet, galleries first, one process per core, and
 //      start none after BLESS_DEADLINE_MS. Then refresh the showcase WebPs cut from them.
-//   4. Score the four auto-merge rules (lib/golden-bless-verdict.mjs) on what was WRITTEN,
-//      not on what the check reported. Rule 4 reads the golden-diff comments of the PRs
-//      merged since the last bless, through `gh`; without it, nothing counts as seen.
+//   4. Split what was WRITTEN per golden (lib/golden-bless-verdict.mjs `partition`): a golden
+//      that added, removed or resized a page, or that the check cannot vouch for, is put back
+//      and held; the rest is the commit, and the PR merges itself
+//      (engineering/decisions/2026-11-16-blessing-invariants-attribution.md). The old four rules
+//      are still scored for the record; rule 4 reads the golden-diff comments of the PRs merged
+//      since the last bless, through `gh`.
 //
 // Writes .scratch/golden-bless/{verdict.json,verdict.md,rendered-from.txt,montages/} and
 // prints the markdown. Exits 2 on a dirty tree and 3 when the check changed a PDF it did not
@@ -33,17 +36,8 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  BLESS_DEADLINE_MS,
-  goldenRows,
-  lastBlessRenderedFrom,
-  parseShownGoldens,
-  prNumber,
-  seenFromPrs,
-  verdict,
-  verdictMarkdown,
-  writtenProblems,
-} from './lib/golden-bless-verdict.mjs';
+import { frontMatterBlockOf, normalizeSourceText, slideBoundaries } from '../lib/core/slide-boundaries.mjs';
+import { BLESS_DEADLINE_MS, digestMarkdown, goldenRows, lastBlessRenderedFrom, parseShownGoldens, partition, prNumber, seenFromPrs, slidesExplainPages, verdict, writtenProblems } from './lib/golden-bless-verdict.mjs';
 import { galleryName } from './lib/golden-render.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,6 +74,34 @@ const changedPdfs = () => statusPaths(PDFS);
 const newPdfs = () => statusPaths(PDFS, { untrackedOnly: true });
 const isTracked = (f) => git(['ls-files', '--', f]).trim() !== '';
 const commitTime = (paths) => Number(git(['log', '-1', '--format=%ct', '--', ...paths]).trim()) || 0;
+// The golden's source markdown: `x.gallery.light.pdf` and `x.gallery.dark.pdf` share `x.gallery.md`.
+const sourceOf = (g) => (/\.gallery\.(light|dark)\.pdf$/.test(g) ? g.replace(/\.(light|dark)\.pdf$/, '.md') : g.replace(/\.pdf$/, '.md'));
+// Pages in a PDF, read by poppler's `pdfinfo` from a file or (with `-`) stdin; undefined if unreadable.
+const pdfPages = (args, input) => {
+  const r = spawnSync('pdfinfo', args, { input, maxBuffer: 1 << 30 });
+  const m = /^Pages:\s+(\d+)/m.exec(String(r.stdout || ''));
+  return r.status === 0 && m ? Number(m[1]) : undefined;
+};
+// Slides in a deck's markdown: separators the engine's own parser finds, after the front matter.
+const slideCount = (text) => {
+  const src = normalizeSourceText(text);
+  return slideBoundaries(src.slice(frontMatterBlockOf(src).length)).lines.length + 1;
+};
+// Old and new page and slide counts for a golden, measured against the commit that last wrote it.
+function pageAndSlideCounts(golden) {
+  const at = git(['log', '-1', '--format=%H', '--', golden]).trim();
+  const src = sourceOf(golden);
+  if (!at || !existsSync(join(ROOT, src))) return {};
+  const show = (p) => spawnSync('git', ['show', `${at}:${p}`], { cwd: ROOT, maxBuffer: 1 << 30 });
+  const oldPdf = show(golden);
+  const oldSrc = show(src);
+  return {
+    oldPages: oldPdf.status === 0 ? pdfPages(['-'], oldPdf.stdout) : undefined,
+    newPages: pdfPages([join(ROOT, golden)]),
+    oldSlides: oldSrc.status === 0 ? slideCount(String(oldSrc.stdout)) : undefined,
+    newSlides: slideCount(readFileSync(join(ROOT, src), 'utf8')),
+  };
+}
 
 // Put the working tree back for these paths: a tracked file from HEAD, an untracked one
 // (rendered for the first time) deleted. `git checkout HEAD --` alone throws on the second.
@@ -204,7 +226,7 @@ function refreshShowcase(writtenSet) {
   if (run(['--check']).status === 0) return { kept: [], problems: [] };
   const built = run([]);
   if (built.status !== 0) {
-    return { kept: [], problems: [`rasterize-showcase.mjs exited ${built.status}: ${(built.stderr || '').trim().split('\n').slice(-2).join(' | ')}`] };
+    return { kept: [], problems: [`rasterize-showcase.mjs exited ${built.status}: ${(built.stderr || '').split('\n').filter((l) => /\S/.test(l) && !/^\s+at |^Node\.js v/.test(l)).slice(-2).join(' | ')}`] };
   }
   const sources = JSON.parse(readFileSync(join(ROOT, SHOWCASE_SOURCES), 'utf8'));
   const unmoved = Object.entries(sources)
@@ -295,7 +317,8 @@ async function main() {
     const ours = new Set(unit.flatMap((md) => expectedPdfs(md, classify(md))));
     undo(changedPdfs().filter((p) => ours.has(p)));
   }, { stop: () => Date.now() >= deadline });
-  // Deferred is not failed: it holds auto-merge (a problem) but does not turn the night red.
+  // Deferred is not failed: it is reported in the digest and does not turn the night red. It no longer
+  // holds auto-merge: the bless is per golden, so goldens rendered tonight land without waiting for it.
   const deferred = [];
   const waiting = firstRenders.left.flat();
   if (waiting.length) {
@@ -328,15 +351,26 @@ async function main() {
   const showcaseDeckPdf = (f) => /^examples\/[a-z][a-z0-9-]*-gallery\.(light|dark)\.pdf$/.test(f);
   const showcaseDecks = changedPdfs().filter(showcaseDeckPdf);
   const created = newPdfs().filter((f) => !showcaseDeckPdf(f));
-  const written = changedPdfs().filter((f) => !showcaseDeckPdf(f));
+  const wrote = changedPdfs().filter((f) => !showcaseDeckPdf(f));
+  // Per golden, never all-or-nothing (2026-11-16 design, rollout step 1): a golden that breaks the
+  // invariant (a page added, removed or resized) or that the check cannot vouch for is put back, so
+  // it stays drifted on `main` and the digest names it. Everything else is re-recorded. This runs
+  // BEFORE the showcase refresh, so no WebP is cut from a golden that is not in the commit.
+  // A page-count change is an author's edit, not drift, when the deck or gallery markdown gained or
+  // lost exactly as many slides as the PDF gained or lost pages since the golden was committed
+  // (`slidesExplainPages`). The owner's `bless_held` dispatch blesses the rest too.
+  const explained = wrote.filter((g) => isTracked(g) && slidesExplainPages(pageAndSlideCounts(g)));
+  const part = partition(rows, wrote, { created, explained, blessHeld: process.env.GOLDEN_BLESS_HELD === '1' });
+  undo(part.held.map((h) => h.golden));
+  const written = part.bless;
 
   // Step 3b. Files derived from the goldens. The docs landing page's showcase WebPs are
   // cut from gallery PDFs, and `rasterize-showcase.mjs --check` (docs-build and preview)
   // fails when a source PDF changed and its WebP did not: the first bless PR (#2598) went
   // red on exactly that. The script rewrites every WebP, and WebP bytes are not stable
   // between runs, so keep only the WebPs whose gallery PDF this bless wrote.
-  // A showcase problem holds auto-merge and turns the night red, but after the PR is updated, like a
-  // first render that failed: the WebPs are derived from the goldens, so they never hold the goldens back.
+  // A showcase problem turns the night red, but after the PR is updated, like a first render that
+  // failed: the WebPs are derived from the goldens, so they never hold the goldens back, nor auto-merge.
   const derived = refreshShowcase(new Set(written));
   renderProblems.push(...derived.problems);
 
@@ -352,14 +386,29 @@ async function main() {
     seen = seenFromPrs(prs);
     seenProblems.push(...problems);
   }
-  const v = verdict(rows, seen, written, { created });
+  // The four-rule verdict is kept as information (rule 4's "seen" count is a useful record); it no
+  // longer decides the merge. The PR merges itself when it re-records anything and the tree is sound.
+  // Score the retired rules on the blessed goldens only, so a held golden is not reported as one
+  // "the bless did not write".
+  const heldSet = new Set(part.held.map((h) => h.golden));
+  const v = verdict(rows.filter((r) => !heldSet.has(r.golden)), seen, written, { created: created.filter((g) => written.includes(g)) });
   v.problems.push(...blessProblems, ...renderProblems, ...deferred, ...seenProblems);
-  if (v.problems.length) v.autoMerge = false;
+  // The commit merges itself when it holds anything (re-recorded goldens, or showcase decks) and the
+  // tree is sound. A held golden is not in it.
+  v.autoMerge = (written.length > 0 || showcaseDecks.length > 0) && blessProblems.length === 0;
+  v.bless = part.bless;
+  v.held = part.held;
   v.renderedFrom = renderedFrom;
   v.windowFrom = from;
   v.showcaseDecks = showcaseDecks;
   v.showcaseRefreshed = derived.kept;
-  const md = verdictMarkdown(v, { renderedFrom, runUrl: process.env.GOLDEN_BLESS_RUN_URL || '' });
+  const md = digestMarkdown(part, rows, {
+    renderedFrom,
+    runUrl: process.env.GOLDEN_BLESS_RUN_URL || '',
+    problems: [...blessProblems, ...renderProblems, ...deferred],
+    created,
+    explained,
+  });
   writeFileSync(join(OUT, 'verdict.json'), JSON.stringify(v, null, 2));
   writeFileSync(join(OUT, 'verdict.md'), `${md}\n`);
   writeFileSync(join(OUT, 'rendered-from.txt'), `${renderedFrom.slice(0, 12)}\n`);
@@ -374,7 +423,9 @@ async function main() {
   // A golden that could not be rendered or re-blessed, or a showcase WebP that could not be
   // refreshed, still turns the night red, but AFTER the bless PR is opened (golden-bless.yml reads
   // this file last), so one broken deck does not hold back every other golden.
-  writeFileSync(join(OUT, 'failed.txt'), renderProblems.map((p) => `${p}\n`).join(''));
+  // A held golden turns the night red too: it broke an invariant its source does not explain.
+  const heldLines = part.held.map((h) => `held: ${h.golden} (${h.why})`);
+  writeFileSync(join(OUT, 'failed.txt'), [...renderProblems, ...heldLines].map((p) => `${p}\n`).join(''));
 }
 
 await main();
