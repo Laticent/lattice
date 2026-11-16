@@ -86,10 +86,10 @@ const TONE_TEXT_D = [35, 31, 28, 24, 21, 17, 14, 10];
  * is how strongly. It was the text level (30% light, 35% dark), a pale wash beside tone's category shades (which start at
  * 92%), and on a dark slide a wash that all but vanished. The 2026-11-16 status triplets made each status a curated
  * solid that sits with the categories, so tone now takes it further: 40% on light (the most at which the heading ink keeps
- * 4.5:1 on every theme; concrete's mid-gray slide and laguna's done set it), 80% on dark, where the text is the status's
+ * 4.5:1 on every theme; concrete's mid-gray slide and laguna's done set it), 88% on dark, where the text is the status's
  * own ink (`--finish-status-k-d`). tools/chart-finish-reach.mjs holds every text run. engineering/decisions/2026-11-16-status-triplets.md §4.
  */
-const TONE_STATUS = [40, 80];
+const TONE_STATUS = [40, 88];
 
 /** The levels, per finish (finish-coherence.md §Levels). `[light, dark]` pairs. */
 const F = {

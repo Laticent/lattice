@@ -139,8 +139,8 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
 - **Tone's one status level** (`tools/build-marks-css.js` `TONE_STATUS`). Under tone a status kept its own hue at the
   text level, a 30% wash on light and 35% on dark, beside category shades that start at 92%: on light the status chart
   read faded next to its pie, and on dark it all but vanished. It is now 40% on light, the most at which the heading
-  ink keeps 4.5:1 on every theme (concrete's mid-gray slide and laguna's done set it), and 80% on dark, still one level
-  per finish (#2908). On dark the body is a strong mix of the fill, so its text is the status's own ink
+  ink keeps 4.5:1 on every theme (concrete's mid-gray slide and laguna's done set it), and 88% on dark (the least at which the status ink keeps 5:1 on
+  every palette, a11y included; 80% left the a11y dark faces at 4.0), still one level per finish (#2908). On dark the body is a strong mix of the fill, so its text is the status's own ink
   (`--finish-status-k-d`: white on a brand theme, near-black on an a11y palette's bright dark face); a first cut kept the
   heading ink there and `tools/chart-finish-reach.mjs` found 192 text runs under 4.5:1, most on the a11y palettes.
 

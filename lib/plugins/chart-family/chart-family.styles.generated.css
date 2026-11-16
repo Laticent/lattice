@@ -243,9 +243,9 @@ figure.marks-tone,
   --finish-layer-8: 0.074;
   --finish-layer-ink-8: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg));
   --finish-status: 40%;
-  --finish-status-d: 80%;
+  --finish-status-d: 88%;
   --finish-status-text: 40%;
-  --finish-status-text-d: 80%;
+  --finish-status-text-d: 88%;
   --finish-ramp-lo: 10%;
   --finish-ramp-k: 0.82;
   --finish-ramp-d-lo: 40%;
