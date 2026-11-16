@@ -13,6 +13,7 @@ live here:
 | `gotchas.md` | How the gotchas work; the symptom index itself is generated into `dist/engineering/gotchas.md` |
 | `quality-assessment.md` | The 7-dimension codebase health tooling |
 | `science.md` | Map of the algorithms and models we ship (color science, Segno, Trama's router, formats, statistics), and what we deliberately don't do |
+| `testing.md` | The testing guide: the five missions mapped to our test tiers, writing and fixing flaky tests, and the traps each PR taught |
 | `jank.md` | Does a layout STAY PUT as its content grows — drift, silent collision, crowding (`check:jank`) |
 | `cascade.md`, `typography.md`, `treatments.md`, `pipeline.md`, `mermaid.md`, `visual-review.md`, `marp-independence.md` | Deep dives |
 | `decisions/` | Dated investigation/decision notes; their index is generated into `dist/engineering/decisions.md` |
