@@ -209,25 +209,32 @@ Why it matters: a stub and a mock lead to different tests. A stub supports state
 <!-- say: Five kinds of test double do five different jobs. A dummy fills a parameter and is never used. A stub returns canned answers. A spy is a stub that also records how it was called. A mock fails the test if expected calls do not happen. A fake is a simplified working version, like an in memory database. With a stub, you check the balance afterward. With a mock, you check that the ledger was called. These are Gerard Meszaros's terms. -->
 
 ---
+
 <!-- _class: columns no-spine -->
 
 ## Unit and integration tests catch different defects in the transfer.
 
-<!-- _pane: list -->
+<!-- _pane: cards-stack -->
 
 ### Unit
 
-- Checks the approval rule at role boundaries
-- Fast: a failure names one function
-- Cannot show concurrent production writes
+- Checks
+  - The approval rule at role boundaries.
+- Finds
+  - Logic faults fast: a failure names one function.
+- Blind spot
+  - Concurrent production writes.
 
-<!-- _pane: list -->
+<!-- _pane: cards-stack -->
 
 ### Integration
 
-- Checks one row and one event in a real database
-- Catches schema drift and timeouts
-- Cannot show production scale or topology
+- Checks
+  - One row and one event in a real database.
+- Finds
+  - Schema drift and timeouts.
+- Blind spot
+  - Production scale and topology.
 
 <!-- Each has a blind spot. A unit test says nothing about the database under concurrent writes; an integration test says nothing about production scale.
 
@@ -235,7 +242,7 @@ Unit tactics worth naming: parameterized cases, property-based tests, and mutati
 
 The objective decides the Integration label. A real database in a container, such as PostgreSQL, limits what the test can claim, because its size, topology and load are not production's. Consumer-driven contract tests, such as Pact, belong here too: they check that two services agree on a message shape without running both. -->
 
-<!-- describe: Two columns. Unit: checks the approval rule at role boundaries; fast, a failure names one function; cannot show concurrent production writes. Integration: checks one row and one event in a real database; catches schema drift and timeouts; cannot show production scale or topology. -->
+<!-- describe: Two columns of three stacked cards. Unit: checks the approval rule at role boundaries; finds logic faults fast, because a failure names one function; its blind spot is concurrent production writes. Integration: checks one row and one event in a real database; finds schema drift and timeouts; its blind spot is production scale and topology. -->
 
 <!-- say: Unit and integration tests catch different defects in the transfer. A unit test checks the approval rule at role boundaries. It is fast, and a failure names one function, but it cannot show concurrent writes in production. An integration test checks one row and one event in a real database. It catches schema drift and timeouts, but it cannot show production scale or topology. -->
 
@@ -340,25 +347,32 @@ Experience evidence comes from watching representative people do real tasks: mod
 <!-- say: Every system check can pass while the customer still fails. The A P I returned status two hundred, which means success. The ledger entry committed. The confirmation event was published. And the customer still did not know whether the money moved, because the screen showed a spinner until the session timed out, so they tried again. Now Safety is involved too. Experience covers accessibility, error recovery and confidence, for customers, operators and developers using an A P I. -->
 
 ---
+
 <!-- _class: columns no-spine -->
 
 ## Safety testing looks for harm from any cause, attackers included.
 
-<!-- _pane: list -->
+<!-- _pane: cards-stack -->
 
 ### Security asks
 
-- Can an attacker break it?
-- Uses threat models, penetration tests, scans
-- Stolen credentials move money
+- Question
+  - Can an attacker break it?
+- Methods
+  - Threat models, penetration tests, scans.
+- Example harm
+  - Stolen credentials move money.
 
-<!-- _pane: list -->
+<!-- _pane: cards-stack -->
 
 ### Safety asks
 
-- Can the operation cause harm?
-- Uses hazard analysis, fault injection, drills
-- A $500 transfer sent twice, no attacker
+- Question
+  - Can the operation cause harm?
+- Methods
+  - Hazard analysis, fault injection, drills.
+- Example harm
+  - A $500 transfer sent twice, no attacker.
 
 <!-- Analogy: a locked, alarmed car is secure. Parked in a flood zone, it is still not safe.
 
@@ -366,13 +380,13 @@ Nancy Leveson's work on system safety, in Engineering a Safer World, makes the k
 
 Harm can be financial, physical, legal, or a privacy loss. Security is one input to safety, and it cannot stand in for the rest. -->
 
-<!-- describe: Two columns. Security asks: can an attacker break it; uses threat models, penetration tests and scans; example, stolen credentials move money. Safety asks: can the operation cause harm; uses hazard analysis, fault injection and drills; example, a five hundred dollar transfer sent twice, no attacker. -->
+<!-- describe: Two columns of three stacked cards. Security asks whether an attacker can break it, using threat models, penetration tests and scans; example harm: stolen credentials move money. Safety asks whether the operation can cause harm, using hazard analysis, fault injection and drills; example harm: a 500 dollar transfer sent twice, with no attacker. -->
 
 <!-- say: Safety testing looks for harm from any cause, attackers included. Security asks whether an attacker can break it, using threat models, penetration tests and scans; its classic harm is stolen credentials moving money. Safety asks whether the operation can cause harm at all, using hazard analysis, fault injection and drills. A five hundred dollar transfer sent twice needs no attacker. -->
 
 ---
 
-<!-- _class: flowchart -->
+<!-- _class: flowchart tb -->
 
 ## Three correct services can still send the same transfer twice.
 
@@ -417,9 +431,9 @@ Ask: "Which of our five missions would have caught this?" Safety, run at System 
 - Knowns
   - We know the condition and the expected result. Example-based tests and contract tests confirm it.
 - Known unknowns
-  - We know the class of risk, not the case. Property tests, fuzzing and fault injection generate cases.
+  - We know the class, not the case. Property tests, fuzzing and fault injection find it.
 - Unknown unknowns
-  - We know nothing yet. Exploratory testing, chaos experiments and incident review make a surprise more likely.
+  - We know nothing yet. Exploration, chaos experiments and incident review invite a surprise.
 
 — Discovery raises the odds of a useful surprise. No technique guarantees completeness.
 
@@ -431,7 +445,7 @@ Unknown unknowns: we cannot write a test for a condition we have not conceived. 
 
 The cards describe the dominant intent. Fuzzing can confirm robustness against a known class and also find something new. -->
 
-<!-- describe: Three stacked cards. Knowns: we know the condition and the expected result; example-based tests and contract tests confirm it. Known unknowns: we know the class of risk, not the case; property tests, fuzzing and fault injection generate cases. Unknown unknowns: we know nothing yet; exploratory testing, chaos experiments and incident review make a surprise more likely. Footnote: discovery raises the odds of a useful surprise, and no technique guarantees completeness. -->
+<!-- describe: Three stacked cards. Knowns: we know the condition and the expected result; example-based tests and contract tests confirm it. Known unknowns: we know the class, not the case; property tests, fuzzing and fault injection find it. Unknown unknowns: we know nothing yet; exploration, chaos experiments and incident review invite a surprise. Footnote: discovery raises the odds of a useful surprise, and no technique guarantees completeness. -->
 
 <!-- say: Confirm the known, and search for what you never imagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents. -->
 
@@ -724,14 +738,14 @@ Give the room a full minute. Take three answers before the reveal. Expect System
 
 ## No mission: just a tool, a place and a scenario.
 
-- Playwright
+- Playwright `[x]`
   - The tactic: how the test is exercised.
-- Staging
+- Staging `[x]`
   - The environment: where the test runs.
-- Transfer flow
+- Transfer flow `[x]`
   - The scenario: what the test walks through.
-- Mission: missing
-  - The risk to reduce. Nothing in the sentence names it.
+- Mission `[!]`
+  - Missing. Nothing in the sentence names the risk to reduce.
 
 — A transfer at parity under load is System. Users understanding it is Experience. A double send is Safety.
 
@@ -741,7 +755,7 @@ If the goal is that the assembled transfer works at production parity, it is Sys
 
 Mission decides the classification. Fidelity decides whether the evidence is good enough. -->
 
-<!-- describe: Four cards under the label Reveal. Playwright: the tactic, how the test is exercised. Staging: the environment, where the test runs. Transfer flow: the scenario, what the test walks through. Mission, missing: the risk to reduce, and nothing in the sentence names it. Footnote: a transfer at parity under load is System, users understanding it is Experience, and a double send is Safety. -->
+<!-- describe: Four cards under the label Reveal. Three carry a yes mark: Playwright, the tactic, how the test is exercised; Staging, the environment, where the test runs; Transfer flow, the scenario, what the test walks through. The fourth, Mission, carries a no mark: missing, because nothing in the sentence names the risk to reduce. Footnote: a transfer at parity under load is System, users understanding it is Experience, and a double send is Safety. -->
 
 <!-- say: The answer: the sentence names a tool, a place and a scenario, and no mission. Playwright is a tactic. Staging is an environment. The transfer flow is a scenario. If the goal is a transfer at parity under load, it is System. If it is whether users understand it, it is Experience. If it is whether a double click sends twice, it is Safety. -->
 
@@ -796,11 +810,13 @@ This is the slide to leave up during questions. -->
 - Why not a coverage target
   - Coverage measures lines run; it cannot see which risks a suite detects.
 
+— Take two minutes now: write down your weakest mission, and one test that would strengthen it.
+
 <!-- This is the one thing to do after the session. Give everyone two minutes to write down their weakest mission and one concrete test or review that would strengthen it. Take three examples aloud.
 
 The two rejected options are the usual reflexes. Both make a dashboard move without changing what the suite can find. -->
 
-<!-- describe: A decision slide, subtitled the ask, with three cards. Strengthen the weakest mission: add one test or review this week, with its mission and evidence named. Why not more end to end tests: more of the same scope adds runtime and no new kind of evidence. Why not a coverage target: coverage measures lines run, and cannot see which risks a suite detects. -->
+<!-- describe: A decision slide, subtitled the ask, with three cards. Strengthen the weakest mission: add one test or review this week, with its mission and evidence named. Why not more end to end tests: more of the same scope adds runtime and no new kind of evidence. Why not a coverage target: coverage measures lines run, and cannot see which risks a suite detects. Footnote: take two minutes now to write down your weakest mission, and one test that would strengthen it. -->
 
 <!-- say: Here is the ask. Start with the mission your project has the least evidence for, and add one test or review for it this week, with its mission and evidence named. More end to end tests would add runtime and no new kind of evidence. A coverage target would measure lines run, and miss which risks the suite detects. -->
 
