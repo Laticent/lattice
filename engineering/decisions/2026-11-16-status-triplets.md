@@ -67,9 +67,12 @@ the owner's number stands. (Carbone's light rows, 26-30% of their own pale inks,
 
 **Kanban cards moved on the dark face.** A kanban status pill sits on its card, and two dark cards were too light for
 any trio to clear at "half": the plain card was `--bg-alt` lifted 12% toward white, and the keyline card mixed in 28%
-of `--border` (ardesia: `#525252`). The lift is now 4% and the keyline step 12%; both cards stay above the slide, and
-keep their hairline border. Before this, 65 of the 168 brand pill-on-washed-card pairs fell below 4.5:1 (worst 3.49:1,
-concrete dark vivid warn); now none does.
+of `--border`. The lift is now 4% and the keyline step 12%; the dark washed card and the `tinted` board's dark card,
+both built on the lift, move with it. The cards stay above the slide, but closer: card against slide fell from
+1.45-2.07:1 to 1.17-1.66:1 (cuoio is the lowest), the hairline border carries more of the edge, and a keyline card
+now sits within a shade of a plain one. That is a visible change, put to the owner with the dark boards rendered.
+Before this, 65 of the 168 brand pill-on-washed-card pairs fell below 4.5:1 (worst 3.49:1, concrete dark vivid warn);
+now none does (worst 4.51:1 as the browser paints it, magnolia light at-risk).
 
 ## 4. How it is wired
 
@@ -127,8 +130,8 @@ and warn on the brand accent in cuoio and mustard; both are now rules of the con
   colorblind floor on them (cvd-trio-floor's first table) is untouched.
 - **Categories and the neutral** keep the one ink `--on-mark` and their 7:1 / 4.6:1 bars.
 - **The a11y palettes**, in every token.
-- **Kanban card washes**, which are status TINTS under the heading ink, not solids. Only the dark face's plain and
-  keyline card grounds moved (above).
+- **Kanban card washes**, which are status TINTS under the heading ink, not solids. On the dark face the cards under
+  them moved (above): the plain, keyline, washed and `tinted` cards all sit closer to the slide.
 
 ## 7. Follow-ups
 

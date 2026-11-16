@@ -147,7 +147,7 @@ const STATECHART_JS = 'lib/plugins/chart-family/kinds/state-chart/state-chart.la
 const ELEMENTS = 'lib/base/base.elements.css';
 
 // The kanban card's own opaque fill — the base every in-card surface sits on. Light is
-// `--bg-alt` flat; DARK lifts it 12% toward white, so a dark card sits LIGHTER than the
+// `--bg-alt` flat; DARK lifts it 4% toward white, so a dark card sits LIGHTER than the
 // canvas and an ink tuned against `--bg` has less to work with, not more.
 const KANBAN_CARD = 'light-dark(var(--bg-alt), color-mix(in oklab, var(--bg-alt) 96%, white))';
 // The inline-code chip's ink, spelled as base.elements.css spells it. Its own background

@@ -85,8 +85,18 @@ function parseArgs(argv) {
 }
 
 /** The theme's own colors, its slides and its paper / night: what the triplet is anchored on. */
-function themeFacts(theme) {
-  const V = mergedVars(theme);
+// The kanban card, as lib/plugins/chart-family/kinds/kanban/kanban.styles.css paints it (`.kanban-card` and the washed
+// `[data-s]` rule), over `--state-X-fill` from chart-family.styles.css. Keep these mixes in step with those two files;
+// test/unit/tools/curate-status-triplets.test.js fails when they drift.
+const KANBAN = {
+  lift: 'color-mix(in oklab, var(--bg-alt) 96%, white)',
+  keyline: { light: 'color-mix(in oklab, var(--bg-alt) 92%, var(--border))', dark: 'color-mix(in oklab, var(--bg-alt) 88%, var(--border))' },
+  wash: { light: 'color-mix(in oklab, var(--cstx-hue) 24%, var(--bg))', dark: 'color-mix(in oklab, var(--cstx-hue) 50%, black)' },
+  mute: { light: 'color-mix(in oklab, var(--cstx-hue) 22%, var(--bg))', dark: 'color-mix(in oklab, var(--cstx-hue) 46%, black)' },
+  card: { light: 'color-mix(in oklab, var(--cstx-wash) 55%, var(--bg-alt))', dark: 'color-mix(in oklab, var(--cstx-wash) 26%, var(--cstx-lift))' },
+};
+
+function themeFacts(theme, V = mergedVars(theme)) {
   const get = (t, dark) => { const v = resolveTokenExpr(V[t], V, dark); return /^#[0-9a-f]{6}$/i.test(String(v).trim()) ? String(v).trim().toUpperCase() : null; };
   const anchors = Object.keys(V).filter((k) => /^brand-|^accent$|^chart-cat[1-8]$/.test(k)).map((k) => [k, get(k, false)]).filter((x) => x[1]);
   const anchor = {};
@@ -112,15 +122,6 @@ function themeFacts(theme) {
     if (!m) throw new Error(`${theme}: --${expr} resolves to "${v}" on the ${dark ? 'dark' : 'light'} face; status fills cannot be checked against it`);
     const a = Number(m[4]), b = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
     return `#${[1, 2, 3].map((i, k) => Math.round(Number(m[i]) * a + b[k] * (1 - a)).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
-  };
-  // The kanban card, as lib/plugins/chart-family/kinds/kanban/kanban.styles.css paints it (`.kanban-card` and the washed
-  // `[data-s]` rule), over `--state-X-fill` from chart-family.styles.css. Keep these mixes in step with those two files.
-  const KANBAN = {
-    lift: 'color-mix(in oklab, var(--bg-alt) 96%, white)',
-    keyline: { light: 'color-mix(in oklab, var(--bg-alt) 92%, var(--border))', dark: 'color-mix(in oklab, var(--bg-alt) 88%, var(--border))' },
-    wash: { light: 'color-mix(in oklab, var(--cstx-hue) 24%, var(--bg))', dark: 'color-mix(in oklab, var(--cstx-hue) 50%, black)' },
-    mute: { light: 'color-mix(in oklab, var(--cstx-hue) 22%, var(--bg))', dark: 'color-mix(in oklab, var(--cstx-hue) 46%, black)' },
-    card: { light: 'color-mix(in oklab, var(--cstx-wash) 55%, var(--bg-alt))', dark: 'color-mix(in oklab, var(--cstx-wash) 26%, var(--cstx-lift))' },
   };
   const kanbanCard = (st, fill, dark) => {
     const k = dark ? 'dark' : 'light';
@@ -354,6 +355,6 @@ function main() {
   if (o.check && failed) process.exit(1);
 }
 
-module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT };
+module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, KANBAN };
 
 if (require.main === module) main();

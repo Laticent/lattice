@@ -43,10 +43,13 @@
  *   the number is proposed, not calibrated against viewers yet.
  *
  * WHAT COUNTS AS A STATUS MARK (found in the DOM, so the tool needs no per-deck setup): a chart
- * member carrying `data-s` that paints an AREA at least 6px each way (an HTML box with a background,
- * an SVG rect / circle / ellipse / polygon / path with a fill: pills, progress fills, gantt bars,
- * state tiles, risk cells), a `.lat-state` / `td .state` disc, a checklist row's `::before` disc,
- * and a `.lat-pill` that wears one of the slide's status fills (a kpi pill; not a citation pill).
+ * member carrying `data-s` that paints an AREA at least 6px each way (an HTML box painted with one of
+ * the slide's status fills, or an SVG rect / circle / ellipse / polygon / path with a fill: pills,
+ * progress fills, gantt bars, state tiles), a `.lat-state` / `td .state` disc, a checklist row's
+ * `::before` disc, a roadmap cell or legend disc and a policy badge (each a `::before` in a status
+ * fill), a risk-matrix key disc, and a `.lat-pill` that wears one of the slide's status fills (a kpi
+ * pill; not a citation pill). A kanban card is a wash of its status, not a solid, and is not a mark;
+ * nor are the risk matrix's cells, which tile a grid, so each one's surround is its neighbors.
  * Text that carries `data-s`, the drawn mark glyph, and a sliver (a gantt bar's 4px leading accent,
  * read with the bar it belongs to) are not marks of their own. The status is read from `data-s`,
  * the state class, or, for a pill, the status fill it matches.
@@ -239,6 +242,39 @@ const FIND_MARKS = (STATUS_OF) => {
     for (const el of sec.querySelectorAll('.lat-pill')) {
       const st = fillOf(getComputedStyle(el).backgroundColor);
       if (st) add(el.getBoundingClientRect(), st, 'pill');
+    }
+    // A status solid drawn as a `::before` (a roadmap cell or legend disc, a policy badge). The box comes from the
+    // pseudo's own computed geometry: absolute against its containing block, or in flow at the host's start. It counts
+    // only when it wears a status fill, so a neutral `planned` disc or a stance badge on a non-status ground is skipped.
+    const px1 = (v) => parseFloat(v) || 0;
+    for (const el of sec.querySelectorAll('.roadmap-legend-mark, .cell-state-text, .row-text, .masthead-bay')) {
+      const b = getComputedStyle(el, '::before');
+      if (b.content === 'none' || b.display === 'none') continue;
+      const st = fillOf(b.backgroundColor);
+      if (!st) continue;
+      const w = px1(b.width) + px1(b.paddingLeft) + px1(b.paddingRight) + px1(b.borderLeftWidth) + px1(b.borderRightWidth);
+      const h = px1(b.height) + px1(b.paddingTop) + px1(b.paddingBottom) + px1(b.borderTopWidth) + px1(b.borderBottomWidth);
+      let left, top;
+      if (b.position === 'absolute') {
+        const host = getComputedStyle(el).position !== 'static' ? el : el.offsetParent;
+        if (!host) continue;
+        const hr = host.getBoundingClientRect(), hs = getComputedStyle(host);
+        left = hr.left + px1(hs.borderLeftWidth) + px1(b.left);
+        top = hr.top + px1(hs.borderTopWidth) + px1(b.top);
+      } else {
+        const r = el.getBoundingClientRect(), es = getComputedStyle(el);
+        left = r.left + px1(es.borderLeftWidth) + px1(es.paddingLeft);
+        top = r.top + px1(es.borderTopWidth) + px1(es.paddingTop);
+      }
+      add({ left, top, width: w, height: h }, st, 'disc');
+    }
+    // The risk matrix's key discs wear their risk BAND (the cells' fill, which on a dark slide is a mix of the status
+    // fill, not the fill itself) and carry no `data-s`, so the band names the status. The matrix's own cells are NOT
+    // marks: they tile a grid edge to edge, so a cell's surround is its neighbor cells, not a ground it stands off.
+    const BAND = { low: 'pass', medium: 'warn', high: 'fail', critical: 'fail' };
+    for (const el of sec.querySelectorAll('circle.risk-key-marker[data-band]')) {
+      const st = BAND[el.getAttribute('data-band')];
+      if (st && !clear(getComputedStyle(el).fill)) add(el.getBoundingClientRect(), st, 'risk-key');
     }
   });
   return out;

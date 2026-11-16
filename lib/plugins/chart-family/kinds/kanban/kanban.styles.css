@@ -132,7 +132,8 @@
  * below). --lane-color is still inherited from the card's style attribute but is
  * inert by default; the variants opt back into it. */
 .kanban-card {
-  /* Distinctly elevated above the canvas in BOTH modes: lighter than canvas. On dark the lift is 4% white, not more:
+  /* Elevated above the canvas in BOTH modes: lighter than canvas, with the hairline border carrying the edge on dark,
+   * where the lift is 4% white, not more:
    * a status pill sits on this card and must clear 4.5:1 against it (engineering/decisions/2026-11-16-status-
    * triplets.md §3). At 12% white every status fill had to be so light that pass and fail lost their colorblind
    * separation. tools/curate-status-triplets.js mirrors this mix; keep the two in step. */
