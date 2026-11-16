@@ -96,15 +96,23 @@ async function openStudioDeck(page: Page, source: string = deck) {
 			return !!fr && fr.style.opacity === '1' && fr.style.pointerEvents !== 'none';
 		}), { timeout: 30_000, message: 'the live preview never revealed' })
 		.toBe(true);
-	// The resize re-fits the scaled frame; click only once its box has stopped moving.
+	// The resize re-fits the scaled frame; click only once its box has stopped moving, and only a frame laid out for THIS
+	// viewport. Right after a resize to a phone the desktop frame can still be the live one: revealed, steady across two
+	// reads, and with its photos off the phone's screen. A loaded run tapped x 833 on a 393 px phone and nothing opened.
 	let last = '';
 	await expect
 		.poll(async () => {
 			const now = JSON.stringify(await photoPoint(page, 0));
 			const same = now !== 'null' && now === last;
 			last = now;
-			return same;
-		}, { intervals: [250], timeout: 15_000 })
+			const onScreen = await page.evaluate(() => {
+				const fr = document.querySelector('iframe.live') as HTMLIFrameElement | null;
+				const r = fr?.getBoundingClientRect();
+				return !!r && r.width > 0 && r.left >= 0 && r.right <= window.innerWidth + 1;
+			});
+			const p = now === 'null' ? null : (JSON.parse(now) as { x: number; y: number });
+			return same && onScreen && !!p && p.x >= 0 && p.x <= target.width && p.y >= 0 && p.y <= target.height;
+		}, { intervals: [250], timeout: 15_000, message: 'the preview never settled on screen at this viewport' })
 		.toBe(true);
 	// The bridge is installed by the parent after the frame paints; wait for it rather than race it.
 	await expect
