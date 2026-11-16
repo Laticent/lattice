@@ -22,6 +22,7 @@ describe('the shipped old-browser check', () => {
 	});
 
 	it('stays small: every page carries it', () => {
-		expect(Buffer.byteLength(shipped)).toBeLessThan(1400);
+		// 1,343 bytes before the hider painted a literal --bg (legacy Edge's mustard flash on refresh), about 1,490 after.
+		expect(Buffer.byteLength(shipped)).toBeLessThan(1550);
 	});
 });

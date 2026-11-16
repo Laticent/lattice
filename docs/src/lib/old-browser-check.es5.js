@@ -42,8 +42,13 @@ function latticeOldBrowserCheck(checks, src) {
 	// until then the reader would see the broken page. The notice takes this away as it shows, its solid veil over the page.
 	var veil = document.createElement('style');
 	veil.id = 'lattice-old-browser-veil';
-	// Painted in the color the notice's veil starts in, so nothing shifts when it takes over.
-	veil.appendChild(document.createTextNode('html{background:white;background:var(--bg,Canvas)}body{visibility:hidden}'));
+	// Painted in the color the notice's veil starts in, so nothing shifts when it takes over. As a literal, read once
+	// here: legacy Edge flashed the whole window mustard on every refresh while a var(--bg,Canvas) form painted it, and a
+	// literal color leaves an engine nothing to resolve. The stylesheet has applied by now (a script waits for it).
+	// Every palette's --bg is a hex color; anything else (none yet, an engine without custom properties) gets a plain one.
+	var bg = /#\w+/.exec(getComputedStyle(document.documentElement).getPropertyValue('--bg'));
+	bg = bg ? bg[0] : document.documentElement.getAttribute('data-mode') === 'dark' ? '#111' : '#fff';
+	veil.appendChild(document.createTextNode('html{background:' + bg + '}body{visibility:hidden}'));
 	document.head.appendChild(veil);
 	// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 	var lift = function () {

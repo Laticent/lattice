@@ -102,7 +102,17 @@ describe('the inline check in <head>', () => {
 			check(/^$/);
 			expect(hider()).toBeNull();
 			check(/:has\(/);
-			expect(hider()?.textContent).toBe('html{background:white;background:var(--bg,Canvas)}body{visibility:hidden}');
+			// No palette here, so no --bg: a plain light background, still a literal.
+			expect(hider()?.textContent).toBe('html{background:#fff}body{visibility:hidden}');
+		});
+
+		it("paints the page's own --bg as a literal color, never a var() an old engine resolves (legacy Edge's mustard flash)", () => {
+			const palette = document.createElement('style');
+			palette.textContent = ':root{--bg:#faf7f2}';
+			document.head.append(palette);
+			check(/:has\(/);
+			expect(hider()?.textContent).toBe('html{background:#faf7f2}body{visibility:hidden}');
+			expect(hider()?.textContent).not.toContain('var(');
 		});
 
 		it('not once this tab chose Continue anyway', () => {
@@ -472,6 +482,18 @@ describe('on the Studio and the Playground', () => {
 		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
 		expect(getComputedStyle(main).visibility).not.toBe('hidden');
 		expect(getComputedStyle(tinted).visibility).toBe('visible');
+	});
+
+	it('?lob-debug prints the colors this engine computed, and nothing appears without it', () => {
+		expect(run('SomeBrowser/1.0').querySelector('[data-testid="lob-trace"]')).toBeNull();
+		document.body.innerHTML = '';
+		history.replaceState(null, '', '/?lob-debug');
+		try {
+			const trace = run('SomeBrowser/1.0').querySelector('[data-testid="lob-trace"]');
+			expect(trace?.textContent).toMatch(/^hider none\nshow,\d+,html .*, body .*, veil /);
+		} finally {
+			history.replaceState(null, '', '/');
+		}
 	});
 
 	it('Continue anyway also marks the page, for a tab whose storage throws', () => {

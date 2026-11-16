@@ -284,6 +284,43 @@
 		return wrap;
 	}
 
+	// `?lob-debug`: the colors this engine computes as the notice takes over, shown in the card so a reader on a browser we
+	// can't run (legacy Edge) can send a screenshot. It reads, and saves its own readings at pagehide for the next load.
+	function traceColors(card, veil, pageHider) {
+		var root = document.documentElement;
+		var trace = [['hider ' + (pageHider ? pageHider.textContent : 'none')]];
+		var out = el('pre');
+		out.setAttribute('data-testid', 'lob-trace');
+		out.style.cssText = 'font:11px/1.4 monospace;white-space:pre-wrap;padding:8px 0 0;margin:0';
+		card.appendChild(out);
+		function colors() {
+			return 'html ' + getComputedStyle(root).backgroundColor + ', body ' + getComputedStyle(document.body).backgroundColor + ', veil ' + getComputedStyle(veil).backgroundColor;
+		}
+		function sample(label) {
+			var cs = getComputedStyle(root);
+			trace.push([label, Date.now(), colors(), '--bg ' + cs.getPropertyValue('--bg') + ' --accent ' + cs.getPropertyValue('--accent')]);
+			out.textContent = trace.join('\n');
+		}
+		try {
+			if (sessionStorage.getItem('lob-trace-prev')) trace.push(['previous page, at pagehide: ' + sessionStorage.getItem('lob-trace-prev')]);
+		} catch (_e) {}
+		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
+		window.addEventListener('pagehide', function () {
+			try {
+				sessionStorage.setItem('lob-trace-prev', colors());
+			} catch (_e) {}
+		});
+		sample('show');
+		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
+		setTimeout(function () {
+			sample('show+50ms');
+		}, 50);
+		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
+		setTimeout(function () {
+			sample('show+600ms');
+		}, 600);
+	}
+
 	function show() {
 		if (document.getElementById(ID)) return;
 		var root = document.documentElement;
@@ -515,6 +552,9 @@
 		// mark returns from "failed", so the Studio's gate takes its own screen down rather than stacking one on this.
 		if (root.getAttribute('data-old-browser') === 'failed') root.setAttribute('data-old-browser', '');
 		title.focus();
+		// `?lob-debug`: the colors this engine computes as the notice takes over,
+		// shown in the card so a reader on a browser we can't run can send a screenshot. Reads only.
+		if (/[?&]lob-debug/.test(location.search)) traceColors(card, veil, pageHider);
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		setTimeout(function () {
 			screen.className = 'lob-in';

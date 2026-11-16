@@ -507,6 +507,13 @@ versions and how to update, and it looks like the site, not like an error page.
     body's computed color as a literal, in case an engine drops the `var(--bg,Canvas)` form. Real Chromium 101, the veil
     forced clear and the card held at opacity 0: with the rule, only the background; without it, the broken landing page
     and its mustard button.
+  - **Then the whole window, on every refresh (owner, Edge 15: whole screen, before any text, light mode, F5 and
+    Ctrl+F5 alike; never on a first visit).** That is the `<head>` check's own background, the only thing painting the
+    window then. It painted `var(--bg,Canvas)`; it now reads `--bg` once and paints the literal hex (white or near-black
+    by mode when none is readable), leaving legacy Edge no variable or `Canvas` keyword to resolve. Not reproducible
+    in Chromium 101 or Firefox 115, so `?lob-debug` on any page makes the notice print what the engine computed: the
+    hider rule, the html, body and veil backgrounds at show, +50 ms and +600 ms, and the same three saved at the previous
+    page's `pagehide`, for a screenshot from the engine we cannot run. Reads only; off without the flag.
   - **No color shift on the handoff (owner).** The page-hider paints `html` in `--bg`, the color the notice's veil
     starts in, and the veil and glow fade in with the card (0.5 s) instead of arriving in one frame. Real Chromium 101,
     transitions paused with `getAnimations()` at 0/250/500 ms: the notice's first frame equals the hidden page (light
