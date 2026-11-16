@@ -374,6 +374,24 @@
       "deckChars": 134372,
       "ms": 2.52,
       "p95": 5.39
+    },
+    "filo · studio commit: typed word": {
+      "deckChars": 134372,
+      "nextChars": 134379,
+      "ms": 0.16,
+      "p95": 0.24
+    },
+    "filo · studio commit: settings write": {
+      "deckChars": 134372,
+      "nextChars": 134357,
+      "ms": 0.09,
+      "p95": 0.17
+    },
+    "filo · studio commit: whole-deck replace": {
+      "deckChars": 134372,
+      "nextChars": 11,
+      "ms": 0,
+      "p95": 0
     }
   },
   "squadraDatasets": {

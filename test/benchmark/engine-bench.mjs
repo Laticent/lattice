@@ -917,10 +917,74 @@ async function filoTier() {
     const rows = await composeUndoRows(deck);
     if (rows) summary.push(...rows);
   }
+  {
+    const rows = await studioCommitRows(deck);
+    if (rows) summary.push(...rows);
+  }
   console.log('\n=== FILO · the undo history on the 134 KB deck (system-design-foundations) ===');
   console.log(`${'dataset'.padEnd(48)}${'work'.padEnd(40)}${'median ms'.padStart(11)}${'p95 ms'.padStart(9)}`);
   for (const r of summary) console.log(`${r.dataset.padEnd(48)}${JSON.stringify(r.work).padEnd(40)}${r.ms.toFixed(3).padStart(11)}${r.p95.toFixed(3).padStart(9)}`);
   return { summary };
+}
+
+/**
+ * THE STUDIO'S COMMIT (§4.3): the step `filo:commit` measures in the browser. The Studio hands Filo the whole source and
+ * the intent that produced it (`commitSource`, docs/src/components/studio/studio-filo.ts), and Filo either applies the
+ * editor's edits or trims a replace out of the two texts. The 16 ms budget lived in docs/e2e/filo-undo.spec.ts as a
+ * pass/fail assertion and failed on WebKit's 1 ms clock under load; the owner moved it here (2026-11-16), where it is a
+ * cost tracked against the baseline (HARD RULE #19), not a verdict. Each run times the commit alone, on a fresh history.
+ * The rows are the steps that e2e drives: a typed word (with the editor's edits), a settings write (no edits, so a
+ * trimmed replace), and the whole deck replaced.
+ */
+async function studioCommitRows(deckText) {
+  const docsModules = join(ROOT, 'docs/node_modules');
+  if (!existsSync(join(docsModules, 'react'))) {
+    console.log('\n(filo · studio commit rows skipped: the docs app has no node_modules in this tree)');
+    return null;
+  }
+  const { build } = await import('esbuild');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(join(tmpdir(), 'bench-studio-commit-'));
+  try {
+    const entry = join(dir, 'entry.ts');
+    writeFileSync(entry, "export { commitSource } from '@/components/studio/studio-filo';\nexport { History } from '@/lib/filo';\n");
+    const out = join(dir, 'studio-commit.cjs');
+    await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile: out, alias: { '@': join(ROOT, 'docs/src') }, nodePaths: [docsModules, join(ROOT, 'node_modules')], logLevel: 'error' });
+    const { createRequire } = await import('node:module');
+    const m = createRequire(import.meta.url)(out);
+    const at = deckText.indexOf('\n', Math.floor(deckText.length / 2));
+    const word = ' budget';
+    const typed = deckText.slice(0, at) + word + deckText.slice(at);
+    const heading = deckText.indexOf('# ');
+    const renamed = `${deckText.slice(0, heading)}# Budget deck${deckText.slice(deckText.indexOf('\n', heading))}`;
+    const replaced = '# Replaced\n';
+    const steps = [
+      ['typed word', typed, { label: 'Typing', origin: 'markdown', edits: [{ from: at, to: at, insert: word }] }],
+      ['settings write', renamed, { label: 'Rename', origin: 'settings' }],
+      ['whole-deck replace', replaced, { label: 'Typing', origin: 'markdown', edits: [{ from: 0, to: deckText.length, insert: replaced }] }],
+    ];
+    const rows = [];
+    for (const [label, next, intent] of steps) {
+      const times = [];
+      let outcome = '';
+      for (let i = 0; i < 33; i++) {
+        let t = 0;
+        const h = new m.History('bench', deckText, { now: () => (t += 100) });
+        const t0 = process.hrtime.bigint();
+        outcome = m.commitSource(h, next, { ...intent, text: next, seq: i });
+        const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+        if (outcome !== 'committed') throw new Error(`filo tier: the studio commit of ${label} was ${outcome}, not committed`);
+        if (h.text !== next) throw new Error(`filo tier: the studio commit of ${label} left the wrong text`);
+        if (i >= 3) times.push(ms); // the first three warm the JIT
+      }
+      const r = median(times);
+      rows.push({ dataset: `filo · studio commit: ${label}`, work: { deckChars: deckText.length, nextChars: next.length }, ms: r.ms, p95: r.p95 });
+    }
+    return rows;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 /** The Compose rows of the Filo tier, or null when the docs app's packages are not installed. */
