@@ -385,6 +385,29 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 		expect(docToDeck(view.state.doc)).not.toMatch(/!\[bg/);
 	});
 
+	it('a slide split on its headings: a picture is placed by its own part, and only the first part may be placed from here', () => {
+		// A spot class written before the second heading governs that part only; Compose keeps it at the slide node's head, so the
+		// reader puts it back where the source has it (the checker on #3239: the first part's picture read as placed, its control open).
+		const deck = (lead: string, second: string) => `---\ntheme: indaco\n---\n\n${lead}## One\n\n![A](https://x.test/a.jpg)\n\n${second}## Two\n\n![B](https://x.test/b.jpg)\n`;
+		const read = (md: string) => {
+			const view = mount(md);
+			return images(view).map((p) => placementAt(view.state, p.pos));
+		};
+		expect(read(deck('', '<!-- _class: image -->\n'))).toEqual([
+			{ placement: 'none', canPlace: false },
+			{ placement: 'right', canPlace: false },
+		]);
+		// The first part's own picture is still Compose's to place: writing its `_class` places it, and the engine agrees.
+		expect(read(deck('', ''))[0]).toEqual({ placement: 'none', canPlace: true });
+		expect(read(deck('<!-- _class: content -->\n', ''))[0]).toEqual({ placement: 'none', canPlace: true });
+		// A running class carried into the first part is not this slide's to change.
+		expect(read(deck('<!-- class: content -->\n', ''))[0]).toEqual({ placement: 'none', canPlace: false });
+		expect(read(deck('<!-- _class: image -->\n', ''))).toEqual([
+			{ placement: 'right', canPlace: true },
+			{ placement: 'none', canPlace: false },
+		]);
+	});
+
 	it('an old `![bg …]` picture loses its keywords when placed, and its description becomes its name', () => {
 		const view = mount(one('content', '![bg right:40% blur](asset:forest "A forest")'));
 		const [pic] = images(view);

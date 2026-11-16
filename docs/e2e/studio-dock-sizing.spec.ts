@@ -1,3 +1,6 @@
+import { DOCK } from '../src/components/studio/dock-layout';
+import { STUDIO_SPLIT_KEY } from '../src/components/studio/preview-rect';
+import { bucketFor, SPLIT_RESIZE_SETTLED } from '../src/components/ui/split-storage';
 import { layoutSettled, schedulerDrained, timersDrained } from './barriers';
 import { expect, gotoStudio, openChat, openInspector, test } from './studio-fixture';
 
@@ -88,21 +91,104 @@ test('desktop 1100: expanding an editor the person collapsed makes room instead 
 	await expect(page.getByText('Preview collapsed — rendering paused.')).toHaveCount(0);
 });
 
-test('desktop: a resize down and back keeps the dock inside its contract and every column at its minimum', async ({ page }) => {
+// Resize the window and wait until the split's settled-resize sync has run: the event the hook fires after it, then a
+// settled layout for the widths it set. Reading widths straight after the resize sees the library's percentages before
+// the sync (150 ms debounce) has put them back, which passed a mutant that dropped the person's drag.
+async function resizeTo(page: import('@playwright/test').Page, width: number): Promise<void> {
+	const before = await page.evaluate(() => (window as unknown as { __splitSettled?: number }).__splitSettled ?? 0);
+	await page.setViewportSize({ width, height: 900 });
+	await expect.poll(() => page.evaluate(() => (window as unknown as { __splitSettled?: number }).__splitSettled ?? 0)).toBeGreaterThan(before);
+	await layoutSettled(page);
+}
+
+test.beforeEach(async ({ page }) => {
+	await page.addInitScript((name) => {
+		const w = window as unknown as { __splitSettled: number };
+		w.__splitSettled = 0;
+		window.addEventListener(name, () => {
+			w.__splitSettled++;
+		});
+	}, SPLIT_RESIZE_SETTLED);
+});
+
+test('desktop: a resize down and back returns an undragged dock to its default width', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
 	await openChat(page);
-	await page.setViewportSize({ width: 1100, height: 900 });
-	await expect.poll(async () => (await widths(page))['studio-editor']).toBeGreaterThan(299);
-	await page.setViewportSize({ width: 1440, height: 900 });
-	await expect.poll(async () => (await widths(page))['studio-preview']).toBeGreaterThan(299);
-	// Inside 280–480, not back at exactly 320: the panels are sized in percentages, so the 280 floor
-	// at 1100 carries back up as a wider share (371 measured). That drift predates one-pane — two
-	// docks hid it because their fold re-ran the ideal layout — and is a follow-up of its own.
+	await expect.poll(async () => Math.round((await widths(page))['studio-assistant'])).toBe(DOCK.default);
+	await resizeTo(page, 1100);
+	expect((await widths(page))['studio-editor']).toBeGreaterThan(299);
+	await resizeTo(page, 1440);
+	// Back at DOCK.default, not 371: the panels are sized in percentages, so the 280 floor at 1100 used to carry
+	// back up as a wider share. The settled-resize sync now re-lays an undragged set out at its ideal widths.
 	const s = await widths(page);
-	expect(s['studio-assistant']).toBeGreaterThanOrEqual(279);
-	expect(s['studio-assistant']).toBeLessThanOrEqual(481);
+	expect(Math.round(s['studio-assistant'])).toBe(DOCK.default);
 	expect(s['studio-editor']).toBeGreaterThan(299);
+});
+
+test('desktop: a dock the person dragged keeps their width across a resize down and back', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await openChat(page);
+	const handle = page.getByRole('separator', { name: 'Resize panel' });
+	const box = await handle.boundingBox();
+	if (!box) throw new Error('no dock handle');
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2, { steps: 8 });
+	await page.mouse.up();
+	await expect.poll(async () => Math.round((await widths(page))['studio-assistant'])).toBeGreaterThan(DOCK.default + 40);
+	const dragged = Math.round((await widths(page))['studio-assistant']);
+	await resizeTo(page, 1100);
+	await resizeTo(page, 1440);
+	expect(Math.abs(Math.round((await widths(page))['studio-assistant']) - dragged)).toBeLessThanOrEqual(1);
+});
+
+test('desktop: a dock dragged while the editor is collapsed keeps its width across a resize down and back', async ({ page }) => {
+	// A drag with a side collapsed is not saved (the collapse would poison the remembered widths), so the resize sync
+	// must not take the set for one the person never dragged and lay it back out at 320 (the checker on this PR).
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await openChat(page);
+	await page.getByRole('button', { name: /Collapse editor/ }).first().click();
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
+	const handle = page.getByRole('separator', { name: 'Resize panel' });
+	const box = await handle.boundingBox();
+	if (!box) throw new Error('no dock handle');
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2, { steps: 8 });
+	await page.mouse.up();
+	await expect.poll(async () => Math.round((await widths(page))['studio-assistant'])).toBeGreaterThan(DOCK.default + 40);
+	await page.getByRole('button', { name: /Expand editor/ }).first().click();
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeGreaterThan(299);
+	await layoutSettled(page);
+	const before = Math.round((await widths(page))['studio-assistant']);
+	expect(before).toBeGreaterThan(DOCK.default + 40);
+	await resizeTo(page, 1100);
+	await resizeTo(page, 1440);
+	expect(Math.abs(Math.round((await widths(page))['studio-assistant']) - before)).toBeLessThanOrEqual(1);
+});
+
+test('desktop: a saved layout with a stray key does not break the resize sync', async ({ page }) => {
+	// The sync builds its target from the group's own ids: the library reads a layout by position, so passing a stored
+	// entry with an extra key threw "Invalid 3 panel layout" on every resize, and the settled event never fired.
+	const ids = ['studio-assistant', 'studio-editor', 'studio-preview'];
+	await page.addInitScript(
+		([key, bucket]) => {
+			localStorage.setItem(key, JSON.stringify({ [bucket]: { 'studio-assistant': 25, 'studio-editor': 30, 'studio-preview': 45, zzz: 5 } }));
+		},
+		[STUDIO_SPLIT_KEY, bucketFor(ids)] as const,
+	);
+	const errors: string[] = [];
+	page.on('pageerror', (e) => errors.push(e.message));
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await openChat(page);
+	await resizeTo(page, 1300);
+	await resizeTo(page, 1440);
+	expect(errors.filter((m) => /panel layout/.test(m))).toEqual([]);
+	expect((await widths(page))['studio-assistant']).toBeGreaterThanOrEqual(279);
 });
 
 test('desktop: a reload restores the person\'s editor collapse without re-showing the toast', async ({ page }) => {

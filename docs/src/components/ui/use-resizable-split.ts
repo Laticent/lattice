@@ -5,7 +5,7 @@ import { type Layout, type LayoutChangedMeta, useGroupRef, usePanelRef } from "r
 // The storage FORMAT lives in its own dependency-free module because the Studio's pre-paint
 // shell has to read it before React exists (#1495). This hook owns the behavior; it does not
 // own the shape of the strings.
-import { bucketFor, collapseKeyFor } from "./split-storage"
+import { bucketFor, collapseKeyFor, SPLIT_RESIZE_SETTLED } from "./split-storage"
 import { useIsomorphicLayoutEffect } from "./use-isomorphic-layout-effect"
 
 // Shared resizable-workspace state for the Playground + Studio, backed by
@@ -320,6 +320,9 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	// it (skip a width-restore while a pane is collapsed, so setLayout doesn't pop
 	// the pane back open). Updated by pollCollapse (onResize).
 	const collapsedRef = React.useRef({ a: false, b: false })
+	// Panel sets the person dragged while a side was collapsed. Such a drag is not saved (a collapse would poison the
+	// remembered widths), so the settled-resize sync would otherwise treat the set as never dragged and reset it.
+	const unsavedDragRef = React.useRef(new Set<string>())
 	// True during the brief window after a config change (a panel toggled) while
 	// the library re-lays-out. Adding/removing a panel makes the library expand a
 	// collapsed pane; we re-collapse it and, during this window, treat pollCollapse's
@@ -594,11 +597,40 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 						}),
 					)
 				}
+			} else if (!fresh.foldEditor && !editor.isCollapsed() && !previewRef.current?.isCollapsed()) {
+				// Nothing folds, but the widths can still have drifted. The library sizes panels in
+				// percentages and clamps them at their px floors, so a dock pushed to its 280 floor in a
+				// narrow window keeps that larger share when the window grows back: 371px at 1440, not
+				// 320 (#3222 follow-up p1). Put the widths back to what they should be for this window:
+				// the person's own saved layout for this panel set if they dragged one (the library
+				// clamps it to the floors again), else the ideal layout. Never while a side is collapsed:
+				// that collapse is its own state and both layouts would open it.
+				// Never under a hand on a divider, and never over a drag that could not be saved (one made
+				// while a side was collapsed): that set's widths are the person's, so they stay as they are.
+				const bucket = bucketOf(layout)
+				if (draggingRef.current || unsavedDragRef.current.has(bucket)) return
+				const saved = readLayoutStore(storageKey)[bucket]
+				// Built from the group's own ids, as `tryRestore` builds its target: the library reads a layout by
+				// position, so a stored entry with an extra or reordered key would throw "Invalid N panel layout".
+				let target: LayoutMap = fresh.layout
+				if (saved && ids.every((id) => typeof saved[id] === "number")) {
+					target = {}
+					for (const id of ids) target[id] = saved[id]
+				}
+				if (!layoutsMatch(layout, target)) {
+					configChangingRef.current = true
+					g.setLayout(target)
+					releaseConfigChanging()
+				}
 			}
 		}
 		const onResize = () => {
 			window.clearTimeout(timer)
-			timer = window.setTimeout(sync, 150)
+			timer = window.setTimeout(() => {
+				sync()
+				// The signal a test waits on instead of the debounce's 150 ms (HARD RULE #32): the sync has run.
+				window.dispatchEvent(new Event(SPLIT_RESIZE_SETTLED))
+			}, 150)
 		}
 		window.addEventListener("resize", onResize)
 		return () => {
@@ -671,13 +703,17 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	)
 	// Reset (⌘K "Reset split"): expand any collapsed pane, clear this config's saved
 	// layout + collapse, and restore the DEFAULT editor share of the PAIR — keeping
-	// any docked Studio side panels where they are.
+	// any docked Studio side panels where they are until the next settled window resize,
+	// which lays an unsaved set out at its ideal widths (as a reload already did).
 	const reset = React.useCallback(() => {
 		if (collapsedRef.current.a) editorRef.current?.expand()
 		if (collapsedRef.current.b) previewRef.current?.expand()
 		writeStoredCollapse(storageKey, null)
 		const g = groupRef.current
-		if (g) clearLayout(storageKey, bucketOf(g.getLayout()))
+		if (g) {
+			clearLayout(storageKey, bucketOf(g.getLayout()))
+			unsavedDragRef.current.delete(bucketOf(g.getLayout()))
+		}
 		// resize() is GROUP-relative, but the default ratio is a share of the
 		// editor|preview PAIR — so scale it by the pair's current share of the group
 		// (side panels keep their width). Deferred a frame so any expand() above has
@@ -710,8 +746,13 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 			// Persist the full layout for the ACTUAL present panel set UNLESS a pane is
 			// collapsed — a collapse is its own (sessionStorage) state, and its
 			// collapsedSize would poison the remembered widths.
+			const bucket = bucketOf(layout as LayoutMap)
 			if (!collapsedRef.current.a && !collapsedRef.current.b) {
-				writeLayout(storageKey, bucketOf(layout as LayoutMap), layout as LayoutMap)
+				writeLayout(storageKey, bucket, layout as LayoutMap)
+				unsavedDragRef.current.delete(bucket)
+			} else {
+				// Not saved, but still the person's: the settled-resize sync must not lay it back out.
+				unsavedDragRef.current.add(bucket)
 			}
 			optsRef.current.onSettle?.()
 		},

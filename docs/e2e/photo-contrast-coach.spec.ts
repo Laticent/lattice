@@ -45,7 +45,10 @@ for (const { mode, deck, ink } of CASES) {
 	for (const width of WIDTHS) {
 		// WebKit reads computed colors and the photo canvas its own way (HARD RULE #23): the light-mode case also runs there,
 		// the wide one in the tablet project and the narrow one in the phone project, each keeping its desktop run (@crosswidth).
-		const engines = mode === 'light' && width === 1440 ? ' @webkit-tablet @crosswidth' : mode === 'light' && width === 390 ? ' @webkit-phone @crosswidth' : '';
+		// Gecko too, at 1440 in both modes: Firefox drew nothing for a source rectangle of an SVG photo, so this check never spoke
+		// there and nothing ran it (card-ink-sampler.ts `meanUnderBox`, PR #3239).
+		const gecko = width === 1440 ? ' @gecko' : '';
+		const engines = (mode === 'light' && width === 1440 ? ' @webkit-tablet @crosswidth' : mode === 'light' && width === 390 ? ' @webkit-phone @crosswidth' : '') + gecko;
 		test(`a thin card on a ${ink === 'light' ? 'dark' : 'bright'} photo is flagged, and the ${ink} card ink fixes it (${mode}, ${width}px)${engines}`, async ({ page }, info) => {
 			await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
 			await page.addInitScript((m) => localStorage.setItem('lattice-docs-mode', m), mode);
@@ -87,7 +90,7 @@ test('a solid card raises no photo warning, and a warning clears when the card g
 
 // No pin clears this slide, so the finding offers the card ink that does (the dark photo wants light ink) and no pin.
 for (const width of [1440, 390]) {
-	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
+	const engines = width === 1440 ? ' @webkit-tablet @crosswidth @gecko' : ' @webkit-phone @crosswidth';
 	test(`a pin that would not clear the floor is not offered; the card ink that does is, and fixes it (${width}px)${engines}`, async ({ page }, info) => {
 		await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
 		await gotoStudio(page);
@@ -512,3 +515,48 @@ test('a tooltip opened before the measurement takes the Coach words when it land
 	await expect(finding).toBeVisible({ timeout: 20_000 });
 	expect((await finding.textContent())?.trim()).toContain(upgraded);
 });
+
+// ONE `---` SLIDE, TWO HEADING PARTS, EACH A DARK PHOTO UNDER DARK WORDS. The engine draws two slides; the photo check reads the
+// part on screen, at the engine slide the preview draws for it, and its fix writes into that part's own class (PR #3239).
+// Before, the check read the whole `---` slide, saw two lone pictures and said nothing. Then the caret goes back to the first
+// part: the preview must follow it, and on a phone the preview is parked behind the Coach, which kept it on the second part.
+// The persisted source is stored as JSON; read it as the text the author sees.
+async function deckText(page: import('@playwright/test').Page): Promise<string> {
+	const raw = await persistedSource(page);
+	try {
+		return String(JSON.parse(raw));
+	} catch {
+		return raw;
+	}
+}
+const SPLIT_DECK =
+	'---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n\n<!-- _class: image spotlight card-clear -->\n## A second harbor.\n\n![Another harbor](sample:photo-wide.svg)\n';
+for (const width of [1440, 390]) {
+	const engines = width === 1440 ? ' @webkit-tablet @gecko @crosswidth' : ' @webkit-phone @crosswidth';
+	test(`a slide split on its headings: each part's photo is checked, and the fix is that part's (${width}px)${engines}`, async ({ page }) => {
+		await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
+		await gotoStudio(page);
+		await typeDeck(page, SPLIT_DECK);
+		// The caret ends in the second part, so the preview shows engine slide 2.
+		await openCoach(page);
+		const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
+		await expect(warning).toBeVisible({ timeout: 20_000 });
+		await page.getByRole('button', { name: 'Set card ink light' }).filter({ visible: true }).first().click();
+		await expect.poll(() => deckText(page)).toMatch(/<!-- _class: image spotlight card-clear ink-light -->\n## A second harbor\./);
+		expect((await deckText(page)).match(/ink-light/g)).toHaveLength(1);
+
+		// Back to the first part, whose photo is still unread by any fix.
+		// A phone shows the Coach as a sheet over the editor: close it, then open the source.
+		if (width < 700) {
+			await page.keyboard.press('Escape');
+			await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+		}
+		await page.locator('.cm-line', { hasText: 'A quiet harbor.' }).first().click();
+		// The Coach tool toggles: open it again only where the source took its place (a phone).
+		if (!(await page.getByText('Deck read').filter({ visible: true }).count())) await openCoach(page);
+		await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
+		await page.getByRole('button', { name: 'Set card ink light' }).filter({ visible: true }).first().click();
+		await expect.poll(() => deckText(page)).toMatch(/<!-- _class: image spotlight card-clear ink-light -->\n\n## A quiet harbor\./);
+		expect((await deckText(page)).match(/ink-light/g)).toHaveLength(2);
+	});
+}

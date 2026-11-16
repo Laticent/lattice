@@ -1,0 +1,3 @@
+- The Coach's photo-contrast warning now appears in Firefox. Firefox drew nothing when the Studio sampled part of an SVG photo, so the check never spoke there.
+- On a slide that splits on its headings, the photo check reads the part you are on, on a phone too, and its fix writes the card ink into that part's own class. A slide that only inherits a running `class:` keeps it when the fix is written; before, the ink replaced the slide's layout.
+- The slide strip and the map name a slide by the class the engine draws it with, including a running `class:` it inherits from an earlier slide; such a slide used to read `text`.

@@ -1299,3 +1299,57 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   on three such slides), and the photo-size prefetch parses only a slide holding a lone `http(s)` picture.
   **Not taken, for the owner:** the inversion's alternative, desugaring `![bg]` in memory at render time (the `--fix` kernel as
   an ingest step), which keeps Marp decks and model output rendering at the price of an alias; on the decision card.
+- 2026-11-16: **the shortcut stops writing a pasted photo's address into its record** (followups.d/3181-p3, now deleted). The
+  `placedAt` branch in lib/integrations/markdown-it/plugins.js wrote `@image{"<src>", title=…}` as text for the record reader to
+  parse again, so a `data:` address the render's own payload skip does not cut (a picture with a `"description"`, which
+  `imageLineRanges` reads whole, or any render on the code door) was quoted, unquoted and copied in full: three such slides
+  rendered in 2.5 s against 1.5 s as `![bg]`. `holdLongSrc` now writes a short marker into the record when the address is a
+  plain base64 `data:` URL of 4,096 characters or more, asks the slide's resolver and size lookup about the real address, and
+  puts it back in the figure. Only a plain base64 address is held, because the figure's escapes (an attribute's, a CSS
+  `url()`'s) leave its characters alone, so the marker's place is exactly the address's; anything else, and a title or
+  description that spells the marker, is written whole as before. `readStats.recordChars` (lib/core/payload-elision.js) counts
+  the record text the reader is handed, and the bench's `picture shortcut · 3 described phone photos` row gates on it:
+  10,500,246 → 225 characters per render, median 2,464 → 1,574 ms. Output is byte-identical (150 slide shapes compared before
+  and after, and test/unit/plugins/image-address.test.js holds a held and a hand-written record to the same bytes).
+- 2026-11-16: **the Studio's photo readers read a `split: headings` unit part by part** (followups.d/3126-p3-studio-heading-split-photo.md,
+  now deleted). A `---` unit with two headings is two engine slides, and the engine places one lone picture per part; Compose
+  and `photoAt` read the whole unit, saw two lone pictures and placed neither, so the photo-contrast check stayed silent there.
+  The cut is now one kernel call, `headingPartStarts` (lib/core/placed-picture.mjs), over the engine's own
+  `headingSplitPoints` with a long `data:` payload stood in for first. The Studio's carry walk (docs/src/lib/slide-carried.ts)
+  hands the parts to `slidesCarried` as the slides they are, so a `_class` in the first part stays there and a running `class:`
+  carries into the next; `slidePlacingAt` answers for the part holding the offset and lists every part's placing (`parts`).
+  `photosAt` (card-ink-pick.ts) gives each part's photo and `photoAt` the first part's that has one. The callers that measure a
+  photo read the part on screen (see the entry below). Compose's `placementAt` finds the picture's
+  part in its slide node; a picture in a later part is placed by what that part resolves, and its Placement control stays shut,
+  because the slide's `_class` governs only the first part. The shared table gains ten split rows: a class in the first part
+  (running: both parts place; spot: only the first), a class written before the second heading (running or spot: only the
+  second places), and a running background before the second heading (the first still places). They were red on Compose and
+  `photoAt` before (10 failures over the two readers) and are green on all five readers after.
+  **The maker-checker review on #3239** found the first cut of Compose wrong in a way `main` was not: it read the first part
+  under the whole slide's class, so a class written before the second heading placed the first part's picture and opened
+  Placement on it. Compose lifts a slide's spot directives to the node's head (deck-source.ts `splitSlideDirectives`), so
+  `slideParts` (image-objects.ts) puts each back in the part its source (`raw`) has it in, reads every part through
+  `partPlacings`, and calls a picture unplaced when it cannot tell (a directive not in the source as written). Placement on the
+  first part stays shut while a later part owns a class directive, since the node holds one `_class` and that is the one
+  Compose would edit. The same review found the photo-size prefetch (image-size-memo.ts `panelPhotos`) reading a split unit
+  under its first part's classes; it reads each part now. Compose's write-back keeps a later part's `_class` where the author
+  wrote it (checked by editing the first part), so the lifting is a reading problem only.
+- 2026-11-16: **the photo checks read the engine slide on screen, in every engine** (the owner on #3239: no settling; the
+  three follow-ups that PR had filed are done in it). The Coach's photo check (`usePhotoContrast`), the editor's photo tooltip and
+  underline (thin-card-fix.ts) and the Slide panel's card read (`readBehindCard`) were keyed on the `---` slide. They now read the
+  heading part on screen, at the engine slide the preview draws for it (`readVerdict`'s `section`, `flatPart`), so a later part's
+  dark photo is flagged and a deck with an earlier split slide no longer reads the wrong preview section. A finding keeps the
+  `---` slide's number, as lint's do. The fix writes into that part's own class (`editHeadingPart`, docs/src/lib/slide-carried.ts),
+  and a slide or part that only inherits a running `class:` keeps it when the fix is written (`applyFix`'s `inherited`):
+  writing the ink alone had replaced the layout, on any such slide. Three things stopped the check from speaking, each found
+  on a real engine: (1) on a phone the preview is parked behind the Coach and followed a `---` slide change but not a move
+  between heading parts, so it measured the other part; a part change now owes the parked render too (DeckPreview.tsx). (2) In
+  Firefox the check never spoke at all: Gecko draws nothing for a source rectangle of an SVG photo, without an error, so the
+  sampled box came back transparent; `meanUnderBox` (card-ink-sampler.ts) now draws such a photo whole first and reads the box
+  from that canvas, and the photo-contrast spec runs on Gecko (it never had). (3) The Coach's fix button was hidden on a split
+  slide, because `canEditClass` read the whole `---` slide, whose two class comments read as a duplicate. The slide strip and the
+  map named a slide that only inherits a running `class:` `text` (`slideClass` reads one slide's text); `slideClasses`
+  (docs/src/lib/deck-lint.ts) resolves every engine slide's class in deck order through the class-directive kernel, about 2.6 ms
+  on a 176-slide deck. Each change has a test that is red on the code before it: four thin-card-fix cases, the strip's labels
+  (preview-nav.spec.ts), and a photo-contrast case on a split slide that runs on desktop, tablet and Gecko at 1440 and on Chromium
+  and WebKit at 390 (red with every change reverted; red at 390 alone with only the preview change reverted).

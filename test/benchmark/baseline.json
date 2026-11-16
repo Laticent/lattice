@@ -4,8 +4,8 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 3.75,
-    "rmePct": 3.14
+    "ms": 4.21,
+    "rmePct": 3.91
   },
   "blessedOn": {
     "node": "v22",
@@ -16,52 +16,52 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 29.37,
-      "ms": 110.16,
-      "slidesPerSec": 527,
-      "rmePct": 3.95
+      "index": 34.23,
+      "ms": 144.01,
+      "slidesPerSec": 403,
+      "rmePct": 8.16
     },
     "charts": {
       "slides": 29,
-      "index": 28.7,
-      "ms": 107.65,
-      "slidesPerSec": 269,
-      "rmePct": 6.49
+      "index": 31.48,
+      "ms": 132.45,
+      "slidesPerSec": 219,
+      "rmePct": 10.65
     },
     "math": {
       "slides": 16,
-      "index": 42.91,
-      "ms": 160.96,
-      "slidesPerSec": 99,
-      "rmePct": 1.84
+      "index": 39.66,
+      "ms": 166.88,
+      "slidesPerSec": 96,
+      "rmePct": 10
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 89.71,
-      "ms": 336.51,
-      "slidesPerSec": 1034,
-      "rmePct": 4.5
+      "index": 88.01,
+      "ms": 370.3,
+      "slidesPerSec": 940,
+      "rmePct": 6.2
     },
     "hub-spoke (gallery + tiered x3)": {
       "slides": 17,
-      "index": 26.88,
-      "ms": 100.82,
-      "slidesPerSec": 169,
-      "rmePct": 3.99
+      "index": 33.99,
+      "ms": 143.03,
+      "slidesPerSec": 119,
+      "rmePct": 4.81
     },
     "unclosed html (div x8000)": {
       "slides": 1,
-      "index": 18.51,
-      "ms": 69.44,
-      "slidesPerSec": 14,
-      "rmePct": 6.69
+      "index": 17.96,
+      "ms": 75.56,
+      "slidesPerSec": 13,
+      "rmePct": 6.28
     },
     "records (jargon, every directive a record)": {
       "slides": 58,
-      "index": 31.07,
-      "ms": 116.55,
-      "slidesPerSec": 498,
-      "rmePct": 10
+      "index": 28.76,
+      "ms": 121,
+      "slidesPerSec": 479,
+      "rmePct": 7.36
     }
   },
   "printDatasets": {
@@ -166,73 +166,73 @@
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 49.4,
+      "ms": 44.96,
       "scanMs": 0.01,
-      "burstMs": 551.05,
+      "burstMs": 560.59,
       "parses": 1,
-      "parseMs": 1.28,
-      "metaMs": 0.67,
-      "drawerMs": 0.17
+      "parseMs": 1.04,
+      "metaMs": 0.64,
+      "drawerMs": 0.21
     },
     "edit · charts": {
       "slides": 29,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 44.56,
+      "ms": 46.72,
       "scanMs": 0.01,
-      "burstMs": 532.24,
+      "burstMs": 734.61,
       "parses": 1,
-      "parseMs": 0.52,
-      "metaMs": 0.37,
-      "drawerMs": 0.08
+      "parseMs": 0.46,
+      "metaMs": 0.38,
+      "drawerMs": 0.11
     },
     "edit · math": {
       "slides": 16,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 19.4,
+      "ms": 29.44,
       "scanMs": 0.01,
-      "burstMs": 227.32,
+      "burstMs": 311.15,
       "parses": 3,
-      "parseMs": 0.77,
-      "metaMs": 0.47,
-      "drawerMs": 0.09
+      "parseMs": 1.04,
+      "metaMs": 0.74,
+      "drawerMs": 0.19
     },
     "edit · hub-spoke (gallery + tiered x3)": {
       "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 41.86,
+      "ms": 52.62,
       "scanMs": 0.01,
-      "burstMs": 516.45,
+      "burstMs": 648.06,
       "parses": 1,
-      "parseMs": 0.33,
-      "metaMs": 0.22,
-      "drawerMs": 0.06
+      "parseMs": 0.44,
+      "metaMs": 0.28,
+      "drawerMs": 0.11
     },
     "edit · unclosed html (div x8000)": {
       "slides": 1,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 16.66,
-      "scanMs": 0,
-      "burstMs": 198.61,
+      "ms": 20.46,
+      "scanMs": 0.01,
+      "burstMs": 232.14,
       "parses": 0,
-      "parseMs": 1.62,
-      "metaMs": 0.75,
-      "drawerMs": 0.15
+      "parseMs": 0.9,
+      "metaMs": 0.81,
+      "drawerMs": 0.35
     },
     "edit · records (jargon, every directive a record)": {
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 48.68,
+      "ms": 50.1,
       "scanMs": 0.01,
-      "burstMs": 560.74,
+      "burstMs": 566.73,
       "parses": 1,
-      "parseMs": 0.82,
-      "metaMs": 0.66,
-      "drawerMs": 0.25
+      "parseMs": 0.87,
+      "metaMs": 0.63,
+      "drawerMs": 0.31
     }
   },
   "flowchartDatasets": {
@@ -241,28 +241,28 @@
       "routed": 12,
       "bounded": 41,
       "hits": 1,
-      "ms": 161.19
+      "ms": 164.64
     },
     "flowchart · same calls, no cache": {
       "calls": 10,
       "routed": 14,
       "bounded": 44,
       "hits": 0,
-      "ms": 145.26
+      "ms": 176.36
     },
     "state chart · stress deck page (17 calls)": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 701.75
+      "ms": 845.85
     },
     "state chart · same calls, no cache": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 726.63
+      "ms": 822.88
     }
   },
   "collageDatasets": {
@@ -270,110 +270,110 @@
       "photos": 4,
       "arrangements": 52,
       "scored": 5,
-      "ms": 0.14,
-      "p95": 0.89
+      "ms": 0.19,
+      "p95": 0.33
     },
     "collage pack · 5 photos, free": {
       "photos": 5,
       "arrangements": 472,
       "scored": 13,
-      "ms": 0.53,
-      "p95": 1.1
+      "ms": 0.51,
+      "p95": 1.45
     },
     "collage pack · 6 photos, free": {
       "photos": 6,
       "arrangements": 5484,
       "scored": 1114,
-      "ms": 8,
-      "p95": 12.88
+      "ms": 8.59,
+      "p95": 10.04
     },
     "collage pack · 6 photos, ordered": {
       "photos": 6,
       "arrangements": 394,
       "scored": 62,
-      "ms": 0.6,
-      "p95": 1.61
+      "ms": 0.4,
+      "p95": 0.57
     }
   },
   "splitDatasets": {
     "split · gallery @square": {
       "slides": 120,
-      "split": 64,
-      "pages": 356,
-      "ms": 74.17,
-      "p95": 99.44
+      "split": 65,
+      "pages": 359,
+      "ms": 75.42,
+      "p95": 106.82
     },
     "split · gallery @portrait": {
       "slides": 120,
       "split": 66,
       "pages": 362,
-      "ms": 72.63,
-      "p95": 99.76
+      "ms": 72.33,
+      "p95": 88.02
     },
     "split · gallery @mobile": {
       "slides": 120,
-      "split": 66,
-      "pages": 362,
-      "ms": 71.89,
-      "p95": 79.47
+      "split": 64,
+      "pages": 355,
+      "ms": 68.33,
+      "p95": 91.3
     }
   },
   "filoDatasets": {
     "filo · type 200 characters": {
       "steps": 1,
-      "ms": 0.12,
-      "p95": 0.13
+      "ms": 0.14,
+      "p95": 0.19
     },
     "filo · AI apply (two distant slides)": {
       "storedChars": 210694,
-      "ms": 0.03,
+      "ms": 0.02,
       "p95": 0.07
     },
     "filo · undo + redo of it": {
       "steps": 1,
-      "ms": 0.24,
-      "p95": 0.38
+      "ms": 0.25,
+      "p95": 0.34
     },
     "filo · snapshot (100 steps)": {
       "steps": 90,
       "bytes": 2181166,
-      "ms": 0.58,
-      "p95": 0.63
+      "ms": 0.3,
+      "p95": 0.36
     },
     "filo · verify after reload (worker)": {
       "steps": 90,
-      "ms": 14.04,
-      "p95": 15.4
+      "ms": 21.35,
+      "p95": 27.1
     },
     "filo · restore after reload (main thread)": {
       "steps": 90,
-      "ms": 0.33,
-      "p95": 0.7
+      "ms": 0.2,
+      "p95": 0.27
     },
     "filo · restore, verifying in place (no worker)": {
       "steps": 90,
-      "ms": 14.42,
-      "p95": 31.11
+      "ms": 15.32,
+      "p95": 16.72
     },
     "filo · narrow broad steps (worker)": {
       "bytes": 2181166,
       "narrowedBytes": 279520,
-      "ms": 21.77,
-      "p95": 22.27
+      "ms": 23.59,
+      "p95": 25.01
     },
     "filo · compose undo + redo (an early slide)": {
       "slidesReplaced": 2,
       "scannedChars": 3695,
       "deckChars": 134372,
-      "ms": 2.28,
-      "p95": 2.59
+      "ms": 2.71,
+      "p95": 3.95
     },
     "filo · compose undo + redo (the middle slide)": {
       "slidesReplaced": 2,
       "scannedChars": 4405,
       "deckChars": 134372,
-      "ms": 2.52,
-      "p95": 5.39
+      "ms": 2.62,
+      "p95": 4.02
     },
     "filo · studio commit: typed word": {
       "deckChars": 134372,
@@ -394,68 +394,74 @@
       "p95": 0
     }
   },
+  "memoDatasets": {
+    "meta-memo · 3 phone-photo slides": {
+      "copiedPerKey": 61,
+      "cutsPerKey": 1,
+      "blocksHeldChars": 632,
+      "ms": 77.98,
+      "p95": 107.15
+    },
+    "payload skip · 3 phone-photo slides": {
+      "lintChars": 3340,
+      "reviewChars": 3340,
+      "renderChars": 3340,
+      "ms": 257.06,
+      "p95": 264.4
+    },
+    "picture shortcut · 3 described phone photos": {
+      "recordChars": 225,
+      "renderChars": 10500302,
+      "ms": 1619.88,
+      "p95": 1745.9
+    }
+  },
   "squadraDatasets": {
     "squadra · fix · 50 findings": {
       "passes": 1,
       "applied": 50,
       "findings": 0,
       "ops": 0,
-      "ms": 2.109,
-      "p95": 8.152
+      "ms": 2.411,
+      "p95": 11.368
     },
     "squadra · lint · 1 MB one token": {
       "passes": 0,
       "applied": 0,
       "findings": 1001,
       "ops": 3004,
-      "ms": 67.102,
-      "p95": 133.735
+      "ms": 79.94,
+      "p95": 164.263
     },
     "squadra · select · depth 1000": {
       "passes": 0,
       "applied": 0,
       "findings": 1,
       "ops": 5503,
-      "ms": 1.743,
-      "p95": 1.905
+      "ms": 3.091,
+      "p95": 7.639
     },
     "squadra · compile · per rule": {
       "passes": 0,
       "applied": 0,
       "findings": 50,
       "ops": 0,
-      "ms": 0.052,
-      "p95": 0.09
+      "ms": 0.058,
+      "p95": 0.133
     }
   },
   "inlineDatasets": {
     "inline · ordinary code / retired kernel": {
       "spans": 4961,
-      "ratio": 4.119,
-      "shippedNs": 49.7,
-      "kernelNs": 11.89
+      "ratio": 4.035,
+      "shippedNs": 42.58,
+      "kernelNs": 10.35
     },
     "inline · directives / retired kernel": {
       "spans": 353,
-      "ratio": 41.702,
-      "shippedNs": 2254.54,
-      "kernelNs": 54.58
-    }
-  },
-  "memoDatasets": {
-    "meta-memo · 3 phone-photo slides": {
-      "copiedPerKey": 61,
-      "cutsPerKey": 1,
-      "blocksHeldChars": 632,
-      "ms": 63.59,
-      "p95": 104.36
-    },
-    "payload skip · 3 phone-photo slides": {
-      "lintChars": 3340,
-      "reviewChars": 3340,
-      "renderChars": 3340,
-      "ms": 111.91,
-      "p95": 114.44
+      "ratio": 40.028,
+      "shippedNs": 1926.03,
+      "kernelNs": 55.65
     }
   }
 }
