@@ -159,6 +159,20 @@ function StopDial() {
  * on something unknowable that you draw anyway will not fail the parity matrix, because the
  * matrix samples width x stop — the two axes this rule already settles.
  */
+
+// The edit bar's icon buttons, as the app's ghost `icon-sm` Button draws them AT REST: the same 32 px box, centered icon
+// and disabled fade, without the Button's hover, focus-ring and invalid-state classes, which a shell that is replaced
+// before anyone can point at it never shows. Each Button carried ~450 bytes of those per control, in a page whose HTML
+// sits at its route-budget ceiling (docs/route-budget.json, studio htmlRaw).
+const SK_ICON = 'inline-flex size-8 shrink-0 items-center justify-center rounded-md disabled:opacity-50';
+function SkIcon({ children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { 'data-out'?: string; 'data-more'?: string }) {
+	return (
+		<button type="button" className={SK_ICON} {...rest}>
+			{children}
+		</button>
+	);
+}
+
 export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 	return (
 		// The provider is required because BarIcon and PostureDial wrap their controls in
@@ -331,10 +345,10 @@ export function StudioEditorPaneSkeleton() {
 			<div data-slot="edit-bar" data-fit="0" className="group/editbar flex shrink-0 items-center gap-1 border-b border-border px-2.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				<EditModeToggle mode={null} />
 				{/* Undo · Redo, as the app's edit bar draws them (disabled: the shell has no history yet). */}
-				<Button variant="ghost" size="icon-sm" aria-label="Undo" disabled><Undo2 className="size-[18px]" /></Button>
-				<Button variant="ghost" size="icon-sm" aria-label="Redo" disabled><Redo2 className="size-[18px]" /></Button>
+				<SkIcon aria-label="Undo" disabled><Undo2 className="size-[18px]" /></SkIcon>
+				<SkIcon aria-label="Redo" disabled><Redo2 className="size-[18px]" /></SkIcon>
 				{/* The row's steps (EDIT_FIT) are the app's, and studio.astro measures this row as useRowFit measures the app's. */}
-				<Button variant="ghost" size="icon-sm" aria-label="Find and replace" data-out={EDIT_FIT.c}><TextSearch className="size-[18px]" /></Button>
+				<SkIcon aria-label="Find and replace" data-out={EDIT_FIT.c}><TextSearch className="size-[18px]" /></SkIcon>
 				<span className="flex-1" />
 				{/* The label spans ride the app's own container queries (`@[36rem]` / `@[34rem]`),
 				    which resolve against the EDITOR PANE — so `.ssr-editpane` carries
@@ -344,11 +358,11 @@ export function StudioEditorPaneSkeleton() {
 				{/* Inert in the app until the deck is linted, and the shell has linted nothing —
 				    so `disabled` here is the honest state, not a copy of a style. */}
 				<button type="button" aria-label="Fix all issues" disabled className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] opacity-40" data-out={EDIT_FIT.b}><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
-				<Button variant="ghost" size="icon-sm" aria-label="Version history" data-out={EDIT_FIT.a}><History className="size-[18px]" /></Button>
+				<SkIcon aria-label="Version history" data-out={EDIT_FIT.a}><History className="size-[18px]" /></SkIcon>
 				{/* Slide settings is `compact &&` in the app — on desktop the activity bar owns it. */}
-				<span className="ssr-slide-settings contents"><Button variant="ghost" size="icon-sm" aria-label="Slide settings" data-out={EDIT_FIT.a}><FileSliders className="size-[18px]" /></Button></span>
-				<Button variant="ghost" size="icon-sm" aria-label="More editor actions" data-more=""><MoreHorizontal className="size-[18px]" /></Button>
-				<Button variant="ghost" size="icon-sm" aria-label="Collapse editor"><PanelLeftClose className="size-4" /></Button>
+				<span className="ssr-slide-settings contents"><SkIcon aria-label="Slide settings" data-out={EDIT_FIT.a}><FileSliders className="size-[18px]" /></SkIcon></span>
+				<SkIcon aria-label="More editor actions" data-more=""><MoreHorizontal className="size-[18px]" /></SkIcon>
+				<SkIcon aria-label="Collapse editor"><PanelLeftClose className="size-4" /></SkIcon>
 			</div>
 			<ComposeSkeleton className="ssr-body-compose" quiet />
 			<EditorSkeleton className="ssr-body-source" quiet />
