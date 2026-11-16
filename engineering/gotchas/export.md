@@ -62,7 +62,10 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   Studio export: Chromium and Firefox pixel-identical before and after; WebKit's mean pixels off against Chromium fell from
   2.5% to 1.8%. Keep the probe at least 80 x 40: at 20 x 10 WebKit loses the shadow on BOTH paths and the probe answers no.
 - **Triggered by:** `docs/e2e/camera-webkit-shadow.spec.ts` on `webkit-tablet` (the shadow started 52% along the card
-  before the fix, 2% after). Playwright's WebKit is not Safari; real Safari on macOS and iOS is unverified.
+  before the fix, 2% after). In Mobile Safari on the iPhone and iPad simulators (PR 3241, dispatch 43811508778, a
+  temporary probe) the probe answered yes, the fixed camera's shadow started 1.8% along the card, and the old path drew
+  none of the bottom edge. Safari on a Mac and a physical device are unverified. The e2e spec is not in
+  `test:e2e:smoke`, so per-PR CI does not run it; the nightly `studio-e2e-nightly.yml` runs the whole suite.
 - **Removable when:** WebKit draws a negative-spread box-shadow inside a foreignObject SVG under a scaled canvas.
 
 ## Chromium PDF output of CSS `mask-image` renders inconsistently across viewers
