@@ -356,9 +356,10 @@ Built on `claude/squadra-lint-front-matter-ktsbt9`, cut from `main` at `72bd2d9`
 - **Two import-free modules, joined.** Where the block ends lives in `lib/core/front-matter-fence.mjs`
   (`frontMatterFence`, `frontMatterMatch`, `FRONT_MATTER_FENCE`); the key reader in `lib/core/front-matter-keys.mjs`
   (`frontMatterKeys`, `topLevelKey`, `looseKey`, `BLOCK_SCALAR_HEAD`); `lib/core/front-matter-island.mjs` joins them
-  for ES readers and tests. A reader that only needs the block (the splitter, the boundary parser, the deck model, the
-  plugin admission, the resolvers, `slides.js`) imports the fence alone, so the docs home page does not ship the key
-  reader. Both halves import nothing, and CommonJS requires only them, never the joined module: a required ES module
+  for ES readers and tests. A reader that only needs the block imports the fence; the splitter, the boundary parser,
+  the deck model and the plugin admission import nothing else, which is what keeps the key reader off the docs home
+  page. (The resolvers and `slides.js` take the block from the fence too, but still load the key reader through
+  front-matter-key.js, as they must to read a register.) Both halves import nothing, and CommonJS requires only them, never the joined module: a required ES module
   that imports another killed every Playwright run at config load ("request for './front-matter-fence.mjs' is from a
   module not been linked"), which a unit test now pins. lint-core's two line scans (`withoutBlockScalarBodies`,
   `lastFrontMatterMatch`) moved out of the shared front-matter-key.js into lib/authoring/front-matter-scans.js. Measured

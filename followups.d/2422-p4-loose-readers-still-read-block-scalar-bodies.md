@@ -19,8 +19,9 @@ why now   — #2422 taught `frontMatterValue` and the engine's `parseFrontMatter
             `findUnknownSpectrumCard`, pace/delivery/lang/glossary, logo-x/y/scale). None changes
             a render; at worst extra CSS ships or lint warns about a line the engine ignores.
             Found by #2422's maker-checker pass.
-where     — the files above; `withoutBlockScalarBodies` in lib/core/front-matter-key.js is the
-            shared kernel to route them through.
+where     — the files above; the front-matter island's key reader (lib/core/front-matter-keys.mjs
+            `frontMatterKeys`, which skips a block scalar's body) is the shared kernel to route them through.
+            (`withoutBlockScalarBodies` moved to lib/authoring/front-matter-scans.js for lint-core alone, PR #3228.)
 done when — each reader either reads through `withoutBlockScalarBodies` (or `frontMatterValue`)
             or states in a comment why it must not, with a test per reader on the
             `style: |\n  class: kpi` deck.
