@@ -8,7 +8,7 @@ summary: Proposal for blessing that one human can sustain. Today a nightly bot f
 **Date:** 2026-11-16 · **Status:** approved by the owner 2026-11-16; rollout step 1 next · **Scope:** how a change to what slides look like
 becomes the new recorded truth: the committed goldens (`golden-bless.yml`), the oracles in
 `test/oracle/`, `SANCTIONED_CLIPS` in `tools/check-chart-fit.js`, and the ceilings in
-`docs/route-budget.json`. **Supersedes, if approved:** rollout step 4 of
+`docs/route-budget.json`. **Supersedes:** rollout step 4 of
 `2026-10-06-goldens-bot-blessed.md` (the four-rule hybrid, never switched on).
 
 ## 1. The problem
@@ -56,7 +56,7 @@ owner's merge is the bless** for exactly those items. Exceptions are rare by des
 write none, so the file is never boilerplate.
 
 Budget ceilings stay owner decisions (CLAUDE.md's second filter). The only change: a PR that needs
-one says so as an exception, and the raise lands in its own PR, as #3229 did.
+one says so as an exception, and the raise lands in its own PR, as #3229 does (open at this writing).
 
 ## 4. Attribution: who caused each change
 
@@ -73,6 +73,13 @@ Cost, estimated: the 2h36m golden sweep renders about 600 goldens, about 15 s ea
 10 merges bisects in about 4 renders per drifted golden, so 100 drifted goldens cost about 1.7 h
 more. That is bounded, it runs only for goldens that drifted, and gallery goldens of one change
 can share renders. **To measure before step 3 ships.**
+
+**A revert is a merge like any other.** A person-merged revert is the cause of the drift it
+makes, so that drift is attributed and blessed, which restores the earlier render: undoing a
+change is a decision, and its merge is the bless. A revert that brings back a broken invariant
+(a clip, a page-shape change) is still held, exactly as the original change would have been. A
+revert that removes a PR's exception file removes the exception with it, so the invariant it
+excused is enforced again from that night.
 
 The oracles in `test/oracle/` get the same treatment: an oracle cell that changed is attributed
 by re-running the check at the bisected merge.
@@ -147,7 +154,8 @@ inside a claim's scope as covered. The trio showed why that fails:
   - a path-based "is a claim owed" check that misses records and measuring tools, which is the
     laundering route;
   - claims that a later PR can edit;
-  - Dependabot and reverts breaking "the merge is the bless".
+  - Dependabot and reverts breaking "the merge is the bless" (answered: a bot merge is platform
+    drift, §6; a revert is attributed like any merge, §4).
 - **Inversion.** The all-or-nothing bless would stall again, as #2624 and #3118 did. Platform drift
   would flood the morning agent and then the owner. Claims would become boilerplate. The simplest
   version (a per-golden auto-bless blocked only on invariants) clears most of the pile on its own,
