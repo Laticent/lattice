@@ -78,6 +78,12 @@ describe('term registry: forms a key matches', () => {
 		expect(toSpokenText('red↔green', { terms: letters })).toBe('red versus green'); // a symbol key still does
 		expect(toSpokenText('revenue', { lexicon: new Map([['e', 'EEK']]) })).toBe('revenue'); // the old lexicon trap, gone
 	});
+	it('peels a long run of marks around a phrase word linearly, and still matches it', () => {
+		// The peel is an index scan (CodeQL js/polynomial-redos flagged the `[…]+$` regexes it replaced).
+		const q = '"'.repeat(5000);
+		expect(say(`Twinkima G${'!'.repeat(5000)}`).startsWith('Twinkee mah Gee')).toBe(true);
+		expect(say(`${q}x${q}`)).toBe(toSpokenText(`${q}x${q}`));
+	});
 	it('silences an empty value', () => {
 		expect(say('🎯 Goal')).toBe('Goal');
 	});

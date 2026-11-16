@@ -172,9 +172,28 @@ export function compoundParts(idx: TermIndex | null, token: string): { parts: st
 
 // Wrapping marks a phrase's first and last words may carry. The last word's sentence punctuation
 // is returned so the caller keeps the pause.
-const OPEN_MARKS = /^[(["'“‘*_]+/;
-const CLOSE_MARKS = /[)\]"'”’*_]+$/;
-const SENTENCE_END = /[.,!?;:…]+$/;
+// Linear index scans, never an end-anchored `[…]+$` regex: that backtracks polynomially on a long run
+// of its class (a word of a thousand quotes or bangs, CodeQL js/polynomial-redos) — the reason
+// normalize.ts peels with `trailingPunct` / `edgeTrim` too.
+const OPEN_MARKS: ReadonlySet<string> = new Set(['(', '[', '"', "'", '“', '‘', '*', '_']);
+const CLOSE_MARKS: ReadonlySet<string> = new Set([')', ']', '"', "'", '”', '’', '*', '_']);
+const SENTENCE_END: ReadonlySet<string> = new Set(['.', ',', '!', '?', ';', ':', '…']);
+const dropStart = (w: string, set: ReadonlySet<string>): string => {
+  let a = 0;
+  while (a < w.length && set.has(w[a])) a++;
+  return w.slice(a);
+};
+const dropEnd = (w: string, set: ReadonlySet<string>): string => {
+  let b = w.length;
+  while (b > 0 && set.has(w[b - 1])) b--;
+  return w.slice(0, b);
+};
+/** A word without its closing marks and sentence punctuation (`G.")` → `G`), and that punctuation. */
+function peelEnd(w: string): { core: string; punct: string } {
+  const closed = dropEnd(w, CLOSE_MARKS);
+  const bare = dropEnd(closed, SENTENCE_END);
+  return { core: dropEnd(bare, CLOSE_MARKS), punct: closed.slice(bare.length) };
+}
 
 /**
  * Rule 5: for each word of a sentence, the phrase it belongs to. A phrase's FIRST word gets
@@ -186,8 +205,8 @@ export function phraseCover(idx: TermIndex | null, words: readonly string[]): re
   if (!idx?.phrases.size) return out;
   for (let j = 0; j < words.length; ) {
     // The head as written (a key word may carry its own dot: `St.`) and with its punctuation peeled.
-    const opened = words[j].replace(OPEN_MARKS, '');
-    const heads = new Set([opened.toLowerCase(), opened.replace(SENTENCE_END, '').replace(CLOSE_MARKS, '').toLowerCase()]);
+    const opened = dropStart(words[j], OPEN_MARKS);
+    const heads = new Set([opened.toLowerCase(), peelEnd(opened).core.toLowerCase()]);
     let found: { ph: Phrase; tail: PhraseTail } | undefined;
     for (const head of heads) {
       for (const ph of idx.phrases.get(head) ?? []) {
@@ -229,7 +248,7 @@ function phraseAt(ph: Phrase, words: readonly string[], j: number): PhraseTail |
   const n = ph.words.length;
   if (j + n > words.length) return null;
   for (let m = 0; m < n - 1; m++) {
-    const w = m === 0 ? words[j].replace(OPEN_MARKS, '') : words[j + m];
+    const w = m === 0 ? dropStart(words[j], OPEN_MARKS) : words[j + m];
     if (keyWordMatches(ph.words[m], w)) continue;
     return null; // "Twinkima, G" is two thoughts, not the name: a comma the key lacks breaks it
   }
@@ -237,10 +256,9 @@ function phraseAt(ph: Phrase, words: readonly string[], j: number): PhraseTail |
   // an ending off (`G's`) — the same ending rule a single-word key follows (never after a lower-case key).
   const key = ph.words[n - 1];
   let w = words[j + n - 1];
-  if (n === 1) w = w.replace(OPEN_MARKS, '');
+  if (n === 1) w = dropStart(w, OPEN_MARKS);
   if (keyWordMatches(key, w)) return { ending: '', punct: '' };
-  const peeled = w.replace(CLOSE_MARKS, '').replace(SENTENCE_END, '').replace(CLOSE_MARKS, '');
-  const punct = w.replace(CLOSE_MARKS, '').match(SENTENCE_END)?.[0] ?? '';
+  const { core: peeled, punct } = peelEnd(w);
   if (keyWordMatches(key, peeled)) return { ending: '', punct };
   if (!isLower(ph.words.join(' '))) {
     for (const [written, spoken] of ENDINGS) {
