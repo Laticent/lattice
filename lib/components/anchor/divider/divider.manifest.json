@@ -19,7 +19,7 @@
     "walkthrough"
   ],
   "description": "Section boundary slide. Dark canvas with a single heading.",
-  "purpose": "Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise.",
+  "purpose": "Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise. It keeps the deck's running header and its footer, the standing note (a \"Confidential\", a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md).",
   "variants": [
     "numbered",
     "light",
@@ -65,11 +65,11 @@
     },
     {
       "title": "Section title that doesn't earn a section",
-      "body": "If the next 3-4 slides aren't a coherent unit, the `light` variant (bright canvas, centered) is the right tool. Reserve the dark divider for genuine section starts."
+      "body": "If the next few slides aren't one unit, use the `light` variant. Keep the dark divider for real section starts."
     },
     {
       "title": "Header or footer overrides",
-      "body": "Don't blank the header or footer with `_header: ''` / `_footer: ''` on a divider. A divider keeps the deck's running header and its footer, the standing note (a \"Confidential\", a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). Drop one on purpose with `no-header` / `no-footer`, or every band with `silent`."
+      "body": "Don't blank them with `_header: ''` or `_footer: ''`. A divider keeps the deck's header and footer; drop one with `no-header` / `no-footer`, or all with `silent`."
     }
   ],
   "related": [
