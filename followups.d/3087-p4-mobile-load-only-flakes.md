@@ -102,3 +102,8 @@ revealed frame, polled). The evidence is in that PR.
             failed, 63 skipped) lost compose-note-motion.spec.ts:260 and journeys/chart-export.spec.ts:124 besides
             filo-undo:157 and present-beat:49 (both listed above). All four then passed alone, 2 of 2 each. The two new
             ones were not compared against main under load.
+2026-11-16 — the same PR's full Chromium run on 635ba64 (4 workers, --retries=0; 1,912 passed, 5 failed) lost
+            compose-stress.spec.ts:538, studio-export-offline.spec.ts:114 (desktop), library-voice-spine.spec.ts:140
+            and :151 (mobile) and present-beat.spec.ts:49; all passed alone (8 of 8 across desktop and mobile). Then
+            compose-note-motion:260, journeys/chart-export:124, compose-stress:538 and studio-export-offline:114, 6 runs
+            each at 4 workers on desktop: PR build 24 of 24; main af00ca3 23 of 24, the failure journeys/chart-export:124.
