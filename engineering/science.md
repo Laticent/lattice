@@ -98,10 +98,13 @@ No color library. The kernel is `lib/core/color.js` and `lib/theme/cvd.js`.
 |---|---|---|
 | MP4 (ISO BMFF) and tx3g captions | `lib/export/tx3g.mjs` | Boxes written by hand, 64-bit sizes, a `moov` rewrite that moves no chunk offset. |
 | PDF internals | `lib/core/pdf-compose/write-pdf.mjs`, `lib/core/pdf-timestamps.js`, `docs/src/components/studio/export/pdf-text-layer.js` | PNG IDAT passed straight into a Flate stream; byte-identical PDFs by pinning timestamps without moving offsets; an invisible text layer. |
-| JPEG encoding | `lib/core/jpeg-encode.mjs` `createJpegEncoder` | Baseline JFIF, 4:2:0, libjpeg quality scaling of the Annex K tables, Huffman tables built per picture (libjpeg's optimal-table algorithm, from a symbol log), AAN float DCT with literal constants (no `Math.cos`, so the same bytes on every engine), streamed in 16-row bands. |
+| Picture headers | `docs/src/lib/lastra/read.ts` `readImage` | Format, size, alpha hint and the EXIF turn from the header alone, for PNG, JPEG, GIF, WebP and AVIF (its primary item's `ispe`, through `pitm` and `ipma`; `irot`/`imir` composed as 2x2 turns). The JPEG walk resyncs on junk and fill bytes as libjpeg does, and the FIRST `Exif` APP1 before the scan decides the turn: each rule settled by what Chromium, WebKit and Firefox paint (`read.test.ts`), and held by a seeded corruption fuzz. |
+| Metadata removal | `docs/src/lib/lastra/clean.ts` | Keep-lists per format, never drop-lists, so an unknown block cannot ride through; a turn survives as an orientation-only TIFF block. No re-encode. |
+| Lanczos-3 resize | `docs/src/lib/lastra/resize.ts` `lanczosResize` | Separable, the kernel widened by the scale, colors weighted by alpha (no dark halo at a transparent edge), the source read in strips. |
+| JPEG encoding | `docs/src/lib/lastra/jpeg.ts` `createJpegEncoder` | Baseline JFIF, 4:2:0, libjpeg quality scaling of the Annex K tables, Huffman tables built per picture (libjpeg's optimal-table algorithm, from a symbol log), AAN float DCT with literal constants (no `Math.cos`, so the same bytes on every engine), streamed in 16-row bands. |
 | Deterministic video clock | `lib/export/video.mjs` | Every page timer replaced by a fake clock that follows the HTML nested-timer clamp. AAC encoder delay is measured with a click, not assumed. |
 | Speech | `lib/export/kokoro-voice.mjs`, `docs/src/lib/cadenza/`, `lib/core/speech-pcm.mjs` | Kokoro neural TTS on ONNX; a syllable-based prosody model with Klatt pre-boundary lengthening; per-voice calibration by rolling median; onset detection. |
-| Office files | `docs/src/lib/calco/` | Editable PPTX and ODP written directly; one-Bézier arcs with k = (4/3)·tan(Δθ/4); a leading model for how office suites place line spacing. |
+| Office files | `docs/src/lib/calco/` | PPTX (editable and picture-per-slide) and ODP packages written directly, media named by a 64-bit FNV-1a hash of their bytes (`contentHash`); one-Bézier arcs with k = (4/3)·tan(Δθ/4); a leading model for how office suites place line spacing. |
 
 ## 7. Human–computer interaction
 
@@ -144,7 +147,7 @@ Mermaid, highlight.js, function-plot, HarfBuzz via harfbuzzjs, woff2-encoder and
 subset-font (fonts), `qrcode` (including its Reed-Solomon error correction), DOMPurify,
 jsdom, parse5, css-tree (optional), acorn and the TypeScript compiler API (parsing for
 gates), Yjs and trystero (collaboration), pdf-lib with `@pdf-lib/fontkit`, JSZip,
-pptxgenjs, mediabunny and lamejs (containers and codecs), puppeteer (headless Chromium),
+mediabunny and lamejs (containers and codecs), puppeteer (headless Chromium),
 rough.js (sketch strokes), d3-geo (build-time paths), Fuse.js and wink-porter2-stemmer
 (search), tinybench, dependency-cruiser, jscpd and knip (measurement).
 

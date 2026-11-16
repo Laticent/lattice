@@ -66,4 +66,9 @@ test('assetKind: magic numbers, not extensions', () => {
 	assert.equal(assetKind(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0])), 'jpeg');
 	assert.equal(assetKind(Buffer.from('wOF2xxxx')), 'font');
 	assert.equal(assetKind(Buffer.from('#!/bin/sh')), '');
+	// The image half is the image library's read: a PNG must carry all eight signature bytes, as every browser checks.
+	const badTail = Buffer.from(PNG);
+	badTail.fill(0, 4, 8);
+	assert.equal(assetKind(badTail), '', 'a PNG signature with bytes 4 to 7 broken is no PNG');
+	assert.equal(assetKind(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>')), '', 'an SVG is not embedded as a picture');
 });

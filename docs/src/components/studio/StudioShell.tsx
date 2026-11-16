@@ -5341,7 +5341,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		rehoverRef.current?.();
 	}, [viewIndex]);
 	// Each render the live preview commits can change what is under a still pointer, so it asks for one more hit-test too.
+	// The photo verdict (coach/photo-contrast-watch.ts) hears when the preview has painted, so a read that ran before the
+	// paint (a phone swapping from Source to Preview) is taken again. A listener set rather than state: a paint must not
+	// re-render the shell, and the verdict re-reads only while its slide is unmeasured.
+	const previewPaintListeners = React.useRef(new Set<() => void>());
+	const onPreviewPaint = React.useCallback((listener: () => void) => {
+		previewPaintListeners.current.add(listener);
+		return () => {
+			previewPaintListeners.current.delete(listener);
+		};
+	}, []);
 	const onLivePreviewRender = React.useCallback(() => rehoverRef.current?.(), []);
+	// The verdict listens to `onPaint`, not `onRender`: a full write commits before the frame shows the new document, and a
+	// read on the commit could still see the old slide (DeckPreview `firePaint`).
+	const onLivePreviewPaint = React.useCallback(() => {
+		for (const listener of previewPaintListeners.current) listener();
+	}, []);
 	// The holder element itself, for the live pointer layer (which reads pointer moves on it).
 	const previewHolderElRef = React.useRef<HTMLDivElement | null>(null);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
@@ -5405,6 +5420,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						if (holder.style.cursor) holder.style.cursor = '';
 						return;
 					}
+					watchCollagePacks(frame);
 					const overCopy = hoverCodeCopyAt(frame, hoverAt.x, hoverAt.y);
 					const overPhoto = hoverCollageAt(frame, hoverAt.x, hoverAt.y);
 					// The frame takes no pointer events, so its own `cursor:` never applies: the holder wears it.
@@ -5413,6 +5429,27 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				}
 			});
 		};
+		// A COLLAGE THAT PACKS UNDER A STILL POINTER. A live collage lays its photos out only once it has measured them:
+		// the frame's runtime holds the list at `data-collage="measuring"` and, when the last photo's size lands, stamps
+		// the packed grid and sets `packed` or `fallback` (collage.transform.js `stampLive`). That moves every tile, and it
+		// is neither a pointer move nor a render the host commits, so a hit-test run while the photos were still loading
+		// kept its answer: no `zoom-in` over a photo that had since packed under the pointer (collage-lightbox.spec.ts, "a
+		// photo that packs under a still mouse"; the likely cause of the :254 flake). One observer watches the stamp in whichever document the hover last read and asks for one more
+		// hit-test. A full write replaces the document, so the next hit-test moves the observer onto the new one.
+		let watchedDoc: Document | null = null;
+		const packWatch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => scheduleHover());
+		function watchCollagePacks(frame: HTMLIFrameElement) {
+			let doc: Document | null = null;
+			try {
+				doc = frame.contentDocument;
+			} catch (_e) {
+				return; // a cross-origin frame cannot be observed
+			}
+			if (!packWatch || !doc || doc === watchedDoc) return;
+			packWatch.disconnect();
+			packWatch.observe(doc, { subtree: true, attributes: true, attributeFilter: ['data-collage'] });
+			watchedDoc = doc;
+		}
 		const onHover = (e: PointerEvent) => {
 			if (e.pointerType !== 'mouse') return;
 			hoverAt = { x: e.clientX, y: e.clientY };
@@ -5441,6 +5478,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			holder.removeEventListener('pointerleave', onLeave);
 			if (hoverRaf) cancelAnimationFrame(hoverRaf);
 			hoverFrame()?.removeEventListener('load', scheduleHover);
+			packWatch?.disconnect();
+			watchedDoc = null;
 		};
 		// ZOOM owns the preview's whole input stream — swipe and wheel navigation
 		// included. A NATIVE-listener controller rather than the React
@@ -5993,7 +6032,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// what the preview paints): a string of all three was built on every render, 16 MB on a deck of phone photos.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the three inputs are the context's identity; the body reads none of them.
 	const photoContext = React.useMemo(() => ({}), [mode, palette, source]);
-	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex, source, photoContext);
+	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex, source, photoContext, onPreviewPaint);
 	// The one click the photo verdict offers, the same edit the editor's button makes (photo-verdict.ts `applyFix`). Never
 	// applied on its own. Loaded with the verdict, which is already in memory by the time a button shows.
 	const pinActiveSlide = React.useCallback(
@@ -7678,7 +7717,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>

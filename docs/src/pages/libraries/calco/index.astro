@@ -6,7 +6,7 @@ import LibraryTheme from '../../../components/LibraryTheme.astro';
 // Calco reads any laid-out page, not only Lattice's. readSlide() reads the slide you pick and
 // the page outlines every paragraph it found; "Lift the text" runs the same hide the export
 // uses; the two downloads write a real .odp (fonts embedded) and .pptx in the browser, with
-// JSZip and PptxGenJS passed in, exactly as the README says. Reached at /libraries/calco/;
+// JSZip passed in, exactly as the README says. Reached at /libraries/calco/;
 // its Learn page is /libraries/calco/learn/ (src/content/catalog/).
 import DemoBar from '../../../components/catalog/DemoBar.astro';
 import { previewFontFaceCss } from '../../../playground/font-embed.js';
@@ -218,7 +218,7 @@ const faces = previewFontFaceCss();
 				<div class="beats">
 					<button class="beat" type="button" id="beatRead"><span class="n">1</span><span><span class="bt">Read</span><span class="bd">Every word, with the box and the font the browser gave it, grouped into paragraphs and lines where the browser broke them.</span><span class="api">readSlide(slide)</span></span></button>
 					<button class="beat" type="button" id="beatLift"><span class="n">2</span><span><span class="bt">Lift</span><span class="bd">Hide exactly that text, nothing else, and take a picture of the slide. Badges and icons stay in the picture.</span><span class="api">readSlide(slide, {"{"} hide: true {"}"})</span></span></button>
-					<button class="beat" type="button" id="beatWrite"><span class="n">3</span><span><span class="bt">Write</span><span class="bd">The picture underneath, a text box on top for every paragraph, the fonts embedded in both.</span><span class="api">writeOdp(JSZip, deck) · writePptx(PptxGenJS, deck, 'uint8array', JSZip)</span></span></button>
+					<button class="beat" type="button" id="beatWrite"><span class="n">3</span><span><span class="bt">Write</span><span class="bd">The picture underneath, a text box on top for every paragraph, the fonts embedded in both.</span><span class="api">writeOdp(JSZip, deck) · writePptx(JSZip, deck)</span></span></button>
 				</div>
 			</div>
 
@@ -349,7 +349,7 @@ const faces = previewFontFaceCss();
 					statusEl.textContent = `Writing .${format}…`;
 					const bytes = format === 'odp'
 						? await writeOdp((await import('jszip')).default, deck, 'uint8array')
-						: await writePptx((await import('pptxgenjs')).default, deck, 'uint8array', (await import('jszip')).default);
+						: await writePptx((await import('jszip')).default, deck, 'uint8array');
 					const type = format === 'odp' ? 'application/vnd.oasis.opendocument.presentation' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 					// The site's one download path (download.js): a named blob: URL, revoked later.
 					const { downloadBlob } = await import('../../../components/studio/download.js');

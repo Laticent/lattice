@@ -10,7 +10,7 @@
       },
       "htmlRaw": {
         "soft": 226628,
-        "hard": 251904
+        "hard": 253440
       },
       "engineJsGz": {
         "soft": 648151,
@@ -26,7 +26,7 @@
       },
       "chartKernelsGz": {
         "soft": 231477,
-        "hard": 266913
+        "hard": 267469
       }
     },
     "playground": {

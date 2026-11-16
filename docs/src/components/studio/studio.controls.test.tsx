@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
-import { loadStudioPanels, waitForPanels } from '@/test/panels';
+import { loadFabricate, loadStudioPanels, waitForPanels } from '@/test/panels';
 import { SEL } from './lessons/lesson-kit';
 import StudioShell from './StudioShell';
 
 // The Studio's panels load on first open; load them up front so no test races a shell.
 // An explicit budget over vitest's 10 s hook default: this is the file's first cold import of all six panel chunks, and
 // under load (three copies of this file at once on 4 cores) it ran past 10 s once in 21 runs. A hang still fails, at 30 s.
-beforeAll(loadStudioPanels, 30_000);
+beforeAll(() => Promise.all([loadStudioPanels(), loadFabricate()]), 30_000);
 
 // Stub the live preview (its engine poller leaks a post-teardown timer in jsdom).
 // The stub also SURFACES `deckId`, because that string is what the preview's diagram-hold

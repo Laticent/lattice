@@ -17,7 +17,15 @@ import { type FormatSizes, measureFormats, PHOTO_FORMATS, type PhotoFormat, webp
 
 const PREF_KEY = 'lattice-photo-format';
 
-/** The format the person chose last time, or JPEG: what the Library has always done with a phone photo. */
+/**
+ * The format the person chose last time, or the original. The original is the default because the Library is
+ * where a `.lattice` project takes its photos from, and a `.lattice` is the file format: it carries the photo as
+ * the author added it, and every other export decides, by its own Pictures choice, whether to send a smaller copy
+ * (the owner, 2026-11-13; engineering/decisions/2026-10-12-library-media-assets.md §3). A re-encode at intake
+ * would lose the original before any of those choices could be made.
+ */
+export const DEFAULT_PHOTO_FORMAT: PhotoFormat = 'original';
+
 export function loadPhotoFormat(): PhotoFormat {
 	try {
 		const v = localStorage.getItem(PREF_KEY);
@@ -25,7 +33,7 @@ export function loadPhotoFormat(): PhotoFormat {
 	} catch {
 		// private window or blocked storage: the default is fine
 	}
-	return 'jpeg';
+	return DEFAULT_PHOTO_FORMAT;
 }
 function savePhotoFormat(f: PhotoFormat) {
 	try {

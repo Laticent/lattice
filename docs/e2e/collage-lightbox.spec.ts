@@ -1,4 +1,6 @@
+import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
+import { routeHolds } from './route-hold';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // ── The collage lightbox, on the REAL Studio preview ────────────────────────────────
@@ -426,6 +428,10 @@ for (const tag of ['', ' @gecko @webkit-tablet']) {
 			await page.mouse.wheel(0, -120);
 			await expect(counter(page)).toHaveText('1 / 4', { timeout: 300 });
 		}).toPass({ timeout: 10_000 });
+		// A zoom waits until the stepped-to photo has loaded (#3197), and the lightbox says so with
+		// `aria-busy` on the photo's frame: pinch only once it has, or under load the pinch lands while it
+		// loads and is dropped.
+		await expect(lightbox(page).locator('img').locator('xpath=..')).not.toHaveAttribute('aria-busy', 'true');
 		// A pinch is ctrl + wheel: it zooms (the signal) and never steps. The cooldown is over by now.
 		await page.keyboard.down('Control');
 		await page.mouse.wheel(0, -400);
@@ -488,6 +494,7 @@ test('@parity a swipe on the open photo steps to the next or previous one', asyn
 // opener only feeds it points and paints what it returns. These arms drive the real inputs: a
 // trackpad pinch (ctrl + wheel), the keys, a mouse drag, and a two-finger pinch through the
 // browser's own touch pipeline.
+const SAMPLE_WIDE = fileURLToPath(new URL('../../lib/samples/photo-wide.jpg', import.meta.url));
 const imgScale = (page: Page) =>
 	page.evaluate(() => {
 		const el = document.querySelector('.collage-lightbox img') as HTMLElement;
@@ -575,6 +582,105 @@ test('@smoke a mouse drag pans a zoomed photo, and stays inside the photo\'s own
 	await expect(lightbox(page)).toBeVisible();
 });
 
+// #3197: + pressed before the photo has its size was computed against a 0×0 frame, so the photo
+// zoomed toward its top-left corner and the open glide ran under the zoomed photo. Hold the photo's
+// request until after the presses, so the window is certain instead of a race under load: the keys
+// must land once the photo has, about its center, after the glide.
+/**
+ * Hold the wide photo's request once `start()` is called, until `release()`. The tile fetches the photo for
+ * the preview frame first; `no-store` keeps the lightbox's own document from reusing that copy, so its
+ * request comes through the route and can be held.
+ */
+async function holdWidePhoto(page: Page) {
+	let release: () => void = () => {};
+	const gate = new Promise<void>((r) => {
+		release = r;
+	});
+	let hold = false;
+	let held = 0;
+	await page.route(/photo-wide\.jpg($|\?)/, async (route) => {
+		if (hold) {
+			held++;
+			await gate;
+		}
+		await route.fulfill({ path: SAMPLE_WIDE, contentType: 'image/jpeg', headers: { 'cache-control': 'no-store' } });
+	});
+	return {
+		start: () => {
+			hold = true;
+		},
+		held: () => held,
+		release: () => release(),
+	};
+}
+
+test('@smoke + pressed while the photo is still loading zooms it about its center once it lands', async ({ page }) => {
+	const photo = await holdWidePhoto(page);
+	await openStudioDeck(page);
+	photo.start();
+	const at = await photoAt(page, 1);
+	await page.mouse.click(at.x, at.y);
+	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+	await expect.poll(photo.held, { message: 'the lightbox photo request was never held' }).toBeGreaterThan(0);
+	const img = lightbox(page).locator('img');
+	expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(0);
+	await page.keyboard.press('+');
+	await page.keyboard.press('+');
+	await page.keyboard.press('+');
+	expect((await imgScale(page)).scale, 'nothing zooms a photo with no size').toBe(1);
+	photo.release();
+	await glideDone(page);
+	await expect.poll(async () => (await imgScale(page)).scale).toBeGreaterThan(1.9);
+	const s = await imgScale(page);
+	const v = await img.evaluate((el) => ({ w: (el.parentElement as HTMLElement).offsetWidth, h: (el.parentElement as HTMLElement).offsetHeight }));
+	expect(v.w, 'the frame took the photo\'s size').toBeGreaterThan(50);
+	// About the center: translate = (1 - scale) × half the frame. Toward the corner it would be 0.
+	expect(s.x).toBeCloseTo((v.w / 2) * (1 - s.scale), 0);
+	expect(s.y).toBeCloseTo((v.h / 2) * (1 - s.scale), 0);
+	await expect(zoomPill(page)).toBeVisible();
+});
+
+// #3197, the touch half: a pinch made while the photo is still loading has no photo to aim at, so it zooms
+// nothing, and it is still a pinch, so it never turns to the next photo however far the fingers travel.
+// Once the photo lands, a pinch zooms as usual.
+test('@parity a pinch while the photo is still loading neither zooms nor steps; after it lands a pinch zooms', async ({ page }, info) => {
+	test.skip(!info.project.use.hasTouch, 'this project models a device with no touchscreen');
+	test.skip(info.project.name.startsWith('webkit'), 'WebKit exposes no CDP touch pipeline: the pinch there is UNVERIFIED');
+	const photo = await holdWidePhoto(page);
+	await openStudioDeck(page);
+	photo.start();
+	const at = await photoAt(page, 1);
+	await page.touchscreen.tap(at.x, at.y);
+	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+	await expect.poll(photo.held, { message: 'the lightbox photo request was never held' }).toBeGreaterThan(0);
+	expect(await lightbox(page).locator('img').evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(0);
+	const vp = page.viewportSize() ?? { width: 390, height: 844 };
+	const cx = vp.width / 2;
+	const cy = vp.height / 2;
+	const cdp = await page.context().newCDPSession(page);
+	const pt = (x: number, y: number) => ({ x, y, radiusX: 10, radiusY: 10, force: 1 });
+	const pinch = async (from: number, to: number) => {
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt(cx - from, cy), pt(cx + from, cy)] });
+		for (let i = 1; i <= 8; i++) {
+			const half = from + ((to - from) * i) / 8;
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pt(cx - half, cy), pt(cx + half, cy)] });
+		}
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	};
+	// Each finger travels well past the 45 px swipe threshold.
+	const wide = Math.min(vp.width / 2 - 20, 160);
+	await pinch(20, wide);
+	expect((await imgScale(page)).scale, 'a pinch zooms nothing while the photo has no size').toBe(1);
+	await expect(caption(page), 'a pinch before load is not a swipe').toHaveText(ALTS[1]);
+	photo.release();
+	await glideDone(page);
+	expect((await imgScale(page)).scale, 'nothing was queued from the pinch').toBe(1);
+	await pinch(20, wide);
+	await expect.poll(async () => (await imgScale(page)).scale, { timeout: 5000 }).toBeGreaterThan(1.5);
+	await expect(caption(page), 'a pinch after load is not a swipe either').toHaveText(ALTS[1]);
+	await cdp.detach();
+});
+
 test('@parity a two-finger pinch zooms the open photo and does not step; one finger then pans, not swipes', async ({ page }, info) => {
 	test.skip(!info.project.use.hasTouch, 'this project models a device with no touchscreen');
 	test.skip(info.project.name.startsWith('webkit'), 'WebKit exposes no CDP touch pipeline: the pinch there is UNVERIFIED');
@@ -609,4 +715,56 @@ test('@parity a two-finger pinch zooms the open photo and does not step; one fin
 	await zoomPill(page).tap();
 	await expect.poll(async () => (await imgScale(page)).scale).toBe(1);
 	await cdp.detach();
+});
+
+// A collage packs only once it has measured its photos (collage.transform.js `stampLive`), and that moves every tile under
+// a still mouse with no pointer move and no render the host commits. A hit-test run while the photos were loading kept
+// its miss, so the cursor never became `zoom-in` over the photo that then packed under it. A probe caught it on main 7 runs
+// in 52 under load; it is the likely cause of :254's flake (1 in 55), which never failed locally (PR #3218).
+// Here the photos are held until the mouse is in place, so the hit-test runs before the pack on every run.
+test('@smoke @gecko a photo that packs under a still mouse gets the zoom cursor', async ({ page }) => {
+	const photosDeck = ['---', 'marp: true', '---', '', '## Words first', '', 'Nothing to measure here.', '', '---', '', '<!-- _class: collage -->', '', '## Photos', '', grid].join('\n');
+	const holderCursor = () =>
+		page.evaluate(() => {
+			for (let e = document.querySelector('iframe.live')?.parentElement ?? null; e; e = e.parentElement) if (e.style.cursor) return e.style.cursor;
+			return '';
+		});
+	const toPhotos = async (p: Page) => {
+		await setEditorContent(p, photosDeck);
+		await p.keyboard.press('Control+Home');
+		await expect(slideTitle(p)).toHaveText('Words first', { timeout: 15_000 });
+		// Focus leaves the editor, or PageDown scrolls it instead of turning the slide.
+		await p.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+		await p.keyboard.press('PageDown');
+		await expect(slideTitle(p)).toHaveText('Photos', { timeout: 15_000 });
+	};
+	// Where photo 1 sits once packed, read on a second page with nothing held. The pack is the same on both: same deck,
+	// same viewport, same photos.
+	const scout = await page.context().newPage();
+	await scout.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(scout);
+	await toPhotos(scout);
+	await expect(livePreview(scout).locator('ul.collage-list[data-collage="packed"]')).toHaveCount(1, { timeout: 30_000 });
+	const at = await photoAt(scout, 1);
+	await scout.close();
+
+	const photos = routeHolds();
+	await page.route('**/samples/photo-*.jpg', async (route) => {
+		await photos.hold();
+		await route.continue();
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await toPhotos(page);
+	await expect(livePreview(page).locator('ul.collage-list[data-collage="measuring"]')).toHaveCount(1, { timeout: 15_000 });
+	await photos.held();
+	await page.mouse.move(at.x, at.y, { steps: 4 });
+	// The hover's hit-test runs in the frame after the last move. Two frames later it has run, and missed: the photos
+	// have not packed, so nothing is under the mouse yet. Without this the test could pass on a hit before the pack.
+	await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+	expect(await holderCursor()).toBe('');
+	photos.releaseAll();
+	await expect(livePreview(page).locator('ul.collage-list[data-collage="packed"]')).toHaveCount(1, { timeout: 15_000 });
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('zoom-in');
+	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(1);
 });

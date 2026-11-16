@@ -144,6 +144,9 @@ describe('strip-notes: every export format', () => {
     // case above. That makes it the one channel here that can regress from a change nowhere
     // near the writers — which is exactly why it is worth a case of its own.
     { name: 'pdf --embed-source', format: 'pdf', out: 'src.pdf', args: ['--notes', '--embed-source'], carriesNote: true },
+    // A `.lattice` project file carries the deck's MARKDOWN as `deck.md`, scrubbed by the same functions as
+    // `--reopenable`'s embedded copy. It is written before any render, so it leaves no sidecar beside it.
+    { name: 'lattice', format: 'lattice', out: 'deck.lattice', args: ['--notes'], carriesNote: true },
   ];
 
   function tmpDir() {

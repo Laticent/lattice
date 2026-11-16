@@ -12,7 +12,7 @@ facts:
   - { k: Package, v: '@laticent/calco' }
   - { k: Status, v: Coming to npm with Lattice 1.0 }
   - { k: Runs in, v: The browser to read; anywhere to write }
-  - { k: Dependencies, v: None (you pass in JSZip and PptxGenJS) }
+  - { k: Dependencies, v: None (you pass in JSZip) }
   - { k: License, v: AGPL-3.0 }
 reference:
   - label: The README
@@ -48,14 +48,14 @@ Don't rebuild the slide. **Read what the browser already drew.**
 - **Lift the text, keep a picture of the rest.** Calco can hide exactly that text and nothing else, so your screenshot tool captures a clean background. Charts, rotated text and gradients stay in the picture on purpose.
 - **Write real office files.** Each slide becomes the picture, with a text box over it for every paragraph — plus speaker notes and alt text. Plain boxes and rules can come out as native shapes too.
 - **Bring the fonts along.** Calco embeds every font face the text uses, so the file looks right on a machine that doesn't have them. A variable font is first pinned to one fixed weight, with every character kept, so the reader can type new words in it.
-- **Your libraries, your versions.** Calco has no dependencies of its own. You pass in JSZip and PptxGenJS, so it uses the versions your app already has.
+- **Your libraries, your versions.** Calco has no dependencies of its own. It writes both file formats itself, and you pass in JSZip, so it uses the version your app already has.
 
 ## How to use it
 
-Install it beside the two libraries it writes with:
+Install it beside JSZip, which it writes both formats with:
 
 ```sh
-npm install @laticent/calco jszip pptxgenjs
+npm install @laticent/calco jszip
 ```
 
 > Calco publishes to npm with Lattice 1.0. Until then it lives in the Lattice repository at `docs/src/lib/calco`.
@@ -65,14 +65,13 @@ In the browser, read a laid-out slide, capture its background, and write the fil
 ```ts
 import { readSlide, restoreSlide, writePptx } from '@laticent/calco';
 import JSZip from 'jszip';
-import PptxGenJS from 'pptxgenjs';
 
 const read = readSlide(slideElement, { hide: true }); // text → frames; the text is now hidden
 const image = await screenshot(slideElement);         // your capture: html-to-image, Puppeteer, …
 restoreSlide(slideElement);                           // put the text back
 
 const deck = { width: read.width, height: read.height, slides: [{ image, frames: read.frames }] };
-const pptx = await writePptx(PptxGenJS, deck, 'uint8array', JSZip); // pass JSZip so fonts embed
+const pptx = await writePptx(JSZip, deck); // a Uint8Array, fonts embedded
 ```
 
 The writers also work on their own, in Node, from slide images you already have:
@@ -92,21 +91,19 @@ const odp = await writeOdp(JSZip, {
 | `readSlide(element, { hide })` | The text of a laid-out slide, as frames; optionally hides it |
 | `restoreSlide(element)` | Puts back what `readSlide` hid |
 | `prepareFonts(deck, { load, pin })` | The font faces to embed, pinned to fixed weights |
-| `writePptx(PptxGenJS, deck, 'uint8array', JSZip)` | A PowerPoint file |
+| `writePptx(JSZip, deck)` | A PowerPoint file, fonts embedded |
 | `writeOdp(JSZip, deck)` | A LibreOffice / OpenDocument file, fonts embedded |
-| `tidyPptxPackage(JSZip, bytes)` | Repairs a `.pptx` you built with PptxGenJS yourself |
 
 ## Where else it fits
 
 - **Any HTML slide or presentation tool** that wants an "Export to PowerPoint (editable)" button — in the browser, or in a headless browser on a server.
 - **Report and dashboard exports**: a web report rendered at slide size becomes an editable file for people who live in an office suite.
 - **Clean picture decks** from slide images you already render, with notes and alt text.
-- **Fixing PptxGenJS output**: `tidyPptxPackage` repairs three schema errors that PptxGenJS writes, and changes nothing else.
 - **Open-format archives**: `.odp` files with embedded fonts, for organizations that require OpenDocument.
 
 ## How Lattice uses it
 
-Lattice's editable office export runs on Calco in two places. The **command-line tool** writes every `.odp`, and with `--editable` it writes PowerPoint and LibreOffice files with real text boxes, handing Calco the deck's fonts and a font pinner. The **Studio**, Lattice's editor in the browser, does the same, reading and hiding each slide's text during capture. Lattice's picture-only PowerPoint export also runs its output through Calco's repair step.
+Lattice's editable office export runs on Calco in two places. The **command-line tool** writes every `.odp`, and with `--editable` it writes PowerPoint and LibreOffice files with real text boxes, handing Calco the deck's fonts and a font pinner. The **Studio**, Lattice's editor in the browser, does the same, reading and hiding each slide's text during capture. Lattice's picture-only PowerPoint export is written by the same `writePptx`, from a deck of pictures with no text frames.
 
 ## What it doesn't do
 

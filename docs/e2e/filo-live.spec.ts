@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import { savedDeck } from './compose-insert';
 import { localRelay } from './live-relay';
-import { expect, gotoStudio, setEditorContent, test, toSourceIfCompose } from './studio-fixture';
+import { editorFocusSettled, expect, gotoStudio, pressSettled, setEditorContent, test, toSourceIfCompose } from './studio-fixture';
 
 const DECK = ['<!-- _class: content -->\n\n# Live deck\n\nBody one.', '<!-- _class: content -->\n\n# Two\n\nBody two.', '<!-- _class: content -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
 
@@ -211,10 +211,17 @@ async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 	return { host, guest, relayed: () => relay.events };
 }
 
-/** Put the caret at the end of slide `i`'s body in Compose, the way an author clicks there. */
+/**
+ * Put the caret at the end of slide `i`'s body in Compose, the way an author clicks there. The click focuses the editor,
+ * and ProseMirror's focus handler then writes its own selection back over a native one it has not read yet: under load
+ * that 20 ms timer ran 52 ms late, after End and Shift+Home, so "Gone" went in at the end of the paragraph instead of
+ * replacing it (nightly run 43712760849). `editorFocusSettled` waits for that timer, `pressSettled` for each key's
+ * `selectionchange` (studio-fixture.ts; engineering/gotchas/studio-playground.md, the Compose e2e entry).
+ */
 async function caretInCompose(page: Page, i: number): Promise<void> {
 	await page.locator('.cs-host .cs-slide').nth(i).locator('p').last().click();
-	await page.keyboard.press('End');
+	await editorFocusSettled(page);
+	await pressSettled(page, 'End');
 }
 
 async function openCompose(page: Page): Promise<void> {
@@ -328,7 +335,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await ime.send('Input.imeSetComposition', { text: 'に', selectionStart: 1, selectionEnd: 1 });
 		await bothHold(pair, (s) => s.includes('Body one.に'), "the guest's composing character crossed");
 		await caretInCompose(host, 0);
-		await host.keyboard.press('Shift+Home');
+		await pressSettled(host, 'Shift+Home');
 		await host.keyboard.insertText('Gone');
 		await bothHold(pair, (s) => s.includes('# Live deck\n\nGone') && !s.includes('Body one'), 'the host replaced the paragraph');
 		await ime.send('Input.imeSetComposition', { text: 'ニ', selectionStart: 1, selectionEnd: 1 });

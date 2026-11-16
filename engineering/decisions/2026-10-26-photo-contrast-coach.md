@@ -410,3 +410,25 @@ is why it passed.
 - **Not changed:** the watch still reads a slide once. A read that runs before the preview has drawn the slide also returns
   null and is not tried again; it is not what failed here and was not reproduced.
 
+
+## Reproduced under load: the read that ran before the preview drew the slide (2026-11-15)
+
+The gap the entry above left open. `photo-contrast-coach.spec.ts:91` (the 390 px arm, `webkit-phone`) went red once in a full
+`webkit-phone` run at 4 workers, and 13 of 100 times when it ran beside the whole project as load. It passed 20 of 20 alone,
+and on Chromium at 6× and 20× CPU throttling. The trace shows the order: on a phone the deck is typed in Source and the test
+taps Preview. The watch's one read fires 900 ms after the last change, while the pane is still swapping. It finds the preview
+not yet showing the slide and returns null. Switching to Preview changes none of the watch's inputs (slide, mode, palette,
+deck text), so nothing read again, and the Coach never showed the finding. An author on a phone who types in Source and opens
+Preview hits the same thing on a busy device.
+
+- **Fixed: a paint re-reads an unmeasured slide.** `DeckPreview` gains `onPaint`, which fires once the frame SHOWS a render:
+  at commit for a patch, and on the frame's `load` for a full write that still held the old document at commit. `onRender`
+  fires at commit in both cases, so a read on it could still see the old slide (the card checker on #3211). `StudioShell`
+  keeps a listener set on `onPaint` and passes a subscription to `usePhotoContrast`. While
+  the slide's last read came back empty, a paint schedules another read (after the same 900 ms settle). A paint that lands
+  during a read that then comes back empty reads once more, so a read racing the paint cannot strand the slide. A measured
+  slide takes no further reads, and the shell does not re-render on a paint (a listener set, not state).
+- **Pinned by** `coach/photo-contrast-watch.test.tsx`: an empty read and then a paint (red on the old watch), a paint during an
+  empty read (red with the second read removed), no reads after a measured one, and the listener leaving on unmount. And by
+  `DeckPreview.test.tsx`: `onPaint` at commit for a patch (red without the commit call), and not until `load` for a write
+  that still held the old document (red without the stale-document check).

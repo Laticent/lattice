@@ -192,6 +192,19 @@ async function latticePhotoProbe() {
 	/** Open the editor's lint tooltip on the range on the line holding `text`, with a pointer move over it, and read it. */
 	const editorTooltip = async (text) => {
 		await openSource();
+		// BRING THE LINE'S START INTO VIEW FIRST. A photo written as data: text is one very long line, and CodeMirror puts
+		// only the part of a long line that is in view into the page: with the editor scrolled to the line's tail (an iPhone
+		// run, 43714043372, after the rebuilt editor kept its scroll), its start, the text this looks for and the warning's
+		// underline were not in the page at all, so the wait ran out with the warning present. The editor's own document
+		// says where the text is; its scroll effect puts the line's start at the top of the view.
+		await until(() => {
+			// The view, through the handle EditorView.findFromDOM uses (docs/e2e/markdown-stress.spec.ts).
+			const view = document.querySelector('[aria-label="Deck source"]')?.cmTile?.root?.view ?? document.querySelector('.cm-content')?.cmTile?.root?.view;
+			const at = view ? view.state.doc.toString().indexOf(text) : -1;
+			if (at < 0) return null;
+			view.dispatch({ effects: view.constructor.scrollIntoView(at, { y: 'start' }) });
+			return true;
+		}, 10000, `the editor's document to hold "${text}"`);
 		const range = await until(() => {
 			const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes(text));
 			return line?.querySelector('.cm-lintRange-warning');

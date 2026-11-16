@@ -8,7 +8,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
-const PptxGenJS = require('pptxgenjs');
 const { writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_PNG } = require('./_fixtures');
 
@@ -19,7 +18,7 @@ const deck = (...shapes) => ({ width: 1280, height: 720, slides: [{ image: ONE_P
 
 describe('calco dashed and dotted strokes', () => {
   test('.pptx: a dashed line is preset `dash`, a dotted box `sysDot`, a solid line has no pattern', async () => {
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck(rule('dash'), box('dot'), rule()), 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, deck(rule('dash'), box('dot'), rule()), 'nodebuffer'));
     const xml = await zip.file('ppt/slides/slide1.xml').async('string');
     const sps = xml.match(/<p:(?:sp|cxnSp)>(?:(?!<\/p:(?:sp|cxnSp)>).)*<\/p:(?:sp|cxnSp)>/gs);
     const named = (re) => sps.filter((s) => re.test(s));
