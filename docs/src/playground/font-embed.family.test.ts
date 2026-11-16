@@ -16,7 +16,7 @@ afterEach(() => {
 	net.status = 200;
 });
 
-import { buildFamilyFontCss, cssWeightFor, FACES } from './font-embed.js';
+import { buildFamilyFontCss, cssWeightFor, ensureFontsLoaded, FACES, ICON_FACES } from './font-embed.js';
 
 const face = (family: string, weight = 400, style = 'normal') => ({ family, weight, style });
 
@@ -98,5 +98,31 @@ describe('buildFamilyFontCss', () => {
 		const css = await buildFamilyFontCss([face('barlow condensed', 500)]);
 		expect(css).toContain('font-weight:400');
 		expect(css).not.toContain('font-weight:600');
+	});
+});
+
+// `ensureFontsLoaded` waits for the faces it is given: every vendored face by default (each export), or only the faces
+// one slide draws (deck-export.js `rasterizeSlidePreview`, the chat's `render_slide` look), so a face the slide never
+// uses is never asked for. A `load` call for a face is what fetches it.
+describe('ensureFontsLoaded', () => {
+	const fakeDoc = () => {
+		const loads: string[] = [];
+		const doc = {
+			getElementById: () => null,
+			createElement: () => ({ id: '', textContent: '' }),
+			head: { appendChild: () => {} },
+			fonts: { load: async (spec: string) => void loads.push(spec), ready: Promise.resolve() },
+		};
+		return { doc: doc as unknown as Document, loads };
+	};
+	it('loads every vendored face when no list is given, as every export does', async () => {
+		const { doc, loads } = fakeDoc();
+		await ensureFontsLoaded(doc, '');
+		expect(loads.length).toBe(FACES.length + ICON_FACES.length);
+	});
+	it('loads only the faces it is given', async () => {
+		const { doc, loads } = fakeDoc();
+		await ensureFontsLoaded(doc, '', [face('outfit', 700)]);
+		expect(loads).toEqual(["normal 700 1em 'outfit'"]);
 	});
 });
