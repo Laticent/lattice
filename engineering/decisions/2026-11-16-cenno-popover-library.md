@@ -320,8 +320,8 @@ not the slide. Slice 2 proves it first on the real player.
   the file's starting state. When the file starts them off, the same button turns them on: the
   cards are in the file either way, so `off` means "start hidden", not "removed". The reader's
   choice is remembered in `localStorage` under a key that includes the deck's identity, because
-  every `file://` player shares one origin, and a choice made in one deck must not leak into
-  another.
+  a browser may give every `file://` page one shared storage (Chromium does; Firefox and Safari
+  differ), and a choice made in one deck must not leak into another.
 - **Removing the detail text from a file is a separate need**, not planned. If an author asks to
   ship a player that cannot show draft detail text, a `--strip-chart-details` flag, beside
   `--strip-notes`, is the shape.
@@ -343,9 +343,9 @@ There are three kinds of zoom, and they behave differently.
 
 | Zoom | Where it happens today | What moves |
 |---|---|---|
-| **Page zoom** (Ctrl/Cmd and + or −) | any browser, any surface | CSS pixels get bigger; the page lays out again and fires `resize` |
-| **Pinch zoom of the page** (two fingers, or a trackpad pinch in Safari) | the player on phones and tablets. Its `<meta name="viewport" content="width=device-width,initial-scale=1">` allows it, and must keep allowing it (blocking zoom fails accessibility) | the *visual* viewport scales and pans over a *layout* viewport that does not move |
-| **Slide zoom** (our own gesture) | the Studio, through `createZoomGesture` in `lib/core/present-transport.mjs` (`2026-08-10-preview-pinch-zoom.md`). The player has none yet; `player-core.mjs` names it as the sequel | a CSS `transform` on the slide; nothing fires `resize` or `ResizeObserver` |
+| **Browser zoom from the keyboard or a trackpad** (Ctrl/Cmd and + or −; a trackpad pinch, which Chromium, WebKit and Gecko all deliver as a `wheel` event with `ctrlKey` set) | any surface, **both player views**. The player hands a `ctrl`+wheel back to the browser on purpose (#1558, `player-core.mjs`'s wheel handler) | the browser grows CSS pixels and re-lays out (`resize`), or pinch-zooms the visual viewport, depending on the browser |
+| **Touch pinch of the page** (two fingers on a phone or tablet) | **the player's Read view only**, which scrolls natively; the viewport meta (`width=device-width,initial-scale=1`) allows it and must keep allowing it. **Not the Present view**: `#lp-stage` sets `touch-action:none` so a sideways drag turns the slide, and a pinch there is inert today (#1578) | the *visual* viewport scales and pans over a *layout* viewport that does not move |
+| **Slide zoom** (our own gesture) | the Studio, through `createZoomGesture` in `lib/core/present-transport.mjs` (`2026-08-10-preview-pinch-zoom.md`), and the player's collage lightbox, which inlines it only for a deck with a collage. **The player's slides have none yet**: #1578 owes it, and when it lands it will be this kind (a transform driven by `createZoomGesture`), not a page pinch | a CSS `transform`; nothing fires `resize` or `ResizeObserver` |
 
 ### Hit detection
 
@@ -358,8 +358,15 @@ There are three kinds of zoom, and they behave differently.
   `visualViewport.scale`), then picks the nearest mark inside it. Zooming in makes marks easier
   to hit, never harder.
 - **A zoom gesture is never a tap.** A gesture that ever held two pointers, or panned past the
-  threshold while zoomed, opens no card. This is the rule `createZoomGesture` already applies to
-  swipes, and the reveal reads it from the same kernel rather than restating it (HARD RULE #1).
+  threshold while zoomed, opens no card. This is the rule `createZoomGesture` applies to swipes.
+  - **In the Studio**, the reveal reads it from `createZoomGesture` directly.
+  - **In the player**, the reveal reads the finger-counting guard the player already has (its
+    `pinch` flag), which restates the same rule. `player-core.mjs` chose deliberately not to
+    inline `createZoomGesture` for slides: 5.9 KB of source, 23% of the script, to use two of its
+    nine methods. The reveal keeps that choice, because one flag is all it needs (§6: every byte
+    load-bearing).
+  - **When #1578 gives the player slide zoom**, those 5.9 KB start earning their place, and the
+    reveal moves onto `createZoomGesture` in the same change.
 
 ### Card size
 
@@ -386,11 +393,19 @@ There are three kinds of zoom, and they behave differently.
 
 ### How it is verified
 
-The parity harness gains zoom cases: Chromium's `Emulation.setPageScaleFactor` (through the
-DevTools protocol) sets a real visual-viewport scale in a real browser, and a CSS transform on a
-wrapper stands in for slide zoom. A harness is not a finger (HARD RULE #23), so slices 2 and 3
-also drive a real pinch on the iOS Simulator suite by dispatch, and on the Studio's own zoom at
-three widths.
+- **Placement math, in the parity harness.** Chromium's `Emulation.setPageScaleFactor` (through
+  the DevTools protocol) sets a real visual-viewport scale, and a CSS transform on a wrapper
+  stands in for slide zoom.
+- **The harness does not prove a pinch can happen.** `setPageScaleFactor` ignores `touch-action`,
+  so it would pass on the Present stage, where no finger can pinch. A harness is not a finger
+  (HARD RULE #23).
+- **So each surface is checked where its zoom really exists:**
+  - **Slice 2 (Present view):** browser zoom from the keyboard and from a trackpad, on desktop.
+    Plus a test that a touch pinch on the Present stage still turns nothing and opens no card.
+  - **Slice 3 (Studio):** its own slide zoom, at three widths.
+  - **Slice 4 (Read view):** a real touch pinch, on the iOS Simulator suite by dispatch.
+- **Recorded as a coupling:** #1578, when it lands, re-runs the slice-2 zoom checks on the
+  player's new slide zoom.
 
 ## 8. The mark (logo brief)
 
@@ -449,9 +464,9 @@ exported bytes stops for the owner's sign-off with dark and light players (QUALI
 | # | Slice | Proves | Gate |
 |---|---|---|---|
 | 1 | **Cenno core** in `docs/src/lib/cenno/`: `place`, `measure`, `track`, layer, intent, access; README; the spike's harness as its parity suite (Chromium, WebKit, Firefox) plus clipping, transform, RTL, hide and zoom cases; tokens, parts and `cenno.card`; the per-module size table | the library stands alone | unit + parity suites; size table fresh; bench scenario |
-| 2 | **Shared reveal kernel** in `lib/runtime/chart-reveal/`, and the player wired to it in the Present view | deck CSS reaches the card; scaled stage; fullscreen; browser pinch and page zoom | real player in Chromium and WebKit, phone and desktop; owner sign-off |
+| 2 | **Shared reveal kernel** in `lib/runtime/chart-reveal/`, and the player wired to it in the Present view | deck CSS reaches the card; scaled stage; fullscreen; browser zoom by keyboard and trackpad; a touch pinch on the stage still inert (#1578) | real player in Chromium and WebKit, phone and desktop; owner sign-off |
 | 3 | **Studio, Playground and Present** moved onto the kernel and `cenno/react`, mapping app tokens onto Cenno's | one reveal everywhere, same structure and parts; the two Radix workarounds deleted; the Studio's own slide zoom (`createZoomGesture`) | `docs/e2e/chart-detail-reveal`, `chart-popup-dismiss` and `present-chart-card` specs, at three widths |
-| 4 | **Read view, viewer button, the `details:` register, the Studio export toggle and `--details`**, demo deck `examples/player-chart-details.md` | the remaining surfaces | owner sign-off; the html-player golden unchanged for decks without details |
+| 4 | **Read view, viewer button, the `details:` register, the Studio export toggle and `--details`**, demo deck `examples/player-chart-details.md` | the remaining surfaces; a real touch pinch in the Read view (iOS Simulator) | owner sign-off; the html-player golden unchanged for decks without details |
 | 5 | **The mark** and the docs page | the family look | brand note updated with the measured palette distance |
 
 Novel work with real blast radius, so the adversarial trio (red team, inversion, checker) reviews
