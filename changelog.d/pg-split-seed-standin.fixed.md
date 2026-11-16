@@ -1,0 +1,1 @@
+- Playground: a returning visitor whose saved split puts the preview under its 300px minimum no longer sees the editor pane jump narrower as the page loads (907px, then 893px at a 1194px window). The pre-paint clamp now also holds the space reserved for the preview pane before it has loaded.
