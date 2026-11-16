@@ -352,7 +352,15 @@ Built on `claude/squadra-lint-front-matter-ktsbt9`, cut from `main` at `72bd2d9`
   and value; a block scalar (`style: |`) records where its body ends, and the body's lines are never keys (YAML's
   rule). A name is `[\w$][\w$.-]*`, wider than any reader asked for, so no reader loses a key. The list is frozen.
   The key each nests under and the body's span are `lattice-deck`'s to work out: this module ships in every docs page
-  that reads a register (1,035 bytes gzipped), so it carries only what those readers use.
+  that reads a register, so it carries only what those readers use.
+- **Two modules, for the bytes.** Where the block ends lives in `lib/core/front-matter-fence.mjs` (`frontMatterFence`,
+  `frontMatterMatch`, `FRONT_MATTER_FENCE`), which the island imports and re-exports. A reader that only needs the
+  block (the splitter, the boundary parser, the deck model, the plugin admission, the resolvers, `slides.js`) imports
+  the fence alone, so the docs home page does not ship the key reader. lint-core's two line scans
+  (`withoutBlockScalarBodies`, `lastFrontMatterMatch`) moved out of the shared front-matter-key.js into
+  lib/authoring/front-matter-scans.js, beside their one caller. Measured after the merge queue ejected the first try
+  (main had grown the home route, and the PR took it 0.3 KB past its ceiling): home +338 bytes gzipped against main,
+  studio +653, playground +659, declared in docs/route-budget.d/3228-front-matter-island.md.
 
 Each reader then selects from the one list, and that selection is all that differs between them:
 

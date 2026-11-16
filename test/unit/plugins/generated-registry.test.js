@@ -55,8 +55,8 @@ describe('the generated registries on a multi-plugin tree', () => {
     fs.copyFileSync(path.join(ROOT, 'lib/core/deck-plugins.mjs'), path.join(root, 'lib/core/deck-plugins.mjs'));
     // …and deck-plugins.mjs reads a comment through the shared grammar (lib/core/comment-directive.mjs).
     fs.copyFileSync(path.join(ROOT, 'lib/core/comment-directive.mjs'), path.join(root, 'lib/core/comment-directive.mjs'));
-    // …and finds its front matter through the front-matter island (lib/core/front-matter-island.mjs), import-free.
-    fs.copyFileSync(path.join(ROOT, 'lib/core/front-matter-island.mjs'), path.join(root, 'lib/core/front-matter-island.mjs'));
+    // …and finds its front matter through the front-matter fence (lib/core/front-matter-fence.mjs), import-free.
+    fs.copyFileSync(path.join(ROOT, 'lib/core/front-matter-fence.mjs'), path.join(root, 'lib/core/front-matter-fence.mjs'));
     // …and both read a slide-metadata record (`<!-- {layout=cards} -->`) and a pane marker in every spelling through the
     // shared record reader (lib/core/meta-door.mjs), which needs the vocabulary, the internal form, the fence scan and
     // Segno (resolved through the repo's node_modules).
