@@ -43,9 +43,13 @@
  *   the number is proposed, not calibrated against viewers yet.
  *
  * WHAT COUNTS AS A STATUS MARK (found in the DOM, so the tool needs no per-deck setup): a chart
- * member carrying `data-s` (pills, progress fills, kanban cards, state nodes), a `.lat-state` /
- * `td .state` disc, a checklist row's `::before` disc, and a kpi `.lat-pill`. The status is read
- * from `data-s` or the state class; a kpi pill, which carries none, is keyed by its painted fill.
+ * member carrying `data-s` that paints an AREA at least 6px each way (an HTML box with a background,
+ * an SVG rect / circle / ellipse / polygon / path with a fill: pills, progress fills, gantt bars,
+ * state tiles, risk cells), a `.lat-state` / `td .state` disc, a checklist row's `::before` disc,
+ * and a `.lat-pill` that wears one of the slide's status fills (a kpi pill; not a citation pill).
+ * Text that carries `data-s`, the drawn mark glyph, and a sliver (a gantt bar's 4px leading accent,
+ * read with the bar it belongs to) are not marks of their own. The status is read from `data-s`,
+ * the state class, or, for a pill, the status fill it matches.
  *
  * Usage:
  *   node tools/check-glance.js <deck.md|deck.html>... [--palette=indaco] [--venues=conference,hall]
@@ -181,10 +185,33 @@ const FIND_MARKS = (STATUS_OF) => {
   slides.forEach((sec, page) => {
     const s = sec.getBoundingClientRect();
     const add = (r, key, kind) => { if (r.width >= 3 && r.height >= 3) out.push({ page, key, kind, rect: { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height } }); };
+    const clear = (c) => !c || c === 'none' || c === 'transparent' || /^rgba\(.*,\s*0\)$/.test(c);
+    // A status MARK paints an area: an HTML box with a background, or an SVG shape with a fill. Text that carries
+    // `data-s` (a gantt caption, a state label or numeral), a group, and the drawn mark glyph (`.chart-status-mark`,
+    // which the measuring shot hides on purpose) are not marks: measured, each is its own surround, a false 1.00:1.
+    const SHAPES = new Set(['rect', 'circle', 'ellipse', 'polygon', 'path']);
     for (const el of sec.querySelectorAll('[data-s]')) {
       const st = STATUS_OF[(el.getAttribute('data-s') || '').toLowerCase()];
       const r = el.getBoundingClientRect();
-      if (st && r.width > 0 && r.width < s.width * 0.9) add(r, st, el.className.baseVal ?? el.className);
+      // A sliver under 6px is part of a larger mark (a gantt bar's leading accent): its own 3-6px ring would sample the
+      // shape it belongs to as its surround, so it is read with that shape, not scored alone.
+      if (!st || !(r.width >= 6 && r.height >= 6 && r.width < s.width * 0.9)) continue;
+      const tag = el.tagName.toLowerCase();
+      const cs = getComputedStyle(el);
+      const svg = el instanceof SVGElement;
+      if (svg ? !SHAPES.has(tag) || el.classList.contains('chart-status-mark') || clear(cs.fill) : clear(cs.backgroundColor)) continue;
+      add(r, st, el.className.baseVal ?? el.className);
+    }
+    // A pill is a status mark only when it wears one of this slide's status fills (a kpi pill does; a citation pill
+    // on the canvas tint does not). A probe painted with each `--state-X-hue` reads the slide's own fills, intensity
+    // register included, so the match is exact rather than guessed from the pill's words.
+    const fillOf = {};
+    for (const st of ['pass', 'warn', 'fail', 'info', 'mute']) {
+      const probe = document.createElement('span');
+      probe.style.cssText = `position:absolute;width:1px;height:1px;background:var(--state-${st}-hue)`;
+      sec.appendChild(probe);
+      fillOf[getComputedStyle(probe).backgroundColor] = st;
+      probe.remove();
     }
     for (const el of sec.querySelectorAll('.lat-state, td .state')) {
       const st = ['pass', 'warn', 'fail', 'info', 'mute', 'skip', 'unknown'].find((c) => el.classList.contains(c));
@@ -199,9 +226,8 @@ const FIND_MARKS = (STATUS_OF) => {
       add({ left: lr.left + left, top: lr.top + lr.height / 2 - h / 2, width: w, height: h }, st, 'disc');
     }
     for (const el of sec.querySelectorAll('.lat-pill')) {
-      const bg = getComputedStyle(el).backgroundColor;
-      if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') continue;
-      add(el.getBoundingClientRect(), `pill ${bg}`, 'pill');
+      const st = fillOf[getComputedStyle(el).backgroundColor];
+      if (st) add(el.getBoundingClientRect(), st, 'pill');
     }
   });
   return out;
