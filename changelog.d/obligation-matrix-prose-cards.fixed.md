@@ -1,0 +1,1 @@
+- An `obligation-matrix asymmetric`, split into cards on a phone, now wraps its prose values inside the slide instead of running them off its right edge.

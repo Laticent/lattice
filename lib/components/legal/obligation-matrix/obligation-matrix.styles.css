@@ -259,9 +259,13 @@ section.obligation-matrix.heat thead tr th:last-child {
  *    field contributes its two cells to it (`display: contents`), which puts every disc on the
  *    same track whatever its label says. Scoped to this component's split pages, so no other
  *    `cover-cards` consumer moves. */
+/* The second track is `minmax(0, 1fr)`, not `max-content`: an `asymmetric` matrix's values are prose, and a
+   `max-content` track never wraps, so a value ran past the slide (legal.gallery.md 20 at square, 250px; owner,
+   2026-11-16, fit-everywhere-model.md §25). The first track is unchanged, so the second still starts where it did
+   and the discs keep their one column. */
 section.obligation-matrix.lat-split-cards .ct-card-fields {
   display: grid;
-  grid-template-columns: max-content max-content;
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
   column-gap: var(--sp-lg);
   row-gap: var(--sp-2xs);
