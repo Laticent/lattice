@@ -1299,3 +1299,15 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   on three such slides), and the photo-size prefetch parses only a slide holding a lone `http(s)` picture.
   **Not taken, for the owner:** the inversion's alternative, desugaring `![bg]` in memory at render time (the `--fix` kernel as
   an ingest step), which keeps Marp decks and model output rendering at the price of an alias; on the decision card.
+- 2026-11-16: **the shortcut stops writing a pasted photo's address into its record** (followups.d/3181-p3, now deleted). The
+  `placedAt` branch in lib/integrations/markdown-it/plugins.js wrote `@image{"<src>", title=…}` as text for the record reader to
+  parse again, so a `data:` address the render's own payload skip does not cut (a picture with a `"description"`, which
+  `imageLineRanges` reads whole, or any render on the code door) was quoted, unquoted and copied in full: three such slides
+  rendered in 2.5 s against 1.5 s as `![bg]`. `holdLongSrc` now writes a short marker into the record when the address is a
+  plain base64 `data:` URL of 4,096 characters or more, asks the slide's resolver and size lookup about the real address, and
+  puts it back in the figure. Only a plain base64 address is held, because the figure's escapes (an attribute's, a CSS
+  `url()`'s) leave its characters alone, so the marker's place is exactly the address's; anything else, and a title or
+  description that spells the marker, is written whole as before. `readStats.recordChars` (lib/core/payload-elision.js) counts
+  the record text the reader is handed, and the bench's `picture shortcut · 3 described phone photos` row gates on it:
+  10,500,246 → 225 characters per render, median 2,464 → 1,574 ms. Output is byte-identical (150 slide shapes compared before
+  and after, and test/unit/plugins/image-address.test.js holds a held and a hand-written record to the same bytes).

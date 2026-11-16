@@ -2581,6 +2581,7 @@
     "/^data:(image\\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/i": "safe",
     "/^data:/": "safe",
     "/^data:/i": "safe",
+    "/^data:[A-Za-z0-9.+-]+\\/[A-Za-z0-9.+-]+;base64,[A-Za-z0-9+/]+={0,2}$/": "safe",
     "/^data:image\\/(?!svg)/": "safe",
     "/^data:image\\/(?:png|jpe?g|gif|webp|avif)[;,]/": "safe",
     "/^data:image\\/(?:png|jpe?g|gif|webp|avif|svg\\+xml)[;,]/i": "safe",

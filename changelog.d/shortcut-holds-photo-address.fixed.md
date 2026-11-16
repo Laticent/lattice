@@ -1,0 +1,1 @@
+- A pasted phone photo written as `![title](data:… "description")` on an `image` or `bleed` slide renders about a third faster: the engine no longer copies the photo's whole address through the picture record's text. Measured on three 3.5 MB photos: 2.5 s → 1.6 s per render. The output is unchanged.
