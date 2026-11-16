@@ -171,7 +171,6 @@ import { deckOutputLang, languageLabel, resolveSupported } from './studio-langua
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
-import { TermsEditor } from './TermsEditor';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
@@ -265,6 +264,10 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 const PresentOverlay = React.lazy(() =>
 	Promise.all([import('./PresentOverlay'), import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())]).then(([m]) => ({ default: m.PresentOverlay })),
 );
+
+// The Terms list draws only when Deck setup's Speech tab opens, so its chunk (and its icons) stay off the
+// Studio's first load (docs/route-budget.json).
+const TermsEditor = React.lazy(() => import('./TermsEditor').then((m) => ({ default: m.TermsEditor })));
 
 // The code-package notice renders only once the Library holds a code package (`codeStamp` is empty
 // until then), so its chunk is not part of the Studio's first load (docs/route-budget.json).
@@ -7139,7 +7142,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<CatalogSelect ariaLabel="Choose delivery" className="w-full" {...autoField(delivery, DEFAULT_DELIVERY, setDelivery, [{ options: DELIVERY_NAMES.map((n: string) => ({ value: n, label: cap(n), icon: optionGlyph('delivery', n) })) }])} />
 				</Field>
 				<InspGroup icon={<BookMarked className="size-3.5" />} label="Terms" desc="How a word, name, acronym or symbol is said, what it stands for, and a glossary definition. The slide keeps the word as written." last>
-					<TermsEditor terms={terms} onChange={setTerms} lang={deckLang || undefined} />
+					<React.Suspense fallback={null}>
+						<TermsEditor terms={terms} onChange={setTerms} lang={deckLang || undefined} />
+					</React.Suspense>
 				</InspGroup>
 			</div>
 			),
