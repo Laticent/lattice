@@ -121,7 +121,8 @@ A PR that changes any of the following needs the owner's explicit line on its ca
 - a measuring tool (`tools/check-*.js`, `tools/regression-gate.mjs`, `tools/lib/golden-*`)
 
 A CI check names these paths. Exception files are read from the commit that added them, and an
-edit or late add to another PR's exception is refused. This closes the laundering route the red
+edit or late add to another PR's exception is refused. The one change allowed to another PR's
+exception is its deletion by a revert of the PR that added it (§4). This closes the laundering route the red
 team found: a session "fixing" a clip by sanctioning it, or by re-blessing a record by hand.
 
 ## 8. Receipts: what the owner sees
