@@ -172,11 +172,11 @@ export function hasBodyText(chunk: string): boolean {
 }
 
 /** What the estimate needs to know about a slide before it reads anything: its photo, the card's place, opacity and shape. */
-export function cardOf(chunk: string, source: string): Omit<CardBox, 'ref'> & { ref: string | null } {
+export function cardOf(chunk: string, source: string, at?: number): Omit<CardBox, 'ref'> & { ref: string | null } {
 	const tokens = getClassTokens(chunk);
 	const deck = deckImageCardClasses(source);
 	// The composition the slide names and whether it has body text change the scenes a fix is judged on, so they key it too.
 	const body = hasBodyText(chunk) ? 'body' : 'heading';
 	const shape = [...[...deck, ...tokens].filter((c) => BOX_CLASSES.test(c)).sort(), compositionOf(tokens) ?? 'auto', body].join(' ');
-	return { ref: photoRefOf(chunk, source), placement: placementOf(tokens, deck), backing: effectiveCard(tokens, deck).backing, shape };
+	return { ref: photoRefOf(chunk, source, at), placement: placementOf(tokens, deck), backing: effectiveCard(tokens, deck).backing, shape };
 }

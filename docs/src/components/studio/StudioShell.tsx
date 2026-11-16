@@ -43,7 +43,7 @@ import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } 
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { createFilo } from '@/lib/filo';
 import { createFocusHub } from '@/lib/fuoco/hub';
-import { flatPart, partText, unitText } from '@/lib/fuoco/outline';
+import { flatPart, partStart, partText, unitText } from '@/lib/fuoco/outline';
 import { placeAt } from '@/lib/fuoco/place';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -5940,19 +5940,25 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// what the preview paints): a string of all three was built on every render, 16 MB on a deck of phone photos.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the three inputs are the context's identity; the body reads none of them.
 	const photoContext = React.useMemo(() => ({}), [mode, palette, source]);
-	// A `---` slide split on its headings is several engine slides: the photo read is the heading part on screen, at the engine
-	// slide the preview draws for it, while the finding keeps the `---` slide's number, as lint's findings do (PR #3239).
-	const activePart = (deckIndex.units[activeFullIndex]?.parts.length ?? 1) > 1 ? viewSection : 0;
-	const photoChunk = activePart > 0 || (deckIndex.units[activeFullIndex]?.parts.length ?? 1) > 1 ? partText(deckIndex, activeFullIndex, activePart) : activeChunk;
+	// A `---` slide split on its headings is several engine slides: the photo read is the heading part on screen (the preview
+	// frame holds that one slide; its heading and photo address confirm it), while the finding keeps the `---` slide's number,
+	// as lint's findings do (PR #3239).
+	const activeParts = deckIndex.units[activeFullIndex]?.parts.length ?? 1;
+	// Clamped to the slide's parts: `partText` does not clamp, and a part past the end reads from the deck's start.
+	const activePart = activeParts > 1 ? Math.max(0, Math.min(viewSection, activeParts - 1)) : 0;
+	const photoChunk = activeParts > 1 ? partText(deckIndex, activeFullIndex, activePart) : activeChunk;
 	const photoSection = deckIndex.units[activeFullIndex] ? flatPart(deckIndex, activeFullIndex, activePart) : activeFullIndex;
-	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(photoChunk, activeFullIndex, source, photoContext, onPreviewPaint, photoSection);
+	// Where the part starts in the deck, so what it inherits is read at its own place, not by finding its text.
+	const photoAt = deckIndex.units[activeFullIndex] ? partStart(deckIndex, activeFullIndex, activePart) : undefined;
+	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(photoChunk, activeFullIndex, source, photoContext, onPreviewPaint, photoSection, photoAt);
 	// The one click the photo verdict offers, the same edit the editor's button makes (photo-verdict.ts `applyFix`). Never
 	// applied on its own. Loaded with the verdict, which is already in memory by the time a button shows.
 	const pinActiveSlide = React.useCallback(
 		(fix: Fix) =>
-			// The fix is the heading part's own: written into that part's class, keeping a class it only inherits.
-			void import('./photo-verdict').then(({ applyFixInPart }) => mutateSlideFromPanel((c) => applyFixInPart(source, c, activePart, fix))),
-		[mutateSlideFromPanel, source, activePart],
+			// The fix is the heading part's own: written into that part's class, keeping a class it only inherits, and read from
+			// the source the write is applied to, not the one this render saw (the checker on #3239).
+			void import('./photo-verdict').then(({ applyFixToSlide }) => settingsWrite('This slide', (s) => applyFixToSlide(s, activeFullIndex, activePart, fix) ?? s)),
+		[settingsWrite, activeFullIndex, activePart],
 	);
 	// The editor's half: the verdict for the slide on screen, by source slide index (the full view only, as the spark
 	// measurement: a reader lens reshapes the set the preview shows).

@@ -84,17 +84,3 @@ export function slidePlacingOf(source: string, chunk: string): SlidePlacing | nu
 	return at < 0 ? null : slidePlacingAt(text, text.length - body.length + at);
 }
 
-/**
- * `unit` (one `---` slide's text) with heading part `part` replaced by `edit(partText)`: an edit of what one engine slide says,
- * when the `---` slide holds several (`split: headings`). A unit that does not split is edited whole.
- */
-export function editHeadingPart(source: string, unit: string, part: number, edit: (text: string) => string): string {
-	const starts = unitPartStarts(source, unit);
-	// Part 0 is cut out too when there are others: a class edit on the whole unit finds the first class comment, which is a
-	// later part's when the first has none.
-	if (starts.length < 2) return edit(unit);
-	if (part < 0 || part >= starts.length) return unit;
-	const from = starts[part];
-	const to = starts[part + 1] ?? unit.length;
-	return unit.slice(0, from) + edit(unit.slice(from, to)) + unit.slice(to);
-}

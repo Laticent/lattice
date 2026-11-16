@@ -28,8 +28,9 @@ export function usePhotoContrast(
 	context: object,
 	onPreviewRender?: (listener: () => void) => () => void,
 	section = slideIndex,
+	at?: number,
 ): { verdict: PhotoVerdict | null; fresh: boolean; findings: PhotoFinding[]; settled: boolean } {
-	const [state, setState] = React.useState<{ key: object | null; slide: number; verdict: PhotoVerdict | null }>({ key: null, slide: -1, verdict: null });
+	const [state, setState] = React.useState<{ key: object | null; slide: number; section: number; verdict: PhotoVerdict | null }>({ key: null, slide: -1, section: -1, verdict: null });
 	// Any picture or record may be the slide's photo; the reader decides which one the engine places (card-ink-pick.ts
 	// `photoAt`, with what the slide inherits from the deck) and returns null when none is. Arming on `![bg]` alone left the
 	// shortcut's photo, `![title](src)` on an `image` or `bleed` slide, unchecked.
@@ -54,7 +55,7 @@ export function usePhotoContrast(
 	React.useEffect(() => {
 		let live = true;
 		if (!photo) {
-			setState((prev) => (prev.verdict ? { key: null, slide: -1, verdict: null } : prev));
+			setState((prev) => (prev.verdict ? { key: null, slide: -1, section: -1, verdict: null } : prev));
 			return;
 		}
 		let timer: ReturnType<typeof setTimeout> | undefined;
@@ -65,11 +66,11 @@ export function usePhotoContrast(
 			timer = setTimeout(async () => {
 				const seen = paints;
 				const { readVerdict } = await import('../photo-verdict');
-				const verdict = await readVerdict(chunk, sourceRef.current, slideIndex, true, true, section);
+				const verdict = await readVerdict(chunk, sourceRef.current, slideIndex, true, true, section, at);
 				if (!live) return;
 				const measured = verdict?.src === 'live' ? verdict : null;
 				unmeasured = !measured;
-				setState({ key, slide: slideIndex, verdict: measured });
+				setState({ key, slide: slideIndex, section, verdict: measured });
 				if (unmeasured && paints !== seen) read();
 			}, SETTLE_MS);
 		};
@@ -83,11 +84,13 @@ export function usePhotoContrast(
 			clearTimeout(timer);
 			off?.();
 		};
-	}, [chunk, slideIndex, section, context, photo, key, onPreviewRender]);
+	}, [chunk, slideIndex, section, at, context, photo, key, onPreviewRender]);
 	// While the SAME slide is re-read after an edit, its last verdict stays on screen rather than flickering on every
 	// keystroke. A verdict for ANOTHER slide never does: on a slide change it is gone in the same render, so neither view
-	// shows the slide you left, with its button hidden, for the second the new read takes.
-	const verdict = state.slide === slideIndex ? state.verdict : null;
+	// shows the slide you left, with its button hidden, for the second the new read takes. A heading part of a `---` slide is a
+	// slide of its own here: moving between parts keeps `slideIndex` and changes `section` (the checker on #3239: the first
+	// part's verdict and fix stayed up on the second, and its button wrote the first part's ink there).
+	const verdict = state.slide === slideIndex && state.section === section ? state.verdict : null;
 	const findings: PhotoFinding[] = verdict?.low ? [{ slide: slideIndex + 1, rule: PHOTO_RULE, severity: 'warning', message: verdict.message, pin: verdict.fix }] : [];
 	// `fresh`: the verdict is for the slide's CURRENT text. Right after an edit the Coach keeps the last one on screen, but the
 	// editor must not draw an underline from it: a fix that just landed would flash its own warning back for a moment.

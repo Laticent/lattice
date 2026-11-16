@@ -67,10 +67,12 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 	const flat = useFocus(hub, (f) => f.flat);
 	// Every engine slide's class in deck order, so a slide that only inherits a running `class:` is named by it (PR #3239).
 	const deckClasses = React.useMemo(() => {
+		// The Read stop labels by title, so it reads no classes.
+		if (readLabels) return [] as string[];
 		const texts: string[] = [];
 		for (let u = 0; u < index.units.length; u++) for (let k = 0; k < index.units[u].parts.length; k++) texts.push(partText(index, u, k));
 		return slideClasses(texts);
-	}, [index]);
+	}, [index, readLabels]);
 	const pills = React.useMemo(() => {
 		const out: Array<{ unit: number; section: number; flat: number; n: number; label: string; aria: string; hidden: boolean }> = [];
 		let n = 0;

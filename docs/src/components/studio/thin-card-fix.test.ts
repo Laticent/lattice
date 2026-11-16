@@ -90,4 +90,14 @@ describe('a `---` slide split on its headings: the fix and the underline are the
 		const first = photoDiagnostic(doc, { slideIndex: 0, part: 0, verdict }, () => null);
 		expect(first && doc.sliceString(first.from, first.to)).toBe('![A lake](sample:photo-wide.svg)');
 	});
+	it('reads what the part inherits at its own place, though an identical part earlier in the deck inherits nothing', () => {
+		// The checker on #3239: the part was found by its text, so the earlier copy answered, and the ink replaced the layout.
+		const twin = '## Two\n\n![B](sample:photo-tall.svg)';
+		const deck = `---\ntitle: T\n---\n\n${twin}\n\n---\n\n<!-- class: image spotlight card-clear -->\n## One\n\n![A](sample:photo-wide.svg)\n\n${twin}\n`;
+		const out = applyFixAt(deck, 1, 'ink-light', 1) as string;
+		expect(out.slice(out.indexOf('## One'))).toMatch(/<!-- _class: image spotlight card-clear ink-light -->\s*## Two/);
+		// The first copy is untouched.
+		expect(out.indexOf('ink-light')).toBeGreaterThan(out.indexOf('## One'));
+	});
 });
+

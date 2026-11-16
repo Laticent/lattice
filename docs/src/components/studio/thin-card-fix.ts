@@ -2,16 +2,15 @@ import type { Diagnostic } from '@codemirror/lint';
 import type { Text } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { buildDeckIndex } from '@/lib/deck-outline';
-import { flatPart, partAt, partText, unitAt } from '@/lib/fuoco/outline';
+import { flatPart, partAt, partStart, partText, unitAt } from '@/lib/fuoco/outline';
 import { slideRanges, splitSlides } from '../../lib/deck-lint';
 import { deckPlacingClasses } from '../../lib/deck-placing-classes';
 import { stripFrontMatter } from '../../lib/front-matter';
-import { editHeadingPart, slidePlacingAt, slidePlacingOf, unitPartStarts } from '../../lib/slide-carried';
+import { slidePlacingAt } from '../../lib/slide-carried';
 import { canEditClass, getClassTokens } from '../../lib/slide-directives';
 import { photosAt } from './card-ink-pick';
-import { replaceSlide } from './deck-ops';
 import { cachedFix, cardOf } from './photo-ink-read';
-import { applyFix, cardPolicy, type Fix, fixLabel, type PhotoVerdict, readVerdict } from './photo-verdict';
+import { applyFixToSlide, cardPolicy, type Fix, fixLabel, type PhotoVerdict, readVerdict } from './photo-verdict';
 
 // The editor's view of the photo verdict (photo-verdict.ts), the one answer the Coach shows too:
 //   - the `thin-card-no-ink` tooltip: lint's warning is instant and knows nothing about the picture; the tooltip then
@@ -33,13 +32,8 @@ export type MeasuredPhoto = { slideIndex: number; part?: number; verdict: PhotoV
  * (deck-ops.ts `replaceSlide`).
  */
 export function applyFixAt(source: string, slideIndex: number, fix: Fix, part = 0): string | null {
-	const chunk = splitSlides(stripFrontMatter(source))[slideIndex];
-	if (chunk == null) return null;
-	// The heading part's own class takes the fix, keeping a class it only inherits (photo-verdict.ts `applyFix`).
-	const next = editHeadingPart(source, chunk, part, (p) => applyFix(p, fix, slidePlacingOf(source, p)?.carried ?? []));
-	if (next === chunk) return null;
-	const out = replaceSlide(source, slideIndex, next).source;
-	return out === source ? null : out;
+	// The heading part's own class takes the fix, keeping a class it only inherits (photo-verdict.ts `applyFixToSlide`).
+	return applyFixToSlide(source, slideIndex, part, fix);
 }
 
 /** The deck with `ink-<ink>` set on slide `slideIndex`, or null (see `applyFixAt`). */
@@ -64,14 +58,14 @@ export function applyAsSpan(v: EditorView, next: string): void {
 
 type Handles = { slideOf: () => number; partOf: () => number; source: () => string; onApply: (next: string) => void; onScreen: () => boolean; measured: () => MeasuredPhoto };
 
-/** The text a photo check reads for heading part `part` of slide `slideIndex`, and the engine slide the preview draws for it. */
-function photoTarget(source: string, slideIndex: number, part: number): { chunk: string; section: number } {
-	const unit = splitSlides(stripFrontMatter(source))[slideIndex] ?? '';
-	const starts = unitPartStarts(source, unit);
-	if (starts.length < 2) return { chunk: unit, section: flatPart(buildDeckIndex(source), slideIndex, 0) };
-	const k = Math.max(0, Math.min(part, starts.length - 1));
+/** The text a photo check reads for heading part `part` of slide `slideIndex`, the engine slide it is, and where it starts in
+ *  the deck (so what it inherits is read at its own place, not by finding its text). */
+function photoTarget(source: string, slideIndex: number, part: number): { chunk: string; section: number; at: number | undefined } {
 	const ix = buildDeckIndex(source);
-	return { chunk: partText(ix, slideIndex, k), section: flatPart(ix, slideIndex, k) };
+	const unit = ix.units[slideIndex];
+	if (!unit) return { chunk: splitSlides(stripFrontMatter(source))[slideIndex] ?? '', section: slideIndex, at: undefined };
+	const k = unit.parts.length > 1 ? Math.max(0, Math.min(part, unit.parts.length - 1)) : 0;
+	return { chunk: unit.parts.length > 1 ? partText(ix, slideIndex, k) : (splitSlides(stripFrontMatter(source))[slideIndex] ?? ''), section: flatPart(ix, slideIndex, k), at: partStart(ix, slideIndex, k) };
 }
 
 /** One fix button, in CodeMirror's own action style, that keeps focus (and the caret) in the editor as its buttons do. */
@@ -166,15 +160,15 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 	const showRead = (v: { fix: Fix | null; src: 'live' | 'estimate' } | null) => {
 		if (!settled) show(v);
 	};
-	const { chunk, section } = photoTarget(h.source(), slideIndex, h.partOf());
-	const card = cardOf(chunk, h.source());
+	const { chunk, section, at } = photoTarget(h.source(), slideIndex, h.partOf());
+	const card = cardOf(chunk, h.source(), at);
 	const kept = card.ref ? cachedFix({ ...card, ref: card.ref }) : undefined;
 	if (kept) {
 		show({ fix: kept.fix, src: kept.src });
 		// A kept answer shows at once; when the preview shows this slide, the measured read replaces it, and the button
 		// changes only if the measured fix differs.
 		if (h.onScreen())
-			void readVerdict(chunk, h.source(), slideIndex, true, false, section).then((v) => {
+			void readVerdict(chunk, h.source(), slideIndex, true, false, section, at).then((v) => {
 				if (v && v.fix !== kept.fix) showRead(v);
 			}, () => {});
 		return root;
@@ -187,7 +181,7 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 	checking.setAttribute('aria-busy', 'true');
 	checking.style.opacity = '0.6';
 	row.append(checking);
-	void readVerdict(chunk, h.source(), slideIndex, h.onScreen(), false, section).then(showRead, () => showRead(null));
+	void readVerdict(chunk, h.source(), slideIndex, h.onScreen(), false, section, at).then(showRead, () => showRead(null));
 	return root;
 }
 

@@ -4,7 +4,7 @@ import { buildDeckIndex } from '@/lib/deck-outline';
 import { partStart, unitAt } from '@/lib/fuoco';
 import { boundaryParser as md } from '../../../lib/core/boundary-parser.js';
 import { splitSlideChunks } from '../../../lib/core/slide-boundaries.mjs';
-import { presentationIndices, presentationSet, slideClass, slideClasses, slideTitle, splitSlides, unknownComponents, usedComponents } from './deck-lint';
+import { presentationIndices, presentationSet, slideClass, slideClasses, slideClassesStats, slideTitle, splitSlides, unknownComponents, usedComponents } from './deck-lint';
 import { stripFrontMatter } from './front-matter';
 
 // The caret ↔ slide locators moved into the slide index (docs/src/lib/fuoco); the cases below
@@ -535,3 +535,20 @@ describe('slideClasses: a slide that only inherits a running class is named by i
 		expect(slideClasses([`<!-- class: image -->\n## A\n\n${photo}`, `## B\n\n${photo}`])).toEqual(['image', 'image']);
 	});
 });
+
+describe('slideClasses reads a deck of pasted photos once, not on every keystroke (the checker on #3239)', () => {
+	it('cuts each slide once, and a slide with no comment is never read for payloads', () => {
+		const photo = `![P](data:image/png;base64,${'QUJD'.repeat(50_000)})`;
+		const slides = [`<!-- class: image -->\n## A\n\n${photo}`, `## B\n\n${photo}`, `<!-- _class: quote -->\n## C\n\n${photo}`];
+		const before = slideClassesStats.charsCut;
+		expect(slideClasses(slides)).toEqual(['image', 'image', 'quote']);
+		const first = slideClassesStats.charsCut - before;
+		// The two slides with a comment are read once; the one without is not read for payloads at all.
+		expect(first).toBe(slides[0].length + slides[2].length);
+		// A keystroke elsewhere re-runs the scan on the same slide texts: nothing is read again.
+		const again = slideClassesStats.charsCut;
+		expect(slideClasses(slides)).toEqual(['image', 'image', 'quote']);
+		expect(slideClassesStats.charsCut).toBe(again);
+	});
+});
+

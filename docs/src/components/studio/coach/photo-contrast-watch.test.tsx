@@ -90,4 +90,18 @@ describe('usePhotoContrast', () => {
 		unmount();
 		expect(bus.size()).toBe(0);
 	});
+
+	it('drops the verdict the moment the heading part changes, though the `---` slide stays the same (PR #3239)', async () => {
+		readVerdict.mockResolvedValueOnce(LOW).mockResolvedValue(null);
+		const bus = paintBus();
+		const { result, rerender } = renderHook(({ chunk, section }) => usePhotoContrast(chunk, 0, chunk, CONTEXT, bus.subscribe, section), {
+			initialProps: { chunk: CHUNK, section: 0 },
+		});
+		await settle();
+		expect(result.current.findings.map((f) => f.pin)).toEqual(['ink-light']);
+		// The caret moves to the second part: same `---` slide, another engine slide. Nothing of the first part's read stays.
+		rerender({ chunk: CHUNK.replace('A quiet harbor.', 'A second harbor.'), section: 1 });
+		expect(result.current.verdict).toBeNull();
+		expect(result.current.findings).toEqual([]);
+	});
 });
