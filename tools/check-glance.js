@@ -189,6 +189,28 @@ const FIND_MARKS = (STATUS_OF) => {
     // A status MARK paints an area: an HTML box with a background, or an SVG shape with a fill. Text that carries
     // `data-s` (a gantt caption, a state label or numeral), a group, and the drawn mark glyph (`.chart-status-mark`,
     // which the measuring shot hides on purpose) are not marks: measured, each is its own surround, a false 1.00:1.
+    // A pill (or any HTML box) is a status mark only when it wears one of this slide's status fills (a kpi pill does; a citation pill
+    // on the canvas tint, or a kanban card washed toward its status, does not). A probe painted with each `--state-X-hue` reads the slide's own fills, intensity
+    // register included, so the match is exact rather than guessed from the pill's words.
+    // Colors are compared as painted pixels: a fill from `color-mix(in oklab, …)` serializes as `oklab(…)`, the same
+    // color written another way, so string equality would miss it.
+    const px = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+    const rgbOf = (c) => { px.clearRect(0, 0, 1, 1); px.fillStyle = '#000'; px.fillStyle = c; px.fillRect(0, 0, 1, 1); return [...px.getImageData(0, 0, 1, 1).data]; };
+    const fills = [];
+    for (const st of ['pass', 'warn', 'fail', 'info', 'mute']) {
+      const probe = document.createElement('span');
+      probe.style.cssText = `position:absolute;width:1px;height:1px;background:var(--state-${st}-hue)`;
+      sec.appendChild(probe);
+      fills.push([rgbOf(getComputedStyle(probe).backgroundColor), st]);
+      probe.remove();
+    }
+    const fillOf = (c) => {
+      if (clear(c)) return null;
+      const v = rgbOf(c);
+      if (v[3] < 250) return null;
+      const hit = fills.find(([f]) => f.slice(0, 3).every((x, i) => Math.abs(x - v[i]) <= 2));
+      return hit ? hit[1] : null;
+    };
     const SHAPES = new Set(['rect', 'circle', 'ellipse', 'polygon', 'path']);
     for (const el of sec.querySelectorAll('[data-s]')) {
       const st = STATUS_OF[(el.getAttribute('data-s') || '').toLowerCase()];
@@ -199,19 +221,8 @@ const FIND_MARKS = (STATUS_OF) => {
       const tag = el.tagName.toLowerCase();
       const cs = getComputedStyle(el);
       const svg = el instanceof SVGElement;
-      if (svg ? !SHAPES.has(tag) || el.classList.contains('chart-status-mark') || clear(cs.fill) : clear(cs.backgroundColor)) continue;
+      if (svg ? !SHAPES.has(tag) || el.classList.contains('chart-status-mark') || clear(cs.fill) : !fillOf(cs.backgroundColor)) continue;
       add(r, st, el.className.baseVal ?? el.className);
-    }
-    // A pill is a status mark only when it wears one of this slide's status fills (a kpi pill does; a citation pill
-    // on the canvas tint does not). A probe painted with each `--state-X-hue` reads the slide's own fills, intensity
-    // register included, so the match is exact rather than guessed from the pill's words.
-    const fillOf = {};
-    for (const st of ['pass', 'warn', 'fail', 'info', 'mute']) {
-      const probe = document.createElement('span');
-      probe.style.cssText = `position:absolute;width:1px;height:1px;background:var(--state-${st}-hue)`;
-      sec.appendChild(probe);
-      fillOf[getComputedStyle(probe).backgroundColor] = st;
-      probe.remove();
     }
     for (const el of sec.querySelectorAll('.lat-state, td .state')) {
       const st = ['pass', 'warn', 'fail', 'info', 'mute', 'skip', 'unknown'].find((c) => el.classList.contains(c));
@@ -226,7 +237,7 @@ const FIND_MARKS = (STATUS_OF) => {
       add({ left: lr.left + left, top: lr.top + lr.height / 2 - h / 2, width: w, height: h }, st, 'disc');
     }
     for (const el of sec.querySelectorAll('.lat-pill')) {
-      const st = fillOf[getComputedStyle(el).backgroundColor];
+      const st = fillOf(getComputedStyle(el).backgroundColor);
       if (st) add(el.getBoundingClientRect(), st, 'pill');
     }
   });

@@ -88,16 +88,16 @@
    * (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the full floors. The two exceptions
    * also wear a SIGNAL ring, the same hue at the opposite lightness. Solved by tools/curate-status-triplets.js. */
   --pass-mark: light-dark(#14550A, #89C97F);
-  --warn-mark: light-dark(#896016, #C39854);
+  --warn-mark: light-dark(#815909, #C39854);
   --fail-mark: light-dark(#883500, #FFA67E);
   --pass-vivid-mark: light-dark(#0C5600, #86E279);
-  --warn-vivid-mark: light-dark(#8B5F00, #CE9428);
+  --warn-vivid-mark: light-dark(#825900, #CE9428);
   --fail-vivid-mark: light-dark(#883500, #FF996A);
-  --warn-signal-mark: light-dark(#FFBD50, #684600);
+  --warn-signal-mark: light-dark(#FFBD4E, #684600);
   --fail-signal-mark: light-dark(#FFB798, #9D3E00);
   --info-mark: light-dark(#164376, #74A3DD);
   --info-vivid-mark: light-dark(#004485, #6EAFFF);
-  --mute-mark: light-dark(#5C6979, #92A0B1);
+  --mute-mark: light-dark(#3F4B5B, #92A0B1);
   /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each
    * status fill is the slide's own paper (light) or night (dark), and the fill's border is the fill itself, because
    * every fill already clears 4.5:1 against its slide. Solved by tools/curate-status-triplets.js. */
@@ -107,12 +107,12 @@
   --info-on-mark: light-dark(#FAF7F0, #1E1A14);
   --mute-on-mark: light-dark(#FAF7F0, #1E1A14);
   --pass-edge-mark: light-dark(#14550A, #89C97F);
-  --warn-edge-mark: light-dark(#896016, #C39854);
+  --warn-edge-mark: light-dark(#815909, #C39854);
   --fail-edge-mark: light-dark(#883500, #FFA67E);
   --info-edge-mark: light-dark(#164376, #74A3DD);
-  --mute-edge-mark: light-dark(#5C6979, #92A0B1);
+  --mute-edge-mark: light-dark(#3F4B5B, #92A0B1);
   --pass-vivid-edge-mark: light-dark(#0C5600, #86E279);
-  --warn-vivid-edge-mark: light-dark(#8B5F00, #CE9428);
+  --warn-vivid-edge-mark: light-dark(#825900, #CE9428);
   --fail-vivid-edge-mark: light-dark(#883500, #FF996A);
   --info-vivid-edge-mark: light-dark(#004485, #6EAFFF);
   /* What a mark ON a status solid steps toward: away from the status ink, so toward white under the night ink on the

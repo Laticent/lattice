@@ -5,7 +5,8 @@
  * The contract (engineering/decisions/2026-11-16-status-triplets.md), per brand theme, per face, per `marks:` intensity:
  *
  *   FILL   each status solid clears 4.5:1 AS PAINTED against every surface a status mark sits on: the slide, the
- *          card (`--bg-alt`), the hero tile (`--accent-soft`) and its own status row tint (`--X-bg` over the slide),
+ *          card (`--bg-alt`), the hero tile (`--accent-soft`), its own status row tint (`--X-bg` over the slide) and a
+ *          kanban card, plain or washed in that status (computed per candidate fill, since the wash is the fill's),
  *          so it keeps 3:1 at the back of a lit hall (`npm run check:glance`). Deep on light, glowing on dark.
  *   INK    the text and drawn mark ON the fill is the slide's own paper (light) or night (dark), and clears 4.5:1 on it.
  *   EDGE   the fill's border is the fill itself: it already clears 4.5:1 off the slide, so it needs no darker rim.
@@ -100,20 +101,48 @@ function themeFacts(theme) {
     anchor[s] = best ? { from: best.from, h: best.h, c: Math.min(0.18, Math.max(0.1, best.c)) } : { from: 'band', h: center, c: 0.13 };
   }
   anchor.mute = { from: 'neutral', h: anchor.info.h, c: 0.03 };
-  // Every surface a status mark sits on: the slide, the card, the hero tile, and its own row tint over the slide.
+  // Every surface a status mark sits on, by name: the slide, the card, the hero tile, its own row tint over the slide,
+  // and a kanban card, plain (lifted on dark) or washed in the status's own fill. A surface that does not resolve is an
+  // error, never a silent skip: a dropped surface would let `--check` pass a fill it never measured.
+  const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v)) ? String(v).toUpperCase() : null);
   const over = (expr, dark, bg) => {
     const v = String(resolveTokenExpr(V[expr], V, dark) || '');
-    if (/^#[0-9a-f]{6}$/i.test(v)) return v.toUpperCase();
+    if (hex(v)) return hex(v);
     const m = v.match(/^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/);
-    if (!m || !bg) return null;
+    if (!m) throw new Error(`${theme}: --${expr} resolves to "${v}" on the ${dark ? 'dark' : 'light'} face; status fills cannot be checked against it`);
     const a = Number(m[4]), b = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
     return `#${[1, 2, 3].map((i, k) => Math.round(Number(m[i]) * a + b[k] * (1 - a)).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
   };
+  // The kanban card, as lib/plugins/chart-family/kinds/kanban/kanban.styles.css paints it (`.kanban-card` and the washed
+  // `[data-s]` rule), over `--state-X-fill` from chart-family.styles.css. Keep these mixes in step with those two files.
+  const KANBAN = {
+    lift: 'color-mix(in oklab, var(--bg-alt) 96%, white)',
+    keyline: { light: 'color-mix(in oklab, var(--bg-alt) 92%, var(--border))', dark: 'color-mix(in oklab, var(--bg-alt) 88%, var(--border))' },
+    wash: { light: 'color-mix(in oklab, var(--cstx-hue) 24%, var(--bg))', dark: 'color-mix(in oklab, var(--cstx-hue) 50%, black)' },
+    mute: { light: 'color-mix(in oklab, var(--cstx-hue) 22%, var(--bg))', dark: 'color-mix(in oklab, var(--cstx-hue) 46%, black)' },
+    card: { light: 'color-mix(in oklab, var(--cstx-wash) 55%, var(--bg-alt))', dark: 'color-mix(in oklab, var(--cstx-wash) 26%, var(--cstx-lift))' },
+  };
+  const kanbanCard = (st, fill, dark) => {
+    const k = dark ? 'dark' : 'light';
+    const W = { ...V, 'cstx-hue': fill, 'cstx-lift': KANBAN.lift, 'cstx-wash': (st === 'mute' ? KANBAN.mute : KANBAN.wash)[k] };
+    const v = hex(resolveTokenExpr(KANBAN.card[k], W, dark));
+    if (!v) throw new Error(`${theme}: the washed kanban card for ${st} does not resolve on the ${k} face`);
+    return v;
+  };
   const face = (dark) => {
-    const bg = get('bg', dark);
-    const common = ['bg-alt', 'accent-soft'].map((t) => over(t, dark, bg)).filter(Boolean);
+    const bg = hex(get('bg', dark));
+    if (!bg) throw new Error(`${theme}: --bg does not resolve to a hex on the ${dark ? 'dark' : 'light'} face`);
+    const fixed = [['the slide', bg], ['--bg-alt', over('bg-alt', dark, bg)], ['--accent-soft', over('accent-soft', dark, bg)]];
+    if (dark) fixed.push(['a kanban card', hex(resolveTokenExpr(KANBAN.lift, V, true))]);
+    fixed.push(['a keyline kanban card', hex(resolveTokenExpr(KANBAN.keyline[dark ? 'dark' : 'light'], V, dark))]);
     const ground = Object.fromEntries(['pass', 'warn', 'fail'].map((st) => [st, over(`${st}-bg`, dark, bg)]));
-    return { bg, text: get('bg', dark), accent: get('accent', dark), surfaces: (st) => [bg, ...common, ...(ground[st] ? [ground[st]] : [])] };
+    // Named surfaces, first name wins where two tokens paint the same color.
+    const surfaces = (st, fill) => {
+      const all = [...fixed, ...(ground[st] ? [[`--${st}-bg over the slide`, ground[st]]] : []), [`its washed kanban card`, kanbanCard(st, fill, dark)]];
+      const seen = new Set();
+      return all.filter(([, h]) => !seen.has(h) && seen.add(h)).map(([name, h]) => ({ name, hex: h }));
+    };
+    return { bg, text: get('bg', dark), accent: get('accent', dark), surfaces };
   };
   return { get, anchor, light: face(false), dark: face(true) };
 }
@@ -163,7 +192,7 @@ function solve(theme, facts, baseline, keep) {
         const list = [];
         for (let L = 0.2; L <= 0.96; L += 0.005) {
           const f = ok(L, C(s), hueOf(s));
-          if (facts[face].surfaces(s).every((x) => cr(f, x) >= FILL_MIN) && cr(text, f) >= INK_MIN) list.push([L, f]);
+          if (facts[face].surfaces(s, f).every((x) => cr(f, x.hex) >= FILL_MIN) && cr(text, f) >= INK_MIN) list.push([L, f]);
         }
         return list.filter(([L]) => Math.abs(L - TARGET[face][s]) <= WINDOW);
       };
@@ -259,7 +288,7 @@ function audit(theme, facts, baseline, keep) {
         const f = pick(tok(s), dark), ink = pick(`${s}-on-mark`, dark);
         fills[s] = f;
         if (!f || !ink) { bad.push(`${face} ${intensity} --${tok(s)} or --${s}-on-mark does not resolve`); continue; }
-        for (const x of facts[face].surfaces(s)) if (cr(f, x) < FILL_MIN) bad.push(`${face} ${intensity} --${tok(s)} ${cr(f, x).toFixed(2)}:1 against ${x === bg ? 'the slide' : x} (floor ${FILL_MIN})`);
+        for (const x of facts[face].surfaces(s, f)) if (cr(f, x.hex) < FILL_MIN) bad.push(`${face} ${intensity} --${tok(s)} ${cr(f, x.hex).toFixed(2)}:1 against ${x.name} ${x.hex} (floor ${FILL_MIN})`);
         if (cr(ink, f) < INK_MIN) bad.push(`${face} ${intensity} --${s}-on-mark ${cr(ink, f).toFixed(2)}:1 on its fill (floor ${INK_MIN})`);
       }
       if (TRIO.every((s) => fills[s]) && !separationOk(theme, intensity, face, fills, baseline, keep)) bad.push(`${face} ${intensity}: the trio keeps less than ${keep} of its recorded colorblind separation`);

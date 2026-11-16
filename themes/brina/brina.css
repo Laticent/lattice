@@ -108,12 +108,12 @@
    * (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the full floors. The two exceptions
    * also wear a SIGNAL ring, the same hue at the opposite lightness. Solved by tools/curate-status-triplets.js. */
   --pass-mark: light-dark(#205702, #83BD6F);
-  --warn-mark: light-dark(#895B00, #CD9130);
+  --warn-mark: light-dark(#845800, #CD9130);
   --fail-mark: light-dark(#8F2F3A, #FF969C);
   --pass-vivid-mark: light-dark(#1D5100, #85D667);
-  --warn-vivid-mark: light-dark(#895B00, #D38F00);
+  --warn-vivid-mark: light-dark(#845800, #D38F00);
   --fail-vivid-mark: light-dark(#9C012D, #FF8890);
-  --warn-signal-mark: light-dark(#FFBD59, #674300);
+  --warn-signal-mark: light-dark(#FFBD57, #674300);
   --fail-signal-mark: light-dark(#FFB3B5, #A61E38);
   --info-mark: light-dark(#005475, #60B1DB);
   --info-vivid-mark: light-dark(#005475, #43BFF9);
@@ -127,12 +127,12 @@
   --info-on-mark: light-dark(#F2F5F7, #0C141C);
   --mute-on-mark: light-dark(#F2F5F7, #0C141C);
   --pass-edge-mark: light-dark(#205702, #83BD6F);
-  --warn-edge-mark: light-dark(#895B00, #CD9130);
+  --warn-edge-mark: light-dark(#845800, #CD9130);
   --fail-edge-mark: light-dark(#8F2F3A, #FF969C);
   --info-edge-mark: light-dark(#005475, #60B1DB);
   --mute-edge-mark: light-dark(#3E525C, #8EA4B0);
   --pass-vivid-edge-mark: light-dark(#1D5100, #85D667);
-  --warn-vivid-edge-mark: light-dark(#895B00, #D38F00);
+  --warn-vivid-edge-mark: light-dark(#845800, #D38F00);
   --fail-vivid-edge-mark: light-dark(#9C012D, #FF8890);
   --info-vivid-edge-mark: light-dark(#005475, #43BFF9);
   /* What a mark ON a status solid steps toward: away from the status ink, so toward white under the night ink on the

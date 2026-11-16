@@ -107,16 +107,16 @@
    * (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the full floors. The two exceptions
    * also wear a SIGNAL ring, the same hue at the opposite lightness. Solved by tools/curate-status-triplets.js. */
   --pass-mark: light-dark(#005423, #66BE7B);
-  --warn-mark: light-dark(#8D5E00, #CD9130);
+  --warn-mark: light-dark(#865900, #CD9130);
   --fail-mark: light-dark(#8C2C30, #FF9592);
-  --pass-vivid-mark: light-dark(#00662C, #32BD61);
-  --warn-vivid-mark: light-dark(#8D5E00, #D18D00);
-  --fail-vivid-mark: light-dark(#85001A, #FF8987);
+  --pass-vivid-mark: light-dark(#005322, #32BD61);
+  --warn-vivid-mark: light-dark(#865900, #D18D00);
+  --fail-vivid-mark: light-dark(#9D0321, #FF8987);
   --warn-signal-mark: light-dark(#FFBD58, #664200);
   --fail-signal-mark: light-dark(#FFB4B1, #A61E2C);
   --info-mark: light-dark(#006278, #5EC0DC);
   --info-vivid-mark: light-dark(#006278, #15C4EB);
-  --mute-mark: light-dark(#50686F, #91A9B2);
+  --mute-mark: light-dark(#4F666E, #91A9B2);
   /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each
    * status fill is the slide's own paper (light) or night (dark), and the fill's border is the fill itself, because
    * every fill already clears 4.5:1 against its slide. Solved by tools/curate-status-triplets.js. */
@@ -126,13 +126,13 @@
   --info-on-mark: light-dark(#FAFAF9, #0F0F0F);
   --mute-on-mark: light-dark(#FAFAF9, #0F0F0F);
   --pass-edge-mark: light-dark(#005423, #66BE7B);
-  --warn-edge-mark: light-dark(#8D5E00, #CD9130);
+  --warn-edge-mark: light-dark(#865900, #CD9130);
   --fail-edge-mark: light-dark(#8C2C30, #FF9592);
   --info-edge-mark: light-dark(#006278, #5EC0DC);
-  --mute-edge-mark: light-dark(#50686F, #91A9B2);
-  --pass-vivid-edge-mark: light-dark(#00662C, #32BD61);
-  --warn-vivid-edge-mark: light-dark(#8D5E00, #D18D00);
-  --fail-vivid-edge-mark: light-dark(#85001A, #FF8987);
+  --mute-edge-mark: light-dark(#4F666E, #91A9B2);
+  --pass-vivid-edge-mark: light-dark(#005322, #32BD61);
+  --warn-vivid-edge-mark: light-dark(#865900, #D18D00);
+  --fail-vivid-edge-mark: light-dark(#9D0321, #FF8987);
   --info-vivid-edge-mark: light-dark(#006278, #15C4EB);
   /* What a mark ON a status solid steps toward: away from the status ink, so toward white under the night ink on the
    * dark face (risk-matrix's critical band, a state-chart status row's chip). */

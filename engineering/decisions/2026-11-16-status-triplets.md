@@ -3,7 +3,7 @@ status: in-progress
 summary: >
   Each brand theme now curates a status TRIPLET per status: the fill, the ink ON it and its edge. Fills are deep on
   the light face and glowing on the dark one, so each clears 4.5:1 as painted against every surface a status mark sits
-  on (the slide, the card, the hero tile, its own row tint) and keeps 3:1 at the back of a lit hall
+  on (the slide, the card, the hero tile, its own row tint, a kanban card) and keeps 3:1 at the back of a lit hall
   (`npm run check:glance`). The ink is the slide's own paper or night, AA 4.5:1 on the fill.
   The hues come from the theme's own brand and chart colors. The trio keeps at least half of its recorded colorblind
   separation; the a11y palettes are unchanged. Amends the one-ink rule of 2026-10-24-status-is-one-system.md.
@@ -43,7 +43,7 @@ Per brand theme, per face, per `marks:` intensity, solved by `tools/curate-statu
 
 | Part | Token | Rule |
 |---|---|---|
-| Fill | `--X-mark`, `--X-vivid-mark` | >= 4.5:1 as painted against every surface a status mark sits on: `--bg`, `--bg-alt` (a kpi card), `--accent-soft` (a hero tile) and its own row tint `--X-bg` composited over `--bg` (a checklist disc on its row); hue from the theme's nearest brand or chart color in the status band |
+| Fill | `--X-mark`, `--X-vivid-mark` | >= 4.5:1 as painted against every surface a status mark sits on: `--bg`, `--bg-alt` (a kpi card), `--accent-soft` (a hero tile), its own row tint `--X-bg` composited over `--bg` (a checklist disc on its row), and a kanban card: plain (lifted on dark), keyline, or washed in the status's own fill, which the tool recomputes for each candidate fill; hue from the theme's nearest brand or chart color in the status band |
 | Ink on the fill | `--X-on-mark` | the slide's paper (light) or night (dark); >= 4.5:1 on the fill |
 | Edge | `--X-edge-mark`, `--X-vivid-edge-mark` | the fill itself (it already clears 4.5:1 off the slide) |
 | Signal ring | `--warn-signal-mark`, `--fail-signal-mark` | the status hue at the opposite lightness, >= 3.2:1 against both intensities' fill; on the dark face also >= 2:1 off the slide (`deepRing`) |
@@ -59,11 +59,17 @@ does not inherit onyx's triplet: the a11y palettes render pixel-identical to the
 demo deck, both a11y-base and a11y-deuteranopia), and so does any theme the Studio derives (follow-up below).
 
 **Row tints moved in two themes.** The surface rule could not be met at "half" on two faces, because their row tint
-was far off the house norm. Carbone's dark rows were 18% of a bright status ink, against 12% everywhere else; a pass
-disc then needed a fill as light as fail, and the trio kept only 40% of its colorblind separation. Concrete's light
-slide is mid-gray, and a 12% tint darkens it further, so the deep fills crowded toward black (also 40%). Carbone's
-dark rows are now 12%, the house norm, and concrete's light rows 10%, which three other themes use. Both faces then
-solve at "half", and the owner's number stands.
+sat far off its slide. Carbone's dark rows were 18% of a bright status ink; ten brand themes use 12% and carta, cuoio
+and indaco 10%. A pass disc then needed a fill as light as fail, and the trio kept only 40% of its colorblind
+separation. Concrete's light slide is mid-gray, and a 12% tint darkens it further, so the deep fills crowded toward
+black (also 40%). Carbone's dark rows are now 12% and concrete's light rows 10%. Both faces then solve at "half", and
+the owner's number stands. (Carbone's light rows, 26-30% of their own pale inks, already meet the rule.)
+
+**Kanban cards moved on the dark face.** A kanban status pill sits on its card, and two dark cards were too light for
+any trio to clear at "half": the plain card was `--bg-alt` lifted 12% toward white, and the keyline card mixed in 28%
+of `--border` (ardesia: `#525252`). The lift is now 4% and the keyline step 12%; both cards stay above the slide, and
+keep their hairline border. Before this, 65 of the 168 brand pill-on-washed-card pairs fell below 4.5:1 (worst 3.49:1,
+concrete dark vivid warn); now none does.
 
 ## 4. How it is wired
 
@@ -89,7 +95,11 @@ solve at "half", and the owner's number stands.
 - The first cut measured each fill against `--bg` only. `check:glance` on all 28 brand faces then found three marks
   below 3:1 at the hall back row: carbone dark's checklist pass disc on its row tint (2.34:1) and kpi pass pill on
   its card (2.87:1), and concrete light's warn disc on its row tint (2.82:1). That is why the contract names every
-  surface.
+  surface. An independent review then found kanban cards missing from the list; they are in it now.
+- `check:glance` on the demo deck and a kanban deck with every status on the default, keyline and tinted boards.
+  Glance now counts an HTML box as a status mark only when it is painted with one of the slide's status fills, compared
+  as pixels (a kanban card is a wash of its status, not a solid, and a fill from an oklab `color-mix` serializes as
+  `oklab(…)`, which a string match missed). A surface the tool cannot resolve now stops it, instead of being skipped.
 - `node tools/curate-status-triplets.js --check`: all 14 brand themes meet the contract, and the tool reproduces the
   shipped theme values byte for byte (`--keep=0.5` against the pre-triplet record).
 - Colorblind separation: 0 brand pairs below half of the record (worst kept 50.0%, atelier muted dark pass^fail,
@@ -117,7 +127,8 @@ and warn on the brand accent in cuoio and mustard; both are now rules of the con
   colorblind floor on them (cvd-trio-floor's first table) is untouched.
 - **Categories and the neutral** keep the one ink `--on-mark` and their 7:1 / 4.6:1 bars.
 - **The a11y palettes**, in every token.
-- **Kanban cards**, which are status TINTS under the heading ink, not solids.
+- **Kanban card washes**, which are status TINTS under the heading ink, not solids. Only the dark face's plain and
+  keyline card grounds moved (above).
 
 ## 7. Follow-ups
 

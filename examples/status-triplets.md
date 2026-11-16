@@ -145,21 +145,25 @@ footer: "Each theme curates its status fill, ink and edge"
 
 ---
 
-<!-- _class: regulatory-update priority -->
+<!-- _class: kanban -->
 
-## Three rules carry most of the exposure this quarter.
+`Board · Phase 2 rollout`
 
-`Top three · by ARR at risk`
+## Six cards, six statuses: each pill stands off its own card.
 
-1. EU AI Act
-   - `Title III`
-   - High-risk system inventory due before April.
-   - `{Effective Feb 2026}`
-2. Colorado AI Act
-   - `SB 24-205`
-   - Deployer disclosures required; copy in flight.
-   - `{Effective Feb 2026}`
-3. Texas DPSA
-   - `§541.151`
-   - DSAR opt-out portal mandatory.
-   - `{Effective Mar 2026}`
+- Backlog
+  - Vendor review `S`
+    - legal `blocked`
+  - Pricing page `M`
+    - growth `deferred`
+- In progress
+  - Signal intake `M`
+    - platform `at-risk`
+  - Scoring model `L`
+    - data `on-track`
+- Review
+  - Decision log `S`
+    - platform `pilot`
+- Done
+  - Calibration `S`
+    - data `done`

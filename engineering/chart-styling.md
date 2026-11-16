@@ -125,7 +125,7 @@ most two charts share a slide, and two text colors side by side read as two syst
 with the kind. A STATUS fill wears its theme's STATUS TRIPLET instead (engineering/decisions/2026-11-16-status-
 triplets.md): the fill, the ink on it (`--X-on-mark`, read as `--status-on-ink` per member) and its edge
 (`--X-edge-mark`). A brand theme's status fills are deep on the light face under its paper and glowing on the dark
-face under its night, so each clears 4.5:1 against every surface it sits on (slide, card, hero tile, its row tint) and still reads at the back of a lit hall
+face under its night, so each clears 4.5:1 against every surface it sits on (slide, card, hero tile, its row tint, a kanban card) and still reads at the back of a lit hall
 (`npm run check:glance`); a theme that curates no triplet keeps the one ink. This replaced a scheme where a status was a BRIGHT fill under
 near-black text ("text color carries the kind"); it kept the meanings apart, but a status chart beside a category
 chart wore two inks, and on a light slide the bright fills were the quietest marks on it.
