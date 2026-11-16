@@ -361,7 +361,9 @@ There are three kinds of zoom, and they behave differently.
   threshold while zoomed, opens no card. This is the rule `createZoomGesture` applies to swipes.
   - **In the Studio**, the reveal reads it from `createZoomGesture` directly.
   - **In the player**, the reveal reads the finger-counting guard the player already has (its
-    `pinch` flag), which restates the same rule. `player-core.mjs` chose deliberately not to
+    `pinch` flag), which restates the same rule. That flag is local to the player's main script scope, which
+    closes before later blocks run (the collage block notes the same), so slice 2 either runs the
+    reveal inside that scope or exposes the flag to it. `player-core.mjs` chose deliberately not to
     inline `createZoomGesture` for slides: 5.9 KB of source, 23% of the script, to use two of its
     nine methods. The reveal keeps that choice, because one flag is all it needs (§6: every byte
     load-bearing).
