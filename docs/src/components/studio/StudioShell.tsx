@@ -8908,7 +8908,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								{/* Library keeps its own panel id so switching the assistant slot
 								    Coach→Library is a fresh panel identity, and each keeps its own
 								    persisted width via the per-panel-id bucket. */}
-								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} data-studio-pane="" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-card">
+								{/* `bg-background`, the Settings column's and every sheet's color, so the one slot keeps its tint
+								    whichever pane fills it, and a pane looks the same docked as in its sheet. It was `bg-card`, a
+								    shade off Settings', so the column changed color on every swap (§3d of 2026-11-15-one-side-pane.md).
+								    The panes' own cards are `bg-background` with a border, as in their sheets. */}
+								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} data-studio-pane="" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
 									{/* ONE header for every docked pane: the PanelHeader the tablet and phone sheets
 									    already wear (icon chip, the pane's name, its actions, then collapse). These
 									    four used to draw an 11px uppercase label with no icon and no way out but the

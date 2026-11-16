@@ -45,3 +45,7 @@ export function bucketFor(panelIds: readonly string[]): string {
 export function collapseKeyFor(storageKey: string): string {
 	return `${storageKey}-collapsed`;
 }
+
+/** Fired on `window` once a window resize has settled and the split has re-checked its fold and widths
+ *  (`use-resizable-split.ts`). Tests wait on it instead of the 150 ms debounce. */
+export const SPLIT_RESIZE_SETTLED = 'lattice:split-resize-settled';
