@@ -376,6 +376,17 @@ Each reader then selects from the one list, and that selection is all that diffe
 | `frontMatterValue` (every register resolver reads through it) | the last column-0 line, else the first at any indent |
 | `lattice-deck` | every key, as an `fm-key` node |
 
+**Not the register grammar.** §5 (and the Squadra design, `2026-10-26-squadra-lint-library/design.md` row "Front
+matter", and the Segno pipeline's S3) said the front matter would be read through "the register grammar", a parser
+Segno's code generator makes, as it makes the flowchart-row, list-text, css-ref and html-ref grammars
+(tools/build-segno-grammar.js). This step did NOT build it. The island is hand-written: a regex fence on S0 text and a
+line loop (`frontMatterKeys`), written to equal, byte for byte, the line-oriented reading the engine's
+`parseFrontMatter` and the register readers already had. The grammar was not weighed against that and rejected; it
+was not considered while building this step, and the first version of this section did not say so. Whether a Segno
+grammar replaces `frontMatterKeys` behind the same `fm-key` contract, or the hand-written island stands as the
+replacement for the grammar, is the owner's decision, recorded in followups.d/3042-p2-front-matter-register-grammar.md.
+Either way the readers are unchanged: they read `frontMatterFence` and `frontMatterKeys`, not a grammar's tokens.
+
 **What reads it.**
 - **The engine:** `parseFrontMatter`; `slides.js`'s two deck-class reads; the pane render (lib/engine/index.js); the
   shared markdown-it kernel's four front-matter reads (lib/integrations/markdown-it/plugins.js: the deck-class
