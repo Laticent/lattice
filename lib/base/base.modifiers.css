@@ -4487,3 +4487,14 @@ section > .slide-edge[data-lattice-berth] {
 /* The inline check, `.lat-state`, is drawn by the embedded checks plugin
  * (lib/plugins/checks/checks.styles.css): running text, a pill's lead and a pricing row all
  * render the same disc. */
+
+/* THE LEDE'S OWN PAGE, for every split cover (lib/core/split-envelope.js `ledeOwnPage`; owner, 2026-11-16,
+   fit-everywhere-model.md §25). A cover the measured split saw overflow gives its lede this page, right after
+   it. On the body canvas, so it reads as the first page of the run, and like every content page of a run it
+   carries no heading or page number (the carousel ruling above hides its runhead): the subtitle italic, the
+   lede at body size and line height, as a lifted lede reads (`.split-lifted` above). */
+section.lat-split-lede .split-lede-page {
+  display: flex; flex-direction: column; gap: var(--sp-sm);
+  font-size: var(--fs-body); line-height: var(--lh-relaxed); color: var(--text-body); max-width: 30em;
+}
+section.lat-split-lede .split-lede-page > .split-feat-sub { font-style: italic; line-height: var(--lh-snug); color: var(--text-secondary); }

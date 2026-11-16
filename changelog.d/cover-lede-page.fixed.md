@@ -1,0 +1,1 @@
+- A split slide whose first page is too full for its subtitle or lede now gives them a page of their own, right after it, instead of running past the frame on a phone. This already worked for `split-panel`; it now works for every layout that splits.

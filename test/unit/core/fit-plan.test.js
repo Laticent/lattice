@@ -197,10 +197,33 @@ test('the fold pass folds what the host names, and undoes a fold that overflows'
     verify: async () => (plans.length === 2 ? { 1: 20 } : {}),
     foldable: async () => ['1', '2'],
   });
-  assert.deepEqual(plans[1]['2'], { foldCoda: true });
+  // Slide 2 splits at its seam (`atSeam`); the fold keeps that flag, which the bare rebuild used to drop.
+  assert.deepEqual(plans[1]['2'], { atSeam: true, foldCoda: true });
   assert.ok(plans[1]['1'].foldCoda, 'slide 1 was tried folded');
   assert.ok(Array.isArray(run.plan['1']), 'and its fold was undone');
-  assert.deepEqual(run.plan['2'], { foldCoda: true });
+  assert.deepEqual(run.plan['2'], { atSeam: true, foldCoda: true });
+});
+
+// THE FOLD KEEPS A LEDE PAGE (2026-11-16, fit-everywhere-model.md §25). The fold rebuilt each entry as bare
+// `{ sizes, foldCoda }`, which dropped a `ledePage` the loop had just set, so the lede went back on a cover the
+// loop had seen overflow (universal-table.md slide 9 at square); and its undo read only `n`, never `n:cover`.
+test('the fold pass keeps a lede page the loop set, and undoes a fold that overflows the cover', async () => {
+  const facts = [over('1', [300, 300, 300], 700), over('2', [300, 300, 300], 700)];
+  const plans = [];
+  let verifies = 0;
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: Object.keys(plan) }; },
+    // Round 1: slide 1's cover overflows (it gets a lede page). The loop's next verify is clean. The fold's verify
+    // then says slide 2's cover overflows, as a fold that moved the lede back would.
+    verify: async () => { verifies += 1; return verifies === 1 ? { '1:cover': 40 } : verifies === 3 ? { '2:cover': 12 } : {}; },
+    foldable: async () => ['1', '2'],
+  });
+  const folded = plans[plans.length - 2];
+  assert.equal(folded['1'].ledePage, true, 'the fold kept slide 1\'s lede page');
+  assert.equal(folded['1'].foldCoda, true);
+  assert.equal(run.plan['1'].ledePage, true);
+  assert.ok(!run.plan['2']?.foldCoda, 'slide 2\'s fold, which overflowed its cover, was undone');
 });
 
 test('the measure and the verify release every hold first, so every surface measures the narrow form (§17)', () => {
@@ -220,6 +243,68 @@ test('the measure and the verify release every hold first, so every surface meas
   } finally {
     global.document = prior;
   }
+});
+
+// THE LEDE PAGE OUTLIVES A FALLBACK, AND IS JUDGED ON ITS OWN (checker, 2026-11-16). A slide sent back to today's
+// split had its entry deleted, `ledePage` with it, so the cover clipped again; and a lede page's overflow was keyed
+// as the slide's body, so the loop tightened rows that could not help it.
+test('a slide sent back to today\'s split keeps its lede page', async () => {
+  const facts = [over('1', [300, 300, 300, 300], 700)];
+  let n = 0;
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => ({ planned: Object.keys(plan) }),
+    // The cover and a body page overflow first; the body keeps failing, less deep, until the slide is sent back.
+    verify: async () => (n++ === 0 ? { '1:cover': 40, 1: 100 } : { 1: 30 }),
+  });
+  assert.equal(run.fellBack, 1, 'the slide went back to today\'s split');
+  assert.deepEqual(run.plan['1'], { ledePage: true }, 'and kept its lede page there');
+});
+
+test('a slide that gets its first measured plan back keeps its lede page too', async () => {
+  const facts = [over('1', [300, 300, 300, 300], 700)];
+  let n = 0;
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => ({ planned: Object.keys(plan) }),
+    // Only the cover overflowed first, so the first plan failed no worse than today's split: it comes back.
+    verify: async () => (n++ === 0 ? { '1:cover': 40 } : { 1: 30 }),
+  });
+  assert.equal(run.fellBack, 0);
+  assert.equal(run.plan['1'].ledePage, true, 'the restored first plan keeps the lede page');
+  assert.ok(Array.isArray(run.plan['1'].sizes));
+});
+
+test('a lede page that overflows is its own key, never the slide\'s body', () => {
+  const { JSDOM } = require('jsdom');
+  const { overflowBySlide } = require('../../../lib/core/fit-measure');
+  const dom = new JSDOM('<section data-lattice-slide="3" data-split-role="cover"></section>'
+    + '<section data-lattice-slide="3.2" data-split-role="body" class="content lat-split-lede form"></section>'
+    + '<section data-lattice-slide="3.3" data-split-role="body" class="table"></section>');
+  const prior = global.document;
+  global.document = dom.window.document;
+  try {
+    const verdict = () => ({ fits: (s) => (s.getAttribute('data-lattice-slide') === '3.2' ? { ok: false, px: 50 } : { ok: true, px: 0 }) });
+    assert.deepEqual(overflowBySlide(verdict, {}, (d) => [...d.querySelectorAll('section')]), { '3:lede': 50 });
+  } finally {
+    global.document = prior;
+  }
+});
+
+test('a fold is not undone for a cover that was already over before it', async () => {
+  const facts = [over('1', [300, 300, 300], 700)];
+  const plans = [];
+  let verifies = 0;
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: Object.keys(plan) }; },
+    // The cover overflows (a title too tall even alone), gets its lede page, still overflows by the same depth; the
+    // fold changes nothing about it.
+    verify: async () => { verifies += 1; return { '1:cover': 40 }; },
+    foldable: async () => ['1'],
+  });
+  assert.equal(run.plan['1'].foldCoda, true, 'the fold stays');
+  assert.equal(run.plan['1'].ledePage, true);
 });
 
 test('a slide whose pages fail on today\'s split too keeps its first measured plan, the fewest pages (§17)', async () => {
