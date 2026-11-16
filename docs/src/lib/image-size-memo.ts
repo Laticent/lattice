@@ -13,7 +13,7 @@
 import families from '../../../lib/adaptive/families.js';
 import { boundaryParser } from '../../../lib/core/boundary-parser.mjs';
 import imageAspect from '../../../lib/core/image-aspect.js';
-import { placedPictureInSlide } from '../../../lib/core/placed-picture.mjs';
+import { headingPartStarts, placedPictureInSlide } from '../../../lib/core/placed-picture.mjs';
 import { slideRanges } from './deck-lint';
 import { stripFrontMatter } from './front-matter';
 import { slidePlacingAt } from './slide-carried';
@@ -121,8 +121,15 @@ function panelPhotos(markdown: string): Set<string> {
 		if (!/^[ \t]{0,3}!\[[^\]\n]*\]\(\s*<?https?:/im.test(text)) continue;
 		const placing = slidePlacingAt(source, head + r.from);
 		if (!placing) continue;
-		const pic = placedPictureInSlide(text, placing.classes, { md: boundaryParser, backgroundImage: placing.backgroundImage });
-		if (pic?.src) out.add(String(pic.src).trim());
+		// A unit the engine draws as several slides (`split: headings`) places a picture per part, each under its own placing.
+		const placings = placing.parts ?? [placing];
+		const starts = placings.length > 1 ? headingPartStarts(text, boundaryParser) : [0];
+		const cut = starts.length === placings.length ? starts : [0];
+		cut.forEach((from, k) => {
+			const at = cut.length > 1 ? placings[k] : placing;
+			const pic = placedPictureInSlide(text.slice(from, cut[k + 1] ?? text.length), at.classes, { md: boundaryParser, backgroundImage: at.backgroundImage });
+			if (pic?.src) out.add(String(pic.src).trim());
+		});
 	}
 	return out;
 }

@@ -1322,6 +1322,16 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   keyed on the unit (the photo check, the ink fix, SlideContext) read: re-keying them on parts was not needed for the check to
   speak, and a caller that samples a later part's preview slide would be new work. Compose's `placementAt` finds the picture's
   part in its slide node; a picture in a later part is placed by what that part resolves, and its Placement control stays shut,
-  because the slide's `_class` governs only the first part. The shared table gains four `split: headings` rows (a running
-  class: both parts place; a spot class: only the first), red on Compose and `photoAt` before (6 failures) and green on all
-  five readers after.
+  because the slide's `_class` governs only the first part. The shared table gains ten split rows: a class in the first part
+  (running: both parts place; spot: only the first), a class written before the second heading (running or spot: only the
+  second places), and a running background before the second heading (the first still places). They were red on Compose and
+  `photoAt` before (10 failures over the two readers) and are green on all five readers after.
+  **The maker-checker review on #3239** found the first cut of Compose wrong in a way `main` was not: it read the first part
+  under the whole slide's class, so a class written before the second heading placed the first part's picture and opened
+  Placement on it. Compose lifts a slide's spot directives to the node's head (deck-source.ts `splitSlideDirectives`), so
+  `slideParts` (image-objects.ts) puts each back in the part its source (`raw`) has it in, reads every part through
+  `partPlacings`, and calls a picture unplaced when it cannot tell (a directive not in the source as written). Placement on the
+  first part stays shut while a later part owns a class directive, since the node holds one `_class` and that is the one
+  Compose would edit. The same review found the photo-size prefetch (image-size-memo.ts `panelPhotos`) reading a split unit
+  under its first part's classes; it reads each part now. Compose's write-back keeps a later part's `_class` where the author
+  wrote it (checked by editing the first part), so the lifting is a reading problem only.

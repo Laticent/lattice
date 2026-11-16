@@ -248,6 +248,42 @@
    "md": "---\ntheme: indaco\nsplit: headings\n---\n\n<!-- _class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n## Two\n\n![B](https://x.test/b.jpg)\n",
    "addr": "https://x.test/b.jpg",
    "placed": false
+  },
+  {
+   "name": "split by default, a running class written before the second heading: the first part keeps its picture in the text",
+   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- class: image -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/a.jpg",
+   "placed": false
+  },
+  {
+   "name": "split by default, a running class written before the second heading: the second part places its own",
+   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- class: image -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/b.jpg",
+   "placed": true
+  },
+  {
+   "name": "split by default, a spot class written before the second heading: the first part keeps its picture in the text",
+   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- _class: image -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/a.jpg",
+   "placed": false
+  },
+  {
+   "name": "split by default, a spot class written before the second heading: the second part places its own",
+   "md": "---\ntheme: indaco\n---\n\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- _class: image -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/b.jpg",
+   "placed": true
+  },
+  {
+   "name": "split by default, a running background before the second heading: the first part still places its picture",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- backgroundImage: url(https://x.test/bg.jpg) -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/a.jpg",
+   "placed": true
+  },
+  {
+   "name": "split by default, a running background before the second heading: the second part, with no class, keeps its picture in the text",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## One\n\n![A](https://x.test/a.jpg)\n\n<!-- backgroundImage: url(https://x.test/bg.jpg) -->\n## Two\n\n![B](https://x.test/b.jpg)\n",
+   "addr": "https://x.test/b.jpg",
+   "placed": false
   }
  ]
 }
