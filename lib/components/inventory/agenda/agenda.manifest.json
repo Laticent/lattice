@@ -54,6 +54,28 @@
     "circles",
     "checks"
   ],
+  "variantAxes": [
+    {
+      "label": "Marker",
+      "exclusive": true,
+      "members": [
+        "circles",
+        "checks"
+      ]
+    },
+    {
+      "label": "Current section",
+      "exclusive": true,
+      "members": [
+        "progress-1",
+        "progress-2",
+        "progress-3",
+        "progress-4",
+        "progress-5",
+        "progress-6"
+      ]
+    }
+  ],
   "slots": {
     "title": {
       "selector": "h2",

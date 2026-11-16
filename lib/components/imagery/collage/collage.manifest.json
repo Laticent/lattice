@@ -33,6 +33,17 @@
     "bleed",
     "mirror"
   ],
+  "variantAxes": [
+    {
+      "label": "Text placement",
+      "exclusive": true,
+      "members": [
+        "above",
+        "bleed",
+        "mirror"
+      ]
+    }
+  ],
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",

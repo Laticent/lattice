@@ -1065,6 +1065,9 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			    entirely if that seed didn't run. See SHELL_BANDS_CSS. */}
 			<div class="ssr-band ssr-activityrail"><StudioActivityRailSkeleton /></div>
 			<div class="ssr-band ssr-editpane"><StudioEditorPaneSkeleton /></div>
+			{/* The shell's edit bar steps out of its controls as the app's does (useRowFit, EDIT_FIT in chrome-parts.tsx): the
+			    lowest step whose row fits its box, refitted on resize and when fonts land, so the two rows agree at every width. */}
+			<script is:inline>(function(){var b=document.querySelector("#studio-ssr-shell [data-slot=edit-bar]");if(!b)return;function f(){for(var l=0;l<6;l++){b.setAttribute("data-fit",l);if(b.scrollWidth<=b.clientWidth+1)return}}f();if(window.ResizeObserver)new ResizeObserver(f).observe(b);if(document.fonts)document.fonts.ready.then(f)})();</script>
 			<div class="ssr-band ssr-panehdr"><StudioPreviewBarSkeleton /></div>
 			<div class="ssr-band ssr-paneftr"><StudioPreviewFooterSkeleton caption={DECK_CAPTIONS[firstDeck.id] ?? ''} /></div>
 			<script is:inline>(function(){var r=document.documentElement;if(location.search||location.hash){r.setAttribute("data-ssr-caption-unknown","");return;}var v=r.getAttribute("data-ssr-caption");if(!v)return;var t=document.querySelectorAll(".ssr-deck-caption");for(var i=0;i<t.length;i++)t[i].textContent=v;})();</script>

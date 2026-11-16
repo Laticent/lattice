@@ -37,6 +37,18 @@
     "split",
     "stacked"
   ],
+  "variantAxes": [
+    {
+      "label": "Layout",
+      "exclusive": true,
+      "members": [
+        "annotated",
+        "three-col",
+        "split",
+        "stacked"
+      ]
+    }
+  ],
   "slots": {
     "heading": {
       "selector": "h2",

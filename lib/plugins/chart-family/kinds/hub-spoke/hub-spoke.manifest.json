@@ -101,6 +101,18 @@
     "flow-both",
     "tiered"
   ],
+  "variantAxes": [
+    {
+      "label": "Value channel",
+      "exclusive": true,
+      "members": [
+        "sized",
+        "flow-out",
+        "flow-in",
+        "flow-both"
+      ]
+    }
+  ],
   "slots": {
     "title": {
       "selector": "h2",

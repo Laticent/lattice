@@ -61,6 +61,33 @@
     "rejected",
     "axis"
   ],
+  "variantAxes": [
+    {
+      "label": "Verdict",
+      "exclusive": true,
+      "members": [
+        "chosen",
+        "decision",
+        "rejected"
+      ]
+    },
+    {
+      "label": "Framing",
+      "exclusive": true,
+      "members": [
+        "transition",
+        "axis"
+      ]
+    },
+    {
+      "label": "Arrangement",
+      "exclusive": true,
+      "members": [
+        "vertical",
+        "mirror"
+      ]
+    }
+  ],
   "slots": {
     "title": {
       "selector": "h2",

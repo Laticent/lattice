@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { insertVia, openDeckInCompose, savedDeck } from './compose-insert';
-import { expect, test } from './studio-fixture';
+import { expect, studioUndo, test } from './studio-fixture';
 
 /**
  * COMPOSE — the avatar and icon editors.
@@ -77,7 +77,7 @@ test.describe('compose avatar and icon editors', () => {
 		await editor(page).getByRole('radio', { name: 'Shape: Square' }).click();
 		await expect.poll(() => savedDeck(page)).toContain('!{Ada Okafor, c3, square}');
 		await editor(page).getByRole('button', { name: 'Done' }).click();
-		await page.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
+		await studioUndo(page).click();
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 

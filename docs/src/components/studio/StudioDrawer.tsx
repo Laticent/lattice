@@ -31,7 +31,7 @@
 // None of the six protected controls (Present, Share, Coach, Chat, Settings, the pane
 // toggle) are here — they stay one tap on the Eight-Cell Bar. Neither is Slide settings
 // (the toolbar's Settings cell owns it) nor Workspace settings (promoted to the header).
-import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Search, UsersRound } from 'lucide-react';
+import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Search, TextSearch, UsersRound } from 'lucide-react';
 import * as React from 'react';
 import { MOBILE_HEIGHT, MOBILE_OFFSET, PanelBack, useKeyboardInset, useSheetTapHold } from '@/components/ui/panel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -179,6 +179,7 @@ export function StudioDrawer({
 	fixableIssues,
 	onFixAll,
 	onVersionHistory,
+	onFind,
 	onLenses,
 	onLive,
 	demoActive,
@@ -220,6 +221,8 @@ export function StudioDrawer({
 	fixableIssues: number;
 	onFixAll: () => void;
 	onVersionHistory: () => void;
+	/** Open the find bar over the editor (FindBar.tsx). */
+	onFind?: () => void;
 	onLenses: () => void;
 	/** Open the Live panel: the phone's pane bar has no cell left for it. */
 	onLive: () => void;
@@ -371,6 +374,8 @@ export function StudioDrawer({
 								<Block>
 									{/* The only row that acts in place, so the only leaf with no chevron. */}
 									<Row icon={<ListChecks className="size-[18px]" />} label="Fix all issues" count={fixableIssues} done={!issues && !fixableIssues} disabled={!fixableIssues} travels={false} onClick={act(onFixAll)} />
+									{/* The phone has no edit bar, so its find bar opens from here (it docks at the top of the editor). */}
+									{onFind && <Row icon={<TextSearch className="size-[18px]" />} label="Find and replace" travels={false} onClick={act(onFind)} />}
 								</Block>
 							)}
 							<Block>

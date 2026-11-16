@@ -193,6 +193,19 @@
     "small-multiples",
     "minimal"
   ],
+  "variantAxes": [
+    {
+      "label": "Form",
+      "exclusive": true,
+      "members": [
+        "target",
+        "delta",
+        "benchmark",
+        "quadrant",
+        "small-multiples"
+      ]
+    }
+  ],
   "variantDocs": {
     "target": {
       "label": "target",

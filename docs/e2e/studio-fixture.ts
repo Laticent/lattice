@@ -1182,6 +1182,17 @@ function addSlideReady(page: Page): Promise<void> {
  * to be usable. On a phone the round door is in both panes, so no pane switch is needed; `compact`
  * is accepted so call sites read the same at every width, and changes nothing.
  */
+/** The Studio's Undo: in the editor's edit bar on desktop and tablet, in the header on a phone (one of the two is ever on
+ *  screen). Not the pill's: Undo / Redo left each slide's pill for the deck's own controls (2026-11-15-compose-layout-button.md). */
+export function studioUndo(page: Page): Locator {
+	return page.getByRole('button', { name: 'Undo', exact: true }).filter({ visible: true }).first();
+}
+
+/** The Studio's Redo, beside `studioUndo`. */
+export function studioRedo(page: Page): Locator {
+	return page.getByRole('button', { name: 'Redo', exact: true }).filter({ visible: true }).first();
+}
+
 export async function openAddSlide(page: Page, _compact = false, side: 'before' | 'after' = 'after'): Promise<void> {
 	await page.getByRole('button', { name: CHROME.addSlide, exact: true }).filter({ visible: true }).first().click();
 	await chooseSide(page, side);
