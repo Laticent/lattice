@@ -159,8 +159,18 @@ How it is built:
 
 Guard: `StudioShell.test.tsx` "every docked pane wears the shared header", red with Coach's old label.
 
-Not changed here, and visible: the Settings column sits on `--bg` and the tool panes on the card color, so the
-column's tint still changes when the slot swaps between them.
+**One background (the follow-up PR after #3222).** Settings sat on `--bg` (`bg-background`) and the tool panes on the
+card color (`bg-card`, `--bg-alt`), so the column changed tint whenever the slot swapped. Every docked pane now sits on
+`bg-background`: the Settings column's color, and the color every phone and tablet sheet already used, so a pane also
+looks the same docked as in its sheet. Measured on the built Studio in all 36 palette × mode combinations at 1440:
+- Settings did not move, so its card-colored controls (the scope band, Basic/Advanced, preset cards) keep a fill of
+  1.08–1.49:1 against the column and their borders at least 3.03:1, before and after.
+- The tool panes' cards are `bg-background` with a border, as in their sheets. Their fill now matches the column, and
+  the `--border` outline (at least 3.03:1, above the 3:1 floor for UI parts) is what marks them.
+- The other way, putting everything on the card color, would have flattened 82 card-colored Settings fills into the
+  column (1.00:1) and dropped the lowest border to 3.01:1.
+
+Guard: `StudioShell.test.tsx` "every docked pane paints the one column on the same background", red with `bg-card`.
 
 ## 3e. Labels that read, and a reset in every pane that edits (owner, from a design review)
 
@@ -253,4 +263,4 @@ Per HARD RULE #23, each claim names its surface.
 so the feel of a finger (the tap, the sheet swipe, the keyboard) is for the owner to check on a device.
 
 Carried over, not caused here: the iPad Compose tap reads as a long press now and then on `main` too (another
-session tracks it); the Settings column's tint differs from the tool panes' (§3d).
+session tracks it). The Settings column's tint, also carried over at first, was fixed by the follow-up PR (§3d).
