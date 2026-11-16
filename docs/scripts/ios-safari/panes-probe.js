@@ -84,12 +84,24 @@ async function latticePanesProbe() {
 		if (!pass) throw new Error(`${name}: ${detail}`);
 	};
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+	/**
+	 * ONE BUDGET FOR THE WHOLE PROBE. run.mjs gives a probe's execute-script 360 s (`script: 360000`), and this probe's waits
+	 * add up past it: 150 s for the first render, up to three pastes that can each wait 150 s for the editor and 8 s for the
+	 * slide count, then 60 s, 30 s and three moves of 20 s. Past 360 s Safari would end the script with a bare script timeout,
+	 * and the wait's own message (what the preview held) would be lost. So every wait is cut to what is left of 330 s, the
+	 * script limit less 30 s to send the result back, and says so when it was cut. Each wait keeps its own bound below that.
+	 */
+	const BUDGET_MS = 330000;
+	const probeT0 = Date.now();
+	const left = () => BUDGET_MS - (Date.now() - probeT0);
 	const until = async (fn, ms, what) => {
 		const t0 = Date.now();
+		const bound = Math.max(0, Math.min(ms, left()));
+		const cut = bound < ms ? ` (cut from ${ms} ms: the probe's ${BUDGET_MS / 1000} s budget is spent)` : '';
 		for (;;) {
 			const v = fn();
 			if (v) return v;
-			if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}`);
+			if (Date.now() - t0 > bound) throw new Error(`timed out after ${bound} ms waiting for ${what}${cut}`);
 			await sleep(100);
 		}
 	};
@@ -106,10 +118,47 @@ async function latticePanesProbe() {
 	};
 	const narrow = innerWidth <= 699;
 
+	/**
+	 * What the preview holds, for a timeout's message: the frames and which is `.live`, what the live document has, whether
+	 * the page is under the service worker (a controlled page re-inserts the frame on a rewrite, docs/src/lib/srcdoc-write.js),
+	 * any alert the preview shows, and the last render sample. The iPad nightly of 2026-11-15 (run 43712612297) waited 60 s
+	 * here for "a slide in the preview frame" and said nothing more, and the end-of-session screenshot was taken three
+	 * probes later, so the run could not tell a frame that never loaded from one that loaded empty or a failed render.
+	 */
+	const previewState = () => {
+		const box = document.querySelector('[aria-label="Live deck preview"]');
+		const frames = [...(box?.querySelectorAll('iframe') ?? [])];
+		const live = frame();
+		const doc = frameDoc();
+		const alert = box?.querySelector('[role="alert"], [role="status"]')?.textContent?.trim().slice(0, 80);
+		let sample = 'none';
+		try {
+			const s = window.__latticeRenderMetrics?.latest?.();
+			if (s) sample = `${s.writePath ?? '?'} path, ${Math.round(s.totalMs ?? -1)} ms`;
+		} catch {
+			sample = 'unreadable';
+		}
+		return [
+			`preview box ${box ? 'present' : 'absent'}`,
+			`iframes ${frames.map((f) => `[${f.className || '-'} ${Math.round(f.getBoundingClientRect().width)}w, opacity ${getComputedStyle(f).opacity}]`).join(' ') || 'none'}`,
+			`live frame ${live ? `${live.isConnected ? 'connected' : 'detached'}, srcdoc ${live.srcdoc.length} chars` : 'absent'}`,
+			`live doc ${doc ? `${doc.readyState}, ${doc.URL.slice(0, 20)}, ${doc.querySelectorAll('.lattice').length} .lattice, ${doc.querySelectorAll('section').length} sections, body ${doc.body?.childElementCount ?? 'none'} children` : 'unreadable'}`,
+			`controlled ${!!navigator.serviceWorker?.controller}`,
+			`alert ${alert ? `"${alert}"` : 'none'}`,
+			`last render ${sample}`,
+		].join('; ');
+	};
+	/** `until`, and on a timeout the preview's state with the message: every wait on the frame says what it saw. */
+	const untilFrame = (fn, ms, what) =>
+		until(fn, ms, what).catch((e) => {
+			throw new Error(`${e.message} (${previewState()})`);
+		});
+
 	/** Replace the deck source the way a person pasting does: one insertText into the focused editor. */
 	const setDeck = async (text) => {
 		// Re-taps the Markdown source pane until the editor shows, and never taps the inert skeleton (show-editor.js, #2911).
-		const el = await latticeShowDeckEditor();
+		// The editor wait (show-editor.js, 150 s by default) takes its share of the probe's budget too.
+		const el = await latticeShowDeckEditor(Math.max(1000, Math.min(150000, left())));
 		el.focus();
 		if (el instanceof HTMLTextAreaElement) {
 			el.select();
@@ -158,7 +207,7 @@ async function latticePanesProbe() {
 		const t0 = performance.now();
 		requestAnimationFrame(loop);
 		click();
-		const seen = await until(() => frames.find((f) => f.title === title), 20000, `the "${title}" slide in the frame`);
+		const seen = await untilFrame(() => frames.find((f) => f.title === title), 20000, `the "${title}" slide in the frame`);
 		await sleep(settle);
 		stop = true;
 		const mine = frames.filter((f) => f.title === title);
@@ -166,9 +215,14 @@ async function latticePanesProbe() {
 	};
 
 	try {
-		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
-		// editor only when its pane is shown, which setDeck does through latticeShowDeckEditor (#2911).
-		await until(() => window.__latticeRenderMetrics, 150000, "the Studio's first render (its render metrics)");
+		// The Studio has booted and its preview has PAINTED a slide (the stored deck) before the probe edits it. Not "the
+		// editor exists": a phone opens on the preview and mounts the editor only when its pane is shown, which setDeck does
+		// through latticeShowDeckEditor (#2911). And not `window.__latticeRenderMetrics` alone, which this wait used to be:
+		// that object is set when its module loads (docs/src/lib/render-metrics.ts), before any render, so the probe pasted
+		// its deck into a Studio whose preview had not mounted yet (on Playwright's WebKit at 1032 px the preview box was
+		// still absent at the paste). The edit now lands on a Studio that has shown a slide, and a preview that never
+		// paints at all fails HERE, with what it holds, instead of 60 s after the edit.
+		await untilFrame(() => window.__latticeRenderMetrics?.latest?.() && frameDoc()?.querySelector('.lattice section'), 150000, "the Studio's first render (a render sample and a slide in the preview frame)");
 		// On a cold page the first insert into a freshly hydrated editor can lose its opening characters (Playwright's
 		// WebKit dropped the deck's leading `---`, which turned the front matter into a fifth slide). So check the deck
 		// landed whole, by its slide count, and put it in again if it did not.
@@ -179,6 +233,9 @@ async function latticePanesProbe() {
 			}
 			return 0;
 		};
+		// What the frame showed before the edit (recorded in a failure only): a frame that never painted the stored deck
+		// either is a different fault from one that stopped painting at the edit.
+		const beforeEdit = previewState();
 		for (let attempt = 1; ; attempt++) {
 			await setDeck(DECK);
 			try {
@@ -188,14 +245,16 @@ async function latticePanesProbe() {
 				if (attempt === 3) throw new Error(`the deck did not land whole after 3 tries (${slideTotal()} slides, wanted 4)`);
 			}
 		}
-		await until(() => frameDoc()?.querySelector('.lattice section'), 60000, 'a slide in the preview frame');
+		await until(() => frameDoc()?.querySelector('.lattice section'), 60000, 'a slide in the preview frame').catch((e) => {
+			throw new Error(`${e.message} (now: ${previewState()}) (before the edit: ${beforeEdit})`);
+		});
 		// Back to slide 1, the plain title slide: the plain stylesheet.
 		for (let i = 0; i < 8; i++) {
 			const prev = button('Previous slide');
 			if (prev) prev.click();
 			await sleep(150);
 		}
-		await until(() => snapshot()?.title === 'Panes probe', 30000, 'slide 1 (the plain title slide)');
+		await untilFrame(() => snapshot()?.title === 'Panes probe', 30000, 'slide 1 (the plain title slide)');
 		await sleep(800);
 		const stamp = `p${Date.now()}`;
 		frameDoc().defaultView.__latticePanesStamp = stamp;
