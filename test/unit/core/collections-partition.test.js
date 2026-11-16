@@ -240,6 +240,11 @@ test('TWO: an outer list of two items, each with a nested list, still pages the 
   assert.equal(countAxis(html, 'item'), 2);
 });
 
+test('GROUPS: several one-item lists (a regulatory-update\'s groups) never descend into an entry\'s sub-bullets', () => {
+  const html = '<h3>Added</h3><ol><li>Act<ul><li>a</li><li>b</li></ul></li></ol><h3>Amended</h3><ol start="2"><li>Rule<ul><li>c</li><li>d</li></ul></li></ol>';
+  assert.equal(countAxis(html, 'item'), 1, 'the first list, one entry: no descent');
+});
+
 test('BARE: a lone item with no nested list (or a nested list of one) is one member, as before', () => {
   assert.equal(countAxis('<ul><li>Only</li></ul>', 'item'), 1);
   assert.equal(countAxis('<ul><li>Only<ul><li>x</li></ul></li></ul>', 'item'), 1);
