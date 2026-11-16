@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Chart detail cards come to the exported HTML player (Present and Read views, a viewer toggle on by default, an author switch to ship without them), drawn by Fumetto (`@laticent/fumetto`), a new zero-dependency popover library in the sibling family. A spike places cards identically to Floating UI on 5,000 seeded cases in Chromium, WebKit and Firefox at 1.0 KB gzipped against 6.9 KB, and 3 to 21 times faster per placement. Floating UI and Radix leave the hard part (intent, top layer, fullscreen, focus, touch) to the caller, and every popover bug we have logged lives there. Reverses the 2026-07-07 player non-goal for this one interaction.
+summary: Chart detail cards come to the exported HTML player (Present and Read views, a viewer toggle on by default, an author switch to ship without them), drawn by Fumetto (`@laticent/fumetto`), a new zero-dependency popover library in the sibling family. A spike places cards identically to Floating UI on 5,000 seeded cases in Chromium, WebKit and Firefox at 1.0 KB gzipped against 6.9 KB, and at least 3 times faster per placement (speed varies by run and engine; WebKit is the slowest case). Floating UI and Radix leave the hard part (intent, top layer, fullscreen, focus, touch) to the caller, and every popover bug we have logged lives there. Reverses the 2026-07-07 player non-goal for this one interaction.
 ---
 
 # Fumetto: our popover library, and chart detail cards in the player (2026-11-16)
