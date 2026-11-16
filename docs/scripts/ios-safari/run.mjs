@@ -168,11 +168,11 @@ async function runStudioProbe(id) {
 	};
 }
 
-/** How many logged, verdict-free taps follow the compose tap (followups.d/3223-p1). */
-const TAP_DIAGNOSTIC_REPEATS = 6;
 
 /** A capture-phase log of what the page sees of one tap, in `window.__tapLog`: each touch, pointer and mouse event, selectionchange and contextmenu. */
-const TAP_LOG_INSTALL = `
+// Function declarations, not consts: the probes start from top-level code above, before a later `const` line has run.
+function tapLogInstall() {
+	return `
 	const log = (window.__tapLog = { t0: performance.now(), events: [] });
 	const name = (el) => (el && el.nodeType === 1 ? el.tagName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
 	if (!window.__tapLogOn) {
@@ -193,9 +193,11 @@ const TAP_LOG_INSTALL = `
 			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) });
 		}, { capture: true, passive: true });
 	}`;
+}
 
 /** After a diagnostic tap: wait until the selection has stopped changing for 20 frames (at most 3 s), then read it and the tap log. */
-const TAP_SETTLE_READ = `const done = arguments[arguments.length - 1];
+function tapSettleRead() {
+	return `const done = arguments[arguments.length - 1];
 	const t0 = performance.now();
 	let last = '';
 	let still = 0;
@@ -209,6 +211,7 @@ const TAP_SETTLE_READ = `const done = arguments[arguments.length - 1];
 		else requestAnimationFrame(read);
 	};
 	read();`;
+}
 
 /** One line for the tap log: the time from touchstart to touchend as the page saw it, where each event landed and on what, and the selection changes. */
 function summarizeTapLog(log) {
@@ -285,7 +288,7 @@ async function composeTouchTap(id) {
 		// each selectionchange and contextmenu, read back after the tap beside the point WebDriver was sent and the WebDriver
 		// round trip. The tap itself is unchanged.
 		const rtt = await wdRoundTrip(id);
-		await run(TAP_LOG_INSTALL);
+		await run(tapLogInstall());
 		// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
 		// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
 		// selected the word under the finger, so the paragraph held a range, not a caret, and correctly got no caret-line mark.
@@ -319,11 +322,16 @@ async function composeTouchTap(id) {
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
 		step('what the page saw of the tap (detail only)', true, `sent ${at.x},${at.y}; ${landed}`);
+		const TAP_REPEATS = 6;
 		// DIAGNOSTIC ONLY, AFTER THE VERDICT: the same tap again, six times, each logged the same way, so one dispatch shows the
 		// page's view of passing AND failing taps (the failure is intermittent). These taps decide nothing.
-		for (let n = 1; n <= TAP_DIAGNOSTIC_REPEATS; n++) {
+		for (let n = 1; n <= TAP_REPEATS; n++) {
+			// A second tap at the same point inside the multi-tap window is a double tap (it selects a word, a third selects the
+			// paragraph: measured in Playwright's WebKit). The window is a duration by its nature, so the repeats are spaced by one
+			// second, which is longer than it, and the verdict tap above has no tap before it.
+			await new Promise((r) => setTimeout(r, 1000));
 			await run('document.activeElement?.blur?.(); getSelection()?.removeAllRanges();');
-			await run(TAP_LOG_INSTALL);
+			await run(tapLogInstall());
 			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 			const t0 = Date.now();
 			await wd('POST', `/session/${id}/actions`, {
@@ -331,8 +339,8 @@ async function composeTouchTap(id) {
 			});
 			const ms = Date.now() - t0;
 			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-			const after = await wd('POST', `/session/${id}/execute/async`, { args: [], script: TAP_SETTLE_READ });
-			console.log(`${LABEL}: compose tap log (diagnostic ${n}/${TAP_DIAGNOSTIC_REPEATS}): sent ${at.x},${at.y}; gesture ${ms} ms; page saw ${summarizeTapLog(after.log)}; result ${after.caret ? 'caret' : `SELECTED "${after.picked}"`} in ${after.where}`);
+			const after = await wd('POST', `/session/${id}/execute/async`, { args: [], script: tapSettleRead() });
+			console.log(`${LABEL}: compose tap log (diagnostic ${n}/${TAP_REPEATS}): sent ${at.x},${at.y}; gesture ${ms} ms; page saw ${summarizeTapLog(after.log)}; result ${after.caret ? 'caret' : `SELECTED "${after.picked}"`} in ${after.where}`);
 		}
 		return { ok: steps.every((x) => x.pass), steps };
 	} catch (e) {
