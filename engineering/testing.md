@@ -260,19 +260,25 @@ it starts at Full and has a tier to lose; Chromium (SwiftShader) and headless Fi
 context. A spec that
 tests the tier opts out and drives it on purpose (`device-tier-drop.spec.ts`) (#3245).
 
-## An iOS Simulator tap can read as a long press
+## The iOS Simulator stretches a tap's hold past the long-press threshold
 
-**Trap.** On the iOS Simulator, Safari can read a WebDriver touch tap as a long press and select
-text instead of placing the caret. Nobody has proven the cause yet.
+**Trap.** The iOS Simulator lengthens the time between a WebDriver touch's down and up events. It
+lengthens what Safari sees, not what WebDriver sent. A tap with a short hold can therefore reach
+Safari as a long press, which selects text instead of placing the caret. The coordinate is not the
+problem: every logged tap landed exactly on the point sent. WebDriver's own gesture time does not
+predict the result either, because Safari decides on the interval it sees.
 
-**Example.** The iPad's Compose tap selected "Workspace stop" instead of putting the caret in
-"First point", with a 739 ms gesture; a passing run of the same step took 939 ms, so gesture length
-alone does not explain it. A leading theory is that iPad Safari's desktop-mode page reads a
-different coordinate from the one WebDriver sends. #3213 already made the probe wait until the
-paragraph held still under the tap point; the iPad still failed.
+**Example.** Platform-suite dispatch 43798678775 (`ios-safari-studio`, branch
+`claude/webkit-shadow-and-ipad-tap`) logged the page's touch events on the iPad. A tap with no hold
+reached Safari as 29–43 ms and placed the caret. A 150 ms hold reached it as 345 ms and placed the
+caret. A 300 ms hold reached it as 632 ms and selected "point". 500 and 800 ms holds selected
+"Workspace stop". On the iPhone, a 300 ms hold reached Safari as 1137 ms. This explains the earlier
+failures, where a 739 ms gesture selected text and a 939 ms gesture did not.
 
-**Do instead.** Log the coordinate sent and the point Safari lands on, on a failing and a passing
-run, before changing the tap. Status and next step: `followups.d/3223-p1-ipad-compose-tap-lands-off-point.md`.
+**Do instead.** Send a tap with no hold between down and up, and assert on the page's own
+touch-event log (the touchstart-to-touchend interval) rather than on WebDriver's gesture time. The
+fix is tracked in `followups.d/3223-p1-ipad-compose-tap-lands-off-point.md`, written before this
+measurement, whose coordinate theory these logs rule out.
 
 ## Testing Library's hidden 3 s clock and lazy panels
 
