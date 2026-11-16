@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadAuthoring } from '@/playground/authoring-door.js';
@@ -341,21 +341,25 @@ describe('SlideContextBody controls', () => {
 		expect(toks).toContain('at-right');
 	});
 
+	// The pane's HEADER draws the reset (2026-11-15-one-side-pane.md §3d); the body reports whether this visit
+	// changed the slide and how to undo it, through `onResetChange`. `lastReset` reads its latest report.
+	const lastReset = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)?.[0] as { dirty: boolean; reset: () => void } | null;
+
 	it('Reset is disabled until an edit lands, then reverts to the original slide', () => {
 		const orig = '<!-- _class: kpi -->\n\n# Hi';
 		const edited = '<!-- _class: kpi dark scale-xl -->\n\n# Hi';
 		const onMutate = vi.fn();
+		const onResetChange = vi.fn();
 		const { rerender } = render(
-			<SlideContextBody open chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" tier="advanced" onTierChange={vi.fn()} query="" />,
+			<SlideContextBody open chunk={orig} source={orig} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" tier="advanced" onTierChange={vi.fn()} query="" onResetChange={onResetChange} />,
 		);
-		expect(screen.getByRole('button', { name: /reset slide/i })).toBeDisabled();
+		expect(lastReset(onResetChange)?.dirty).toBe(false);
 		// Simulate an edit landing (the source changed under the drawer).
 		rerender(
-			<SlideContextBody open chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" tier="advanced" onTierChange={vi.fn()} query="" />,
+			<SlideContextBody open chunk={edited} source={edited} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" tier="advanced" onTierChange={vi.fn()} query="" onResetChange={onResetChange} />,
 		);
-		const reset = screen.getByRole('button', { name: /reset slide/i });
-		expect(reset).not.toBeDisabled();
-		fireEvent.click(reset);
+		expect(lastReset(onResetChange)?.dirty).toBe(true);
+		act(() => lastReset(onResetChange)?.reset());
 		// The reset transform restores the ORIGINAL chunk verbatim, ignoring current content.
 		expect(onMutate.mock.calls.at(-1)?.[0]('whatever')).toBe(orig);
 	});
@@ -369,12 +373,12 @@ describe('SlideContextBody controls', () => {
 		const editedWhileLoading = '<!-- _class: kpi dark -->\n\n# Hi';
 		const baselineRef = { current: { slide: 1, chunk: orig } };
 		const onMutate = vi.fn();
+		const onResetChange = vi.fn();
 		render(
-			<SlideContextBody open chunk={editedWhileLoading} source={editedWhileLoading} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" tier="advanced" onTierChange={vi.fn()} query="" baselineRef={baselineRef} />,
+			<SlideContextBody open chunk={editedWhileLoading} source={editedWhileLoading} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={onMutate} view="group" tier="advanced" onTierChange={vi.fn()} query="" baselineRef={baselineRef} onResetChange={onResetChange} />,
 		);
-		const reset = screen.getByRole('button', { name: /reset slide/i });
-		expect(reset).not.toBeDisabled();
-		fireEvent.click(reset);
+		expect(lastReset(onResetChange)?.dirty).toBe(true);
+		act(() => lastReset(onResetChange)?.reset());
 		expect(onMutate.mock.calls.at(-1)?.[0]('whatever')).toBe(orig);
 		// Taken over once: a later open cannot reuse it.
 		expect(baselineRef.current).toBeNull();
@@ -383,10 +387,11 @@ describe('SlideContextBody controls', () => {
 	it('ignores a recorded baseline for a different slide', () => {
 		const chunk = '<!-- _class: kpi -->\n\n# Hi';
 		const baselineRef = { current: { slide: 4, chunk: '# Another slide' } };
+		const onResetChange = vi.fn();
 		render(
-			<SlideContextBody open chunk={chunk} source={chunk} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" tier="advanced" onTierChange={vi.fn()} query="" baselineRef={baselineRef} />,
+			<SlideContextBody open chunk={chunk} source={chunk} slideNumber={1} lintVocab={lintVocab} catalog={catalog} onMutate={vi.fn()} view="group" tier="advanced" onTierChange={vi.fn()} query="" baselineRef={baselineRef} onResetChange={onResetChange} />,
 		);
-		expect(screen.getByRole('button', { name: /reset slide/i })).toBeDisabled();
+		expect(lastReset(onResetChange)?.dirty).toBe(false);
 	});
 
 	it('shows the emitted _class line', () => {

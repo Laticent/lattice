@@ -10,7 +10,9 @@
  *   3. Compose's slide toolbar keeps its place and width while the caret moves inside a slide (the owner's screen
  *      recording: it grew, shrank and jumped on every move): on up to two slides of whatever deck is open (the
  *      Simulator keeps the earlier probes' deck), through its heading, eyebrow, paragraph and list item, each read once
- *      two frames agree, and only passing when the stops offered different styles.
+ *      two frames agree, and only passing when the stops offered different styles;
+ *   4. the caret Compose draws while it is not focused stays on its text through a real re-flow of the column (the slide's
+ *      Slide settings docking a column beside the editor) and a scroll (2026-11-15-one-side-pane.md §3c).
  *
  * One global, `latticeComposeProbe()`, resolving to a plain JSON result. Plain browser JS on purpose: WebDriver's
  * execute-script sends source text, not a module.
@@ -122,6 +124,83 @@ async function latticeComposeProbe() {
 		}
 		// Without this the check above could pass on stops that all offer the same styles, where nothing would resize anyway.
 		step('the caret crossed blocks that offer different styles', varied, varied ? '' : 'every stop offered the same chips');
+
+		// 4. THE DRAWN CARET STAYS ON ITS TEXT (engineering/decisions/2026-11-15-one-side-pane.md §3c). While the editor is
+		// not focused Compose draws its caret; it was `position: fixed` from viewport coordinates and stayed where the text
+		// had been when a pane opened or closed. Caret at the start of the first heading, focus moved off the editor, then
+		// the column re-flowed for real: the rail's Coach on a desktop-width page, the settings column on a tablet. A phone
+		// has no column that re-flows from a pane, so it checks the caret's place and a scroll.
+		const heading = pm().querySelector('h1, h2, h3');
+		step('the deck has a heading to put the caret in', !!heading);
+		heading.scrollIntoView({ block: 'center' });
+		const headText = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.data.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) }).nextNode();
+		pm().focus();
+		const at = document.createRange();
+		at.setStart(headText, 0);
+		at.collapse(true);
+		getSelection().removeAllRanges();
+		getSelection().addRange(at);
+		await frame();
+		button(COMPOSE)?.focus(); // focus off the editor: Compose draws its caret now
+		const ghost = () => {
+			const g = document.querySelector('#studio-pane-editor .lx-ghost-caret');
+			return g && getComputedStyle(g).display !== 'none' && g.getBoundingClientRect().height > 0 ? g : null;
+		};
+		await until(ghost, 10000, 'the drawn caret once the editor lost focus');
+		// The drawn caret against the heading's first letter, once two frames agree.
+		const offset = async () => {
+			let last = '';
+			const t0 = Date.now();
+			for (;;) {
+				await frame();
+				await frame();
+				const g = ghost();
+				const r = document.createRange();
+				r.setStart(headText, 0);
+				r.setEnd(headText, 1);
+				const glyph = r.getBoundingClientRect();
+				const c = g?.getBoundingClientRect();
+				const host = document.querySelector('#studio-pane-editor .cs-host').getBoundingClientRect();
+				const now = c ? { dx: Math.round(c.left - glyph.left), dy: Math.round(c.top + c.height / 2 - (glyph.top + glyph.height / 2)), inside: c.left >= host.left - 2 && c.right <= host.right + 2 } : null;
+				const key = JSON.stringify(now);
+				if (now && key === last) return now;
+				last = key;
+				if (Date.now() - t0 > 10000) throw new Error(`the drawn caret never settled (last ${key})`);
+			}
+		};
+		const onText = (o) => Math.abs(o.dx) <= 3 && Math.abs(o.dy) <= 4 && o.inside;
+		const where = (o) => `${o.dx}px across, ${o.dy}px down from the first letter${o.inside ? '' : ', OUTSIDE the editor'}`;
+		let o = await offset();
+		step('the drawn caret sits on its text', onText(o), where(o));
+		const docked = () => [...document.querySelectorAll('[data-settings-dock]')].some((d) => !d.hidden && d.getBoundingClientRect().width > 0);
+		if (!phone) {
+			// A first visit is at the Write stop, with no rail: the slide's own Slide settings button docks the settings
+			// column (to the left of the editor on a desktop-width page, to the right of it on a tablet), which re-flows it.
+			const gear = [...document.querySelectorAll('#studio-pane-editor button[aria-label="Slide settings"]')].find(visible);
+			step('the slide has a Slide settings button', !!gear);
+			gear.click();
+			await until(docked, 10000, 'the docked settings column');
+			o = await offset();
+			step('the drawn caret stays on its text with the settings column docked', onText(o), where(o));
+			await until(() => button('Collapse settings'), 10000, 'the settings column\'s close');
+			button('Collapse settings').click();
+			await until(() => !docked(), 10000, 'the settings column to close');
+			o = await offset();
+			step('the drawn caret stays on its text with the settings column closed', onText(o), where(o));
+		} else if (button('Toggle Coach')) {
+			// A phone: Coach is a sheet over the editor, so nothing re-flows; the caret must still be where it was after.
+			const coach = button('Toggle Coach');
+			for (const state of ['true', 'false']) {
+				coach.click();
+				await until(() => coach.getAttribute('aria-pressed') === state, 10000, `Coach ${state === 'true' ? 'to open' : 'to close'}`);
+				o = await offset();
+				step(`the drawn caret stays on its text with Coach ${state === 'true' ? 'opened' : 'closed'}`, onText(o), where(o));
+			}
+		}
+		const host = document.querySelector('#studio-pane-editor .cs-host');
+		host.scrollTop += 40;
+		o = await offset();
+		step('the drawn caret scrolls with its text', onText(o) || !ghost(), where(o));
 		result.ok = true;
 	} catch (e) {
 		result.error = String(e?.message || e);

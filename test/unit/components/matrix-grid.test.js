@@ -42,6 +42,9 @@ describe('buildMatrixGridSection', () => {
     // is pre-flipped (▼ displays as ▲ after the label's 180° rotation).
     assert.match(out, /data-col-axis="Wider reach ▶"/);
     assert.match(out, /data-row-axis="Deeper cognition ▼"/);
+    // The flat copy a 9:16 box lays above the grid (the tall arm in matrix-grid.styles.css) has no
+    // turn to undo, so its arrow is the true direction.
+    assert.match(out, /data-row-up="Deeper cognition ▲"/);
     assert.match(out, /<div class="matrix-grid-figure"[^>]*><table>/);
   });
 
@@ -51,6 +54,7 @@ describe('buildMatrixGridSection', () => {
       const { html: out } = buildMatrixGridSection(html, ctx);
       assert.match(out, /data-col-axis="Wider reach ▶"/, c);
       assert.match(out, /data-row-axis="Deeper cognition ▼"/, r);
+      assert.match(out, /data-row-up="Deeper cognition ▲"/, r);
     }
   });
 
@@ -58,6 +62,7 @@ describe('buildMatrixGridSection', () => {
     const html = '<h2>Title</h2><table><tbody><tr><td>a</td></tr></tbody></table>';
     const { html: out } = buildMatrixGridSection(html, ctx);
     assert.doesNotMatch(out, /data-col-axis/);
+    assert.doesNotMatch(out, /data-row-up/);
     assert.doesNotMatch(out, /data-row-axis/);
     assert.match(out, /<div class="matrix-grid-figure">\s*<table>/);
   });
@@ -158,6 +163,7 @@ describe('buildMatrixGridSection', () => {
     // literal text inside the attribute. (The trailing glyph is normalized
     // to a pre-flipped solid triangle — see the two-part eyebrow test above.)
     assert.match(out, /data-row-axis="Research &amp; development ▼"/);
+    assert.match(out, /data-row-up="Research &amp; development ▲"/);
     assert.doesNotMatch(out, /&amp;amp;/, 'the ampersand must not be double-escaped');
   });
 

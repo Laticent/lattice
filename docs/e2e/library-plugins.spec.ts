@@ -106,6 +106,10 @@ for (const [label, width, height] of [
 		// All shows it too, and a search narrows it.
 		await pick('All');
 		await expect(card).toBeVisible();
+		// A pointer surface opens the search from the header's button (§3d of 2026-11-15-one-side-pane.md); a
+		// phone keeps the field docked at the bottom, always open. The tabs above are laid out, so the header is too.
+		const searchButton = page.getByRole('button', { name: 'Search library' });
+		if (await searchButton.isVisible()) await searchButton.click();
 		await page.getByPlaceholder(/^Search themes/).fill('zzz-no-match');
 		await expect(card).toHaveCount(0);
 		await page.getByPlaceholder(/^Search themes/).fill('gantt');

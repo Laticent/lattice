@@ -1,6 +1,9 @@
 import type { Page } from '@playwright/test';
 import { expect, gotoStudio, openSection, test } from './studio-fixture';
 
+// A spec about the device tier: no pinned tier (playwright.config.ts `tierPin`), so the live tier decides.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 // The decline screen, "continue anyway" and the Performance mode setting, on the real Studio and Playground
 // (engineering/decisions/2026-11-12-device-capability-tiers.md §6, §7). Every engine and width the device-tier specs run on.
 //

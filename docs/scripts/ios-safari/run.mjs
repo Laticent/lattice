@@ -18,6 +18,7 @@
  * could be created at all (safaridriver never reached the simulator, or safaridriver itself is gone): no probe code ran,
  * so run.sh restarts safaridriver, reboots the device and tries once more.
  */
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -50,11 +51,12 @@ const JPEG_PICTURES = [
 if (!UDID) throw new Error('run.mjs: SIM_UDID is required');
 fs.mkdirSync(OUT, { recursive: true });
 
-async function wd(method, url, body) {
+async function wd(method, url, body, { timeoutMs } = {}) {
 	const res = await fetch(`${WD}${url}`, {
 		method,
 		headers: { 'content-type': 'application/json' },
 		body: body === undefined ? undefined : JSON.stringify(body),
+		signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
 	});
 	const json = await res.json().catch(() => ({}));
 	if (!res.ok) throw new Error(`${method} ${url}: ${res.status} ${JSON.stringify(json.value ?? json).slice(0, 600)}`);
@@ -71,26 +73,71 @@ const NO_SESSION = 3;
  * first 3 days of iOS runs to it, each before any probe code ran, on either device. Retry the session SESSION_ATTEMPTS
  * times (default 3; run.sh passes 2 when it can still restart the device). When safaridriver itself is gone (a refused connection: it can die after a timed-out session), retrying here is
  * useless, so exit NO_SESSION at once and let run.sh restart it. Any other error is real.
+ *
+ * EVERY ATTEMPT IS BOUNDED (SESSION_TIMEOUT_MS, default 150 s). safaridriver gives up on a simulator by itself after about
+ * 100-117 s ("timed out while connecting to a Safari instance"; nightlies 2026-11-06, 11-10, 11-13, 11-15), and the slowest
+ * session it ever made took about 105 s from Safari's launch (2026-11-11). But on 2026-11-15 (run 43712612297) the attempt
+ * after such a timeout got no reply at all: POST /session hung from 12:41:27 to 12:46:32, 305 s, until Node's own 300 s
+ * headers timeout ended it as "fetch failed". A driver that holds a session request past 150 s is stuck: NO_SESSION, so
+ * run.sh restarts it, in the time the job still has.
+ *
+ * SAFARI IS RELAUNCHED BEFORE EACH RETRY. A timed-out session leaves the simulator's Safari paired with it: the next attempt
+ * was refused at once with "The Safari instance is already paired with another WebDriver session" (2026-11-10, run
+ * 42819824102) or hung (2026-11-15). run.sh's in-place attempt relaunches Safari first, and on 2026-11-15 that attempt had a
+ * session 23 s after the relaunch. The wait between attempts stays 20 s (2 s for the old Safari to go, 18 s for the new).
+ * SAFARI_RELAUNCH_MS sets that wait for test/unit/tools/ios-safari-session.test.js only; unset, it is the same 2 s and 18 s.
  */
 const ATTEMPTS = Number(process.env.SESSION_ATTEMPTS || 3);
+const SESSION_TIMEOUT_MS = Number(process.env.SESSION_TIMEOUT_MS || 150000);
+const RELAUNCH_MS = Number(process.env.SAFARI_RELAUNCH_MS || 20000);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/**
+ * One simctl call, bounded: a hung simctl must not hold the job either. A failure is logged, not fatal: the session decides.
+ * 60 s, well under the 480 s that run.sh allows Safari's FIRST launch after a boot (its LAUNCH_LIMIT, from #3168): first
+ * launches took 156 s and 252 s on run 43370280534, and 123 s on 43784118094. This relaunch hits an already booted device;
+ * it took about 12 s on run 43776570714 and about 31 s on 43784118094. A relaunch past 60 s is logged and the retry still
+ * runs; if that retry fails, run.mjs exits 3 and run.sh reboots for its second start, which pays the long first launch
+ * under its own limit. A 480 s cap here would let one stuck relaunch spend 8 minutes first.
+ */
+const simctl = (...args) => {
+	try {
+		execFileSync('xcrun', ['simctl', ...args], { stdio: 'inherit', timeout: 60000 });
+	} catch (e) {
+		console.log(`${LABEL}: xcrun simctl ${args.join(' ')} failed (${String(e.message).slice(0, 200)})`);
+	}
+};
 async function createSession() {
 	for (let attempt = 1; ; attempt++) {
 		try {
-			return await wd('POST', '/session', {
-				capabilities: {
-					alwaysMatch: MAC ? { browserName: 'Safari', platformName: 'mac' } : { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': UDID },
+			return await wd(
+				'POST',
+				'/session',
+				{
+					capabilities: {
+						alwaysMatch: MAC ? { browserName: 'Safari', platformName: 'mac' } : { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': UDID },
+					},
 				},
-			});
+				{ timeoutMs: SESSION_TIMEOUT_MS },
+			);
 		} catch (e) {
 			const message = String(e.message);
-			const gone = /fetch failed/.test(message) || e.cause?.code === 'ECONNREFUSED';
+			const stuck = e.name === 'TimeoutError';
+			const gone = stuck || /fetch failed/.test(message) || e.cause?.code === 'ECONNREFUSED';
 			if (gone || (attempt >= ATTEMPTS && /session not created/.test(message))) {
-				console.log(`${LABEL}: no session (${gone ? 'safaridriver is not answering' : `attempt ${attempt} of ${ATTEMPTS}`}): ${message.slice(0, 300)}`);
+				const why = stuck ? `safaridriver did not answer POST /session within ${SESSION_TIMEOUT_MS} ms` : gone ? 'safaridriver is not answering' : `attempt ${attempt} of ${ATTEMPTS}`;
+				console.log(`${LABEL}: no session (${why}): ${message.slice(0, 300)}`);
 				process.exit(NO_SESSION);
 			}
 			if (!/session not created/.test(message)) throw e;
-			console.log(`${LABEL}: session not created (attempt ${attempt} of ${ATTEMPTS}): ${message.slice(0, 200)}; trying again in 20 s`);
-			await new Promise((r) => setTimeout(r, 20000));
+			console.log(`${LABEL}: session not created (attempt ${attempt} of ${ATTEMPTS}): ${message.slice(0, 200)}; relaunching Safari and trying again in 20 s`);
+			if (MAC) {
+				await sleep(RELAUNCH_MS);
+			} else {
+				simctl('terminate', UDID, 'com.apple.mobilesafari');
+				await sleep(Math.min(2000, RELAUNCH_MS));
+				simctl('launch', UDID, 'com.apple.mobilesafari');
+				await sleep(RELAUNCH_MS - Math.min(2000, RELAUNCH_MS));
+			}
 		}
 	}
 }
@@ -150,12 +197,25 @@ async function studioPage(id, file, fn, { seed = true } = {}) {
  * one they took the job to 27.6 minutes of its 30.
  */
 async function runStudioProbe(id) {
-	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
-	const panes = await studioPage(id, 'panes-probe.js', 'latticePanesProbe');
+	// A probe that fails gets its own screenshot NOW, before the next probe loads a fresh page over it: the session's one
+	// screenshot is taken at the end, and on 2026-11-15 (run 43712612297) it showed the Compose probe's page, three probes
+	// after the panes probe that failed.
+	const shotIfFailed = async (name, r) => {
+		if (r?.ok) return r;
+		try {
+			const png = await wd('GET', `/session/${id}/screenshot`);
+			fs.writeFileSync(path.join(OUT, `${PROBE}-${LABEL}-${name}.png`), Buffer.from(png, 'base64'));
+		} catch (e) {
+			console.log(`${LABEL}: no screenshot of the failed ${name} probe (${e.message})`);
+		}
+		return r;
+	};
+	const preview = await shotIfFailed('preview', await studioPage(id, 'studio-probe.js', 'latticeStudioProbe'));
+	const panes = await shotIfFailed('panes', await studioPage(id, 'panes-probe.js', 'latticePanesProbe'));
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
-	const focus = await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe');
+	const focus = await shotIfFailed('sheet-focus', await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe'));
 	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
-	const compose = await studioPage(id, 'compose-probe.js', 'latticeComposeProbe', { seed: false });
+	const compose = await shotIfFailed('compose', await studioPage(id, 'compose-probe.js', 'latticeComposeProbe', { seed: false }));
 	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
 	// which never shows the keyboard or runs Safari's own tap-to-focus path.
 	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };

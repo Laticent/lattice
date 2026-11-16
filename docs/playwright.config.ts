@@ -41,6 +41,21 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4321;
 const BASE_URL = `http://localhost:${PORT}`;
+// THE DEVICE TIER, PINNED TO LITE in every context the suite opens (lib/device-tier.ts, decision note
+// 2026-11-12-device-capability-tiers.md). Lite is what every engine effectively runs at in CI today. Chromium draws in
+// software and headless Firefox has no WebGL, so both start at Lite. Playwright WebKit names its renderer "Apple GPU" even
+// on Linux with no GPU, so it starts at Full, and a CI runner's CPU or boot probe then drops it to Lite within the first
+// seconds of each test: pinned at Full instead, the nightly's WebKit tests ran 1.44x (webkit-phone) and 1.51x
+// (webkit-tablet) as long and a shard overran its 45-minute step (#3245). Left live, that drop's notice once sat over the
+// chat's Send button for a whole click budget (chat-photos.spec.ts, 1/50 at 4 workers). The pin is the person's
+// Performance mode choice, stored before the first script runs, so a `?tier=` pin still outranks it. A spec about the tier
+// opts out with `test.use({ storageState: { cookies: [], origins: [] } })` (device-tier, decline-screen, system-panel,
+// device-tier-drop). The pin is seeded once per context, for this origin only, so a context a spec opens itself
+// (`browser.newContext()`), a page on another origin, or a load after `localStorage.clear()` starts unpinned, as on main.
+const tierPin = (tier: 'lite') => ({
+	cookies: [],
+	origins: [{ origin: BASE_URL, localStorage: [{ name: 'lattice-device-tier-override', value: tier }] }],
+});
 const isCI = !!process.env.CI;
 const RECORD = process.env.E2E_RECORD !== 'off';
 
@@ -79,6 +94,7 @@ export default defineConfig({
 	outputDir: 'test-results',
 	use: {
 		baseURL: BASE_URL,
+		storageState: tierPin('lite'),
 		// Every test records a trace and a video, so a nightly failure carries both. E2E_RECORD=off turns both
 		// off: the per-PR `studio-smoke` job sets it, because recording is about a third of that job's time
 		// (measured on 4 cores, 2 workers, the 155 @smoke tests: 11.9 min recorded, 8.2 min not, the same 155
