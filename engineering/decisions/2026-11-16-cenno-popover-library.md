@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Chart detail cards come to the exported HTML player (Present and Read views, a viewer toggle on by default, an author switch to ship without them), drawn by Cenno (`@laticent/cenno`), a new zero-dependency popover library in the sibling family. A spike places cards identically to Floating UI on 5,000 seeded cases in Chromium, WebKit and Firefox at 1.0 KB gzipped against 6.9 KB, and at least 3 times faster per placement (speed varies by run and engine; WebKit is the slowest case). Floating UI and Radix leave the hard part (intent, top layer, fullscreen, focus, touch) to the caller, and every popover bug we have logged lives there. Reverses the 2026-07-07 player non-goal for this one interaction.
+summary: Chart detail cards come to the exported HTML player (Present and Read views, a `details:` front-matter key for the starting state, an export toggle and CLI flag that override it, and a reader button that can always turn them off), drawn by Cenno (`@laticent/cenno`), a new zero-dependency popover library in the sibling family. A spike places cards identically to Floating UI on 5,000 seeded cases in Chromium, WebKit and Firefox at 1.0 KB gzipped against 6.9 KB, and at least 3 times faster per placement (speed varies by run and engine; WebKit is the slowest case). Floating UI and Radix leave the hard part (intent, top layer, fullscreen, focus, touch) to the caller, and every popover bug we have logged lives there. Reverses the 2026-07-07 player non-goal for this one interaction.
 ---
 
 # Cenno: our popover library, and chart detail cards in the player (2026-11-16)
@@ -197,14 +197,56 @@ optional peer.
 | Pointer never caught by the card's own wrapper | n/a | no (our gotcha) | no wrapper exists |
 | Focus never moved unless asked | n/a | moves on open and close by default | yes |
 | No framework | yes | React | yes |
+| Styling by tokens and named parts, and an optional card anatomy | caller's job | Tailwind classes on our copy | yes (§6, Styling and structure) |
+| Card keeps its screen size under pinch zoom; hit radius in screen pixels | no | no | yes (§7a) |
 | Dependencies | `@floating-ui/core`, `utils` | Floating UI and Radix internals | none |
 
-### Size and speed are gated
+### Every byte and every microsecond is accounted for, not capped
 
-The library ships with a byte budget in its build, the way the player has a size ceiling. Proposed:
-**the whole DOM entry at or under 4 KB gzipped**, the geometry kernel at or under 1.5 KB. A
-`bench` scenario (`npm run bench`, HARD RULE #19) records placement cost so a regression shows up.
-These are proposals for the owner (§10).
+No byte budget. The owner ruled a ceiling premature on 2026-11-16: a number picked before the
+library exists either pinches a feature that earns its bytes or invites padding up to the line.
+The target is that **every part is load-bearing and its cost is known**:
+
+- **The build prints a size table per module** (`place`, `measure`, `track`, layer, intent,
+  access, structure, the React adapter): minified and gzipped bytes. The README carries the same
+  table, regenerated and freshness-gated like every other built artifact (HARD RULE #2).
+- **Each PR that grows a module states the growth and what it buys** in its body. A module with
+  no user-visible job is deleted, not kept "just in case".
+- **Speed is measured, not asserted** (HARD RULE #19): a `bench` scenario times placement,
+  re-placement under `track`, and open-to-painted for a card, so a regression shows in
+  `npm run bench:check`. No pass/fail test ever asserts milliseconds (HARD RULE #32).
+- **The spike is the reference point**: 1.0 KB gzipped for geometry and tracking at Floating UI
+  parity. The library's size table starts from that line.
+
+### Styling and structure: the host skins it, Cenno never paints it
+
+The owner asked that the library be designed around how a host styles its popups, and possibly
+the structure inside them, so the Studio and the player can look and behave alike. Three layers,
+each optional:
+
+1. **Tokens.** Every visual property Cenno owns is a CSS custom property on the card, with a
+   neutral default: `--cenno-bg`, `--cenno-fg`, `--cenno-border`, `--cenno-radius`,
+   `--cenno-shadow`, `--cenno-pad`, `--cenno-max-width`, `--cenno-gap` (anchor distance),
+   `--cenno-arrow-size`, `--cenno-motion` (duration; zero under reduced motion). A host maps its
+   own theme onto them in one rule: the Studio maps its app tokens (`--popover`, `--border`), the
+   player maps the deck theme's tokens, so the card is palette-blind the way `lattice.css` is
+   (HARD RULE #3). Cenno ships no colors of its own beyond the neutral fallback.
+2. **Parts.** The card's own elements carry stable names, `[data-cenno-part="card|arrow|header|
+   body|footer"]`, and the same names as `part=` when the card lives in a shadow root, so
+   `::part(header)` styles it from outside. Names are a public API: renaming one is a breaking
+   change.
+3. **Structure (opt-in).** `cenno.card({ header, body, footer })` builds the standard anatomy
+   (a header row with a lead mark, a title and a trailing value; a body; a footer) from nodes the
+   host supplies. A host that wants its own structure passes any element instead and keeps only
+   positioning and lifecycle. The chart detail card is one recipe on that anatomy: the color dot,
+   the label and the value in the header; the description in the body; the meta line in the
+   footer.
+
+**Parity follows from one recipe.** The shared reveal kernel (§7) builds the chart card through
+`cenno.card` on every surface, so the Studio, Present and the player show the same structure,
+the same behavior and the same parts. Only the token mapping differs, because each host owns its
+own theme. A parity test renders the same chart detail on each surface and compares structure and
+part names, not pixels.
 
 ### Non-goals
 
@@ -266,12 +308,23 @@ not the slide. Slice 2 proves it first on the real player.
   (HARD RULE #29, no typed glyph), `aria-pressed`, **on by default**. The choice is remembered per
   viewer in `localStorage`, every read and write wrapped in `try`/`catch`, so a private window
   simply starts on. The button appears only when the deck has detail cards.
-- **Author switch.** `--strip-chart-details` on the CLI, and the same option in the Studio's
-  export dialog, named and placed like `--strip-notes`. It removes the templates **and** the
-  reveal runtime, so a board pack with draft detail text ships without it. The owner's answer named
-  a CLI or front-matter switch. This note recommends the export option only: whether a shipped
-  file carries detail text is a choice about that file, like notes, not about the deck. A front
-  matter key can follow if an author asks for it.
+- **The deck sets the starting state: `details: on | off`.** A new front-matter register, default
+  `on`, shaped like `callout: on | off` (`lib/base/base.registers.docs.md`). It sets whether
+  detail cards start enabled when the player opens. It goes through the register machinery and
+  its lint like every other key (HARD RULE #7), and the generated front-matter reference lists it.
+- **The export can override it.** The Studio's export dialog shows a toggle that starts at the
+  deck's value, and the CLI takes `--details on|off`. Either one sets the exported file's
+  starting state without editing the deck. Precedence: export setting, then front matter, then
+  `on`.
+- **The reader always has the last word.** The viewer button can always turn cards off, whatever
+  the file's starting state. When the file starts them off, the same button turns them on: the
+  cards are in the file either way, so `off` means "start hidden", not "removed". The reader's
+  choice is remembered in `localStorage` under a key that includes the deck's identity, because
+  every `file://` player shares one origin, and a choice made in one deck must not leak into
+  another.
+- **Removing the detail text from a file is a separate need**, not planned. If an author asks to
+  ship a player that cannot show draft detail text, a `--strip-chart-details` flag, beside
+  `--strip-notes`, is the shape.
 
 ### What stays the same
 
@@ -281,6 +334,63 @@ not the slide. Slice 2 proves it first on the real player.
 - **The no-JavaScript floor** (`2026-09-29-player-no-js-controls.md`) is unchanged: without
   script there is no card, and the slide still reads.
 - **Print** hides the card.
+
+## 7a. Zoom: three kinds, each touching hit, size and placement
+
+The owner flagged that a reader can zoom into a slide, and that this reaches all three things a
+popover gets right or wrong: which mark the pointer hits, how big the card is, and where it lands.
+There are three kinds of zoom, and they behave differently.
+
+| Zoom | Where it happens today | What moves |
+|---|---|---|
+| **Page zoom** (Ctrl/Cmd and + or −) | any browser, any surface | CSS pixels get bigger; the page lays out again and fires `resize` |
+| **Pinch zoom of the page** (two fingers, or a trackpad pinch in Safari) | the player on phones and tablets. Its `<meta name="viewport" content="width=device-width,initial-scale=1">` allows it, and must keep allowing it (blocking zoom fails accessibility) | the *visual* viewport scales and pans over a *layout* viewport that does not move |
+| **Slide zoom** (our own gesture) | the Studio, through `createZoomGesture` in `lib/core/present-transport.mjs` (`2026-08-10-preview-pinch-zoom.md`). The player has none yet; `player-core.mjs` names it as the sequel | a CSS `transform` on the slide; nothing fires `resize` or `ResizeObserver` |
+
+### Hit detection
+
+- **Pointer coordinates are already right.** Pointer events report layout-viewport coordinates,
+  and `elementFromPoint` and `getBoundingClientRect` use the same space and include every CSS
+  transform. So a mark is found correctly at any zoom of any kind.
+- **The touch target must stay a screen size, not a CSS size.** A heatmap's 69 px cell is about
+  19 px on a phone's scaled slide. The reveal kernel takes a hit radius in *screen* pixels (44 by
+  default) and converts it to CSS pixels by dividing by the combined scale (slide transform times
+  `visualViewport.scale`), then picks the nearest mark inside it. Zooming in makes marks easier
+  to hit, never harder.
+- **A zoom gesture is never a tap.** A gesture that ever held two pointers, or panned past the
+  threshold while zoomed, opens no card. This is the rule `createZoomGesture` already applies to
+  swipes, and the reveal reads it from the same kernel rather than restating it (HARD RULE #1).
+
+### Card size
+
+- **The card stays a constant size on screen.** The reader zoomed to see the chart, not to enlarge
+  the card. Under pinch zoom, Cenno sets `scale(1 / visualViewport.scale)` on the card, anchored at
+  its arrow, so text keeps its size. Under slide zoom, the card lives outside the zoomed stage and
+  never scales with it. This matches the Studio's existing readable-first rule
+  (`chart-detail-layer.tsx`: the card is not shrunk with a scaled preview).
+- **Page zoom is the exception, on purpose.** A reader who presses Ctrl and + wants everything
+  bigger, the card included, so Cenno leaves page zoom alone.
+
+### Placement
+
+- **The bounds are what the reader sees.** `measure` uses the visual viewport (offset, width and
+  height) as the boundary, so a pinch-zoomed card flips and shifts to stay on the visible part of
+  the page, not the whole layout. The spike already does this.
+- **The card follows the zoom.** `track` already listens to `visualViewport` `resize` and
+  `scroll`, which fire on pinch and pan. Slide zoom fires nothing, so Cenno exposes
+  `card.update()`, and the zoom kernel calls it on each step. While a card is open, an opt-in
+  `watch: 'frame'` re-measures every animation frame for hosts that cannot call `update()`. It
+  costs one measurement per frame, and only while open.
+- **A mark that leaves the view hides the card.** When the anchor is panned or zoomed out of the
+  visual viewport, the card hides and comes back with it.
+
+### How it is verified
+
+The parity harness gains zoom cases: Chromium's `Emulation.setPageScaleFactor` (through the
+DevTools protocol) sets a real visual-viewport scale in a real browser, and a CSS transform on a
+wrapper stands in for slide zoom. A harness is not a finger (HARD RULE #23), so slices 2 and 3
+also drive a real pinch on the iOS Simulator suite by dispatch, and on the Studio's own zoom at
+three widths.
 
 ## 8. The mark (logo brief)
 
@@ -300,16 +410,13 @@ Built to `2026-07-18-sibling-brand-system.md`, three assets
 - **Deck CSS in the card** (§7). If slide-unit rules can't resolve outside the slide, the fallback
   is to measure the slide's unit and set it on the card's chain copy. Proven in slice 2 before
   anything else depends on it.
-- **The narration Guide reads the templates.** `--strip-chart-details` must not quietly change the
-  Guide's captions. Either the Guide takes what it needs before the strip, or the strip keeps the
-  text the Guide reads. Decided in slice 4 with a test.
 - **Popover API coverage.** `popover="manual"` landed in Chrome 114, Safari 17 and Firefox 125. An
   exported file is frozen and may open years from now on an older browser, so the fixed-element
   fallback is not optional.
 - **Fullscreen order.** A top-layer card opened before fullscreen starts sits under the fullscreen
   element. The layer re-shows the card on `fullscreenchange`; tested on the real player.
-- **Size.** Proposed budget for the player's added script, kernel plus Cenno: at or under 8 KB
-  gzipped, measured on the demo deck.
+- **Size.** No cap (§6). The player's added bytes are measured on the demo deck in each slice and
+  reported in the PR, with what they buy.
 
 ## 10. Owner decisions
 
@@ -318,18 +425,21 @@ Settled 2026-11-16:
 1. **Bring detail cards to the player**, in both the Present and Read views.
 2. **Our own library**, generic and zero-dependency, minified, documented, with a mark. Not
    Floating UI underneath.
-3. **A viewer button, on by default, and an author switch.**
+3. **A viewer button, on by default, and an author switch.** Refined on 2026-11-16: the deck
+   sets the starting state with a `details:` front-matter key; the Studio export toggle and the
+   CLI's `--details` override it per file; the reader can always turn cards off (§7).
 4. **The name Cenno** (`@laticent/cenno`), private until the family's release. The record was
    drafted as *Fumetto* and renamed before merge.
 
-Proposed here, for the owner to confirm before slice 1:
+5. **No byte budget.** Premature; instead every part is load-bearing and its cost is measured
+   and reported (§6).
+6. **The Studio's chart card moves onto Cenno in slice 3**, retiring its z-index and pointer
+   overrides, and the library is designed around how a host styles the card and its structure,
+   so every surface reaches parity (§6, Styling and structure).
+7. **Zoom is a first-class input** (§7a): a reader zooming into a slide must not break which mark
+   is hit, how big the card is, or where it lands.
 
-5. The byte budgets: Cenno's DOM entry at or under 4 KB gzipped, the player's added script at or
-   under 8 KB gzipped.
-6. The author switch as an export option (`--strip-chart-details` plus the Studio export dialog)
-   rather than front matter.
-7. The Studio's chart card moves onto Cenno in slice 3, retiring its z-index and pointer
-   overrides.
+Nothing is left open for the owner before slice 1.
 
 ## 11. Order of work
 
@@ -338,10 +448,10 @@ exported bytes stops for the owner's sign-off with dark and light players (QUALI
 
 | # | Slice | Proves | Gate |
 |---|---|---|---|
-| 1 | **Cenno core** in `docs/src/lib/cenno/`: `place`, `measure`, `track`, layer, intent, access; README; the spike's harness as its parity suite (Chromium, WebKit, Firefox) plus clipping, transform, RTL and hide cases; byte budget in its build | the library stands alone | unit + parity suites, budget |
-| 2 | **Shared reveal kernel** in `lib/runtime/chart-reveal/`, and the player wired to it in the Present view | deck CSS reaches the card; scaled stage; fullscreen | real player in Chromium and WebKit; owner sign-off |
-| 3 | **Studio, Playground and Present** moved onto the kernel and `cenno/react` | one reveal everywhere; the two Radix workarounds deleted | `docs/e2e/chart-detail-reveal`, `chart-popup-dismiss` and `present-chart-card` specs, at three widths |
-| 4 | **Read view, viewer button, author switch**, demo deck `examples/player-chart-details.md` | the remaining surfaces | owner sign-off; the html-player golden unchanged for decks without details |
+| 1 | **Cenno core** in `docs/src/lib/cenno/`: `place`, `measure`, `track`, layer, intent, access; README; the spike's harness as its parity suite (Chromium, WebKit, Firefox) plus clipping, transform, RTL, hide and zoom cases; tokens, parts and `cenno.card`; the per-module size table | the library stands alone | unit + parity suites; size table fresh; bench scenario |
+| 2 | **Shared reveal kernel** in `lib/runtime/chart-reveal/`, and the player wired to it in the Present view | deck CSS reaches the card; scaled stage; fullscreen; browser pinch and page zoom | real player in Chromium and WebKit, phone and desktop; owner sign-off |
+| 3 | **Studio, Playground and Present** moved onto the kernel and `cenno/react`, mapping app tokens onto Cenno's | one reveal everywhere, same structure and parts; the two Radix workarounds deleted; the Studio's own slide zoom (`createZoomGesture`) | `docs/e2e/chart-detail-reveal`, `chart-popup-dismiss` and `present-chart-card` specs, at three widths |
+| 4 | **Read view, viewer button, the `details:` register, the Studio export toggle and `--details`**, demo deck `examples/player-chart-details.md` | the remaining surfaces | owner sign-off; the html-player golden unchanged for decks without details |
 | 5 | **The mark** and the docs page | the family look | brand note updated with the measured palette distance |
 
 Novel work with real blast radius, so the adversarial trio (red team, inversion, checker) reviews
