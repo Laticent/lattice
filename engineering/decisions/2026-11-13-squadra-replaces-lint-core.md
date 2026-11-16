@@ -436,8 +436,17 @@ none split a `\r\n`. It found three small things, fixed here: the plugin writer 
 deck holding one stray `\r` in its prose (it now does so only for a deck with no `\n`; pinned, and the pin goes red
 with the old rule); the dev shim would bind one import name twice for a sibling required twice (each inlined copy now
 has its own; pinned in the vitest); and `render-identity` printed no reason when `--strict` failed on a stylesheet only
-`main` writes (it now names it, and `--json` carries `cssLost`). The identity check on the final head reads 471 decks
-byte-identical, lint identical, 0 stylesheets differing, exit 0.
+`main` writes (it now names it, and `--json` carries `cssLost`). The identity check on `d658d31` (after it, only the
+plugin writer's line-end choice, the dev shim and the identity tool changed) reads 471 decks byte-identical, lint
+identical, 0 stylesheets differing, exit 0.
+
+**The surfaces, at the merge ask.** CI green on every check of `ac49678`. A full Chromium e2e run there (desktop,
+tablet and mobile, 4 workers, no retries): 1,903 passed, 4 failed, 63 skipped; the four passed alone, 2 of 2 each, and
+are listed with the other load-only specs in followups.d/3087-p4-mobile-load-only-flakes.md. The 47 spec files that
+touch front matter or deck settings in WebKit (phone, tablet) and Gecko: 120 of 120. Player parity 5 of 5 and the
+player input check. The Studio on the PR's built preview, and on a fresh `npm run dev` (the shim this PR changed):
+both load the welcome deck and read its front matter (`cuoio · light`) with no console error but the dev server's
+404s for the newcomer frames, which only the production build bakes.
 
 **Not moved, and why.**
 - **lint-core's front-matter reads** (44 copies of the engine's old fence, its `fmChunks`, its line scans through
