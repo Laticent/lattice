@@ -218,3 +218,29 @@ describe('collections: firstList picks the PRIMARY collection, not the first one
     assert.equal(firstList(one).body, '<li>only</li>');
   });
 });
+
+// A LONE ITEM HOLDING THE COLLECTION (owner, 2026-11-16; fit-everywhere-model.md §25). A branching authority-chain
+// writes one tier whose branches are a nested list. Read at the outer list there was one member and nothing to page,
+// so a chain with many branches clipped. firstList descends into the lone item's nested list then, keeping the item's
+// label and wrapper around every page; it descends only then.
+// FALSIFIABLE: without the descent LONE counts one member; descending more widely changes TWO or BARE.
+test('LONE: an outer list with one item holding a nested list pages the nested list, the label on every page', () => {
+  const html = '<ol><li>Statute<ul><li>A</li><li>B</li><li>C</li></ul></li></ol>';
+  assert.equal(countAxis(html, 'item'), 3);
+  const pages = partitionAxis(html, 'item', 2);
+  assert.equal(pages.length, 2);
+  for (const p of pages) assert.match(p, /^<ol><li>Statute<ul>[\s\S]*<\/ul><\/li><\/ol>$/, 'the tier label and wrapper on each page');
+  assert.match(pages[0], /<li>A<\/li><li>B<\/li>/);
+  assert.match(pages[1], /<li>C<\/li>/);
+  assert.doesNotMatch(pages[1], /<li>A<\/li>/);
+});
+
+test('TWO: an outer list of two items, each with a nested list, still pages the outer items', () => {
+  const html = '<ol><li>One<ul><li>a</li><li>b</li></ul></li><li>Two<ul><li>c</li><li>d</li></ul></li></ol>';
+  assert.equal(countAxis(html, 'item'), 2);
+});
+
+test('BARE: a lone item with no nested list (or a nested list of one) is one member, as before', () => {
+  assert.equal(countAxis('<ul><li>Only</li></ul>', 'item'), 1);
+  assert.equal(countAxis('<ul><li>Only<ul><li>x</li></ul></li></ul>', 'item'), 1);
+});
