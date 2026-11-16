@@ -107,8 +107,11 @@ palette × mode combinations (1.01:1 in cuoio light). Five looks were measured i
 scored (the "Selected-State Options" artifact). The owner chose **B**: the theme's `--text-heading` as
 the chip and `--bg` as the label, the Read/Write/Craft switch's look. It clears 9.88:1 against the rail
 and 9.65:1 for the label in all 36. **D**, the same chip with the OTHER mode's accent as the label
-(gold on ink in Cuoio), is the follow-up: AA in all 36, the accent shows in 19, and its fallback is B,
-so it only adds. It is a new generated token across every selected control, so it is its own PR.
+(gold on ink in Cuoio), was recorded as a follow-up and then **dropped by the owner** (2026-11-16, after the
+follow-up PR to #3222 measured it): the label clears 4.5:1 in 28 of 36 combinations but shows a visible color
+in only about 21, looking exactly like B in the rest, and the Studio already draws "selected" five ways (the ink
+chip, the solid-accent pill, an accent word on a light chip, gold text on Compose, and the tint), so a gold label
+on ink would have added a sixth beside the gold-filled pill. B stays the one selected look for the rail.
 
 ## 3c. Compose's drawn caret follows a pane swap (found by the owner while testing)
 
