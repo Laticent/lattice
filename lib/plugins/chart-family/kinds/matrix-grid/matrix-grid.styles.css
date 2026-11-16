@@ -407,6 +407,39 @@ section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-g
 section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td {
   padding: 0.15625cqi var(--sp-2xs);
 }
+/* TALL ONLY: the row title lies FLAT, in its own band above the column title, and gives its gutter to the columns.
+ * At the type floor above, a five-column grid still needs ~963px and a 9:16 box has 972px — but the rotated
+ * title's gutter (`--sp-lg`, 59px at story) left the table only 913, so the fifth column ran off the box
+ * (`FIELD` cut to `FIELI`, the `Chief` pill to `Chie`) on the gallery's stress slide. Nothing else can pay
+ * for it: the type is at its floor, and the padding a smaller cell gap would buy is 15px, a third of the
+ * shortfall. What a 9:16 box has spare is HEIGHT, so the title moves to where the height is.
+ * Its own band, not beside the column title on one line: two titles side by side collide as soon as an
+ * author names the axes at length, and stacked they cannot. Left-aligned, over the row labels it names.
+ * `data-row-up` is the same text with the arrow the right way up: the gutter's copy is emitted pre-flipped
+ * (▼) for the 180° turn (matrix-grid.transform.js), and a flat label has no turn to undo.
+ * Strip keeps the gutter — a strip is short and wide, the opposite budget. */
+section.matrix-grid:where([data-family="tall"]) .matrix-grid-figure[data-row-axis] {
+  --matrix-row-axis-h: calc(var(--sp-2xs) + var(--fs-meta));
+  padding-inline-start: 0;
+  padding-top: var(--matrix-row-axis-h);
+  min-height: 0;
+}
+section.matrix-grid:where([data-family="tall"]) .matrix-grid-figure[data-row-axis][data-col-axis] {
+  padding-top: calc(var(--matrix-row-axis-h) + var(--matrix-col-axis-h));
+}
+section.matrix-grid:where([data-family="tall"]) .matrix-grid-figure[data-row-axis][data-col-axis]::after {
+  top: var(--matrix-row-axis-h);
+}
+/* The attribute is doubled to tie `[data-row-axis][data-col-axis]::before` above, so source order wins. */
+section.matrix-grid:where([data-family="tall"]) .matrix-grid-figure[data-row-axis][data-row-axis]::before {
+  content: attr(data-row-up);
+  writing-mode: horizontal-tb;
+  transform: none;
+  top: 0; bottom: auto; inset-inline-end: 0;
+  width: auto;
+  height: var(--matrix-row-axis-h);
+  justify-content: flex-start;
+}
 /* AND the table goes back to `auto` on every family EXCEPT wide, which is where
  * the jank fix above does not reach. A fixed table gives each undeclared column
  * an equal share, and only `wide` is broad enough for this content to live

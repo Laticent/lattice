@@ -1,0 +1,1 @@
+- **matrix-grid:** on a portrait or 9:16 box, a five-column grid no longer runs off the right edge (the last column read `FIELI`, and its pill `Chie`). The row-axis title now lies flat on its own line above the column title, so the columns get the width its rotated side gutter used to take. Landscape, square and strip boxes keep the rotated title.
