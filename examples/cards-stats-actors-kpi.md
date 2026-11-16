@@ -2,21 +2,21 @@
 marp: true
 theme: cuoio
 paginate: true
-header: "Lattice · cards: stats, actors, kpi"
+header: "Lattice · align: stats, actors, kpi"
 ---
 
 <!-- _class: title silent -->
 
-`Feature demo · the cards: register`
+`Feature demo · the align: register`
 
 # stats, actors and kpi now follow it.
 
-Short rows and tiles hug their text and sit where the deck's `cards:` says. `stretch` is the old fill-the-stage look.
+Short rows and tiles hug their text and sit where the deck's `align:` says. `fill` brings back the old full-height look.
 
 ---
 
 <!-- _class: stats -->
-<!-- _footer: "stats · centered, as before. cards: top, spread and stretch now apply to it too." -->
+<!-- _footer: "stats · centered, as before. align: top, spread and fill now apply to it too." -->
 
 ## Three stats sit in the middle of the stage.
 
@@ -29,8 +29,8 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 
 ---
 
-<!-- _class: stats cards-top -->
-<!-- _footer: "stats cards-top · the strip sits under the headline rule." -->
+<!-- _class: stats align-top -->
+<!-- _footer: "stats align-top · the strip sits under the headline rule." -->
 
 ## The same three stats, set high.
 
@@ -44,7 +44,7 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 ---
 
 <!-- _class: actors -->
-<!-- _footer: "actors · default (center). Three rows hug their text instead of filling the stage." -->
+<!-- _footer: "actors · default (middle). Three rows hug their text instead of filling the stage." -->
 
 ## Three owners, three rows.
 
@@ -60,8 +60,8 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 
 ---
 
-<!-- _class: actors cards-stretch -->
-<!-- _footer: "actors cards-stretch · the previous look: two rows grow to fill the stage." -->
+<!-- _class: actors align-fill -->
+<!-- _footer: "actors align-fill · the previous look: two rows grow to fill the stage." -->
 
 ## Two owners, filling the stage.
 
@@ -74,8 +74,8 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 
 ---
 
-<!-- _class: actors cards-spread -->
-<!-- _footer: "actors cards-spread · the same two rows, the surplus shared between them." -->
+<!-- _class: actors align-spread -->
+<!-- _footer: "actors align-spread · the same two rows, the surplus shared between them." -->
 
 ## Two owners, spread out.
 
@@ -89,7 +89,7 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 ---
 
 <!-- _class: kpi trajectory -->
-<!-- _footer: "kpi trajectory · default (center). Two tiles hug their content." -->
+<!-- _footer: "kpi trajectory · default (middle). Two tiles hug their content." -->
 
 ## Two tiles, each with its delta.
 
@@ -102,8 +102,8 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 
 ---
 
-<!-- _class: kpi trajectory cards-stretch -->
-<!-- _footer: "kpi trajectory cards-stretch · the previous look: tiles fill the stage." -->
+<!-- _class: kpi trajectory align-fill -->
+<!-- _footer: "kpi trajectory align-fill · the previous look: tiles fill the stage." -->
 
 ## The same two tiles, filling the stage.
 
@@ -117,7 +117,7 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 ---
 
 <!-- _class: kpi spotlight -->
-<!-- _footer: "kpi spotlight · default (center). The promoted tile no longer runs the full height." -->
+<!-- _footer: "kpi spotlight · default (middle). The promoted tile no longer runs the full height." -->
 
 ## One tile earns the width.
 
@@ -133,8 +133,8 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 
 ---
 
-<!-- _class: kpi ops cards-top -->
-<!-- _footer: "kpi ops cards-top · two tiles, set under the headline rule." -->
+<!-- _class: kpi ops align-top -->
+<!-- _footer: "kpi ops align-top · two tiles, set under the headline rule." -->
 
 ## Ops with two tiles, set high.
 

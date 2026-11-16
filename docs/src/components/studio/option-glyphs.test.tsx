@@ -8,7 +8,7 @@ import { PACE_NAMES } from '../../../../lib/core/resolve-pace.mjs';
 import { STAMP_STYLE_NAMES } from '../../../../lib/core/resolve-stamp.js';
 import { TONE_STYLE_NAMES } from '../../../../lib/core/resolve-tone-style.js';
 import { MOTION_SPEED_ENTRIES } from '../../lib/motion-catalog';
-import { CARD_ROWS } from './card-row-catalog';
+import { ALIGN_HORIZONTAL, ALIGN_VERTICAL } from './align-catalog';
 import { CORNERS } from './corners-catalog';
 import { GUARDS } from './guards-catalog';
 import { HEADLINES } from './headline-catalog';
@@ -26,7 +26,8 @@ const covered: [GlyphAxis, readonly string[]][] = [
 	['edge', SPECTRUM_CARD_EDGES.map((e) => e.name)],
 	['align', HEADLINES.map((e) => e.name)],
 	['align', CARD_TAG_AXES.align],
-	['cardRows', CARD_ROWS.map((e) => e.name)],
+	['alignV', ALIGN_VERTICAL.map((e) => e.name)],
+	['alignH', ALIGN_HORIZONTAL.map((e) => e.name)],
 	['corners', CORNERS.map((e) => e.name)],
 	['fit', GUARDS.map((e) => e.name)],
 	['speed', MOTION_SPEED_ENTRIES.map((e) => e.name)],

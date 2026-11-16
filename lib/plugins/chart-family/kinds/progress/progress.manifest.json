@@ -232,5 +232,11 @@
       }
     }
   },
-  "venueProbe": "<!-- _class: progress -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n"
+  "venueProbe": "<!-- _class: progress -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n",
+  "split": {
+    "strategy": "progress-rows",
+    "perPage": 4,
+    "intro": "Where each one stands",
+    "note": "A list of bars read off one shared baseline. It splits only when it overflows, and a page holds as many bars as fit: up to 4 without a measured plan, the measured count under `fit: pack`, spread so no page holds a lone bar. Every bar is drawn against the same section-relative track, so bars on different pages stay comparable. Owner's direction 2026-11-06 (fit-everywhere-model.md §18); lib/core/carousel.js progress-rows."
+  }
 }

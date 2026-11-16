@@ -2,16 +2,16 @@
 marp: true
 theme: indaco
 paginate: true
-header: "Lattice · cards: contact and wifi"
+header: "Lattice · align: contact and wifi"
 ---
 
 <!-- _class: title silent -->
 
-`Feature demo · the cards: register`
+`Feature demo · the align: register`
 
 # contact and wifi now follow it.
 
-Both now center by default, and every `cards-*` value applies.
+Both now center by default, and every `align-*` value applies.
 
 ---
 
@@ -26,8 +26,8 @@ Both now center by default, and every `cards-*` value applies.
 
 ---
 
-<!-- _class: contact cards-top -->
-<!-- _footer: "contact cards-top · the old placement" -->
+<!-- _class: contact align-top -->
+<!-- _footer: "contact align-top · the old placement" -->
 
 - Ada Slide `name`
 - Founder `title`
@@ -37,8 +37,8 @@ Both now center by default, and every `cards-*` value applies.
 
 ---
 
-<!-- _class: contact cards-stretch -->
-<!-- _footer: "contact cards-stretch" -->
+<!-- _class: contact align-fill -->
+<!-- _footer: "contact align-fill" -->
 
 - Ada Slide `name`
 - Founder `title`
@@ -62,8 +62,8 @@ Both now center by default, and every `cards-*` value applies.
 
 ---
 
-<!-- _class: wifi cards-top -->
-<!-- _footer: "wifi cards-top · the old placement" -->
+<!-- _class: wifi align-top -->
+<!-- _footer: "wifi align-top · the old placement" -->
 
 `Room Wi-Fi`
 

@@ -26,7 +26,7 @@ machine.
 ## The calls
 
 ```ts
-import { fitsCap, paginates, planSlide, rescueRuns, MAX_PAGES, ONE_PER_PAGE } from '@laticent/fluido';
+import { fitsCap, pack, paginates, planSlide, rescueRuns, MAX_PAGES, ONE_PER_PAGE } from '@laticent/fluido';
 ```
 
 ### `paginates(family)`
@@ -44,6 +44,7 @@ What one slide becomes. `facts`:
 | `recipe` | `{ strategy, shapeReader }`, the component's own page recipe, if it has one. |
 | `recipeDeclined` | The recipe was tried and declined. |
 | `reSplit` | The slide is a page an earlier cut emitted. |
+| `measured` | A measured plan named the slide's pages. One member then still paginates: the measurement already knows the slide does not fit whole, so the cover takes the heading and the closing page the beats. |
 | `seam`, `members` | The seam to cut on and its member count, or leave both out and pass `readSeam`. |
 
 `readSeam` is a function returning `{ seam, members }`. Fluido calls it only when the decision
@@ -76,6 +77,26 @@ component's recipe builds its own run. So a runaway or forged seam cannot cost a
 pages, however the run was built. The longest run in 402 shipped decks at every size is 41
 (2026-10-27).
 
+### `pack(input, packer?)`, `fills`, `badness` and `FILL_BAND`
+
+The measured packing for a split slide: how many of its members ride each body page. `input` is
+`{ heights, gap, capacity, keepWithNext? }`: each member's measured height in reading order, the gap
+between two members on one page, and the room a body page leaves for members, all in px. The answer
+is the number of members on each page, in order, or `null` when no packing exists (bad input, or one
+member taller than a page). Every packer keeps reading order, places every member once and never
+overfills a page.
+
+- `'greedy'` fills a page until the next member would not fit.
+- `'balanced'` keeps the greedy page count and minimizes the fullest page.
+- `'knuth-plass'` (the default) scores every break together, as TeX breaks paragraphs: a fixed cost
+  a page, cubic badness for a fill outside `FILL_BAND` (60 to 85%), and a penalty for a lone member
+  on a page, doubled before the last page.
+
+`fills(input, sizes)` gives each page's fill as a share of `capacity`, and `badness(fill)` the score
+Knuth–Plass gives one page. A pack of 250 members takes under a millisecond under every packer. The
+CLI's `--fit-pack` measures the members in a whole render (`lib/core/fit-measure.js`) and builds the
+pages through `splitDoc`'s `{ plan }` (engineering/decisions/2026-10-28-fit-everywhere-model.md §16).
+
 ## Cost
 
 `planSlide` takes about 23 ns a call (Node 22, measured over a million calls). The cost of a split
@@ -85,5 +106,6 @@ benchmark's split tier records it (`npm run bench`).
 ## Not yet
 
 The measured rescue (an element that still overflows its own page, on live screens) and a DOM
-adapter that reads the facts and applies the plan are later Fluid phases. Fluido does not own the
+adapter that measures and applies a plan in the Studio's preview frame are later Fluid phases; the
+CLI measures and packs today, behind `--fit-pack`. Fluido does not own the
 family classifier yet; until P4 the host passes the family in.

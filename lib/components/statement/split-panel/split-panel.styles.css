@@ -137,11 +137,11 @@ section.split-panel .panel-left p { font-size:var(--fs-message); color:var(--on-
  * clips (overflow:hidden, line above); this walls the supporting zone to match. */
 section.split-panel .panel-right { flex:1; min-height:0; overflow:clip; background-color:var(--bg); display:flex; flex-direction:column; padding:var(--sp-xl) var(--sp-xl) var(--sp-xl) var(--sp-lg); }
 section.split-panel .panel-right h3 { font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--text-secondary); font-weight:600; margin:0; padding-bottom:var(--sp-sm); border-bottom:1px solid var(--border); }
-/* The evidence list is a COLUMN that reads the `cards:` register as `justify-content` (#2317).
+/* The evidence list is a COLUMN that reads the `align:` register as `justify-content` (#2317).
  * The manifest's `spread` is the `space-evenly` it always had; an item grows only under
- * `stretch` (`--cards-grow`). A `proof` list is a grid and reads it below. */
-section.split-panel .panel-right > ul { display:flex; flex-direction:column; flex:1; justify-content:var(--cards-align); list-style:none; padding:var(--sp-lg) 0 0 0; margin:0; }
-section.split-panel .panel-right > ul > li { padding-left:var(--sp-md); border-left:3px solid var(--accent); flex-grow:var(--cards-grow); }
+ * `stretch` (`--align-grow`). A `proof` list is a grid and reads it below. */
+section.split-panel .panel-right > ul { display:flex; flex-direction:column; flex:1; justify-content:var(--align-v); list-style:none; padding:var(--sp-lg) 0 0 0; margin:0; }
+section.split-panel .panel-right > ul > li { padding-left:var(--sp-md); border-left:3px solid var(--accent); flex-grow:var(--align-grow); }
 section.split-panel .panel-right > ul > li > strong { display:block; font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-heading); font-weight:700; line-height:var(--lh-snug); padding-bottom:0.390625cqi; }
 section.split-panel .panel-right > ul > li > :is(ul,ol) { list-style:none; padding:0; margin:0; }
 section.split-panel .panel-right > ul > li > :is(ul,ol) > li { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); }
@@ -228,13 +228,13 @@ section.split-panel.proof .panel-right { gap:var(--sp-md); }
  * scenario shrink to fit rather than overflow. Proportional, so it holds at any
  * slide size or --fs-scale. */
 section.split-panel.proof .panel-right > :is(ul,ol) {
-  /* `--cards-track` is `1fr` under `stretch` — the manifest's `byClass` value for proof (and
+  /* `--align-track` is `1fr` under `stretch` — the manifest's `byClass` value for proof (and
    * for capstone, which the engine turns into `proof capstone` after stamping, so both paths
    * must resolve the same way), the
-   * equal rows described above — and `auto` under every other `cards:` value, so the rows
+   * equal rows described above — and `auto` under every other `align:` value, so the rows
    * size to their cards and `align-content` places them (#2317). */
-  display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:var(--cards-track);
-  align-content:var(--cards-align);
+  display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:var(--align-track);
+  align-content:var(--align-v);
   align-items:stretch; gap:var(--sp-md); flex:1 1 auto; min-height:0;
   justify-content:initial; list-style:none; padding:0; margin:0;
 }
@@ -471,6 +471,21 @@ section.split-panel-cover .split-feat-h {
 }
 section.split-panel-cover .split-feat-lede {
   font-size: var(--fs-emphasis); line-height: var(--lh-snug); opacity: 0.92; max-width: 20em;
+}
+/* The lede's own page (carousel.js `ledePage`): when the measured split finds the cover too full for
+   its lede, the lede moves here, right after the cover, read at the same emphasis size it had there
+   (owner, 2026-11-13). The run's placement (`align:`) seats it like any body page. */
+section.split-panel-lede .split-lede-page {
+  font-size: var(--fs-emphasis); line-height: var(--lh-snug); color: var(--text-heading); max-width: 22em;
+}
+/* `qr` split at its seam (carousel.js splitFeatureAtSeam): the feature took the cover, and the code takes
+   this page, centered with its caption under it, as it sat in the panel. */
+section.split-panel-code .split-qr-page {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-md);
+  text-align: center;
+}
+section.split-panel-code .split-qr-caption {
+  margin: 0; font-size: var(--fs-emphasis); line-height: var(--lh-snug); color: var(--text-heading); max-width: 18em;
 }
 
 /* Point pages — the supporting points flow under a running header of the feature. */

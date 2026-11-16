@@ -18,14 +18,14 @@
     ],
     "note": "past four rows the stack overflows"
   },
-  "cards": {
-    "default": "center",
+  "align": {
+    "default": "middle",
     "byFamily": {
       "square": "spread",
       "tall": "spread",
       "strip": "spread"
     },
-    "withCoda": "stretch"
+    "withCoda": "fill"
   },
   "density": {
     "axis": "item",

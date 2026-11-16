@@ -3,8 +3,8 @@
   "name": "contact",
   "function": "statement",
   "bucket": "connect",
-  "cards": {
-    "default": "center"
+  "align": {
+    "default": "middle"
   },
   "form": "panel",
   "substance": "structure",

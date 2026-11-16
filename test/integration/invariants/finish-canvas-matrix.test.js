@@ -299,7 +299,7 @@ function deriveShapes(css) {
       // `--fin-canvas`. A child shape can only change the verdict by moving one of
       // them. Widening this to "any custom property" was measured and is wrong in the
       // expensive direction: it pulls in the nine bare `section:has(…)` layout rules
-      // (`--coda-host-gap`, `--cards-align`), which move neither side, and because they
+      // (`--coda-host-gap`, `--align-v`), which move neither side, and because they
       // are bare they attach to all 18 frames — a 10x cross that ran 6.5 minutes and
       // then died on a CDP timeout. Redefining a token BOTH sides consume
       // (`--surface-inverse`) cancels out and cannot break the comparison, which is why

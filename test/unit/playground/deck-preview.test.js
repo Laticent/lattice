@@ -157,6 +157,11 @@ describe('buildSrcdoc', () => {
 			// The offscreen raster capture frame: rasterized through html-to-image, which bakes
 			// the computed style into the .pdf/.png/.pptx.
 			'components/studio/export/deck-export.js': ['false'],
+			// The measured split's hidden MEASURING frames (src/lib/measured-split.ts, `fit: pack`):
+			// built as the live preview's, measured, then removed. Nobody sees them and no byte of
+			// them is kept; the export's own document is still the capture frame above.
+			'pages/playground.astro': ['default'],
+			'components/studio/share-export.ts': ['default'],
 		};
 		// COMMENTS BLANKED, STRINGS LEFT ALONE — and the second half is the correction that
 		// matters. An earlier version blanked string BODIES too, to stop a call whose CSS

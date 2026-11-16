@@ -66,7 +66,9 @@ export interface LatticePlaygroundEngine {
 	 *  `render()` result so a portrait/square deck paginates live the way its PDF does. A no-op
 	 *  at landscape. `changed` counts the authored slides that split. Optional, because an engine
 	 *  bundle older than this feature does not carry it. */
-	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number; settle?: boolean }) => { html: string; changed: number; applies?: boolean };
+	/** The fit verdict's probes, selectors and tolerance (lib/playground/index.js), for the measured split. */
+	fitVerdictConfig?: () => Record<string, unknown>;
+	splitForPreview?: (html: string, source: string, width?: number, height?: number, opts?: { firstSlide?: number; settle?: boolean; plan?: Record<string, unknown> | 'whole' | null }) => { html: string; changed: number; applies?: boolean; planned?: string[] };
 	/** Author CSS the host appends after the theme, widened so its `section.<component>` rules
 	 *  reach a pane of the rendered `html` (lib/core/pane-css.js). Unchanged without a pane.
 	 *  Optional, because an engine bundle older than this does not carry it. */
@@ -89,6 +91,8 @@ export interface LatticeDeckPreviewController {
 	attachVirtual?: (frame: HTMLIFrameElement, getState: () => VirtualState, onChange?: () => void) => void;
 	mountAround?: (frame: HTMLIFrameElement, state: VirtualState, index: number) => boolean;
 	syncVirtual?: (frame: HTMLIFrameElement, state: VirtualState) => boolean;
+	/** The filmstrip's frame document (deck-preview.js), for the measured split's hidden measuring frame. */
+	measureDoc?: (opts: Record<string, unknown>) => string;
 	renderDeck: (
 		opts: Record<string, unknown>,
 	) => { state: { frameSig: string; lastSections: unknown }; count: number; patched: boolean; restyled?: boolean; anchor?: { index: number; frac: number; slide?: string } | null };

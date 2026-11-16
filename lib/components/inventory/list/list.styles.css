@@ -1,7 +1,7 @@
 /* list — inventory.stack.bullets
  *
  * A one-column grid of rows. Where the rows sit in the stage is the deck's
- * `cards:` register (manifest default: centered at wide, spread on square,
+ * `align:` register (manifest default: centered at wide, spread on square,
  * tall and strip, stretched above a Key Insight coda). Three registers share
  * the spine:
  *   default        — accent-edged pills (a flat set of points)
@@ -34,8 +34,8 @@ section.list {
 section.list.principles { --list-row-fs: var(--fs-emphasis); --list-lh: var(--lh-tight); }
 section.list.principles.roman { --list-ord-w: calc(var(--list-ord-fs) * 2.5); }
 
-/* ── Spine: a one-column grid that reads the `cards:` register. ──
- * `align-content: var(--cards-align)` places the rows: `center` (the manifest default at
+/* ── Spine: a one-column grid that reads the `align:` register. ──
+ * `align-content: var(--align-v)` places the rows: `center` (the manifest default at
  * wide) and `top` pack them, `spread` (square/tall/strip) shares the spare height out between
  * them, and `stretch` hands it to the rows.
  *
@@ -46,7 +46,7 @@ section.list.principles.roman { --list-ord-w: calc(var(--list-ord-fs) * 2.5); }
  * register's full `--list-air`: rows sit at that comfortable height when there is room, and on
  * a full stage the grid shares out what is left, so the air compresses and the text does not.
  * A row that wraps is taller than the ceiling and keeps the floor's air. `stretch` lifts the
- * ceiling (`--cards-grow`, base.tokens.css § THE COLUMN FORM).
+ * ceiling (`--align-grow`, base.tokens.css § THE COLUMN FORM).
  * The old `flex: 1 1 0; min-height: 0` gave every row the same share whatever it held, so a
  * row that wrapped spilled out of its pill, and no overflow check saw it. */
 section.list {
@@ -59,20 +59,22 @@ section.list > .cell-stage > :is(ul,ol) {
   list-style:none; padding:0; margin:0;
   --list-line: max(calc(var(--list-row-fs) * var(--list-lh)), var(--list-ord-h, 0px));
   --list-row-max: calc(var(--list-line) + 2 * var(--list-air) + var(--list-edge)
-    + var(--cards-grow, 0) * 10000px);
+    + var(--align-grow, 0) * 10000px);
   display:grid; grid-template-columns:minmax(0, 1fr);
   grid-auto-rows:minmax(min-content, var(--list-row-max));
-  align-content:var(--cards-align);
+  align-content:var(--align-v);
   flex:1; min-height:0; gap:var(--sp-sm);
 }
 /* `safe center`, not `center`, for this column: a list with more than its stage holds must
    overflow DOWNWARD, where the overflow probe reports it and the first rows stay readable.
    Plain `center` split the overflow both ways, so the gallery's 8-line stress slide lost its
    first row above the stage. The selectors mirror base.tokens.css: the coda arm wins over
-   `data-cards` whenever a coda is present. */
-section.list[data-cards="center"] > .cell-stage > :is(ul,ol) { align-content:safe center; }
-section.list[data-cards-coda]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:var(--cards-align); }
-section.list[data-cards-coda="center"]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:safe center; }
+   `data-align` whenever a coda is present. */
+section.list[data-align="middle"] > .cell-stage > :is(ul,ol) { align-content:safe center; }
+section.list[data-align="bottom"] > .cell-stage > :is(ul,ol) { align-content:safe flex-end; }
+section.list[data-align-coda]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:var(--align-v); }
+section.list[data-align-coda="middle"]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:safe center; }
+section.list[data-align-coda="bottom"]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:safe flex-end; }
 /* A counter row's one line is as tall as the counter when the counter is the taller of the two
    (principles). Only rows that PAINT a counter count it. */
 section.list:not(.takeaway) > .cell-stage > ol,
@@ -81,7 +83,7 @@ section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { --list-ord-h: var(--
    rule grows the row with `flex` and `align-content: stretch`, neither of which reaches a
    capped grid track, so the lone member lifts the ceiling itself. Without this, every list at
    square/tall/strip (which split one member per page) sat as a pill atop an empty page. */
-section.list.lat-split-native > .cell-stage > :is(ul,ol):has(> li:only-child) { --cards-grow: 1; }
+section.list.lat-split-native > .cell-stage > :is(ul,ol):has(> li:only-child) { --align-grow: 1; }
 section.list > .cell-stage > :is(ul,ol) > li {
   display:flex; align-items:center; min-width:0;
   font-size:var(--list-row-fs);
@@ -204,7 +206,7 @@ section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
 
 /* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): open the rhythm
    so the content-height rows breathe down the long frame instead of clustering. Where the
-   rows SIT on square/tall/strip is the manifest's `cards.byFamily` (spread), not CSS. */
+   rows SIT on square/tall/strip is the manifest's `align.byFamily` (spread), not CSS. */
 section.list.list:where([data-family="strip"]) > .cell-stage > :is(ul,ol) { gap: var(--sp-md); }
 
 
@@ -241,14 +243,33 @@ section.list > .cell-stage {
   padding-block: var(--elevation-berth);
 }
 
-/* ── Width reflow (lib/base/base.card-reflow.css). `principles` sets its counter at display size
- * in a column reserved for it (`--list-ord-w`, 2.5 numerals wide in `roman`), so in a narrow box
- * the column took half the row and the declaration ran past the slide's edge. Below 24em of the
- * content area the counter sits above its line instead, and the line takes the full width. */
-@container lat-cards (width < 24em) {
-  /* The row rule was inset past the counter column; with the counter above, it spans the row.
-   * Set on the list, not the section: a query on the content area reaches only its descendants. */
-  section.list.list.principles > .cell-stage > ol:not(.lat-reflow-held) { --lat-narrow: 1; --list-rule-inset: 0px; }
-  section.list.list.principles > .cell-stage > ol:not(.lat-reflow-held) > li { flex-wrap: wrap; row-gap: var(--sp-2xs); }
-  section.list.list.principles > .cell-stage > ol:not(.lat-reflow-held) > li::before { flex-basis: 100%; }
+/* ── Width reflow: `principles` keeps its number in its column while a line still reads beside
+ * it, and runs it in only below ~35 characters a line (the TIGHT block below). PR 3021 set the number
+ * above its line below 24em of the content area; at square@hall (about 21em) that stacked rows whose
+ * text read on one line beside the number, so the same slide changed shape for no gain (owner,
+ * 2026-11-04). One rule now, at the width where the column starves (fit-everywhere-model.md §17). */
+
+/* ── TIGHT ROOM (the text-room rule, base.elements.css) ──────────────────────
+   Under ~35 characters a line, the ordinal gutter (1.25 times an ordinal set 1.4 times the row
+   type, twice that for roman) left a principles row about ten characters a line ("State each
+   rule / as an / imperative."). The ordinal RUNS IN: it sits inline at the start of the text,
+   and the text wraps under it at the row's full width. Stacking the ordinal above the text was
+   measured first and cost a line of height, enough to clip a lettered page at portrait@hall
+   that fit before. The row turns `block`, so the ordinal's flex gutter no longer applies; its
+   trailing gap rides inside its own box (HARD RULE #20). The takeaway list with nested rows
+   hangs its ordinal absolutely and is left as it is. */
+@container lattice (width < 17em) {
+  section.list > .cell-stage > ol > li,
+  section.list.takeaway.numbered > .cell-stage > :is(ul,ol):not(:has(> li > :is(ul,ol))) > li {
+    display: block;
+  }
+  section.list > .cell-stage > ol > li::before,
+  section.list.takeaway.numbered > .cell-stage > :is(ul,ol):not(:has(> li > :is(ul,ol))) > li::before {
+    display: inline-block; padding-inline-end: var(--sp-sm);
+  }
+  /* The row rule was inset past the number's column; with the number run in, it spans the row.
+   * On the list, not the section: a query on the content area reaches only its descendants. The
+   * takeaway list with nested rows keeps its hanging ordinal, so it keeps its inset too. */
+  section.list.principles > .cell-stage > ol,
+  section.list.takeaway.numbered > .cell-stage > :is(ul,ol):not(:has(> li > :is(ul,ol))) { --list-rule-inset: 0px; }
 }

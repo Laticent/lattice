@@ -101,8 +101,9 @@ const FIELD_DEFAULTS = {
   rule: '',
   eyebrow: '',
   corners: '',
-  // `venue:` — the room the deck is shown in; the engine sizes type for its back row
-  // (lib/core/resolve-venue.js). `laptop` is the designed size and the omitted default.
+  // `venue:` — where the deck is seen; the engine sizes type for it (lib/core/resolve-venue.js).
+  // Unset is the shape's default: laptop on a 16:9 deck, phone on a square, portrait or story one.
+  // So `laptop` is a choice like any other and is written, never folded into unset.
   venue: '',
 };
 const MANAGED = Object.keys(FIELD_DEFAULTS);
@@ -209,7 +210,7 @@ export function readFrontMatter(source) {
     rule: (map.rule || lookBaseline(map.preset, 'rule')).trim().toLowerCase(),
     eyebrow: (map.eyebrow || lookBaseline(map.preset, 'eyebrow')).trim().toLowerCase(),
     corners: (map.corners || lookBaseline(map.preset, 'corners')).trim().toLowerCase(),
-    venue: (map.venue || 'laptop').trim().toLowerCase(),
+    venue: (map.venue || '').trim().toLowerCase(),
     // Whether the deck carries any NON-THEME managed front matter — drives the
     // trigger's "configured" cue. `theme` is excluded: with full sync nearly
     // every deck has one, so it isn't a signal of bespoke setup.
@@ -239,7 +240,7 @@ function isDefault(key, value) {
   // The look registers: the engine's own default reads as unset (the preset's is a choice).
   if (LOOK_KEYS.includes(key)) { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === frontMatterKey.PRESET_DEFAULTS[key]; }
   if (key === 'preset') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'classic'; }
-  if (key === 'venue') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === '' || s === 'laptop'; }
+  if (key === 'venue') { const s = (value == null ? '' : String(value)).trim().toLowerCase(); return s === ''; }
   return (value == null ? '' : String(value)) === FIELD_DEFAULTS[key];
 }
 
@@ -269,7 +270,7 @@ function normalize(key, value, preset) {
   // value is the override, written — the same rule `finish` and `lift` follow above.
   if (LOOK_KEYS.includes(key)) { const s = v.toLowerCase(); return s === '' || s === lookBaseline(preset, key) ? null : s; }
   if (key === 'preset') { const s = v.toLowerCase(); return s === '' || s === 'classic' ? null : s; }
-  if (key === 'venue') { const s = v.toLowerCase(); return s === '' || s === 'laptop' ? null : s; }
+  if (key === 'venue') { const s = v.toLowerCase(); return s === '' ? null : s; }
   if (v === '' || v === FIELD_DEFAULTS[key]) return null;
   return v;
 }

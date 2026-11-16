@@ -1,5 +1,8 @@
 ---
 size: portrait
+# `venue: laptop`: a slide read in a hand drops its footer text (fit-everywhere-model.md §24), so the band this
+# fixture contends prints on a portrait deck at laptop and the room venues, where its rules still bite.
+venue: laptop
 theme: indaco
 paginate: true
 header: "Lattice · footer band"

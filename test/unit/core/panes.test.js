@@ -415,18 +415,18 @@ test('`cards:` reaches a pane — deck-wide and per slide — as it reaches a sl
   const cards = '- Alpha\n  - One line.\n- Beta\n  - One line.';
   const paneOf = (md) => (md.match(/<lat-pane class="cards-grid[^"]*"[^>]*>/) || [''])[0];
   const slideOf = (md) => (md.match(/<section[^>]*class="cards-grid[^"]*"[^>]*>/) || [''])[0];
-  for (const v of ['top', 'center', 'stretch', 'spread']) {
-    const deck = e.render(`---\ncards: ${v}\n---\n\n## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
-    assert.match(paneOf(deck), new RegExp(`data-cards="${v}"`), `deck cards: ${v}`);
-    const spot = e.render(`## T\n\n<!-- _class: cards-${v} -->\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
-    assert.match(paneOf(spot), new RegExp(`data-cards="${v}"`), `_class: cards-${v}`);
+  for (const v of ['top', 'middle', 'bottom', 'fill', 'spread']) {
+    const deck = e.render(`---\nalign: ${v}\n---\n\n## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
+    assert.match(paneOf(deck), new RegExp(`data-align="${v}"`), `deck align: ${v}`);
+    const spot = e.render(`## T\n\n<!-- _class: align-${v} -->\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
+    assert.match(paneOf(spot), new RegExp(`data-align="${v}"`), `_class: align-${v}`);
   }
   // Nothing set: the pane takes the component's own default, the value a slide of it gets.
   const slide = e.render(`<!-- _class: cards-grid -->\n\n## T\n\n${cards}\n`).html;
   const pane = e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).html;
-  assert.equal(paneOf(pane).match(/data-cards="(\w+)"/)[1], slideOf(slide).match(/data-cards="(\w+)"/)[1]);
+  assert.equal(paneOf(pane).match(/data-align="(\w+)"/)[1], slideOf(slide).match(/data-align="(\w+)"/)[1]);
   // The tokens a pane needs are in the sheet, keyed on the pane.
-  assert.match(e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).css, /lat-pane\[data-cards="top"\]\s*\{\s*--cards-align:\s*flex-start/);
+  assert.match(e.render(`## T\n\n<!-- pane: cards-grid -->\n\n${cards}\n\n<!-- pane: content -->\n\nx\n`).css, /lat-pane\[data-align="top"\]\s*\{\s*--align-v:\s*flex-start/);
 });
 
 test('a pane\'s chart canvas has the shape Chromium lays the pane out at', () => {
@@ -481,8 +481,8 @@ test('on a square, portrait, story or mobile deck a panes slide splits into one 
     assert.doesNotMatch(html, /pane: bar|panes: 40\/60/);
   }
   // A spot `_class` the author wrote rides on every page, beside the pane's component.
-  const s = sections(e.render(deck('portrait', '<!-- _class: cards-top -->\n\n')).html);
-  assert.ok(s.every((c) => c.includes('cards-top')) && s[0].includes('bar') && s[1].includes('list'), JSON.stringify(s));
+  const s = sections(e.render(deck('portrait', '<!-- _class: align-top -->\n\n')).html);
+  assert.ok(s.every((c) => c.includes('align-top')) && s[0].includes('bar') && s[1].includes('list'), JSON.stringify(s));
   // A 16:9 deck (and 4:3 and 4K, all `wide`) keeps the panes.
   for (const size of ['hd', 'standard', '4K']) {
     const { html } = e.render(deck(size));

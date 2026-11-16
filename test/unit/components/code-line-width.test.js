@@ -124,15 +124,34 @@ describe('code-line-clipped — the box decides', () => {
     }
   });
 
+  test('a narrow deck with no room venue is a phone or tablet, which WRAPS every block: nothing clips', () => {
+    // code.styles.css (owner, 2026-11-06): a square, tall or strip slide set for no room venue wraps
+    // its code with a hanging indent, so a long line costs rows, never characters.
+    const long = ['x'.repeat(300)];
+    for (const size of ['square', 'portrait', 'mobile']) {
+      assert.equal(clipFinding(codeSlide('code', long, size)), undefined, `${size}: phone wraps`);
+      for (const v of ['phone', 'tablet']) {
+        const src = codeSlide('code', long, size).replace('---\n\n', `venue: ${v}\n---\n\n`);
+        assert.equal(clipFinding(src), undefined, `${size} at ${v}: wraps`);
+      }
+      const room = codeSlide('code', long, size).replace('---\n\n', 'venue: hall\n---\n\n');
+      assert.ok(clipFinding(room), `${size} set for a room keeps whole lines, and clips`);
+    }
+    assert.ok(clipFinding(codeSlide('code', long)), 'wide never wraps');
+  });
+
   test('code warns in EVERY box, because it never wraps — and the budget tightens', () => {
     const seen = [];
     for (const [size, family, canvas] of [[undefined, 'wide', HD], ['square', 'square', '1080x1080'], ['portrait', 'tall', '1080x1350'], ['mobile', 'strip', '1080x2340']]) {
+      // The designed size, named: a square, tall or strip deck with no venue renders at `phone`, its
+      // shape's default (lib/core/resolve-venue.js), which the next test pins.
       const budget = cols('pane', [], canvas, family);
+      const at = (lines) => codeSlide('code', lines, size).replace('---\n\n', 'venue: laptop\n---\n\n');
       assert.equal(
-        clipFinding(codeSlide('code', ['x'.repeat(budget)], size)), undefined,
+        clipFinding(at(['x'.repeat(budget)])), undefined,
         `${family}: a line exactly at the budget fits`,
       );
-      const f = clipFinding(codeSlide('code', ['x'.repeat(budget + 1)], size));
+      const f = clipFinding(at(['x'.repeat(budget + 1)]));
       assert.ok(f, `${family}: one past the budget must warn`);
       assert.match(f.message, new RegExp(`this pane fits about ${budget}`), family);
       seen.push(budget);

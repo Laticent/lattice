@@ -7,11 +7,11 @@ header: "Lattice · list"
 
 <!-- _class: title -->
 
-# A list sits where `cards:` puts it
+# A list sits where `align:` puts it
 
-`list · cards register · one counter scale`
+`list · align register · one counter scale`
 
-Top, center and stretch now place a list's rows, every counter follows one scale, and a wrapped row stays inside its pill.
+Top, middle and fill now place a list's rows, every counter follows one scale, and a wrapped row stays inside its pill.
 
 ---
 
@@ -26,8 +26,8 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 
 ---
 
-<!-- _class: list cards-top -->
-<!-- _footer: "cards-top · the rows sit under the headline rule" -->
+<!-- _class: list align-top -->
+<!-- _footer: "align-top · the rows sit under the headline rule" -->
 
 ## Top packs the rows under the rule.
 
@@ -37,8 +37,8 @@ Top, center and stretch now place a list's rows, every counter follows one scale
 
 ---
 
-<!-- _class: list cards-stretch -->
-<!-- _footer: "cards-stretch · the old full-height bands" -->
+<!-- _class: list align-fill -->
+<!-- _footer: "align-fill · the old full-height bands" -->
 
 ## Stretch hands the spare height to the rows.
 

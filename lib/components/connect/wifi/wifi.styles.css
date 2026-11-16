@@ -26,17 +26,17 @@ section.wifi .qr-card {
   grid-template-columns: auto minmax(0, 1fr);
   /* Both rows size to their content so the deck's card alignment can place them: a `1fr` row
    * absorbed the free height, and the heading and fields sat at the top whatever the deck
-   * asked for. `stretch` grows the auto rows back to fill the card. */
+   * asked for. `fill` grows the auto rows back to fill the card. */
   grid-template-rows: auto auto;
   grid-template-areas: "side head" "side fields";
-  align-content: var(--cards-align);
+  align-content: var(--align-v);
   align-items: center;
   column-gap: var(--qc-col-gap);
   row-gap: var(--qc-gap);
   height: 100%;
 }
-/* `center` keeps `safe`, for the #1299 reason above. */
-section.wifi[data-cards="center"] .qr-card { align-content: safe center; }
+/* `middle` keeps `safe`, for the #1299 reason above. */
+section.wifi[data-align="middle"] .qr-card { align-content: safe center; }
 /* The body group dissolves into the card's grid so the structure can change per family. */
 section.wifi .qr-body { display: contents; }
 

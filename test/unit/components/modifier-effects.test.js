@@ -23,7 +23,7 @@ test('nothing unknown is measured', () => {
   assert.deepEqual(unknown, [], `measured components that no longer exist — re-bless: ${unknown.join(', ')}`);
 });
 
-// A browser-free staleness arm. resolve-cards.js governs exactly the components whose
+// A browser-free staleness arm. resolve-align.js governs exactly the components whose
 // manifest declares `cards`, so a measured component with `cards` must show the
 // `card-row` surface (outright, or under a variant). This fails the moment a manifest
 // opts in and the measurement predates it — which is how #2323 landing under this

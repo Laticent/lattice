@@ -189,7 +189,10 @@ function check(html, src) {
   for (const s of shown) {
     if (!src.paginate || s.stamp !== undefined) continue;
     const own = src.slides[s.authored - 1];
-    if (ANCHORS.some((a) => s.tok.includes(a)) || s.tok.includes('no-pagination') || s.tok.includes('silent') || own?.unnumbered) continue;
+    // A split page answers for the slide it came from: a closing `index` that splits keeps the closing's
+    // unnumbered bookend, though its cover's own class is `split-cover-closing` (fit-everywhere §21).
+    const tok = [...s.tok, ...(own?.tok || [])];
+    if (ANCHORS.some((a) => tok.includes(a)) || tok.includes('no-pagination') || tok.includes('silent') || own?.unnumbered) continue;
     bad('page number MISSING', s.page, 'none', runStamp(s));
   }
   for (const s of shown) {

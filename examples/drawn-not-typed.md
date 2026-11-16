@@ -39,14 +39,9 @@ color from the element at all, or to a hollow box, which takes nothing.
 ## Typed asks. Drawn answers.
 
 - **Typed.**
-  - You do not choose the shape; you ask a stranger's font to supply one. It
-    arrives at a different weight and a different baseline from the type beside
-    it, or in full color, or not at all. The same deck reads three ways, and you
-    see none of them — your machine has the font.
+  - You do not choose the shape; you ask a stranger's font to supply one. It arrives at a different weight and a different baseline from the type beside it, or in full color, or not at all. The same deck reads three ways, and you see none of them — your machine has the font.
 - **Drawn.**
-  - One `--shape-*` mask, painted in a palette token. The shape is ours and only
-    the color is the theme's, so it is identical on every machine, at every
-    size, in light and dark, and legible in grayscale on a printer.
+  - One `--shape-*` mask, painted in a palette token. The shape is ours and only the color is the theme's, so it is identical on every machine, at every size, in light and dark, and legible in grayscale on a printer.
 
 ---
 

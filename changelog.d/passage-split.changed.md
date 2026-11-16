@@ -1,0 +1,3 @@
+- On a phone or tablet (a square, tall or strip deck under the default measured split), `citation-card`, `quote` and a one-clause `redline` split instead of clipping. The gloss list ("In plain English", "Why this matters") moves to the next page, and a quote longer than a page continues at the end of a sentence, with its cite above it again. A sentence is never cut, so a single sentence longer than a page still clips. Demo: `examples/passage-split.md`.
+- `quote` and `citation-card` are now placed `read-across` with the new `passage` split strategy, not `atomic`.
+- `lint:deck` no longer warns `venue-prose` ("the end is cut off") on one of these slides when it has somewhere to break: a list after the quote, or a second sentence in it.

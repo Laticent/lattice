@@ -2,7 +2,7 @@
   "$schema": "../../manifest.schema.json",
   "name": "big-number",
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "number",
       "caption",
@@ -137,23 +137,23 @@
             "laptop": 29,
             "huddle": 25,
             "conference": 18,
-            "hall": 10
+            "hall": 25
           }
         },
         "tall": {
           "row": {
-            "laptop": 18,
-            "huddle": 12,
-            "conference": 8,
-            "hall": 3
+            "laptop": 44,
+            "huddle": 32,
+            "conference": 26,
+            "hall": 24
           }
         },
         "strip": {
           "row": {
-            "laptop": 36,
-            "huddle": 25,
-            "conference": 19,
-            "hall": 10
+            "laptop": 92,
+            "huddle": 74,
+            "conference": 62,
+            "hall": 56
           }
         }
       }

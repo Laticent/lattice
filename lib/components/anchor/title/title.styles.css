@@ -108,3 +108,19 @@ section.title.spectrum::before {
   background-clip: content-box;
   border-radius: 2px;
 }
+
+/* Two lede paragraphs read as two: the second keeps a line of air above it. They touched before (0px
+   between them, on a whole title and on its lede page alike). A lede paragraph is one after the title
+   that is not the eyebrow (a paragraph holding only code), so the eyebrow's spacing is untouched, wherever
+   it is authored. Padding, not margin (HARD RULE #20). */
+section.title > h1 ~ p:not(:has(> code:only-child):not(:where([data-prose]))) + p:not(:has(> code:only-child):not(:where([data-prose]))) { padding-top: var(--sp-md); }
+
+/* THE LEDE PAGE (owner, 2026-11-15; fit-everywhere-model.md §25): a title whose lede overflows the page
+   splits into its cover (`title-cover`: eyebrow and title) and this page, which carries the lede
+   paragraphs on the same canvas (lib/core/carousel.js `title-lede`). The wrapper is a plain block, so the
+   paragraphs take their own widths and stack in order. */
+section.title-lede > .title-lede-page { display: block; }
+/* The `spectrum` bar is the cover's accent; the lede page does not repeat it. */
+section.title-lede.spectrum::before { display: none; }
+/* The prose stamp (`data-prose`) runs after the split, so the lede page spaces its paragraphs by position. */
+section.title-lede > .title-lede-page > p + p { padding-top: var(--sp-md); }

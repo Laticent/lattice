@@ -165,7 +165,7 @@ async function main() {
               const row = rows.find((x) => Math.abs(x.top - t) < 2);
               if (row) row.h = Math.max(row.h, heights[k]); else rows.push({ top: t, h: heights[k] });
             });
-            // `proof`'s rows are `1fr` (`--cards-track` under `stretch`); capstone's are content height.
+            // `proof`'s rows are `1fr` (`--align-track` under `fill`); capstone's are content height.
             const eq = grid && /fr/.test(getComputedStyle(list).gridAutoRows);
             // A `1fr` row does not grow: a point taller than its share clips inside itself, and the
             // export reads the tallest row's excess (its `squeezed` measure), so an `eq` register's

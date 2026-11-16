@@ -17,9 +17,11 @@ const {
   FIT_NAMES, FIT_TOKENS, GUARDS_TOKENS, fitClass, fitClassFromFrontMatter,
   readFrontMatterFit, isKnownFit, isGuardsToken, fitLevel, guardsEnabled,
 } = require('../../../lib/core/resolve-guards');
+const { fitPacks } = require('../../../lib/core/resolve-guards');
 
-test('the vocabulary is report | heal | trim, and heal is the default with no token', () => {
-  assert.deepEqual([...FIT_NAMES], ['report', 'heal', 'trim']);
+test('the vocabulary is report | heal | trim | pack, and heal and pack carry no token', () => {
+  assert.deepEqual([...FIT_NAMES], ['report', 'heal', 'trim', 'pack']);
+  assert.equal(fitClass('pack'), '', 'pack is heal with a measured split: no class of its own');
   assert.equal(fitClass('heal'), '');
   assert.equal(fitClass('report'), 'fit-report');
   assert.equal(fitClass('TRIM '), 'fit-trim');
@@ -62,3 +64,19 @@ test('guardsEnabled (the TRIM gate) is exactly fitLevel === "trim", over every t
     assert.equal(guardsEnabled(cls), fitLevel(cls) === 'trim', JSON.stringify(cls));
   }
 });
+
+// Measuring is the DEFAULT split (owner, 2026-11-06): no `fit:` line, `fit: pack` and an unknown value
+// (which resolves to the default) measure; a level written by name keeps what it asks for; a deck with
+// only the old `guards:` key splits by count, as it always did.
+test('fitPacks: measuring is the default; heal, trim, report and the old guards: key are not', () => {
+  assert.equal(fitPacks(''), true, 'no front matter');
+  assert.equal(fitPacks('marp: true\nsize: square'), true, 'no fit: line');
+  assert.equal(fitPacks('fit: pack'), true);
+  assert.equal(fitPacks('fit: PACK  # measured'), true);
+  assert.equal(fitPacks('fit: reprot'), true, 'an unknown value resolves to the default');
+  for (const level of ['heal', 'trim', 'report']) assert.equal(fitPacks(`fit: ${level}`), false, level);
+  assert.equal(fitPacks('guards: loose'), false, 'the old key splits by count');
+  assert.equal(fitPacks('guards: strict'), false);
+  assert.equal(fitPacks('fit: pack\nguards: strict'), true, 'fit: wins over guards:');
+});
+

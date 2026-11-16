@@ -8,29 +8,25 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '../../..');
-const shared = fs.readFileSync(path.join(ROOT, 'lib/base/base.card-reflow.css'), 'utf8');
-// Declared only on a wide or square deck (a tall or strip deck reflows on its aspect), and NAMED,
-// because an unnamed query would answer the section, which is itself a container.
-// Plain string slicing, not a regex: a nested-paren pattern backtracks exponentially (CodeQL).
-const TAIL = '):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage { container: lat-cards / inline-size; }';
-const declaration = shared.split('\n').find((l) => l.startsWith('section:is(') && l.endsWith(TAIL));
-const list = declaration ? [declaration, declaration.slice('section:is('.length, -TAIL.length)] : null;
+// The content area is a NAMED width container on every deck shape, declared once beside the
+// text-room rule (fit-everywhere-model.md §17): `lat-cards` and `lattice` together, because
+// `container` names an element's whole list, and NAMED, because an unnamed query would answer the
+// section, which is itself a container. `collage` and the charts stay out: collage's content area is sized by its
+// contents. Until 2026-11-04 base.card-reflow.css declared it for these components on wide and
+// square decks only.
+const elements = fs.readFileSync(path.join(ROOT, 'lib/base/base.elements.css'), 'utf8');
+const DECLARATION = 'section:not(.collage):not(.chart-frame) > .cell-stage { container: lattice lat-cards / inline-size; }';
 
-test('the shared sheet declares the content area a width container for a list of card components', () => {
-  assert.ok(list, 'one container declaration');
+test('every content area is a width container named lat-cards (and lattice), on every deck shape', () => {
+  assert.ok(elements.split('\n').includes(DECLARATION), 'one container declaration in base.elements.css');
+  const shared = fs.readFileSync(path.join(ROOT, 'lib/base/base.card-reflow.css'), 'utf8');
+  assert.ok(!/container\s*:/.test(shared.replace(/\/\*[\s\S]*?\*\//g, '')), 'base.card-reflow.css no longer declares a second, narrower container');
 });
 
-// Split on top-level commas only: `.inventory:is(.cards, .timeline)` is one entry.
-const topLevel = (str) => {
-  const out = []; let depth = 0; let cur = '';
-  for (const ch of str) {
-    if (ch === '(') depth++;
-    if (ch === ')') depth--;
-    if (ch === ',' && depth === 0) { out.push(cur); cur = ''; } else cur += ch;
-  }
-  return [...out, cur];
-};
-const names = topLevel(list[1]).map((s) => s.trim().replace(/^\./, '').replace(/:is\(.*$/, ''));
+// The card components that drop columns in the content area's width (base.card-reflow.css).
+// `list` left on 2026-11-04: its one narrow form is the text-room run-in below 17em (§17).
+const names = ['cards-grid', 'verdict-grid', 'pricing', 'stats', 'statute-stack', 'decision', 'list-steps',
+  'compare-prose', 'team-profile', 'cards-stack', 'q-and-a', 'inventory', 'kpi'];
 const fileFor = (name) => {
   const hit = fs.readdirSync(path.join(ROOT, 'lib/components'))
     .map((b) => path.join(ROOT, 'lib/components', b, name, `${name}.styles.css`))

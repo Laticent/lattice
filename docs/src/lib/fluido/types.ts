@@ -21,6 +21,12 @@ export interface SlideFacts {
 	/** The slide is a page an earlier cut emitted; it may divide further but never grows a cover. */
 	reSplit?: boolean;
 	/**
+	 * A MEASURED plan named this slide's pages. The measurement already decided it does not fit
+	 * whole, so a seam of ONE member still paginates: the cover takes the heading and the closing
+	 * page the beats, and the member gets the body page between them.
+	 */
+	measured?: boolean;
+	/**
 	 * The seam to divide on, already known to be one Fluido may cut (`null` when there is none).
 	 * Leave it out and pass a `readSeam` to `planSlide` instead, so the host only reads it when
 	 * the decision needs it.

@@ -12,9 +12,12 @@ import { gotoStudio, railButtons, setEditorContent, typeDeck } from './studio-fi
  */
 
 const RAIL = '[data-map-rail]';
+// `fit: heal`: this deck needs the COUNT-based split (one row a page); measuring is the default
+// (lib/core/resolve-guards.js fitPacks) and keeps a short list whole.
 const SPLIT = `---
 theme: indaco
 size: portrait
+fit: heal
 ---
 
 <!-- _class: title -->

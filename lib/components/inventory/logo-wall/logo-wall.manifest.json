@@ -51,7 +51,7 @@
     "caption": {
       "selector": "ul > li > ul > li",
       "required": false,
-      "description": "Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a `{…}` token in backticks (`{Series B}`) is the pill. Either or both, per mark."
+      "description": "Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a `{…}` token in backticks (`{Series B}`) is the pill. Either or both, per mark. A captioned wall whose captions run past their columns, or whose rows run off the slide, drops to the columns its captions need, measured as it renders (on a phone, mostly)."
     }
   },
   "skeleton": "<!-- _class: logo-wall -->\n\n`Trusted by`\n\n## The headline claim the logos back up.\n\n- ![First brand](sample:logo-acme.svg)\n  - First brand\n  - `{Series B}`\n- ![Second brand](sample:logo-globex.svg)\n  - Second brand\n- ![Third brand](sample:logo-vantage.svg)\n- ![Fourth brand](sample:logo-umbra.svg)\n- ![Fifth brand](sample:logo-meridian.svg)\n- ![Sixth brand](sample:logo-helios.svg)\n",

@@ -66,7 +66,7 @@ export function chunkStartLines(src) {
  * @property {string[]} [externalPlugins] — zip plugins the host holds; a deck that lists one is not told it is unknown
  * @property {Record<string, { valid: Set<string>; names: string[] }>} [mapRegions]
  * @property {string[]} [finishNames] — the builder forwards EVERY `*Names` register list
- *   (`fitNames`, `cardsNames`, …); only the ones a caller reads by name are declared
+ *   (`fitNames`, `alignNames`, …); only the ones a caller reads by name are declared
  * @property {string[]} [modeNames]
  * @property {string[]} [themeNames]
  * @property {string[]} [splitNames]
@@ -146,7 +146,7 @@ export function buildVocabSets(vocab) {
 			sets.mapRegions[which] = { valid: new Set(mv.valid || []), names: mv.names || [] };
 		}
 	}
-	// EVERY register value list (`finishNames`, `fitNames`, `cardsNames`, the spectrum
+	// EVERY register value list (`finishNames`, `fitNames`, `alignNames`, the spectrum
 	// family, …), by suffix rather than by name: each gates one `findUnknown*` rule in
 	// lint-core (`if (vocab.fitNames) …`), so a list this builder drops turns that rule
 	// off in the Studio while `lint:deck` still fires it. A hand-kept six of these once
@@ -162,6 +162,8 @@ export function buildVocabSets(vocab) {
 	// deck's adaptive family from the renderer's own table rather than from a
 	// snapshot passed across the boundary.
 	if (v.exclusiveAxes) sets.exclusiveAxes = v.exclusiveAxes; // conflicting-variants axes
+	// The `align:` axes gate `unknown-align` and the compound `align-bottom-right` class; not a `*Names` list.
+	if (v.alignAxes) /** @type {Record<string, unknown>} */ (sets).alignAxes = v.alignAxes;
 	if (Array.isArray(v.pluginRegisters)) /** @type {Record<string, unknown>} */ (sets).pluginRegisters = v.pluginRegisters; // `icon:` / `avatar:` words
 	return sets;
 }

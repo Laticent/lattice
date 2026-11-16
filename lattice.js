@@ -788,6 +788,15 @@ if (PLAYER_MODE !== null && !PLAYER_MODES.includes(PLAYER_MODE)) {
 // Instrumentation, not authoring: hold the deck still so a rig can measure it (page N
 // must stay slide N). See the AUTOSPLIT comment below.
 const NO_SPLIT = !!flags['no-split'];
+// --fit-pack NAME: the measured split (2026-10-28-fit-everywhere-model.md §16). A slide splits only
+// when it overflows at its box and venue, and its members are packed onto body pages by measured
+// height with this packer (`@laticent/fluido`'s `pack`). Unset, the split is today's structural one.
+const FIT_PACK = flags['fit-pack'] || null;
+const FIT_MEMORY = flags['fit-memory'] ? path.resolve(flags['fit-memory']) : null;
+if (FIT_PACK && !['greedy', 'balanced', 'knuth-plass'].includes(FIT_PACK)) {
+  console.error(`✗ --fit-pack must be greedy, balanced or knuth-plass (got "${FIT_PACK}")`);
+  process.exit(2);
+}
 const STRIP_NOTES = !!flags['strip-notes'];
 // --player-consent: the web origins the player may load pictures from after the reader allows it.
 // Each must be an origin (`https://host[:port]`); anything else is an error, not a silent drop.
@@ -1273,7 +1282,7 @@ const { paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 const { fontFaceCss, emojiFaceCss, iconFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { drawIconsAsSvg, drawsIconGlyphs } = require('./lib/fonts/icon-fallback.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
-const { HOLD_UNFIT_REFLOW_SRC } = require('./lib/core/table-reflow-fit');
+const { HOLD_UNFIT_REFLOW_SRC, FORCE_OVERFLOWING_REFLOW_SRC } = require('./lib/core/table-reflow-fit');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
 // This was open-coded here as `/\bguards-strict\b/.test(cls) && !/\bguards-loose\b/`,
@@ -1291,6 +1300,8 @@ const { usedHydrators, hydrateScript, settleBarrierScript, settleBudget, payload
 const { bakeDeck } = require('./lib/plugins/host-bake');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { EQUALIZE_CARD_TAGS_SRC } = require('./lib/core/card-tag-equalize');
+const { SETTLE_RUN_PLACEMENT_SRC } = require('./lib/core/run-placement');
+const { LIFT_COVER_TEXT_SRC } = require('./lib/core/cover-lift');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
 const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
 // HARD RULE #22, STYLESHEET channel. Every `<style>` this file writes carries CALLER CSS
@@ -4010,8 +4021,11 @@ async function renderBody(browser, g, closeBrowser) {
   // equalizing here would make the overflow warning describe a layout the file does not have.
   // The fluid view and the player carry it (the runtime, or the baked DOM).
   const TAGS_REACH_DELIVERABLE = !(OUT_FORMAT === 'html' && !(FLUID_VIEW && FLUID_BEATS_READ) && !PLAYER);
+  // A split cover that runs into its footer moves its subtitle and lede to the first body page
+  // (lib/core/cover-lift.js), and a split run's pages share one placement (lib/core/run-placement.js),
+  // by the same test: a plain `.html` has no script, so its covers and pages keep their own layout.
   const equalizeCardTagsInPage = (label) => (TAGS_REACH_DELIVERABLE
-    ? g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document)`), `equalize card tags${label}`)
+    ? g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document) + (${LIFT_COVER_TEXT_SRC})(document) + (${SETTLE_RUN_PLACEMENT_SRC})(document)`), `equalize card tags and place split runs${label}`)
     : Promise.resolve(0));
 
   // THE SETTLE BARRIER (lib/plugins/hydrate-script.js). A plugin figure drawn in the browser is
@@ -4247,6 +4261,74 @@ async function renderBody(browser, g, closeBrowser) {
     return { slides: pages.length, pages, reverted, detail };
   }, 'apply guards trim');
 
+  // MEASURED LOGO-WALL COLUMNS (owner, 2026-11-15; fit-everywhere-model.md §25). The wall was stamped from
+  // the string, with estimates (lib/core/logo-wall-pack.js `stampWall`). Here the page measures every
+  // captioned wall it drew (`measureWall`); a wall whose caption runs past its cell, or whose rows run
+  // below the stage, is re-planned from the measurement with the same `planWall` and stamped again, in the
+  // deliverable string and the page alike. A wall that fits is not touched, and a deck with none costs
+  // one evaluate and no reload.
+  {
+    const measured = await g(() => page.evaluate(`(() => { const measure = ${logoWallPack.measureWall.toString()}; return [...document.querySelectorAll('section.logo-wall')].map((s) => { const ul = s.querySelector(':scope > .cell-stage > ul[data-logo-wall]'); const m = ul ? measure(ul) : null; return m && m.over ? m : null; }); })()`), 'measure logo walls') || [];
+    if (measured.some(Boolean)) {
+      const aspect = slideW / slideH;
+      let k = -1;
+      const at = cleanDocHtml.search(/<section\b/);
+      const head = at < 0 ? cleanDocHtml : cleanDocHtml.slice(0, at);
+      const body = at < 0 ? '' : splitSections(cleanDocHtml.slice(at)).map((p) => {
+        if (p.type !== 'section') return p.text;
+        const html = `${p.openTag}${p.inner}</section>`;
+        if (!` ${readClassAttr(p.openTag) || ''} `.includes(' logo-wall ')) return html;
+        k += 1;
+        return measured[k] ? logoWallPack.restampWall(html, aspect, measured[k]) : html;
+      }).join('');
+      const next = head + body;
+      if (next !== cleanDocHtml) {
+        cleanDocHtml = next;
+        fs.writeFileSync(outHtml, cleanDocHtml);
+        await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (logo walls)');
+        await g(() => page.evaluate(async () => {
+          try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+          for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
+        }), 'load fonts (logo walls)');
+        await settleDeferredMedia(' (logo walls)');
+        await awaitPluginFigures(' (logo walls)');
+      }
+    }
+  }
+
+  // MEASURED TABLE SWITCH (owner, 2026-11-15; fit-everywhere-model.md §25). A table whose grid runs past its
+  // width takes its narrow layout (lib/core/table-reflow-fit.js `forceOverflowingReflow`, which marks its stage
+  // `--lat-reflow-force: 1`). BEFORE the split, so the split measures the layout the reader gets, and written
+  // into the deliverable string too, so the split's reload and a plain `.html` keep it. A table that fits is
+  // not touched, and a deck with none costs one evaluate and no reload.
+  {
+    const forced = await g(() => page.evaluate(`(${FORCE_OVERFLOWING_REFLOW_SRC})(document)`), 'force overflowing tables') || [];
+    if (forced.some(Boolean)) {
+      let k = -1;
+      const at = cleanDocHtml.search(/<section\b/);
+      const head = at < 0 ? cleanDocHtml : cleanDocHtml.slice(0, at);
+      const body = at < 0 ? '' : splitSections(cleanDocHtml.slice(at)).map((p) => {
+        if (p.type !== 'section') return p.text;
+        k += 1;
+        const inner = forced[k] ? p.inner.replace('<div class="cell-stage">', '<div class="cell-stage" style="--lat-reflow-force:1">') : p.inner;
+        return `${p.openTag}${inner}</section>`;
+      }).join('');
+      // ALWAYS reload once anything was forced, even when no mark reached the string: the page then shows
+      // exactly what the file holds, so the split never measures a layout the deliverable does not have.
+      cleanDocHtml = head + body;
+      fs.writeFileSync(outHtml, cleanDocHtml);
+      {
+        await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (tables)');
+        await g(() => page.evaluate(async () => {
+          try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+          for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
+        }), 'load fonts (tables)');
+        await settleDeferredMedia(' (tables)');
+        await awaitPluginFigures(' (tables)');
+      }
+    }
+  }
+
   // STRUCTURAL auto-split — ONE pass, before anything is measured.
   //
   // Every enrolled slide whose collection holds more than one member becomes
@@ -4276,24 +4358,78 @@ async function renderBody(browser, g, closeBrowser) {
     // The deck chrome comes from the front matter (`md`), not from a section's
     // `data-header`/`data-footer`, which a per-slide `_footer:` also fills (railRun's header).
     const ss = require('./lib/engine/structural-split');
-    const r = ss.structuralSplit(cleanDocHtml, { deckSource: md, width: slideW, height: slideH, capacity: SPLIT_CAP });
-    // With no manifests found (SPLIT_CAP empty, already warned above) `structuralSplit` returns
-    // before the adornments. The old inline path still ran `railRun`, whose re-berth touches every
-    // slide, so keep that here rather than change a degraded install's output.
-    const splitHtml = r.applies ? r.html : ss.railRun(r.html, md, SPLIT_CAP);
-    if (splitHtml !== cleanDocHtml) {
-      cleanDocHtml = splitHtml;
-      fs.writeFileSync(outHtml, cleanDocHtml);
-      // `load` for the same measured reason as the initial navigation above.
-      await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (split)');
-      await g(() => page.evaluate(async () => {
-        try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
-        for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
-      }), 'load fonts (split)');
-      await settleDeferredMedia(' (split)');
-      await awaitPluginFigures(' (split)');
+    const unsplit = cleanDocHtml;
+    // One split + navigation. `plan` is the measured plan (--fit-pack) or null (structural).
+    const splitOnce = async (plan) => {
+      const r = ss.structuralSplit(unsplit, { deckSource: md, width: slideW, height: slideH, capacity: SPLIT_CAP, plan });
+      // With no manifests found (SPLIT_CAP empty, already warned above) `structuralSplit` returns
+      // before the adornments. The old inline path still ran `railRun`, whose re-berth touches every
+      // slide, so keep that here rather than change a degraded install's output.
+      const splitHtml = r.applies ? r.html : ss.railRun(r.html, md, SPLIT_CAP);
+      if (splitHtml !== cleanDocHtml) {
+        cleanDocHtml = splitHtml;
+        fs.writeFileSync(outHtml, cleanDocHtml);
+        // `load` for the same measured reason as the initial navigation above.
+        await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (split)');
+        await g(() => page.evaluate(async () => {
+          try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
+          for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
+        }), 'load fonts (split)');
+        await settleDeferredMedia(' (split)');
+        await awaitPluginFigures(' (split)');
+      }
+      return r;
+    };
+    let r;
+    // `fit: pack` in the deck's front matter asks for the measured split on every surface (the
+    // Studio, the Playground and the webpage export read the same key); `--fit-pack` picks the
+    // packer and turns it on for any deck.
+    const fmBody = (md.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
+    const packer = FIT_PACK || (require('./lib/core/resolve-guards').fitPacks(fmBody) ? 'knuth-plass' : null);
+    if (packer) {
+      // MEASURE on the whole render (already in the page), PLAN in Node with the pure packer,
+      // SPLIT, then VERIFY: a body page that still overflows tightens its slide's room by the
+      // overflow and plans again, at most three rounds. A slide still overflowing after that
+      // falls back to today's split, unless today's split fails there too and the first measured
+      // plan failed no worse (fewer pages for no loss; fit-measure.js `measuredSplit`).
+      const fm = require('./lib/core/fit-measure');
+      const { pack } = require('@laticent/fluido');
+      // The verdict is the harness's own (lib/core/fit-measure.js): overflow, a clip outside
+      // chrome, or crammed prose. A slide the overflow probe alone passed could still clip or cram.
+      const verdictCfg = { probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
+      const probeArgs = `(${require('./lib/core/fit-measure').FIT_VERDICT_SRC}), ${JSON.stringify(verdictCfg)}, (${require('./lib/core/deck-slides').DECK_SLIDES_SRC})`;
+      // MEMORY (--fit-memory FILE): what the last render of this deck decided, so an edit keeps
+      // its split and its members a page while they still fit (§11). A missing or unreadable file
+      // is no memory; the file is rewritten with this render's decisions.
+      let memory = null;
+      if (FIT_MEMORY && fs.existsSync(FIT_MEMORY)) {
+        try { memory = JSON.parse(fs.readFileSync(FIT_MEMORY, 'utf8')); } catch (_e) { memory = null; }
+      }
+      const remembered = memory ? Object.keys(memory).filter((n) => memory[n]?.split) : [];
+      const t0 = performance.now();
+      const facts = await g(() => page.evaluate(`(${fm.MEASURE_FIT_SRC})(${probeArgs}, ${JSON.stringify(remembered)})`), 'measure fit') || [];
+      const tMeasure = performance.now() - t0;
+      const run = await fm.measuredSplit({
+        facts, pack, packer, memory,
+        split: (plan) => splitOnce(plan),
+        verify: () => g(() => page.evaluate(`(${fm.OVERFLOW_BY_SLIDE_SRC})(${probeArgs})`), 'verify fit'),
+        foldable: () => g(() => page.evaluate(`(${fm.FOLDABLE_SRC})((${require('./lib/core/deck-slides').DECK_SLIDES_SRC}))`), 'fold beats'),
+        // Members measured on a body page of their own, not in the unsplit slide's layout (§17).
+        remeasure: () => g(() => page.evaluate(`(${fm.MEASURE_FIT_SRC})(${probeArgs}, [], true)`), 'measure on a body page'),
+      });
+      r = run.result;
+      if (FIT_MEMORY) fs.writeFileSync(FIT_MEMORY, `${JSON.stringify(fm.nextMemory(facts, run.plan))}\n`);
+      const tPlan = run.planMs;
+      const rounds = run.rounds;
+      const fellBack = run.fellBack;
+      if (!QUIET) {
+        console.log(`  auto-split (measured, ${packer}): ${r.changed} slide(s) split, ${Object.values(run.plan).filter((v) => v === 'whole').length} kept whole`);
+        console.log(`    measure ${tMeasure.toFixed(0)} ms, plan ${tPlan.toFixed(0)} ms, ${rounds} split round(s), ${fellBack} slide(s) back on today's split`);
+      }
+    } else {
+      r = await splitOnce(null);
+      if (r.changed && !QUIET) console.log(`  auto-split (structural): ${r.changed} slide(s) split to one element per page`);
     }
-    if (r.changed && !QUIET) console.log(`  auto-split (structural): ${r.changed} slide(s) split to one element per page`);
   }
   // MEASURE FIT — after the split, and for the RING only. Nothing downstream of here changes
   // the page count; this verdict feeds the author warnings and the overflow marker, which is

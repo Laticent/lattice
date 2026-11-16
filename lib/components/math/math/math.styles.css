@@ -104,7 +104,7 @@ section.math :is(.katex-display, mjx-container[display="true"]) {
   overflow-x: visible;
 }
 section.math :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.5em;
+  font-size: var(--math-display, 1.5em);
   line-height: 1.2;
   display: block;
   text-align: center;
@@ -184,7 +184,7 @@ section.math.form.feature > .cell-stage > p:has(> :is(.katex-display, mjx-contai
 }
 section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg),
 section.math.form.feature > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.75em;
+  font-size: var(--math-display, 1.75em);
 }
 section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol),
 section.math.form.feature > .cell-stage > :is(ul, ol) {
@@ -221,7 +221,7 @@ section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage >
  * (0,3,1) that promotes the stage to a flex column, so a lone `math feature align-left` stayed a grid
  * and moved nothing; bare `math` only worked because stage.css comes later in the bundle and wins the
  * tie. Re-state the promotion here, above both, for the no-legend case. */
-section.math.form.feature:is(.align-top, .align-middle, .align-bottom, .align-left, .align-center, .align-right):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage {
+section.math.form.feature:is(.align-top, .align-middle, .align-bottom, .align-spread, .align-fill, .align-left, .align-center, .align-right, .align-full):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage {
   display: flex;
   flex-direction: column;
 }
@@ -380,7 +380,7 @@ section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .
    * expression across lines before KaTeX sees it — measured worth ~35% on this equation
    * (2587px to 1694px) — together with re-testing this scale-up itself. Both are owner-
    * ruled and tracked in #2136; neither belongs in a frame migration. */
-  font-size: 2.4em;
+  font-size: var(--math-display, 2.4em);
 }
 
 /* ── math.derivation ──
@@ -483,7 +483,7 @@ section.math.form.derivation td :is(.katex-display, mjx-container[display="true"
   text-align: left;
 }
 section.math.form.derivation td :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.15em;
+  font-size: var(--math-display, 1.15em);
   display: inline-block;
   text-align: left;
 }
@@ -602,7 +602,7 @@ section.math.form.theorem blockquote :is(.katex-display, mjx-container[display="
   padding: var(--sp-xs) 0;
 }
 section.math.form.theorem blockquote :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.25em;
+  font-size: var(--math-display, 1.25em);
 }
 
 /* ── `compare`: SOVEREIGN ARM DELETED ──
@@ -699,7 +699,7 @@ section.math.form.compare > .cell-stage > p:has(> :is(.katex-display, mjx-contai
    * rather than correctness. There is no shrink-to-fit in this system
    * (`2026-06-22-the-fit-spine.md` axiom 3), so an equation wider than its column is
    * an authoring-side overflow that the watcher flags. */
-  font-size: 1.25em;
+  font-size: var(--math-display, 1.25em);
 }
 section.math.form.compare > .cell-stage > p:not(:has(:is(.katex-display, mjx-container[display="true"]))) {
   color: var(--text-secondary);
@@ -722,6 +722,7 @@ section.math.form.compare > .cell-stage > p:not(:has(:is(.katex-display, mjx-con
  * kept all three columns in a 1080px portrait box and rendered as overlapping text.
  * The doubled `.math.math` is the same idiom the sovereign family block used against
  * variant rules; with the attribute selector it reaches (0,6,1) and wins cleanly. */
+section.math.math.form.compare[data-family="square"] > .cell-stage,
 section.math.math.form.compare[data-family="tall"] > .cell-stage,
 section.math.math.form.compare[data-family="strip"] > .cell-stage {
   column-count: 1;
@@ -733,6 +734,7 @@ section.math.math.form.compare[data-family="strip"] > .cell-stage {
    * never gets pushed off the block-start edge where no probe can see it. */
   align-content: safe center;
 }
+section.math.math.form.compare[data-family="square"] > .cell-stage > h3,
 section.math.math.form.compare[data-family="tall"] > .cell-stage > h3,
 section.math.math.form.compare[data-family="strip"] > .cell-stage > h3 {
   break-before: auto;
@@ -800,7 +802,7 @@ section.math.form.canvas > .cell-stage > p:has(:is(.katex-display, mjx-container
   padding-block: 0.3em;
 }
 section.math.form.canvas > .cell-stage > p:has(:is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.7em;
+  font-size: var(--math-display, 1.7em);
 }
 section.math.form.canvas > .cell-stage > p:not(:has(:is(.katex-display, mjx-container[display="true"]))):not(:has(img)) {
   grid-area: cap;
@@ -917,7 +919,7 @@ section.math.form.matrix > .cell-stage > p:has(> :is(.katex-display, mjx-contain
   text-align: center;
 }
 section.math.form.matrix > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.7em;
+  font-size: var(--math-display, 1.7em);
 }
 section.math.form.matrix > .cell-stage > :is(ul, ol) {
   align-self: center;
@@ -1020,7 +1022,7 @@ section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"])
  * The equation gives back the most, because a matrix is READ as a block and survives a
  * smaller setting better than a legend line does. The legend's row rhythm gives the rest. */
 section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.15em;
+  font-size: var(--math-display, 1.15em);
 }
 section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
   padding-bottom: var(--sp-xs);
@@ -1065,7 +1067,7 @@ section.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, m
   border-bottom: 1px solid var(--border);
 }
 section.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 2.1em;
+  font-size: var(--math-display, 2.1em);
 }
 /* THE 3-UP ROW — a lead equation, an optional `### h3`, then one `$$` per factor. */
 section.math.form.matrix.decompose > .cell-stage > h3 {
@@ -1082,7 +1084,7 @@ section.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, m
   vertical-align: middle;
 }
 section.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):not(:first-of-type) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.3em;
+  font-size: var(--math-display, 1.3em);
 }
 /* THE LEGEND — the shape the docs actually teach, and the one the stylesheet had no rule
  * for. It is a `matrix` legend, so it inherits `matrix`'s hanging indent and label column
@@ -1095,17 +1097,25 @@ section.math.form.matrix.decompose > .cell-stage > :is(ul, ol) {
   border-left: none;
   padding-top: var(--sp-md);
 }
-/* FAMILY REFLOW — tall/strip. The lead equation is the whole factorization on one line,
- * so it is the widest thing math ships, and 2.1em of it does not fit a 972px stage:
- * measured 204px past the edge at portrait, story and mobile, `cut`. It was over on the
- * sovereign frame too (the overrun painted into the section's padding instead of being
- * clipped), so this is an old defect the migration inherits and fixes rather than causes.
- *
- * There is no reflow available other than scale: a factorization is one expression and
- * KaTeX will not break or shrink it. 1.55em is the measured fit for the committed sample
- * with headroom; the 3-up row and the legend are unchanged, because neither was over. */
-section.math.math.form.matrix.decompose:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.55em;
+/* TEXT-ROOM REFLOW — NARROW (base.elements.css). The lead equation is the whole factorization on one
+ * line, the widest thing math ships, and at 2.1em it ran past a narrow slide's edge. It is no
+ * longer set smaller here: `lib/plugins/math/shared/tex-linebreak.js` breaks it at its `=` and
+ * between its matrices (each matrix one unbreakable term) on every shape but 16:9, so it keeps
+ * 2.1em on two lines (owner, 2026-11-06: "we should split. sizing down diminishes readability").
+ * The 1.55em step that stood here was the one named exception to "only a venue changes a type
+ * size"; it is gone. */
+@container lattice (width < 23em) {
+  /* The legend's 5em hanging label column ("USE", tracked mono) left its gloss twelve
+     characters a line at portrait@laptop ("— solve Ax = b by / forward then back /
+     substitution"). The indent goes: the label runs in at the start of the line and the gloss
+     wraps under it at the legend's full width. */
+  section.math.form.matrix > .cell-stage > :is(ul, ol) > li { padding-inline-start: 0; text-indent: 0; }
+}
+/* TIGHT, under ~35 characters a line: a run-in label that is a formula (a decompose legend's
+   matrix) takes most of the first line, and the gloss after it set eleven characters a line at
+   story@hall. The label takes its own line above the gloss. */
+@container lattice (width < 17em) {
+  section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong { display: block; padding-inline-end: 0; }
 }
 
 /* ── math.stats ──
@@ -1149,7 +1159,7 @@ section.math.form.stats > .cell-stage > p:has(> :is(.katex-display, mjx-containe
   margin: 0;
 }
 section.math.form.stats > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 2.6em;
+  font-size: var(--math-display, 2.6em);
   color: var(--accent);
   font-weight: 700;
 }
@@ -1176,7 +1186,7 @@ section.math.form.stats > .cell-stage > p:not(:has(> :is(.katex-display, mjx-con
   font-size: var(--fs-body);
   line-height: var(--lh-base);
 }
-/* FAMILY REFLOW — tall/strip. `max-width: 60cqi` is a MEASURE cap: on a 1920-wide
+/* FAMILY REFLOW — square/tall/strip. `max-width: 60cqi` is a MEASURE cap: on a 1920-wide
  * slide it stops the interpretation line running the full canvas. In a tall box it
  * does the opposite of its job. The stage is 972px there, the cap holds the paragraph
  * to 583px, and the result is a ~25-character line — well under the comfortable
@@ -1185,8 +1195,10 @@ section.math.form.stats > .cell-stage > p:not(:has(> :is(.katex-display, mjx-con
  *
  * Released, the same paragraph runs the stage width at ~41 characters: inside the
  * measure band, several lines shorter, and the number above it keeps its full 2.6em.
- * The cap is not tightened here, it is removed, because a narrow box supplies its own. */
-section.math.math.form.stats:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
+ * The cap is not tightened here, it is removed, because a narrow box supplies its own.
+ * Square joined on 2026-11-06: at the phone venue the capped paragraph ran six lines
+ * at ~22 characters and pushed the estimate off the top of a 1:1 slide. */
+section.math.math.form.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
   max-width: none;
 }
 
@@ -1257,43 +1269,6 @@ section.math.math.form.canvas:where([data-family="tall"], [data-family="strip"])
   width: 58%;
 }
 
-/* ── The REFLOWED display scale (#2136, lever 2) ──
- *
- * `lib/plugins/math/shared/tex-linebreak.js` breaks a display equation that is too long for anything but a
- * 16:9 slide onto `aligned` lines, and marks the paragraph `data-math-reflow="N"`. This is
- * the other half of that move: a broken equation is set SMALLER than a single-line hero.
- *
- * WHY BOTH LEVERS, measured on `math feature`'s committed sample (the logistic
- * log-likelihood) against a 972px stage:
- *
- *   | size     | as authored | reflowed | reflowed, at the scale below |
- *   |----------|-------------|----------|------------------------------|
- *   | portrait |      2587px |   1850px |                        925px |
- *   | square   |      1486px |   1139px |                        944px |
- *
- * Neither lever closes it alone, which is exactly the owner ruling in #2136. The break takes
- * ~28% off the width and then hits a floor set by the longest sub-expression; the rest is the
- * 2.4em scale-UP the tall families apply, chosen for a "representative hero" one line long.
- *
- * WHY THIS IS NOT THE SHRINK-TO-FIT THE FIT SPINE FORBIDS. Axiom 3 bans SCALING TO FIT — a
- * measured, per-slide shrink that trades legibility for a box. This is a layout constant for
- * a different shape: a single-line hero and a three-line derivation are not the same object,
- * and setting the multi-line one at the same 2.4em is what made it unreadable in the first
- * place. It is also keyed on the marker the pass emits, so it reaches ONLY equations the
- * engine broke — every single-line equation in the corpus keeps the scale it has, and every
- * 16:9 render is byte-identical (the pass does not run at `wide`).
- *
- * AND IT IS NOT A GUARANTEE. An equation longer than this sample still overflows and is still
- * flagged by the overflow watcher, which is what the watcher is for. The scale is set from
- * the widest equation the corpus actually ships, with ~47px of clearance at portrait — the
- * same margin the single-line 2.4em carries for the reference OLS hero. */
-section.math.form > .cell-stage > p[data-math-reflow]:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.4em;
-}
-section.math.form:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p[data-math-reflow]:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.2em;
-}
-
 /* ── the SPLIT body page: one legend line does not want two columns (#2136) ──
  *
  * The equation+legend variants (bare, `feature`, `matrix`, `decompose`) lay the equation beside
@@ -1330,3 +1305,16 @@ section.math.form.lat-split-native:where(:not(.derivation):not(.theorem):not(.co
   align-self: start;
   min-width: 0;
 }
+
+/* ── ONE DISPLAY SIZE, WRAPPED AT THE REAL WIDTH, OFF 16:9 (owner, 2026-11-06) ──
+   On a square, tall or strip slide every display equation is set at one size, 1.4 x body text
+   (`--fs-body`, so it moves with the venue like every other role, and an equation in a derivation's
+   table cell is the same size as a hero, not 1.4 x the cell's smaller text), and may wrap: `breakableTex`
+   (lib/plugins/math/shared/tex-linebreak.js) regroups the TeX so KaTeX's line breaks fall only at safe
+   points, and KaTeX's own `white-space: nowrap` on display math is lifted here. Each variant's display
+   size above reads `var(--math-display, <its 16:9 size>)`, so a 16:9 slide keeps the size it had and
+   this one declaration sets every variant off 16:9: the hero, the derivation cell, the decompose
+   factors and the theorem alike. It replaced the per-variant steps down (1.55em, and 1.4 / 1.2em for an
+   equation the old reflow broke), which the owner ruled out: "sizing down diminishes readability". */
+section.math:where([data-family="square"], [data-family="tall"], [data-family="strip"]) { --math-display: calc(var(--fs-body) * 1.4); }
+section.math:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .katex-display > .katex { white-space: normal; }

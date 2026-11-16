@@ -464,6 +464,11 @@ section.compare-split-points .split-pt-t {
   display: block; font-weight: 800; color: var(--text-heading); font-size: var(--fs-h3); padding-bottom: var(--sp-xs);
 }
 section.compare-split-points .split-pt-b { color: var(--text-body); font-size: var(--fs-emphasis); line-height: var(--lh-relaxed); max-width: 20em; }
+/* A slide read in a hand (the phone default and `venue: phone` / `tablet` on a square, tall or strip deck) sets
+   each subject at body size, as every other split points page does (decision, list-tabular, split-panel). At
+   emphasis x1.4 a fifty-word subject ran past its page (drawn-not-typed.md, gallery-jargon.md; fit-everywhere-
+   model.md §25). The exclusions are the handheld chrome rule's (stage.css), held equal by resolve-venue.test.js. */
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame).compare-split-points .split-pt-b { font-size: var(--fs-body); line-height: var(--lh-base); max-width: none; }
 /* THERE IS NO `compare-split-verdict` RULE ANY MORE, and the deletion is the point.
    `cover-sides` used to close its run with a frame of its own — "The verdict" over the
    slide's trailing below-note, re-authored as a `.split-pullq`. That CONSUMED the note, so a
@@ -485,14 +490,14 @@ section.compare-prose > .cell-stage {
   padding-block: var(--elevation-berth);
 }
 
-/* ── `cards:` register (#2317) ── the two panes. A single-line flex row ignores
+/* ── `align:` register (#2317) ── the two panes. A single-line flex row ignores
  * `align-content`, so the row wraps (two zero-basis panes plus the connector still share
  * one line) and the register decides whether the panes stretch or sit at text height.
  * `vertical` and tall/strip frames stack the panes and are left alone. `decision` is left out
  * too: its DECISION label is placed at the stage's mid-height, so moving the panes strands it. */
 section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol),
 section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) .compare-prose-inner {
-  flex-wrap: wrap; align-content: var(--cards-align);
+  flex-wrap: wrap; align-content: var(--align-v);
 }
 /* A wrapped row sizes its line to the cards, not the stage, so a dense pane would hang past
  * the stage clip (stage-clip-chrome-shear.test.js). Capping each card's border box at the row keeps the

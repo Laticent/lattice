@@ -18,6 +18,9 @@
  *
  * Two committed fixtures, both plain `checklist` decks past the component's `capacity.hard` of 9:
  *
+ * Both fixtures write `fit: heal`: measuring is the default since 2026-11-06
+ * (lib/core/resolve-guards.js `fitPacks`), and this file pins the COUNT-based split a deck asks for by
+ * name.
  *   split-trigger-fits-tall.md      12 items at `portrait` — comfortably inside the box.
  *   split-trigger-overfull-wide.md  20 items at `hd`       — genuinely does not fit.
  *

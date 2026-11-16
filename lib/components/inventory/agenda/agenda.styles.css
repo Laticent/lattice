@@ -271,3 +271,12 @@ section.agenda.checks ol > li { padding-inline-end: var(--sp-xs); }
 section.agenda.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol > li:only-child {
   align-items: center;
 }
+
+/* TEXT ROOM (base.elements.css, the NARROWEST threshold). The current stop's indent (`--sp-xl`,
+   past the other ordinals) left its bold title three words a line beside the arrow at story@hall;
+   the arrow and the weight already mark it. */
+@container lattice (width < 17em) {
+  section.agenda.agenda.agenda.agenda.agenda.agenda.agenda.agenda[class*="progress-"]:not(.circles):not(.checks) ol > li {
+    padding-inline-start: 0;
+  }
+}

@@ -1,0 +1,1 @@
+- **A captioned logo wall that runs off a phone slide fits it.** When a logo wall's names or pills are too wide for their columns, or its rows run off the bottom of the slide (on a phone, mostly), the wall now drops to as many columns as its captions need and tightens its spacing so every row stays on the page. A wall that already fits keeps its layout.

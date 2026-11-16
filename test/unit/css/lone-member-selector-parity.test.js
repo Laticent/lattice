@@ -2,9 +2,10 @@
  * Unit: the two lone-bare-member rules exclude the same members.
  *
  * `base.modifiers.css` § "A LONE BARE MEMBER" is ONE treatment written as TWO rules — one on the
- * `ul`/`ol` (drop the marker, reclaim the indent) and one on the `li` (step the type to
- * `--fs-emphasis`). Both must fire, or neither: half of it leaves a body-size fragment adrift in
- * a page-tall box, which is the defect the treatment exists to remove.
+ * `ul`/`ol` (drop the marker, reclaim the indent) and one on the `li` (set its line: snug, with a
+ * balanced wrap; it used to step the type to `--fs-emphasis` too, until venue became the only thing
+ * that sizes type, fit-everywhere-model.md §18). Both must fire, or neither: half of it leaves a
+ * marker-less fragment set as a list row, which is the defect the treatment exists to remove.
  *
  * They cannot be written identically. `:has()` may not nest inside `:has()`, so the `ul` rule has
  * to hoist its exclusion to a top-level `:not(:has(…))` while the `li` rule can carry it inline.
@@ -12,7 +13,7 @@
  * (`> li > :is(…)`) against the `li` test's DESCENDANT one, so they agreed on a block directly
  * inside the member and disagreed on anything deeper. The ordinary linked-image idiom
  * `[![icon](x.png)](url)` puts an `<img>` at depth two, and measured on a real render such a
- * member lost its marker without gaining its type step.
+ * member lost its marker without gaining the rest of the treatment.
  *
  * So this asserts the one thing the shapes cannot show on their face: the SAME exclusion list, and
  * a descendant test on both sides. It reads the built bundle, because that is what ships.
@@ -44,7 +45,9 @@ function loneMemberRules(css) {
     const selector = prelude.replace(/\/\*[\s\S]*?\*\//g, '').trim();
     if (!selector.startsWith(NATIVE) || !selector.includes(':only-child')) continue;
     if (/list-style:\s*none/.test(body) && /padding-inline-start:\s*0/.test(body)) out.list = selector;
-    if (/font-size:\s*var\(--fs-emphasis\)/.test(body)) out.item = selector;
+    // The item half sets the member's line (snug, balanced wrap). It used to step the type to
+    // `--fs-emphasis` too; venue is now the only thing that sizes type (fit-everywhere-model.md §18).
+    if (/text-wrap:\s*pretty/.test(body) && !/font-size/.test(body)) out.item = selector;
   }
   return out;
 }
@@ -65,7 +68,7 @@ describe('the lone-bare-member treatment is one rule in two shapes', () => {
 
   test('the fixture is real — both halves of the treatment are in the bundle', () => {
     assert.ok(rules.list, 'no lone-member rule dropping the marker found in dist/lattice.css');
-    assert.ok(rules.item, 'no lone-member rule stepping the type found in dist/lattice.css');
+    assert.ok(rules.item, 'no lone-member rule setting the line found in dist/lattice.css');
   });
 
   test('both exclude the SAME element list', () => {

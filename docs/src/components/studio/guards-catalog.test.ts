@@ -27,13 +27,16 @@ describe('guards-catalog ↔ FIT_NAMES', () => {
 });
 
 describe('activeGuards — fit: wins, guards: reads as its new name', () => {
-	it('reads fit:, then the old guards:, then the heal default', () => {
+	it('reads fit:, then the old guards:, then the pack default', () => {
 		expect(activeGuards('report').name).toBe('report');
 		expect(activeGuards('trim', 'loose').name).toBe('trim');
 		expect(activeGuards(null, 'strict').name).toBe('trim');
 		expect(activeGuards(null, 'loose').name).toBe('heal');
-		expect(activeGuards('bogus', null).name).toBe('heal');
-		// An unknown fit: still wins over guards:, as it does in the engine.
-		expect(activeGuards('bogus', 'strict').name).toBe('heal');
+		expect(activeGuards('heal').name).toBe('heal');
+		// No fit: and no guards: is the default, which measures (lib/core/resolve-guards.js fitPacks).
+		expect(activeGuards(null, null).name).toBe('pack');
+		expect(activeGuards('bogus', null).name).toBe('pack');
+		// An unknown fit: still wins over guards:, as it does in the engine, and reads as the default.
+		expect(activeGuards('bogus', 'strict').name).toBe('pack');
 	});
 });

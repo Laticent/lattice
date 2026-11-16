@@ -7,7 +7,8 @@ import { activeFinish } from '@/components/studio/finish-catalog';
 import { HEADLINES } from '@/components/studio/headline-catalog';
 import { glyphs, optionGlyph, SizeChip } from '@/components/studio/option-glyphs';
 import { RULES } from '@/components/studio/rule-catalog';
-import { VENUES } from '@/components/studio/venue';
+import { sizeRatio } from '@/components/studio/slide-size';
+import { defaultVenue, familyForAspect, venueOption, venueOptionsFor } from '@/components/studio/venue';
 import { MODES } from '@/lib/mode-catalog';
 import { A11Y_GROUP_LABEL, paletteLabel } from '@/lib/palette-label';
 import { isA11yPalette, PALETTE_DOTS } from '@/lib/theme-catalog.generated';
@@ -44,7 +45,17 @@ const COLOR_MODES: CatalogOption[] = [
 	{ value: 'print', label: 'Print — ink on white', icon: <Printer className="size-3.5" /> },
 ];
 const SIZES: CatalogOption[] = SIZE_OPTIONS.map(([value, label]) => ({ value, label, icon: <SizeChip size={value} /> }));
-const VENUE_OPTIONS: CatalogOption[] = VENUES.map((v) => ({ value: v.value, label: `${v.label} · ${v.scale}x`, hint: v.who, icon: optionGlyph('venue', v.value) }));
+/** The venues for this deck's shape, each at its step (venue.ts): a square, portrait or story deck is offered phone and tablet, and its default is phone. */
+const venueOptions = (size: string): CatalogOption[] => {
+	const [w, h] = sizeRatio(size || 'hd');
+	return venueOptionsFor(familyForAspect(w / h)).map((v) => ({ value: v.value, label: `${v.label} · ${v.scale}x`, hint: v.who, icon: optionGlyph('venue', v.value) }));
+};
+const venueDefaultLabel = (size: string): string => {
+	const [w, h] = sizeRatio(size || 'hd');
+	const fam = familyForAspect(w / h);
+	const v = venueOption(defaultVenue(fam), fam);
+	return v ? `${v.label} · ${v.scale}x` : 'Laptop · 1x';
+};
 const SPLITS: CatalogOption[] = [
 	{ value: 'headings', label: 'On ## headings', icon: optionGlyph('split', 'headings') },
 	{ value: 'rule', label: 'On --- dividers', icon: optionGlyph('split', 'rule') },
@@ -187,7 +198,7 @@ export function DeckConfigPanel({
 
 			{group('Format', ['size', 'venue', 'split'])}
 			{show('size') && selectRow('size', 'Slide size', 'Landscape, or a portrait / square format for social & mobile', [{ options: withUnknown(SIZES, fm.size) }], fm.size, 'hd')}
-			{show('venue') && selectRow('venue', 'Venue', 'Where the deck is seen — larger rooms get larger type', [{ options: withUnknown(VENUE_OPTIONS, fm.venue) }], fm.venue, 'laptop')}
+			{show('venue') && selectRow('venue', 'Venue', 'Where the deck is seen — a room, or a phone or tablet for a post read in a hand', [{ options: withUnknown(venueOptions(fm.size), fm.venue) }], fm.venue, '', { autoLabel: venueDefaultLabel(fm.size) })}
 			{show('split') && selectRow('split', 'Slide splitting', 'Start a new slide on each ## heading (default) or only on ---', [{ options: SPLITS }], fm.split, 'headings')}
 
 			{group('On every slide', ['paginate', 'header', 'footer'])}

@@ -41,7 +41,9 @@ const only = opt('only').split(',').filter(Boolean);
 const jobs = Math.max(1, Number(opt('jobs')) || Math.min(4, os.cpus().length));
 const JSON_OUT = args.includes('--json');
 const VENUES = (opt('venues') || 'laptop,huddle,conference,hall').split(',');
-const VENUE_CLASS = { laptop: '', huddle: 'venue-huddle', conference: 'venue-conference', hall: 'venue-hall' };
+// `laptop` stamps `venue-laptop`: a square, tall or strip slide with no venue renders at its shape's default,
+// `phone` (lib/core/resolve-venue.js), so the designed row must name the designed size to measure it.
+const VENUE_CLASS = { laptop: 'venue-laptop', huddle: 'venue-huddle', conference: 'venue-conference', hall: 'venue-hall' };
 
 // The roles a reading size can land on, smallest first.
 const ROLES = ['meta', 'body-compact', 'body', 'message', 'h3', 'emphasis', 'h2', 'h1', 'hero'];

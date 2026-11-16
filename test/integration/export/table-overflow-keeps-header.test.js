@@ -8,7 +8,7 @@
  * the same rule (lib/core/pane-css.js). The rule is `safe center` now: the top when the table
  * overflows, `center` when it fits. Pinned on the real export in Chromium, both halves: the
  * overflowing table shows its header, and a table that fits is still centered. The long list pane is
- * a guard for the other centered stage a pane holds (`cards: center`): it measured no loss before
+ * a guard for the other centered stage a pane holds (`align: middle`): it measured no loss before
  * the fix either, and must not start to.
  *
  * Slow tier: one CLI export and a Chromium launch. See engineering/pipeline.md.

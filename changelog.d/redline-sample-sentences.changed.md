@@ -1,0 +1,3 @@
+- The `redline` sample amendment (its gallery, its manifest sample and the legal gallery) now reads as three sentences with the same edits, so it splits at a sentence break on a phone instead of clipping. A passage break never falls inside one edit or between a deletion and its replacement; a whole inserted sentence may begin or end a page.
+- A split `redline` page sizes its clause card to the text it holds, instead of stretching a half-empty card to fill the stage.
+- `redline`'s venue word budgets are re-measured: the clause no longer paints over its gloss, so the old numbers allowed more words than fit (`tools/calibrate-venue-prose.js`).

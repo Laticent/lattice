@@ -11,6 +11,10 @@
       "quotation+attribution"
     ]
   },
+  "split": {
+    "strategy": "passage",
+    "note": "A quote that does not fit splits as a passage (owner, 2026-11-06): it continues on the next page at a sentence break, its attribution riding the last page. A one-sentence quote stays whole. Measured plan only; lib/core/carousel.js passage."
+  },
   "function": "statement",
   "form": "canvas",
   "substance": "prose",
@@ -22,7 +26,7 @@
     "showcase"
   ],
   "description": "A pulled quotation, centered, with attribution.",
-  "purpose": "Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit. `bare` drops the card, border, and quotation-mark glyphs for a plain, display-scale statement — a hook or cold-open line, not a sourced quotation.",
+  "purpose": "Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit. `bare` drops the card, border, and quotation-mark glyphs for a plain, display-scale statement — a hook or cold-open line, not a sourced quotation. On a phone or tablet a quote that does not fit continues on the next page at the end of a sentence, each page a whole quote card, with the attribution on the last page; a single sentence longer than a page still clips.",
   "variants": [
     "bare"
   ],

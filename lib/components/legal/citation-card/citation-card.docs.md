@@ -6,7 +6,7 @@
 
 **Tags** `citation` · `quotation` · `contract`
 
-Use when one citation IS the slide. The blockquote carries the verbatim language; the trailing list explains what it means and what we must do about it.
+Use when one citation IS the slide. The blockquote carries the verbatim language; the trailing list explains what it means and what we must do about it. On a phone or tablet a card that does not fit splits instead of clipping: a cover takes the heading, the cite and the quote take the next page, and the gloss list moves to the page after. A quote longer than a page continues at the end of a sentence, with the cite above it again; a single sentence longer than a page still clips.
 
 ## Agent contract
 

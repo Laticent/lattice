@@ -115,23 +115,23 @@ The old flex column made the content box content-driven — its height was whate
 
 ---
 
-<!-- _class: content fill-center -->
+<!-- _class: content align-middle -->
 
-`fill-center · the Tile sits in the center of its Cell`
+`align-middle · the Tile sits in the center of its Cell`
 
 ## Fill discipline puts a short Tile where the eye expects it.
 
-A short occupant given `fill-center` sits in the middle of the stage Cell. The chrome Cells are reserved above and below; the stage centers what it holds. This is the board-deck read — composed, not pinned.
+A short occupant given `align-middle` sits in the middle of the stage Cell. The chrome Cells are reserved above and below; the stage centers what it holds. This is the board-deck read — composed, not pinned.
 
 ---
 
-<!-- _class: content fill-anchor -->
+<!-- _class: content align-bottom -->
 
-`fill-anchor · the same Tile, the fill rule changed`
+`align-bottom · the same Tile, the fill rule changed`
 
 ## The same Tile, the same box, a different fill.
 
-`fill-anchor` pins the very same occupant to the foot of the stage Cell. Nothing about the geometry moved — the Cell is the identical box. Fill is a property the Cell carries and the author selects, which is the difference between a grid of correct boxes and a board deck.
+`align-bottom` pins the very same occupant to the foot of the stage Cell. Nothing about the geometry moved — the Cell is the identical box. Fill is a property the Cell carries and the author selects, which is the difference between a grid of correct boxes and a board deck.
 
 ---
 

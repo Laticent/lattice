@@ -2,19 +2,16 @@
 origin: 2962
 priority: P5
 recorded: 2026-10-29
-area: legal
+area: anchor
 severity: medium
-swimlane: engineering/decisions/2026-10-28-fit-everywhere-model.md §12
-deferred: off-path — statute-stack's chip row and topic's eyebrow layout; this PR changes tooling and docs only
+swimlane: engineering/decisions/2026-10-28-fit-everywhere-model.md §13
+deferred: large — topic's footer is the legacy absolute footer; ending the overprint means moving topic onto the Form footer band, a migration of a sovereign frame
 ---
 
-# statute-stack's chips and topic's eyebrow draw text over text at hall
+# topic's footer note prints over the basis line at a large venue
 
-why now   — the readability probe's overlap check (#2962) found two pre-existing defects, both confirmed on the rendered pages:
-            (1) statute-stack (lib/components/legal/statute-stack/statute-stack.gallery.md slides 3–5, split at square/hall): the citation chip runs under its status pill, so the citation "15 U.S.C. §6501" reads "15 U.: In effect since 2000" and "Cal. Civ. §1798.120" reads "Cal. Civ. §179 Enforced 2023";
-            (2) topic (lib/components/anchor/topic/topic.gallery.md slide 3, whole at square/hall and story/hall): the slide's "Payback" label is drawn over the "SECTION 02 · UNIT ECONOMICS" eyebrow, and the basis line overprints the footer note.
-            The baseline counts them as unreadable (statute-stack 3 at square@hall, topic 1 at each hall cell).
-where     — lib/components/legal/statute-stack/statute-stack.styles.css (the chip row: the citation chip must shrink or wrap rather than slide under the pill) and lib/components/anchor/topic/topic.styles.css (the eyebrow and basis bands at a narrow box and large venue).
-done when — neither slide draws text over text at square, portrait or story at hall, and the fit ratchet's unreadable counts for both galleries fall at those cells, banked with `--bless`.
-evidence  — renders of the slides before and after, the ratchet diff in test/fit/baseline.json, and a demo deck (HARD RULE #9).
-verify    — for g in statute-stack topic; do npm run fit:harness -- --only $g --sizes square,portrait,story --venues hall --packs none --edits none --ratchet test/fit/baseline.json; done
+why now   — two of the three overprints this item recorded are fixed by the text-room work (§13): statute-stack's status pill no longer runs under its citation chip, and a `topic fact` eyebrow that wraps no longer prints over the topic name. The third is left: topic is not a `.form` slide, so its `<footer>` is the legacy absolute one, anchored at the bottom and growing upward as it wraps. At hall a long footer note (the gallery's own, four lines at story@hall) prints over the `fact` basis line. The fit probe does not see it because it leaves chrome out of the overlap check. Giving the legacy footer the stage footer's one-line ellipsis was tried and reverted: the content-clip probe reads an ellipsized legacy footer as clipped CONTENT (it knows only the Form footer band as chrome), so it would put a "Content clipped" tag on real decks and raised topic's clip count at portrait@hall.
+where     — lib/components/anchor/topic/topic.styles.css and lib/forms/cell/stage/stage.css (the footer band), or lib/core/overflow-probe.js if the legacy footer is to count as chrome.
+done when — a `topic` slide's footer never draws over its content at square, portrait or story at hall, checked on the rendered page, and the fit ratchet's counts for topic do not rise.
+evidence  — renders of topic gallery slide 3 at story@hall and portrait@hall before and after.
+verify    — npm run fit:harness -- --only anchor/topic/ --sizes square,portrait,story --venues hall --packs none --edits none --ratchet test/fit/baseline.json

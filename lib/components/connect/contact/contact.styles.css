@@ -187,14 +187,14 @@ section.contact .qr-card {
  * pre-wrap placement, and an overstuffed card grows PAST the stage so the clip-cell
  * probe catches it, exactly as when the card was a direct section child. */
 section.contact > .cell-stage > .qr-card {
-  flex: var(--cards-grow) 0 auto;
+  flex: var(--align-grow) 0 auto;
 }
 
-/* The deck's card alignment (`cards:`, `_class: cards-*`) places the card on the stage — a
- * "centered stage block" in base.registers.docs.md's table. `--cards-grow` above lets it fill
- * the stage only under `stretch`; flex-shrink stays 0 either way, so the overflow probe still
- * sees an overstuffed card. `center` reads `safe center`: an overfull card falls back to the
+/* The deck's card alignment (`align:`, `_class: cards-*`) places the card on the stage — a
+ * "centered stage block" in base.registers.docs.md's table. `--align-grow` above lets it fill
+ * the stage only under `fill`; flex-shrink stays 0 either way, so the overflow probe still
+ * sees an overstuffed card. `middle` reads `safe center`: an overfull card falls back to the
  * top instead of losing its name off the block-start edge (#1299). Record:
  * engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §Addendum 2026-11-08. */
-section.contact > .cell-stage { justify-content: var(--cards-align); }
-section.contact[data-cards="center"] > .cell-stage { justify-content: safe center; }
+section.contact > .cell-stage { justify-content: var(--align-v); }
+section.contact[data-align="middle"] > .cell-stage { justify-content: safe center; }

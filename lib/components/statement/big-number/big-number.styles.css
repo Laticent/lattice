@@ -17,3 +17,13 @@ section.big-number > .cell-stage > ul > li > ul { list-style:none; padding:var(-
 section.big-number > .cell-stage > ul > li > ul > li { font-family:var(--font-body); font-size:var(--fs-message); font-weight:400; color:var(--text-body); line-height:var(--lh-relaxed); max-width:43.75cqi; }
 
 
+
+/* TEXT ROOM (base.elements.css): the caption's measure is a share of the SLIDE (43.75cqi), which on a
+ * 16:9 slide holds about 40 characters a line at --fs-message. On a tall slide the message size is
+ * larger against the width, and at story@hall the same share held about 12 ("claim per / slide is
+ * what"), which the fit probe reads as unreadable. Under ~47 characters a line of body text the
+ * caption takes the content area's full width instead; its size does not change (venue sets size,
+ * fit-everywhere-model.md §18). */
+@container lattice (width < 23em) {
+  section.big-number > .cell-stage > ul > li > ul > li { max-width: none; }
+}
