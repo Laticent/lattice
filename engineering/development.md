@@ -581,9 +581,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `tools/platform-suites-triage.js`: a job GitHub gave no runner (no steps), and an iOS job whose `run.sh` wrote `no-session`,
   ran no test. When every failure is one of those, the first attempt files nothing and
   `.github/workflows/platform-suites-supervisor.yml` re-runs the failed jobs once; a failure on that re-run is filed. Any real
-  failure is filed at once and never re-run. So is an iOS job whose `run.sh` wrote `out-of-time` (a device it had no time left to
-  start, below): the triage names it `out-of-time`, a finding with the device's line, because a re-run would hide that the
-  job does not fit its 30 minutes. The hand-off is an `alert-held` artifact: the supervisor acts only on a held
+  failure is filed at once and never re-run. The hand-off is an `alert-held` artifact: the supervisor acts only on a held
   run, and files the alert itself whenever it does not start the re-run, so a held failure is never left unfiled. Dispatch with
   `simulate=no-session` to exercise the path: every iOS suite reports "no probe ran" without starting a simulator, and the
   alert is written to the run's summary instead of the issue.
@@ -693,22 +691,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   its second start still gets the third session attempt `main` always made, in place. A probe failure (exit 1) is never
   retried. When every device that failed did so before any probe ran, `run.sh` exits 3 and writes
   `platform-suite-artifacts/no-session`, which hands the job to the supervisor above.
-  **The next device's budget.** Before each device after the first, `run.sh` asks `suite-budget.mjs` whether it still ends by
-  `SUITE_DEADLINE`, costed at what the device before it took less what its retries wasted (a fresh device pays a boot, a
-  session and a probe, not the last one's retries). `run.sh` counts three kinds: a whole first start that a second start
-  replaced, a `run.mjs` that made no session before an in-place attempt, and the failed attempts and relaunch waits inside a
-  `run.mjs` that did make one (it writes those seconds to `.session-waste-<device>` in the artifact folder, and `run.sh`
-  reads and deletes the file). **It is an estimate, not a guarantee:** the next device is costed at the last one's price,
-  so an iPhone slower than the iPad before it, or one with retries of its own, can still be admitted and hit the 30-minute
-  cancel. It stops a device that had no chance to finish from being started. One that does not fit is not started: `run.sh` prints and writes
-  `not run: out of time: <device> (… s gone, needs about … s, budget … s)` to `platform-suite-artifacts/out-of-time` and exits
-  **1**, never 0 and never 3. Before this, only a device's own second start was budgeted: main's nightly of 2026-11-15 (run
-  43712612297) spent 1031 s on the iPad, started the iPhone at 1064 s, and was canceled at 30 minutes with no result for it.
-  `test/unit/tools/ios-safari-suite-budget.test.js` drives the real `run.sh` with macOS stubbed out.
   **Every session request is bounded.** `run.mjs` gives each `POST /session` 150 s (`SESSION_TIMEOUT_MS`): safaridriver gives up
   on a simulator by itself after about 100–117 s, but on 2026-11-15 the attempt after such a timeout got no reply for 305 s,
   until Node's own headers timeout. A request past the bound exits 3. Between attempts `run.mjs` relaunches the simulator's
-  Safari (2 s, then 18 s; `test/unit/tools/ios-safari-session.test.js` drives both against a fake safaridriver): a timed-out session leaves Safari paired with it, so the next attempt was refused ("already paired",
+  Safari (2 s, then 18 s; `test/unit/tools/ios-safari-session.test.js` drives both against a fake safaridriver): a timed-out
+  session leaves Safari paired with it, so the next attempt was refused ("already paired",
   2026-11-10) or hung (2026-11-15). The first attempt's own timeout is the simulator's: it hit 5 of the 11 nightlies from
   2026-11-05 to 11-15, on either device, after the same boot and launch steps as the runs it spared, so it stays bounded
   and retried rather than fixed here.

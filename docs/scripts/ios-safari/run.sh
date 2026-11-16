@@ -30,14 +30,6 @@ PROBE=${PROBE:-studio}
 # (exit 1) never writes it.
 NO_SESSION_MARK="$ROOT/platform-suite-artifacts/no-session"
 rm -f "$NO_SESSION_MARK"
-# OUT OF TIME. A device this job had no time left to start (suite-budget.mjs) was not tested, so it is a FINDING: the line
-# `not run: out of time: <device> (...)` goes here and to stdout, and the script exits 1, never 3 and never 0. The triage
-# (tools/platform-suites-triage.js) names it `out-of-time`, alerted at once like any finding.
-OUT_OF_TIME_MARK="$ROOT/platform-suite-artifacts/out-of-time"
-rm -f "$OUT_OF_TIME_MARK"
-# Seconds of this script by which every device must be done: the job's 1800, less about 180 before the Suite step and a
-# minute's margin. Both budget checks below read it: the second start of a device, and the start of the next device.
-deadline=${SUITE_DEADLINE:-1560}
 # A dispatch can ask for this outcome without an outage (SIMULATE_NO_SESSION=1, the workflow's `simulate` input), to prove
 # the supervisor path end to end. It runs nothing else.
 if [ "${SIMULATE_NO_SESSION:-}" = 1 ]; then
@@ -170,36 +162,8 @@ if [ -n "${families// /}" ]; then
 fi
 # Devices still to run, this one included: the second-start budget below has to leave them their time.
 left=$(echo $families | wc -w)
-# THE RETRIES INSIDE ONE run.mjs. A session that came on its second or third attempt spent the failed attempts and the
-# relaunch waits first (about 120-140 s each), and the next device will not pay them. run.mjs writes those seconds to
-# $OUT/.session-waste-<device> when it makes a session; this adds them to `wasted` and deletes the file. A run.mjs that made
-# no session writes none, and the callers below count that whole run instead (session_dt, start1_dt).
-add_session_waste() {
-  local f="$OUT/.session-waste-$family" w
-  [ -f "$f" ] || return 0
-  w=$(tr -dc '0-9' < "$f")
-  rm -f "$f"
-  wasted=$((wasted + ${w:-0}))
-}
-# What the last device cost, less the time its failed session starts wasted: the estimate for the next one. Empty before the
-# first device, which has nothing to go by and always starts.
-last_cost=
-out_of_time=0
 for family in $families; do
-  # THE NEXT DEVICE'S BUDGET. The second-start check below only ever guarded a device's OWN restart, so on main's nightly
-  # of 2026-11-15 (run 43712612297) an iPad that took 1031 s left the iPhone to start at 1064 s, and the job was cancelled at
-  # its 30 minutes before the iPhone's probe finished: both devices lost, read as a hung runner. A device that would end
-  # past the deadline is not started, and the job is red with `not run: out of time` (suite-budget.mjs).
-  if [ -n "$last_cost" ]; then
-    brc=0
-    node docs/scripts/ios-safari/suite-budget.mjs --device "$family" --gone "$SECONDS" --cost "$last_cost" --deadline "$deadline" --mark "$OUT_OF_TIME_MARK" || brc=$?
-    if [ "$brc" = 10 ]; then status=1; out_of_time=1; left=$((left - 1)); continue; fi
-    if [ "$brc" != 0 ]; then echo "$family: the budget check itself failed (exit $brc)" >&2; status=1; probe_failed=1; left=$((left - 1)); continue; fi
-  fi
   device_t0=$SECONDS
-  # Seconds of this device spent on session starts that failed and were tried again (see last_cost).
-  wasted=0
-  session_dt=0
   device_type=$(xcrun simctl list devices available --json | jq -r --arg rt "$runtime" --arg f "$family" --arg p "$PROBE" \
     '[.devices[$rt][] | select(.name | startswith($f))] as $all
      | (if $p == "focus-sync" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
@@ -230,7 +194,6 @@ for family in $families; do
       APP_DIR="$app" ARTIFACT_DIR="$OUT" node docs/scripts/ios-safari/office-capture.mjs || { status=1; probe_failed=1; }
     xcrun simctl shutdown "$udid" || true
     left=$((left - 1))
-    last_cost=$((SECONDS - device_t0))
     continue
   fi
   # Exit 3 from run.mjs means no session was ever created, so no probe code ran: safaridriver could not reach this
@@ -247,11 +210,10 @@ for family in $families; do
   why=''
   for start in 1 2; do
     if [ "$start" = 2 ]; then
-      start1_dt=$((SECONDS - start_t0))
       cycle=$((SECONDS - device_t0))
       need=$((cycle * left))
-      if [ $((SECONDS + need)) -gt "$deadline" ]; then
-        echo "$family: no second start: ${SECONDS} s gone, and $left device start(s) of about ${cycle} s each would pass $deadline s"
+      if [ $((SECONDS + need)) -gt "${SUITE_DEADLINE:-1560}" ]; then
+        echo "$family: no second start: ${SECONDS} s gone, and $left device start(s) of about ${cycle} s each would pass ${SUITE_DEADLINE:-1560} s"
         # Without a second start this device would get fewer session attempts than main's three: make the third here, in
         # place, 20 s on, as run.mjs would have.
         if [ "$rc" = 3 ]; then
@@ -263,24 +225,18 @@ for family in $families; do
           sleep 2
           xcrun simctl launch "$udid" com.apple.mobilesafari || true
           sleep 18
-          # The failed session attempts are what the next device will not pay; the boot before them it will.
-          wasted=$((wasted + session_dt))
           if start_driver; then
             rc=0
             SESSION_ATTEMPTS=1 PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
-            add_session_waste
           fi
         fi
         break
       fi
       echo "$family: $why on start 1 of 2; rebooting it and restarting safaridriver"
-      # The whole first start is spent: the second pays its own boot, as the next device will.
-      wasted=$((wasted + start1_dt))
       kill "$driver" 2>/dev/null || true
       wait "$driver" 2>/dev/null || true
       driver=
     fi
-    start_t0=$SECONDS
     xcrun simctl shutdown "$udid" || true
     if ! { xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b && xcrun simctl launch "$udid" com.apple.mobilesafari; }; then
       rc=5; why='the simulator did not boot or Safari did not launch'; continue
@@ -290,10 +246,7 @@ for family in $families; do
     rc=0
     attempts=3
     [ "$start" = 1 ] && attempts=2
-    run_t0=$SECONDS
     SESSION_ATTEMPTS=$attempts PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
-    session_dt=$((SECONDS - run_t0))
-    add_session_waste
     [ "$rc" = 3 ] || break
     why='no session'
   done
@@ -308,10 +261,6 @@ for family in $families; do
   fi
   xcrun simctl shutdown "$udid" || true
   left=$((left - 1))
-  # One read of the clock: `took` and the estimate must agree to the second (the unit tests check cost = took - wasted).
-  took=$((SECONDS - device_t0))
-  last_cost=$((took - wasted))
-  echo "$family: took $took s, $wasted s of it on failed session attempts and starts"
 done
 
 # The undo probe's desktop half: the runner's own Safari, through the same safaridriver.
@@ -331,10 +280,6 @@ fi
     [ -f "$f" ] || continue
     jq -r '"| \(.session.label) (iOS \(.session.platformVersion // "?"), Safari \(.session.browserVersion // "?"), \(.width)px) | \(if .ok then "PASS" else "FAIL: \(.error)" end) |"' "$f"
   done
-  # A device with no time left to start: a failure, listed as one.
-  if [ -f "$OUT_OF_TIME_MARK" ]; then
-    while IFS= read -r line; do echo "| ${line#not run: out of time: } | NOT RUN: out of time |"; done < "$OUT_OF_TIME_MARK"
-  fi
   # The JPEG probe's measurements: Safari's own encoder against ours, picture by picture.
   for f in "$OUT"/jpeg-*.json; do
     [ -f "$f" ] || continue
@@ -342,12 +287,6 @@ fi
     jq -r '"**\(.session.label)**: Safari'"'"'s encoder \(.total.native) B, ours \(.total.ours) B", "", "| picture | Safari | ours |", "|---|---|---|", (.rows[] | "| \(.name) | \(.native.bytes) B, \(.native.sampling), \(.native.psnr * 100 | round / 100) dB | \(.ours.bytes) B, \(.ours.sampling), \(.ours.psnr * 100 | round / 100) dB, \(.ours.ms | round) ms |")' "$f"
   done
 } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
-if [ "$out_of_time" = 1 ]; then
-  # Never exit 3 here, even when every other failure was no-session: a re-run on a fresh runner would hide that this job
-  # does not fit its time, which is the finding.
-  echo "not every device ran: out of time ($OUT_OF_TIME_MARK); exit 1" >&2
-  exit 1
-fi
 if [ "$status" != 0 ] && [ "$probe_failed" = 0 ]; then
   echo 'no probe ran on any device that failed: exit 3, so the supervisor re-runs this job once (NO_SESSION_MARK)' >&2
   printf 'no-session\n' > "$NO_SESSION_MARK"
