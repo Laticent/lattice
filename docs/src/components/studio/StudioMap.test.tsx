@@ -1,14 +1,26 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import * as React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildDeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { createFocusHub } from '@/lib/fuoco/hub';
 
 // The pool draws iframes; what is under test is the host: which units the rail lists, which one it
 // calls focused, and what a pick or a step asks the shell for.
-vi.mock('./preview-pool', () => ({
-	PreviewPool: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-	PooledThumbFace: (p: { slideIndex?: number; slideMarkdown?: string }) => <i data-live-face={p.slideIndex} data-md={p.slideMarkdown} />,
-}));
+// `capturing` turns on the pool's poster capture for the tests that need one: a face then hands its picture over once
+// mounted, as the real pool does once the tile has rendered and the rail is still.
+const pool = vi.hoisted(() => ({ capturing: false }));
+vi.mock('./preview-pool', async () => {
+	const React = await import('react');
+	return {
+		PreviewPool: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+		PooledThumbFace: (p: { slideIndex?: number; slideMarkdown?: string; onPicture?: (c: () => Promise<Blob | null>) => void }) => {
+			React.useEffect(() => {
+				if (pool.capturing) p.onPicture?.(async () => new Blob(['jpeg'], { type: 'image/jpeg' }));
+			}, [p.onPicture]);
+			return <i data-live-face={p.slideIndex} data-md={p.slideMarkdown} />;
+		},
+	};
+});
 
 import StudioMap from './StudioMap';
 
@@ -16,18 +28,21 @@ beforeAll(() => {
 	Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 148 });
 	Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 600 });
 });
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	pool.capturing = false;
+});
 
 // Four authored slides; the second heading-splits into two rendered slides: five parts.
 const DECK = '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n## Two B\n\n---\n\n# Three\n\n---\n\n# Four\n';
 
-function setup(view?: number[]) {
+function setup(view?: number[], deck = DECK) {
 	const hub = createFocusHub({ outliner: deckOutliner });
-	hub.update(DECK);
+	hub.update(deck);
 	hub.flush();
-	const index = buildDeckIndex(DECK);
+	const index = buildDeckIndex(deck);
 	const onPick = vi.fn();
-	const props = { hub, index, view: view ?? index.units.map((_, i) => i), onPick, options: { themeBase: '', runtimeUrl: '' }, sample: DECK, front: DECK.slice(0, index.bodyStart), aspect: 16 / 9, orientation: 'vertical' as const };
+	const props = { hub, index, view: view ?? index.units.map((_, i) => i), onPick, options: { themeBase: '', runtimeUrl: '' }, sample: deck, front: deck.slice(0, index.bodyStart), aspect: 16 / 9, orientation: 'vertical' as const };
 	return { hub, index, onPick, ui: <StudioMap {...props} /> };
 }
 const tiles = () => [...document.querySelectorAll<HTMLElement>('button[data-unit]')].map((b) => b.getAttribute('aria-label'));
@@ -38,11 +53,98 @@ describe('StudioMap', () => {
 		expect(tiles()).toEqual(['Slide 1, One', 'Slide 2, Two', 'Slide 3, Two B', 'Slide 4, Three', 'Slide 5, Four']);
 	});
 
-	it('draws live tiles from the shell look with the part alone as the fallback', () => {
+	it('draws live tiles from the shell look with the part alone as the fallback', async () => {
 		render(setup().ui);
-		const first = document.querySelector('[data-live-face="0"]');
+		// The map promotes its tiles after mount (MapRail `ramp`), so the face arrives a step later.
+		const first = await waitFor(() => {
+			const f = document.querySelector('[data-live-face="0"]');
+			expect(f).not.toBeNull();
+			return f;
+		});
 		expect(first?.getAttribute('data-md')).toContain('theme: indaco');
 		expect(first?.getAttribute('data-md')).toContain('# One');
+	});
+
+	// STILLS STAY STILLS: a frame exists to make a poster. Once the tile's poster is captured the tile shows it and its
+	// frame goes back to the pool, so an unchanged map holds no engine documents (StudioMap.tsx `live`).
+	it('shows a tile\'s poster in place of its live frame once the poster is captured', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup().ui);
+		const tile = () => document.querySelector<HTMLElement>('button[data-unit="0"]');
+		await waitFor(() => expect(tile()?.dataset.shows).toBe('poster'));
+		expect(tile()?.dataset.tier).toBe('live'); // still planned live: the host drew the poster instead
+		expect(document.querySelector('[data-live-face="0"]')).toBeNull();
+		expect(tile()?.querySelector('img')).not.toBeNull();
+	});
+
+	// A library photo can be replaced under its name, so its slide's text, and the poster key, stay the same while its
+	// picture changes: that slide keeps its frame even once its poster exists (found by maker-checker).
+	it('keeps a slide that shows a library photo live, poster or not', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n![](asset:hero)\n').ui);
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		await waitFor(() => {
+			expect(tile(0)?.dataset.shows).toBe('poster');
+			expect(tile(1)?.dataset.shows).toBe('live');
+		});
+		expect(document.querySelector('[data-live-face="1"]')).not.toBeNull();
+	});
+
+	// The photo check reads the front matter too, and matches as the resolver does, case-insensitively.
+	it('keeps every slide live when the front matter names a library photo, in any case', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup(undefined, '---\ntheme: indaco\nbackgroundImage: url(Asset:hero)\n---\n\n# One\n\n---\n\n# Two\n').ui);
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		await waitFor(() => {
+			expect(tile(0)?.dataset.shows).toBe('live');
+			expect(tile(1)?.dataset.shows).toBe('live');
+		});
+		// Captured all the same: the pool offered each picture, and a poster exists under each frame.
+		expect(tile(0)?.querySelector('img')).not.toBeNull();
+	});
+
+	it('keeps a slide live whose own text names a photo in another case', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n![bg](Asset:hero)\n').ui);
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		// Once its poster exists (an img under the frame), a plain slide would switch to it; this one must stay live.
+		await waitFor(() => expect(tile(1)?.querySelector('img')).not.toBeNull());
+		expect(tile(0)?.dataset.shows).toBe('poster');
+		expect(tile(1)?.dataset.shows).toBe('live');
+	});
+
+	it('keeps every slide live when the custom theme\'s CSS names a photo', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		const { ui } = setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n');
+		render(React.cloneElement(ui, { extraTheme: { name: 'mine', css: 'section { background: url(asset:hero) center / cover; }' } }));
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		await waitFor(() => {
+			expect(tile(0)?.dataset.shows).toBe('live');
+			expect(tile(1)?.dataset.shows).toBe('live');
+		});
+		expect(tile(0)?.querySelector('img')).not.toBeNull(); // captured all the same: the frame is kept, not the picture
+	});
+
+	it('keeps a slide live when a directive carried onto it names a photo', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n<!-- backgroundImage: url(asset:hero) -->\n\n# Two\n\n---\n\n# Three\n').ui);
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		// Slide three's text names no photo; the directive carried from slide two does. Once its poster exists it must stay live.
+		await waitFor(() => expect(tile(2)?.querySelector('img')).not.toBeNull());
+		expect(tile(0)?.dataset.shows).toBe('poster');
+		expect(tile(2)?.dataset.shows).toBe('live');
 	});
 
 	it('picks through the shell: a tile asks for its chunk and heading section', () => {

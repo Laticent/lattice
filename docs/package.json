@@ -34,6 +34,7 @@
     "perf:frame:check": "node scripts/frame-bench.mjs --check",
     "perf:first-paint": "node scripts/first-paint-bench.mjs",
     "perf:startup": "node scripts/startup-bench.mjs",
+    "perf:load": "node scripts/load-bench.mjs",
     "perf:activities": "node scripts/activity-bench.mjs",
     "preview:h2": "node scripts/serve-h2.mjs",
     "perf:fouc": "node scripts/fouc-bench.mjs",
@@ -98,7 +99,6 @@
     "lucide-react": "^1.18.0",
     "markdown-it": "^14.3.3",
     "pdf-lib": "^1.17.1",
-    "pptxgenjs": "^3.12.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-history": "^1.5.0",
     "prosemirror-inputrules": "^1.5.1",
@@ -128,10 +128,7 @@
     "zdog": "^1.1.3"
   },
   "overrides": {
-    "satteri": "^0.10.3",
-    "pptxgenjs": {
-      "image-size": "^2.1.0"
-    }
+    "satteri": "^0.10.3"
   },
   "devDependencies": {
     "@emnapi/core": "^1.11.3",

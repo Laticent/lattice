@@ -6,7 +6,7 @@
 //                and placed one-per-page via jsPDF. No print dialog. Trade-off:
 //                text is an image, not selectable/searchable. For vector +
 //                selectable text use "Print" (the browser's own PDF engine).
-//   - PPTX     : image-slides — the same 2x PNGs, full-bleed via PptxGenJS.
+//   - PPTX     : image-slides — the same 2x PNGs, full-bleed, through Calco's PPTX writer.
 //   - Print    : the browser print path — true vector, selectable, but a dialog.
 //
 // Rasterization uses the shared slide camera (lib/core/slide-camera.mjs; formerly html-to-image's toPng): it clones the slide, inlines the
@@ -29,7 +29,7 @@
 // to survive the white because a background-image paints over background-color;
 // solid-color ones did not — hence title/closing went white on Cuoio.)
 //
-// jspdf / pptxgenjs / html-to-image are lazy-imported (own chunks).
+// jspdf / Calco's PPTX writer / html-to-image are lazy-imported (own chunks).
 
 // The theme graph is DECLARED (manifest `extends`, baked into THEME_EDGES), not
 // re-derived by scanning `@import` — this was the fourth such scanner in the repo.
@@ -1216,7 +1216,7 @@ async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
 	// for every face — so off-screen slides (forced visible mid-loop) rasterize
 	// with their fonts already resolved instead of racing the lazy loader.
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
-	// markdown kernels above stay unit-testable) — same split as jspdf/pptxgenjs.
+	// markdown kernels above stay unit-testable) — same split as jspdf and Calco's writers.
 	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
 	const fontEmbedCSS = await buildFontEmbedCss(deckTextOf(doc), fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
@@ -2503,14 +2503,6 @@ export async function exportPdf(render, name, onStatus, meta, opts) {
 // the alt can never drift onto the wrong slide: no source re-split, no
 // front-matter phantom, no auto-split (`split: headings`) misalignment. Mirrors
 // lib/export/pptx-export.js, which extracts from the same rendered slides it paints.
-/** The PowerPoint slide layout for a deck's geometry — 16:9 keeps the built-in one. */
-function pptxLayout(boxW, boxH) {
-	if (!(boxW > 0 && boxH > 0) || Math.abs(boxW / boxH - 16 / 9) < 0.01) return { custom: false, w: 0, h: 0 };
-	const longest = Math.max(boxW, boxH);
-	const inches = (n) => Math.round((n / longest) * 13.333 * 1000) / 1000;
-	return { custom: true, w: inches(boxW), h: inches(boxH) };
-}
-
 function canUsePptxWorker() {
 	return typeof Worker !== 'undefined';
 }
@@ -2525,10 +2517,10 @@ function canUsePptxWorker() {
  * What moves is the DOCUMENT, not the encode, and the measurement is why. On a
  * 56-slide deck the per-slide stall is the same in PowerPoint and in the PDF (350 ms
  * vs 367 ms) — that is html-to-image, and it needs the DOM. What PowerPoint had on
- * top was one 717 ms freeze at the END: pptxgenjs writing an XML part per slide,
- * JSZip base64-decoding every image, and the zip write, none of it yielding.
+ * top was one 717 ms freeze at the END (measured with pptxgenjs, the writer before Calco's):
+ * an XML part per slide, every image decoded from base64, and the zip write, none of it yielding.
  */
-async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log, images) {
+async function buildPptxViaWorker(sections, fontEmbedCSS, { size, props }, altTextFor, onStatus, log, images) {
 	const worker = new Worker(new URL('./pptx-assemble-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
@@ -2554,7 +2546,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 			failure = failure || e;
 			if (wake) { wake(); wake = null; }
 		});
-		worker.postMessage({ type: 'init', layout, props });
+		worker.postMessage({ type: 'init', size, props });
 		for (let i = 0; i < total; i++) {
 			if (failure) throw failure;
 			while (i - acked >= pptxInFlight) {
@@ -2602,19 +2594,18 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 		describeRecord.length = 0;
 	}
 	const { eng, summary } = provenance(meta, sections.length);
-	const props = { title: (name || 'deck').trim(), subject: summary, author: 'Lattice Drawing Board', company: `Lattice · ${eng}` };
-	// Slide aspect from the deck's @size geometry (mirrors lib/export/pptx-export.js
-	// pptxLayout). 16:9 keeps the built-in LAYOUT_WIDE; portrait/square get a custom
-	// layout at the same aspect, normalized to a 13.333in longest edge so the PNG
-	// full-bleeds without a ~20in sheet. Without this a portrait deck letterboxed.
-	const { w: boxW, h: boxH } = slideGeom(sections[0]);
-	const layout = pptxLayout(boxW, boxH);
+	// No author: the Studio does not know who wrote the deck, and the program is the file's Application, not its author.
+	const props = { title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
+	// The deck's @size geometry, in px. Calco's writer sets the slide aspect from it (`pptxPageSize`): 16:9 is
+	// PowerPoint's wide slide, and a portrait or square deck keeps its aspect, so the picture full-bleeds.
+	const { w: width, h: height } = slideGeom(sections[0]);
+	const size = { width, height };
 	// The alt text for slide i, read from the RECORD rather than from the rasterized
 	// section (see the note below).
 	const altTextFor = (i) => (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
 	if (canUsePptxWorker()) {
 		try {
-			const blob = await withEmbeddedSource(await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log, images), 'pptx', opts?.embedSource, onStatus);
+			const blob = await withEmbeddedSource(await buildPptxViaWorker(sections, fontEmbedCSS, { size, props }, altTextFor, onStatus, log, images), 'pptx', opts?.embedSource, onStatus);
 			download(blob, safeName(name) + '.pptx');
 			return missingImageReason(log);
 		} catch (e) {
@@ -2622,25 +2613,12 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 			console.warn('[lattice-export] PPTX worker failed (' + (e?.message || e) + ') — falling back to the main-thread build.');
 		}
 	}
-	const [{ default: PptxGenJS }, { tidyPptxPackage, xmlSafe }, { default: JSZip }] = await Promise.all([import('pptxgenjs'), import('@/lib/calco'), import('jszip')]);
-	const pptx = new PptxGenJS();
-	// Control characters would make an XML part unreadable; PptxGenJS escapes markup only.
-	pptx.title = xmlSafe(props.title).trim() || 'deck';
-	pptx.subject = xmlSafe(props.subject);
-	pptx.author = xmlSafe(props.author);
-	pptx.company = xmlSafe(props.company);
-	if (layout.custom) {
-		pptx.defineLayout({ name: 'LATTICE', width: layout.w, height: layout.h });
-		pptx.layout = 'LATTICE';
-	} else {
-		pptx.layout = 'LAYOUT_WIDE'; // 13.333 x 7.5in, 16:9 — the PNG full-bleeds it
-	}
+	const [{ writePptx }, { default: JSZip }] = await Promise.all([import('@/lib/calco/pptx'), import('jszip')]);
+	const slides = [];
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const picture = await blobToDataUri(await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images));
-		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
-		// (never let pptxgenjs default `descr` to the image filename — junk a screen
-		// reader reads).
+		const image = new Uint8Array(await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images)).arrayBuffer());
+		// Alt text: the slide's own `describe:` description, else a neutral "Slide N".
 		//
 		// Read from the RECORD, not from the rasterized section. `sections` comes out of
 		// the capture frame, and that frame sanitizes — `sanitizeSlideHtml` deletes comment
@@ -2648,19 +2626,16 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
-		pptx.addSlide().addImage({ data: picture, x: 0, y: 0, w: '100%', h: '100%', altText: xmlSafe(altTextFor(i)).trim() || `Slide ${i + 1}` });
+		slides.push({ image, frames: [], description: altTextFor(i) });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
 		await new Promise((r) => setTimeout(r));
 	}
 	if (onStatus) onStatus('Building .pptx…', { current: sections.length, total: sections.length });
-	// `write` + our own `download`, not `writeFile`: the blob has to pass through the
-	// re-openable step first, and both lanes then save the same way.
-	// Typed as a PowerPoint: pptxgenjs's `write` hands back JSZip's default `application/zip`,
-	// where `writeFile` used to wrap it in the presentation type before saving.
-	// Calco's schema tidy, as the worker lane runs it (pptx-assemble-worker.js).
-	const tidy = await tidyPptxPackage(JSZip, new Uint8Array(await pptx.write({ outputType: 'arraybuffer' })), 'uint8array');
-	const built = new Blob([tidy], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+	// Calco's writer, as the worker lane runs it (pptx-assemble-worker.js); our own `download`, because the
+	// blob has to pass through the re-openable step first.
+	const bytes = await writePptx(JSZip, { ...size, ...props, slides }, 'uint8array');
+	const built = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
 	download(await withEmbeddedSource(built, 'pptx', opts?.embedSource, onStatus), safeName(name) + '.pptx');
 	// Same contract as exportPdf: a picture the capture could not load costs the image,
 	// never the export — and the author is told, because a silent hole is worse than a
@@ -2804,7 +2779,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		}
 		const { eng, summary } = provenance(meta, sections.length);
 		const { w, h } = slideGeom(sections[0]);
-		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), title: (name || 'deck').trim(), subject: summary, author: 'Lattice Studio', company: `Lattice · ${eng}` };
+		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
 		if (editable) {
 			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
 			const { calcoFontHost } = await import('./calco-font-host.js');
@@ -2827,7 +2802,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		const bytes =
 			format === 'odp'
 				? await calco.writeOdp((await import('jszip')).default, deck, 'uint8array')
-				: await calco.writePptx((await import('pptxgenjs')).default, deck, 'uint8array', (await import('jszip')).default);
+				: await calco.writePptx((await import('jszip')).default, deck, 'uint8array');
 		let blob = new Blob([bytes], { type: kind.mime });
 		// Re-openable is a PowerPoint feature (embedded-source.ts writes an OPC part).
 		if (format === 'pptx') blob = await withEmbeddedSource(blob, 'pptx', opts?.embedSource, onStatus);

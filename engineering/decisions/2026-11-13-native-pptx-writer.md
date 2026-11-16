@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   Calco writes the PowerPoint package itself, with JSZip, as it already writes ODP, and Lattice drops pptxgenjs from
   the CLI and the Studio. The owner chose this on 2026-11-13 over vendoring a pptxgenjs fork or shipping an
@@ -116,9 +116,83 @@ and the small-caps hack retires with pptxgenjs.
 - The ODP writer, the slide camera, font subsetting, and what the deck looks like.
 - `jszip` stays; it is the only package dependency in the path.
 
+## What shipped (2026-11-15)
+
+`docs/src/lib/calco/pptx.ts` `buildPptx(JSZip, deck)` / `writePptx(JSZip, deck, outputType)`. The CLI's picture
+`.pptx` (`lib/export/pptx-export.js`), `--editable` (`lib/export/office-export.js`), and the Studio's two lanes
+(`deck-export.js`, `pptx-assemble-worker.js`) all call it. What differs from the design above, and why:
+
+- **Media are named by a 64-bit FNV-1a hash of their bytes** and stored once: a logo on every slide is one part.
+  PNG and JPEG are stored, not deflated; the XML, SVG and fonts are deflated.
+- **Notes pages exist only for slides with notes.** pptxgenjs wrote one per slide.
+- **The title placeholder is `type="title"` with no index**, and the page-number placeholder is
+  `type="sldNum" idx="12"`, the values PowerPoint itself writes; pptxgenjs used `idx="100"` and `idx="4294967295"`.
+- **A notes page splits the note into paragraphs** at its line breaks; pptxgenjs wrote one run with raw newlines.
+
+The proof is `test/unit/calco/pptx-structure.test.js` (§How it is proven 1),
+`test/integration/export/office-conformance.test.js` (2, LibreOffice), and `test/unit/calco/pptx-parity.test.js`
+(3), whose snapshot was read from the pptxgenjs path at `e5dfcb1d` and is frozen.
+
+**Real decks, before and after (2026-11-15).** The gallery and eight example decks (`accent-finishes`, `card-tags`,
+`sample-images`, `marks`, `calco-edge-cases`, `focus`, `focus-highlight-axes`, `inline-icons`) were exported by `main` at
+`e5dfcb1d` (pptxgenjs) and by this writer, editable and picture-per-slide, and read back with the parity reader: 18
+files, 388 slides (194 in each mode), 4,731 objects. The nine picture-per-slide files and six of the nine editable ones match. Five
+values differ: three drawn marks now keep the round corners the page asks for (pptxgenjs only rounded them when the
+line ends were round too), and two pill corners read 50000 (a half-round) where pptxgenjs's separate rounding of
+radius and size left 49840, under 0.05 px on a 30 px pill.
+
+**What did not happen before merge.** §How it is proven 4 named PowerPoint, Keynote and Google Slides. None of them
+can run in this sandbox or in a platform suite, so the bytes ship checked by the ISO 29500 schema, Microsoft's Open
+XML SDK, LibreOffice 24.2 (the round trip) and Apple's Office importer (`office-quicklook`), and NOT opened in
+PowerPoint, Keynote or Google Slides. The owner's export sign-off asks for that open; until it happens,
+`followups.d/3220-p1-native-pptx-real-readers.md` tracks it. The LibreOffice round trip skips in CI, where no job
+installs LibreOffice.
+
+**What the parity test compares, and what it does not.** `test/helpers/pptx-readback.js` reads each object's kind,
+name, alt text, placeholder type, group path, frame, geometry (preset, adjust, custom path), fill (solid, gradient),
+outline (color, alpha, width, dash, cap, join), shadow, picture bytes (hash) and SVG, lock, and its text paragraph by
+paragraph and run by run (text, field, size, bold, italic, underline, strike, caps, spacing, font, color, alpha,
+highlight, alignment, line spacing, insets, wrap, anchor), the layout behind each slide with its background, the notes,
+the title, subject and creator, and the embedded fonts. It does not read autofit, `lang`, the `ea`/`cs` faces, the
+master's text styles, the theme, a picture's crop, or the document dates. A property outside that list can drift
+without a diff.
+
+## Right, not parity (2026-11-15)
+
+The owner's rule, set while the PR was open: **the writer does what the spec and the browser say, not what pptxgenjs
+did.** pptxgenjs is a library with its own defaults, and the first cut copied several of them to keep the parity test
+quiet. The parity snapshot stays, frozen, as a guard against ACCIDENTAL change. Every place the writer now says
+something different is listed in `intended()` in `test/unit/calco/pptx-parity.test.js` with its reason, so a departure
+is always a reviewed decision. The ones the parity reader cannot see are held by `test/unit/calco/pptx-correctness.test.js`,
+each with a failing arm.
+
+| What | pptxgenjs (and the first cut) | Now | Why |
+|---|---|---|---|
+| Kerning | the default styles' `kern="1200"` (none under 12pt); `kern="0"` on letter-spaced runs | `kern="100"` on every run | Chromium kerns at every size and kerns letter-spaced text (measured: 11px "AVAVAVTo" 53.3 vs 58.0 px unkerned; 2px-spaced 132.4 vs 142.5). PowerPoint writes `kern="0"` for "off" |
+| Language | `lang="en-US"` on every run | the run's nearest `lang`, else the deck's `lang:`, else `en-US` | spell-check and read-aloud follow it |
+| Font class | `pitchFamily="34"` (swiss, variable) for every face, JetBrains Mono included | `panose` and `pitchFamily` read from the face (OS/2, post), else the family from the CSS generic, else nothing | a reader without the face picks its stand-in from these; a monospaced face claimed as swiss falls back to Arial |
+| Slide size | 13.333 in (12191695 EMU) for a non-16:9 deck; a near-16:9 deck snapped to the wide slide, its content 2 px past the bottom | exact: 12192000 EMU on the longest edge, the deck's own aspect | PowerPoint's 13⅓ in; one scale on both axes |
+| Lengths | line widths, shadows and insets rounded to 0.01 pt first | EMU from px directly | one rounding, not two |
+| Opacity | whole percents | 1/1000 of a percent, as the file holds | |
+| Notes page | a 16:9 slide image on every deck | the slide's own aspect | a portrait deck's notes page showed a squashed slide |
+| Header and footer flags | the master's "no slide number" for every layout | each layout says whether it numbers its slides | PowerPoint's Header & Footer dialog and a new slide read it |
+| Properties | title "deck", author "Calco" / "Lattice" / "Lattice Drawing Board", company "Calco", `Words` and `Paragraphs` 0, format "On-screen Show (16:9)" | only what the deck says; no counts; "Widescreen" | the program is `Application`, not the author; a zero is a false count; "On-screen Show (16:9)" is PowerPoint's 10 in slide |
+
+What a reader sees: the 18 real-deck files (above) re-exported with these changes, opened in LibreOffice and compared by
+`tools/pixel-check.js` against the same files from `c2845d65`: the nine picture-per-slide files are pixel-identical, and
+9 of the 194 editable slides differ by 0.06–0.10% of their pixels, all of it the ring of a drawn check or cross icon,
+whose line width is now exact. Read back by the parity reader against pptxgenjs, the new values are the line widths
+(at most 63 EMU, 0.007 px), 12 opacities (7000 becomes 7100, the page's 7.1%), and the title and author: the CLI now
+names the file by the deck's own title, not its file name, and names no author. LibreOffice ignores `kern` (a 1pt, 12pt and 0 threshold render to the
+same widths), so the kerning change is visible only in PowerPoint and Keynote, which have not opened it.
+
+Left as they are, on purpose: line spacing stays proportional (`spcPct`, for Google Slides, §The design); `ea` and `cs`
+name the run's family; and the theme is still Office's colors and fonts, a question put to the owner (a theme built
+from the deck would give PowerPoint's color picker and new text boxes the deck's palette and faces).
+
 ## Risks
 
 - **A reader rejects a part we write minimally.** PowerPoint is strict about content types and relationship ids.
-  Mitigation: the structure test, plus PowerPoint itself in the platform suites, before the merge ask.
+  Mitigation: the structure test, the Open XML SDK, and the open in PowerPoint on the owner's sign-off (above).
 - **A pptxgenjs default we relied on without knowing.** Mitigation: the parity test reads back every property the
   current output carries, so a property we forget to write shows up as a diff.

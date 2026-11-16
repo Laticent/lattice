@@ -229,12 +229,15 @@ test('the arrow keys walk the rail slide by slide and keyboard focus stays on it
  * sub-pixel disagreement with the observer cannot hold the wait open. Live tiles there sit 60px or more from it.
  */
 async function poolFilled(page: Page) {
+	// The rail promotes its live tiles one at a time after load (MapRail `ramp`), so the map is full only once the ramp is done.
+	await expect(page.locator(`${RAIL} [data-ramp="done"]`)).toHaveCount(1, { timeout: 30_000 });
 	await expect
 		.poll(
 			() =>
 				page.evaluate(() => {
 					const band = 150 - 8;
-					const tiles = [...document.querySelectorAll('[data-map-rail] button[data-tier="live"]')];
+					// What SHOWS a frame, not what the plan calls live: a tile with a fresh poster shows the poster (StudioMap.tsx).
+					const tiles = [...document.querySelectorAll('[data-map-rail] button[data-shows="live"]')];
 					// The observer's root: the nearest scrolling ancestor of a tile, as `scrollParent` finds it.
 					let root: Element | null = tiles[0]?.parentElement ?? null;
 					while (root && !/(auto|scroll|overlay)/.test(getComputedStyle(root).overflowX + getComputedStyle(root).overflowY)) root = root.parentElement;
@@ -277,7 +280,7 @@ async function reusesFrames(page: Page) {
 	// them. Counted IN VIEW: the strip keeps a live tile ready just past its edge, and the pool frames what can be seen.
 	const live = await page.evaluate(() => {
 		const rail = document.querySelector('[data-map-rail]')?.getBoundingClientRect();
-		return [...document.querySelectorAll('[data-map-rail] button[data-tier="live"]')].filter((b) => {
+		return [...document.querySelectorAll('[data-map-rail] button[data-shows="live"]')].filter((b) => {
 			const r = b.getBoundingClientRect();
 			return rail && r.right > rail.left && r.left < rail.right && r.bottom > rail.top && r.top < rail.bottom;
 		}).length;
@@ -313,7 +316,11 @@ test('the map sits in the slide strip at every width, under the slide, never in 
 // THE CAPACITY REPORT BINDING ON THE REAL STUDIO. The pool reports its ceiling to the rail, and the rail passes it to
 // Veduta's `settle`, which caps the live tiles it asks for. No shipped setting lowers the ceiling below 28, so the
 // diagnostic key does (StudioMap.tsx `diagnosticSlots`); the arm without it shows the same deck asks for more.
-const TEN = Array.from({ length: 10 }, (_, i) => `# Slide ${i + 1}`).join('\n\n---\n\n');
+// Each slide shows a library photo (`asset:`), and a slide that does keeps its live frame even once its poster exists
+// (StudioMap.tsx: the photo can change under the same text). So these tiles hold their frames, and the frame count
+// measures the pool's ceiling. A deck of plain slides would hand each frame back as its poster arrived, and the uncapped
+// arm would never see more than 3 frames at once, which would leave the capped test proving nothing.
+const TEN = Array.from({ length: 10 }, (_, i) => `# Slide ${i + 1}\n\n![](asset:photo-${i + 1})`).join('\n\n---\n\n');
 async function openTen(page: Page, slots: string | null) {
 	if (slots) await page.addInitScript((n) => window.localStorage.setItem('lattice-studio-map-slots', n), slots);
 	await gotoStudio(page);
@@ -324,20 +331,39 @@ async function openTen(page: Page, slots: string | null) {
 	await expect.poll(() => page.locator(`${RAIL} button[data-unit]`).count()).toBeGreaterThan(3);
 }
 const liveTiles = (page: Page) => page.locator(`${RAIL} button[data-tier="live"]`).count();
-const railFrames = (page: Page) => page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length);
+// The PEAK of rail frames mounted at once. A reading is not enough: a tile gives its frame back once its poster is
+// captured (StudioMap.tsx, stills stay stills), so the count rises while the ramp promotes tiles and falls as their
+// posters arrive. Installed before the page loads.
+async function trackPeakFrames(page: Page) {
+	await page.addInitScript(() => {
+		const w = window as unknown as { __peakFrames: number };
+		w.__peakFrames = 0;
+		new MutationObserver(() => {
+			w.__peakFrames = Math.max(w.__peakFrames, document.querySelectorAll('[data-map-rail] iframe').length);
+		}).observe(document, { childList: true, subtree: true });
+	});
+}
+const peakFrames = (page: Page) => page.evaluate(() => (window as unknown as { __peakFrames: number }).__peakFrames);
 
 test('a pool ceiling lowered to 3 caps the live tiles at 3 through settle, and the frames with them', async ({ page }) => {
+	await trackPeakFrames(page);
 	await openTen(page, '3');
-	await expect.poll(() => railFrames(page), { message: 'the pool never mounted its frames' }).toBe(3);
+	await expect.poll(() => peakFrames(page), { message: 'the pool never mounted its frames' }).toBe(3);
+	// Read once the ramp is done: it promotes one tile at a time, so mid-ramp an uncapped map also reads 3.
+	await expect(page.locator(`${RAIL} [data-ramp="done"]`)).toHaveCount(1, { timeout: 30_000 });
 	await expect.poll(() => liveTiles(page), { message: 'the rail asked for more live tiles than the pool reported it holds' }).toBe(3);
-	test.info().annotations.push({ type: 'capped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
+	// And never past it: the ceiling held for the whole fill, not only at the moment it was read.
+	expect(await peakFrames(page)).toBe(3);
+	test.info().annotations.push({ type: 'capped', description: `live ${await liveTiles(page)}, peak frames ${await peakFrames(page)}` });
 });
 
 test('THE ARM: the same deck without the ceiling asks for more than 3 live tiles', async ({ page }) => {
+	await trackPeakFrames(page);
 	await openTen(page, null);
+	await expect(page.locator(`${RAIL} [data-ramp="done"]`)).toHaveCount(1, { timeout: 30_000 });
 	await expect.poll(() => liveTiles(page)).toBeGreaterThan(3);
-	await expect.poll(() => railFrames(page)).toBeGreaterThan(3);
-	test.info().annotations.push({ type: 'uncapped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
+	await expect.poll(() => peakFrames(page)).toBeGreaterThan(3);
+	test.info().annotations.push({ type: 'uncapped', description: `live ${await liveTiles(page)}, peak frames ${await peakFrames(page)}` });
 });
 
 // The Article view unmounts the preview pane, and the way back mounts a new one. The map comes back in the slide

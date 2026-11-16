@@ -1,0 +1,1 @@
+- **Compose's slide toolbar no longer grows by itself after the Studio loads.** When a slide's toolbar was measured before it was laid out, its reserved width waited for the next editor update, so on a first visit the toolbar could show narrower and then widen with no caret move. It now takes its reserved width the moment it is laid out.

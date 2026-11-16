@@ -6,7 +6,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
-const PptxGenJS = require('pptxgenjs');
 const { writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_PNG, ONE_PX_JPEG } = require('./_fixtures');
 
@@ -27,7 +26,7 @@ const deck = (shape) => ({ width: 1280, height: 720, slides: [{ image: ONE_PX_PN
 
 describe('calco path shape', () => {
   test('.pptx: a freeform with a stroke, a round cap and a round join, and no fill', async () => {
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck(check), 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, deck(check), 'nodebuffer'));
     const xml = await zip.file('ppt/slides/slide1.xml').async('string');
     const sp = xml.match(/<p:sp>(?:(?!<\/p:sp>).)*name="Mark 1\.1"(?:(?!<\/p:sp>).)*<\/p:sp>/s)[0];
     assert.match(sp, /<a:custGeom>/);
@@ -50,7 +49,7 @@ describe('calco path shape', () => {
     const plain = { ...check, cap: undefined, join: undefined };
     const odp = await JSZip.loadAsync(await writeOdp(JSZip, deck(plain), 'nodebuffer'));
     assert.match(await odp.file('content.xml').async('string'), /svg:stroke-linecap="butt"(?! draw:stroke-linejoin)/);
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, { width: 1280, height: 720, slides: [{ image: ONE_PX_JPEG, frames: [] }] }, 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, { width: 1280, height: 720, slides: [{ image: ONE_PX_JPEG, frames: [] }] }, 'nodebuffer'));
     assert.doesNotMatch(await zip.file('ppt/slides/slide1.xml').async('string'), /cap="rnd"/);
   });
 });

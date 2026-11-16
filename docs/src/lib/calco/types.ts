@@ -10,6 +10,14 @@
 export interface TextStyle {
 	/** The font family the browser actually drew with (not the whole fallback stack). */
 	family: string;
+	/**
+	 * The last generic family in the CSS stack (`font-family: "JetBrains Mono", monospace`), when there is one: the
+	 * author's own word for what kind of face this is, which a writer passes on so a reader without the face picks a
+	 * stand-in of the same kind.
+	 */
+	generic?: 'serif' | 'sans-serif' | 'monospace' | 'cursive' | 'fantasy';
+	/** The run's language, from the nearest `lang` attribute (BCP 47, `en-US`): spell-check and read-aloud follow it. */
+	lang?: string;
 	/** CSS weight, 100–900. */
 	weight: number;
 	italic: boolean;
@@ -259,6 +267,8 @@ export interface Deck {
 	title?: string;
 	subject?: string;
 	author?: string;
+	/** The deck's language (BCP 47), for a run with no `lang` of its own and for the speaker notes. */
+	lang?: string;
 	/** Provenance; ODP keeps it as a user-defined property, PPTX as the company field. */
 	company?: string;
 	/** Fonts to embed (ODP). A writer embeds only the faces some run uses. */
