@@ -207,7 +207,7 @@ function summarizeTapLog(log) {
 	const ts = first('touchstart');
 	const te = first('touchend') || first('touchcancel');
 	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
-	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${e.text}"`} in ${e.target}` : `${e.type}@${e.t}${e.lag ? `(+${e.lag})` : ''} ${e.x},${e.y} ${e.target}`));
+	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${String(e.text).replace(/\s+/g, ' ').trim()}"`} in ${e.target}` : `${e.type}@${e.t}${e.lag ? `(+${e.lag})` : ''} ${e.x},${e.y} ${e.target}`));
 	return `${held}; ${parts.slice(0, 14).join(' | ')}${parts.length > 14 ? ` | +${parts.length - 14} more` : ''}`;
 }
 
