@@ -120,15 +120,21 @@ option must also rule out the decay into a rule plus a `theme: x` heading, which
 
 **The owner's ruling (2026-11-16) goes the other way: a pasted deck's front matter is respected.** The use case
 is real (bring a deck's look along with its slides), and the deck is Markdown, so the settings are part of what
-was pasted. Shipped (`mergeFrontMatterBlocks`, `front-matter.ts`):
+was pasted. Shipped (`mergeFrontMatterBlocks`, `front-matter-merge.ts`, loaded on the first paste that carries
+settings so it costs no startup bytes):
 
-- each top-level key the paste carries replaces the deck's entry for that key whole (a `style: |` body with it),
-  in place; a key only the paste carries is added; a key only the deck carries keeps its bytes;
+- each top-level key the paste carries (bare or quoted) replaces the deck's entry for that key whole, in place,
+  keeping the deck's comment above it; a key only the paste carries is added; a key only the deck carries keeps
+  its bytes; a key with the same value changes nothing and is not claimed;
+- the block always closes with `---` on its own line, whatever the pasted text ended with;
+- a leading `---` block that names no setting is not front matter: it is slides copied from the middle of a deck,
+  starting at a break, and is read as that break (the checker on #3234 found the first slide vanishing);
 - the merge rides the same transaction as the slides, so one Undo takes back both;
-- the Studio names the keys it applied ("Applied the pasted deck's settings (theme, paginate)");
+- the Studio names the keys it changed ("Applied the pasted deck's settings (theme, paginate)"), and says so when
+  the pasted settings are the ones the deck already has;
 - settings with no slides apply the settings and add no slide;
-- the network check reads the front matter too, since it is applied (a `style:` key, which can fetch, refuses the
-  paste; Source is the way in for it).
+- the network check reads the front matter too, since it is applied. A `style:` key holds CSS, which can fetch,
+  so it refuses the paste, and the message names the construct rather than claiming a fetch; Source is the way in.
 
 The first cut set the settings aside, following the survey; the owner read that as the wrong default for a
 Markdown tool.

@@ -115,6 +115,19 @@ test.describe('Markdown on the Compose clipboard', () => {
 		expect(await savedDeck(page)).not.toContain('big-number');
 	});
 
+	// Slides copied from the middle of a deck start at a break. That `---` names no setting, so it is a break, and every
+	// slide lands; read as front matter, the first slide vanished (the checker on #3234).
+	test('slides copied from the middle of a deck, starting at a break, all land', async ({ page }) => {
+		await openDeckInCompose(page, `---\ntheme: indaco\n---\n\n${DECK}`);
+		await caretAfter(page, 'Where we start.');
+		await paste(page, { 'text/plain': '---\n\n# Slide A\n\n---\n\n# Slide B\n' });
+		await expect.poll(() => savedDeck(page)).toContain('# Slide B');
+		const saved = await savedDeck(page);
+		expect(saved).toContain('# Slide A');
+		expect(saved.startsWith('---\ntheme: indaco\n---')).toBe(true);
+		await expect(page.locator('.cs-slide')).toHaveCount(3);
+	});
+
 	// The engine renders the paste and the spine reads the markup (HARD RULE #22). One spelling a source pattern missed
 	// (a record directive, from the red team) stands in for all of them: what matters is that the check is the renderer's.
 	for (const [label, payload] of [

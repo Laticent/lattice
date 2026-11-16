@@ -1,7 +1,7 @@
 import { Slice } from 'prosemirror-model';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CLIP_ORIGIN } from './clip-origin';
 import { deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
 import { looksLikeMarkdown, markdownClipboardPlugin, markdownToSlice, pasteAsMarkdown, pasteNotice, placeSlides, rawBlocksOk, sliceToMarkdown } from './markdown-clipboard';
@@ -101,7 +101,16 @@ describe('markdownToSlice', () => {
 		p.slice.content.forEach((s) => {
 			expect(s.textContent).not.toContain('theme:');
 		});
-		expect(pasteNotice(p)).toBe("Applied the pasted deck's settings (theme, paginate). Undo takes them back.");
+		expect(pasteNotice(p, ['theme', 'paginate'])).toBe("Applied the pasted deck's settings (theme, paginate). Undo takes them back.");
+		expect(pasteNotice(p, [])).toBeNull();
+	});
+
+	// The checker on #3234: slides copied from the middle of a deck start at a break, and that `---` names no setting.
+	it('reads a leading `---` with no setting under it as a slide break, keeping every slide', () => {
+		const p = markdownToSlice('---\n\n# Slide A\n\n---\n\n# Slide B\n');
+		expect(p.frontMatter).toBe('');
+		expect(p.slides).toBe(2);
+		expect(p.slice.content.child(0).textContent).toBe('Slide A');
 	});
 
 	it('settings and nothing else add no slide', () => {
@@ -256,7 +265,8 @@ describe('rawBlocksOk', () => {
 
 // The plugin end to end in jsdom, with the engine check stubbed: the real one is driven by the e2e spec.
 describe('markdownClipboardPlugin', () => {
-	const setup = (refs: string[] | Error) => {
+	const setup = (refs: string[] | Error) => setupWith('# One\n\nBody.\n', refs);
+	const setupWith = (source: string, refs: string[] | Error) => {
 		const notices: string[] = [];
 		const plugin = markdownClipboardPlugin(
 			(m) => notices.push(m),
@@ -265,7 +275,7 @@ describe('markdownClipboardPlugin', () => {
 				return refs;
 			},
 		);
-		const doc = deckToDoc('# One\n\nBody.\n');
+		const doc = deckToDoc(source);
 		const state = EditorState.create({ doc, selection: TextSelection.atEnd(doc), plugins: [plugin] });
 		const view = new EditorView(document.createElement('div'), { state });
 		const paste = async (text: string) => {
@@ -295,9 +305,38 @@ describe('markdownClipboardPlugin', () => {
 	it("applies a pasted deck's front matter to the open deck, key by key, with its slides", async () => {
 		const { view, paste } = setup([]);
 		await paste('---\ntheme: cuoio\npaginate: true\n---\n\n# Two\n\n---\n\n# Three');
+		// The merge is loaded on first use (front-matter-merge.ts), so wait for the paste to land rather than a tick count.
+		await vi.waitFor(() => expect(docToDeck(view.state.doc)).toContain('# Three'));
 		const out = docToDeck(view.state.doc);
 		expect(out.startsWith('---\ntheme: cuoio\npaginate: true\n---')).toBe(true);
 		expect(out).toContain('# Three');
+	});
+
+	it('keeps every pasted slide when the paste starts at a break, in a deck with or without settings', async () => {
+		for (const deck of ['---\ntheme: indaco\n---\n\n# One\n\nBody.\n', '# One\n\nBody.\n']) {
+			const { view, paste } = setupWith(deck, []);
+			await paste('---\n\n# Slide A\n\n---\n\n# Slide B\n');
+			await vi.waitFor(() => expect(docToDeck(view.state.doc)).toContain('# Slide B'));
+			const out = docToDeck(view.state.doc);
+			expect(out).toContain('# Slide A');
+			expect(out.startsWith('---\n\n# Slide A')).toBe(false);
+		}
+	});
+
+	it('names the construct when the check refuses a policy finding rather than an address', async () => {
+		const { view, notices, paste } = setup(['policy:a `style:` key in front matter']);
+		const before = view.state.doc;
+		await paste('---\nstyle: |\n  h1 { color: red; }\n---\n\n# Two');
+		expect(view.state.doc).toBe(before);
+		expect(notices.join(' ')).toContain('holds a `style:` key in front matter, which can load from other sites');
+	});
+
+	it('changes nothing, and says so, when the pasted settings are the ones the deck has', async () => {
+		const { view, notices, paste } = setupWith('---\ntheme: indaco\n---\n\n# One\n', []);
+		const before = view.state.doc;
+		await paste('---\ntheme: indaco\n---');
+		await vi.waitFor(() => expect(notices.join(' ')).toContain('already has'));
+		expect(view.state.doc).toBe(before);
 	});
 
 	it('refuses when the check cannot run: an unchecked paste is not waved through', async () => {

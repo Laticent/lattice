@@ -1,8 +1,8 @@
 // Studio Share — the REAL export pipeline, wired to the engine exporters.
 //
 // WRAP, DON'T REINVENT (HARD RULE #15). Every format below is produced by the
-// SAME code the Drawing Board ships (drawing-board-export.js) — Markdown (source
-// + embedded theme/components), the Marp ZIP bundle, the one-click image PDF /
+// SAME code the Drawing Board ships (drawing-board-export.js) — Markdown (the
+// source, nothing added), the Marp ZIP bundle (with the theme/components embedded), the one-click image PDF /
 // PPTX, and the browser's vector Print. This module only assembles the inputs
 // those functions need (an engine render of the FULL deck) from the Studio's
 // renderer options + current palette, so Share hands off real artifacts rather
@@ -1194,7 +1194,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	await ensureReady(options); // PG.marp must be present
 	const { named, photos } = await photosBesideDeck(source, deckId);
 	const ex = await exporters();
-	// Same finish-embed as the Markdown handoff so the ZIP renders the custom finish.
+	// Embed the saved finish so the ZIP renders the custom finish (the plain Markdown export carries none).
 	// `overflowMarker` — who a clipped slide's marker speaks to in the exported deck.
 	// The Share sheet's Marp options step passes this export's pick; the Workspace
 	// setting is the standing answer it defaults from (and the fallback for any caller
@@ -1204,7 +1204,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	const { loadSettings } = await import('./studio-store');
 	// A saved theme has no file on the site, so it rides in as `extraTheme` and the
 	// bundle writes its CSS itself; a saved component rides as an embedded `<style>`,
-	// the same block the Markdown export uses. Without both, the bundle fell back to
+	// the component bridge's own block. Without both, the bundle fell back to
 	// `indaco` and dropped the component's styling without a word.
 	// The plugins this deck's admission leaves off under the playground bundle's host (none on the
 	// shipped default set), so the bundle's runtime draws no more than the Studio's preview does.
