@@ -8,6 +8,10 @@
 // which a unit test holds to this list.
 //
 // Every link was checked to resolve to the page its label names on 2026-11-15. The steps use words, not arrows (#29).
+//
+// When a reader cannot update, the notice says so plainly or sends them to their IT team. It never tells them to use
+// another device or to install a browser of their choosing: on a managed work machine that steers people around their
+// organization's security controls (the owner's infosec rule, 2026-11-16).
 
 export interface BrowserFloor {
 	/** What the notice's ES5 user-agent reader calls this browser (old-browser-notice.es5.js). */
@@ -31,7 +35,7 @@ export interface BrowserFloor {
 }
 
 /** What to do when an Android app store offers no update: the phone itself is too old for a current browser. */
-const ANDROID_AFTER = "If there's no Update button, this phone can't get a newer version. Open this page on a computer or a newer phone.";
+const ANDROID_AFTER = "If there's no Update button, this phone is too old to run Lattice. If it's a work phone, ask your IT team.";
 
 export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 	{
@@ -57,10 +61,11 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		id: 'edge-legacy',
 		name: 'Edge',
 		min: '111',
-		note: "This is the old Edge, which Microsoft stopped updating in 2021. Install the new Edge instead: it's free and replaces the old one.",
-		steps: ['Open microsoft.com/edge.', 'Download and install Microsoft Edge.', 'Open this page again in the new Edge.'],
-		link: 'https://www.microsoft.com/edge',
-		linkText: 'Get the new Edge',
+		note: 'This is the old Edge, which Microsoft stopped updating in 2021. Windows Update replaces it with the new Edge.',
+		steps: ['Open Settings, then Update & Security, then Windows Update.', 'Install the updates it offers.', 'Open this page again in the new Edge.'],
+		after: "If this is a work computer, your IT team manages its updates: ask them.",
+		link: 'https://support.microsoft.com/windows/update-windows-3c5ae7fc-9fb6-9af1-1984-b5e0412c556a',
+		linkText: 'How to install Windows updates',
 	},
 	{
 		id: 'firefox',
@@ -80,7 +85,7 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 			'Choose System Settings, then General, then Software Update. On older Macs, choose System Preferences, then Software Update.',
 			'Install the update, then open this page again.',
 		],
-		after: "If your Mac can't update, a current Chrome or Firefox may still install on it.",
+		after: "If your Mac can't install the update, ask whoever manages it, such as your IT team.",
 		link: 'https://support.apple.com/en-us/102665',
 	},
 	{
@@ -89,7 +94,7 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		min: '16.4',
 		note: 'Every browser on an iPhone or iPad is built on Safari, so updating the iPhone or iPad updates all of them.',
 		steps: ['Open Settings.', 'Choose General, then Software Update.', 'Install iOS 16.4 or later.'],
-		after: "Older iPhones and iPads can't install iOS 16.4. If yours doesn't offer it, open this page on a computer or a newer device.",
+		after: "Older iPhones and iPads can't install iOS 16.4. If yours doesn't offer it, it's too old to run Lattice. If it's a work device, ask your IT team.",
 		link: 'https://support.apple.com/en-us/118575',
 	},
 	{
@@ -112,8 +117,8 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 
 /** Windows 7 and 8 can no longer run any browser at the floor: Chrome and Edge stopped at 109 there, Firefox at 115. */
 export const OLD_WINDOWS = {
-	need: 'A newer computer or phone',
-	note: "Windows 7 and 8 can't run a browser new enough for Lattice, because Chrome, Edge and Firefox all stopped updating there. Open this page on a computer with Windows 10 or later, a Mac, or a newer phone or tablet.",
+	need: 'Windows 10 or later',
+	note: "Windows 7 and 8 can't run a browser new enough for Lattice, because Chrome, Edge and Firefox all stopped updating there. If this is a work computer, ask your IT team about upgrading it.",
 	// No button: Microsoft's "support ended" page gives the reader nothing they can do.
 };
 

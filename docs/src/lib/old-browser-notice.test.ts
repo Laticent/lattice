@@ -154,11 +154,11 @@ describe('what it says to each browser', () => {
 		['Chrome 100 on Android', 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.79 Mobile Safari/537.36', 'Chrome 100', 'Chrome 111 or newer', 'https://play.google.com/store/apps/details?id=com.android.chrome', 'How to update Chrome'],
 		['Chrome 105 on Windows 10', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36', 'Chrome 105', 'Chrome 111 or newer', 'https://support.google.com/chrome/answer/95414', 'How to update Chrome'],
 		['Edge 109 on Windows 10', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.78', 'Edge 109', 'Edge 111 or newer', BROWSER_FLOOR.find((b) => b.id === 'edge')?.link, 'How to update Edge'],
-		['the original Edge 15 on Windows 10 (the owner saw it)', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063', 'Edge 15', 'Edge 111 or newer', 'https://www.microsoft.com/edge', 'Get the new Edge'],
+		['the original Edge 15 on Windows 10 (the owner saw it)', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063', 'Edge 15', 'Edge 111 or newer', 'https://support.microsoft.com/windows/update-windows-3c5ae7fc-9fb6-9af1-1984-b5e0412c556a', 'How to install Windows updates'],
 		['Firefox 115 on a Mac', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:115.0) Gecko/20100101 Firefox/115.0', 'Firefox 115', 'Firefox 128 or newer', 'https://support.mozilla.org/kb/update-firefox-latest-release', 'How to update Firefox'],
 		['Samsung Internet 19', 'Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/19.0 Chrome/102.0.5005.125 Mobile Safari/537.36', 'Samsung Internet 19', 'Samsung Internet 22 or newer', 'https://play.google.com/store/apps/details?id=com.sec.android.app.sbrowser', 'How to update Samsung Internet'],
 		['Opera 90', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36 OPR/90.0.4480.54', 'Opera 90', 'Opera 97 or newer', 'https://help.opera.com/en/latest/crashes-and-issues/#update', 'How to update Opera'],
-		['Chrome 109 on Windows 7', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36', 'Windows 7', 'A newer computer or phone', null, null],
+		['Chrome 109 on Windows 7', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36', 'Windows 7', 'Windows 10 or later', null, null],
 	])('%s', (_name, ua, have, need, link: string | null | undefined, linkText) => {
 		const screen = run(ua);
 		expect(text(screen, '.lob-spec dd')).toEqual([have, need]);
@@ -176,7 +176,7 @@ describe('what it says to each browser', () => {
 		expect(primary?.querySelector('.lob-sr')?.textContent).toBe(' (opens in a new tab)');
 		expect(primary?.rel).toBe('noopener');
 		// And a way forward for whoever can't update: the IT team, or this address on another device.
-		expect(screen.querySelector('.lob-cant')?.textContent).toMatch(/^Can't update\? On a work computer, ask your IT team\. Or open .+ on another device/);
+		expect(screen.querySelector('.lob-cant')?.textContent).toBe("Can't update? If this is a work device, your IT team manages updates: ask them.");
 	});
 
 	it.each([
@@ -186,13 +186,13 @@ describe('what it says to each browser', () => {
 		const screen = run(ua);
 		expect(text(screen, '.lob-spec dd')[0]).toBe(have);
 		expect(screen.querySelector<HTMLAnchorElement>('.lob-primary')?.href).toBe(link);
-		expect(screen.querySelector('.lob-after')?.textContent).toMatch(/^If there's no Update button, this phone can't get a newer version\./);
+		expect(screen.querySelector('.lob-after')?.textContent).toBe("If there's no Update button, this phone is too old to run Lattice. If it's a work phone, ask your IT team.");
 	});
 
 	it('a browser whose user agent claims a new enough version gets the general advice, never a contradiction', () => {
 		const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
 		expect(screen.querySelector('.lob-spec')).toBeNull();
-		expect(text(screen, '.lob-note')).toEqual(["We couldn't tell which browser this is. Install the newest Chrome, Edge, Firefox or Safari (all free), then open this page again."]);
+		expect(text(screen, '.lob-note')).toEqual(['We couldn\'t tell which browser this is. Lattice works in current versions of Chrome, Edge, Firefox and Safari; "Supported browsers" below lists them.']);
 	});
 
 	it('an unknown browser gets nothing to click away to; the supported list waits in the footer', () => {
@@ -251,6 +251,21 @@ describe('what it says to each browser', () => {
 	});
 });
 
+describe("the infosec rule: a reader who can't update is sent to IT, never around them", () => {
+	it.each([
+		['Safari on a Mac', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15'],
+		['an iPhone', 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1'],
+		['Chrome on Android', 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.79 Mobile Safari/537.36'],
+		['Chrome on Windows 7', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'],
+		['the old Edge', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063'],
+		['a browser it cannot name', 'SomeBrowser/1.0'],
+	])('%s is never told to use another device or to install a browser of its choosing', (_name, ua) => {
+		const words = run(ua).textContent ?? '';
+		expect(words).not.toMatch(/another device|other device|newer (phone|device|computer)|home computer|your phone|a Mac,|install (the newest|a current|another)|may still install/i);
+		expect(words).toMatch(/IT team/);
+	});
+});
+
 describe('its structure, for a reader who listens or tabs', () => {
 	it('is an alert dialog named by its heading and described by its lead', () => {
 		const screen = run('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15');
@@ -285,7 +300,7 @@ describe('its structure, for a reader who listens or tabs', () => {
 		expect(steps).toEqual(BROWSER_FLOOR.find((b) => b.id === 'safari')?.steps);
 		// A Mac old enough for Safari 15 has System Preferences, not System Settings: the step names both.
 		expect(steps[1]).toMatch(/System Settings.*On older Macs, choose System Preferences/);
-		expect(screen.querySelector('.lob-after')?.textContent).toMatch(/^If your Mac can't update/);
+		expect(screen.querySelector('.lob-after')?.textContent).toMatch(/^If your Mac can't install the update, ask whoever manages it/);
 	});
 
 	it('keeps the jargon behind "Capability requirements" and says what Continue anyway costs', () => {
@@ -329,7 +344,7 @@ describe('what an old engine gets wrong', () => {
 	it('tells the original Edge that no update reaches the floor, and where the current Edge is', () => {
 		const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063');
 		expect(screen.querySelector('.lob-note')?.textContent).toMatch(/old Edge, which Microsoft stopped updating in 2021/);
-		expect(text(screen, 'ol li')[0]).toBe('Open microsoft.com/edge.');
+		expect(text(screen, 'ol li')[0]).toBe('Open Settings, then Update & Security, then Windows Update.');
 	});
 
 	it('the current Edge ("Edg/") is not taken for the original one', () => {

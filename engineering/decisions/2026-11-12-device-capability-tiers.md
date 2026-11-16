@@ -508,12 +508,17 @@ versions and how to update, and it looks like the site, not like an error page.
     owner renamed "Technical details" to "Capability requirements" and asked for bullets like the supported browsers:
     each capability now reads in plain words first (`FEATURE_PLAIN` in `device-profile.ts`, "Arranging each slide
     around what is on it"), its technical name small beside it, and its state as a word, Missing or Supported. The
-    pass found that a reader who CAN'T update had no way forward, and fixed it with one line for everyone: "Can't
-    update? On a work computer, ask your IT team. Or open <this address> on another device…". Also:
+    pass found that a reader who CAN'T update had no way forward. Its first fix told them to open the site on another
+    device; **the owner struck that, for their infosec team: telling someone on a managed work laptop to use their phone or
+    home computer, or to install a browser of their choosing, steers them around their organization's controls.** The
+    rule now (header of `browser-floor.ts`, and a unit test across six kinds of reader): a reader who can't update is sent
+    to their IT team, or told plainly the device can't run Lattice, never anywhere else. One line for everyone: "Can't
+    update? If this is a work device, your IT team manages updates: ask them." The old Edge updates through Windows
+    Update, which IT controls, not a download.
     - the Mac steps named System Settings first, though any Mac on Safari 15 or older has System Preferences;
     - the iPhone and Android steps dead-ended on devices too old to update (each now says what to do then);
-    - old Windows read "Lattice needs Windows 10", untrue (a Mac or a phone works), under a heading promising an update
-      that cannot happen; it now says "A newer computer or phone" under "What you can do", with no dead-end button;
+    - old Windows sat under a heading promising an update that cannot happen; it now reads "What you can do", says
+      Windows 10 or later is needed and to ask IT about upgrading, with no dead-end button;
     - the security line called the reader's browser "unsafe" and then offered Continue anyway; it now says updating
       also brings security fixes, and that nothing is wrong with their device or files;
     - Edge and Opera on Android were taken for Chrome or given desktop steps.
