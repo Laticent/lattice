@@ -216,6 +216,22 @@ export function verdict(rows, seen, written, { maxPageFraction = MAX_PAGE_FRACTI
  * @param {{created?: string[]}} [opts]         goldens rendered for the first time tonight
  * @returns {{bless: string[], held: {golden: string, why: string}[]}}
  */
+/**
+ * Does the source explain a page-count change? Only when the deck or gallery gained or lost
+ * EXACTLY as many slides as the PDF gained or lost pages. Owner's call, 2026-11-16 (#3235):
+ * "the source changed at all" was too loose, because a typo fix next to an engine change that
+ * adds a page would excuse it. A change of zero pages (a page resized) is never explained by
+ * the source, and a missing count on any side means the bot cannot tell, so the golden is held.
+ *
+ * @param {{oldPages?: number, newPages?: number, oldSlides?: number, newSlides?: number}} c
+ */
+export function slidesExplainPages({ oldPages, newPages, oldSlides, newSlides } = {}) {
+  const counts = [oldPages, newPages, oldSlides, newSlides];
+  if (!counts.every((n) => Number.isInteger(n) && n >= 0)) return false;
+  const pageDelta = newPages - oldPages;
+  return pageDelta !== 0 && pageDelta === newSlides - oldSlides;
+}
+
 export function partition(rows, written, { created = [], explained = [], blessHeld = false } = {}) {
   const explainedSet = new Set(explained);
   const byGolden = new Map(rows.map((r) => [r.golden, r]));
@@ -231,12 +247,13 @@ export function partition(rows, written, { created = [], explained = [], blessHe
     }
     if (createdSet.has(golden) && r.status === 'NO_GOLDEN') { bless.push(golden); continue; }
     if (!['DRIFT', 'ok', 'NEW'].includes(r.status)) { held.push({ golden, why: `the check reported ${r.status}` }); continue; }
-    // A page-count change is EXPLAINED when the golden's own source (its deck or gallery markdown) was
-    // committed after the golden was: an author added or removed a slide. The last bless before this
-    // design (#2987) changed 28 page counts, every one a gallery edit. Unexplained, the engine moved
-    // it, and it is held unless the owner's dispatch says otherwise (`blessHeld`).
+    // A page-count change is EXPLAINED when the golden's source gained or lost exactly as many
+    // slides as the PDF gained or lost pages (`slidesExplainPages`, computed by the caller): an
+    // author added or removed a slide. The last bless before this design (#2987) changed 28 page
+    // counts, every one a gallery edit. Unexplained, the engine moved it, and it is held unless the
+    // owner's dispatch says otherwise (`blessHeld`).
     if (r.pageShapeChanged && !explainedSet.has(golden) && !blessHeld) {
-      held.push({ golden, why: 'a page was added, removed or resized, and its source did not change' });
+      held.push({ golden, why: 'a page was added, removed or resized, and its source did not gain or lose as many slides' });
       continue;
     }
     bless.push(golden);
@@ -250,12 +267,18 @@ export function partition(rows, written, { created = [], explained = [], blessHe
  * @param {ReturnType<typeof partition>} part
  * @param {ReturnType<typeof goldenRows>} rows
  */
-export function digestMarkdown(part, rows, { renderedFrom = '', runUrl = '', problems = [], worst = 12 } = {}) {
+export function digestMarkdown(part, rows, { renderedFrom = '', runUrl = '', problems = [], worst = 12, created = [], explained = [] } = {}) {
   const pct = (f) => `${(f * 100).toFixed(2)}%`;
   const byGolden = new Map(rows.map((r) => [r.golden, r]));
-  const moved = part.bless
-    .map((g) => ({ g, f: byGolden.get(g)?.worstFraction ?? 0 }))
-    .sort((a, b) => b.f - a.f)
+  // A first render has nothing to have moved from, so it is listed apart, not as "0.00%" moved.
+  const createdSet = new Set(created);
+  const explainedSet = new Set(explained);
+  const fresh = part.bless.filter((g) => createdSet.has(g));
+  const recorded = part.bless.filter((g) => !createdSet.has(g));
+  const moved = recorded
+    .map((g) => ({ g, f: byGolden.get(g)?.worstFraction ?? 0, shape: !!byGolden.get(g)?.pageShapeChanged }))
+    // A page added or removed is the biggest change a golden can make: it leads, whatever its pixels.
+    .sort((a, b) => Number(b.shape) - Number(a.shape) || b.f - a.f)
     .slice(0, worst);
   const lines = [
     `### Golden bless: ${part.bless.length} re-recorded, ${part.held.length} held${renderedFrom ? ` (from \`${renderedFrom.slice(0, 12)}\`)` : ''}`,
@@ -265,9 +288,13 @@ export function digestMarkdown(part, rows, { renderedFrom = '', runUrl = '', pro
       : '_Nothing was re-recorded tonight: every golden that drifted is held below._',
   ];
   if (moved.length) {
-    lines.push('', `**Moved most** (worst page of each, ${moved.length} of ${part.bless.length}):`, '', '| Golden | Worst page moved |', '|---|---|');
-    for (const m of moved) lines.push(`| \`${m.g}\` | ${pct(m.f)} |`);
+    lines.push('', `**Moved most** (worst page of each, ${moved.length} of ${recorded.length}):`, '', '| Golden | Worst page moved |', '|---|---|');
+    for (const m of moved) {
+      const note = m.shape ? (explainedSet.has(m.g) ? 'pages added or removed, matching its slides' : 'pages added, removed or resized') : '';
+      lines.push(`| \`${m.g}\` | ${note ? `${pct(m.f)}; ${note}` : pct(m.f)} |`);
+    }
   }
+  if (fresh.length) lines.push('', `**Rendered for the first time** (${fresh.length}): ${fresh.map((g) => `\`${g}\``).join(', ')}.`);
   if (part.held.length) {
     lines.push('', '**Held** (left drifted on `main`, and the night is red until each is fixed, or blessed by a `bless_held` dispatch of golden-bless.yml):', '');
     for (const h of part.held) lines.push(`- \`${h.golden}\`: ${h.why}`);

@@ -146,7 +146,8 @@ seen the options first. Born from a session that labeled 60 issues
    where **the dispatch is the authorization**), **patch/minor dependency
    bumps** (`dependabot-auto-merge.yml`; majors always wait for a human), and the
    **nightly golden bless** (`golden-bless.yml`, per golden; a golden that adds,
-   removes or resizes a page its source does not explain is held, never merged —
+   removes or resizes a page its source's slide count does not explain is held until
+   the owner dispatches `bless_held` —
    `engineering/decisions/2026-11-16-blessing-invariants-attribution.md`).
    None is license to auto-merge anything you wrote.
 

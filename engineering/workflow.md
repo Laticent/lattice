@@ -1429,7 +1429,7 @@ the queue land it. Four workflows do this today — `sync-backlog.yml`,
 makes them feel automatic is not a shortcut past the queue, it is that they also
 switch **auto-merge** on, so the queue merges the PR the moment `ci` is green.
 Same gate, no human. `golden-bless.yml` blesses per golden: a golden that adds,
-removes or resizes a page its source does not explain is held out of the PR and
+removes or resizes a page its source's slide count does not explain is held out of the PR and
 turns the night red (`decisions/2026-11-16-blessing-invariants-attribution.md`).
 
 ### The one thing that makes it possible: `AUTOMATION_PAT`

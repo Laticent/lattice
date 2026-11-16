@@ -296,7 +296,7 @@ describe('partition — per golden, never all-or-nothing', () => {
     assert.equal(part.held.length, 1);
   });
 
-  test('a page-count change is blessed when its source changed, or when the owner says bless_held', async () => {
+  test('a page-count change is blessed when the caller says its slides explain it, or when the owner says bless_held', async () => {
     await load();
     const rows = [row(P, { pageShapeChanged: true }), row(Q, { pageShapeChanged: true })];
     const explained = m.partition(rows, [P, Q], { explained: [P] });
@@ -308,6 +308,36 @@ describe('partition — per golden, never all-or-nothing', () => {
     // bless_held answers the page-shape hold only: a check the bot cannot trust still holds.
     const broken = m.partition([row(P, { status: 'RENDER_ERROR' })], [P], { blessHeld: true });
     assert.deepEqual(broken.bless, []);
+  });
+
+  // Owner's call, 2026-11-16: the source explains a page-count change only when it gained or lost
+  // exactly as many slides. "The source changed at all" let a typo fix excuse an engine regression.
+  test('slidesExplainPages: only an equal, non-zero change in slides and pages is the author\'s', async () => {
+    await load();
+    const e = m.slidesExplainPages;
+    assert.equal(e({ oldPages: 10, newPages: 12, oldSlides: 8, newSlides: 10 }), true, 'two slides added, two pages');
+    assert.equal(e({ oldPages: 10, newPages: 9, oldSlides: 8, newSlides: 7 }), true, 'one slide removed, one page');
+    assert.equal(e({ oldPages: 10, newPages: 11, oldSlides: 8, newSlides: 8 }), false, 'a typo fix does not explain a new page');
+    assert.equal(e({ oldPages: 10, newPages: 12, oldSlides: 8, newSlides: 9 }), false, 'one slide does not explain two pages');
+    assert.equal(e({ oldPages: 10, newPages: 10, oldSlides: 8, newSlides: 8 }), false, 'a resized page is never explained');
+    assert.equal(e({ oldPages: 10, newPages: 11, oldSlides: undefined, newSlides: 9 }), false, 'an unreadable count holds');
+    assert.equal(e({}), false);
+  });
+
+  // Read off the first local run of the bless (2026-11-16): a gallery that gained a slide showed
+  // "0.00%" moved and 16 first renders filled the table at 0.00%, hiding both from the owner.
+  test('the digest lists first renders apart and puts an added page first, saying whether slides explain it', async () => {
+    await load();
+    const A = 'examples/added-slide.pdf';
+    const F = 'examples/brand-new.pdf';
+    const rows = [row(Q, { worstFraction: 0.4 }), row(A, { pageShapeChanged: true, worstFraction: 0 })];
+    const md = m.digestMarkdown({ bless: [Q, A, F], held: [] }, rows, { created: [F], explained: [A] });
+    assert.match(md, /3 re-recorded, 0 held/);
+    assert.match(md, /Moved most\*\* \(worst page of each, 2 of 2\)/);
+    assert.ok(md.indexOf(A) < md.indexOf(Q), 'a page change leads, even at 0% pixels');
+    assert.match(md, /matching its slides/);
+    assert.match(md, /Rendered for the first time\*\* \(1\): `examples\/brand-new\.pdf`/);
+    assert.doesNotMatch(md.split('Rendered for the first time')[0], /brand-new/, 'a first render is not in the moved table');
   });
 
   test('the digest names what was held and what moved most, and asks nothing', async () => {
