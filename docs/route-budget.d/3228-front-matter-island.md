@@ -1,0 +1,4 @@
+studio: +760
+playground: +760
+home: +500
+The front-matter island (lib/core/front-matter-island.mjs), the one reader the engine, the register resolvers and the splitter now share for where front matter ends and which lines are keys. Measured locally against main at af00ca3 after the merge queue ejected the first try (home went 0.3KB past its ceiling with main's growth): studio +642, playground +598, home +399 (708 bytes of room under home's ceiling); each line carries about 100 bytes of margin for CI's variation. Given back first: the block's end and the key reader are two import-free modules (lib/core/front-matter-fence.mjs, lib/core/front-matter-keys.mjs), so the home page loads the fence alone; lint-core's two line scans moved out of the shared lib/core/front-matter-key.js into lib/authoring/front-matter-scans.js (341 bytes); and the key-nesting and block-scalar body spans live in `lattice-deck`, which only the lint core loads (127 bytes).

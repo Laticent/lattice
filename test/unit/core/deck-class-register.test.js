@@ -211,7 +211,7 @@ describe('deck-class register — the export boundary', () => {
 
   test('a `class:` line inside a `style: |` body is CSS, so both readers see only the real one', () => {
     // This arm used to pin the residual above with this shape. Both readers now skip a block
-    // scalar's body (`withoutBlockScalarBodies`, lib/core/front-matter-key.js), so it agrees.
+    // scalar's body (the front-matter island's key reader, lib/core/front-matter-keys.mjs), so it agrees.
     const { parseFrontMatter } = require('../../../lib/engine/directives');
     const fm = 'style: |\n  class: kpi\nclass: dark';
     assert.equal(parseFrontMatter(`---\n${fm}\n---\n`).directives.class, 'dark');
