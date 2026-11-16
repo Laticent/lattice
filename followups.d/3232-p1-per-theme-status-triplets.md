@@ -10,8 +10,9 @@ deferred: blocked — the owner picks the contrast policy for status fills befor
 
 # Each theme curates its own status triplet (fill, ink, edge), and every dark face reads at the back row
 
-why now   — `npm run check:glance` (PR 3232) measured every shipped dark face at 2.1–2.6:1 at the hall
-            back row in a lit room, under the 3:1 floor; the light faces read at 4.1–6.0. Separately, the
+why now   — `npm run check:glance` (PR 3232), at the hall back row in a lit room, over three shipped
+            themes (mustard, indaco, crepuscolo): 48 of 54 dark-face status marks fall below the 3:1
+            floor (2.1–3.1:1); 0 of 54 light-face marks do (4.1–7.0). The other 11 themes are unmeasured. Separately, the
             status fills are near-identical across themes (warn `#854A00` in 8 of 14) because one shared
             white ink at 7:1 pins every fill's lightness.
 where     — themes/*/*.css (`--X-mark`, new `--X-on-mark`, new `--X-edge-mark`); the disc recipes, the chart
