@@ -702,7 +702,11 @@ test('a single jumping scroll inside the step guard is not stranded', async ({ p
 	await page.evaluate(() => {
 		const f = document.getElementById('preview') as HTMLIFrameElement | null;
 		const secs = f?.contentDocument?.querySelectorAll<HTMLElement>('.lattice > section, .lattice > div[data-lv-ph]');
-		if (f?.contentWindow && secs?.[9]) f.contentWindow.scrollTo({ top: secs[9].offsetTop - 16, behavior: 'auto' });
+		// The rect plus the scroll, the way the app's `frameBands` places a slide. Not `offsetTop`: `.lattice` is the
+		// offsetParent (its `filter`), so `offsetTop` leaves out the frame's html and body padding, and the jump put slide
+		// 10's top 52px into the pane instead of 16.
+		const win = f?.contentWindow;
+		if (win && secs?.[9]) win.scrollTo({ top: secs[9].getBoundingClientRect().top + win.scrollY - 16, behavior: 'auto' });
 	});
 	await settle(page);
 	await expectPositionIsTruthful(page, 'a single jumping scroll inside the guard window');
