@@ -90,6 +90,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-fuoco-lib.js',
   // Its whole write set is docs/src/lib/veduta/dist/, covered by docs/.gitignore's `dist/`.
   'build-veduta-lib.js',
+  // Its whole write set is docs/src/lib/cenno/dist/, covered by docs/.gitignore's `dist/`.
+  'build-cenno-lib.js',
   // Its whole write set is docs/src/lib/filo/dist/, covered by docs/.gitignore's `dist/`.
   'build-filo-lib.js',
   // Its whole write set is docs/src/lib/mosaico/dist/, covered by docs/.gitignore's `dist/`.
@@ -170,6 +172,9 @@ const EXPECTED_PR_OWNED = new Set([
   // highlighter requires it, so the engine does.
   'build-code-languages.js',
   'build-projection-catalog.js', // lib/core/projection-catalog.generated.mjs
+  // Measured 2026-11-16 against a timestamped tree: its whole write set is docs/src/lib/cenno/README.md
+  // (the per-module size table between its markers), which git tracks, and only when the table changed.
+  'build-cenno-sizes.js',
   // Measured 2026-09-28: writes exactly docs/src/lib/segno/notation.generated.ts, which git
   // tracks — the docs site and Vitest import it. Since Segno phase 3 (2026-10-06) also
   // lib/core/flowchart-row.generated.js, tracked too: `splitRow` requires it; and since phase 3's

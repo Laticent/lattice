@@ -258,6 +258,10 @@ const STEPS = [
   // publishes ./dist like its siblings, so it builds like them.
   { label: 'Fuoco library dist (ESM + CJS + .d.ts)', script: 'build-fuoco-lib.js', uncommitted: true },
   { label: 'Veduta library dist (ESM + CJS + .d.ts)', script: 'build-veduta-lib.js', uncommitted: true },
+  // Cenno is a browser library (popovers; the player's chart detail cards); it publishes ./dist like its siblings.
+  { label: 'Cenno library dist (ESM + CJS + .d.ts)', script: 'build-cenno-lib.js', uncommitted: true },
+  // Cenno has no byte budget; its README carries a per-module size table instead, kept current here.
+  { label: 'Cenno size table (README)', script: 'build-cenno-sizes.js' },
   { label: 'Filo library dist (ESM + CJS + .d.ts)', script: 'build-filo-lib.js', uncommitted: true },
   // Lente has no root CJS consumer today, but its package.json promises
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must

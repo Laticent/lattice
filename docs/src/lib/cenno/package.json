@@ -1,0 +1,48 @@
+{
+  "name": "@laticent/cenno",
+  "version": "0.1.0",
+  "description": "A small sign beside a thing that points to it: popovers, tooltips and detail cards with no dependencies. Synchronous placement that matches Floating UI, the top layer above fullscreen, steady size under pinch zoom, hover intent with a grace corridor, tap-to-pin on touch, and a card anatomy hosts skin with tokens and named parts.",
+  "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/cenno"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/cenno#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "@laticent/source": "./index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
+}
