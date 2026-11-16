@@ -1318,9 +1318,8 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   `headingSplitPoints` with a long `data:` payload stood in for first. The Studio's carry walk (docs/src/lib/slide-carried.ts)
   hands the parts to `slidesCarried` as the slides they are, so a `_class` in the first part stays there and a running `class:`
   carries into the next; `slidePlacingAt` answers for the part holding the offset and lists every part's placing (`parts`).
-  `photosAt` (card-ink-pick.ts) gives each part's photo and `photoAt` the first part's that has one, which is what the callers
-  keyed on the unit (the photo check, the ink fix, SlideContext) read: re-keying them on parts was not needed for the check to
-  speak, and a caller that samples a later part's preview slide would be new work. Compose's `placementAt` finds the picture's
+  `photosAt` (card-ink-pick.ts) gives each part's photo and `photoAt` the first part's that has one. The callers that measure a
+  photo read the part on screen (see the entry below). Compose's `placementAt` finds the picture's
   part in its slide node; a picture in a later part is placed by what that part resolves, and its Placement control stays shut,
   because the slide's `_class` governs only the first part. The shared table gains ten split rows: a class in the first part
   (running: both parts place; spot: only the first), a class written before the second heading (running or spot: only the
@@ -1335,3 +1334,22 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   Compose would edit. The same review found the photo-size prefetch (image-size-memo.ts `panelPhotos`) reading a split unit
   under its first part's classes; it reads each part now. Compose's write-back keeps a later part's `_class` where the author
   wrote it (checked by editing the first part), so the lifting is a reading problem only.
+- 2026-11-16: **the photo checks read the engine slide on screen, in every engine** (the owner on #3239: no settling; the
+  three follow-ups that PR had filed are done in it). The Coach's photo check (`usePhotoContrast`), the editor's photo tooltip and
+  underline (thin-card-fix.ts) and the Slide panel's card read (`readBehindCard`) were keyed on the `---` slide. They now read the
+  heading part on screen, at the engine slide the preview draws for it (`readVerdict`'s `section`, `flatPart`), so a later part's
+  dark photo is flagged and a deck with an earlier split slide no longer reads the wrong preview section. A finding keeps the
+  `---` slide's number, as lint's do. The fix writes into that part's own class (`editHeadingPart`, docs/src/lib/slide-carried.ts),
+  and a slide or part that only inherits a running `class:` keeps it when the fix is written (`applyFix`'s `inherited`):
+  writing the ink alone had replaced the layout, on any such slide. Three things stopped the check from speaking, each found
+  on a real engine: (1) on a phone the preview is parked behind the Coach and followed a `---` slide change but not a move
+  between heading parts, so it measured the other part; a part change now owes the parked render too (DeckPreview.tsx). (2) In
+  Firefox the check never spoke at all: Gecko draws nothing for a source rectangle of an SVG photo, without an error, so the
+  sampled box came back transparent; `meanUnderBox` (card-ink-sampler.ts) now draws such a photo whole first and reads the box
+  from that canvas, and the photo-contrast spec runs on Gecko (it never had). (3) The Coach's fix button was hidden on a split
+  slide, because `canEditClass` read the whole `---` slide, whose two class comments read as a duplicate. The slide strip and the
+  map named a slide that only inherits a running `class:` `text` (`slideClass` reads one slide's text); `slideClasses`
+  (docs/src/lib/deck-lint.ts) resolves every engine slide's class in deck order through the class-directive kernel, about 2.6 ms
+  on a 176-slide deck. Each change has a test that is red on the code before it: four thin-card-fix cases, the strip's labels
+  (preview-nav.spec.ts), and a photo-contrast case on a split slide that runs on desktop, tablet and Gecko at 1440 and on Chromium
+  and WebKit at 390 (red with every change reverted; red at 390 alone with only the preview change reverted).

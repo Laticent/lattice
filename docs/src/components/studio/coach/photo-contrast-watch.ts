@@ -17,7 +17,9 @@ const SETTLE_MS = 900;
 /**
  * `context` stands for everything outside the slide that changes what the preview paints (the site's mode and palette, the
  * rest of the deck), compared by identity: a new object re-reads the slide, so a theme or mode switch cannot leave an old verdict on screen.
- * `slideIndex` is 0-based. `verdict` is null until this slide has been read, and when it cannot be measured.
+ * `slideIndex` is 0-based. `verdict` is null until this slide has been read, and when it cannot be measured. `section`: the
+ * engine slide the preview draws for `chunk` (0-based), which differs from `slideIndex` once a `---` slide splits on its
+ * headings; `chunk` is then the heading part on screen.
  */
 export function usePhotoContrast(
 	chunk: string,
@@ -25,6 +27,7 @@ export function usePhotoContrast(
 	source: string,
 	context: object,
 	onPreviewRender?: (listener: () => void) => () => void,
+	section = slideIndex,
 ): { verdict: PhotoVerdict | null; fresh: boolean; findings: PhotoFinding[]; settled: boolean } {
 	const [state, setState] = React.useState<{ key: object | null; slide: number; verdict: PhotoVerdict | null }>({ key: null, slide: -1, verdict: null });
 	// Any picture or record may be the slide's photo; the reader decides which one the engine places (card-ink-pick.ts
@@ -37,7 +40,7 @@ export function usePhotoContrast(
 	// holds a phone photo copied and compared megabytes per render (Firefox flattens a joined string to compare it: about
 	// 0.4 s of a paste, PR #3153, Gecko profile).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the three inputs are the key's identity; the body reads none of them.
-	const key = React.useMemo(() => ({}), [slideIndex, context, chunk]);
+	const key = React.useMemo(() => ({}), [slideIndex, section, context, chunk]);
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
 	// READ AGAIN WHEN THE PREVIEW PAINTS, WHILE THE LAST READ COULD NOT MEASURE. The read runs once the inputs have been still
@@ -62,7 +65,7 @@ export function usePhotoContrast(
 			timer = setTimeout(async () => {
 				const seen = paints;
 				const { readVerdict } = await import('../photo-verdict');
-				const verdict = await readVerdict(chunk, sourceRef.current, slideIndex, true, true);
+				const verdict = await readVerdict(chunk, sourceRef.current, slideIndex, true, true, section);
 				if (!live) return;
 				const measured = verdict?.src === 'live' ? verdict : null;
 				unmeasured = !measured;
@@ -80,7 +83,7 @@ export function usePhotoContrast(
 			clearTimeout(timer);
 			off?.();
 		};
-	}, [chunk, slideIndex, context, photo, key, onPreviewRender]);
+	}, [chunk, slideIndex, section, context, photo, key, onPreviewRender]);
 	// While the SAME slide is re-read after an edit, its last verdict stays on screen rather than flickering on every
 	// keystroke. A verdict for ANOTHER slide never does: on a slide change it is gone in the same render, so neither view
 	// shows the slide you left, with its button hidden, for the second the new read takes.

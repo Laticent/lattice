@@ -169,6 +169,29 @@ export function slideClass(slideSrc: string): string {
 	return panes ? 'panes' : 'text';
 }
 
+/**
+ * `slideClass` for every engine slide of a deck at once, in order: `texts` are the slides' texts (a `---` slide's heading parts
+ * each count as one). A slide with no class comment of its own takes the running `<!-- class: … -->` from the slides before it,
+ * as the engine does; `slideClass` on one slide's text alone cannot see that, and the strip and the map labelled such a slide
+ * `text` (PR #3239). The parts are joined on `---`, so the class-directive kernel resolves the running class across them
+ * exactly as it does across `---` slides; if that ever cuts them differently, each is read on its own.
+ */
+export function slideClasses(texts: readonly string[]): string[] {
+	if (texts.length < 2) return texts.map((t) => slideClass(t));
+	// Only a slide with a comment can set a class; the others stand in as one character, and a pasted photo's base64 is cut
+	// short, so a deck of phone photos is not scanned whole on every keystroke.
+	const lean = texts.map((t) => (t.includes('<!--') ? t.replace(/;base64,[A-Za-z0-9+/=]{1024,}/g, ';base64,x') : '.'));
+	const dirs = slideClassDirectives(lean.join('\n\n---\n\n'));
+	if (dirs.length !== texts.length) return texts.map((t) => slideClass(t));
+	return texts.map((t, i) => {
+		const payload = dirs[i]?.payload ?? '';
+		const panes = paneMarkerLines(t) >= 2;
+		if (!payload) return panes ? 'panes' : 'text';
+		if (/(?:^|\s)(?:columns|rows)(?:\s|$)/.test(payload)) return 'panes';
+		return componentOf(payload) || (panes ? 'panes' : 'text');
+	});
+}
+
 const HEADING_RE = /^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/m;
 /** The slide's human title — its first Markdown ATX heading, stripped of inline
  *  emphasis/code/link syntax — for a READER-facing navigator (the Read stop, where

@@ -1,3 +1,5 @@
+import { buildDeckIndex } from '@/lib/deck-outline';
+import { flatPart, partText } from '@/lib/fuoco/outline';
 import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
 import { compositionOf, effectiveCard, inkOf, needsInk, pickCardInk, THIN_BACKING } from '../../../../lib/core/card-ink.mjs';
 import { headingPartStarts, placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
@@ -126,9 +128,23 @@ export function headingOf(chunk: string): string | null {
 	return /^#{1,6}[ \t]+(.+)$/m.exec(chunk)?.[1]?.trim() ?? null;
 }
 
-/** The colour behind this slide's card, or null when the preview cannot say. */
+/**
+ * The colour behind this slide's card, or null when the preview cannot say. `slideNumber` is the `---` slide's (1-based). A
+ * slide split on its headings is several engine slides: the card read is the first part's, the one the Slide panel's class
+ * edits land in, at the engine slide the preview draws for it.
+ */
 export function readBehindCard(chunk: string, slideNumber: number, source = ''): Promise<Rgb | null> {
-	return sampleBehindCard(slideNumber, headingOf(chunk), photoRefOf(chunk, source), getClassTokens(chunk));
+	let part = chunk;
+	let section = slideNumber;
+	if (source) {
+		const ix = buildDeckIndex(source);
+		const u = slideNumber - 1;
+		if (ix.units[u]) {
+			section = flatPart(ix, u, 0) + 1;
+			if (ix.units[u].parts.length > 1) part = partText(ix, u, 0);
+		}
+	}
+	return sampleBehindCard(section, headingOf(part), photoRefOf(part, source), getClassTokens(part));
 }
 
 /**

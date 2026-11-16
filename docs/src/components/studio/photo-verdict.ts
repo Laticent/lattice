@@ -221,10 +221,11 @@ async function readEstimate(chunk: string, source: string): Promise<PhotoVerdict
  * kept, so the next off-screen read (and the next page load) gets the measured fix rather than an estimate. `liveOnly`:
  * no estimate when the measure fails. Never throws.
  */
-export async function readVerdict(chunk: string, source: string, slideIndex: number, onScreen: boolean, liveOnly = false): Promise<PhotoVerdict | null> {
+export async function readVerdict(chunk: string, source: string, slideIndex: number, onScreen: boolean, liveOnly = false, section = slideIndex): Promise<PhotoVerdict | null> {
 	if (!photoRefOf(chunk, source)) return null;
 	if (onScreen) {
-		const live = await readLive(chunk, source, slideIndex + 1);
+		// `section`: the engine slide the preview draws for `chunk`, 0-based. A `---` slide split on its headings is several.
+		const live = await readLive(chunk, source, section + 1);
 		if (live) {
 			const { ref, ...rest } = cardOf(chunk, source);
 			if (ref && cardPolicy(chunk, source).inkFirst) keepFix({ ref, ...rest }, live.fix, live.fixRatio, 'live');
@@ -237,7 +238,10 @@ export async function readVerdict(chunk: string, source: string, slideIndex: num
 }
 
 /** The slide with `fix` applied: the one edit both views make, so a fix means the same thing wherever it is clicked. */
-export function applyFix(chunk: string, fix: Fix): string {
+export function applyFix(chunk: string, fix: Fix, inherited: readonly string[] = []): string {
+	// A slide (or heading part) with no class of its own takes a running `class:` from an earlier slide. Writing only the fix
+	// would replace that class for it, dropping its layout and its photo, so the inherited words are written first.
+	if (inherited.length && !getClassTokens(chunk).length) chunk = setClassTokens(chunk, [...inherited]);
 	if (fix === 'ink-light' || fix === 'ink-dark') return setImageCard(chunk, 'ink', fix.slice(4));
 	if (fix === SOLID) return setImageCard(chunk, 'backing', 'solid');
 	return setClassTokens(chunk, [...getClassTokens(chunk).filter((t) => t !== 'dark' && t !== 'light'), fix]);

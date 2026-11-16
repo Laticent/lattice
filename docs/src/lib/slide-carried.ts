@@ -20,7 +20,7 @@ import { getClassTokens } from './slide-directives';
 
 /** The classes the engine resolves for a slide, and whether a carried background is already its photo. `parts`: when the unit
  *  is several engine slides (`split: headings`), each part's own placing in order; the top-level fields are the part asked. */
-export type SlidePlacing = { classes: string[]; backgroundImage: boolean; parts?: SlidePlacing[] };
+export type SlidePlacing = { classes: string[]; backgroundImage: boolean; parts?: SlidePlacing[]; carried?: string[] };
 
 /** Where each heading part of one unit starts, in the unit's text: `[0]` when the deck splits on `---` alone. */
 export function unitPartStarts(source: string, unit: string): number[] {
@@ -36,7 +36,8 @@ export function partPlacings(frontMatter: string, before: readonly string[], par
 	const carried = slidesCarried(frontMatter, [...before, ...own], boundaryParser).slice(before.length);
 	return parts.map((_p, k) => {
 		const mine = getClassTokens(own[k]);
-		return { classes: [...(mine.length ? mine : (carried[k].carriedClass ?? [])), ...deckClasses], backgroundImage: carried[k].backgroundImage };
+		// `carried`: the running class it inherits (none when it has its own), what an edit of its class must keep.
+		return { classes: [...(mine.length ? mine : (carried[k].carriedClass ?? [])), ...deckClasses], backgroundImage: carried[k].backgroundImage, carried: mine.length ? [] : (carried[k].carriedClass ?? []) };
 	});
 }
 
@@ -81,4 +82,19 @@ export function slidePlacingOf(source: string, chunk: string): SlidePlacing | nu
 	if (!want) return null;
 	const at = body.indexOf(want);
 	return at < 0 ? null : slidePlacingAt(text, text.length - body.length + at);
+}
+
+/**
+ * `unit` (one `---` slide's text) with heading part `part` replaced by `edit(partText)`: an edit of what one engine slide says,
+ * when the `---` slide holds several (`split: headings`). A unit that does not split is edited whole.
+ */
+export function editHeadingPart(source: string, unit: string, part: number, edit: (text: string) => string): string {
+	const starts = unitPartStarts(source, unit);
+	// Part 0 is cut out too when there are others: a class edit on the whole unit finds the first class comment, which is a
+	// later part's when the first has none.
+	if (starts.length < 2) return edit(unit);
+	if (part < 0 || part >= starts.length) return unit;
+	const from = starts[part];
+	const to = starts[part + 1] ?? unit.length;
+	return unit.slice(0, from) + edit(unit.slice(from, to)) + unit.slice(to);
 }

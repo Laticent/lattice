@@ -2,13 +2,13 @@ import type { Diagnostic } from '@codemirror/lint';
 import type { Text } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { buildDeckIndex } from '@/lib/deck-outline';
-import { unitAt } from '@/lib/fuoco/outline';
+import { flatPart, partAt, partText, unitAt } from '@/lib/fuoco/outline';
 import { slideRanges, splitSlides } from '../../lib/deck-lint';
 import { deckPlacingClasses } from '../../lib/deck-placing-classes';
 import { stripFrontMatter } from '../../lib/front-matter';
-import { slidePlacingAt } from '../../lib/slide-carried';
+import { editHeadingPart, slidePlacingAt, slidePlacingOf, unitPartStarts } from '../../lib/slide-carried';
 import { canEditClass, getClassTokens } from '../../lib/slide-directives';
-import { photoAt } from './card-ink-pick';
+import { photosAt } from './card-ink-pick';
 import { replaceSlide } from './deck-ops';
 import { cachedFix, cardOf } from './photo-ink-read';
 import { applyFix, cardPolicy, type Fix, fixLabel, type PhotoVerdict, readVerdict } from './photo-verdict';
@@ -23,18 +23,20 @@ import { applyFix, cardPolicy, type Fix, fixLabel, type PhotoVerdict, readVerdic
 // Both buttons make the verdict's edit (`applyFix`), so a fix means the same thing wherever it is clicked. Loaded when
 // a photo warning is linted or measured, never on the shell's path.
 
-/** What the editor knows about the slide on screen: its index and its measured verdict (StudioShell, `measuredPhoto`). */
-export type MeasuredPhoto = { slideIndex: number; verdict: PhotoVerdict } | null;
+/** What the editor knows about the slide on screen: its index, the heading part on screen when the `---` slide splits on
+ *  its headings (0 otherwise), and its measured verdict (StudioShell, `measuredPhoto`). */
+export type MeasuredPhoto = { slideIndex: number; part?: number; verdict: PhotoVerdict } | null;
 
 /**
  * The deck with `fix` applied to slide `slideIndex` (0-based, front matter not counted), or null when that slide cannot
  * take it: no such slide, a `_class` the Studio cannot edit, or nothing would change. Only that slide's text changes
  * (deck-ops.ts `replaceSlide`).
  */
-export function applyFixAt(source: string, slideIndex: number, fix: Fix): string | null {
+export function applyFixAt(source: string, slideIndex: number, fix: Fix, part = 0): string | null {
 	const chunk = splitSlides(stripFrontMatter(source))[slideIndex];
 	if (chunk == null) return null;
-	const next = applyFix(chunk, fix);
+	// The heading part's own class takes the fix, keeping a class it only inherits (photo-verdict.ts `applyFix`).
+	const next = editHeadingPart(source, chunk, part, (p) => applyFix(p, fix, slidePlacingOf(source, p)?.carried ?? []));
 	if (next === chunk) return null;
 	const out = replaceSlide(source, slideIndex, next).source;
 	return out === source ? null : out;
@@ -60,7 +62,17 @@ export function applyAsSpan(v: EditorView, next: string): void {
 	v.dispatch({ changes: { from: p, to: old.length - s, insert: next.slice(p, next.length - s) } });
 }
 
-type Handles = { slideOf: () => number; source: () => string; onApply: (next: string) => void; onScreen: () => boolean; measured: () => MeasuredPhoto };
+type Handles = { slideOf: () => number; partOf: () => number; source: () => string; onApply: (next: string) => void; onScreen: () => boolean; measured: () => MeasuredPhoto };
+
+/** The text a photo check reads for heading part `part` of slide `slideIndex`, and the engine slide the preview draws for it. */
+function photoTarget(source: string, slideIndex: number, part: number): { chunk: string; section: number } {
+	const unit = splitSlides(stripFrontMatter(source))[slideIndex] ?? '';
+	const starts = unitPartStarts(source, unit);
+	if (starts.length < 2) return { chunk: unit, section: flatPart(buildDeckIndex(source), slideIndex, 0) };
+	const k = Math.max(0, Math.min(part, starts.length - 1));
+	const ix = buildDeckIndex(source);
+	return { chunk: partText(ix, slideIndex, k), section: flatPart(ix, slideIndex, k) };
+}
 
 /** One fix button, in CodeMirror's own action style, that keeps focus (and the caret) in the editor as its buttons do. */
 function fixButton(label: string, edit: () => string | null, apply: (next: string) => void): HTMLButtonElement {
@@ -80,7 +92,7 @@ function fixButton(label: string, edit: () => string | null, apply: (next: strin
 /** The measured verdict for slide `slideIndex`, when the slide on screen is that slide and has been read. */
 function measuredFor(h: Handles, slideIndex: number): PhotoVerdict | null {
 	const m = h.measured();
-	return m && m.slideIndex === slideIndex ? m.verdict : null;
+	return m && m.slideIndex === slideIndex && (m.part ?? 0) === h.partOf() ? m.verdict : null;
 }
 
 /**
@@ -116,12 +128,12 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 	};
 	const show = (v: { fix: Fix | null; src: 'live' | 'estimate' } | null) => {
 		row.textContent = '';
-		const chunkNow = splitSlides(stripFrontMatter(h.source()))[h.slideOf()] ?? '';
+		const chunkNow = photoTarget(h.source(), h.slideOf(), h.partOf()).chunk;
 		// No answer: a solid card, which always reads, where it does (a spotlight; a statement's scrim fades out under its words).
 		const fix = v ? v.fix : cardPolicy(chunkNow, h.source()).solidReads ? 'solid' : null;
 		// A `_class` the Studio cannot edit takes no fix (the Coach hides its button there too): a button that does nothing on
 		// click is worse than none.
-		if (fix && canEditClass(chunkNow)) row.append(fixButton(fixLabel(fix), () => applyFixAt(h.source(), h.slideOf(), fix), h.onApply));
+		if (fix && canEditClass(chunkNow)) row.append(fixButton(fixLabel(fix), () => applyFixAt(h.source(), h.slideOf(), fix, h.partOf()), h.onApply));
 		if (!v) note('Could not read this photo.');
 		else if (!v.fix) note('No fix here clears it.');
 		else if (v.fix === 'solid') note('No ink reads on this photo.');
@@ -154,7 +166,7 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 	const showRead = (v: { fix: Fix | null; src: 'live' | 'estimate' } | null) => {
 		if (!settled) show(v);
 	};
-	const chunk = splitSlides(stripFrontMatter(h.source()))[slideIndex] ?? '';
+	const { chunk, section } = photoTarget(h.source(), slideIndex, h.partOf());
 	const card = cardOf(chunk, h.source());
 	const kept = card.ref ? cachedFix({ ...card, ref: card.ref }) : undefined;
 	if (kept) {
@@ -162,7 +174,7 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 		// A kept answer shows at once; when the preview shows this slide, the measured read replaces it, and the button
 		// changes only if the measured fix differs.
 		if (h.onScreen())
-			void readVerdict(chunk, h.source(), slideIndex, true).then((v) => {
+			void readVerdict(chunk, h.source(), slideIndex, true, false, section).then((v) => {
 				if (v && v.fix !== kept.fix) showRead(v);
 			}, () => {});
 		return root;
@@ -175,7 +187,7 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 	checking.setAttribute('aria-busy', 'true');
 	checking.style.opacity = '0.6';
 	row.append(checking);
-	void readVerdict(chunk, h.source(), slideIndex, h.onScreen()).then(showRead, () => showRead(null));
+	void readVerdict(chunk, h.source(), slideIndex, h.onScreen(), false, section).then(showRead, () => showRead(null));
 	return root;
 }
 
@@ -186,19 +198,25 @@ export { keepTooltipOnSameDiagnostics } from './lint-tooltip-keep';
  * does the fix (#1658). `text` is the document the diagnostics were built from; `focusUnit` is the slide the hub says is
  * on screen; `measured` is the verdict for it. Lives here, not in the editor, so none of it rides the editor's startup chunk.
  */
-export function attachInkFixes(diags: Diagnostic[], text: string, focusUnit: () => number | undefined, measured: () => MeasuredPhoto): void {
+export function attachInkFixes(diags: Diagnostic[], text: string, focus: () => { unit: number; part: number } | undefined, measured: () => MeasuredPhoto): void {
 	const ix = buildDeckIndex(text);
 	for (const d of diags) {
 		const message = d.message.split('\n\nFix:')[0];
 		const at = d.from;
 		const slide = Math.max(0, unitAt(ix, at));
+		// The heading part the warning sits in: one `---` slide split on its headings is several engine slides.
+		const part = partAt(ix, at)?.part ?? 0;
 		d.message = message;
 		d.renderMessage = (v: EditorView) =>
 			inkFixNode(message, {
 				slideOf: () => Math.max(0, unitAt(buildDeckIndex(v.state.doc.toString()), at)),
+				partOf: () => partAt(buildDeckIndex(v.state.doc.toString()), at)?.part ?? 0,
 				source: () => v.state.doc.toString(),
 				onApply: (next) => applyAsSpan(v, next),
-				onScreen: () => focusUnit() === slide,
+				onScreen: () => {
+					const f = focus();
+					return !!f && f.unit === slide && f.part === part;
+				},
 				measured,
 			});
 	}
@@ -225,7 +243,10 @@ export function photoDiagnostic(doc: Text, m: NonNullable<MeasuredPhoto>, measur
 	// The photo's line: a record, or the record's shortcut on a placing slide (card-ink-pick.ts `photoAt`).
 	// The comments were blanked above, which takes the slide's `_class` with them: what the slide inherits is read from the deck
 	// as written (lib/slide-carried.ts), its carried class and background included.
-	const photo = photoAt(slideText, slidePlacingAt(text, at) ?? [...getClassTokens(text.slice(at, at + (r.to - r.from))), ...deckPlacingClasses(text)]);
+	// A `---` slide split on its headings has a photo per part: the underline goes on the photo of the part that was measured.
+	const photos = photosAt(slideText, slidePlacingAt(text, at) ?? [...getClassTokens(text.slice(at, at + (r.to - r.from))), ...deckPlacingClasses(text)]);
+	const part = m.part ?? 0;
+	const photo = photos.length > 1 ? photos[part] : photos[0];
 	if (!photo) return null;
 	const line = doc.lineAt(at + photo.index);
 	const message = m.verdict.message;
@@ -239,6 +260,7 @@ export function photoDiagnostic(doc: Text, m: NonNullable<MeasuredPhoto>, measur
 		renderMessage: (v: EditorView) =>
 			inkFixNode(message, {
 				slideOf: () => slide,
+				partOf: () => part,
 				source: () => v.state.doc.toString(),
 				onApply: (next) => applyAsSpan(v, next),
 				onScreen: () => true,

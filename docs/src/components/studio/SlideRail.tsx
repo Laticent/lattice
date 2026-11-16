@@ -22,7 +22,7 @@ import { flatPart, partText, unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { cn } from '@/lib/utils';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
-import { slideClass, slideTitle } from '../../lib/deck-lint';
+import { slideClass, slideClasses, slideTitle } from '../../lib/deck-lint';
 import { type LiveColor, liveColor } from './live/live-model';
 
 // Labels by section text. Bounded by clearing, not by eviction order: the working set is the
@@ -65,6 +65,12 @@ export interface SlideRailProps {
 
 export const SlideRail = React.memo(function SlideRail({ hub, index, view, readLabels, liveBySlide, onPick, actions, onAddFirst }: SlideRailProps) {
 	const flat = useFocus(hub, (f) => f.flat);
+	// Every engine slide's class in deck order, so a slide that only inherits a running `class:` is named by it (PR #3239).
+	const deckClasses = React.useMemo(() => {
+		const texts: string[] = [];
+		for (let u = 0; u < index.units.length; u++) for (let k = 0; k < index.units[u].parts.length; k++) texts.push(partText(index, u, k));
+		return slideClasses(texts);
+	}, [index]);
 	const pills = React.useMemo(() => {
 		const out: Array<{ unit: number; section: number; flat: number; n: number; label: string; aria: string; hidden: boolean }> = [];
 		let n = 0;
@@ -75,7 +81,7 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 				n++;
 				const text = partText(index, c, k);
 				const title = cached(titleLabels, text, slideTitle);
-				const cls = cached(classLabels, text, slideClass);
+				const cls = deckClasses[flatPart(index, c, k)] ?? cached(classLabels, text, slideClass);
 				const label = readLabels ? title || `Slide ${n}` : cls;
 				// A hidden slide (`<!-- hide -->`) keeps its place in the strip, the editor's order, and says it is hidden: the
 				// eye-off mark stands where its number would be, since Present and every export leave it out and number the
@@ -88,7 +94,7 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 			}
 		}
 		return out;
-	}, [index, view, readLabels]);
+	}, [index, view, readLabels, deckClasses]);
 
 	// Keep the focused pill in view, centered so the slides on either side show too. Scrolls the
 	// rail itself, never an ancestor (`scrollIntoView` would also scroll the page, which jolts a
