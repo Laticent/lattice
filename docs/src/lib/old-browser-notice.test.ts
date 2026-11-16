@@ -456,6 +456,24 @@ describe('on the Studio and the Playground', () => {
 		expect(toast.style.top).toBe('12px');
 	});
 
+	it('does not draw the page beneath while it shows, even a part the page marks visible, and draws it again on Continue', () => {
+		const main = document.createElement('main');
+		// The site's own Tailwind utility, as a stylesheet rule (an inline style is the e2e's and the real engines' to judge).
+		const utility = document.createElement('style');
+		utility.textContent = '.visible{visibility:visible}';
+		document.head.append(utility);
+		main.innerHTML = '<p class="visible">tinted</p>';
+		document.body.append(main);
+		const screen = run('SomeBrowser/1.0');
+		const tinted = main.querySelector('p') as HTMLElement;
+		expect(getComputedStyle(main).visibility).toBe('hidden');
+		expect(getComputedStyle(tinted).visibility).toBe('hidden');
+		expect(getComputedStyle(screen.querySelector('h1') as HTMLElement).visibility).not.toBe('hidden');
+		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
+		expect(getComputedStyle(main).visibility).not.toBe('hidden');
+		expect(getComputedStyle(tinted).visibility).toBe('visible');
+	});
+
 	it('Continue anyway also marks the page, for a tab whose storage throws', () => {
 		const screen = run('SomeBrowser/1.0');
 		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();

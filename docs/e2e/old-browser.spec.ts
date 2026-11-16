@@ -63,6 +63,10 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an old browser gets an hon
 	// The page beneath sits behind the solid veil, out of reach and hidden from assistive technology.
 	await expect(page.locator('body > main')).toHaveAttribute('aria-hidden', 'true');
 	await expect(page.locator('body > main')).toHaveCSS('pointer-events', 'none');
+	// Not drawn at all, so nothing of it can flash through, whatever an old engine makes of the veil (legacy Edge's mustard).
+	await expect(page.locator('body > main')).toHaveCSS('visibility', 'hidden');
+	await expect(page.locator('body > main h1').first()).toHaveCSS('visibility', 'hidden');
+	await expect(notice.getByRole('heading', { name: 'Lattice needs a newer browser.' })).toHaveCSS('visibility', 'visible');
 	await expect(notice.getByRole('button', { name: 'Continue anyway' })).toBeAttached();
 	// Scroll it to the middle, not flush with an edge: the button sits on a fractional pixel (798.156 at 1440 x 900), so
 	// "scroll only as far as needed" left a third of a pixel outside and a ratio-1 check read 0.986. Reachable is the claim.
@@ -73,6 +77,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an old browser gets an hon
 	await expect(notice).toHaveCount(0);
 	await expect(page.locator('body > main')).not.toHaveAttribute('aria-hidden', 'true');
 	await expect(page.locator('body > main')).toHaveCSS('pointer-events', 'auto');
+	await expect(page.locator('body > main')).toHaveCSS('visibility', 'visible');
 
 	// The rest of this tab stays past it: a reload does not show it again.
 	await page.reload({ waitUntil: 'load' });

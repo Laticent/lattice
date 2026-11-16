@@ -25,3 +25,5 @@
 - The notice is written for readers who aren't technical: what each missing capability does in plain words, a way
   forward for anyone who can't update (on a work device, their IT team; on their own, the browsers that work), and corrected steps for Macs,
   older iPhones and Android phones.
+- The page beneath the notice is not drawn at all while the notice shows, so an old browser no longer flashes the
+  broken page's colors (a mustard flicker in the original Edge) as the notice appears.

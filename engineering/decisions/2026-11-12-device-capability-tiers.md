@@ -499,6 +499,14 @@ versions and how to update, and it looks like the site, not like an error page.
     screen, never two stacked (the round-8 checker's finding). Real Chromium 101, `/old-browser.js` held 10 s on
     `/studio/`: at 8.5 s the Studio's decline showed, at the end only the notice; with the reset removed from the served
     file, both screens stayed stacked.
+  - **The page beneath is not drawn while the notice is up (owner, Edge 15: "the mustard background is still there and
+    flickers momentarily").** A solid veil was not enough there. Without `color-mix()`, Tailwind's fallback for every faint
+    accent tint (`bg-[color-mix(…var(--accent) 4%…)]`) is the plain `--accent`, so the broken page beneath is full of
+    solid mustard, and whatever let it through for a frame showed it. The notice's stylesheet now hides every child of
+    `<body>` but itself, with `!important` and the ID so a page's own `visible` utility can't win. Its veil also takes the
+    body's computed color as a literal, in case an engine drops the `var(--bg,Canvas)` form. Real Chromium 101, the veil
+    forced clear and the card held at opacity 0: with the rule, only the background; without it, the broken landing page
+    and its mustard button.
   - **No color shift on the handoff (owner).** The page-hider paints `html` in `--bg`, the color the notice's veil
     starts in, and the veil and glow fade in with the card (0.5 s) instead of arriving in one frame. Real Chromium 101,
     transitions paused with `getAnimations()` at 0/250/500 ms: the notice's first frame equals the hidden page (light

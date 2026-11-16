@@ -94,6 +94,11 @@
 		// while it hid the page. Nothing beneath shows through, so nothing can flicker: an old browser draws that page
 		// broken (orange chart bars, in the owner's legacy Edge), and an earlier thin veil and accent glow let it bleed.
 		'#ID .lob-veil{position:fixed;top:0;right:0;bottom:0;left:0;background:white;background:var(--bg,Canvas)}' +
+		// And the page beneath is not drawn at all while the notice is up, so the veil is a second guard, not the only one.
+		// Legacy Edge still showed a flash of mustard with the veil solid: there every faint accent tint of the page paints
+		// as the full accent (no color-mix(), so Tailwind's fallback is plain var(--accent)). `!important` and the ID beat a
+		// page's own `visibility:visible` (Tailwind's `visible`, `!visible`); the notice's own subtree stays visible.
+		'body>*:not(#ID),body>*:not(#ID) *{visibility:hidden!important}' +
 		// The site's top bar, as every page has it: the mark and the wordmark over a hairline, 61 px tall.
 		'#ID .lob-bar{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:61px;box-sizing:border-box;padding:0 40px;' +
 		'background:white;background:var(--bg,Canvas);border-bottom:' + RULE + '}' +
@@ -300,6 +305,9 @@
 		screen.setAttribute('aria-describedby', ID + '-lead');
 		screen.setAttribute('data-testid', 'old-browser');
 		var veil = el('div', 'lob-veil');
+		// The color as a literal too: an engine that drops a var() with a system-color fallback would paint the veil clear.
+		var bg = window.getComputedStyle ? getComputedStyle(document.body).backgroundColor : '';
+		if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') veil.style.backgroundColor = bg;
 		veil.setAttribute('aria-hidden', 'true');
 		screen.appendChild(veil);
 		// The site's top bar, so the notice reads as a page of the site. Branding only: the heading says what this is, so
