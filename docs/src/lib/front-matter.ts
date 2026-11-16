@@ -555,3 +555,46 @@ export function setFrontMatterAcronyms(source: string, entries: Iterable<[string
 	if (child.length) blocks.push(['acronyms', child]);
 	return emitFm(pairs, blocks, body, scalars);
 }
+
+/** A front-matter block's top-level entries: each key line with the indented and blank lines that belong to it
+ *  (a `style: |` body, a nested map), keyed by name. Lines before the first key (a comment) ride with `lead`. */
+function frontMatterEntries(inner: string): { lead: string[]; entries: Array<{ key: string; lines: string[] }> } {
+	const lead: string[] = [];
+	const entries: Array<{ key: string; lines: string[] }> = [];
+	for (const line of inner.split('\n')) {
+		const key = /^([A-Za-z_][\w-]*)[ \t]*:/.exec(line)?.[1];
+		if (key) entries.push({ key, lines: [line] });
+		else if (entries.length) entries[entries.length - 1].lines.push(line);
+		else lead.push(line);
+	}
+	return { lead, entries };
+}
+
+/**
+ * The open deck's front-matter block with a PASTED deck's settings applied: each top-level key the paste carries
+ * replaces the deck's entry for that key whole (a block value with its body), in place; a key only the paste
+ * carries is added before the closing `---`; a key only the deck carries keeps its bytes. The owner's ruling
+ * (2026-11-16): a pasted deck's front matter is respected. Returns `deckBlock` unchanged when the paste has none,
+ * and the paste's own block when the deck has none.
+ */
+export function mergeFrontMatterBlocks(deckBlock: string, pastedBlock: string): string {
+	if (!pastedBlock) return deckBlock;
+	if (!deckBlock) return pastedBlock;
+	const m = FM_RE.exec(deckBlock);
+	const p = FM_RE.exec(pastedBlock);
+	if (!m || !p) return deckBlock;
+	const deck = frontMatterEntries(m[1]);
+	const pasted = frontMatterEntries(p[1]);
+	const at = new Map(deck.entries.map((e, i) => [e.key, i]));
+	for (const e of pasted.entries) {
+		const i = at.get(e.key);
+		if (i === undefined) {
+			at.set(e.key, deck.entries.length);
+			deck.entries.push(e);
+		} else deck.entries[i] = e;
+	}
+	const inner = [...deck.lead, ...deck.entries.flatMap((e) => e.lines)].join('\n');
+	const open = /^---[ \t]*\r?\n/.exec(deckBlock)?.[0] ?? '---\n';
+	const close = deckBlock.slice(open.length + m[1].length);
+	return open + inner + close;
+}

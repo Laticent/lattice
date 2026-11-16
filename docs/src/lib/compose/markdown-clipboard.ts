@@ -13,7 +13,7 @@
 import { Fragment, type Node as PMNode, Slice } from 'prosemirror-model';
 import { AllSelection, type EditorState, Plugin, PluginKey, Selection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { stripFrontMatter } from '../front-matter';
+import { mergeFrontMatterBlocks } from '../front-matter';
 import { normalizeSourceText } from '../normalize-source-text';
 import { CLIP_ORIGIN } from './clip-origin';
 import { deckSchema, SEP, serializeSlideNode, slideContent } from './deck-doc';
@@ -73,7 +73,7 @@ export function pasteAsMarkdown({ text, html, plain, inCode }: { text: string; h
 
 export type MarkdownPaste = {
 	slice: Slice;
-	/** The pasted text's front matter, as written ('' when it had none). Never applied to the open deck. */
+	/** The pasted text's front matter, as written ('' when it had none). Applied to the open deck, key by key. */
 	frontMatter: string;
 	/** Slides the paste brings, 0 when it is prose for the caret's slide. */
 	slides: number;
@@ -120,10 +120,9 @@ function keepEdgeSpaces(content: Fragment, text: string): Fragment {
  * SLIDES (a break, a directive, or prose Compose cannot round-trip, which becomes a locked slide carrying its bytes
  * as pasted) are placed BETWEEN slides by `placeSlides`, never at the caret.
  *
- * FRONT MATTER IS NOT APPLIED. A deck's settings (theme, size, pagination) are the open deck's, and a paste
- * never restyles it: the slides take the destination's look, as PowerPoint, Google Slides and Word all do by
- * default (the prior-art survey in the decision note). The block is recognized and set aside, rather than
- * read as a slide break, a `theme: x` heading and a second break.
+ * FRONT MATTER IS RESPECTED (the owner's ruling, 2026-11-16): a pasted deck's settings are applied to the open
+ * deck, key by key (`mergeFrontMatterBlocks`), in the same transaction as its slides, so one undo takes back both.
+ * The block is recognized as settings, never read as a slide break, a `theme: x` heading and a second break.
  */
 export function markdownToSlice(md: string): MarkdownPaste {
 	const text = normalizeSourceText(md);
@@ -134,6 +133,8 @@ export function markdownToSlice(md: string): MarkdownPaste {
 	let list = slides;
 	while (list.length > 1 && empty(list[0])) list = list.slice(1);
 	while (list.length > 1 && empty(list[list.length - 1])) list = list.slice(0, -1);
+	// Settings and nothing else: the settings are applied (see `land`), and no slide is added.
+	if (fm && list.every(empty)) return { slice: Slice.empty, frontMatter: fm, slides: 0, locked: 0, lockedProse: false };
 	// A paste of nothing but a break (`---`) has no prose at all; the reader takes the lone `---` for an unclosed
 	// front matter fence. It means a new slide, so it adds one.
 	if (list.length === 1 && empty(list[0]) && !fm && text.trim()) {
@@ -286,7 +287,10 @@ export type ClipboardNotice = (message: string) => void;
 /** What to tell the author about a paste, or null when it went in as they would expect. */
 export function pasteNotice(p: MarkdownPaste): string | null {
 	const parts: string[] = [];
-	if (p.frontMatter) parts.push("The pasted deck's settings (theme, size, pagination) were not applied — this deck keeps its own. Open it as its own deck to keep them.");
+	if (p.frontMatter) {
+		const keys = [...p.frontMatter.matchAll(/^([A-Za-z_][\w-]*)[ \t]*:/gm)].map((m) => m[1]);
+		if (keys.length) parts.push(`Applied the pasted deck's settings (${keys.join(', ')}). Undo takes them back.`);
+	}
 	if (p.lockedProse) parts.push('That text uses Markdown Compose cannot edit (such as strikethrough or a footnote), so it was added as its own slide. Edit it in Source.');
 	else if (p.locked) parts.push(`${p.locked === 1 ? 'One pasted slide uses' : `${p.locked} pasted slides use`} Markdown Compose cannot edit, so ${p.locked === 1 ? 'it is' : 'they are'} edited in Source.`);
 	return parts.length ? parts.join(' ') : null;
@@ -331,8 +335,8 @@ export function markdownClipboardPlugin(notice: ClipboardNotice, check: RemoteCh
 		}
 		let refs: string[];
 		try {
-			// Front matter is set aside, never applied, so it is not what the check reads.
-			refs = await check(stripFrontMatter(normalizeSourceText(md)));
+			// The whole text, front matter included: its settings are applied, so they are checked too.
+			refs = await check(normalizeSourceText(md));
 		} catch {
 			notice('That Markdown could not be checked, so it was not pasted. Try again in a moment, or paste it in Source.');
 			return;
@@ -343,7 +347,8 @@ export function markdownClipboardPlugin(notice: ClipboardNotice, check: RemoteCh
 		}
 		if ((view as unknown as { isDestroyed?: boolean }).isDestroyed) return;
 		const state = view.state;
-		const tr = p.slides ? placeSlides(state, p.slice.content) : state.tr.replaceSelection(p.slice);
+		const tr = p.slides ? placeSlides(state, p.slice.content) : p.slice.size ? state.tr.replaceSelection(p.slice) : state.tr;
+		if (p.frontMatter) tr.setDocAttribute('frontMatter', mergeFrontMatterBlocks((state.doc.attrs.frontMatter as string) || '', p.frontMatter));
 		view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
 		// The structural guard may refuse it (a locked slide): then nothing landed, and nothing is said about it.
 		if (view.state.doc === state.doc) {

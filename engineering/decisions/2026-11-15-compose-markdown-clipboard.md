@@ -5,7 +5,7 @@ summary: >
   formatting) instead of being saved escaped; a copy writes the selection's Markdown to text/plain; a deck file
   dropped on Compose opens as a new deck instead of vanishing. Pasted slides land between slides, never splitting
   one. A Markdown paste is rendered through the engine and refused whole if it would load anything from another
-  site. A pasted deck's front matter is set aside. Prior-art survey for the front-matter call; trio findings.
+  site. A pasted deck's front matter is applied key by key (the owner's ruling). Prior-art survey; trio findings.
 ---
 
 # Compose's clipboard speaks Markdown (2026-11-15)
@@ -67,8 +67,8 @@ A locked slide copies as its exact bytes (`raw`); the serializer would write its
   one. A break at the very start or end of the text adds no empty slide; a paste of `---` alone adds one.
 - `emitDeck` emits `raw` for a locked slide with no baseline entry, since a locked slide cannot change.
 
-The Studio says when a paste was not what the text alone suggests: front matter set aside, prose that became a
-locked slide, a paste the structural guard refused.
+The Studio says when a paste did more or less than the text alone suggests: settings applied (named, with Undo
+to take them back), prose that became a locked slide, a paste the structural guard refused.
 
 ## 3. The paste is checked before it lands
 
@@ -115,11 +115,23 @@ that starts with `---\ntheme: …\n---` into an existing deck:
 Sources: Microsoft and Google support pages, sli.dev and Marpit docs, Obsidian forum; several defaults come
 from third-party tutorials, and Keynote's from forum reports only.
 
-The pattern: **the destination wins by default, and overriding is offered after the paste.** Every option must
-also rule out the decay into a rule plus a `theme: x` heading, which is what Compose would otherwise produce.
-Shipped: the front matter is recognized and set aside, the slides take the open deck's look, and the Studio
-says the settings were not applied. Whether the message should carry an action ("Apply them", or "Open as its
-own deck") is put to the owner.
+The pattern in those tools: the destination wins by default, and overriding is offered after the paste. Every
+option must also rule out the decay into a rule plus a `theme: x` heading, which Compose would otherwise produce.
+
+**The owner's ruling (2026-11-16) goes the other way: a pasted deck's front matter is respected.** The use case
+is real (bring a deck's look along with its slides), and the deck is Markdown, so the settings are part of what
+was pasted. Shipped (`mergeFrontMatterBlocks`, `front-matter.ts`):
+
+- each top-level key the paste carries replaces the deck's entry for that key whole (a `style: |` body with it),
+  in place; a key only the paste carries is added; a key only the deck carries keeps its bytes;
+- the merge rides the same transaction as the slides, so one Undo takes back both;
+- the Studio names the keys it applied ("Applied the pasted deck's settings (theme, paginate)");
+- settings with no slides apply the settings and add no slide;
+- the network check reads the front matter too, since it is applied (a `style:` key, which can fetch, refuses the
+  paste; Source is the way in for it).
+
+The first cut set the settings aside, following the survey; the owner read that as the wrong default for a
+Markdown tool.
 
 ## 6. The adversarial trio (2026-11-15)
 

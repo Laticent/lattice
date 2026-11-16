@@ -145,8 +145,8 @@ opens the presenter's second window; Esc leaves.
 
 1. **Start a deck**: ⌘K → "New deck", then write in Compose. Markdown pasted
    into Compose arrives as slides, layouts and formatting (⌘⇧V pastes it as
-   plain text). A pasted deck's front matter is not applied, so to bring in a
-   whole deck with its theme, paste it into Source or open the file. Copying
+   plain text). A pasted deck's front matter (theme, size, pagination) is
+   applied to the open deck, key by key; Undo takes it back. Copying
    from Compose gives Markdown: a phrase as `**bold**`, slides with their
    layouts and `---` breaks, the whole deck as the deck file.
 2. **Open a file**: "Import deck…" or drop the file on the Studio. It opens

@@ -94,14 +94,20 @@ describe('markdownToSlice', () => {
 		});
 	});
 
-	it('sets front matter aside rather than reading it as a slide, and says so', () => {
+	it('reads front matter as settings, never as a slide, and names what it applies', () => {
 		const p = markdownToSlice(`---\ntheme: cuoio\npaginate: true\n---\n\n${TWO}`);
 		expect(p.frontMatter).toContain('theme: cuoio');
 		expect(p.slides).toBe(2);
 		p.slice.content.forEach((s) => {
 			expect(s.textContent).not.toContain('theme:');
 		});
-		expect(pasteNotice(p)).toMatch(/settings .* were not applied/);
+		expect(pasteNotice(p)).toBe("Applied the pasted deck's settings (theme, paginate). Undo takes them back.");
+	});
+
+	it('settings and nothing else add no slide', () => {
+		const p = markdownToSlice('---\ntheme: cuoio\n---\n');
+		expect(p.slides).toBe(0);
+		expect(p.slice.size).toBe(0);
 	});
 
 	it('pastes prose Compose cannot round-trip as a locked slide that saves its bytes as pasted', () => {
@@ -284,6 +290,14 @@ describe('markdownClipboardPlugin', () => {
 		await paste('# Two\n\n<!-- _backgroundImage: url(https://evil.test/a.png) -->');
 		expect(view.state.doc).toBe(before);
 		expect(notices.join(' ')).toMatch(/loads something from another site/);
+	});
+
+	it("applies a pasted deck's front matter to the open deck, key by key, with its slides", async () => {
+		const { view, paste } = setup([]);
+		await paste('---\ntheme: cuoio\npaginate: true\n---\n\n# Two\n\n---\n\n# Three');
+		const out = docToDeck(view.state.doc);
+		expect(out.startsWith('---\ntheme: cuoio\npaginate: true\n---')).toBe(true);
+		expect(out).toContain('# Three');
 	});
 
 	it('refuses when the check cannot run: an unchecked paste is not waved through', async () => {

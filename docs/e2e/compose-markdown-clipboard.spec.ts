@@ -96,16 +96,22 @@ test.describe('Markdown on the Compose clipboard', () => {
 		await expect(page.locator('.cs-slide')).toHaveCount(1);
 	});
 
-	test('a pasted deck keeps this deck\'s settings and says so', async ({ page }) => {
-		await openDeckInCompose(page, `---\ntheme: indaco\n---\n\n${DECK}`);
+	// The owner's ruling (2026-11-16): a pasted deck's front matter is respected. Its keys replace the deck's; a key only the
+	// deck has stays.
+	test("a pasted deck's settings are applied, key by key, and the Studio names them", async ({ page }) => {
+		await openDeckInCompose(page, `---\ntheme: indaco\ntitle: Kickoff\n---\n\n${DECK}`);
 		await caretAfter(page, 'Where we start.');
 		await paste(page, { 'text/plain': `---\ntheme: cuoio\npaginate: true\n---\n\n${PASTE}` });
 		await expect.poll(() => savedDeck(page)).toContain('<!-- _class: big-number -->');
 		const saved = await savedDeck(page);
-		expect(saved).toContain('theme: indaco');
-		expect(saved).not.toContain('cuoio');
-		expect(saved).not.toContain('paginate');
-		await expect(toastText(page)).toContainText('were not applied');
+		expect(saved.startsWith('---\ntheme: cuoio\ntitle: Kickoff\npaginate: true\n---')).toBe(true);
+		expect(saved).not.toContain('indaco');
+		await expect(toastText(page)).toContainText('Applied the pasted deck');
+		// One undo takes back the settings and the slides together.
+		await page.locator('.cs-host .ProseMirror').focus();
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect.poll(() => savedDeck(page)).toContain('theme: indaco');
+		expect(await savedDeck(page)).not.toContain('big-number');
 	});
 
 	// The engine renders the paste and the spine reads the markup (HARD RULE #22). One spelling a source pattern missed

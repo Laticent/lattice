@@ -578,3 +578,17 @@ describe('a repeated `finish-override:` block reads the LAST block (#3050, D1)',
 		expect(getFrontMatter(out, 'footer')).toBe('real');
 	});
 });
+
+describe('mergeFrontMatterBlocks', () => {
+	it('applies the pasted keys in place, adds new ones, and keeps the deck-only ones byte for byte', async () => {
+		const { mergeFrontMatterBlocks } = await import('./front-matter');
+		const deck = '---\n# my deck\ntheme: indaco\ntitle: "Q3"\nstyle: |\n  section { color: red; }\n---\n\n';
+		const pasted = '---\ntheme: cuoio\npaginate: true\nstyle: |\n  h1 { x: 1; }\n  h2 { y: 2; }\n---\n';
+		expect(mergeFrontMatterBlocks(deck, pasted)).toBe('---\n# my deck\ntheme: cuoio\ntitle: "Q3"\nstyle: |\n  h1 { x: 1; }\n  h2 { y: 2; }\npaginate: true\n---\n\n');
+	});
+	it('takes the paste whole when the deck has no block, and changes nothing when the paste has none', async () => {
+		const { mergeFrontMatterBlocks } = await import('./front-matter');
+		expect(mergeFrontMatterBlocks('', '---\ntheme: cuoio\n---\n')).toBe('---\ntheme: cuoio\n---\n');
+		expect(mergeFrontMatterBlocks('---\ntheme: indaco\n---\n', '')).toBe('---\ntheme: indaco\n---\n');
+	});
+});
