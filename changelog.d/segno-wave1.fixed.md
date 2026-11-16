@@ -1,0 +1,1 @@
+- The Studio's speaker-note, `describe:` and `say:` editors find a slide's comments where the engine does: a comment in a `$$` equation or an indented code block is code, a comment in a fence inside a `<div>` block is a note, and an unclosed `<!--` in a code fence no longer hides the note after it.

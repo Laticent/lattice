@@ -737,7 +737,8 @@ docblock are gone (lint-core.js: 28 lines in, 255 out).
   slides apart (a BOM also hid the front matter from the split), so rule 12 read another slide. `lintTextWith` now
   drops a leading BOM and folds a lone `\r` to `\n` first, which no tracked file has, so the corpus is unchanged.
 
-**Still owed, and why.**
+**Still owed, and why.** *(Superseded 2026-11-16: every item below is closed or owned elsewhere; see §The last P3
+islands.)*
 
 - **The front matter, through the register grammar**, and **the Mermaid fence matcher.** Each changes the bytes an
   export bakes (a BOM-led deck's front matter; a fence inside an HTML block), so each waits for the owner's sign-off on
@@ -852,3 +853,49 @@ unterminated CDATA flood in foreign content was quadratic (about 15,000 characte
 with the same reuse rule as `nx_<code>`, and keeps it across parses while the input is the same text (compared by
 value, so a copy keeps it); a different text resets it. `nx_<code>` is unchanged and still resets per parse. A grammar
 without stops generates exactly as before. The same CDATA input now covers 2.6 times its length through R3.
+
+## The last P3 islands (2026-11-16)
+
+**Where each P3 island went.** §P3 islands left four readers on their own scans. None is left on this pipeline's
+list:
+
+| Reader | Where it went |
+|---|---|
+| The Mermaid fence matcher (`mermaid-fences.js`) | Deleted by the plugin contract's D2 slice 3 and 4: every reader of a plugin's fences reads the engine's own block parse, `pluginFences` (lib/core/plugin-fences.mjs; engineering/decisions/2026-11-06-plugin-patterns.md §4). That parse is markdown-it as the engine configures it, so it is the engine's answer, not an approximation of it; it moves onto the model when P7 removes markdown-it |
+| `comments()`, the notes channel's reader (lib/core/meta-record.mjs) | **Moved here, below** |
+| `parseFrontMatter` | The front-matter island (PR #3228; engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §11), and the register grammar after it (§5 of that note) |
+| lint-core's ~16 comment scans | Out of this pipeline: Squadra deletes lint-core.js (followups.d/3194-p1-squadra-replaces-lint-core.md, §8 "lint-core.js is gone") |
+
+followups.d/3042-p1 is deleted with this change.
+
+**`comments()` reads the deck model.** It was a text scan that skipped `fenceRanges` (lib/core/fence-ranges.mjs, a
+fence scan of its own). It now takes each `<!--` by the block the model says holds it:
+
+- inside an HTML block (a comment block, or a `<div>` block it folds into): a comment, closed by the first `-->` after
+  it, as the block renders raw;
+- inside a leaf (a paragraph, a heading): a comment only if its `-->` is in the same leaf, because markdown-it's
+  `html_inline` reads only the leaf's own text;
+- inside a table row: markdown-it's own answer, because where a cell ends is the table rule's split (escaped pipes, and
+  cells past the header's count dropped), and a cell has no line range in the model. Only a slide with an opener on a
+  table row pays for that parse;
+- anywhere else: text. That is a fenced or indented code block, a plugin block (a `$$` equation), the front matter
+  and a link reference definition.
+
+So four shapes the fence scan got wrong now agree with the engine: a comment in a `$$` block or an indented code block
+is code; a fence inside a `<div>` block is HTML, so the comment in it is a note; an unclosed `<!--` in a fence no
+longer pairs with the next note's `-->` and swallows it; an inline opener no longer closes two paragraphs down.
+Inside a leaf, inline structure is S2's (P4): an opener inside a code span still counts, as it did before.
+
+`comments()` and `commentBlocks` share one memo: each text's records, and the model of the LAST text read, so a slide
+both editors read (the class editor and the notes editor, on the slide being typed in) is parsed once per keystroke,
+not once per reader, and the memo holds records, not tapes. The scan remembers the last `-->` it found, so a run of
+openers whose closers lie past their own paragraph costs one search, not one each (the checker's
+`'p <!--\n\n'.repeat(40000) + '-->'` took 15 s on the first cut; it is now a counted test in
+test/unit/core/meta-record.test.js).
+
+| Held to | Result |
+|---|---|
+| test/unit/core/comments-model.test.js: 4,000 seeded decks (seed 3042) against markdown-it's `html_block` / `html_inline` tokens, the rule notes-core's `liveCommentOpeners` reads notes by | 0 disagreements; the fence scan fails it and the shape tests |
+| The checker's own fuzz: HTML block types 1-7, lazy continuation, nested quotes, tab code, CRLF and BOM, 140,000 decks over seeds 1-5 | 0 disagreements |
+| `npm run identity:check -- --strict` | 0 renders differ; the reader is Studio-only, so no export byte moves |
+| The Studio's own suites (`docs/src/components/studio`, slide-directives) | 331 files, 4,672 tests green |
