@@ -142,25 +142,33 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 <!-- say: Part two. Five missions, each reducing a different kind of risk. We will follow one five hundred dollar transfer through all of them. -->
 
 ---
-<!-- _class: table table-fill -->
+<!-- _class: premise -->
 
 ## Each mission answers a question the others cannot.
 
-| Mission | The risk it reduces | The question it answers |
-| --- | --- | --- |
-| Unit | Logic gives a wrong result | Does the logic work? |
-| Integration | Parts disagree at boundaries | Do the interactions work? |
-| System | The whole misbehaves in production | Does it hold up in production? |
-| Experience | People cannot reach their goal | Can users reach it? |
-| Safety | The operation causes unacceptable harm | Can it avoid unacceptable harm? |
+Each mission names a risk to reduce, whatever scope the test runs at.
 
-— Each mission names a risk, whatever scope the test runs at.
+1. Unit
+   - Logic gives a wrong result.
+   - Does the logic work?
+2. Integration
+   - Parts disagree at their boundaries.
+   - Do the interactions work?
+3. System
+   - The whole misbehaves in production.
+   - Does it hold up in production?
+4. Experience
+   - People cannot reach their goal.
+   - Can users reach it?
+5. Safety
+   - The operation causes unacceptable harm.
+   - Can it avoid unacceptable harm?
 
 <!-- Stress two things. First, the missions overlap: one scenario can produce evidence for all five, and one test run can serve two. Second, Experience and Safety work starts at design time, long before a system exists to test. A threat model and a usability study of a paper prototype are both evidence.
 
 The word System here means production parity. That is narrower than the ISTQB use, where system testing means testing the complete integrated system against its requirements. -->
 
-<!-- describe: A table of five missions, the risk each reduces, and the question it answers. Unit: logic gives a wrong result; does the logic work? Integration: parts disagree at boundaries; do the interactions work? System: the whole misbehaves in production; does it hold up in production? Experience: people cannot reach their goal; can users reach it? Safety: the operation causes unacceptable harm; can it avoid unacceptable harm? Footnote: each mission names a risk, whatever scope the test runs at. -->
+<!-- describe: A claim beside a numbered ledger of the five missions, each with the risk it reduces and the question it answers. Unit: logic gives a wrong result; does the logic work? Integration: parts disagree at their boundaries; do the interactions work? System: the whole misbehaves in production; does it hold up in production? Experience: people cannot reach their goal; can users reach it? Safety: the operation causes unacceptable harm; can it avoid unacceptable harm? The claim: each mission names a risk to reduce, whatever scope the test runs at. -->
 
 <!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: the risk is logic that gives a wrong result. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? System: the whole misbehaves in production. Does it hold up in production? Experience: people cannot reach their goal. Can they reach it? Safety: the operation causes unacceptable harm. Can it avoid that harm? -->
 
@@ -208,25 +216,23 @@ Categories overlap by design. One test run can contribute evidence to several mi
 <!-- say: One transfer gives evidence to all five missions, and each has its own limit. Authorization and amount rules are Unit evidence, with dependencies controlled. One stored row and one event are Integration evidence, with local or virtual resources. Settlement under load and failover is System evidence, if parity and data are representative. Whether the customer knows the money moved needs representative users. And no duplicate charge across retries is judged on the whole operation. -->
 
 ---
-<!-- _class: table table-fill -->
+<!-- _class: inventory editorial compact -->
 
 ## Five kinds of test double do five different jobs.
 
-| Double | What it does |
-| --- | --- |
-| Dummy | Fills a parameter list and is never used. |
-| Stub | Returns canned answers to the calls the test makes. |
-| Spy | A stub that records how it was called. |
-| Mock | Fails the test if expected calls do not happen. |
-| Fake | A working but simplified version, such as an in-memory database. |
+- **Dummy.** Fills a parameter list and is never used.
+- **Stub.** Returns canned answers to the calls the test makes.
+- **Spy.** A stub that also records how it was called.
+- **Mock.** Fails the test if expected calls do not happen.
+- **Fake.** A working, simplified version, such as an in-memory database.
 
-— With a stub, check the balance afterward. With a mock, check that the ledger was called.
+> With a stub, check the balance afterward. With a mock, check that the ledger was called.
 
 <!-- These are Gerard Meszaros's terms from xUnit Test Patterns (2007), popularized by Martin Fowler's essay "Mocks Aren't Stubs". "Test double" is the umbrella word, by analogy with a stunt double.
 
 Why it matters: a stub and a mock lead to different tests. A stub supports state verification, where you check the balance afterward. A mock does behavior verification, where you check that the ledger was called. Heavy mocking couples tests to implementation, so a harmless refactor turns them red. -->
 
-<!-- describe: A table of five test doubles and what each does, in this order. Dummy: fills a parameter list and is never used. Stub: returns canned answers to the calls the test makes. Spy: a stub that records how it was called. Mock: fails the test if expected calls do not happen. Fake: a working but simplified version, such as an in-memory database. Footnote: with a stub, check the balance afterward; with a mock, check that the ledger was called. -->
+<!-- describe: A numbered ledger of five test doubles. Dummy: fills a parameter list and is never used. Stub: returns canned answers to the calls the test makes. Spy: a stub that also records how it was called. Mock: fails the test if expected calls do not happen. Fake: a working, simplified version, such as an in-memory database. A closing band says: with a stub, check the balance afterward; with a mock, check that the ledger was called. -->
 
 <!-- say: Five kinds of test double do five different jobs. A dummy fills a parameter and is never used. A stub returns canned answers. A spy is a stub that also records how it was called. A mock fails the test if expected calls do not happen. A fake is a simplified working version, like an in memory database. With a stub, you check the balance afterward. With a mock, you check that the ledger was called. These are Gerard Meszaros's terms. -->
 
@@ -286,18 +292,22 @@ The reverse trap is more common: "we use a real PostgreSQL" while the dataset is
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: list-tabular compact -->
 
 ## Write production parity down as a contract for each objective.
 
-| Dimension | What could change the answer |
-| --- | --- |
-| Technology | Engine, driver, protocol and firmware versions |
-| Configuration | Timeouts, pools, quotas, access rules, feature flags |
-| Topology | Regions, zones, network hops, failover paths |
-| Scale | Concurrency, data volume, cardinality, throughput |
-| Runtime | CPU, memory, disk, queue depth, latency |
-| Operations | Monitoring, recovery, deployment, runbooks |
+1. Technology
+   - Engine, driver, protocol and firmware versions
+2. Configuration
+   - Timeouts, pools, quotas, access rules, feature flags
+3. Topology
+   - Regions, zones, network hops, failover paths
+4. Scale
+   - Concurrency, data volume, cardinality, throughput
+5. Runtime
+   - CPU, memory, disk, queue depth, latency
+6. Operations
+   - Monitoring, recovery, deployment, runbooks
 
 — Parity is a claim about one objective, with its gaps named.
 
@@ -305,7 +315,7 @@ The reverse trap is more common: "we use a real PostgreSQL" while the dataset is
 
 Example: two PostgreSQL clusters on the same minor version can still differ in indexes, connection limits, storage latency and replica lag. A failover objective needs the topology and failover rows; a reporting-query objective needs the scale rows. -->
 
-<!-- describe: A table of six parity dimensions and what could change the answer. Technology: engine, driver, protocol and firmware versions. Configuration: timeouts, pools, quotas, access rules, feature flags. Topology: regions, zones, network hops, failover paths. Scale: concurrency, data volume, cardinality, throughput. Runtime: CPU, memory, disk, queue depth, latency. Operations: monitoring, recovery, deployment, runbooks. Footnote: parity is a claim about one objective, with its gaps named. -->
+<!-- describe: A numbered ledger of six parity dimensions and what could change the answer in each. Technology: engine, driver, protocol and firmware versions. Configuration: timeouts, pools, quotas, access rules, feature flags. Topology: regions, zones, network hops, failover paths. Scale: concurrency, data volume, cardinality, throughput. Runtime: CPU, memory, disk, queue depth, latency. Operations: monitoring, recovery, deployment, runbooks. Footnote: parity is a claim about one objective, with its gaps named. -->
 
 <!-- say: Production parity means a test environment that matches production wherever it could change the result. Write it down as a contract for each objective. For each of six dimensions, ask what could change the answer. Technology, such as driver versions. Configuration, such as timeouts. Topology, such as failover paths. Scale, such as cardinality, which means how many distinct values a field holds. Runtime, such as latency. And operations, such as recovery. Parity is a claim about one objective, with its gaps named. -->
 
@@ -335,22 +345,26 @@ Synthetic data is often the safer and more repeatable choice. Masked production 
 
 ---
 
-<!-- _class: flowchart -->
+<!-- _class: cycle -->
 
 ## Parity and test data decay unless someone checks them.
 
-- Production changes -> Drift -> Check -> Still representative?
-- Still representative? `diamond`
-  - -yes-> Keep the evidence
-  - -no-> Refresh or declare the gap -> Check
+- Production changes
+  - Versions, configuration, traffic and data keep moving.
+- Drift
+  - The test setup stops matching what matters.
+- Check
+  - While it is still representative, keep the evidence.
+- Refresh or declare
+  - Restore parity, or write down the new gap.
 
-— Someone has to recheck parity and data on a schedule.
+> Someone has to recheck parity and data on a schedule.
 
 <!-- Production keeps moving: versions, configuration, topology, traffic shape, access rules, data volume and skew. A staging environment that matched last year may not match today.
 
 Put a recurring check on the parity contract from the previous slide. Representative data drifts too: new products, new customer segments, seasonal patterns. When a check fails, either refresh the environment or data, or write down the new gap. -->
 
-<!-- describe: A flowchart: production changes lead to drift, then a check, then a diamond, still representative? Yes leads to keep the evidence. No leads to refresh or declare the gap, which loops back to the check. A footnote says someone has to recheck parity and data on a schedule. -->
+<!-- describe: A loop of four stages that returns to its start. Production changes: versions, configuration, traffic and data keep moving. Drift: the test setup stops matching what matters. Check: while it is still representative, keep the evidence. Refresh or declare: restore parity, or write down the new gap, then the loop returns to production changes. A callout says someone has to recheck parity and data on a schedule. -->
 
 <!-- say: Parity and test data decay unless someone checks them. Production changes, so parity and data drift. Check what matters. If the environment is still representative, keep the evidence. If not, refresh it or declare the gap, and check again. Someone has to recheck parity on a schedule. -->
 
@@ -380,46 +394,45 @@ Write the gap down with three parts: what was substituted, what claim it weakens
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: list-steps -->
 
 ## Scope a fidelity gap to the one claim it weakens.
 
-| Step | What to do |
-| --- | --- |
-| Keep the evidence | Database and broker results still stand |
-| Limit the claim | Payment network behavior stays unproven |
-| Record the gap | What was substituted, and who owns the risk |
+1. Keep the evidence
+   - Database and broker results still stand.
+2. Limit the claim
+   - Payment network behavior stays unproven.
+3. Record the gap
+   - Write down what was substituted, and who owns the risk.
 
 <!-- Both mistakes are common. Teams either declare the whole System test worthless because one dependency is virtual, or they report "end-to-end verified" when the virtual part was the risky part.
 
 Record the three steps on the slide: keep the evidence, limit the claim, and write down what was substituted and who owns the remaining risk. -->
 
-<!-- describe: A table of three steps for a fidelity gap. Keep the evidence: database and broker results still stand. Limit the claim: payment network behavior stays unproven. Record the gap: what was substituted, and who owns the risk. -->
+<!-- describe: Three numbered steps. Keep the evidence: database and broker results still stand. Limit the claim: payment network behavior stays unproven. Record the gap: write down what was substituted, and who owns the risk. -->
 
 <!-- say: Scope a fidelity gap to the one claim it weakens. Do not discard the test: a virtual payment network limits claims about that interaction, and the other system evidence still stands. Do not overclaim it either: if the network's latency or failures shape the outcome, the end to end claim stays incomplete. Write down what was substituted, which claims still stand, and who owns the remaining risk. -->
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: checklist -->
 
 `Experience mission`
 
 ## Every system check can pass while the customer still fails.
 
-| What we observed | Result |
-| --- | --- |
-| API response | 200 OK |
-| Ledger entry | Committed |
-| Confirmation event | Published |
-| Customer knows the money moved | No |
+- [x] The API answered 200 OK.
+- [x] The ledger committed the entry.
+- [x] The confirmation event was published.
+- [!] The customer knew the money moved.
 
 — Experience covers accessibility, error recovery and confidence, for customers, operators and API users alike.
 
-<!-- The story behind this table: the transfer succeeded, but the screen showed a spinner until the session timed out. The customer tried again. Now Safety is involved too.
+<!-- The story behind this slide: the transfer succeeded, but the screen showed a spinner until the session timed out. The customer tried again. Now Safety is involved too.
 
 Experience evidence comes from watching representative people do real tasks: moderated sessions, task-success rates, accessibility audits with assistive technology, and support-ticket analysis. Developers calling your API are users too, and their experience is an error message that explains what went wrong. -->
 
-<!-- describe: A table of observations and results for the Experience mission. API response: 200 OK. Ledger entry: committed. Confirmation event: published. Customer knows the money moved: no. -->
+<!-- describe: A checklist under the label Experience mission. Three items pass: the API answered 200 OK, the ledger committed the entry, and the confirmation event was published. One item fails: the customer knew the money moved. Footnote: Experience covers accessibility, error recovery and confidence, for customers, operators and API users alike. -->
 
 <!-- say: Every system check can pass while the customer still fails. The A P I returned status two hundred, which means success. The ledger entry committed. The confirmation event was published. And the customer still did not know whether the money moved, because the screen showed a spinner until the session timed out, so they tried again. Now Safety is involved too. Experience covers accessibility, error recovery and confidence, for customers, operators and developers using an A P I. -->
 
@@ -516,17 +529,16 @@ The global invariant has to be tested across the assembled operation: one intend
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: cards-stack -->
 
 ## Confirm what you know, and search for what you have not imagined.
 
-| Territory | What we know | Techniques that fit |
-| --- | --- | --- |
-| Knowns | The condition and the expected result | Example-based tests, contract tests |
-| Known unknowns | The class, not the instance | Property tests, fuzzing, fault injection |
-| Unknown unknowns | Nothing yet | Exploratory testing, chaos experiments, incident review |
-
-— Discovery raises the odds of a useful surprise. No technique guarantees completeness.
+- Knowns
+  - We know the condition and the expected result. Example-based tests and contract tests confirm it.
+- Known unknowns
+  - We know the class of risk, not the case. Property tests, fuzzing and fault injection generate cases.
+- Unknown unknowns
+  - We know nothing yet. Exploratory testing, chaos experiments and incident review make a surprise more likely.
 
 <!-- Knowns: we can write the input and the expected output.
 
@@ -536,7 +548,7 @@ Unknown unknowns: we cannot write a test for a condition we have not conceived. 
 
 The columns describe the dominant intent. Fuzzing can confirm robustness against a known class and also find something new. -->
 
-<!-- describe: A table of three territories of uncertainty. Knowns: we know the condition and expected result; use example based and contract tests. Known unknowns: we know the class, not the instance; use property tests, fuzzing and fault injection. Unknown unknowns: nothing yet; use exploratory testing, chaos experiments and incident review. -->
+<!-- describe: Three stacked cards. Knowns: we know the condition and the expected result; example-based tests and contract tests confirm it. Known unknowns: we know the class of risk, not the case; property tests, fuzzing and fault injection generate cases. Unknown unknowns: we know nothing yet; exploratory testing, chaos experiments and incident review make a surprise more likely. -->
 
 <!-- say: Confirm what you know, and search for what you have not imagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents. -->
 
@@ -569,25 +581,33 @@ Chaos: the hypothesis comes first, for example "losing one broker node does not 
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: premise -->
 
 ## Each technique needs a different kind of oracle.
 
-| Mode | Oracle | Example question |
-| --- | --- | --- |
-| Example-based | One expected value | Did the transfer move exactly $500? |
-| Property-based | An invariant | Can money appear without a ledger entry? |
-| Metamorphic | A relation between runs | Do two $250 transfers total one $500? |
-| Exploratory | Judgment and heuristics | Is this surprising or harmful? |
-| Fuzzing | Crashes, hangs, broken invariants | What does unexpected input do? |
+Confirmatory tests protect what we expect. Discovery raises the odds of finding what we did not.
 
-— Confirmatory tests protect what we expect. Discovery raises the odds of finding what we did not.
+1. Example-based
+   - One expected value.
+   - Did the transfer move exactly $500?
+2. Property-based
+   - An invariant.
+   - Can money appear without a ledger entry?
+3. Metamorphic
+   - A relation between runs.
+   - Do two $250 transfers total one $500?
+4. Exploratory
+   - Judgment and heuristics.
+   - Is this surprising or harmful?
+5. Fuzzing
+   - Crashes, hangs, broken invariants.
+   - What does unexpected input do?
 
-<!-- The first row is what most people picture as a test. The other four do not need the exact answer for each input, which is what makes them able to explore.
+<!-- The first mode is what most people picture as a test. The other four do not need the exact answer for each input, which is what makes them able to explore.
 
 Metamorphic testing is the least known. It is useful wherever the right answer is expensive to compute, such as pricing, search ranking or machine-learning output: you check a relation between two runs instead of either result alone. -->
 
-<!-- describe: A table of five testing modes, the oracle each uses, and an example question. Example based: one expected value; did the transfer move exactly five hundred dollars? Property based: an invariant; can money appear without a ledger entry? Metamorphic: a relation between runs; do two 250 dollar transfers total one 500? Exploratory: judgment and heuristics; is this surprising or harmful? Fuzzing: crashes, hangs, broken invariants; what does unexpected input do? -->
+<!-- describe: A claim beside a numbered ledger of five testing modes, each with its oracle and an example question. Example-based: one expected value; did the transfer move exactly 500 dollars? Property-based: an invariant; can money appear without a ledger entry? Metamorphic: a relation between runs; do two 250 dollar transfers total one 500? Exploratory: judgment and heuristics; is this surprising or harmful? Fuzzing: crashes, hangs, broken invariants; what does unexpected input do? The claim: confirmatory tests protect what we expect, and discovery raises the odds of finding what we did not. -->
 
 <!-- say: Each technique needs a different kind of oracle. Example based tests need one expected value: did the transfer move exactly five hundred dollars? Property based tests need a rule: can money appear without a ledger entry? Metamorphic tests need a relation between runs: do two transfers of two hundred fifty dollars move the same total as one of five hundred? Exploratory testing uses judgment. Fuzzing watches for crashes and broken rules. -->
 
@@ -894,19 +914,28 @@ Testing in production is legitimate only with guardrails: limit the blast radius
 
 ---
 
-<!-- _class: flowchart -->
+<!-- _class: cycle -->
 
 ## Judgment decides which checks are worth automating.
 
-- Judgment -> Oracle -> Automate -> Results -> Interpret -> Judgment
+- Judgment
+  - Pick the mission and the risk.
+- Oracle
+  - Decide what counts as correct.
+- Automate
+  - Script the checks that repeat.
+- Results
+  - Collect what the checks observed.
+- Interpret
+  - Revise the assumptions, then judge again.
 
-— Exploratory testing and red teaming earn their value by changing direction mid-run.
+> Exploratory testing and red teaming earn their value by changing direction mid-run.
 
 <!-- Automation executes checks. Testing is the reasoning around them: choosing the conditions, challenging assumptions, interpreting results and deciding what to do next.
 
 Do not automate merely because you can. A usability observation or an adaptive red-team exercise loses most of its value as a fixed script. -->
 
-<!-- describe: A flowchart cycle: judgment, oracle, automate, results, interpret, and back to judgment. Footnote: exploratory testing and red teaming earn their value by changing direction mid-run. -->
+<!-- describe: A loop of five stages that returns to its start. Judgment: pick the mission and the risk. Oracle: decide what counts as correct. Automate: script the checks that repeat. Results: collect what the checks observed. Interpret: revise the assumptions, then judge again. A callout says exploratory testing and red teaming earn their value by changing direction mid-run. -->
 
 <!-- say: Judgment decides which checks are worth automating. Judgment picks the mission and risk, then the oracle and evidence. Automate the repeatable checks, collect the results, interpret them, and revise the assumptions, which feeds back into judgment. Exploratory testing and red teaming, where a team plays the attacker, earn their value by changing direction mid run. -->
 
@@ -975,18 +1004,20 @@ Give the room a full minute. Take three answers before the reveal. Expect System
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: cards-grid four -->
 
 `Reveal`
 
 ## The sentence names a tool, a place and a scenario, but no mission.
 
-| Element | What it tells us |
-| --- | --- |
-| Playwright | Tactic |
-| Staging | Environment |
-| Transfer flow | Scenario |
-| Mission | Missing |
+- Playwright
+  - The tactic: how the test is exercised.
+- Staging
+  - The environment: where the test runs.
+- Transfer flow
+  - The scenario: what the test walks through.
+- Mission: missing
+  - The risk to reduce. Nothing in the sentence names it.
 
 — A transfer at parity under load is System. Users understanding it is Experience. A double send is Safety.
 
@@ -996,7 +1027,7 @@ If the goal is that the assembled transfer works at production parity, it is Sys
 
 Mission decides the classification. Fidelity decides whether the evidence is good enough. -->
 
-<!-- describe: A table that breaks the sentence down. Playwright: tactic. Staging: environment. Transfer flow: scenario. Mission: missing. A footnote maps three goals: a transfer at parity under load is System; users understanding it is Experience; a double send is Safety. -->
+<!-- describe: Four cards under the label Reveal. Playwright: the tactic, how the test is exercised. Staging: the environment, where the test runs. Transfer flow: the scenario, what the test walks through. Mission, missing: the risk to reduce, and nothing in the sentence names it. Footnote: a transfer at parity under load is System, users understanding it is Experience, and a double send is Safety. -->
 
 <!-- say: The answer: the sentence names a tool, a place and a scenario, and no mission. Playwright is a tactic. Staging is an environment. The transfer flow is a scenario. If the goal is a transfer at parity under load, it is System. If it is whether users understand it, it is Experience. If it is whether a double click sends twice, it is Safety. -->
 
@@ -1016,25 +1047,24 @@ Mission decides the classification. Fidelity decides whether the evidence is goo
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: cards-stack -->
 
 `Reveal`
 
 ## The mission decides what a passing fuzz run would justify.
 
-| If the mission is | A pass would show |
-| --- | --- |
-| Integration | Parsing and contracts hold against a virtual dependency |
-| System | The parity path survives malformed traffic |
-| Safety | No input bypasses a control or moves money |
-
-— Ask of any test: what would we be justified in concluding if it passed?
+- Integration
+  - A pass shows parsing and contracts hold against a virtual dependency.
+- System
+  - A pass shows the parity path survives malformed traffic.
+- Safety
+  - A pass shows no input bypasses a control or moves money.
 
 <!-- The sentence names a tactic (fuzzing), an environment (staging) and a scenario (the transfer endpoint). The primary mission is unknown until the objective is stated.
 
 "Security test" is not one of the five missions; it is usually Safety. But a fuzz run that only checks for crashes supports a much narrower claim than "no input can move money". -->
 
-<!-- describe: A table of three possible missions and what a pass would show. Integration: parsing and contracts hold against a virtual dependency. System: the parity path survives malformed traffic. Safety: no input bypasses a control or moves money. Footnote: ask of any test what we would be justified in concluding if it passed. -->
+<!-- describe: Three stacked cards under the label Reveal. Integration: a pass shows parsing and contracts hold against a virtual dependency. System: a pass shows the parity path survives malformed traffic. Safety: a pass shows no input bypasses a control or moves money. -->
 
 <!-- say: The mission decides what a passing fuzz run would justify. If the mission is Integration, a pass shows parsing and contracts hold against a virtual dependency. If it is System, the parity path survives malformed traffic. If it is Safety, no input bypasses a control or moves money. Security is not one of the five missions. Usually it means Safety, and a fuzz run that only checks for crashes cannot show that no input moves money. -->
 
@@ -1148,22 +1178,26 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 <!-- say: Analyzer through invariant: these six terms describe what a test checks. An analyzer inspects code, runtime or output for undesirable behavior. An assertion compares one observation with one expected condition. A critical path is behavior whose failure has material consequences. Evidence is observations that change how much confidence is justified. A fidelity gap limits what a result can claim. An invariant must hold under every defined condition. -->
 
 ---
-<!-- _class: table table-fill -->
+<!-- _class: list-tabular -->
 
 ## From mission to system under test, these terms cover intent and fault.
 
-| Term | Definition |
-| --- | --- |
-| Mission | The risk a test exists to reduce. |
-| Objective | A specific outcome that shows progress on the mission. |
-| Residual risk | Risk left after testing, accepted by a named owner. |
-| Software defect | A code or configuration flaw that can cause failure. |
-| Strategy | The approach chosen to reach an objective. |
-| System under test | The software whose behavior the test examines. |
+1. Mission
+   - The risk a test exists to reduce.
+2. Objective
+   - A specific outcome that shows progress on the mission.
+3. Residual risk
+   - Risk left after testing, accepted by a named owner.
+4. Software defect
+   - A code or configuration flaw that can cause failure.
+5. Strategy
+   - The approach chosen to reach an objective.
+6. System under test
+   - The software whose behavior the test examines.
 
 <!-- Definitions M to S. Mission, objective, strategy and tactic form one chain of intent; the evidence-chain slide in Part 1 walks it. -->
 
-<!-- describe: A table of six terms and their definitions. Mission: the risk a test exists to reduce. Objective: a specific outcome that shows progress on the mission. Residual risk: risk left after testing, accepted by a named owner. Software defect: a flaw in code or configuration that can cause a failure. Strategy: the approach chosen to reach an objective. System under test: the software whose behavior the test examines. -->
+<!-- describe: A numbered ledger of 6 entries. Mission: the risk a test exists to reduce. Objective: A specific outcome that shows progress on the mission. Residual risk: risk left after testing, accepted by a named owner. Software defect: A code or configuration flaw that can cause failure. Strategy: the approach chosen to reach an objective. System under test: the software whose behavior the test examines. -->
 
 <!-- say: From mission to system under test, these terms cover intent and fault. The mission is the risk a test exists to reduce. An objective is a specific outcome that shows progress on it. Residual risk is risk left after testing, accepted by a named owner. A software defect is a flaw in code or configuration that can cause a failure. A strategy is the approach chosen to reach an objective. And the system under test is the software the test examines. -->
 
@@ -1189,17 +1223,27 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: premise -->
 
 ## Each mission has its own tactics and its own blind spot.
 
-| Mission | Core tactics | Cannot show |
-| --- | --- | --- |
-| Unit | Doubles, property-based and mutation tests | Real dependencies or users |
-| Integration | Containers, emulators, contracts, fault injection | Production parity |
-| System | Parity stack, load, faults, telemetry | Anything behind a declared gap |
-| Experience | Usability sessions, accessibility audits, exploration | Technical correctness |
-| Safety | Threat models, red teams, chaos, recovery drills | Absolute safety |
+Every mission's tactics leave something it cannot show, which is why no single mission is enough.
+
+1. Unit
+   - Doubles, property-based and mutation tests.
+   - Cannot show real dependencies or users.
+2. Integration
+   - Containers, emulators, contracts, fault injection.
+   - Cannot show production parity.
+3. System
+   - Parity stack, load, faults, telemetry.
+   - Cannot show anything behind a declared gap.
+4. Experience
+   - Usability sessions, accessibility audits, exploration.
+   - Cannot show technical correctness.
+5. Safety
+   - Threat models, red teams, chaos, recovery drills.
+   - Cannot show absolute safety.
 
 <!-- The full mission specifications, for preparation.
 
@@ -1213,28 +1257,32 @@ Experience: intended users reach expected outcomes through realistic use. Measur
 
 Safety: the complete operation avoids unacceptable harm under foreseeable failure, misuse, attack and uncertainty. No finite suite proves absolute safety. -->
 
-<!-- describe: A table of the five missions, core tactics and what each cannot show. Unit: doubles, property based and mutation tests; cannot show real dependencies or users. Integration: containers, emulators, contracts, fault injection; cannot show production parity. System: parity stack, load, faults, telemetry; cannot show anything behind a declared gap. Experience: usability sessions, accessibility audits, exploration; cannot show technical correctness. Safety: threat models, red teams, chaos, recovery drills; cannot show absolute safety. -->
+<!-- describe: A claim beside a numbered ledger of the five missions, each with its core tactics and what it cannot show. Unit: doubles, property-based and mutation tests; cannot show real dependencies or users. Integration: containers, emulators, contracts, fault injection; cannot show production parity. System: parity stack, load, faults, telemetry; cannot show anything behind a declared gap. Experience: usability sessions, accessibility audits, exploration; cannot show technical correctness. Safety: threat models, red teams, chaos, recovery drills; cannot show absolute safety. The claim: every mission's tactics leave something it cannot show, which is why no single mission is enough. -->
 
-<!-- say: Each mission has its own tactics and its own blind spot. Unit uses test doubles, property based and mutation tests, and cannot show real dependencies or users. Integration uses containers, emulators, contracts and fault injection, and cannot show production parity. System uses a parity stack, load, faults and telemetry, and cannot show anything behind a declared gap. Experience uses usability sessions and accessibility audits, and cannot show technical correctness. Safety uses threat models, red teams and recovery drills, and can never show absolute safety. -->
+<!-- say: Each mission has its own tactics and its own blind spot. Every mission's tactics leave something it cannot show, so no single mission is enough. Unit uses test doubles, property based and mutation tests, and cannot show real dependencies or users. Integration uses containers, emulators, contracts and fault injection, and cannot show production parity. System uses a parity stack, load, faults and telemetry, and cannot show anything behind a declared gap. Experience uses usability sessions and accessibility audits, and cannot show technical correctness. Safety uses threat models, red teams and recovery drills, and can never show absolute safety. -->
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: list-tabular -->
 
 ## Six tactics can serve several missions, and none picks the mission.
 
-| Tactic | Main contribution |
-| --- | --- |
-| Parameterized testing | Systematic input matrices |
-| Property-based testing | Invariants over generated inputs |
-| Fuzz testing | Unexpected and malformed input |
-| Metamorphic testing | Relations when exact answers are hard |
-| Mutation testing | Whether tests detect planted defects |
-| Contract testing | Compatibility between two parties |
+1. Parameterized testing
+   - Systematic input matrices
+2. Property-based testing
+   - Invariants over generated inputs
+3. Fuzz testing
+   - Unexpected and malformed input
+4. Metamorphic testing
+   - Relations when exact answers are hard
+5. Mutation testing
+   - Whether tests detect planted defects
+6. Contract testing
+   - Compatibility between two parties
 
 <!-- A tactic never determines the category. Fuzzing can serve Integration, System or Safety; property-based testing can serve Unit or Integration. -->
 
-<!-- describe: A table of six tactics and their main contribution: parameterized testing, systematic input matrices; property based testing, invariants over generated inputs; fuzz testing, unexpected and malformed input; metamorphic testing, relations when exact answers are hard; mutation testing, whether tests detect planted defects; contract testing, compatibility between two parties. -->
+<!-- describe: A numbered ledger of 6 entries. Parameterized testing: systematic input matrices Property-based testing: invariants over generated inputs Fuzz testing: unexpected and malformed input Metamorphic testing: relations when exact answers are hard Mutation testing: whether tests detect planted defects Contract testing: compatibility between two parties -->
 
 <!-- say: Six tactics can serve several missions, and none picks the mission. Parameterized testing covers input matrices. Property based testing checks rules over generated inputs. Fuzz testing feeds unexpected input. Metamorphic testing checks relations when exact answers are hard. Mutation testing checks whether tests detect planted defects. Contract testing checks compatibility between two parties. -->
 
@@ -1309,7 +1357,7 @@ Flakiness is a defect in the testing system, and re-running until green does not
 | "Security means safety." | A secure operation can still cause harm. |
 | "More tests are always better." | More trustworthy evidence is better. |
 
-<!-- Each claim is half true, which is why it survives. Use the table when one comes up in a review: name the half that is true, then the half that is not. Other claims worth correcting: "automation is testing" (automation runs checks; people design and interpret them), and "tests must never be deleted" (a misleading or redundant test lowers trust in the suite). -->
+<!-- Each claim is half true, which is why it survives. Use this list when one comes up in a review: name the half that is true, then the half that is not. Other claims worth correcting: "automation is testing" (automation runs checks; people design and interpret them), and "tests must never be deleted" (a misleading or redundant test lowers trust in the suite). -->
 
 <!-- describe: A table of six claims and better readings. 95 percent coverage means well tested: coverage finds only code that never ran. It passed, so it is correct: the oracle itself may be wrong. A real database means system testing: its mission decides, whatever the database. Same version means production parity: topology, config, data and load matter too. Security means safety: a secure operation can still cause harm. More tests are always better: more trustworthy evidence is better. -->
 
@@ -1317,22 +1365,26 @@ Flakiness is a defect in the testing system, and re-running until green does not
 
 ---
 
-<!-- _class: table table-fill -->
+<!-- _class: list-tabular -->
 
 ## Scope, mission and fidelity get confused in six more claims.
 
-| Claim | Better reading |
-| --- | --- |
-| "Unit tests cover this." | Logic evidence cannot show how real integrations behave. |
-| "Our E2E suite tests everything." | End-to-end is a scope any mission uses. |
-| "System tests are superior." | They answer different questions, at higher cost. |
-| "Automation is testing." | Automation runs checks; people design and judge them. |
-| "Higher fidelity is always better." | Fidelity matters where the mission needs it. |
-| "Tests must never be deleted." | Low-value tests erode trust and slow feedback. |
+1. "Unit tests cover this."
+   - Logic evidence cannot show how real integrations behave.
+2. "Our E2E suite tests everything."
+   - End-to-end is a scope any mission uses.
+3. "System tests are superior."
+   - They answer different questions, at higher cost.
+4. "Automation is testing."
+   - Automation runs checks; people design and judge them.
+5. "Higher fidelity is always better."
+   - Fidelity matters where the mission needs it.
+6. "Tests must never be deleted."
+   - Low-value tests erode trust and slow feedback.
 
 <!-- The companion to the previous table. "Higher fidelity is always better" is the subtlest: a parity environment is slow and expensive, and spending it on a question that a Unit test answers wastes the budget that the System questions need. -->
 
-<!-- describe: A table of six more claims and better readings. Unit tests cover this: logic evidence cannot show how real integrations behave. Our E2E suite tests everything: end to end is a scope any mission uses. System tests are superior: they answer different questions, at higher cost. Automation is testing: automation runs checks; people design and judge them. Higher fidelity is always better: fidelity matters where the mission needs it. Tests must never be deleted: low value tests erode trust and slow feedback. -->
+<!-- describe: A numbered ledger of 6 entries. "Unit tests cover this.": logic evidence cannot show how real integrations behave. "Our E2E suite tests everything.": end-to-end is a scope any mission uses. "System tests are superior.": they answer different questions, at higher cost. "Automation is testing.": automation runs checks; people design and judge them. "Higher fidelity is always better.": fidelity matters where the mission needs it. "Tests must never be deleted.": low-value tests erode trust and slow feedback. -->
 
 <!-- say: Six more claims confuse scope, mission and fidelity. Unit tests cannot show how real integrations behave. End to end names a scope, which can serve any mission. System tests answer different questions, at higher cost. Automation runs checks, and people design and judge them. Fidelity matters where the mission needs it. And low value tests erode trust and slow feedback. -->
 
