@@ -543,7 +543,7 @@ The columns describe the dominant intent. Fuzzing can confirm robustness against
 ---
 <!-- _class: table table-fill -->
 
-## Five techniques probe beyond examples, and one tests the tests.
+## Five techniques probe beyond examples, including one that tests the tests.
 
 | Technique | What it does |
 | --- | --- |
@@ -565,7 +565,7 @@ Chaos: the hypothesis comes first, for example "losing one broker node does not 
 
 <!-- describe: A table of five techniques and what each does. Chaos experiment: injects real failures to test a stated hypothesis. Fuzzing: feeds generated, often malformed input to find crashes and hangs. Metamorphic testing: checks a relation between runs when no exact answer exists. Mutation testing: plants small faults and checks that a test fails. Property-based testing: checks an invariant over many generated inputs. -->
 
-<!-- say: Five techniques probe beyond example tests, and one tests the tests themselves. A chaos experiment injects real failures to test a stated hypothesis. Fuzzing feeds generated, often malformed input. Metamorphic testing checks a relation between two runs when no exact answer exists. Mutation testing plants small faults and checks that a test fails, which measures the tests rather than the product. Property based testing checks an invariant, a rule that must always hold, over many generated inputs. -->
+<!-- say: Five techniques probe beyond example tests, including one that tests the tests themselves. A chaos experiment injects real failures to test a stated hypothesis. Fuzzing feeds generated, often malformed input. Metamorphic testing checks a relation between two runs when no exact answer exists. Mutation testing plants small faults and checks that a test fails, which measures the tests rather than the product. Property based testing checks an invariant, a rule that must always hold, over many generated inputs. -->
 
 ---
 
