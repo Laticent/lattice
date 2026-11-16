@@ -14,7 +14,7 @@ import { applyVariant, componentLooks, type VariantAxis, variantActive, variantN
 // so you never end up with two members of the same family. See
 // engineering/decisions/2026-07-18-slide-variants-in-gallery.md.
 
-export function ReshapePicker({ chunk, variants, axes, variantAxes, options, frontMatter, paletteOverride, extraTheme, modeOverride, extraCss, onReshape, compact, disabled, className, open: openProp, onOpenChange, anchor }: {
+export function ReshapePicker({ chunk, variants, axes, variantAxes, options, frontMatter, paletteOverride, extraTheme, modeOverride, extraCss, onReshape, compact, disabled, 'data-out': out, open: openProp, onOpenChange, anchor }: {
 	/** The current slide's source chunk. */
 	chunk: string;
 	/** The current component's variant tokens (its offered looks). */
@@ -35,8 +35,8 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 	/** No looks to offer — render the trigger inert rather than dropping it (see the note on
 	 *  the trigger). Keeps the toolbar's control set constant across slides and pre-paint. */
 	disabled?: boolean;
-	/** The trigger's classes (the edit bar moves it into its More menu when the row runs out of room). */
-	className?: string;
+	/** The edit bar's step at which the trigger leaves the row for its More menu (chrome-parts.tsx EDIT_FIT). */
+	'data-out'?: string;
 	/** Open from outside (the More menu's "Reshape slide"), hung from `anchor` instead of the trigger. */
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
@@ -68,7 +68,7 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 					    the row at all without knowing the boot slide's component. `disabled` is the
 					    idiom the neighboring "Fix all issues" already uses for exactly this — a
 					    control that is always there and sometimes inert. */}
-					<button type="button" aria-label="Reshape slide" disabled={disabled} className={cn('inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:pointer-events-none disabled:opacity-40', className)}>
+					<button type="button" aria-label="Reshape slide" disabled={disabled} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:pointer-events-none disabled:opacity-40" data-out={out}>
 						<Shapes className="size-3" />
 						<span className={cn(!compact && 'hidden @[36rem]:inline')}>Reshape</span>
 					</button>

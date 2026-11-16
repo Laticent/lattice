@@ -334,20 +334,20 @@ export function StudioEditorPaneSkeleton() {
 				<Button variant="ghost" size="icon-sm" aria-label="Undo" disabled><Undo2 className="size-[18px]" /></Button>
 				<Button variant="ghost" size="icon-sm" aria-label="Redo" disabled><Redo2 className="size-[18px]" /></Button>
 				{/* The row's steps (EDIT_FIT) are the app's, and studio.astro measures this row as useRowFit measures the app's. */}
-				<Button variant="ghost" size="icon-sm" aria-label="Find and replace" className={EDIT_FIT.c}><TextSearch className="size-[18px]" /></Button>
+				<Button variant="ghost" size="icon-sm" aria-label="Find and replace" data-out={EDIT_FIT.c}><TextSearch className="size-[18px]" /></Button>
 				<span className="flex-1" />
 				{/* The label spans ride the app's own container queries (`@[36rem]` / `@[34rem]`),
 				    which resolve against the EDITOR PANE — so `.ssr-editpane` carries
 				    `container-type: inline-size` in studio.astro, or every label here would
 				    resolve against the wrong box and the row would measure short. */}
-				<button type="button" aria-label="Reshape slide" className={cn('inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]', EDIT_FIT.b)}><Shapes className="size-3" /><span className="hidden @[36rem]:inline">Reshape</span></button>
+				<button type="button" aria-label="Reshape slide" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]" data-out={EDIT_FIT.b}><Shapes className="size-3" /><span className="hidden @[36rem]:inline">Reshape</span></button>
 				{/* Inert in the app until the deck is linted, and the shell has linted nothing —
 				    so `disabled` here is the honest state, not a copy of a style. */}
-				<button type="button" aria-label="Fix all issues" disabled className={cn('inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] opacity-40', EDIT_FIT.b)}><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
-				<Button variant="ghost" size="icon-sm" aria-label="Version history" className={EDIT_FIT.a}><History className="size-[18px]" /></Button>
+				<button type="button" aria-label="Fix all issues" disabled className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] opacity-40" data-out={EDIT_FIT.b}><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button>
+				<Button variant="ghost" size="icon-sm" aria-label="Version history" data-out={EDIT_FIT.a}><History className="size-[18px]" /></Button>
 				{/* Slide settings is `compact &&` in the app — on desktop the activity bar owns it. */}
-				<span className="ssr-slide-settings contents"><Button variant="ghost" size="icon-sm" aria-label="Slide settings" className={EDIT_FIT.a}><FileSliders className="size-[18px]" /></Button></span>
-				<Button variant="ghost" size="icon-sm" aria-label="More editor actions" className={EDIT_FIT.more}><MoreHorizontal className="size-[18px]" /></Button>
+				<span className="ssr-slide-settings contents"><Button variant="ghost" size="icon-sm" aria-label="Slide settings" data-out={EDIT_FIT.a}><FileSliders className="size-[18px]" /></Button></span>
+				<Button variant="ghost" size="icon-sm" aria-label="More editor actions" data-more=""><MoreHorizontal className="size-[18px]" /></Button>
 				<Button variant="ghost" size="icon-sm" aria-label="Collapse editor"><PanelLeftClose className="size-4" /></Button>
 			</div>
 			<ComposeSkeleton className="ssr-body-compose" quiet />

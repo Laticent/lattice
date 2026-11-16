@@ -7507,11 +7507,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* Undo · Redo act on the whole deck, so they sit with the deck's editor controls, not on each slide's pill
 				    (owner, 2026-11-15). The phone has no edit bar: its pair is in the header. */}
 				{historyButtons('')}
-				<Tip label="Find and replace (⌘F)"><Button variant="ghost" size="icon-sm" aria-label="Find and replace" className={EDIT_FIT.c} aria-pressed={!!find} onClick={() => (find ? setFind(null) : openFind())}><TextSearch className="size-[18px]" /></Button></Tip>
+				<Tip label="Find and replace (⌘F)"><Button variant="ghost" size="icon-sm" aria-label="Find and replace" data-out={EDIT_FIT.c} aria-pressed={!!find} onClick={() => (find ? setFind(null) : openFind())}><TextSearch className="size-[18px]" /></Button></Tip>
 				<span className="flex-1" />
 				{issues > 0 && (
 					<Tip label={issueHint}>
-						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className={cn('inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]', EDIT_FIT.c)}><AlertTriangle className="size-3" /><span className={EDIT_FIT.issueLong}>{issues} issue{issues > 1 ? 's' : ''}</span><span className={EDIT_FIT.issueShort}>{issues}</span></button>
+						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]" data-out={EDIT_FIT.c}><AlertTriangle className="size-3" /><span data-out={EDIT_FIT.issueLong}>{issues} issue{issues > 1 ? 's' : ''}</span><span data-in="1">{issues}</span></button>
 					</Tip>
 				)}
 				{hasSelection && (
@@ -7550,15 +7550,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    deck, and the pre-paint shell could not draw the row at all without resolving the
 				    boot slide's component against the catalog. `disabled` is what "Fix all issues"
 				    two lines down already does. */}
-				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={deckOptions} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} className={EDIT_FIT.b} open={reshapeFromMore ? true : undefined} anchor={reshapeFromMore} onOpenChange={(o) => !o && setReshapeFromMore(null)} />
-				<Tip label="Fix all issues"><button type="button" onClick={fixAllIssues} className={cn('inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40', EDIT_FIT.b)} disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
+				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={deckOptions} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} data-out={EDIT_FIT.b} open={reshapeFromMore ? true : undefined} anchor={reshapeFromMore} onOpenChange={(o) => !o && setReshapeFromMore(null)} />
+				<Tip label="Fix all issues"><button type="button" onClick={fixAllIssues} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" data-out={EDIT_FIT.b} disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
-				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" className={EDIT_FIT.a}><History className="size-[18px]" /></Button></Tip>
+				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history" data-out={EDIT_FIT.a}><History className="size-[18px]" /></Button></Tip>
 				{/* Slide-settings launcher — on DESKTOP the activity bar's Slide icon owns this
 				    (a duplicate here would break the e2e strict 'Slide settings' locator); on
 				    tablet/mobile the editor header is the opener. */}
-				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" className={EDIT_FIT.a}><FileSliders className="size-[18px]" /></Button></Tip>}
+				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings" data-out={EDIT_FIT.a}><FileSliders className="size-[18px]" /></Button></Tip>}
 				{/* MORE: what the row has moved out to fit its pane (EDIT_FIT), in the row's own order. Shown from step 2 by CSS; its
 				    items are read from the row's step when it opens, so it lists exactly what the row is not showing. */}
 				<DropdownMenu
@@ -7568,7 +7568,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				>
 					<Tip label="More editor actions">
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon-sm" aria-label="More editor actions" className={EDIT_FIT.more}><Ellipsis className="size-[18px]" /></Button>
+							<Button variant="ghost" size="icon-sm" aria-label="More editor actions" data-more=""><Ellipsis className="size-[18px]" /></Button>
 						</DropdownMenuTrigger>
 					</Tip>
 					<DropdownMenuContent align="end" className="w-56">

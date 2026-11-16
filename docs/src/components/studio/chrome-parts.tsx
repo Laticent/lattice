@@ -519,25 +519,25 @@ function segmentTone(brand: boolean | undefined, on: boolean, interactive = true
  *   3 · Reshape and Fix all → More
  *   4 · the Compose / Source words drop to their icons (their names stay on the buttons and in a tooltip)
  *   5 · Find and replace and the issue pill → More
- * The app's row and the pre-paint shell's carry the same classes and are measured the same way (studio.astro steps the
- * shell's), so the two agree at every width. Literal strings: Tailwind generates a class only for text it finds in source.
+ * The app's row and the pre-paint shell's carry the same attributes and are measured the same way (studio.astro steps the
+ * shell's), so the two agree at every width.
  */
 export const EDIT_FIT_LEVELS = 6;
+/** The step each control leaves the row at, as its `data-out` (styles/tailwind.css holds the rules: a control is out from
+ *  its step on). The issue pill's short label is `data-in="1"`, the More button `data-more`. */
 export const EDIT_FIT = {
-	/** Out of the row from step 2. */
-	a: 'group-data-[fit=2]/editbar:hidden group-data-[fit=3]/editbar:hidden group-data-[fit=4]/editbar:hidden group-data-[fit=5]/editbar:hidden',
-	/** Out of the row from step 3. */
-	b: 'group-data-[fit=3]/editbar:hidden group-data-[fit=4]/editbar:hidden group-data-[fit=5]/editbar:hidden',
-	/** Out of the row at step 5. */
-	c: 'group-data-[fit=5]/editbar:hidden',
-	/** The More button: in the row from step 2. */
-	more: 'hidden group-data-[fit=2]/editbar:inline-flex group-data-[fit=3]/editbar:inline-flex group-data-[fit=4]/editbar:inline-flex group-data-[fit=5]/editbar:inline-flex',
-	/** The issue pill's long and short labels: short from step 1. */
-	issueLong: 'group-data-[fit=1]/editbar:hidden group-data-[fit=2]/editbar:hidden group-data-[fit=3]/editbar:hidden group-data-[fit=4]/editbar:hidden group-data-[fit=5]/editbar:hidden',
-	issueShort: 'hidden group-data-[fit=1]/editbar:inline group-data-[fit=2]/editbar:inline group-data-[fit=3]/editbar:inline group-data-[fit=4]/editbar:inline group-data-[fit=5]/editbar:inline',
+	/** Version history, Slide settings. */
+	a: '2',
+	/** Reshape, Fix all. */
+	b: '3',
+	/** The Compose / Source words. */
+	words: '4',
+	/** Find and replace, the issue pill. */
+	c: '5',
+	/** The issue pill's long label. */
+	issueLong: '1',
 } as const;
 
-const EDIT_MODE_WORDS = 'inline group-data-[fit=4]/editbar:hidden group-data-[fit=5]/editbar:hidden';
 
 /**
  * The pane's title AND its mode switch: `Compose · Source`, where the word `EDIT` used to sit.
@@ -563,7 +563,7 @@ export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick
 							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1', segmentTone(m.brand, on, mode !== null), mode !== null && 'transition-colors')}
 						>
 							<m.Icon className="size-3" />
-							<span className={EDIT_MODE_WORDS}>{m.label}</span>
+							<span data-out={EDIT_FIT.words}>{m.label}</span>
 						</button>
 				);
 				// The shell's copy is inert (`pointer-events:none`), so a tooltip there is bytes for nothing.
