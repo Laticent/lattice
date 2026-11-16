@@ -283,7 +283,8 @@ compiles runs in linear time. They belong in a package that depends on it (see D
 |---|---|---|
 | A generated line pass, alone, on the bake-off corpus | 361 MB/s (median of five) | at least the hand-written loop's 665 MB/s, on the same machine (G6) |
 | S0-S1 over the 59 KB gallery (structure, boundaries, directive ranges) | markdown-it's block parse, same machine | at least 3x faster than that, on the same machine (restated 2026-11-05: was "under 0.5 ms", see §P2 landed) |
-| S0-S2 (full CommonMark parse) over the same deck | 3.6 ms | under 1 ms |
+| S2 alone (the inline parse of every leaf) over the same deck | markdown-it's inline parse of the same leaves, same machine | at least 4x faster than that, on the same machine (restated by the owner on 2026-11-16 (#3256): was "S0-S2 under 1 ms", see §P4 landed) |
+| S0-S2 (full CommonMark parse) over the same deck, and data-viz and card-tags | markdown-it's block and inline parse, same machine | a tracked bench metric, not a target, so a regression shows (2.79x, 3.55x and 2.08x at P4) |
 | Re-parse after a keystroke inside one slide | the whole deck, several times | one slide, tens of microseconds |
 | Structure work inside one lint of the gallery | about 17% of 73 ms, plus what each rule re-derives | near zero: rules read the model |
 
@@ -968,7 +969,12 @@ measured 2.0x on the gallery; what moved it, each re-measured:
 about 0.6 ms, the inline parse about 0.5 ms, and the leaf texts and kept tapes about 0.4 ms. S1 and the inline parse
 alone bound the ratio near 4.4x even if leaves cost nothing; reaching 3.6x would need the leaf bookkeeping near zero
 while keeping each leaf's map to the body and the per-slide memo the keystroke path depends on. As with S1, the target
-was an absolute time set on another machine; restating it is the owner's call (on the PR's decision card).
+was an absolute time set on another machine.
+
+**Restated by the owner on 2026-11-16 (#3256).** The targets are now ratios against markdown-it on the same machine,
+one per stage: the block pass (S1) at least 3x markdown-it's block parse, met at 3.19x; the inline parse alone at
+least 4x markdown-it's inline parse, met at 5.2x. S0-S2 stays a tracked metric that the bench reports for the gallery,
+data-viz and card-tags (2.79x, 3.55x and 2.08x today), so a regression shows. §Speed targets carries the new rows.
 
 **What P4 moves, and what it does not.** No reader is switched in this phase: the Studio's outline still tokenizes
 heading sections with the boundary parser (`headingSplitPoints`), and Compose and CodeMirror still parse with their own
