@@ -30,10 +30,14 @@ describe('deckDropVerdict', () => {
 	it.each([
 		['the Library', '<div data-file-drop><section><div><span id="t">card</span></div></section></div>'],
 		['the code editor', '<div class="cm-editor"><div class="cm-content"><div id="t">line</div></div></div>'],
-		['the compose editor', '<div class="ProseMirror"><p id="t">para</p></div>'],
 		['an open dialog', '<div role="dialog"><button id="t">Download</button></div>'],
 	])('leaves a drop on %s to its owner', (_, html) => {
 		expect(deckDropVerdict({ dataTransfer: files, target: inside(html), defaultPrevented: false })).toBe('owned');
+	});
+
+	// Compose reads only text from a drop, so a file dropped on it is the shell's (2026-11-15-compose-markdown-clipboard.md).
+	it('opens a file dropped on the Compose editor, which takes only text', () => {
+		expect(deckDropVerdict({ dataTransfer: files, target: inside('<div class="cs-host"><div class="ProseMirror"><p id="t">para</p></div></div>'), defaultPrevented: false })).toBe('import');
 	});
 
 	it('treats a non-element target (the document) as the plain shell', () => {

@@ -96,7 +96,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	//     `class:` the deck-lint would flag, no slug that won't resolve elsewhere) and
 	//     instead EMBED the finish's generated CSS as a <style> block, so the recipient
 	//     renders the custom finish from the markup itself. The class is added to the
-	//     embedded copy only (shareMarkdown/shareMarp do that), never the user's source.
+	//     embedded copy only (shareMarp does that; the plain .md carries none), never the user's source.
 	const artifactSource = finishClass ? mergeClassTokens(source, finishClass) : source;
 	const [busy, setBusy] = React.useState<string | null>(null);
 	// Live per-slide status for the heavy exports (PDF/PPTX), shown in the busy row.
@@ -323,7 +323,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		captions: { busy: busy === 'captions', progress: true, onClick: () => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus)) },
 		lattice: { busy: busy === 'lattice', progress: true, onClick: () => setView('lattice') },
 		md: { busy: busy === 'md', onClick: () => run('md', 'Markdown', async (_onStatus, onDegraded) => {
-			const reason = await shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents, deckId);
+			const reason = await shareMarkdown(source, name, deckId, { theme: extraTheme?.name, finish: !!finishExtraCss, components: (localComponents ?? []).map((c) => c.name) });
 			if (reason) onDegraded(reason);
 		}) },
 		marp: { onClick: () => setView('marp') },

@@ -1,8 +1,8 @@
 // Studio Share — the REAL export pipeline, wired to the engine exporters.
 //
 // WRAP, DON'T REINVENT (HARD RULE #15). Every format below is produced by the
-// SAME code the Drawing Board ships (drawing-board-export.js) — Markdown (source
-// + embedded theme/components), the Marp ZIP bundle, the one-click image PDF /
+// SAME code the Drawing Board ships (drawing-board-export.js) — Markdown (the
+// source, nothing added), the Marp ZIP bundle (with the theme/components embedded), the one-click image PDF /
 // PPTX, and the browser's vector Print. This module only assembles the inputs
 // those functions need (an engine render of the FULL deck) from the Studio's
 // renderer options + current palette, so Share hands off real artifacts rather
@@ -1056,30 +1056,28 @@ export function embedFinishInMarkdown(source: string, finishClass?: string, fini
 	return block + '\n' + classed;
 }
 
-/** Markdown source with the current theme + referenced components + (when active) the saved finish embedded. */
-export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string, components: ReadonlyArray<LocalComponentCss> = [], deckId?: string): Promise<string | undefined> {
+/** The saved (not shipped) looks a deck uses, by name: what a Markdown export names but does not carry. */
+export type SavedLooks = { theme?: string; finish?: boolean; components?: ReadonlyArray<string> };
+
+/**
+ * The deck's Markdown, exactly as Source shows it (2026-11-16-markdown-export-is-the-source.md). Nothing is added:
+ * no theme stylesheet, no finish or component CSS. The photos the deck names ride beside the `.md` in a `.zip`.
+ * A deck that uses a SAVED theme, finish or component names it but does not carry it; the returned sentence says
+ * so and points at the `.lattice` file, which carries them as packages.
+ */
+export async function shareMarkdown(source: string, name: string, deckId?: string, saved: SavedLooks = {}): Promise<string | undefined> {
 	const ex = await exporters();
-	// The photos the deck names ride beside the .md in a .zip (a Markdown file cannot hold a picture).
 	const { named, photos } = await photosBesideDeck(source, deckId);
-	// Embed the live theme CSS so the .md keeps its look even where the theme
-	// isn't installed. A saved library theme carries its own CSS; otherwise fetch
-	// the palette. Best-effort: a failed fetch still exports the bare source.
-	let theme: { name: string; css: string } | undefined = extra;
-	if (!theme) {
-		try {
-			const css = await createThemeFetcher(options.themeBase).fetch(palette);
-			theme = { name: palette, css };
-		} catch {
-			theme = undefined;
-		}
-	}
-	// Bake the active saved finish into the exported copy (class + <style>), so the
-	// custom finish renders on another machine. The user's source stays clean.
-	// …and the saved components the deck uses. This passed `[]` until 2026-09, so a
-	// saved component's slides arrived unstyled on the recipient's machine while the
-	// theme and finish beside them survived (2026-09-23-portable-packages.md §1).
-	await ex.exportMarkdown(embedFinishInMarkdown(photos?.source ?? source, finishClass, finishCss), name, theme, [...components], photos?.files);
-	return latticePhotoNote(named, true, photos);
+	await ex.exportMarkdown(photos?.source ?? source, name, photos?.files);
+	return [latticePhotoNote(named, true, photos), savedLooksNote(saved)].filter(Boolean).join('; ') || undefined;
+}
+
+/** The toast's sentence about saved looks a Markdown file names but cannot carry, or undefined when there are none. */
+export function savedLooksNote(saved: SavedLooks): string | undefined {
+	const parts = [saved.theme && `the saved theme “${saved.theme}”`, saved.finish && 'a saved finish', ...(saved.components ?? []).map((c) => `the saved component “${c}”`)].filter(Boolean) as string[];
+	if (!parts.length) return undefined;
+	const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+	return `it uses ${list}, which a Markdown file names but does not carry; share a Lattice project (.lattice) to bring ${parts.length > 1 ? 'them' : 'it'} along`;
 }
 
 /** The photos a Markdown or Marp export carries, or none when the deck names none (no Library read at all). */
@@ -1196,7 +1194,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	await ensureReady(options); // PG.marp must be present
 	const { named, photos } = await photosBesideDeck(source, deckId);
 	const ex = await exporters();
-	// Same finish-embed as the Markdown handoff so the ZIP renders the custom finish.
+	// Embed the saved finish so the ZIP renders the custom finish (the plain Markdown export carries none).
 	// `overflowMarker` — who a clipped slide's marker speaks to in the exported deck.
 	// The Share sheet's Marp options step passes this export's pick; the Workspace
 	// setting is the standing answer it defaults from (and the fallback for any caller
@@ -1206,7 +1204,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	const { loadSettings } = await import('./studio-store');
 	// A saved theme has no file on the site, so it rides in as `extraTheme` and the
 	// bundle writes its CSS itself; a saved component rides as an embedded `<style>`,
-	// the same block the Markdown export uses. Without both, the bundle fell back to
+	// the component bridge's own block. Without both, the bundle fell back to
 	// `indaco` and dropped the component's styling without a word.
 	// The plugins this deck's admission leaves off under the playground bundle's host (none on the
 	// shipped default set), so the bundle's runtime draws no more than the Studio's preview does.

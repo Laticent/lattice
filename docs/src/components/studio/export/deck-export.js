@@ -159,59 +159,19 @@ function download(blob, filename) {
 }
 
 // ── Markdown ────────────────────────────────────────────────────────────────
-// Self-contained embed for a Workbench *library* theme (export bridge — see
-// engineering/decisions/2026-06-11-workbench-export-bridge.md). A library theme
-// isn't a registered theme, so a bare `theme:<name>` directive
-// renders palette-less for a CLI consumer. We keep the directive (a Drawing Board
-// re-import resolves the theme by name) AND inline the saved CSS — which already
-// carries `@import 'lattice';` — as a Marp global <style> right after the front
-// matter, so a lattice-configured marp-cli run styles correctly off the block
-// even when the directive name is unknown to it. Pure + DOM-free → unit-tested.
-// `theme` is { name, css } for a library theme, or null/undefined for a built-in
-// (whose `theme:` resolves from themeSet — nothing to embed).
-export function embedThemeInMarkdown(source, theme) {
-	const src = String(source || '');
-	if (!theme?.css) return src;
-	// #22 stylesheet channel — a SAVED LIBRARY THEME is user- or model-authored CSS, and this
-	// splices it into a `<style>` in the markdown handed to a RECIPIENT. A `</style>` in it
-	// ends the element on their machine: demonstrated end to end through the real CLI, where
-	// this block's own bytes produced a live `<link rel=stylesheet href=…>` in the exported
-	// document and truncated the theme's remaining CSS into markup.
-	//
-	// The whole element BODY goes through the guard, not just `theme.css`, because
-	// `theme.name` is interpolated into the comment header above it and is free text too.
-	// This is the exact shape `share-export.ts`'s `embedFinishInMarkdown` already guards —
-	// it was the twin that got the call, and this one did not.
-	const block =
-		'<style>\n' +
-		sanitizeStyleText(
-			'/* Lattice Workbench — embedded theme "' +
-				String(theme.name || 'theme') +
-				'" (self-contained: this deck keeps its palette\n' +
-				'   even where the theme is not installed). Generated on export. */\n' +
-				String(theme.css).trim(),
-		) +
-		'\n</style>\n';
-	// Place the block just after the front matter (or at the top if there is none),
-	// blank-line-separated so it reads as its own Marp directive scope.
-	const fm = /^(---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$))/.exec(src);
-	if (fm) return src.slice(0, fm[0].length) + '\n' + block + '\n' + src.slice(fm[0].length);
-	return block + '\n' + src;
-}
-
-// `components` is the array of referenced library components ({ name, css }) the
-// deck uses — vendored as global <style> blocks so the exported .md renders them
-// across all three engine paths (the component bridge; see
-// engineering/decisions/2026-06-12-workbench-component-bridge.md). Pairs with the
-// theme embed: theme first, then components, both self-contained.
+// THE DECK SOURCE, NOTHING ADDED (engineering/decisions/2026-11-16-markdown-export-is-the-source.md).
+// The `.md` is exactly what Source shows: no `<style>`, no CSS, no comment, no HTML that the
+// author did not write. It used to splice the whole theme stylesheet in as a Marp global `<style>`
+// (the 2026-06-11 Workbench export bridge), even for a built-in theme: a two-slide deck exported as
+// 10,269 bytes for a 116-byte deck. Saved themes, finishes and components travel in the
+// `.lattice` project file, as packages; the Marp bundle is the Marp-shaped export.
 //
 // `files` maps a path inside the archive (`photos/team.jpg`) to bytes: the Library photos the deck
 // names, which the caller has already pointed the source's references at. With none, the download
-// is the bare `.md` it always was; with some it is a `.zip` holding the `.md` beside them, because a
-// Markdown file cannot hold a picture and a reference to a path the recipient lacks is a broken image.
-export async function exportMarkdown(source, name, theme, components, files = {}) {
-	let md = embedThemeInMarkdown(source, theme);
-	md = embedComponentsInMarkdown(md, components);
+// is the bare `.md`; with some it is a `.zip` holding the `.md` beside them, because a Markdown file
+// cannot hold a picture and a reference to a path the recipient lacks is a broken image.
+export async function exportMarkdown(source, name, files = {}) {
+	const md = String(source || '');
 	const slug = safeName(name);
 	const paths = Object.keys(files);
 	if (!paths.length) {

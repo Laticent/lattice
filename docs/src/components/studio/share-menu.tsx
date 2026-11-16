@@ -41,7 +41,7 @@ export const SHARE_MENU: ReadonlyArray<{ label: string; blurb: string; rows: Rea
 		blurb: 'The Markdown — for editing, review, or portability.',
 		rows: [
 			{ id: 'lattice', icon: <FileArchive className="size-4" />, title: 'Lattice project (.lattice)', desc: 'Deck, comments and its saved assets in one file — re-opens here' },
-			{ id: 'md', icon: <FileText className="size-4" />, title: 'Markdown', desc: 'Source with the theme embedded', dev: true },
+			{ id: 'md', icon: <FileText className="size-4" />, title: 'Markdown', desc: 'The deck source, exactly as written', dev: true },
 			{ id: 'marp', icon: <Package className="size-4" />, title: 'Marp bundle', desc: 'Self-contained ZIP — renders anywhere', dev: true },
 			{ id: 'printsrc', icon: <Printer className="size-4" />, title: 'Print source', desc: 'The Markdown, monospace — for markup & review', dev: true },
 		],

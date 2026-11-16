@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { CHROME, expect, gotoStudio, livePreview, setEditorContent, shareExport, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, livePreview, setEditorContent, shareExport, test, toastText } from './studio-fixture';
 
 // A SAVED THEME AND COMPONENT SURVIVE THE SOURCE HANDOFFS, on the real Studio (HARD
 // RULE #23). 2026-09-23-portable-packages.md §1 found three ways they didn't:
@@ -72,13 +72,17 @@ async function saveProbes(page: Page) {
 	await setEditorContent(page, DECK);
 }
 
-test('a saved theme and component ride in the Markdown and Marp exports', async ({ page }) => {
+// The Markdown export is the deck source and nothing else (2026-11-16-markdown-export-is-the-source.md): it NAMES the
+// saved theme and component, says so, and points at .lattice, which carries them (the next test). The Marp bundle still
+// carries both.
+test('the Markdown export is the bare source and names what it leaves out; the Marp bundle carries both', async ({ page }) => {
 	test.slow();
 	await saveProbes(page);
 
 	const md = fs.readFileSync(await download(page, 'markdown'), 'utf8');
-	expect(md, 'the Markdown export embeds the saved component').toContain(`section.${COMPONENT} h2`);
-	expect(md, 'the Markdown export embeds the saved theme').toContain(`@theme ${THEME}`);
+	expect(md, 'the Markdown export is the deck source, byte for byte').toBe(DECK);
+	expect(md).not.toMatch(/<style|@theme|@import/);
+	await expect(toastText(page)).toContainText('.lattice');
 
 	const { default: JSZip } = await import('jszip');
 	const zip = await JSZip.loadAsync(fs.readFileSync(await download(page, 'marp')));

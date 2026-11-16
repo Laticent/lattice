@@ -141,3 +141,17 @@ describe('marpExportNote', () => {
 		expect(marpExportNote({ ...none, escaped: true, refused: { tags: { iframe: 1 } } })).toMatch(/shows all of it as text/);
 	});
 });
+
+describe('savedLooksNote (2026-11-16-markdown-export-is-the-source.md)', () => {
+	it('says nothing for a deck that uses only shipped looks', async () => {
+		const { savedLooksNote } = await import('./share-export');
+		expect(savedLooksNote({})).toBeUndefined();
+		expect(savedLooksNote({ components: [] })).toBeUndefined();
+	});
+	it('names each saved look the .md leaves out, and points at .lattice', async () => {
+		const { savedLooksNote } = await import('./share-export');
+		const note = savedLooksNote({ theme: 'brand', finish: true, components: ['mybox'] });
+		expect(note).toContain('the saved theme “brand”, a saved finish and the saved component “mybox”');
+		expect(note).toContain('.lattice');
+	});
+});

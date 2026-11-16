@@ -8,16 +8,22 @@
 // already own a file drop or a text drop, which keep it:
 //   · the Library panel and the motion drawing well (they mark themselves, or handle the
 //     event first and `preventDefault` it);
-//   · the two editors, where a drop is text placed at a caret;
+//   · the Markdown editor, where a dropped file is read and its text placed at the caret;
 //   · an open dialog, which is about something else;
 //   · the whole shell while Present is up, so a drop cannot swap the deck mid-talk.
 // In those zones a file drop that no one handles is REFUSED, not passed through: the
 // browser's default would navigate the tab to the file and leave the Studio.
 // A drop always opens a NEW deck. It never edits the open one.
+//
+// COMPOSE IS NOT A DROP ZONE FOR FILES (2026-11-15-compose-markdown-clipboard.md §4). It used to be listed
+// here, but ProseMirror reads only TEXT from a drop: a deck dropped on Compose was cancelled by the editor
+// and then inserted nowhere, with no message — measured on the real Studio. Its plugin now lets a file drag
+// pass uncancelled (markdown-clipboard.ts), so the shell opens it as it would anywhere else; a TEXT drag
+// carries no `Files` and stays the editor's.
 import * as React from 'react';
 
 /** Where a file drop is someone else's. Matched with `closest()` from the event target. */
-export const OWN_DROP_ZONES = '[data-file-drop], .cm-editor, .ProseMirror, [role="dialog"], [role="alertdialog"]';
+export const OWN_DROP_ZONES = '[data-file-drop], .cm-editor, [role="dialog"], [role="alertdialog"]';
 
 export type DropVerdict = 'none' | 'owned' | 'import';
 
