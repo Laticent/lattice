@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-16 — the owner raised one ceiling by hand, for PR 3263: studio eagerJsGz to 615.2 KB
+
+Owner OK 2026-11-16, relayed by the Segno coordinator session: raise studio's eager-JS ceiling by 1 KB, chosen over landing PR 3263 with no margin and over trimming its notes and BOM readers further.
+
+PR 3263 (Segno wave 1) grows studio's eager JS in two parts. Its items 1-3 add 908 B gz, declared in its `docs/route-budget.d/` file: the notes reader on the deck model (`slide-directives` +608), the math-deck splice (`slide-boundaries` +130, `state-facade` +46) and the BOM-aware front-matter reader (`front-matter` +117). Its item 4, the front-matter register grammar, adds about 2.1 KB more: the line and fence parsers Segno generates into `front-matter-keys.mjs` and `front-matter-fence.mjs`, which the Studio's register readers load at start-up. It gave back first, cutting the grammar from +2.7 KB: shared rules in place of six inlined copies of a loop (−696 B), the fence rule kept out of the line parser, one error label, the lint-only block-scalar regex moved to `lib/authoring/front-matter-scans.js`, and smaller drivers. Measured on local builds: `main` at 18bb745e is 611.2 KB, the PR's items 1-3 are 612.1 KB (CI agreed), and with item 4 the route measured 4 B past the old ceiling before a last 6-byte trim, so it sits within a few bytes of it. The ceiling rises 628956 -> 629980 (615.2 KB), which leaves about 1 KB of room after PR 3263. PR 3256 (Segno P4), still open when this was set, adds about 0.6 KB to studio too (`slide-boundaries` +563 B, `math.syntax` +46 B, the same bytes it adds to home); with this raise both PRs fit, with about 0.4 KB to spare. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 629980 |
+
 ### 2026-11-16 — the owner raised one ceiling by hand, for PR 3256: home eagerJsGz to 316.0 KB
 
 Owner OK 2026-11-16, relayed by the Segno coordinator session: raise home's eager-JS ceiling by 1.5 KB, chosen over dropping fixes from PR 3256 to fit and over hunting unrelated bytes in the home page's start-up modules.
