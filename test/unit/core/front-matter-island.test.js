@@ -288,3 +288,24 @@ test('lattice-deck: an fm-key per key line, with name and value parts in source 
   assert.equal(latticeDeck.facts['deck.settings'](latticeDeck.parse({ text: '# No front matter\n' }).tree).size, 0);
   assert.ok(latticeDeck.kinds.includes('fm-key'));
 });
+
+test('the two halves CommonJS requires stay import-free (a required ES module that imports another fails under Playwright)', () => {
+  // `front-matter-key.js`, `directives.js`, `lattice-deck.js` and the resolvers `require()` these. When the key reader
+  // imported the fence, every Playwright run died loading its config: "request for './front-matter-fence.mjs' is from a
+  // module not been linked" (PR #3228, 2026-11-16).
+  const fs = require('node:fs');
+  const path = require('node:path');
+  for (const f of ['front-matter-fence.mjs', 'front-matter-keys.mjs']) {
+    const src = fs.readFileSync(path.join(__dirname, '../../../lib/core', f), 'utf8');
+    assert.doesNotMatch(src, /^\s*(import\s|export\s.*\sfrom\s)/m, `${f} must import nothing`);
+  }
+  // And no CommonJS file requires the joined module, which does import both halves.
+  const { execFileSync } = require('node:child_process');
+  let hits = '';
+  try {
+    hits = execFileSync('git', ['grep', '-l', "require('[./]*core/front-matter-island.mjs')\\|require('./front-matter-island.mjs')", '--', 'lib', 'docs/src', 'tools'], { cwd: path.join(__dirname, '../../..'), encoding: 'utf8' }).trim();
+  } catch (e) {
+    if (e.status !== 1) throw e; // git grep exits 1 when nothing matches, which is the passing case
+  }
+  assert.equal(hits, '');
+});

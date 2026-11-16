@@ -353,14 +353,18 @@ Built on `claude/squadra-lint-front-matter-ktsbt9`, cut from `main` at `72bd2d9`
   rule). A name is `[\w$][\w$.-]*`, wider than any reader asked for, so no reader loses a key. The list is frozen.
   The key each nests under and the body's span are `lattice-deck`'s to work out: this module ships in every docs page
   that reads a register, so it carries only what those readers use.
-- **Two modules, for the bytes.** Where the block ends lives in `lib/core/front-matter-fence.mjs` (`frontMatterFence`,
-  `frontMatterMatch`, `FRONT_MATTER_FENCE`), which the island imports and re-exports. A reader that only needs the
-  block (the splitter, the boundary parser, the deck model, the plugin admission, the resolvers, `slides.js`) imports
-  the fence alone, so the docs home page does not ship the key reader. lint-core's two line scans
-  (`withoutBlockScalarBodies`, `lastFrontMatterMatch`) moved out of the shared front-matter-key.js into
-  lib/authoring/front-matter-scans.js, beside their one caller. Measured after the merge queue ejected the first try
-  (main had grown the home route, and the PR took it 0.3 KB past its ceiling): home +338 bytes gzipped against main,
-  studio +653, playground +659, declared in docs/route-budget.d/3228-front-matter-island.md.
+- **Two import-free modules, joined.** Where the block ends lives in `lib/core/front-matter-fence.mjs`
+  (`frontMatterFence`, `frontMatterMatch`, `FRONT_MATTER_FENCE`); the key reader in `lib/core/front-matter-keys.mjs`
+  (`frontMatterKeys`, `topLevelKey`, `looseKey`, `BLOCK_SCALAR_HEAD`); `lib/core/front-matter-island.mjs` joins them
+  for ES readers and tests. A reader that only needs the block (the splitter, the boundary parser, the deck model, the
+  plugin admission, the resolvers, `slides.js`) imports the fence alone, so the docs home page does not ship the key
+  reader. Both halves import nothing, and CommonJS requires only them, never the joined module: a required ES module
+  that imports another killed every Playwright run at config load ("request for './front-matter-fence.mjs' is from a
+  module not been linked"), which a unit test now pins. lint-core's two line scans (`withoutBlockScalarBodies`,
+  `lastFrontMatterMatch`) moved out of the shared front-matter-key.js into lib/authoring/front-matter-scans.js. Measured
+  after the merge queue ejected the first try (main had grown the home route, and the PR took it 0.3 KB past its
+  ceiling): home +399 bytes gzipped against main (708 of room), studio +642, playground +598, declared in
+  docs/route-budget.d/3228-front-matter-island.md.
 
 Each reader then selects from the one list, and that selection is all that differs between them:
 
