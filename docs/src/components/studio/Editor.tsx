@@ -1376,7 +1376,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 		return (
 			<textarea
 				className={className}
-				style={{ width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none', background: 'var(--bg)', color: 'var(--text-body)', fontFamily: 'var(--font-mono)', fontSize: 13, padding: 14, lineHeight: 1.85 }}
+				style={{ width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none', background: 'var(--bg)', color: 'var(--text-body)', fontFamily: 'var(--font-mono)', fontVariantLigatures: 'none', fontSize: 13, padding: 14, lineHeight: 1.85 }}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				spellCheck={false}
