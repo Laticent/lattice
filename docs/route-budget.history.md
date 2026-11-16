@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-16 — the owner raised one ceiling by hand, for PR 3221: studio chartKernelsGz to 261.2 KB
+
+Owner OK 2026-11-16 in the integration-nightly session (#3221): "D5 raise it", chosen over dropping the tiered hub-spoke's page-filling layout and cutting robustness guards to find the last bytes.
+
+Measured locally with the gate's own `measure()` on the ESM build, matching CI's rounding: `main` at 42ec9c9 measures 266,830 B (260.6 KB), and PR 3221 at 9d1c173 measures 267,029 B (260.8 KB, the figure CI's preview reported on 9d1c173 and d19ad7d). PR 3221 adds 199 B gzip across five chart kernels: the fixes that stop text and a tiered hub-spoke's leaves printing off a phone page (hub-spoke +76, bullet +50, slope +30, the shared chart-form chunk +29, stacked-bar +18), already compacted once from +260. The smallest variant that keeps phone charts uncut still measured 266,972 B, past the old ceiling. The ceiling rises 266913 -> 267469 (261.2 KB), 440 B over the PR's measurement. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 267469 |
+
 ### 2026-11-15 — the owner raised one ceiling by hand, for PR 2988: studio htmlRaw to 247.5 KB
 
 Owner OK 2026-11-15 in the PR 2988 session: "Raise ceiling, own PR", chosen over moving part of the Studio's venue or Align picker markup into a lazily loaded chunk.
