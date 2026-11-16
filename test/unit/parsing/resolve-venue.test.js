@@ -58,7 +58,7 @@ test('the CSS gives every venue on every shape the step VENUE_SCALE_BY_FAMILY na
   // The room ladder, as on a wide deck.
   for (const v of ['huddle', 'conference', 'hall']) assert.equal(decl(`section.venue-${v}`), VENUE_SCALE[v], v);
   // Square: the default rule (no venue named) is phone; tablet steps down; the rooms keep the ladder.
-  assert.equal(decl('section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame)'), VENUE_SCALE_BY_FAMILY.square.phone);
+  assert.equal(decl('section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame, .keeps-laptop)'), VENUE_SCALE_BY_FAMILY.square.phone);
   assert.equal(decl('section.venue-tablet:where([data-family="square"])'), VENUE_SCALE_BY_FAMILY.square.tablet);
   for (const v of ['huddle', 'conference', 'hall']) assert.equal(VENUE_SCALE_BY_FAMILY.square[v], VENUE_SCALE[v], `square ${v}`);
   // Tall and strip: the rooms rise less, phone is the designed size, tablet steps down by shape.
@@ -80,6 +80,27 @@ test('the handheld default skips a chart section', () => {
   assert.equal(defaults.length, 2, 'the square default and the tall/strip default');
   for (const m of defaults) assert.ok(m[1].split(',').map((t) => t.trim()).includes('.chart-frame'), `default rule leaves out .chart-frame: ${m[0]}`);
   assert.equal(venueOfTokens(['roadmap', 'chart-frame']), 'laptop');
+});
+
+// Code and math keep laptop too (owner, 2026-11-16; fit-everywhere-model.md §25): both mergers mark the slide
+// `keeps-laptop` (resolve-venue.js `laptopKeepingToken`), and every handheld rule that skips a chart skips it too.
+// One list: a rule that left out the marker would give a code slide the phone step on that one surface.
+test('every handheld rule that skips a chart also skips a code or math slide', () => {
+  const files = ['lib/base/base.modifiers.css', 'lib/forms/cell/stage/stage.css', 'lib/forms/cell/masthead/masthead.css',
+    'lib/components/comparison/decision/decision.styles.css', 'lib/components/comparison/compare-prose/compare-prose.styles.css',
+    'lib/components/inventory/team-profile/team-profile.styles.css'];
+  let n = 0;
+  for (const f of files) {
+    const text = fs.readFileSync(path.join(__dirname, '../../..', f), 'utf8');
+    for (const m of text.matchAll(/:not\((\.venue-laptop[^)]*)\)/g)) {
+      const list = m[1].split(',').map((t) => t.trim());
+      if (!list.includes('.chart-frame')) continue;
+      n += 1;
+      assert.ok(list.includes('.keeps-laptop'), `${f}: a handheld rule skips charts but not code or math: ${m[0]}`);
+    }
+  }
+  assert.ok(n >= 10, `expected the ten handheld rules, found ${n}`);
+  assert.equal(venueOfTokens(['code', 'keeps-laptop']), 'laptop', 'the marker is no venue, so a kernel reads laptop');
 });
 
 // The masthead stacks its lede over its bay on a square slide at the phone default (masthead.css), where

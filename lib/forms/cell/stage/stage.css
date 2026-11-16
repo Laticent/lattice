@@ -367,11 +367,11 @@ section.form.silent:not(.with-footer) > .cell-footer > footer {
  * fell from 103 to 92. Laptop and the room venues keep both, a chart keeps laptop (as its type
  * does), and an author's `with-header` / `with-footer` brings either back.
  * test/unit/parsing/resolve-venue.test.js holds the selector's venue list to the type table's. */
-section.form:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame):not(.with-header) {
+section.form:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame, .keeps-laptop):not(.with-header) {
   --frame-y: var(--frame-x);
 }
-section.form:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame):not(.with-header) > header,
-section.form:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame):not(.with-footer) > .cell-footer > footer {
+section.form:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame, .keeps-laptop):not(.with-header) > header,
+section.form:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame, .keeps-laptop):not(.with-footer) > .cell-footer > footer {
   display: none;
 }
 /* The page number as a real element — mono, --fs-meta, vertically centered with the

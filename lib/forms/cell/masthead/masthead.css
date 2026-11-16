@@ -70,7 +70,7 @@ section.form .cell-masthead :is(h1, h2, h3, h4) { margin: 0; padding-block: 0; }
  * square deck at `venue: laptop` keeps the side-by-side band it was designed with, so the selector
  * is the phone default's own, exclusions and all (a chart section keeps laptop).
  * test/unit/parsing/resolve-venue.test.js holds the two exclusion lists equal. */
-section.form:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame) {
+section.form:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame, .keeps-laptop) {
   --masthead-cols: [masthead-lede masthead-bay] 1fr;
 }
 /* The frame section is a flex column (base.elements.css). Space the masthead band from the

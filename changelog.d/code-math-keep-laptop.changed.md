@@ -1,0 +1,1 @@
+- A `code`, `compare-code` or `math` slide on a square, tall or strip deck now renders as it did before phone sizes existed, unless the deck or the slide names a venue, as chart slides already do. At the phone size, code wrapped nearly every line and long equations ran off the slide. Long code lines still wrap on a narrow slide. Write `venue: phone` to get the phone size anyway.

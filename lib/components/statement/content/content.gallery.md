@@ -27,7 +27,7 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- _class: content venue-laptop -->
+<!-- _class: content -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · content — Two paragraphs and a list — the ceiling." -->
 

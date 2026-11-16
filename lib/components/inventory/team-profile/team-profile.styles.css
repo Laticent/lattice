@@ -786,8 +786,8 @@ section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage > ul.
    67px at x1.4; 89px still flanks the rule). Laptop and the rooms keep all three; tall and strip stack their rosters
    (below) and set their own. The exclusions are the handheld chrome rule's (stage.css), held equal by
    resolve-venue.test.js. */
-section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame).team-profile.sides > .cell-stage { --person-size: 10cqi; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame).team-profile.sides > .cell-stage > :is(h3, ul.team-roster) { padding-inline: var(--sp-lg); }
+section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame, .keeps-laptop).team-profile.sides > .cell-stage { --person-size: 10cqi; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame, .keeps-laptop).team-profile.sides > .cell-stage > :is(h3, ul.team-roster) { padding-inline: var(--sp-lg); }
 
 
 /* The hero stacks in a narrow box — a 20cqi portrait beside a headline leaves the
