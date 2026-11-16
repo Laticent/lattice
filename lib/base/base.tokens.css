@@ -638,9 +638,10 @@
    * `--pass-mark` … `--mute-mark` are the status as a FILL a label sits on: a gantt bar, a state tile, a pill.
    * These engine values, and every `a11y-*` palette, keep ONE INK on it (engineering/chart-styling.md §3): a DEEP fill
    * in its own hue under WHITE text, 7:1 on the light face and 4.6:1 on the dark one (test/unit/palette/chart-solids.test.js).
-   * A brand theme curates THE STATUS TRIPLET instead (engineering/decisions/2026-11-16-status-triplets.md): deep fills
-   * on the light face, glowing ones on the dark, each 4.5:1 off its slide, with the ink on them (`--X-on-mark`) and
-   * their edge (`--X-edge-mark`) curated beside them; their defaults are just below `--on-mark`. Two intensities, picked with
+   * A brand theme curates THE STATUS TRIPLET instead (engineering/decisions/2026-11-16-status-triplets.md): on the light
+   * face deep fills under its paper, each 4.5:1 off every surface it sits on, edged in themselves; on the dark face chart
+   * solids in its own hues under the one ink, edged in the status ink. The ink (`--X-on-mark`) and edge (`--X-edge-mark`)
+   * are curated beside the fills; their defaults are just below `--on-mark`. Two intensities, picked with
    * `marks:` (resolve-marks.js): MUTED, the default (`--X-mark`), where done stays quiet and the
    * exceptions carry the color; VIVID (`--X-vivid-mark`), every status rich, done an emerald. `--mute-mark` is a
    * neutral and has no vivid. A status shares a lightness with the categories, so the chart family tells it apart by
@@ -689,9 +690,9 @@
   --warn-vivid-edge-mark: var(--warn-edge-mark);
   --fail-vivid-edge-mark: var(--fail-edge-mark);
   --info-vivid-edge-mark: var(--info-edge-mark);
-  /* What a mark ON a status solid steps toward: away from the status ink. Black under the one white ink; a palette whose
-   * dark face is bright under a near-black ink (`--on-mark-shade`, the a11y palettes) or a brand theme's glowing dark face
-   * under its night ink steps toward white. */
+  /* What a mark ON a status solid steps toward: away from the status ink. Black under a light ink (the one white ink, a
+   * brand theme's paper); a palette whose dark face is bright under a near-black ink (`--on-mark-shade`, the a11y
+   * palettes) steps toward white. */
   --on-mark-shade: #000000;
   --status-shade-mark: var(--on-mark-shade);
 

@@ -147,9 +147,9 @@ const STATECHART_JS = 'lib/plugins/chart-family/kinds/state-chart/state-chart.la
 const ELEMENTS = 'lib/base/base.elements.css';
 
 // The kanban card's own opaque fill — the base every in-card surface sits on. Light is
-// `--bg-alt` flat; DARK lifts it 4% toward white, so a dark card sits LIGHTER than the
+// `--bg-alt` flat; DARK lifts it 12% toward white, so a dark card sits LIGHTER than the
 // canvas and an ink tuned against `--bg` has less to work with, not more.
-const KANBAN_CARD = 'light-dark(var(--bg-alt), color-mix(in oklab, var(--bg-alt) 96%, white))';
+const KANBAN_CARD = 'light-dark(var(--bg-alt), color-mix(in oklab, var(--bg-alt) 88%, white))';
 // The inline-code chip's ink, spelled as base.elements.css spells it. Its own background
 // is `currentColor` at 10%, which resolves to exactly this — so the band moves with the
 // ink, the `redline` shape one layer deeper.
@@ -486,7 +486,7 @@ const SURFACES = [
       src: KANBAN,
       requires: [
         /\.kanban-card\[data-s\]\s*\{[^}]*color-mix\(in oklab, var\(--status-fill\) 55%, var\(--bg-alt\)\)/,
-        /\.kanban-card\[data-s\]\s*\{[^}]*color-mix\(in oklab, var\(--status-fill\) 26%, color-mix\(in oklab, var\(--bg-alt\) 96%, white\)\)/,
+        /\.kanban-card\[data-s\]\s*\{[^}]*color-mix\(in oklab, var\(--status-fill\) 26%, color-mix\(in oklab, var\(--bg-alt\) 88%, white\)\)/,
         new RegExp(`--status-fill: var\\(--state-${state}-fill\\)`),
         // The seeded recipe, pinned against chart-family so a retune there reddens this.
         [CHARTFAMILY, new RegExp(`--state-${state}-fill: light-dark\\(color-mix\\(in oklab, var\\(--state-${state}-hue\\) ${state === 'mute' ? 22 : 24}%, var\\(--bg\\)\\), color-mix\\(in oklab, var\\(--state-${state}-hue\\) ${state === 'mute' ? 46 : 50}%, black\\)\\)`)],
@@ -582,7 +582,7 @@ const SURFACES = [
     requires: [
       /section code\s*\{[^}]*color:\s*var\(--code-inline-fg, var\(--accent\)\)/,
       /section code\s*\{[^}]*background:\s*var\(--code-inline-bg, color-mix\(in srgb, currentColor 10%, transparent\)\)/,
-      [KANBAN, /\.kanban-card\s*\{[^}]*background:\s*light-dark\(\s*var\(--bg-alt\),\s*color-mix\(in oklab, var\(--bg-alt\) 96%, white\)\)/],
+      [KANBAN, /\.kanban-card\s*\{[^}]*background:\s*light-dark\(\s*var\(--bg-alt\),\s*color-mix\(in oklab, var\(--bg-alt\) 88%, white\)\)/],
     ],
   },
   // ── kanban · the done column's stepped-down card title ───────────────────
@@ -596,7 +596,7 @@ const SURFACES = [
     src: KANBAN,
     requires: [
       /\.kanban-column\[data-done\] \.kanban-card-title\s*\{[^}]*color:\s*var\(--text-body\)/,
-      /\.kanban-card\s*\{[^}]*background:\s*light-dark\(\s*var\(--bg-alt\),\s*color-mix\(in oklab, var\(--bg-alt\) 96%, white\)\)/,
+      /\.kanban-card\s*\{[^}]*background:\s*light-dark\(\s*var\(--bg-alt\),\s*color-mix\(in oklab, var\(--bg-alt\) 88%, white\)\)/,
     ],
   },
   // ── kpi · the hero tile's target / trend line ────────────────────────────
@@ -970,7 +970,7 @@ function bundleVars() {
 const CHART_FAMILY_TOKENS = Object.freeze(Object.fromEntries([
   // The kanban card's own dark-arm fill, as a token for the same reason: the status wash
   // mixes INTO it, and inlining it would nest a color-mix in a color-mix argument.
-  ['kanban-card-dark', 'color-mix(in oklab, var(--bg-alt) 96%, white)'],
+  ['kanban-card-dark', 'color-mix(in oklab, var(--bg-alt) 88%, white)'],
   ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((s) => {
     const [lp, dp] = s === 'mute' ? [22, 46] : [24, 50];
     const hue = `var(--${s})`;

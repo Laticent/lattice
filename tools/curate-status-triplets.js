@@ -40,7 +40,7 @@ const { mergedVars, listAllThemes } = require('./composed-contrast.js');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr.js');
 const { simulate } = require('../lib/theme/cvd.js');
 const { oklabDistance, contrastRatio: cr, hexToOklch, oklchToHex } = require('../lib/core/color.js');
-const { deepRing, SIGNAL } = require('../lib/theme/chart-solids.js');
+const { SIGNAL, toneUnderWhite, brightFill, DARK_SPREAD, STATUS_CHROMA, HUE_BAND, SIGNAL_BAND, SIGNAL_DARK_FILL, CAT_DARK } = require('../lib/theme/chart-solids.js');
 
 const TYPES = ['protanopia', 'deuteranopia', 'tritanopia', 'achromatopsia'];
 const TRIO = ['pass', 'warn', 'fail'];
@@ -55,14 +55,10 @@ const ACCENT_MIN = 0.08;
  * A face where the accent floor cannot be met with the rest of the contract, named with the floor it does meet and why.
  * Not a waiver: the audit holds the face to its own floor, so it can only improve. Fails on a stale entry.
  */
-const ACCENT_EXEMPT = {
-  'cuoio:dark': { floor: 0.045, why: 'cuoio\'s dark accent is a gold at L 0.72, and URGENCY puts warn in the same lightness '
-    + 'band, just under fail; no trio that also keeps half its colorblind separation gets warn further than 0.060 (muted) '
-    + 'or 0.047 (vivid) from it, and turning warn\'s hue off the gold moves it only ~0.03. The floor is the reachable '
-    + 'maximum for both intensities, half again the 0.030 the inversion review flagged on mustard.' },
-};
+const ACCENT_EXEMPT = {};
 const accentFloor = (theme, face) => ACCENT_EXEMPT[`${theme}:${face}`]?.floor ?? ACCENT_MIN;
-const RING_OFF_SLIDE = 2;
+/** A dark-face status fill off its slide: the chart solid's floor (lib/theme/chart-solids.js `darkTone`). */
+const DARK_OFF_SLIDE = 3.05;
 const VIVID_BOOST = 1.35;
 /** The recorded table carries four decimals; at the ratchet (`--keep=1`) this absorbs that rounding and nothing more,
  * the same tolerance test/unit/palette/cvd-trio-floor.test.js applies (`EROSION_TOLERANCE`). */
@@ -89,8 +85,8 @@ function parseArgs(argv) {
 // `[data-s]` rule), over `--state-X-fill` from chart-family.styles.css. Keep these mixes in step with those two files;
 // test/unit/tools/curate-status-triplets.test.js fails when they drift.
 const KANBAN = {
-  lift: 'color-mix(in oklab, var(--bg-alt) 96%, white)',
-  keyline: { light: 'color-mix(in oklab, var(--bg-alt) 92%, var(--border))', dark: 'color-mix(in oklab, var(--bg-alt) 88%, var(--border))' },
+  lift: 'color-mix(in oklab, var(--bg-alt) 88%, white)',
+  keyline: { light: 'color-mix(in oklab, var(--bg-alt) 92%, var(--border))', dark: 'color-mix(in oklab, var(--bg-alt) 72%, var(--border))' },
   wash: { light: 'color-mix(in oklab, var(--cstx-hue) 24%, var(--bg))', dark: 'color-mix(in oklab, var(--cstx-hue) 50%, black)' },
   mute: { light: 'color-mix(in oklab, var(--cstx-hue) 22%, var(--bg))', dark: 'color-mix(in oklab, var(--cstx-hue) 46%, black)' },
   card: { light: 'color-mix(in oklab, var(--cstx-wash) 55%, var(--bg-alt))', dark: 'color-mix(in oklab, var(--cstx-wash) 26%, var(--cstx-lift))' },
@@ -145,7 +141,13 @@ function themeFacts(theme, V = mergedVars(theme)) {
     };
     return { bg, text: get('bg', dark), accent: get('accent', dark), surfaces };
   };
-  return { get, anchor, light: face(false), dark: face(true) };
+  // The palette's strength, as tools/curate-chart-solids.js reads it: the mean chroma of its first six categories
+  // against a typical palette's. A muted palette's status stays muted beside its categories, a rich one's rich.
+  const catC = [1, 2, 3, 4, 5, 6].map((i) => get(`chart-cat${i}`, false)).filter((v) => /^#[0-9a-f]{6}$/i.test(v)).map((v) => hexToOklch(v).C);
+  const strength = Math.min(1.2, Math.max(0.75, catC.reduce((a, c) => a + c, 0) / catC.length / 0.11));
+  const dark = face(true);
+  dark.ink = get('on-mark', true);
+  return { get, anchor, strength, light: face(false), dark };
 }
 
 function separationOk(theme, intensity, face, fills, baseline, keep) {
@@ -167,20 +169,77 @@ const urgent = (fills, bg) => cr(fills.fail, bg) >= cr(fills.warn, bg) && hexToO
 /** No status fill reads as the theme's accent. */
 const offAccent = (fills, accent, floor = ACCENT_MIN) => !accent || Object.values(fills).every((f) => oklabDistance(f, accent) >= floor);
 
-const ringCache = new Map();
-function canRing(fill, bg) {
-  const k = fill + bg;
-  if (!ringCache.has(k)) {
-    const o = hexToOklch(fill);
-    try { deepRing(o.h, 0.17, fill, SIGNAL, o.L - 0.02, [bg]); ringCache.set(k, true); } catch { ringCache.set(k, false); }
+/** Solve one theme: { light: { muted, vivid }, dark: { muted, vivid } }, each a status -> fill map. */
+/**
+ * THE DARK FACE IS A CHART SOLID (the owner's call, 2026-11-16): a status fill sits in the band the category fills sit
+ * in, under the one ink, so a status chart and a category chart read as one design language. It is solved the way
+ * lib/theme/chart-solids.js `solveStatusSet` solves it (white at 4.6:1, 3:1 off the slide, each status at its
+ * `DARK_SPREAD` position: done deepest, at risk lightest, blocked between and the most saturated), with the theme's own
+ * status hues and its palette's strength. A mark keeps an edge in its status ink, which stands it off a tinted row or a
+ * card (2026-10-24-status-is-one-system.md §3), so the fill is held to the slide alone.
+ */
+const darkHue = (facts, s) => {
+  const [lo, hi] = HUE_BAND[s];
+  const h = facts.anchor[s].h;
+  const inside = lo <= h && h <= hi;
+  if (inside) return h;
+  const d = (x) => Math.min(Math.abs(x - h), 360 - Math.abs(x - h));
+  return d(lo) <= d(hi) ? lo : hi;
+};
+
+function solveDark(theme, facts, baseline, keep) {
+  const bg = facts.dark.bg;
+  const clears = (h, C, bar) => cr(toneUnderWhite(h, C, bar), bg) >= 3.05;
+  const tone = (h, C, s) => {
+    let lo = CAT_DARK;
+    let hi = 21;
+    if (!clears(h, C, lo)) hi = lo;
+    while (hi - lo > 0.02) {
+      const mid = (lo + hi) / 2;
+      if (clears(h, C, mid)) lo = mid; else hi = mid;
+    }
+    return toneUnderWhite(h, C, CAT_DARK + DARK_SPREAD[s] * (lo - CAT_DARK)).toUpperCase();
+  };
+  const set = (hue) => {
+    const o = {};
+    for (const intensity of ['muted', 'vivid']) {
+      o[intensity] = {};
+      for (const s of ['pass', 'warn', 'fail', 'info']) o[intensity][s] = tone(hue[s], STATUS_CHROMA[intensity][s] * facts.strength, s);
+      o[intensity].mute = tone(facts.anchor.mute.h, 0.012, 'mute');
+    }
+    return o;
+  };
+  // Start from the theme's own hues. Where the trio would keep less than `keep` of its colorblind separation, step done
+  // toward blue-green and blocked toward red (the band's far ends, where `main` sat), the least total turn that keeps
+  // it: the theme's hue wherever it can hold, the band's spacing where it cannot.
+  const base = Object.fromEntries(['pass', 'warn', 'fail', 'info'].map((s) => [s, darkHue(facts, s)]));
+  let out = null;
+  for (let turn = 0; turn <= 60 && !out; turn += 5) {
+    for (let p = 0; p <= turn && !out; p += 5) {
+      const hue = { ...base, pass: Math.min(HUE_BAND.pass[1], base.pass + p), fail: Math.max(HUE_BAND.fail[0], base.fail - (turn - p)) };
+      const o = set(hue);
+      if (['muted', 'vivid'].every((i) => separationOk(theme, i, 'dark', o[i], baseline, keep))) out = o;
+    }
   }
-  return ringCache.get(k);
+  if (!out) throw new Error(`${theme} dark: no hue turn inside the status bands keeps ${keep} of the colorblind separation`);
+  // The ring: the status hue in its signal band, bright, 2:1 off its mid-tone fill and 3:1 off the slide.
+  out.rings = {};
+  for (const s of ['warn', 'fail']) {
+    const [lo, hi] = SIGNAL_BAND[s];
+    const h = Math.min(hi, Math.max(lo, facts.anchor[s].h));
+    const C = 0.17 * facts.strength;
+    const fill = out.muted[s];
+    let ring = brightFill(h, C, fill, SIGNAL_DARK_FILL, hexToOklch(fill).L);
+    if (cr(ring, out.vivid[s]) < SIGNAL_DARK_FILL) ring = brightFill(h, C, out.vivid[s], SIGNAL_DARK_FILL, hexToOklch(ring).L);
+    if (cr(ring, bg) < SIGNAL) ring = brightFill(h, C, bg, SIGNAL, hexToOklch(ring).L);
+    out.rings[s] = ring.toUpperCase();
+  }
+  return out;
 }
 
-/** Solve one theme: { light: { muted, vivid }, dark: { muted, vivid } }, each a status -> fill map. */
 function solve(theme, facts, baseline, keep) {
-  const out = {};
-  for (const face of ['light', 'dark']) {
+  const out = { dark: solveDark(theme, facts, baseline, keep) };
+  for (const face of ['light']) {
     const { bg, text } = facts[face];
     out[face] = {};
     for (const [intensity, boost] of [['muted', 1], ['vivid', VIVID_BOOST]]) {
@@ -207,7 +266,7 @@ function solve(theme, facts, baseline, keep) {
       warnShift = away * step;
       if (hueDist(facts.anchor.warn.h + warnShift, BAND.warn[0]) > BAND.warn[1]) break;
       const R = {};
-      for (const s of TRIO) R[s] = cands(s).filter(([, f]) => face === 'light' || s === 'pass' || canRing(f, bg));
+      for (const s of TRIO) R[s] = cands(s);
       for (const p of R.pass) for (const w of R.warn) for (const f of R.fail) {
         const fills = { pass: p[1], warn: w[1], fail: f[1] };
         if (!urgent(fills, bg) || !offAccent(fills, facts[face].accent, accentFloor(theme, face))) continue;
@@ -243,17 +302,10 @@ function rings(sol, facts) {
     if (!best) throw new Error('no bright ring clears both fills');
     return best.c;
   };
-  const darkRing = (fills, bg) => {
-    const darker = fills.slice().sort((a, b) => cr(a, '#000000') - cr(b, '#000000'))[0];
-    const o = hexToOklch(darker);
-    const r = deepRing(o.h, 0.17, darker, SIGNAL, o.L - 0.02, [bg]).toUpperCase();
-    if (fills.some((f) => cr(r, f) < SIGNAL)) throw new Error('the deep ring misses one fill');
-    return r;
-  };
   const out = {};
   for (const s of ['warn', 'fail']) {
-    const L = sol.light, D = sol.dark;
-    out[s] = [brightRing([L.muted[s], L.vivid[s]], hexToOklch(L.muted[s]).h), darkRing([D.muted[s], D.vivid[s]], facts.dark.bg)];
+    const L = sol.light;
+    out[s] = [brightRing([L.muted[s], L.vivid[s]], hexToOklch(L.muted[s]).h), null];
   }
   return out;
 }
@@ -261,19 +313,22 @@ function rings(sol, facts) {
 /** Every token the triplet owns in a theme, as [light, dark] pairs. */
 function tokens(sol, facts) {
   const v = {};
+  // Light: the fill is its own edge, the ink the slide's paper. Dark: a chart solid under the one ink, edged in its
+  // status ink.
   for (const s of ALL) {
     v[`${s}-mark`] = [sol.light.muted[s], sol.dark.muted[s]];
-    v[`${s}-edge-mark`] = v[`${s}-mark`];
-    v[`${s}-on-mark`] = [facts.light.text, facts.dark.text];
+    v[`${s}-edge-mark`] = [sol.light.muted[s], `var(--${s})`];
+    v[`${s}-on-mark`] = [facts.light.text, facts.dark.ink];
   }
   for (const s of ['pass', 'warn', 'fail', 'info']) {
     v[`${s}-vivid-mark`] = [sol.light.vivid[s], sol.dark.vivid[s]];
-    v[`${s}-vivid-edge-mark`] = v[`${s}-vivid-mark`];
+    v[`${s}-vivid-edge-mark`] = [sol.light.vivid[s], `var(--${s})`];
   }
   const r = rings(sol, facts);
-  v['status-shade-mark'] = ['#000000', '#FFFFFF'];
-  v['warn-signal-mark'] = r.warn;
-  v['fail-signal-mark'] = r.fail;
+  // What a mark ON a status solid steps toward, away from its ink: the ink is light on both faces, so black on both.
+  v['status-shade-mark'] = ['#000000', '#000000'];
+  v['warn-signal-mark'] = [r.warn[0], sol.dark.rings.warn];
+  v['fail-signal-mark'] = [r.fail[0], sol.dark.rings.fail];
   return v;
 }
 
@@ -289,25 +344,32 @@ function audit(theme, facts, baseline, keep) {
         const f = pick(tok(s), dark), ink = pick(`${s}-on-mark`, dark);
         fills[s] = f;
         if (!f || !ink) { bad.push(`${face} ${intensity} --${tok(s)} or --${s}-on-mark does not resolve`); continue; }
-        for (const x of facts[face].surfaces(s, f)) if (cr(f, x.hex) < FILL_MIN) bad.push(`${face} ${intensity} --${tok(s)} ${cr(f, x.hex).toFixed(2)}:1 against ${x.name} ${x.hex} (floor ${FILL_MIN})`);
-        if (cr(ink, f) < INK_MIN) bad.push(`${face} ${intensity} --${s}-on-mark ${cr(ink, f).toFixed(2)}:1 on its fill (floor ${INK_MIN})`);
+        // Dark is a chart solid: 3:1 off the slide (its status-ink edge stands it off rows and cards), the one ink at 4.6:1.
+        const grounds = dark ? [{ name: 'the slide', hex: bg }] : facts[face].surfaces(s, f);
+        const floor = dark ? DARK_OFF_SLIDE : FILL_MIN;
+        for (const x of grounds) if (cr(f, x.hex) < floor) bad.push(`${face} ${intensity} --${tok(s)} ${cr(f, x.hex).toFixed(2)}:1 against ${x.name} ${x.hex} (floor ${floor})`);
+        const inkMin = dark ? CAT_DARK : INK_MIN;
+        if (cr(ink, f) < inkMin) bad.push(`${face} ${intensity} --${s}-on-mark ${cr(ink, f).toFixed(2)}:1 on its fill (floor ${inkMin})`);
+        if (dark && ink !== facts.dark.ink) bad.push(`dark --${s}-on-mark is ${ink}, not the one ink ${facts.dark.ink}`);
       }
       if (TRIO.every((s) => fills[s]) && !separationOk(theme, intensity, face, fills, baseline, keep)) bad.push(`${face} ${intensity}: the trio keeps less than ${keep} of its recorded colorblind separation`);
-      if (TRIO.every((s) => fills[s]) && !urgent(fills, bg)) bad.push(`${face} ${intensity}: fail is quieter than warn (${cr(fills.fail, bg).toFixed(2)} vs ${cr(fills.warn, bg).toFixed(2)} off the slide, or less saturated)`);
+      if (!dark && TRIO.every((s) => fills[s]) && !urgent(fills, bg)) bad.push(`${face} ${intensity}: fail is quieter than warn (${cr(fills.fail, bg).toFixed(2)} vs ${cr(fills.warn, bg).toFixed(2)} off the slide, or less saturated)`);
       const af = accentFloor(theme, face);
       for (const s of TRIO) if (fills[s] && facts[face].accent && oklabDistance(fills[s], facts[face].accent) < af) bad.push(`${face} ${intensity} --${tok(s)} sits ${oklabDistance(fills[s], facts[face].accent).toFixed(3)} from the accent (floor ${af})`);
       for (const s of ALL) {
         const e = pick(intensity === 'vivid' && s !== 'mute' ? `${s}-vivid-edge-mark` : `${s}-edge-mark`, dark);
-        if (e !== fills[s]) bad.push(`${face} ${intensity} the edge of --${tok(s)} is not the fill itself (${e} vs ${fills[s]})`);
+        const want = dark ? pick(s, true) : fills[s];
+        if (e !== want) bad.push(`${face} ${intensity} the edge of --${tok(s)} is not ${dark ? `its status ink --${s}` : 'the fill itself'} (${e} vs ${want})`);
       }
     }
     for (const s of ['warn', 'fail']) {
       const ring = pick(`${s}-signal-mark`, dark);
       for (const t of [`${s}-mark`, `${s}-vivid-mark`]) {
         const f = pick(t, dark);
-        if (ring && f && cr(ring, f) < SIGNAL) bad.push(`${face} --${s}-signal-mark ${cr(ring, f).toFixed(2)}:1 on --${t} (floor ${SIGNAL})`);
+        const onFill = dark ? SIGNAL_DARK_FILL : SIGNAL;
+        if (ring && f && cr(ring, f) < onFill) bad.push(`${face} --${s}-signal-mark ${cr(ring, f).toFixed(2)}:1 on --${t} (floor ${onFill})`);
       }
-      if (dark && ring && cr(ring, bg) < RING_OFF_SLIDE) bad.push(`dark --${s}-signal-mark ${cr(ring, bg).toFixed(2)}:1 off the slide (floor ${RING_OFF_SLIDE})`);
+      if (dark && ring && cr(ring, bg) < SIGNAL) bad.push(`dark --${s}-signal-mark ${cr(ring, bg).toFixed(2)}:1 off the slide (floor ${SIGNAL})`);
     }
   }
   return bad;

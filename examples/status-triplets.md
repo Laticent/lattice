@@ -15,7 +15,7 @@ footer: "Each theme curates its status fill, ink and edge"
 
 `Status triplets · 2026-11-16`
 
-*Deep on the light face, glowing on the dark one, so a status still reads from the back row of a lit hall.*
+*Deep on the light face; on the dark one, the same family as the category colors beside it.*
 
 ---
 

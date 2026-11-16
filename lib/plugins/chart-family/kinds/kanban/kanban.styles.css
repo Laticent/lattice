@@ -132,14 +132,10 @@
  * below). --lane-color is still inherited from the card's style attribute but is
  * inert by default; the variants opt back into it. */
 .kanban-card {
-  /* Elevated above the canvas in BOTH modes: lighter than canvas, with the hairline border carrying the edge on dark,
-   * where the lift is 4% white, not more:
-   * a status pill sits on this card and must clear 4.5:1 against it (engineering/decisions/2026-11-16-status-
-   * triplets.md §3). At 12% white every status fill had to be so light that pass and fail lost their colorblind
-   * separation. tools/curate-status-triplets.js mirrors this mix; keep the two in step. */
+  /* Distinctly elevated above the canvas in BOTH modes: lighter than canvas. */
   background: light-dark(
     var(--bg-alt),
-    color-mix(in oklab, var(--bg-alt) 96%, white));
+    color-mix(in oklab, var(--bg-alt) 88%, white));
   border: var(--chart-hairline) solid
     light-dark(var(--border), color-mix(in oklab, var(--border) 78%, white));
   border-radius: 0.85cqi;
@@ -204,7 +200,7 @@
 :is(section.kanban, figure.kanban):not(.keyline):not(.tinted) .kanban-card[data-s] {
   background: light-dark(
     color-mix(in oklab, var(--status-fill) 55%, var(--bg-alt)),
-    color-mix(in oklab, var(--status-fill) 26%, color-mix(in oklab, var(--bg-alt) 96%, white)));
+    color-mix(in oklab, var(--status-fill) 26%, color-mix(in oklab, var(--bg-alt) 88%, white)));
   border-color: color-mix(in oklab, var(--status-ink) 35%, var(--border));
 }
 
@@ -380,14 +376,11 @@
  * the chip. (engineering/decisions/2026-06-22-kanban-chart-redesign.md)
  * ════════════════════════════════════════════════════════════════════════════ */
 :is(section.kanban, figure.kanban).keyline .kanban-card {
-  /* Flat uniform tile — light barely warms --bg-alt; dark mixes a step toward --border so the card stops sinking
-   * into the near-black canvas. The dark step is 12%, not more: a status pill sits on this card and must clear 4.5:1
-   * against it (engineering/decisions/2026-11-16-status-triplets.md §3); at 28% the card was a mid-gray no trio of
-   * status fills could clear and still keep pass and fail apart for a colorblind reader. The hairline border and
-   * the keyline still lift the card. tools/curate-status-triplets.js mirrors this mix; keep the two in step. */
+  /* Flat uniform tile — light barely warms --bg-alt; dark mixes a stronger step
+   * toward --border so the card stops sinking into the near-black canvas. */
   background: light-dark(
     color-mix(in oklab, var(--bg-alt) 92%, var(--border)),
-    color-mix(in oklab, var(--bg-alt) 88%, var(--border)));
+    color-mix(in oklab, var(--bg-alt) 72%, var(--border)));
   border: var(--chart-hairline) solid color-mix(in oklab, var(--border) 65%, var(--muted-mark));
   /* THE one category cue: a crisp left keyline at the full lane ink. */
   /* The card's leading accent is the family token, not a local cqi. At 0.42cqi
@@ -479,7 +472,7 @@
   border-color: color-mix(in oklab, var(--col-hue) 22%, var(--border));
 }
 :is(section.kanban, figure.kanban).tinted.dark .kanban-card {
-  background: color-mix(in oklab, var(--bg-alt) 96%, white);
+  background: color-mix(in oklab, var(--bg-alt) 88%, white);
   border-color: color-mix(in oklab, var(--border) 70%, var(--muted-mark));
 }
 /* Lane label quiet; drop the dot (color now lives on the lane, not the card). */

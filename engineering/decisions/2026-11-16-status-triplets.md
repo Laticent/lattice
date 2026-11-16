@@ -1,86 +1,94 @@
 ---
 status: in-progress
 summary: >
-  Each brand theme now curates a status TRIPLET per status: the fill, the ink ON it and its edge. Fills are deep on
-  the light face and glowing on the dark one, so each clears 4.5:1 as painted against every surface a status mark sits
-  on (the slide, the card, the hero tile, its own row tint, a kanban card) and keeps 3:1 at the back of a lit hall
-  (`npm run check:glance`). The ink is the slide's own paper or night, AA 4.5:1 on the fill.
-  The hues come from the theme's own brand and chart colors. The trio keeps at least half of its recorded colorblind
-  separation; the a11y palettes are unchanged. Amends the one-ink rule of 2026-10-24-status-is-one-system.md.
+  Each brand theme now curates its status colors. On the LIGHT face it curates a triplet per status: a deep fill, the
+  slide's paper as the ink on it, and the fill as its own edge, each fill clearing 4.5:1 against every surface a status
+  mark sits on, so it reads at the back of a lit hall (`npm run check:glance`). On the DARK face a status is a chart
+  solid like the categories beside it, solved the way lib/theme/chart-solids.js solves it, with the theme's own hues and
+  palette strength: the one ink, an edge in the status ink, and the established dark order. The owner picked that over
+  back-row reach on dark so a status chart and a category chart read as one design language. The trio keeps at least
+  half of its recorded colorblind separation; the a11y palettes keep their tokens. Amends 2026-10-24-status-is-one-system.md.
 ---
 
-# Status triplets: each theme curates its fill, ink and edge (2026-11-16)
+# Status triplets: each theme curates its status colors (2026-11-16)
 
 ## 1. The question
 
 Every theme declared its own status fills, but they were near-identical: warn was `#854A00` in eight of the fourteen
-brand themes and fail `#9D0800` in five. On the light face the pairwise difference between themes was below what
-an eye can see (warn: a median OKLab distance of 0.011). The cause was one rule, not neglect: every status solid
-carried ONE shared white ink at 7:1 (2026-10-24-status-is-one-system.md §2, chart-styling.md §3), which pins a
-fill's lightness, and the status meaning pins its hue. Nothing was left to curate.
+brand themes and fail `#9D0800` in five. On the light face the pairwise difference between themes was below what an
+eye can see (warn: a median OKLab distance of 0.011). The cause was one rule, not neglect: every status solid carried
+ONE shared white ink at 7:1 (2026-10-24-status-is-one-system.md §2, chart-styling.md §3), which pins a fill's
+lightness, and the status meaning pins its hue. Nothing was left to curate.
 
 The owner asked for per-theme curation, AA throughout, and a border of its own: a fill, an ink and an edge per status.
 
 ## 2. What the owner picked, and why
 
-Five prototype rounds on mustard, indaco and crepuscolo, each graded by an independent checker, settled it.
+Five prototype rounds on mustard, indaco and crepuscolo, each graded by an independent checker, settled the light face.
 
-- **Pale tonal pills (rounds 1-3) were rejected.** They looked distinct on screen, but `check:glance` showed a
-  fill at 3.3:1 against the slide falls to about 2.5:1 on a projector in a lit room, and a 2px border does not
-  survive the blur at the back of a hall. Light-face warn fell to 2.5-2.8:1.
-- **Option A (picked 2026-11-16): deep fills on the light face, glowing fills on the dark one.** Every fill clears
-  4.5:1 against its slide as painted. Measured at the hall back row in a lit room it held 3.3-4.6:1 on every face of
-  the three prototype themes. The shipped dark faces had measured 2.1-2.6:1 (48 of 54 marks below the floor).
-- **The colorblind trade (picked: "half").** Deep fills share a lightness band, and lightness is what a red-green
-  colorblind reader separates by. Holding the recorded separation in full forced near-black greens and pastel
-  mints; dropping it entirely left pass and fail alike for those readers. The owner picked keeping at least half,
-  pair by pair, under every simulated deficiency. Brand themes do not owe the colorblind floors; the a11y palettes
-  do, and every status mark also draws its meaning (check, dash, cross).
+- **Pale tonal pills (rounds 1-3) were rejected.** They looked distinct on screen, but `check:glance` showed a fill at
+  3.3:1 against the slide falls to about 2.5:1 on a projector in a lit room, and a 2px border does not survive the
+  blur at the back of a hall.
+- **Option A: deep fills on the light face.** Every fill clears 4.5:1 against every surface it sits on.
+- **The colorblind trade (picked: "half").** The trio keeps at least half of its recorded separation, pair by pair,
+  under every simulated deficiency. Brand themes do not owe the colorblind floors; the a11y palettes do, and every
+  status mark also draws its meaning (check, dash, cross).
+- **The dark face: one design language (picked: B, after option A shipped glowing dark fills).** Option A first made
+  the dark fills glow too (lightness 0.67-0.81), so they cleared 4.5:1 off every surface. Set beside a category chart
+  they read as a second system: the category fills sit at 0.55-0.58, and the glowing status fills were pastels next to
+  them. The owner chose matching the categories over back-row reach on dark: "they match, but status is hard to read
+  from the back again." Light already matched (status 0.38-0.51 against categories 0.36-0.48).
+
+The dark face did not need a new design. The system already had one, and the first cut of B rediscovered it the hard
+way: 2026-10-24-status-is-one-system.md §3 records that under the one ink a dark fill "tops out near 0.18 luminance"
+and cannot clear 3:1 against a tinted row, which is why a status mark wears a rim in its status ink; the token ledger
+(2026-10-24-chart-color-token-ledger.md §3) makes a category and a status one concept, the SOLID, with one bar; and
+lib/theme/chart-solids.js places each status at a fixed position across the dark band (`DARK_SPREAD`: at risk at the
+white bar, done at the slide's limit, blocked between and the most saturated), an order the owner kept when the finish
+review asked (2026-10-28-finish-invariant.md §5, item 3). Holding dark fills to 4.5:1 off every surface threw all three
+away, and an URGENCY rule added for the glowing fills then fought the established order and squeezed the trio, which is
+what made "half" look unreachable on eight themes. With the established rules back, all fourteen keep half.
 
 ## 3. The contract
 
 Per brand theme, per face, per `marks:` intensity, solved by `tools/curate-status-triplets.js`:
 
-| Part | Token | Rule |
+| Part | Light face | Dark face |
 |---|---|---|
-| Fill | `--X-mark`, `--X-vivid-mark` | >= 4.5:1 as painted against every surface a status mark sits on: `--bg`, `--bg-alt` (a kpi card), `--accent-soft` (a hero tile), its own row tint `--X-bg` composited over `--bg` (a checklist disc on its row), and a kanban card: plain (lifted on dark), keyline, or washed in the status's own fill, which the tool recomputes for each candidate fill; hue from the theme's nearest brand or chart color in the status band |
-| Ink on the fill | `--X-on-mark` | the slide's paper (light) or night (dark); >= 4.5:1 on the fill |
-| Edge | `--X-edge-mark`, `--X-vivid-edge-mark` | the fill itself (it already clears 4.5:1 off the slide) |
-| Signal ring | `--warn-signal-mark`, `--fail-signal-mark` | the status hue at the opposite lightness, >= 3.2:1 against both intensities' fill; on the dark face also >= 2:1 off the slide (`deepRing`) |
-| Urgency | the fill trio | blocked is never quieter than at risk: on every face fail stands off the slide at least as far as warn does, and is at least as saturated |
-| Accent | every status fill | >= 0.08 (OKLab) from the theme's accent, so an at-risk pill cannot read as decoration; one named exemption, cuoio's dark face at 0.045 (its gold accent sits in warn's lightness band; the reachable maximum), held by the tool's audit |
-| Colorblind | the fill trio | keeps >= half of the 2026-11-15 record, pair by pair; re-recorded, then held as a ratchet |
-| Shade | `--status-shade-mark` | what a mark ON a status solid steps toward, away from the status ink: black on the light face, white on the dark one (risk-matrix critical band, a state-chart status row's chips). `--on-mark-shade` stays the shade under the ONE ink, for category and neutral tiles |
-| Hue fallback | per slot | a slot with no brand or chart color in its band takes the band's center hue, and the list is pinned (`test/unit/tools/curate-status-triplets.test.js`): ardesia pass, warn and fail (a slate palette with no green, amber or red), atelier pass, brina warn, crepuscolo fail, laguna warn |
+| Fill | >= 4.5:1 as painted against every surface a status mark sits on: `--bg`, `--bg-alt` (a kpi card), `--accent-soft` (a hero tile), its own row tint `--X-bg` over `--bg`, and a kanban card (keyline, or washed in the status's own fill, recomputed per candidate) | a chart solid: white (`--on-mark`) at 4.6:1 on it and 3:1 off the slide, at its `DARK_SPREAD` position; its edge stands it off a tinted row or a card |
+| Hue | the theme's nearest brand or chart color in the status band | the same anchor, held inside the chart solids' `HUE_BAND`; where the trio would keep less than half its colorblind separation, done turns toward blue-green and blocked toward red, the least total turn that keeps it |
+| Strength | the anchor's own chroma | `STATUS_CHROMA` scaled by the palette's strength (its categories' mean chroma), so a muted palette's status stays muted beside its categories |
+| Ink on the fill (`--X-on-mark`) | the slide's paper, >= 4.5:1 | the one ink `--on-mark`, >= 4.6:1 |
+| Edge (`--X-edge-mark`) | the fill itself | the status ink `--X` (the rim of 2026-10-24 §3) |
+| Signal ring | the status hue at the opposite lightness, >= 3.2:1 against both intensities' fill | bright, 2:1 off its fill and 3.2:1 off the slide (chart-solids) |
+| Order | URGENCY: blocked stands off the slide at least as far as at risk, and is at least as saturated | the established dark order (`DARK_SPREAD`): at risk lightest, done deepest, blocked between and the most saturated |
+| Accent | every status fill >= 0.08 (OKLab) from the accent | the same; no exemption is needed any more |
+| Colorblind | the fill trio keeps >= half of the 2026-11-15 record, pair by pair; re-recorded, then held as a ratchet | the same |
+| Shade (`--status-shade-mark`) | black: what a mark ON a status solid steps toward, away from its light ink | black, for the same reason |
 
-The `a11y-*` palettes curate none of these. The base declares each new token's default as the pre-triplet pair (the one
-ink `--on-mark`, a border in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it
-does not inherit onyx's triplet: the a11y palettes rendered pixel-identical to the pre-triplet engine (measured on the
-demo deck, both a11y-base and a11y-deuteranopia), and so does any theme the Studio derives (follow-up below). One later
-change reaches them on purpose: §4 "No second adjustment" stops dimming the risk matrix and a slope chart's signal lines
-on the dark face, for every palette.
+Hue fallback: a slot with no brand or chart color in its band takes the band's center hue, and the list is pinned
+(`test/unit/tools/curate-status-triplets.test.js`): ardesia pass, warn and fail (a slate palette with no green, amber
+or red), atelier pass, brina warn, crepuscolo fail, laguna warn.
 
-**Row tints moved in two themes.** The surface rule could not be met at "half" on two faces, because their row tint
-sat far off its slide. Carbone's dark rows were 18% of a bright status ink; ten brand themes use 12% and carta, cuoio
-and indaco 10%. A pass disc then needed a fill as light as fail, and the trio kept only 40% of its colorblind
-separation. Concrete's light slide is mid-gray, and a 12% tint darkens it further, so the deep fills crowded toward
-black (also 40%). Carbone's dark rows are now 12% and concrete's light rows 10%. Both faces then solve at "half", and
-the owner's number stands. (Carbone's light rows, 26-30% of their own pale inks, already meet the rule.)
+On dark, at risk's anchors (69-97 degrees, amber to yellow) all sit outside the band (45-62), so every theme's dark at
+risk is the band's edge, as on `main`. Done keeps the theme's own hue in nine themes: brina, carta, crepuscolo and
+indaco turn it 10 degrees toward blue-green and laguna 15, to keep half. Blocked keeps its own hue in nine: carbone and
+indaco move into the band from a raspberry (and atelier by one degree), and carta and crepuscolo turn it toward red.
 
-**Kanban cards moved on the dark face.** A kanban status pill sits on its card, and two dark cards were too light for
-any trio to clear at "half": the plain card was `--bg-alt` lifted 12% toward white, and the keyline card mixed in 28%
-of `--border`. The lift is now 4% and the keyline step 12%; the dark washed card and the `tinted` board's dark card,
-both built on the lift, move with it. The cards stay above the slide, but closer: card against slide fell from
-1.45-2.07:1 to 1.17-1.66:1 (cuoio is the lowest), the hairline border carries more of the edge, and a keyline card
-now sits within a shade of a plain one. That is a visible change, put to the owner with the dark boards rendered.
-Before this, 65 of the 168 brand pill-on-washed-card pairs fell below 4.5:1 (worst 3.49:1, concrete dark vivid warn);
-now none does (worst 4.51:1 as the browser paints it, magnolia light at-risk).
+The `a11y-*` palettes curate none of this. The base declares each triplet token's default as the one-ink pair (the ink
+`--on-mark`, an edge in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it does
+not inherit onyx's triplet. Any theme the Studio derives keeps the pair too (follow-up below).
+
+**One row tint moved.** Concrete's light slide is mid-gray, and a 12% status tint darkens it further, so the deep light
+fills crowded toward black and kept only 40% of their colorblind separation. Concrete's light rows are now 10%, a level
+carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark rows and two dark kanban cards, for the
+4.5:1 dark rule; the dark face no longer holds that rule, so they are back as they were on `main`.)
 
 ## 4. How it is wired
 
 - **Pointers.** `base.tokens.css` § THE STATUS TRIPLET ON THIS SLIDE adds `--state-X-on-ink` and `--state-X-edge` beside
   `--state-X-hue`, in the same slide-level block and through the same private `--_state-X-*` pointer, so the vivid
-  register re-points the edge with the fill. The print band puts both back to the pre-triplet pair in the print inks.
+  register re-points the edge with the fill. The print band puts both back to the one-ink pair in the print inks.
 - **Discs** (checks, checklist, obligation-matrix, `state-cells`, `heat`, roadmap). Each role line gains a fifth role,
   `--state-edge`, and its glyph mark reads `--state-X-on-ink`. A heat-inverted line reads the inverted status's pair,
   because it follows the solid it paints. Rims read `var(--state-edge, var(--state-ink))`; rails and the outline
@@ -92,46 +100,46 @@ now none does (worst 4.51:1 as the browser paints it, magnolia light at-risk).
   text ink with a percent, not a fallback chain: `--finish-status-k` is 0% under pigment (the status's own ink) and
   100% under etch and tone (the heading ink on their pale washes).
 - **Components.** kpi pills, policy badges and regulatory-update tiers read `--state-X-on-ink`, and kpi's rim and
-  policy's badge edge read `--state-X-edge`. The risk matrix's key numbers follow their band; its target ring and path
-  wear the status ink, which a brand theme curates as one ink across its statuses.
-- **No second adjustment on a curated fill.** A status solid wears the theme's fill as the theme curated it; only a
-  finish (etch, tone) changes its strength. The pigment finish used to take the risk bands, the risk key and a slope
-  chart's signal lines 28-42% toward the slide on the dark face, because the one shared set of vivid fills was "a
-  fire-engine block" there. The curated fills are tuned for that face, so the dims are gone (the owner's call,
-  2026-11-16): the bands, key and lines wear `--state-X-hue` on both faces, critical keeps its one designed step (82%
-  fail toward `--status-shade-mark`, as risk-matrix.styles.css has it), and each key number wears its status's ink.
+  policy's badge edge read `--state-X-edge`. The risk matrix's key numbers wear their status's ink; its target ring and
+  path wear the status ink, which a brand theme curates as one ink across its statuses.
+- **No second adjustment on a curated fill (the owner's call, 2026-11-16).** A status solid wears the theme's fill as
+  the theme curated it; only a finish (etch, tone) changes its strength. The pigment finish used to take the risk
+  bands, the risk key and a slope chart's signal lines 28-42% toward the slide on the dark face, because the one shared
+  set of vivid fills was "a fire-engine block" there. The bands, key and lines now wear `--state-X-hue` on both faces;
+  critical keeps its one designed step (82% fail toward `--status-shade-mark`, as risk-matrix.styles.css has it).
   Washes stay washes: kanban cards, journey moods, bullet bands and state-chart groups are tints by design.
 
 ## 5. Measured
 
-- The first cut measured each fill against `--bg` only. `check:glance` on all 28 brand faces then found three marks
-  below 3:1 at the hall back row: carbone dark's checklist pass disc on its row tint (2.34:1) and kpi pass pill on
-  its card (2.87:1), and concrete light's warn disc on its row tint (2.82:1). That is why the contract names every
-  surface. An independent review then found kanban cards missing from the list; they are in it now.
-- `check:glance` on the demo deck and a kanban deck with every status on the default, keyline and tinted boards.
-  Glance now counts an HTML box as a status mark only when it is painted with one of the slide's status fills, compared
-  as pixels (a kanban card is a wash of its status, not a solid, and a fill from an oklab `color-mix` serializes as
-  `oklab(…)`, which a string match missed). A surface the tool cannot resolve now stops it, instead of being skipped.
+- **One design language.** Dark status fills sit at lightness 0.46-0.57 beside category fills at 0.55-0.58 (onyx's
+  categories 0.47-0.59), against 0.67-0.81 for the glowing cut. Rendered: a category chart beside a status chart under
+  pigment, etch and tone on indaco, onyx, mustard, carta, ardesia and cuoio dark, each pair reading in one register.
+  Blocked stays the most saturated mark, which is the chart solids' design ("the exceptions carry the color"); beside
+  ardesia's near-gray categories that reads as a status should.
+- **The cost, on the dark face.** A status no longer reaches the back of a lit hall there. `check:glance` on the demo
+  deck, hall back row, lit room, all 14 dark faces: 596 of 812 marks below 3:1, worst 1.65:1 (the risk key's critical
+  disc, drawn deeper than blocked so its white number reads; its signal ring and the cells' crosses mark it). That is
+  `main`'s level, measured with `main`'s engine on the same deck: indaco dark 44 of 58 below (median 2.66:1) on `main`
+  against 47 of 58 (2.61:1) here, onyx dark 40 of 58 (2.71:1) on both. The categories beside them sit at the same
+  lightness and carry the same limit; nothing measures them yet.
+- **The light face** is untouched by B (0 light values changed). `check:glance` on the demo deck and a kanban deck
+  with every status on the default, keyline and tinted boards: every light-face mark clears 3:1 at the hall back row,
+  worst 3.05:1 (concrete). Glance counts an HTML box as a status mark only when it is painted with one of the slide's
+  status fills, compared as pixels, measures `::before` discs and the risk key, and a surface the solver cannot resolve
+  stops it.
 - `node tools/curate-status-triplets.js --check`: all 14 brand themes meet the contract, and the tool reproduces the
   shipped theme values byte for byte (`--keep=0.5` against the pre-triplet record).
-- Colorblind separation: 0 brand pairs below half of the record (worst kept 50.0%, atelier muted dark pass^fail,
-  achromatopsia); 702 of the 1,344 re-recorded pairs went up, 642 down; 0 a11y pairs moved. THE COST, stated plainly:
-  URGENCY lifts a dark-face fail toward pass's lightness, so for a reader with no color vision the two can sit very
-  close (carta muted dark pass^fail under achromatopsia: 0.0095, half of an already small 0.019). Brand themes do not
-  owe the colorblind floors (the owner's call); every status mark draws its meaning (check, dash, cross), and the a11y
-  palettes carry the floors.
-- `tools/composed-contrast.js` now scores text on a status solid at AA 4.5:1 for every palette, against the status's own
-  ink. Before it held 7:1 on the light face; the a11y palettes' 7:1 one-ink floor is still pinned, in
-  test/unit/palette/chart-solids.test.js, which decides "curates a triplet" from the theme's tokens (its edge is its
-  fill), not its name.
-- `test/unit/palette/chart-solids.test.js` and `chart-one-ink.test.js`: every status fill sits opposite its own ink;
-  brand fills clear 4.5:1 off the slide; a11y floors unchanged.
+- Colorblind separation: 0 brand pairs below half of the record on either face; 0 a11y pairs moved. Every status mark
+  also draws its meaning, and the a11y palettes carry the floors.
+- `test/unit/palette/chart-solids.test.js` decides per face whether a theme curates the triplet (its edge is its fill):
+  light status rows face the triplet bars, dark status rows the chart-solid bars every category faces.
 - `tools/composed-contrast.js`: 0 regressions over 4,686 pairs (the 10 frozen redline rows are unchanged).
 
 The design was challenged by an adversarial trio before merge. The red team found the a11y palettes inheriting onyx's
-triplet, state-chart chips stepping toward their own ink on the dark face (7.15:1 down to 3.05:1), and a white chip
-arrow on a glowing `live` row; all three are fixed. The inversion review found warn louder than fail on every dark face
-and warn on the brand accent in cuoio and mustard; both are now rules of the contract (URGENCY, ACCENT).
+triplet, state-chart chips stepping toward their own ink on the dark face, and a white chip arrow on a glowing `live`
+row; all three are fixed, and the last two no longer arise now that dark fills are mid-tone under a light ink. The
+inversion review found warn louder than fail on the glowing dark faces and warn on the brand accent in cuoio and
+mustard; URGENCY answered the first on the light face, and the dark face now follows the established order instead.
 
 ## 6. What does not move
 
@@ -139,10 +147,9 @@ and warn on the brand accent in cuoio and mustard; both are now rules of the con
   colorblind floor on them (cvd-trio-floor's first table) is untouched.
 - **Categories and the neutral** keep the one ink `--on-mark` and their 7:1 / 4.6:1 bars.
 - **The a11y palettes**, in every token.
-- **Kanban card washes**, which are status TINTS under the heading ink, not solids. On the dark face the cards under
-  them moved (above): the plain, keyline, washed and `tinted` cards all sit closer to the slide.
+- **Kanban**: its cards and washes are as on `main`.
 
 ## 7. Follow-ups
 
-- The Studio's theme generator (`lib/theme/derive.js`) still derives the pre-triplet pair, so a generated theme keeps
-  the one ink: correct and readable, but not option A. `followups.d/3232-p2-derive-status-triplets.md`.
+- The Studio's theme generator (`lib/theme/derive.js`) still derives the one-ink pair, so a generated theme keeps the
+  one ink on both faces: correct and readable, but not the light-face triplet. `followups.d/3232-p2-derive-status-triplets.md`.
