@@ -5838,6 +5838,10 @@ const SANCTIONED_MARK_IDENTITY = [
   // The redraw's check-before-trust (`said`) READS each mark's label and value to compare a pane chart's
   // redrawn data with its exported data; it writes neither.
   ['runtime/chart-redraw.js', true, true],
+  // The chart REVEAL model (engineering/decisions/2026-11-16-cenno-popover-library.md §7) READS a mark's
+  // label and value to title its detail card, in the Studio and the exported player. It names the
+  // attributes only to read them and authors no identity: the card says what the mark already says.
+  ['runtime/chart-reveal/model.mjs', true, true],
   ['runtime/chart-readers/gantt.js', true, false],
   ['runtime/chart-readers/histogram.js', true, true],
   ['runtime/chart-readers/quadrant.js', true, false],
