@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-16 — the owner raised one ceiling by hand, for PR 3256: home eagerJsGz to 316.0 KB
+
+Owner OK 2026-11-16, relayed by the Segno coordinator session: raise home's eager-JS ceiling by 1.5 KB, chosen over dropping fixes from PR 3256 to fit and over hunting unrelated bytes in the home page's start-up modules.
+
+PR 3256 (Segno P4, the inline pass) adds 609 B gz to home's eager JS: `slide-boundaries` +563 (the deck model's block parser, which home loads at start-up) and `math.syntax` +46 (the fix that makes math's inline `$` rule linear). All 609 are declared in its `docs/route-budget.d/` file. It gave back first: moving the detail recorder out of the eager bundles cut it from +911 B. Stripping every recording hook from the eager parser would save only 92 B more; the rest is fixes (fence info inside a container, the CJS/ESM line scratch, plugin token tags, the per-slide side walk). Measured with the gate's own `--measure` on a local build, matching CI's 314.8 KB on 22575baf3: `main` at b93e27e measures 321,739 B, and PR 3256 merged onto it 322,348 B, 300 B past the old ceiling. The owner sized the raise while PR 3228 (the front-matter island, about 0.4 KB) was still open; it merged as b93e27e, so both figures above already include it. The ceiling rises 322048 -> 323584 (316.0 KB), which leaves 1,236 B of room after PR 3256. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | eagerJsGz | 291531 | 291531 | +0 | 323584 |
+
 ### 2026-11-16 — the owner raised one ceiling by hand, for PR 3221: studio chartKernelsGz to 261.2 KB
 
 Owner OK 2026-11-16 in the integration-nightly session (#3221): "D5 raise it", chosen over dropping the tiered hub-spoke's page-filling layout and cutting robustness guards to find the last bytes.
