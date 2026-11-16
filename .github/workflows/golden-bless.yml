@@ -5,11 +5,12 @@ name: Golden bless (nightly)
 # that drifted, and opens (or updates) one PR with them. CI's golden-diff job posts each
 # changed golden's before/after on that PR, which is the regression gate a human can read.
 #
-# DRY RUN (rollout step 2). The owner decided on 2026-10-07 that this PR merges itself only
-# when four rules hold (no page count changed, no page moved past a threshold, at most a
-# handful of goldens changed, every changed golden already shown on a merged PR). For the
-# first week the bot only REPORTS them, in a comment, so real nights can set the thresholds.
-# Nothing in this file merges, enables auto-merge or labels. Step 4 adds that, after the week.
+# THE PR MERGES ITSELF (engineering/decisions/2026-11-16-blessing-invariants-attribution.md, rollout
+# step 1, the owner's decision of 2026-11-16, superseding the 2026-10-07 four-rule hybrid). The bless is
+# per golden, never all-or-nothing: a golden whose page was added, removed or resized, or that the check
+# cannot vouch for, is HELD (left drifted on `main` and named in the digest); every other drifted golden
+# is re-recorded, and the PR turns on auto-merge, so the merge queue lands it once `ci` is green, as
+# sync-backlog.yml does. The digest comment shows what moved, worst first. It is read, never answered.
 #
 # Same shape as sync-backlog.yml, and for the same reasons, which that file explains in
 # full: ONE branch force-pushed to `main` + 1 commit, ONE open PR; AUTOMATION_PAT from the
@@ -19,8 +20,13 @@ on:
   schedule:
     - cron: '7 1 * * *' # 01:07 UTC; ~1.5 h of rendering, done before integration-nightly at 03:11
   workflow_dispatch:
+    inputs:
+      bless_held:
+        description: 'Also re-record goldens the bless would hold (a page added, removed or resized that its source does not explain). The dispatch is the owner''s authorization.'
+        type: boolean
+        default: false
 
-# Read-only for the built-in token: it only reads PRs for rule 4. Every write (the push,
+# Read-only for the built-in token: it only reads PRs for the retired rule 4, still scored for the record. Every write (the push,
 # the PR, the comment) goes through AUTOMATION_PAT.
 permissions:
   contents: read
@@ -78,9 +84,10 @@ jobs:
       - name: Build the generated bundles
         run: npm run build
 
-      - name: Check every golden, re-bless what drifted, score the four rules
+      - name: Check every golden, re-bless what drifted, hold what breaks the invariant
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # read-only: rule 4 reads merged PRs' golden-diff comments
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # read-only: the retired rule 4, still scored, reads merged PRs' golden-diff comments
+          GOLDEN_BLESS_HELD: ${{ github.event_name == 'workflow_dispatch' && inputs.bless_held && '1' || '' }}
           GOLDEN_BLESS_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         # pipefail: without it the step takes `tee`'s exit code, and a crash goes green.
         run: |
@@ -96,7 +103,7 @@ jobs:
             .scratch/golden-bless/
           if-no-files-found: ignore
 
-      - name: Open (or update) the bless PR, and report the verdict (never merges)
+      - name: Open (or update) the bless PR, post the digest, and turn on auto-merge
         env:
           GH_TOKEN: ${{ secrets.AUTOMATION_PAT }}
           REPO: ${{ github.repository }}
@@ -112,17 +119,25 @@ jobs:
           # gallery merged without a PDF, goldens rollout step 3) is an UNTRACKED file, and
           # `git diff` cannot see it.
           if [ -z "$(git status --porcelain --untracked-files=all -- ':(icase)*.pdf')" ]; then
-            echo "No golden drifted or is missing. Nothing to bless."
+            HELD="$(jq -r '.held | length' .scratch/golden-bless/verdict.json 2>/dev/null || echo 0)"
+            if [ "$HELD" -gt 0 ]; then
+              echo "Nothing re-recorded: every golden that drifted is held ($HELD). See the digest below."
+              cat .scratch/golden-bless/verdict.md
+              WHY="tonight every golden that drifted on \`main\` is held (see the run's digest), so this PR's PDFs are out of date."
+            else
+              echo "No golden drifted or is missing. Nothing to bless."
+              WHY="tonight no golden drifted on \`main\`, so this PR's PDFs are out of date."
+            fi
             # An open bless PR from an earlier night now holds PDFs that no longer match
             # main. Merging it would bless them back in, so close it.
             if [ -n "$OPEN" ]; then
-              gh pr close "$BLESS_BRANCH" --comment "Closed by the Golden bless workflow: tonight no golden drifted on \`main\`, so this PR's PDFs are out of date."
+              gh pr close "$BLESS_BRANCH" --comment "Closed by the Golden bless workflow: $WHY"
             fi
             # A golden that could not be rendered or re-blessed, or a showcase WebP that could not
             # be refreshed (golden-bless.mjs writes failed.txt), turns the night red, after the
             # rest of the bless has landed.
             if [ -s .scratch/golden-bless/failed.txt ]; then
-              echo "::error::golden-bless: $(wc -l < .scratch/golden-bless/failed.txt) golden(s) or showcase WebP(s) could not be rendered or re-blessed; see the verdict."
+              echo "::error::golden-bless: $(wc -l < .scratch/golden-bless/failed.txt) golden(s) were held or could not be rendered or re-blessed; see the digest."
               cat .scratch/golden-bless/failed.txt
               exit 1
             fi
@@ -149,7 +164,7 @@ jobs:
           if [ -z "$OPEN" ]; then
             gh pr create --base main --head "$BLESS_BRANCH" \
               --title "$TITLE" \
-              --body 'Generated by the **Golden bless** workflow: the goldens that drifted on `main` overnight, re-rendered. The golden-diff comment shows each one before and after; the verdict comment says whether the four auto-merge rules hold. **Dry run:** this PR never merges itself; a person merges or closes it. See `engineering/decisions/2026-10-06-goldens-bot-blessed.md`.'
+              --body 'Generated by the **Golden bless** workflow: the goldens that drifted on `main` overnight, re-rendered, one golden at a time. A golden that added, removed or resized a page, or that the check could not vouch for, is held back and named in the digest comment. **This PR merges itself** through the queue once `ci` is green; nothing in it needs an answer. See `engineering/decisions/2026-11-16-blessing-invariants-attribution.md`.'
           else
             gh pr edit "$BLESS_BRANCH" --title "$TITLE"
             echo "bless PR already open; the force-push updated it in place."
@@ -157,8 +172,8 @@ jobs:
             # weeks while every run looked green. Say so on the run.
             CREATED="$(echo "$OPEN" | jq -r .createdAt)"
             AGE_DAYS=$(( ( $(date +%s) - $(date -d "$CREATED" +%s) ) / 86400 ))
-            if [ "$AGE_DAYS" -ge 3 ]; then
-              echo "::warning::The golden bless PR has been open for ${AGE_DAYS} days. Merge or close it: rule 4 measures from the last MERGED bless."
+            if [ "$AGE_DAYS" -ge 2 ]; then
+              echo "::warning::The golden bless PR has been open for ${AGE_DAYS} days although it merges itself. Its \`ci\` or the merge queue is stuck; look there."
             fi
           fi
 
@@ -172,11 +187,21 @@ jobs:
             gh pr comment "$BLESS_BRANCH" --body-file .scratch/golden-bless/verdict.md
           fi
 
+          # Merge itself (rollout step 1): with a merge queue, --auto queues the PR the moment `ci` is
+          # green. Idempotent. Only when the bless re-recorded something and the tree is sound
+          # (verdict.json's autoMerge); held goldens are already out of the commit.
+          if [ "$(jq -r .autoMerge .scratch/golden-bless/verdict.json)" = "true" ]; then
+            gh pr merge "$BLESS_BRANCH" --auto --squash
+          else
+            # An earlier night may have armed it; tonight's content must not ride that.
+            gh pr merge "$BLESS_BRANCH" --disable-auto || true
+          fi
+
           # A golden that could not be rendered or re-blessed, or a showcase WebP that could not
           # be refreshed (golden-bless.mjs writes failed.txt), turns the night red, after the
           # rest of the bless has landed.
           if [ -s .scratch/golden-bless/failed.txt ]; then
-            echo "::error::golden-bless: $(wc -l < .scratch/golden-bless/failed.txt) golden(s) or showcase WebP(s) could not be rendered or re-blessed; see the verdict."
+            echo "::error::golden-bless: $(wc -l < .scratch/golden-bless/failed.txt) golden(s) were held or could not be rendered or re-blessed; see the digest."
             cat .scratch/golden-bless/failed.txt
             exit 1
           fi

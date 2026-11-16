@@ -12,9 +12,12 @@
 //   2. (Folded into step 1. It was a second render of every drifted golden.)
 //   3. Render the goldens that do not exist yet, galleries first, one process per core, and
 //      start none after BLESS_DEADLINE_MS. Then refresh the showcase WebPs cut from them.
-//   4. Score the four auto-merge rules (lib/golden-bless-verdict.mjs) on what was WRITTEN,
-//      not on what the check reported. Rule 4 reads the golden-diff comments of the PRs
-//      merged since the last bless, through `gh`; without it, nothing counts as seen.
+//   4. Split what was WRITTEN per golden (lib/golden-bless-verdict.mjs `partition`): a golden
+//      that added, removed or resized a page, or that the check cannot vouch for, is put back
+//      and held; the rest is the commit, and the PR merges itself
+//      (engineering/decisions/2026-11-16-blessing-invariants-attribution.md). The old four rules
+//      are still scored for the record; rule 4 reads the golden-diff comments of the PRs merged
+//      since the last bless, through `gh`.
 //
 // Writes .scratch/golden-bless/{verdict.json,verdict.md,rendered-from.txt,montages/} and
 // prints the markdown. Exits 2 on a dirty tree and 3 when the check changed a PDF it did not
@@ -33,17 +36,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  BLESS_DEADLINE_MS,
-  goldenRows,
-  lastBlessRenderedFrom,
-  parseShownGoldens,
-  prNumber,
-  seenFromPrs,
-  verdict,
-  verdictMarkdown,
-  writtenProblems,
-} from './lib/golden-bless-verdict.mjs';
+import { BLESS_DEADLINE_MS, digestMarkdown, goldenRows, lastBlessRenderedFrom, parseShownGoldens, partition, prNumber, seenFromPrs, verdict, writtenProblems } from './lib/golden-bless-verdict.mjs';
 import { galleryName } from './lib/golden-render.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -328,7 +321,18 @@ async function main() {
   const showcaseDeckPdf = (f) => /^examples\/[a-z][a-z0-9-]*-gallery\.(light|dark)\.pdf$/.test(f);
   const showcaseDecks = changedPdfs().filter(showcaseDeckPdf);
   const created = newPdfs().filter((f) => !showcaseDeckPdf(f));
-  const written = changedPdfs().filter((f) => !showcaseDeckPdf(f));
+  const wrote = changedPdfs().filter((f) => !showcaseDeckPdf(f));
+  // Per golden, never all-or-nothing (2026-11-16 design, rollout step 1): a golden that breaks the
+  // invariant (a page added, removed or resized) or that the check cannot vouch for is put back, so
+  // it stays drifted on `main` and the digest names it. Everything else is re-recorded. This runs
+  // BEFORE the showcase refresh, so no WebP is cut from a golden that is not in the commit.
+  // A page-count change its own source explains (the deck or gallery markdown committed after the
+  // golden) is an author's edit, not drift. The owner's `bless_held` dispatch blesses the rest too.
+  const sourceOf = (g) => (/\.gallery\.(light|dark)\.pdf$/.test(g) ? g.replace(/\.(light|dark)\.pdf$/, '.md') : g.replace(/\.pdf$/, '.md'));
+  const explained = wrote.filter((g) => isTracked(g) && existsSync(join(ROOT, sourceOf(g))) && commitTime([sourceOf(g)]) > commitTime([g]));
+  const part = partition(rows, wrote, { created, explained, blessHeld: process.env.GOLDEN_BLESS_HELD === '1' });
+  undo(part.held.map((h) => h.golden));
+  const written = part.bless;
 
   // Step 3b. Files derived from the goldens. The docs landing page's showcase WebPs are
   // cut from gallery PDFs, and `rasterize-showcase.mjs --check` (docs-build and preview)
@@ -352,14 +356,27 @@ async function main() {
     seen = seenFromPrs(prs);
     seenProblems.push(...problems);
   }
-  const v = verdict(rows, seen, written, { created });
+  // The four-rule verdict is kept as information (rule 4's "seen" count is a useful record); it no
+  // longer decides the merge. The PR merges itself when it re-records anything and the tree is sound.
+  // Score the retired rules on the blessed goldens only, so a held golden is not reported as one
+  // "the bless did not write".
+  const heldSet = new Set(part.held.map((h) => h.golden));
+  const v = verdict(rows.filter((r) => !heldSet.has(r.golden)), seen, written, { created: created.filter((g) => written.includes(g)) });
   v.problems.push(...blessProblems, ...renderProblems, ...deferred, ...seenProblems);
-  if (v.problems.length) v.autoMerge = false;
+  // The commit merges itself when it holds anything (re-recorded goldens, or showcase decks) and the
+  // tree is sound. A held golden is not in it.
+  v.autoMerge = (written.length > 0 || showcaseDecks.length > 0) && blessProblems.length === 0;
+  v.bless = part.bless;
+  v.held = part.held;
   v.renderedFrom = renderedFrom;
   v.windowFrom = from;
   v.showcaseDecks = showcaseDecks;
   v.showcaseRefreshed = derived.kept;
-  const md = verdictMarkdown(v, { renderedFrom, runUrl: process.env.GOLDEN_BLESS_RUN_URL || '' });
+  const md = digestMarkdown(part, rows, {
+    renderedFrom,
+    runUrl: process.env.GOLDEN_BLESS_RUN_URL || '',
+    problems: [...blessProblems, ...renderProblems, ...deferred],
+  });
   writeFileSync(join(OUT, 'verdict.json'), JSON.stringify(v, null, 2));
   writeFileSync(join(OUT, 'verdict.md'), `${md}\n`);
   writeFileSync(join(OUT, 'rendered-from.txt'), `${renderedFrom.slice(0, 12)}\n`);
@@ -374,7 +391,9 @@ async function main() {
   // A golden that could not be rendered or re-blessed, or a showcase WebP that could not be
   // refreshed, still turns the night red, but AFTER the bless PR is opened (golden-bless.yml reads
   // this file last), so one broken deck does not hold back every other golden.
-  writeFileSync(join(OUT, 'failed.txt'), renderProblems.map((p) => `${p}\n`).join(''));
+  // A held golden turns the night red too: it broke an invariant its source does not explain.
+  const heldLines = part.held.map((h) => `held: ${h.golden} (${h.why})`);
+  writeFileSync(join(OUT, 'failed.txt'), [...renderProblems, ...heldLines].map((p) => `${p}\n`).join(''));
 }
 
 await main();
