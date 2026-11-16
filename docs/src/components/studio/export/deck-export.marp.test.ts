@@ -346,12 +346,20 @@ describe('Markdown and Marp exports carry the photos the deck names', () => {
 	});
 
 	it('Markdown stays a bare .md without photos, and becomes a zip with the .md beside them when it has some', async () => {
-		await exportMarkdown('# Hi', 'deck', undefined, []);
+		await exportMarkdown('# Hi', 'deck');
 		expect(blobs[0].type).toMatch(/markdown/);
 		blobs = [];
-		await exportMarkdown('# Hi\n\n![](photos/team.jpg)', 'deck', undefined, [], { 'photos/team.jpg': PHOTO });
+		await exportMarkdown('# Hi\n\n![](photos/team.jpg)', 'deck', { 'photos/team.jpg': PHOTO });
 		const zip = await bundle();
 		expect(Object.keys(zip.files).filter((p) => !zip.files[p].dir).sort()).toEqual(['deck.md', 'photos/team.jpg']);
-		expect(await zip.file('deck.md')!.async('string')).toContain('photos/team.jpg');
+		expect(await zip.file('deck.md')!.async('string')).toBe('# Hi\n\n![](photos/team.jpg)');
+	});
+
+	// 2026-11-16-markdown-export-is-the-source.md: the `.md` is the deck, byte for byte. It used to carry a 10 KB
+	// `<style>` theme dump even for a built-in theme.
+	it('Markdown is the deck source byte for byte: no style, no CSS, no comment added', async () => {
+		const deck = '---\ntheme: indaco\npaginate: true\n---\n\n<!-- _class: title -->\n\n# Kickoff\n\n---\n\n## Plan\n\n- One\n';
+		await exportMarkdown(deck, 'deck');
+		expect(new TextDecoder().decode(await arrayBuffer(blobs[0]))).toBe(deck);
 	});
 });

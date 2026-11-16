@@ -84,11 +84,10 @@ const CENSUS = {
 		why: 'the self-contained doc (fonts, the composed deck sheet, and KaTeX made self-contained as the CLI makes it: its rules in #lattice-katex and its faces in the font block) and the finish block spliced into shared markdown.',
 	},
 	'docs/src/components/studio/export/deck-export.js': {
-		guards: 2,
+		guards: 1,
 		why:
-			'embedThemeInMarkdown — a saved library theme spliced into markdown handed to a recipient; ' +
 			'exportMarp — a saved library theme written as themes/<name>.css in the Marp bundle, which the ' +
-			"recipient's Marp wraps in a <style>.",
+			"recipient's Marp wraps in a <style>. (The Markdown export embeds nothing since 2026-11-16.)",
 	},
 	'lib/layout/bridge.js': {
 		guards: 1,

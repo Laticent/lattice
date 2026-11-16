@@ -123,7 +123,9 @@ describe('Studio — insert + render a saved local component', () => {
 	// The source handoffs used to lose the component: the Markdown export passed `[]`
 	// and the Marp bundle passed nothing, so a recipient saw the slide unstyled
 	// (2026-09-23-portable-packages.md §1). Both now receive the components the deck uses.
-	it('hands the used component to the Markdown and Marp exports', async () => {
+	// The Markdown export carries no CSS (2026-11-16-markdown-export-is-the-source.md): it is handed the component's
+	// NAME, for the note that points at .lattice. The Marp bundle still carries the CSS.
+	it('names the used component to the Markdown export and hands its CSS to the Marp export', async () => {
 		const user = setup();
 		await openAddSlide(user);
 		await user.click(await screen.findByText('mybox'));
@@ -133,7 +135,7 @@ describe('Studio — insert + render a saved local component', () => {
 		const sheet = within(await screen.findByRole('dialog', { name: /Share/ }));
 		await user.click(sheet.getByText('Markdown'));
 		const md = shareSpies.shareMarkdown.mock.calls.at(-1) as unknown[];
-		expect(md?.[7]).toEqual([{ name: 'mybox', css: LOCAL.css }]);
+		expect((md?.[3] as { components?: string[] })?.components).toEqual(['mybox']);
 
 		await user.click(sheet.getByText('Marp bundle'));
 		await user.click(sheet.getByRole('button', { name: /download bundle/i }));
@@ -148,6 +150,6 @@ describe('Studio — insert + render a saved local component', () => {
 		const sheet = within(await screen.findByRole('dialog', { name: /Share/ }));
 		await user.click(sheet.getByText('Markdown'));
 		const md = shareSpies.shareMarkdown.mock.calls.at(-1) as unknown[];
-		expect(md?.[7]).toEqual([]);
+		expect((md?.[3] as { components?: string[] })?.components).toEqual([]);
 	});
 });

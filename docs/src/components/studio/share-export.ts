@@ -1056,30 +1056,28 @@ export function embedFinishInMarkdown(source: string, finishClass?: string, fini
 	return block + '\n' + classed;
 }
 
-/** Markdown source with the current theme + referenced components + (when active) the saved finish embedded. */
-export async function shareMarkdown(options: SingleSlideOptions, source: string, name: string, palette: string, extra?: ExtraTheme, finishClass?: string, finishCss?: string, components: ReadonlyArray<LocalComponentCss> = [], deckId?: string): Promise<string | undefined> {
+/** The saved (not shipped) looks a deck uses, by name: what a Markdown export names but does not carry. */
+export type SavedLooks = { theme?: string; finish?: boolean; components?: ReadonlyArray<string> };
+
+/**
+ * The deck's Markdown, exactly as Source shows it (2026-11-16-markdown-export-is-the-source.md). Nothing is added:
+ * no theme stylesheet, no finish or component CSS. The photos the deck names ride beside the `.md` in a `.zip`.
+ * A deck that uses a SAVED theme, finish or component names it but does not carry it; the returned sentence says
+ * so and points at the `.lattice` file, which carries them as packages.
+ */
+export async function shareMarkdown(source: string, name: string, deckId?: string, saved: SavedLooks = {}): Promise<string | undefined> {
 	const ex = await exporters();
-	// The photos the deck names ride beside the .md in a .zip (a Markdown file cannot hold a picture).
 	const { named, photos } = await photosBesideDeck(source, deckId);
-	// Embed the live theme CSS so the .md keeps its look even where the theme
-	// isn't installed. A saved library theme carries its own CSS; otherwise fetch
-	// the palette. Best-effort: a failed fetch still exports the bare source.
-	let theme: { name: string; css: string } | undefined = extra;
-	if (!theme) {
-		try {
-			const css = await createThemeFetcher(options.themeBase).fetch(palette);
-			theme = { name: palette, css };
-		} catch {
-			theme = undefined;
-		}
-	}
-	// Bake the active saved finish into the exported copy (class + <style>), so the
-	// custom finish renders on another machine. The user's source stays clean.
-	// …and the saved components the deck uses. This passed `[]` until 2026-09, so a
-	// saved component's slides arrived unstyled on the recipient's machine while the
-	// theme and finish beside them survived (2026-09-23-portable-packages.md §1).
-	await ex.exportMarkdown(embedFinishInMarkdown(photos?.source ?? source, finishClass, finishCss), name, theme, [...components], photos?.files);
-	return latticePhotoNote(named, true, photos);
+	await ex.exportMarkdown(photos?.source ?? source, name, photos?.files);
+	return [latticePhotoNote(named, true, photos), savedLooksNote(saved)].filter(Boolean).join('; ') || undefined;
+}
+
+/** The toast's sentence about saved looks a Markdown file names but cannot carry, or undefined when there are none. */
+export function savedLooksNote(saved: SavedLooks): string | undefined {
+	const parts = [saved.theme && `the saved theme “${saved.theme}”`, saved.finish && 'a saved finish', ...(saved.components ?? []).map((c) => `the saved component “${c}”`)].filter(Boolean) as string[];
+	if (!parts.length) return undefined;
+	const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+	return `it uses ${list}, which a Markdown file names but does not carry; share a Lattice project (.lattice) to bring ${parts.length > 1 ? 'them' : 'it'} along`;
 }
 
 /** The photos a Markdown or Marp export carries, or none when the deck names none (no Library read at all). */

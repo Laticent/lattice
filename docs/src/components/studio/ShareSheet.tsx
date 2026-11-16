@@ -323,7 +323,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		captions: { busy: busy === 'captions', progress: true, onClick: () => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus)) },
 		lattice: { busy: busy === 'lattice', progress: true, onClick: () => setView('lattice') },
 		md: { busy: busy === 'md', onClick: () => run('md', 'Markdown', async (_onStatus, onDegraded) => {
-			const reason = await shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss, localComponents, deckId);
+			const reason = await shareMarkdown(source, name, deckId, { theme: extraTheme?.name, finish: !!finishExtraCss, components: (localComponents ?? []).map((c) => c.name) });
 			if (reason) onDegraded(reason);
 		}) },
 		marp: { onClick: () => setView('marp') },
