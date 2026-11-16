@@ -80,3 +80,17 @@ test('a surface the tool cannot resolve stops it rather than being skipped', () 
   const V = { ...mergedVars('onyx'), 'accent-soft': 'currentColor' };
   assert.throws(() => themeFacts('onyx', V).light.surfaces('pass', '#808080'), /accent-soft/);
 });
+
+test('blocked stays red, and on light at risk sits above it', () => {
+  // A raspberry or magenta blocked reads as a category, and two exceptions at one lightness read as one heavy mass.
+  const baseline = JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/status-fill-cvd-baseline.json'), 'utf8'));
+  const V0 = mergedVars('indaco');
+  const run = (patch) => audit('indaco', themeFacts('indaco', { ...V0, ...patch }), baseline, 1);
+  const darkOf = (tok) => V0[tok].replace(/^light-dark\(#[0-9A-Fa-f]{6},\s*(#[0-9A-Fa-f]{6})\)$/, '$1');
+  const arms = {
+    'a raspberry blocked on light': [{ 'fail-mark': `light-dark(#9B0057, ${darkOf('fail-mark')})` }, /light muted --fail-mark hue .* outside the red range/],
+    'a magenta blocked on dark': [{ 'fail-mark': V0['fail-mark'].replace(/,\s*#[0-9A-Fa-f]{6}\)$/, ', #D9007A)') }, /dark muted --fail-mark hue .* outside the red range/],
+    'at risk as deep as blocked on light': [{ 'warn-mark': `light-dark(#6E3F00, ${darkOf('warn-mark')})` }, /light muted: at risk sits .* above blocked/],
+  };
+  for (const [name, [patch, re]] of Object.entries(arms)) assert.ok(run(patch).some((b) => re.test(b)), `${name}: ${run(patch).join(' | ')}`);
+});

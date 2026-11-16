@@ -56,12 +56,12 @@ Per brand theme, per face, per `marks:` intensity, solved by `tools/curate-statu
 | Part | Light face | Dark face |
 |---|---|---|
 | Fill | >= 4.5:1 as painted against every surface a status mark sits on: `--bg`, `--bg-alt` (a kpi card), `--accent-soft` (a hero tile), its own row tint `--X-bg` over `--bg`, and a kanban card (keyline, or washed in the status's own fill, recomputed per candidate) | a chart solid: white (`--on-mark`) at 4.6:1 on it and 3:1 off the slide, at its `DARK_SPREAD` position; its edge stands it off a tinted row or a card |
-| Hue | the theme's nearest brand or chart color in the status band | the same anchor, held inside the chart solids' `HUE_BAND`; where the trio would keep less than half its colorblind separation, done turns toward blue-green and blocked toward red, the least total turn that keeps it |
+| Hue | the theme's nearest brand or chart color in the status band; blocked held to red (20-32 degrees, `FAIL_RED`) | the same anchor, held inside the chart solids' `HUE_BAND`, blocked to the same red; where the trio would keep less than half its colorblind separation, done turns toward blue-green and blocked toward crimson (never past 17 degrees), the least total turn that keeps it |
 | Strength | the anchor's own chroma | `STATUS_CHROMA` scaled by the palette's strength (its categories' mean chroma), so a muted palette's status stays muted beside its categories |
 | Ink on the fill (`--X-on-mark`) | the slide's paper, >= 4.5:1 | the one ink `--on-mark`, >= 4.6:1 |
 | Edge (`--X-edge-mark`) | the fill itself | the status ink `--X` (the rim of 2026-10-24 §3) |
 | Signal ring | the status hue at the opposite lightness, >= 3.2:1 against both intensities' fill | bright, 2:1 off its fill and 3.2:1 off the slide (chart-solids) |
-| Order | URGENCY: blocked stands off the slide at least as far as at risk, and is at least as saturated | the established dark order (`DARK_SPREAD`): at risk lightest, done deepest, blocked between and the most saturated |
+| Order | at risk sits at least 0.06 lightness above blocked (`LIGHT_SPREAD`), so the two exceptions never read as one heavy mass; URGENCY: blocked stands off the slide at least as far as at risk, and is at least as saturated. One named exemption: concrete at 0.02, the reachable maximum on its mid-gray slide (`SPREAD_EXEMPT`, held by the audit, stale-checked) | the established dark order (`DARK_SPREAD`): at risk lightest, done deepest, blocked between and the most saturated |
 | Accent | every status fill >= 0.08 (OKLab) from the accent | the same; no exemption is needed any more |
 | Colorblind | the fill trio keeps >= half of the 2026-11-15 record, pair by pair; re-recorded, then held as a ratchet | the same |
 | Shade (`--status-shade-mark`) | black: what a mark ON a status solid steps toward, away from its light ink | black, for the same reason; on both faces the audit holds it 7:1 or more from the status ink, so a chip never steps toward its own text |
@@ -73,8 +73,15 @@ or red), atelier pass, brina warn, crepuscolo fail, laguna warn.
 On dark, at risk's anchors (69-97 degrees, amber to yellow) all sit outside the band (45-62), so every theme's dark at
 risk is the band's edge, as on `main`. Done keeps the theme's own hue (or, for ardesia and atelier, the band-center
 fallback; magnolia's 168 degrees sits at the band's 165 edge) in nine themes: brina, carta, crepuscolo and
-indaco turn it 10 degrees toward blue-green and laguna 15, to keep half. Blocked keeps its own hue in nine: carbone and
-indaco move into the band from a raspberry (and atelier by one degree), and carta and crepuscolo turn it toward red.
+indaco turn it 10 degrees toward blue-green and laguna 15, to keep half.
+
+**Blocked is red, on both faces.** An independent scoring of the first cut found indaco's dark blocked a raspberry
+magenta (it took indaco's chart color 4) on a slide whose title said "in the red", and mustard's and cuoio's light at
+risk and blocked at one lightness, so their risk matrix read as one brown mass. So blocked's hue is held to 20-32
+degrees (pure red is 29): atelier, brina, burgundy, carbone, indaco and magnolia move up from a crimson or raspberry,
+carta's light orange comes down to 32; on dark, carta and crepuscolo turn to 17 to keep half. And on light at risk now
+sits at least 0.06 above blocked (concrete 0.02), which deepens blocked where the accent holds at risk down (cuoio,
+mustard; burgundy's blocked, kept off its own deep-red accent, is the deepest, L 0.30).
 
 The `a11y-*` palettes curate none of this. The base declares each triplet token's default as the one-ink pair (the ink
 `--on-mark`, an edge in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it does

@@ -149,14 +149,14 @@
    * this theme's own brand and chart colors (held inside the status bands on dark); the trio keeps at least half of
    * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
-  --pass-mark: light-dark(#1F5E16, #467251);
+  --pass-mark: light-dark(#115206, #467251);
   --warn-mark: light-dark(#8D5B1A, #AD6200);
-  --fail-mark: light-dark(#960B4D, #D90057);
-  --pass-vivid-mark: light-dark(#0E5E00, #007839);
+  --fail-mark: light-dark(#9B0927, #DC0039);
+  --pass-vivid-mark: light-dark(#0C5600, #007839);
   --warn-vivid-mark: light-dark(#905900, #AD6200);
-  --fail-vivid-mark: light-dark(#93004B, #D90057);
+  --fail-vivid-mark: light-dark(#A20027, #DC0039);
   --warn-signal-mark: light-dark(#FFBB6F, #F79C00);
-  --fail-signal-mark: light-dark(#FFB1C7, #FF787C);
+  --fail-signal-mark: light-dark(#FFB4B3, #FF787C);
   --info-mark: light-dark(#175686, #1E7CA9);
   --info-vivid-mark: light-dark(#00558B, #007DAF);
   --mute-mark: light-dark(#566574, #686E74);
@@ -169,14 +169,14 @@
   --fail-on-mark: light-dark(#FFFFFF, #FFFFFF);
   --info-on-mark: light-dark(#FFFFFF, #FFFFFF);
   --mute-on-mark: light-dark(#FFFFFF, #FFFFFF);
-  --pass-edge-mark: light-dark(#1F5E16, var(--pass));
+  --pass-edge-mark: light-dark(#115206, var(--pass));
   --warn-edge-mark: light-dark(#8D5B1A, var(--warn));
-  --fail-edge-mark: light-dark(#960B4D, var(--fail));
+  --fail-edge-mark: light-dark(#9B0927, var(--fail));
   --info-edge-mark: light-dark(#175686, var(--info));
   --mute-edge-mark: light-dark(#566574, var(--mute));
-  --pass-vivid-edge-mark: light-dark(#0E5E00, var(--pass));
+  --pass-vivid-edge-mark: light-dark(#0C5600, var(--pass));
   --warn-vivid-edge-mark: light-dark(#905900, var(--warn));
-  --fail-vivid-edge-mark: light-dark(#93004B, var(--fail));
+  --fail-vivid-edge-mark: light-dark(#A20027, var(--fail));
   --info-vivid-edge-mark: light-dark(#00558B, var(--info));
   /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
    * (risk-matrix's critical band, a state-chart status row's chip). */

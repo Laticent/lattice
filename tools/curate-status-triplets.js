@@ -59,6 +59,22 @@ const FILL_MIN = 4.5;
 const INK_MIN = 4.5;
 /** Centre hue and half-width of each status's band, in OKLCH degrees. */
 const BAND = { pass: [150, 40], warn: [75, 25], fail: [22, 25], info: [250, 55] };
+/** Blocked is RED on both faces, whatever the theme's nearest color: a raspberry or a magenta reads as a category, and
+ * an orange as at risk, so the theme's hue is held inside this range (the meaning outranks the family match here). */
+const FAIL_RED = [20, 32];
+/** The dark face's colorblind turn may take blocked a few degrees deeper toward crimson, never past this. */
+const FAIL_TURN_FLOOR = 17;
+const clampRed = (h) => Math.min(FAIL_RED[1], Math.max(FAIL_RED[0], ((h + 180) % 360) - 180));
+/** On the light face at risk sits at least this much lighter than blocked, so the two exceptions never read as one
+ * heavy mass (the order the dark face takes from `DARK_SPREAD`, and `main`'s light bars, where at risk is lightest). */
+const LIGHT_SPREAD = 0.06;
+/** A light face that cannot take the full spread, named with the spread it does take and why; held by the audit. */
+const SPREAD_EXEMPT = {
+  concrete: { spread: 0.02, why: 'concrete\'s light slide is a mid-gray (#B8B8B5), and its row tint darkens it further, so a fill that '
+    + 'clears 4.5:1 against every surface sits at L 0.35 or deeper; under that ceiling a trio 0.03 apart or more keeps '
+    + 'less than half its colorblind separation. 0.02 is the reachable maximum.' },
+};
+const spreadFor = (theme) => SPREAD_EXEMPT[theme]?.spread ?? LIGHT_SPREAD;
 const TARGET = { light: { pass: 0.46, warn: 0.52, fail: 0.44, info: 0.46, mute: 0.5 } };
 const ACCENT_MIN = 0.08;
 /**
@@ -192,7 +208,7 @@ const offAccent = (fills, accent, floor = ACCENT_MIN) => !accent || Object.value
  * card (2026-10-24-status-is-one-system.md §3), so the fill is held to the slide alone.
  */
 const darkHue = (facts, s) => {
-  const [lo, hi] = HUE_BAND[s];
+  const [lo, hi] = s === 'fail' ? FAIL_RED : HUE_BAND[s];
   const h = facts.anchor[s].h;
   const inside = lo <= h && h <= hi;
   if (inside) return h;
@@ -229,7 +245,7 @@ function solveDark(theme, facts, baseline, keep) {
   let out = null;
   for (let turn = 0; turn <= 60 && !out; turn += 5) {
     for (let p = 0; p <= turn && !out; p += 5) {
-      const hue = { ...base, pass: Math.min(HUE_BAND.pass[1], base.pass + p), fail: Math.max(HUE_BAND.fail[0], base.fail - (turn - p)) };
+      const hue = { ...base, pass: Math.min(HUE_BAND.pass[1], base.pass + p), fail: Math.max(FAIL_TURN_FLOOR, Math.min(base.fail, base.fail - (turn - p))) };
       const o = set(hue);
       const trio = (i) => Object.fromEntries(TRIO.map((s) => [s, o[i][s]]));
       if (['muted', 'vivid'].every((i) => separationOk(theme, i, 'dark', o[i], baseline, keep)
@@ -262,7 +278,7 @@ function solve(theme, facts, baseline, keep) {
       // read calmer than the amber beside it.
       const chroma = (s) => (s === 'fail' ? Math.max(facts.anchor.fail.c, facts.anchor.warn.c) : facts.anchor[s].c);
       const C = (s) => Math.min(0.24, chroma(s) * (s === 'mute' ? 1 : boost));
-      const hueOf = (s) => (s === 'warn' ? facts.anchor.warn.h + warnShift : facts.anchor[s].h);
+      const hueOf = (s) => (s === 'warn' ? facts.anchor.warn.h + warnShift : s === 'fail' ? clampRed(facts.anchor.fail.h) : facts.anchor[s].h);
       const cands = (s) => {
         const list = [];
         for (let L = 0.2; L <= 0.96; L += 0.005) {
@@ -284,6 +300,7 @@ function solve(theme, facts, baseline, keep) {
       for (const s of TRIO) R[s] = cands(s);
       for (const p of R.pass) for (const w of R.warn) for (const f of R.fail) {
         const fills = { pass: p[1], warn: w[1], fail: f[1] };
+        if (w[0] - f[0] < spreadFor(theme) - 1e-9) continue;
         if (!urgent(fills, bg) || !offAccent(fills, facts[face].accent, accentFloor(theme, face))) continue;
         if (!separationOk(theme, intensity, face, fills, baseline, keep)) continue;
         const t = TARGET[face];
@@ -368,7 +385,16 @@ function audit(theme, facts, baseline, keep) {
         if (dark && ink !== facts.dark.ink) bad.push(`dark --${s}-on-mark is ${ink}, not the one ink ${facts.dark.ink}`);
       }
       if (TRIO.every((s) => fills[s]) && !separationOk(theme, intensity, face, fills, baseline, keep)) bad.push(`${face} ${intensity}: the trio keeps less than ${keep} of its recorded colorblind separation`);
+      if (!dark && TRIO.every((s) => fills[s])) {
+        const gap = hexToOklch(fills.warn).L - hexToOklch(fills.fail).L;
+        if (gap < spreadFor(theme) - 0.006) bad.push(`light ${intensity}: at risk sits ${gap.toFixed(3)} above blocked in lightness (floor ${spreadFor(theme)})`);
+      }
       if (!dark && TRIO.every((s) => fills[s]) && !urgent(fills, bg)) bad.push(`${face} ${intensity}: fail is quieter than warn (${cr(fills.fail, bg).toFixed(2)} vs ${cr(fills.warn, bg).toFixed(2)} off the slide, or less saturated)`);
+      if (fills.fail) {
+        const h = ((hexToOklch(fills.fail).h + 180) % 360) - 180;
+        const lo = dark ? FAIL_TURN_FLOOR : FAIL_RED[0];
+        if (h < lo - 1.5 || h > FAIL_RED[1] + 1.5) bad.push(`${face} ${intensity} --${tok('fail')} hue ${h.toFixed(0)} is outside the red range ${lo}-${FAIL_RED[1]}`);
+      }
       const af = accentFloor(theme, face);
       for (const s of TRIO) if (fills[s] && facts[face].accent && oklabDistance(fills[s], facts[face].accent) < af) bad.push(`${face} ${intensity} --${tok(s)} sits ${oklabDistance(fills[s], facts[face].accent).toFixed(3)} from the accent (floor ${af})`);
       for (const s of ALL) {
@@ -436,9 +462,18 @@ function main() {
       if (near >= ACCENT_MIN) { failed++; console.log(`ACCENT_EXEMPT ${key} is stale: the face now sits ${near.toFixed(3)} from its accent, past the full floor`); }
     }
   }
+  if (o.check && !o.themes.length) {
+    for (const [theme, { spread }] of Object.entries(SPREAD_EXEMPT)) {
+      const facts = themeFacts(theme);
+      const gap = Math.min(...[['pass-mark', 'warn-mark', 'fail-mark'], ['pass-vivid-mark', 'warn-vivid-mark', 'fail-vivid-mark']]
+        .map(([, w, f]) => hexToOklch(facts.get(w, false)).L - hexToOklch(facts.get(f, false)).L));
+      if (gap >= LIGHT_SPREAD) { failed++; console.log(`SPREAD_EXEMPT ${theme} is stale: its light face now spreads ${gap.toFixed(3)}, the full ${LIGHT_SPREAD}`); }
+      else if (gap < spread - 0.006) { failed++; console.log(`SPREAD_EXEMPT ${theme} spreads ${gap.toFixed(3)}, below its named ${spread}`); }
+    }
+  }
   if (o.check && failed) process.exit(1);
 }
 
-module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, KANBAN };
+module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, SPREAD_EXEMPT, FAIL_RED, KANBAN };
 
 if (require.main === module) main();
