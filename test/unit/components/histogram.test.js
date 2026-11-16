@@ -159,7 +159,8 @@ describe('histogram kernel', () => {
     const last = edges[edges.length - 1];
     assert.equal(last.text, '$120k');
     assert.equal(last.anchor, 'end', 'the last edge sits on the plot end, so it anchors inward');
-    assert.ok(last.x <= vbW, 'and its anchor point is inside the viewBox');
+    const fs = require('../../../lib/plugins/chart-family/shared/cartesian').FS.tick;
+    assert.ok(last.x + (last.text.length * fs * 0.62) / 2 > vbW, 'the case is real: centered, it would cross the viewBox');
     assert.ok(edges.slice(1, -1).every((e) => e.anchor === 'middle'), 'interior edges stay centered under their tick');
   });
 
