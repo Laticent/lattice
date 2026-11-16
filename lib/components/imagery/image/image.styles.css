@@ -279,7 +279,9 @@ section.image[data-img-composition="clean"]:has(> .lattice-bg-left) .image-text 
 section.image[data-img-composition="clean"][data-orientation="portrait"],
 section.image[data-img-composition="clean"][data-orientation="square"] {
   grid-template-columns: 1fr;
-  grid-template-rows: auto auto;
+  /* The card's row gives way to the text, down to 28% of the slide (fit-everywhere-model.md §25): where the
+   * text fits, the row is the card's own height, as before. */
+  grid-template-rows: minmax(calc(var(--_sec-1cqh, 1cqh) * 28), auto) auto;
   grid-template-areas: "card" "text";
   align-content: center;
   gap: calc(var(--_sec-1cqh, 1cqh) * 5);
@@ -287,7 +289,7 @@ section.image[data-img-composition="clean"][data-orientation="square"] {
 }
 section.image[data-img-composition="clean"][data-orientation="portrait"] > .lattice-bg,
 section.image[data-img-composition="clean"][data-orientation="square"] > .lattice-bg {
-  height: auto; width: 84%;
+  height: 100%; width: 84%;
   max-width: 84%; max-height: 50cqh;
 }
 section.image[data-img-composition="clean"][data-orientation="portrait"] .image-text,
@@ -360,7 +362,10 @@ section.image[data-img-composition="split"]:has(> .lattice-bg-left) .image-text:
 section.image[data-img-composition="split"][data-orientation="portrait"],
 section.image[data-img-composition="split"][data-orientation="square"] {
   grid-template-columns: 1fr;
-  grid-template-rows: calc(var(--_sec-1cqh, 1cqh) * 44) 1fr;
+  /* The band keeps 44% of the slide, and gives way to the text down to 28% when the text needs the room (a
+     phone's x1.4 type ran the text 25px past the slide; fit-everywhere-model.md §25). Text that fits leaves
+     the band at 44%, as before, and the text track takes the rest. */
+  grid-template-rows: minmax(calc(var(--_sec-1cqh, 1cqh) * 28), calc(var(--_sec-1cqh, 1cqh) * 44)) minmax(min-content, 1fr);
   grid-template-areas: "photo" "text";
 }
 section.image[data-img-composition="split"][data-orientation="portrait"] .image-text,
@@ -452,9 +457,14 @@ section.image[data-img-composition="gallery"] > .lattice-bg {
   position: relative;
   inset: auto;
   box-sizing: content-box;
-  width: min(76cqi, 52cqh * var(--img-aspect-n));
+  /* Height leads and the width follows the aspect, so the photo can give way to its placard: it shrinks
+   * (keeping its aspect) down to 36% of the slide when the text needs the room (fit-everywhere-model.md §25).
+   * Where the placard fits, the box is min(76cqi, 52cqh x aspect) wide, as before. */
+  flex: 0 1 auto;
+  height: min(52cqh, 76cqi / var(--img-aspect-n));
+  min-height: min(36cqh, 76cqi / var(--img-aspect-n));
   aspect-ratio: var(--img-aspect);
-  height: auto;
+  width: auto;
   border: 2.8cqi solid var(--bg);
   background-origin: padding-box;
   background-clip: padding-box;
