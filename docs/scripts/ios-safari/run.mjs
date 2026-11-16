@@ -107,7 +107,7 @@ const simctl = (...args) => {
 async function createSession() {
 	for (let attempt = 1; ; attempt++) {
 		try {
-			const made = await wd(
+			return await wd(
 				'POST',
 				'/session',
 				{
@@ -117,11 +117,6 @@ async function createSession() {
 				},
 				{ timeoutMs: SESSION_TIMEOUT_MS },
 			);
-			if (attempt === 1 && LABEL === 'iPad') {
-				console.log(`${LABEL}: TEMPORARY: abandoning session ${made.sessionId} without a DELETE, so Safari stays paired`);
-				throw new Error('session not created: TEMPORARY, the first session was abandoned on purpose');
-			}
-			return made;
 		} catch (e) {
 			const message = String(e.message);
 			const stuck = e.name === 'TimeoutError';
