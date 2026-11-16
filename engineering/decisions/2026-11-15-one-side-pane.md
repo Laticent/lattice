@@ -178,7 +178,7 @@ The cause, ranked by the reviewer: the size (8.5px is about 4 device pixels of x
 the Studio), the icon carrying about ten times the word's ink, the muted color losing more contrast than its ratio
 says at that size, and tracking tightened where small text needs it open. Weight 600 was not the problem. A 2x
 screen and the phone hid all of it. "Library", the longest caption, is 33px at 10px, inside the 44px cell, so the
-46px rail does not grow. Captions stay on the rail (words-on-controls is a recorded decision, and the tooltip never
+rail (52px wide) does not widen. Captions stay on the rail (words-on-controls is a recorded decision, and the tooltip never
 reaches a touch laptop).
 
 **The phone bar's geometry is held on purpose.** The instant shell places everything under it from a frozen height
@@ -191,9 +191,14 @@ precedes a font size, so the captions have always inherited the app's 1.6 line b
 **Reset.** Every pane that edits something (Slide settings, Deck settings) has a `PanelResetButton` in its header,
 left of the collapse; a pane that edits nothing has none. It UNDOES THIS VISIT: Slide settings puts the slide back
 as it was when the pane opened (the body's existing baseline, now reported to the header via `onResetChange`); Deck
-settings puts the front matter back as it was when the pane opened (`deckBaseline`, taken per show), leaving the
-slides below untouched. One Undo step with the Undo toast, so no confirm. Disabled until the visit changed
-something, and drawn by the shell from the first frame so the header never shifts when the body loads. The body's
+settings puts back only the front-matter keys its own writes changed during the visit (`deck-reset.ts`:
+`touchedKeys` per write, `revertKeys` on reset), so an edit the editor, a collaborator or the command palette made
+meanwhile stays, and the slides below are untouched. A visit is keyed by the pane's show AND the deck's id, and the
+Slide baseline by deck, slide and open, both moved during render: an earlier cut kept the visit across a deck
+switch and wrote deck A's settings, or its first slide, into deck B, and its Slide reset flashed enabled for a frame
+on every slide change (all found by the checker). One Undo step with the Undo toast, so no confirm. Off
+(`aria-disabled`, still focusable so its hint says why) until the visit changed something, and drawn by the shell
+from the first frame so the header never shifts when the body loads. The body's
 old "Reset slide" row is gone. A per-field reset (the preset picker's "Reset to Classic") stays beside its field.
 Guards: `StudioShell.test.tsx` "Deck settings' header reset" (red with a no-op reset), the `SlideContext.test.tsx`
 reset cases, and `e2e/panel-shells.spec.ts`, which pins the header's reset as a frame piece.

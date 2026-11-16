@@ -291,7 +291,7 @@ export function BarIcon({ label, hint, caption, active, recent, onClick, childre
 				// tracking in the muted color under an 18px, 2px-stroke icon: the smallest text in the Studio,
 				// about 4 device pixels of x-height on a 1x laptop, with roughly ten times the word's ink in the
 				// icon, so the words read as a footnote. A 2x screen and the phone hid it. Measured: "Library"
-				// is 33px at 10px, inside the 44px cell, so the 46px rail does not grow.
+				// is 33px at 10px, inside the 44px cell, so the rail (52px) does not widen.
 				// The rail also takes a 16px icon at a 1.75 stroke (the selector outranks each icon's own size
 				// class). The phone BAR keeps its 9px caption and 17px icons, which the owner judged fine there,
 				// and takes only the body-text color: the shell places everything under that bar from its frozen

@@ -715,17 +715,73 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		const reset = await screen.findByRole('button', { name: 'Reset deck settings' });
-		expect(reset).toBeDisabled();
+		expect(reset).toHaveAttribute('aria-disabled', 'true');
 		const pages = screen.getByRole('switch', { name: 'Page numbers' });
 		const was = pages.getAttribute('aria-checked');
 		await user.click(pages);
 		await waitFor(() => expect(screen.getByRole('switch', { name: 'Page numbers' })).not.toHaveAttribute('aria-checked', was ?? ''));
-		await waitFor(() => expect(screen.getByRole('button', { name: 'Reset deck settings' })).toBeEnabled());
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Reset deck settings' })).not.toHaveAttribute('aria-disabled'));
 		await user.click(screen.getByRole('button', { name: 'Reset deck settings' }));
 		await waitFor(() => expect(screen.getByRole('switch', { name: 'Page numbers' })).toHaveAttribute('aria-checked', was ?? ''));
-		expect(screen.getByRole('button', { name: 'Reset deck settings' })).toBeDisabled();
+		expect(screen.getByRole('button', { name: 'Reset deck settings' })).toHaveAttribute('aria-disabled', 'true');
 		// One Undo step, with the toast that offers it.
 		expect(await screen.findByText(/Reset deck settings/)).toBeInTheDocument();
+	});
+
+	// The reset's visit belongs to ONE deck (found by the checker on #3222): switching decks with the pane open
+	// used to keep deck A's baseline, so deck B read as changed and the reset wrote A's settings into B.
+	it('switching decks with Deck settings open starts a clean visit: the reset is off and never writes the old deck', async () => {
+		const user = setup();
+		const switchTo = async (title: RegExp, to: string) => {
+			await user.click(screen.getByRole('button', { name: title }));
+			await user.click(await screen.findByText(to));
+			await waitFor(() => expect(screen.getByRole('button', { name: new RegExp(to) })).toBeInTheDocument());
+		};
+		const pages = () => screen.getByRole('switch', { name: 'Page numbers' });
+		// Deck B gets a page-numbers value of its own, so a visit left over from deck A would read B as changed.
+		await switchTo(/Q3 Board Review/, 'FY26 Product Strategy');
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		const bWas = pages().getAttribute('aria-checked');
+		await user.click(pages());
+		await waitFor(() => expect(pages()).not.toHaveAttribute('aria-checked', bWas ?? ''));
+		const bNow = pages().getAttribute('aria-checked');
+		// On deck A, a visit that changes the same key.
+		await switchTo(/FY26 Product Strategy/, 'Q3 Board Review');
+		await waitFor(() => expect(pages()).toHaveAttribute('aria-checked', bWas ?? ''));
+		await user.click(pages());
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Reset deck settings' })).not.toHaveAttribute('aria-disabled'));
+		// Back to B with the pane open: a fresh visit, so nothing to reset, and a press changes nothing.
+		await switchTo(/Q3 Board Review/, 'FY26 Product Strategy');
+		await waitFor(() => expect(pages()).toHaveAttribute('aria-checked', bNow ?? ''));
+		expect(screen.getByRole('button', { name: 'Reset deck settings' })).toHaveAttribute('aria-disabled', 'true');
+		await user.click(screen.getByRole('button', { name: 'Reset deck settings' }));
+		expect(pages()).toHaveAttribute('aria-checked', bNow ?? '');
+	});
+
+	it("switching decks with Slide settings open leaves the slide reset off: it never writes the old deck's slide", async () => {
+		const user = setup();
+		await user.click(screen.getAllByRole('button', { name: 'Slide settings' })[0]);
+		await screen.findByRole('button', { name: 'Reset slide settings' });
+		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		await user.click(await screen.findByText('FY26 Product Strategy'));
+		await waitFor(() => expect(screen.getByRole('button', { name: /FY26 Product Strategy/ })).toBeInTheDocument());
+		expect(screen.getByRole('button', { name: 'Reset slide settings' })).toHaveAttribute('aria-disabled', 'true');
+	});
+
+	it('the slide reset never flashes on while moving between slides', async () => {
+		const user = setup();
+		await user.click(screen.getAllByRole('button', { name: 'Slide settings' })[0]);
+		await screen.findByRole('button', { name: 'Reset slide settings' });
+		// Every change to the reset's `aria-disabled`, by its value just BEFORE the change: a null there means it
+		// was on (enabled) for a moment, which is the flash an effect-moved baseline produced.
+		const before: (string | null)[] = [];
+		const mo = new MutationObserver((ms) => { for (const m of ms) if ((m.target as Element).hasAttribute('data-panel-reset')) before.push(m.oldValue); });
+		mo.observe(document.body, { attributes: true, attributeOldValue: true, subtree: true, attributeFilter: ['aria-disabled'] });
+		await user.click(screen.getAllByRole('button', { name: 'Next slide' })[0]);
+		await user.click(screen.getAllByRole('button', { name: 'Next slide' })[0]);
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Reset slide settings' })).toHaveAttribute('aria-disabled', 'true'));
+		mo.disconnect();
+		expect(before.filter((v) => v === null)).toEqual([]);
 	});
 
 	it('reaches Fabricate from the launcher (not a deck mode)', async () => {

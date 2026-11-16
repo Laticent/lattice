@@ -97,6 +97,7 @@ import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
+import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
 import type { EditorChange, EditorHandle } from './Editor';
@@ -1087,7 +1088,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
 	const shareMounted = useLatch(shareOpen);
 	// Where Slide settings' loading shell records the slide as it was when the panel opened, so
-	// "Reset slide" reverts to that even when the panel's code arrives after an edit (panel-shells.tsx).
+	// the pane's reset reverts to that even when the panel's code arrives after an edit (panel-shells.tsx).
 	const slideBaseline = React.useRef<SlideBaseline | null>(null);
 	const libraryMounted = useLatch(libraryOpen);
 	const workspaceMounted = useLatch(workspaceOpen);
@@ -2043,10 +2044,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setUndo({ next, id });
 	}, []);
 	const changedCountRef = React.useRef(0);
+	// Deck settings' reset records which front-matter keys THIS pane's writes changed (deck-reset.ts), so
+	// it can put back exactly those and leave the editor's, a collaborator's and other panes' edits alone.
+	// The visit lives in state below; the write path reads it through these refs (it is memoized).
+	const deckVisitRef = React.useRef<{ key: string; base: string; touched: Set<string> } | null>(null);
+	const deckPaneLiveRef = React.useRef(false);
 	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
 		const prev = sourceRef.current;
 		const next = updater(prev); // updaters are pure string→string; compute once
 		if (next === prev) return; // no-op (e.g. re-picking the current value) → no toast
+		if (deckPaneLiveRef.current && deckVisitRef.current) for (const k of touchedKeys(prev, next)) deckVisitRef.current.touched.add(k);
 		// Live: say which row changed (its name only, never the value) so people following us can see it.
 		// A Slide-panel edit is labelled "This slide", not by row: the row in focus is the one being edited.
 		const changedRow = rowIdOf(label.split(' → ')[0]) ?? (label === 'This slide' ? followBus.getLocal('focus') : null);
@@ -7132,22 +7139,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	useViewKey('inspector', settingsShown ? (activeSettings ?? 'none') : 'none');
 	useViewKey('section', settingsShown && activeSettings === 'deck' && settingsTier === 'advanced' && settingsView === 'group' ? deckTab : null);
 	// THE PANE'S RESET (§3d of 2026-11-15-one-side-pane.md): it undoes this visit. The Slide body owns its
-	// baseline and reports here; the Deck baseline is the front matter as it was when Deck settings opened,
-	// taken on each show (`deckShows`), never on an edit, so it holds still while the author experiments.
+	// baseline and reports here; Deck settings keeps a visit (below): the deck as the pane found it, and the
+	// front-matter keys the pane's own writes changed since.
 	const [slideReset, setSlideReset] = React.useState<{ dirty: boolean; reset: () => void } | null>(null);
-	const [deckBaseline, setDeckBaseline] = React.useState<string | null>(null);
+	const [deckVisit, setDeckVisit] = React.useState<{ key: string; base: string; touched: Set<string> } | null>(null);
 	const settingsShows = useShowCount(settingsShown);
 	const deckShows = useShowCount(settingsShown && inspectorScope === 'deck');
 	const slideShows = useShowCount(settingsShown && inspectorScope === 'slide');
-	React.useEffect(() => {
-		if (deckShows > 0) setDeckBaseline(frontMatterBlock(sourceRef.current));
-	}, [deckShows]);
-	const deckDirty = deckBaseline !== null && frontMatterBlock(source) !== deckBaseline;
-	// One Undo step with the Undo toast (settingsWrite), restoring only the front matter: the slides
-	// below it keep every edit made in the editor meanwhile.
+	// One VISIT per show of Deck settings on one deck: keyed by the show count AND the deck's id, so a
+	// deck switch with the pane open starts a fresh visit instead of comparing deck B with deck A's
+	// front matter (found by the checker on #3222: the reset then wrote A's settings into B). Moved during
+	// render, so no frame ever reads the old visit.
+	const deckVisitKey = `${deckShows}|${deck.id}`;
+	const deckPaneLive = settingsShown && inspectorScope === 'deck';
+	if (deckPaneLive && deckVisit?.key !== deckVisitKey) setDeckVisit({ key: deckVisitKey, base: source, touched: new Set() });
+	const liveVisit = deckVisit?.key === deckVisitKey ? deckVisit : null;
+	deckVisitRef.current = liveVisit;
+	deckPaneLiveRef.current = deckPaneLive;
+	const deckDirty = !!liveVisit && liveVisit.touched.size > 0 && keysDiffer(source, liveVisit.base, liveVisit.touched);
+	// One Undo step with the Undo toast (settingsWrite), putting back only the keys this visit changed.
 	const resetDeck = () => {
-		if (deckBaseline === null) return;
-		settingsWrite('Reset deck settings', (s) => deckBaseline + stripFrontMatter(s));
+		if (!liveVisit) return;
+		const keys = [...liveVisit.touched];
+		settingsWrite('Reset deck settings', (s) => revertKeys(s, liveVisit.base, keys));
 	};
 	const deckEver = useEverTrue(settingsShown && inspectorScope === 'deck');
 	const deckScrollRef = React.useRef<HTMLDivElement>(null);

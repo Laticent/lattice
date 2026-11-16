@@ -1084,14 +1084,23 @@ export function PanelSearchButton({ label, onClick }: { label: string; onClick: 
  * ("Reset slide settings"), never a bare "Reset".
  */
 export function PanelResetButton({ label, hint, disabled, onClick }: { label: string; hint: string; disabled: boolean; onClick?: () => void }) {
+	// `aria-disabled`, not `disabled`: a disabled button leaves the tab order and takes no pointer events,
+	// so a keyboard user could never reach it to learn why it is off, and its hint had to ride a wrapper,
+	// where a screen reader never heard it (found by the checker on #3222). Off, a press does nothing.
 	return (
 		<Tip label={disabled ? 'Nothing to reset: no changes since you opened this' : hint}>
-			{/* A disabled <button> gets no pointer events, so the tooltip rides on a wrapper. */}
-			<span className="inline-flex shrink-0">
-				<Button type="button" variant="outline" size="icon-sm" aria-label={label} disabled={disabled} onClick={onClick} data-panel-reset="">
-					<RotateCcw className="size-4" />
-				</Button>
-			</span>
+			<Button
+				type="button"
+				variant="outline"
+				size="icon-sm"
+				aria-label={label}
+				aria-disabled={disabled || undefined}
+				onClick={disabled ? undefined : onClick}
+				data-panel-reset=""
+				className={cn('shrink-0', disabled && 'cursor-default opacity-50 hover:bg-transparent hover:text-current')}
+			>
+				<RotateCcw className="size-4" />
+			</Button>
 		</Tip>
 	);
 }

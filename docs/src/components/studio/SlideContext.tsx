@@ -359,19 +359,19 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		const b = baselineRef?.current;
 		return b && b.slide === slideNumber ? b.chunk : null;
 	});
-	const originalRef = React.useRef(shellBaseline ?? chunk);
-	const baselineTaken = React.useRef(false);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: capture the baseline on open/slide change, not on every edit.
+	// Keyed by DECK, slide and open, and moved during render (React's "adjust state when a value changes"
+	// pattern), not in an effect: an effect left one render comparing the new slide with the OLD baseline,
+	// so the header's reset flashed enabled on every slide change, and it never re-fired on a deck switch
+	// that kept the slide number, so a reset on deck B wrote back deck A's slide (both found by the checker
+	// on #3222). The shell's baseline seeds only the first key, and is consumed once.
+	const baseKey = `${deckId ?? ''}|${slideNumber}|${open ? 1 : 0}`;
+	const [base, setBase] = React.useState(() => ({ key: baseKey, chunk: shellBaseline ?? chunk }));
+	if (base.key !== baseKey) setBase({ key: baseKey, chunk });
+	const original = base.key === baseKey ? base.chunk : chunk;
 	React.useEffect(() => {
-		if (!baselineTaken.current) {
-			// First run: keep the shell's baseline if there was one, and consume it.
-			baselineTaken.current = true;
-			if (baselineRef) baselineRef.current = null;
-			if (shellBaseline !== null) return;
-		}
-		originalRef.current = chunk;
-	}, [slideNumber, open]);
-	const dirty = chunk !== originalRef.current;
+		if (baselineRef) baselineRef.current = null;
+	}, [baselineRef]);
+	const dirty = chunk !== original;
 	// The pane's header draws the reset (PanelResetButton, §3d of 2026-11-15-one-side-pane.md); this
 	// body owns the baseline, so it tells the header whether there is anything to reset and how.
 	const resetRef = React.useRef<() => void>(() => {});
@@ -379,7 +379,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		onResetChange?.({ dirty, reset: () => resetRef.current() });
 	}, [dirty, onResetChange]);
 	React.useEffect(() => () => onResetChange?.(null), [onResetChange]);
-	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); setSayDraft(getSayLine(originalRef.current)); setDescDraft(getDescription(originalRef.current)); onMutate(() => originalRef.current); } };
+	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(original)); setSayDraft(getSayLine(original)); setDescDraft(getDescription(original)); onMutate(() => original); } };
 
 	resetRef.current = resetSlide;
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
