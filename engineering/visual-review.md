@@ -79,6 +79,15 @@ Spawn the makers (then the checkers) **concurrently**: one message, multiple
 
 Write all PNGs under `.scratch/` (gitignored, 14-day GC).
 
+**One thing a still render cannot show: the room.** Every render, and every contrast gate, is the
+slide as painted. A boardroom sees it through a projector in a lit room and from several
+screen-heights away, which lifts the blacks and blurs every edge. When the question is "does status
+read at a glance from the back row", run `npm run check:glance -- <deck> --venues=conference,hall`:
+it simulates both losses from the venue's own back-row distance (`VENUE_BACK_ROW`), measures every
+status mark on what is left (3:1 separation floor; the closest two statuses by OKLab distance), and
+writes a contact sheet with the failures boxed. Hand that sheet to a reviewer instead of a blurred
+screenshot you made by hand. The model and its numbers are in the header of `tools/check-glance.js`.
+
 **One thing a reviewer agent cannot see, by construction: jank.** A mark that wanders as
 the heading wraps, or a box that reaches another box without overflowing anything, looks
 correct on every slide you hand an agent — the defect is the *difference between* slides,
