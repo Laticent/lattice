@@ -549,7 +549,7 @@ The global invariant has to be tested across the assembled operation: one intend
 - Knowns
   - We know the condition and the expected result. Example-based tests and contract tests confirm it.
 - Known unknowns
-  - We know the class, not the case. Property tests, fuzzing and fault injection find it.
+  - We know the class, not the case. Property tests, fuzzing and fault injection search for it.
 - Unknown unknowns
   - We know nothing yet. Exploration, chaos experiments and incident review invite a surprise.
 
@@ -563,7 +563,7 @@ Unknown unknowns: we cannot write a test for a condition we have not conceived. 
 
 The cards describe the dominant intent. Fuzzing can confirm robustness against a known class and also find something new. -->
 
-<!-- describe: Three stacked cards. Knowns: we know the condition and the expected result; example-based tests and contract tests confirm it. Known unknowns: we know the class, not the case; property tests, fuzzing and fault injection find it. Unknown unknowns: we know nothing yet; exploration, chaos experiments and incident review invite a surprise. Footnote: discovery raises the odds of a useful surprise, and no technique guarantees completeness. -->
+<!-- describe: Three stacked cards. Knowns: we know the condition and the expected result; example-based tests and contract tests confirm it. Known unknowns: we know the class, not the case; property tests, fuzzing and fault injection search for it. Unknown unknowns: we know nothing yet; exploration, chaos experiments and incident review invite a surprise. Footnote: discovery raises the odds of a useful surprise, and no technique guarantees completeness. -->
 
 <!-- say: Confirm the known, and search for what you never imagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents. -->
 
