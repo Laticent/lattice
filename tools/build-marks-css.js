@@ -85,11 +85,13 @@ const TONE_TEXT_D = [35, 31, 28, 24, 21, 17, 14, 10];
  * TONE'S ONE STATUS LEVEL, per mode (#2908: one status level per finish). A status keeps its own hue under tone; this
  * is how strongly. It was the text level (30% light, 35% dark), a pale wash beside tone's category shades (which start at
  * 92%), and on a dark slide a wash that all but vanished. The 2026-11-16 status triplets made each status a curated
- * solid that sits with the categories, so tone now takes it further: 40% on light (the most at which the heading ink keeps
- * 4.5:1 on every theme; concrete's mid-gray slide and laguna's done set it), 88% on dark, where the text is the status's
- * own ink (`--finish-status-k-d`). tools/chart-finish-reach.mjs holds every text run. engineering/decisions/2026-11-16-status-triplets.md §4.
+ * solid that sits with the categories, so tone keeps it near that solid on both faces, under the status's own ink
+ * (`--finish-status-k` / `-k-d` at 0%): the curated fill itself on light (100%; any mix toward the paper would take the
+ * paper ink under the fill's 4.5:1), and 88% on dark (the least at which the ink keeps 5:1 on every palette, a11y
+ * included). A first cut held light at a 40% wash under the heading ink, which read as pastel beside tone's 92% shades
+ * and turned blocked a soft pink. tools/chart-finish-reach.mjs holds every text run. engineering/decisions/2026-11-16-status-triplets.md §4.
  */
-const TONE_STATUS = [40, 88];
+const TONE_STATUS = [100, 88];
 
 /** The levels, per finish (finish-coherence.md §Levels). `[light, dark]` pairs. */
 const F = {
@@ -203,11 +205,11 @@ const textInk = (finish) => (finish === 'pigment' ? 'var(--chart-on-mark)' : 'va
 /**
  * The ink for TEXT on a STATUS mark (engineering/decisions/2026-11-16-status-triplets.md). Under pigment a status body is
  * the theme's curated solid, so its text is that status's curated ink, `--status-on-ink` (set per member from `data-s`,
- * chart-family.styles.css, and `--chart-on-mark` on the frame, so every element has one). Under etch and tone a status
- * body is a pale wash like a category's, so its text is the finish's own ink, `--text-heading`. The finish picks with a
+ * chart-family.styles.css, and `--chart-on-mark` on the frame, so every element has one). Under etch a status body
+ * is a pale wash like a category's, so its text is the finish's own ink, `--text-heading`. The finish picks with a
  * PERCENT, not a fallback chain (this file emits none, marks-css.test.js): `--finish-status-k` (light) and
- * `--finish-status-k-d` (dark) are 0% under pigment, 100% under etch, and under tone 100% on light (a pale wash) and 0%
- * on dark, where tone's status body is a strong mix of the fill (TONE_STATUS) and so takes the status's own ink. A
+ * `--finish-status-k-d` (dark) are 100% under etch (a pale wash, under the heading ink) and 0% under pigment and tone,
+ * whose status body is the curated fill or near it (TONE_STATUS) and so takes the status's own ink. A
  * color-mix at 0% or 100% IS the one color it names. One expression, every finish.
  */
 const statusInk = () => 'light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), '
@@ -426,10 +428,10 @@ function finishTokens(name) {
     `${T.baseD}: ${BODY_BASE_D[name]}`,
     `${T.statusBase}: ${STATUS_BASE[name]}`,
     `${T.ink}: ${textInk(name)}`,
-    `${T.statusK}: ${name === 'pigment' ? '0%' : '100%'}`,
-    // Tone's dark status body is a strong mix of its fill (TONE_STATUS), so its text is that status's own ink, curated for
-    // the fill (white on a brand theme, near-black on an a11y palette's bright dark face); on light it is a pale enough
-    // wash for the heading ink.
+    // Etch draws a status as a pale wash, so its text is the heading ink. Pigment and tone paint the status body at (or
+    // near) the curated fill (TONE_STATUS), so their text is that status's own ink, curated for the fill: the slide's
+    // paper on a brand theme's light face, white on its dark one, near-black on an a11y palette's bright dark face.
+    `${T.statusK}: ${name === 'etch' ? '100%' : '0%'}`,
     `${T.statusKD}: ${name === 'etch' ? '100%' : '0%'}`,
     `${T.edge}: ${num(f.edge)}`,
     `${T.edgeText}: ${num(f.edgeBackdrop)}`,

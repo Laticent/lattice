@@ -75,6 +75,17 @@ test('the dark-face audit holds a status to the chart-solid contract', () => {
   for (const [name, [patch, re]] of Object.entries(arms)) assert.ok(run(patch).some((b) => re.test(b)), `${name}: ${run(patch).join(' | ')}`);
 });
 
+test('deferred is a gray in the theme\'s own neutral', () => {
+  // The fourth scoring found a cool slate deferred on every warm theme; mustard's is warm, and a slate one must report.
+  const baseline = JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/status-fill-cvd-baseline.json'), 'utf8'));
+  const V0 = mergedVars('mustard');
+  const run = (patch) => audit('mustard', themeFacts('mustard', { ...V0, ...patch }), baseline, 1);
+  assert.deepEqual(run({}), [], 'mustard as shipped');
+  const dark = V0['mute-mark'].replace(/^light-dark\(#[0-9A-Fa-f]{6},\s*(#[0-9A-Fa-f]{6})\)$/, '$1');
+  const bad = run({ 'mute-mark': `light-dark(#565D6F, ${dark})` });
+  assert.ok(bad.some((b) => /light muted --mute-mark hue .* off the theme's neutral/.test(b)), bad.join(' | '));
+});
+
 test('a surface the tool cannot resolve stops it rather than being skipped', () => {
   // A dropped surface would let --check pass a fill it never measured against that surface.
   const V = { ...mergedVars('onyx'), 'accent-soft': 'currentColor' };
@@ -91,6 +102,8 @@ test('blocked stays red, and on light at risk sits above it', () => {
     'a raspberry blocked on light': [{ 'fail-mark': `light-dark(#9B0057, ${darkOf('fail-mark')})` }, /light muted --fail-mark hue .* outside the red range/],
     'a magenta blocked on dark': [{ 'fail-mark': V0['fail-mark'].replace(/,\s*#[0-9A-Fa-f]{6}\)$/, ', #D9007A)') }, /dark muted --fail-mark hue .* outside the red range/],
     'at risk as deep as blocked on light': [{ 'warn-mark': `light-dark(#6E3F00, ${darkOf('warn-mark')})` }, /light muted: at risk sits .* above blocked/],
+    // The fourth scoring's two dark and light defects: a neon blocked (indaco's own pre-cap value) and a borrowed slate.
+    'a neon blocked on dark': [{ 'fail-mark': V0['fail-mark'].replace(/,\s*#[0-9A-Fa-f]{6}\)$/, ', #DB0038)') }, /dark muted --fail-mark chroma .* louder than the cap/],
   };
   for (const [name, [patch, re]] of Object.entries(arms)) assert.ok(run(patch).some((b) => re.test(b)), `${name}: ${run(patch).join(' | ')}`);
 });

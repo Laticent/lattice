@@ -111,17 +111,17 @@
    * this theme's own brand and chart colors (held inside the status bands on dark); the trio keeps at least half of
    * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
-  --pass-mark: light-dark(#004C1F, #49674F);
+  --pass-mark: light-dark(#2B4731, #49674F);
   --warn-mark: light-dark(#7F5007, #A16831);
-  --fail-mark: light-dark(#881E2A, #BA3D47);
-  --pass-vivid-mark: light-dark(#004C1F, #246E3A);
+  --fail-mark: light-dark(#881E2A, #BA3E39);
+  --pass-vivid-mark: light-dark(#20482A, #246E3A);
   --warn-vivid-mark: light-dark(#805000, #AD6200);
-  --fail-vivid-mark: light-dark(#910022, #C52E40);
+  --fail-vivid-mark: light-dark(#910022, #C53030);
   --warn-signal-mark: light-dark(#FFBB6A, #E29D2E);
   --fail-signal-mark: light-dark(#FFB4B3, #EE7A7C);
   --info-mark: light-dark(#006180, #3E7C97);
   --info-vivid-mark: light-dark(#006180, #007EA5);
-  --mute-mark: light-dark(#4A5E68, #626A6E);
+  --mute-mark: light-dark(#635C49, #6C6962);
   /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each status
    * fill, and its border. Light: the slide's own paper, and the fill itself (it clears 4.5:1 against every surface).
    * Dark: the one ink, and the status ink `--X` (a rim that stands the mid-tone fill off a tinted row or a card).
@@ -131,12 +131,12 @@
   --fail-on-mark: light-dark(#F0EDE6, #FFFFFF);
   --info-on-mark: light-dark(#F0EDE6, #FFFFFF);
   --mute-on-mark: light-dark(#F0EDE6, #FFFFFF);
-  --pass-edge-mark: light-dark(#004C1F, var(--pass));
+  --pass-edge-mark: light-dark(#2B4731, var(--pass));
   --warn-edge-mark: light-dark(#7F5007, var(--warn));
   --fail-edge-mark: light-dark(#881E2A, var(--fail));
   --info-edge-mark: light-dark(#006180, var(--info));
-  --mute-edge-mark: light-dark(#4A5E68, var(--mute));
-  --pass-vivid-edge-mark: light-dark(#004C1F, var(--pass));
+  --mute-edge-mark: light-dark(#635C49, var(--mute));
+  --pass-vivid-edge-mark: light-dark(#20482A, var(--pass));
   --warn-vivid-edge-mark: light-dark(#805000, var(--warn));
   --fail-vivid-edge-mark: light-dark(#910022, var(--fail));
   --info-vivid-edge-mark: light-dark(#006180, var(--info));

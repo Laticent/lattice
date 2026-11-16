@@ -143,7 +143,10 @@ function themeFacts(theme, V = mergedVars(theme)) {
     }
     anchor[s] = best ? { from: best.from, h: best.h, c: Math.min(0.18, Math.max(0.1, best.c)) } : { from: 'band', h: center, c: 0.13 };
   }
-  anchor.mute = { from: 'neutral', h: anchor.info.h, c: 0.03 };
+  // Deferred takes the hue of the theme's own neutral (its border gray, else its slide, else its text), so a warm theme's deferred is warm
+  // gray and a cool theme's cool; only an achromatic theme borrows info's hue.
+  const neutral = ['border', 'bg', 'text'].map((t) => get(t, false)).filter(Boolean).map(hexToOklch).find((o) => o.C >= 0.008);
+  anchor.mute = neutral ? { from: 'neutral', h: neutral.h, c: 0.03 } : { from: 'info', h: anchor.info.h, c: 0.03 };
   // Every surface a status mark sits on, by name: the slide, the card, the hero tile, its own row tint over the slide,
   // and a kanban card, plain (lifted on dark) or washed in the status's own fill. A surface that does not resolve is an
   // error, never a silent skip: a dropped surface would let `--check` pass a fill it never measured.
@@ -218,11 +221,23 @@ const offAccent = (fills, accent, floor = ACCENT_MIN) => !accent || Object.value
  * status hues and its palette's strength. A mark keeps an edge in its status ink, which stands it off a tinted row or a
  * card (2026-10-24-status-is-one-system.md §3), so the fill is held to the slide alone.
  */
+/**
+ * A status's chroma at this palette's strength. Blocked is capped (0.20 muted, 0.23 vivid): a strong palette scaled it
+ * to 0.23, the loudest swatch on the slide, louder than any category beside it.
+ */
+const FAIL_CHROMA_CAP = { muted: 0.2, vivid: 0.23 };
+const statusChroma = (intensity, s, strength) => {
+  const c = STATUS_CHROMA[intensity][s] * strength;
+  return s === 'fail' ? Math.min(FAIL_CHROMA_CAP[intensity], c) : c;
+};
 const darkHue = (facts, s) => {
   const [lo, hi] = s === 'fail' ? FAIL_RED : HUE_BAND[s];
   const h = facts.anchor[s].h;
   const inside = lo <= h && h <= hi;
   if (inside) return h;
+  // A theme whose red is a crimson or magenta (indaco, carbone) lands mid-band, not on the crimson edge: at dark
+  // strength the edge read as neon raspberry beside the category fills.
+  if (s === 'fail') return (lo + hi) / 2;
   const d = (x) => Math.min(Math.abs(x - h), 360 - Math.abs(x - h));
   return d(lo) <= d(hi) ? lo : hi;
 };
@@ -244,7 +259,7 @@ function solveDark(theme, facts, baseline, keep) {
     const o = {};
     for (const intensity of ['muted', 'vivid']) {
       o[intensity] = {};
-      for (const s of ['pass', 'warn', 'fail', 'info']) o[intensity][s] = tone(hue[s], STATUS_CHROMA[intensity][s] * facts.strength, s);
+      for (const s of ['pass', 'warn', 'fail', 'info']) o[intensity][s] = tone(hue[s], statusChroma(intensity, s, facts.strength), s);
       o[intensity].mute = tone(facts.anchor.mute.h, 0.012, 'mute');
     }
     return o;
@@ -287,7 +302,10 @@ function solve(theme, facts, baseline, keep) {
     for (const [intensity, boost] of [['muted', 1], ['vivid', VIVID_BOOST]]) {
       // Fail keeps its anchored HUE but is never less saturated than warn (URGENCY): a muted brand red would otherwise
       // read calmer than the amber beside it.
-      const chroma = (s) => (s === 'fail' ? Math.max(facts.anchor.fail.c, facts.anchor.warn.c) : facts.anchor[s].c);
+      // Done takes the status chroma the dark face uses, at this palette's strength: a deep sage, not the forest green
+      // the anchor's chroma floor made of every theme's done.
+      const chroma = (s) => (s === 'fail' ? Math.max(facts.anchor.fail.c, facts.anchor.warn.c)
+        : s === 'pass' ? STATUS_CHROMA.muted.pass * facts.strength : facts.anchor[s].c);
       const C = (s) => Math.min(0.24, Math.max(s === 'fail' ? LIGHT_RED.C : 0, chroma(s)) * (s === 'mute' ? 1 : boost));
       // The theme's own hue, held inside the chart solids' status bands, as on the dark face: an at-risk anchored on a
       // gold accent reads khaki, and a blocked on a magenta reads as a category.
@@ -409,6 +427,12 @@ function audit(theme, facts, baseline, keep) {
         const h = ((hexToOklch(fills.fail).h + 180) % 360) - 180;
         const lo = dark ? FAIL_TURN_FLOOR : FAIL_RED[0];
         if (h < lo - 1.5 || h > FAIL_RED[1] + 1.5) bad.push(`${face} ${intensity} --${tok('fail')} hue ${h.toFixed(0)} is outside the red range ${lo}-${FAIL_RED[1]}`);
+        const c = hexToOklch(fills.fail).C;
+        if (dark && c > FAIL_CHROMA_CAP[intensity] + 0.01) bad.push(`dark ${intensity} --${tok('fail')} chroma ${c.toFixed(3)} is louder than the cap ${FAIL_CHROMA_CAP[intensity]}`);
+      }
+      // Deferred is a gray in the theme's own neutral, not a borrowed slate.
+      if (fills.mute && hexToOklch(fills.mute).C >= 0.008 && hueDist(hexToOklch(fills.mute).h, facts.anchor.mute.h) > 15) {
+        bad.push(`${face} ${intensity} --${tok('mute')} hue ${hexToOklch(fills.mute).h.toFixed(0)} is off the theme's neutral (${facts.anchor.mute.h.toFixed(0)})`);
       }
       const af = accentFloor(theme, face);
       for (const s of TRIO) if (fills[s] && facts[face].accent && oklabDistance(fills[s], facts[face].accent) < af) bad.push(`${face} ${intensity} --${tok(s)} sits ${oklabDistance(fills[s], facts[face].accent).toFixed(3)} from the accent (floor ${af})`);
@@ -489,6 +513,6 @@ function main() {
   if (o.check && failed) process.exit(1);
 }
 
-module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, SPREAD_EXEMPT, FAIL_RED, KANBAN };
+module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, SPREAD_EXEMPT, FAIL_RED, FAIL_CHROMA_CAP, KANBAN };
 
 if (require.main === module) main();

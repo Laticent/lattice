@@ -181,7 +181,7 @@ figure.marks-tone,
   --finish-base-d: var(--bg);
   --finish-status-base: var(--bg);
   --finish-ink: var(--text-heading);
-  --finish-status-k: 100%;
+  --finish-status-k: 0%;
   --finish-status-k-d: 0%;
   --finish-edge: 1;
   --finish-edge-text: 2.5;
@@ -242,9 +242,9 @@ figure.marks-tone,
   --finish-text-d-8: 29%;
   --finish-layer-8: 0.074;
   --finish-layer-ink-8: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg));
-  --finish-status: 40%;
+  --finish-status: 100%;
   --finish-status-d: 88%;
-  --finish-status-text: 40%;
+  --finish-status-text: 100%;
   --finish-status-text-d: 88%;
   --finish-ramp-lo: 10%;
   --finish-ramp-k: 0.82;

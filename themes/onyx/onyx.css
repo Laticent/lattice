@@ -108,10 +108,10 @@
    * this theme's own brand and chart colors (held inside the status bands on dark); the trio keeps at least half of
    * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
-  --pass-mark: light-dark(#2D500C, #4F5F45);
+  --pass-mark: light-dark(#4D5C43, #4F5F45);
   --warn-mark: light-dark(#8A5A18, #9D6A3C);
   --fail-mark: light-dark(#9E001A, #AE4241);
-  --pass-vivid-mark: light-dark(#2A5100, #416427);
+  --pass-vivid-mark: light-dark(#475D3A, #416427);
   --warn-vivid-mark: light-dark(#8C5700, #A9651B);
   --fail-vivid-mark: light-dark(#9E001A, #B83839);
   --warn-signal-mark: light-dark(#FFBB6B, #D4A440);
@@ -128,12 +128,12 @@
   --fail-on-mark: light-dark(#FFFFFF, #FFFFFF);
   --info-on-mark: light-dark(#FFFFFF, #FFFFFF);
   --mute-on-mark: light-dark(#FFFFFF, #FFFFFF);
-  --pass-edge-mark: light-dark(#2D500C, var(--pass));
+  --pass-edge-mark: light-dark(#4D5C43, var(--pass));
   --warn-edge-mark: light-dark(#8A5A18, var(--warn));
   --fail-edge-mark: light-dark(#9E001A, var(--fail));
   --info-edge-mark: light-dark(#2E598F, var(--info));
   --mute-edge-mark: light-dark(#5A6475, var(--mute));
-  --pass-vivid-edge-mark: light-dark(#2A5100, var(--pass));
+  --pass-vivid-edge-mark: light-dark(#475D3A, var(--pass));
   --warn-vivid-edge-mark: light-dark(#8C5700, var(--warn));
   --fail-vivid-edge-mark: light-dark(#9E001A, var(--fail));
   --info-vivid-edge-mark: light-dark(#1657A1, var(--info));

@@ -57,7 +57,7 @@ Per brand theme, per face, per `marks:` intensity, solved by `tools/curate-statu
 |---|---|---|
 | Fill | >= 4.5:1 as painted against every surface a status mark sits on: `--bg`, `--bg-alt` (a kpi card), `--accent-soft` (a hero tile), its own row tint `--X-bg` over `--bg`, and a kanban card (keyline, or washed in the status's own fill, recomputed per candidate) | a chart solid: white (`--on-mark`) at 4.6:1 on it and 3:1 off the slide, at its `DARK_SPREAD` position; its edge stands it off a tinted row or a card |
 | Hue | the theme's nearest brand or chart color in the status band; blocked held to red (20-32 degrees, `FAIL_RED`) | the same anchor, held inside the chart solids' `HUE_BAND`, blocked to the same red; where the trio would keep less than half its colorblind separation, done turns toward blue-green and blocked toward crimson (never past 17 degrees), the least total turn that keeps it |
-| Strength | the anchor's own chroma | `STATUS_CHROMA` scaled by the palette's strength (its categories' mean chroma), so a muted palette's status stays muted beside its categories |
+| Strength | the anchor's own chroma, except done, which takes the dark face's `STATUS_CHROMA` at the palette's strength (a deep sage, not a forest green) | `STATUS_CHROMA` scaled by the palette's strength (its categories' mean chroma), so a muted palette's status stays muted beside its categories; blocked capped at 0.20 (0.23 vivid) |
 | Ink on the fill (`--X-on-mark`) | the slide's paper, >= 4.5:1 | the one ink `--on-mark`, >= 4.6:1 |
 | Edge (`--X-edge-mark`) | the fill itself | the status ink `--X` (the rim of 2026-10-24 §3) |
 | Signal ring | the status hue at the opposite lightness, >= 3.2:1 against both intensities' fill | bright, 2:1 off its fill and 3.2:1 off the slide (chart-solids) |
@@ -88,9 +88,10 @@ brown, not red, and at risk dark khaki. So on light blocked must also READ red (
 chroma 0.14 or more), and the spread comes from at risk sitting higher, not blocked sinking. Cuoio and mustard can only
 lift at risk if it comes closer to their gold accent, so their light faces hold the accent floor at 0.04 instead of
 0.08 (`ACCENT_EXEMPT`, named and audited). Burgundy holds 0.04 too, for blocked: its accent is itself a deep red, so
-a blocked that reads red sits 0.048 from it (0.072 vivid); its at risk stays 0.15 away. The cost: in cuoio and mustard done
-deepens to a near-black green to keep the trio apart for a colorblind reader, and at risk is a dark gold, since a light
-fill under the slide's paper at 4.5:1 cannot be a bright amber. Concrete keeps its deep fills: its `SPREAD_EXEMPT`
+a blocked that reads red sits 0.048 from it (0.072 vivid); its at risk stays 0.15 away. The cost: at risk is a dark gold, since a
+light fill under the slide's paper at 4.5:1 cannot be a bright amber. (An earlier cut also deepened cuoio's and
+mustard's done to a near-black green to keep the trio apart for a colorblind reader; with done's chroma at the dark
+face's level it holds at lightness 0.49 and 0.40.) Concrete keeps its deep fills: its `SPREAD_EXEMPT`
 entry waives both the full spread (it holds 0.02) and the reads-red floor (its blocked, `#73000B`, sits at L 0.35), since
 its mid-gray slide leaves no lighter fill that clears 4.5:1 against every surface.
 
@@ -101,6 +102,18 @@ holds each status inside the chart solids' bands too (`LIGHT_BAND`): done 120-16
 khaki), blocked 20-32, pilot 200-255 (out to a theme's own brand blue; pilot is not in the colorblind trio). The theme's
 own hue is kept wherever it falls inside its band. At risk now sits at about 70 degrees on every theme: amber has little
 room to differ between brands, and the per-theme character shows in done, blocked, pilot and each fill's depth instead.
+
+**Done, deferred and dark blocked follow the brand, not one shared look.** A fourth scoring (light 7.5, dark 7) found
+the per-theme curation had converged instead of diverging, and named two places worse than `main`:
+- Light done took the anchor's chroma, floored at 0.10, so five themes shared one saturated forest green (mustard's was
+  `#004701`, where `main` had an olive). Done now takes the status chroma the dark face uses (`STATUS_CHROMA` muted
+  done, 0.06, at the palette's strength): a deep sage in each theme's own green (mustard `#355133`).
+- Deferred borrowed pilot's hue on every theme, so warm themes got a cool slate. It now takes the hue of the theme's
+  own neutral gray (`--border`, else the slide, else the text): warm on cuoio, mustard and burgundy, rose on magnolia,
+  violet on crepuscolo, slate on the cool themes.
+- Dark blocked on indaco and carbone, whose reds are crimsons at 0.6 and 2.5 degrees, clamped to the band's crimson
+  edge, and at their palettes' strength read as neon raspberry (`#DB0038`, chroma 0.23). A blocked outside the band
+  now lands mid-band (26 degrees), and blocked's chroma is capped at 0.20 (0.23 vivid): indaco's is `#D12C2F`.
 
 The `a11y-*` palettes curate none of this. The base declares each triplet token's default as the one-ink pair (the ink
 `--on-mark`, an edge in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it does
@@ -124,8 +137,9 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
 - **Chart family.** One mapping beside `--status-mark` gives every `[data-s]` member `--status-on-ink`, with the frame's
   one ink as the default. Each kind's edge channel (`--chart-status-ink`, `--fill-ink`, `--fc-hue-mark`,
   `--hs-state-ink`) points at `--state-X-edge` instead of the slide ink. The generated finish rules pick a status's
-  text ink with a percent, not a fallback chain: `--finish-status-k` is 0% under pigment (the status's own ink) and
-  100% under etch and tone (the heading ink on their pale washes).
+  text ink with a percent, not a fallback chain: `--finish-status-k` / `-k-d` are 0% under pigment and tone (the
+  status's own ink on a body that is the curated fill or near it) and 100% under etch (the heading ink on its pale
+  wash).
 - **Components.** kpi pills, policy badges and regulatory-update tiers read `--state-X-on-ink`, and kpi's rim and
   policy's badge edge read `--state-X-edge`. The risk matrix's key numbers wear their status's ink; its target ring and
   path wear the status ink, which a brand theme curates as one ink across its statuses.
@@ -138,11 +152,14 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
 
 - **Tone's one status level** (`tools/build-marks-css.js` `TONE_STATUS`). Under tone a status kept its own hue at the
   text level, a 30% wash on light and 35% on dark, beside category shades that start at 92%: on light the status chart
-  read faded next to its pie, and on dark it all but vanished. It is now 40% on light, the most at which the heading
-  ink keeps 4.5:1 on every theme (concrete's mid-gray slide and laguna's done set it), and 88% on dark (the least at which the status ink keeps 5:1 on
-  every palette, a11y included; 80% left the a11y dark faces at 4.0), still one level per finish (#2908). On dark the body is a strong mix of the fill, so its text is the status's own ink
-  (`--finish-status-k-d`: white on a brand theme, near-black on an a11y palette's bright dark face); a first cut kept the
-  heading ink there and `tools/chart-finish-reach.mjs` found 192 text runs under 4.5:1, most on the a11y palettes.
+  read faded next to its pie, and on dark it all but vanished. Tone now keeps a status at its curated solid on both faces,
+  under the status's own ink (the paper on a brand theme's light face, white on its dark one, near-black on an a11y
+  palette's bright dark face): 100% on light, since any mix toward the paper takes the paper ink under the fill's
+  4.5:1, and 88% on dark, the least at which that ink keeps 5:1 on every palette, a11y included. Still one level per
+  finish (#2908). Two earlier cuts are on record: a 40% light wash under the heading ink (the most that ink allowed)
+  read pastel beside tone's 92% shades and turned blocked a soft pink, so tone meant one thing on light and another on
+  dark; and an 80% dark level left the a11y dark faces at 4.0. The tone finish's character stays on the category side,
+  where its single-hue shades replace the category colors; a status never had a tone shade to take.
 
 ## 5. Measured
 
