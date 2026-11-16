@@ -2050,11 +2050,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The visit lives in state below; the write path reads it through these refs (it is memoized).
 	const deckVisitRef = React.useRef<{ key: string; base: string; touched: Set<string> } | null>(null);
 	const deckPaneLiveRef = React.useRef(false);
-	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
+	// `outside`: a write from somewhere OTHER than the Deck settings pane (the Share sheet's export options,
+	// the plugin notice, a rename, Reader views), so the pane's reset never counts it as its own.
+	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string, opts?: { outside?: boolean }) => {
 		const prev = sourceRef.current;
 		const next = updater(prev); // updaters are pure string→string; compute once
 		if (next === prev) return; // no-op (e.g. re-picking the current value) → no toast
-		if (deckPaneLiveRef.current && deckVisitRef.current) for (const k of touchedKeys(prev, next)) deckVisitRef.current.touched.add(k);
+		if (!opts?.outside && deckPaneLiveRef.current && deckVisitRef.current) for (const k of touchedKeys(prev, next)) deckVisitRef.current.touched.add(k);
 		// Live: say which row changed (its name only, never the value) so people following us can see it.
 		// A Slide-panel edit is labelled "This slide", not by row: the row in focus is the one being edited.
 		const changedRow = rowIdOf(label.split(' → ')[0]) ?? (label === 'This slide' ? followBus.getLocal('focus') : null);
@@ -2064,6 +2066,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setSource((s) => (s === prev ? next : updater(s)), { label, origin: 'settings' });
 		showUndo(label, prev, next);
 	}, [showUndo, setSource]);
+	const outsideWrite = React.useCallback((label: string, updater: (s: string) => string) => settingsWrite(label, updater, { outside: true }), [settingsWrite]);
 	// Auto-dismiss the Undo toast the instant the source moves on its own — the user
 	// typed, switched decks, restored a checkpoint — so Undo only ever reverts the
 	// single last settings change, never edits made after it.
@@ -2198,7 +2201,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
 	}, [wsLenses]);
 	const writeRegistry = React.useCallback((label: string, next: LensRegistry) => {
-		settingsWrite(label, (s) => rewrapRegistry(s, next));
+		settingsWrite(label, (s) => rewrapRegistry(s, next), { outside: true });
 	}, [settingsWrite, rewrapRegistry]);
 	// Tag writes — put slides in/out of a lens by rewriting each affected slide with the library's
 	// applyTag (the only per-slide membership carrier). Applied sequentially so several accepts land as
@@ -2215,7 +2218,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				src = replaceSlide(src, c.index, applyTag(chunk, c.lensId, c.member, c.base)).source;
 			}
 			return wsLenses ? rewrapRegistry(src, parseLensRegistry(innerFrontMatter(src), wsLenses)) : src;
-		});
+		}, { outside: true });
 	}, [settingsWrite, wsLenses, rewrapRegistry]);
 	// Remove a reader view CLEANLY, in ONE undo step: strip the lens's `_lens` tag from every slide
 	// (so a later same-id re-add can't silently resurrect the old membership), then drop it from the
@@ -2233,7 +2236,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const cur = parseLensRegistry(frontMatterBlock(src), wsLenses);
 			const next: LensRegistry = { lenses: cur.lenses.filter((l) => l.id !== lens.id), default: cur.default === lens.id ? 'full' : cur.default };
 			return rewrapRegistry(src, next);
-		});
+		}, { outside: true });
 	}, [settingsWrite, wsLenses, rewrapRegistry]);
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
 	// full deck, or a reader-lens reshape of it (the editor always holds the source).
@@ -2951,7 +2954,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `verbose` (adds the class + box levers). The menu offers every value; a
 	// hand-typed value we don't recognize shows verbatim. No aliases.
 	const debugValue = getFrontMatter(source, 'debug');
-	const setDebug = (value: string | null) => setSource((s) => writeFrontMatterLine(s, 'debug', value), { label: value ? `Debug overlay → ${value}` : 'Debug overlay off', origin: 'settings' });
+	// Through settingsWrite like every other Deck row, so the pane's reset sees it (found by the checker).
+	const setDebug = (value: string | null) => settingsWrite(value ? `Debug overlay → ${value}` : 'Debug overlay off', (s) => writeFrontMatterLine(s, 'debug', value));
 	// Off is the absence of the key, which the picker's Auto head stands for.
 	const DEBUG_OPTIONS: Array<{ value: string; label: string }> = [
 		{ value: 'on-hover', label: 'On hover' },
@@ -3489,7 +3493,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const stored = storedTitleFor(source, t);
 		if (stored && stored === resolveTitle(source)?.text) return;
 		if (stored && retitleSource(source, t)) {
-			settingsWrite(`Rename → ${stored}`, (s) => retitleSource(s, t) ?? s);
+			settingsWrite(`Rename → ${stored}`, (s) => retitleSource(s, t) ?? s, { outside: true });
 		} else if (!resolveTitle(source) && !decksClearedRef.current) {
 			// Neither an override nor a heading to carry the name — record it as the deck's
 			// explicit label. Gated on `resolveTitle` being null rather than on retitleSource
@@ -7373,7 +7377,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</div>
 			)}
 			{panelScope === 'slide' && (
-				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
+				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} deckId={deck.id} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
 					{(SlideContextBody) => <SlideContextBody open reportSection={settingsShown && inspectorScope === 'slide'} deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} onResetChange={setSlideReset} />}
 				</PanelLoader>
 			)}
@@ -7605,7 +7609,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<WebImagesNotice summary={webSummary} allowed={webAllowed} onLoad={allowWebOrigins} onBlock={blockWebOrigins} />
 			{codeStamp && (
 				<React.Suspense fallback={null}>
-					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} onWrite={settingsWrite} />
+					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} onWrite={outsideWrite} />
 				</React.Suspense>
 			)}
 			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides
@@ -9012,7 +9016,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			{shareMounted && (
 				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
-					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={outsideWrite} />}
 				</PanelLoader>
 			)}
 			{feedbackMounted && <FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />}

@@ -41,6 +41,30 @@ describe('deck reset: only the keys the pane changed go back', () => {
 		expect(revertKeys(now, base, touchedKeys(base, now))).toBe(base);
 	});
 
+	it("keeps the source's own line endings", () => {
+		const crlf = (fm: string) => `---\r\n${fm.split('\n').join('\r\n')}\r\n---\r\n\r\n# One\r\n`;
+		expect(revertKeys(crlf('theme: indaco\nsize: 16:9'), crlf('theme: cuoio\nsize: 16:9'), ['theme'])).toBe(crlf('theme: cuoio\nsize: 16:9'));
+	});
+
+	it('reads a list written flush under its key as part of that key', () => {
+		expect(touchedKeys(deck('tags:\n- a\n- b'), deck('tags:\n- c'))).toEqual(['tags']);
+		expect(revertKeys(deck('tags:\n- c\ntheme: x'), deck('tags:\n- a\n- b\ntheme: x'), ['tags'])).toBe(deck('tags:\n- a\n- b\ntheme: x'));
+	});
+
+	it('sees a quoted key', () => {
+		expect(touchedKeys(deck('"theme": cuoio'), deck('"theme": indaco'))).toEqual(['theme']);
+	});
+
+	it('puts a key the visit removed back in its place', () => {
+		const base = deck('# deck\nsize: 16:9\nheader: Draft\ntheme: cuoio');
+		expect(revertKeys(deck('# deck\nsize: 16:9\ntheme: cuoio'), base, ['header'])).toBe(base);
+	});
+
+	it('brings back a block the visit removed whole, in its own shape', () => {
+		const base = '---\ntheme: cuoio\n---\n# One\n';
+		expect(revertKeys('# One\n', base, ['theme'])).toBe(base);
+	});
+
 	it('is a no-op with no keys', () => {
 		const s = deck('theme: cuoio');
 		expect(revertKeys(s, deck('theme: indaco'), [])).toBe(s);

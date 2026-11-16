@@ -357,7 +357,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// later open cannot reuse it). Read here, cleared in the effect below: an initializer must stay pure.
 	const [shellBaseline] = React.useState(() => {
 		const b = baselineRef?.current;
-		return b && b.slide === slideNumber ? b.chunk : null;
+		return b && b.slide === slideNumber && b.deckId === deckId ? b.chunk : null;
 	});
 	// Keyed by DECK, slide and open, and moved during render (React's "adjust state when a value changes"
 	// pattern), not in an effect: an effect left one render comparing the new slide with the OLD baseline,

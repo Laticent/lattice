@@ -1153,6 +1153,21 @@ describe('Studio — Inspector controls respond', () => {
 		await user.click(await screen.findByRole('option', { name: 'Auto — Off' }));
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/debug:/);
 	});
+
+	// The Deck pane's reset sees every row the pane writes (2026-11-15-one-side-pane.md §3e). Debug overlay wrote
+	// the source directly, past the path that records the pane's keys, so the reset missed it (checker on #3222).
+	it("the Deck pane's reset undoes a Debug overlay change", async () => {
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await clickSection(user, 'General');
+		await user.click(await screen.findByRole('combobox', { name: 'Debug overlay' }));
+		await user.click(await screen.findByRole('option', { name: 'Always on · verbose' }));
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/debug:/);
+		const reset = screen.getByRole('button', { name: 'Reset deck settings' });
+		await waitFor(() => expect(reset).not.toHaveAttribute('aria-disabled'));
+		await user.click(reset);
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/debug:/));
+	});
 });
 
 // The registers the coverage audit found the Inspector never offered — each one the

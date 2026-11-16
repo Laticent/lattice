@@ -417,32 +417,35 @@ function SettingRowBlock() {
  * moment of opening, and the loaded panel takes it over once (`SlideContext.tsx`). Without this,
  * an edit made while the shell was up would become part of the baseline and survive a Reset.
  */
-export type SlideBaseline = { slide: number; chunk: string };
+export type SlideBaseline = { deckId?: string; slide: number; chunk: string };
 
 /** The slide scope's body, under the scope bar the Studio draws. Opens on a clean slide, so the first row is real text. */
 export function SlideSettingsShell({
 	tier,
 	baseline,
+	deckId,
 	slideNumber,
 	chunk,
 	children,
 }: {
 	tier: 'basic' | 'advanced';
 	baseline: React.MutableRefObject<SlideBaseline | null>;
+	/** The deck the slide belongs to: a deck switch while the code loads re-takes the baseline (checker). */
+	deckId?: string;
 	slideNumber: number;
 	chunk: string;
 	children?: React.ReactNode;
 }) {
-	// On mount and on a slide change, not on an edit: the same rule the panel's own baseline follows.
+	// On mount and on a slide or DECK change, not on an edit: the same rule the panel's own baseline follows.
 	// Cleared when the shell goes, so a shell closed before the code arrived leaves no stale baseline.
 	// Safe on the swap: the loaded panel reads it during render, before this cleanup runs.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the baseline moves with the slide, never with an edit.
 	React.useEffect(() => {
-		baseline.current = { slide: slideNumber, chunk };
+		baseline.current = { deckId, slide: slideNumber, chunk };
 		return () => {
 			baseline.current = null;
 		};
-	}, [slideNumber]);
+	}, [slideNumber, deckId]);
 	return (
 		<div className={cn('min-w-0 flex-1 overflow-hidden px-4', SETTING_SCOPE)}>
 			{children ?? (

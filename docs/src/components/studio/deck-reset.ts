@@ -9,9 +9,10 @@ import { frontMatterBlock, innerFrontMatter, stripFrontMatter } from '../../lib/
 
 type Entry = { key: string | null; lines: string[] };
 
-// A column-0 `key:` line opens an entry; an indented or blank line continues it (a block scalar, a
-// nested map, a list). Anything else at column 0 (a comment) is its own keyless entry.
-const KEY = /^([A-Za-z_$][\w$.-]*)[ \t]*:/;
+// A column-0 `key:` line (the key may be quoted) opens an entry; an indented line, a blank line or a
+// column-0 `- item` (YAML lets a list sit flush under its key) continues it. Anything else at column 0
+// (a comment) is its own keyless entry.
+const KEY = /^(["']?)([A-Za-z_$][\w$.-]*)\1[ \t]*:/;
 
 /** The top-level entries of a front-matter body, in order. */
 export function fmEntries(inner: string): Entry[] {
@@ -20,12 +21,15 @@ export function fmEntries(inner: string): Entry[] {
 	for (const line of inner.split(/\r?\n/)) {
 		const m = KEY.exec(line);
 		const last = out[out.length - 1];
-		if (m) out.push({ key: m[1], lines: [line] });
-		else if (last?.key && (line === '' || /^[ \t]/.test(line))) last.lines.push(line);
+		if (m) out.push({ key: m[2], lines: [line] });
+		else if (last?.key && (line === '' || /^[ \t]/.test(line) || /^-(?:[ \t]|$)/.test(line))) last.lines.push(line);
 		else out.push({ key: null, lines: [line] });
 	}
 	return out;
 }
+
+/** The line ending a source's front matter uses, so a rebuilt block keeps it. */
+const eolOf = (source: string) => (/\r\n/.test(frontMatterBlock(source)) ? '\r\n' : '\n');
 
 /** Each key's text in a source's front matter (a repeated key's entries joined, so any change shows). */
 function entryMap(source: string): Map<string, string> {
@@ -63,33 +67,44 @@ export function revertKeys(current: string, baseline: string, keys: Iterable<str
 	const want = new Set(keys);
 	if (want.size === 0) return current;
 	const base = entryMap(baseline);
-	const lines: string[] = [];
+	const eol = eolOf(frontMatterBlock(current) ? current : baseline);
+	// Each output entry, tagged with its key so a key the visit removed can go back where it was.
+	const out: { key: string | null; text: string }[] = [];
 	const placed = new Set<string>();
 	for (const e of fmEntries(innerFrontMatter(current))) {
 		if (e.key && want.has(e.key)) {
 			if (placed.has(e.key)) continue;
 			placed.add(e.key);
 			const was = base.get(e.key);
-			if (was !== undefined) lines.push(was);
+			if (was !== undefined) out.push({ key: e.key, text: was });
 			continue;
 		}
-		lines.push(...e.lines);
+		out.push({ key: e.key, text: e.lines.join('\n') });
 	}
+	// A key the visit removed returns before the first key that followed it in the baseline, else last.
+	const order = fmEntries(innerFrontMatter(baseline)).map((e) => e.key);
 	for (const k of want) {
 		const was = base.get(k);
-		if (!placed.has(k) && was !== undefined) lines.push(was);
+		if (placed.has(k) || was === undefined) continue;
+		const after = order.slice(order.indexOf(k) + 1).find((n) => n && out.some((o) => o.key === n));
+		const at = after ? out.findIndex((o) => o.key === after) : -1;
+		out.splice(at < 0 ? out.length : at, 0, { key: k, text: was });
+		placed.add(k);
 	}
-	const inner = lines.join('\n');
+	const inner = out.map((o) => o.text).join('\n').split('\n').join(eol);
 	const block = frontMatterBlock(current);
 	const body = stripFrontMatter(current);
 	if (!block) {
-		// The visit removed the whole block: bring back a block holding only the restored keys.
-		return inner.trim() ? `---\n${inner}\n---\n\n${body}` : current;
+		// The visit removed the whole block: bring it back in the baseline's own shape (its delimiters and
+		// the blank lines after it), holding only the restored keys.
+		const was = frontMatterBlock(baseline);
+		if (!inner.trim() || !was) return current;
+		const start = was.indexOf('\n') + 1;
+		return was.slice(0, start) + inner + was.slice(start + innerFrontMatter(baseline).length) + body;
 	}
 	// The pane created the block and the reset empties it: the deck had none, so drop it.
 	if (!inner.trim() && !frontMatterBlock(baseline)) return body;
 	// Swap the inner text only, keeping this block's own delimiters and the blank lines after it.
 	const start = block.indexOf('\n') + 1;
-	const oldInner = innerFrontMatter(current);
-	return block.slice(0, start) + inner + block.slice(start + oldInner.length) + body;
+	return block.slice(0, start) + inner + block.slice(start + innerFrontMatter(current).length) + body;
 }

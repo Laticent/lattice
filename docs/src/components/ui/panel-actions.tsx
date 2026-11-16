@@ -52,7 +52,9 @@ export function PanelResetButton({ label, hint, disabled, onClick }: { label: st
 				aria-disabled={disabled || undefined}
 				onClick={disabled ? undefined : onClick}
 				data-panel-reset=""
-				className={cn('shrink-0', disabled && 'cursor-default opacity-50 hover:bg-transparent hover:text-current')}
+				// Off, hover changes nothing: the outline variant's own hover fills (light and dark) are pinned back
+				// to its resting ones, since `disabled:` styles no longer apply to an aria-disabled button.
+				className={cn('shrink-0', disabled && 'cursor-default opacity-50 hover:bg-background hover:text-current dark:hover:bg-input/30')}
 			>
 				<RotateCcw className="size-4" />
 			</Button>
