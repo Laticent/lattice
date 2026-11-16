@@ -974,3 +974,109 @@ quotes closing across a break, unclosed `$$` in containers, edits that change ne
 updates over 11 seeds, 0 mismatches. It also confirmed the contract holds for math as installed: `math_block` has no
 `alt`, so it never ends a paragraph, list or quote and is never tried silently.
 
+## P4 landed: S2, the inline pass, and the token adapter (2026-11-16)
+
+**What S2 is.** markdown-it 14.3.3's inline rules (`text`, `newline`, `escape`, `backticks`, `strikethrough`,
+`emphasis`, `link`, `image`, `autolink`, `html_inline`, `entity`) and its post-processing (`balance_pairs`, the
+strikethrough and emphasis passes), ported rule for rule onto a tape of inline records in
+`docs/src/lib/segno-markdown/inline.ts`, as P2 ported the block rules. Lattice's one plugin inline rule, math's `$`,
+runs unchanged through the plugin facade, tried only on its manifest's trigger. As with S1, the design's sketch (a
+generated Segno tokenizer plus a hand driver) gave way to the port: D3's bar is markdown-it's tokens exactly, the
+rules' languages are mostly not LL(1) (a code span's closer is a run of the opener's length; a link label nests by
+skipping whole tokens), and porting makes the structure match by construction. The delimiter resolver states its
+bound (G5) in its header and the README: linear in a leaf's delimiters, through `openersBottom` and `jumps`.
+
+S2 runs per leaf and on first read (`inlineOf`), and keeps each leaf's tape with its slide's segment, so an update
+re-reads only the edited slide's leaves; a change to the deck's reference labels drops the kept tapes, since a
+reference link anywhere reads every definition. S1 now records the link reference definitions (label, destination
+and title pieces, with their spelling) for it.
+
+**One coordinate system.** A leaf's text is markdown-it's `content`, and `leafText` maps every character of it back to
+the body: inside a quote or list item markdown-it drops each line's prefix, a table cell drops the `\` of an escaped
+pipe, and a tab partly inside an indent becomes spaces (those map to the tab). The fuzz checks the map on every leaf
+it builds. What it takes that a boundary reader does not need (where each container line's text starts, the content
+columns of list markers, rules, fences and table rows) is recorded only by a DETAIL parse: recording it on every
+parse cost the gallery's block pass about a fifth. `slideDetail` parses one slide with detail on demand (a slide
+starts after a top-level break, where every container is closed, so its text parsed alone has the same tokens), or
+the whole body once when most slides lack it; `deckModel(…, { detail: true })` makes the first parse a detail parse.
+A leaf outside any container needs none.
+
+**The token adapter.** `lib/core/model-tokens.mjs` builds markdown-it's tokens from the model, field for field (type,
+tag, nesting, level, map, content, markup, info, attrs, children, block, hidden, meta) with `env.references`, reading
+its configuration off the markdown-it instance it is given and refusing one it has no port of (`linkify`,
+`typographer`, a missing rule). The strings markdown-it derives from a range come from markdown-it's own functions
+(`normalizeLink`, `validateLink`, `normalizeLinkText`, `unescapeAll`, and a named entity's decoding), which is the one
+thing it still borrows; P7 replaces them. `parseFromModel(md, src, env)` is `md.parse` with the block and inline
+parsers swapped for the model and every other core rule running in its place. No render path calls it.
+
+**Parity (§Acceptance, CommonMark).**
+
+| Input | Files | Differences |
+|---|---|---|
+| every committed deck and fixture (`examples/`, galleries, baseline decks, exemplars, plugin and test fixtures) | 603 | 0 tokens (every field, children included, and `env.references`) |
+| the same, rendered through the real engine with only the parse swapped (`model-parse-identity.test.js`) | 603, 7,669 model parses | 0 bytes |
+| the bake-off corpus (decks and docs), through `parser:bakeoff:deck --inline` | 1,404 | 0 |
+| a seeded fuzz over the inline rule surface, each document in eight leaf contexts | 600,000 in development (five seeds); 12,000 per unit run | 0 |
+| CommonMark 0.31.2 spec examples, commonmark preset | 652 | 0 tokens; 652 render HTML identical to markdown-it's |
+
+**Spec conformance, the metric D3 asked for:** 649 of 652 examples render the spec's HTML exactly, the same 649
+markdown-it renders. The three that do not (218, 239, 240) are one difference, in markdown-it's renderer, not its
+parse: an empty `<blockquote>` renders as `<blockquote></blockquote>` where the spec writes a newline inside it. The
+spec's own test runner normalizes whitespace between tags and passes all three. (Run without replacing the spec's `→`
+with a tab, as the npm package's extractor leaves it, twelve more examples look like failures; CommonMark's runner
+replaces it, and so does the arm.) Reproduce: unpack `npm pack commonmark-spec@0.31.2` and run
+`npm run parser:bakeoff:deck -- --inline --spec <dir>/package`.
+
+The fuzz found two defects the corpus did not, both in this work and both fixed before it landed: a pooled inline
+state handed plugin rules the same object across leaves, so math's per-parse memo leaked from one leaf into the next
+(the facade keys it by that object; plugin rules now get a fresh view per parse, pinned by a test at both levels); and
+a scanned leaf with no backtick closers left a table unset. Mutants of the resolver's rule-of-3 condition and of
+`skipHtmlSpecial` turn the fuzz red; a table-alignment mutant in the adapter turns the engine identity red.
+
+**A defect markdown-it and the engine had, fixed (HARD RULE #18).** Math's inline `$` rule searched to the end of the
+paragraph for every `$` with no closer, so a paragraph of prices was quadratic: 100x the characters read for 10x the
+input, in markdown-it and in the model alike. It now remembers, per parse and per `posMax`, that no closer lies ahead
+(sound: whether a `$` closes depends only on its neighbors and on `posMax`). The first cut kept one slot, which every
+link label holding a `$` overwrote (its `posMax` is the label's end), so `Costs $5 per seat, see [the $5 plan](u).`
+repeated stayed quadratic: about 14x the time for 4x the input, 4.9 s at 131 KB in markdown-it. The maker-checker
+review found it; the memo is a map keyed by `posMax`. Renders are unchanged; four shapes, that one included, hold the
+ladder at 10x for 10x in `test/unit/core/model-tokens.test.js`. `html_inline` also matches a tag with a sticky regex at
+its position instead of markdown-it's `src.slice(pos).match(/^…/)`, which copied the rest of the leaf at every `<`.
+
+**The maker-checker review** (one `checker`; about 150,000 differential inputs of its own, every field compared,
+plus 400,000 destinations against `validateLink(normalizeLink(…))` and an incremental fuzz of 19,000 decks with four
+edits each) found no token difference, and four defects, all fixed here with a test that fails without the fix: the
+one-slot math memo above; `modelTokens` ignored an `env.references` a caller had filled in (markdown-it resolves
+against it, and its entries win over the document's; no engine path passes one, but `parseFromModel` claims to be
+`md.parse`); an update through the package's CommonJS copy with a parser from its ESM copy wrote the line index into
+the wrong copy's scratch (`updateDeckModel` now writes through `parser.lineScratch`); and a plugin inline rule whose
+trigger is above ASCII was never tried.
+
+**Bounds.** Seventeen hostile shapes in `inline.test.ts` (unmatched and rule-of-3 delimiter runs, strikethrough runs,
+unclosed and nested labels, destinations, references and images, backtick runs of growing length, unclosed comments,
+tags and autolinks, entities, escapes, breaks) each grow about 10x for 10x input, counted in characters read.
+
+**Speed** (`npm run parser:bakeoff:deck -- --inline --runs 5` and `--model --runs 5`, 4-core Xeon 2.1 GHz, Node 22.23,
+median and range):
+
+| Measure | markdown-it | Deck model |
+|---|---|---|
+| S0-S1, gallery (59 KB), against markdown-it's block parse | 1.60 ms | **0.49 ms**, 3.29x (the owner's floor: 3x) |
+| S0-S1, data-viz (12 KB) · card-tags (3 KB) | 0.48 · 0.11 ms | 0.16 · 0.04 ms, 2.96x · 2.92x (P2: 2.7x · 2.8x) |
+| the inline parse alone, the gallery's 973 leaves | 2.27 ms | **0.60 ms**, 3.8x (range 2.5-5.3) |
+| the inline parse alone, data-viz · card-tags | 1.02 · 0.04 ms | 0.13 · 0.02 ms, 7.8x · 2.2x |
+| S0-S2 (every leaf read), gallery, against markdown-it's block + inline parse | 4.39 ms | **2.18 ms**, 2.0x |
+| S0-S2, data-viz · card-tags | 1.74 · 0.18 ms | 0.72 · 0.13 ms, 2.4x · 1.4x |
+| the corpus, S0-S2 throughput | 11.1 MB/s | 24.9 MB/s, 2.3x |
+| a keystroke in the gallery's middle slide, the update and every leaf of that slide read again | the whole deck | **39 µs** |
+
+The keystroke target (one slide, tens of microseconds) is met with S2 included, and S1 kept its 3x. **The S0-S2
+target as written (under 1 ms on the gallery, against P0's 3.6 ms for markdown-it, about 3.6x) is not met: 2.0x.** The
+inline rules themselves are 3.8x markdown-it's; the rest of S0-S2 is S1 (0.49 ms) and building each leaf's text and
+kept tape (about 1 ms over 973 leaves). As with S1, the target was an absolute time set on another machine; whether
+to restate it as a ratio, and which, is the owner's number (on the PR's decision card).
+
+**What P4 moves, and what it does not.** No reader is switched in this phase: the Studio's outline still tokenizes
+heading sections with the boundary parser (`headingSplitPoints`), and Compose and CodeMirror still parse with their own
+markdown-it and Lezer grammar. Those are P4b. The render path is P7, held to the identity test above and to the
+adversarial trio before it switches.
