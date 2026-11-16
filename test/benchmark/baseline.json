@@ -376,20 +376,17 @@
       "p95": 4.02
     },
     "filo · studio commit: typed word": {
-      "deckChars": 134372,
-      "nextChars": 134379,
+      "storedChars": 23,
       "ms": 0.16,
-      "p95": 0.24
+      "p95": 0.23
     },
     "filo · studio commit: settings write": {
-      "deckChars": 134372,
-      "nextChars": 134357,
-      "ms": 0.09,
-      "p95": 0.17
+      "storedChars": 53,
+      "ms": 0.08,
+      "p95": 0.13
     },
     "filo · studio commit: whole-deck replace": {
-      "deckChars": 134372,
-      "nextChars": 11,
+      "storedChars": 134397,
       "ms": 0,
       "p95": 0
     }

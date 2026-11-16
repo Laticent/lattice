@@ -785,9 +785,10 @@ async function splitTier() {
 // ── FILO TIER (the undo history, on the 134 KB deck) ─────────────────────────
 //
 // docs/src/lib/filo is the Studio's one undo history (engineering/decisions/2026-10-27-filo-undo-history.md).
-// Its budget is "no history step over 16 ms on the main thread" (§4.3), measured in real browsers by
-// docs/e2e/filo-undo.spec.ts; this tier is the durable before/after record HARD RULE #19 asks for,
-// in Node, on the same deck (examples/system-design-foundations.md).
+// Its budget is "no history step over 16 ms on the main thread" (§4.3). Since 2026-11-16 this tier is where
+// that budget lives, as a cost record (HARD RULE #19), in Node, on the same deck
+// (examples/system-design-foundations.md): docs/e2e/filo-undo.spec.ts still drives every kind of step in three
+// browsers and checks each was measured, and logs the slowest without failing on it.
 //
 // IT GATES ON WORK. Each row's integers (steps recorded, characters a step stores, bytes a stored
 // history counts, characters left after narrowing) are the same on every machine, so a moved one is
@@ -933,6 +934,8 @@ async function filoTier() {
  * editor's edits or trims a replace out of the two texts. The 16 ms budget lived in docs/e2e/filo-undo.spec.ts as a
  * pass/fail assertion and failed on WebKit's 1 ms clock under load; the owner moved it here (2026-11-16), where it is a
  * cost tracked against the baseline (HARD RULE #19), not a verdict. Each run times the commit alone, on a fresh history.
+ * The row gates on `storedChars`, the characters the history stores for the step (the same on every machine), so a
+ * commit path that starts storing more fails `bench:check`; its milliseconds are reported, as in the rest of the tier.
  * The rows are the steps that e2e drives: a typed word (with the editor's edits), a settings write (no edits, so a
  * trimmed replace), and the whole deck replaced.
  */
@@ -968,6 +971,7 @@ async function studioCommitRows(deckText) {
     for (const [label, next, intent] of steps) {
       const times = [];
       let outcome = '';
+      let stored = 0;
       for (let i = 0; i < 33; i++) {
         let t = 0;
         const h = new m.History('bench', deckText, { now: () => (t += 100) });
@@ -976,10 +980,11 @@ async function studioCommitRows(deckText) {
         const ms = Number(process.hrtime.bigint() - t0) / 1e6;
         if (outcome !== 'committed') throw new Error(`filo tier: the studio commit of ${label} was ${outcome}, not committed`);
         if (h.text !== next) throw new Error(`filo tier: the studio commit of ${label} left the wrong text`);
+        stored = h.size;
         if (i >= 3) times.push(ms); // the first three warm the JIT
       }
       const r = median(times);
-      rows.push({ dataset: `filo · studio commit: ${label}`, work: { deckChars: deckText.length, nextChars: next.length }, ms: r.ms, p95: r.p95 });
+      rows.push({ dataset: `filo · studio commit: ${label}`, work: { storedChars: stored }, ms: r.ms, p95: r.p95 });
     }
     return rows;
   } finally {

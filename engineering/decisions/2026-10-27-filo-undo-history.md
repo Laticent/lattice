@@ -396,8 +396,8 @@ browser, the 16 ms failed on load alone: on `main` 18bb745e the slowest step was
 run and up to 83 ms in Chromium and 30 ms in WebKit with four test workers sharing the machine, and
 WebKit's `performance.measure` reads whole milliseconds. That is a stopwatch assertion, which HARD
 RULE #32 bans, so the owner moved the budget to `npm run bench` (the Filo tier's `filo · studio
-commit` rows, the Studio's own `commitSource` on this deck, tracked against the baseline under HARD
-RULE #19). The e2e, `docs/e2e/filo-undo.spec.ts`, still drives every kind of step in all three engines
+commit` rows, the Studio's own `commitSource` on this deck, in Node). There the milliseconds are a cost
+record under HARD RULE #19, reported and not gated, and the rows gate on the characters each step stores. The e2e, `docs/e2e/filo-undo.spec.ts`, still drives every kind of step in all three engines
 and checks each was measured, and it logs the slowest step without failing on it.
 
 ### 4.4 Bounds
@@ -492,7 +492,7 @@ slices 3 and 4 are merged and in use, so what Compose teaches us never becomes a
 |---|---|---|---|
 | ⌘Z / Ctrl+Z and ⌘⇧Z / Ctrl+Y work at all times | Root keymap, `beforeinput`, Compose bypassing the park, scope stack (exceptions in §3.5, listed in §11) | An e2e that presses each chord with focus on each Studio surface in turn, including Compose with focus, a code field, the preview and the page body; the gate (§3.2 rule 6) | 3, 4 |
 | Survives reload | IndexedDB, sidecar hash (§5) | The three reload e2es of §5 | 5 |
-| Off the main thread | The 16 ms budget; broad diffs never on the main thread (§4.3) | The `npm run bench` Filo rows (since 2026-11-16); the `performance.measure` e2e in three engines checks every step is measured | 3, 5 |
+| Off the main thread | The 16 ms budget; broad diffs never on the main thread (§4.3) | The `npm run bench` Filo rows (since 2026-11-16): their milliseconds are a cost record in Node, reported and not gated, and they gate on what a step stores; the `performance.measure` e2e in three browsers checks every step happens and is measured | 3, 5 |
 | A max-changes limit with an LRU | Entry cap default 100, max 500; cross-document LRU by bytes (§4.4) | Unit tests: 501 clamps to 500; the 101st entry folds; eviction by last write | 2, 5 |
 | Diff/patch, not copies | Patches; marks with anchors instead of copies | Property tests (apply then invert is identity; compose agrees with sequential apply; map is consistent); a scripted trace on the 134 KB deck (300 edits: typing bursts, 10 settings writes, 5 AI applies, 25 marks spread evenly) stores at least 10x less than 25 copies | 2, 6 |
 | Used wherever undo is needed | The commit path and the gate | The gate; this list: deck source (both editors, settings, rail, AI, lint, restores, pane picks), Library asset editors, Fabricate, Motion Studio, Lexicon, Acronyms | 3, 4, 7 |
