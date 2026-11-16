@@ -44,8 +44,8 @@ const latticeIconGridKit = () => {
  * first icon's name and the point to tap it at, once its box has held still for five frames.
  * @param {'source' | 'preview'} where
  */
-// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's addScriptTag
-async function latticeIconGridOpen(where) {
+// A global on purpose, set rather than declared, so it is plainly one: run.mjs and the self-test call it after this file.
+globalThis.latticeIconGridOpen = async function latticeIconGridOpen(where) {
 	const result = { ua: navigator.userAgent, width: innerWidth, steps: [], ok: false };
 	const step = (name, pass, detail) => {
 		result.steps.push({ name: `${where} · ${name}`, pass: !!pass, detail: detail === undefined ? '' : String(detail) });
@@ -100,7 +100,7 @@ async function latticeIconGridOpen(where) {
 		result.error = String(e?.message ? e.message : e);
 	}
 	return result;
-}
+};
 
 /**
  * After the tap: the grid closed, and either the span is in the editor (`source`) or a toast says it was copied (`preview`).
@@ -108,8 +108,8 @@ async function latticeIconGridOpen(where) {
  * @param {string} name the icon tapped
  * @param {number} before how many icon spans the editor held before the tap
  */
-// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's addScriptTag
-async function latticeIconGridCheck(where, name, before) {
+// A global on purpose, as `latticeIconGridOpen` is.
+globalThis.latticeIconGridCheck = async function latticeIconGridCheck(where, name, before) {
 	const result = { steps: [], ok: false };
 	const step = (label, pass, detail) => {
 		result.steps.push({ name: `${where} · ${label}`, pass: !!pass, detail: detail === undefined ? '' : String(detail) });
@@ -133,4 +133,4 @@ async function latticeIconGridCheck(where, name, before) {
 		result.error = String(e?.message ? e.message : e);
 	}
 	return result;
-}
+};
