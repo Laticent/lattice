@@ -797,7 +797,8 @@ against 148.6 KB). So it is injected instead (lib/core/slide-boundaries.mjs `set
 front-matter reader (docs/src/lib/front-matter.ts `FM_RE`) swallows the blank lines after the closing `---`, and the
 engine's split keeps them in the body, so the two models' line numbers differ by those lines. A first cut handed the
 outline's model to the memo; it helped only a deck with no front matter, so it went. Sharing one model needs one
-front-matter split, which is followups.d/3042-p3 (`frontMatterBlock` and its nine writers). The preview's sample is a
+front-matter split. (followups.d/3042-p3 was the BOM half of that and is closed, §The last P3 islands; the blank lines
+the Studio's block swallows still differ.) The preview's sample is a
 third string by design.
 
 Held by a differential in test/unit/core/slide-boundaries.test.js: a random walk of 1,000 edits over corpus-shaped
@@ -899,3 +900,15 @@ test/unit/core/meta-record.test.js).
 | The checker's own fuzz: HTML block types 1-7, lazy continuation, nested quotes, tab code, CRLF and BOM, 140,000 decks over seeds 1-5 | 0 disagreements |
 | `npm run identity:check -- --strict` | 0 renders differ; the reader is Studio-only, so no export byte moves |
 | The Studio's own suites (`docs/src/components/studio`, slide-directives) | 331 files, 4,672 tests green |
+
+**The Studio reads front matter under a BOM (followups.d/3042-p3, closed).** The engine drops a leading BOM before it
+looks for front matter (S0), so `\uFEFF---` / `theme: x` / `---` is the deck's settings. The Studio's reader
+(docs/src/lib/front-matter.ts `FM_RE`) did not skip it, so the outline listed `theme: x` as a slide and every
+front-matter control read nothing. `FM_RE` now takes the BOM as part of the block, and the writers keep it where it was:
+a line splice leaves it alone, a block that empties keeps it, a new block goes after it, and the block writers
+(`setFrontMatterBlock`, `setFrontMatterAcronyms`) put it back in front, never into the body as text. The outline
+(docs/src/lib/deck-outline/deck-outline.ts `bodyStartOf`) also starts the body past a BOM when there is no front
+matter, so `\uFEFF---` is a break there as it is to the engine. Pinned in docs/src/lib/front-matter.test.ts and
+docs/src/lib/deck-outline/deck-outline.test.ts (each against `splitSourceToSections`). The other ways the Studio's fence
+is laxer than the engine's (trailing spaces after `---`, CRLF) are the fence copies PR #3228 lists
+(followups.d/3042-p3-front-matter-fence-copies.md on that branch).

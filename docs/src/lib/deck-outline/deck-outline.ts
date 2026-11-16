@@ -276,11 +276,17 @@ function assignIds(fresh: readonly string[], old: readonly { id: UnitId; text: s
 	return ids;
 }
 
+/** Where the body starts: past the front matter, and past a leading BOM either way, because the engine drops a BOM
+ *  before anything reads the deck (S0), so `\uFEFF---` is a break or the settings block there, never text. */
+function bodyStartOf(text: string): number {
+	return frontMatterBlock(text).length || (text.charCodeAt(0) === 0xfeff ? 1 : 0);
+}
+
 /** Build an index of `source` from nothing. `prev`, when given, lends its ids to units that
  *  start at the same offset (the fallback path of `updateDeckIndex` uses it). */
 export function buildDeckIndex(source: string, prev?: DeckIndex, carry?: (newFrom: number) => number | undefined, held?: BodyModel): DeckIndex {
 	const text = String(source ?? '');
-	const bodyStart = frontMatterBlock(text).length;
+	const bodyStart = bodyStartOf(text);
 	const mode = resolveSplitMode(text);
 	const body = text.slice(bodyStart);
 	// `held`: a model of this body the caller already has (an update that could not splice its units).
@@ -364,7 +370,7 @@ export function updateDeckIndex(prev: DeckIndex | null | undefined, next: string
 	// Front matter edits can change the split mode and the body start; plugin admission
 	// changes the parser itself. Both rebuild.
 	if (from < prev.bodyStart || prev.rulesGeneration !== boundaryRulesGeneration()) return full();
-	if (frontMatterBlock(text).length !== prev.bodyStart) return full();
+	if (bodyStartOf(text) !== prev.bodyStart) return full();
 	// The split mode is read by its own front-matter regex, which is not the Studio's: an edit
 	// just past a broken block can change one and not the other. Both are cheap anchored reads.
 	if (resolveSplitMode(text) !== prev.mode) return full();

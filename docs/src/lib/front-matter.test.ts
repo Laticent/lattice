@@ -578,3 +578,28 @@ describe('a repeated `finish-override:` block reads the LAST block (#3050, D1)',
 		expect(getFrontMatter(out, 'footer')).toBe('real');
 	});
 });
+
+describe('a leading BOM: the block is the engine’s settings block, and every writer keeps the BOM (3042-p3)', () => {
+	const B = '\uFEFF';
+	const src = `${B}---\ntheme: x\n---\n\n# A\n`;
+	it('reads the block under a BOM, as the engine does after it drops the BOM', () => {
+		expect(frontMatterBlock(src)).toBe(`${B}---\ntheme: x\n---\n\n`);
+		expect(innerFrontMatter(src)).toBe('theme: x');
+		expect(getFrontMatter(src, 'theme')).toBe('x');
+		expect(stripFrontMatter(src)).toBe('# A\n');
+	});
+	it('a line write splices the key and keeps the BOM in front', () => {
+		expect(writeFrontMatterLine(src, 'theme', 'y')).toBe(`${B}---\ntheme: y\n---\n\n# A\n`);
+		expect(writeFrontMatterLine(src, 'size', '4:3')).toBe(`${B}---\ntheme: x\nsize: 4:3\n---\n\n# A\n`);
+		expect(writeFrontMatterLine(src, 'theme', null)).toBe(`${B}# A\n`);
+		expect(writeFrontMatterLine(`${B}# A\n`, 'theme', 'x')).toBe(`${B}---\ntheme: x\n---\n\n# A\n`);
+	});
+	it('the block writers keep the BOM in front, never in the body', () => {
+		const out = setFrontMatterBlock(src, 'lexicon', [['a', 'b']]);
+		expect(out.startsWith(`${B}---\ntheme: x\nlexicon:\n`)).toBe(true);
+		expect(out.indexOf(B, 1)).toBe(-1);
+		expect(setFrontMatterBlock(`${B}# A\n`, 'lexicon', [])).toBe(`${B}# A\n`);
+		const acr = setFrontMatterAcronyms(`${B}# A\n`, [['CRO', { expansion: 'chief revenue officer' }]]);
+		expect(acr).toBe(`${B}---\nacronyms:\n  CRO: "chief revenue officer"\n---\n\n# A\n`);
+	});
+});

@@ -18,7 +18,14 @@
 // Match a leading `---` block AND any fully-blank lines that follow it, so
 // stripping the block leaves the body flush — WITHOUT eating a content line's own
 // leading indentation (each consumed blank line must end in a newline).
-const FM_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n(?:[ \t]*\r?\n)*)?/;
+// A leading BOM belongs to the block: the engine drops it before it looks for front matter
+// (S0, lib/core/deck-model.mjs), so `\uFEFF---` opens the deck's settings there, and the Studio
+// reads the same block (followups.d/3042-p3, now closed). Writers keep the BOM where it was.
+const FM_RE = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n(?:[ \t]*\r?\n)*)?/;
+/** The block's opening line, its BOM included, so an offset past it indexes the source. */
+const FM_OPEN_RE = /^\uFEFF?---[ \t]*\r?\n/;
+/** A leading byte-order mark, or ''. */
+const bomOf = (src: string) => (src.charCodeAt(0) === 0xfeff ? '\uFEFF' : '');
 
 /** The raw leading front-matter block (incl. delimiters + trailing newline), or ''. */
 export function frontMatterBlock(source: string): string {
@@ -112,7 +119,7 @@ const BLOCK_SCALAR_RE = /^(\s*)([A-Za-z][\w-]*)[ \t]*:[ \t]+([|>](?:[1-9][+-]?|[
 /** Re-emit a front-matter block from flat pairs + nested blocks (verbatim child lines),
  *  or the bare body when nothing remains. Nested blocks trail the flat keys. A block scalar
  *  re-emits its indicator and body verbatim, never the quoted string `"|"`. */
-function emitFm(pairs: [string, string][], blocks: [string, string[]][], body: string, scalars = new Map<string, { head: string; body: string[] }>()): string {
+function emitFm(pairs: [string, string][], blocks: [string, string[]][], body: string, scalars = new Map<string, { head: string; body: string[] }>(), bom = ''): string {
 	const lines = pairs.flatMap(([k, v]) => {
 		const s = scalars.get(k);
 		return s && s.head === v ? [`${k}: ${s.head}`, ...s.body] : [`${k}: ${quoteIfNeeded(v)}`];
@@ -121,8 +128,10 @@ function emitFm(pairs: [string, string][], blocks: [string, string[]][], body: s
 		lines.push(`${k}:`);
 		for (const c of child) lines.push(c);
 	}
-	if (!lines.length) return body;
-	return `---\n${lines.join('\n')}\n---\n\n${body.replace(/^(?:[ \t]*\r?\n)+/, '')}`;
+	// The BOM goes back where it was: in front of the block, never into the body as text.
+	const lead = body.startsWith('\uFEFF') ? '' : bom;
+	if (!lines.length) return `${lead}${body}`;
+	return `${bom}---\n${lines.join('\n')}\n---\n\n${body.replace(/^\uFEFF/, '').replace(/^(?:[ \t]*\r?\n)+/, '')}`;
 }
 
 function unquote(v: string): string {
@@ -218,7 +227,7 @@ export function frontMatterKeySpan(source: string, key: string): { start: number
 	const src = String(source ?? '');
 	const m = FM_RE.exec(src);
 	if (!m) return null;
-	const open = /^---[ \t]*\r?\n/.exec(m[0]);
+	const open = FM_OPEN_RE.exec(m[0]);
 	if (!open) return null;
 	const lines = m[1].split('\n'); // '\r' stays attached to the line, like `parseFm`'s own split
 	const bare = (raw: string) => raw.slice(0, raw.length - (raw.endsWith('\r') ? 1 : 0));
@@ -298,14 +307,14 @@ function removeKeySpan(src: string, span: { start: number; end: number }): strin
 	// re-parsing the result: `FM_RE` does not match a degenerate `---\n---`, so the naive
 	// re-parse reports "no block" and leaves the empty delimiters stranded in the source.
 	const m = FM_RE.exec(src);
-	const open = m && /^---[ \t]*\r?\n/.exec(m[0]);
+	const open = m && FM_OPEN_RE.exec(m[0]);
 	if (m && open) {
 		const innerStart = open[0].length;
 		const innerEnd = innerStart + m[1].length;
 		const remaining = src.slice(innerStart, span.start) + src.slice(end, innerEnd);
 		// Nothing but blanks left → drop the whole block, so clearing the last directive
 		// leaves the deck exactly as clean as it was before the first one was set.
-		if (!remaining.trim()) return src.slice(m[0].length);
+		if (!remaining.trim()) return `${bomOf(src)}${src.slice(m[0].length)}`;
 	}
 	return `${src.slice(0, span.start)}${src.slice(end)}`;
 }
@@ -339,7 +348,7 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
 		// dead one count instead, or an indented one the reader falls back to (Lattice #3050, D1). A key nested under a block
 		// is never the deck's, so `frontMatterKeySpan` never returns it.
 		// Stop once the block is gone: what follows is slide content, and a `---` run there must never be read as it.
-		const dropped = (before: string, after: string) => after === before.slice(FM_RE.exec(before)?.[0].length ?? 0);
+		const dropped = (before: string, after: string) => after === bomOf(before) + before.slice(FM_RE.exec(before)?.[0].length ?? 0);
 		let out = removeKeySpan(src, span);
 		let more = !dropped(src, out);
 		while (more) {
@@ -354,7 +363,7 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
 	if (span) return `${src.slice(0, span.start)}${span.indent}${key}: ${quoteIfNeeded(value)}${src.slice(span.end)}`;
 	const m = FM_RE.exec(src);
 	if (m) {
-		const open = /^---[ \t]*\r?\n/.exec(m[0]);
+		const open = FM_OPEN_RE.exec(m[0]);
 		if (open) {
 			const eol = m[0].includes('\r\n') ? '\r\n' : '\n';
 			const at = open[0].length + m[1].length; // end of the inner body, before the closing `---`
@@ -362,7 +371,8 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
 		}
 	}
 	const eol = src.includes('\r\n') ? '\r\n' : '\n';
-	return `---${eol}${key}: ${quoteIfNeeded(value)}${eol}---${eol}${eol}${src.replace(/^(?:[ \t]*\r?\n)+/, '')}`;
+	const bom = bomOf(src);
+	return `${bom}---${eol}${key}: ${quoteIfNeeded(value)}${eol}---${eol}${eol}${src.slice(bom.length).replace(/^(?:[ \t]*\r?\n)+/, '')}`;
 }
 
 /**
@@ -498,7 +508,7 @@ export function setFrontMatterBlock(source: string, key: string, entries: Iterab
 		const child = list.map(([k, v]) => `  "${esc(String(k))}": ${quoteIfNeeded(String(v))}`);
 		blocks.push([key, child]);
 	}
-	return emitFm(pairs, blocks, body, scalars);
+	return emitFm(pairs, blocks, body, scalars, bomOf(String(source ?? '')));
 }
 
 /** One acronym registry entry: the spoken expansion (required) + an optional glossary definition. */
@@ -553,5 +563,5 @@ export function setFrontMatterAcronyms(source: string, entries: Iterable<[string
 		}
 	}
 	if (child.length) blocks.push(['acronyms', child]);
-	return emitFm(pairs, blocks, body, scalars);
+	return emitFm(pairs, blocks, body, scalars, bomOf(String(source ?? '')));
 }
