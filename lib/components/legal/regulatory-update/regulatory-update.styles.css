@@ -249,10 +249,12 @@ section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:first-
  * BELOW the band header is carried as padding-top on the list that follows it —
  * measurable, and it leaves the h3's own border position untouched. */
 section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3 + :is(ol, ul) { padding-top:var(--sp-xs); }
-section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:nth-of-type(8n+1) { color:var(--pass); border-color:var(--pass); }
-section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:nth-of-type(8n+2) { color:var(--warn); border-color:var(--warn); }
-section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:nth-of-type(8n+3) { color:var(--fail); border-color:var(--fail); }
-section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:nth-of-type(8n+4) { color:var(--accent); border-color:var(--accent); }
+/* A split page that opens partway through the run reads the band from the ordinal the split stamps
+ * (`data-split-nth`, lib/core/split-envelope.js `withGroupOrdinals`): there "Repealed" is the first h3. */
+section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:is(:nth-of-type(8n+1):not([data-split-nth]), [data-split-nth="1"], [data-split-nth="9"]) { color:var(--pass); border-color:var(--pass); }
+section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:is(:nth-of-type(8n+2):not([data-split-nth]), [data-split-nth="2"], [data-split-nth="10"]) { color:var(--warn); border-color:var(--warn); }
+section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:is(:nth-of-type(8n+3):not([data-split-nth]), [data-split-nth="3"], [data-split-nth="11"]) { color:var(--fail); border-color:var(--fail); }
+section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:is(:nth-of-type(8n+4):not([data-split-nth]), [data-split-nth="4"], [data-split-nth="12"]) { color:var(--accent); border-color:var(--accent); }
 
 /* .priority — tiered priority badges. A tier past the third keeps the accent chip; the first three
  * borrow the status colors, so they are status MARKS (engineering/decisions/2026-10-24-status-is-one-system.md):
