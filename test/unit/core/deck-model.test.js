@@ -198,3 +198,60 @@ test('regressions from the adversarial review: math\'s cross-slide memo, and a B
 	const { splitSourceToSections } = require('../../../lib/core/section-source-split.js');
 	assert.deepEqual(splitSourceToSections('---\ntheme: indaco\n---\n﻿---\n\n# Two\n'), ['---\n\n# Two']);
 });
+
+/** Every reader-visible view of a model, as comparable text: the tape token by token, the boundaries and each range list. */
+function views(m) {
+	const b = m.blocks;
+	const tape = [];
+	for (let i = 0; i < b.length; i++) {
+		const a = i * STRIDE;
+		tape.push(Array.from(b.tape.subarray(a, a + STRIDE)).join(','));
+	}
+	const ranges = (list) => list.map((r) => `${r.type}:${r.fromLine}-${r.toLine}@${r.level}/${r.slide}`).join(' ');
+	return { tape, boundaries: Array.from(m.boundaries), leadingEmpty: m.leadingEmpty, directives: ranges(m.directives), html: ranges(m.html), fences: ranges(m.fences), plugins: ranges(m.plugins), leaves: ranges(m.leaves), containers: ranges(m.containers) };
+}
+
+test('math decks splice past a `$$` block that holds no memo, and agree with a parse from nothing (seed 3042, 3,000 edits)', async () => {
+	// followups.d/3042-p2 (closed): a closed `$$` block above the edit no longer makes every update parse the deck from
+	// nothing. Only a held "no closer ahead" memo does. The atoms are the shapes the memo and the splice can disagree on:
+	// unclosed openers at the top level and in containers, blocks that close across a break, a `$$` line under a paragraph
+	// (the silent try), and inline `$` that the block rule declines.
+	const ATOMS = ['$$\nx = 1\n$$\n', '$$ y $$\n', '$$\na\n\nb\n$$\n', 'text\n$$\nz\n$$\n', '$$\n', '> $$\n', '- $$\n  a\n', '$x$ and $$\n', 'para\n', '\n', '---\n', '\n---\n\n', '# H\n', '$$\nacross\n\n---\n\nbreak\n$$\n', '```\n$$\n```\n', '    $$\n'];
+	let seed = 3042;
+	const rand = (n) => {
+		seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+		return seed % n;
+	};
+	const { deckModelStats } = await import('@laticent/segno-markdown');
+	const before = deckModelStats.incremental;
+	for (let deck = 0; deck < 60; deck++) {
+		let src = '';
+		for (let i = 0; i < 6 + rand(10); i++) src += ATOMS[rand(ATOMS.length)];
+		let m = bodyModel(src);
+		for (let step = 0; step < 50; step++) {
+			const at = rand(src.length + 1);
+			const kind = rand(4);
+			let next;
+			if (kind === 0) next = src.slice(0, at) + 'abc$ \n'[rand(6)] + src.slice(at);
+			else if (kind === 1) next = src.slice(0, at) + src.slice(at + 1);
+			else if (kind === 2) next = src.slice(0, at) + ATOMS[rand(ATOMS.length)] + src.slice(at);
+			else next = src.slice(0, at) + src.slice(Math.min(src.length, at + 1 + rand(12)));
+			m = updateDeckModel(m, next);
+			assert.deepEqual(views(m), views(bodyModel(next)), `seed 3042, deck ${deck}, step ${step}: ${JSON.stringify(next)}`);
+			src = next;
+		}
+	}
+	// The failing arm: the walk went through the splice, not around it.
+	assert.ok(deckModelStats.incremental - before > 1000, `${deckModelStats.incremental - before} incremental updates`);
+});
+
+test('a memo the edit creates reaches the slides below it, so the update re-reads them (3042-p2)', () => {
+	// `> $$` finds no closer inside its quote and holds math's memo; the single-line `$$ y $$` two slides down is then a
+	// paragraph, where it was a math block before the edit. A splice that reused the old tail kept the block.
+	const a = 'a\n\n---\n\nb\n\n---\n\n$$ y $$\n';
+	const b = `> $$${a.slice(1)}`;
+	assert.deepEqual(views(updateDeckModel(bodyModel(a), b)), views(bodyModel(b)));
+	assert.deepEqual(bodyModel(b).plugins.map((r) => r.type), []);
+	// And the other way: an edit that removes the only held memo lets the block below come back.
+	assert.deepEqual(views(updateDeckModel(bodyModel(b), a)), views(bodyModel(a)));
+});

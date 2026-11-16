@@ -196,6 +196,15 @@ export interface BlockParserOptions {
 	 * numeric references only and judged by the same protocol rule.
 	 */
 	linkOk?: (rawDestination: string) => boolean;
+	/**
+	 * Whether a `scansAhead` rule has left state on this parse that a later try reads (math's "no closer ahead"
+	 * memo). Asked after each such try; the first line it says yes on is the parse's `memoAt`. With it, an
+	 * incremental update splices past a slide where such a rule was tried, as long as no memo is held there: the
+	 * rule's CONTRACT is that a try reads no line past the block it opens, and a try that declines after reading
+	 * ahead leaves its memo held. Without it, every try counts as leaving a memo, so a deck with such a rule
+	 * above the edit parses from nothing.
+	 */
+	memoHeld?: (state: unknown) => boolean;
 }
 
 /** The scratch line index `parseFrom` reads: `bMarks`/`eMarks` with room for `lines + 1` entries. */
@@ -230,6 +239,8 @@ export interface BlockTape {
 	readonly side: ReadonlyMap<number, { content?: string; info?: string; markup?: string; meta?: unknown }>;
 	/** Every line a `scansAhead` rule was tried on, in the order tried. */
 	readonly forward: readonly number[];
+	/** The line of the first `scansAhead` try after which the parse held a memo (`memoHeld`), or -1. */
+	readonly memoAt: number;
 }
 
 const MAX_NESTING = 20; // markdown-it's commonmark preset
@@ -503,6 +514,8 @@ class State implements BlockState {
 	stopped = false;
 	/** Lines a `scansAhead` rule was tried on. */
 	forward: number[] = [];
+	/** The line of the first `scansAhead` try after which a memo was held, or -1. */
+	memoAt = -1;
 	/**
 	 * The last `-->` search: from `closeFrom`, the next one is at `closeAt` (-1: none to the end). Any search from
 	 * a position in `[closeFrom, closeAt]` (or past `closeFrom` when there is none) has the same answer, so a run
@@ -1538,10 +1551,13 @@ export class BlockParser {
 			if (at < 0) throw new Error(`segno-markdown: no block rule "${anchor}" to install "${extra.name}" ${extra.after ? 'after' : 'before'}`);
 			if (extra.after) at++;
 			const raw = extra.rule as unknown as Rule;
+			const memoHeld = opts.memoHeld;
 			const fn: Rule = extra.scansAhead
 				? (st, line, end, silent) => {
 						st.forward.push(line);
-						return raw(st, line, end, silent);
+						const ok = raw(st, line, end, silent);
+						if (st.memoAt < 0 && (!memoHeld || memoHeld(st))) st.memoAt = line;
+						return ok;
 					}
 				: raw;
 			list.splice(at, 0, [extra.name, fn, extra.alt ?? []]);
@@ -1635,7 +1651,7 @@ export class BlockParser {
 		const state = new State(src, this);
 		if (src) this.tokenize(state, startLine, state.lineMax);
 		const n = state.lineMax + 1;
-		return { src, kinds: this.kinds, tape: state.tape.slice(0, state.n * STRIDE), length: state.n, lines: state.lineMax, bMarks: state.bMarks.slice(0, n), eMarks: state.eMarks.slice(0, n), side: state.side, forward: state.forward };
+		return { src, kinds: this.kinds, tape: state.tape.slice(0, state.n * STRIDE), length: state.n, lines: state.lineMax, bMarks: state.bMarks.slice(0, n), eMarks: state.eMarks.slice(0, n), side: state.side, forward: state.forward, memoAt: state.memoAt };
 	}
 
 	/**
@@ -1645,10 +1661,10 @@ export class BlockParser {
 	 * it stopped (false: it ran to the end of the input). The scratch index is left as the parse found it,
 	 * so the caller can copy the lines it needs out of it.
 	 */
-	parseFrom(src: string, lines: number, from: number, stop: (line: number) => boolean): { tape: Int32Array; length: number; stopped: boolean; side: BlockTape['side']; forward: readonly number[] } {
+	parseFrom(src: string, lines: number, from: number, stop: (line: number) => boolean): { tape: Int32Array; length: number; stopped: boolean; side: BlockTape['side']; forward: readonly number[]; memoAt: number } {
 		const state = new State(src, this, { bMarks: scratch.bMarks, eMarks: scratch.eMarks, lines, from });
 		state.stop = stop;
 		if (src) this.tokenize(state, from, state.lineMax);
-		return { tape: state.tape.slice(0, state.n * STRIDE), length: state.n, stopped: state.stopped, side: state.side, forward: state.forward };
+		return { tape: state.tape.slice(0, state.n * STRIDE), length: state.n, stopped: state.stopped, side: state.side, forward: state.forward, memoAt: state.memoAt };
 	}
 }

@@ -855,7 +855,7 @@ with the same reuse rule as `nx_<code>`, and keeps it across parses while the in
 value, so a copy keeps it); a different text resets it. `nx_<code>` is unchanged and still resets per parse. A grammar
 without stops generates exactly as before. The same CDATA input now covers 2.6 times its length through R3.
 
-## The last P3 islands (2026-11-16)
+## The last P3 islands, and math decks splice (2026-11-16)
 
 **Where each P3 island went.** §P3 islands left four readers on their own scans. None is left on this pipeline's
 list:
@@ -912,3 +912,57 @@ matter, so `\uFEFF---` is a break there as it is to the engine. Pinned in docs/s
 docs/src/lib/deck-outline/deck-outline.test.ts (each against `splitSourceToSections`). The other ways the Studio's fence
 is laxer than the engine's (trailing spaces after `---`, CRLF) are the fence copies PR #3228 lists
 (followups.d/3042-p3-front-matter-fence-copies.md on that branch).
+
+**Math decks splice (followups.d/3042-p2, closed).** `updateDeckModel` parsed the deck from nothing whenever a
+`scansAhead` rule (math's `$$`) had been tried above the reused tail, because such a rule reads past a break and its
+"no closer ahead" memo carries from one slide into the next. Both risks are narrower than "tried". The rule's
+contract, which math keeps, is that a try reads no line past the block it opens, and a try that declines after
+reading ahead writes its memo. A block ends before the next top-level break, so a try that left no memo cannot reach
+the edit from above or the tail from the re-read slides. Only a held memo can. So the block pass now records where a
+memo was first held (`memoAt`, asked through the new `memoHeld` option; lib/plugins/state-facade.mjs `memoHeld`
+answers for the plugin facades), each segment keeps it, and the update rebuilds only when a memo is held at the
+restart or the reused tail's start in the old parse, or at the stop in the new one. A host that passes no `memoHeld`
+gets the old rule exactly: every try counts as holding one.
+
+| `npm run bench`, edit tier, same machine | parses/key | bounds ms/key | meta ms/key | ms/key |
+|---|---|---|---|---|
+| math, before | 3.0 | 0.71 | 0.49 | 26.12 |
+| math, after | **1.0** | 0.39 | 0.20 | 20.77 |
+
+The math row now reads what every other row reads; the `$$` limit's extra 2 is gone. The milliseconds are commentary
+on a shared machine; the counts are the gate, and baseline.json is re-blessed with them.
+
+**The 1.0 left on every row is the edit's own work, not a parse of the deck.** followups.d/3042-p2 asked for 0, written
+when the column counted only the deck readers; on 2026-11-06 the bench added the class editor's read (§The editors install
+the deriver: "The 1.1 left is that slide"). That read asks `commentBlocks(chunk)` for each slide, and the one chunk a
+keystroke changes is a text it has not seen, so it is parsed. Three things show it is necessary and minimal:
+
+- **It reads only the edited slide.** Two new edit-tier counts say so on every dataset: `deck parses/key`, parses from
+  nothing of a text holding more than one slide, reads **0.0**; `extra lines/key`, lines those parses read past the
+  edited slide's own, reads **0.0**. Both are gated like `parses` (a rise is a regression).
+- **Nothing could be reused.** A chunk is one slide, and the model's splice unit is one slide: `updateDeckModel` from the
+  slide's previous text would restart at that slide's first line and re-read every line of it, the same lines, counted as
+  "incremental" instead. Deriving it would move the counter, not the work.
+- **The deck readers' model of that slide is not its answer.** The deck model reads the slide in the deck's context (a `$$`
+  memo held above it, a block running from a slide before); the class editor reads the chunk alone, as its writer edits it.
+  The two can differ, so one cannot stand in for the other without a second rule, which this pipeline does not add.
+
+| edit tier, per keystroke | parses | deck parses | extra lines |
+|---|---|---|---|
+| math, before (the old splice rule put back) | 3.0 | 2.0 | 264.0 |
+| every dataset, after | 1.0 (0.0 on the comment-free div deck) | **0.0** | **0.0** |
+
+The "before" row is also the gate's failing arm: with the old rule restored, `npm run bench:check` reports
+`edit · math … REGRESSION (more parses from nothing)`.
+
+So the precise metric the follow-up meant is `deck parses/key` = 0, and every row meets it.
+
+Held by two tests in test/unit/core/deck-model.test.js: a seeded walk (seed 3042) of 3,000 edits over math-shaped
+atoms (unclosed openers at the top and in containers, blocks closing across a break, a `$$` line under a paragraph,
+inline `$`), each update compared with a parse from nothing on the tape and every range list, with more than 1,000
+splices taken; and a memo the edit creates two slides above a single-line `$$ y $$`. Dropping the old-parse check
+fails the walk; dropping the new-parse check fails the second test. An independent checker ran its own differential (math in lists and
+quotes closing across a break, unclosed `$$` in containers, edits that change nesting, front matter, a BOM, CRLF): 176,000
+updates over 11 seeds, 0 mismatches. It also confirmed the contract holds for math as installed: `math_block` has no
+`alt`, so it never ends a paragraph, list or quote and is never tried silently.
+
