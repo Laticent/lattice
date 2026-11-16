@@ -161,6 +161,16 @@ for blocks; table cells; plain-text copy of unformatted runs; `__x__`; a paste o
 copied as bytes; plain-paste detection read from ProseMirror (Shift+Insert is not plain; a stale Shift no longer
 sticks); no notice for a paste the guard refused; a drag that carries HTML beside its file stays ProseMirror's.
 
+**The keys are read by the shared reader (2026-11-16).** After three review rounds each found the private splitter
+misreading front matter in a new way, the owner pointed at the existing work: `keyGroups`
+(`lib/core/front-matter-groups.js`) already reads a front-matter body's top-level keys for the Marp-bundle exporter,
+the runtime's merge, the settings-block fold and the legend. The paste merge and `isSettingsBlock` now read keys with
+it (HARD RULE #15), and its own gaps were fixed in place for every caller: a list at its key's own column, a quoted
+value or flow map running past its key's line. The first of those was a live Marp-export bug: the stray `- lead` made
+Marp reject the bundle's whole front matter (measured with marp-core 4.4.0: no footer, no page numbers, no `invert`).
+The longer-term home is Segno's front-matter island (followups.d/3042-p1), which is blocked on its own export
+sign-off.
+
 Review rounds on this half: a maker-checker review of the first cut (a run of slides starting at `---` lost its
 first slide), the card's grader (the first fix still passed any "Word: text" line), and a second checker (column-0
 lists dropped, nested maps cut at a blank line, plugin keys refused, text compared instead of values, repeated keys

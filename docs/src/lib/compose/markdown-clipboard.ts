@@ -14,6 +14,7 @@ import { Fragment, type Node as PMNode, Slice } from 'prosemirror-model';
 import { AllSelection, type EditorState, Plugin, PluginKey, Selection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import deckSettings from '../../../../lib/core/deck-settings.js';
+import frontMatterGroups from '../../../../lib/core/front-matter-groups.js';
 import pluginRegisters from '../../../../lib/plugins/registers.generated.js';
 import { innerFrontMatter } from '../front-matter';
 import { normalizeSourceText } from '../normalize-source-text';
@@ -110,37 +111,35 @@ function keepEdgeSpaces(content: Fragment, text: string): Fragment {
 	return Fragment.from(nodes);
 }
 
-/** A top-level key line, bare or quoted: the key is captured for the known-key test. */
-const SETTING_LINE = /^(?:"([^"\n]+)"|'([^'\n]+)'|([A-Za-z_][\w-]*))[ \t]*:/;
-/** Any line YAML could read as a top-level key (`$schema:`, `x.y:`), known to Lattice or not. */
-const KEYISH_LINE = /^[^\s#-][^:\n]*:(?:[ \t]|$)/;
 /** A Markdown heading. YAML reads `# Speaker` as a comment too, and the two cannot be told apart by shape. */
 const HEADING_LINE = /^#{1,6}[ \t]+\S/;
+/** A line that is only a comment or blank. */
+const isNote = (line: string) => !line.trim() || line.startsWith('#');
 
 /**
  * Is a leading `---` block a deck's SETTINGS, or a run of slides copied from the middle of a deck that starts at a
- * break? Settings when at least one key is one the engine knows (`lib/core/deck-settings.js`, with the plugins'
- * registers and the `_` keys) and no line is Markdown: every line is a key (known or not), an indented line, a list
- * item, a comment or a blank, and none is a heading. "Goal: ship Q3" and "Owner: Ana" name no setting, and a slide
- * that holds a heading is a slide; read as settings, the first pasted slide vanished into the deck's YAML (the
- * checker, then the card's grader, then a second checker, on #3234).
- *
- * The one ambiguity is resolved toward the VISIBLE failure: a heading-shaped YAML comment (`# brand deck`) makes a
- * real settings block paste as slide text the author can see and undo, where the opposite reading lost a slide
- * without a word.
+ * break? Read by `keyGroups` (lib/core/front-matter-groups.js), the reader the merge, the Marp-bundle exporter and
+ * the runtime share, so the paste and the merge can never disagree on what a key is. Settings when:
+ *   · no line is a Markdown heading;
+ *   · every line belongs to a key (its line or its value) or is a comment or a blank: a line of prose the reader
+ *     cannot place under a key ("Owner: Ana" is a key, but a sentence is not) makes it slide text;
+ *   · at least one key is one the engine knows (`lib/core/deck-settings.js`, with the plugins' registers and the
+ *     `_` keys): "Goal: ship Q3" names no setting.
+ * Read as settings, a pasted slide vanished into the deck's YAML (review rounds on #3234). The one ambiguity is
+ * resolved toward the VISIBLE failure: a heading-shaped YAML comment (`# brand deck`) anywhere in the block makes real
+ * settings paste as slide text the author can see and undo.
  */
 export function isSettingsBlock(inner: string): boolean {
-	let known = false;
-	for (const line of inner.split('\n')) {
-		if (HEADING_LINE.test(line)) return false;
-		// Blank, comment, indented, a list item (`- a`, or a bare `-`), or the column-0 close of a flow map or list.
-		if (!line.trim() || /^#/.test(line) || /^[ \t]+\S/.test(line) || /^-(?:[ \t]|$)/.test(line) || /^[\]}]/.test(line)) continue;
-		const m = SETTING_LINE.exec(line);
-		const key = m ? (m[1] ?? m[2] ?? m[3]) : null;
-		if (key && (key.startsWith('_') || deckSettings.isDeckSettingKey(key, pluginRegisters.PLUGIN_REGISTERS))) known = true;
-		else if (!KEYISH_LINE.test(line)) return false;
+	if (inner.split('\n').some((line) => HEADING_LINE.test(line))) return false;
+	const { groups, tail } = frontMatterGroups.keyGroups(inner);
+	// The lines `keyGroups` could not put under a key ride at the head of the next group or in the tail; each must be a note.
+	for (const g of groups) {
+		const lines = g.text.split('\n');
+		const keyAt = lines.findIndex((l) => l.startsWith(g.key));
+		if (lines.slice(0, keyAt).some((l) => !isNote(l))) return false;
 	}
-	return known;
+	if (tail.split('\n').some((l) => !isNote(l))) return false;
+	return groups.some((g) => g.key.startsWith('_') || deckSettings.isDeckSettingKey(g.key, pluginRegisters.PLUGIN_REGISTERS));
 }
 
 /**

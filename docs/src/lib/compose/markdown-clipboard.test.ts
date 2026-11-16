@@ -143,6 +143,12 @@ describe('markdownToSlice', () => {
 		expect(p.slice.content.child(0).textContent).toContain(first);
 	});
 
+	// Round 3 on #3234: the paste check and the merge read keys with the same reader, so they agree.
+	it('reads `theme:cuoio` as settings, as the merge and the engine do', () => {
+		expect(isSettingsBlock('theme:cuoio')).toBe(true);
+		expect(markdownToSlice('---\ntheme:cuoio\n---\n').frontMatter).toContain('theme:cuoio');
+	});
+
 	it('tells settings from slide text', () => {
 		expect(isSettingsBlock('theme: cuoio\npaginate: true')).toBe(true);
 		expect(isSettingsBlock('#brand\ntheme: cuoio\nkeywords:\n- a\n- b\nstyle: |\n  h1 { x: 1; }')).toBe(true);

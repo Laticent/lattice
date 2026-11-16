@@ -2,68 +2,39 @@
 // Its own module, loaded by the Compose paste on first use (markdown-clipboard.ts `land`), because
 // `front-matter.ts` ships at startup on every route and this runs only inside a paste: kept there it cost the
 // Studio, the Playground and the home page 239 gzipped bytes each (the route budget, docs-build on #3234).
+//
+// THE KEYS ARE READ BY `keyGroups` (lib/core/front-matter-groups.js), the one reader the Marp-bundle exporter, the
+// runtime's merge, the settings-block fold and the legend already share (HARD RULE #15). This file once split the
+// block itself; three review rounds on #3234 found that private splitter dropping or misreading settings in a new
+// way each time. A gap in how keys are read is fixed in that one reader, for every caller at once.
+import frontMatterGroups from '../../../lib/core/front-matter-groups.js';
 import frontMatterKey from '../../../lib/core/front-matter-key.js';
 import { frontMatterBlock, innerFrontMatter } from './front-matter';
 
-/** A top-level key line: a quoted key (`"theme": …`, which YAML reads as `theme`), or any column-0 text before a
- *  colon that YAML would read as a key (`theme:`, `$schema:`, `x.y:`). Every one is an entry of its own, so a key
- *  Lattice does not know is kept whole rather than swallowed by the key above it (the checker on 34f18d3c). */
-const KEY_LINE = /^(?:"([^"\n]+)"|'([^'\n]+)'|([^\s#\-"'][^:\n]*?))[ \t]*:(?:[ \t]|$)/;
-const keyOf = (line: string): string | null => {
-	const m = KEY_LINE.exec(line);
-	return m ? (m[1] ?? m[2] ?? m[3]) : null;
-};
-/** A line that is only a comment or blank: it belongs to the key BELOW it when it sits right above one. */
-const isNote = (line: string) => !line.trim() || /^#/.test(line);
-
 /** The settings a front-matter block names, in order, without repeats. */
 export function frontMatterKeys(block: string): string[] {
-	const keys: string[] = [];
-	for (const line of innerFrontMatter(block).split('\n')) {
-		const key = keyOf(line);
-		if (key && !keys.includes(key)) keys.push(key);
-	}
-	return keys;
+	return [...new Set(frontMatterGroups.keyGroups(innerFrontMatter(block)).groups.map((g) => g.key))];
 }
 
 type Entry = { key: string; pre: string[]; body: string[] };
 
-/**
- * A front-matter block's top-level entries. An entry is a column-0 key line and EVERYTHING after it up to the next
- * column-0 key line: an indented body, a list written at column 0 (`class:` then `- lead`), and blank lines inside a
- * nested map or a block scalar all belong to it. Only the run of comment and blank lines directly above the next key
- * moves to that key (`pre`), so replacing a key never takes the note above its neighbor; lines before the first key
- * ride in `head`. The checker on #3234 found the earlier, indentation-only rule dropping column-0 lists and cutting
- * a nested map at its first blank line.
- */
-function frontMatterEntries(inner: string): { head: string[]; entries: Entry[]; tail: string[] } {
-	const head: string[] = [];
-	const entries: Entry[] = [];
-	for (const line of inner.split('\n')) {
-		const key = keyOf(line);
-		if (key) {
-			const prev = entries[entries.length - 1];
-			const from = prev ? prev.body : head;
-			// The trailing run of notes above this key is its own.
-			let cut = from.length;
-			while (cut > (prev ? 1 : 0) && isNote(from[cut - 1])) cut--;
-			const pre = from.splice(cut);
-			entries.push({ key, pre, body: [line] });
-		} else if (entries.length) entries[entries.length - 1].body.push(line);
-		else head.push(line);
-	}
-	// The notes after the LAST key are the block's own, not that key's: replacing it must not delete them.
-	const last = entries[entries.length - 1];
-	let cut = last ? last.body.length : 0;
-	while (last && cut > 1 && isNote(last.body[cut - 1])) cut--;
-	const tail = last ? last.body.splice(cut) : [];
-	return { head, entries, tail };
+/** `keyGroups`' groups as entries: the lines that lead a group (`pre`: the note above the key), and the key line with
+ *  its value (`body`). */
+function entriesOf(inner: string): { entries: Entry[]; tail: string } {
+	const { groups, tail } = frontMatterGroups.keyGroups(inner);
+	const entries = groups.map((g) => {
+		const lines = g.text.split('\n');
+		// The key's own line: everything above it (a comment, or a line the reader could not place under a key, such as
+		// a quoted `"theme":` the engine does not read either) leads the entry and is never compared or replaced.
+		const at = Math.max(0, lines.findIndex((l) => l.startsWith(g.key)));
+		return { key: g.key, pre: lines.slice(0, at), body: lines.slice(at) };
+	});
+	return { entries, tail };
 }
 
 /** An entry's VALUE, for comparison. A one-line value is read by the engine's own scalar rule (`frontMatterScalar`, so
  *  `cuoio`, `'cuoio'` and `cuoio  # mine` are one value). A longer one is its lines EXACTLY, with only trailing spaces
- *  and blank lines evened out: inside a `style: |` body a `#` is CSS (`color: #111`) and indentation is structure,
- *  so neither may be stripped (the checker on 34f18d3c: a real CSS change compared equal and was never applied). */
+ *  and blank lines evened out: inside a `style: |` body a `#` is CSS (`color: #111`) and indentation is structure. */
 function entryValue(e: Entry): string {
 	const first = e.body[0].slice(e.body[0].indexOf(':') + 1);
 	const rest = e.body.slice(1).filter((l) => l.trim());
@@ -73,11 +44,11 @@ function entryValue(e: Entry): string {
 
 /**
  * The open deck's front-matter block with a PASTED deck's settings applied, and the settings that changed:
- *   · each top-level key the paste carries replaces the deck's entry for that key whole (a block value, a nested
- *     map or a column-0 list with it), in place, keeping the deck's comment above it;
+ *   · each top-level key the paste carries replaces the deck's entry for that key whole (its value, however many
+ *     lines `keyGroups` reads it as), in place, keeping the deck's comment above it;
  *   · a key only the paste carries is added at the end, with the comment above it in the paste;
- *   · a key only the deck carries keeps its bytes;
- *   · a key whose VALUE is the same in both is left alone, comment and spacing included, and is not reported;
+ *   · a key only the deck carries, and the deck's comments after its last key, keep their bytes;
+ *   · a key whose VALUE is the same in both is left alone and is not reported;
  *   · a key the paste repeats counts once, by its last value, as a reader takes it.
  * The owner's ruling (2026-11-16): a pasted deck's front matter is respected. The result always ends with the
  * closing `---` on its own line and a blank line, whatever the pasted text ended with: `---# One` is not a fence.
@@ -87,7 +58,7 @@ export function mergeFrontMatterBlocks(deckBlock: string, pastedBlock: string): 
 	const pastedInner = innerFrontMatter(pastedBlock);
 	// The last copy of a repeated key is the one a reader takes, so it is the one applied.
 	const last = new Map<string, Entry>();
-	for (const e of frontMatterEntries(pastedInner).entries) {
+	for (const e of entriesOf(pastedInner).entries) {
 		last.delete(e.key);
 		last.set(e.key, e);
 	}
@@ -96,7 +67,7 @@ export function mergeFrontMatterBlocks(deckBlock: string, pastedBlock: string): 
 		return { block: `---\n${pastedInner.replace(/\n+$/, '')}\n---\n\n`, changed: pasted.map((e) => e.key) };
 	}
 	const deckInner = innerFrontMatter(deckBlock);
-	const deck = frontMatterEntries(deckInner);
+	const deck = entriesOf(deckInner);
 	const changed: string[] = [];
 	const at = new Map<string, number>();
 	deck.entries.forEach((e, i) => {
@@ -113,7 +84,8 @@ export function mergeFrontMatterBlocks(deckBlock: string, pastedBlock: string): 
 		changed.push(e.key);
 	}
 	if (!changed.length) return { block: deckBlock, changed };
-	const inner = [...deck.head, ...deck.entries.flatMap((e) => [...e.pre, ...e.body]), ...deck.tail].join('\n').replace(/\n+$/, '');
+	const lines = [...deck.entries.flatMap((e) => [...e.pre, ...e.body]), ...(deck.tail ? [deck.tail] : [])];
+	const inner = lines.join('\n').replace(/\n+$/, '');
 	const open = /^---[ \t]*\r?\n/.exec(deckBlock)?.[0] ?? '---\n';
 	const close = deckBlock.slice(open.length + deckInner.length);
 	return { block: open + inner + close, changed };

@@ -16,7 +16,7 @@ describe('mergeFrontMatterBlocks', () => {
 		expect(out.block).toBe('---\ntheme: cuoio\n# brand note\ncolor: red\n---\n\n');
 	});
 
-	it('reads a quoted key as the key, and reports only what changed, once', () => {
+	it('reads keys as the engine does (a quoted `"theme":` is not one), and reports only what changed, once', () => {
 		const out = mergeFrontMatterBlocks('---\ntheme: indaco\npaginate: true\n---\n\n', '---\n"theme": cuoio\npaginate: true\ntheme: cuoio\n---\n');
 		expect(out.changed).toEqual(['theme']);
 	});
@@ -73,6 +73,24 @@ describe('mergeFrontMatterBlocks: a block value is compared exactly, and nothing
 
 	it('keeps a key line Lattice does not know as an entry of its own', () => {
 		expect(mergeFrontMatterBlocks('---\ntheme: indaco\nx.y: 1\n$schema: ./s.json\n---\n\n', '---\ntheme: cuoio\n---').block).toBe('---\ntheme: cuoio\nx.y: 1\n$schema: ./s.json\n---\n\n');
+	});
+});
+
+// Round 3 on #3234: the private splitter's last cases, now read by keyGroups (lib/core/front-matter-groups.js).
+describe('mergeFrontMatterBlocks: read by the shared keyGroups reader', () => {
+	it('keeps a key written with no space after the colon, and applies one', () => {
+		expect(mergeFrontMatterBlocks('---\ntitle: a\ntheme:cuoio\n---\n\n', '---\ntitle: b\n---').block).toBe('---\ntitle: b\ntheme:cuoio\n---\n\n');
+		expect(mergeFrontMatterBlocks('---\ntheme: indaco\n---\n\n', '---\ntheme:cuoio\n---')).toEqual({ block: '---\ntheme:cuoio\n---\n\n', changed: ['theme'] });
+	});
+
+	it('replaces a quoted value continued on the next line whole', () => {
+		const deck = '---\ntitle: "Q3 review\nAgenda, part two: costs"\ntheme: indaco\n---\n\n';
+		expect(mergeFrontMatterBlocks(deck, '---\ntitle: X\n---').block).toBe('---\ntitle: X\ntheme: indaco\n---\n\n');
+	});
+
+	it('keeps a key that holds a colon of its own', () => {
+		const deck = '---\ntitle: >\n  folded\nhttps://example.com: x\ntheme: indaco\n---\n\n';
+		expect(mergeFrontMatterBlocks(deck, '---\ntitle: y\n---').block).toBe('---\ntitle: y\nhttps://example.com: x\ntheme: indaco\n---\n\n');
 	});
 });
 
