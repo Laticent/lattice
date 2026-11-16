@@ -9,6 +9,7 @@
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
+ *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -130,6 +131,36 @@ if (process.env.PROBE === 'present-memory') {
 		const b = await arm('baseline', process.env.BASELINE_URL.replace(/\/$/, ''));
 		console.log(`baseline (not judged): ${b.error ? `ERROR ${b.error}` : `opened in ${b.openMs} ms, steps ${b.stepsMs.join('/')} ms`}`);
 	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'icon-grid') {
+	// The icon grid probe, as run.mjs runs it on the iPhone: open the grid from the source pane and then from the preview,
+	// a real touch tap on the first icon between open and check.
+	const GRID = withEditorHelper(fs.readFileSync(path.join(here, 'icon-grid-probe.js'), 'utf8'));
+	const context = await browser.newContext({ ...shapes.at(-1).options, permissions: [] });
+	const page = await context.newPage();
+	await page.addInitScript(SEED);
+	await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+	const steps = [];
+	let error;
+	for (const where of ['source', 'preview']) {
+		const open = await page.evaluate(`${GRID}\nlatticeIconGridOpen(${JSON.stringify(where)})`);
+		steps.push(...open.steps);
+		if (!open.ok) {
+			error = `${where}: ${open.error}`;
+			break;
+		}
+		await page.touchscreen.tap(open.x, open.y);
+		const check = await page.evaluate(`${GRID}\nlatticeIconGridCheck(${JSON.stringify(where)}, ${JSON.stringify(open.name)}, ${Number(open.before) || 0})`);
+		steps.push(...check.steps);
+		if (process.env.SHOTS) await page.screenshot({ path: path.join(process.env.SHOTS, `icon-grid-${where}.png`) });
+		if (!check.ok) {
+			error = `${where}: ${check.error}`;
+			break;
+		}
+	}
+	report('iPhone-sized', 'icon-grid-probe.js', { ok: !error, error, width: 393, steps });
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
