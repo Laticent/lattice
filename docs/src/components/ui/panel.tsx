@@ -600,6 +600,28 @@ export const PanelBack = React.forwardRef<HTMLButtonElement, { label: string; on
 	);
 });
 
+/**
+ * A sheet's first focus skips its header's ACTIONS. Radix focuses the first tabbable control on open,
+ * and since every pane wears the shared header (§3d of 2026-11-15-one-side-pane.md) that is a header
+ * action with a tooltip (the Library's search, Reader views' Add). A focus the sheet moves there counts
+ * as a keyboard focus, so its hint popped open over the header on every open, and the first Escape
+ * closed the hint instead of the sheet (found by `library-card-fit.spec.ts` at 820px). Focus goes to the
+ * sheet itself instead (Radix makes it focusable): a screen reader announces its name, Tab reaches the
+ * first control, and nothing pops. Not the first BODY control: in Chat that is the message field, and
+ * focusing it would raise a tablet's keyboard on every open. A phone sheet leads with its back chevron,
+ * which is not an action, so it is unchanged.
+ */
+function skipHeaderActions(e: Event) {
+	const box = e.currentTarget;
+	if (!(box instanceof HTMLElement)) return;
+	const tabbable = [...box.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]')].filter(
+		(el) => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && (el.checkVisibility?.() ?? true),
+	);
+	if (!tabbable[0]?.closest('[data-panel-actions]')) return;
+	e.preventDefault();
+	box.focus({ preventScroll: true });
+}
+
 export function PanelSheet({
 	open,
 	onOpenChange,
@@ -687,6 +709,7 @@ export function PanelSheet({
 				// notably the ⋯ menu's pending re-open — is dropped here. Radix fires this
 				// BEFORE the close, so the host's own state settles in the same commit.
 				onInteractOutside={() => nav.onLeave?.()}
+				onOpenAutoFocus={skipHeaderActions}
 				className={cn(
 					'flex w-full flex-col gap-0 p-0',
 					mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width],
@@ -816,7 +839,7 @@ export function PanelHeader({
 	// `h-14` — the SAME 56px the StudioDrawer's own nav bar uses, so the two agree
 	// rather than sitting 17px apart as they did.
 	return (
-		<div className={cn('flex h-14 shrink-0 items-center gap-3 px-3.5', back && 'gap-2 pl-2', border && 'border-b border-border', className)}>
+		<div data-panel-header="" className={cn('flex h-14 shrink-0 items-center gap-3 px-3.5', back && 'gap-2 pl-2', border && 'border-b border-border', className)}>
 			{back}
 			{drillChip}
 			{/* The chip stands in for the identity icon: at a dock's 280–320px the two together cut the
@@ -851,7 +874,7 @@ export function PanelHeader({
 			    a minimum; expressing it as a fixed size made it a ceiling too. Found by the
 			    independent checker. */}
 			{actions ? (
-				<span className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink-[1000]' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
+				<span data-panel-actions="" className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink-[1000]' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
 			) : null}
 			{/* The X is the POINTER affordance now; on a phone `back` above replaced it. */}
 			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} collapse={collapse} /> : null}
