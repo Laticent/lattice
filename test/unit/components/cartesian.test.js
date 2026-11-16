@@ -1052,4 +1052,30 @@ describe('cartesian — the log axis the histogram and EP curve share', () => {
     assert.deepEqual(C.thinEvenly([0, 10, 20, 30, 40], ['$100k', '$110k', '$120k', '$130k', '$140k']), [true, false, false, false, true]);
     assert.deepEqual(C.thinEvenly([0, 50, 100], ['a', 'b', 'c']), [true, true, true]);
   });
+
+  test('thinEvenly: a forced last label anchored `end` clears every label it keeps', () => {
+    // An `end` label reaches its full width to the left, so dropping only the nearest kept
+    // label was not enough: the maker-checker sweep found kept pairs overlapping (#3226).
+    // Deterministic sweep, no random input.
+    const fs = 10;
+    const width = (s) => s.length * fs * 0.62;
+    for (let n = 3; n <= 12; n++) {
+      for (let d = 5; d <= 20; d++) {
+        for (let len = 3; len <= 8; len++) {
+          const pos = Array.from({ length: n }, (_, i) => i * d);
+          const labels = pos.map(() => 'x'.repeat(len));
+          const anchors = pos.map((_, i) => (i === n - 1 ? 'end' : 'middle'));
+          const keep = C.thinEvenly(pos, labels, { fontSize: fs, anchors });
+          assert.equal(keep[n - 1], true, 'the last edge always prints');
+          const kept = keep.flatMap((k, i) => (k ? [i] : []));
+          for (let k = 1; k < kept.length; k++) {
+            const [i, j] = [kept[k - 1], kept[k]];
+            const leftOfJ = anchors[j] === 'end' ? width(labels[j]) : width(labels[j]) / 2;
+            const room = pos[j] - pos[i] - width(labels[i]) / 2 - leftOfJ;
+            assert.ok(room >= 5 - 1e-9, `n=${n} d=${d} len=${len}: labels ${i} and ${j} overlap (${room.toFixed(2)} < 5)`);
+          }
+        }
+      }
+    }
+  });
 });

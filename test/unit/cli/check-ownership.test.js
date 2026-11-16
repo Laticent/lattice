@@ -2097,14 +2097,14 @@ describe('check-ownership', () => {
       assert.doesNotMatch(stripJsComments("export {};\n/** import x from 'y' */"), /import x/);
     });
 
-    test('Calco admits no dependency at all: JSZip and PptxGenJS are passed in', () => {
+    test('Calco admits no dependency at all: JSZip is passed in', () => {
       const live = [];
       checkCalcoBoundary(live);
       assert.deepEqual(live, [], live.join('\n'));
       assert.deepEqual(run(checkCalcoBoundary, "import type { Deck } from './types';\nexport { readSlide } from './reader';"), []);
       for (const src of [
         "import JSZip from 'jszip';",
-        "import PptxGenJS from 'pptxgenjs';",
+        "import JSZip2 from 'jszip/dist/jszip.min.js';",
         "import fs from 'node:fs';",
         "import { x } from '@laticent/trama';",
         "import { TEXT_FACES } from '../../../../lib/fonts/text-faces.js';",
@@ -4292,16 +4292,20 @@ describe('listRepoTextFiles skips transient render sources', () => {
   // The gallery builders write `*.gallery.<theme>.tmp.md` beside a deck and delete it
   // when the render ends. The pre-commit `pdf-rebuild` job runs them in parallel with
   // the tests, so a walk that lists the file can read it after it is gone (ENOENT).
-  test('a *.tmp.md file under lib/components is never listed', () => {
+  // The probe lives in its own temp folder, never in lib/components: a file written into the
+  // real tree is seen by every other test that walks the decks, and one of them read it after
+  // this test deleted it (ENOENT in slide-boundaries.test.js, #3231's CI, 2026-11-16).
+  test('a *.tmp.md file is never listed', () => {
     const { listRepoTextFiles } = require('../../../tools/check-ownership');
-    const probe = path.join(__dirname, '../../../lib/components/comparison/pricing/pricing.gallery.probe.tmp.md');
-    fs.writeFileSync(probe, '---\nmarp: true\n---\n');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ownership-tmp-md-'));
     try {
-      const listed = listRepoTextFiles().map((f) => path.basename(f));
+      fs.writeFileSync(path.join(dir, 'pricing.gallery.md'), '---\nmarp: true\n---\n');
+      fs.writeFileSync(path.join(dir, 'pricing.gallery.probe.tmp.md'), '---\nmarp: true\n---\n');
+      const listed = listRepoTextFiles(dir).map((f) => path.basename(f));
       assert.ok(listed.includes('pricing.gallery.md'), 'the walk still reaches the real deck');
       assert.ok(!listed.includes('pricing.gallery.probe.tmp.md'), 'the transient copy is skipped');
     } finally {
-      fs.unlinkSync(probe);
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });

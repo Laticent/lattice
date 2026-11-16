@@ -1416,3 +1416,40 @@ describe('quadrant — per-slide sizing never trades attribution for type', () =
       `this slide can carry more than the old constant ${FS_ITEM}, got ${size}`);
   });
 });
+
+describe('quadrant — a two-line y title keeps both lines on the canvas (followups.d/3226-p2)', () => {
+  // The y title is rotated -90° and set to its bottom line, so a second line stacks to the LEFT. The chart-form
+  // band held one line, and "ABILITY TO" fell past x = 0 at square@hall (the fit nightly's quadrant rise).
+  const { formGeom } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
+  const { withRoles, stepPx } = require('../../../lib/plugins/chart-family/shared/chart-roles');
+  const groups = ['Leaders', 'Challengers', 'Visionaries', 'Niche players'].map((name) => ({ name, items: [] }));
+  const geom = (yLabel) => withRoles(stepPx(), 972 / 320, () => formGeom(320, 320, { groups }, {
+    x: { label: 'Completeness of vision', min: 0, max: 100 },
+    y: { label: yLabel, min: 0, max: 100 },
+  }));
+
+  test('a title that wraps reserves a second line; one that fits keeps one', () => {
+    const one = geom('Reach');
+    const two = geom('Ability to execute against the plan this year and next');
+    const axisFs = one.yTitleX / 1.05; // one line reserves 1.05 em, as before this fix
+    assert.ok(Math.abs(two.yTitleX - (one.yTitleX + axisFs * 1.2)) < 1e-9, `two lines reserve one more line: ${two.yTitleX} vs ${one.yTitleX}`);
+    assert.ok(two.plot.x0 > one.plot.x0, 'and the plane starts further right to make room');
+  });
+
+  test('a bubble that shrinks the plane leaves each title the box its lines were counted in', () => {
+    // The bands under and beside the plane are sized from the titles' line counts, and then a large bubble at an edge
+    // shrinks the plane (bubbleRoom). Wrapped at the SMALLER plane, `Analyst weeks to ship the v1` took a second line
+    // its band never reserved and printed into the range ticks (the #3246 checker's square@hall probe, -31 px).
+    const big = (x, y, size) => ({ x, y, size, label: 'a' });
+    const bubbly = [[big(0.3, 70, 4.1)], [big(9.7, 80, 4)], [big(2, 30, 0.4)], [big(7, 18, 1.3)]]
+      .map((items, i) => ({ name: groups[i].name, items }));
+    const scale = { x: { label: 'Analyst weeks to ship the v1', min: 0, max: 10 }, y: { label: 'Reach', min: 0, max: 100 } };
+    const at = (bubbles) => withRoles(stepPx(), 972 / 320, () => formGeom(320, 320, { groups: bubbly }, scale, true, bubbles));
+    const plain = at(false);
+    const bubbled = at(true);
+    assert.ok(bubbled.plot.x1 - bubbled.plot.x0 < plain.plot.x1 - plain.plot.x0, 'the edge bubbles do shrink the plane');
+    assert.deepEqual(bubbled.xT, plain.xT, 'the x title keeps the width its lines were counted at');
+    assert.deepEqual(bubbled.yT, plain.yT, 'and so does the y title');
+    assert.deepEqual(plain.xT, [(plain.plot.x0 + plain.plot.x1) / 2, plain.plot.x1 - plain.plot.x0], 'without bubbles that is the plane itself');
+  });
+});

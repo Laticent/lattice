@@ -68,8 +68,16 @@ test('render_slide sends the model a real picture of the slide @crosswidth @webk
 	const bodies = await mockModel(page, [toolCall('render_slide', { slide: 1 }), say('The title slide reads cleanly.')]);
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
+	// The look fetches the fonts its slide uses, not every face the engine declares (deck-export.js
+	// `rasterizeSlidePreview`). Counted from the send to the reply: 130 font files for this title slide when its capture
+	// frame force-loaded every face, 30 when it does not, up to 51 under 4 workers. 80 sits between the two.
+	const fonts: string[] = [];
+	page.on('request', (r) => {
+		if (r.url().includes('.woff2')) fonts.push(r.url());
+	});
 	await send(page, 'how does the title slide look?');
 	await expect(page.getByText('The title slide reads cleanly.')).toBeVisible({ timeout: 60_000 });
+	expect(fonts.length, 'the look fetched every declared font face, not the ones its slide draws').toBeLessThan(80);
 	expect(bodies[0].tools?.map((t) => t.function.name)).toContain('render_slide');
 	// The picture rides the message after the tool result, as an image part.
 	const parts = bodies[1].messages.flatMap((m) => (Array.isArray(m.content) ? (m.content as { type?: string; image_url?: { url?: string } }[]) : []));

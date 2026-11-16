@@ -22,3 +22,18 @@ export async function waitForPanels(): Promise<void> {
 export async function loadStudioPanels(): Promise<void> {
 	await Promise.all(STUDIO_PANELS.map((panel) => panel.load()));
 }
+
+/**
+ * Load Fabricate before the Studio renders, for a file that opens it. Fabricate is its own
+ * `React.lazy` split (StudioShell.tsx), not one of the six panels, so `loadStudioPanels` leaves
+ * it cold, and the first open in a file then transforms and loads the whole module inside the
+ * test's `waitFor` for the Theme specimen. Under 4-way CPU contention that took longer than the
+ * 3 s `asyncUtilTimeout` (`studio.theme-depth.test.tsx`, run 1 of the named loop, 2026-11-15).
+ * Measured under 4 CPU burners, that file alone, 10 runs each: the first open waited 1485-1945 ms
+ * cold and 3-564 ms warmed. Warmed, React.lazy finds the module in the cache and the wait times
+ * only the render. A
+ * returning user's Studio is warmed the same way (`studio-warm.ts`).
+ */
+export async function loadFabricate(): Promise<void> {
+	await import('@/components/studio/Fabricate');
+}

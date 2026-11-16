@@ -90,7 +90,7 @@ describe('bakeSplits — corpus parity', () => {
 
 function globMd(dir) {
   if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => path.join(dir, f));
+  return fs.readdirSync(dir).filter((f) => (f.endsWith('.md') && !f.endsWith('.tmp.md'))).map((f) => path.join(dir, f));
 }
 
 // Force a deck's front matter to split: headings (insert or replace the key).

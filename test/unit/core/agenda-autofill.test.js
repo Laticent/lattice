@@ -143,7 +143,7 @@ test('the lint plan and the kernel agree on every empty agenda and the section c
     deck('<!--\n_class: agenda\n-->\n\n## A.', ...DIVIDERS),
   ];
   for (const dir of ['examples', 'exemplars', 'test/fixtures']) {
-    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith('.md') ? [path.join(d, e.name)] : []));
+    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : (e.name.endsWith('.md') && !e.name.endsWith('.tmp.md')) ? [path.join(d, e.name)] : []));
     for (const f of walk(path.join(ROOT, dir))) {
       const s = fs.readFileSync(f, 'utf8');
       if (/_?class\s*:[^\n]*\bagenda\b/.test(s)) decks.push(s);

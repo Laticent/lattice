@@ -3,17 +3,15 @@
  * Geometry: a box's path runs along the middle of its border band; a uniform radius is a
  * preset, per-corner radii a path; a rule on a rounded box wraps 45° of each corner. Order:
  * a card's group is drawn whole, a label carries its text or falls back to a group. Writers:
- * the .pptx gets presets, custom geometry and a p:grpSp per card (written by post-processing,
- * as PptxGenJS 3.12 has no group API); the .odp gets draw:rect, draw:custom-shape, draw:line
+ * the .pptx gets presets, custom geometry and a p:grpSp per card (a card holding custom geometry
+ * is written loose, for Apple's importers); the .odp gets draw:rect, draw:custom-shape, draw:line
  * and draw:g. Design: engineering/decisions/2026-10-07-calco-native-shapes.md.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
-const PptxGenJS = require('pptxgenjs');
-const { drawOrder, groupShapes, labelInsets, placePictures, shapeGeometry, writeOdp, writePptx } = require('@laticent/calco');
+const { drawOrder, labelInsets, placePictures, shapeGeometry, writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_JPEG, ONE_PX_PNG, style, frame } = require('./_fixtures');
-const { scanWork } = require('../../helpers/work-count');
 
 const card = { kind: 'box', x: 100, y: 100, w: 300, h: 160, radii: [10, 10, 10, 10], fill: { color: '#f2f5fa', alpha: 1 }, stroke: { color: '#898e95', alpha: 1, width: 1 }, group: 0 };
 const accent = { kind: 'line', side: 'bottom', x: 110, y: 258.5, w: 280, h: 0, stroke: { color: '#2e608a', alpha: 1, width: 3 }, wrap: [10, 10], group: 0 };
@@ -92,12 +90,11 @@ describe('calco shapes — pptx', () => {
   // order it paints, and a card of presets alone stays a group (the owner, 2026-11-03). ODP keeps every card in draw:g.
   const mark = { kind: 'path', x: 360, y: 110, w: 12, h: 8.5, path: [['M', 0, 4.1], ['L', 4, 8.1], ['L', 12, 0]], closed: false, stroke: { color: '#16a34a', alpha: 1, width: 2.5 }, cap: 'round', join: 'round', group: 0 };
   const at = (xml, re) => xml.search(re);
-  const slideXml = async (d) => (await JSZip.loadAsync(await writePptx(PptxGenJS, d, 'nodebuffer', JSZip))).file('ppt/slides/slide1.xml').async('string');
+  const slideXml = async (d) => (await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'))).file('ppt/slides/slide1.xml').async('string');
 
   test('a card holding custom geometry is written loose, in the order it paints', async () => {
     const xml = await slideXml({ width: 1280, height: 720, slides: [{ ...slide(), shapes: [card, accent, tag, mark, rule] }] });
     assert.doesNotMatch(xml, /<p:grpSp>/, 'no group holds custom geometry');
-    assert.doesNotMatch(xml, /calco-group-/, 'the tag is gone from every name');
     const order = [/prst="roundRect"/, /name="Mark /, /Owns the policy\./, /prst="line"/].map((re) => at(xml, re));
     assert.ok(order.every((v) => v >= 0), `missing a member: ${order}`);
     assert.ok(at(xml, /prst="roundRect"/) < at(xml, /<a:t>Build<\/a:t>|<a:t>BUILD<\/a:t>/), 'the tab paints over its card');
@@ -128,7 +125,7 @@ describe('calco shapes — pptx', () => {
   });
 
   test('the label is one shape: custom geometry, fill, text and insets on the same p:sp', async () => {
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck(), 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, deck(), 'nodebuffer'));
     const xml = await zip.file('ppt/slides/slide1.xml').async('string');
     const label = xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?Build(?:(?!<\/p:sp>)[\s\S])*?<\/p:sp>/)[0];
     assert.match(label, /<a:custGeom>/);
@@ -137,42 +134,32 @@ describe('calco shapes — pptx', () => {
     assert.match(label, /wrap="none"/);
   });
 
-  test('groupShapes groups adjacent members only, and stays linear on a hostile slide', () => {
-    const sp = (name, x) => `<p:sp><p:nvSpPr><p:cNvPr id="${x}" name="${name}"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="0"/><a:ext cx="10" cy="10"/></a:xfrm></p:spPr></p:sp>`;
-    const xml = `<p:spTree>${sp('calco-group-1|A', 2)}${sp('calco-group-1|B', 3)}<p:pic/>${sp('calco-group-1|C', 4)}${sp('Free', 5)}</p:spTree>`;
-    const out = groupShapes(xml);
-    assert.equal(out.match(/<p:grpSp>/g).length, 2, 'a picture between members splits the group');
-    assert.match(out, /<p:grpSp>.*name="A".*name="B".*<\/p:grpSp><p:pic\/><p:grpSp>.*name="C".*<\/p:grpSp>.*name="Free"/);
-    // Many opening tags and no close: CodeQL's polynomial case for a regex over runs.
-    const hostile = `calco-group-${'<p:sp>'.repeat(50000)}`;
-    // Work, not milliseconds (HARD RULE #32): one pass reads each character a few times. A scan that looks for the
-    // close from every opener reads about n / 12 characters per character here and fails.
-    const { result, scanned } = scanWork(() => groupShapes(hostile));
-    assert.equal(result, hostile);
-    assert.ok(scanned <= 8 * hostile.length, `the scan read ${scanned} characters for ${hostile.length}`);
+  // A pill inside a card (`Shape.sub`) is a group inside the card's group.
+  const pillCard = { kind: 'box', x: 480, y: 90, w: 300, h: 200, radii: [0, 0, 0, 0], fill: { color: '#ffffff', alpha: 1 }, group: 0 };
+  const pill = { kind: 'box', x: 500, y: 100, w: 120, h: 30, radii: [15, 15, 15, 15], fill: { color: '#ffeedd', alpha: 1 }, group: 0, sub: 1 };
+  const dot = { kind: 'box', x: 505, y: 110, w: 10, h: 10, radii: [5, 5, 5, 5], fill: { color: '#ff0000', alpha: 1 }, group: 0, sub: 1, pseudo: true };
+  const cardText = frame([[{ text: 'Inside', style: style({ size: 18 }) }]], { x: 500, y: 200, w: 200, h: 24, firstLineHeight: 22, lineHeight: 24, group: 0 });
+
+  test('a pill of presets is a group inside its card\'s group', async () => {
+    const xml = await slideXml({ width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [cardText], shapes: [pillCard, pill, dot] }] });
+    assert.equal(xml.match(/<p:grpSp>/g).length, 2, 'the card and the pill');
+    assert.match(xml, /<p:grpSp>.*name="Group 1".*name="Shape 1\.1".*<p:grpSp>.*name="Group 1\.2".*name="Shape 1\.2".*name="Shape 1\.3".*<\/p:grpSp>.*Inside.*<\/p:grpSp>/s);
   });
 
-  test('groupShapes nests a pill\'s shapes as a group inside the card\'s group', () => {
-    const sp = (name, x) => `<p:sp><p:nvSpPr><p:cNvPr id="${x}" name="${name}"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="0"/><a:ext cx="10" cy="10"/></a:xfrm></p:spPr></p:sp>`;
-    const xml = `<p:spTree>${sp('calco-group-1|Card', 2)}${sp('calco-group-1|calco-sub-1|Pill', 3)}${sp('calco-group-1|calco-sub-1|Dot', 4)}${sp('calco-group-1|Other', 5)}</p:spTree>`;
-    const out = groupShapes(xml);
-    assert.equal(out.match(/<p:grpSp>/g).length, 2, 'the card and the pill');
-    assert.match(out, /<p:grpSp>.*name="Card".*<p:grpSp>.*name="Pill".*name="Dot".*<\/p:grpSp>.*name="Other".*<\/p:grpSp>/);
-    assert.doesNotMatch(out, /calco-(group|sub)-/);
+  test('a loose card keeps a pill of presets alone as its own group', async () => {
+    const xml = await slideXml({ width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [cardText], shapes: [{ ...pillCard, radii: [10, 0, 0, 0] }, pill, dot] }] });
+    assert.equal(xml.match(/<p:grpSp>/g).length, 1, 'only the pill is a group');
+    const group = xml.match(/<p:grpSp>[\s\S]*<\/p:grpSp>/)[0];
+    assert.doesNotMatch(group, /custGeom/);
+    assert.match(xml, /<a:custGeom>[\s\S]*<p:grpSp>[\s\S]*<\/p:grpSp>[\s\S]*Inside/, 'the card, then the pill, then the text, in paint order');
   });
 
-  test('a loose card keeps a pill of presets alone as its own group', () => {
-    const sp = (name, x, geom = '<a:prstGeom prst="rect"/>') => `<p:sp><p:nvSpPr><p:cNvPr id="${x}" name="${name}"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="0"/><a:ext cx="10" cy="10"/></a:xfrm>${geom}</p:spPr></p:sp>`;
-    const xml = `<p:spTree>${sp('calco-group-1|Card', 2, '<a:custGeom></a:custGeom>')}${sp('calco-group-1|calco-sub-1|Pill', 3)}${sp('calco-group-1|calco-sub-1|Dot', 4)}${sp('calco-group-1|Other', 5)}</p:spTree>`;
-    const out = groupShapes(xml);
-    assert.equal(out.match(/<p:grpSp>/g).length, 1, 'only the pill is a group');
-    assert.match(out, /name="Card".*<p:grpSp>.*name="Pill".*name="Dot".*<\/p:grpSp>.*name="Other"/);
-    assert.doesNotMatch(out.match(/<p:grpSp>[\s\S]*<\/p:grpSp>/)[0], /custGeom/);
-  });
-
-  test('groupShapes leaves a slide without tags as it was', () => {
-    const xml = '<p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="Text 1"/></p:nvSpPr></p:sp></p:spTree>';
-    assert.equal(groupShapes(xml), xml);
+  test('a group\'s frame is its members\' bounding box, and its ids are unique on the slide', async () => {
+    const xml = await slideXml({ width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [cardText], shapes: [pillCard, pill, dot] }] });
+    const outer = xml.match(/<p:grpSp><p:nvGrpSpPr><p:cNvPr id="\d+" name="Group 1"\/>[\s\S]*?<a:off x="(\d+)" y="(\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"\/>/).slice(1).map(Number);
+    assert.deepEqual(outer, [480 * 9525, 90 * 9525, 300 * 9525, 200 * 9525], 'the card bounds its members');
+    const ids = Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (x) => x[1]);
+    assert.equal(new Set(ids).size, ids.length);
   });
 });
 
@@ -197,7 +184,7 @@ describe('calco shapes — gradient fills', () => {
   const gradDeck = () => ({ width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [], shapes: [{ kind: 'box', x: 100, y: 100, w: 400, h: 100, radii: [8, 8, 8, 8], fill: { color: '#facc15', alpha: 1 }, gradient: grad }] }] });
 
   test('pptx writes a gradFill with every stop, its alpha, and an OOXML angle; no tag is left in a name', async () => {
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, gradDeck(), 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, gradDeck(), 'nodebuffer'));
     const xml = await zip.file('ppt/slides/slide1.xml').async('string');
     assert.match(xml, /<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:srgbClr val="E11D48">/);
     assert.equal(xml.match(/<a:gs /g).length, 3);
@@ -223,7 +210,7 @@ describe('calco shapes — pictures in paint order', () => {
   const spriteDeck = () => ({ width: 1280, height: 720, slides: [{ frames: [], shapes: [card2, icon, photo] }] });
 
   test('pptx: a picture is a p:pic with its alt text, inside its card\'s group; a loose one stays loose; no slide picture', async () => {
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, spriteDeck(), 'nodebuffer', JSZip));
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, spriteDeck(), 'nodebuffer'));
     const xml = await zip.file('ppt/slides/slide1.xml').async('string');
     assert.equal(xml.match(/<p:pic>/g).length, 2, 'two pictures, no full-slide one');
     const group = xml.match(/<p:grpSp>[\s\S]*?<\/p:grpSp>/)[0];

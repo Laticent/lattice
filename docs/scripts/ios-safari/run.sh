@@ -116,6 +116,10 @@ start_driver() {
   echo 'safaridriver did not answer on :4444 within 30 s' >&2
   return 1
 }
+# Run a command for at most $1 seconds: macOS ships no `timeout`, and perl's alarm survives the exec.
+bounded() { local secs=$1; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die "exec: $!"' "$secs" "$@"; }
+# The most a Safari launch may take before the device counts as stuck (seconds); see the launch below.
+LAUNCH_LIMIT=${LAUNCH_LIMIT:-480}
 trap 'kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
 start_driver
 
@@ -175,6 +179,8 @@ for family in $families; do
   echo "$family: $device_type ($udid)"
   xcrun simctl boot "$udid"
   xcrun simctl bootstatus "$udid" -b
+  # Written inside the booted device, then booted again below. Writing them into its preference files before the first
+  # boot was tried to save that boot; the first boot did not keep them on either device (run 43361835881).
   for key in \
     com.apple.webinspectord:RemoteInspectorEnabled \
     com.apple.webinspectord:RemoteAutomationEnabled \
@@ -203,8 +209,8 @@ for family in $families; do
   # The second start must not cost the job its 30-minute limit (.github/workflows/platform-suites.yml), which would cancel
   # it and lose the devices still to come. So it runs only if one more cycle of this device, and every device after it,
   # each at what this device's first start just cost, still ends by SUITE_DEADLINE seconds of this script (default 1560:
-  # the job's 1800, less about 180 before the Suite step and a minute's margin). In the Studio suite (a docs build plus a
-  # 12-minute iPhone on a slow runner) that usually means no second start for the iPad; jpeg and focus-sync have room.
+  # the job's 1800, less about 180 before the Suite step and a minute's margin). The Studio suites run one device per job
+  # (DEVICES), so each has room for its second start, as jpeg and focus-sync do.
   # The first start makes 2 session attempts, not 3, to leave the second one its time.
   rc=3
   why=''
@@ -223,7 +229,7 @@ for family in $families; do
           # WebDriver session" (main's nightly, 2026-11-01, #2911). A relaunch drops the pairing without a device reboot.
           xcrun simctl terminate "$udid" com.apple.mobilesafari || true
           sleep 2
-          xcrun simctl launch "$udid" com.apple.mobilesafari || true
+          bounded "$LAUNCH_LIMIT" xcrun simctl launch "$udid" com.apple.mobilesafari || true
           sleep 18
           if start_driver; then
             rc=0
@@ -238,9 +244,23 @@ for family in $families; do
       driver=
     fi
     xcrun simctl shutdown "$udid" || true
-    if ! { xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b && xcrun simctl launch "$udid" com.apple.mobilesafari; }; then
-      rc=5; why='the simulator did not boot or Safari did not launch'; continue
+    t0=$SECONDS
+    if ! { xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b; }; then
+      rc=5; why='the simulator did not boot'; continue
     fi
+    echo "$family: boot took $((SECONDS - t0)) s"
+    # Bounded: a launch that never returned held the iPad job silent for 18 minutes, until the job's 30-minute limit
+    # canceled it (run 43355906725). It now fails here, so run.sh ends it as "no probe ran" and the supervisor
+    # (.github/workflows/platform-suites-supervisor.yml) re-runs the job on a fresh runner, instead of the limit
+    # canceling it as a finding. LAUNCH_LIMIT is generous on purpose until the logged launch times say how far it can
+    # come down: the launch alone took 156 s and 252 s on run 43370280534, the slowest measured. The boot is not
+    # bounded the same way: one first boot took 432 s on a slow runner (run 43355906725) and none has hung, so a limit
+    # there would be a guess.
+    t0=$SECONDS
+    if ! bounded "$LAUNCH_LIMIT" xcrun simctl launch "$udid" com.apple.mobilesafari; then
+      rc=5; why="Safari did not launch within $LAUNCH_LIMIT s"; continue
+    fi
+    echo "$family: Safari launch took $((SECONDS - t0)) s"
     sleep 5
     if ! start_driver; then rc=4; why='safaridriver did not answer'; continue; fi
     rc=0

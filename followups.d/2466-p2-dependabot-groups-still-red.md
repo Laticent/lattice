@@ -30,5 +30,5 @@ source: https://github.com/Laticent/lattice/pull/2688
 non-major only). `npm audit --omit=dev` at the root went from 19 (1 critical, 18 high) to 11
 high, and in docs/ from 16 (1 critical, 11 high) to 4. Every one left needs a major: the
 puppeteer 23 → 25 chain (basic-ftp, chromium-bidi, extract-zip, get-uri, proxy-agents, zod),
-image-size under pptxgenjs (2466-p2-image-size-under-pptxgenjs.md), sharp 0.35 and esbuild 0.28
+image-size under pptxgenjs (gone 2026-11-15: Calco writes PowerPoint itself and pptxgenjs left the tree, engineering/decisions/2026-11-13-native-pptx-writer.md), sharp 0.35 and esbuild 0.28
 in docs/. Those, Biome and svgo are what is left of this item.
