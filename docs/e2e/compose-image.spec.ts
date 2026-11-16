@@ -144,9 +144,12 @@ test.describe('compose images', () => {
 		expect(await savedDeck(page)).not.toMatch(/!\[bg/);
 	});
 
-	test('the Placement control at 1440, 820 and 390: a phone opens Compose its own way, and the control is there and pressed @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
-		const ONE = ['<!-- _class: image -->', '', '## A lake', '', 'Words beside it.', '', '![A lake](sample:photo-wide.jpg)'].join('\n');
-		for (const width of [1440, 820, 390]) {
+	// One test per width, not one test walking all three: each width retypes the deck, waits for the preview and opens
+	// Compose, about 20 s apiece at 4 workers on WebKit, and three of them shared one 60 s budget (3 of 50 ran out of it
+	// mid-flow at 390 px). Same steps and assertions at every width, each on its own budget.
+	for (const width of [1440, 820, 390]) {
+		test(`the Placement control at ${width}px: ${width === 390 ? 'a phone opens Compose its own way, and ' : ''}the control is there and pressed @crosswidth @webkit-phone @webkit-tablet @gecko`, async ({ page }) => {
+			const ONE = ['<!-- _class: image -->', '', '## A lake', '', 'Words beside it.', '', '![A lake](sample:photo-wide.jpg)'].join('\n');
 			await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
 			await openDeckInCompose(page, ONE);
 			await page.getByRole('button', { name: 'Edit image: A lake' }).click();
@@ -154,9 +157,8 @@ test.describe('compose images', () => {
 			await expect(page.getByRole('radio', { name: 'Placement: Right side' })).toHaveAttribute('aria-checked', 'true');
 			await expect(page.getByRole('radio', { name: 'Placement: In the text' })).toBeVisible();
 			if (process.env.LATTICE_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.LATTICE_EVIDENCE_DIR}/compose-placement-${test.info().project.name}-${width}.png` });
-			await page.keyboard.press('Escape');
-		}
-	});
+		});
+	}
 
 	test('Remove takes the image and its paragraph, and Undo brings it back', async ({ page }) => {
 		await openWithPhotos(page);

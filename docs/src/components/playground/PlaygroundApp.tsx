@@ -36,7 +36,6 @@ import {
 	MAP_KEY,
 	type Plan,
 	parsePlaygroundUrl,
-	playgroundQuery,
 	readHandoff,
 	readingSlideIndex,
 	readPlan,
@@ -50,6 +49,7 @@ import {
 	VIEW_KEY,
 	variantSource,
 	walkChipLabel,
+	withPlaygroundQuery,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
 import type { PlaygroundSync, SyncPorts } from '@/lib/playground-sync';
@@ -2532,9 +2532,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				const s = walk.plan.slides[walk.index]?.kind ?? null;
 				// `history.state` passes through: it holds the back controller's marker (overlay-back.ts STATE_KEY) while a
 				// sheet is open, and `null` wiped it, so a sheet opened just before this write lost its back entry's owner.
-				window.history.replaceState(window.history.state, '', pathname + playgroundQuery({ c: walk.plan.name, view: 'read', s }) + hash);
+				window.history.replaceState(window.history.state, '', pathname + withPlaygroundQuery(search, { c: walk.plan.name, view: 'read', s }) + hash);
 			} else if (search) {
-				window.history.replaceState(window.history.state, '', pathname + hash);
+				// Strip the Playground's keys only: a key it does not own (`?tier=`) is someone else's to keep.
+				const rest = withPlaygroundQuery(search, {});
+				if (rest !== search) window.history.replaceState(window.history.state, '', pathname + rest + hash);
 			}
 		};
 		const t = setTimeout(write, SCROLL_IDLE_MS);

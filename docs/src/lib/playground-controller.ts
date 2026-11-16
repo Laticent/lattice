@@ -172,6 +172,23 @@ export function playgroundQuery(state: Partial<PlaygroundUrlState>): string {
 	return s ? `?${s}` : '';
 }
 
+/** The query keys the Playground owns: the ones `playgroundQuery` writes. */
+const PLAYGROUND_KEYS = ['c', 'view', 's', 'v'] as const;
+
+/**
+ * The address bar's query with the Playground's own keys replaced by `state` and every other key KEPT. A rewrite that
+ * started from an empty query dropped keys that are not the Playground's: `?tier=unsupported` pins the device tier, and the
+ * tier runtime reads it again once the page is idle, so a walk that rewrote the address first un-pinned the decline
+ * screen (e2e/decline-screen.spec.ts, 3 of 50 at 4 workers). An empty `state` strips only the Playground's keys.
+ */
+export function withPlaygroundQuery(search: string, state: Partial<PlaygroundUrlState>): string {
+	const q = new URLSearchParams(search);
+	for (const k of PLAYGROUND_KEYS) q.delete(k);
+	for (const [k, v] of new URLSearchParams(playgroundQuery(state))) q.set(k, v);
+	const s = q.toString();
+	return s ? `?${s}` : '';
+}
+
 /**
  * The next/previous component in the continuous walk (catalog order: the
  * caller passes the same ordered list the picker renders — bucket, then A–Z).
