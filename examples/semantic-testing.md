@@ -34,7 +34,7 @@ Timing: about 55 minutes, with two pauses for discussion. -->
 
 <!-- _class: agenda -->
 
-## The session moves from naming tests to trusting what they tell us.
+## The session moves from naming tests to trusting their results.
 
 <!-- Four parts. Part one fixes the vocabulary. Part two walks the five missions with one running example, a $500 transfer. Part three asks when a passing test deserves trust. Part four is about spending effort, and it ends with an exercise. -->
 
@@ -88,7 +88,7 @@ Timing matters, but it is a scheduling decision. A unit test runs at commit; a c
 
 `A better first question`
 
-## Ask what risk a test reduces before you ask what to call it.
+## Ask what risk a test reduces before naming it.
 
 - Start from the label
   - "We need more E2E tests." Nobody can say what a pass would prove.
@@ -109,7 +109,7 @@ Ask the room for a test they wrote last week, and have them state its mission in
 
 <!-- _class: flowchart -->
 
-## A tool becomes a strategy only once it names the evidence it produces.
+## A tool becomes a strategy once it names its evidence.
 
 - Mission: why -> Objective: what -> Strategy: how -> Tactic: with what -> Evidence: what happened -> Risk reduced: what changed
 
@@ -121,7 +121,7 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 
 <!-- describe: A flowchart of six steps in two rows: mission, why; objective, what; strategy, how; tactic, with what; evidence, what happened; risk reduced, what changed. A footnote contrasts a tactic, use a fault-injection proxy, with an objective, a retried transfer settles exactly once. -->
 
-<!-- say: A tool becomes a strategy only once it names the evidence it produces. Take the transfer. The mission: no money is lost or duplicated. The objective: a retried transfer settles exactly once. The strategy: replay requests under injected timeouts. The tactic: a fault injection proxy, which is a relay that drops or delays traffic on purpose. The evidence: ledger totals before and after. The risk reduced: we now know retries are safe under those timeouts. Naming a tool, such as Playwright, names only the tactic. -->
+<!-- say: A tool becomes a strategy once it names its evidence. Take the transfer. The mission: no money is lost or duplicated. The objective: a retried transfer settles exactly once. The strategy: replay requests under injected timeouts. The tactic: a fault injection proxy, which is a relay that drops or delays traffic on purpose. The evidence: ledger totals before and after. The risk reduced: we now know retries are safe under those timeouts. Naming a tool, such as Playwright, names only the tactic. -->
 
 ---
 
@@ -145,26 +145,21 @@ The last box is the one teams skip. Evidence that is collected but never interpr
 Each mission names a risk to reduce, whatever scope the test runs at.
 
 1. Unit
-   - Logic gives a wrong result.
-   - Does the logic work?
+   - Does the logic work? Risk: a wrong result.
 2. Integration
-   - Parts disagree at their boundaries.
-   - Do the interactions work?
+   - Do the interactions work? Risk: parts disagree.
 3. System
-   - The whole misbehaves in production.
-   - Does it hold up in production?
+   - Does it hold up in production? Risk: the whole fails.
 4. Experience
-   - People cannot reach their goal.
-   - Can users reach it?
+   - Can users reach their goal? Risk: they cannot.
 5. Safety
-   - The operation causes unacceptable harm.
-   - Can it avoid unacceptable harm?
+   - Can it avoid unacceptable harm? Risk: harm happens.
 
 <!-- Stress two things. First, the missions overlap: one scenario can produce evidence for all five, and one test run can serve two. Second, Experience and Safety work starts at design time, long before a system exists to test. A threat model and a usability study of a paper prototype are both evidence.
 
 The word System here means production parity. That is narrower than the ISTQB use, where system testing means testing the complete integrated system against its requirements. -->
 
-<!-- describe: A claim beside a numbered ledger of the five missions, each with the risk it reduces and the question it answers. Unit: logic gives a wrong result; does the logic work? Integration: parts disagree at their boundaries; do the interactions work? System: the whole misbehaves in production; does it hold up in production? Experience: people cannot reach their goal; can users reach it? Safety: the operation causes unacceptable harm; can it avoid unacceptable harm? The claim: each mission names a risk to reduce, whatever scope the test runs at. -->
+<!-- describe: A claim beside a numbered ledger of the five missions, each with the question it answers and the risk it reduces. Unit: does the logic work? The risk is a wrong result. Integration: do the interactions work? The risk is that parts disagree. System: does it hold up in production? The risk is that the whole fails. Experience: can users reach their goal? The risk is that they cannot. Safety: can it avoid unacceptable harm? The risk is that harm happens. The claim: each mission names a risk to reduce, whatever scope the test runs at. -->
 
 <!-- say: Each mission answers a question the others cannot, and each names a risk, whatever scope the test runs at. Unit: the risk is logic that gives a wrong result. Does the logic work? Integration: parts disagree at their boundaries. Do the interactions work? System: the whole misbehaves in production. Does it hold up in production? Experience: people cannot reach their goal. Can they reach it? Safety: the operation causes unacceptable harm. Can it avoid that harm? -->
 
@@ -209,7 +204,7 @@ Do not claim the missions are independent. The Safety row needs System-level con
 
 Why it matters: a stub and a mock lead to different tests. A stub supports state verification, where you check the balance afterward. A mock does behavior verification, where you check that the ledger was called. Heavy mocking couples tests to implementation, so a harmless refactor turns them red. -->
 
-<!-- describe: A numbered ledger of five test doubles. Dummy: fills a parameter list and is never used. Stub: returns canned answers to the calls the test makes. Spy: a stub that also records how it was called. Mock: fails the test if expected calls do not happen. Fake: a working, simplified version, such as an in-memory database. A closing band says: with a stub, check the balance afterward; with a mock, check that the ledger was called. -->
+<!-- describe: A pull quote on the left beside five test doubles, each a bold name with its job. The quote: with a stub, check the balance afterward; with a mock, check that the ledger was called. Dummy: fills a parameter list and is never used. Stub: returns canned answers to the calls the test makes. Spy: a stub that also records how it was called. Mock: fails the test if expected calls do not happen. Fake: a working, simplified version, such as an in-memory database. -->
 
 <!-- say: Five kinds of test double do five different jobs. A dummy fills a parameter and is never used. A stub returns canned answers. A spy is a stub that also records how it was called. A mock fails the test if expected calls do not happen. A fake is a simplified working version, like an in memory database. With a stub, you check the balance afterward. With a mock, you check that the ledger was called. These are Gerard Meszaros's terms. -->
 
@@ -277,7 +272,7 @@ Parity does not mean testing in production, and it does not mean using customer 
 
 <!-- _class: table table-fill -->
 
-## A dataset can pass every schema check and still be unrepresentative.
+## Schema-valid test data can still misrepresent production.
 
 | Property | Production | Typical test dataset |
 | --- | --- | --- |
@@ -295,7 +290,7 @@ Synthetic data is often the safer and more repeatable choice. Masked production 
 
 <!-- describe: A table comparing production with a typical test dataset. Volume: eight hundred million rows against ten thousand. Distribution: a few hot accounts against uniform. Relationships: deep and many to many against flat. Legacy anomalies: present against absent. Concurrency: thousands of writers against one. Footnote: masking protects privacy but can flatten skew, so check privacy and skew separately. -->
 
-<!-- say: A dataset can pass every schema check and still be unrepresentative. Production might hold eight hundred million rows, skewed toward a few hot accounts, with deep relationships, old anomalies and thousands of concurrent writers. A typical test dataset holds ten thousand flat, uniform, clean rows with one writer. Masking protects privacy, but it can flatten exactly that skew, so check privacy and skew separately. -->
+<!-- say: Schema-valid test data can still misrepresent production. Production might hold eight hundred million rows, skewed toward a few hot accounts, with deep relationships, old anomalies and thousands of concurrent writers. A typical test dataset holds ten thousand flat, uniform, clean rows with one writer. Masking protects privacy, but it can flatten exactly that skew, so check privacy and skew separately. -->
 
 ---
 
@@ -405,19 +400,19 @@ Ask: "Which of our five missions would have caught this?" Safety, run at System 
 
 `Part 3`
 
-## Evidence is worth only as much as its ability to fail.
+## Evidence counts only if it could have failed.
 
 <!-- About fifteen minutes. Part two asked what each mission is for. Part three asks when a passing test deserves our trust. -->
 
 <!-- describe: Section divider for part three: evidence is worth only as much as its ability to fail. -->
 
-<!-- say: Part three. Evidence is worth only as much as its ability to fail. Now we ask when a passing test deserves our trust. -->
+<!-- say: Part three. Evidence counts only if it could have failed. Now we ask when a passing test deserves our trust. -->
 
 ---
 
 <!-- _class: cards-stack -->
 
-## Confirm what you know, and search for what you have not imagined.
+## Confirm what you know, and search for the unimagined.
 
 - Knowns
   - We know the condition and the expected result. Example-based tests and contract tests confirm it.
@@ -426,22 +421,24 @@ Ask: "Which of our five missions would have caught this?" Safety, run at System 
 - Unknown unknowns
   - We know nothing yet. Exploratory testing, chaos experiments and incident review make a surprise more likely.
 
+— Discovery raises the odds of a useful surprise. No technique guarantees completeness.
+
 <!-- Knowns: we can write the input and the expected output.
 
 Known unknowns: we know concurrency, malformed input and partial failure can hurt us, but not which case will. So we generate cases instead of listing them.
 
 Unknown unknowns: we cannot write a test for a condition we have not conceived. The best we can do is put people and systems in situations that make surprises likely, then learn from them.
 
-The columns describe the dominant intent. Fuzzing can confirm robustness against a known class and also find something new. -->
+The cards describe the dominant intent. Fuzzing can confirm robustness against a known class and also find something new. -->
 
-<!-- describe: Three stacked cards. Knowns: we know the condition and the expected result; example-based tests and contract tests confirm it. Known unknowns: we know the class of risk, not the case; property tests, fuzzing and fault injection generate cases. Unknown unknowns: we know nothing yet; exploratory testing, chaos experiments and incident review make a surprise more likely. -->
+<!-- describe: Three stacked cards. Knowns: we know the condition and the expected result; example-based tests and contract tests confirm it. Known unknowns: we know the class of risk, not the case; property tests, fuzzing and fault injection generate cases. Unknown unknowns: we know nothing yet; exploratory testing, chaos experiments and incident review make a surprise more likely. Footnote: discovery raises the odds of a useful surprise, and no technique guarantees completeness. -->
 
-<!-- say: Confirm what you know, and search for what you have not imagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents. -->
+<!-- say: Confirm what you know, and search for the unimagined. For knowns, we know the condition and the expected result, so we write example based and contract tests. For known unknowns, we know the class of risk but not the case, so we generate inputs with property tests, fuzzing and fault injection. For unknown unknowns, we know nothing yet, so we explore, run chaos experiments, and learn from incidents. -->
 
 ---
 <!-- _class: table table-fill -->
 
-## Five techniques probe beyond examples, including one that tests the tests.
+## Five techniques reach past examples; mutation testing tests the tests.
 
 | Technique | What it does |
 | --- | --- |
@@ -497,7 +494,7 @@ The remedy is independent evidence: an oracle from a different source. A regulat
 
 <!-- _class: compare-code -->
 
-## Two tests can earn the same coverage while only one can catch a defect.
+## Two tests, same coverage: only one can catch the defect.
 
 `100% line coverage`
 
@@ -541,7 +538,7 @@ Coverage is still useful in one direction: an uncovered line is certainly untest
 
 `Flakiness`
 
-## Treat every flaky test as a defect and find its cause.
+## Treat every flaky test as a defect with a cause.
 
 A flaky test passes and fails on the same code. Automatic retries hide all three of its common causes.
 
@@ -566,7 +563,7 @@ The practice: keep the trace from the failure, reproduce it under load, fix the 
 
 <!-- _class: cards-grid three -->
 
-## Testability is an architecture decision, made long before the first test.
+## Testability is an architecture decision, made before the first test.
 
 - Controllability
   - The test can create the condition it needs: injected time, seeds and failure points.
@@ -583,7 +580,7 @@ Analyzers matter here. A system test can assert "HTTP 200" and pass, while the t
 
 <!-- describe: Three cards: controllability, the test can create the condition it needs; observability, the test can see what happened through logs, metrics, traces and analyzers; isolation, the test can run alone. A key insight bar reads: telemetry can show failures no assertion checks. -->
 
-<!-- say: Testability is an architecture decision, made long before the first test. Controllability means the test can create the condition it needs, such as an injected clock or failure point. Observability means it can see what happened, through logs, metrics, traces and analyzers, which are tools that scan that output for trouble. Isolation means it can run alone. Telemetry can show failures no assertion checks. -->
+<!-- say: Testability is an architecture decision, made before the first test. Controllability means the test can create the condition it needs, such as an injected clock or failure point. Observability means it can see what happened, through logs, metrics, traces and analyzers, which are tools that scan that output for trouble. Isolation means it can run alone. Telemetry can show failures no assertion checks. -->
 
 ---
 
@@ -605,7 +602,7 @@ Analyzers matter here. A system test can assert "HTTP 200" and pass, while the t
 
 `A rough guide for judgment`
 
-## Write the next test only if it buys more risk reduction than it costs.
+## The next test must reduce more risk than it costs.
 
 $$ V \approx p \cdot C \cdot \Delta d - K $$
 
@@ -625,12 +622,12 @@ K includes the hidden costs: run time on every commit, and the hours spent diagn
 
 <!-- describe: A math slide with the eyebrow, a rough guide for judgment. The heuristic reads: V is approximately p times C times delta d, minus K. The legend: V is the value of adding the test; p is the chance the defect exists; C is the cost if it escapes, covering severity, exposure and reversibility; delta d is how much the test raises the chance of catching it; K is the cost to write, run, maintain and diagnose it. -->
 
-<!-- say: Write the next test only if it buys more risk reduction than it costs. As a rough guide, the value of a test is the chance the defect exists, times the cost if it escapes, times how much the test improves our chance of catching it, minus the cost of writing, running and maintaining the test. Nobody computes this exactly. It names the four things to argue about. -->
+<!-- say: The next test must reduce more risk than it costs. As a rough guide, the value of a test is the chance the defect exists, times the cost if it escapes, times how much the test improves our chance of catching it, minus the cost of writing, running and maintaining the test. Nobody computes this exactly. It names the four things to argue about. -->
 
 ---
 <!-- _class: list-tabular -->
 
-## Test the edges around a critical path, where costly defects hide.
+## Costly defects hide at the edges of a critical path.
 
 1. Declined by the bank
    - The customer sees why, and no money moves.
@@ -651,7 +648,7 @@ Most suites walk down the middle of the road: the success case. The consequentia
 
 <!-- describe: A numbered ledger of five edges of sending a transfer and what a test should prove. Declined by the bank: the customer sees why, and no money moves. Duplicate request: exactly one transfer settles. Network timeout: a retry is safe and the status is honest. Partial write: the ledger never shows half a transfer. Session expires: work in progress is kept or clearly lost. Footnote: these edges are the path's test surface, and consequence decides whether a path is critical. -->
 
-<!-- say: Test the edges around a critical path, where costly defects hide. Together, these edges are the path's test surface. A decline by the bank: the customer sees why, and no money moves. A duplicate request: exactly one transfer settles. A network timeout: a retry is safe and the status is honest. A partial write: the ledger never shows half a transfer. A session that expires: work in progress is kept or clearly lost. Consequence decides whether a path is critical. -->
+<!-- say: Costly defects hide at the edges of a critical path. Together, these edges are the path's test surface. A decline by the bank: the customer sees why, and no money moves. A duplicate request: exactly one transfer settles. A network timeout: a retry is safe and the status is honest. A partial write: the ledger never shows half a transfer. A session that expires: work in progress is kept or clearly lost. Consequence decides whether a path is critical. -->
 
 ---
 
@@ -684,7 +681,7 @@ Testing in production is legitimate only with guardrails: limit the blast radius
 
 <!-- _class: flowchart -->
 
-## An escaped defect is evidence about two systems: the product and its tests.
+## An escaped defect exposes both the product and its tests.
 
 - Incident -> Fix the product & Find the surviving assumption
 - Find the surviving assumption -> Name the missing evidence -> Add the cheapest test
@@ -701,7 +698,7 @@ This is a blameless review question. The goal is a better system; nobody is hunt
 
 <!-- describe: A flowchart. An incident leads to fixing the product, and to finding the surviving assumption, then naming the missing evidence, then adding the cheapest test. A dashed line, keyed as the payoff, runs from that test to a final box: next defect caught earlier. -->
 
-<!-- say: An escaped defect is evidence about two systems: the product and its tests. After an incident, fix the product. Then find the assumption that survived, name the evidence that was missing, and add the cheapest test that would have caught it. That feeds back into earlier detection next time. -->
+<!-- say: An escaped defect exposes both the product and its tests. After an incident, fix the product. Then find the assumption that survived, name the evidence that was missing, and add the cheapest test that would have caught it. That feeds back into earlier detection next time. -->
 
 ---
 
@@ -725,7 +722,7 @@ Give the room a full minute. Take three answers before the reveal. Expect System
 
 `Reveal`
 
-## The sentence names a tool, a place and a scenario, but no mission.
+## The sentence names tool, place and scenario, but no mission.
 
 - Playwright
   - The tactic: how the test is exercised.
@@ -788,7 +785,7 @@ This is the slide to leave up during questions. -->
 
 <!-- _class: decision -->
 
-## Start with the mission your project has the least evidence for.
+## Start with the mission your project has least evidence for.
 
 `The ask`
 
@@ -805,13 +802,13 @@ The two rejected options are the usual reflexes. Both make a dashboard move with
 
 <!-- describe: A decision slide, subtitled the ask, with three cards. Strengthen the weakest mission: add one test or review this week, with its mission and evidence named. Why not more end to end tests: more of the same scope adds runtime and no new kind of evidence. Why not a coverage target: coverage measures lines run, and cannot see which risks a suite detects. -->
 
-<!-- say: Here is the ask. Start with the mission your project has the least evidence for, and add one test or review for it this week, with its mission and evidence named. More end to end tests would add runtime and no new kind of evidence. A coverage target would measure lines run, and miss which risks the suite detects. -->
+<!-- say: Here is the ask. Start with the mission your project has least evidence for, and add one test or review for it this week, with its mission and evidence named. More end to end tests would add runtime and no new kind of evidence. A coverage target would measure lines run, and miss which risks the suite detects. -->
 
 ---
 
 <!-- _class: closing silent -->
 
-## Good testing buys evidence where being wrong would cost the most.
+## Good testing buys evidence where being wrong would cost most.
 
 `Which mission has the least evidence in your project?`
 
@@ -821,7 +818,7 @@ Closing ask: each person names one mission that is weakly evidenced in their cur
 
 <!-- describe: Closing slide: good testing buys evidence where being wrong would cost the most, with the question, which mission has the least evidence in your project? -->
 
-<!-- say: Good testing buys evidence where being wrong would cost the most. Which mission has the least evidence in your project? -->
+<!-- say: Good testing buys evidence where being wrong would cost most. Which mission has the least evidence in your project? -->
 
 ---
 
