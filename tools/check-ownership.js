@@ -9007,6 +9007,8 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //                       (`performance.now()`, `Date.now()`, `process.hrtime`) directly, or through a variable or a
 //                       function the same file built from one: `const ratio = best(poisoned) / best(clean)` where
 //                       `poisoned` times a call is caught.
+//                       Also a timing the page measured itself: the `.duration` of a value built from
+//                       `performance.getEntries*()`, or a key copied from one (`({ ms: m.duration })`, then `worst.ms`).
 //   unseeded-random F5  `Math.random()`.
 //   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
 //                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
@@ -9034,7 +9036,7 @@ const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
+const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime|getEntries(?:ByType|ByName)?\s*\(/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {
@@ -9138,7 +9140,40 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       if (!durations.has(init) && isDuration(init)) { durations.add(init); grew = true; }
     }
   }
-  const touchesClock = hasDuration;
+  // A User Timing or Resource Timing entry is a timing the page measured itself: `performance.measure(...)` around a call,
+  // read back with `performance.getEntriesByType('measure')`. The census follows a value built from a `getEntries*()`
+  // call (to a fixpoint, as above) and counts an assertion that reads its `.duration`, or a key the file copied from a
+  // `.duration` (`({ ms: m.duration })` then `worst.ms`). Its count, its names and its order are not timings, so
+  // `expect(measures.length)` and `expect(kinds)` stay clean. The §4.3 budget in filo-undo.spec.ts was this shape, red on
+  // WebKit's 1 ms clock, and the census did not see it (2026-11-16).
+  const isEntriesRead = (c) => ts.isCallExpression(c) && ts.isPropertyAccessExpression(c.expression) && /^getEntries(?:ByType|ByName)?$/.test(c.expression.name.text);
+  const durationKeys = new Set(['duration']);
+  each(sf, (c) => {
+    if (ts.isPropertyAssignment(c) && (ts.isIdentifier(c.name) || ts.isStringLiteral(c.name)) && ts.isPropertyAccessExpression(c.initializer) && c.initializer.name.text === 'duration') durationKeys.add(c.name.text);
+  });
+  const entryInits = new Set();
+  const touchesEntries = (node) => {
+    let hit = false;
+    each(node, (c) => {
+      if (hit) return;
+      if (isEntriesRead(c)) hit = true;
+      else if (ts.isIdentifier(c)) { const d = resolve(c); if (d && entryInits.has(d)) hit = true; }
+    });
+    return hit;
+  };
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const init of inits) if (!entryInits.has(init) && touchesEntries(init)) { entryInits.add(init); grew = true; }
+  }
+  const readsEntryDuration = (node) => {
+    let hit = false;
+    each(node, (c) => {
+      if (hit || !ts.isPropertyAccessExpression(c) || !durationKeys.has(c.name.text)) return;
+      if (touchesEntries(c.expression)) hit = true;
+    });
+    return hit;
+  };
+  const touchesClock = (node) => hasDuration(node) || readsEntryDuration(node);
 
   const out = {};
   const add = (shape, node) => { if (!okAt(node)) out[shape] = (out[shape] || 0) + 1; };
