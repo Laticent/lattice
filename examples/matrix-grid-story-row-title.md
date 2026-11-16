@@ -66,6 +66,21 @@ On a portrait or story box the row title lies flat above the grid, and the colum
 ---
 
 <!-- _class: matrix-grid -->
+<!-- _footer: "A very long title · it wraps" -->
+
+`[Breadth of reach across the whole organization and beyond it, Depth of judgment and cognition required for the role at hand]`
+
+## A title longer than the box wraps.
+
+| Area     | Team         | Org          | Market       |
+| -------- | :----------: | :----------: | :----------: |
+| Pricing  | [ ]          | [x] Lead     | [ ]          |
+| Roadmap  | [x] Owner    | [ ]          | [-]          |
+| Hiring   | [ ]          | [ ]          | [x] Partner  |
+
+---
+
+<!-- _class: matrix-grid -->
 <!-- _footer: "Row axis only · the flat title alone" -->
 
 `[, Deeper cognition]`
