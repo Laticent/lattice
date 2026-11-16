@@ -12,7 +12,7 @@ import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js'
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, getSpendDeck, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { AUTHORING_RULES, buildLatticePrimer, layoutBlock } from '@/lib/architect-knowledge.js';
-import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
+import { frontMatterBlockText, getFrontMatter, innerFrontMatter, setFrontMatterTerms, writeFrontMatterBlock, writeFrontMatterLine } from '../../lib/front-matter';
 import { readChatSelection } from '../../lib/model-selection.js';
 import { providerKeyState } from '../../lib/openrouter-key.js';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
@@ -398,7 +398,8 @@ type RawEdit = { action: string; slide: number; body: string; key?: string; valu
 /** One front-matter write from the chat agent, through the lossless line writer. */
 function applyFrontMatterWrite(source: string, e: AgentRawEdit): { source: string; ok: boolean; reason: string | null } {
 	if (!e.key) return { source, ok: false, reason: 'A front-matter edit without a key.' };
-	const next = writeFrontMatterLine(source, e.key, e.value ?? null);
+	// A nested block (`terms:`) goes through the lossless block writer; a flat key through the line writer.
+	const next = e.block ? writeFrontMatterBlock(source, e.key, e.value == null ? null : e.value.split('\n')) : writeFrontMatterLine(source, e.key, e.value ?? null);
 	return next === source ? { source, ok: false, reason: `\`${e.key}\` already reads that way.` } : { source: next, ok: true, reason: null };
 }
 
@@ -1373,7 +1374,7 @@ export type ProposedEdit = {
 	label: string;
 	slide: number;
 	action: 'replace' | 'insert' | 'delete' | 'frontmatter';
-	raw: { action: string; slide: number; body: string; key?: string; value?: string | null };
+	raw: { action: string; slide: number; body: string; key?: string; value?: string | null; block?: boolean };
 	before: string;
 	after: string;
 	diff: DiffRow[];
@@ -1724,6 +1725,7 @@ export function applyProposedEditsChecked(source: string, edits: { raw: RawEdit 
  *  an edit the author made to that slide after the proposal arrived (K1 stale guard). */
 export function isProposedEditStale(source: string, edit: ProposedEdit): boolean {
 	if (edit.action === 'insert') return false;
+	if (edit.action === 'frontmatter' && edit.raw.block) return frontMatterBlockText(source, edit.raw.key ?? '') !== edit.before;
 	if (edit.action === 'frontmatter') {
 		const key = edit.raw.key ?? '';
 		const cur = getFrontMatter(source, key);
@@ -1810,7 +1812,7 @@ let chatAgentLoad: Promise<ChatAgentModule> | null = null;
  *  chat-agent.ts). Exported for the agent's tests. */
 export function chatAgentDeps(): import('./chat-agent').ChatAgentDeps {
 	return {
-		applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel, AUTHORING_RULES, layoutBlock, getFrontMatter, innerFrontMatter, writeFrontMatterLine,
+		applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel, AUTHORING_RULES, layoutBlock, getFrontMatter, innerFrontMatter, writeFrontMatterLine, frontMatterBlockText, setFrontMatterTerms,
 		adjustSpend, recordSpend, deckCanon: loadedAuthoring().deckCanon, deckProfiles: loadedAuthoring().deckProfiles,
 		applyEditsChecked, CHAT_MAX_TOKENS, cloudBudgetBlock, estimateUsd, estTokens, FACT_GUARD, TRUNCATION_NOTE, withStudioVoice,
 		groundMessages, refDocsTokens, FINISHES, BUILTIN_PALETTES, deckOutputLang,
