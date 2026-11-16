@@ -35,7 +35,7 @@ function freshEngine() {
 const DECKS = () => {
 	const out = [['gallery', fs.readFileSync(path.join(ROOT, 'test/integration/baseline-decks/gallery.md'), 'utf8')]];
 	const dir = path.join(ROOT, 'examples');
-	for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.md'))) out.push([f, fs.readFileSync(path.join(dir, f), 'utf8')]);
+	for (const f of fs.readdirSync(dir).filter((n) => (n.endsWith('.md') && !n.endsWith('.tmp.md')))) out.push([f, fs.readFileSync(path.join(dir, f), 'utf8')]);
 	return out;
 };
 
