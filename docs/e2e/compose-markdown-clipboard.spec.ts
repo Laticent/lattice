@@ -128,6 +128,19 @@ test.describe('Markdown on the Compose clipboard', () => {
 		await expect(page.locator('.cs-slide')).toHaveCount(3);
 	});
 
+	// The card's grader on #3234: "Goal:" is an ordinary slide line and names no deck setting, so the first slide is a
+	// slide, and the deck's settings are untouched.
+	test('a first slide with a "Goal:" line lands as a slide, and the deck settings stay as they were', async ({ page }) => {
+		await openDeckInCompose(page, `---\ntheme: indaco\npaginate: true\n---\n\n${DECK}`);
+		await caretAfter(page, 'Where we start.');
+		await paste(page, { 'text/plain': '---\n\n# Plan\n\nGoal: ship Q3\n\n---\n\n# Next\n' });
+		await expect.poll(() => savedDeck(page)).toContain('# Next');
+		const saved = await savedDeck(page);
+		expect(saved.startsWith('---\ntheme: indaco\npaginate: true\n---\n')).toBe(true);
+		expect(saved).toContain('# Plan\n\nGoal: ship Q3');
+		await expect(page.locator('.cs-slide')).toHaveCount(3);
+	});
+
 	// The engine renders the paste and the spine reads the markup (HARD RULE #22). One spelling a source pattern missed
 	// (a record directive, from the red team) stands in for all of them: what matters is that the check is the renderer's.
 	for (const [label, payload] of [

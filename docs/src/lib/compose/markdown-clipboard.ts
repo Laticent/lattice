@@ -13,6 +13,7 @@
 import { Fragment, type Node as PMNode, Slice } from 'prosemirror-model';
 import { AllSelection, type EditorState, Plugin, PluginKey, Selection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import deckSettings from '../../../../lib/core/deck-settings.js';
 import { innerFrontMatter } from '../front-matter';
 import { normalizeSourceText } from '../normalize-source-text';
 import { CLIP_ORIGIN } from './clip-origin';
@@ -109,7 +110,30 @@ function keepEdgeSpaces(content: Fragment, text: string): Fragment {
 }
 
 /** A top-level settings line in a front-matter block: a key, bare or quoted, then a colon. */
-const SETTING_LINE = /^(?:"[^"\n]+"|'[^'\n]+'|[A-Za-z_][\w-]*)[ \t]*:/m;
+const SETTING_LINE = /^(?:"([^"\n]+)"|'([^'\n]+)'|([A-Za-z_][\w-]*))[ \t]*:/;
+
+/**
+ * Is a leading `---` block a deck's SETTINGS, or a run of slides copied from the middle of a deck that starts at a
+ * break? Settings only when every line has a settings shape (a key, an indented continuation, a list item under a
+ * key, a comment or a blank) AND at least one key is one the engine knows (`lib/core/deck-settings.js`, the table
+ * the linter and the Studio read). A slide holds a heading or prose, and "Goal: ship Q3" or "Owner: Ana" is a
+ * line a business slide writes; neither names a deck setting. Read as settings, the first slide vanished into the
+ * deck's YAML (the checker, then the card's grader, on #3234). A deck whose block holds one misspelled key beside
+ * real ones still reads as settings.
+ */
+export function isSettingsBlock(inner: string): boolean {
+	let known = false;
+	let keyed = false;
+	for (const line of inner.split('\n')) {
+		if (!line.trim() || /^[ \t]*#/.test(line)) continue;
+		const m = SETTING_LINE.exec(line);
+		if (m) {
+			keyed = true;
+			if (deckSettings.isDeckSettingKey(m[1] ?? m[2] ?? m[3])) known = true;
+		} else if (!(keyed && (/^[ \t]+\S/.test(line) || /^-[ \t]/.test(line)))) return false;
+	}
+	return known;
+}
 
 /**
  * Pasted Markdown → a slice.
@@ -133,7 +157,7 @@ export function markdownToSlice(md: string): MarkdownPaste {
 	// A leading `---` block that names no setting is not front matter: it is a run of slides copied from the middle
 	// of a deck, starting at a break. Read as front matter, its first slide vanished (or was written into the deck's
 	// own block); read the `---` as the break it is (the checker on #3234).
-	if (fm && !SETTING_LINE.test(innerFrontMatter(fm))) {
+	if (fm && !isSettingsBlock(innerFrontMatter(fm))) {
 		text = text.replace(/^---[ \t]*\n/, '');
 		({ fm, slides } = parseDeck(text));
 	}

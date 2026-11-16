@@ -4,7 +4,7 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { CLIP_ORIGIN } from './clip-origin';
 import { deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
-import { looksLikeMarkdown, markdownClipboardPlugin, markdownToSlice, pasteAsMarkdown, pasteNotice, placeSlides, rawBlocksOk, sliceToMarkdown } from './markdown-clipboard';
+import { isSettingsBlock, looksLikeMarkdown, markdownClipboardPlugin, markdownToSlice, pasteAsMarkdown, pasteNotice, placeSlides, rawBlocksOk, sliceToMarkdown } from './markdown-clipboard';
 
 // The paste the owner reported: Markdown from a text editor, two slides, one with a layout.
 const TWO = '# Quarterly plan\n\n- **Revenue** up 12%\n- Hiring *paused*\n\n---\n\n<!-- _class: big-number -->\n\n# 42%\n\nGross margin\n';
@@ -111,6 +111,27 @@ describe('markdownToSlice', () => {
 		expect(p.frontMatter).toBe('');
 		expect(p.slides).toBe(2);
 		expect(p.slice.content.child(0).textContent).toBe('Slide A');
+	});
+
+	// The card's grader on #3234: "Goal:" and "Owner:" lines are ordinary on a slide, and named no deck setting.
+	it.each([
+		['a heading and a "Word: text" line', '---\n\n# Plan\n\nGoal: ship Q3\n\n---\n\n# Next\n', 'Plan'],
+		['an "Owner:" line alone', '---\n\nOwner: Ana\n\n---\n\n# Next\n', 'Owner: Ana'],
+	])('reads a leading block of slide text as a slide, not settings: %s', (_, md, first) => {
+		const p = markdownToSlice(md);
+		expect(p.frontMatter).toBe('');
+		expect(p.slides).toBe(2);
+		expect(p.slice.content.child(0).textContent).toContain(first);
+	});
+
+	it('tells settings from slide text', () => {
+		expect(isSettingsBlock('theme: cuoio\npaginate: true')).toBe(true);
+		expect(isSettingsBlock('# brand\ntheme: cuoio\nkeywords:\n- a\n- b\nstyle: |\n  h1 { x: 1; }')).toBe(true);
+		expect(isSettingsBlock('themee: x\npaginate: true')).toBe(true);
+		expect(isSettingsBlock('\n# Plan\n\nGoal: ship Q3\n')).toBe(false);
+		expect(isSettingsBlock('Owner: Ana')).toBe(false);
+		expect(isSettingsBlock('theme: cuoio\nSome prose here.')).toBe(false);
+		expect(isSettingsBlock('')).toBe(false);
 	});
 
 	it('settings and nothing else add no slide', () => {
