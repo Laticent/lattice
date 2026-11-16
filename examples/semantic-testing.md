@@ -16,7 +16,7 @@ acronyms:
 
 # Semantic Testing
 
-`Mentee training · A proposed framework`
+`A proposed framework for software testing`
 
 Five missions, better evidence, and less consequential risk.
 
@@ -42,7 +42,7 @@ Timing: about 55 minutes, with two pauses for discussion. -->
 
 ## Name the mission before you name the test.
 
-<!-- About eight minutes. The goal of this part: by its end, a mentee should be able to say what risk a test reduces and what a pass would prove. -->
+<!-- About eight minutes. The goal of this part: by its end, everyone should be able to say what risk a test reduces and what a pass would prove. -->
 
 ---
 
@@ -78,12 +78,10 @@ A label says how a test runs; a mission says what a pass is worth.
 
 - Start from the label
   - "We need more E2E tests."
-  - Tool and topology come first
-  - Nobody can say what a pass proves
+  - A pass proves nothing stated
 - Start from the mission
-  - "Can a retry move money twice?"
-  - Risk first, then evidence, then tool
-  - Every pass has a stated meaning
+  - "Can a retry pay twice?"
+  - Every pass has a meaning
 
 > Name the mission, then the evidence that would satisfy it.
 
@@ -158,11 +156,11 @@ The word System here means production parity. That is narrower than the ISTQB us
 
 | Mission | Question about the transfer | Evidence that answers it |
 | --- | --- | --- |
-| Unit | Is an unauthorized approver rejected? | `canApprove` at every role boundary |
-| Integration | Is one row stored and one event sent? | Real database and broker in containers |
-| System | Does it settle under peak load and failover? | Latency, errors and balances at parity |
-| Experience | Does the customer know the money moved? | Task success in moderated sessions |
-| Safety | Can a retry or an operator pay twice? | Injected duplicates; ledger reconciles |
+| Unit | Is an unauthorized approver rejected? | `canApprove` at each role boundary |
+| Integration | One row stored, one event sent? | Containerized database and broker |
+| System | Settles under peak load and failover? | Latency, errors, balances at parity |
+| Experience | Customer knows the money moved? | Task success in moderated sessions |
+| Safety | Can a retry or operator pay twice? | Injected duplicates; ledger reconciles |
 
 <!-- This is the running example. Same scenario, five missions, five kinds of evidence.
 
@@ -198,9 +196,9 @@ Why it matters: a stub and a mock lead to different tests. A stub supports state
 ## Unit tests localize a fault; integration tests catch the seams between parts.
 
 - Unit
-  - Checks `canApprove` at every role boundary in milliseconds, with doubles for collaborators. A failure points at one function.
+  - Checks `canApprove` at every role boundary in milliseconds. A failure points at one function.
 - Integration
-  - Checks that a transfer stores one row and sends one event, against a real database in a container. It catches drift at the seams.
+  - Checks one stored row and one event against a containerized database. It catches drift between parts.
 
 <!-- Each has a blind spot. A unit test says nothing about the database under concurrent writes; an integration test says nothing about production scale.
 
@@ -353,7 +351,7 @@ Ask: "Which of our five missions would have caught this?" Safety, run at System 
 | Territory | What we know | Techniques that fit |
 | --- | --- | --- |
 | Knowns | The condition and the expected result | Example-based tests, contract tests |
-| Known unknowns | The class of risk, not the instance | Property-based tests, fuzzing, fault injection |
+| Known unknowns | The class, not the instance | Property tests, fuzzing, fault injection |
 | Unknown unknowns | Nothing yet | Exploratory testing, chaos experiments, incident review |
 
 — Discovery raises the odds of a useful surprise. No technique guarantees completeness.
@@ -534,6 +532,49 @@ K includes the hidden costs: run time on every commit, and the hours spent diagn
 
 <!-- _class: diagram -->
 
+## Test the edges of a critical path, not only its middle.
+
+```mermaid
+flowchart TB
+  C["Critical path<br/>send a transfer"] --> H["Success"]
+  C --> D["Declined by<br/>the bank"]
+  C --> R["Duplicate<br/>request"]
+  C --> N["Network<br/>timeout"]
+  C --> P["Partial<br/>write"]
+  C --> A["Session<br/>expires"]
+```
+
+— A path is critical because of its consequence, not its traffic.
+
+<!-- A path earns the word critical through consequence, frequency, irreversibility, regulatory duty, how many things depend on it, or blast radius. A refund flow used ten times a day can be more critical than a search box used ten million times.
+
+Most suites walk down the middle of the road: the success case. The consequential defects tend to sit on the shoulders. Ask the room to add one more edge for the transfer. Good answers: the currency changes mid-flow, the account is frozen, the clock crosses midnight. -->
+
+---
+
+<!-- _class: table -->
+
+## A test's stage sets when its evidence is credible, not its mission.
+
+| Stage | Typical evidence |
+| --- | --- |
+| Local and pre-commit | Unit, focused integration, static analysis |
+| Continuous integration | Broad unit and integration, contracts, short fuzzing |
+| Staging or pre-release | System parity, load, failover, dynamic security scans |
+| Production | Canaries, synthetic probes, shadow traffic, governed experiments |
+
+— Production testing needs blast-radius limits, privacy controls, rollback and a kill switch.
+
+<!-- Each stage is a trade between feedback speed and fidelity. Commit-time checks are fast and narrow; production is slow to set up and as faithful as it gets.
+
+Experience and Safety work happens at several stages, including design: a threat model or a paper-prototype usability session needs no running code.
+
+Testing in production is legitimate only with guardrails: limit the blast radius, protect personal data, keep a rollback ready, and have someone watching. -->
+
+---
+
+<!-- _class: diagram -->
+
 ## An escaped defect is evidence about two systems: the product and its tests.
 
 ```mermaid
@@ -620,6 +661,25 @@ This is the slide to leave up during questions. -->
 
 ---
 
+<!-- _class: decision -->
+
+## Start with the mission your project evidences least.
+
+`The ask`
+
+- Strengthen the weakest mission
+  - Add one test or review this week, with its mission and evidence named.
+- Why not more end-to-end tests
+  - More of the same scope adds runtime, not a new kind of evidence.
+- Why not a coverage target
+  - Coverage counts the lines a suite runs, not the risks it detects.
+
+<!-- This is the one thing to do after the session. Give everyone two minutes to write down their weakest mission and one concrete test or review that would strengthen it. Take three examples aloud.
+
+The two rejected options are the usual reflexes. Both make a dashboard move without changing what the suite can find. -->
+
+---
+
 <!-- _class: closing silent -->
 
 ## Pursue the evidence that reduces consequential uncertainty.
@@ -628,4 +688,67 @@ This is the slide to leave up during questions. -->
 
 <!-- Testing is not a contest to produce the most tests. Five missions, one coherent testing system.
 
-Closing ask: each mentee names one mission that is weakly evidenced in their current project, and one concrete test or review they will add this week. Collect them; revisit them at the next session. -->
+Closing ask: each person names one mission that is weakly evidenced in their current project, and one concrete test or review they will add this week. Collect them; revisit them at the next session. -->
+
+---
+
+<!-- _class: divider -->
+
+`Reference`
+
+## Three pages to keep after the session.
+
+<!-- The reference pages are for afterward: terms, common misconceptions, and questions to discuss with a team. Skip them in a timed session. -->
+
+---
+
+<!-- _class: glossary -->
+
+## Six terms carry most of the framework's precision.
+
+- Evidence
+  - Observations that change how much confidence is justified.
+- Fidelity gap
+  - A difference from production that limits what a result can claim.
+- Invariant
+  - A property that must hold under every defined condition.
+- Residual risk
+  - Risk left after testing, accepted by a named owner.
+- Test oracle
+  - The source that decides what correct behavior is.
+- Test surface
+  - The states, boundaries and dependencies around a critical path.
+
+<!-- Residual risk needs an owner. Risk that nobody accepted is not accepted; it is unnoticed. -->
+
+---
+
+<!-- _class: table -->
+
+## Six common claims about testing need a better reading.
+
+| Claim | Better reading |
+| --- | --- |
+| "95% coverage means well tested." | Coverage counts lines run, not risks examined. |
+| "It passed, so it is correct." | The oracle itself may be wrong. |
+| "A real database means system testing." | Mission classifies; fidelity limits claims. |
+| "Same version means production parity." | Topology, config, data and load matter too. |
+| "Security means safety." | A secure operation can still cause harm. |
+| "More tests are always better." | More trustworthy evidence is better. |
+
+<!-- Each claim is half true, which is why it survives. Use the table when one comes up in a review: name the half that is true, then the half that is not. Other claims worth correcting: "automation is testing" (automation runs checks; people design and interpret them), and "tests must never be deleted" (a misleading or redundant test lowers trust in the suite). -->
+
+---
+
+<!-- _class: list -->
+
+## These six questions turn the framework into a team discussion.
+
+- Can a test use a real database and still be integration?
+- What evidence would show staging has enough production parity?
+- When can five passing tests share one wrong oracle?
+- How could a fully authorized workflow still cause financial harm?
+- What would your most expensive test catch that a cheap one cannot?
+- Which mission has the weakest evidence in your project?
+
+<!-- Good for a team retrospective or a follow-up session. Each question has an answer in the deck; the interesting part is the answer for your own system. -->

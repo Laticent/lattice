@@ -15,7 +15,7 @@ live in `engineering/decisions/2026-11-06-flaky-tests.md`, the commands in
 
 ## Part 1 — Five missions, mapped to Lattice
 
-The framework comes from *Semantic Testing*, a mentee talk on software testing. It is a proposed framework, not an
+The framework comes from *Semantic Testing*, a talk on software testing (`examples/semantic-testing.md`, with a longer `examples/semantic-testing-deep-dive.md`). It is a proposed framework, not an
 industry taxonomy. Its one idea: **classify a test by its mission, the risk it reduces, not by its
 tool, its schedule or where it runs.** "A Playwright nightly" names a tool and a schedule. It does
 not say what a pass proves.
