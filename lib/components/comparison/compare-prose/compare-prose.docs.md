@@ -19,7 +19,7 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the comparison. |
-| `options` | `ul > li` | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, leave the lead blank and nest a 3-item sub-list instead: the facet numeral (`I` / `II`), a bold title, and a description sentence. |
+| `options` | `ul > li` | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, number the two items (`1. Own the verb`) and nest one description bullet under each: the lead is the facet's title, and its numeral (`I` / `II`) is generated from the ordered list. |
 | `lede` | `h2 + p` | no | `axis` only. A framing sentence between the heading and the two facet cards. |
 | `note` | `:is(ul, ol) + p` | no | A closing line after the two cards. Plain prose in the base layout; `axis` renders it centered and italic. |
 
@@ -38,7 +38,7 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 
 - **Assuming `chosen`/`rejected`/`decision` mark whichever option is authored first.** All three target the SECOND card (`li:last-child`) in the markdown — the option to crown (`chosen`) or strike (`rejected`) must be written second, not first.
 - **Combining `mirror` with `chosen`/`rejected`/`decision`, expecting the marked card to move with the visual swap.** `mirror` only reverses the VISUAL row (`flex-direction: row-reverse`) — the chosen/rejected treatment still targets the second option in markdown SOURCE order, so mirroring changes where it appears on screen, not which option gets the accent.
-- **Writing a label before the nested sub-list in an `axis` card (`- Own the verb` then the numeral/title/description sub-list), the way the base layout's option lead works.** `axis` cards read the FIRST three items of the nested sub-list as numeral, title, and description — leave the outer bullet's own lead blank (`- ` with nothing after it) so nothing is left over to become a stray corner tag.
+- **Typing the facet numeral in an `axis` card: a blank outer bullet with `I`, a title and a description as nested items, the form this variant used before its numerals were generated.** Write an ordered list: `1. Own the verb`, then the description as one nested bullet. The numeral comes from the list's own count (upper-roman), so a typed one only adds a stray line of body text.
 
 ## When to use
 

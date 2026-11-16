@@ -143,11 +143,13 @@ section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:last-child {
   background: var(--accent-soft);
 }
 
-/* rejected: the second card is the option dropped — dimmed card + struck tag. */
-section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child {
+/* rejected: the second card is the option dropped — dimmed card + struck tag. A LONE card (a split page, or one
+ * option) is never the loser: there is nothing it lost to, so `:not(:only-child)` keeps it at full strength.
+ * decision's losing first card below takes the same guard; a lone card there keeps the winner's fill. */
+section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child:not(:only-child) {
   color: var(--text-secondary);
 }
-section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child > strong:first-child {
+section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child:not(:only-child) > strong:first-child {
   text-decoration: line-through;
 }
 
@@ -161,10 +163,10 @@ section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child > str
  * which started far higher, sailed through. The wash was also doing no work the design
  * needs: the winner is already marked by an --accent-soft fill and an accent edge, and
  * the loser's label is already struck through. So the card recedes by ink alone. */
-section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child {
+section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child:not(:only-child) {
   color: var(--text-secondary);
 }
-section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child > strong:first-child {
+section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child:not(:only-child) > strong:first-child {
   text-decoration: line-through;
 }
 section.compare-prose.decision > .cell-stage > :is(ul, ol)::before {
