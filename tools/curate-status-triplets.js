@@ -68,6 +68,8 @@ const clampRed = (h) => Math.min(FAIL_RED[1], Math.max(FAIL_RED[0], ((h + 180) %
 /** On the light face at risk sits at least this much lighter than blocked, so the two exceptions never read as one
  * heavy mass (the order the dark face takes from `DARK_SPREAD`, and `main`'s light bars, where at risk is lightest). */
 const LIGHT_SPREAD = 0.06;
+/** On the light face blocked must READ red, not maroon or brown: a deep, saturated fill reads as a dark earth tone. */
+const LIGHT_RED = { L: 0.38, C: 0.14 };
 /** A light face that cannot take the full spread, named with the spread it does take and why; held by the audit. */
 const SPREAD_EXEMPT = {
   concrete: { spread: 0.02, why: 'concrete\'s light slide is a mid-gray (#B8B8B5), and its row tint darkens it further, so a fill that '
@@ -81,7 +83,11 @@ const ACCENT_MIN = 0.08;
  * A face where the accent floor cannot be met with the rest of the contract, named with the floor it does meet and why.
  * Not a waiver: the audit holds the face to its own floor, so it can only improve. Fails on a stale entry.
  */
-const ACCENT_EXEMPT = {};
+const ACCENT_EXEMPT = Object.fromEntries(['burgundy', 'cuoio', 'mustard'].map((t) => [`${t}:light`, { floor: 0.04,
+  why: 'cuoio and mustard: at risk sits beside a gold accent, and at the full 0.08 floor it could only stay apart by going '
+    + 'darker, so blocked had to sink below it and read maroon-black rather than red. Burgundy: its accent is a deep red, '
+    + 'so a blocked that reads red (LIGHT_RED) sits 0.048 from it. At 0.04 both exceptions read as themselves; the drawn '
+    + 'mark and the pill still set a status apart from a decorative accent.' }]));
 const accentFloor = (theme, face) => ACCENT_EXEMPT[`${theme}:${face}`]?.floor ?? ACCENT_MIN;
 /** A dark-face status fill off its slide: the chart solid's floor (lib/theme/chart-solids.js `darkTone`). */
 const DARK_OFF_SLIDE = 3.05;
@@ -277,7 +283,7 @@ function solve(theme, facts, baseline, keep) {
       // Fail keeps its anchored HUE but is never less saturated than warn (URGENCY): a muted brand red would otherwise
       // read calmer than the amber beside it.
       const chroma = (s) => (s === 'fail' ? Math.max(facts.anchor.fail.c, facts.anchor.warn.c) : facts.anchor[s].c);
-      const C = (s) => Math.min(0.24, chroma(s) * (s === 'mute' ? 1 : boost));
+      const C = (s) => Math.min(0.24, Math.max(s === 'fail' ? LIGHT_RED.C : 0, chroma(s)) * (s === 'mute' ? 1 : boost));
       const hueOf = (s) => (s === 'warn' ? facts.anchor.warn.h + warnShift : s === 'fail' ? clampRed(facts.anchor.fail.h) : facts.anchor[s].h);
       const cands = (s) => {
         const list = [];
@@ -285,7 +291,7 @@ function solve(theme, facts, baseline, keep) {
           const f = ok(L, C(s), hueOf(s));
           if (facts[face].surfaces(s, f).every((x) => cr(f, x.hex) >= FILL_MIN) && cr(text, f) >= INK_MIN) list.push([L, f]);
         }
-        return list.filter(([L]) => Math.abs(L - TARGET[face][s]) <= WINDOW);
+        return list.filter(([L, f]) => Math.abs(L - TARGET[face][s]) <= WINDOW && (s !== 'fail' || theme in SPREAD_EXEMPT || (L >= LIGHT_RED.L && hexToOklch(f).C >= LIGHT_RED.C - 0.01)));
       };
       let best = null;
       // Warn keeps the theme's own hue; only where no trio can then clear the accent floor does it step off the accent's

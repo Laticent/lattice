@@ -105,12 +105,12 @@
    * this theme's own brand and chart colors (held inside the status bands on dark); the trio keeps at least half of
    * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
-  --pass-mark: light-dark(#275914, #4A6642);
+  --pass-mark: light-dark(#1B4E04, #4A6642);
   --warn-mark: light-dark(#7A5800, #AD6308);
-  --fail-mark: light-dark(#5A0A16, #CC1D3A);
-  --pass-vivid-mark: light-dark(#1F5B00, #2C6D0E);
+  --fail-mark: light-dark(#8B212D, #CC1D3A);
+  --pass-vivid-mark: light-dark(#194E00, #2C6D0E);
   --warn-vivid-mark: light-dark(#7A5800, #AD6200);
-  --fail-vivid-mark: light-dark(#600013, #D20036);
+  --fail-vivid-mark: light-dark(#960024, #D20036);
   --warn-signal-mark: light-dark(#FFBE25, #FDBB00);
   --fail-signal-mark: light-dark(#FFB4B3, #FF6C73);
   --info-mark: light-dark(#1C5B90, #2F7CA4);
@@ -125,14 +125,14 @@
   --fail-on-mark: light-dark(#F8F2E5, #FFFFFF);
   --info-on-mark: light-dark(#F8F2E5, #FFFFFF);
   --mute-on-mark: light-dark(#F8F2E5, #FFFFFF);
-  --pass-edge-mark: light-dark(#275914, var(--pass));
+  --pass-edge-mark: light-dark(#1B4E04, var(--pass));
   --warn-edge-mark: light-dark(#7A5800, var(--warn));
-  --fail-edge-mark: light-dark(#5A0A16, var(--fail));
+  --fail-edge-mark: light-dark(#8B212D, var(--fail));
   --info-edge-mark: light-dark(#1C5B90, var(--info));
   --mute-edge-mark: light-dark(#526170, var(--mute));
-  --pass-vivid-edge-mark: light-dark(#1F5B00, var(--pass));
+  --pass-vivid-edge-mark: light-dark(#194E00, var(--pass));
   --warn-vivid-edge-mark: light-dark(#7A5800, var(--warn));
-  --fail-vivid-edge-mark: light-dark(#600013, var(--fail));
+  --fail-vivid-edge-mark: light-dark(#960024, var(--fail));
   --info-vivid-edge-mark: light-dark(#005B9A, var(--info));
   /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
    * (risk-matrix's critical band, a state-chart status row's chip). */

@@ -62,7 +62,7 @@ Per brand theme, per face, per `marks:` intensity, solved by `tools/curate-statu
 | Edge (`--X-edge-mark`) | the fill itself | the status ink `--X` (the rim of 2026-10-24 §3) |
 | Signal ring | the status hue at the opposite lightness, >= 3.2:1 against both intensities' fill | bright, 2:1 off its fill and 3.2:1 off the slide (chart-solids) |
 | Order | at risk sits at least 0.06 lightness above blocked (`LIGHT_SPREAD`), so the two exceptions never read as one heavy mass; URGENCY: blocked stands off the slide at least as far as at risk, and is at least as saturated. One named exemption: concrete at 0.02, the reachable maximum on its mid-gray slide (`SPREAD_EXEMPT`, held by the audit, stale-checked) | the established dark order (`DARK_SPREAD`): at risk lightest, done deepest, blocked between and the most saturated |
-| Accent | every status fill >= 0.08 (OKLab) from the accent | the same; no exemption is needed any more |
+| Accent | every status fill >= 0.08 (OKLab) from the accent; cuoio and mustard hold 0.04 on light (at risk beside a gold accent), burgundy too (blocked beside a red one), so at risk can sit above a blocked that reads red | the same; no exemption |
 | Colorblind | the fill trio keeps >= half of the 2026-11-15 record, pair by pair; re-recorded, then held as a ratchet | the same |
 | Shade (`--status-shade-mark`) | black: what a mark ON a status solid steps toward, away from its light ink | black, for the same reason; on both faces the audit holds it 7:1 or more from the status ink, so a chip never steps toward its own text |
 
@@ -82,6 +82,15 @@ degrees (pure red is 29): atelier, brina, burgundy, carbone, indaco and magnolia
 carta's light orange comes down to 32; on dark, carta and crepuscolo turn to 17 to keep half. And on light at risk now
 sits at least 0.06 above blocked (concrete 0.02), which deepens blocked where the accent holds at risk down (cuoio,
 mustard; burgundy's blocked, kept off its own deep-red accent, is the deepest, L 0.30).
+
+A second scoring found that cure worse than the defect on the warm themes: blocked at L 0.30-0.34 read maroon-black or
+brown, not red, and at risk dark khaki. So on light blocked must also READ red (`LIGHT_RED`: lightness 0.38 or more,
+chroma 0.14 or more), and the spread comes from at risk sitting higher, not blocked sinking. Cuoio and mustard can only
+lift at risk if it comes closer to their gold accent, so their light faces hold the accent floor at 0.04 instead of
+0.08 (`ACCENT_EXEMPT`, named and audited). Burgundy holds 0.04 too, for blocked: its accent is itself a deep red, so
+a blocked that reads red sits 0.048 from it (0.072 vivid); its at risk stays 0.15 away. The cost: in cuoio and mustard done
+deepens to a near-black green to keep the trio apart for a colorblind reader, and at risk is a dark gold, since a light
+fill under the slide's paper at 4.5:1 cannot be a bright amber. Concrete keeps its deep fills (`SPREAD_EXEMPT`).
 
 The `a11y-*` palettes curate none of this. The base declares each triplet token's default as the one-ink pair (the ink
 `--on-mark`, an edge in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it does

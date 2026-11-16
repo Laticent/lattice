@@ -90,7 +90,7 @@
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
   --pass-mark: light-dark(#115206, #477051);
   --warn-mark: light-dark(#815909, #AD6200);
-  --fail-mark: light-dark(#8C2B1B, #D51C46);
+  --fail-mark: light-dark(#8E2817, #D51C46);
   --pass-vivid-mark: light-dark(#0B5100, #007839);
   --warn-vivid-mark: light-dark(#825900, #AD6200);
   --fail-vivid-mark: light-dark(#971600, #DB0043);
@@ -110,7 +110,7 @@
   --mute-on-mark: light-dark(#FAF7F0, #FFFFFF);
   --pass-edge-mark: light-dark(#115206, var(--pass));
   --warn-edge-mark: light-dark(#815909, var(--warn));
-  --fail-edge-mark: light-dark(#8C2B1B, var(--fail));
+  --fail-edge-mark: light-dark(#8E2817, var(--fail));
   --info-edge-mark: light-dark(#164376, var(--info));
   --mute-edge-mark: light-dark(#3F4B5B, var(--mute));
   --pass-vivid-edge-mark: light-dark(#0B5100, var(--pass));
