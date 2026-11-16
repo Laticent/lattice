@@ -17,7 +17,16 @@
  *   --model    The deck model (P2, lib/core/deck-model.mjs): S0-S1 on the three decks against
  *              markdown-it's block parse, a keystroke's incremental update on the gallery, and the
  *              token-for-token differential on every file of the corpus. Exits 1 on any difference.
- *   --runs N   Repeat --arms, --model (or --audit) in N separate processes and print the median and range of
+ *   --inline   S2, the inline pass (P4, @laticent/segno-markdown's InlineParser through lib/core/model-tokens.mjs):
+ *              the three speed figures of the pipeline doc's §Speed targets on the three decks: S0-S1 against
+ *              markdown-it's block parse (as --model measures it), the inline parse alone on the same leaves, and
+ *              S0-S2 (the model with every leaf read) against markdown-it's block + inline parse; then a keystroke that re-reads the edited slide's
+ *              leaves, corpus throughput, and the token adapter's field-for-field parity on every corpus file.
+ *              Exits 1 on any difference. `--spec DIR` adds the CommonMark spec metric: DIR holds the
+ *              `commonmark-spec` package (`npm pack commonmark-spec@0.31.2`, unpacked), whose examples are run
+ *              through the plain commonmark preset: token parity, HTML identical to markdown-it's, and how many
+ *              match the spec's HTML, with every one that does not named.
+ *   --runs N   Repeat --arms, --model, --inline (or --audit) in N separate processes and print the median and range of
  *              each figure, with the CPU model. A single run on a shared sandbox moves by up to 19%.
  *   --json     Machine output.
  *
@@ -222,6 +231,114 @@ async function model() {
   return { rows, differ, parityOk: differ.length === 0 };
 }
 
+// ── --inline: S2 against markdown-it ───────────────────────────────────────────────────────
+async function inlineArm() {
+  const MarkdownIt = require('markdown-it');
+  const mt = await import(path.join(ROOT, 'lib/core/model-tokens.mjs'));
+  const sm = require('@laticent/segno-markdown');
+  const { FRONT_MATTER, normalizeSource } = await import(path.join(ROOT, 'lib/core/boundary-parser.mjs'));
+  const { installPlugins } = require(path.join(ROOT, 'lib/plugins/host'));
+  const { installSlidePipeline } = require(path.join(ROOT, 'lib/engine/slides'));
+  const { tolerateRawtextClose } = require(path.join(ROOT, 'lib/core/rawtext-close.mjs'));
+  const { files } = await import(path.join(HERE, 'deck/corpus.mjs'));
+  // The engine's parser, as `buildMd` assembles it (test/unit/core/model-tokens.test.js does the same).
+  const md = new MarkdownIt('commonmark', { html: true, breaks: true });
+  md.enable(['table', 'strikethrough']);
+  tolerateRawtextClose(md);
+  installSlidePipeline(md, {}, {});
+  installPlugins(md);
+  const { block, inline } = mt.parsersFor(md);
+  const rule = (m, n) => m.core.ruler.__rules__.find((r) => r.name === n).fn;
+  const mdParse = (m, src, env = {}) => {
+    const st = new m.core.State(src, m, env);
+    rule(m, 'normalize')(st);
+    rule(m, 'block')(st);
+    rule(m, 'inline')(st);
+    return st;
+  };
+  const modelAll = (body) => {
+    const m = sm.detailedModel(body, { parser: block, inline, frontMatter: null, raw: true });
+    // Every leaf, slide by slide, through the reader a whole-slide consumer uses (the adapter does the same).
+    for (let s = 0; s < m.segs.length; s++) sm.inlineSlide(m, s);
+    return m;
+  };
+  // The block pass (S0-S1), measured as --model measures it, so this arm reports all three speed figures the
+  // pipeline doc tracks (§Speed targets): S1 against markdown-it's block parse (target 3x), the inline parse alone
+  // (target 4x) and S0-S2 (a tracked metric).
+  const dm = await import(path.join(ROOT, 'lib/core/deck-model.mjs'));
+  const { boundaryParser: bp } = await import(path.join(ROOT, 'lib/core/boundary-parser.mjs'));
+  const rows = [];
+  for (const [label, file] of DECKS) {
+    const body = normalizeSource(fs.readFileSync(path.join(ROOT, file), 'utf8')).replace(FRONT_MATTER, '');
+    const mdBlockMs = best(() => bp.block.parse(body, bp, {}, []), 100, 200);
+    const modelBlockMs = best(() => dm.bodyModel(body), 100, 200);
+    rows.push({ arm: `${label} S0-S1 ms`, markdownItMs: mdBlockMs, modelMs: modelBlockMs, speedup: mdBlockMs / modelBlockMs });
+    const mdMs = best(() => mdParse(md, body), 60, 60);
+    const modelMs = best(() => modelAll(body), 60, 60);
+    rows.push({ arm: `${label} S0-S2 ms`, markdownItMs: mdMs, modelMs, speedup: mdMs / modelMs });
+    const m = sm.deckModel(body, { parser: block, inline, frontMatter: null, raw: true });
+    const texts = [];
+    for (let i = 0; i < m.blocks.length; i++) if (m.blocks.tape[i * sm.STRIDE] === sm.KIND.inline) texts.push(sm.leafText(m, i).text);
+    const mdInline = best(() => { for (const x of texts) md.inline.parse(x, md, {}, []); }, 60, 60);
+    const modelInline = best(() => { for (const x of texts) inline.parse(x, null); }, 60, 60);
+    rows.push({ arm: `${label} inline ms`, markdownItMs: mdInline, modelMs: modelInline, speedup: mdInline / modelInline });
+  }
+  // A keystroke in the gallery's middle slide: the update, then every leaf of the edited slide read again.
+  const src = normalizeSource(fs.readFileSync(path.join(ROOT, DECKS[0][1]), 'utf8')).replace(FRONT_MATTER, '');
+  const at = src.indexOf('\n', src.length >> 1) - 1;
+  const a = `${src.slice(0, at)}x${src.slice(at)}`;
+  const b = `${src.slice(0, at)}y${src.slice(at)}`;
+  let m = modelAll(a);
+  let flip = false;
+  const line = a.slice(0, at).split('\n').length - 1;
+  const slide = m.slides.findIndex((x) => x.fromLine <= line && x.toLine > line);
+  const keyUs = best(() => {
+    for (let i = 0; i < 100; i++) {
+      flip = !flip;
+      m = sm.updateDeckModel(m, flip ? b : a, { from: at, toA: at + 1, toB: at + 1 });
+      sm.inlineSlide(m, slide);
+    }
+  }, 20, 5) * 10;
+  rows.push({ arm: 'gallery keystroke us (S1 + S2 of the slide)', us: keyUs, fullUs: best(() => modelAll(a), 20, 5) * 1000 });
+  // Field-for-field parity on the corpus, through the adapter, and throughput.
+  const F = ['type', 'tag', 'nesting', 'level', 'content', 'markup', 'info', 'block', 'hidden'];
+  const sig = (ts) => ts.map((t) => `${F.map((f) => t[f]).join('|')}|${JSON.stringify([t.map, t.attrs, t.meta])}${t.children ? `[${sig(t.children)}]` : ''}`).join('\n');
+  const bodies = files.map(({ s }) => normalizeSource(s).replace(FRONT_MATTER, ''));
+  const differ = [];
+  bodies.forEach((x, i) => {
+    const want = mdParse(md, x);
+    if (sig(want.tokens) !== sig(mt.modelTokens(md, want.src, {}))) differ.push(files[i].f);
+  });
+  const bytes = bodies.reduce((n, x) => n + x.length, 0);
+  const mdCorpus = best(() => { for (const x of bodies) mdParse(md, x); }, 5, 1);
+  const modelCorpus = best(() => { for (const x of bodies) modelAll(x); }, 5, 1);
+  rows.push({ arm: 'corpus S0-S2 MB/s', files: files.length, markdownItMbps: bytes / 1e6 / (mdCorpus / 1000), modelMbps: bytes / 1e6 / (modelCorpus / 1000) });
+  const out = { rows, differ, parityOk: differ.length === 0 };
+  const specDir = arg('--spec', null);
+  if (specDir) {
+    // The spec's examples write a tab as `→`; CommonMark's own runner replaces it, and so does this.
+    const tests = require(path.resolve(specDir)).tests.map((t) => ({ ...t, markdown: t.markdown.replace(/→/g, '\t'), html: t.html.replace(/→/g, '\t') }));
+    const cm = new MarkdownIt('commonmark');
+    tolerateRawtextClose(cm);
+    let tokens = 0;
+    let html = 0;
+    let spec = 0;
+    const off = [];
+    for (const t of tests) {
+      const want = mdParse(cm, t.markdown);
+      if (sig(want.tokens) === sig(mt.modelTokens(cm, want.src, {}))) tokens++;
+      const env = {};
+      const got = cm.renderer.render(mt.parseFromModel(cm, t.markdown, env), cm.options, env);
+      if (got === cm.render(t.markdown)) html++;
+      if (got === t.html) spec++;
+      else off.push(`${t.number} (${t.section})`);
+    }
+    out.spec = { examples: tests.length, tokenParity: tokens, htmlIdenticalToMarkdownIt: html, matchesSpecHtml: spec, notMatching: off };
+    if (tokens !== tests.length || html !== tests.length) out.parityOk = false;
+  }
+  return out;
+}
+
 // ── --runs N: separate processes, median and range ────────────────────────────────────────
 function repeat(n, flag) {
   const runs = [];
@@ -230,12 +347,13 @@ function repeat(n, flag) {
     // an arm counts only at exact parity with markdown-it's block structure, so a miss voids the run
     if (flag === '--arms' && !one.arms?.parityOk) throw new Error(`run ${i + 1}: an arm lost parity with markdown-it`);
     if (flag === '--model' && !one.model?.parityOk) throw new Error(`run ${i + 1}: the deck model lost parity with markdown-it`);
+    if (flag === '--inline' && !one.inline?.parityOk) throw new Error(`run ${i + 1}: the inline pass lost parity with markdown-it`);
     runs.push(one);
     if (!asJson) process.stderr.write(`run ${i + 1}/${n} done\n`);
   }
   const keyed = new Map();
   for (const r of runs) {
-    for (const row of flag === '--arms' ? r.arms.rows : flag === '--model' ? r.model.rows : r.audit) {
+    for (const row of flag === '--arms' ? r.arms.rows : flag === '--model' ? r.model.rows : flag === '--inline' ? r.inline.rows : r.audit) {
       const label = row.arm ?? row.deck;
       for (const [k, v] of Object.entries(row)) {
         if (typeof v !== 'number' || k === 'parseShare' || k === 'bytes' || k === 'files') continue;
@@ -252,7 +370,7 @@ const n = Number(arg('--runs', 0));
 const result = { machine: machine() };
 if (n > 0) {
   if (has('--census')) throw new Error('--runs repeats --audit or --arms; the census is deterministic');
-  const flag = has('--audit') ? '--audit' : has('--model') ? '--model' : '--arms';
+  const flag = has('--audit') ? '--audit' : has('--model') ? '--model' : has('--inline') ? '--inline' : '--arms';
   const rep = repeat(n, flag);
   if (asJson) console.log(JSON.stringify(rep));
   else {
@@ -261,11 +379,12 @@ if (n > 0) {
   }
   process.exit(0);
 }
-const wantAll = !has('--audit') && !has('--census') && !has('--arms') && !has('--model');
+const wantAll = !has('--audit') && !has('--census') && !has('--arms') && !has('--model') && !has('--inline');
 if (wantAll || has('--audit')) result.audit = audit();
 if (has('--census')) result.census = await census();
 if (has('--arms')) result.arms = arms();
 if (has('--model')) result.model = await model();
+if (has('--inline')) result.inline = await inlineArm();
 
 if (asJson) console.log(JSON.stringify(result));
 else {
@@ -296,6 +415,20 @@ if (result.model && !asJson) {
   const mo = result.model;
   console.log(`\ndeck model: token-for-token parity with markdown-it on every corpus file: ${mo.parityOk}${mo.differ.length ? ` (differs: ${mo.differ.slice(0, 5).join(', ')})` : ''}`);
   for (const r of mo.rows) console.log(`${r.arm.padEnd(30)} ${Object.entries(r).filter(([k]) => k !== 'arm').map(([k, v]) => `${k} ${typeof v === 'number' ? v.toFixed(3) : v}`).join('  ')}`);
+}
+if (result.inline && !asJson) {
+  const io = result.inline;
+  console.log(`\ninline pass: field-for-field parity with markdown-it on every corpus file: ${io.parityOk}${io.differ.length ? ` (differs: ${io.differ.slice(0, 5).join(', ')})` : ''}`);
+  for (const r of io.rows) console.log(`${r.arm.padEnd(44)} ${Object.entries(r).filter(([k]) => k !== 'arm').map(([k, v]) => `${k} ${typeof v === 'number' ? v.toFixed(3) : v}`).join('  ')}`);
+  if (io.spec) {
+    const sp = io.spec;
+    console.log(`CommonMark spec (${sp.examples} examples, commonmark preset): token parity ${sp.tokenParity}, HTML identical to markdown-it ${sp.htmlIdenticalToMarkdownIt}, matches the spec's HTML ${sp.matchesSpecHtml}`);
+    for (const x of sp.notMatching) console.log(`  not matching: ${x}`);
+  }
+}
+if (result.inline && !result.inline.parityOk) {
+  console.error('the inline pass lost parity with markdown-it');
+  process.exitCode = 1;
 }
 if (result.model && !result.model.parityOk) {
   console.error('the deck model lost parity with markdown-it');

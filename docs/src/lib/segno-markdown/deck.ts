@@ -15,7 +15,8 @@
  * "no closer ahead" memo carries its answer from one slide into the next, so neither can be spliced.
  */
 
-import { type BlockParser, type BlockTape, F_HIDDEN, KIND, lineScratch, STRIDE, T_AUX, T_FLAGS, T_KIND, T_L0, T_L1, T_LEVEL, T_NEST } from './block.js';
+import { type BlockParser, type BlockTape, F_HIDDEN, KIND, type Recorder, type RecordingState, STRIDE, T_AUX, T_FLAGS, T_KIND, T_L0, T_L1, T_LEVEL, T_NEST } from './block.js';
+import type { InlineParser } from './inline.js';
 
 /** The engine's front matter (lib/engine/directives.js `parseFrontMatter`), on S0 text. */
 export const ENGINE_FRONT_MATTER = /^---\n[\s\S]*?\n---\n?/;
@@ -30,6 +31,13 @@ export interface DeckModelOptions {
 	 * body it normalized itself, so a BOM left after its front matter stays text, as markdown-it reads it.
 	 */
 	raw?: boolean;
+	/** The configured inline parser (S2), for `inlineOf` (model-inline.ts). Optional: a reader of structure alone needs none. */
+	inline?: InlineParser;
+	/**
+	 * Make the first parse a DETAIL parse with this recorder (`detailRecorder`, detail.ts), for a reader that will read
+	 * every leaf: `detailedModel` (model-inline.ts) sets it and keeps the result, so no second parse is needed.
+	 */
+	detail?: (state: RecordingState) => Recorder;
 }
 
 /** An authored slide: the body lines between two top-level breaks. */
@@ -96,7 +104,7 @@ export function spanHolds(a: string, b: string, span: EditSpan): EditSpan | null
 	return span;
 }
 
-type Side = { content?: string; info?: string; markup?: string; meta?: unknown };
+export type Side = { tag?: string; content?: string; info?: string; markup?: string; meta?: unknown };
 
 /** How the last updates went, for tests and the benchmark. */
 export const deckModelStats = { full: 0, incremental: 0, reparsedLines: 0 };
@@ -140,14 +148,16 @@ function segmentsOf(tape: Int32Array, length: number, side: ReadonlyMap<number, 
 	const out: Segment[] = [];
 	let tok = 0;
 	let line = lineFrom;
+	// The side records by token, in token order, walked once across all the segments (scanning the whole map for each
+	// segment cost a detail parse of the gallery a fifth of its time: a detail parse records many).
+	const keys = side.size ? [...side.keys()].sort((a, b) => a - b) : [];
+	let k = 0;
 	const make = (end: number, nextLine: number, closed: boolean) => {
 		let sideHere: Map<number, Side> | null = null;
-		if (side.size)
-			for (const [i, v] of side)
-				if (i >= tok && i < end) {
-					sideHere ??= new Map();
-					sideHere.set(i - tok, v);
-				}
+		for (; k < keys.length && keys[k] < end; k++) {
+			sideHere ??= new Map();
+			sideHere.set(keys[k] - tok, side.get(keys[k]) as Side);
+		}
 		const n = nextLine - line;
 		let fwd: number[] | null = null;
 		for (const f of forward) if (f >= line && (f < nextLine || !closed)) (fwd ??= []).push(f);
@@ -415,9 +425,10 @@ export class DeckModel {
 		const g = this.segs[range.slide];
 		const at = (g.t0 + range.token - this.segTok[range.slide]) * STRIDE;
 		if (g.tape[at + T_KIND] !== KIND.fence) return '';
+		// The marker is the line's first backtick or tilde: a container's prefix (`> `, `- `, `1. `, indent) holds neither.
 		const body = this.body;
 		let pos = this.lineStart(range.fromLine);
-		while (body.charCodeAt(pos) === 0x20 || body.charCodeAt(pos) === 0x09) pos++;
+		for (let c = body.charCodeAt(pos); c !== 0x60 && c !== 0x7e; c = body.charCodeAt(++pos));
 		return body.slice(pos + g.tape[at + T_AUX], this.lineEnd(range.fromLine)).trim();
 	}
 
@@ -427,6 +438,9 @@ export class DeckModel {
 	 * the text the engine reads a directive from. Elsewhere a comment block's content is its lines as they stand.
 	 */
 	blockContent(range: BlockRange): string | null {
+		// S1 records a container's prefix for a one-line block too (the token adapter reads it); this view keeps
+		// its contract, content for a multi-line block only.
+		if (range.toLine - range.fromLine < 2) return null;
 		const g = this.segs[range.slide];
 		const at = g?.side?.get(range.token - this.segTok[range.slide])?.meta;
 		if (!(at instanceof Int32Array)) return null;
@@ -455,6 +469,25 @@ export class DeckModel {
 	}
 }
 
+/** Whether a token kind opens a table cell (whose `inline` token's `T_AUX` is its column). */
+export function isCell(kind: number): boolean {
+	return kind === KIND.th_open || kind === KIND.td_open;
+}
+
+/** @internal A token's segment, its tape and offset there, and the line shift to apply to its map. */
+export function tokenAt(m: DeckModel, token: number): { seg: number; tape: Int32Array; at: number; dl: number; local: number } {
+	const i = segmentOf(m.segTok, m.segs.length, token);
+	const g = m.segs[i];
+	const local = token - m.segTok[i];
+	return { seg: i, tape: g.tape, at: (g.t0 + local) * STRIDE, dl: m.segLine[i] - g.line0, local };
+}
+
+/** @internal The side record S1 wrote for a token, if any. */
+export function sideOf(m: DeckModel, token: number): Side | undefined {
+	const i = segmentOf(m.segTok, m.segs.length, token);
+	return m.segs[i].side?.get(token - m.segTok[i]);
+}
+
 /** The segment holding `at`, by its start table (`starts[i] <= at < starts[i + 1]`, empty ones skipped). */
 function segmentOf(starts: Int32Array, n: number, at: number): number {
 	let lo = 0;
@@ -481,7 +514,7 @@ export function deckModel(source: string, options: DeckModelOptions): DeckModel 
 	const src = typeof source === 'string' ? source : '';
 	const text = options.raw ? src : ingest(src);
 	const bodyStart = frontMatterEnd(text, options);
-	const flat = options.parser.parse(text.slice(bodyStart));
+	const flat = options.parser.parse(text.slice(bodyStart), 0, options.detail);
 	const segs = segmentsOf(flat.tape, flat.length, flat.side, flat.forward, flat.bMarks, flat.eMarks, 0, 0, flat.lines);
 	return new DeckModel(src, text, bodyStart, flat.lines, segs, options, flat);
 }
@@ -533,7 +566,7 @@ export function updateDeckModel(prev: DeckModel, next: string, span?: EditSpan):
 			let end = body.indexOf('\n', start);
 			if (end < 0 || end > to) end = body.length;
 			if (last && end === body.length && /^[ \t]*$/.test(body.slice(start))) break;
-			const sc = lineScratch(lines + 1);
+			const sc = options.parser.lineScratch(lines + 1);
 			sc.bMarks[lines] = start;
 			sc.eMarks[lines] = end;
 			lines++;
@@ -544,7 +577,7 @@ export function updateDeckModel(prev: DeckModel, next: string, span?: EditSpan):
 	const tailNewLine = lines;
 	const lineDelta = tailNewLine - tailOldLine;
 	const totalLines = prev.lines + lineDelta;
-	const sc = lineScratch(totalLines + 1);
+	const sc = options.parser.lineScratch(totalLines + 1);
 	for (let i = tailSeg; i < nSegs; i++) {
 		const g = prev.segs[i];
 		const L0 = prev.segLine[i] + lineDelta;

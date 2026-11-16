@@ -2,7 +2,7 @@
   "name": "@laticent/segno-markdown",
   "version": "0.1.0",
   "private": true,
-  "description": "The deck model for Lattice-flavored Markdown: one CommonMark block pass (markdown-it's block rules, matched token for token) writing a flat tape, with slides, slide boundaries, front matter, directive, fence and leaf ranges read off it, and an incremental re-parse that re-reads only the edited slide. Zero dependencies, no DOM, no Node.",
+  "description": "The deck model for Lattice-flavored Markdown: one CommonMark block pass and inline pass (markdown-it's rules, matched token for token) writing flat tapes, with slides, slide boundaries, front matter, directive, fence and leaf ranges and each leaf's inline structure read off them, and an incremental re-parse that re-reads only the edited slide. Zero dependencies, no DOM, no Node.",
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {

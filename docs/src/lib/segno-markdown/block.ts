@@ -116,9 +116,17 @@ export const KIND = Object.freeze({
  *   T_NEST   1 open, 0 self-contained, -1 close
  *   T_L0     `token.map[0]`, or -1 when markdown-it gives the token no map
  *   T_L1     `token.map[1]`
- *   T_FLAGS  bit 0: `hidden` (a tight list's paragraph); bit 1: the token has a side record (`side`)
+ *   T_FLAGS  bit 0: `hidden` (a tight list's paragraph); bit 1: the token has a side record (`side`); bit 2: a
+ *            fence's closing marker line is inside its map (`F_CLOSED`); bits 8 and
+ *            up (`T_FLAGS >> COL_SHIFT`), in a DETAIL parse only (detail.ts): on `heading_open` (ATX), `hr`,
+ *            `list_item_open`, `fence` and `tr_open`, the
+ *            column its line's content starts at (markdown-it's `bMarks + tShift`, past any container prefix),
+ *            counted from the line's own start, so a reader finds a marker or a row's text without re-reading
+ *            the containers around it
  *   T_AUX    per kind: a heading's level (setext +8), an ordered list's start number, a fence's marker
- *            length, a table cell's column, an alignment code on `th_open`/`td_open`
+ *            length, a table cell's column (on its `inline` token), an alignment code on `th_open`/`td_open`, and
+ *            on a paragraph's or setext heading's `inline` token inside a container, 1 + where its line starts sit
+ *            in the detail parse's `leafLines` (detail.ts) (0: a top-level leaf, whose lines are the body's as they stand)
  */
 export const STRIDE = 7;
 export const T_KIND = 0;
@@ -130,6 +138,37 @@ export const T_FLAGS = 5;
 export const T_AUX = 6;
 export const F_HIDDEN = 1;
 export const F_SIDE = 2;
+export const COL_SHIFT = 8;
+/** On a `fence`: it ended at a closing marker line (the map's last line), rather than at its container's end. */
+export const F_CLOSED = 4;
+
+/**
+ * What a DETAIL parse records beyond the tape (`parse(src, 0, recorder)`): what an inline reader or a token adapter
+ * needs and a boundary reader does not. The implementation lives in detail.ts, so a bundle that only reads boundaries
+ * (the Studio's startup, the lint core) carries none of it: recording it on every parse cost the gallery's block pass
+ * about a fifth of its time, and its code cost the home route 0.8 KB gzipped.
+ */
+export interface Recorder {
+	/** The content column of token `i` on `line` (`COL_SHIFT`). */
+	col(i: number, line: number): void;
+	/** A container leaf's line starts (token `i`, lines `[begin, end)`, `getLines` indent `indent`). */
+	leaf(i: number, begin: number, end: number, indent: number): void;
+	/** A link reference definition starting on `line`: its label, destination and title pieces (line, from, to). */
+	ref(line: number, label: number[], dest: number[], title: number[] | null): void;
+	/** What the recorder collected, as `BlockTape.detail`. */
+	done(): unknown;
+}
+
+/** The parse state a recorder reads (structural, so detail.ts needs no class from here). */
+export interface RecordingState {
+	readonly src: string;
+	tape: Int32Array;
+	readonly bMarks: Int32Array;
+	readonly tShift: Int32Array;
+	rawStart(line: number): number;
+	lineStarts(at: Int32Array, k: number, begin: number, end: number, indent: number): Int32Array;
+}
+
 
 /** What a plugin block rule sees (the fields `lib/plugins/state-facade.mjs` exposes, and no more). */
 export interface BlockState {
@@ -227,9 +266,11 @@ export interface BlockTape {
 	/** Line end offsets (the `\n`, or `src.length`). */
 	readonly eMarks: Int32Array;
 	/** Side records for tokens a plugin wrote content, info or meta on, by token index. */
-	readonly side: ReadonlyMap<number, { content?: string; info?: string; markup?: string; meta?: unknown }>;
+	readonly side: ReadonlyMap<number, { tag?: string; content?: string; info?: string; markup?: string; meta?: unknown }>;
 	/** Every line a `scansAhead` rule was tried on, in the order tried. */
 	readonly forward: readonly number[];
+	/** What a detail parse's recorder collected (detail.ts), or undefined for a lean parse. */
+	readonly detail?: unknown;
 }
 
 const MAX_NESTING = 20; // markdown-it's commonmark preset
@@ -479,7 +520,7 @@ function grow(size: number): number {
 	return size;
 }
 
-class State implements BlockState {
+class State implements BlockState, RecordingState {
 	src: string;
 	bMarks!: Int32Array;
 	eMarks!: Int32Array;
@@ -495,7 +536,7 @@ class State implements BlockState {
 	level = 0;
 	tape!: Int32Array;
 	n = 0;
-	side = new Map<number, { content?: string; info?: string; markup?: string; meta?: unknown }>();
+	side = new Map<number, { tag?: string; content?: string; info?: string; markup?: string; meta?: unknown }>();
 	p: BlockParser;
 
 	/** Called after each top-level thematic break with its line; true stops the parse there. */
@@ -503,6 +544,8 @@ class State implements BlockState {
 	stopped = false;
 	/** Lines a `scansAhead` rule was tried on. */
 	forward: number[] = [];
+	/** A detail parse's recorder (`Recorder`), or null for a lean parse. */
+	rec: Recorder | null = null;
 	/**
 	 * The last `-->` search: from `closeFrom`, the next one is at `closeAt` (-1: none to the end). Any search from
 	 * a position in `[closeFrom, closeAt]` (or past `closeFrom` when there is none) has the same answer, so a run
@@ -643,9 +686,16 @@ class State implements BlockState {
 	 * parse source alive, and an incremental model keeps a segment for many keystrokes (DeckModel.blockContent).
 	 */
 	recordLines(i: number, begin: number, end: number, indent: number): void {
+		this.tape[i * STRIDE + T_FLAGS] |= F_SIDE;
+		let r = this.side.get(i);
+		if (!r) this.side.set(i, (r = {}));
+		r.meta = this.lineStarts(new Int32Array((end - begin) * 2), 0, begin, end, indent);
+	}
+
+	/** markdown-it's `getLines` line walk: per line, the offset its content starts at and the pad, into `at` from `k`. */
+	lineStarts(at: Int32Array, k: number, begin: number, end: number, indent: number): Int32Array {
 		const src = this.src;
-		const at = new Int32Array((end - begin) * 2);
-		for (let line = begin, k = 0; line < end; line++, k += 2) {
+		for (let line = begin; line < end; line++, k += 2) {
 			let lineIndent = 0;
 			const lineStart = this.bMarks[line];
 			let first = lineStart;
@@ -660,10 +710,17 @@ class State implements BlockState {
 			at[k] = first - (src.lastIndexOf('\n', lineStart - 1) + 1);
 			at[k + 1] = lineIndent > indent ? lineIndent - indent : 0;
 		}
-		this.tape[i * STRIDE + T_FLAGS] |= F_SIDE;
-		let r = this.side.get(i);
-		if (!r) this.side.set(i, (r = {}));
-		r.meta = at;
+		return at;
+	}
+
+	/** Where `line` starts in the source, before any container prefix (`bMarks` is past it inside one). */
+	rawStart(line: number): number {
+		return this.src.lastIndexOf('\n', this.bMarks[line] - 1) + 1;
+	}
+
+	/** Record on token `i` the column its line's content starts at (`bMarks + tShift`), as `T_FLAGS >> COL_SHIFT`. */
+	setCol(i: number, line: number): void {
+		if (this.rec) this.rec.col(i, line);
 	}
 
 	pushK(kind: number, nesting: number, l0: number, l1: number): number {
@@ -686,8 +743,14 @@ class State implements BlockState {
 		return this.n++;
 	}
 
-	push(type: string, _tag: string, nesting: number): TokenHandle {
-		return new Handle(this, this.pushK(this.p.kindOf(type), nesting, -1, -1));
+	push(type: string, tag: string, nesting: number): TokenHandle {
+		const i = this.pushK(this.p.kindOf(type), nesting, -1, -1);
+		// The tag a plugin pushed with, which a renderer reads; kept only when there is one.
+		if (tag) {
+			this.tape[i * STRIDE + T_FLAGS] |= F_SIDE;
+			this.side.set(i, { tag });
+		}
+		return new Handle(this, i);
 	}
 
 	/** The line's first character after its indent, as an index into the dispatch tables (128: other). */
@@ -822,7 +885,7 @@ function table(state: State, startLine: number, endLine: number, silent: boolean
 	const terminatorRules = state.p.chain.blockquote;
 	const tableTok = state.pushK(K_TABLE_OPEN, 1, startLine, 0);
 	state.pushK(K_THEAD_OPEN, 1, startLine, startLine + 1);
-	state.pushK(K_TR_OPEN, 1, startLine, startLine + 1);
+	state.setCol(state.pushK(K_TR_OPEN, 1, startLine, startLine + 1), startLine);
 	for (let i = 0; i < columnCount; i++) {
 		state.pushAux(K_TH_OPEN, 1, -1, -1, aligns[i]);
 		state.pushAux(K_INLINE, 0, -1, -1, i);
@@ -843,7 +906,7 @@ function table(state: State, startLine: number, endLine: number, silent: boolean
 		autocompletedCells += columnCount - trimmedColumns(lineText);
 		if (autocompletedCells > 0x10000) break;
 		if (nextLine === startLine + 2) tbodyTok = state.pushK(K_TBODY_OPEN, 1, startLine + 2, 0);
-		state.pushK(K_TR_OPEN, 1, nextLine, nextLine + 1);
+		state.setCol(state.pushK(K_TR_OPEN, 1, nextLine, nextLine + 1), nextLine);
 		for (let i = 0; i < columnCount; i++) {
 			state.pushAux(K_TD_OPEN, 1, -1, -1, aligns[i]);
 			state.pushAux(K_INLINE, 0, -1, -1, i);
@@ -879,7 +942,9 @@ function code(state: State, startLine: number, endLine: number): boolean {
 		break;
 	}
 	state.line = last;
-	state.pushK(K_CODE_BLOCK, 0, startLine, state.line);
+	// markdown-it's content is `getLines(startLine, last, 4 + blkIndent, false)`: every line loses its indent.
+	const tok = state.pushK(K_CODE_BLOCK, 0, startLine, state.line);
+	if (state.rec) state.recordLines(tok, startLine, last, 4 + state.blkIndent);
 	return true;
 }
 
@@ -919,7 +984,13 @@ function fence(state: State, startLine: number, endLine: number, silent: boolean
 		break;
 	}
 	state.line = nextLine + (haveEndMarker ? 1 : 0);
-	state.pushAux(K_FENCE, 0, startLine, state.line, markerLen);
+	const tok = state.pushAux(K_FENCE, 0, startLine, state.line, markerLen);
+	state.setCol(tok, startLine);
+	if (haveEndMarker) state.tape[tok * STRIDE + T_FLAGS] |= F_CLOSED;
+	// The body is markdown-it's `getLines(startLine + 1, nextLine, sCount[startLine], true)`: the lines as they stand
+	// for an unindented fence at the top level, and otherwise with each line's prefix and indent taken off.
+	const indent = state.sCount[startLine];
+	if (state.rec && (state.level > 0 || indent > 0) && nextLine > startLine + 1) state.recordLines(tok, startLine + 1, nextLine, indent);
 	return true;
 }
 
@@ -1039,7 +1110,7 @@ function hr(state: State, startLine: number, _endLine: number, silent: boolean):
 	if (cnt < 3) return false;
 	if (silent) return true;
 	state.line = startLine + 1;
-	state.pushAux(K_HR, 0, startLine, state.line, marker);
+	state.setCol(state.pushAux(K_HR, 0, startLine, state.line, marker), startLine);
 	return true;
 }
 
@@ -1144,6 +1215,7 @@ function list(state: State, startLine: number, endLine: number, silent: boolean)
 		if (indentAfterMarker > 4) indentAfterMarker = 1;
 		const indent = initial + indentAfterMarker;
 		const itemTok = state.pushK(K_LIST_ITEM_OPEN, 1, nextLine, 0);
+		state.setCol(itemTok, nextLine);
 		const oldTight = state.tight;
 		const oldTShift = state.tShift[nextLine];
 		const oldSCount = state.sCount[nextLine];
@@ -1243,6 +1315,8 @@ function reference(state: State, startLine: number, _endLine: number, silent: bo
 	let rawLabel = '';
 	let labelEnd = -1;
 	let segmentStart = ++pos;
+	// A detail parse keeps the pieces (line, from, to; absolute offsets) for its recorder.
+	const labelPieces: number[] | null = state.rec ? [] : null;
 	while (pos < max) {
 		if (rawLabel.length + pos - segmentStart > MAX_LABEL_LENGTH * 2) return false;
 		let ch = src.charCodeAt(pos);
@@ -1256,6 +1330,7 @@ function reference(state: State, startLine: number, _endLine: number, silent: bo
 			const nextPos = getNextLinePos(state, nextLine);
 			if (nextPos < 0) return false;
 			rawLabel += src.slice(segmentStart, max);
+			labelPieces?.push(nextLine - 1, segmentStart, max);
 			pos = segmentStart = nextPos;
 			max = lineEnd(state, nextLine++);
 			continue;
@@ -1264,6 +1339,7 @@ function reference(state: State, startLine: number, _endLine: number, silent: bo
 	}
 	if (labelEnd < 0 || src.charCodeAt(labelEnd + 1) !== 0x3a) return false;
 	rawLabel += src.slice(segmentStart, labelEnd);
+	labelPieces?.push(nextLine - 1, segmentStart, labelEnd);
 	if (rawLabel.length > MAX_LABEL_LENGTH && countCodePoints(rawLabel) > MAX_LABEL_LENGTH) return false;
 	pos = labelEnd + 2;
 	while (pos < max) {
@@ -1281,6 +1357,8 @@ function reference(state: State, startLine: number, _endLine: number, silent: bo
 	if (!destRes.ok) return false;
 	const linkOk = state.p.linkOk;
 	if (!(destRes.raw.indexOf('&') >= 0 && linkOk ? linkOk(destRes.raw) : defaultLinkOk(destRes.raw))) return false;
+	const destLine = nextLine - 1;
+	const destFrom = pos + (src.charCodeAt(pos) === 0x3c ? 1 : 0);
 	pos = destRes.pos;
 	const destEndPos = pos;
 	const destEndMax = max;
@@ -1298,16 +1376,20 @@ function reference(state: State, startLine: number, _endLine: number, silent: bo
 	}
 	const titleStart = pos;
 	let titleRes = parseLinkTitle(src, pos, max);
+	const titlePieces: number[] | null = state.rec ? [nextLine - 1, pos + 1, titleRes.ok ? titleRes.pos - 1 : max] : null;
 	while (titleRes.can_continue) {
 		const nextPos = getNextLinePos(state, nextLine);
 		if (nextPos < 0) break;
 		pos = nextPos;
 		max = lineEnd(state, nextLine++);
 		titleRes = parseLinkTitle(src, pos, max, titleRes);
+		titlePieces?.push(nextLine - 1, pos, titleRes.ok ? titleRes.pos - 1 : max);
 	}
 	let title: boolean;
+	let titleKept = false;
 	if (titleStart !== destEndPos && titleRes.ok) {
 		title = titleRes.nonEmpty;
+		titleKept = true;
 		pos = titleRes.pos;
 	} else {
 		title = false;
@@ -1321,6 +1403,7 @@ function reference(state: State, startLine: number, _endLine: number, silent: bo
 	}
 	if (pos < max && src.charCodeAt(pos) !== 0x0a) {
 		if (title) {
+			titleKept = false;
 			pos = destEndPos;
 			max = destEndMax;
 			nextLine = destEndLineNo;
@@ -1335,6 +1418,7 @@ function reference(state: State, startLine: number, _endLine: number, silent: bo
 	if (!/\S/.test(rawLabel)) return false;
 	if (silent) return true;
 	state.line = nextLine;
+	if (state.rec) state.rec.ref(startLine, labelPieces as number[], [destLine, destFrom, destFrom + destRes.raw.length], titleKept ? titlePieces : null);
 	return true;
 }
 
@@ -1374,7 +1458,7 @@ function htmlBlock(state: State, startLine: number, endLine: number, silent: boo
 		// keeps no per-line prefix, so a multi-line comment block in a container records where each line's content
 		// starts, as markdown-it's `getLines(startLine, nextLine, blkIndent, true)` takes it. Elsewhere the content is
 		// the lines as they stand.
-		if (state.level > 0 && nextLine > startLine + 1) state.recordLines(tok, startLine, nextLine, state.blkIndent);
+		if (state.level > 0 && (state.rec || nextLine > startLine + 1)) state.recordLines(tok, startLine, nextLine, state.blkIndent);
 		return true;
 	}
 	let lineText = src.slice(pos, max);
@@ -1399,7 +1483,8 @@ function htmlBlock(state: State, startLine: number, endLine: number, silent: boo
 		}
 	}
 	state.line = nextLine;
-	state.pushAux(K_HTML_BLOCK, 0, startLine, nextLine, i);
+	const tok = state.pushAux(K_HTML_BLOCK, 0, startLine, nextLine, i);
+	if (state.rec && state.level > 0) state.recordLines(tok, startLine, nextLine, state.blkIndent);
 	return true;
 }
 
@@ -1419,7 +1504,7 @@ function heading(state: State, startLine: number, _endLine: number, silent: bool
 	if (level > 6 || (pos < max && !isSpace(ch))) return false;
 	if (silent) return true;
 	state.line = startLine + 1;
-	state.pushAux(K_HEADING_OPEN, 1, startLine, state.line, level);
+	state.setCol(state.pushAux(K_HEADING_OPEN, 1, startLine, state.line, level), startLine);
 	state.pushK(K_INLINE, 0, startLine, state.line);
 	state.pushK(K_HEADING_CLOSE, -1, -1, -1);
 	return true;
@@ -1461,10 +1546,19 @@ function lheading(state: State, startLine: number, endLine: number): boolean {
 	}
 	state.line = nextLine + 1;
 	state.pushAux(K_HEADING_OPEN, 1, startLine, state.line, level + 8);
-	state.pushK(K_INLINE, 0, startLine, state.line - 1);
+	leaf(state, state.pushK(K_INLINE, 0, startLine, state.line - 1), startLine, nextLine);
 	state.pushK(K_HEADING_CLOSE, -1, -1, -1);
 	state.parentType = oldParentType;
 	return true;
+}
+
+/**
+ * A paragraph's or setext heading's text is markdown-it's `getLines(begin, end, blkIndent, false)`. At the top
+ * level that is the lines as they stand; inside a container (the inline token's level is past 1) it drops each
+ * line's prefix, so a detail parse records where each line's text starts (`Recorder.leaf`), as a comment block does.
+ */
+function leaf(state: State, tok: number, begin: number, end: number): void {
+	if (state.rec && state.tape[tok * STRIDE + T_LEVEL] > 1) state.rec.leaf(tok, begin, end, state.blkIndent);
 }
 
 function paragraph(state: State, startLine: number, endLine: number): boolean {
@@ -1480,7 +1574,7 @@ function paragraph(state: State, startLine: number, endLine: number): boolean {
 	}
 	state.line = nextLine;
 	state.pushK(K_PARAGRAPH_OPEN, 1, startLine, state.line);
-	state.pushK(K_INLINE, 0, startLine, state.line);
+	leaf(state, state.pushK(K_INLINE, 0, startLine, state.line), startLine, nextLine);
 	state.pushK(K_PARAGRAPH_CLOSE, -1, -1, -1);
 	state.parentType = oldParentType;
 	return true;
@@ -1573,6 +1667,15 @@ export class BlockParser {
 		this.linkOk = opts.linkOk;
 	}
 
+	/**
+	 * `lineScratch`, as the scratch THIS parser's `parseFrom` reads. A host can load the package twice (its ESM and its
+	 * CommonJS build), and each copy has its own module scratch, so an update must write the line index through the
+	 * parser it then calls, never through the module it was imported from.
+	 */
+	lineScratch(lines: number): { bMarks: Int32Array; eMarks: Int32Array } {
+		return lineScratch(lines);
+	}
+
 	/** The tape id of a token type, adding a plugin's type the first time it is pushed. */
 	kindOf(type: string): number {
 		let id = this.kindIds.get(type);
@@ -1629,13 +1732,15 @@ export class BlockParser {
 	/**
 	 * The block structure of `src`, which must already be normalized (S0: no BOM, `\n` line ends), as
 	 * markdown-it's `md.block.parse` would tokenize it. `startLine` begins the parse part-way down, which
-	 * is exact at a line where every container is closed (just after a top-level thematic break).
+	 * is exact at a line where every container is closed (just after a top-level thematic break). With a `recorder`
+	 * it is a DETAIL parse, which also records what a token adapter needs (`Recorder`, detail.ts).
 	 */
-	parse(src: string, startLine = 0): BlockTape {
+	parse(src: string, startLine = 0, recorder?: (state: RecordingState) => Recorder): BlockTape {
 		const state = new State(src, this);
+		if (recorder) state.rec = recorder(state);
 		if (src) this.tokenize(state, startLine, state.lineMax);
 		const n = state.lineMax + 1;
-		return { src, kinds: this.kinds, tape: state.tape.slice(0, state.n * STRIDE), length: state.n, lines: state.lineMax, bMarks: state.bMarks.slice(0, n), eMarks: state.eMarks.slice(0, n), side: state.side, forward: state.forward };
+		return { src, kinds: this.kinds, tape: state.tape.slice(0, state.n * STRIDE), length: state.n, lines: state.lineMax, bMarks: state.bMarks.slice(0, n), eMarks: state.eMarks.slice(0, n), side: state.side, forward: state.forward, detail: state.rec?.done() };
 	}
 
 	/**
