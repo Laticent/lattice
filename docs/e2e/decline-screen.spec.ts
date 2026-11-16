@@ -54,7 +54,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a browser without CSS :has
 	// A missing feature is the site-wide old-browser notice's to say, on every route (old-browser.spec.ts); the Studio's
 	// own screen stays for the hardware floor.
 	await expect(page.locator('[data-testid="old-browser"]')).toBeVisible();
-	await expect(page.locator('[data-testid="old-browser"]')).toContainText('This browser is missing CSS :has()');
+	await expect(page.locator('[data-testid="old-browser"] .lob-reqs li', { hasText: 'CSS :has()' })).toContainText('Missing');
 	// The tier still records the decline, so the next visit knows from its first paint. Saved once the CPU probe has
 	// answered: until then the tier is interim and nothing is written (device-tier.ts).
 	await expect.poll(() => page.evaluate(() => localStorage.getItem('lattice-device-tier')), { timeout: 150_000 }).toBe('unsupported');

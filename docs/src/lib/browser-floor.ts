@@ -24,9 +24,14 @@ export interface BrowserFloor {
 	after?: string;
 	/** The vendor's own update page. */
 	link: string;
-	/** On Android, where the update comes from the app store, the store page and the steps for it. */
-	android?: { steps: readonly string[]; link: string };
+	/** On Android, where the update comes from the app store: the store page, the steps, and what to do if it can't. */
+	android?: { steps: readonly string[]; link: string; after?: string };
+	/** The button's label, when "How to update <name>" would mislead (a download page is not an update guide). */
+	linkText?: string;
 }
+
+/** What to do when an Android app store offers no update: the phone itself is too old for a current browser. */
+const ANDROID_AFTER = "If there's no Update button, this phone can't get a newer version. Open this page on a computer or a newer phone.";
 
 export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 	{
@@ -35,7 +40,7 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		min: '111',
 		steps: ['Open the menu: the three dots at the top right.', 'Choose Help, then About Google Chrome.', 'Chrome downloads the update. Select Relaunch when it is ready.'],
 		link: 'https://support.google.com/chrome/answer/95414',
-		android: { steps: ['Open the Play Store.', 'Search for Chrome.', 'Select Update.'], link: 'https://play.google.com/store/apps/details?id=com.android.chrome' },
+		android: { steps: ['Open the Play Store.', 'Search for Chrome.', 'Select Update.'], link: 'https://play.google.com/store/apps/details?id=com.android.chrome', after: ANDROID_AFTER },
 	},
 	{
 		id: 'edge',
@@ -43,6 +48,7 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		min: '111',
 		steps: ['Open the menu: the three dots at the top right.', 'Choose Help and feedback, then About Microsoft Edge.', 'Edge downloads the update. Select Restart when it is ready.'],
 		link: 'https://support.microsoft.com/topic/microsoft-edge-update-settings-af8aaca2-1b69-4870-94fe-18822dbb7ef1',
+		android: { steps: ['Open the Play Store.', 'Search for Microsoft Edge.', 'Select Update.'], link: 'https://play.google.com/store/apps/details?id=com.microsoft.emmx', after: ANDROID_AFTER },
 	},
 	{
 		// The original Edge (EdgeHTML, versions 12 to 18). It updated only with Windows, and Microsoft retired it in 2021, so
@@ -51,9 +57,10 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		id: 'edge-legacy',
 		name: 'Edge',
 		min: '111',
-		note: 'This is the original Edge, which Microsoft stopped updating in 2021. No update brings it up to date, but the current Edge installs in its place.',
+		note: "This is the old Edge, which Microsoft stopped updating in 2021. Install the new Edge instead: it's free and replaces the old one.",
 		steps: ['Open microsoft.com/edge.', 'Download and install Microsoft Edge.', 'Open this page again in the new Edge.'],
 		link: 'https://www.microsoft.com/edge',
+		linkText: 'Get the new Edge',
 	},
 	{
 		id: 'firefox',
@@ -61,23 +68,28 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		min: '128',
 		steps: ['Open the menu: the three lines at the top right.', 'Choose Help, then About Firefox.', 'Firefox downloads the update. Select Restart to update Firefox.'],
 		link: 'https://support.mozilla.org/kb/update-firefox-latest-release',
-		android: { steps: ['Open the Play Store.', 'Search for Firefox.', 'Select Update.'], link: 'https://play.google.com/store/apps/details?id=org.mozilla.firefox' },
+		android: { steps: ['Open the Play Store.', 'Search for Firefox.', 'Select Update.'], link: 'https://play.google.com/store/apps/details?id=org.mozilla.firefox', after: ANDROID_AFTER },
 	},
 	{
 		id: 'safari',
 		name: 'Safari',
 		min: '16.4',
-		note: 'Safari updates with macOS.',
-		steps: ['Open the Apple menu, then System Settings.', 'Choose General, then Software Update.', 'Install the update, then open this page again.'],
-		after: "On older Macs, use System Preferences, then Software Update. If your Mac can't update, a current Chrome or Firefox may still install on it.",
+		note: "Safari updates along with your Mac's system software.",
+		steps: [
+			'Click the Apple logo at the top left of the screen.',
+			'Choose System Settings, then General, then Software Update. On older Macs, choose System Preferences, then Software Update.',
+			'Install the update, then open this page again.',
+		],
+		after: "If your Mac can't update, a current Chrome or Firefox may still install on it.",
 		link: 'https://support.apple.com/en-us/102665',
 	},
 	{
 		id: 'ios',
 		name: 'iOS',
 		min: '16.4',
-		note: "Every browser on an iPhone or iPad runs on Safari's engine, so updating iOS updates them all.",
+		note: 'Every browser on an iPhone or iPad is built on Safari, so updating the iPhone or iPad updates all of them.',
 		steps: ['Open Settings.', 'Choose General, then Software Update.', 'Install iOS 16.4 or later.'],
+		after: "Older iPhones and iPads can't install iOS 16.4. If yours doesn't offer it, open this page on a computer or a newer device.",
 		link: 'https://support.apple.com/en-us/118575',
 	},
 	{
@@ -85,21 +97,24 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		name: 'Samsung Internet',
 		min: '22',
 		steps: ['Open the Galaxy Store or the Play Store.', 'Search for Samsung Internet.', 'Select Update.'],
+		after: ANDROID_AFTER,
 		link: 'https://play.google.com/store/apps/details?id=com.sec.android.app.sbrowser',
 	},
 	{
 		id: 'opera',
 		name: 'Opera',
 		min: '97',
-		steps: ['Open the menu.', 'Choose Update & Recovery.', 'Select Check for update.'],
-		link: 'https://www.opera.com/download',
+		steps: ['Open the Opera menu: the red O at the top left (on a Mac, the Opera menu at the top of the screen).', 'Choose Update & Recovery.', 'Select Check for update.'],
+		link: 'https://help.opera.com/en/latest/crashes-and-issues/#update',
+		android: { steps: ['Open the Play Store.', 'Search for Opera.', 'Select Update.'], link: 'https://play.google.com/store/apps/details?id=com.opera.browser', after: ANDROID_AFTER },
 	},
 ];
 
 /** Windows 7 and 8 can no longer run any browser at the floor: Chrome and Edge stopped at 109 there, Firefox at 115. */
 export const OLD_WINDOWS = {
-	note: 'Chrome, Edge and Firefox have all stopped updating on Windows 7 and 8, so no browser there is new enough. Lattice needs Windows 10 or later, or another device.',
-	link: 'https://support.microsoft.com/windows/windows-7-support-ended-on-january-14-2020-b75d4580-2cc7-895a-2c9c-1466d9a53962',
+	need: 'A newer computer or phone',
+	note: "Windows 7 and 8 can't run a browser new enough for Lattice, because Chrome, Edge and Firefox all stopped updating there. Open this page on a computer with Windows 10 or later, a Mac, or a newer phone or tablet.",
+	// No button: Microsoft's "support ended" page gives the reader nothing they can do.
 };
 
 /** "Chrome 111, Edge 111, …" for a sentence, in table order (iOS is said with Safari, the original Edge with Edge). */
@@ -114,6 +129,9 @@ export function floorSummary(): string {
  * itself: it must never send a reader to another page of the site, which their browser can't show properly either.
  */
 export function supportedList(): string[] {
-	const where: Partial<Record<BrowserFloor['id'], string>> = { safari: ' on a Mac', ios: ' on iPhone and iPad, for every browser there' };
-	return BROWSER_FLOOR.filter((b) => b.id !== 'edge-legacy').map((b) => `${b.name} ${b.min} or newer${where[b.id] ?? ''}`);
+	return BROWSER_FLOOR.filter((b) => b.id !== 'edge-legacy').map((b) => {
+		if (b.id === 'ios') return `iPhone and iPad: iOS ${b.min} or newer, in any browser`;
+		if (b.id === 'safari') return `Mac: Safari ${b.min} or newer`;
+		return `${b.name} ${b.min} or newer`;
+	});
 }

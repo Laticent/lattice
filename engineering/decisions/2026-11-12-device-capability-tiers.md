@@ -504,6 +504,21 @@ versions and how to update, and it looks like the site, not like an error page.
     eyebrows at weight 500 with 0.16em tracking; a square-framed slide like the landing page's "After" panel. The veil
     now ends at 0.9, the site's flat background with the blurred page only a hint behind it: an old browser draws that
     page broken, and at the earlier 0.62 it averaged to a muddy tan in the owner's legacy Edge.
+  - **Written for readers who aren't technical (owner; a `prose-checker` pass, applied in full but one point).** The
+    owner renamed "Technical details" to "Capability requirements" and asked for bullets like the supported browsers:
+    each capability now reads in plain words first (`FEATURE_PLAIN` in `device-profile.ts`, "Arranging each slide
+    around what is on it"), its technical name small beside it, and its state as a word, Missing or Supported. The
+    pass found that a reader who CAN'T update had no way forward, and fixed it with one line for everyone: "Can't
+    update? On a work computer, ask your IT team. Or open <this address> on another device…". Also:
+    - the Mac steps named System Settings first, though any Mac on Safari 15 or older has System Preferences;
+    - the iPhone and Android steps dead-ended on devices too old to update (each now says what to do then);
+    - old Windows read "Lattice needs Windows 10", untrue (a Mac or a phone works), under a heading promising an update
+      that cannot happen; it now says "A newer computer or phone" under "What you can do", with no dead-end button;
+    - the security line called the reader's browser "unsafe" and then offered Continue anyway; it now says updating
+      also brings security fixes, and that nothing is wrong with their device or files;
+    - Edge and Opera on Android were taken for Chrome or given desktop steps.
+    Kept against the pass: it would have named the section "Details for your IT team"; the owner chose
+    "Capability requirements", and the section's lead now tells a work-computer reader to show the list to IT.
   - **Minified at build time.** The integration runs the check through esbuild (`target: 'es5'`) before injecting it:
     1,268 bytes on every page, so the home page stays at 118.7 of its 119.1 KB ceiling with the flash fix included.
     esbuild refuses to emit anything newer than ES5, so a `const` slipped into the source fails the build, and
@@ -518,7 +533,7 @@ versions and how to update, and it looks like the site, not like an error page.
 - **Self-contained (owner, same day).** The notice links to no other page of this site: a browser too old for the landing
   page is too old for Getting started too, so a "Supported browsers" link sent the reader to a second broken page. The
   supported list (`supportedList()` in `browser-floor.ts`) travels inside the notice instead, collapsed in the footer as
-  "Supported browsers" beside "Technical details", for every reader (the owner asked for both to collapse alike). Both
+  "Supported browsers" beside "Capability requirements", for every reader (the owner asked for both to collapse alike). Both
   are one button disclosure in every engine (`collapsible()`: a real `<button>` with `aria-expanded` and `aria-controls`
   that shows and hides its section, under a drawn triangle), never `<details>`. The first build used `<details>` with a
   button fallback chosen by a feature test; in the owner's browser the test guessed wrong, so the engine drew its own

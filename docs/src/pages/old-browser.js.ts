@@ -9,6 +9,7 @@
 import { joinBase } from '../lib/base-url.mjs';
 import { BROWSER_FLOOR, OLD_WINDOWS, supportedList } from '../lib/browser-floor';
 import { OLD_BROWSER_CONTINUE_EVENT } from '../lib/device-gate';
+import { FEATURE_LABEL, FEATURE_PLAIN, OLD_BROWSER_FEATURES } from '../lib/device-profile';
 import { CONTINUE_KEY } from '../lib/device-tier-keys';
 import notice from '../lib/old-browser-notice.es5.js?raw';
 
@@ -19,6 +20,8 @@ export function GET(): Response {
 		oldWindows: OLD_WINDOWS,
 		// The supported list travels with the notice: no link to another page of the site, which this browser can't show.
 		supported: supportedList(),
+		// Every capability the check tests, in plain words and by its technical name; the notice marks the missing ones.
+		requirements: OLD_BROWSER_FEATURES.map((f) => ({ label: FEATURE_LABEL[f], plain: FEATURE_PLAIN[f] })),
 		// On the Studio and the Playground, Continue anyway also means "run as Lite": the notice sets the device tier's own
 		// continue key and fires this event, so device-gate.ts takes it from there (Lite mode and its banner).
 		deviceContinueKey: CONTINUE_KEY,
@@ -27,8 +30,8 @@ export function GET(): Response {
 		slide: {
 			light: url('old-browser/hero-light.jpg'),
 			dark: url('old-browser/hero-dark.jpg'),
-			alt: 'A Lattice slide: a waterfall chart titled "New customers drove the growth. Churn is the biggest drag.", taking revenue from $12.0M last year to $14.6M this year.',
-			caption: 'One Lattice slide. Its source is a title and six lines of plain text.',
+			alt: "A Lattice slide: a waterfall chart showing revenue rising from $12.0M last year to $14.6M this year, titled 'New customers drove the growth. Churn is the biggest drag.'",
+			caption: 'Lattice made this slide from a title and six lines of plain text.',
 		},
 	};
 	// `<` is escaped so no string in the data can close a script element, wherever this text ends up.

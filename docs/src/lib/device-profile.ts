@@ -30,6 +30,20 @@ export const FEATURE_LABEL: Record<RequiredFeature, string> = {
 	registerProperty: 'CSS @property',
 };
 
+/**
+ * What each feature does for the reader, in words a non-technical person can act on (the old-browser notice's
+ * "Capability requirements" list puts FEATURE_LABEL beside it, small, for whoever needs the technical name).
+ */
+export const FEATURE_PLAIN: Record<RequiredFeature, string> = {
+	worker: 'Working in the background without freezing the page',
+	indexedDB: 'Saving your decks in this browser',
+	cssHas: 'Arranging each slide around what is on it',
+	containerQueries: 'Sizing each part of the page to the space it has',
+	structuredClone: 'Copying your work safely from one part of the app to another',
+	colorMix: 'Mixing the colors the page and its themes use',
+	registerProperty: "Drawing the page's shadows, gradients and animations correctly",
+};
+
 /** A global that must exist; a dotted name is a property path from `window` (`CSS.registerProperty`). */
 type GlobalName = 'Worker' | 'indexedDB' | 'structuredClone' | 'CSS.registerProperty';
 

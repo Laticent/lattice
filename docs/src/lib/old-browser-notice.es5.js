@@ -38,8 +38,9 @@
 		if ((m = /SamsungBrowser\/(\d+)/.exec(ua))) return { id: 'samsung', version: m[1] };
 		// The original Edge (EdgeHTML, "Edge/12" to "Edge/18") updates with Windows and was retired in 2021; the current one is "Edg/".
 		if ((m = /Edge\/(\d+)/.exec(ua))) return { id: 'edge-legacy', version: m[1] };
-		if ((m = /Edg\/(\d+)/.exec(ua))) return { id: 'edge', version: m[1] };
-		if ((m = /OPR\/(\d+)/.exec(ua))) return { id: 'opera', version: m[1] };
+		// Edge on Android says "EdgA/": Chromium underneath, so without this it would be taken for Chrome.
+		if ((m = /EdgA?\/(\d+)/.exec(ua))) return { id: 'edge', version: m[1], android: android };
+		if ((m = /OPR\/(\d+)/.exec(ua))) return { id: 'opera', version: m[1], android: android };
 		if ((m = /Firefox\/(\d+)/.exec(ua))) return { id: 'firefox', version: m[1], android: android };
 		if ((m = /Chrome\/(\d+)/.exec(ua))) return { id: 'chrome', version: m[1], android: android };
 		if ((m = /Version\/(\d+(?:\.\d+)?).*Safari\//.exec(ua))) return { id: 'safari', version: m[1] };
@@ -66,7 +67,7 @@
 		var who = identify(navigator.userAgent || '', navigator.maxTouchPoints > 1);
 		// biome-ignore lint/complexity/useOptionalChain: ES5 on purpose.
 		if (who && who.oldWindows) {
-			return { have: 'Windows ' + who.version, need: 'Windows 10 or later', note: LOB.oldWindows.note, steps: [], link: LOB.oldWindows.link, linkText: 'About older Windows' };
+			return { have: 'Windows ' + who.version, need: LOB.oldWindows.need, note: LOB.oldWindows.note, steps: [], oldWindows: true };
 		}
 		var b = who && find(who.id);
 		// A version we can't read, or one the user agent claims is new enough (a browser can say anything about itself), gets
@@ -78,9 +79,9 @@
 			need: b.name + ' ' + b.min + ' or newer',
 			note: a ? null : b.note,
 			steps: a ? b.android.steps : b.steps,
-			after: a ? null : b.after,
+			after: a ? b.android.after : b.after,
 			link: a ? b.android.link : b.link,
-			linkText: b.id === 'edge-legacy' ? 'Get the current Edge' : 'How to update ' + (b.id === 'ios' ? 'your iPhone or iPad' : b.name),
+			linkText: b.linkText || 'How to update ' + (b.id === 'ios' ? 'your iPhone or iPad' : b.name),
 		};
 	}
 
@@ -132,12 +133,18 @@
 		'#ID ol,#ID ul{margin:0;padding:16px 0 0 1.4em}' +
 		'#ID .lob-supported{font-size:15px}' +
 		'#ID .lob-section .lob-supported{padding-top:6px}' +
+		// A requirement: the plain words, then a quieter line with the technical name and its state.
+		'#ID .lob-reqs-lead{padding:6px 0 0}' +
+		'#ID .lob-req-plain,#ID .lob-req-meta{display:block}' +
+		'#ID .lob-req-meta{font:400 12px/1.5 ' + MONO + ';color:var(--text-muted,GrayText)}' +
+		'#ID .lob-req-missing{font-weight:700;color:var(--accent,Highlight)}' +
 		'#ID h2+.lob-note{padding-top:0}' +
-		// A browser we can't name gets no button row, so its note keeps that row's gap above the footer rule.
-		'#ID h2+.lob-note:last-child{padding-bottom:24px}' +
+		// The section owns the gap above the footer rule, whichever way it ends (a button, the can't-update line, a note).
+		'#ID .lob-body{padding-bottom:24px}' +
 		'#ID li{padding:0 0 6px 4px}' +
 		'#ID .lob-after{padding:4px 0 0;font-size:15px;color:var(--text-muted,GrayText)}' +
-		'#ID .lob-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:18px 0 24px}' +
+		'#ID .lob-cant{padding:14px 0 0;font-size:15px;color:var(--text-muted,GrayText)}' +
+		'#ID .lob-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:18px 0 0}' +
 		// The site's primary button: 40 px tall, 6 px corners, 14 px at weight 500.
 		'#ID .lob-actions a{display:inline-block;font-size:14px;font-weight:500;line-height:40px;text-decoration:none}' +
 		'#ID .lob-primary{padding:0 16px;border-radius:6px;background:var(--accent,Highlight);color:white;color:var(--on-accent,var(--bg,Canvas))}' +
@@ -189,6 +196,35 @@
 		return ul;
 	}
 
+	/**
+	 * Every capability Lattice needs, in plain words first and the technical name second, each marked in words: "Missing"
+	 * or "Supported" (no check or cross glyphs, #29). The same list style as the supported browsers.
+	 */
+	function requirementsList() {
+		var wrap = el('div');
+		wrap.appendChild(el('p', 'lob-reqs-lead', 'Lattice needs everything on this list. This browser lacks the items marked Missing. If this is a work computer, show this list to your IT team.'));
+		var ul = el('ul', 'lob-supported lob-reqs');
+		var j;
+		var k;
+		var li;
+		var gone;
+		var meta;
+		for (j = 0; j < LOB.requirements.length; j++) {
+			gone = false;
+			for (k = 0; k < missing.length; k++) if (missing[k] === LOB.requirements[j].label) gone = true;
+			li = el('li');
+			li.appendChild(el('span', 'lob-req-plain', LOB.requirements[j].plain));
+			meta = el('span', 'lob-req-meta');
+			meta.appendChild(el('span', 'lob-req-tech', LOB.requirements[j].label));
+			meta.appendChild(document.createTextNode(' \u00b7 '));
+			meta.appendChild(el('span', gone ? 'lob-req-state lob-req-missing' : 'lob-req-state', gone ? 'Missing' : 'Supported'));
+			li.appendChild(meta);
+			ul.appendChild(li);
+		}
+		wrap.appendChild(ul);
+		return wrap;
+	}
+
 	/** A link that opens a new tab says so to a screen reader, which can't see where it went. */
 	function newTabLink(cls, text, href) {
 		var a = el('a', cls, text);
@@ -234,7 +270,6 @@
 		var root = document.documentElement;
 		var dark = root.getAttribute('data-mode') === 'dark';
 		var said = advice();
-		var list = missing.length === 1 ? missing[0] : missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1];
 		var i;
 
 		var style = document.createElement('style');
@@ -279,7 +314,7 @@
 		title.id = ID + '-title';
 		title.tabIndex = -1;
 		head.appendChild(title);
-		var lead = el('p', 'lob-lead', 'Lattice turns a few lines of plain text into slides like this one. This browser is too old to run it.');
+		var lead = el('p', 'lob-lead', 'Lattice turns a few lines of plain text into slides like this one. Your browser, the app you use to open websites, is too old to run Lattice. Updating it is free.');
 		lead.id = ID + '-lead';
 		head.appendChild(lead);
 		card.appendChild(head);
@@ -297,7 +332,9 @@
 
 		// 3. What to do: a titled section, the versions as a description list, the steps as a numbered list.
 		var body = el('section', 'lob-body');
-		var h2 = el('h2', '', 'How to update');
+		// Old Windows can't update to a browser new enough, so the section says what the reader CAN do instead.
+		var oldWindows = said ? said.oldWindows === true : false;
+		var h2 = el('h2', '', oldWindows ? 'What you can do' : 'How to update');
 		h2.id = ID + '-how';
 		body.setAttribute('aria-labelledby', h2.id);
 		var spec;
@@ -318,25 +355,30 @@
 		} else {
 			// A browser we can't name: the advice points to the supported list, which sits collapsed in the footer like the
 			// technical details, one click away and never on another page.
-			body.appendChild(el('p', 'lob-note', 'Update to a current browser, then open this page again. "Supported browsers" below lists the versions that work.'));
+			body.appendChild(el('p', 'lob-note', "We couldn't tell which browser this is. Install the newest Chrome, Edge, Firefox or Safari (all free), then open this page again."));
 		}
 		var actions;
-		if (said) {
+		if (said ? !!said.link : false) {
 			// The one link in the notice leads off the site, to the browser maker's own update page, which an old browser can
 			// open. Nothing links to another page of this site: it would be as broken here as this one.
 			actions = el('p', 'lob-actions');
 			actions.appendChild(newTabLink('lob-primary', said.linkText, said.link));
 			body.appendChild(actions);
 		}
+		// Every reader who can't update gets one way forward: their IT team, or this address on another device. Old Windows
+		// already says the second in its own note.
+		if (!oldWindows) {
+			body.appendChild(el('p', 'lob-cant', "Can't update? On a work computer, ask your IT team. Or open " + location.host + ' on another device, like a newer phone or a home computer.'));
+		}
 		card.appendChild(body);
 
 		// 4. Why it matters, the technical detail for whoever wants it, and the way past.
 		var foot = el('footer', 'lob-foot');
-		foot.appendChild(el('p', '', 'Browsers this old also stop getting security fixes, which makes them unsafe to use on the web.'));
+		foot.appendChild(el('p', '', "Updating also gets you the latest security fixes, so it's worth doing anyway. Nothing is wrong with your device or your files."));
 		// The supported list, collapsed like the technical details, for every reader.
 		foot.appendChild(collapsible('Supported browsers', supportedList()));
-		foot.appendChild(collapsible('Technical details', el('p', '', 'This browser is missing ' + list + ', which Lattice needs. Lattice checks for features, not version numbers.')));
-		var cont = el('p', 'lob-continue', 'You can still look around, but parts of the site may not work. ');
+		foot.appendChild(collapsible('Capability requirements', requirementsList()));
+		var cont = el('p', 'lob-continue', 'You can still look around, but some pages may look broken or not work. ');
 		var go = el('button', 'lob-go', 'Continue anyway');
 		go.type = 'button';
 		cont.appendChild(go);

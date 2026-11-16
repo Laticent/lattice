@@ -37,11 +37,15 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an old browser gets an hon
 	const notice = page.locator(NOTICE);
 	await expect(notice).toBeVisible();
 	await expect(notice.getByRole('heading', { name: 'Lattice needs a newer browser.' })).toBeFocused();
-	await expect(notice.locator('.lob-section').last()).toContainText('This browser is missing CSS :has(), which Lattice needs.');
-	await expect(notice).toContainText('stop getting security fixes');
+	// The capability list names what is missing in plain words, the technical name beside it.
+	await expect(notice.locator('.lob-reqs li', { hasText: 'CSS :has()' })).toContainText('Arranging each slide around what is on it');
+	await expect(notice.locator('.lob-reqs li', { hasText: 'CSS :has()' })).toContainText('Missing');
+	await expect(notice).toContainText('Nothing is wrong with your device or your files.');
 	// A current engine made to fail the probe: its user agent says it is new enough, so it gets the general advice and the
 	// supported list, never "you have Chrome 150; Lattice needs 111" (the per-browser wording is unit-tested).
-	await expect(notice).toContainText('Update to a current browser, then open this page again.');
+	await expect(notice).toContainText("We couldn't tell which browser this is.");
+	// Whoever can't update still gets a way forward.
+	await expect(notice.locator('.lob-cant')).toContainText("Can't update?");
 	// Self-contained: the supported list is in the notice, collapsed until opened, and no link leads into the site.
 	const toggle = notice.getByRole('button', { name: 'Supported browsers' });
 	// The button names the list it controls, the way assistive technology finds it too.
@@ -78,7 +82,8 @@ test('@crosswidth @webkit-phone @gecko every missing feature is named', async ({
 	await withoutHas(page);
 	await withoutStructuredClone(page);
 	await page.goto('/', { waitUntil: 'domcontentloaded' });
-	await expect(page.locator(NOTICE).locator('.lob-section').last()).toContainText('This browser is missing CSS :has() and structuredClone(), which Lattice needs.');
+	await expect(page.locator(NOTICE).locator('.lob-req-missing')).toHaveCount(2);
+	await expect(page.locator(NOTICE).locator('.lob-reqs li', { hasText: 'structuredClone()' })).toContainText('Missing');
 });
 
 test('@crosswidth @webkit-phone @gecko a current browser never sees the notice or downloads it', async ({ page }) => {
