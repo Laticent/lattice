@@ -64,7 +64,9 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an old browser gets an hon
 	await expect(page.locator('body > main')).toHaveAttribute('aria-hidden', 'true');
 	await expect(page.locator('body > main')).toHaveCSS('pointer-events', 'none');
 	await expect(notice.getByRole('button', { name: 'Continue anyway' })).toBeAttached();
-	await notice.getByRole('button', { name: 'Continue anyway' }).scrollIntoViewIfNeeded();
+	// Scroll it to the middle, not flush with an edge: the button sits on a fractional pixel (798.156 at 1440 x 900), so
+	// "scroll only as far as needed" left a third of a pixel outside and a ratio-1 check read 0.986. Reachable is the claim.
+	await notice.getByRole('button', { name: 'Continue anyway' }).evaluate((el) => el.scrollIntoView({ block: 'center' }));
 	await expect(notice.getByRole('button', { name: 'Continue anyway' })).toBeInViewport({ ratio: 1 });
 
 	await notice.getByRole('button', { name: 'Continue anyway' }).click();

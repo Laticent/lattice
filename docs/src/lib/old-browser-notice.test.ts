@@ -186,6 +186,9 @@ describe('what it says to each browser', () => {
 			'On your own device: use any browser in the Supported browsers list below.',
 		]);
 		expect(text(screen, '.lob-cant-ways strong')).toEqual(['On a work device:', 'On your own device:']);
+		// A bulleted list, like the supported browsers.
+		expect(screen.querySelector('.lob-cant-ways')?.tagName).toBe('UL');
+		expect(getComputedStyle(screen.querySelector('.lob-cant-ways') as Element).listStyleType).toBe('disc');
 	});
 
 	it.each([

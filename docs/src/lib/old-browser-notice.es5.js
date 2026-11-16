@@ -146,8 +146,9 @@
 		// Outfit one static weight at a time, and an old browser that meets a weight the page had not loaded yet draws the
 		// light 300 instead and never swaps (the owner's legacy Edge: the bold lead-ins came out thin).
 		'#ID .lob-cant-q{font-size:16px;font-weight:400;color:var(--text-heading,CanvasText)}' +
-		'#ID .lob-cant-ways{list-style:none;padding:4px 0 0}' +
-		'#ID .lob-cant-ways li{padding:2px 0 0;font-size:15px;color:var(--text-body,CanvasText)}' +
+		// Bulleted, with the same indent as the other lists in the notice (the owner's ask).
+		'#ID .lob-cant-ways{list-style:disc;padding:4px 0 0 1.4em}' +
+		'#ID .lob-cant-ways li{padding:2px 0 0 4px;font-size:15px;color:var(--text-body,CanvasText)}' +
 		'#ID .lob-cant-ways strong{font-weight:400;color:var(--text-heading,CanvasText)}' +
 		'#ID .lob-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:18px 0 0}' +
 		// The site's primary button: 40 px tall, 6 px corners, 14 px at weight 500.
