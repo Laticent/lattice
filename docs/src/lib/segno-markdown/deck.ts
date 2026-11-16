@@ -15,7 +15,7 @@
  * "no closer ahead" memo carries its answer from one slide into the next, so neither can be spliced.
  */
 
-import { type BlockParser, type BlockTape, F_HIDDEN, KIND, type RefRecord, STRIDE, T_AUX, T_FLAGS, T_KIND, T_L0, T_L1, T_LEVEL, T_NEST } from './block.js';
+import { type BlockParser, type BlockTape, F_HIDDEN, KIND, type Recorder, type RecordingState, STRIDE, T_AUX, T_FLAGS, T_KIND, T_L0, T_L1, T_LEVEL, T_NEST } from './block.js';
 import type { InlineParser } from './inline.js';
 
 /** The engine's front matter (lib/engine/directives.js `parseFrontMatter`), on S0 text. */
@@ -34,10 +34,10 @@ export interface DeckModelOptions {
 	/** The configured inline parser (S2), for `inlineOf` (model-inline.ts). Optional: a reader of structure alone needs none. */
 	inline?: InlineParser;
 	/**
-	 * Make the first parse a DETAIL parse (`slideDetail`), for a reader that will read every leaf (the token adapter):
-	 * it then needs no second parse. An update still re-reads each changed slide's detail on demand.
+	 * Make the first parse a DETAIL parse with this recorder (`detailRecorder`, detail.ts), for a reader that will read
+	 * every leaf: `detailedModel` (model-inline.ts) sets it and keeps the result, so no second parse is needed.
 	 */
-	detail?: boolean;
+	detail?: (state: RecordingState) => Recorder;
 }
 
 /** An authored slide: the body lines between two top-level breaks. */
@@ -137,8 +137,6 @@ interface Segment {
 	readonly side: ReadonlyMap<number, Side> | null;
 	/** Lines (as written) in this slide that a `scansAhead` rule was tried on. */
 	readonly forward: readonly number[] | null;
-	/** Link reference definitions in this slide, lines as written. */
-	readonly refs: readonly RefRecord[] | null;
 }
 
 /**
@@ -146,24 +144,24 @@ interface Segment {
  * `bm`/`em` are indexed so that line `L` of the parse is entry `L - bmBase`. `lineTo`: one past the last
  * line the parse covers.
  */
-function segmentsOf(tape: Int32Array, length: number, side: ReadonlyMap<number, Side>, forward: readonly number[], refs: readonly RefRecord[], bm: Int32Array, em: Int32Array, bmBase: number, lineFrom: number, lineTo: number): Segment[] {
+function segmentsOf(tape: Int32Array, length: number, side: ReadonlyMap<number, Side>, forward: readonly number[], bm: Int32Array, em: Int32Array, bmBase: number, lineFrom: number, lineTo: number): Segment[] {
 	const out: Segment[] = [];
 	let tok = 0;
 	let line = lineFrom;
+	// The side records by token, in token order, walked once across all the segments (scanning the whole map for each
+	// segment cost a detail parse of the gallery a fifth of its time: a detail parse records many).
+	const keys = side.size ? [...side.keys()].sort((a, b) => a - b) : [];
+	let k = 0;
 	const make = (end: number, nextLine: number, closed: boolean) => {
 		let sideHere: Map<number, Side> | null = null;
-		if (side.size)
-			for (const [i, v] of side)
-				if (i >= tok && i < end) {
-					sideHere ??= new Map();
-					sideHere.set(i - tok, v);
-				}
+		for (; k < keys.length && keys[k] < end; k++) {
+			sideHere ??= new Map();
+			sideHere.set(keys[k] - tok, side.get(keys[k]) as Side);
+		}
 		const n = nextLine - line;
 		let fwd: number[] | null = null;
 		for (const f of forward) if (f >= line && (f < nextLine || !closed)) (fwd ??= []).push(f);
-		let refsHere: RefRecord[] | null = null;
-		for (const r of refs) if (r.line >= line && (r.line < nextLine || !closed)) (refsHere ??= []).push(r);
-		out.push({ tape, t0: tok, length: end - tok, line0: line, lines: n, bm, em, b0: line - bmBase, off0: bm[Math.min(line, lineTo) - bmBase], closed, side: sideHere, forward: fwd, refs: refsHere });
+		out.push({ tape, t0: tok, length: end - tok, line0: line, lines: n, bm, em, b0: line - bmBase, off0: bm[Math.min(line, lineTo) - bmBase], closed, side: sideHere, forward: fwd });
 		tok = end;
 		line = nextLine;
 	};
@@ -256,7 +254,6 @@ export class DeckModel {
 			const eMarks = new Int32Array(this.lines + 1);
 			const side = new Map<number, Side>();
 			const forward: number[] = [];
-			const refs: RefRecord[] = [];
 			for (let i = 0; i < this.segs.length; i++) {
 				const g = this.segs[i];
 				const at = this.segTok[i] * STRIDE;
@@ -276,11 +273,10 @@ export class DeckModel {
 				}
 				if (g.side) for (const [k, v] of g.side) side.set(this.segTok[i] + k, v);
 				if (g.forward) for (const f of g.forward) forward.push(f + dl);
-				if (g.refs) for (const r of g.refs) refs.push(dl === 0 ? r : shiftRef(r, dl));
 			}
 			bMarks[this.lines] = this.body.length;
 			eMarks[this.lines] = this.body.length;
-			this._blocks = { src: this.body, kinds: this.options.parser.kinds, tape, length, lines: this.lines, bMarks, eMarks, side, forward, refs, leafLines: new Int32Array(0) };
+			this._blocks = { src: this.body, kinds: this.options.parser.kinds, tape, length, lines: this.lines, bMarks, eMarks, side, forward };
 		}
 		return this._blocks;
 	}
@@ -478,64 +474,12 @@ export function isCell(kind: number): boolean {
 	return kind === KIND.th_open || kind === KIND.td_open;
 }
 
-/** A reference record with its lines moved by `dl`. */
-function shiftRef(r: RefRecord, dl: number): RefRecord {
-	const move = (a: Int32Array) => {
-		const out = a.slice();
-		for (let k = 0; k < out.length; k += 3) out[k] += dl;
-		return out;
-	};
-	return { line: r.line + dl, label: move(r.label), dest: move(r.dest), title: move(r.title) };
-}
-
 /** @internal A token's segment, its tape and offset there, and the line shift to apply to its map. */
 export function tokenAt(m: DeckModel, token: number): { seg: number; tape: Int32Array; at: number; dl: number; local: number } {
 	const i = segmentOf(m.segTok, m.segs.length, token);
 	const g = m.segs[i];
 	const local = token - m.segTok[i];
 	return { seg: i, tape: g.tape, at: (g.t0 + local) * STRIDE, dl: m.segLine[i] - g.line0, local };
-}
-
-/**
- * One slide's share of a DETAIL parse (`BlockParser.parse(src, 0, true)`): its tokens exactly as the model holds them,
- * with what a token adapter or an inline reader needs recorded as well (content columns, container leaves' line
- * starts). Token `j` of the slide is the parse's token `t0 + j`, and the parse's line `L` is the slide's current
- * line `L - line0 + segLine`.
- */
-export interface SlideDetail {
-	readonly parse: BlockTape;
-	readonly t0: number;
-	readonly line0: number;
-}
-
-const details = new WeakMap<object, SlideDetail>();
-
-/**
- * A slide's detail, kept with its segment, so an update re-reads only the slides it re-parsed. A slide starts just after
- * a top-level break, where every container is closed, so its text parsed alone has the same tokens. When most of the
- * deck has no detail yet (a first whole-deck read), the whole body is parsed once and shared out instead: one parse
- * of the deck costs about a third of one parse per slide, whose fixed cost (the plugin rules' facades, the copies out)
- * is paid per call.
- */
-export function slideDetail(m: DeckModel, seg: number): SlideDetail {
-	const g = m.segs[seg];
-	const hit = details.get(g);
-	if (hit) return hit;
-	let missing = 0;
-	for (const s of m.segs) if (!details.has(s)) missing++;
-	if (missing * 2 > m.segs.length) {
-		const whole = m.options.parser.parse(m.body, 0, true);
-		if (whole.length !== m.segTok[m.segs.length]) throw new Error(`segno-markdown: the detail parse has ${whole.length} tokens, the model ${m.segTok[m.segs.length]}`);
-		for (let i = 0; i < m.segs.length; i++) if (!details.has(m.segs[i])) details.set(m.segs[i], { parse: whole, t0: m.segTok[i], line0: m.segLine[i] });
-		return details.get(g) as SlideDetail;
-	}
-	const from = m.segOff[seg];
-	const to = seg + 1 < m.segs.length ? m.segOff[seg + 1] : m.body.length;
-	const parse = m.options.parser.parse(m.body.slice(from, to), 0, true);
-	if (parse.length !== g.length) throw new Error(`segno-markdown: slide ${seg}'s detail parse has ${parse.length} tokens, the model ${g.length}`);
-	const out = { parse, t0: 0, line0: 0 };
-	details.set(g, out);
-	return out;
 }
 
 /** @internal The side record S1 wrote for a token, if any. */
@@ -570,11 +514,9 @@ export function deckModel(source: string, options: DeckModelOptions): DeckModel 
 	const src = typeof source === 'string' ? source : '';
 	const text = options.raw ? src : ingest(src);
 	const bodyStart = frontMatterEnd(text, options);
-	const flat = options.parser.parse(text.slice(bodyStart), 0, options.detail === true);
-	const segs = segmentsOf(flat.tape, flat.length, flat.side, flat.forward, flat.refs, flat.bMarks, flat.eMarks, 0, 0, flat.lines);
-	const m = new DeckModel(src, text, bodyStart, flat.lines, segs, options, flat);
-	if (options.detail) for (let i = 0; i < segs.length; i++) details.set(segs[i], { parse: flat, t0: m.segTok[i], line0: m.segLine[i] });
-	return m;
+	const flat = options.parser.parse(text.slice(bodyStart), 0, options.detail);
+	const segs = segmentsOf(flat.tape, flat.length, flat.side, flat.forward, flat.bMarks, flat.eMarks, 0, 0, flat.lines);
+	return new DeckModel(src, text, bodyStart, flat.lines, segs, options, flat);
 }
 
 /**
@@ -671,7 +613,7 @@ export function updateDeckModel(prev: DeckModel, next: string, span?: EditSpan):
 	// something the splice would get wrong (it read past a break, or left a memo the next slide reads).
 	for (let i = 0; i < reuseFrom && i < nSegs; i++) if (prev.segs[i].forward) return full();
 	for (const f of parsed.forward) if (f < parsedTo) return full();
-	const fresh = segmentsOf(parsed.tape, parsed.length, parsed.side, parsed.forward, parsed.refs, bm, em, restartLine, restartLine, parsedTo);
+	const fresh = segmentsOf(parsed.tape, parsed.length, parsed.side, parsed.forward, bm, em, restartLine, restartLine, parsedTo);
 	// A stopped parse ends on a break, which leaves an empty open segment after it: drop it.
 	if (parsed.stopped) fresh.pop();
 	const segs = [...prev.segs.slice(0, r), ...fresh, ...prev.segs.slice(reuseFrom)];

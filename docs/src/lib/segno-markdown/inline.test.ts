@@ -16,6 +16,7 @@ import {
 	type InlineTape,
 	ISTRIDE,
 	inlineOf,
+	inlineSlide,
 	L_DEST0,
 	L_DEST1,
 	L_REF,
@@ -27,6 +28,7 @@ import {
 	normalizeReference,
 	RSTRIDE,
 	referencesOf,
+	slideLeaves,
 	updateDeckModel,
 } from './index.js';
 
@@ -206,7 +208,7 @@ describe('the leaves on the deck model', () => {
 		for (let i = 0; i < b.length; i++) if (b.kinds[b.tape[i * 7]] === 'code_block') last = i;
 		expect(last).toBeGreaterThan(0);
 		const leaf = leafText(m, [...Array(b.length).keys()].filter((i) => b.kinds[b.tape[i * 7]] === 'inline')[0]);
-		expect(leaf.runs.length % RSTRIDE).toBe(0);
+		expect(leaf.runs === null || leaf.runs.length % RSTRIDE === 0).toBe(true);
 	});
 
 	it('resolves reference links against the deck’s first definition of a label, across slides', () => {
@@ -221,6 +223,20 @@ describe('the leaves on the deck model', () => {
 		const first = [...Array(m.blocks.length).keys()].find((i) => m.blocks.kinds[m.blocks.tape[i * 7]] === 'inline') as number;
 		const { tape } = inlineOf(m, first);
 		expect(tape.kinds[tape.tape[I_KIND]]).toBe('link_open');
+	});
+
+	it('reads a whole slide’s leaves in one pass, the same parses inlineOf gives', () => {
+		const src = '# A *b*\n\n> - x `y`\n\n| p | q |\n|---|---|\n| 1 | 2 |\n\n---\n\nz';
+		const a = model(src);
+		const b = model(src);
+		for (let s = 0; s < a.slides.length; s++) {
+			const batch = inlineSlide(a, s).map((l) => [l.leaf.text, l.leaf.start, Array.from(l.tape.tape)]);
+			const single = slideLeaves(b, s).map((k) => inlineOf(b, k)).map((l) => [l.leaf.text, l.leaf.start, Array.from(l.tape.tape)]);
+			expect(batch).toEqual(single);
+		}
+		// One slide's batch and a single read share the kept parse.
+		const k = slideLeaves(a, 0)[0];
+		expect(inlineOf(a, k).tape).toBe(inlineSlide(a, 0)[0].tape);
 	});
 
 	it('keeps a slide’s leaf tapes across an edit elsewhere, and drops them when a label changes', () => {

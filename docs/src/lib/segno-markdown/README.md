@@ -60,10 +60,11 @@ leafToBody(leaf, 3); // where the leaf's fourth character sits in the body
 | `new InlineParser(options)` | A configured inline pass: `html`, `strikethrough`, extra `rules` (a host's inline rules, anchored `after` or `before` a core rule, each with its `triggers`), `namedEntity` (required: the HTML entity table is the host's) and `linkOk` |
 | `inline.parse(text, refs?)` | S2 over one leaf's text: an `InlineTape`. `refs` maps each normalized reference label to its index |
 | `inlineOf(model, token)` | A leaf's text and tape, parsed on first read and kept with its slide's segment; dropped when the deck's reference labels change |
+| `inlineSlide(model, slide)` | Every leaf of one slide in tape order, the same parses `inlineOf` gives, looked up once per slide: what a whole-slide reader uses (the token adapter, an editor after a keystroke) |
 | `leafText(model, token)` · `leafToBody(leaf, offset)` | A leaf's text as markdown-it builds it (a quote's or list item's prefix dropped, a cell's escaped `\|` unescaped), and where each character of it sits in the body |
 | `referencesOf(model)` | The deck's link reference definitions in source order, with the spelling kept, and the first-definition table a reference link reads |
 | `slideLeaves(model, slide)` | One slide's `inline` tokens, for a reader that re-reads the slide an edit touched |
-| `slideDetail(model, slide)` | The slide's DETAIL parse: the same tokens with the content columns and line starts a token adapter needs. Parsed on demand; `deckModel(…, { detail: true })` makes the first parse a detail parse |
+| `slideDetail(model, slide)` · `detailedModel(source, options)` | A slide's DETAIL parse: the same tokens with what an inline reader or a token adapter needs (content columns, container leaves' line starts, link reference definitions; `detailRecorder`, detail.ts), parsed on demand, one slide or the whole body at once. `detailedModel` makes the first parse a detail parse, for a reader of every leaf. A bundle that reads only boundaries carries none of the recorder |
 | `isPunct(c)` · `isWhiteSpace(c)` | The flanking rules' character classes, markdown-it's at every code point (uc.micro 2.1.0's table, not the engine's `\p{P}`) |
 
 The inline tape is `ISTRIDE` (7) integers per token, in markdown-it's order before `fragments_join`: kind

@@ -460,6 +460,7 @@ class State implements InlineState {
 		this.children = NO_CHILDREN as InlineTape[];
 		this.side = null;
 		this.view = null;
+		this.paired = false;
 	}
 
 	/**
@@ -497,11 +498,18 @@ class State implements InlineState {
 	}
 
 	pushPending(): void {
-		this.raw(I_TEXT, 0, this.pStart, this.pEnd, 0);
+		this.raw(I_TEXT, 0, this.pStart, this.pEnd, 0, this.pendingLevel);
 		this.pStart = this.pEnd;
 	}
 
-	private raw(kind: number, nesting: number, from: number, to: number, aux: number): number {
+	/**
+	 * Whether post-processing turned any text token into an open or close token. Until it does, every token's level
+	 * is the one it was pushed at, which is what `fragments_join` would recompute; after it does, the levels are
+	 * recomputed from the nesting at the end of the parse.
+	 */
+	paired = false;
+
+	private raw(kind: number, nesting: number, from: number, to: number, aux: number, level: number): number {
 		if ((this.n + 1) * ISTRIDE > this.t.length) {
 			const grown = new Int32Array(this.t.length * 2);
 			grown.set(this.t);
@@ -515,6 +523,7 @@ class State implements InlineState {
 		t[at + I_TO] = to;
 		t[at + I_AUX] = aux;
 		t[at + I_FLAGS] = 0;
+		t[at + I_LEVEL] = level;
 		return this.n++;
 	}
 
@@ -525,7 +534,7 @@ class State implements InlineState {
 			this.level--;
 			this.delimiters = this.prevDelimiters.pop() as Delim[];
 		}
-		const i = this.raw(kind, nesting, from, to, aux);
+		const i = this.raw(kind, nesting, from, to, aux, this.level);
 		if (nesting > 0) {
 			this.level++;
 			this.prevDelimiters.push(this.delimiters);
@@ -817,7 +826,6 @@ function skipLinkSpace(src: string, pos: number, max: number): number {
 function link(state: State, silent: boolean): boolean {
 	const src = state.src;
 	if (src.charCodeAt(state.pos) !== 0x5b) return false;
-	let start = state.pos;
 	let parseReference = true;
 	let d0 = -1;
 	let d1 = -1;
@@ -835,7 +843,6 @@ function link(state: State, silent: boolean): boolean {
 		pos++;
 		pos = skipLinkSpace(src, pos, max);
 		if (pos >= max) return false;
-		start = pos;
 		const res = parseLinkDestination(src, pos, state.posMax);
 		if (res.ok) {
 			if (destinationOk(state, res.from, res.to)) {
@@ -843,7 +850,7 @@ function link(state: State, silent: boolean): boolean {
 				d1 = res.to;
 				pos = res.pos;
 			}
-			start = pos;
+			const start = pos;
 			pos = skipLinkSpace(src, pos, max);
 			const title = parseLinkTitle(src, pos, state.posMax);
 			if (pos < max && start !== pos && title.ok) {
@@ -860,7 +867,7 @@ function link(state: State, silent: boolean): boolean {
 		if (state.refs === null) return false;
 		let label: string | undefined;
 		if (pos < max && src.charCodeAt(pos) === 0x5b) {
-			start = pos + 1;
+			const start = pos + 1;
 			pos = parseLinkLabel(state, pos, false);
 			if (pos >= 0) label = src.slice(start, pos++);
 			else pos = labelEnd + 1;
@@ -1235,6 +1242,7 @@ function strikethroughPost(state: State, delimiters: Delim[]): void {
 		if (startDelim.marker !== 0x7e) continue;
 		if (startDelim.end === -1) continue;
 		const endDelim = delimiters[startDelim.end];
+		state.paired = true;
 		state.t[startDelim.token * ISTRIDE + I_KIND] = I_S_OPEN;
 		state.t[startDelim.token * ISTRIDE + I_NEST] = 1;
 		state.t[startDelim.token * ISTRIDE + I_AUX] = 0x7e;
@@ -1272,6 +1280,7 @@ function emphasisPost(state: State, delimiters: Delim[]): void {
 			delimiters[i - 1].marker === startDelim.marker &&
 			delimiters[i - 1].token === startDelim.token - 1 &&
 			delimiters[startDelim.end + 1].token === endDelim.token + 1;
+		state.paired = true;
 		state.t[startDelim.token * ISTRIDE + I_KIND] = isStrong ? I_STRONG_OPEN : I_EM_OPEN;
 		state.t[startDelim.token * ISTRIDE + I_NEST] = 1;
 		state.t[startDelim.token * ISTRIDE + I_AUX] = startDelim.marker;
@@ -1410,12 +1419,14 @@ export class InlineParser {
 			postProcess(state);
 			const n = state.n;
 			const tape = state.t.slice(0, n * ISTRIDE);
-			let level = 0;
-			for (let at = 0; at < tape.length; at += ISTRIDE) {
-				const nest = tape[at + I_NEST];
-				if (nest < 0) level--;
-				tape[at + I_LEVEL] = level;
-				if (nest > 0) level++;
+			if (state.paired) {
+				let level = 0;
+				for (let at = 0; at < tape.length; at += ISTRIDE) {
+					const nest = tape[at + I_NEST];
+					if (nest < 0) level--;
+					tape[at + I_LEVEL] = level;
+					if (nest > 0) level++;
+				}
 			}
 			const out: InlineTape = { src, base, kinds: this.kinds, tape, length: n, links: state.links.length ? Int32Array.from(state.links) : NO_LINKS, children: state.children, side: state.side ?? NO_SIDE };
 			// Hold no leaf text past the parse (a pooled state outlives it).

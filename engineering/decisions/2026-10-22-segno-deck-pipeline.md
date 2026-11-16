@@ -874,11 +874,12 @@ and title pieces, with their spelling) for it.
 the body: inside a quote or list item markdown-it drops each line's prefix, a table cell drops the `\` of an escaped
 pipe, and a tab partly inside an indent becomes spaces (those map to the tab). The fuzz checks the map on every leaf
 it builds. What it takes that a boundary reader does not need (where each container line's text starts, the content
-columns of list markers, rules, fences and table rows) is recorded only by a DETAIL parse: recording it on every
-parse cost the gallery's block pass about a fifth. `slideDetail` parses one slide with detail on demand (a slide
-starts after a top-level break, where every container is closed, so its text parsed alone has the same tokens), or
-the whole body once when most slides lack it; `deckModel(…, { detail: true })` makes the first parse a detail parse.
-A leaf outside any container needs none.
+columns of list markers, rules, fences and table rows, and the link reference definitions) is recorded only by a
+DETAIL parse, through a recorder that lives in detail.ts: recording it on every parse cost the gallery's block pass
+about a fifth, and carrying its code cost the home route's eager JavaScript 0.8 KB gzipped, which CI's route budget
+caught. `slideDetail` parses one slide with detail on demand (a slide starts after a top-level break, where every
+container is closed, so its text parsed alone has the same tokens), or the whole body once when most slides lack it;
+`detailedModel` makes the first parse a detail parse. A leaf outside any container needs none.
 
 **The token adapter.** `lib/core/model-tokens.mjs` builds markdown-it's tokens from the model, field for field (type,
 tag, nesting, level, map, content, markup, info, attrs, children, block, hidden, meta) with `env.references`, reading
@@ -940,20 +941,34 @@ median and range):
 
 | Measure | markdown-it | Deck model |
 |---|---|---|
-| S0-S1, gallery (59 KB), against markdown-it's block parse | 1.60 ms | **0.49 ms**, 3.29x (the owner's floor: 3x) |
-| S0-S1, data-viz (12 KB) · card-tags (3 KB) | 0.48 · 0.11 ms | 0.16 · 0.04 ms, 2.96x · 2.92x (P2: 2.7x · 2.8x) |
-| the inline parse alone, the gallery's 973 leaves | 2.27 ms | **0.60 ms**, 3.8x (range 2.5-5.3) |
-| the inline parse alone, data-viz · card-tags | 1.02 · 0.04 ms | 0.13 · 0.02 ms, 7.8x · 2.2x |
-| S0-S2 (every leaf read), gallery, against markdown-it's block + inline parse | 4.39 ms | **2.18 ms**, 2.0x |
-| S0-S2, data-viz · card-tags | 1.74 · 0.18 ms | 0.72 · 0.13 ms, 2.4x · 1.4x |
-| the corpus, S0-S2 throughput | 11.1 MB/s | 24.9 MB/s, 2.3x |
-| a keystroke in the gallery's middle slide, the update and every leaf of that slide read again | the whole deck | **39 µs** |
+| S0-S1, gallery (59 KB), against markdown-it's block parse | 1.54 ms | **0.46 ms**, 3.19x (the owner's floor: 3x) |
+| S0-S1, data-viz (12 KB) · card-tags (3 KB) | 0.46 · 0.12 ms | 0.16 · 0.04 ms, 2.89x · 3.05x (P2: 2.7x · 2.8x) |
+| the inline parse alone, the gallery's 973 leaves | 2.2 ms | 0.43 ms, **5.2x** (range 4.2-5.3) |
+| the inline parse alone, data-viz · card-tags | 1.0 · 0.04 ms | 7.9x · 2.3x |
+| S0-S2 (every leaf read), gallery, against markdown-it's block + inline parse | 4.40 ms | **1.56 ms**, 2.79x (range 2.68-3.10) |
+| S0-S2, data-viz · card-tags | 1.66 · 0.18 ms | 0.47 · 0.08 ms, **3.55x** · 2.08x |
+| the corpus, S0-S2 throughput | 11.7 MB/s | 31.3 MB/s, 2.7x |
+| a keystroke in the gallery's middle slide, the update and every leaf of that slide read again | the whole deck | **37 µs** |
 
 The keystroke target (one slide, tens of microseconds) is met with S2 included, and S1 kept its 3x. **The S0-S2
-target as written (under 1 ms on the gallery, against P0's 3.6 ms for markdown-it, about 3.6x) is not met: 2.0x.** The
-inline rules themselves are 3.8x markdown-it's; the rest of S0-S2 is S1 (0.49 ms) and building each leaf's text and
-kept tape (about 1 ms over 973 leaves). As with S1, the target was an absolute time set on another machine; whether
-to restate it as a ratio, and which, is the owner's number (on the PR's decision card).
+target as written (under 1 ms on the gallery, against P0's 3.6 ms for markdown-it: about 3.6x) is met on data-viz
+(3.55x) and not on the gallery (2.79x) or the 3 KB deck (2.08x, where per-parse fixed costs dominate).** The first cut
+measured 2.0x on the gallery; what moved it, each re-measured:
+
+- the detail S1 records (columns, container line starts, reference definitions) moved out of the lean parse into an
+  on-demand detail parse and its recorder (detail.ts), shared from one whole-body parse when most slides lack it;
+- the inline state pooled per nesting depth (one token buffer, no per-leaf arrays), levels kept at push and recomputed
+  only when post-processing paired a delimiter;
+- a leaf that is one slice of the body carries no run table; leaf lines are read off the slide's own segment, not
+  searched for;
+- a per-slide reader (`inlineSlide`) that looks the slide up once instead of once per leaf;
+- the segment split walks a detail parse's side records once (it scanned them all per slide).
+
+**What the gallery's 1.56 ms is**, measured part by part (interleaved, medians): the detail S1 with the model around it
+about 0.6 ms, the inline parse about 0.5 ms, and the leaf texts and kept tapes about 0.4 ms. S1 and the inline parse
+alone bound the ratio near 4.4x even if leaves cost nothing; reaching 3.6x would need the leaf bookkeeping near zero
+while keeping each leaf's map to the body and the per-slide memo the keystroke path depends on. As with S1, the target
+was an absolute time set on another machine; restating it is the owner's call (on the PR's decision card).
 
 **What P4 moves, and what it does not.** No reader is switched in this phase: the Studio's outline still tokenizes
 heading sections with the boundary parser (`headingSplitPoints`), and Compose and CodeMirror still parse with their own
