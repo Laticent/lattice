@@ -407,6 +407,56 @@ section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-g
 section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td {
   padding: 0.15625cqi var(--sp-2xs);
 }
+/* Strip (the phone size) is narrower than story and sets the biggest type, so with the gutter given back
+ * the five-column stress slide still ran 2px past its figure. Half the cell gap pays it (about 7px a
+ * column at mobile); the pills keep a visible gap between them. */
+section.matrix-grid:where([data-family="strip"]) .matrix-grid-figure td {
+  padding-inline: var(--sp-3xs);
+}
+/* TALL AND STRIP: the row title lies FLAT, above the column title, and gives its gutter to the columns.
+ * At the type floor above, a five-column grid still needs ~963px and a 9:16 box has 972px — but the rotated
+ * title's gutter (`--sp-lg`, 59px at story) left the table only 913, so the fifth column ran off the box
+ * (`FIELD` cut to `FIELI`, the `Chief` pill to `Chie`) on the gallery's stress slide. Nothing else can pay
+ * for it: the type is at its floor, and the padding a smaller cell gap would buy is 15px, a third of the
+ * shortfall. What a portrait or phone box has spare is HEIGHT, so the title moves to where the height is.
+ * Strip is the narrowest family of all (aspect at most 0.5, the phone size), not a short one, so it takes
+ * the same arm.
+ * The two titles FLOW, in source order, rather than sit in fixed absolute bands: the figure becomes a
+ * column, the row title first, the column title second, the table last. So a long title WRAPS and its
+ * band grows with it. An absolute one-line band cut a 60-character row title at the box's edge, silently,
+ * because the probe does not read pseudo-element text (this PR's checker). Left-aligned, over the row
+ * labels it names; stacked, so two long titles cannot collide. A grid that names only its columns flows the
+ * same way, so its title wraps too rather than running off the box (160px past it at story on main).
+ * `data-row-up` is the same text with the arrow the right way up: the gutter's copy is emitted pre-flipped
+ * (▼) for the 180° turn (matrix-grid.transform.js), and a flat label has no turn to undo. */
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure:is([data-row-axis], [data-col-axis]) {
+  display: flex;
+  flex-direction: column;
+  padding-inline-start: 0;
+  padding-top: 0;
+  min-height: 0;
+}
+/* The attribute is doubled to tie `[data-row-axis][data-col-axis]::before` above, so source order wins. */
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure[data-row-axis][data-row-axis]::before {
+  content: attr(data-row-up);
+  position: static;
+  order: -2;
+  writing-mode: horizontal-tb;
+  transform: none;
+  width: auto;
+  height: auto;
+  white-space: normal;
+  justify-content: flex-start;
+  padding-bottom: var(--sp-2xs);
+}
+section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure[data-col-axis]::after {
+  position: static;
+  order: -1;
+  height: auto;
+  white-space: normal;
+  text-align: center;
+  padding-bottom: var(--sp-2xs);
+}
 /* AND the table goes back to `auto` on every family EXCEPT wide, which is where
  * the jank fix above does not reach. A fixed table gives each undeclared column
  * an equal share, and only `wide` is broad enough for this content to live

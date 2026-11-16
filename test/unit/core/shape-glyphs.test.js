@@ -280,7 +280,8 @@ describe('shape-glyphs — engine JS render sites stay drawn', () => {
     // kernel when chart-family.js stopped holding per-chart code (LPM Phase 1);
     // the glyphs are unchanged, only the file that holds them.
     'lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.transform.js': [
-      "const AXIS_ARROW = { col: '\u25b6', row: '\u25bc' };",
+      // `up` is the flat row title's arrow on a 9:16 box (data-row-up), kept in the same map so the axis glyphs stay one site.
+      "const AXIS_ARROW = { col: '\u25b6', row: '\u25bc', up: '\u25b2' };",
       // NOT a violation — this one STRIPS an author's typed arrow before the
       // component appends its own, so the glyphs are on the removal side. It is
       // recorded here because the scan cannot tell the two apart, and leaving it
