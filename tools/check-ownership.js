@@ -8500,11 +8500,11 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   {
     file: 'lib/core/slide-camera.mjs',
     reads: ['text'],
-    sinks: { 'css-url': 2, 'property': 2, 'set-attribute': 3 },
+    sinks: { 'css-url': 2, 'property': 3, 'set-attribute': 3 },
     guards: 0,
     guard: 'none',
     why:
-      'The slide camera rasterizes a clone of a finished slide: it absolutizes addresses the slide ALREADY loads (an `<img src>`, a `url()` in a `<style>`, whose `textContent` is the text it reads) and inlines a live canvas as a data: URL. It reads no slide text into an address and invents none.',
+      'The slide camera rasterizes a clone of a finished slide: it absolutizes addresses the slide ALREADY loads (an `<img src>`, a `url()` in a `<style>`, whose `textContent` is the text it reads) and inlines a live canvas as a data: URL. It reads no slide text into an address and invents none. The third property write is `probeShadowAt2x`\'s `img.src`: a `data:` URL of a fixed SVG written as a literal in the file (the WebKit scaled-shadow probe, engineering/gotchas/export.md), with no slide text in it.',
   },
   {
     file: 'lib/export/html-player.js',
