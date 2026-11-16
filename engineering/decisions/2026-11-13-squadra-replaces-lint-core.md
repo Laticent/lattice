@@ -464,13 +464,16 @@ has its own; pinned in the vitest); and `render-identity` printed no reason when
 plugin writer's line-end choice, the dev shim and the identity tool changed) reads 471 decks byte-identical, lint
 identical, 0 stylesheets differing, exit 0.
 
-**The surfaces, at the merge ask.** CI green on every check of `ac49678`. A full Chromium e2e run there (desktop,
-tablet and mobile, 4 workers, no retries): 1,903 passed, 4 failed, 63 skipped; the four passed alone, 2 of 2 each, and
-are listed with the other load-only specs in followups.d/3087-p4-mobile-load-only-flakes.md. The 47 spec files that
-touch front matter or deck settings in WebKit (phone, tablet) and Gecko: 120 of 120. Player parity 5 of 5 and the
-player input check. The Studio on the PR's built preview, and on a fresh `npm run dev` (the shim this PR changed):
-both load the welcome deck and read its front matter (`cuoio · light`) with no console error but the dev server's
-404s for the newcomer frames, which only the production build bakes.
+**The surfaces, at the merge ask** (re-driven on the head after the merge queue's ejection and the module split).
+CI green on every check of `afe67c0`. A full Chromium e2e run on `635ba64` (desktop, tablet and mobile, 4 workers, no
+retries): 1,912 passed, 5 failed, 68 skipped; the five passed alone, and every load-only spec this PR met was run
+against main under the same load (PR 24 of 24 and 16 of 16; main 23 of 24 and 15 of 16), recorded in
+followups.d/3087-p4-mobile-load-only-flakes.md. The 47 spec files that touch front matter or deck settings in WebKit
+(phone, tablet) and Gecko: 120 of 120. Player parity 5 of 5 and the player input check. The docs Vitest suite: 684 files,
+11,513 tests. The Studio on a fresh `npm run dev` at `3da5d28`, after the split changed what the dev shim serves: it
+loads the welcome deck and reads its front matter (`cuoio · light`), and the Studio and home page log no console error
+but the 404s for the newcomer frames only the production build bakes; the Playground logs one React hydration-attribute
+warning, the same on a fresh dev server of main `af00ca3`.
 
 **Not moved, and why.**
 - **lint-core's front-matter reads** (44 copies of the engine's old fence, its `fmChunks`, its line scans through
