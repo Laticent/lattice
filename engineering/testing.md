@@ -260,10 +260,11 @@ it starts at Full and has a tier to lose; Chromium (SwiftShader) and headless Fi
 context. A spec that
 tests the tier opts out and drives it on purpose (`device-tier-drop.spec.ts`) (#3245).
 
-## The iOS Simulator stretches a tap's hold past the long-press threshold
+## On the iOS Simulator, a tap's hold stretches past the long-press threshold
 
-**Trap.** The iOS Simulator lengthens the time between a WebDriver touch's down and up events. It
-lengthens what Safari sees, not what WebDriver sent. A tap with a short hold can therefore reach
+**Trap.** In the iOS Simulator suites, the time between a touch's down and up events grows between
+what the test requests and what Safari sees. The logs do not show whether the Simulator or the
+WebDriver driver adds the time; WebDriver's own measured gesture stretched too. A tap with a short hold can therefore reach
 Safari as a long press, which selects text instead of placing the caret. The coordinate is not the
 problem: every logged tap landed exactly on the point sent. WebDriver's own gesture time does not
 predict the result either, because Safari decides on the interval it sees.
