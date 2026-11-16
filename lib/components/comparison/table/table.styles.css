@@ -96,6 +96,11 @@ section.table.lat-split-cards .ct-card { border:1px solid var(--border); border-
 section.table.lat-split-cards .ct-card-title { font-size:var(--fs-emphasis); font-weight:600; color:var(--text-heading); padding-bottom:var(--sp-xs); background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.table.lat-split-cards .ct-card-fields { display:grid; grid-template-columns:max-content 1fr; gap:0.4em var(--sp-md); margin:0; }
 section.table.lat-split-cards .ct-field { display:contents; }
+/* On a slide read in a hand (fit-everywhere-model.md §24's selector) a label takes its own width up to 40% of the card
+ * and wraps past that, and the value takes the rest and wraps inside it: a `max-content` label as long as "PREFER
+ * THIS NATIVE COMPONENT" left the value a sliver, and its words ran past the slide (diagram.gallery.md 21). A
+ * short label is narrower than the cap and sits where it did. */
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame, .keeps-laptop).table.lat-split-cards .ct-card-fields { grid-template-columns: fit-content(40%) minmax(0, 1fr); }
 /* The transposed COLUMN HEADER becomes this row's label (first column). It stays a label —
    label font, uppercase, tracked, mirroring the native thead — but one rung up from the
    table's --fs-meta, so it is legible beside a --fs-body value instead of 1.6x smaller.
