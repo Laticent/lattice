@@ -83,7 +83,8 @@ test('@crosswidth @webkit-phone @gecko a pinned decline covers the Playground to
 });
 
 test('@crosswidth @gecko the Performance mode setting switches the tier at once and keeps it for the next visit', async ({ page }) => {
-	await gotoStudio(page);
+	// The live tier: this test starts from the shipped Auto and changes it.
+	await gotoStudio(page, { liveTier: true });
 	await runtimeRan(page);
 	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
 	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
