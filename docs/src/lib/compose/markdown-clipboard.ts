@@ -137,6 +137,11 @@ export function isSettingsBlock(inner: string): boolean {
 		const lines = g.text.split('\n');
 		const keyAt = lines.findIndex((l) => l.startsWith(g.key) && /^[ \t]*:/.test(l.slice(g.key.length)));
 		if (lines.slice(0, keyAt).some((l) => !isNote(l))) return false;
+		// A list item at column 0 belongs to a key only when that key's own line holds no value (`class:` then `- lead`);
+		// under `footer: Acme` it is a slide's bullet, and reading it as settings would write invalid YAML (the checker on
+		// cc4e3754).
+		const valued = !/^[ \t]*:[ \t]*(?:#.*)?$/.test(lines[keyAt].slice(g.key.length));
+		if (valued && lines.slice(keyAt + 1).some((l) => /^-(?:[ \t]|$)/.test(l))) return false;
 	}
 	if (tail.split('\n').some((l) => !isNote(l))) return false;
 	return groups.some((g) => g.key.startsWith('_') || deckSettings.isDeckSettingKey(g.key, pluginRegisters.PLUGIN_REGISTERS));

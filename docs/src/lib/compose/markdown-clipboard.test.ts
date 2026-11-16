@@ -163,6 +163,11 @@ describe('markdownToSlice', () => {
 		expect(isSettingsBlock('theme: cuoio\npptx: {\n  a: 1\n}')).toBe(false);
 		// A line of slide text that merely starts with a key's name is not that key (the checker on 31c16ce9).
 		expect(isSettingsBlock('mode is dark\nmode: dark')).toBe(false);
+		// A column-0 list item is a key's list only under a key with no value of its own (the checker on cc4e3754).
+		expect(isSettingsBlock('footer: Acme\n- one')).toBe(false);
+		expect(isSettingsBlock('title: x\n\n- a list on a slide')).toBe(false);
+		expect(isSettingsBlock('class:\n- lead\ntheme: x')).toBe(true);
+		expect(isSettingsBlock('class: # the deck class\n- lead')).toBe(true);
 		expect(isSettingsBlock('keywords:\n-\n- b\ntheme: cuoio')).toBe(true);
 		expect(isSettingsBlock('theme: cuoio\nSome prose here.')).toBe(false);
 		expect(isSettingsBlock('')).toBe(false);

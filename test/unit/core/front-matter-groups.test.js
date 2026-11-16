@@ -65,3 +65,23 @@ describe('keyGroups callers: an apostrophe in a value', () => {
     assert.equal(calloutsOff({ frontMatter: 'title: "Q3 review\nclass: no-callout' }), true);
   });
 });
+
+// The checker on cc4e3754: once keyGroups saw a column-0 `class:` list, the legend read `no-callout` from it while the
+// engine, which applies no YAML list under `class:`, still drew the callouts. The legend now reads the class the way the
+// engine does; this pins the two together on every shape.
+describe('calloutsOff agrees with the engine about the deck class', () => {
+  const { createEngine } = require('../../../lib/engine');
+  const { calloutsOff } = require('../../../lib/core/legend.js');
+  for (const [label, fm] of [
+    ['a string', 'class: no-callout'],
+    ['a list at the key column', 'class:\n- no-callout'],
+    ['an indented list', 'class:\n  - no-callout'],
+    ['no class', 'theme: indaco'],
+  ]) {
+    test(label, () => {
+      const { html } = createEngine().render(`---\n${fm}\n---\n\n# A\n`, 'indaco');
+      const stamped = /<section[^>]*class="[^"]*\bno-callout\b/.test(html);
+      assert.equal(calloutsOff({ frontMatter: fm }), stamped);
+    });
+  }
+});
