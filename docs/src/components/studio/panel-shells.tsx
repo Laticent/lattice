@@ -1,4 +1,4 @@
-import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, Sparkles, Unlock, Upload } from 'lucide-react';
+import { ArrowUp, Cloud, FileBox, KeyRound, PanelLeftClose, Paperclip, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
@@ -239,7 +239,7 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 				}
 				onClose={docked ? () => onOpenChange(false) : undefined}
 				closeLabel={docked ? 'Collapse Library' : 'Close'}
-				collapse="left"
+				collapse={<PanelLeftClose className="size-[18px]" />}
 				fluidActions
 			/>
 			<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">

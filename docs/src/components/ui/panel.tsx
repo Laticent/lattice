@@ -1,4 +1,4 @@
-import { ChevronLeft, PanelLeftClose, PanelRightClose, SearchIcon, XIcon } from 'lucide-react';
+import { ChevronLeft, SearchIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { DIALOG_BOX } from '@/components/ui/dialog';
 import { PersistentSurface } from '@/components/ui/persistent-surface';
@@ -722,13 +722,13 @@ export function PanelSheet({
 }
 
 /** The POINTER dismissal. A phone gets `PanelBack` instead — see PanelHeader. */
-function PanelCloseButton({ label, onClose, collapse }: { label: string; onClose?: () => void; collapse?: 'left' | 'right' }) {
+function PanelCloseButton({ label, onClose, collapse }: { label: string; onClose?: () => void; collapse?: React.ReactNode }) {
 	const inSheet = React.useContext(PanelSheetCtx);
-	// A DOCKED column collapses toward the side it docks on, in the glyph the preview's own collapse
-	// already uses (`PanelRightClose`); a sheet closes, so it keeps the ✕
-	// (engineering/decisions/2026-11-15-one-side-pane.md §3d).
-	const Glyph = collapse && !inSheet ? (collapse === 'left' ? PanelLeftClose : PanelRightClose) : XIcon;
-	const btn = (
+	// A DOCKED column collapses toward the side it docks on, in the glyph the caller hands in (the Studio's
+	// `PanelLeftClose` / `PanelRightClose`, the glyph the preview's own collapse uses); a sheet closes, so it
+	// keeps the ✕ (2026-11-15-one-side-pane.md §3d). The glyph is the CALLER's so its icons stay off the
+	// routes that never dock a pane (every route loads this file: the route budget measured them there).
+		const btn = (
 		<button
 			type="button"
 			aria-label={label}
@@ -742,7 +742,7 @@ function PanelCloseButton({ label, onClose, collapse }: { label: string; onClose
 				'grid size-[30px] shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[color-mix(in_srgb,var(--text-heading)_8%,transparent)] hover:text-[var(--text-heading)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]',
 			)}
 		>
-			<Glyph className="size-[18px]" />
+			{collapse && !inSheet ? collapse : <XIcon className="size-[18px]" />}
 		</button>
 	);
 	// In a Sheet, SheetClose drives Radix's dismiss (focus return, escape parity);
@@ -795,9 +795,9 @@ export function PanelHeader({
 	onClose?: () => void;
 	showClose?: boolean;
 	closeLabel?: string;
-	/** A docked column: draw the trailing control as a COLLAPSE toward this side instead of a ✕.
+	/** A docked column: the COLLAPSE glyph to draw instead of the ✕ (`<PanelLeftClose />` etc.).
 	 *  Ignored inside a Sheet, which closes. */
-	collapse?: 'left' | 'right';
+	collapse?: React.ReactNode;
 	border?: boolean;
 	className?: string;
 }) {

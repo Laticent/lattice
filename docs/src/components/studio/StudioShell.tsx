@@ -1,6 +1,4 @@
-import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, 
-	Undo2, Upload, UsersRound, Volume2, Wand2, X, 
-} from 'lucide-react';
+import { AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Undo2, Upload, UsersRound, Volume2, Wand2, X } from 'lucide-react';
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
@@ -6555,7 +6553,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	) : undefined;
 	// A docked pane's header (§3d): the shared PanelHeader with a collapse toward the rail.
 	const dockHeader = (id: StudioPaneId, icon: React.ReactNode, actions?: React.ReactNode, fluidActions = false) => (
-		<PanelHeader icon={icon} title={PANE_NAME[id]} actions={actions} fluidActions={fluidActions} onClose={collapsePane} closeLabel={`Collapse ${PANE_NAME[id]}`} collapse="left" />
+		<PanelHeader icon={icon} title={PANE_NAME[id]} actions={actions} fluidActions={fluidActions} onClose={collapsePane} closeLabel={`Collapse ${PANE_NAME[id]}`} collapse={<PanelLeftClose className="size-[18px]" />} />
 	);
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
@@ -7309,7 +7307,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					actions={<>{searchingHere ? null : <PanelSearchButton label={`Search ${panelScope} settings`} onClick={() => (panelScope === 'deck' ? setDeckSearching : setSlideSearching)(true)} />}{settingsReset}</>}
 					onClose={collapsePane}
 					closeLabel="Collapse settings"
-					collapse={bp === 'tablet' ? 'right' : 'left'}
+					collapse={bp === 'tablet' ? <PanelRightClose className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
 				/>
 			)}
 			{/* Scope switch on tablet + mobile: a Slide-first segment. On desktop the

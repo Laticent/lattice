@@ -1,4 +1,4 @@
-import { Check, Clapperboard, Download, FileBox, FileText, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, Pencil, Plug, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
+import { Check, Clapperboard, Download, FileBox, FileText, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, PanelLeftClose, Pencil, Plug, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -1069,7 +1069,7 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 			fluidActions
 			onClose={docked ? (onCollapse ?? (() => onOpenChange(false))) : undefined}
 			closeLabel={docked ? 'Collapse Library' : 'Close'}
-			collapse="left"
+			collapse={<PanelLeftClose className="size-[18px]" />}
 		/>
 	);
 
