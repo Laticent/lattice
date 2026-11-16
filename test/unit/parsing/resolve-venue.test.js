@@ -155,4 +155,9 @@ test('the handheld chrome rule covers phone and tablet and excludes the rest of 
   const d = dec.match(/section:where\(\[data-family="square"\], \[data-family="tall"\], \[data-family="strip"\]\):not\(([^)]*)\)\.decision-cover \.split-feat-h \{ font-size: var\(--fs-h1\); \}/);
   assert.ok(d, 'no handheld decision-cover rule in decision.styles.css');
   assert.deepEqual(d[1].split(',').map((t) => t.trim()).sort(), type);
+  // So does compare-prose's split points body size (compare-prose.styles.css, §25).
+  const cp = fs.readFileSync(path.join(__dirname, '../../../lib/components/comparison/compare-prose/compare-prose.styles.css'), 'utf8');
+  const c = cp.match(/section:where\(\[data-family="square"\], \[data-family="tall"\], \[data-family="strip"\]\):not\(([^)]*)\)\.compare-split-points \.split-pt-b \{ font-size: var\(--fs-body\);/);
+  assert.ok(c, 'no handheld compare-split-points rule in compare-prose.styles.css');
+  assert.deepEqual(c[1].split(',').map((t) => t.trim()).sort(), type);
 });

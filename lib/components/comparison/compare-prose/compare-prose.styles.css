@@ -464,6 +464,11 @@ section.compare-split-points .split-pt-t {
   display: block; font-weight: 800; color: var(--text-heading); font-size: var(--fs-h3); padding-bottom: var(--sp-xs);
 }
 section.compare-split-points .split-pt-b { color: var(--text-body); font-size: var(--fs-emphasis); line-height: var(--lh-relaxed); max-width: 20em; }
+/* A slide read in a hand (the phone default and `venue: phone` / `tablet` on a square, tall or strip deck) sets
+   each subject at body size, as every other split points page does (decision, list-tabular, split-panel). At
+   emphasis x1.4 a fifty-word subject ran past its page (drawn-not-typed.md, gallery-jargon.md; fit-everywhere-
+   model.md §25). The exclusions are the handheld chrome rule's (stage.css), held equal by resolve-venue.test.js. */
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame).compare-split-points .split-pt-b { font-size: var(--fs-body); line-height: var(--lh-base); max-width: none; }
 /* THERE IS NO `compare-split-verdict` RULE ANY MORE, and the deletion is the point.
    `cover-sides` used to close its run with a frame of its own — "The verdict" over the
    slide's trailing below-note, re-authored as a `.split-pullq`. That CONSUMED the note, so a

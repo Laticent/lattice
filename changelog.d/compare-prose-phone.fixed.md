@@ -1,0 +1,1 @@
+- **A split side-by-side comparison fits a phone.** On a square, portrait, story or mobile deck read at the phone default, each page of a split `compare-prose` now sets its subject at body size, as every other split page does, instead of the larger emphasis size that ran a fifty-word subject off the page. 16:9 slides and the room venues keep the larger size.
