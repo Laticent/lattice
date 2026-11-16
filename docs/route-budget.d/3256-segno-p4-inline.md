@@ -1,0 +1,4 @@
+studio: +615
+playground: +615
+home: +615
+The deck model every route's slide-boundary reader loads (`slide-boundaries`, +569) now records what Segno's inline pass and the token adapter need: the block pass calls a detail recorder's hooks (content columns, container leaves' line starts, link reference definitions), keeps a plugin token's tag, marks a fence's closing line, fixes `fenceInfo` for a fence inside a quote or list item, and writes an update's line index through the parser's own copy of the package. Math's inline `$` rule (+46) remembers per link label that no closer lies ahead, which makes a paragraph of unclosed dollars linear instead of quadratic. Given back first: the recorder itself (detail.ts) and every detail-only reader stay out of these bundles, which took this from +911 to +615.
