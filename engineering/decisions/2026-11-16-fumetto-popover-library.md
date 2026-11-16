@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Chart detail cards come to the exported HTML player (Present and Read views, a viewer toggle on by default, an author switch to ship without them), drawn by Fumetto (`@laticent/fumetto`), a new zero-dependency popover library in the sibling family. A spike places cards identically to Floating UI on 5,000 seeded cases in Chromium and WebKit at 1.0 KB gzipped against 6.9 KB, and 3 to 7 times faster per placement. Floating UI and Radix leave the hard part (intent, top layer, fullscreen, focus, touch) to the caller, and every popover bug we have logged lives there. Reverses the 2026-07-07 player non-goal for this one interaction.
+summary: Chart detail cards come to the exported HTML player (Present and Read views, a viewer toggle on by default, an author switch to ship without them), drawn by Fumetto (`@laticent/fumetto`), a new zero-dependency popover library in the sibling family. A spike places cards identically to Floating UI on 5,000 seeded cases in Chromium, WebKit and Firefox at 1.0 KB gzipped against 6.9 KB, and 3 to 21 times faster per placement. Floating UI and Radix leave the hard part (intent, top layer, fullscreen, focus, touch) to the caller, and every popover bug we have logged lives there. Reverses the 2026-07-07 player non-goal for this one interaction.
 ---
 
 # Fumetto: our popover library, and chart detail cards in the player (2026-11-16)
@@ -31,7 +31,7 @@ The owner, on 2026-11-16:
 ## 2. What exists today (the audit)
 
 **The player carries the data and ignores it.** `node dist/lattice.js
-examples/chart-detail-reveal.md out.html --player` writes a 1.25 MB player that holds all 15
+examples/chart-detail-reveal.md out.html --player` writes a 1.25 MB player that holds all 13
 `<template class="chart-detail" data-mark>` payloads and 51 `data-mark` targets. The export's
 DOMPurify pass keeps them. The only code that reads them is the narration Guide
 (`guide-player-bundle.generated.mjs`), which ranks their text for captions. No code opens a card.
@@ -62,7 +62,7 @@ We have 18 `@laticent/*` packages in `docs/src/lib/`. Read together, they share 
 
 | Habit | Where it shows |
 |---|---|
-| **No third-party dependencies.** 16 of 18 depend on nothing. `cadenza` and `vetrina` depend only on `@laticent/ltt`, our own format | each `package.json` |
+| **No third-party dependencies.** 16 of 18 depend on nothing. `cadenza` and `vetrina` depend only on `@laticent/ltt`, our own format. `tavola` lists four third-party packages (`yjs`, `y-protocols`, `lib0`, `trystero`) as **optional** peers, used only by its adapters | each `package.json` |
 | **Framework-free core.** The core needs the DOM at most, often not even that. React is an optional `./react` entry with React as a peer | Vetrina, Fuoco |
 | **One package shape.** Source `index.ts`; `dist/` built with the in-tree esbuild, committed, and freshness-gated; `exports` points the docs toolchain at source; `sideEffects: false` | `2026-07-08-library-shape-cadenza-vetrina.md` |
 | **A refusal at the center.** Each library is defined by what it will not do. Squadra refuses a rule it cannot prove works; Segno refuses a grammar it cannot prove is linear; Trama refuses a line through a box | each README's first paragraph |
@@ -110,7 +110,7 @@ rAF-coalesced tracker for scroll, resize, zoom and fullscreen. `spike/harness.mj
 Floating UI with the same features through esbuild, then runs both on the same 5,000 seeded cases
 in a real browser. Half the anchors are cursor points (a chart reveal), half are boxes (a button).
 Run it with `node engineering/decisions/2026-11-16-fumetto-popover-library/spike/harness.mjs
-[--engine chromium|webkit] [--seed N] [--cases N]`.
+[--engine chromium|webkit|firefox] [--seed N] [--cases N]`.
 
 Measured on 2026-11-16, seed `20261116`:
 
@@ -120,8 +120,10 @@ Measured on 2026-11-16, seed `20261116`:
 | Gzip -9 | 6.9 KB | **1.0 KB** |
 | Same side and position (within 0.5 px), Chromium 153 | — | **5000 / 5000** |
 | Same side and position, WebKit 26 | — | **5000 / 5000** |
+| Same side and position, Firefox 142 | — | **5000 / 5000** |
 | 5,000 placements, Chromium | 240 ms (48 µs each) | **33 ms (6.5 µs each)** |
 | 5,000 placements, WebKit | 429 ms (86 µs each) | **135 ms (27 µs each)** |
+| 5,000 placements, Firefox | 1,251 ms (250 µs each) | **58 ms (12 µs each)** |
 
 **It can fail.** Changing the flip test from "spills by more than 0 px" to "more than 1 px" makes
 the harness report 4995 / 5000. The file was then restored byte for byte.
@@ -134,8 +136,6 @@ the harness report 4995 / 5000. The file was then restored byte for byte.
   ancestor (`overflow: hidden`), a containing block made by a transformed ancestor, right-to-left
   writing, and an anchor that scrolls out of view (hide the card). Floating UI handles those today;
   each one becomes a parity case before it ships.
-- Firefox was not run. The kernel is pure arithmetic, so the risk is in `measure`, and the
-  harness takes `--engine firefox` once that browser is installed.
 
 ## 6. Fumetto: the design
 

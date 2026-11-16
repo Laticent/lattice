@@ -5,7 +5,7 @@
 // 1. SIZE   esbuild-minifies both engines with the SAME feature set (place + flip + shift + size +
 //           arrow + offset + an auto-update tracker) and reports raw and gzip bytes.
 // 2. PARITY runs both on the same seeded random anchors, sides, alignments and card sizes inside a
-//           1280×720 page in Chromium or WebKit and counts cases where side or position differs by more than 0.5px.
+//           1280×720 page in Chromium, WebKit or Firefox and counts cases where side or position differs by more than 0.5px.
 // 3. SPEED  times N placements of each, back to back, on the same inputs (a measurement, printed,
 //           never asserted — HARD RULE #32).
 // Floating UI resolves from the docs workspace, where it is already a dependency.
@@ -63,7 +63,8 @@ console.log(`  Fumetto      ${kb(fm.length)} · ${kb(gzipSync(fm, { level: 9 }).
 
 // ── 2 + 3. PARITY and SPEED, in Chromium ──────────────────────────────────────
 // Playwright resolves from the docs workspace too (the e2e suite's copy). `--engine webkit` runs the
-// same cases in WebKit; install it once with `cd docs && npx playwright install-deps webkit && npx playwright install webkit`.
+// same cases in WebKit, `--engine firefox` in Firefox; install each once with
+// `cd docs && npx playwright install-deps <engine> && npx playwright install <engine>`.
 const ENGINE = process.argv.includes('--engine') ? process.argv[process.argv.indexOf('--engine') + 1] : 'chromium';
 const pw = createRequire(path.join(docs, 'package.json'))('playwright');
 // The docs copy of Playwright pins a different Chromium build than the sandbox ships, so name that binary.
