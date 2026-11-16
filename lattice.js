@@ -3805,8 +3805,13 @@ async function renderBody(browser, g, closeBrowser) {
   // A split cover that runs into its footer moves its subtitle and lede to the first body page
   // (lib/core/cover-lift.js), and a split run's pages share one placement (lib/core/run-placement.js),
   // by the same test: a plain `.html` has no script, so its covers and pages keep their own layout.
+  // The in-page overflow watcher stamped its clip tags on the layout BEFORE these passes, and it
+  // re-checks only on `resize`: a cover whose lede moved off it still wore "Content clipped" in the
+  // PDF (examples/team-profile.md at square, fit-everywhere-model.md §25). So when any pass wrote,
+  // the watcher is asked to look again, as after the reflow hold below. The passes write only on a
+  // real change, so a settled page dispatches nothing.
   const equalizeCardTagsInPage = (label) => (TAGS_REACH_DELIVERABLE
-    ? g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document) + (${LIFT_COVER_TEXT_SRC})(document) + (${SETTLE_RUN_PLACEMENT_SRC})(document)`), `equalize card tags and place split runs${label}`)
+    ? g(() => page.evaluate(`(() => { const n = (${EQUALIZE_CARD_TAGS_SRC})(document) + (${LIFT_COVER_TEXT_SRC})(document) + (${SETTLE_RUN_PLACEMENT_SRC})(document); if (n) window.dispatchEvent(new Event('resize')); return n; })()`), `equalize card tags and place split runs${label}`)
     : Promise.resolve(0));
 
   // THE SETTLE BARRIER (lib/plugins/hydrate-script.js). A plugin figure drawn in the browser is
