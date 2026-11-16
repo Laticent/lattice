@@ -1,6 +1,6 @@
 // ④ Craft — the full workshop: every panel on the activity bar, opened one by one by clicking the
 // real button. A panel is shown for exactly as long as its line, then the next one takes its place;
-// the tools share one slot, so each press replaces the last. The layout reset closes everything first
+// every pane shares one slot, so each press replaces the last. The layout reset closes everything first
 // and the restore puts the visitor's panels back, so a tour that opens ten panels leaves none behind.
 //
 // Desktop only: the activity bar is a desktop surface. Every line is a member of CRAFT_LINES.
@@ -30,8 +30,7 @@ export function craftSteps(): TourStep[] {
 		panel(L.live, LIVE, 'Live'),
 		panel(L.library, LIBRARY, 'Library'),
 		panel(L.views, VIEWS, 'Views'),
-		// The settings panels are their own slot, beside the tools. Close the last tool so the two never crowd the editor.
-		{ instant: true, act: (a) => a.press(VIEWS), settle: 300 },
+		// Settings share the same one slot (2026-11-15-one-side-pane.md): pressing Slide replaces Views.
 		panel(L.slide, SLIDE, 'Slide'),
 		panel(L.deck, DECK, 'Deck'),
 		{ instant: true, act: (a) => a.closeAll(), settle: 400 },

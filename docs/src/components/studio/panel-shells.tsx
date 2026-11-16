@@ -1,7 +1,8 @@
-import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, RotateCcw, Sparkles, Unlock, Upload } from 'lucide-react';
+import { ArrowUp, Cloud, FileBox, KeyRound, PanelLeftClose, Paperclip, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelSearchButton } from '@/components/ui/panel-actions';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { SettingsTierSwitch } from '@/components/ui/settings-view';
 import { Textarea } from '@/components/ui/textarea';
@@ -215,8 +216,12 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 	const bp = useBreakpoint();
 	const landscape = useLandscapePhone();
 	const phone = !docked && (bp === 'mobile' || landscape);
-	const search = (
-		<PanelSearch value="" onChange={() => {}} onClear={() => {}} placeholder={LIBRARY_HEADER.searchPlaceholder} label="Search library" size={phone ? 'default' : 'sm'} className={phone ? undefined : 'ml-1 flex-1'} />
+	// The Library's own controls, inert until it loads: the search BUTTON on a pointer surface, the
+	// docked field on a phone (Library.tsx, §3d of 2026-11-15-one-side-pane.md).
+	const search = phone ? (
+		<PanelSearch value="" onChange={() => {}} onClear={() => {}} placeholder={LIBRARY_HEADER.searchPlaceholder} label="Search library" />
+	) : (
+		<PanelSearchButton label="Search library" onClick={() => {}} />
 	);
 	const inner = (
 		<>
@@ -233,8 +238,9 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 					</Inert>
 				}
 				onClose={docked ? () => onOpenChange(false) : undefined}
+				closeLabel={docked ? 'Collapse Library' : 'Close'}
+				collapse={<PanelLeftClose className="size-[18px]" />}
 				fluidActions
-				showClose={!docked}
 			/>
 			<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
 				<Inert className="min-w-0 flex-1">
@@ -312,7 +318,7 @@ export function ChatEmptyCard({ aiReady, mode = 'review' }: { aiReady: boolean; 
 	);
 }
 
-export function ChatShell({ title, aiReady, deckId, children }: { title?: string; aiReady: boolean; deckId: string; children?: React.ReactNode }) {
+export function ChatShell({ aiReady, deckId, children }: { aiReady: boolean; deckId: string; children?: React.ReactNode }) {
 	// The saved thread decides what the panel opens on: the first-run card, or the conversation.
 	// Start reading the deck's chat (chat-store.ts) while the panel's code loads, and re-check once it has.
 	const [hasThread, setHasThread] = React.useState(() => loadChat(deckId).length > 0);
@@ -328,7 +334,6 @@ export function ChatShell({ title, aiReady, deckId, children }: { title?: string
 	}, [deckId]);
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			{title && <div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</div>}
 			<div className="min-h-0 flex-1 space-y-3 overflow-hidden px-3 py-3">
 				{children ??
 					(hasThread ? (
@@ -396,10 +401,6 @@ export function LensesShell({ children }: { children?: React.ReactNode }) {
 
 // ── Slide settings ───────────────────────────────────────────────────────────
 
-/** Slide settings' Reset button, shared with `SlideContext.tsx`. Disabled until the slide is edited. */
-export const RESET_SLIDE_BUTTON =
-	'inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-default disabled:border-transparent disabled:text-muted-foreground disabled:opacity-50 disabled:hover:bg-transparent';
-
 /** A settings row: its label on the left, its control on the right. */
 function SettingRowBlock() {
 	return (
@@ -411,49 +412,45 @@ function SettingRowBlock() {
 }
 
 /**
- * The slide as it was when Slide settings opened: the baseline "Reset slide" reverts to. On a
+ * The slide as it was when Slide settings opened: the baseline the pane's reset reverts to. On a
  * cold open the panel mounts only when its code arrives, so the shell records the baseline at the
  * moment of opening, and the loaded panel takes it over once (`SlideContext.tsx`). Without this,
  * an edit made while the shell was up would become part of the baseline and survive a Reset.
  */
-export type SlideBaseline = { slide: number; chunk: string };
+export type SlideBaseline = { deckId?: string; slide: number; chunk: string };
 
 /** The slide scope's body, under the scope bar the Studio draws. Opens on a clean slide, so the first row is real text. */
 export function SlideSettingsShell({
 	tier,
 	baseline,
+	deckId,
 	slideNumber,
 	chunk,
 	children,
 }: {
 	tier: 'basic' | 'advanced';
 	baseline: React.MutableRefObject<SlideBaseline | null>;
+	/** The deck the slide belongs to: a deck switch while the code loads re-takes the baseline (checker). */
+	deckId?: string;
 	slideNumber: number;
 	chunk: string;
 	children?: React.ReactNode;
 }) {
-	// On mount and on a slide change, not on an edit: the same rule the panel's own baseline follows.
+	// On mount and on a slide or DECK change, not on an edit: the same rule the panel's own baseline follows.
 	// Cleared when the shell goes, so a shell closed before the code arrived leaves no stale baseline.
 	// Safe on the swap: the loaded panel reads it during render, before this cleanup runs.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the baseline moves with the slide, never with an edit.
 	React.useEffect(() => {
-		baseline.current = { slide: slideNumber, chunk };
+		baseline.current = { deckId, slide: slideNumber, chunk };
 		return () => {
 			baseline.current = null;
 		};
-	}, [slideNumber]);
+	}, [slideNumber, deckId]);
 	return (
 		<div className={cn('min-w-0 flex-1 overflow-hidden px-4', SETTING_SCOPE)}>
 			{children ?? (
 				<>
 					<Inert>
-						<div className="flex items-center justify-between border-b border-border py-2">
-							<span className="text-[11px] text-muted-foreground">No changes yet</span>
-							<button type="button" disabled className={RESET_SLIDE_BUTTON}>
-								<RotateCcw className="size-3" />
-								Reset slide
-							</button>
-						</div>
 						<SettingsTierSwitch tier={tier} onTierChange={() => {}} scope="Slide" />
 					</Inert>
 					<div className="pt-1">

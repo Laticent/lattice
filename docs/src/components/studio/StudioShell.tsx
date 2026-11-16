@@ -1,6 +1,4 @@
-import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, 
-	Undo2, Upload, UsersRound, Volume2, Wand2, X, 
-} from 'lucide-react';
+import { AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Undo2, Upload, UsersRound, Volume2, Wand2, X } from 'lucide-react';
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
@@ -22,7 +20,8 @@ import {
 import { HelpTip } from '@/components/ui/help-tip';
 import { Input } from '@/components/ui/input';
 import { Frozen, ScrollTopOnMount, useEverTrue, useShowCount } from '@/components/ui/keep-mounted';
-import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelBody, PanelDrillBack, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW, SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
+import { PanelResetButton, PanelSearchButton } from '@/components/ui/panel-actions';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
 import { filteringProps, SettingsBasicFoot, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsTierSwitch, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
@@ -86,7 +85,7 @@ import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
-import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
+import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
@@ -97,6 +96,7 @@ import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
+import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
 import type { EditorChange, EditorHandle } from './Editor';
@@ -875,19 +875,91 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setQuietened(false);
 		if (postureRef.current !== 'craft') setRevealCraft(true);
 	}, []);
-	// Panel state — TWO independent, nullable, per-group slots (the activity-bar
-	// model, engineering/decisions/2026-07-06-studio-activity-bar.md). NOT one
-	// global `activePanel`: the Architect (Assistants group) and the settings scope
-	// (Settings group) are independent, so the coach stays up while you tune.
-	// Merging the old inspectorOpen + inspectorScope into ONE nullable enum makes
-	// the illegal "open with no scope" state unrepresentable.
-	// The left "tool" slot — a MUTUALLY-EXCLUSIVE assistant/tool panel: the Architect
-	// (Coach/Chat), the reader-views Lenses, or the Library. One at a time (a toggle
-	// group), sharing one grid track — the layout can't fit three docked columns
-	// beside editor+preview (#721). Settings/Inspector is a SEPARATE independent slot,
-	// so a tool panel + settings can be open together (the coach↔tune loop).
-	const [activeAssistant, setActiveAssistant] = React.useState<'coach' | 'chat' | 'live' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Craft shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
-	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
+	// Panel state — ONE side pane at a time (engineering/decisions/2026-11-15-one-side-pane.md,
+	// which supersedes the two-slot model of 2026-07-06-studio-activity-bar.md). Every side pane —
+	// Coach, Chat, Live, Reader views, Library, Slide settings, Deck settings — shares ONE nullable
+	// slot, so "two panes open at once" is unrepresentable rather than merely discouraged.
+	// Opening a pane REPLACES whatever holds the slot; closing it returns to the canvas, never to
+	// an earlier pane. The one way back is the visible chip a drill-in sets (`paneBack` below).
+	// panels start closed at every stop; Craft shows the activity-bar launcher, panels open on
+	// demand (T2 §4.5 orthogonality — posture never force-opens a panel). PM-4: preview is sacred.
+	const [activePane, setActivePane] = React.useState<StudioPaneId | null>(null);
+	// The pane the AUTHOR last had open — the rail marks it, so getting back is one click they
+	// choose rather than something X does to them. Moved only by the author's own swaps (`notePane`,
+	// called from the rail, Esc and a pane's own close), never by a tour or by following someone in
+	// Live, which drive the slot through the group setters.
+	const [lastPane, setLastPane] = React.useState<StudioPaneId | null>(null);
+	const notePane = () => {
+		if (activePane) setLastPane(activePane);
+	};
+	// A drill-in's way back: set only when one pane sends you to another (Chat's "Manage docs" →
+	// Library), shown as a "‹ Chat" chip in the destination's header, and dropped the moment the
+	// slot holds anything else.
+	const [paneBack, setPaneBack] = React.useState<{ from: StudioPaneId; to: StudioPaneId } | null>(null);
+	// Derived during render (React's "adjust state when a value changes" pattern), so the chip
+	// goes in the same commit as the swap that ends it — no one-frame flash.
+	const [prevPane, setPrevPane] = React.useState<StudioPaneId | null>(null);
+	if (prevPane !== activePane) {
+		setPrevPane(activePane);
+		if (paneBack && paneBack.to !== activePane) setPaneBack(null);
+	}
+	// The two group views keep their old names: dozens of reads (aria-pressed, layout, effects,
+	// the tour snapshot) speak "assistant" or "settings", and each is now a pure read off the slot.
+	const activeAssistant = isAssistantPane(activePane) ? activePane : null;
+	const activeSettings = isSettingsPane(activePane) ? activePane : null;
+	// The group setters keep the old functional-update API. A non-null result TAKES the slot
+	// (replacing a pane of either group); a null result closes the slot only when this group
+	// holds it, so clearing one group never stomps the other (the restore path relies on that).
+	const setActiveAssistant = React.useCallback((next: AssistantPaneId | null | ((prev: AssistantPaneId | null) => AssistantPaneId | null)) => {
+		setActivePane((p) => {
+			const prev = isAssistantPane(p) ? p : null;
+			const n = typeof next === 'function' ? next(prev) : next;
+			return n ?? (prev ? null : p);
+		});
+	}, []);
+	const setActiveSettings = React.useCallback((next: SettingsPaneId | null | ((prev: SettingsPaneId | null) => SettingsPaneId | null)) => {
+		setActivePane((p) => {
+			const prev = isSettingsPane(p) ? p : null;
+			const n = typeof next === 'function' ? next(prev) : next;
+			return n ?? (prev ? null : p);
+		});
+	}, []);
+	// Esc in a docked pane: close it if focus is inside one (and not typing), return focus to its
+	// rail button, and report whether it did. A ref, so the window keydown listener reads the live slot.
+	const closeFocusedPaneRef = React.useRef<() => boolean>(() => false);
+	// Collapse the docked pane: the canvas gets the room, the rail marks it last used, and focus goes to
+	// the control that reopens it. Shared by Esc and every docked header's collapse button (§3d), so the
+	// two ways out of a pane cannot drift apart.
+	const collapsePane = () => {
+		if (!activePane) return;
+		const label = PANE_RAIL_LABEL[activePane];
+		setLastPane(activePane);
+		setActivePane(null);
+		// The rail is desktop-only. On a tablet the docked settings open from the toolbar's
+		// "Slide settings" button or the overflow menu, so focus goes to whichever of those exists
+		// — never to <body>, which is where it fell when the dock it sat in was hidden.
+		requestAnimationFrame(() => {
+			const visible = (b: HTMLElement | null) => (b && (b.checkVisibility?.() ?? true) ? b : null);
+			const target =
+				visible(document.querySelector<HTMLElement>(`nav[aria-label="Studio panels"] button[aria-label="${label}"]`)) ??
+				visible(document.querySelector<HTMLElement>(`button[aria-label="${label}"]:not([data-settings-dock] *)`)) ??
+				visible(document.querySelector<HTMLElement>('button[aria-label="More controls"]'));
+			target?.focus();
+		});
+	};
+	closeFocusedPaneRef.current = () => {
+		const el = document.activeElement as HTMLElement | null;
+		if (!activePane || !el || isTypingTarget(el) || !el.closest('[data-studio-pane], [data-settings-dock]')) return false;
+		collapsePane();
+		return true;
+	};
+	// A drill-in: open `to` from inside `from`, and leave the chip that leads back.
+	const drillPane = React.useCallback((from: StudioPaneId, to: StudioPaneId) => {
+		setActivePane(to);
+		setPaneBack({ from, to });
+	}, []);
+	// What the destination pane's header shows (PanelDrillBack): the source's name, and the swap back.
+	const drillTo = (id: StudioPaneId) => (paneBack && paneBack.to === id ? { label: PANE_NAME[paneBack.from], onBack: () => setActivePane(paneBack.from) } : null);
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
 	// Coach and Chat are SEPARATE panels (own toolbar icon, own drawer) — they have
@@ -919,7 +991,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (revealCraft && !architectOpen && !liveOpen && !lensesOpen && !libraryOpen && !inspectorOpen) setRevealCraft(false);
 	}, [revealCraft, architectOpen, liveOpen, lensesOpen, libraryOpen, inspectorOpen]);
 	// Compatibility setters — the demo hook's prop interface and a handful of simple
-	// call sites still speak the old open/scope API; these adapt it onto the enums.
+	// call sites still speak the old open/scope API; these adapt it onto the one slot.
 	// The COMPOUND toggles (the bar's scope icons, the mobile/tablet settings toggle)
 	// call setActiveSettings directly to avoid a two-call batch ordering trap.
 	// setInspectorScope(s) SELECTS scope s and ensures the panel is open — the only
@@ -929,10 +1001,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Lenses/Library). Toggling one closes it; it never stomps a sibling it didn't own.
 	const setCoachOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'coach') : v) ? 'coach' : prev === 'coach' ? null : prev));
-	}, []);
+	}, [setActiveAssistant]);
 	const setChatOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'chat') : v) ? 'chat' : prev === 'chat' ? null : prev));
-	}, []);
+	}, [setActiveAssistant]);
 	// Back-compat shims for the demo/walkthrough hook, which speaks the old open/tab
 	// API: open defaults to the Coach panel, and the "tab" setter now SELECTS which of
 	// the two separate panels is shown. CLOSE clears the assistant slot UNCONDITIONALLY
@@ -944,18 +1016,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const was = prev === 'coach' || prev === 'chat';
 			return (typeof v === 'function' ? v(was) : v) ? (was ? prev : 'coach') : null;
 		});
-	}, []);
+	}, [setActiveAssistant]);
 	// Lenses + Library share the assistant slot (mutually exclusive with the Architect).
 	const setLensesOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
-		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : null));
-	}, []);
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : prev === 'lenses' ? null : prev));
+	}, [setActiveAssistant]);
 	const setLibraryOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
-		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'library') : v) ? 'library' : null));
-	}, []);
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'library') : v) ? 'library' : prev === 'library' ? null : prev));
+	}, [setActiveAssistant]);
 	const setInspectorOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveSettings((prev) => ((typeof v === 'function' ? v(prev !== null) : v) ? prev ?? 'slide' : null));
-	}, []);
-	const setInspectorScope = React.useCallback((s: 'slide' | 'deck') => setActiveSettings(s), []);
+	}, [setActiveSettings]);
+	const setInspectorScope = React.useCallback((s: 'slide' | 'deck') => setActiveSettings(s), [setActiveSettings]);
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate' | 'article'>('compose');
@@ -1015,7 +1087,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
 	const shareMounted = useLatch(shareOpen);
 	// Where Slide settings' loading shell records the slide as it was when the panel opened, so
-	// "Reset slide" reverts to that even when the panel's code arrives after an edit (panel-shells.tsx).
+	// the pane's reset reverts to that even when the panel's code arrives after an edit (panel-shells.tsx).
 	const slideBaseline = React.useRef<SlideBaseline | null>(null);
 	const libraryMounted = useLatch(libraryOpen);
 	const workspaceMounted = useLatch(workspaceOpen);
@@ -1971,10 +2043,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setUndo({ next, id });
 	}, []);
 	const changedCountRef = React.useRef(0);
-	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
+	// Deck settings' reset records which front-matter keys THIS pane's writes changed (deck-reset.ts), so
+	// it can put back exactly those and leave the editor's, a collaborator's and other panes' edits alone.
+	// The visit lives in state below; the write path reads it through these refs (it is memoized).
+	const deckVisitRef = React.useRef<{ key: string; base: string; touched: Set<string> } | null>(null);
+	const deckPaneLiveRef = React.useRef(false);
+	// `outside`: a write from somewhere OTHER than the Deck settings pane (the Share sheet's export options,
+	// the plugin notice, a rename, Reader views), so the pane's reset never counts it as its own.
+	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string, opts?: { outside?: boolean }) => {
 		const prev = sourceRef.current;
 		const next = updater(prev); // updaters are pure string→string; compute once
 		if (next === prev) return; // no-op (e.g. re-picking the current value) → no toast
+		if (!opts?.outside && deckPaneLiveRef.current && deckVisitRef.current) for (const k of touchedKeys(prev, next)) deckVisitRef.current.touched.add(k);
 		// Live: say which row changed (its name only, never the value) so people following us can see it.
 		// A Slide-panel edit is labelled "This slide", not by row: the row in focus is the one being edited.
 		const changedRow = rowIdOf(label.split(' → ')[0]) ?? (label === 'This slide' ? followBus.getLocal('focus') : null);
@@ -1984,6 +2064,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setSource((s) => (s === prev ? next : updater(s)), { label, origin: 'settings' });
 		showUndo(label, prev, next);
 	}, [showUndo, setSource]);
+	const outsideWrite = React.useCallback((label: string, updater: (s: string) => string) => settingsWrite(label, updater, { outside: true }), [settingsWrite]);
 	// Auto-dismiss the Undo toast the instant the source moves on its own — the user
 	// typed, switched decks, restored a checkpoint — so Undo only ever reverts the
 	// single last settings change, never edits made after it.
@@ -2118,7 +2199,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return nextInner.trim() ? `---\n${nextInner}\n---\n\n${rest}` : rest;
 	}, [wsLenses]);
 	const writeRegistry = React.useCallback((label: string, next: LensRegistry) => {
-		settingsWrite(label, (s) => rewrapRegistry(s, next));
+		settingsWrite(label, (s) => rewrapRegistry(s, next), { outside: true });
 	}, [settingsWrite, rewrapRegistry]);
 	// Tag writes — put slides in/out of a lens by rewriting each affected slide with the library's
 	// applyTag (the only per-slide membership carrier). Applied sequentially so several accepts land as
@@ -2135,7 +2216,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				src = replaceSlide(src, c.index, applyTag(chunk, c.lensId, c.member, c.base)).source;
 			}
 			return wsLenses ? rewrapRegistry(src, parseLensRegistry(innerFrontMatter(src), wsLenses)) : src;
-		});
+		}, { outside: true });
 	}, [settingsWrite, wsLenses, rewrapRegistry]);
 	// Remove a reader view CLEANLY, in ONE undo step: strip the lens's `_lens` tag from every slide
 	// (so a later same-id re-add can't silently resurrect the old membership), then drop it from the
@@ -2153,7 +2234,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const cur = parseLensRegistry(frontMatterBlock(src), wsLenses);
 			const next: LensRegistry = { lenses: cur.lenses.filter((l) => l.id !== lens.id), default: cur.default === lens.id ? 'full' : cur.default };
 			return rewrapRegistry(src, next);
-		});
+		}, { outside: true });
 	}, [settingsWrite, wsLenses, rewrapRegistry]);
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
 	// full deck, or a reader-lens reshape of it (the editor always holds the source).
@@ -2871,7 +2952,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `verbose` (adds the class + box levers). The menu offers every value; a
 	// hand-typed value we don't recognize shows verbatim. No aliases.
 	const debugValue = getFrontMatter(source, 'debug');
-	const setDebug = (value: string | null) => setSource((s) => writeFrontMatterLine(s, 'debug', value), { label: value ? `Debug overlay → ${value}` : 'Debug overlay off', origin: 'settings' });
+	// Through settingsWrite like every other Deck row, so the pane's reset sees it (found by the checker).
+	const setDebug = (value: string | null) => settingsWrite(value ? `Debug overlay → ${value}` : 'Debug overlay off', (s) => writeFrontMatterLine(s, 'debug', value));
 	// Off is the absence of the key, which the picker's Auto head stands for.
 	const DEBUG_OPTIONS: Array<{ value: string; label: string }> = [
 		{ value: 'on-hover', label: 'On hover' },
@@ -3409,7 +3491,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const stored = storedTitleFor(source, t);
 		if (stored && stored === resolveTitle(source)?.text) return;
 		if (stored && retitleSource(source, t)) {
-			settingsWrite(`Rename → ${stored}`, (s) => retitleSource(s, t) ?? s);
+			settingsWrite(`Rename → ${stored}`, (s) => retitleSource(s, t) ?? s, { outside: true });
 		} else if (!resolveTitle(source) && !decksClearedRef.current) {
 			// Neither an override nor a heading to carry the name — record it as the deck's
 			// explicit label. Gated on `resolveTitle` being null rather than on retitleSource
@@ -3729,7 +3811,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			setWelcomeMode('end');
 		},
 		layout: {
-			snapshot: () => ({ posture, assistant: activeAssistant, settings: activeSettings, view, editMode, slide: viewIndex, collapsed: splitApiRef.current.collapsed, quietened }),
+			snapshot: () => ({ posture, assistant: activeAssistant, settings: activeSettings, lastPane, view, editMode, slide: viewIndex, collapsed: splitApiRef.current.collapsed, quietened }),
 			reset: (want, { keepPresent }) => {
 				// The layout every tour is written against: this stop, no panel or sheet open, the Markdown
 				// editor and the preview both showing, the first slide. The editor's own mode (Markdown or Compose) is left
@@ -3749,10 +3831,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				setActiveSlide(0);
 			},
 			restore: (raw, { slide }) => {
-				const was = raw as { posture: Posture; assistant: typeof activeAssistant; settings: typeof activeSettings; view: typeof view; editMode: typeof editMode; slide: number; collapsed: SplitSide | null; quietened: boolean };
+				const was = raw as { posture: Posture; assistant: typeof activeAssistant; settings: typeof activeSettings; lastPane?: StudioPaneId | null; view: typeof view; editMode: typeof editMode; slide: number; collapsed: SplitSide | null; quietened: boolean };
 				changePosture(was.posture);
 				setActiveAssistant(was.assistant);
 				setActiveSettings(was.settings);
+				// The tour pressed the rail itself, so it moved the mark; put the visitor's back.
+				setLastPane(was.lastPane ?? null);
 				setView(was.view);
 				setEditMode(was.editMode);
 				setShareOpen(false);
@@ -4476,6 +4560,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// ⌘. quiets to Write — the opposite of a Craft reveal, so drop any reveal first.
 				// If we're dismissing a TRANSIENT reveal, close its summoned panel(s) too (see Esc).
 				if (viewRef.current !== 'fabricate') { if (revealCraftRef.current) { setActiveAssistant(null); setActiveSettings(null); } setRevealCraft(false); setQuietened((v) => !v); }
+			} else if (e.key === 'Escape' && !e.defaultPrevented && closeFocusedPaneRef.current()) {
+				// Esc inside a DOCKED pane closes that pane (2026-11-15-one-side-pane.md) and hands focus
+				// back to the rail button that opens it. Only when focus is in the pane and not in a text
+				// field: a popover or menu inside it handles its own Esc first (defaultPrevented), and Esc
+				// in a field keeps its editing meaning. Everywhere else Esc keeps the meaning below.
+				e.preventDefault();
 			} else if (e.key === 'Escape') {
 				// Esc clears either transient overlay (whichever is armed) back to the saved stop.
 				// Dismissing a transient Craft REVEAL also closes the panel(s) it was summoned for:
@@ -4488,7 +4578,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, []);
+	}, [setActiveAssistant, setActiveSettings]);
 	// Fabricate is its own full-screen surface; never sit quietened OR craft-revealed
 	// behind it, but SUSPEND-and-RESTORE either transient so exiting Fabricate returns
 	// you to the exact surface you left — not a posture you didn't choose (R5). Present
@@ -6346,11 +6436,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Lenses (reader views) is its OWN first-class panel now — a launcher peer of the
 	// Architect, not a tab inside the AI coach. It's a deterministic membership +
 	// approval workflow, so it doesn't belong under a Sparkles/AI-branded panel.
-	// The "add a reader view" trigger lives in the SHEET HEADER, beside the close — the
+	// The "add a reader view" trigger lives in the pane's HEADER, beside the close — the
 	// slot every other panel's actions use (the Library's import is the pattern; this
 	// panel was the one with its action buried at the bottom of the body). The state is
 	// hoisted so the header can own the trigger while `LensesPanel` still renders the
-	// archetype picker; the docked column keeps its own inline button (uncontrolled).
+	// archetype picker; the docked column and the sheet both draw that header (§3d).
 	const [lensAdding, setLensAdding] = React.useState(false);
 	const lensCanAdd = React.useMemo(
 		() => LENS_ARCHETYPES.some((a) => !lensReg.lenses.some((l) => l.id === a.id)),
@@ -6358,11 +6448,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	React.useEffect(() => { if (!lensesOpen) setLensAdding(false); }, [lensesOpen]);
 
-	// `hosted` = the sheet, whose HEADER owns the add trigger. The docked column is NOT
-	// hosted and keeps its own inline dashed button — this body is shared by both, so
-	// passing the controlled props unconditionally silently removed the docked column's
-	// only way to add a reader view. Caught by the unit suite, which drives the docked one.
-	const renderLensesBody = (hosted: boolean) => (
+	// Every host (the docked column and the sheet) draws the shared header with the Add button, so the
+	// panel's add flow is always driven from it (§3d of 2026-11-15-one-side-pane.md).
+	const renderLensesBody = () => (
 		<div className="min-h-0 flex-1 overflow-y-auto p-2.5 min-w-0 overscroll-contain [touch-action:pan-y]">
 			{/* The lede, in the body. It used to be the header's `description`, which is
 			    what made this one of four header heights; moving it OUT of the header was
@@ -6384,7 +6472,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onWriteRegistry={writeRegistry}
 						onTag={writeTags}
 						onRemoveLens={removeLensWrite}
-						{...(hosted ? { adding: lensAdding, onAddingChange: setLensAdding } : {})}
+						adding={lensAdding}
+						onAddingChange={setLensAdding}
 					/>
 				)}
 			</PanelLoader>
@@ -6433,22 +6522,38 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
 	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.
 	const [chatCostSlot, setChatCostSlot] = React.useState<HTMLElement | null>(null);
-	// A FACTORY, not one element: the docked column wants the chat to render its own header
-	// row (title left, cost right — see ChatCost), while the mobile sheet already has
-	// PanelHeader and only wants the cost.
+	// FACTORIES, not one element each: every host (the docked column, the tablet and phone sheets)
+	// draws the shared PanelHeader and hands in its own header node, where the chat portals its cost
+	// readout and Live its session menu (the clock, and leave or end).
 	// The Live panel, lazy like its peers: it costs nothing until someone opens it.
-	// The phone sheet's header, where the Live panel portals its session menu (the clock, and leave
-	// or end); the docked column's panel has a title bar of its own for it.
 	const [liveHeaderSlot, setLiveHeaderSlot] = React.useState<HTMLElement | null>(null);
-	const liveBodyWith = (title?: string, headerSlot?: HTMLElement | null) => (
-		<PanelLoader panel={livePanel} shell={() => <div className="flex min-h-0 flex-1 flex-col">{title && <div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</div>}</div>}>
-			{(LivePanel) => <LivePanel title={title} view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} headerSlot={headerSlot} />}
+	const liveBodyWith = (headerSlot?: HTMLElement | null) => (
+		<PanelLoader panel={livePanel} shell={() => <div className="flex min-h-0 flex-1 flex-col" />}>
+			{(LivePanel) => <LivePanel view={live.view} actions={live.actions} now={live.now} defaultName={storedLiveName()} headerSlot={headerSlot} />}
 		</PanelLoader>
 	);
-	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
-		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
+	const chatBodyWith = (costSlot?: HTMLElement | null) => (
+		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
+			{(ArchitectChat) => <ArchitectChat costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); drillPane('chat', 'library'); }} />}
 		</PanelLoader>
+	);
+
+	// The docked column's header slots for Chat's cost readout and Live's session menu: their own, apart
+	// from the sheets' (`chatCostSlot`, `liveHeaderSlot`), so a sheet left mounted across a breakpoint
+	// flip never holds the node the docked pane is portaling into.
+	const [chatDockSlot, setChatDockSlot] = React.useState<HTMLElement | null>(null);
+	const [liveDockSlot, setLiveDockSlot] = React.useState<HTMLElement | null>(null);
+	// Reader views' one header action, the same in the dock and the sheet.
+	const lensAddButton = lensCanAdd ? (
+		<Tip label="Add a reader view">
+			<Button type="button" variant="outline" size="icon-sm" aria-label="Add a reader view" onClick={() => setLensAdding(true)}>
+				<Plus className="size-4" />
+			</Button>
+		</Tip>
+	) : undefined;
+	// A docked pane's header (§3d): the shared PanelHeader with a collapse toward the rail.
+	const dockHeader = (id: StudioPaneId, icon: React.ReactNode, actions?: React.ReactNode, fluidActions = false) => (
+		<PanelHeader icon={icon} title={PANE_NAME[id]} actions={actions} fluidActions={fluidActions} onClose={collapsePane} closeLabel={`Collapse ${PANE_NAME[id]}`} collapse={<PanelLeftClose className="size-[18px]" />} />
 	);
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
@@ -7075,9 +7180,31 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// another is not open to them.
 	useViewKey('inspector', settingsShown ? (activeSettings ?? 'none') : 'none');
 	useViewKey('section', settingsShown && activeSettings === 'deck' && settingsTier === 'advanced' && settingsView === 'group' ? deckTab : null);
+	// THE PANE'S RESET (§3d of 2026-11-15-one-side-pane.md): it undoes this visit. The Slide body owns its
+	// baseline and reports here; Deck settings keeps a visit (below): the deck as the pane found it, and the
+	// front-matter keys the pane's own writes changed since.
+	const [slideReset, setSlideReset] = React.useState<{ dirty: boolean; reset: () => void } | null>(null);
+	const [deckVisit, setDeckVisit] = React.useState<{ key: string; base: string; touched: Set<string> } | null>(null);
 	const settingsShows = useShowCount(settingsShown);
 	const deckShows = useShowCount(settingsShown && inspectorScope === 'deck');
 	const slideShows = useShowCount(settingsShown && inspectorScope === 'slide');
+	// One VISIT per show of Deck settings on one deck: keyed by the show count AND the deck's id, so a
+	// deck switch with the pane open starts a fresh visit instead of comparing deck B with deck A's
+	// front matter (found by the checker on #3222: the reset then wrote A's settings into B). Moved during
+	// render, so no frame ever reads the old visit.
+	const deckVisitKey = `${deckShows}|${deck.id}`;
+	const deckPaneLive = settingsShown && inspectorScope === 'deck';
+	if (deckPaneLive && deckVisit?.key !== deckVisitKey) setDeckVisit({ key: deckVisitKey, base: source, touched: new Set() });
+	const liveVisit = deckVisit?.key === deckVisitKey ? deckVisit : null;
+	deckVisitRef.current = liveVisit;
+	deckPaneLiveRef.current = deckPaneLive;
+	const deckDirty = !!liveVisit && liveVisit.touched.size > 0 && keysDiffer(source, liveVisit.base, liveVisit.touched);
+	// One Undo step with the Undo toast (settingsWrite), putting back only the keys this visit changed.
+	const resetDeck = () => {
+		if (!liveVisit) return;
+		const keys = [...liveVisit.touched];
+		settingsWrite('Reset deck settings', (s) => revertKeys(s, liveVisit.base, keys));
+	};
 	const deckEver = useEverTrue(settingsShown && inspectorScope === 'deck');
 	const deckScrollRef = React.useRef<HTMLDivElement>(null);
 	// THE SCOPE THE PANEL SHOWS. Closed, `inspectorScope` falls back to 'slide', and the kept panel
@@ -7088,6 +7215,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [lastScope, setLastScope] = React.useState(inspectorScope);
 	if (settingsShown && lastScope !== inspectorScope) setLastScope(inspectorScope);
 	const panelScope = settingsShown ? inspectorScope : lastScope;
+	const settingsReset = panelScope === 'deck'
+		? <PanelResetButton label="Reset deck settings" hint="Undo this visit: put the deck's settings back as they were when you opened them" disabled={!deckDirty} onClick={resetDeck} />
+		: <PanelResetButton label="Reset slide settings" hint="Undo this visit: put this slide back as it was when you opened settings" disabled={!slideReset?.dirty} onClick={() => slideReset?.reset()} />;
 
 	const inspectorBody = (
 		// `SETTING_SCOPE` makes this body the container the rows measure themselves against,
@@ -7164,6 +7294,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* Keyed per show, like the deck body below: the chrome above the body starts fresh on
 			    every open, as it did when closing unmounted it. */}
 			<React.Fragment key={settingsShows}>
+			{/* The docked header (desktop, and the tablet's right-hand dock): the shared PanelHeader every
+			    docked pane wears (§3d of 2026-11-15-one-side-pane.md), named for the scope, with the search
+			    button and the collapse. It used to be the tinted scope band below, carrying an icon, the scope
+			    sentence, search, the layout toggle and the collapse, so Settings was the one pane whose header
+			    said what it was editing rather than what it was. The band stays, as the body's first row.
+			    A phone sheet draws its own PanelHeader ("Settings") around this content. */}
+			{!mobile && (
+				<PanelHeader
+					icon={panelScope === 'deck' ? <SlidersHorizontal /> : <FileSliders />}
+					title={PANE_NAME[panelScope]}
+					actions={<>{searchingHere ? null : <PanelSearchButton label={`Search ${panelScope} settings`} onClick={() => (panelScope === 'deck' ? setDeckSearching : setSlideSearching)(true)} />}{settingsReset}</>}
+					onClose={collapsePane}
+					closeLabel="Collapse settings"
+					collapse={bp === 'tablet' ? <PanelRightClose className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
+				/>
+			)}
 			{/* Scope switch on tablet + mobile: a Slide-first segment. On desktop the
 			    activity bar's Slide/Deck icons ARE the switch, so no in-panel segment. */}
 			{compact && (
@@ -7211,12 +7357,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    `PanelSearch` mounted its Clear button on the first keystroke, so a polite
 				    region announced additions that were not the scope changing. */}
 				<span role="status" aria-live="polite" className="sr-only">{scopeLine.full}</span>
-				{/* The scope ICON returns on DESKTOP only, and only because the scope switch it
-				    moved to is `compact`-gated — without it the docked banner names the scope
-				    nowhere, leaving a background tint as the sole cue between deck and slide. */}
-				{!compact && (panelScope === 'deck'
-					? <SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
-					: <FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />)}
+				{/* No scope icon here: the docked header above carries it beside the scope's name, and the
+				    tablet and phone have the Slide/Deck segment. */}
 				{/* …EXCEPT while the field is open, when the title yields the whole row. §8.1's
 				    rule is that this row always carries WORDS, and a truncated stub carries
 				    none: measured on a 390x844 phone with a query live, the two phrasings
@@ -7252,15 +7394,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					onQueryChange={panelScope === 'deck' ? setDeckQuery : setSlideQuery}
 					searching={panelScope === 'deck' ? deckSearching : slideSearching}
 					onSearchingChange={panelScope === 'deck' ? setDeckSearching : setSlideSearching}
-					className="!pt-0 min-w-0 shrink"
+					// The docked header holds the search button; a phone sheet's toolbar still draws its own.
+					searchButton={mobile}
+					// Open, the field takes the whole row: the scope words yield to it (above).
+					className={cn('!pt-0 min-w-0 shrink', searchingHere && 'flex-1')}
 				/>
-				{/* `PanelLeftClose`, not a ✕ — this collapses the DOCKED PANEL, and the preview's
-				    own collapse two panes over already uses that idiom (`PanelRightClose`). It
-				    wore a ✕, which put a third identical glyph in this row the moment search
-				    opened: clear the field, close the field, collapse the panel, all the same
-				    mark within 100px of a 296px panel. The first two are one button now; this
-				    one says what it actually does. */}
-				{!mobile && <Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: panelScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><PanelLeftClose className="size-4" /></button></Tip>}
 			</div>
 			</React.Fragment>
 			{/* THE DECK BODY STAYS MOUNTED once shown, hidden (and frozen) under the Slide scope,
@@ -7276,8 +7414,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</div>
 			)}
 			{panelScope === 'slide' && (
-				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
-					{(SlideContextBody) => <SlideContextBody open reportSection={settingsShown && inspectorScope === 'slide'} deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} />}
+				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} deckId={deck.id} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
+					{(SlideContextBody) => <SlideContextBody open reportSection={settingsShown && inspectorScope === 'slide'} deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} onResetChange={setSlideReset} />}
 				</PanelLoader>
 			)}
 		</>
@@ -7508,7 +7646,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<WebImagesNotice summary={webSummary} allowed={webAllowed} onLoad={allowWebOrigins} onBlock={blockWebOrigins} />
 			{codeStamp && (
 				<React.Suspense fallback={null}>
-					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} onWrite={settingsWrite} />
+					<CodePackagesNotice source={source} stamp={codeStamp} onApproved={onCodeApproved} onWrite={outsideWrite} />
 				</React.Suspense>
 			)}
 			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides
@@ -7752,9 +7890,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// here is only the STATE: which slot is showing, and what a click does to it.
 	const activityBar = (
 		<ActivityRail
-			state={{ assistant: activeAssistant, settings: activeSettings }}
-			onAssistant={(id) => setActiveAssistant((p) => (p === id ? null : id))}
-			onSettings={(id) => setActiveSettings((p) => (p === id ? null : id))}
+			state={{ assistant: activeAssistant, settings: activeSettings, recent: lastPane }}
+			onAssistant={(id) => { notePane(); setActiveAssistant((p) => (p === id ? null : id)); }}
+			onSettings={(id) => { notePane(); setActiveSettings((p) => (p === id ? null : id)); }}
 			onWorkspace={() => setWorkspaceOpen(true)}
 		/>
 	);
@@ -8742,7 +8880,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    simply not rendered (the activity-bar icon reopens it). */}
 						{desktop && effectiveStop === 'craft' && inspectorOpen && (
 							<>
-								<ResizablePanel id="studio-settings" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
+								<ResizablePanel id="studio-settings" data-studio-pane="" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
 									{/* Empty: the settings are drawn over this box by `settingsDock`, which outlives it. */}
 									<div ref={setSettingsSlot} className="min-h-0 flex-1" />
 								</ResizablePanel>
@@ -8758,25 +8896,41 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								{/* Library keeps its own panel id so switching the assistant slot
 								    Coach→Library is a fresh panel identity, and each keeps its own
 								    persisted width via the per-panel-id bucket. */}
-								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-card">
+								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} data-studio-pane="" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-card">
+									{/* ONE header for every docked pane: the PanelHeader the tablet and phone sheets
+									    already wear (icon chip, the pane's name, its actions, then collapse). These
+									    four used to draw an 11px uppercase label with no icon and no way out but the
+									    rail, beside a Library and a Settings that each drew their own, so swapping
+									    panes in the one slot swapped the header's design too (§3d). Chat and Live
+									    portal their header controls in, as they do in their sheets. */}
 									{coachOpen && (
 										<>
-											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>
+											{dockHeader('coach', <Gauge />)}
 											{coachBody}
 										</>
 									)}
-									{chatOpen && chatBodyWith('Chat')}
-									{liveOpen && liveBodyWith('Live')}
+									{chatOpen && (
+										<>
+											{dockHeader('chat', <ChatIcon />, <span ref={setChatDockSlot} className="flex min-w-0 items-center" />, true)}
+											{chatBodyWith(chatDockSlot)}
+										</>
+									)}
+									{liveOpen && (
+										<>
+											{dockHeader('live', <UsersRound />, <span ref={setLiveDockSlot} className="flex items-center gap-2" />)}
+											{liveBodyWith(liveDockSlot)}
+										</>
+									)}
 									{lensesOpen && (
 										<>
-											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
-											{renderLensesBody(false)}
+											{dockHeader('lenses', <LensIcon />, lensAddButton)}
+											{renderLensesBody()}
 										</>
 									)}
 									{libraryOpen && (
-										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
-										</PanelLoader>
+										<PanelDrillBack to={drillTo('library')}><PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={(v) => (v ? setLibraryOpen(true) : collapsePane())}>{body}</LibraryShell>}>
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} onCollapse={collapsePane} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+										</PanelLoader></PanelDrillBack>
 									)}
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize panel" />
@@ -8840,7 +8994,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							actions={<span ref={setChatCostSlot} className="flex min-w-0 items-center" />}
 							fluidActions
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(undefined, chatCostSlot)}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(chatCostSlot)}</div>
 					</PanelSheet>
 					)}
 					{liveSheetMounted && (
@@ -8850,7 +9004,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							title="Live"
 							actions={<span ref={setLiveHeaderSlot} className="flex items-center gap-2" />}
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith(undefined, liveHeaderSlot)}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith(liveHeaderSlot)}</div>
 					</PanelSheet>
 					)}
 					{/* Reader views — its own compact sheet, a peer of the Architect.
@@ -8865,19 +9019,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<PanelHeader
 							icon={<LensIcon />}
 							title="Reader views"
-							actions={lensCanAdd ? (
-								<Tip label="Add a reader view">
-									<Button type="button" variant="outline" size="icon-sm" aria-label="Add a reader view" onClick={() => setLensAdding(true)}>
-										<Plus className="size-4" />
-									</Button>
-								</Tip>
-							) : undefined}
+							actions={lensAddButton}
 							// The lede moved OUT of the header and into the zero state, where it has
 							// room and where it is actually needed. As a header `description` it
 							// wrapped to two lines and made this one of four different header
 							// heights in a set of surfaces that claim to share a frame.
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{renderLensesBody(true)}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{renderLensesBody()}</div>
 					</PanelSheet>
 					)}
 					{/* Settings Sheet — MOBILE only. Same Slide-first segment + scope echo +
@@ -8891,6 +9039,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<PanelHeader
 								icon={<Settings2 />}
 								title="Settings"
+								actions={settingsReset}
 							/>
 							{/* No outer overflow: the scope body owns its own scroll region (like the
 							    desktop column), so the sheet never nests two scrollbars. */}
@@ -8904,7 +9053,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			{shareMounted && (
 				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
-					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={outsideWrite} />}
 				</PanelLoader>
 			)}
 			{feedbackMounted && <FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />}
@@ -8962,7 +9111,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    Gated on the compose view like its Architect/Lenses sheet peers, so it never
 			    floats over the full-screen Fabricate surface. */}
 			{compact && view === 'compose' && libraryMounted && (
-				<PanelLoader panel={libraryPanel} sheet open={libraryOpen} shell={(body) => <LibraryShell open={libraryOpen} onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
+				<PanelDrillBack to={drillTo('library')}><PanelLoader panel={libraryPanel} sheet open={libraryOpen} shell={(body) => <LibraryShell open={libraryOpen} onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
 					{(Library) => (
 						<Library
 							open={libraryOpen}
@@ -8982,7 +9131,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshAssets(); }}
 						/>
 					)}
-				</PanelLoader>
+				</PanelLoader></PanelDrillBack>
 			)}
 			{(presentOpen || presentEverOpened) && (
 				<React.Suspense

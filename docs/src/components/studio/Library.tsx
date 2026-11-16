@@ -1,8 +1,9 @@
-import { Check, Clapperboard, Download, FileBox, FileText, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, Pencil, Plug, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
+import { Check, Clapperboard, Download, FileBox, FileText, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, PanelLeftClose, Pencil, Plug, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
+import { PanelSearchButton, PanelSearchRow } from '@/components/ui/panel-actions';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import { notify } from '@/lib/notify';
@@ -220,12 +221,16 @@ function FilterRow({ icon, label, desc, count, on, onPick }: { icon: React.React
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, filterRequest, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
+export function Library({ open, onOpenChange, docked, onCollapse, options, activePalette, activeFinish, initialFilter, filterRequest, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
-	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
-	 *  closed via its launcher toggle. Compact: omit → the right-side Sheet. */
+	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal). Compact: omit →
+	 *  the right-side Sheet. */
 	docked?: boolean;
+	/** The docked header's collapse (§3d of 2026-11-15-one-side-pane.md): the Studio's own, so the
+	 *  rail marks the Library last used and focus returns to the rail, as for every docked pane.
+	 *  Without it the collapse closes through `onOpenChange`. */
+	onCollapse?: () => void;
 	options: SingleSlideOptions;
 	activePalette: string;
 	activeFinish: string;
@@ -273,6 +278,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const [otherSources, setOtherSources] = React.useState<string[]>([]);
 	const [filter, setFilter] = React.useState<Filter>('all');
 	const [query, setQuery] = React.useState('');
+	// The pointer surfaces' search is a button until opened (§3d); a phone docks the field at the bottom.
+	const [searchOpen, setSearchOpen] = React.useState(false);
+	// A live query always shows its field: one typed into the phone's bottom field stays visible when
+	// the same sheet flips to a wider layout (a rotation, a foldable), instead of filtering silently.
+	const searchShown = searchOpen || query !== '';
 	const [sel, setSel] = React.useState<Set<string>>(new Set());
 	const [busy, setBusy] = React.useState<string | null>(null);
 	const [armed, setArmed] = React.useState<string | null>(null);
@@ -1002,13 +1012,16 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 
 	const selCount = sel.size;
 
-	// The header controls (search + contextual add) — shared by both transports; only
-	// The search field, hoisted OUT of the header. On a phone it used to wrap to its own
-	// row inside the header (`basis-full` + the header's `flex-wrap`), and that is what
-	// made this panel's header 125px against every other panel's 56px — the largest
-	// single deviation in a set of surfaces that claim to share a frame. It now docks at
-	// the BOTTOM on a phone (above the keyboard, beside the thumb that types it) and
-	// stays in the header on the docked column and the tablet sheet, which have room.
+	// The search. On a PHONE the field docks at the BOTTOM (above the keyboard, beside the thumb that
+	// types it): in the header it once wrapped to a row of its own and made this header 125px against
+	// every other panel's 56px. On the docked column and the tablet sheet it follows the panes' one
+	// pattern (§3d of 2026-11-15-one-side-pane.md): a search button in the header that opens the field
+	// in a row under it, focused, with Escape closing and clearing it. It used to sit open in the header,
+	// the one pane whose search did, and at the dock's 280px minimum it squeezed the title.
+	const closeSearch = () => {
+		setQuery('');
+		setSearchOpen(false);
+	};
 	const searchField = (
 		<PanelSearch
 			value={query}
@@ -1016,14 +1029,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			onClear={() => setQuery('')}
 			placeholder={LIBRARY_HEADER.searchPlaceholder}
 			label="Search library"
-			size={phone ? 'default' : 'sm'}
-			className={phone ? undefined : 'ml-1 flex-1'}
 		/>
 	);
 
 	const headerControls = (
 		<>
-			{phone ? null : searchField}
+			{phone || searchShown ? null : <PanelSearchButton label="Search library" onClick={() => setSearchOpen(true)} />}
 					{/* ONE import, the same on every tab. The kind of file decides where it goes; the person only
 					    chooses files. No `capture` attribute, so a phone's sheet offers Photo Library, Take Photo
 					    or Video and Choose Files. */}
@@ -1056,8 +1067,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			title={LIBRARY_HEADER.title}
 			actions={headerControls}
 			fluidActions
-			onClose={docked ? () => onOpenChange(false) : undefined}
-			showClose={!docked}
+			onClose={docked ? (onCollapse ?? (() => onOpenChange(false))) : undefined}
+			closeLabel={docked ? 'Collapse Library' : 'Close'}
+			collapse={<PanelLeftClose className="size-[18px]" />}
 		/>
 	);
 
@@ -1225,6 +1237,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	return (
 		<LibraryFrame docked={docked} open={open} onOpenChange={onOpenChange} dropProps={dropProps}>
 			{header}
+			{!phone && searchShown && (
+				<div className="border-b border-border bg-card px-4 py-2">
+					<PanelSearchRow query={query} onQueryChange={setQuery} onClose={closeSearch} placeholder={LIBRARY_HEADER.searchPlaceholder} label="Search library" size="sm" />
+				</div>
+			)}
 
 				<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
 					{/* `PillTabs`, not a hand-rolled segmented track. This forked the shared

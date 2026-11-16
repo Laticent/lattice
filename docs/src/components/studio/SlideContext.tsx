@@ -12,7 +12,7 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Check, Cloud, Info, RotateCcw, Sparkles, Volume2 } from 'lucide-react';
+import { Check, Cloud, Info, Sparkles, Volume2 } from 'lucide-react';
 import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
 import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
@@ -42,7 +42,7 @@ import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follo
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
 import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
-import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
+import type { SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
 
@@ -112,6 +112,9 @@ export type SlideContextBodyProps = {
 	query: string;
 	/** The baseline the loading shell recorded when this panel opened (`panel-shells.tsx`). Taken over once, then cleared. */
 	baselineRef?: React.MutableRefObject<SlideBaseline | null>;
+	/** Tells the pane's header whether this visit changed the slide, and how to undo it: the header draws
+	 *  the reset (§3d of 2026-11-15-one-side-pane.md). Called with null when the body goes away. */
+	onResetChange?: (r: { dirty: boolean; reset: () => void } | null) => void;
 };
 
 // ── Small local controls, styled to match the Inspector vocabulary ─────────────
@@ -276,7 +279,7 @@ const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)'
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
  *  (desktop/tablet) OR inside a Sheet (mobile). */
 export function SlideContextBody(props: SlideContextBodyProps) {
-	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, tier, onTierChange, query, baselineRef, reportSection = false } = props;
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, tier, onTierChange, query, baselineRef, onResetChange, reportSection = false } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -354,23 +357,31 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// later open cannot reuse it). Read here, cleared in the effect below: an initializer must stay pure.
 	const [shellBaseline] = React.useState(() => {
 		const b = baselineRef?.current;
-		return b && b.slide === slideNumber ? b.chunk : null;
+		return b && b.slide === slideNumber && b.deckId === deckId ? b.chunk : null;
 	});
-	const originalRef = React.useRef(shellBaseline ?? chunk);
-	const baselineTaken = React.useRef(false);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: capture the baseline on open/slide change, not on every edit.
+	// Keyed by DECK, slide and open, and moved during render (React's "adjust state when a value changes"
+	// pattern), not in an effect: an effect left one render comparing the new slide with the OLD baseline,
+	// so the header's reset flashed enabled on every slide change, and it never re-fired on a deck switch
+	// that kept the slide number, so a reset on deck B wrote back deck A's slide (both found by the checker
+	// on #3222). The shell's baseline seeds only the first key, and is consumed once.
+	const baseKey = `${deckId ?? ''}|${slideNumber}|${open ? 1 : 0}`;
+	const [base, setBase] = React.useState(() => ({ key: baseKey, chunk: shellBaseline ?? chunk }));
+	if (base.key !== baseKey) setBase({ key: baseKey, chunk });
+	const original = base.key === baseKey ? base.chunk : chunk;
 	React.useEffect(() => {
-		if (!baselineTaken.current) {
-			// First run: keep the shell's baseline if there was one, and consume it.
-			baselineTaken.current = true;
-			if (baselineRef) baselineRef.current = null;
-			if (shellBaseline !== null) return;
-		}
-		originalRef.current = chunk;
-	}, [slideNumber, open]);
-	const dirty = chunk !== originalRef.current;
-	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(originalRef.current)); setSayDraft(getSayLine(originalRef.current)); setDescDraft(getDescription(originalRef.current)); onMutate(() => originalRef.current); } };
+		if (baselineRef) baselineRef.current = null;
+	}, [baselineRef]);
+	const dirty = chunk !== original;
+	// The pane's header draws the reset (PanelResetButton, §3d of 2026-11-15-one-side-pane.md); this
+	// body owns the baseline, so it tells the header whether there is anything to reset and how.
+	const resetRef = React.useRef<() => void>(() => {});
+	React.useEffect(() => {
+		onResetChange?.({ dirty, reset: () => resetRef.current() });
+	}, [dirty, onResetChange]);
+	React.useEffect(() => () => onResetChange?.(null), [onResetChange]);
+	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(original)); setSayDraft(getSayLine(original)); setDescDraft(getDescription(original)); onMutate(() => original); } };
 
+	resetRef.current = resetSlide;
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
 	const editable = React.useMemo(() => canEditClass(chunk), [chunk]);
 	const isRecord = React.useMemo(() => readClassDirective(chunk).record === true, [chunk]);
@@ -1200,18 +1211,6 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 			    to reveal the no-matches note. */}
 			<div className={cn('flex-1 overflow-y-auto px-4 overscroll-contain [touch-action:pan-y] min-w-0', SETTING_SCOPE)} {...filteringProps(query)}>
 				<SettingsFind query={query}>
-					{/* Reset — revert every edit made this session back to the original slide. */}
-					<div className="flex items-center justify-between border-b border-border py-2">
-						<span className="text-[11px] text-muted-foreground">{dirty ? 'Edited this session' : 'No changes yet'}</span>
-						<Tip label="Revert this slide to how it was when you opened settings"><button
-							type="button"
-							onClick={resetSlide}
-							disabled={!dirty}
-							className={RESET_SLIDE_BUTTON}
-						>
-							<RotateCcw className="size-3" />Reset slide
-						</button></Tip>
-					</div>
 
 					{/* The find toolbar lives in the scope banner above this body now — one field
 					    serving whichever scope is open, on the header row (HARD RULE #15).

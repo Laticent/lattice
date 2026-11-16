@@ -66,7 +66,18 @@ function Harness() {
 		calls: () => calls.slice(),
 		clear: () => calls.splice(0, calls.length),
 	};
-	const panel = <LivePanel view={view} actions={actions} title="Live" now={Date.now()} />;
+	// A header with a slot, as every Studio host draws (the shared PanelHeader): the panel portals its
+	// session menu into it and draws no title bar of its own (2026-11-15-one-side-pane.md §3d).
+	const [slot, setSlot] = React.useState<HTMLElement | null>(null);
+	const panel = (
+		<div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
+				<span style={{ flex: 1 }}>Live</span>
+				<span ref={setSlot} style={{ display: 'flex', alignItems: 'center', gap: 8 }} />
+			</div>
+			<LivePanel view={view} actions={actions} now={Date.now()} headerSlot={slot} />
+		</div>
+	);
 	// ?modal=1: the panel inside the real modal Sheet it lives in on a phone (its scroll lock is what a popover in
 	// <body> runs into). Same Sheet the Studio drawer uses.
 	if (params.get('modal') === '1')

@@ -335,7 +335,8 @@
 	}
 }
 .lx-ghost-caret {
-	position: fixed;
+	/* Absolute in Compose's host (.cs-host is position: relative), so it scrolls and clips with the text. */
+	position: absolute;
 	width: 2px;
 	border-radius: 1px;
 	background: var(--text-body);

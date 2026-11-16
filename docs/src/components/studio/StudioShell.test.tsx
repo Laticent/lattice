@@ -711,6 +711,81 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await waitFor(() => expect(advanced).toHaveFocus());
 	});
 
+	// The pane's reset (2026-11-15-one-side-pane.md §3d): a header button that undoes THIS VISIT, disabled until the
+	// visit changed something, and one Undo step. For Deck settings, that is the front matter as the pane found it.
+	it("Deck settings' header reset undoes the visit's changes, and is off until there are some", async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		const reset = await screen.findByRole('button', { name: 'Reset deck settings' });
+		expect(reset).toHaveAttribute('aria-disabled', 'true');
+		const pages = screen.getByRole('switch', { name: 'Page numbers' });
+		const was = pages.getAttribute('aria-checked');
+		await user.click(pages);
+		await waitFor(() => expect(screen.getByRole('switch', { name: 'Page numbers' })).not.toHaveAttribute('aria-checked', was ?? ''));
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Reset deck settings' })).not.toHaveAttribute('aria-disabled'));
+		await user.click(screen.getByRole('button', { name: 'Reset deck settings' }));
+		await waitFor(() => expect(screen.getByRole('switch', { name: 'Page numbers' })).toHaveAttribute('aria-checked', was ?? ''));
+		expect(screen.getByRole('button', { name: 'Reset deck settings' })).toHaveAttribute('aria-disabled', 'true');
+		// One Undo step, with the toast that offers it.
+		expect(await screen.findByText(/Reset deck settings/)).toBeInTheDocument();
+	});
+
+	// The reset's visit belongs to ONE deck (found by the checker on #3222): switching decks with the pane open
+	// used to keep deck A's baseline, so deck B read as changed and the reset wrote A's settings into B.
+	it('switching decks with Deck settings open starts a clean visit: the reset is off and never writes the old deck', async () => {
+		const user = setup();
+		const switchTo = async (title: RegExp, to: string) => {
+			await user.click(screen.getByRole('button', { name: title }));
+			await user.click(await screen.findByText(to));
+			await waitFor(() => expect(screen.getByRole('button', { name: new RegExp(to) })).toBeInTheDocument());
+		};
+		const pages = () => screen.getByRole('switch', { name: 'Page numbers' });
+		// Deck B gets a page-numbers value of its own, so a visit left over from deck A would read B as changed.
+		await switchTo(/Q3 Board Review/, 'FY26 Product Strategy');
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		const bWas = pages().getAttribute('aria-checked');
+		await user.click(pages());
+		await waitFor(() => expect(pages()).not.toHaveAttribute('aria-checked', bWas ?? ''));
+		const bNow = pages().getAttribute('aria-checked');
+		// On deck A, a visit that changes the same key.
+		await switchTo(/FY26 Product Strategy/, 'Q3 Board Review');
+		await waitFor(() => expect(pages()).toHaveAttribute('aria-checked', bWas ?? ''));
+		await user.click(pages());
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Reset deck settings' })).not.toHaveAttribute('aria-disabled'));
+		// Back to B with the pane open: a fresh visit, so nothing to reset, and a press changes nothing.
+		await switchTo(/Q3 Board Review/, 'FY26 Product Strategy');
+		await waitFor(() => expect(pages()).toHaveAttribute('aria-checked', bNow ?? ''));
+		expect(screen.getByRole('button', { name: 'Reset deck settings' })).toHaveAttribute('aria-disabled', 'true');
+		await user.click(screen.getByRole('button', { name: 'Reset deck settings' }));
+		expect(pages()).toHaveAttribute('aria-checked', bNow ?? '');
+	});
+
+	it("switching decks with Slide settings open leaves the slide reset off: it never writes the old deck's slide", async () => {
+		const user = setup();
+		await user.click(screen.getAllByRole('button', { name: 'Slide settings' })[0]);
+		await screen.findByRole('button', { name: 'Reset slide settings' });
+		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		await user.click(await screen.findByText('FY26 Product Strategy'));
+		await waitFor(() => expect(screen.getByRole('button', { name: /FY26 Product Strategy/ })).toBeInTheDocument());
+		expect(screen.getByRole('button', { name: 'Reset slide settings' })).toHaveAttribute('aria-disabled', 'true');
+	});
+
+	it('the slide reset never flashes on while moving between slides', async () => {
+		const user = setup();
+		await user.click(screen.getAllByRole('button', { name: 'Slide settings' })[0]);
+		await screen.findByRole('button', { name: 'Reset slide settings' });
+		// Every change to the reset's `aria-disabled`, by its value just BEFORE the change: a null there means it
+		// was on (enabled) for a moment, which is the flash an effect-moved baseline produced.
+		const before: (string | null)[] = [];
+		const mo = new MutationObserver((ms) => { for (const m of ms) if ((m.target as Element).hasAttribute('data-panel-reset')) before.push(m.oldValue); });
+		mo.observe(document.body, { attributes: true, attributeOldValue: true, subtree: true, attributeFilter: ['aria-disabled'] });
+		await user.click(screen.getAllByRole('button', { name: 'Next slide' })[0]);
+		await user.click(screen.getAllByRole('button', { name: 'Next slide' })[0]);
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Reset slide settings' })).toHaveAttribute('aria-disabled', 'true'));
+		mo.disconnect();
+		expect(before.filter((v) => v === null)).toEqual([]);
+	});
+
 	it('reaches Fabricate from the launcher (not a deck mode)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
@@ -904,6 +979,24 @@ describe('StudioShell — responsive layout', () => {
 		await user.click(await screen.findByRole('menuitem', { name: /Settings — deck/ }));
 		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
 	});
+
+	it('tablet: Esc in the docked settings closes them, and a second Esc does not bring them back', async () => {
+		setViewport('tablet');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(await screen.findByRole('menuitem', { name: /Settings — deck/ }));
+		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
+		const seg = screen.getByRole('button', { name: 'Slide scope' });
+		seg.focus();
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(document.querySelector('[data-settings-dock]')?.hasAttribute('hidden')).toBe(true));
+		// No rail at this width: focus goes to the overflow menu that opens settings, never to <body>.
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More controls' })));
+		// user.keyboard resolves after React has applied the key press (it runs inside act), so the
+		// state is settled here: a reopen would already be in the DOM.
+		await user.keyboard('{Escape}');
+		expect(document.querySelector('[data-settings-dock]')?.hasAttribute('hidden')).toBe(true);
+	});
 });
 
 describe('StudioShell — desktop activity bar', () => {
@@ -922,17 +1015,85 @@ describe('StudioShell — desktop activity bar', () => {
 		expect(scopeEcho()).not.toMatch(/Slide \d+ — overrides the deck/);
 	});
 
-	it('the Architect stays independent of settings — the coach can be up WHILE you tune (grouped, not global)', async () => {
+	// ONE side pane (engineering/decisions/2026-11-15-one-side-pane.md): every pane shares one slot.
+	it('opening settings REPLACES the open tool pane — one side pane at a time, never two', async () => {
 		const user = setup();
-		// Ensure the coach is open (idempotent — a returning user starts with it up).
 		const coach = screen.getByRole('button', { name: 'Toggle Coach' });
 		if (coach.getAttribute('aria-pressed') !== 'true') await user.click(coach);
 		expect(coach).toHaveAttribute('aria-pressed', 'true');
-		// Opening deck settings does NOT close the coach — independent groups, not a
-		// single mutually-exclusive sidebar.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
+		expect(screen.getByRole('button', { name: 'Toggle Coach' })).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveAttribute('aria-pressed', 'true');
+		// And the other way: a tool replaces settings.
+		await user.click(screen.getByRole('button', { name: 'Toggle Coach' }));
 		expect(screen.getByRole('button', { name: 'Toggle Coach' })).toHaveAttribute('aria-pressed', 'true');
+		expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	// The house style (§3d of 2026-11-15-one-side-pane.md): every docked pane wears the SAME header (the
+	// shared PanelHeader: its name as a heading, then a collapse) and the collapse behaves as Esc does.
+	// Four of these drew an 11px uppercase label with no way out but the rail, so swapping panes in the
+	// one slot swapped the header's design too.
+	it('every docked pane wears the shared header, named for the pane, and its collapse returns focus to the rail', async () => {
+		const user = setup();
+		const panes: [rail: string, name: string, collapse: string][] = [
+			['Toggle Coach', 'Coach', 'Collapse Coach'],
+			['Toggle Chat', 'Chat', 'Collapse Chat'],
+			['Toggle Live', 'Live', 'Collapse Live'],
+			['Toggle Reader views', 'Reader views', 'Collapse Reader views'],
+			['Deck scope', 'Deck settings', 'Collapse settings'],
+			['Slide settings', 'Slide settings', 'Collapse settings'],
+		];
+		for (const [rail, name, collapse] of panes) {
+			await user.click(screen.getAllByRole('button', { name: rail })[0]);
+			expect(screen.getAllByRole('button', { name: rail })[0]).toHaveAttribute('aria-pressed', 'true');
+			expect(screen.getByRole('heading', { level: 2, name })).toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: collapse }));
+			expect(screen.getAllByRole('button', { name: rail })[0]).toHaveAttribute('aria-pressed', 'false');
+			await waitFor(() => expect(document.activeElement).toBe(screen.getAllByRole('button', { name: rail })[0]));
+		}
+	});
+
+	it('marks the pane that last held the slot on the rail, so getting back is one visible click', async () => {
+		const user = setup();
+		const recentOn = (name: string) => screen.getByRole('button', { name }).querySelector('[data-recent]') !== null;
+		await user.click(screen.getByRole('button', { name: 'Toggle Coach' }));
+		expect(recentOn('Toggle Coach')).toBe(false); // the open pane carries the active rule, not the mark
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		expect(recentOn('Toggle Coach')).toBe(true);
+		expect(recentOn('Deck scope')).toBe(false);
+		// Closing returns to the canvas, never to Coach — the mark moves to what just closed.
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		expect(screen.getByRole('button', { name: 'Toggle Coach' })).toHaveAttribute('aria-pressed', 'false');
+		expect(recentOn('Deck scope')).toBe(true);
+		expect(recentOn('Toggle Coach')).toBe(false);
+	});
+
+	it('Esc inside a docked pane closes it and returns focus to its rail button; Esc in a text field does not', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
+		const dock = document.querySelector<HTMLElement>('[data-settings-dock]');
+		expect(dock).not.toBeNull();
+		// A text field inside the pane keeps Esc for itself.
+		const field = dock?.querySelector<HTMLInputElement>('input[type="text"], input[type="search"], input:not([type])');
+		if (field) {
+			field.focus();
+			await user.keyboard('{Escape}');
+			expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveAttribute('aria-pressed', 'true');
+		}
+		const btn = dock?.querySelector<HTMLElement>('button');
+		expect(btn).toBeTruthy();
+		await user.unhover(screen.getByRole('button', { name: 'Deck scope' }));
+		btn?.focus();
+		// Esc closes the innermost open layer first: a tooltip the pointer or focus left open (a Radix
+		// DismissableLayer) takes a press before the pane does. So the pane closes within two presses,
+		// and the first press never leaves the pane half-closed.
+		await user.keyboard('{Escape}');
+		if (screen.getByRole('button', { name: 'Deck scope' }).getAttribute('aria-pressed') === 'true') await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Deck scope' })).toHaveAttribute('aria-pressed', 'false'));
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Deck scope' })));
 	});
 
 	it('carries persistent group labels + captions so the icons are self-evident (not hover-only)', () => {

@@ -134,8 +134,9 @@ export function LensesPanel({
 	onRemoveLens: (lens: LensDef) => void;
 	/** Optionally hoist the "add a reader view" trigger to the HOST, so it can sit in the
 	 *  panel header beside the close — where every other panel's actions live (the Library's
-	 *  import is the pattern). Uncontrolled when omitted: the docked column keeps its own
-	 *  inline dashed button. */
+	 *  import is the pattern). Every Studio host passes it: the docked column and the sheet
+	 *  both draw the shared header (§3d of 2026-11-15-one-side-pane.md). Uncontrolled when
+	 *  omitted, for a host with no header of its own: the panel draws an inline dashed button. */
 	adding?: boolean;
 	onAddingChange?: (v: boolean) => void;
 }) {
@@ -145,8 +146,8 @@ export function LensesPanel({
 	const taggedIds = React.useMemo(() => taggedLensIds(slides), [slides]);
 	const lenses = registry.lenses.filter((l) => l.id !== 'full');
 	const [expanded, setExpanded] = React.useState<string | null>(null);
-	// Controlled when the host passes `adding` (the sheet, whose header owns the trigger);
-	// uncontrolled otherwise (the docked column, which keeps its inline button).
+	// Controlled when the host passes `adding` (every Studio host, whose header owns the trigger);
+	// uncontrolled otherwise (a host with no header, which gets the inline button).
 	const [addingUncontrolled, setAddingUncontrolled] = React.useState(false);
 	const hostOwnsAdd = onAddingChange !== undefined;
 	const adding = hostOwnsAdd ? !!addingProp : addingUncontrolled;

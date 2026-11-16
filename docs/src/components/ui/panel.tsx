@@ -534,6 +534,19 @@ type PanelNavValue = {
 
 const PanelNavCtx = React.createContext<PanelNavValue>({ back: 'Back' });
 
+/**
+ * A DRILL-IN's way back: set around ONE pane that another pane opened (Chat's "Manage docs" opens
+ * the Library), never around the app. A pointer surface draws it as a "‹ Chat" chip before the
+ * panel's identity; a phone relabels its leading back chevron to the same destination, so the
+ * chevron says where it goes and goes there. The X still closes to the canvas — the chip is the
+ * only way back, and it is visible (engineering/decisions/2026-11-15-one-side-pane.md).
+ */
+type PanelDrillValue = { label: string; onBack: () => void };
+const PanelDrillCtx = React.createContext<PanelDrillValue | null>(null);
+export function PanelDrillBack({ to, children }: { to: PanelDrillValue | null; children: React.ReactNode }) {
+	return <PanelDrillCtx.Provider value={to}>{children}</PanelDrillCtx.Provider>;
+}
+
 /** Declares, for every panel inside, where back goes and what "leave" means. */
 export function PanelNav({ back, onLeave, children }: PanelNavValue & { children: React.ReactNode }) {
 	const value = React.useMemo(() => ({ back, onLeave }), [back, onLeave]);
@@ -584,6 +597,28 @@ export const PanelBack = React.forwardRef<HTMLButtonElement, { label: string; on
 		</>
 	);
 });
+
+/**
+ * A sheet's first focus skips its header's ACTIONS. Radix focuses the first tabbable control on open,
+ * and since every pane wears the shared header (§3d of 2026-11-15-one-side-pane.md) that is a header
+ * action with a tooltip (the Library's search, Reader views' Add). A focus the sheet moves there counts
+ * as a keyboard focus, so its hint popped open over the header on every open, and the first Escape
+ * closed the hint instead of the sheet (found by `library-card-fit.spec.ts` at 820px). Focus goes to the
+ * sheet itself instead (Radix makes it focusable): a screen reader announces its name, Tab reaches the
+ * first control, and nothing pops. Not the first BODY control: in Chat that is the message field, and
+ * focusing it would raise a tablet's keyboard on every open. A phone sheet leads with its back chevron,
+ * which is not an action, so it is unchanged.
+ */
+function skipHeaderActions(e: Event) {
+	const box = e.currentTarget;
+	if (!(box instanceof HTMLElement)) return;
+	const tabbable = [...box.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]')].filter(
+		(el) => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && (el.checkVisibility?.() ?? true),
+	);
+	if (!tabbable[0]?.closest('[data-panel-actions]')) return;
+	e.preventDefault();
+	box.focus({ preventScroll: true });
+}
 
 export function PanelSheet({
 	open,
@@ -672,6 +707,7 @@ export function PanelSheet({
 				// notably the ⋯ menu's pending re-open — is dropped here. Radix fires this
 				// BEFORE the close, so the host's own state settles in the same commit.
 				onInteractOutside={() => nav.onLeave?.()}
+				onOpenAutoFocus={skipHeaderActions}
 				className={cn(
 					'flex w-full flex-col gap-0 p-0',
 					mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width],
@@ -686,9 +722,13 @@ export function PanelSheet({
 }
 
 /** The POINTER dismissal. A phone gets `PanelBack` instead — see PanelHeader. */
-function PanelCloseButton({ label, onClose }: { label: string; onClose?: () => void }) {
+function PanelCloseButton({ label, onClose, collapse }: { label: string; onClose?: () => void; collapse?: React.ReactNode }) {
 	const inSheet = React.useContext(PanelSheetCtx);
-	const btn = (
+	// A DOCKED column collapses toward the side it docks on, in the glyph the caller hands in (the Studio's
+	// `PanelLeftClose` / `PanelRightClose`, the glyph the preview's own collapse uses); a sheet closes, so it
+	// keeps the ✕ (2026-11-15-one-side-pane.md §3d). The glyph is the CALLER's so its icons stay off the
+	// routes that never dock a pane (every route loads this file: the route budget measured them there).
+		const btn = (
 		<button
 			type="button"
 			aria-label={label}
@@ -702,7 +742,7 @@ function PanelCloseButton({ label, onClose }: { label: string; onClose?: () => v
 				'grid size-[30px] shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[color-mix(in_srgb,var(--text-heading)_8%,transparent)] hover:text-[var(--text-heading)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]',
 			)}
 		>
-			<XIcon className="size-[18px]" />
+			{collapse && !inSheet ? collapse : <XIcon className="size-[18px]" />}
 		</button>
 	);
 	// In a Sheet, SheetClose drives Radix's dismiss (focus return, escape parity);
@@ -738,6 +778,7 @@ export function PanelHeader({
 	onClose,
 	showClose = true,
 	closeLabel = 'Close',
+	collapse,
 	border = true,
 	className,
 }: {
@@ -747,34 +788,61 @@ export function PanelHeader({
 	/** Trailing controls placed before the close (import, add, …). */
 	actions?: React.ReactNode;
 	/** Let the actions give up width instead of holding it (`shrink-0`). For a header whose
-	 *  action is a search field — it has to fit a docked column's minimum, not push the
-	 *  trailing button out of the panel. */
+	 *  action can run long (Chat's model chip, the Library's Import label) — it has to fit a
+	 *  docked column's minimum, not push the trailing button out of the panel. */
 	fluidActions?: boolean;
 	/** Docked-column close handler (ignored inside a Sheet — SheetClose owns it). */
 	onClose?: () => void;
 	showClose?: boolean;
 	closeLabel?: string;
+	/** A docked column: the COLLAPSE glyph to draw instead of the ✕ (`<PanelLeftClose />` etc.).
+	 *  Ignored inside a Sheet, which closes. */
+	collapse?: React.ReactNode;
 	border?: boolean;
 	className?: string;
 }) {
 	const inSheet = React.useContext(PanelSheetCtx);
 	const phone = React.useContext(PanelPhoneCtx);
 	const backLabel = React.useContext(PanelNavCtx).back;
+	const drill = React.useContext(PanelDrillCtx);
 	const Title = inSheet ? SheetTitle : 'h2';
 	// On a phone the way out is a LEADING back chevron and there is no X; on a pointer
 	// surface it stays a trailing X. See the transport split at the top of this file.
 	// Inside a Sheet the control is a `SheetClose`, so Radix still owns the dismiss —
 	// focus return and Escape parity are unchanged, only the affordance moved.
-	const back = showClose && phone ? <PanelBack label={backLabel} onBack={inSheet ? undefined : onClose} /> : null;
+	// A drill-in takes the chevron over: it names the pane that sent you here and returns to it
+	// (an `onBack`, so PanelBack does not wrap it in SheetClose and the swap is the only effect).
+	const back = showClose && phone ? <PanelBack label={drill?.label ?? backLabel} onBack={drill ? drill.onBack : inSheet ? undefined : onClose} /> : null;
+	// On a pointer surface the drill-in is a chip of its own: the X keeps its one meaning.
+	const drillChip = drill && !phone ? (
+		<button
+			type="button"
+			onClick={drill.onBack}
+			aria-label={`Back to ${drill.label}`}
+			data-panel-drill-back=""
+			className={cn(
+				'inline-flex h-7 shrink-0 items-center gap-0.5 rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] pr-2.5 pl-1.5 text-[12px] font-semibold text-[var(--accent)] transition-colors',
+				'hover:bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]',
+				// A finger on a tablet gets the app's 44px floor; a mouse keeps the compact chip.
+				'[@media(pointer:coarse)]:min-h-11',
+			)}
+		>
+			<ChevronLeft aria-hidden="true" className="size-3.5" />
+			{drill.label}
+		</button>
+	) : null;
 	// Tighter gap and less left padding when the back control is present — it draws its
 	// own hairline separator, so the default `gap-3` either side of that reads as a gap
 	// twice as wide as anywhere else in the header.
 	// `h-14` — the SAME 56px the StudioDrawer's own nav bar uses, so the two agree
 	// rather than sitting 17px apart as they did.
 	return (
-		<div className={cn('flex h-14 shrink-0 items-center gap-3 px-3.5', back && 'gap-2 pl-2', border && 'border-b border-border', className)}>
+		<div data-panel-header="" className={cn('flex h-14 shrink-0 items-center gap-3 px-3.5', back && 'gap-2 pl-2', border && 'border-b border-border', className)}>
 			{back}
-			{icon ? (
+			{drillChip}
+			{/* The chip stands in for the identity icon: at a dock's 280–320px the two together cut the
+			    title to "Libra…" (measured on the real Studio). The title still names the panel. */}
+			{icon && !drillChip ? (
 				<span className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] [&_svg]:size-[17px]">
 					{icon}
 				</span>
@@ -804,10 +872,10 @@ export function PanelHeader({
 			    a minimum; expressing it as a fixed size made it a ceiling too. Found by the
 			    independent checker. */}
 			{actions ? (
-				<span className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink-[1000]' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
+				<span data-panel-actions="" className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink-[1000]' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
 			) : null}
 			{/* The X is the POINTER affordance now; on a phone `back` above replaced it. */}
-			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} /> : null}
+			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} collapse={collapse} /> : null}
 		</div>
 	);
 }
@@ -985,6 +1053,9 @@ export function PanelSearch({
 		</div>
 	);
 }
+
+
+
 
 /** The box, exported so the command palette can dress cmdk's own wrapper identically
  *  — cmdk owns its input element, so it cannot use `PanelSearch` itself. */

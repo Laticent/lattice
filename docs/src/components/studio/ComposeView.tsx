@@ -1662,8 +1662,8 @@ function startSelection(doc: PMNode, folded?: ReadonlySet<number>): Selection {
 /** A drawn caret at the caret while Compose does not have focus: on a phone the real caret only shows with the keyboard
  *  up, so after a switch from the preview the author could not see where they were (owner, 2026-11-11). It is an OVERLAY,
  *  a sibling of the editable element, never a node inside it: a widget there was taken out on focus, and changing the
- *  editable DOM under a click made Firefox drop where the first click landed. `position: fixed` from the caret's
- *  coordinates, so no ancestor has to be positioned; it lives in the host, so a hidden pane hides it.
+ *  editable DOM under a click made Firefox drop where the first click landed. `position: absolute` in the host (which
+ *  is `position: relative` for it), so it scrolls and clips with the text; it lives in the host, so a hidden pane hides it.
  *  Styled by `.lx-ghost-caret` (styles/tailwind.css). */
 /**
  * THE CARET'S LINE, marked as Source marks it (owner, 2026-11-12: "it would be nice not to have to search for the caret").
@@ -1693,6 +1693,12 @@ function ghostCaretPlugin(): Plugin {
 			el.setAttribute('aria-hidden', 'true');
 			el.style.display = 'none';
 			host?.appendChild(el);
+			// Placed in the HOST's content coordinates (the host is the scroll container and is positioned), never the
+			// viewport's. It was `position: fixed` from viewport coordinates, re-measured only on focus, blur, scroll, window
+			// resize and a state update, so opening or closing a pane, which reflows the column without any of those, left it
+			// standing where the text had been, and nothing clipped it to the editor (owner, 2026-11-15). Inside the host it
+			// scrolls with the text natively, is clipped by the host's overflow, and a ResizeObserver re-measures it whenever
+			// the column's width or the text's flow changes, after layout and before paint, so it never trails a frame.
 			const place = () => {
 				const sel = view.state.selection;
 				if (!host || view.hasFocus() || !(sel instanceof TextSelection) || !sel.empty) {
@@ -1700,14 +1706,14 @@ function ghostCaretPlugin(): Plugin {
 					return;
 				}
 				try {
-					const c = view.coordsAtPos(sel.head);
 					const box = host.getBoundingClientRect();
-					if (!box.height || c.bottom <= box.top || c.top >= box.bottom) {
+					if (!box.height || !box.width) {
 						el.style.display = 'none';
 						return;
 					}
-					el.style.left = `${c.left - 1}px`;
-					el.style.top = `${c.top}px`;
+					const c = view.coordsAtPos(sel.head);
+					el.style.left = `${c.left - box.left + host.scrollLeft - host.clientLeft - 1}px`;
+					el.style.top = `${c.top - box.top + host.scrollTop - host.clientTop}px`;
 					el.style.height = `${Math.max(8, c.bottom - c.top)}px`;
 					el.style.display = 'block';
 				} catch {
@@ -1717,16 +1723,20 @@ function ghostCaretPlugin(): Plugin {
 			const later = () => requestAnimationFrame(place);
 			view.dom.addEventListener('focus', place);
 			view.dom.addEventListener('blur', later);
-			host?.addEventListener('scroll', place, { passive: true });
-			window.addEventListener('resize', later);
+			const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+			if (host) ro?.observe(host);
+			ro?.observe(view.dom);
+			// A web font arriving re-flows the text without changing the editor's box in every case, so it re-measures too.
+			const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+			fonts?.addEventListener?.('loadingdone', place);
 			later();
 			return {
 				update: place,
 				destroy() {
 					view.dom.removeEventListener('focus', place);
 					view.dom.removeEventListener('blur', later);
-					host?.removeEventListener('scroll', place);
-					window.removeEventListener('resize', later);
+					ro?.disconnect();
+					fonts?.removeEventListener?.('loadingdone', place);
 					el.remove();
 				},
 			};
@@ -3604,7 +3614,7 @@ function ComposeStyles() {
 			.cs-frame{display:flex;height:100%;position:relative}
 			${CHANGE_FLASH_CSS}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
-			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
+			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size;position:relative}
 			/* The bottom give — the Compose twin of the markdown editor's scrollPastEnd
 			   (#1290). 72px was barely four lines, so the last slide sat jammed against the
 			   pane edge exactly where authors do most of their work. A viewport-proportional

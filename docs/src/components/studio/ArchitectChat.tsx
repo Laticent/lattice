@@ -316,7 +316,7 @@ export function __clearPendingNotices() {
 	publishNotices();
 }
 
-export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onAutoApply, liveSession, onCreateDeck, onConnect, onManageDocs, onBusyChange, onShareTurn }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; /** Auto's apply: saves the History checkpoint FIRST and resolves false (applying nothing) when it cannot, or when the deck moved meanwhile. Absent → Auto behaves as Review. */ onAutoApply?: (next: string) => Promise<boolean>; /** A live session is open: Auto behaves as Review, so no AI edit reaches the room without a press. */ liveSession?: boolean; /** Create and open a deck the author confirmed from a chat card; returns its id, or null when it was not created. */ onCreateDeck?: (title: string, markdown: string) => string | null; onConnect: () => void; onManageDocs?: () => void; /** Live: whether a turn is in flight, so the room can see "asking the AI" (never what is asked). */ onBusyChange?: (busy: boolean) => void; /** Live: share one finished turn with the session as a card. Absent outside a session. */ onShareTurn?: ((turn: { ask: string; answer: string }) => void) | null }) {
+export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, onApply, onAutoApply, liveSession, onCreateDeck, onConnect, onManageDocs, onBusyChange, onShareTurn }: { costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; /** Auto's apply: saves the History checkpoint FIRST and resolves false (applying nothing) when it cannot, or when the deck moved meanwhile. Absent → Auto behaves as Review. */ onAutoApply?: (next: string) => Promise<boolean>; /** A live session is open: Auto behaves as Review, so no AI edit reaches the room without a press. */ liveSession?: boolean; /** Create and open a deck the author confirmed from a chat card; returns its id, or null when it was not created. */ onCreateDeck?: (title: string, markdown: string) => string | null; onConnect: () => void; onManageDocs?: () => void; /** Live: whether a turn is in flight, so the room can see "asking the AI" (never what is asked). */ onBusyChange?: (busy: boolean) => void; /** Live: share one finished turn with the session as a card. Absent outside a session. */ onShareTurn?: ((turn: { ask: string; answer: string }) => void) | null }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	// The deck whose stored thread `messages` was loaded from (chat-store.ts reads IndexedDB after the
 	// first render). Until it is this deck, nothing is saved and nothing is sent: the thread on screen
@@ -988,26 +988,16 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			{/* HEADER — the panel title and the money, on ONE row. The cost readout used to own
-			    a full-width strip between the transcript and the composer: a whole line of the
-			    narrowest panel in the app, spent on two short numbers, while this row sat half
-			    empty.
-
-			    A host with its OWN header (the mobile PanelSheet) passes `costSlot` instead of a
-			    title, and the readout is portalled into that header's actions area — otherwise
-			    the strip just reappears one row lower, which is the same waste on the surface
-			    with the least room. A portal rather than props because the two facts the price
-			    needs — the attached reference docs and whether this thread is already warm — are
-			    chat state, and hoisting them to a shell that renders the header would be a much
-			    larger change than moving one element. */}
-			{title ? (
-				<div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-					<span>{title}</span>
-					{costReadout}
-				</div>
-			) : costSlot ? (
-				createPortal(costReadout, costSlot)
-			) : null}
+			{/* The cost readout lives in the HOST's header, never in a row of its own. It used to own a
+			    full-width strip between the transcript and the composer: a whole line of the narrowest
+			    panel in the app, spent on two short numbers. Every host now draws the shared PanelHeader
+			    (the phone sheet, the tablet sheet, the docked column since §3d of
+			    2026-11-15-one-side-pane.md) and passes `costSlot`, an element in that header's actions,
+			    and the readout is portaled into it. A portal rather than props because the two facts the
+			    price needs (the attached reference docs, and whether this thread is already warm) are
+			    chat state, and hoisting them to the host would be a much larger change than moving one
+			    element. */}
+			{costSlot ? createPortal(costReadout, costSlot) : null}
 			<div ref={scrollRef} onScroll={onTranscriptScroll} className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
 				{/* ONE POOL FOR THE TRANSCRIPT. Figures in replies are tiles in it, so a long conversation
 				    holds a handful of live frames however many figures it has (the bake-off decision). */}

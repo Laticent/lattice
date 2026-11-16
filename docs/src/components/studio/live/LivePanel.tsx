@@ -535,8 +535,8 @@ function CallControls({ view, actions }: { view: LiveView; actions: LiveActions 
 
 /**
  * The session menu: the clock, then copy, bring everyone, and leave or end. One menu on every
- * size: in the panel's title bar on a wide screen, in the sheet's header on a phone (where the
- * panel has no title bar of its own). Leaving and ending each ask first: one stray tap would
+ * size, portaled into the host's header (the docked column's and the sheets' shared PanelHeader;
+ * the panel draws no title bar of its own). Leaving and ending each ask first: one stray tap would
  * otherwise drop you out of the session, or end it for everyone.
  */
 function SessionMenu({ view, actions, now }: { view: LiveView; actions: LiveActions; now: number }) {
@@ -869,7 +869,7 @@ function LivePopoverContent(props: React.ComponentProps<typeof PopoverContent>) 
 	return <PopoverContent container={dialog} {...props} />;
 }
 
-export function LivePanel({ view, actions, title, now, defaultName = '', headerSlot }: { view: LiveView; actions: LiveActions; title?: string; now: number; defaultName?: string; headerSlot?: HTMLElement | null }) {
+export function LivePanel({ view, actions, now, defaultName = '', headerSlot }: { view: LiveView; actions: LiveActions; now: number; defaultName?: string; headerSlot?: HTMLElement | null }) {
 	const chatEnd = React.useRef<HTMLLIElement>(null);
 	const chatCount = view.chat.length;
 	React.useEffect(() => {
@@ -881,18 +881,7 @@ export function LivePanel({ view, actions, title, now, defaultName = '', headerS
 	return (
 		<LiveRoot.Provider value={root}>
 		<div ref={setRoot} className="group/live @container/live flex min-h-0 flex-1 flex-col" data-live-panel>
-			{title && (
-				<div className="flex items-center gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-					<span>{title}</span>
-					{live && (
-						<>
-							<span className="flex-1" />
-							<SessionMenu view={view} actions={actions} now={now} />
-						</>
-					)}
-				</div>
-			)}
-			{!title && live && headerSlot && createPortal(<SessionMenu view={view} actions={actions} now={now} />, headerSlot)}
+			{live && headerSlot && createPortal(<SessionMenu view={view} actions={actions} now={now} />, headerSlot)}
 			{!live ? (
 				<StartCard actions={actions} defaultName={defaultName} />
 			) : (
