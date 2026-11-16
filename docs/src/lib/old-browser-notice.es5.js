@@ -355,7 +355,7 @@
 		} else {
 			// A browser we can't name: the advice points to the supported list, which sits collapsed in the footer like the
 			// technical details, one click away and never on another page.
-			body.appendChild(el('p', 'lob-note', "We couldn't tell which browser this is. Lattice works in current versions of Chrome, Edge, Firefox and Safari; \"Supported browsers\" below lists them."));
+			body.appendChild(el('p', 'lob-note', "We couldn't tell which browser this is. Lattice works in current versions of Chrome, Edge, Firefox and Safari. On your own device, install or update one of them; Supported browsers below lists the versions."));
 		}
 		var actions;
 		if (said ? !!said.link : false) {
@@ -365,10 +365,11 @@
 			actions.appendChild(newTabLink('lob-primary', said.linkText, said.link));
 			body.appendChild(actions);
 		}
-		// Every reader who can't update gets one way forward that respects their organization: the IT team. Never another
-		// device or a browser of their own choosing (the owner's infosec rule; browser-floor.ts). Old Windows says it in its note.
+		// Every reader who can't update gets a way forward that respects their organization: on a work device, the IT team
+		// (never a way around them); on their own, the browsers that work. Never another device (the owner's infosec rule;
+		// browser-floor.ts). Old Windows says both in its note.
 		if (!oldWindows) {
-			body.appendChild(el('p', 'lob-cant', "Can't update? If this is a work device, your IT team manages updates: ask them."));
+			body.appendChild(el('p', 'lob-cant', "Can't update? On a work device, your IT team manages updates: ask them. On your own device, any browser under Supported browsers works."));
 		}
 		card.appendChild(body);
 

@@ -23,5 +23,5 @@
 - The notice looks like the rest of the site: the site's top bar, its flat background, its card and button styles, with
   no color jump as it appears.
 - The notice is written for readers who aren't technical: what each missing capability does in plain words, a way
-  forward for anyone who can't update (their IT team; never another device or a browser IT didn't approve), and corrected steps for Macs,
+  forward for anyone who can't update (on a work device, their IT team; on their own, the browsers that work), and corrected steps for Macs,
   older iPhones and Android phones.

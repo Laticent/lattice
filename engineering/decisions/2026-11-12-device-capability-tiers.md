@@ -510,11 +510,15 @@ versions and how to update, and it looks like the site, not like an error page.
     around what is on it"), its technical name small beside it, and its state as a word, Missing or Supported. The
     pass found that a reader who CAN'T update had no way forward. Its first fix told them to open the site on another
     device; **the owner struck that, for their infosec team: telling someone on a managed work laptop to use their phone or
-    home computer, or to install a browser of their choosing, steers them around their organization's controls.** The
-    rule now (header of `browser-floor.ts`, and a unit test across six kinds of reader): a reader who can't update is sent
-    to their IT team, or told plainly the device can't run Lattice, never anywhere else. One line for everyone: "Can't
-    update? If this is a work device, your IT team manages updates: ask them." The old Edge updates through Windows
-    Update, which IT controls, not a download.
+    home computer, or to install a browser of their choosing, steers them around their organization's controls.** A first fix
+    sent every reader who could not update to IT or called the device too old, which the owner then judged too
+    extreme: still actionable, just never what infosec would object to. The rule now (header of `browser-floor.ts`,
+    and a unit test across six kinds of reader): every fallback speaks to two readers. On a work device, ask the IT
+    team, and nothing that works around them. On the reader's own device, the real options, which may include
+    installing a supported browser. Never moving to another device. The test fails on any mention of another device,
+    on a reader with no "On a work …" sentence pointing to IT, and on an offer to install a browser outside a sentence
+    addressed to the reader's own device. Example: "Can't update? On a work device, your IT team manages updates: ask
+    them. On your own device, any browser under Supported browsers works."
     - the Mac steps named System Settings first, though any Mac on Safari 15 or older has System Preferences;
     - the iPhone and Android steps dead-ended on devices too old to update (each now says what to do then);
     - old Windows sat under a heading promising an update that cannot happen; it now reads "What you can do", says

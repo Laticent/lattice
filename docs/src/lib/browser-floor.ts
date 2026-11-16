@@ -9,9 +9,10 @@
 //
 // Every link was checked to resolve to the page its label names on 2026-11-15. The steps use words, not arrows (#29).
 //
-// When a reader cannot update, the notice says so plainly or sends them to their IT team. It never tells them to use
-// another device or to install a browser of their choosing: on a managed work machine that steers people around their
-// organization's security controls (the owner's infosec rule, 2026-11-16).
+// When a reader cannot update, every fallback speaks to two readers. On a WORK device: ask the IT team, and nothing
+// that works around them (another device, a browser IT did not install). On the reader's OWN device: the actionable
+// options, which may include installing a supported browser. The notice never suggests moving to another device. (The
+// owner's infosec rule, 2026-11-16: avoid what infosec would object to, but stay actionable.)
 
 export interface BrowserFloor {
 	/** What the notice's ES5 user-agent reader calls this browser (old-browser-notice.es5.js). */
@@ -35,7 +36,7 @@ export interface BrowserFloor {
 }
 
 /** What to do when an Android app store offers no update: the phone itself is too old for a current browser. */
-const ANDROID_AFTER = "If there's no Update button, this phone is too old to run Lattice. If it's a work phone, ask your IT team.";
+const ANDROID_AFTER = "No Update button? On a work phone, ask your IT team. On your own phone, any browser under Supported browsers that installs from the Play Store works too.";
 
 export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 	{
@@ -63,7 +64,7 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		min: '111',
 		note: 'This is the old Edge, which Microsoft stopped updating in 2021. Windows Update replaces it with the new Edge.',
 		steps: ['Open Settings, then Update & Security, then Windows Update.', 'Install the updates it offers.', 'Open this page again in the new Edge.'],
-		after: "If this is a work computer, your IT team manages its updates: ask them.",
+		after: "On a work computer, your IT team manages updates: ask them. On your own computer, you can also install the new Edge from microsoft.com/edge.",
 		link: 'https://support.microsoft.com/windows/update-windows-3c5ae7fc-9fb6-9af1-1984-b5e0412c556a',
 		linkText: 'How to install Windows updates',
 	},
@@ -85,7 +86,7 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 			'Choose System Settings, then General, then Software Update. On older Macs, choose System Preferences, then Software Update.',
 			'Install the update, then open this page again.',
 		],
-		after: "If your Mac can't install the update, ask whoever manages it, such as your IT team.",
+		after: "Can't install it? On a work Mac, ask your IT team. On your own Mac, a current Chrome or Firefox may still install on it.",
 		link: 'https://support.apple.com/en-us/102665',
 	},
 	{
@@ -94,7 +95,7 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 		min: '16.4',
 		note: 'Every browser on an iPhone or iPad is built on Safari, so updating the iPhone or iPad updates all of them.',
 		steps: ['Open Settings.', 'Choose General, then Software Update.', 'Install iOS 16.4 or later.'],
-		after: "Older iPhones and iPads can't install iOS 16.4. If yours doesn't offer it, it's too old to run Lattice. If it's a work device, ask your IT team.",
+		after: "Not offered? On a work iPhone or iPad, ask your IT team. On your own, it's too old for iOS 16.4, which needs an iPhone 8 or later.",
 		link: 'https://support.apple.com/en-us/118575',
 	},
 	{
@@ -118,7 +119,7 @@ export const BROWSER_FLOOR: readonly BrowserFloor[] = [
 /** Windows 7 and 8 can no longer run any browser at the floor: Chrome and Edge stopped at 109 there, Firefox at 115. */
 export const OLD_WINDOWS = {
 	need: 'Windows 10 or later',
-	note: "Windows 7 and 8 can't run a browser new enough for Lattice, because Chrome, Edge and Firefox all stopped updating there. If this is a work computer, ask your IT team about upgrading it.",
+	note: "Windows 7 and 8 can't run a browser new enough for Lattice, because Chrome, Edge and Firefox all stopped updating there. On a work computer, ask your IT team about upgrading. On your own computer, upgrading to Windows 10 or later fixes it.",
 	// No button: Microsoft's "support ended" page gives the reader nothing they can do.
 };
 
