@@ -40,6 +40,11 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko a pinned decline covers th
 
 	// The rest of the session stays past the screen: a reload keeps Lite and the banner.
 	await page.reload({ waitUntil: 'domcontentloaded' });
+	// The banner comes from the gate, and the gate starts with the Studio island (StudioIsland.tsx), which a reload boots
+	// cold. Wait for the gate's own signal first, the tier it sets on <html>, on the same cold-boot allowance the other
+	// Studio waits in these specs use; then the banner, which follows it at once. Red once on webkit-phone at the default
+	// 15 s under a full parallel run, when the boot itself took longer (PR 3216).
+	await expect.poll(() => tier(page), { timeout: 60_000, message: 'the Studio gate never ran after the reload' }).toBe('lite');
 	await expect(page.locator(BANNER)).toBeVisible();
 	expect(await tier(page)).toBe('lite');
 	await expect(page.locator(SCREEN)).toHaveCount(0);

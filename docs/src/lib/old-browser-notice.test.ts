@@ -494,23 +494,6 @@ describe('on the Studio and the Playground', () => {
 		expect(lead).not.toContain('the app you use');
 	});
 
-	it('?lob-debug prints the colors this engine computed, and nothing appears without it', () => {
-		expect(run('SomeBrowser/1.0').querySelector('[data-testid="lob-trace"]')).toBeNull();
-		document.body.innerHTML = '';
-		history.replaceState(null, '', '/?lob-debug');
-		// The trace reads again at +50 ms and +600 ms: on fake timers, run inside this test, so no reading outlives it.
-		vi.useFakeTimers();
-		try {
-			const trace = run('SomeBrowser/1.0').querySelector('[data-testid="lob-trace"]');
-			expect(trace?.textContent).toMatch(/^hider none\nshow,\d+,html .*, body .*, veil /);
-			vi.runAllTimers();
-			expect(trace?.textContent).toMatch(/\nshow\+600ms,\d+,html /);
-		} finally {
-			vi.useRealTimers();
-			history.replaceState(null, '', '/');
-		}
-	});
-
 	it('Continue anyway also marks the page, for a tab whose storage throws', () => {
 		const screen = run('SomeBrowser/1.0');
 		screen.querySelector<HTMLButtonElement>('.lob-go')?.click();

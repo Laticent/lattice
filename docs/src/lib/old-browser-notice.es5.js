@@ -284,134 +284,6 @@
 		return wrap;
 	}
 
-	// `?lob-debug`: the colors this engine computes as the notice takes over, shown in the card so a reader on a browser we
-	// can't run (legacy Edge) can send a screenshot. It reads, and saves its own readings at pagehide for the next load.
-	function traceColors(card, veil, hiderText) {
-		var root = document.documentElement;
-		var trace = [['hider ' + (hiderText || 'none')]];
-		var out = el('pre');
-		out.setAttribute('data-testid', 'lob-trace');
-		out.style.cssText = 'font:11px/1.4 monospace;white-space:pre-wrap;padding:8px 0 0;margin:0';
-		card.appendChild(out);
-		function colors() {
-			return 'html ' + getComputedStyle(root).backgroundColor + ', body ' + getComputedStyle(document.body).backgroundColor + ', veil ' + getComputedStyle(veil).backgroundColor;
-		}
-		function walk(list, within) {
-			var i;
-			var r;
-			var text;
-			var hit;
-			for (i = 0; i < list.length; i++) {
-				r = list[i];
-				try {
-					if (r.cssRules && !r.selectorText) {
-						walk(r.cssRules, within + (r.conditionText || (r.media && r.media.mediaText) || '') + ' > ');
-						continue;
-					}
-					if (!r.selectorText || !r.style) continue;
-					text = r.style.cssText;
-					if (!/background|accent|tap-highlight|caret|scrollbar/i.test(text)) continue;
-					hit = root.matches ? root.matches(r.selectorText) : root.msMatchesSelector(r.selectorText);
-					if (hit) trace.push(['rule on html: ' + within + r.selectorText.slice(0, 80) + ' { ' + text.slice(0, 200) + ' }']);
-				} catch (_e) {}
-			}
-		}
-		function htmlBg() {
-			return getComputedStyle(root).backgroundColor;
-		}
-		function rulesThatMatter(list, path) {
-			var i;
-			var r;
-			var text;
-			var owner;
-			var after;
-			var base = htmlBg();
-			for (i = 0; i < list.length; i++) {
-				r = list[i];
-				text = r.cssText;
-				owner = r.parentRule || r.parentStyleSheet;
-				try {
-					owner.deleteRule(i);
-				} catch (_e) {
-					continue;
-				}
-				after = htmlBg();
-				try {
-					owner.insertRule(text, i);
-				} catch (_e) {
-					trace.push(['could not restore rule ' + path + i]);
-				}
-				if (after !== base) {
-					trace.push(['without rule ' + path + i + ' html is ' + after + ': ' + text.slice(0, 240)]);
-					if (list[i] && list[i].cssRules) rulesThatMatter(list[i].cssRules, path + i + '.');
-				}
-			}
-		}
-		function bisect() {
-			var s;
-			var sheet;
-			var off;
-			var base = htmlBg();
-			trace.push(['bisect from ' + base]);
-			for (s = 0; s < document.styleSheets.length; s++) {
-				sheet = document.styleSheets[s];
-				sheet.disabled = true;
-				off = htmlBg();
-				sheet.disabled = false;
-				if (off !== base) {
-					trace.push(['sheet ' + s + ' (' + (sheet.href || 'inline ' + (sheet.ownerNode && sheet.ownerNode.id)) + ') off: html is ' + off]);
-					try {
-						rulesThatMatter(sheet.cssRules, s + ':');
-					} catch (_e) {
-						trace.push(['cannot read sheet ' + s]);
-					}
-				}
-			}
-		}
-		function sample(label) {
-			var cs = getComputedStyle(root);
-			trace.push([label, Date.now(), colors(), '--bg ' + cs.getPropertyValue('--bg') + ' --accent ' + cs.getPropertyValue('--accent')]);
-			out.textContent = trace.join('\n');
-		}
-		try {
-			if (sessionStorage.getItem('lob-trace-prev')) trace.push(['previous page, at pagehide: ' + sessionStorage.getItem('lob-trace-prev')]);
-		} catch (_e) {}
-		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
-		window.addEventListener('pagehide', function () {
-			try {
-				sessionStorage.setItem('lob-trace-prev', colors());
-			} catch (_e) {}
-		});
-		sample('show');
-		// <html>'s own background with the hider out for an instant (taken out and put back in one task, so nothing paints
-		// between): the hider's !important masks it, and before the hider runs it is what the window shows.
-		var hider = document.getElementById('lattice-old-browser-veil');
-		var parent = hider && hider.parentNode;
-		var next = hider && hider.nextSibling;
-		if (hider) {
-			parent.removeChild(hider);
-			trace.push(['html without the hider: ' + getComputedStyle(root).backgroundColor]);
-			parent.insertBefore(hider, next);
-		}
-		// Every rule this engine parsed that applies to <html> and names a background or the accent, as the engine
-		// serializes it, inside whatever @media or @supports holds it.
-		walk(document.styleSheets, '');
-		// Then find what paints it by taking things away, the hider out for the whole search: each stylesheet off in turn,
-		// then each rule of a sheet that matters deleted and put back. Everything is restored as it goes.
-		if (hider) parent.removeChild(hider);
-		bisect();
-		if (hider) parent.insertBefore(hider, next);
-		out.textContent = trace.join('\n');
-		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
-		setTimeout(function () {
-			sample('show+50ms');
-		}, 50);
-		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
-		setTimeout(function () {
-			sample('show+600ms');
-		}, 600);
-	}
-
 	function show() {
 		if (document.getElementById(ID)) return;
 		var root = document.documentElement;
@@ -642,15 +514,11 @@
 		// Its own rule hides the page from now on, so the hider keeps only its literal <html> background, until Continue
 		// anyway: legacy Edge otherwise painted <html> in the accent, and a refresh flashed the window mustard.
 		var pageHider = document.getElementById('lattice-old-browser-veil');
-		var hiderText = pageHider ? pageHider.textContent : '';
-		if (pageHider) pageHider.textContent = hiderText.replace('body{visibility:hidden}', '');
+		if (pageHider) pageHider.textContent = pageHider.textContent.replace('body{visibility:hidden}', '');
 		// A notice that arrived after the head check gave up on it (8 s, old-browser-check.es5.js) takes the page back: the
 		// mark returns from "failed", so the Studio's gate takes its own screen down rather than stacking one on this.
 		if (root.getAttribute('data-old-browser') === 'failed') root.setAttribute('data-old-browser', '');
 		title.focus();
-		// `?lob-debug`: the colors this engine computes as the notice takes over,
-		// shown in the card so a reader on a browser we can't run can send a screenshot. Reads only.
-		if (/[?&]lob-debug/.test(location.search)) traceColors(card, veil, hiderText);
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		setTimeout(function () {
 			screen.className = 'lob-in';

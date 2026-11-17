@@ -511,9 +511,9 @@ versions and how to update, and it looks like the site, not like an error page.
     Ctrl+F5 alike; never on a first visit).** That is the `<head>` check's own background, the only thing painting the
     window then. It painted `var(--bg,Canvas)`; it now reads `--bg` once and paints the literal hex (white or near-black
     by mode when none is readable), leaving legacy Edge no variable or `Canvas` keyword to resolve. Not reproducible
-    in Chromium 101 or Firefox 115, so `?lob-debug` on any page makes the notice print what the engine computed: the
+    in Chromium 101 or Firefox 115, so a temporary `?lob-debug` mode made the notice print what the engine computed: the
     hider rule, the html, body and veil backgrounds at show, +50 ms and +600 ms, and the same three saved at the previous
-    page's `pagehide`, for a screenshot from the engine we cannot run. Reads only; off without the flag.
+    page's `pagehide`, for a screenshot from the engine we cannot run.
   - **The cause, found in Edge 15 itself: `::selection { background: var(--accent) }`.** The owner's `?lob-debug`
     traces read `<html>`'s background as `rgb(122, 90, 16)`, cuoio's `--accent`, with no rule on `<html>` setting a
     background. A first guess blamed the `:root` widget colors (`accent-color`, `caret-color`, the tap tint) and put
@@ -528,6 +528,8 @@ versions and how to update, and it looks like the site, not like an error page.
     hider does, rather than copying `<body>`'s color (which on docs pages was the accent). The widget-color guards are
     undone, since they rested on the wrong guess; the tap tint stays behind `color-mix()`, since a full-accent tap
     flash is wrong in any engine. This is probably also the "solid brown selection" the owner met first in Edge 15.
+    The `?lob-debug` mode was removed before merge at the owner's ask ("ship it after cleaning up"); it lives in this
+    PR's history (`14ef8ce`, `722a614`) if an engine we cannot run ever needs the same search again.
   - **No color shift on the handoff (owner).** The page-hider paints `html` in `--bg`, the color the notice's veil
     starts in, and the veil and glow fade in with the card (0.5 s) instead of arriving in one frame. Real Chromium 101,
     transitions paused with `getAnimations()` at 0/250/500 ms: the notice's first frame equals the hidden page (light
