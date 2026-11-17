@@ -5,7 +5,7 @@ recorded: 2026-11-17
 area: website
 severity: medium
 swimlane: engineering/gotchas/export.md
-deferred: off-path — found while proving PR 3272's export bytes unchanged; the export path is not touched by that PR, and the race is on main
+deferred: off-path — found while proving PR 3272's export bytes unchanged; that PR edits the export files but leaves every export on main's code path (the camera option it adds is unset for exports), and the race is on main
 source: https://github.com/Laticent/lattice/pull/3272
 ---
 
