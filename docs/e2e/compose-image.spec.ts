@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { addLibraryPhoto, insertVia, openDeckInCompose, savedDeck } from './compose-insert';
-import { CHROME, expect, gotoStudio, livePreview, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, livePreview, studioUndo, test } from './studio-fixture';
 
 /**
  * COMPOSE — images: drawn, chosen from the Library by looking, and edited in a panel.
@@ -166,7 +166,7 @@ test.describe('compose images', () => {
 		await panel(page).getByRole('button', { name: /Remove/ }).click();
 		await expect(panel(page)).toHaveCount(0);
 		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('![A harbor at dawn](asset:harbor)\n\n', ''));
-		await page.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
+		await studioUndo(page).click();
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 

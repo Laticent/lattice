@@ -928,10 +928,10 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/);
 	});
 
-	// The toast's Undo, not the top bar's touch-first pair: jsdom applies no CSS, so that `hidden` pair is in its tree.
+	// The toast's Undo, found inside the toast: the edit bar has its own Undo (it acts on the deck's history, not this change).
 	const toastUndo = () => {
-		const b = screen.queryAllByRole('button', { name: 'Undo' }).find((e) => !e.className.includes('pointer:coarse'));
-		return b ?? undefined;
+		const b = [...document.querySelectorAll('[data-sonner-toast] button')].find((e) => e.textContent === 'Undo');
+		return (b as HTMLElement | undefined) ?? undefined;
 	};
 	const findToastUndo = () =>
 		waitFor(() => {

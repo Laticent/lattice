@@ -36,6 +36,25 @@
     "statement",
     "mirror"
   ],
+  "variantAxes": [
+    {
+      "label": "Composition",
+      "exclusive": true,
+      "members": [
+        "clean",
+        "split",
+        "spotlight",
+        "gallery",
+        "statement"
+      ]
+    },
+    {
+      "label": "Side",
+      "members": [
+        "mirror"
+      ]
+    }
+  ],
   "slots": {
     "heading": {
       "selector": "h2",

@@ -95,6 +95,28 @@ describe('inlineSiblingLeaves', () => {
 		expect(isRemoteUrl('sample:photo-pano.jpg')).toBe(false);
 		expect(isRemoteUrl('blob:x')).toBe(true);
 	});
+	it('inlines a sibling whose one require is an ESM sibling, hoisting that import to the outer module', () => {
+		// resolve-spectrum.js requires front-matter-key.js, which reads its keys from front-matter-keys.mjs.
+		const dir = path.join(REPO, 'lib', 'core');
+		const imports: string[] = [];
+		const { body } = hoistEsmSiblings(fs.readFileSync(path.join(dir, 'resolve-spectrum.js'), 'utf8'));
+		const inlined = inlineSiblingLeaves(body, dir, imports);
+		expect(inlined).not.toBeNull();
+		expect(inlined).not.toMatch(/\brequire\s*\(/);
+		expect(imports.join('\n')).toBe("import * as __latticeEsm_front_matter_key_0_0 from './front-matter-keys.mjs';");
+		const out = viteCjsLibDev(REPO).load(path.join(dir, 'resolve-spectrum.js'));
+		expect(out).toContain("import * as __latticeEsm_front_matter_key_0_0 from './front-matter-keys.mjs';");
+		expect(out).toContain("import * as __latticeEsm0 from './front-matter-fence.mjs';");
+	});
+	it('gives each inlined copy of a sibling its own import name', () => {
+		const dir = path.join(REPO, 'lib', 'core');
+		const imports: string[] = [];
+		const inlined = inlineSiblingLeaves("const a = require('./front-matter-key');\nconst b = require('./front-matter-key');\nmodule.exports = { a, b };", dir, imports);
+		expect(inlined).not.toBeNull();
+		const names = imports.join('\n').match(/__latticeEsm_\w+/g) ?? [];
+		expect(names).toHaveLength(2);
+		expect(new Set(names).size).toBe(2);
+	});
 	it('refuses a require that is not a require-free sibling leaf', () => {
 		const dir = path.join(REPO, 'lib', 'core');
 		expect(inlineSiblingLeaves("const a = require('./bg-image');\nmodule.exports = { a };", dir)).toBeNull(); // sibling has its own requires

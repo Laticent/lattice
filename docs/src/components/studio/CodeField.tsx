@@ -159,7 +159,7 @@ export function CodeField({
 	if (failed) {
 		return (
 			<textarea
-				className={cn('resize-none p-2.5 font-mono text-[12px] leading-relaxed text-foreground outline-none', className)}
+				className={cn('resize-none p-2.5 font-mono [font-variant-ligatures:none] text-[12px] leading-relaxed text-foreground outline-none', className)}
 				style={{ background: 'var(--bg)' }}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}

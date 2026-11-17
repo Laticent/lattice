@@ -88,6 +88,10 @@ export function editorChrome({ fontSize, padding, lineHeight, gutterDivider = fa
 			lineHeight,
 			// See "THE CARET IS --text-body" above before changing this.
 			caretColor: 'var(--text-body)',
+			// The text an author reads is the text in the file: the mono font's ligatures drew `<!--` as an arrow
+			// and `-->` as a long arrow in both editors' bodies. The autocomplete menu turned them off for the same
+			// reason; this is the body's half, set here once so the Studio and the Playground cannot differ.
+			fontVariantLigatures: 'none',
 		},
 		'.cm-gutters': {
 			backgroundColor: 'var(--bg)',

@@ -45,6 +45,18 @@
     "margin",
     "triptych"
   ],
+  "variantAxes": [
+    {
+      "label": "Layout",
+      "exclusive": true,
+      "members": [
+        "pull-quote",
+        "split",
+        "margin",
+        "triptych"
+      ]
+    }
+  ],
   "slots": {
     "heading": {
       "selector": "h2",

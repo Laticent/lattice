@@ -44,11 +44,22 @@ async function openWithModel(page: Page, deck: string): Promise<void> {
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
 	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
+	// Compose's start-up passes are done (the kernels are in and the first object pass has run, ComposeView): no later
+	// transaction of its own moves the caret, so a selection made from here on stays where the test put it.
+	await expect(page.locator('#studio-pane-editor .cs-host[data-compose-kernels]')).toBeAttached();
 }
 
-/** Select `text` inside the first text node of `block` that holds it, through the DOM selection ProseMirror reads. */
+/** Select `text` inside the first text node of `block` that holds it, the way ProseMirror reads a selection.
+ *
+ *  A person selects with the mouse or the keyboard, which ProseMirror handles itself. This test sets the DOM selection
+ *  instead, and ProseMirror learns of that only from the browser's `selectionchange` event, which the browser queues and
+ *  sends when it gets to it. Until ProseMirror has read it, the editor holds no selection and Refine is not offered. On a
+ *  loaded machine that event can be late, or folded into another one (webkit-tablet, red once in 251, and once in about
+ *  790 runs with four CPU burners). Dispatching `selectionchange` here runs ProseMirror's listener now, so the editor has
+ *  read the selection before this returns. The check after it says which side failed if this ever goes red again: the
+ *  selection gone means something moved it after ProseMirror read it; the selection kept means Refine never followed. */
 async function selectIn(page: Page, block: string, text: string): Promise<void> {
-	await page.locator('#studio-pane-editor .cs-host p', { hasText: block }).first().evaluate(
+	const held = await page.locator('#studio-pane-editor .cs-host p', { hasText: block }).first().evaluate(
 		(p, t) => {
 			const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
 			for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -56,13 +67,15 @@ async function selectIn(page: Page, block: string, text: string): Promise<void> 
 				if (at >= 0) {
 					(p.closest('[contenteditable]') as HTMLElement | null)?.focus();
 					document.getSelection()?.setBaseAndExtent(n, at, n, at + t.length);
-					return;
+					document.dispatchEvent(new Event('selectionchange'));
+					return document.getSelection()?.toString() ?? '';
 				}
 			}
 			throw new Error(`no text node holds "${t}"`);
 		},
 		text,
 	);
+	expect(held, 'the selection survives ProseMirror reading it').toBe(text);
 }
 
 const stored = (page: Page) =>
@@ -103,6 +116,8 @@ test('@crosswidth @gecko @webkit-tablet Refine in Compose is not offered over a 
 		const sel = document.getSelection();
 		sel?.removeAllRanges();
 		sel?.addRange(range);
+		// As in `selectIn`: ProseMirror reads the selection now, not when the browser gets to its queued event.
+		document.dispatchEvent(new Event('selectionchange'));
 	});
 	await expect(page.getByRole('button', { name: 'Refine selection' })).toHaveCount(0);
 });

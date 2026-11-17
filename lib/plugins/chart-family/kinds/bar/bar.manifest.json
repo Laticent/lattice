@@ -60,6 +60,16 @@
     "grouped",
     "diverging"
   ],
+  "variantAxes": [
+    {
+      "label": "Series encoding",
+      "exclusive": true,
+      "members": [
+        "grouped",
+        "diverging"
+      ]
+    }
+  ],
   "variantDecisionRule": [
     {
       "variant": "default",

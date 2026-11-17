@@ -204,7 +204,7 @@ jobs:
       # every sibling uses, pinned by test/unit/tools/nightly-alarm-contract.test.js.
       # `!= 'false'` so a step that died before writing its output still files.
       - name: Open / append WebKit baselines issue
-        if: always() && steps.audit.outputs.failed != 'false'
+        if: always() && steps.audit.outputs.failed != 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

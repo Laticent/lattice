@@ -6,6 +6,46 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-17 — the owner raised one ceiling by hand, for PR 3263: studio eagerJsGz to 618.2 KB
+
+Owner OK 2026-11-17, relayed by the Segno coordinator session: raise studio's eager-JS ceiling by 2 KB more, sized with about 1 KB of margin because two raises sized to a small margin were outgrown by other merges the same day.
+
+Measured by CI's route-budget check: `main` at 438af447 is 613.7 KB (it was 612.1 KB at 74b8d05e; PR 3224, the layout button and find and replace in Compose, added 1.6 KB after the entry below was sized), and PR 3263 at b06ed6df is 616.7 KB, its declared +3068 B over `main`, 0.5 KB past the 616.2 KB ceiling. PR 3256 (Segno P4), still open, adds about 0.6 KB to studio (`slide-boundaries` +563 B, `math.syntax` +46 B). The ceiling rises 631004 -> 633052 (618.2 KB), which leaves about 1.5 KB of room after PR 3263 and about 0.9 KB after both PRs. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 633052 |
+
+### 2026-11-16 — the owner raised one ceiling by hand, for PR 3263: studio eagerJsGz to 616.2 KB
+
+Owner OK 2026-11-16, relayed by the Segno coordinator session: raise studio's eager-JS ceiling by 2 KB in all, raised from the +1 KB first approved (the entry below) after PR 3239 grew the route by 0.8 KB.
+
+Measured by CI's route-budget check: `main` at 4e8b91e7 is 612.0 KB (it was 611.2 KB at 18bb745e, where the entry below was measured; PR 3239 added 0.8 KB), and PR 3263 at 729ca7b8 is 615.0 KB, so the first raise left it 0.2 KB of room. PR 3256 (Segno P4), still open, adds about 0.6 KB to studio (`slide-boundaries` +563 B, `math.syntax` +46 B), which would have gone about 0.4 KB past it. The ceiling rises 629980 -> 631004 (616.2 KB, the original 628956 plus 2048), which leaves about 1.2 KB of room after PR 3263 and about 0.6 KB after both PRs. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 631004 |
+
+### 2026-11-16 — the owner raised one ceiling by hand, for PR 3263: studio eagerJsGz to 615.2 KB
+
+Owner OK 2026-11-16, relayed by the Segno coordinator session: raise studio's eager-JS ceiling by 1 KB, chosen over landing PR 3263 with no margin and over trimming its notes and BOM readers further.
+
+PR 3263 (Segno wave 1) grows studio's eager JS in two parts. Its items 1-3 add 908 B gz, declared in its `docs/route-budget.d/` file: the notes reader on the deck model (`slide-directives` +608), the math-deck splice (`slide-boundaries` +130, `state-facade` +46) and the BOM-aware front-matter reader (`front-matter` +117). Its item 4, the front-matter register grammar, adds about 2.1 KB more: the line and fence parsers Segno generates into `front-matter-keys.mjs` and `front-matter-fence.mjs`, which the Studio's register readers load at start-up. It gave back first, cutting the grammar from +2.7 KB: shared rules in place of six inlined copies of a loop (−696 B), the fence rule kept out of the line parser, one error label, the lint-only block-scalar regex moved to `lib/authoring/front-matter-scans.js`, and smaller drivers. Measured on local builds: `main` at 18bb745e is 611.2 KB, the PR's items 1-3 are 612.1 KB (CI agreed), and with item 4 the route measured 4 B past the old ceiling before a last 6-byte trim, so it sits within a few bytes of it. The ceiling rises 628956 -> 629980 (615.2 KB), which leaves about 1 KB of room after PR 3263. PR 3256 (Segno P4), still open when this was set, adds about 0.6 KB to studio too (`slide-boundaries` +563 B, `math.syntax` +46 B, the same bytes it adds to home). This entry was written against 18bb745e; PR 3239 grew the route by 0.8 KB before it merged, so the room it claimed was gone, and the entry above raises the ceiling again. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 629980 |
+
+### 2026-11-16 — the owner raised one ceiling by hand, for PR 3256: home eagerJsGz to 316.0 KB
+
+Owner OK 2026-11-16, relayed by the Segno coordinator session: raise home's eager-JS ceiling by 1.5 KB, chosen over dropping fixes from PR 3256 to fit and over hunting unrelated bytes in the home page's start-up modules.
+
+PR 3256 (Segno P4, the inline pass) adds 609 B gz to home's eager JS: `slide-boundaries` +563 (the deck model's block parser, which home loads at start-up) and `math.syntax` +46 (the fix that makes math's inline `$` rule linear). All 609 are declared in its `docs/route-budget.d/` file. It gave back first: moving the detail recorder out of the eager bundles cut it from +911 B. Stripping every recording hook from the eager parser would save only 92 B more; the rest is fixes (fence info inside a container, the CJS/ESM line scratch, plugin token tags, the per-slide side walk). Measured with the gate's own `--measure` on a local build, matching CI's 314.8 KB on 22575baf3: `main` at b93e27e measures 321,739 B, and PR 3256 merged onto it 322,348 B, 300 B past the old ceiling. The owner sized the raise while PR 3228 (the front-matter island, about 0.4 KB) was still open; it merged as b93e27e, so both figures above already include it. The ceiling rises 322048 -> 323584 (316.0 KB), which leaves 1,236 B of room after PR 3256. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | eagerJsGz | 291531 | 291531 | +0 | 323584 |
+
 ### 2026-11-16 — the owner raised one ceiling by hand, for PR 3221: studio chartKernelsGz to 261.2 KB
 
 Owner OK 2026-11-16 in the integration-nightly session (#3221): "D5 raise it", chosen over dropping the tiered hub-spoke's page-filling layout and cutting robustness guards to find the last bytes.

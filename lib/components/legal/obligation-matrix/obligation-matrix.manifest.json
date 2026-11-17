@@ -53,6 +53,16 @@
     "pills",
     "lanes"
   ],
+  "variantAxes": [
+    {
+      "label": "Rows",
+      "exclusive": true,
+      "members": [
+        "asymmetric",
+        "lanes"
+      ]
+    }
+  ],
   "slots": {
     "heading": {
       "selector": "h2",

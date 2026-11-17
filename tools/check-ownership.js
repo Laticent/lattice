@@ -8500,11 +8500,11 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   {
     file: 'lib/core/slide-camera.mjs',
     reads: ['text'],
-    sinks: { 'css-url': 2, 'property': 2, 'set-attribute': 3 },
+    sinks: { 'css-url': 2, 'property': 3, 'set-attribute': 3 },
     guards: 0,
     guard: 'none',
     why:
-      'The slide camera rasterizes a clone of a finished slide: it absolutizes addresses the slide ALREADY loads (an `<img src>`, a `url()` in a `<style>`, whose `textContent` is the text it reads) and inlines a live canvas as a data: URL. It reads no slide text into an address and invents none.',
+      'The slide camera rasterizes a clone of a finished slide: it absolutizes addresses the slide ALREADY loads (an `<img src>`, a `url()` in a `<style>`, whose `textContent` is the text it reads) and inlines a live canvas as a data: URL. It reads no slide text into an address and invents none. The third property write is `probeShadowAt2x`\'s `img.src`: a `data:` URL of a fixed SVG written as a literal in the file (the WebKit scaled-shadow probe, engineering/gotchas/export.md), with no slide text in it.',
   },
   {
     file: 'lib/export/html-player.js',
@@ -9007,6 +9007,9 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //                       (`performance.now()`, `Date.now()`, `process.hrtime`) directly, or through a variable or a
 //                       function the same file built from one: `const ratio = best(poisoned) / best(clean)` where
 //                       `poisoned` times a call is caught.
+//                       Also a timing the page measured itself: the `.duration` of a value built from
+//                       `performance.getEntries*()`, a key copied from one (`({ ms: m.duration })`, then `worst.ms`), or
+//                       a value that is one (`entries.map((e) => e.duration)`). An `expect`'s message argument is not read.
 //   unseeded-random F5  `Math.random()`.
 //   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
 //                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
@@ -9034,7 +9037,7 @@ const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
+const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime|getEntries(?:ByType|ByName)?\s*\(/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {
@@ -9138,7 +9141,72 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       if (!durations.has(init) && isDuration(init)) { durations.add(init); grew = true; }
     }
   }
-  const touchesClock = hasDuration;
+  // A User Timing or Resource Timing entry is a timing the page measured itself: `performance.measure(...)` around a call,
+  // read back with `performance.getEntriesByType('measure')`. The census follows a value built from a `getEntries*()`
+  // call (to a fixpoint, as above) and counts an assertion that reads its `.duration`, or a key the file copied from a
+  // `.duration` (`({ ms: m.duration })` then `worst.ms`). Its count, its names and its order are not timings, so
+  // `expect(measures.length)` and `expect(kinds)` stay clean. The §4.3 budget in filo-undo.spec.ts was this shape, red on
+  // WebKit's 1 ms clock, and the census did not see it (2026-11-16).
+  const isEntriesRead = (c) => ts.isCallExpression(c) && ts.isPropertyAccessExpression(c.expression) && /^getEntries(?:ByType|ByName)?$/.test(c.expression.name.text);
+  const durationKeys = new Set(['duration']);
+  each(sf, (c) => {
+    if (ts.isPropertyAssignment(c) && (ts.isIdentifier(c.name) || ts.isStringLiteral(c.name)) && ts.isPropertyAccessExpression(c.initializer) && c.initializer.name.text === 'duration') durationKeys.add(c.name.text);
+  });
+  const entryInits = new Set();
+  const touchesEntries = (node) => {
+    let hit = false;
+    each(node, (c) => {
+      if (hit) return;
+      if (isEntriesRead(c)) hit = true;
+      else if (ts.isIdentifier(c)) { const d = resolve(c); if (d && entryInits.has(d)) hit = true; }
+    });
+    return hit;
+  };
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const init of inits) if (!entryInits.has(init) && touchesEntries(init)) { entryInits.add(init); grew = true; }
+  }
+  // An entry reached as a callback's parameter: `m` in `getEntriesByType('measure').map((m) => m.duration)`, or in a
+  // `.reduce` over a value built from one.
+  const isEntryParam = (id) => {
+    for (let p = id.parent; p; p = p.parent) {
+      if (!ts.isFunctionLike(p) || !p.parameters?.some((q) => ts.isIdentifier(q.name) && q.name.text === id.text)) continue;
+      const call = p.parent;
+      return !!(call && ts.isCallExpression(call) && ts.isPropertyAccessExpression(call.expression) && touchesEntries(call.expression.expression));
+    }
+    return false;
+  };
+  const isEntryDurationRead = (c) =>
+    ts.isPropertyAccessExpression(c) && durationKeys.has(c.name.text) && (touchesEntries(c.expression) || (ts.isIdentifier(c.expression) && isEntryParam(c.expression)));
+  // A VALUE that is an entry's duration, followed to a fixpoint: `const ms = await page.evaluate(() =>
+  // getEntriesByName('x')[0].duration)`, `const ds = entries.map((e) => e.duration)`. An object literal does not pass it on,
+  // so the record `({ name: m.name, ms: m.duration })` taints only its `ms` (above), never `measures.length`.
+  const entryDurations = new Set();
+  const holdsEntryDuration = (node) => {
+    let hit = false;
+    const walk = (c) => {
+      if (hit || ts.isObjectLiteralExpression(c)) return;
+      if (isEntryDurationRead(c)) { hit = true; return; }
+      if (ts.isIdentifier(c)) { const d = resolve(c); if (d && entryDurations.has(d)) { hit = true; return; } }
+      c.forEachChild(walk);
+    };
+    walk(node);
+    return hit;
+  };
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const init of inits) if (!entryDurations.has(init) && holdsEntryDuration(init)) { entryDurations.add(init); grew = true; }
+  }
+  const readsEntryDuration = (node) => {
+    let hit = false;
+    each(node, (c) => {
+      if (hit) return;
+      if (isEntryDurationRead(c)) hit = true;
+      else if (ts.isIdentifier(c)) { const d = resolve(c); if (d && entryDurations.has(d)) hit = true; }
+    });
+    return hit;
+  };
+  const touchesClock = (node) => hasDuration(node) || readsEntryDuration(node);
 
   const out = {};
   const add = (shape, node) => { if (!okAt(node)) out[shape] = (out[shape] || 0) + 1; };
@@ -9160,7 +9228,10 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       if (p && ts.isNewExpression(p) && ts.isIdentifier(p.expression) && p.expression.text === 'Promise') add('fixed-sleep', n);
     } else if (SLEEP_HELPERS.has(name) && ts.isIdentifier(n.expression) && n.arguments.length === 1 && !ts.isFunctionLike(n.arguments[0])) add('fixed-sleep', n);
     else if ((name === 'expect' && ts.isIdentifier(n.expression)) || (ts.isIdentifier(n.expression) && n.expression.text === 'assert') || (ts.isPropertyAccessExpression(n.expression) && ts.isIdentifier(n.expression.expression) && n.expression.expression.text === 'assert')) {
-      if (n.arguments.some((a) => touchesClock(a))) add('clock-assert', n);
+      // `expect(value, message)`: the message is what a failure prints, not what is asserted, so a timing interpolated
+      // into it ("worst ${ms} ms") does not make a count assertion a stopwatch.
+      const asserted = name === 'expect' ? n.arguments.slice(0, 1) : n.arguments;
+      if (asserted.some((a) => touchesClock(a))) add('clock-assert', n);
     }
   });
 

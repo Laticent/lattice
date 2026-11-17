@@ -367,3 +367,59 @@ describe('the image lint agrees with the placed-picture rule (test/fixtures/plac
     });
   }
 });
+
+describe('the shortcut hands its record a marker, not a pasted photo\'s address (media-plugins.md §9, 2026-11-16)', () => {
+  const { readStats } = require('../../../lib/core/payload-elision.js');
+  // A deterministic payload past the hold threshold; a `"description"` keeps the render's own payload elision off this line,
+  // so the record path is the one that meets the whole address.
+  const payload = Buffer.alloc(150_000, 0).map((_, i) => (i * 31) & 255).toString('base64');
+  const photo = `data:image/png;base64,${payload}`;
+  const slide = (cls, line) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n# Photo\n\n${line}\n`;
+
+  test('the record reader reads a short record, and the figure carries the whole address', () => {
+    const before = readStats.recordChars;
+    const out = html(slide('image', `![A photo](${photo} "Taken at dusk")`));
+    const read = readStats.recordChars - before;
+    assert.ok(read > 0 && read < 200, `the record held ${read} characters`);
+    assert.ok(out.includes(`style="background-image:url('${photo}')"`), 'the panel draws the author\'s address, byte for byte');
+    assert.doesNotMatch(out, /lattice-held-src/);
+  });
+
+  test('held or written whole, the slide renders the same bytes', () => {
+    // An author's `@image{…}` is never held: it is the shortcut's record as the author wrote it.
+    for (const cls of ['image', 'image mirror', 'content bleed']) {
+      const held = html(slide(cls, `![A photo](${photo} "Taken at dusk")`));
+      const whole = html(slide(cls, `\`@image{"${photo}", title="A photo", description="Taken at dusk"}\``));
+      assert.equal(held, whole, cls);
+    }
+  });
+
+  test('a title that spells the marker, or an address that is not plain base64, is written whole', () => {
+    let before = readStats.recordChars;
+    const out = html(slide('image', `![lattice-held-src](${photo} "Taken at dusk")`));
+    assert.ok(readStats.recordChars - before > payload.length, 'a marker in the title: written whole');
+    assert.ok(out.includes(`url('${photo}')`) && out.includes('aria-label="lattice-held-src"'));
+    // A base64 body with a percent escape in it is not plain base64: the figure escapes it as it always has.
+    const svg = `data:image/png;base64,${'QUJD'.repeat(1200)}%3D`;
+    before = readStats.recordChars;
+    const plain = html(slide('image', `![A drawing](${svg} "Lines")`));
+    assert.ok(readStats.recordChars - before > svg.length, 'not base64: written whole');
+    assert.ok(plain.includes(`url('${svg}')`));
+  });
+});
+
+describe('a unit the engine draws as several slides is cut where the engine cuts it (media-plugins.md §9, 2026-11-16)', () => {
+  test('`headingPartStarts` names each heading part, the engine\'s own cut, through a pasted photo', async () => {
+    const { headingPartStarts, slidePictureCount } = await import('../../../lib/core/placed-picture.mjs');
+    const { boundaryParser } = await import('../../../lib/core/boundary-parser.mjs');
+    const photo = `data:image/png;base64,${'QUJD'.repeat(3000)}`;
+    const unit = `<!-- class: image -->\n## One\n\n![A](${photo})\n\n<!-- _class: image mirror -->\n## Two\n\n![B](b.jpg)\n`;
+    const starts = headingPartStarts(unit, boundaryParser);
+    // The second part starts at its lead-in comment, which the engine pulls back onto the heading's slide.
+    assert.deepEqual(starts, [0, unit.indexOf('<!-- _class: image mirror')]);
+    assert.deepEqual(starts.map((s, k) => slidePictureCount(unit.slice(s, starts[k + 1]), boundaryParser)), [1, 1]);
+    // One heading, or a heading in a fence, is one part.
+    assert.deepEqual(headingPartStarts('## One\n\ntext\n', boundaryParser), [0]);
+    assert.deepEqual(headingPartStarts('## One\n\n```\n## not a heading\n```\n', boundaryParser), [0]);
+  });
+});

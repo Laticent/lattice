@@ -147,14 +147,17 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo: ⌘Z from a
 	});
 });
 
-// THE MAIN-THREAD BUDGET (§4.3): no history step over 16 ms, on the 134 KB deck, in all three
-// engines. The Studio wraps its Filo calls in `performance.measure` (`filo:commit`, `filo:undo`,
-// `filo:redo`); this drives typing, an undo, a redo, a settings write and a whole-deck replace
-// (the broad path an AI apply and an import take) and reads every measure back. The deck is seeded
-// as the boot deck's saved source: typing 134 KB in is a CodeMirror cost, not a history one, and it
-// ran past the timeout in WebKit.
+// THE MAIN-THREAD STEPS (§4.3), on the 134 KB deck, in all three engines. The Studio wraps its Filo calls in
+// `performance.measure` (`filo:commit`, `filo:undo`, `filo:redo`); this drives typing, an undo, a redo, a settings write
+// and a whole-deck replace (the broad path an AI apply and an import take) and checks that each kind of step happened and
+// was measured. It logs the slowest, and asserts no milliseconds: the 16 ms budget is a cost, and it lives in
+// `npm run bench` (test/benchmark/engine-bench.mjs, the Filo tier's `studio commit` rows), tracked against the baseline
+// (HARD RULE #19). As a pass/fail line here it failed on load alone: on main 18bb745e the slowest step was about 1 ms in
+// a quiet run and up to 83 ms at four workers in Chromium, 30 in WebKit, whose clock reads whole milliseconds (the
+// owner's call, 2026-11-16; HARD RULE #32). The deck is seeded as the boot deck's saved source: typing 134 KB in is a
+// CodeMirror cost, not a history one, and it ran past the timeout in WebKit.
 const BIG = readFileSync(fileURLToPath(new URL('../../examples/system-design-foundations.md', import.meta.url)), 'utf8');
-for (const tag of ['@gecko', '@webkit-tablet']) test(`Filo stays under 16 ms per step on the 134 KB deck ${tag}`, async ({ page }) => {
+for (const tag of ['@gecko', '@webkit-tablet']) test(`Filo measures every kind of history step on the 134 KB deck ${tag}`, async ({ page }) => {
 	test.setTimeout(180_000);
 	await page.addInitScript((src) => {
 		if (!sessionStorage.getItem('filo-seeded')) {
@@ -192,6 +195,6 @@ for (const tag of ['@gecko', '@webkit-tablet']) test(`Filo stays under 16 ms per
 	expect(kinds, 'witness: every kind of history step was measured').toEqual(new Set(['filo:commit', 'filo:undo', 'filo:redo']));
 	expect(measures.length, 'witness: typing, undo, redo, a settings write and a broad change were measured').toBeGreaterThan(8);
 	const worst = measures.reduce((a, b) => (b.ms > a.ms ? b : a));
+	// A record for whoever reads the run, never a verdict: the budget is `npm run bench`'s.
 	console.log(`[filo budget] ${tag} ${measures.length} measures, worst ${worst.name} ${worst.ms.toFixed(2)} ms; all: ${measures.map((m) => `${m.name.slice(5)} ${m.ms.toFixed(1)}`).join(', ')}`);
-	expect(worst.ms, `${worst.name} took ${worst.ms.toFixed(2)} ms on the main thread`).toBeLessThan(16);
 });

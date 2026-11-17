@@ -91,3 +91,19 @@ on main. That PR changes narration export and the voice request path, not the ch
 guard counted animation frames, which a loaded WebKit paints about a third as often; it now counts edits) and
 library-images-render.spec.ts:152 (one read of four tiles before they had loaded and packed; now one read of the
 revealed frame, polled). The evidence is in that PR.
+
+2026-11-16 — PR #3228 (the front-matter island) lost two more desktop specs only under load, each passing alone:
+            present-beat.spec.ts:49 (failed in a 4-worker full Chromium run and in a 3-worker 47-file run; 1 of 1 alone)
+            and library-voice-spine.spec.ts:140 (failed in the 4-worker full run; 1 of 1 alone). Then 8 runs each at 4
+            workers (--repeat-each=8, --retries=0): PR build 16 of 16; main 72bd2d9 15 of 16, the failure
+            library-voice-spine:140. gallery-preview-metamorphic:370 also failed under load on the PR build; with nothing
+            else running it went 12 of 12 on main and 12 of 12 on the PR. Not investigated past that.
+2026-11-16 — the same PR's clean full Chromium run (desktop, tablet, mobile; 4 workers, --retries=0; 1,903 passed, 4
+            failed, 63 skipped) lost compose-note-motion.spec.ts:260 and journeys/chart-export.spec.ts:124 besides
+            filo-undo:157 and present-beat:49 (both listed above). All four then passed alone, 2 of 2 each. The two new
+            ones were not compared against main under load.
+2026-11-16 — the same PR's full Chromium run on 635ba64 (4 workers, --retries=0; 1,912 passed, 5 failed) lost
+            compose-stress.spec.ts:538, studio-export-offline.spec.ts:114 (desktop), library-voice-spine.spec.ts:140
+            and :151 (mobile) and present-beat.spec.ts:49; all passed alone (8 of 8 across desktop and mobile). Then
+            compose-note-motion:260, journeys/chart-export:124, compose-stress:538 and studio-export-offline:114, 6 runs
+            each at 4 workers on desktop: PR build 24 of 24; main af00ca3 23 of 24, the failure journeys/chart-export:124.

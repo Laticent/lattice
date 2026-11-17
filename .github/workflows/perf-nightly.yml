@@ -206,7 +206,7 @@ jobs:
         # test/unit/tools/nightly-alarm-contract.test.js, which is what found the three live
         # instances outside this file.
         # See engineering/decisions/2026-09-02-alarm-channel-saturation.md.
-        if: always() && steps.compare.outputs.regressed == 'true'
+        if: always() && steps.compare.outputs.regressed == 'true' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -551,7 +551,7 @@ jobs:
       # comment at the base-bench step says was fixed. `always()` was added to five steps and not
       # to the one that raises the alarm.
       - name: Open / append regression issue
-        if: always() && (steps.compare.outputs.regressed == 'true' || steps.preview.outputs.breached == 'true')
+        if: always() && (steps.compare.outputs.regressed == 'true' || steps.preview.outputs.breached == 'true') && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -2189,3 +2189,18 @@ never turn "passed in headless" into "works on iOS."
   animation.
 - **Removable when** — never: an infinite animation never settles.
 - **Commits** — PR for `fix/e2e-filo-live-plugin-slots` (2026-11-15).
+
+## The editor draws `<!--` as an arrow
+
+- **Symptom** — in the Studio's deck editor or the Playground, `<!--` shows as a left arrow and `-->` as a long
+  arrow. The file holds the plain characters; only the drawing differs.
+- **Cause** — the mono font's ligatures. Every directive comment in a deck reads as an arrow, so the text an author
+  reads is not the text in the file.
+- **Fix** — `editorChrome` (`docs/src/lib/editor-chrome.js`) sets `fontVariantLigatures: 'none'` on `.cm-content`,
+  once for both editors; the autocomplete menu already did the same (`editor-theme.ts`, `editor.js`). Pinned by
+  `docs/src/lib/editor-chrome.test.ts`. The `<textarea>` fallbacks shown when CodeMirror fails to load
+  (`Editor.tsx`, `CodeField.tsx`) set it too. A new editing surface that does not build on `editorChrome` owes the
+  same line.
+- **Triggered by** — any monospace font with programming ligatures on a CodeMirror content box.
+- **Removable when** — never, while the editors use a font with ligatures.
+- **Commits** — the Studio pane follow-ups PR after #3222 (2026-11-16).

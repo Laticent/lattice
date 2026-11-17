@@ -877,13 +877,16 @@ export function DeckPreview({
 	// want to re-run — so it stays in the deps despite not being referenced.
 	// A parked host that follows the slide: owe one render when the slide or deck changes. Declared BEFORE the
 	// change-trigger effect below, so the debt is on the books when that effect schedules the frame.
-	const parkedSlideRef = React.useRef(`${deckId ?? ''}|${slideIndex ?? ''}`);
+	// A heading part (`panePage` on a heading-split slide) is a slide of its own, so crossing parts owes a render too: the
+	// phone's parked frame stayed on the second part after the caret went back to the first, and the photo check, which
+	// reads the frame, measured the wrong slide (PR #3239).
+	const parkedSlideRef = React.useRef(`${deckId ?? ''}|${slideIndex ?? ''}|${panePage ?? ''}`);
 	React.useEffect(() => {
-		const at = `${deckId ?? ''}|${slideIndex ?? ''}`;
+		const at = `${deckId ?? ''}|${slideIndex ?? ''}|${panePage ?? ''}`;
 		if (at === parkedSlideRef.current) return;
 		parkedSlideRef.current = at;
 		if (followWhenParked && !activeRef.current) parkedOwedRef.current = true;
-	}, [deckId, slideIndex, followWhenParked]);
+	}, [deckId, slideIndex, panePage, followWhenParked]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `render` is the intentional change-trigger; the body reads only refs + `coalesce`.
 	React.useEffect(() => {
 		coalesceRef.current += 1;

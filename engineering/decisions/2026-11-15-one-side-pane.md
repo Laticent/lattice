@@ -107,8 +107,11 @@ palette × mode combinations (1.01:1 in cuoio light). Five looks were measured i
 scored (the "Selected-State Options" artifact). The owner chose **B**: the theme's `--text-heading` as
 the chip and `--bg` as the label, the Read/Write/Craft switch's look. It clears 9.88:1 against the rail
 and 9.65:1 for the label in all 36. **D**, the same chip with the OTHER mode's accent as the label
-(gold on ink in Cuoio), is the follow-up: AA in all 36, the accent shows in 19, and its fallback is B,
-so it only adds. It is a new generated token across every selected control, so it is its own PR.
+(gold on ink in Cuoio), was recorded as a follow-up and then **dropped by the owner** (2026-11-16, after the
+follow-up PR to #3222 measured it): the label clears 4.5:1 in 28 of 36 combinations but shows a visible color
+in only about 21, looking exactly like B in the rest, and the Studio already draws "selected" five ways (the ink
+chip, the solid-accent pill, an accent word on a light chip, gold text on Compose, and the tint), so a gold label
+on ink would have added a sixth beside the gold-filled pill. B stays the one selected look for the rail.
 
 ## 3c. Compose's drawn caret follows a pane swap (found by the owner while testing)
 
@@ -159,8 +162,18 @@ How it is built:
 
 Guard: `StudioShell.test.tsx` "every docked pane wears the shared header", red with Coach's old label.
 
-Not changed here, and visible: the Settings column sits on `--bg` and the tool panes on the card color, so the
-column's tint still changes when the slot swaps between them.
+**One background (the follow-up PR after #3222).** Settings sat on `--bg` (`bg-background`) and the tool panes on the
+card color (`bg-card`, `--bg-alt`), so the column changed tint whenever the slot swapped. Every docked pane now sits on
+`bg-background`: the Settings column's color, and the color every phone and tablet sheet already used, so a pane also
+looks the same docked as in its sheet. Measured on the built Studio in all 36 palette × mode combinations at 1440:
+- Settings did not move, so its card-colored controls (the scope band, Basic/Advanced, preset cards) keep a fill of
+  1.08–1.49:1 against the column and their borders at least 3.03:1, before and after.
+- The tool panes' cards are `bg-background` with a border, as in their sheets. Their fill now matches the column, and
+  the `--border` outline (at least 3.03:1, above the 3:1 floor for UI parts) is what marks them.
+- The other way, putting everything on the card color, would have flattened 82 card-colored Settings fills into the
+  column (1.00:1) and dropped the lowest border to 3.01:1.
+
+Guard: `StudioShell.test.tsx` "every docked pane paints the one column on the same background", red with `bg-card`.
 
 ## 3e. Labels that read, and a reset in every pane that edits (owner, from a design review)
 
@@ -211,6 +224,16 @@ Each line names the guard. A change to panes re-checks every one.
 - Every dock shares `DOCK` = min 280 / default 320 / max 480; the editor and preview floor at 300 and
   fold to a 46px rail (`dock-layout.ts`, `preview-rect.ts`). Guard: `e2e/studio-dock-sizing.spec.ts`,
   rewritten here to pin the one-pane contract at 1100, 1280, 1440, 1920 and 2560.
+- A window resize puts the widths back once it settles (`use-resizable-split.ts`, the resize sync). The panels are
+  sized in percentages and clamped at their px floors, so a dock pushed to 280 in a narrow window used to keep that
+  larger share when the window grew: 371px at 1440 instead of 320. A panel set nobody dragged now returns to the
+  ideal layout; a set the person dragged (any divider in it, the editor|preview one included) returns to its saved
+  shares, which the library clamps to the floors again, so a dragged width holds at the window width it was dragged
+  at and scales with the window otherwise. A drag made while a side was collapsed is not saved, and the sync leaves
+  that set as it is. The sync skips a drag in progress, builds its target from the group's own ids (a stored layout
+  with a stray key used to throw "Invalid N panel layout"), and fires `lattice:split-resize-settled` when it has run.
+  ⌘K "Reset split" clears the saved set, so the next settled resize lays the docks out at their ideal widths, as a
+  reload already did. Guards: the four resize tests in `e2e/studio-dock-sizing.spec.ts`.
 - The pre-paint shell clamps a restored split by the SAME minimums (`preview-rect.ts`). A saved layout
   for the old four-panel key can no longer be reached and must not leak in. Guard: the "returning
   visitor with a saved TWO-dock layout" test.
@@ -253,4 +276,4 @@ Per HARD RULE #23, each claim names its surface.
 so the feel of a finger (the tap, the sheet swipe, the keyboard) is for the owner to check on a device.
 
 Carried over, not caused here: the iPad Compose tap reads as a long press now and then on `main` too (another
-session tracks it); the Settings column's tint differs from the tool panes' (§3d).
+session tracks it). The Settings column's tint, also carried over at first, was fixed by the follow-up PR (§3d).

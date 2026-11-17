@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import { savedDeck } from './compose-insert';
 import { localRelay } from './live-relay';
-import { editorFocusSettled, expect, gotoStudio, pressSettled, setEditorContent, test, toSourceIfCompose } from './studio-fixture';
+import { editorFocusSettled, expect, gotoStudio, pressSettled, setEditorContent, studioUndo, test, toSourceIfCompose } from './studio-fixture';
 
 const DECK = ['<!-- _class: content -->\n\n# Live deck\n\nBody one.', '<!-- _class: content -->\n\n# Two\n\nBody two.', '<!-- _class: content -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
 
@@ -360,7 +360,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 
 		// The host's pill: its own edit goes on both sides, the guest's stays.
 		await caretInCompose(host, 2);
-		const hostUndo = host.locator('.cs-slide-active').getByRole('button', { name: 'Undo' });
+		const hostUndo = studioUndo(host);
 		await expect(hostUndo, 'the pill offers Undo in a session').toBeEnabled();
 		await hostUndo.click();
 		await bothHold(pair, (s) => !s.includes('HOSTPILL') && s.includes('GUESTPILL'), "the host's pill undid the wrong edit");
@@ -372,13 +372,13 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await host.keyboard.insertText(' HOSTAGAIN');
 		await bothHold(pair, (s) => s.includes('HOSTAGAIN') && s.includes('GUESTPILL'), 'the second host edit crossed');
 		await caretInCompose(guest, 0);
-		await guest.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
+		await studioUndo(guest).click();
 		await bothHold(pair, (s) => !s.includes('GUESTPILL') && s.includes('HOSTAGAIN'), "the guest's pill undid the wrong edit");
 		await expect(guest.locator('.cs-host .cs-slide').first()).not.toContainText('GUESTPILL');
 
 		// The host's pill once more, and the deck is back where the session started.
 		await caretInCompose(host, 2);
-		await host.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
+		await studioUndo(host).click();
 		await bothHold(pair, (s) => s === DECK, "the host's second undo did not restore the deck");
 	});
 });

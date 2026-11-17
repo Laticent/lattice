@@ -42,6 +42,32 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Removable when:** WebKit decodes an SVG image's nested pictures before its `load` event, or the export stops
   drawing slides through an SVG image.
 
+## A Studio export from WebKit cuts a card's shadow short, or draws it as a gray block
+
+- **Symptom:** In WebKit (Safari, every iPhone browser), a Studio PDF, image set, PowerPoint or LibreOffice export draws
+  the image layout's lifted card with its shadow starting about halfway along the bottom edge, and a `@image` frame
+  (`mat`, `device`, `float`, a clip's bezel) with a hard gray block down its right side. Chromium and Firefox draw them
+  whole, and so does the live preview in WebKit.
+- **Cause:** the slide camera (`lib/core/slide-camera.mjs`) draws the slide's SVG on a canvas scaled with
+  `ctx.scale(2, 2)` for a 2x shot. Under that scale WebKit draws a box-shadow with a NEGATIVE spread wrong
+  (`0.6cqi 0.8cqi 0 -0.1cqi`, or the bezel's `0 1em 1.6em -1.1em`): a small box loses its shadow, a large one keeps only
+  the right part. A shadow with no spread draws whole, and so does the same SVG at 1x. Scaling by the destination size,
+  by the `<img>`'s size, by an SVG `viewBox` or by a CSS transform fails the same way. CSS `zoom` on the inner wrapper
+  draws the shadow whole but lays the slide out again at the larger size, which moved Chromium's text by about a pixel
+  (2% of pixels off against its own screenshot, from 0.02%).
+- **Fix:** the camera asks the engine for the picture AT the canvas's size, `createImageBitmap(img, { resizeWidth,
+  resizeHeight })`, and draws that 1:1; its text is pixel-identical to the scaled draw. Chromium cannot take that path (an
+  ImageBitmap of a foreignObject SVG taints the canvas) and has no defect, so a one-time probe (`scaledDrawDropsShadow`:
+  a 120 x 60 SVG with one negative-spread shadow, drawn scaled, then through the bitmap) picks the path. Measured on a
+  Studio export: Chromium and Firefox pixel-identical before and after; WebKit's mean pixels off against Chromium fell from
+  2.5% to 1.8%. Keep the probe at least 80 x 40: at 20 x 10 WebKit loses the shadow on BOTH paths and the probe answers no.
+- **Triggered by:** `docs/e2e/camera-webkit-shadow.spec.ts` on `webkit-tablet` (the shadow started 52% along the card
+  before the fix, 2% after). In Mobile Safari on the iPhone and iPad simulators (PR 3241, dispatch 43811508778, a
+  temporary probe) the probe answered yes, the fixed camera's shadow started 1.8% along the card, and the old path drew
+  none of the bottom edge. Safari on a Mac and a physical device are unverified. The e2e spec is not in
+  `test:e2e:smoke`, so per-PR CI does not run it; the nightly `studio-e2e-nightly.yml` runs the whole suite.
+- **Removable when:** WebKit draws a negative-spread box-shadow inside a foreignObject SVG under a scaled canvas.
+
 ## Chromium PDF output of CSS `mask-image` renders inconsistently across viewers
 
 - **Symptom:** A `::before` with `mask: url("data:image/svg+xml,…") center / contain no-repeat` renders correctly in the browser AND in the owned engine's headless-Chromium PDF render, but the resulting PDF, when opened in Apple PDFKit (macOS Preview, iOS), Skia (Chrome's built-in PDF viewer), or PDFium (Edge / VS Code), sometimes drops the mask entirely — the `::before` rectangle appears as a solid tinted block the size of its bounding box, filled with the paint color, with no shape clipping. Failure is viewer-specific and shape-specific: identical CSS, one mask drops on one viewer and renders fine on another, or the same mask drops only on certain `::before` sizes.
