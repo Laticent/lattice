@@ -107,7 +107,7 @@
    * this theme's own brand and chart colors (held inside the status bands on dark); the trio keeps at least half of
    * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
-  --pass-mark: light-dark(#425B47, #4D6752);
+  --pass-mark: light-dark(#415A45, #4D6752);
   --warn-mark: light-dark(#8A5600, #9D6A3C);
   --fail-mark: light-dark(#90272D, #B24548);
   --pass-vivid-mark: light-dark(#395C41, #2E6D3F);
@@ -117,7 +117,7 @@
   --fail-signal-mark: light-dark(#FFB4B1, #E67F7D);
   --info-mark: light-dark(#006278, #427D8F);
   --info-vivid-mark: light-dark(#006278, #0C7F99);
-  --mute-mark: light-dark(#334950, #626B6E);
+  --mute-mark: light-dark(#4F666E, #6B7477);
   /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each status
    * fill, and its border. Light: the slide's own paper, and the fill itself (it clears 4.5:1 against every surface).
    * Dark: the one ink, and the status ink `--X` (a rim that stands the mid-tone fill off a tinted row or a card).
@@ -127,11 +127,11 @@
   --fail-on-mark: light-dark(#FAFAF9, #FFFFFF);
   --info-on-mark: light-dark(#FAFAF9, #FFFFFF);
   --mute-on-mark: light-dark(#FAFAF9, #FFFFFF);
-  --pass-edge-mark: light-dark(#425B47, var(--pass));
+  --pass-edge-mark: light-dark(#415A45, var(--pass));
   --warn-edge-mark: light-dark(#8A5600, var(--warn));
   --fail-edge-mark: light-dark(#90272D, var(--fail));
   --info-edge-mark: light-dark(#006278, var(--info));
-  --mute-edge-mark: light-dark(#334950, var(--mute));
+  --mute-edge-mark: light-dark(#4F666E, var(--mute));
   --pass-vivid-edge-mark: light-dark(#395C41, var(--pass));
   --warn-vivid-edge-mark: light-dark(#8A5600, var(--warn));
   --fail-vivid-edge-mark: light-dark(#9D0020, var(--fail));

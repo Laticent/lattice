@@ -137,6 +137,15 @@ own amber unless the step pays. Cuoio's at risk moves to an amber-orange at 54 d
 blocked to `#902921` (L 0.44) and deepens done to `#3D4D26` (L 0.40); mustard's to 60 degrees, with blocked at L 0.43.
 No other theme steps. Deferred now clears 0.07 from both done and at risk on every light face (the tightest, 0.072).
 
+A seventh scoring (light 8.5, dark 8) confirmed both, and found the deferred fix had made a new defect: picked after
+the trio, deferred could only stay 0.07 from a mid-light done by going darker, so mustard's (`#44402E`, L 0.37) and
+ardesia's became the heaviest pill on the slide, the lowest priority shouting loudest. Deferred is now chosen WITH the
+trio: a trio counts only if a deferred exists that is no darker than done or blocked and clears 0.07 from done and at
+risk (the audit holds both). Mustard's deferred is back to a mid warm gray (`#615C49`, L 0.47), ardesia's to `#4F666E`.
+On dark, deferred sat a little closer to done than on `main` on cuoio, ardesia and burgundy (0.055-0.072); it now steps
+toward at risk's lighter spread position until it clears 0.075 (`DARK_MUTE_APART`). Every theme does except concrete,
+which reaches 0.066 (it was 0.050).
+
 Dark etch's status bars read nearly hollow beside an etched pie. That is etch's design and predates this work: a
 mark that carries text (a status bar or a category bar) takes etch's backdrop level (14% light, 19% dark), and only a
 text-free mark (a pie slice) takes its body level (30%, 40%). A status chart and a category bar chart under etch match.

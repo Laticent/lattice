@@ -179,7 +179,7 @@
   --fail-signal-mark: light-dark(#FFB5AA, #FF7263);
   --info-mark: light-dark(#255B8E, #307CA4);
   --info-vivid-mark: light-dark(#005A9D, #007DAF);
-  --mute-mark: light-dark(#6D6250, #6E6A63);
+  --mute-mark: light-dark(#6D6250, #747069);
   /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each status
    * fill, and its border. Light: the slide's own paper, and the fill itself (it clears 4.5:1 against every surface).
    * Dark: the one ink, and the status ink `--X` (a rim that stands the mid-tone fill off a tinted row or a card).

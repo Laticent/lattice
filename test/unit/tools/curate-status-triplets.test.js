@@ -92,6 +92,9 @@ test('deferred is a gray in the theme\'s own neutral', () => {
   const cDark = C0['mute-mark'].replace(/^light-dark\(#[0-9A-Fa-f]{6},\s*(#[0-9A-Fa-f]{6})\)$/, '$1');
   const near = cuoio({ 'mute-mark': `light-dark(#4A4A38, ${cDark})` });
   assert.ok(near.some((b) => /light muted --mute-mark sits .* from done/.test(b)), near.join(' | '));
+  // And it recedes: mustard's deferred once went to #44402E (L 0.37), the heaviest pill on the slide.
+  const heavy = run({ 'mute-mark': `light-dark(#44402E, ${dark})` });
+  assert.ok(heavy.some((b) => /light muted --mute-mark sits at L .* darker than done or blocked/.test(b)), heavy.join(' | '));
 });
 
 test('a surface the tool cannot resolve stops it rather than being skipped', () => {

@@ -106,6 +106,8 @@ const WINDOW = 0.16;
 const MUTE_APART = 0.07;
 /** What one degree of at risk's step off its own hue costs, in summed lightness off target (0.05 for 15 degrees). */
 const SHIFT_COST = 0.0033;
+/** Dark deferred keeps at least this from dark done, where a lighter spread position reaches it (main sat 0.060-0.086). */
+const DARK_MUTE_APART = 0.075;
 
 const hueDist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
 const ok = (L, C, h) => oklchToHex({ L, C, h }).toUpperCase();
@@ -250,7 +252,7 @@ const darkHue = (facts, s) => {
 function solveDark(theme, facts, baseline, keep) {
   const bg = facts.dark.bg;
   const clears = (h, C, bar) => cr(toneUnderWhite(h, C, bar), bg) >= 3.05;
-  const tone = (h, C, s) => {
+  const tone = (h, C, s, at = DARK_SPREAD[s]) => {
     let lo = CAT_DARK;
     let hi = 21;
     if (!clears(h, C, lo)) hi = lo;
@@ -258,14 +260,19 @@ function solveDark(theme, facts, baseline, keep) {
       const mid = (lo + hi) / 2;
       if (clears(h, C, mid)) lo = mid; else hi = mid;
     }
-    return toneUnderWhite(h, C, CAT_DARK + DARK_SPREAD[s] * (lo - CAT_DARK)).toUpperCase();
+    return toneUnderWhite(h, C, CAT_DARK + at * (lo - CAT_DARK)).toUpperCase();
   };
   const set = (hue) => {
     const o = {};
     for (const intensity of ['muted', 'vivid']) {
       o[intensity] = {};
       for (const s of ['pass', 'warn', 'fail', 'info']) o[intensity][s] = tone(hue[s], statusChroma(intensity, s, facts.strength), s);
-      o[intensity].mute = tone(facts.anchor.mute.h, 0.012, 'mute');
+      // Deferred sits at its spread position unless that puts it within DARK_MUTE_APART of done, two quiet fills at one
+      // lightness; then it steps lighter (toward at risk's position), the least step that clears.
+      for (const at of [0.5, 0.4, 0.3, 0.2, 0.1, 0]) {
+        o[intensity].mute = tone(facts.anchor.mute.h, 0.012, 'mute', at);
+        if (oklabDistance(o[intensity].mute, o[intensity].pass) >= DARK_MUTE_APART) break;
+      }
     }
     return o;
   };
@@ -326,6 +333,7 @@ function solve(theme, facts, baseline, keep) {
         return list.filter(([L, f]) => Math.abs(L - TARGET[face][s]) <= WINDOW && (s !== 'fail' || theme in SPREAD_EXEMPT || (L >= LIGHT_RED.L && hexToOklch(f).C >= LIGHT_RED.C - 0.01)));
       };
       let best = null;
+      let loose = null;
       // Warn starts at the theme's own hue (held in its band) and may step away from the accent's hue, 5 degrees at a
       // time inside the band, where that buys a trio closer to the lightness targets. Each degree costs SHIFT_COST, so a
       // theme keeps its own amber unless the step pays: cuoio's and mustard's at risk, anchored ON their gold accent,
@@ -339,6 +347,13 @@ function solve(theme, facts, baseline, keep) {
       if (step && inBand('warn', warn0 + warnShift) !== warn0 + warnShift) break;
       const R = {};
       for (const s of TRIO) R[s] = cands(s);
+      // Deferred is chosen WITH the trio, not after it: it must recede (no darker than done or blocked) and stand
+      // MUTE_APART from done and at risk. Picked after, it could only stay apart from a mid-light done by going darker,
+      // and mustard's and ardesia's became the heaviest pill on the slide.
+      const muteC = cands('mute').filter(([, f]) => offAccent({ mute: f }, facts[face].accent, accentFloor(theme, face)));
+      const muteFor = (p, w, f) => muteC.filter(([L, m]) => L >= Math.max(p[0], f[0]) - 1e-9
+        && oklabDistance(m, p[1]) >= MUTE_APART && oklabDistance(m, w[1]) >= MUTE_APART)
+        .sort((a, b) => Math.abs(a[0] - TARGET[face].mute) - Math.abs(b[0] - TARGET[face].mute))[0];
       for (const p of R.pass) for (const w of R.warn) for (const f of R.fail) {
         const fills = { pass: p[1], warn: w[1], fail: f[1] };
         if (w[0] - f[0] < spreadFor(theme) - 1e-9) continue;
@@ -346,20 +361,26 @@ function solve(theme, facts, baseline, keep) {
         if (!separationOk(theme, intensity, face, fills, baseline, keep)) continue;
         const t = TARGET[face];
         const dev = Math.abs(p[0] - t.pass) + Math.abs(w[0] - t.warn) + Math.abs(f[0] - t.fail) + step * SHIFT_COST;
-        if (!best || dev < best.dev) best = { dev, fills };
+        if (best && dev >= best.dev) continue;
+        const mute = muteFor(p, w, f);
+        if (mute) best = { dev, fills, mute: mute[1] };
+        else if (!loose || dev < loose.dev) loose = { dev, fills };
       }
       }
+      // A face where no trio leaves room for a receding deferred (concrete's mid-gray slide) keeps the best trio, and its
+      // deferred is picked after it as before.
+      if (!best) best = loose;
       if (!best) throw new Error(`${theme} ${face} ${intensity}: no trio meets the contract at --keep=${keep}`);
       // Deferred is free of the trio's constraints, so it keeps its distance from done, the other quiet fill
       // (MUTE_APART), wherever it can: cuoio's deferred sat 0.050 from its olive done and the two read as one drab.
       const one = (s) => {
-        const apart = (f) => s !== 'mute' || oklabDistance(f, best.fills.pass) >= MUTE_APART;
+        const apart = (f) => s !== 'mute' || (oklabDistance(f, best.fills.pass) >= MUTE_APART && oklabDistance(f, best.fills.warn) >= MUTE_APART);
         const pool = cands(s).filter(([, f]) => apart(f));
         const ok2 = (pool.length ? pool : cands(s)).filter(([, f]) => offAccent({ [s]: f }, facts[face].accent, accentFloor(theme, face)));
         const list = ok2.length ? ok2 : (pool.length ? pool : cands(s));
         return list.sort((a, b) => Math.abs(a[0] - TARGET[face][s]) - Math.abs(b[0] - TARGET[face][s]))[0][1];
       };
-      out[face][intensity] = { ...best.fills, info: one('info'), mute: one('mute') };
+      out[face][intensity] = { ...best.fills, info: one('info'), mute: best.mute ?? one('mute') };
     }
   }
   return out;
@@ -443,6 +464,11 @@ function audit(theme, facts, baseline, keep) {
       }
       if (!dark && fills.mute && fills.pass && oklabDistance(fills.mute, fills.pass) < MUTE_APART - 0.002) {
         bad.push(`light ${intensity} --${tok('mute')} sits ${oklabDistance(fills.mute, fills.pass).toFixed(3)} from done (floor ${MUTE_APART})`);
+      }
+      // Deferred recedes: on light it is never the darkest of done, blocked and itself (the lowest priority, shouting).
+      if (!dark && fills.mute && fills.pass && fills.fail && !(theme in SPREAD_EXEMPT)) {
+        const Lm = hexToOklch(fills.mute).L, Lmin = Math.max(hexToOklch(fills.pass).L, hexToOklch(fills.fail).L);
+        if (Lm < Lmin - 0.006) bad.push(`light ${intensity} --${tok('mute')} sits at L ${Lm.toFixed(2)}, darker than done or blocked (${Lmin.toFixed(2)})`);
       }
       // Deferred is a gray in the theme's own neutral, not a borrowed slate.
       if (fills.mute && hexToOklch(fills.mute).C >= 0.008 && hueDist(hexToOklch(fills.mute).h, facts.anchor.mute.h) > 15) {
