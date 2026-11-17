@@ -266,7 +266,10 @@ async function deckTapLeavesLibrary(id) {
 			await new Promise((r) => setTimeout(r, 50));
 		}
 	};
-	const centerOf = (find) => `const el = (${find})(); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };`;
+	// A point to touch only once the element is laid out INSIDE the viewport: on a fresh page WebDriver refused a point read
+	// before layout settled ("move target out of bounds", run 43990878644, the 4th repetition).
+	const centerOf = (find) =>
+		`const el = (${find})(); if (!el) return null; const r = el.getBoundingClientRect(); const x = Math.round(r.x + r.width / 2), y = Math.round(r.y + r.height / 2); return r.width > 0 && r.height > 0 && x >= 0 && y >= 0 && x < innerWidth && y < innerHeight ? { x, y } : null;`;
 	const live = `(el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0`;
 	try {
 		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
