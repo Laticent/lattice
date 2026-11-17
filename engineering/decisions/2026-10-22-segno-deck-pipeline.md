@@ -1104,6 +1104,11 @@ core/image-dimensions.js `bgUrlOf`, core/logo-wall-pack.js (a mark's span HTML),
 resolver over `style` attributes) and transformers/prose-projection.mjs `URL_REF` (it rewrites `url(#id)` in markup by
 the ids it knows, entity-quoted spellings included).
 
+**Kept until plugins can reach the tokenizer:** plugins/mermaid/mermaid.draw-shim.mjs reads a face's first `src`
+`url()` with a regex. A plugin may reach outside its folder only through `ctx`, a service or a workspace library
+(engineering/decisions/2026-10-11-codebase-structure.md; `npm run structure` refuses a direct import of lib/core), and the
+shim is handed no `ctx`. It moves when the tokenizer is offered to plugins that way.
+
 **Reviewed and kept, also:** core/rough-ink-dom.js's two `/url\s*\(/i` tests run only where `CSS.supports` is missing
 (jsdom in the unit tests); rejecting anything url-shaped there is the conservative side of a color check, and a
 tokenizer read would accept more.

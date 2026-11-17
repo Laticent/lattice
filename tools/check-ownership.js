@@ -8885,6 +8885,7 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/export/html-player.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: matches the `--background-image:"url(\\"file://…\\")"` marker the engine writes for a local picture, to inline it.' },
   { file: 'lib/export/player-core.mjs', shape: 'url-reader', count: 3, why: 'ENGINE-WRITTEN: two skip url() tokens while minifying the player\'s own sheet; one reads the `@font-face` urls of the player\'s own fonts.' },
   { file: 'lib/export/player-core.mjs', shape: 'attr-reader', count: 1, why: 'A REPORT, not a guard: lists the `file://` `<script src>` addresses the player export removes, for its report; a parse pass removes every script, which is the guard.' },
+  { file: 'lib/plugins/mermaid/mermaid.draw-shim.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads Mermaid\'s own `@font-face` src in its own sheet.' },
   // ── Refusals that fail closed on any url() ──
   { file: 'lib/core/door-attr.mjs', shape: 'url-reader', count: 1, why: 'A SECOND WALL: the door keeps an inline style declaration only when this pattern finds no `url(` (it misses an escaped `u\\72l(`); the wall that decides is `cssRefTargets`, which reads every address with the shared reader before this runs (`doorFilterAttr`).' },
   { file: 'lib/core/image-painting.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a placeholder hatch is told apart by holding no url(); a missed spelling only means it is not treated as the hatch.' },
