@@ -191,3 +191,16 @@ test('css-tokens: cssImports reads each @import and the token after it', () => {
   // Not an @import: inside a string, inside a comment, another at-keyword, an escaped `@`.
   assert.deepEqual(read('a{content:"@import \'q\'"} /* @import r; */ @importq; \\@import s;'), []);
 });
+
+test('css-tokens: a visitor may tokenize again while a walk is under way (the tape is copied per parse)', () => {
+  // The generated parser keeps its tape in module state. A reader that reads a prelude while it walks a sheet
+  // (lib/core/leading-is.js) tokenized inside `visit`, and the nested parse overwrote the outer walk's tape.
+  const css = 'a{x:url(q)}' + 'b , c{y:z}'.repeat(50) + 'd{}';
+  const flat = cssTokens(css);
+  const nested = [];
+  eachCssToken(css, (type, a, b) => {
+    if (type === '{') cssTokens(css.slice(0, a));
+    nested.push({ type, from: a, to: b });
+  });
+  assert.deepEqual(nested, flat);
+});

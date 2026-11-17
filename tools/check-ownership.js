@@ -8477,7 +8477,7 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'The safety scanner for untrusted CSS (`findCssExfil`): its regexes FIND remote `url()`s in order to refuse them, and its one `url(${…})` is the text of the warning it prints. It writes no address anywhere.',
+      'The safety scanner for untrusted CSS (`findCssExfil`): its regexes FIND remote `url()`s in order to refuse them, and its one templated `url(…)` is the text of the warning it prints. It writes no address anywhere.',
   },
   {
     file: 'lib/core/pdf-compose/read-slide.mjs',
@@ -8549,7 +8549,7 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The `url(${next})` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
+      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The templated `url(…)` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
   },
   {
     file: 'lib/integrations/markdown-it/plugins.js',
@@ -8915,7 +8915,6 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   // ── The renderer's own sets, and readers that decide a fetch (follow-ups) ──
   { file: 'lib/core/remote-ref.js', shape: 'list-copy', count: 2, why: 'The scanner\'s own nested-document set (`NESTED_DOC`: iframe, frame, object, embed) and the three attributes a sample slide\'s `<script>` is read for (src, href, xlink:href); content-policy.js says the scanner keeps the sets its own logic needs.' },
   { file: 'lib/core/sanitize-slide-html.mjs', shape: 'list-copy', count: 1, why: 'The sanitizer\'s `blob:` allowance, `OBJECT_URL_TAGS`: which elements may keep the Studio\'s own object URL, not a list of what fetches.' },
-  { file: 'lib/core/pane-css.js', shape: 'url-reader', count: 1, why: 'KEPT (2026-11-05): reads an unquoted url() token only so the pane widening does not split it at a brace inside; it writes no address, decides no fetch, and each block it writes back goes through `sanitizeStyleText`. Moving it onto `cssRefSpans` would put the CSS parser in every route\'s engine (+5.1 KB gzip, measured) and the parser\'s first read of the 2.9 MB built sheet takes about 49 ms in Node (the spine note, "The picture camera, as built"). Its markup scan is held to the HTML reader by test/unit/core/pane-css-style-blocks.test.js.' },
   { file: 'lib/core/slide-camera.mjs', shape: 'list-copy', count: 1, why: 'A FALSE MATCH: the tuple `[el, abs, \'xlink:href\' : \'href\']` the picture export queues for each SVG image (three strings, two of them fetch attributes), not a list. The file reads CSS with `cssRefSpans` (followups.d/3024, done).' },
   { file: 'lib/export/inline-url-media.mjs', shape: 'attr-reader', count: 1, why: 'The same hint as its url-reader entry: whether a `<video poster>` in the source makes the export show its embed switch.' },
   { file: 'lib/export/inline-url-media.mjs', shape: 'url-reader', count: 1, why: 'KEPT, FAILS CLOSED (2026-11-05): a HINT over the deck SOURCE, whether the export panel shows its switch to embed web pictures. A false yes shows a switch that does nothing; a false no leaves the picture as the placeholder, which is what the export does without the switch. It decides no fetch: the embed reads with `scanHtml` and `cssRefSpans` (R4), and only for origins the author switched on.' },
@@ -9303,7 +9302,7 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       // Only the test's own context: the first parameter of the nearest function passed to test()/it()/describe().
       let f = n.parent;
       while (f && !ts.isFunctionLike(f)) f = f.parent;
-      const p0 = f && f.parameters && f.parameters[0];
+      const p0 = f?.parameters?.[0];
       const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
       if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
     }
