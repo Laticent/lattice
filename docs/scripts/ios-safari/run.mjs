@@ -271,6 +271,10 @@ async function deckTapLeavesLibrary(id) {
 	const centerOf = (find) =>
 		`const el = (${find})(); if (!el) return null; const r = el.getBoundingClientRect(); const x = Math.round(r.x + r.width / 2), y = Math.round(r.y + r.height / 2); return r.width > 0 && r.height > 0 && x >= 0 && y >= 0 && x < innerWidth && y < innerHeight ? { x, y } : null;`;
 	const live = `(el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0`;
+	// WIRED, not only visible: the Menu button is server-rendered and on screen before React attaches its handler, and a tap
+	// in that window is dropped (#1815). A probe tap landed there once and the menu never opened (run 44046541702, the 4th
+	// repetition: "timed out waiting for the Library row"). The same test as e2e/studio-fixture.ts `controlReady`.
+	const wired = `(el) => { const i = el.closest('astro-island'); return !!i && !i.hasAttribute('ssr') && Object.keys(el).some((k) => k.startsWith('__reactFiber$') || k.startsWith('__reactProps$')); }`;
 	try {
 		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
 		const width = await until('return innerWidth', 10000, 'the page');
@@ -286,7 +290,7 @@ async function deckTapLeavesLibrary(id) {
 			// Every touch, pointer, mouse and click event from here on, with its target: read back only when a tap fails. Installed
 			// now, not between the sheet and the tap, so it adds no round trip to the window under test.
 			await run(tapLogInstall());
-			const menu = await until(centerOf(`() => [...document.querySelectorAll('button[aria-label="Menu"]')].find(${live})`), 15000, 'the Menu button');
+			const menu = await until(centerOf(`() => [...document.querySelectorAll('button[aria-label="Menu"]')].find((b) => (${live})(b) && (${wired})(b))`), 15000, 'the Menu button, wired');
 			await touch(menu.x, menu.y);
 			// The row's point once the menu has stopped sliding: two reads in a row agree. One read taken while it slid in touched
 			// the next row down (Live) on run 43996905347.

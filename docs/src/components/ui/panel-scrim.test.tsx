@@ -39,7 +39,7 @@ const scrim = () => document.querySelector('[data-slot="sheet-overlay"]') as HTM
 // jsdom has no PointerEvent, and testing-library's pointer helpers drop `pointerType`, `pointerId` and the coordinates,
 // so Radix would take every tap for a mouse and a moved finger would read as still. Build the event and pin the fields,
 // as help-tip.test.tsx does.
-type Ptr = 'pointerdown' | 'pointerup' | 'pointercancel';
+type Ptr = 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel';
 type Kind = 'mouse' | 'touch' | 'pen';
 function ptr(el: HTMLElement, type: Ptr, pointerType: Kind, x = 20, { id = pointerType === 'mouse' ? 1 : 7, at }: { id?: number; at?: number } = {}) {
 	const ev = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: 20 });
@@ -57,7 +57,9 @@ const tap = (el: HTMLElement) => {
 /** A finger: pointerdown and pointerup, then the click only when the browser sends one (Mobile Safari did not). */
 const touch = (el: HTMLElement, { click = true, to = 20 } = {}) => {
 	ptr(el, 'pointerdown', 'touch');
-	ptr(el, 'pointerup', 'touch', to);
+	if (to !== 20) ptr(el, 'pointermove', 'touch', to);
+	// Mobile Safari reports a touch's pointerup at 0,0, so the test does too: the tap must not depend on it.
+	ptr(el, 'pointerup', 'touch', 0);
 	if (click) fireEvent.click(el, { clientX: to, clientY: 20 });
 };
 

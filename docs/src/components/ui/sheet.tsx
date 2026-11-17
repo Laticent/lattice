@@ -63,13 +63,13 @@ export function sheetBox(side: "top" | "right" | "bottom" | "left") {
 /**
  * WHICH POINTERS ARE DOWN ON A SCRIM, kept outside any one sheet: the scrim a finger touched can be replaced by the next
  * sheet's before the finger lifts (see `SheetContent`). A tap is exactly one pointer, down and up on a scrim, that did not
- * move past `TAP_SLOP` and was not held past `TAP_MAX_MS`. A second finger spoils it, a pointercancel (a scroll) ends it,
+ * move past `TAP_SLOP` (read from its pointermoves) and was not held past `TAP_MAX_MS`. A second finger spoils it, a pointercancel (a scroll) ends it,
  * and every entry carries its event time, so a stale entry (a finger that lifted somewhere else) never matches a later
  * pointer that reuses its id: it is pruned at the next pointerdown. When the last scrim unmounts, the record is cleared,
  * unless another mounted in its place in the same commit (the swap a tap has to survive).
  */
 const scrimPointers = new Map<number, number>()
-let scrimTap: { id: number; x: number; y: number; t: number } | null = null
+let scrimTap: { id: number; x: number; y: number; t: number; moved: boolean } | null = null
 let scrimsMounted = 0
 /** How far a pointer may move between down and up and still be a tap, in CSS pixels. */
 const TAP_SLOP = 10
@@ -79,7 +79,16 @@ const TAP_MAX_MS = 1000
 function scrimPointerDown(e: React.PointerEvent): void {
   for (const [id, t] of scrimPointers) if (e.timeStamp - t > TAP_MAX_MS) scrimPointers.delete(id)
   scrimPointers.set(e.pointerId, e.timeStamp)
-  scrimTap = scrimPointers.size === 1 ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp } : null
+  scrimTap = scrimPointers.size === 1 ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, moved: false } : null
+}
+
+/** A pointer moving past `TAP_SLOP` from where it went down is a drag, not a tap. Read from the moves, never from the
+ *  pointerup: Mobile Safari reports a touch's pointerup at clientX/clientY 0,0 (every iOS Simulator log), which read as
+ *  a 200 px move and refused real taps (run 44046541702). */
+function scrimPointerMove(e: React.PointerEvent): void {
+  const tap = scrimTap
+  if (!tap || tap.id !== e.pointerId || tap.moved) return
+  if (Math.abs(e.clientX - tap.x) > TAP_SLOP || Math.abs(e.clientY - tap.y) > TAP_SLOP) tap.moved = true
 }
 
 /** Whether this pointerup completes a tap; it consumes the record either way. */
@@ -90,7 +99,7 @@ function scrimPointerUp(e: React.PointerEvent): boolean {
   scrimTap = null
   if (scrimPointers.size > 0) return false
   if (e.timeStamp - tap.t > TAP_MAX_MS) return false
-  return Math.abs(e.clientX - tap.x) <= TAP_SLOP && Math.abs(e.clientY - tap.y) <= TAP_SLOP
+  return !tap.moved
 }
 
 function scrimPointerCancel(e: React.PointerEvent): void {
@@ -186,6 +195,7 @@ function SheetContent({
             decided.current = false
             scrimPointerDown(e)
           }}
+          onPointerMove={scrimPointerMove}
           onPointerUp={onScrimPointerUp}
           onPointerCancel={scrimPointerCancel}
         />
