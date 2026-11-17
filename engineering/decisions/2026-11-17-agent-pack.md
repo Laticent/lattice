@@ -85,7 +85,7 @@ on the branch alike. The folders keep the kit's names rather than new ones (`lay
 | Layer | URL | Holds | Budget |
 |---|---|---|---|
 | Router | `/llms.txt` | What Lattice is, then the pack first, the docs copies second, the 700 KB reference last | 4 KB (existing gate) |
-| Start | `/agents/start.md` | The file shape, the deck canon, the rules, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts, check and render | **40,000 characters** (36,562 today, ~9.1k tokens) |
+| Start | `/agents/start.md` | The file shape, the deck canon, the rules, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts, check and render | **48,000 characters** (~42,700 today, ~10.7k tokens) |
 | Plugins | `/agents/plugins/<name>.md` | The 16 plugin docs: pills, icons, sparks, checks, avatars, image, video, callout, legend, code, math, mermaid, function-plot, anima, meta, chart-family | read when a slide uses one |
 | Small model | `/agents/paste/lattice-instructions-solo.md` | 19 layouts, self-contained, for a 4,096-token local context | 10,000 characters (existing) |
 | Layouts | `/agents/components/<name>.md` | Capacity, slots, variant rule, common mistakes, skeleton | read only for layouts the deck uses |
@@ -155,6 +155,39 @@ row 2 reserves for the owner; the owner chose it in §3.
 Removing `marp: true` from our decks is independent of the pack (it builds and tests against `main`
 alone), so it ships as its own branch and PR (HARD RULE #17) with its own note superseding §5(b) of
 the 2026-07-10 audit.
+
+### 4.7 A broken skeleton, found by rendering the pack's own example
+
+The owner looked at the starter deck's `list-steps` slide and saw every step drawn as one bold
+block. The cause was upstream of the kit: `list-steps.manifest.json`'s `skeleton` read
+`1. First step — a sentence describing what you do here.`, while the gallery and
+`lib/core/list-shapes.js` both say the canonical ledger shape is `1. Name` with an indented
+`- body`. The whole `1.` line is the step's title, so a dash-joined body renders as part of it.
+Every copy inherited it: the component's own docs, `components.json`, `start.md`, the starter
+deck, and five example decks. No rule caught it, because `ledger-inline-title` only looks for
+`- **Title.** body`.
+
+Fixed at the source: the skeleton is nested, the slot description says which line is the title,
+a new warning (`list-steps-inline-body`) flags the one-line form and `--fix` splits it, and
+`test/unit/components/skeletons-lint-clean.test.js` lints every skeleton and variant sample in the
+catalog, so a teaching shape the linter rejects cannot ship. A scan of all 80 skeletons against
+their galleries found no other layout with this mismatch.
+
+### 4.8 The parts every slide shares
+
+The owner then asked about the universal parts: the key insight, the below-note and the rest.
+The pack carried neither `lib/base/base.docs.md` nor `base.registers.docs.md`; an agent met the key
+insight only in one rule's passing mention and the front-matter registers not at all. Both now ship
+(`authoring/universal.md`, `authoring/registers.md`), and `start.md` §4 summarizes them from their
+own headings: each "Auto-detected authoring pattern" with its first sentence, and every register
+key. Each layout line also says when that layout takes no key insight or below-note, read from
+`authoring.blocks` in `components.json` (the same predicate the render uses). That brought
+`start.md` to about 42,700 characters (~10.7k tokens), so its budget moved from 40,000 to 48,000.
+
+Shipping the universal reference surfaced two more teaching defects, both fixed at the source:
+its key insight example used `- **Title.** body` (a lint error on `cards-grid`), and three of
+its front-matter examples still carried `marp: true`. The new
+`test/unit/components/skeletons-lint-clean.test.js` lints every one of its examples for errors.
 
 ## 5. Left out
 

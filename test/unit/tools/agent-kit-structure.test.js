@@ -890,7 +890,7 @@ test('agent kit structure', { skip }, async (t) => {
 		const { components } = JSON.parse(readKit('reference/components.json'));
 		const missing = components.map((c) => c.name).filter((n) => !start.includes(`[\`${n}\`](./components/${n}.md)`));
 		assert.deepEqual(missing, [], 'start.md leaves layouts out of its catalog');
-		assert.ok(start.length <= 40000, `start.md is ${start.length} chars, over its 40000 budget`);
+		assert.ok(start.length <= 48000, `start.md is ${start.length} chars, over its 48000 budget`);
 		assert.match(start, /^theme: indaco$/m);
 		assert.doesNotMatch(start, /^marp:/m);
 		assert.match(start, /npx @laticent\/lattice/);
@@ -902,6 +902,20 @@ test('agent kit structure', { skip }, async (t) => {
 		assert.ok(plugins.length >= 10, `found ${plugins.length} plugin docs`);
 		const unshipped = plugins.filter((n) => !fs.existsSync(path.join(KIT, 'plugins', `${n}.md`)) || !start.includes(`(./plugins/${n}.md)`));
 		assert.deepEqual(unshipped, [], 'a plugin doc is missing from the pack or from start.md');
+		// The universal parts and the front-matter registers (the owner: "agents also need to know
+		// universal stuff too like below note, key insights").
+		for (const rel of ['authoring/universal.md', 'authoring/registers.md']) assert.ok(fs.existsSync(path.join(KIT, rel)), `the pack does not carry ${rel}`);
+		const base = fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.docs.md'), 'utf8').replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
+		const patterns = base.split(/^## Auto-detected authoring patterns\s*$/m)[1].split(/^## /m)[0].split(/^### /m).slice(1).map((c) => c.split('\n')[0].trim());
+		assert.ok(patterns.includes('Key Insight panel') && patterns.includes('Below-Note'), `base.docs.md's patterns: ${patterns.join(', ')}`);
+		const unlisted = patterns.filter((h) => !start.includes(`[${h}](./authoring/universal.md#`));
+		assert.deepEqual(unlisted, [], 'start.md leaves a universal part out');
+		const keys = [...fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.registers.docs.md'), 'utf8').matchAll(/^## .*?`([a-z-]+):`/gm)].map((m) => m[1]);
+		const unlistedKeys = keys.filter((k) => !start.includes(`\`${k}:\``));
+		assert.deepEqual(unlistedKeys, [], 'start.md leaves a front-matter register out');
+		const noInsight = components.filter((c) => !(c.authoring?.blocks || []).includes('key-insight')).map((c) => c.name);
+		const unmarked = noInsight.filter((n) => !new RegExp(`\\[\`${n}\`\\][^\\n]*No key insight`).test(start));
+		assert.deepEqual(unmarked, [], 'a layout that takes no key insight does not say so on its line');
 	});
 
 	/**

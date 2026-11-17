@@ -315,7 +315,7 @@ function pluginDocs() {
     const src = path.join(dir, name, `${name}.docs.md`);
     if (!existsSync(src)) continue;
     const from = `lib/plugins/${name}/`;
-    const body = readFileSync(src, 'utf8').replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (whole, href) => {
+    const body = readFileSync(src, 'utf8').replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_whole, href) => {
       const [file, anchor = ''] = href.split(/(?=#)/);
       const repoPath = path.posix.normalize(path.posix.join(from, file));
       const sibling = repoPath.match(/^lib\/plugins\/([a-z0-9-]+)\/\1\.docs\.md$/);
@@ -333,6 +333,72 @@ function pluginDocs() {
     out.push({ name, body: Buffer.from(flat, 'utf8') });
   }
   return out;
+}
+
+/**
+ * authoring/universal.md and authoring/registers.md — what every slide can carry, and every
+ * deck-level front-matter register. They are `lib/base/base.docs.md` and
+ * `lib/base/base.registers.docs.md`, the repo's own references for the parts no single layout
+ * owns: the eyebrow, the subtitle, the key insight, the below-note, annotations, corner tags,
+ * tables, switches, `numbered`, `mirror`, focus, builds, and the `mode:`/`finish:`/`venue:`/…
+ * registers. The pack carried neither until 2026-11-17, so an agent learned the key insight
+ * from one rule's passing mention and the registers not at all. Links are flattened the same
+ * way the plugin docs' are.
+ */
+function universalDocs() {
+  const flatten = (body, from) =>
+    body
+      .replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_whole, href) => {
+        const [file, anchor = ''] = href.split(/(?=#)/);
+        const repoPath = path.posix.normalize(path.posix.join(from, file));
+        if (repoPath === 'lib/base/base.docs.md') return `](./universal.md${anchor})`;
+        if (repoPath === 'lib/base/base.registers.docs.md') return `](./registers.md${anchor})`;
+        const comp = repoPath.match(/^lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md$/);
+        if (comp) return `](../${COMPONENTS}/${comp[1]}.md${anchor})`;
+        const plug = repoPath.match(/^lib\/plugins\/([a-z0-9-]+)\/\1\.docs\.md$/);
+        if (plug) return `](../plugins/${plug[1]}.md${anchor})`;
+        return `](${REPO_BLOB}${repoPath}${anchor})`;
+      })
+      .replace(/`lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md`/g, `\`../${COMPONENTS}/$1.md\``)
+      .replace(/lib\/components\/(?:<bucket>\/)?<name>\/<name>\.docs\.md/g, `../${COMPONENTS}/<name>.md`)
+      .replace(/ \(HARD RULE #\d+[^)]*\)/g, '')
+      .replace(/HARD RULE #\d+/g, 'a house rule');
+  return [
+    { rel: `${AUTHORING}/universal.md`, body: flatten(readFileSync(path.join(ROOT, 'lib', 'base', 'base.docs.md'), 'utf8'), 'lib/base/') },
+    { rel: `${AUTHORING}/registers.md`, body: flatten(readFileSync(path.join(ROOT, 'lib', 'base', 'base.registers.docs.md'), 'utf8'), 'lib/base/') },
+  ];
+}
+
+/** GitHub's heading anchor: lower-case, punctuation dropped, spaces to hyphens. */
+function anchorOf(heading) {
+  return heading.toLowerCase().replace(/[^\p{L}\p{N} -]/gu, '').trim().replace(/ /g, '-');
+}
+
+/**
+ * The parts any slide can carry, from universal.md's "Auto-detected authoring patterns": each
+ * `###` heading with the first sentence under it. And the registers, from registers.md's `##`
+ * headings. Both stay in the source's words, so start.md cannot drift from them.
+ */
+function universalRows(files) {
+  const uni = files.get(`${AUTHORING}/universal.md`).toString('utf8');
+  // Fenced examples carry their own `## Slide heading` lines; take them out before finding where
+  // the section ends.
+  const prose = uni.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
+  const sec = prose.split(/^## Auto-detected authoring patterns\s*$/m)[1]?.split(/^## /m)[0];
+  if (!sec) throw new Error('build-agent-kit: universal.md has no "Auto-detected authoring patterns" section for start.md to summarize.');
+  const parts = [];
+  for (const chunk of sec.split(/^### /m).slice(1)) {
+    const [head, ...rest] = chunk.split('\n');
+    const para = rest.join('\n').trim().split(/\n\n/)[0].replace(/\n/g, ' ');
+    parts.push(`- [${head.trim()}](./${AUTHORING}/universal.md#${anchorOf(head.trim())}): ${firstSentence(para, 170)}`);
+  }
+  const reg = files.get(`${AUTHORING}/registers.md`).toString('utf8');
+  const registers = [...reg.matchAll(/^## (.+)$/gm)].map(([, h]) => {
+    const keys = [...h.matchAll(/`([a-z-]+):`/g)].map((k) => `\`${k[1]}:\``);
+      const what = h.match(/\(([^)]+)\)\s*$/)?.[1] || h.replace(/^The /, '').replace(/`[^`]*`/g, '').replace(/[—–-]\s*$/, '').trim();
+    return keys.length ? `- [${keys.join(' / ')}](./${AUTHORING}/registers.md#${anchorOf(h)}): ${what}` : null;
+  }).filter(Boolean);
+  return { parts, registers };
 }
 
 /**
@@ -2925,12 +2991,19 @@ function rootReadme(files, layoutCount, components) {
  * of `components.json`, so `start.md` cannot disagree with the rest of the kit. The
  * budget is START_MAX; the build fails past it.
  */
-const START_MAX = 40000;
+const START_MAX = 48000;
 
 function firstSentence(text, max = 110) {
   const t = String(text || '').replace(/\s+/g, ' ').trim();
-  const m = t.match(/^(.+?[.!?])(\s|$)/);
-  let out = m ? m[1] : t;
+  // The first sentence end that is not inside inline code (`1.` in `` `1.` `` is not one).
+  let out = t;
+  for (const m of t.matchAll(/[.!?](?=\s|$)/g)) {
+    if ((t.slice(0, m.index).match(/`/g) || []).length % 2 === 0) {
+      out = t.slice(0, m.index + 1);
+      break;
+    }
+  }
+  out = out.replace(/:$/, '.');
   if (out.length > max) out = `${out.slice(0, max - 1).replace(/\s+\S*$/, '')}…`;
   return out;
 }
@@ -2979,7 +3052,10 @@ function startDoc(files, cat) {
     for (const c of inBucket) {
       const variants = (c.variants || []).length ? ` Variants: ${c.variants.map((v) => `\`${v}\``).join(', ')}.` : '';
       const words = c.density?.soft ? ` ~${c.density.soft} words per ${c.density.axis === 'item' ? 'item' : c.density.axis}.` : '';
-      layoutRows.push(`- [\`${c.name}\`](./${COMPONENTS}/${c.name}.md): ${firstSentence(c.purpose || c.description)}${capacityNote(c)}${words}${variants}`);
+      const blocks = c.authoring?.blocks || [];
+      const missing = ['key-insight', 'below-note'].filter((b) => !blocks.includes(b));
+      const noBlocks = missing.length ? ` No ${missing.map((b) => (b === 'key-insight' ? 'key insight' : 'below-note')).join(' or ')}.` : '';
+      layoutRows.push(`- [\`${c.name}\`](./${COMPONENTS}/${c.name}.md): ${firstSentence(c.purpose || c.description)}${capacityNote(c)}${words}${variants}${noBlocks}`);
     }
     layoutRows.push('');
   }
@@ -2988,6 +3064,7 @@ function startDoc(files, cat) {
   if (stray.length) throw new Error(`build-agent-kit: start.md has no bucket heading for ${stray.join(', ')}. Add the bucket to BUCKET_ORDER.`);
 
   const skeletons = SOLO_LAYOUTS.flatMap((n) => [`### ${n}`, '', ...fenced(skeletonFor(cat, n)), '']);
+  const uni = universalRows(files);
   const pluginRows = [];
   for (const [rel, buf] of [...files].filter(([k]) => /^plugins\/[^/]+\.md$/.test(k)).sort()) {
     const name = rel.slice('plugins/'.length, -3);
@@ -3016,7 +3093,7 @@ function startDoc(files, cat) {
     '  and more ship with Lattice. Add `color-mode: dark` for the dark version.',
     '- `paginate: true` numbers the slides.',
     '- Separate slides with a line containing only `---`, with a blank line on each side.',
-    '- Start every slide with one `<!-- _class: NAME -->` line. Use only names from section 4.',
+    '- Start every slide with one `<!-- _class: NAME -->` line. Use only names from section 5.',
     '',
     '## 2. What a good deck is',
     '',
@@ -3030,18 +3107,30 @@ function startDoc(files, cat) {
       .replace(/^These are the half[\s\S]*?\n\n/, '')
       .replace(/^> Where a rule says[\s\S]*?\n\n/m, ''),
     '',
-    `## 4. All ${comps.length} layouts`,
+    '## 4. Parts any slide can carry',
+    '',
+    'These work on almost every layout with no class: write the Markdown shape and the slide',
+    'draws it. A layout line in section 5 says when it does not take a key insight or a',
+    'below-note. Each name links to the full rule and examples.',
+    '',
+    ...uni.parts,
+    '',
+    '**Deck-wide settings (front matter).** Each key sets one thing for the whole deck:',
+    '',
+    ...uni.registers,
+    '',
+    `## 5. All ${comps.length} layouts`,
     '',
     'Pick by what the slide has to do. Each line gives the layout\'s job and how much it holds;',
     'past the maximum, split the slide or pick a roomier layout. If nothing fits, use',
     '`content` for prose or `list` for bullets. Never invent a name.',
     '',
     ...layoutRows,
-    '## 5. Modifiers',
+    '## 6. Modifiers',
     '',
     strip(`${AUTHORING}/modifiers.md`).replace(/^## /gm, '### '),
     '',
-    '## 6. Inline notation',
+    '## 7. Inline notation',
     '',
     'Plugins add small drawn things you write in inline code: pills, icons, word-sized charts,',
     'check marks, portraits, pictures. **The backticks are part of the notation**: `` `{On plan}` ``',
@@ -3049,13 +3138,13 @@ function startDoc(files, cat) {
     '',
     ...pluginRows,
     '',
-    `## 7. Skeletons for the ${SOLO_LAYOUTS.length} most-used layouts`,
+    `## 8. Skeletons for the ${SOLO_LAYOUTS.length} most-used layouts`,
     '',
     'Copy the shape exactly: heading levels, bullet nesting and the order of lines all',
     'matter. Every other layout\'s skeleton is in its own file.',
     '',
     ...skeletons,
-    '## 8. Check and render',
+    '## 9. Check and render',
     '',
     ...fenced(
       [
@@ -3068,10 +3157,12 @@ function startDoc(files, cat) {
     'No command line? Open the file in the Lattice Studio at <https://lattice.style/studio>',
     `and export from there. More in [\`${RENDER}/lattice-render-a-deck.md\`](./${RENDER}/lattice-render-a-deck.md).`,
     '',
-    '## 9. When you need more',
+    '## 10. When you need more',
     '',
     '| To… | Read |',
     '|---|---|',
+    `| Every universal part, with examples | [\`${AUTHORING}/universal.md\`](./${AUTHORING}/universal.md) |`,
+    `| Every front-matter setting | [\`${AUTHORING}/registers.md\`](./${AUTHORING}/registers.md) |`,
     `| See a whole deck | [\`${EXAMPLES}/lattice-example-starter.md\`](./${EXAMPLES}/lattice-example-starter.md) |`,
     `| Edit or restructure an existing deck | [\`${SKILLS}/edit-deck.md\`](./${SKILLS}/edit-deck.md) |`,
     `| Change how a deck looks, not what it says | [\`${SKILLS}/restyle-deck.md\`](./${SKILLS}/restyle-deck.md) |`,
@@ -3101,6 +3192,9 @@ const MARP_PAGE = 'render/lattice-export-to-marp.md';
 // skills/import.md: importing a Marp deck is its job. plugins/video.md: its "where it works"
 // list says how a video record behaves when a deck is exported to the Marp kit.
 const MARP_EXEMPT = new Set([MARP_PAGE, 'skills/import.md', 'plugins/video.md']);
+// The universal references note how a feature behaves in an exported Marp bundle or the VS Code
+// preview. They may NAME marp-cli; they may still never write `marp: true` or call a deck a Marp deck.
+const MARP_HOST_NOTES = new Set(['authoring/universal.md', 'authoring/registers.md']);
 const MARP_FRAMING = [
   [/^\s*marp:\s*true\s*$/m, 'a `marp: true` front-matter line'],
   [/\bis a Marp deck\b|\bMarp deck first\b/i, 'calls a Lattice deck a Marp deck'],
@@ -3123,6 +3217,7 @@ function assertPack(files) {
     }
     if (MARP_EXEMPT.has(rel) || rel.startsWith(`${REFERENCE}/`)) continue;
     for (const [re, what] of MARP_FRAMING) {
+      if (MARP_HOST_NOTES.has(rel) && /marp-cli|@marp-team|theme-set/.test(re.source)) continue;
       if (re.test(text)) problems.push(`${rel}: ${what} (Marp belongs only in ${MARP_PAGE})`);
     }
   }
@@ -3208,6 +3303,7 @@ async function buildKit() {
   for (const c of components) files.set(`${COMPONENTS}/${c.name}.md`, c.body);
   const plugins = pluginDocs();
   for (const p of plugins) files.set(`plugins/${p.name}.md`, p.body);
+  for (const u of universalDocs()) files.set(u.rel, Buffer.from(u.body, 'utf8'));
 
   // The skills ship VERBATIM and are byte-pinned. Their index does not:
   // the repo's own README is written for someone inside the repo, so the kit

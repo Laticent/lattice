@@ -659,10 +659,14 @@
       "",
       "## How to roll this out.",
       "",
-      "1. First step — a sentence describing what you do here.",
-      "2. Second step — a sentence describing what you do here.",
-      "3. Third step — a sentence describing what you do here.",
-      "4. Fourth step — a sentence describing what you do here."
+      "1. First step",
+      "   - One sentence on what happens in this step.",
+      "2. Second step",
+      "   - One sentence on what happens in this step.",
+      "3. Third step",
+      "   - One sentence on what happens in this step.",
+      "4. Fourth step",
+      "   - One sentence on what happens in this step."
     ],
     "description": "Horizontal row of ordered step cards, each with a full description body (the `vertical` variant stacks them instead)."
   },
