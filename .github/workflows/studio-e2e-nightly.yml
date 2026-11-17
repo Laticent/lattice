@@ -35,8 +35,12 @@ permissions:
   contents: read
   issues: write # open / append the rolling tracking issue
 
+# One group per branch for a hand-run, and one for the schedule. A concurrency group keeps only ONE
+# pending run, so with a single shared group a dispatch from any branch cancelled whichever run was
+# waiting: two sessions' probes on 2026-11-17, and it could cancel the night's scheduled run. Now a
+# probe only replaces an earlier pending probe on the SAME branch. Owner's call, 2026-11-17 (#3284).
 concurrency:
-  group: studio-e2e-nightly
+  group: studio-e2e-nightly-${{ github.event_name == 'workflow_dispatch' && github.ref || 'scheduled' }}
   cancel-in-progress: false
 
 jobs:
