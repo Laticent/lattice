@@ -190,52 +190,130 @@ test('the sheet scanners stay linear on a stylesheet that carries megabytes of b
   assertLinearRegexes(() => camera.unusedRangeFaceUrls(css, 'plain text'));
 });
 
-describe('the linear scanners answer as the regexes they replaced (seeded differential fuzz, seed 3045)', () => {
-  // The old patterns (tests are outside the census, which reads lib/** only). Both are recheck `polynomial`.
-  const OLD_FACE = /@font-face\s*\{[^}]*\}/g;
-  const OLD_VAR = /var\(\s*(--[\w-]+)\s*(?:,[^)]*)?\)/g;
+describe('the camera\'s sheet readers answer as CSS reads (css-tree\'s spec tokenizer, seeded, seed 3045)', () => {
+  // Segno P5a moved fontFaceRules and replaceVarRefs onto the CSS tokenizer (lib/core/css-tokens.mjs). They were pinned
+  // to the regexes they replaced, `/@font-face\s*\{[^}]*\}/g` and `/var\(\s*(--[\w-]+)\s*(?:,[^)]*)?\)/g`; they now
+  // answer as CSS reads the sheet, which differs where those regexes did not read CSS: a `}` or `)` inside a string, an
+  // `@font-face` or `var(` inside a comment, a fallback that is itself a call, a no-break space (not CSS whitespace). The
+  // oracle below reads css-tree's tokens (an independent tokenizer) with the same block rules.
+  const csstree = require('css-tree');
+  const tokensOf = (s) => {
+    const out = [];
+    csstree.tokenize(s, (type, from, to) => out.push({ type: csstree.tokenNames[type], from, to: Math.min(to, s.length) }));
+    return out;
+  };
+  const OPEN = new Set(['{-token', '(-token', '[-token', 'function-token']);
+  const CLOSE = new Set(['}-token', ')-token', ']-token']);
+  const trivia = (t) => t?.type === 'whitespace-token' || t?.type === 'comment-token';
+  const CLOSER = { '{-token': '}-token', '(-token': ')-token', '[-token': ']-token', 'function-token': ')-token' };
+  /** Where the block opened at token `k` closes (the index of its own closer), or -1. Any other closer inside is a token. */
+  const closerOf = (toks, k) => {
+    const want = [];
+    for (let j = k; j < toks.length; j++) {
+      if (OPEN.has(toks[j].type)) want.push(CLOSER[toks[j].type]);
+      else if (CLOSE.has(toks[j].type) && toks[j].type === want[want.length - 1]) {
+        want.pop();
+        if (!want.length) return j;
+      }
+    }
+    return -1;
+  };
+  function oracleFaces(s) {
+    const toks = tokensOf(s);
+    const out = [];
+    const parens = []; // the ( and [ blocks open, as their closers: a `{` inside one opens no rule
+    let itemStart = true; // nothing but trivia since the last `;`, `{` or `}` at this level
+    for (let k = 0; k < toks.length; k++) {
+      const t = toks[k];
+      if (t.type === '(-token' || t.type === '[-token' || t.type === 'function-token') parens.push(CLOSER[t.type]);
+      else if (t.type === '{-token' && parens.length) parens.push('}-token');
+      else if (parens.length && t.type === parens[parens.length - 1]) parens.pop();
+      else if (parens.length) continue;
+      if (parens.length) continue;
+      // A stray `)` or `]` is a token: it starts a style rule's prelude like any other (CSS Syntax 3 §5.4.3).
+      if (t.type === ')-token' || t.type === ']-token') {
+        itemStart = false;
+        continue;
+      }
+      if (t.type === 'at-keyword-token' && itemStart && s.slice(t.from, t.to).toLowerCase() === '@font-face') {
+        let j = k + 1;
+        while (trivia(toks[j])) j++;
+        if (toks[j]?.type === '{-token') {
+          const c = closerOf(toks, j);
+          if (c >= 0 && s[toks[c].from] === '}') out.push([t.from, s.slice(t.from, toks[c].to)]);
+        }
+      }
+      if (t.type === 'semicolon-token' || t.type === '{-token' || t.type === '}-token') itemStart = true;
+      else if (!trivia(t)) itemStart = false;
+    }
+    return out;
+  }
+  function oracleVars(s, fn) {
+    const toks = tokensOf(s);
+    let out = '';
+    let at = 0;
+    for (let k = 0; k < toks.length; k++) {
+      const t = toks[k];
+      if (t.type !== 'function-token' || s.slice(t.from, t.to).toLowerCase() !== 'var(') continue;
+      let j = k + 1;
+      while (trivia(toks[j])) j++;
+      if (toks[j]?.type !== 'ident-token' || !s.startsWith('--', toks[j].from)) continue;
+      const c = closerOf(toks, k);
+      if (c < 0) break;
+      out += s.slice(at, t.from) + fn(s.slice(toks[j].from, toks[j].to));
+      at = toks[c].to;
+      k = c;
+    }
+    return at ? out + s.slice(at) : s;
+  }
   const draw = (rand, pieces, max) => {
     let s = '';
     const len = Math.floor(rand() * (max + 1));
     for (let i = 0; i < len; i++) s += pieces[Math.floor(rand() * pieces.length)];
     return s;
   };
-  const FACE_PIECES = ['@font-face', '@font-face', '@font-fac', '{', '{', '}', '}', ' ', '\n', '\t', '\u00a0', 'a', ';', ':', 'x{', '@'];
-  const VAR_PIECES = ['var(', 'var(', 'var', '(', ')', ')', ',', '--', '-', 'a', 'Z_9', ' ', '\t', '\n', '\u2028', '!', 'x'];
+  const FACE_PIECES = ['@font-face{', '@font-face{font-family:x}', '@font-face {a:b;c:d}', '@font-face', '@font-fac', '{', '{', '}', '}', ' ', '\n', '\t', ' ', 'a', ';', ':', 'x{', '@', '"}"', "'{'", '/*', '*/', '(', ')', 'url(x)', '@media p'];
+  const VAR_PIECES = ['var(--a', 'var( --b', 'var(--c,', 'var(', 'VAR(', 'var', '(', ')', ')', ',', '--', '-', 'a', 'Z_9', ' ', '\t', '\n', ' ', '!', 'x', '"', ')"', '/*', '*/', 'rgb(1,2,3)', '[', ']'];
 
-  test('fontFaceRules finds exactly the rules /@font-face\\s*\\{[^}]*\\}/g finds, over 20,000 draws', async () => {
+  test('fontFaceRules finds the @font-face rules CSS reads, over 20,000 draws', async () => {
     const { fontFaceRules } = await import('../../../lib/core/slide-camera.mjs');
     const rand = mulberry32(3045);
+    let found = 0;
     for (let i = 0; i < 20000; i++) {
       const s = draw(rand, FACE_PIECES, 14);
-      const want = [...s.matchAll(OLD_FACE)].map((m) => [m.index, m[0]]);
+      const want = oracleFaces(s);
+      found += want.length;
       assert.deepEqual(fontFaceRules(s).map((r) => [r.start, r.text]), want, JSON.stringify(s));
     }
+    assert.ok(found > 2000, `the draws reached only ${found} faces`);
   });
 
-  test('replaceVarRefs rewrites exactly what the old var() replace rewrote, over 20,000 draws', async () => {
+  test('replaceVarRefs rewrites the var() calls CSS reads, over 20,000 draws', async () => {
     const { replaceVarRefs } = await import('../../../lib/core/slide-camera.mjs');
     const rand = mulberry32(3045);
+    let replaced = 0;
     for (let i = 0; i < 20000; i++) {
       const s = draw(rand, VAR_PIECES, 14);
-      const seen = [];
-      const want = s.replace(OLD_VAR, (_, name) => `<${name}>`);
-      assert.equal(
-        replaceVarRefs(s, (name) => {
-          seen.push(name);
-          return `<${name}>`;
-        }),
-        want,
-        JSON.stringify(s),
-      );
-      assert.deepEqual(seen, [...s.matchAll(OLD_VAR)].map((m) => m[1]), JSON.stringify(s));
+      const want = oracleVars(s, (name) => `<${name}>`);
+      if (want !== s) replaced++;
+      assert.equal(replaceVarRefs(s, (name) => `<${name}>`), want, JSON.stringify(s));
     }
+    assert.ok(replaced > 500, `the draws reached only ${replaced} references`);
   });
 
-  test('mutation arm: the trace fails a scan that still runs the old patterns', () => {
-    // What the guard above would say about the code before the rewrite: both old patterns are in the census as polynomial.
-    assert.throws(() => assertLinearRegexes(() => 'x@font-face{'.replace(OLD_FACE, '')), /polynomial|unknown|does not hold/);
-    assert.throws(() => assertLinearRegexes(() => 'var(--a,'.replace(OLD_VAR, '')), /polynomial|unknown|does not hold/);
+  test('where CSS reads differently from the regexes the readers replaced, pinned', async () => {
+    const { fontFaceRules, replaceVarRefs } = await import('../../../lib/core/slide-camera.mjs');
+    const faces = (s) => fontFaceRules(s).map((r) => r.text);
+    // A `}` inside a string does not end the face; a face inside a comment is not one.
+    assert.deepEqual(faces('@font-face{font-family:"a}b"} /* @font-face{x:y} */'), ['@font-face{font-family:"a}b"}']);
+    // A no-break space is not CSS whitespace, so `@font-face ` is another at-keyword.
+    assert.deepEqual(faces('@font-face {x:y}'), []);
+    // A fallback that is itself a call goes with the reference.
+    assert.equal(replaceVarRefs('var(--a, rgb(0 0 0)) b', () => 'X'), 'X b');
+    // A closer that is not the innermost block's own is a token: the `)` inside `[…]` does not end the call.
+    assert.equal(replaceVarRefs('var(--a, [x) y]) z', () => 'X'), 'X z');
+    // A `var(` inside a string is text.
+    assert.equal(replaceVarRefs('"var(--a)" var(--b)', (n) => `<${n}>`), '"var(--a)" <--b>');
   });
 });
 
