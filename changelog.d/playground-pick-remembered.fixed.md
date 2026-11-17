@@ -1,0 +1,1 @@
+- The Playground remembers a picked component the moment you pick it. The picker went on naming the previous component, and the address bar read `?c=<previous>`, until the new component's plan had loaded, so a reload or a copied link in that time opened the previous component.
