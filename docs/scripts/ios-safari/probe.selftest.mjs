@@ -168,6 +168,8 @@ if (process.env.PROBE === 'present-narration') {
 			while (Date.now() - t0 < seconds * 1000) {
 				// A sampling interval, as run.mjs reads every 30 s: what is read is work done (slide, clips, bytes), never time.
 				await new Promise((r) => setTimeout(r, 10_000)); // flaky-ok: a sampling interval, the samples are judged on work done
+				// Walk the deck as run.mjs does on the simulator (Next every 10 s), so both read the same work.
+				await call('latticeNarrationNext()');
 				const s = await call('latticeNarrationSample()');
 				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), ...s });
 				console.log(`  ${out.arm} +${out.samples.at(-1).t}s: slide ${s.slide}, audio ${s.audio}, ${s.speech} spoken (${s.pcm} as PCM), ${s.liveMB} MB audio held of ${s.decodedMB} MB decoded at ${s.sampleRate} Hz`);

@@ -62,10 +62,8 @@ export function narrationChecks(arms, { slides, capMB, audioCapMB, memory }) {
 	const last = on.samples?.at(-1) ?? {};
 	const checks = [
 		{ name: 'the deck imported and Present counts all its slides', pass: !on.error && on.total === slides, detail: on.error || `${on.total} of ${slides} slides` },
-		{ name: 'the voice arm spoke and moved through the deck', pass: (last.speech ?? 0) > 0 && (last.slide ?? 1) > 2, detail: `${last.speech ?? 0} sentences asked for, on slide ${last.slide ?? '?'} after ${on.playedS ?? '?'} s` },
-		// On iOS audio runs only if a real gesture resumed it: a scripted press leaves the context suspended and narration
-		// never starts, which would read as "no memory problem" when nothing was ever played.
-		{ name: 'the voice arm played with audio running', pass: /running/.test(last.audio ?? ''), detail: `audio ${last.audio ?? '?'}, Play pressed with ${on.pressedWith ?? 'a tap'}` },
+		// Narration requested for most of the deck: four sentences a slide, so 30 slides ask for well over 60.
+		{ name: 'the voice arm asked for narration across the deck', pass: (last.speech ?? 0) >= 60 && (last.slide ?? 1) >= 20, detail: `${last.speech ?? 0} sentences asked for (${last.pcm ?? 0} as PCM), on slide ${last.slide ?? '?'} after ${on.playedS ?? '?'} s` },
 		{ name: 'the page did not reload while narration played', pass: on.alive === true, detail: on.alive ? '' : 'the mark Present left is gone' },
 		{ name: `the decoded narration the page holds stays under ${audioCapMB} MB`, pass: last.liveMB !== undefined && last.liveMB <= audioCapMB, detail: `${last.liveMB ?? '?'} MB held of ${last.decodedMB ?? '?'} MB decoded, ${last.clips ?? '?'} clips at ${last.sampleRate ?? '?'} Hz` },
 	];

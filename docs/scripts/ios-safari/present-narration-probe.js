@@ -17,6 +17,7 @@
  *   latticeNarrationPlayButton()        Play itself, for a WebDriver element click (a native click Safari counts as a
  *                                       user gesture, which is what lets Present resume its AudioContext)
  *   latticeNarrationStarted(ms)         after the press: Present is playing (the runner tries the next way if not)
+ *   latticeNarrationNext()              Present's Next: the runner walks the deck, since the simulator cannot unlock audio
  *   latticeNarrationSample()            where Present is, how much audio the page has decoded and still holds, how many
  *                                       sentences it asked to have spoken, and the mark latticeNarrationReady left (gone
  *                                       means the page reloaded under the probe)
@@ -290,6 +291,17 @@ function latticeNarrationScriptClick() {
 	return { ok: true };
 }
 
+/** Move Present to the next slide, as a presenter's Next does. Navigation needs no user gesture, so a script click is the
+ *  real action here. On the iOS Simulator narration cannot play (see `latticeNarrationScriptClick`), so the probe walks the
+ *  deck itself: each slide's narration is still requested, fetched and cached, which is the memory under test. */
+function latticeNarrationNext() {
+	const h = latticeNarrationHelpers();
+	const next = h.button(/^Next slide$/, h.dialog() || document);
+	if (!next || next.disabled) return { moved: false, slide: h.counter()?.[0] ?? null };
+	next.click();
+	return { moved: true, slide: h.counter()?.[0] ?? null };
+}
+
 /** The Play button itself, for a WebDriver element click (execute/sync returns it as an element reference). */
 function latticeNarrationPlayButton() {
 	const h = latticeNarrationHelpers();
@@ -323,4 +335,4 @@ function latticeNarrationSample() {
 }
 
 // Reached by name from source text (run.mjs's execute-script, probe.selftest.mjs's evaluate), so put on the global object.
-Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationReady, latticeNarrationEvents, latticeNarrationDock, latticeNarrationScriptClick, latticeNarrationPlayButton, latticeNarrationStarted, latticeNarrationSample });
+Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationReady, latticeNarrationEvents, latticeNarrationDock, latticeNarrationScriptClick, latticeNarrationNext, latticeNarrationPlayButton, latticeNarrationStarted, latticeNarrationSample });

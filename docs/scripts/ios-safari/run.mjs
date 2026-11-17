@@ -681,6 +681,7 @@ async function runPresentNarrationProbe(id) {
 	const PLAY_S = Number(process.env.NARRATION_PLAY_S || 360);
 	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 90);
 	const SAMPLE_S = 30;
+	const STEP_S = Number(process.env.NARRATION_STEP_S || 10);
 	// The owner's voice by default: Gemini 3.1 Flash TTS through OpenRouter, where the reload happens; not with Kokoro.
 	const VOICE = process.env.NARRATION_VOICE || 'openrouter-gemini';
 	const deck = await buildNarrationDeck();
@@ -764,8 +765,17 @@ async function runPresentNarrationProbe(id) {
 			if (!out.pressedWith) throw new Error(`Present never started: ${tried.join('; ')}`);
 			const t0 = Date.now();
 			let peak = 0;
+			// WALK THE DECK. On the iOS Simulator no WebDriver press reaches the page (run 44017516008 logged no events for an
+			// element click, a touch tap or a mouse click), so only a script click starts Present, and iOS keeps audio suspended
+			// after one: narration stays on its first sentence. The memory under test is the narration the page fetches and
+			// keeps, and that is fetched per slide on navigation whether or not audio runs. So the probe presses Next every
+			// STEP_S, as a presenter would, and reads the page and the footprint every SAMPLE_S.
+			let nextSample = SAMPLE_S;
 			while (Date.now() - t0 < seconds * 1000) {
-				await sleep(SAMPLE_S * 1000);
+				await sleep(STEP_S * 1000);
+				await call('latticeNarrationNext()');
+				if ((Date.now() - t0) / 1000 < nextSample) continue;
+				nextSample += SAMPLE_S;
 				const s = await call('latticeNarrationSample()');
 				const g = growthMB(m0, await readMB());
 				peak = Math.max(peak, g.grew);
