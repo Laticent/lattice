@@ -136,7 +136,7 @@ test('an emphasized passage holds a beat on the real Present overlay', async ({ 
 	// Cue 2 carries the claim, and the hold is spent after it, so the bold drive keeps cue 2 live LONGER than the plain
 	// drive does. An order between two counts of steps on the paused clock, not a reading of milliseconds: the size of the
 	// hold (cadence.ts `EMPHASIS_HOLD_MS`) is the cadence kernel's unit test, and its speed is not this test's business.
-	expect(bold[3] - bold[2], seen).toBeGreaterThan(plain[3] - plain[2]);
+	expect(bold[3] - bold[2], seen).toBeGreaterThan(plain[3] - plain[2]); // flaky-ok: counts of 50 ms steps the test itself advanced on the paused clock, compared as an order; no clock is read
 	// And it holds ONCE: cue 3 lasts as long in both drives (to the step), so the hold did not repeat on the cue after it.
-	expect(Math.abs(bold[4] - bold[3] - (plain[4] - plain[3])), seen).toBeLessThanOrEqual(1);
+	expect(Math.abs(bold[4] - bold[3] - (plain[4] - plain[3])), seen).toBeLessThanOrEqual(1); // flaky-ok: counts of steps the test advanced, equal to within one step; no clock is read
 });
