@@ -393,16 +393,14 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
         updatePositionStrategy="always"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
-        // z-[140]: the popover portals to <body>, but PRESENT is a fullscreen overlay at z-[100]/z-[102]
-        // (PresentOverlay) — at the default popover z-50 the card renders BEHIND it (the chart binds and
-        // the tap fires, but nothing is visible). Sit above Present's whole stack, including its lens menu
-        // (z-[130]). Harmless on the editing preview / Playground, which have no such overlay. tailwind-merge
-        // (via cn in PopoverContent) makes this win over the base z-50.
+        // No z-index of its own: the popover portals to <body>, and PopoverContent already sits above Present's
+        // z-[100]/z-[102] takeover and above toasts (ui/sonner.tsx, LAYERING). It was z-[140], to clear Present's
+        // lens menu at z-[130]; every popup now shares one layer, and an open popup closes when another is opened.
         // `lat-chart-detail-pop` is the hook chart-interact.css uses to take the pointer off Radix's
         // positioning WRAPPER as well. `pointer-events-none` here covers the card; the wrapper around
         // it stays `auto`, and that box is what steals the pointer from the mark underneath and shuts
         // the card the same gesture opened.
-        className="lat-chart-detail-pop pointer-events-none z-[140] max-w-[18rem] p-3"
+        className="lat-chart-detail-pop pointer-events-none max-w-[18rem] p-3"
       >
         {detail && (
           <>

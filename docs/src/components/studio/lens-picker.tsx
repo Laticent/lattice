@@ -70,9 +70,8 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 	 *  The editor's preview-pane header passes this. Present (a reader takeover with room)
 	 *  omits it → labeled at every width, at the component's roomier default size. */
 	dense?: boolean;
-	/** Extra classes for the portaled menu — e.g. a z-index above a full-screen overlay. The menu
-	 *  portals to `<body>`, so inside Present (a `z-[100]` takeover) the default `z-50` would render it
-	 *  BEHIND the overlay (invisible + unclickable); Present passes a higher z here. */
+	/** Extra classes for the portaled menu (Present passes its card surface). No z-index is needed: the
+	 *  menu already sits above Present's `z-[100]` takeover, and above toasts (ui/sonner.tsx, LAYERING). */
 	menuClassName?: string;
 	/** Editor-only: when the deck has no reader views yet, make the "Full deck" pill open the Lenses panel
 	 *  so the feature is discoverable from the deck surface (not buried in the Architect). */

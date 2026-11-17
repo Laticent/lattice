@@ -26,6 +26,18 @@ import { Toaster as Sonner, type ToasterProps } from "sonner"
 //   3. STACK DEPTH — the base ships Sonner's default of three visible toasts, as a
 //      STACK. `lib/notify.ts` makes the same number a per-kind ceiling instead.
 //
+//   4. LAYERING — an open popup outranks a toast. Sonner draws its toaster at z-index 999999999,
+//      and the shadcn popups drew at `z-50`, so a list, menu or popover opened while a toast was up
+//      sat UNDER it. Measured at 390px: after a logo setting change, "Logo style · Undo" (y 770–828)
+//      covered the color list's last visible rows, and a tap there went to the toast, closed the list
+//      and chose nothing, or hit Undo. The open popup is what the reader is acting on; the toast is
+//      ambient and is back the moment the popup closes. So every popup primitive — Select, DropdownMenu
+//      and its SubContent, Popover — sits at `z-[1000000000]`, one above the toaster. A new popup
+//      primitive follows the same rule. `TapAway` stays at `z-[49]`, under the popup it closes, and
+//      the "Tappable over a modal" note below still holds for a long-lived MODAL: a toast stays
+//      tappable over a dialog.
+//      Pinned by e2e/popup-above-toast.spec.ts.
+//
 // Everything else — the typed variant `icons`, the `ToasterProps` passthrough —
 // is the canonical base untouched. `lx-ui` carries the token reset into Sonner's
 // document-root portal.
