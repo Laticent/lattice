@@ -151,22 +151,27 @@ export function muxOggOpus({ packets, channels = 1, preSkip = DEFAULT_PRE_SKIP, 
 	pages.push(page([opusTags(vendor)], 0n, serial, sequence++, 0));
 	const sized = packets.map((p) => ({ data: p.data, samples: opusPacketSamples(p.data) }));
 	const total = sized.reduce((n, p) => n + p.samples, 0);
+	// Where the audio ends: original length plus pre-skip, never past what was encoded. The last page's granule says so,
+	// which trims the encoder's end padding (RFC 7845 §4.5).
+	const trimmed = length !== undefined && Number.isFinite(length) && length > 0;
+	const end = BigInt(trimmed ? Math.min(preSkip + Math.round(length as number), total) : total);
 	let granule = 0n; // samples the completed packets decode to, pre-skip region included
 	let held: Uint8Array[] = [];
 	let heldSegments = 0;
 	let heldSamples = 0;
 	const flush = (last: boolean) => {
-		let g = granule;
-		// The last page may end before the encoder's padding: original length plus pre-skip, never past what was encoded.
-		if (last && length !== undefined && Number.isFinite(length) && length > 0) g = BigInt(Math.min(preSkip + Math.round(length), total));
-		pages.push(page(held, g, serial, sequence++, last ? HEADER_TYPE.eos : 0));
+		pages.push(page(held, last ? end : granule, serial, sequence++, last ? HEADER_TYPE.eos : 0));
 		held = [];
 		heldSegments = 0;
 		heldSamples = 0;
 	};
 	for (const { data, samples } of sized) {
 		const segments = Math.floor(data.length / 255) + 1;
-		if (held.length && (heldSegments + segments > 255 || heldSamples >= PAGE_SAMPLES)) flush(false);
+		// A page that has its samples closes, unless its granule would already pass `end`: then the packets stay on the LAST
+		// page. End trimming may only cut into the last page's own samples; closing a page past `end` made the last granule
+		// smaller than the one before it, which a decoder may reject, cut or mistime (about 2-3% of clips over a second,
+		// whenever the padding reached back across a page boundary). Only a full 255-segment page still forces a close.
+		if (held.length && (heldSegments + segments > 255 || (heldSamples >= PAGE_SAMPLES && granule <= end))) flush(false);
 		held.push(data);
 		heldSegments += segments;
 		heldSamples += samples;

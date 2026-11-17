@@ -549,6 +549,12 @@ OpenRouter's Gemini voice (raw 24 kHz PCM), 3 s a slide. The two builds differ o
 The 4.9 MB left is the same in both runs: compiled code (about 1.9 MB) and script source (1.2 MB) the page loads as the
 run reaches new code. It is warm-up, not narration.
 
+**What the window costs.** A clip is forgotten once its play ends, aborted plays included, so resuming after a pause,
+stepping back a sentence or replaying decodes that clip again from its bytes before it sounds. On an iPhone that is an Opus
+decode, a few milliseconds a clip. `Stage.decode` shares a decode already running for the same key, so a look-ahead and the
+item's own turn never decode one clip twice, and a decode that finishes after its key was forgotten is returned to its
+caller but not cached.
+
 **What stays out.** Persistent storage (the IndexedDB clip store), the bitrate setting and the decision of when to
 compress stay with the caller (`voice-model.js`): Suono still owns no network, no key, no model and no storage.
 
