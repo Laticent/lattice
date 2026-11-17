@@ -220,7 +220,8 @@ function isMainOnly(part) {
   let p = part.trim();
   while (/^\(.*\)$/.test(p) && topLevelConjuncts(p.slice(1, -1)) !== null && balanced(p.slice(1, -1))) p = p.slice(1, -1).trim();
   const compact = p.replace(/\s+/g, '');
-  return compact === "github.ref=='refs/heads/main'" || compact === "'refs/heads/main'==github.ref";
+  const [lhs, rhs] = MAIN_ONLY.replace(/\s+/g, '').split('==');
+  return compact === `${lhs}==${rhs}` || compact === `${rhs}==${lhs}`;
 }
 function balanced(s) {
   let d = 0;
