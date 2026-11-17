@@ -120,5 +120,10 @@ compared both against the source. 32 kbps is the safe default; 24 kbps saves a q
 
 - iPhone: dispatch `platform-suites.yml` with `suites: ios-safari-codec-support`.
 - Three engines: `PROBE=codec-support node docs/scripts/ios-safari/probe.selftest.mjs`.
-- The offline scores used ffmpeg and PESQ in a scratch environment. They are not yet a committed tool, so committing that
-  harness is part of the streaming PR.
+- Offline size, quality and added length: `python3 -I tools/bake-narration-codec.py <src_dir> <work_dir>` (ffmpeg, plus
+  `numpy scipy soundfile pesq` in a virtualenv). On the probe's 2 s `speech.wav` alone it gives Opus 32k 4.50, MP3 64k
+  4.35 and AAC-LC 64k 4.30, with AAC the only one 5.3 ms long: the same order as the table above, from one clip.
+- Encode time in a worker pool and page stalls: `node tools/bench-narration-codec.mjs` (Chromium, WebKit and Firefox
+  from Playwright). At 64 kbps on a 4-core sandbox, one worker encodes a 2 s clip in 13 ms (Chromium), 17 ms (Firefox)
+  and 24 ms (Linux WebKit), and the longest frame gap stays at the idle gap. Four workers reach 410x, 318x and 100x
+  real time: WebKit gains little past two, which is why the pool uses one worker there.
