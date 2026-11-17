@@ -106,7 +106,8 @@ disagree with the rest of the pack.
   `npm run export:marp`. The runtime `<script>` tags, `html: true` and the Marp kit live there.
 
 `npx @laticent/lattice` fails until the package is published. That gap is the owner's stated choice,
-not an oversight; the publish is a followup.
+not an oversight. The owner plans the release for Sunday 2026-11-22; the audit that day, of every
+place that assumes or denies the package is published, is `followups.d/3305-p1-npm-publish-audit.md`.
 
 ### 4.3 dist-kits becomes a copy
 
