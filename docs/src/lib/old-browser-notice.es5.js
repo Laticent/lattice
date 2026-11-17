@@ -296,6 +296,26 @@
 		function colors() {
 			return 'html ' + getComputedStyle(root).backgroundColor + ', body ' + getComputedStyle(document.body).backgroundColor + ', veil ' + getComputedStyle(veil).backgroundColor;
 		}
+		function walk(list, within) {
+			var i;
+			var r;
+			var text;
+			var hit;
+			for (i = 0; i < list.length; i++) {
+				r = list[i];
+				try {
+					if (r.cssRules && !r.selectorText) {
+						walk(r.cssRules, within + (r.conditionText || (r.media && r.media.mediaText) || '') + ' > ');
+						continue;
+					}
+					if (!r.selectorText || !r.style) continue;
+					text = r.style.cssText;
+					if (!/background|accent|tap-highlight|caret|scrollbar/i.test(text)) continue;
+					hit = root.matches ? root.matches(r.selectorText) : root.msMatchesSelector(r.selectorText);
+					if (hit) trace.push(['rule on html: ' + within + r.selectorText.slice(0, 80) + ' { ' + text.slice(0, 200) + ' }']);
+				} catch (_e) {}
+			}
+		}
 		function sample(label) {
 			var cs = getComputedStyle(root);
 			trace.push([label, Date.now(), colors(), '--bg ' + cs.getPropertyValue('--bg') + ' --accent ' + cs.getPropertyValue('--accent')]);
@@ -311,6 +331,20 @@
 			} catch (_e) {}
 		});
 		sample('show');
+		// <html>'s own background with the hider out for an instant (taken out and put back in one task, so nothing paints
+		// between): the hider's !important masks it, and before the hider runs it is what the window shows.
+		var hider = document.getElementById('lattice-old-browser-veil');
+		var parent = hider && hider.parentNode;
+		var next = hider && hider.nextSibling;
+		if (hider) {
+			parent.removeChild(hider);
+			trace.push(['html without the hider: ' + getComputedStyle(root).backgroundColor]);
+			parent.insertBefore(hider, next);
+		}
+		// Every rule this engine parsed that applies to <html> and names a background or the accent, as the engine
+		// serializes it, inside whatever @media or @supports holds it.
+		walk(document.styleSheets, '');
+		out.textContent = trace.join('\n');
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		setTimeout(function () {
 			sample('show+50ms');
