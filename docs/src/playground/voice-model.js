@@ -884,7 +884,7 @@ export const SENTENCE_PAUSE_MS = { ',': 60, ';': 105, ':': 105, '.': 165, '!': 1
 // resolved, never laddered — `{ read(), select(pick), keyState(provider), openKey(provider) }`.
 // Without it (the /cadenza and /suono reference pages) the prefs below and the old ladder apply.
 // engineering/decisions/2026-11-07-studio-model-spine.md
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection, onModelGone, onBilling, onSynthesized } = {}) {
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection, onModelGone, onBilling, onSynthesized, packForStore } = {}) {
   const synthWaitMs = Number.isFinite(waitMs) && waitMs > 0 ? waitMs : SYNTH_WAIT_MS;
   const requestCeilingMs = Number.isFinite(ceilingMs) && ceilingMs > 0 ? ceilingMs : REQUEST_CEILING_MS;
   const settings = () => (getSettings ? getSettings() : {}) || {};
@@ -1428,11 +1428,28 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
         cacheSet(key, blob);
         tellSynthesized(rung.name, modelIdFor(rung.name), text);
         // Write through to the device, unawaited — a caller may be waiting to PLAY this.
-        if (narrationCacheEnabled()) {
-          Promise.resolve(putClip(key, blob)).catch(() => {
+        const persist = (b) => {
+          if (!narrationCacheEnabled()) return;
+          Promise.resolve(putClip(key, b)).catch(() => {
             /* a full or blocked store just means no persistence this time */
           });
-        }
+        };
+        // KEEP IT COMPRESSED (engineering/decisions/2026-11-17-narration-codec-bakeoff.md). A raw-audio voice (Gemini's PCM,
+        // on-device Kokoro) answers WAV, 48 KB a second; `packForStore` turns it into Ogg Opus off the main thread. The WAV
+        // plays now, so no reader waits on the encode; when the Opus copy lands it replaces the WAV in memory (only if the
+        // cache still holds this clip) and is what the device keeps. Null keeps the WAV: a missing encoder costs bytes, never audio.
+        if (packForStore) {
+          Promise.resolve()
+            .then(() => packForStore(blob))
+            .then(
+              (packed) => {
+                if (!packed) return persist(blob);
+                if (audioCache.get(key) === blob) cacheSet(key, packed);
+                persist(packed);
+              },
+              () => persist(blob),
+            );
+        } else persist(blob);
         return blob;
       })
       .catch(() => null)
