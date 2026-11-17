@@ -1,4 +1,4 @@
-import { closeInsertMenu, insertEntry, insertTrigger, insertVia, openDeckInCompose, openInsertMenu, savedDeck } from './compose-insert';
+import { caretSlideActive, closeInsertMenu, insertEntry, insertTrigger, insertVia, openDeckInCompose, openInsertMenu, savedDeck } from './compose-insert';
 import { expect, test } from './studio-fixture';
 
 /**
@@ -71,6 +71,8 @@ test.describe('compose insert menu', () => {
 	test('the keyboard reaches every item: Enter opens, the arrow keys move, Enter chooses, and focus goes back to the text', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click();
+		// The door of the slide just clicked: Compose moves the active mark after the caret (see `caretSlideActive`).
+		await caretSlideActive(page);
 		await insertTrigger(page).focus();
 		await page.keyboard.press('Enter');
 		await insertEntry(page, 'Table').waitFor();

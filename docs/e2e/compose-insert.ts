@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { confirmPhotoFormat } from './photo-format';
 import { gotoStudio, persistedSource, setEditorContent } from './studio-fixture';
 
@@ -17,8 +17,30 @@ export const insertTrigger = (page: Page, slide?: Locator): Locator => (slide ??
 /** One item of the open menu. The accessible name starts with its label: the hint (or the reason it is unavailable) follows. */
 export const insertEntry = (page: Page, item: InsertItem): Locator => page.getByRole('menuitem', { name: new RegExp(`^${item}\\b`) });
 
+/**
+ * Wait until the slide that holds the editor's caret is the one marked active (`cs-slide-active`). A click or a tap in a
+ * paragraph moves the caret at once, and Compose moves the active mark after it; `insertTrigger` reads the active slide,
+ * so reading it in between finds the PREVIOUS slide's door. Under four workers that is what made
+ * compose-insert-menu.spec.ts:71 open a title slide's menu after a click in a content slide, every item disabled for the
+ * title layout (1 run in 80). Returns at once when the caret is in no slide.
+ */
+export async function caretSlideActive(page: Page): Promise<void> {
+	await expect
+		.poll(
+			() =>
+				page.evaluate(() => {
+					const at = getSelection()?.anchorNode ?? null;
+					const slide = (at instanceof Element ? at : (at?.parentElement ?? null))?.closest('.cs-slide');
+					return !slide || slide.classList.contains('cs-slide-active');
+				}),
+			{ message: 'the slide with the caret never became the active slide' },
+		)
+		.toBe(true);
+}
+
 /** Open the menu and wait for its items. */
 export async function openInsertMenu(page: Page, opts: { slide?: Locator; tap?: boolean } = {}): Promise<void> {
+	await caretSlideActive(page);
 	const trigger = insertTrigger(page, opts.slide);
 	if (opts.tap) await trigger.tap();
 	else await trigger.click();
