@@ -47,6 +47,25 @@ const RUN = 27_000;
  */
 const clockMark = { at: 0, resumedAt: 0 };
 
+/**
+ * Pause the clock a second ahead of where it stands, and return that time. The target is read from the page and then
+ * sent back, and on a loaded machine the clock can pass it in between ("Cannot fast-forward to the past": 1 run in 40
+ * at four workers). That error is the clock saying the target went stale, so read it again and send a fresh one; any
+ * other error, or a target that keeps going stale, still fails the test.
+ */
+async function pauseAhead(page: import('@playwright/test').Page): Promise<number> {
+	for (let attempt = 1; ; attempt++) {
+		const pageNow = await page.evaluate(() => Date.now());
+		const target = Math.max(pageNow, clockMark.at + (Date.now() - clockMark.resumedAt)) + 1_000;
+		try {
+			await page.clock.pauseAt(target);
+			return target;
+		} catch (e) {
+			if (attempt >= 5 || !String(e).includes('fast-forward to the past')) throw e;
+		}
+	}
+}
+
 /** Onset (virtual ms from play) of each caption cue, driving the real overlay on a paused clock. */
 async function cueOnsets(page: import('@playwright/test').Page, md: string): Promise<number[]> {
 	await gotoStudio(page);
@@ -64,9 +83,7 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 	// with no hold at all (red 1 of 10 alone, more under load). Wait for the projection, while time still flows.
 	await expect(dialog).toHaveAttribute('data-narration', 'projected');
 	// From here time moves only when the test moves it.
-	const pageNow = await page.evaluate(() => Date.now());
-	const pauseAt = Math.max(pageNow, clockMark.at + (Date.now() - clockMark.resumedAt)) + 1_000;
-	await page.clock.pauseAt(pauseAt);
+	const pauseAt = await pauseAhead(page);
 	await page.getByRole('button', { name: 'Play the presentation' }).click();
 	await expect(dialog.getByRole('button', { name: /Pause/ })).toBeVisible();
 	// The sampler runs on the paused clock too, so it samples virtual time at a fixed TICK.
