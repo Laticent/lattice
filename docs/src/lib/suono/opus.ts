@@ -42,7 +42,13 @@ async function encodePackets(samples: Float32Array, sampleRate: number, bitrate:
 		const frame = 1024;
 		for (let i = 0; i < samples.length; i += frame) {
 			const part = samples.slice(i, Math.min(i + frame, samples.length));
-			enc.encode(new AudioData({ format: 'f32', sampleRate, numberOfFrames: part.length, numberOfChannels: 1, timestamp: Math.round((i / sampleRate) * 1e6), data: part }));
+			const frameData = new AudioData({ format: 'f32', sampleRate, numberOfFrames: part.length, numberOfChannels: 1, timestamp: Math.round((i / sampleRate) * 1e6), data: part });
+			// encode() takes its own reference; close ours at once rather than leave one per 1024 samples for the GC.
+			try {
+				enc.encode(frameData);
+			} finally {
+				frameData.close();
+			}
 		}
 		await enc.flush();
 	} catch {

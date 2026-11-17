@@ -87,6 +87,20 @@ describe('muxOggOpus', () => {
 		expect(back.slice(0, 40).every((p) => p.length === 1275)).toBe(true);
 	});
 
+	it('keeps the granule from shrinking when the end trim reaches back past the last page boundary', () => {
+		// 51 packets of 960 samples: one full 50-packet page (48,000), then one packet. A trim to 47,000 + 312 ends BEFORE
+		// that first page's 48,000, so the writer used to close the page anyway and write a last granule smaller than the one
+		// before it (0, 0, 48000, 47312). The packets past the trim now stay on the last page.
+		for (const length of [47_000, 46_600, 48_500]) {
+			const pages = readOggPages(muxOggOpus({ packets: Array.from({ length: 51 }, (_, i) => ({ data: pkt20(40, i) })), preSkip: 312, length }));
+			const granules = pages.slice(2).map((p) => Number(p.granule));
+			for (let i = 1; i < granules.length; i++) expect(granules[i], `granules ${granules} at length ${length}`).toBeGreaterThanOrEqual(granules[i - 1]);
+			expect(granules.at(-1)).toBe(312 + length);
+			expect(pages.slice(2).flatMap((p) => p.packets)).toHaveLength(51); // nothing dropped
+			expect(pages.every((p) => p.crcOk)).toBe(true);
+		}
+	});
+
 	it('never claims more audio than was encoded when trimming the end', () => {
 		const pages = readOggPages(muxOggOpus({ packets: Array.from({ length: 5 }, () => ({ data: pkt20(40) })), preSkip: 312, length: 999999 }));
 		expect(Number(pages.at(-1)!.granule)).toBe(5 * 960);

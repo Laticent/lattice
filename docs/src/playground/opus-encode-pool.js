@@ -7,9 +7,13 @@ import { isLiteDevice, LITE } from '../lib/device-lite.js';
 import { createSharedPool, createWorkerPool } from '../lib/worker-pool.js';
 
 /** WebKit's encoder does not run clips in parallel: in the bake-off's pool benchmark (2026-11-17) Linux WebKit read 48x,
- *  53x and 56x realtime with 1, 2 and 4 workers while each clip took longer, so a second worker only adds a heap. */
-function isWebKitOnly(ua = globalThis.navigator?.userAgent || '') {
-	return /AppleWebKit/.test(ua) && !/Chrome|Chromium|Edg|Firefox|FxiOS|CriOS/.test(ua);
+ *  53x and 56x realtime with 1, 2 and 4 workers while each clip took longer, so a second worker only adds a heap.
+ *  Every browser on an iPhone or iPad is WebKit, whatever its name (Chrome is CriOS, Firefox FxiOS, Edge EdgiOS), and an
+ *  iPad asking for the desktop site reports a Mac with touch; elsewhere Chromium and Firefox are not. */
+export function isWebKitOnly(ua = globalThis.navigator?.userAgent || '', touchPoints = globalThis.navigator?.maxTouchPoints || 0) {
+	if (/iPhone|iPad|iPod/.test(ua)) return true;
+	if (/Macintosh/.test(ua) && touchPoints > 1) return true;
+	return /AppleWebKit/.test(ua) && !/Chrome|Chromium|Edg|Firefox/.test(ua);
 }
 
 /** One worker on a Lite device or on Safari/WebKit; elsewhere one per spare core, at most 4 (Chromium 66x, 140x, 193x and
@@ -29,6 +33,7 @@ export function createOpusEncoder({ size = opusPoolSize(), deadlineMs = ENCODE_D
 		size,
 		deadlineMs,
 		label: 'opus encode',
+		afterBreak: 'narration keeps its WAV (this pool has no main-thread fallback)',
 	});
 	return {
 		/**

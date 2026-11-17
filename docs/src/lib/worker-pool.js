@@ -22,9 +22,10 @@
  *   deadlineMs: number,
  *   label: string,
  *   available?: () => boolean,
- * }} opts
+ *   afterBreak?: string,
+ * }} opts  `afterBreak` finishes the warning a broken pool logs: what the caller does instead (default: the main thread).
  */
-export function createWorkerPool({ spawn, size, deadlineMs, label, available = () => typeof Worker !== 'undefined' }) {
+export function createWorkerPool({ spawn, size, deadlineMs, label, available = () => typeof Worker !== 'undefined', afterBreak = 'continuing on the main thread' }) {
 	const idle = [];
 	const waiting = [];
 	const all = [];
@@ -66,7 +67,7 @@ export function createWorkerPool({ spawn, size, deadlineMs, label, available = (
 			worker.postMessage({ ...message, id }, transfer || []);
 		});
 	const breakPool = (worker, e) => {
-		console.warn(`[lattice] ${label} worker failed (${e?.message || e}); continuing on the main thread.`);
+		console.warn(`[lattice] ${label} worker failed (${e?.message || e}); ${afterBreak}.`);
 		broken = true;
 		// The failed worker and the idle ones end now; a worker busy with another job ends when that job releases it.
 		if (worker) worker.terminate();
