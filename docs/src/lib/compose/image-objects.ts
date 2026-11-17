@@ -42,7 +42,7 @@ export function isImage(node: PMNode | null | undefined): boolean {
 }
 
 /** Where an image's bytes come from, as far as the editor draws it. Anything else gets a stand-in; the preview draws the real one. */
-export type ImageSourceKind = 'asset' | 'data' | 'other';
+export type ImageSourceKind = 'asset' | 'data' | 'sample' | 'other';
 
 export function imageSourceKind(src: string): ImageSourceKind {
 	// The same shape the engine resolves (lib/core/media-sources.js): a name, no extension, no path.
@@ -50,7 +50,16 @@ export function imageSourceKind(src: string): ImageSourceKind {
 	// A data URI is the author's own bytes, in the document already: drawing it fetches nothing. The types are the engine's own
 	// allowlist: a type it refuses draws as literal text on the slide, and Compose must not show a picture there.
 	if (/^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(src)) return 'data';
+	// The Studio's own sample art (the portraits and photos a component's example ships with): served from the Studio's own
+	// folder, so drawing it reaches no other site. Without it every example with a photo slot showed boxes in Compose
+	// (owner's iPhone, 2026-11-17, `team-profile`).
+	if (sampleNameOf(src) !== null) return 'sample';
 	return 'other';
+}
+
+/** The file in a `sample:` reference, or null: the engine's own shape (lib/core/media-sources.js `SAMPLE_REF`). */
+export function sampleNameOf(src: string): string | null {
+	return /^sample:([A-Za-z0-9][A-Za-z0-9._-]*)$/i.exec(src)?.[1] ?? null;
 }
 
 /** The Library name in an `asset:` reference, or null. */

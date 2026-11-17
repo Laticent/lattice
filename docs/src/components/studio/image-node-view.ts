@@ -6,7 +6,9 @@
 //   · A Library photo is drawn from the Studio's own name → URL map (media-urls.ts), the one the preview renders with, and
 //     it redraws when the Library changes.
 //   · An image the author embedded as a data URI is drawn as it is: its bytes are in the document already.
-//   · Anything else (a web address, `sample:` art, a relative file) is drawn as a stand-in that says what it is. The editor
+//   · The Studio's own `sample:` art is drawn from the Studio's own sample folder (the one the preview resolves into), so the
+//     portraits in an example like `team-profile` are pictures, not boxes. It reaches no other site (owner, 2026-11-17).
+//   · Anything else (a web address, a relative file) is drawn as a stand-in that says what it is. The editor
 //     fetches nothing the author did not put in the deck's own bytes, so opening a deck never reaches the network; the slide
 //     preview beside Compose draws the real picture, under the Studio's own web-image setting.
 //   · An old Marp `![bg right](…)` says so: Lattice draws it as a picture in the text since 2026-11-13, and Placement turns it
@@ -19,8 +21,9 @@
 
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
-import { assetNameOf, bgKeywords, imageSourceKind, placementAt } from '@/lib/compose/image-objects';
+import { assetNameOf, bgKeywords, imageSourceKind, placementAt, sampleNameOf } from '@/lib/compose/image-objects';
 import { openObjectEditor } from '@/lib/compose/inline-objects';
+import { studioSamplesBase } from '@/lib/samples-base';
 import { ensureAssetUrls, onAssetUrlsChanged } from './media-urls';
 
 /** The Library's name → URL map, as of the last read. Empty until the first read finishes. */
@@ -102,7 +105,9 @@ class ImageView implements NodeView {
 
 		// The engine matches a name without regard to case, and a name is never an object's own property (`asset:constructor`).
 		const key = name?.toLowerCase() ?? '';
-		const url = kind === 'asset' && name ? (Object.hasOwn(urls, key) ? urls[key] : null) : kind === 'data' ? src : null;
+		const sample = kind === 'sample' ? sampleNameOf(src) : null;
+		const samples = sample ? studioSamplesBase() : null;
+		const url = kind === 'asset' && name ? (Object.hasOwn(urls, key) ? urls[key] : null) : kind === 'data' ? src : sample && samples ? new URL(sample, samples).href : null;
 		if (url) {
 			const img = document.createElement('img');
 			img.src = url;

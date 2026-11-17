@@ -99,6 +99,18 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
 - **The picker's line.** It said "Adds it after this slide" with no slide; on an empty deck it says "Adds it as slide 1",
   and the door's notice after a pick says "Added title as slide 1".
 
+## 4b. Sample art in Compose
+
+The owner added `team-profile` to an empty deck on an iPhone and saw its portraits as dashed boxes in Compose ("Sample art:
+portrait-ada.svg") beside a preview that drew them. Since 2026-11-15 `image-node-view.ts` drew only a Library photo and an
+embedded data URI, and every other source as a stand-in, so that opening a deck never reaches the network. Sample art is not
+the network: it is the Studio's own folder, the one the preview resolves `sample:` into. It was pre-existing, but the owner hit
+it while testing this PR, so it is on the path (HARD RULE #18) and fixed here. `imageSourceKind` gains `sample` for the
+engine's own shape (`lib/core/media-sources.js` `SAMPLE_REF`: a name, no path); the node view draws it from
+`studioSamplesBase()` (`lib/samples-base.ts`, the reader `photo-ink-read.ts` already had, moved to be shared). An SVG loaded
+through `<img>` runs no script, unlike the SVG data URIs the kind still refuses. Web and relative images keep the stand-in.
+`compose-image.spec.ts` checks the picture loads (`naturalWidth` above 0); turning the draw off turns it red.
+
 ## 5. The default layout's name: `content`
 
 Compose named the default component `text` on the layout button, the layout menu, its Undo notice, the pane chip and the
