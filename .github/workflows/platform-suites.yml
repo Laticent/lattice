@@ -229,7 +229,9 @@ jobs:
     permissions:
       contents: read
       issues: write
-      pull-requests: read
+      # write, not read: a comment on a pull request goes through the issues API, and GITHUB_TOKEN needs pull-requests
+      # write for it there (the first real run, 44154479520, posted nothing with read).
+      pull-requests: write
     name: harness (${{ github.event.inputs.harness_os }}, PR ${{ github.event.inputs.harness }})
     steps:
       - name: Start the clock

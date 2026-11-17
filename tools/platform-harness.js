@@ -249,9 +249,10 @@ async function main() {
   // GitHub's `since` filters on updated_at at one-second grain; ask a minute back and dedupe by id.
   let cursor = new Date(started - 60_000).toISOString();
 
-  await reply(`**harness ready** on \`${os}\` at \`${head.slice(0, 7)}\` for @${ACTOR}. ` +
+  // The one reply that must land: if the harness cannot comment, nobody can see it, so fail loudly instead of looping.
+  await api('POST', `/repos/${REPO}/issues/${PR}/comments`, { body: `${MARK}\n**harness ready** on \`${os}\` at \`${head.slice(0, 7)}\`, taking commands from \`${ACTOR}\`. ` +
     `Post \`/harness suite <name>\`, \`/harness sh\` + a bash block, \`rerun\`, \`watch on|off\`, \`status\` or \`stop\`. ` +
-    `Idle stop after ${minutes(idleMs)}, hard stop in ${minutes(deadline - Date.now())}. [run](${process.env.RUN_URL})`);
+    `Idle stop after ${minutes(idleMs)}, hard stop in ${minutes(deadline - Date.now())}. [run](${process.env.RUN_URL})` });
 
   async function sync(noBuild) {
     const next = fetchBranch();

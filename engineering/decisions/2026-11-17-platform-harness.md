@@ -64,7 +64,7 @@ The repository is public, and the harness executes comment text as shell. What k
 2. **Which PR.** At start the harness checks that the PR's head is this repository and this branch. A fork PR, or another
    branch's PR, is refused, so one branch's code never reports into another's thread.
 3. **No secrets, and the token stays with the poller.** The job is given no repository secrets. Its token
-   (`contents: read`, `issues: write`, `pull-requests: read`) is a short-lived `GITHUB_TOKEN` that could edit any comment
+   (`contents: read`, `issues: write`, `pull-requests: write`, which commenting on a PR through the issues API needs) is a short-lived `GITHUB_TOKEN` that could edit any comment
    in the repository, including a fresh `/harness` command before the poll reads it, so it must not leak. Three guards:
    the checkout uses `persist-credentials: false`, so it is not in `.git/config` (checkout's default writes it there, where
    any job could read it, as the review of this change found); `jobEnv` strips every `*TOKEN*`, `*SECRET*` and `ACTIONS_*`
