@@ -140,7 +140,11 @@ async function latticeComposeProbe() {
 		at.collapse(true);
 		getSelection().removeAllRanges();
 		getSelection().addRange(at);
-		await frame();
+		// Focus leaves only once ProseMirror has TAKEN the caret, not a frame after the DOM range was set. The drawn caret
+		// is placed from the editor's own selection, so a blur that came first left it where the steps above had put the
+		// caret, on the second slide: 199 px below the heading, steady across two frames (iPhone, run 44008585425). The
+		// caret's textblock carrying `cs-active-line` is the editor's own word that it holds the caret there.
+		await until(() => heading.classList.contains('cs-active-line'), 10000, 'the editor to take the caret in the heading');
 		button(COMPOSE)?.focus(); // focus off the editor: Compose draws its caret now
 		const ghost = () => {
 			const g = document.querySelector('#studio-pane-editor .lx-ghost-caret');
