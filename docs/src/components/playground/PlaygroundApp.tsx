@@ -320,8 +320,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			return resolveComponent(catalog, null).name;
 		}
 	});
+	// The pointer as last written, for a pick to hand its walk: a pick writes the pointer before the plan loads, so a
+	// plan that fails to load puts back the one the pick replaced (`startWalk`'s `revertTo`).
+	const pointerRef = React.useRef(readerComponent);
 	/** Point the persisted pointer at `name`: the label the picker shows in Explore, and the key a reload reads. */
 	const rememberComponent = React.useCallback((name: string) => {
+		pointerRef.current = name;
 		setReaderComponent(name);
 		try {
 			localStorage.setItem(COMPONENT_KEY, name);
@@ -492,7 +496,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  to about:blank and then silently declines to rebind for the rest of the session. */
 	const boundFrameDocRef = React.useRef<Document | null>(null);
 	const bindDeckInputRef = React.useRef<() => void>(() => {});
-	const startWalkRef = React.useRef<(name: string, step: string | null, opts?: { warm?: boolean }) => Promise<boolean>>(async () => false);
+	const startWalkRef = React.useRef<
+		(name: string, step: string | null, opts?: { warm?: boolean; revertTo?: string }) => Promise<boolean>
+	>(async () => false);
 	// Mobile error reveal: ≤560px hides .pg-status, so the badge expands it inline.
 	const [errorOpen, setErrorOpen] = React.useState(false);
 	// The variant-sync discriminator: the last seen `_class` token line. The
@@ -1660,9 +1666,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// THE PICK IS REMEMBERED WHEN IT IS MADE, not when its plan lands. The walk below fetches the component's plan,
 			// and until it resolves the picker went on naming the component before, and a reload in that window forgot the
 			// pick (playground-state.spec.ts:52, red under load on a phone). The pointer changes only on a pick, so the pick
-			// is the moment to write it; a plan that lands after a newer pick still returns before it writes anything.
+			// is the moment to write it; a plan that lands after a newer pick still returns before it writes anything. A
+			// plan that fails to load puts the previous pointer back, so the picker never names a component nobody is reading.
+			const revertTo = pointerRef.current;
 			rememberComponent(name);
-			void startWalkRef.current(name, null);
+			void startWalkRef.current(name, null, { revertTo });
 		},
 		[catalog, split.expand, rememberComponent],
 	);
@@ -2058,7 +2066,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		async (
 			name: string,
 			step: string | null,
-			{ warm = false, keepEditedDraft = false }: { warm?: boolean; keepEditedDraft?: boolean } = {},
+			{
+				warm = false,
+				keepEditedDraft = false,
+				revertTo,
+			}: { warm?: boolean; keepEditedDraft?: boolean; revertTo?: string } = {},
 		): Promise<boolean> => {
 			const seq = ++deckPickSeqRef.current;
 			const plan = await fetchPlan(name);
@@ -2069,6 +2081,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// 390px, red under load).
 			if (seq !== deckPickSeqRef.current) return false;
 			if (!plan) {
+				// A pick wrote the pointer before its plan loaded (`onPickComponent`). The deck on screen is still the one
+				// before the pick, so the pointer goes back to the one the pick replaced: a reload then opens what the reader
+				// was reading, and the picker names it. A newer pick already returned above, so this never undoes one.
+				if (revertTo !== undefined && revertTo !== name) rememberComponent(revertTo);
 				// The designed 404 path: the staged tree was rewritten by a deploy while
 				// this tab sat open — never a dead Next button. (Silent when the walk is
 				// only warming up behind the editor.)

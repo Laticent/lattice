@@ -100,6 +100,36 @@ test('@crosswidth a pick is remembered before its plan has landed', async ({ pag
 	await expect(page.locator('#pg-template-trigger')).toContainText('kpi');
 });
 
+// A pick whose plan never loads leaves the deck before it on screen, so the pointer goes back to the component the pick
+// replaced. The pick writes the pointer before the fetch (the test above), and without the revert the picker, the stored
+// pointer and a reload all named a component nobody was reading.
+test('@crosswidth a pick whose plan fails to load puts the previous component back', async ({ page }) => {
+	await gotoPlayground(page);
+	// A pick that loads first, so the pointer the failed pick replaces is a known one.
+	const landed = page.waitForResponse((r) => /\/plans\/big-number\.json/.test(r.url()) && r.ok());
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('big-number');
+	await page.getByRole('option', { name: 'big-number', exact: true }).click();
+	await landed;
+	await expect(page).toHaveURL(/[?&]c=big-number(&|$)/);
+	const before = 'big-number';
+	const label = (await page.locator('#pg-template-trigger').textContent())?.trim() ?? '';
+	expect(label).toContain(before);
+	await page.route(/\/plans\/kpi\.json/, (route) => route.fulfill({ status: 404, body: 'gone' }));
+	const failed = page.waitForResponse((r) => /\/plans\/kpi\.json/.test(r.url()) && r.status() === 404);
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await failed;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe(before);
+	await expect(page.locator('#pg-template-trigger')).toHaveText(label);
+	await expect(page).not.toHaveURL(/[?&]c=kpi(&|$)/);
+
+	await page.unrouteAll({ behavior: 'ignoreErrors' });
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await expect(page.locator('#pg-template-trigger')).toHaveText(label);
+});
+
 test('@crosswidth the picker detaches honestly when the draft holds no recognized component', async ({ page }) => {
 	await gotoPlayground(page);
 	await page.locator('#pg-template-trigger').click();
