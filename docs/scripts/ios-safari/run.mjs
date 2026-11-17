@@ -219,14 +219,89 @@ async function runStudioProbe(id) {
 	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
 	// which never shows the keyboard or runs Safari's own tap-to-focus path.
 	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
+	// A finger on the deck band leaves a Library just launched from the menu, on a fresh page each time (ui/sheet.tsx).
+	const leave = await deckTapLeavesLibrary(id);
+	if (!leave.ok) await shotIfFailed('deck-tap', leave);
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!leave.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, leave.error && `deck tap: ${leave.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('deck tap', leave)],
 	};
+}
+
+/**
+ * A finger on the deck band leaves a panel the ⋯ menu launched, on real Mobile Safari (e2e/back-gesture.spec.ts:172; the
+ * cause and the fix are engineering/gotchas/studio-playground.md "A tap on a sheet's scrim does nothing in the sheet's
+ * first moment"). Real WebDriver touch taps, on a fresh page each time so the Library loads cold: the Menu, then its
+ * Library row, then the deck band above the sheet as soon as the Library sheet is on screen, which is when its loading
+ * sheet swaps for the real one. A pass is the back stack at 0 and no sheet open. A phone layout only: on an iPad the
+ * Library docks and has no deck band to tap.
+ */
+async function deckTapLeavesLibrary(id) {
+	const run = (script) => wd('POST', `/session/${id}/execute/sync`, { script, args: [] });
+	const steps = [];
+	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+	const touch = async (x, y) => {
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		await wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+		});
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+	};
+	// Polls a page-side expression (a script body that returns a value) until it is truthy.
+	const until = async (script, ms, what) => {
+		const t0 = Date.now();
+		for (;;) {
+			const v = await run(script);
+			if (v) return v;
+			if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for ${what}`);
+			await new Promise((r) => setTimeout(r, 50));
+		}
+	};
+	const centerOf = (find) => `const el = (${find})(); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };`;
+	const live = `(el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0`;
+	try {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		const width = await until('return innerWidth', 10000, 'the page');
+		if (width >= 500) {
+			step('a phone layout to tap on', true, `not applicable at ${width}px: the Library docks here`);
+			return { ok: true, steps };
+		}
+		const REPS = 5;
+		let passed = 0;
+		for (let i = 1; i <= REPS; i++) {
+			if (i > 1) await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+			await until(`return !!document.querySelector('[aria-label="Live deck preview"] iframe.live')`, 30000, 'the live preview');
+			const menu = await until(centerOf(`() => [...document.querySelectorAll('button[aria-label="Menu"]')].find(${live})`), 15000, 'the Menu button');
+			await touch(menu.x, menu.y);
+			const row = await until(centerOf(`() => [...document.querySelectorAll('[role=dialog][data-state=open] button')].find((b) => (${live})(b) && b.textContent.trim().startsWith('Library'))`), 15000, 'the Library row');
+			await touch(row.x, row.y);
+			await until(`return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`, 15000, 'the Library sheet');
+			// The deck band above the sheet, where a thumb reaches for "get out".
+			await touch(Math.round(width / 2), 25);
+			let settled = false;
+			let last = '';
+			const t0 = Date.now();
+			while (Date.now() - t0 < 5000) {
+				last = await run(`return (document.documentElement.dataset.overlayBack ?? '') + ' open=' + document.querySelectorAll('[role=dialog][data-state=open]').length`);
+				if (last === '0/0/0 open=0') {
+					settled = true;
+					break;
+				}
+				await new Promise((r) => setTimeout(r, 100));
+			}
+			if (settled) passed++;
+			step(`tap ${i}: the deck band closes the Library`, settled, settled ? '' : `still ${last} after 5 s`);
+		}
+		const ok = passed === REPS;
+		return { ok, steps, ...(ok ? {} : { error: `${REPS - passed} of ${REPS} deck taps left the Library open` }) };
+	} catch (e) {
+		step('deck tap', false, e.message);
+		return { ok: false, steps, error: e.message };
+	}
 }
 
 // Function declarations, not consts: the probes start from top-level code above, before a later `const` line has run.
