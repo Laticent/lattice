@@ -118,6 +118,19 @@ if (process.env.PROBE === 'player-charts') {
 				await page.touchscreen.tap(x, y);
 				return Date.now() - t0;
 			},
+			// Playwright's WebKit has no touch drag, so the swipe is pointer events sent from the page: it proves the
+			// sequence, not Safari's gesture (run.mjs sends a real one through safaridriver).
+			swipe: (x1, y1, x2, y2) =>
+				page.evaluate(
+					([a, b, c, d]) => {
+						const stage = document.querySelector('#lp-stage');
+						const send = (type, x, y) => stage.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 41, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y }));
+						send('pointerdown', a, b);
+						for (let k = 1; k <= 5; k++) send('pointermove', a + ((c - a) * k) / 5, b + ((d - b) * k) / 5);
+						send('pointerup', 0, 0);
+					},
+					[x1, y1, x2, y2],
+				),
 		});
 		report(shape.label, 'player-charts-probe.js', result);
 		await context.close();

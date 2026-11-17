@@ -337,9 +337,9 @@ not the slide. Slice 2 proves it first on the real player.
 
 ### What stays the same
 
-- **A deck without detail cards exports byte-identical.** The kernel and Cenno are inlined only
-  when the deck has `template.chart-detail`, so the `html-player` golden holds. Same rule as
-  narration and Anima.
+- **A deck without detail cards carries none of the reveal.** The kernel and Cenno are inlined only
+  when the deck has `template.chart-detail`. Same rule as narration and Anima. (The PR that built this
+  also changed every player once, for a defect the iOS suite found: §12, "Real iOS Safari".)
 - **The no-JavaScript floor** (`2026-09-29-player-no-js-controls.md`) is unchanged: without
   script there is no card, and the slide still reads.
 - **Print** hides the card.
@@ -517,7 +517,7 @@ Each test was shown to fail on a deliberate break, then 70/70 repeated and 35/35
   so shipped `lib/` loads no package the published engine does not install; the bundle entry imports it.
 - The bundle is 23.3 KB minified, about 9 KB gzipped, and ships only with a deck that carries
   `<template class="chart-detail"`; detection is a substring test (a regex for it was rated
-  polynomial by the census). The html-player golden holds.
+  polynomial by the census). The html-player golden held then; §12's swipe fix re-blessed it.
 - Tests: `test/unit/export/player-chart-reveal.test.js` (when it ships; the script runs in JSDOM)
   and `docs/e2e/player-chart-reveal.spec.ts` on the real exported file in Chromium at desktop and
   phone width, Firefox and WebKit: hover, dimming and leaving; digits; a focused chart's arrow keys
@@ -565,3 +565,17 @@ shut in an iOS Simulator (`docs/scripts/ios-safari/player-charts.mjs`; `engineer
 §Platform suites). Like every iOS suite they run nightly and on dispatch, never on a pull request.
 The same sequence passes in Playwright's WebKit through `probe.selftest.mjs`; it fails when author
 styles survive in the card or when a tap no longer pins it.
+
+**The first real iOS runs failed, and found two defects (2026-11-17).** On the iPad and the iPhone, every tap landed
+on its band and no card opened. The probe's event trail named the cause: Mobile Safari 26.5 reported each touch
+`pointerup` at `(0, 0)`, while the `pointerdown` before it and the `click` after it had the real point.
+- The reveal measured a tap's slop to that point, so every tap read as a 780 px swipe. It now judges a tap from the
+  press and the last `pointermove`, and hit-tests the press.
+- The player's own swipe did the same, so a tap whose horizontal part was the larger one turned the slide. It now
+  measures to the last move too. That is a script change to every exported player: the frozen `html-player` golden
+  is re-blessed in `test/unit/export/html-player.test.js` with this reason, and its gesture tests now send the
+  `pointermove` a browser sends before a release away from the press. The Studio, the Playground and the lightbox
+  measure swipes from `touchend`'s `changedTouches`, not from `pointerup`.
+- Not known: whether a real finger also gets `(0, 0)`, or only safaridriver's synthetic touch. The fix holds either
+  way. Tests: a JSDOM tap whose `pointerup` reads `(0, 0)` must open the card and must not turn the slide (it failed
+  both ways before), and the iOS probe adds a swipe that must still turn the slide.

@@ -146,8 +146,9 @@ opens beside it; digits 1-9 open mark *n* and 0 or Escape closes; each such char
 whose arrow keys walk its marks without turning the slide. The card is drawn by Cenno
 (`docs/src/lib/cenno/`) from the same model the Studio reads (`lib/runtime/chart-reveal/model.mjs`),
 skinned by the deck theme in either mode, and its description keeps the deck's own pills and
-sparks. The bundle (about 9 KB gzipped) ships only with such a deck, so every other player is
-byte-identical. Design and decisions: `engineering/decisions/2026-11-16-cenno-popover-library.md`.
+sparks. The bundle (about 9 KB gzipped) ships only with such a deck; no other player carries any of it.
+On a touch screen the present stage measures a swipe from where the finger went down to where it last
+moved, never to the pointerup's own point, which Mobile Safari reports as (0, 0). Design and decisions: `engineering/decisions/2026-11-16-cenno-popover-library.md`.
 
 **The reading article follows the deck's `color-mode:`**, which the slide sections
 carry and `--read` removes with them: `dark`/`light` as declared, `print` as a light

@@ -154,6 +154,9 @@ function latticePlayerHostile() {
 	return { hits, link: a ? { style: a.getAttribute('style'), position: getComputedStyle(a).position } : null };
 }
 
+/* The slide on stage once it differs from `from` (or 5 s pass). */
+const latticePlayerSlideAfter = async (from) => ({ index: (await latticePlayerUntil(() => latticePlayerIndex() !== from, 5000)) ? latticePlayerIndex() : from });
+
 /* The entry points player-charts.mjs calls, on one global: the driver evaluates this file, then calls them by name. */
 globalThis.latticePlayerProbe = {
 	toFunnel: latticePlayerToFunnel,
@@ -161,4 +164,5 @@ globalThis.latticePlayerProbe = {
 	emptyPoint: latticePlayerEmptyPoint,
 	card: latticePlayerCard,
 	hostile: latticePlayerHostile,
+	slideAfter: latticePlayerSlideAfter,
 };

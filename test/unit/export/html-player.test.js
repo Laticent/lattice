@@ -1744,7 +1744,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// the step cursor above, so the sha covers both.
 	// Re-blessed 2026-11-11 (the meta record, step 2, rebased on both above): the notes-hide rule also hides the new
 	// reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}`. One CSS rule moved.
-	assert.equal(sha, '418b5f43dab3b3b1b68ed76c18ee305d8acc228880d913280228e9ce2af58422', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed 2026-11-17 (#3259): the present stage measures a swipe from the press to the LAST pointermove,
+	// not to the pointerup's own point. Mobile Safari reported (0, 0) on every touch pointerup (iOS 26.5 simulator,
+	// platform suite run 44013499171), so a tap read as a drag to the page corner and could turn the slide. Script
+	// only: one pointermove listener and two variables; the one-finger swipe and the pinch guard behave as before.
+	assert.equal(sha, '948e030ec4f6994e09112b43f4a4d2c12b59fca87abda55019fae693f7b2bd1e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -2377,6 +2381,14 @@ async function gesturePlayer() {
 		Object.defineProperty(e, 'pointerType', { value: kind });
 		const sameKind = [...live.values()].filter((k) => k === kind).length;
 		Object.defineProperty(e, 'isPrimary', { value: opts.primary === undefined ? sameKind === 0 : opts.primary });
+		// A contact that is released somewhere else MOVED there first, and a browser says so with pointermoves
+		// before the pointerup. The stage measures a swipe to the last move, not to the pointerup's own point,
+		// which Mobile Safari reported as (0, 0) (#3259), so the helper sends the move a browser would.
+		if (type === 'pointerup' && live.has(id)) {
+			const move = new dom.window.MouseEvent('pointermove', { bubbles: true, clientX: x, clientY: y });
+			for (const [k, v] of [['pointerId', id], ['pointerType', kind], ['isPrimary', e.isPrimary]]) Object.defineProperty(move, k, { value: v });
+			target.dispatchEvent(move);
+		}
 		if (type === 'pointerdown') live.set(id, kind);
 		else live.delete(id);
 		target.dispatchEvent(e);

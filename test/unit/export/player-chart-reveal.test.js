@@ -181,3 +181,32 @@ test('an open modal (the collage lightbox is one) owns the keys: a digit opens n
   assert.ok(card(), 'the card opens once the modal is gone');
   void w;
 });
+
+/** A touch pointer event the way a browser sends one: JSDOM has no PointerEvent, so a MouseEvent carries the fields. */
+function touch(w, type, x, y, id = 7) {
+  const e = new w.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
+  Object.defineProperties(e, { pointerType: { value: 'touch' }, pointerId: { value: id }, isPrimary: { value: true } });
+  return e;
+}
+
+test('a tap opens its card even when the pointerup reports (0, 0), as Mobile Safari did; a swipe still opens none', async () => {
+  const { w, card, svg } = await boot(funnel);
+  const band = svg.querySelector('[data-mark="1"]');
+  // Mobile Safari (iOS 26.5, platform suite run 44013499171): pointerdown at the band, pointerup at (0, 0).
+  band.dispatchEvent(touch(w, 'pointerdown', 50, 30));
+  const idx = () => [...w.document.querySelectorAll('.lp-frame')].findIndex((f) => f.classList.contains('lp-active'));
+  const before = idx();
+  band.dispatchEvent(touch(w, 'pointerup', 0, 0));
+  assert.equal(idx(), before, 'the tap did not turn the slide');
+  assert.ok(card(), 'the tap pinned a card');
+  assert.equal(card().querySelector('[data-cenno-part=title]').textContent, 'Signups');
+  // The same tap again closes it.
+  band.dispatchEvent(touch(w, 'pointerdown', 50, 30, 8));
+  band.dispatchEvent(touch(w, 'pointerup', 0, 0, 8));
+  assert.equal(card(), null, 'a second tap on the band closes it');
+  // A SWIPE that starts on the band moves first, so it still reads as a swipe and opens nothing.
+  band.dispatchEvent(touch(w, 'pointerdown', 50, 30, 9));
+  band.dispatchEvent(touch(w, 'pointermove', 90, 30, 9));
+  band.dispatchEvent(touch(w, 'pointerup', 0, 0, 9));
+  assert.equal(card(), null, 'a swipe opens no card');
+});

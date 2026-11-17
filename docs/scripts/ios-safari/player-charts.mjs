@@ -9,6 +9,7 @@
  *   call(expr)    evaluate an expression over player-charts-probe.js in the page (its entry points are on
  *                 `latticePlayerProbe`), and resolve to its value;
  *   tap(x, y)     a real touch at a CSS point of the viewport (no hold: a hold reads as a long press).
+ *   swipe(x1, y1, x2, y2)  a one-finger drag from one point to the other, with moves between.
  * `players` names the two exported files: { deck, hostile }.
  *
  * The checks, each beside a control:
@@ -16,6 +17,8 @@
  *   - the card is in the top layer, inside the visible viewport, never under the finger, and takes touches;
  *   - a tap never turns the slide;
  *   - a second tap on the band closes the card, and a tap elsewhere closes it again after it reopens;
+ *   - a horizontal swipe still turns the slide (the stage measures a swipe to its last move, because Mobile Safari
+ *     reported every touch pointerup at (0, 0): run 44013499171);
  *   - in a deck whose detail carries author styles, nothing the author styled covers the player.
  */
 import fs from 'node:fs';
@@ -29,7 +32,7 @@ export const PLAYER_CHARTS_DECKS = { deck: 'examples/chart-detail-reveal.md', ho
 
 const where = (t) => (t ? `landed at ${t.x},${t.y} on ${t.mark === null ? `${t.at}, no mark` : `mark ${t.mark}`}` : 'no touch reached the page');
 
-export async function runPlayerCharts({ go, call, tap, players }) {
+export async function runPlayerCharts({ go, call, tap, swipe, players }) {
 	const steps = [];
 	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
 	let page = {};
@@ -71,6 +74,12 @@ export async function runPlayerCharts({ go, call, tap, players }) {
 		card = await call(`latticePlayerProbe.card(false, ${JSON.stringify(empty)})`);
 		step('a tap elsewhere on the slide closes it', reopened.open && !card.open, `heading at ${empty.x},${empty.y}; ${where(card.touch)}, gesture ${ms} ms`);
 		step('no tap turned the slide', card.index === page.index, `slide ${page.index + 1} to ${card.index + 1}`);
+
+		// A SWIPE, right to left across the slide's heading: the CONTROL that the taps above did not turn the slide
+		// only because nothing turns it. It must go to the next slide.
+		await swipe(Math.round(page.width * 0.8), empty.y, Math.round(page.width * 0.2), empty.y);
+		const turned = await call(`latticePlayerProbe.slideAfter(${page.index})`);
+		step('a swipe still turns the slide', turned.index === page.index + 1, `slide ${page.index + 1} to ${turned.index + 1}`);
 
 		// CONTAINMENT (HARD RULE #22): the hostile deck's detail styles must stay inside the card.
 		await go(players.hostile);

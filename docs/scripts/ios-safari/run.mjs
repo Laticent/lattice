@@ -481,6 +481,13 @@ async function runPlayerChartsProbe(id) {
 			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 			return ms;
 		},
+		swipe: async (x1, y1, x2, y2) => {
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			await wd('POST', `/session/${id}/actions`, {
+				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: x1, y: y1 }, { type: 'pointerDown', button: 0 }, { type: 'pointerMove', duration: 250, x: x2, y: y2 }, { type: 'pointerUp', button: 0 }] }],
+			});
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		},
 	});
 }
 
