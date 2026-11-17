@@ -104,3 +104,15 @@ fixed     — 2026-11-12, branch claude/flaky-e2e-render, each at its cause, wit
               Escape on a later open could land before it; now a layout effect. 2 of 20 under load before, 20 of 20 after.
             - read-article-beacons.spec.ts:94 (load only, now :103): `server.close()` waited for the browser's keep-alive
               connections; it closes them first. 2 of 10 under load before, 10 of 10 after.
+2026-11-17 — reds met in PR #3278's full six-project run (a1a2d003b, 4 workers), each then run ×24 at 4 workers on main
+            ee3808094 (local; logs kept in the session's .scratch/evidence-reds/):
+            - system-panel.spec.ts:78 and :99 (mobile): 24 of 24 and 24 of 24. Each failed once in the full run and
+              passed alone on both PR and base. Not reproduced.
+            - plugin-address-attack.spec.ts:113 and plugin-fence.spec.ts:70 (webkit-tablet): 24 of 24 and 24 of 24. Same
+              pattern. Not reproduced.
+            - export-fonts-policy.spec.ts:34 (gecko): 120 of 120 (its five tests ×24). Its one failure was a Studio paint
+              timeout in a batch whose sandbox disk was full (ENOSPC in three projects of that run), so it is recorded as
+              the sandbox, not a test defect.
+            - compose-note-motion.spec.ts:260 (gecko) reproduced (8 of 24); #3291 fixed it at its cause on main (it waits
+              for the deletion's own save). gallery-preview-metamorphic.spec.ts:370 reproduced (2 of 24) and is a product
+              leak, fixed in the same PR as this entry: a reopen rewrote kept frames' srcdoc.
