@@ -518,3 +518,23 @@ until next slide").
   Suono knowing it's TTS at all.
 - **Leave it in `voice-model.js`.** Zero work, but the next surface pays the whole iOS/latency/cost
   tax again. Rejected — this doc exists because the architect called that outcome.
+
+## 10. Amendment (2026-11-17): Suono writes Ogg Opus, and will hold the narration memory window
+
+**Ogg Opus encoding joins WAV encoding.** The narration codec bake-off (`2026-11-17-narration-codec-bakeoff.md`) picked
+Opus for narration kept in browser storage. `ogg-opus.ts` wraps WebCodecs' raw Opus packets in a standard Ogg file (RFC
+7845), beside `encode.ts`, which writes WAV. It is the same kind of thing, bytes in and a standard file out: pure, node-safe,
+zero-dependency, inside the import boundary. It reads each packet's length from the packet's own TOC byte, because
+trusting the encoder's `duration` made Linux WebKit's decoder cut up to a second off a clip.
+
+**The narration memory window belongs here too (next).** Suono owns the decoded-clip cache and the per-play byte cache,
+which kept every clip of a long narrated Present until a count ran out (64 decoded clips, up to 256 MiB, never released in
+a session). The streaming redesign bounds them to the playing clip and the next two, released once played, as stage and
+sequence options.
+
+**What stays out.** Persistent storage (the IndexedDB clip store), the bitrate setting and the decision of when to
+compress stay with the caller (`voice-model.js`): Suono still owns no network, no key, no model and no storage.
+
+**§3's "Not streaming" still holds.** It means chunked or streamed synthesis. Narration is still produced and played as
+whole clips; only where a clip is kept, and in what codec, changes.
+
