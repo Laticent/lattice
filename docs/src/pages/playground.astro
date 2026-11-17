@@ -21,6 +21,7 @@ import '../styles/deck-config.css';
 import '../styles/chart-interact.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
+import PageMeta from '../components/site/PageMeta.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
@@ -206,6 +207,7 @@ const pgData = {
 		    below on this page: it must NOT run beside the newcomer bake (see there). */}
 		<title>Lattice playground — try it in the browser</title>
 		<meta name="description" content="Write Lattice Markdown and watch it render to boardroom slides live in your browser. Start from any component template." />
+		<PageMeta title="Lattice playground — try it in the browser" description="Write Lattice Markdown and watch it render to boardroom slides live in your browser. Start from any component template." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<script
 			is:inline

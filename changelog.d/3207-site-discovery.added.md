@@ -1,0 +1,1 @@
+- The docs site now serves `/robots.txt` and `/llms.txt`, a short router for AI agents to the pages they need to write a deck. Every page outside the Starlight docs now carries a canonical link and an Open Graph card, and the sitemap no longer lists pages marked `noindex` (#3207).

@@ -43,6 +43,7 @@ import { DECKS } from '../components/studio/decks';
 import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
+import PageMeta from '../components/site/PageMeta.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import PlaygroundWarm from '../components/site/PlaygroundWarm.astro';
 import { sourceHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
@@ -203,6 +204,10 @@ const nextSteps = nextStepsFor(url);
 		<meta
 			name="description"
 			content="Write plain Markdown, pick a layout per slide, and Lattice renders a polished PDF, PPTX, or HTML deck with one palette and zero design work. Free, offline, open source (AGPL-3.0)."
+		/>
+		<PageMeta
+			title="Lattice — Markdown to boardroom-ready slide decks (PDF, PPTX)"
+			description="Write plain Markdown, pick a layout per slide, and Lattice renders a polished PDF, PPTX, or HTML deck with one palette and zero design work. Free, offline, open source (AGPL-3.0)."
 		/>
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<!-- Set palette/mode before first paint to avoid a flash. Shares the

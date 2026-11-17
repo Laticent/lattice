@@ -19,6 +19,8 @@ import '../styles/landing.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import ArticleSchema from '../components/site/ArticleSchema.astro';
+import PageMeta from '../components/site/PageMeta.astro';
+import { canonicalUrl } from '../lib/discovery.mjs';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import { SectionHead } from '../components/landing/sections.tsx';
 import { readFileSync } from 'node:fs';
@@ -31,7 +33,7 @@ const base = import.meta.env.BASE_URL;
 const url = (p) => joinBase(base, p);
 // Absent when the build has no `site`, in which case the og:url tag and the record's url
 // are simply omitted rather than guessed.
-const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+const canonical = canonicalUrl(Astro.site, Astro.url.pathname);
 
 // Palette list = the distinct names baked into the generated token CSS — one
 // source of truth, same as the landing topbar selector.
@@ -262,9 +264,11 @@ const ROADMAP = [
 		    it eligible at 3191 extracted words, against 8 for /studio and 3 for
 		    /playground. See site/ArticleSchema.astro for what the two signals buy and why
 		    the other standalone routes are left out. */}
-		<meta property="og:type" content="article" />
-		<meta property="og:title" content="The case for a deterministic deck — Lattice vs. the alternatives" />
-		{canonical && <meta property="og:url" content={canonical} />}
+		<PageMeta
+			type="article"
+			title="The case for a deterministic deck — Lattice vs. the alternatives"
+			description="Why a serious deck shouldn’t be a gamble, and making one shouldn’t need a designer — the problem, what Lattice believes, what it commits to, and an honest, sourced comparison against AI generators, Office+AI, code engines, and design tools, including where Lattice is the wrong call."
+		/>
 		<ArticleSchema
 			title="The case for a deterministic deck — Lattice vs. the alternatives"
 			description="Why a serious deck shouldn’t be a gamble, and making one shouldn’t need a designer — the problem, what Lattice believes, what it commits to, and an honest, sourced comparison against AI generators, Office+AI, code engines, and design tools, including where Lattice is the wrong call."

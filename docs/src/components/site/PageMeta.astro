@@ -1,0 +1,31 @@
+---
+// The discovery tags for a page that writes its own <head> (every route outside Starlight):
+// the canonical link and the Open Graph card. Starlight emits the same set for docs pages,
+// so this exists for the standalone routes, which before #3207 each carried a different
+// subset — og:url with no canonical link, or neither.
+//
+// `canonical` is computed here once, from `Astro.site` (discovery.mjs). A layout that also
+// needs it — for its ArticleSchema record — passes the same pathname and gets the same URL.
+//
+// NO og:image. A social card needs a raster image made for it; an SVG mark is refused by
+// most link unfurlers, and a fabricated or wrong image is worse than none. Tracked in
+// followups.d/3207-site-discovery.md.
+import { canonicalUrl } from '../../lib/discovery.mjs';
+
+interface Props {
+	title: string;
+	description?: string;
+	/** `article` for a page of prose, `website` for an app shell or a landing page. */
+	type?: 'article' | 'website';
+}
+const { title, description, type = 'website' } = Astro.props;
+const canonical = canonicalUrl(Astro.site, Astro.url.pathname);
+---
+
+{canonical && <link rel="canonical" href={canonical} />}
+<meta property="og:type" content={type} />
+<meta property="og:site_name" content="Lattice" />
+<meta property="og:title" content={title} />
+{description && <meta property="og:description" content={description} />}
+{canonical && <meta property="og:url" content={canonical} />}
+<meta name="twitter:card" content="summary" />

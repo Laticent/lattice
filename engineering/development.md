@@ -1174,6 +1174,15 @@ shifts every pixel.
 - **A service worker from a prior `astro preview` can shadow `astro dev`**
   (same origin) → dev builds self-unregister on load; one reload clears it.
 
+### What the docs site tells crawlers and agents
+
+`docs/src/lib/discovery.mjs` is the one list of which pages are indexable, and it builds
+`/robots.txt` and `/llms.txt`. The sitemap filters with the same list. Every route that writes
+its own `<head>` includes `docs/src/components/site/PageMeta.astro` for its canonical link and
+Open Graph card. A new `noindex` page goes in `NOINDEX_PREFIXES` too: `docs/scripts/check-discovery.mjs`
+runs after `astro build` and fails when a page and the list disagree, or when a page is missing
+its canonical link. Why, and what was left out (CSP, `og:image`): `engineering/decisions/2026-11-17-site-discovery.md`.
+
 ### The docs site is an installable PWA (offline cache)
 
 The site ships a web-app manifest (`docs/public/site.webmanifest`, icons

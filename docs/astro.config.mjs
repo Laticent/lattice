@@ -4,9 +4,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { unified } from '@astrojs/markdown-remark';
 import react from '@astrojs/react';
+import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
+import { isIndexable } from './src/lib/discovery.mjs';
 import { assetVersion } from './src/playground/asset-version.mjs';
 import { oldBrowserCheck } from './src/plugins/old-browser-check.mjs';
 import rehypeScrollableTables from './src/plugins/rehype-scrollable-tables.mjs';
@@ -241,6 +243,12 @@ export default defineConfig({
 	integrations: [
 		// The old-browser check in the <head> of every page (src/plugins/old-browser-check.mjs).
 		oldBrowserCheck(),
+		// Our own sitemap, declared so Starlight does not add its unfiltered one (it adds
+		// @astrojs/sitemap only when no integration of that name is present). The filter drops
+		// every page that also says `noindex`, so the site never asks a crawler to index a page
+		// it tells the same crawler not to index. The list and the check that keeps it true:
+		// src/lib/discovery.mjs, scripts/check-discovery.mjs (#3207).
+		sitemap({ filter: (page) => isIndexable(new URL(page).pathname) }),
 		starlight({
 			title: 'Lattice',
 			// Browser-tab icon: the 1.3KB vector mark (replaced a 26KB 512² PNG).
