@@ -8,7 +8,8 @@
 //      dropped from it).
 //   2. The sitemap lists every indexable page and nothing else: each URL resolves to a built
 //      page, and no indexable page is missing.
-//   3. Every indexable page carries a canonical link, a description and an og:title.
+//   3. Every indexable page carries exactly one <title>, description, canonical link,
+//      og:title, og:description and og:url.
 //   4. robots.txt points at a sitemap that exists, and every link in llms.txt resolves to a
 //      built file; llms.txt stays a router (under 4 KB), not an index.
 //
@@ -26,6 +27,14 @@ import { isIndexable, LLMS_LINKS } from '../src/lib/discovery.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
 const LLMS_MAX_BYTES = 4096;
+const ONE_EACH = [
+	['<title>', /<title>/g],
+	['meta description', /<meta name="description"/g],
+	['canonical link', /<link rel="canonical"/g],
+	['og:title', /<meta property="og:title"/g],
+	['og:description', /<meta property="og:description"/g],
+	['og:url', /<meta property="og:url"/g],
+];
 
 function walk(dir, out = []) {
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -68,9 +77,12 @@ for (const file of walk(DIST)) {
 	if (!noindex && !want) fail(`${route} is excluded by discovery.mjs but carries no <meta name="robots" content="noindex">`);
 	if (!want) continue;
 	indexable.add(route);
-	if (!/<link rel="canonical"/.test(head)) fail(`${route} has no <link rel="canonical"> (use components/site/PageMeta.astro)`);
-	if (!/<meta name="description"/.test(head)) fail(`${route} has no meta description`);
-	if (!/<meta property="og:title"/.test(head)) fail(`${route} has no og:title (use components/site/PageMeta.astro)`);
+	// Exactly one of each: a missing tag is a gap, and a second one is two pages' worth of
+	// metadata disagreeing about which is true (a crawler picks one, and not reliably ours).
+	for (const [label, re] of ONE_EACH) {
+		const n = (head.match(re) || []).length;
+		if (n !== 1) fail(`${route} has ${n} ${label} (want exactly 1; use components/site/PageMeta.astro)`);
+	}
 }
 
 // ── 2: the sitemap is exactly the indexable routes ───────────────────────────

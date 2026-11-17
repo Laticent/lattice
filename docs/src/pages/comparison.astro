@@ -34,6 +34,9 @@ const url = (p) => joinBase(base, p);
 // Absent when the build has no `site`, in which case the og:url tag and the record's url
 // are simply omitted rather than guessed.
 const canonical = canonicalUrl(Astro.site, Astro.url.pathname);
+const pageTitle = 'The case for a deterministic deck — Lattice vs. the alternatives';
+const pageDescription =
+	'Why a serious deck shouldn’t be a gamble, and making one shouldn’t need a designer — the problem, what Lattice believes, what it commits to, and an honest, sourced comparison against AI generators, Office+AI, code engines, and design tools, including where Lattice is the wrong call.';
 
 // Palette list = the distinct names baked into the generated token CSS — one
 // source of truth, same as the landing topbar selector.
@@ -253,11 +256,6 @@ const ROADMAP = [
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<ResourceHints />
-		<title>The case for a deterministic deck — Lattice vs. the alternatives</title>
-		<meta
-			name="description"
-			content="Why a serious deck shouldn’t be a gamble, and making one shouldn’t need a designer — the problem, what Lattice believes, what it commits to, and an honest, sourced comparison against AI generators, Office+AI, code engines, and design tools, including where Lattice is the wrong call."
-		/>
 		{/* Reading-mode signals. This is the one standalone route that is genuinely an
 		    ARTICLE rather than an app shell or a card grid, and the probe says so:
 		    `node tools/reader-extraction-probe.mjs docs/dist/comparison/index.html` reads
@@ -266,12 +264,12 @@ const ROADMAP = [
 		    the other standalone routes are left out. */}
 		<PageMeta
 			type="article"
-			title="The case for a deterministic deck — Lattice vs. the alternatives"
-			description="Why a serious deck shouldn’t be a gamble, and making one shouldn’t need a designer — the problem, what Lattice believes, what it commits to, and an honest, sourced comparison against AI generators, Office+AI, code engines, and design tools, including where Lattice is the wrong call."
+			title={pageTitle}
+			description={pageDescription}
 		/>
 		<ArticleSchema
-			title="The case for a deterministic deck — Lattice vs. the alternatives"
-			description="Why a serious deck shouldn’t be a gamble, and making one shouldn’t need a designer — the problem, what Lattice believes, what it commits to, and an honest, sourced comparison against AI generators, Office+AI, code engines, and design tools, including where Lattice is the wrong call."
+			title={pageTitle}
+			description={pageDescription}
 			url={canonical}
 		/>
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />

@@ -38,8 +38,6 @@ const palettes = [...new Set([...tokensCss.matchAll(/data-palette="([^"]+)"/g)].
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		{specimen && <ResourceHints />}
 		{specimen && <RuntimeWarm />}
-		<title>{title}</title>
-		<meta name="description" content={description} />
 		<PageMeta type="article" title={title} description={description} />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<PwaHead />

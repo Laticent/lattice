@@ -44,8 +44,6 @@ const canonical = canonicalUrl(Astro.site, Astro.url.pathname);
 		    whenReady → render), so warm the preview runtime at parse time — off the
 		    first-render critical path (FRAME REBUILD), like the app + landing pages. */}
 		<RuntimeWarm />
-		<title>{title}</title>
-		<meta name="description" content={description} />
 		{/* Reading-mode signals. A component page is real prose — a description, a
 		    slots/variants/anti-patterns write-up, a live specimen — and it carried NEITHER
 		    of the two things Chrome and Edge's distiller reads, where a Starlight docs page
