@@ -58,9 +58,12 @@ build once and submit jobs to" (2026-11-17), and chose this design and the PR th
 
 The repository is public, and the harness executes comment text as shell. What keeps that safe:
 
-1. **Who.** A comment runs only when its author is the login that dispatched the run (`github.triggering_actor`), with an
-   `author_association` of OWNER, MEMBER or COLLABORATOR, and it was posted after the harness started. Dispatching needs write
-   access already, so the harness grants nobody a power they did not hold: they could push the same commands as a commit.
+1. **Who.** A comment runs only when its author is the login that dispatched the run (`github.triggering_actor`) and
+   it was posted after the harness started. At start the harness asks GitHub whether that login can push
+   (`GET /repos/{repo}/collaborators/{login}/permission`: admin, maintain or write) and refuses to serve otherwise.
+   Dispatching needs write access already, so the harness grants nobody a power they did not hold: they could push the
+   same commands as a commit. It does not read `author_association` per comment: the job's own token reads a private
+   org member as CONTRIBUTOR, which is how the first command on a real runner (run 44163967462) was ignored.
 2. **Which PR.** At start the harness checks that the PR's head is this repository and this branch. A fork PR, or another
    branch's PR, is refused, so one branch's code never reports into another's thread.
 3. **No secrets, and the token stays with the poller.** The job is given no repository secrets. Its token

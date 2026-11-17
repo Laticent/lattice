@@ -7,7 +7,7 @@
  * build). This script pays it once. `platform-suites.yml`'s `harness` job installs and builds, then runs this loop:
  *
  *   1. read the pull request's new comments; act on the ones that start with `/harness` and that the person who
- *      dispatched the run wrote (the same login, with write access to the repository);
+ *      dispatched the run wrote (the same login; their write access is checked once at start);
  *   2. before each job, bring the checkout to the branch's newest commit, and rebuild only what that change needs;
  *   3. run the job with a stripped environment (no token) and reply on the pull request with the result;
  *   4. with no command waiting and a new commit on the branch, run the last job again (`/harness watch off` stops that);
@@ -37,7 +37,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const MARK = '<!-- lattice-harness -->';
-const ALLOWED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+/** The repository permissions that may drive the runner: the ones that could push the same commands as a commit. */
+const WRITE_PERMISSIONS = new Set(['admin', 'maintain', 'write']);
 const VERBS = new Set(['suite', 'sh', 'rerun', 'watch', 'status', 'stop']);
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
 /** Variables a job may not set: they would change what runs rather than how a suite behaves. */
@@ -87,15 +88,21 @@ function parseCommand(body) {
 }
 
 /**
- * Whether a comment may drive the runner. Only the person who dispatched the run, with write access, and never a reply
- * this script wrote. Comments made before the session started are history, not commands.
+ * Whether a comment may drive the runner: written by the person who dispatched the run, after the session started, and
+ * never a reply this script wrote. Their write access is checked once at start (`canWrite`), not per comment from
+ * `author_association`: the job's own token reads a private org member as CONTRIBUTOR (run 44163967462 ignored the
+ * dispatcher's command that way), so that field depends on who asks.
  */
 function authorized(comment, { actor, since }) {
   if (!comment?.user) return false;
   if (typeof comment.body === 'string' && comment.body.includes(MARK)) return false;
   if (comment.user.login !== actor) return false;
-  if (!ALLOWED_ASSOCIATIONS.has(comment.author_association)) return false;
   return Date.parse(comment.created_at) >= since;
+}
+
+/** Whether a GET /repos/{r}/collaborators/{login}/permission answer grants push. */
+function canWrite(answer) {
+  return WRITE_PERMISSIONS.has(answer?.permission) || answer?.user?.permissions?.push === true;
 }
 
 /**
@@ -228,6 +235,9 @@ async function main() {
   if (pr.head.ref !== BRANCH || pr.head.repo?.full_name !== REPO) {
     throw new Error(`PR #${PR} is ${pr.head.repo?.full_name}:${pr.head.ref}, not ${REPO}:${BRANCH}; refusing to serve it`);
   }
+  // Dispatching needs write access already; check it anyway, so the harness never runs for anyone who could not push.
+  const perm = await api('GET', `/repos/${REPO}/collaborators/${encodeURIComponent(ACTOR)}/permission`);
+  if (!canWrite(perm)) throw new Error(`${ACTOR} has ${perm?.permission ?? 'no'} permission on ${REPO}; the harness serves only a login that can push`);
 
   const reply = async (text) => {
     try {
@@ -343,7 +353,7 @@ async function main() {
       const cmd = parseCommand(c.body);
       if (!cmd) continue;
       if (!authorized(c, { actor: ACTOR, since: started })) {
-        console.log(`ignored comment ${c.id} by ${c.user?.login} (${c.author_association})`);
+        console.log(`ignored comment ${c.id} by ${c.user?.login}: only ${ACTOR}'s comments after the start run`);
         continue;
       }
       if (cmd.verb === 'invalid') { await reply(`**harness**: ${cmd.error}.`); continue; }
@@ -397,4 +407,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseCommand, authorized, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK };
+module.exports = { parseCommand, authorized, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK };

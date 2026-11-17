@@ -5,7 +5,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { parseCommand, authorized, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK } = require(path.join(__dirname, '..', '..', '..', 'tools', 'platform-harness.js'));
+const { parseCommand, authorized, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK } = require(path.join(__dirname, '..', '..', '..', 'tools', 'platform-harness.js'));
 
 test('a comment that does not start with /harness is not a command', () => {
   assert.equal(parseCommand('looks good'), null);
@@ -50,16 +50,22 @@ test('the small verbs', () => {
   assert.match(parseCommand('/harness').error, /\(none\)/);
 });
 
-test('only the dispatching login, with write access, after the session started, drives the runner', () => {
+test('only the dispatching login, after the session started, drives the runner', () => {
   const since = Date.parse('2026-11-17T18:00:00Z');
-  const c = (over) => ({ body: '/harness stop', user: { login: 'owner' }, author_association: 'OWNER', created_at: '2026-11-17T18:05:00Z', ...over });
+  const c = (over) => ({ body: '/harness stop', user: { login: 'owner' }, author_association: 'CONTRIBUTOR', created_at: '2026-11-17T18:05:00Z', ...over });
+  // The job token reads a private org member as CONTRIBUTOR (run 44163967462): the association must not decide.
   assert.equal(authorized(c({}), { actor: 'owner', since }), true);
-  assert.equal(authorized(c({ user: { login: 'someone' } }), { actor: 'owner', since }), false, 'another login');
-  assert.equal(authorized(c({ author_association: 'CONTRIBUTOR' }), { actor: 'owner', since }), false, 'no write access');
-  assert.equal(authorized(c({ author_association: 'NONE' }), { actor: 'owner', since }), false);
+  assert.equal(authorized(c({ user: { login: 'someone' }, author_association: 'OWNER' }), { actor: 'owner', since }), false, 'another login');
   assert.equal(authorized(c({ created_at: '2026-11-17T17:59:59Z' }), { actor: 'owner', since }), false, 'before the session');
   assert.equal(authorized(c({ body: `${MARK}\n/harness stop` }), { actor: 'owner', since }), false, 'its own reply');
   assert.equal(authorized(c({ user: null }), { actor: 'owner', since }), false);
+});
+
+test('the dispatcher must be able to push', () => {
+  for (const permission of ['admin', 'maintain', 'write']) assert.equal(canWrite({ permission }), true, permission);
+  for (const permission of ['triage', 'read', 'none']) assert.equal(canWrite({ permission }), false, permission);
+  assert.equal(canWrite({ permission: 'read', user: { permissions: { push: true } } }), true, 'a custom role with push');
+  assert.equal(canWrite(null), false);
 });
 
 test('a change rebuilds unless every path is one no build reads', () => {
