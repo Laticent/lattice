@@ -53,8 +53,10 @@ export function canonicalUrl(site, pathname) {
  * ClaudeBot, PerplexityBot all read `User-agent: *`), may fetch everything. One exception has
  * its own group: Googlebot and Bingbot (Bing also feeds DuckDuckGo and Yahoo) are kept off the
  * `.md` copies, which exist for agents and would otherwise sit in search results as duplicates
- * of the pages they copy; a .md file cannot carry a canonical link or a noindex. A named group
- * REPLACES the `*` group for that bot, so it repeats the allow.
+ * of the pages they copy; on GitHub Pages a .md file cannot carry a canonical link or a
+ * noindex header. This stops crawling, not linking: a search engine can still list a blocked URL
+ * it finds linked, with no snippet. A named group REPLACES the `*` group for that bot, so it
+ * repeats the allow.
  *
  * A preview build (`index: false`, per deploy-env.mjs) disallows everything. Today's PR
  * previews do not reach that branch — they are built in GitHub Actions without CF_PAGES —
@@ -74,6 +76,9 @@ export function robotsTxt({ site, index }) {
 		'User-agent: Bingbot',
 		'Allow: /',
 		'Disallow: /*.md$',
+		// The Playground fetches deck samples as .md at run time; a renderer obeys robots for
+		// those fetches too. The longer rule wins, so this keeps them reachable.
+		'Allow: /playground/v/',
 		'',
 	];
 	if (site) lines.push(`Sitemap: ${new URL('/sitemap-index.xml', site).href}`, '');

@@ -136,7 +136,13 @@ export const LINK_ONLY_ORIGINS = Object.freeze([
 // an alias: under the policy Calco's PPTX export hung at "Embedding fonts…" (measured
 // 2026-11-17; 1 s and 3 fonts without the policy). e2e/site-csp.spec.ts clicks every control on
 // the library demos with a policy, which is what catches an indirect one this list lacks.
+// The globalThis fallback `Function("return this")()` is excluded: it runs only where
+// `globalThis` is missing, which is no browser this site supports, and counting it would quietly
+// strip the policy from any page that reaches a bundled polyfill (found by review). Each exempt
+// page and its reason is printed by every build, so a page that loses its policy is visible.
+const GLOBAL_THIS_FALLBACK = /Function\(\s*["'`]return this["'`]\s*\)/g;
 const DIRECT_EVAL = /new Function\(|[^.\w$]Function\(|[^.\w$]eval\(/;
+export const evaluatesCode = (code) => DIRECT_EVAL.test(code.replace(GLOBAL_THIS_FALLBACK, ''));
 export const INDIRECT_EVAL_CHUNKS = Object.freeze([/^font-subset\./, /^hb-subset\./]);
 
 const ORIGIN_RE = /https:\/\/([a-z0-9.-]+\.[a-z]{2,})/g;
@@ -162,7 +168,7 @@ function moduleGraph(dist) {
 		for (const f of seen) {
 			const code = src.get(f);
 			if (code.includes('srcdoc')) frame = true;
-			if (DIRECT_EVAL.test(code) || INDIRECT_EVAL_CHUNKS.some((re) => re.test(f))) evals = true;
+			if (evaluatesCode(code) || INDIRECT_EVAL_CHUNKS.some((re) => re.test(f))) evals = true;
 			for (const [, o] of code.matchAll(ORIGIN_RE)) origins.add(o);
 		}
 		return { frame, evals, origins };
@@ -205,6 +211,7 @@ function main() {
 	const errors = [];
 	let applied = 0;
 	const exempt = { frame: 0, eval: 0, network: 0 };
+	const named = [];
 	for (const file of pages(DIST)) {
 		const rel = path.relative(DIST, file);
 		const html = fs.readFileSync(file, 'utf8');
@@ -219,6 +226,7 @@ function main() {
 		}
 		if (why) {
 			exempt[why]++;
+			if (why !== 'frame') named.push(`${rel.replace(/index\.html$/, '')} (${why})`);
 			// Applying is idempotent: a page that has become exempt since an earlier run loses
 			// its old policy. Checking reports one, which would break the page.
 			if (metas.length && !check) fs.writeFileSync(file, html.replace(META_RE, ''));
@@ -240,7 +248,7 @@ function main() {
 		console.error(`csp: ${errors.length} problem(s)\n  ${errors.join('\n  ')}`);
 		process.exit(1);
 	}
-	console.log(`csp: ${check ? 'verified' : 'applied'} a strict policy on ${applied} page(s); left without one (stage 2): ${exempt.frame} that build a preview frame, ${exempt.eval} that evaluate code, ${exempt.network} that call another origin.`);
+	console.log(`csp: ${check ? 'verified' : 'applied'} a strict policy on ${applied} page(s); left without one (stage 2): ${exempt.frame} that build a preview frame, ${exempt.eval} that evaluate code, ${exempt.network} that call another origin${named.length ? ` (${named.join(', ')})` : ''}.`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

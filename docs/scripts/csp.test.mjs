@@ -1,7 +1,7 @@
 // Unit tests for the pure halves of scripts/csp.mjs. No build, no dist.
 
 import { describe, expect, it } from 'vitest';
-import { exemption, LINK_ONLY_ORIGINS, policyFor, RUNTIME_ORIGINS, sha256, withPolicy } from './csp.mjs';
+import { evaluatesCode, exemption, LINK_ONLY_ORIGINS, policyFor, RUNTIME_ORIGINS, sha256, withPolicy } from './csp.mjs';
 
 const page = (head, body = '') => `<!doctype html><html><head><meta charset="utf-8"><title>t</title>${head}</head><body>${body}</body></html>`;
 const scriptHashes = (html) => policyFor(html).match(/script-src ([^;]*)/)[1].split(' ').filter((t) => t.startsWith("'sha256-"));
@@ -76,6 +76,13 @@ describe('exemption', () => {
 	});
 	it('exempts a page whose code can evaluate a string as script', () => {
 		expect(exemption(withApp, reach({ 'app.js': { evals: true } }))).toBe('eval');
+	});
+	it('ignores the globalThis fallback that never runs in a browser, and counts real evaluation', () => {
+		expect(evaluatesCode('var g=globalThis||Function(`return this`)();')).toBe(false);
+		expect(evaluatesCode("var g=self||Function('return this')();")).toBe(false);
+		expect(evaluatesCode('x=new Function(a,b)')).toBe(true);
+		expect(evaluatesCode('y=eval(s)')).toBe(true);
+		expect(evaluatesCode('this.Function(x)')).toBe(false);
 	});
 	it('exempts a page whose code calls another origin at run time', () => {
 		expect(exemption(withApp, reach({ 'app.js': { origins: ['openrouter.ai'] } }))).toBe('network');

@@ -73,7 +73,9 @@ export function contentSources(pathname, repoRoot) {
 	}
 	if (parts[0] === 'components' && parts.length === 3) {
 		const [, bucket, name] = parts;
-		return [first(`lib/components/${bucket}/${name}`, `lib/plugins/chart-family/kinds/${name}`)].filter(Boolean);
+		const dir = first(`lib/components/${bucket}/${name}`, `lib/plugins/chart-family/kinds/${name}`);
+		// null, not []: an empty list is truthy, and the gate would read a missing folder as mapped.
+		return dir ? [dir] : null;
 	}
 	if ((parts[0] === 'plugins' || parts[0] === 'libraries') && parts.length >= 2) {
 		const src = first(`docs/src/content/catalog/${parts[0]}/${parts[1]}.md`);

@@ -20,5 +20,6 @@ describe('contentSources', () => {
 	it('returns null for a route it does not know, so the gate asks for a mapping', () => {
 		expect(contentSources('/no-such-page/', REPO)).toBeNull();
 		expect(contentSources('/plugins/no-such-plugin/', REPO)).toBeNull();
+		expect(contentSources('/components/statement/no-such-component/', REPO)).toBeNull();
 	});
 });

@@ -131,35 +131,61 @@ test('@smoke Calco’s PowerPoint export embeds its fonts', async ({ page }) => 
 // Every control on every library demo that carries a policy, pressed once. A demo is a page of
 // buttons that run real library code (a wasm module, a worker, a generated file), so this is
 // where a feature the policy blocks shows up. Downloads are accepted and discarded.
+//
+// HOW IT WAITS (HARD RULE #32: a signal, never a duration). A violation can fire seconds after
+// the click that caused it (Calco's subsetter evaluates code only after it rasterizes). So:
+//   - violations are reported OUT of the page, through a binding, as they happen. Nothing is
+//     read-then-cleared, and a navigation cannot erase one;
+//   - after each click the test waits until the control is usable again (a demo disables its
+//     button while it works; Calco does) AND no request is in flight, then runs one task on the
+//     page's main thread, so a violation event already queued has been delivered.
+// `waitForLoadState('networkidle')` is not that signal: it returns at once on a page that was
+// already idle, which is what the first version relied on (found by review).
 test('@crosswidth @webkit-phone @gecko every control on the library demos with a policy runs with no violation', async ({ page }) => {
-	test.setTimeout(240_000);
+	test.setTimeout(300_000);
 	const demos = policyRoutes().filter((r) => /^\/libraries\/[^/]+\/$/.test(r));
 	expect(demos.length).toBeGreaterThan(5);
-	const violations = await watchViolations(page);
-	const found: Record<string, string[]> = {};
-	let pressed = 0;
+
+	const seen: { page: string; what: string }[] = [];
+	await page.exposeBinding('__reportCsp', (_src, pageUrl: string, what: string) => {
+		seen.push({ page: new URL(pageUrl).pathname, what });
+	});
+	await page.addInitScript(() => {
+		document.addEventListener('securitypolicyviolation', (e) => {
+			(window as unknown as { __reportCsp: (u: string, w: string) => void }).__reportCsp(
+				location.href,
+				`${e.effectiveDirective} blocked ${e.blockedURI || 'inline'} ${e.sample ?? ''}`.trim(),
+			);
+		});
+	});
+	let inFlight = 0;
+	page.on('request', () => inFlight++);
+	page.on('requestfinished', () => inFlight--);
+	page.on('requestfailed', () => inFlight--);
+
+	const pressedOn: Record<string, number> = {};
 	for (const route of demos) {
 		await page.goto(route, { waitUntil: 'load' });
-		await page.waitForLoadState('networkidle');
-		const buttons = page.locator('main button:visible:enabled, .wrap button:visible:enabled');
-		const count = await buttons.count();
-		for (let i = 0; i < count; i++) {
-			const b = buttons.nth(i);
-			if (!(await b.isVisible()) || !(await b.isEnabled())) continue;
-			// A control can hide or disable itself once pressed; one that cannot be pressed now is
-			// skipped, not failed: the assertion is about violations, and `pressed` proves work.
-			if (await b.click({ timeout: 5_000 }).then(() => true, () => false)) pressed++;
-			await page.waitForLoadState('networkidle');
+		await expect.poll(() => inFlight, { timeout: 30_000 }).toBe(0);
+		// One fixed list per page, taken before anything is pressed: re-querying by index while
+		// clicks show and hide controls would skip some and press others twice.
+		const controls = await page.locator('main button, .wrap button').elementHandles();
+		pressedOn[route] = 0;
+		for (const control of controls) {
+			if (!(await control.isVisible()) || !(await control.isEnabled())) continue;
+			if (!(await control.click({ timeout: 2_000 }).then(() => true, () => false))) continue;
+			pressedOn[route]++;
+			if (new URL(page.url()).pathname !== route) break; // it navigated: the rest of the list is gone
+			await expect
+				.poll(async () => inFlight === 0 && (!(await control.isVisible()) || (await control.isEnabled())), { timeout: 60_000 })
+				.toBe(true);
+			await page.evaluate(() => undefined);
 		}
-		const v = await violations();
-		if (v.length) found[route] = [...new Set(v)];
-		await page.evaluate(() => {
-			(window as unknown as { __csp: string[] }).__csp.length = 0;
-		});
 	}
-	expect(found).toEqual({});
-	// Work done, not a vacuous pass: the demos with a policy carried 60+ controls when this landed.
-	expect(pressed).toBeGreaterThan(40);
+	expect(seen).toEqual([]);
+	// Work done, not a vacuous pass: every demo had something pressed.
+	for (const route of demos) expect(pressedOn[route], route).toBeGreaterThan(0);
+	test.info().annotations.push({ type: 'pressed', description: JSON.stringify(pressedOn) });
 });
 
 test('every page that carries the CSP loads with no violation', async ({ page }) => {

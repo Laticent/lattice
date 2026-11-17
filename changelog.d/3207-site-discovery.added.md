@@ -2,4 +2,4 @@
 - Every docs, component and catalog page has a plain-Markdown copy at its own path plus `.md` (`/guides/cli/` → `/guides/cli.md`), linked from the page; a component's copy is its `.docs.md`.
 - Every page outside the Starlight docs carries a canonical link and an Open Graph card, and each page sets its title and description once. A shared link now shows a preview image drawn from real engine renders.
 - The sitemap no longer lists pages marked `noindex`, and each URL carries the date of its page's last content commit.
-- 75 pages carry a strict Content-Security-Policy: inline scripts only by exact hash, and images, fonts and fetches from the site itself. Pages with live slide previews, Calco and the voice demos get theirs in a later change. PR previews send `X-Robots-Tag: noindex`, and search engines are kept off the `.md` copies.
+- 75 routes (and the 404 page) carry a strict Content-Security-Policy: inline scripts only by exact hash, and images, fonts and fetches from the site itself. Pages with live slide previews, Calco and the voice demos get theirs in a later change. PR previews send `X-Robots-Tag: noindex`, and search engines are kept off the `.md` copies.

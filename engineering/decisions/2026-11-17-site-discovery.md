@@ -44,7 +44,9 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
   ClaudeBot and PerplexityBot all read) and names the sitemap. One named group: Googlebot and Bingbot are kept
   off `/*.md$`, because the Markdown copies exist for agents, cannot carry a canonical link or a noindex,
   and would otherwise sit in search results beside the pages they copy (review finding). AI crawlers can
-  still read them.
+  still read them. `/playground/v/` stays allowed for them (the longer rule wins): the Playground fetches
+  deck samples as `.md` at run time. This stops crawling, not linking: a search engine can still list a
+  blocked URL it finds linked, with no snippet.
   A preview should not be indexed, because it competes with the real page. The PR previews are built in
   GitHub Actions with `CF_PAGES` unset (`2026-07-01-docs-pr-preview.md`), so their `robots.txt` is the
   production one; what keeps them out is a `/* X-Robots-Tag: noindex` rule in `docs/public/_headers`, which
@@ -93,8 +95,10 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
       contains `srcdoc`.
     - **eval (1, Calco):** HarfBuzz's Emscripten bindings build functions from strings through
       an alias, so the PPTX export hung at "Embedding fonts…" (1 s and 3 fonts without the
-      policy). A page is an eval page when its code contains a direct `eval(`/`Function(`, or
-      loads a module on `INDIRECT_EVAL_CHUNKS`.
+      policy). A page is an eval page when its code contains a direct `eval(`/`Function(` (the
+      `Function("return this")` globalThis fallback, which never runs in a browser, excluded), or
+      loads a module on `INDIRECT_EVAL_CHUNKS`. Every build prints each non-frame exempt page and
+      its reason, so a page that loses its policy is visible.
     - **network (2, Cadenza and Suono):** their voice code calls OpenRouter and Google on the
       visitor's key and imports a model runtime from esm.run. Every outside origin found in code
       a policy page can load must be on `RUNTIME_ORIGINS` (the page is exempt) or
@@ -118,7 +122,11 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     the menu swallows silently), the palette label and the mode toggle; and presses every control
     on every library demo with a policy (60+), on Chromium, WebKit and Gecko, failing on any
     `securitypolicyviolation`. Loading alone missed the Calco and voice breaks the first review
-    found; the press-everything test catches the Calco one when its exemption is removed.
+    found; the press-everything test catches the Calco one when its exemption is removed. A
+    second review found that test's first wait was no wait (`networkidle` returns at once on an
+    idle page), so a late violation could be lost: it now reports violations out of the page as
+    they happen, presses a fixed list of controls, and after each waits until the control is
+    usable again and no request is in flight.
 
 - **A Markdown copy ("twin") of every content page** (`docs/scripts/md-twins.mjs`, 177 pages):
   every page that declares itself an article (docs pages, component pages, catalog pages,
