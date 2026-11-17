@@ -1006,18 +1006,29 @@ export async function openSlideSettings(page: Page): Promise<void> {
 	await layoutSettled(page);
 	const direct = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
 	const more = page.getByRole('button', { name: CHROME.editorMore, exact: true }).filter({ visible: true });
-	if (await direct.count()) await direct.first().click();
-	else if (await more.count()) {
-		await more.first().click();
-		await page.getByRole('menuitem', { name: CHROME.slideSettings }).click();
-	} else {
-		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
-		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
-	}
 	// Every door must land in the SLIDE scope, not merely open the panel: the same panel holds the Deck scope. The
 	// slide's own section strip (SlideContext `Slide settings sections`) is drawn only there, whichever door opened it;
 	// the Slide | Deck switch is not on every layout (desktop's rail opens the slide scope directly).
-	await expect(page.getByRole('tablist', { name: 'Slide settings sections' }).filter({ visible: true }).first()).toBeVisible();
+	const slideScope = page.getByRole('tablist', { name: 'Slide settings sections' }).filter({ visible: true }).first();
+	// The bar can still re-fit after the settle: its fit re-runs when the issue count, the selection or the fonts change
+	// (StudioShell `useRowFit` key), and that moves Slide settings between the bar and the ⋯ menu. So the door read is
+	// not trusted on its own: the strip is the signal that the door was right. A door that moved between the read and
+	// the click fails its short attempt, and the next attempt reads the bar again. Nothing is clicked once the strip
+	// shows, so no attempt can close what an earlier one opened.
+	await expect(async () => {
+		if (await slideScope.isVisible()) return;
+		const menu = page.getByRole('menu').filter({ visible: true });
+		if (await menu.count()) await page.keyboard.press('Escape');
+		if (await direct.count()) await direct.first().click({ timeout: 2_000 });
+		else if (await more.count()) {
+			await more.first().click({ timeout: 2_000 });
+			await page.getByRole('menuitem', { name: CHROME.slideSettings }).click({ timeout: 2_000 });
+		} else {
+			await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click({ timeout: 2_000 });
+			await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click({ timeout: 2_000 });
+		}
+		await expect(slideScope).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 15_000 });
 }
 
 /** Open the current slide's Slide settings at its Look section, at any width (see `openSlideSettings`). */
