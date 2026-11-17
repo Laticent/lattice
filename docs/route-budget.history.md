@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-17 — the owner raised one ceiling by hand, for PR 3263: studio eagerJsGz to 618.2 KB
+
+Owner OK 2026-11-17, relayed by the Segno coordinator session: raise studio's eager-JS ceiling by 2 KB more, sized with about 1 KB of margin because two raises sized to a small margin were outgrown by other merges the same day.
+
+Measured by CI's route-budget check: `main` at 438af447 is 613.7 KB (it was 612.1 KB at 74b8d05e; PR 3224, the layout button and find and replace in Compose, added 1.6 KB after the entry below was sized), and PR 3263 at b06ed6df is 616.7 KB, its declared +3068 B over `main`, 0.5 KB past the 616.2 KB ceiling. PR 3256 (Segno P4), still open, adds about 0.6 KB to studio (`slide-boundaries` +563 B, `math.syntax` +46 B). The ceiling rises 631004 -> 633052 (618.2 KB), which leaves about 1.5 KB of room after PR 3263 and about 0.9 KB after both PRs. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 571778 | 571778 | +0 | 633052 |
+
 ### 2026-11-16 — the owner raised one ceiling by hand, for PR 3263: studio eagerJsGz to 616.2 KB
 
 Owner OK 2026-11-16, relayed by the Segno coordinator session: raise studio's eager-JS ceiling by 2 KB in all, raised from the +1 KB first approved (the entry below) after PR 3239 grew the route by 0.8 KB.
