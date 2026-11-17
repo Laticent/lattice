@@ -1069,7 +1069,7 @@ async function runCodecProbe(id) {
 	for (const [k, v] of Object.entries(r.roundTrip)) console.log(`${LABEL}: round trip ${k}: ${v.ok ? `${v.bytes} B, ${v.kbps} kbps, ${v.extraMs} ms longer, encode ${v.encodeXRealtime}x realtime` : `NO (${v.error})`}`);
 	const steps = codecChecks(r);
 	const failed = steps.filter((s) => !s.pass);
-	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: r.ua, ...r, steps };
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ...r, width: r.width, steps };
 }
 
 async function runJpegProbe(id) {
