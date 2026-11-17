@@ -104,6 +104,19 @@ export const EXISTING_TWINS = Object.freeze({ '/components/': '/components.md' }
 /** `/guides/cli/` → `/guides/cli.md`; `/` → `/index.md`. */
 export const twinPath = (route) => EXISTING_TWINS[route] ?? (route === '/' ? '/index.md' : `${route.replace(/\/$/, '')}.md`);
 
+/**
+ * The social card a link preview shows for every page (tools/make-og-card.js draws it from the
+ * brand lockup and three real engine renders). One card for the site: a per-page card would
+ * be 181 images to keep current, for previews that mostly show the title beside it anyway.
+ * scripts/check-discovery.mjs reads the PNG's own header, so a re-draw at another size fails.
+ */
+export const OG_IMAGE = Object.freeze({
+	path: '/og/lattice.png',
+	width: 1200,
+	height: 630,
+	alt: 'Lattice: Markdown in, boardroom-ready decks out, beside three slides the engine rendered.',
+});
+
 export const REPO_URL = 'https://github.com/Laticent/lattice';
 export const AGENT_KIT_URL = 'https://github.com/Laticent/lattice/tree/dist-kits/agent';
 

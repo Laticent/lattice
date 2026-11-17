@@ -1,5 +1,5 @@
 - The docs site now serves `/robots.txt` and `/llms.txt`, a short router for AI agents to the pages they need to write a deck (#3207).
 - Every docs, component and catalog page has a plain-Markdown copy at its own path plus `.md` (`/guides/cli/` → `/guides/cli.md`), linked from the page; a component's copy is its `.docs.md`.
-- Every page outside the Starlight docs carries a canonical link and an Open Graph card, and each page sets its title and description once.
+- Every page outside the Starlight docs carries a canonical link and an Open Graph card, and each page sets its title and description once. A shared link now shows a preview image drawn from real engine renders.
 - The sitemap no longer lists pages marked `noindex`, and each URL carries the date of its page's last content commit.
 - The 78 pages that cannot build a slide preview carry a strict Content-Security-Policy: inline scripts only by exact hash, and images, fonts and fetches from the site itself. PR previews send `X-Robots-Tag: noindex`.

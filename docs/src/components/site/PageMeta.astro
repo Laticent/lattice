@@ -8,6 +8,7 @@
 // `canonical` is computed here, from `Astro.site` (discovery.mjs). A layout that also needs
 // it for its ArticleSchema record calls the same `canonicalUrl` and gets the same URL.
 import { canonicalUrl } from '../../lib/discovery.mjs';
+import OgImage from './OgImage.astro';
 
 interface Props {
 	title: string;
@@ -27,4 +28,5 @@ const canonical = canonicalUrl(Astro.site, Astro.url.pathname);
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
 {canonical && <meta property="og:url" content={canonical} />}
-<meta name="twitter:card" content="summary" />
+<meta name="twitter:card" content="summary_large_image" />
+<OgImage />

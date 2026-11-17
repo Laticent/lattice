@@ -1185,6 +1185,9 @@ its canonical link. The sitemap's `lastmod` is each page's last content commit
 (`docs/src/lib/lastmod.mjs`); a shallow checkout omits it. `docs/scripts/md-twins.mjs` writes a
 plain-Markdown copy of every article page at its path plus `.md` (a component page's copy is its
 `.docs.md`) and fails the build on a copy that leaks markup.
+The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make-og-card.js`
+(committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
+slides it uses).
 
 `docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives each page that
 cannot build a preview frame a strict, hash-based Content-Security-Policy. **An inline script on

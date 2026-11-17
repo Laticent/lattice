@@ -10,7 +10,8 @@
 //      page, and no indexable page is missing. With git history, every URL carries the
 //      lastmod src/lib/lastmod.mjs computes; on a shallow checkout, none carries one.
 //   3. Every indexable page carries exactly one <title>, description, canonical link,
-//      og:title, og:description and og:url.
+//      og:title, og:description, og:url, og:image and twitter:card, and the card is a PNG of
+//      the size its tags declare.
 //   4. robots.txt points at a sitemap that exists, and every link in llms.txt resolves to a
 //      built file; llms.txt stays a router (under 4 KB), not an index.
 //
@@ -23,7 +24,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isIndexable, LLMS_LINKS } from '../src/lib/discovery.mjs';
+import { isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
 import { hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,8 @@ const ONE_EACH = [
 	['og:title', /<meta property="og:title"/g],
 	['og:description', /<meta property="og:description"/g],
 	['og:url', /<meta property="og:url"/g],
+	['og:image', /<meta property="og:image"(?!:)/g],
+	['twitter:card', /<meta name="twitter:card"/g],
 ];
 
 function walk(dir, out = []) {
@@ -118,6 +121,18 @@ else {
 	// integration never sees them; `isIndexable` already marks them noindex above.
 	for (const route of listed) if (!indexable.has(route)) fail(`sitemap lists ${route}, which is not an indexable built page`);
 	for (const route of indexable) if (!listed.has(route)) fail(`${route} is indexable but missing from the sitemap`);
+}
+
+// ── the social card: the file every og:image names, at the size the tags declare ────────────
+const og = path.join(DIST, OG_IMAGE.path);
+if (!fs.existsSync(og)) fail(`${OG_IMAGE.path} is missing (node tools/make-og-card.js)`);
+else {
+	const png = fs.readFileSync(og);
+	const isPng = png.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+	const [w, h] = isPng ? [png.readUInt32BE(16), png.readUInt32BE(20)] : [0, 0];
+	if (!isPng || w !== OG_IMAGE.width || h !== OG_IMAGE.height)
+		fail(`${OG_IMAGE.path} is ${isPng ? `${w}x${h}` : 'not a PNG'}; the tags say ${OG_IMAGE.width}x${OG_IMAGE.height} PNG`);
+	if (png.length > 1024 * 1024) fail(`${OG_IMAGE.path} is ${(png.length / 1024).toFixed(0)} KB; keep a link-preview card under 1 MB`);
 }
 
 // ── 4: robots.txt and llms.txt ───────────────────────────────────────────────

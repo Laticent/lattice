@@ -7,6 +7,7 @@ summary: >
   gate (docs/scripts/check-discovery.mjs) fails when any of them disagree. The sitemap carries each page's
   last content commit, every content page has a Markdown copy at its own path plus `.md`, and the 78
   pages that cannot build a preview frame carry a strict, hash-based CSP; the frame pages are stage 2.
+  A shared link shows a social card drawn from real engine renders.
 ---
 
 # Site discovery: sitemap, canonical, robots.txt, llms.txt (2026-11-17)
@@ -117,12 +118,20 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     A sweep of all 91 non-component copies found no "Section titled", "Copy", pagination or
     contents-list text.
 
+- **A social card** (`docs/public/og/lattice.png`, 1200×630 PNG, 93 KB), drawn by
+  `tools/make-og-card.js` from the brand lockup, the landing page's promise and three slides
+  the engine rendered (the committed showcase rasters), so a shared link shows the product.
+  One card for the site: a per-page card is 181 images to keep current, for a preview that
+  mostly shows the page title beside it anyway. `OgImage.astro` emits `og:image` with its
+  size and alt text in both heads (PageMeta and DocsHead), and every page's `twitter:card` is
+  `summary_large_image`. No `twitter:image`: X reads `og:image` when it is absent, and every
+  byte is on every page, while the landing page's HTML sits about 1 KB under its route-budget
+  ceiling. The gate reads the PNG's own header, so a re-draw at another size fails.
+
 ## 3. What was left out, and why
 
 - **A referrer meta tag.** `strict-origin-when-cross-origin` is already every current browser's default, so
   the tag would change nothing.
-- **`og:image`.** A link preview needs a raster card designed for it (link unfurlers mostly refuse SVG). The
-  site has none, and a placeholder is worse than no image.
 
 ## 4. Secrets on a public static site
 
