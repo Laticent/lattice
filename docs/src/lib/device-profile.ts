@@ -15,9 +15,9 @@ export type Tier = 'full' | 'lite' | 'unsupported';
 export type TierOverride = 'auto' | Tier;
 
 /** A feature the app cannot run without. Each is on the list because something breaks without it. */
-export type RequiredFeature = 'worker' | 'indexedDB' | 'cssHas' | 'containerQueries' | 'structuredClone';
+export type RequiredFeature = 'worker' | 'indexedDB' | 'cssHas' | 'containerQueries' | 'structuredClone' | 'colorMix' | 'registerProperty';
 
-export const REQUIRED_FEATURES: readonly RequiredFeature[] = ['worker', 'indexedDB', 'cssHas', 'containerQueries', 'structuredClone'];
+export const REQUIRED_FEATURES: readonly RequiredFeature[] = ['worker', 'indexedDB', 'cssHas', 'containerQueries', 'structuredClone', 'colorMix', 'registerProperty'];
 
 /** What a person reads when the feature is missing. */
 export const FEATURE_LABEL: Record<RequiredFeature, string> = {
@@ -26,7 +26,49 @@ export const FEATURE_LABEL: Record<RequiredFeature, string> = {
 	cssHas: 'CSS :has()',
 	containerQueries: 'CSS container queries',
 	structuredClone: 'structuredClone()',
+	colorMix: 'CSS color-mix()',
+	registerProperty: 'CSS @property',
 };
+
+/**
+ * What each feature does for the reader, in words a non-technical person can act on (the old-browser notice's
+ * "Capability requirements" list puts FEATURE_LABEL beside it, small, for whoever needs the technical name).
+ */
+export const FEATURE_PLAIN: Record<RequiredFeature, string> = {
+	worker: 'Working in the background without freezing the page',
+	indexedDB: 'Saving your decks in this browser',
+	cssHas: 'Arranging each slide around what is on it',
+	containerQueries: 'Sizing each part of the page to the space it has',
+	structuredClone: 'Copying your work safely from one part of the app to another',
+	colorMix: 'Mixing the colors the page and its themes use',
+	registerProperty: "Drawing the page's shadows, gradients and animations correctly",
+};
+
+/** A global that must exist; a dotted name is a property path from `window` (`CSS.registerProperty`). */
+type GlobalName = 'Worker' | 'indexedDB' | 'structuredClone' | 'CSS.registerProperty';
+
+/**
+ * How each required feature is tested: a `CSS.supports` condition, or a global that must exist. `readSignals` reads this
+ * table, and so does the landing page's inline old-browser check (`pages/index.astro`), so the two can never test
+ * different things.
+ */
+export const FEATURE_PROBES: Record<RequiredFeature, { css: string } | { global: GlobalName }> = {
+	worker: { global: 'Worker' },
+	indexedDB: { global: 'indexedDB' },
+	cssHas: { css: 'selector(:has(a))' },
+	containerQueries: { css: 'container-type: inline-size' },
+	structuredClone: { global: 'structuredClone' },
+	// The two the site's CSS framework sets the floor with (Tailwind 4: Chrome 111, Safari 16.4, Firefox 128; browser-floor.ts).
+	colorMix: { css: 'color: color-mix(in srgb, red, blue)' },
+	registerProperty: { global: 'CSS.registerProperty' },
+};
+
+/**
+ * The required features the landing page checks: the ones only a browser's AGE can take away. Workers and IndexedDB stay
+ * off it, because a current browser can have them switched off for privacy, and the landing page does not use either; the
+ * Studio still declines on all seven.
+ */
+export const OLD_BROWSER_FEATURES: readonly RequiredFeature[] = ['cssHas', 'containerQueries', 'structuredClone', 'colorMix', 'registerProperty'];
 
 export interface DeviceSignals {
 	/** Required features, true when present. */
@@ -215,7 +257,7 @@ export function runCpuProbe({ now, unit = probeUnit, windows = 7, windowMs = 20 
 export interface BrowserEnv {
 	navigator: { deviceMemory?: number; hardwareConcurrency?: number; userAgent?: string };
 	supports: (condition: string) => boolean;
-	has: (global: 'Worker' | 'indexedDB' | 'structuredClone') => boolean;
+	has: (global: GlobalName) => boolean;
 	/** The WebGL renderer string, or `null` when no WebGL context can be made. */
 	webglRenderer: () => string | null;
 }
@@ -235,13 +277,12 @@ export function readSignals(env: BrowserEnv): DeviceSignals {
 	const memory = env.navigator.deviceMemory;
 	const cores = env.navigator.hardwareConcurrency;
 	return {
-		features: {
-			worker: env.has('Worker'),
-			indexedDB: env.has('indexedDB'),
-			cssHas: env.supports('selector(:has(a))'),
-			containerQueries: env.supports('container-type: inline-size'),
-			structuredClone: env.has('structuredClone'),
-		},
+		features: Object.fromEntries(
+			REQUIRED_FEATURES.map((f) => {
+				const probe = FEATURE_PROBES[f];
+				return [f, 'css' in probe ? env.supports(probe.css) : env.has(probe.global)];
+			}),
+		) as Record<RequiredFeature, boolean>,
 		renderer: env.webglRenderer(),
 		gpuTier: null,
 		memoryGB: typeof memory === 'number' && memory > 0 ? memory : null,
@@ -262,7 +303,11 @@ export function browserEnv(win: Window & typeof globalThis): BrowserEnv {
 				return false;
 			}
 		},
-		has: (g) => typeof (win as unknown as Record<string, unknown>)[g] !== 'undefined',
+		has: (g) => {
+			let v: unknown = win;
+			for (const k of g.split('.')) v = v == null ? undefined : (v as Record<string, unknown>)[k];
+			return typeof v !== 'undefined';
+		},
 		webglRenderer: () => {
 			try {
 				const gl = win.document.createElement('canvas').getContext('webgl');

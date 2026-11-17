@@ -8,6 +8,7 @@ import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 import { assetVersion } from './src/playground/asset-version.mjs';
+import { oldBrowserCheck } from './src/plugins/old-browser-check.mjs';
 import rehypeScrollableTables from './src/plugins/rehype-scrollable-tables.mjs';
 import viteCjsLibDev from './src/plugins/vite-cjs-lib-dev.mjs';
 import vitePublicEsmDev from './src/plugins/vite-public-esm-dev.mjs';
@@ -238,6 +239,8 @@ export default defineConfig({
 		processor: unified({ rehypePlugins: [rehypeScrollableTables] }),
 	},
 	integrations: [
+		// The old-browser check in the <head> of every page (src/plugins/old-browser-check.mjs).
+		oldBrowserCheck(),
 		starlight({
 			title: 'Lattice',
 			// Browser-tab icon: the 1.3KB vector mark (replaced a 26KB 512² PNG).

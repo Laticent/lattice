@@ -20,7 +20,7 @@ const reason = (code: string, kind: 'feature' | 'floor' | 'weak', text: string) 
 describe('declineWords', () => {
 	it('names one missing feature, or several, and points at a current browser', () => {
 		const one = declineWords({ pinned: null, profile: { tier: 'unsupported', detected: 'unsupported', reasons: [reason('feature:cssHas', 'feature', "This browser doesn't support CSS :has().")] } });
-		expect(one).toEqual({ lead: "It needs CSS :has(), which this browser doesn't support.", advice: 'Use a current Chrome, Edge, Safari or Firefox.' });
+		expect(one).toEqual({ lead: "It needs CSS :has(), which this browser doesn't support.", advice: 'Use Chrome 111, Edge 111, Firefox 128, Safari 16.4, Samsung Internet 22, Opera 97 or newer.' });
 		const two = declineWords({
 			pinned: null,
 			profile: {

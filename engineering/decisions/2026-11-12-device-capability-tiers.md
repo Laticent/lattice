@@ -407,13 +407,223 @@ CompressionStream, relative colors, `requestIdleCallback`) is **not** on it.
   pinned decline, continue anyway, the banner across a reload, `:has()` switched off unpinned, no decline unpinned on a
   supported browser, the Playground, and the setting. Screenshots at 1440, 820 and 390 px, dark and light, are in the PR.
 
+### 6.2 The landing page's old-browser notice (2026-11-15)
+
+The owner widened §7.3 for the landing page: "Old browsers just don't have the features we need and they are inherently
+insecure. We are not able to serve people with these browsers faithfully, so we just need to let them know, be honest with
+them and ask them to upgrade." Docs pages still carry nothing. Two follow-up decisions the same day: the notice states
+versions and how to update, and it looks like the site, not like an error page.
+
+- **The floor (owner's pick).** Chrome and Edge 111, Safari 16.4 (iOS 16.4 for every iPhone and iPad browser), Firefox
+  128, Samsung Internet 22, Opera 97, all from 2023 or later (Firefox 128 is July 2024 and an extended-support release). It
+  is the site's CSS framework's floor: Tailwind 4 needs `color-mix()` (Chrome 111) and `@property` (Safari 16.4, Firefox 128).
+  Lattice's own needs (`:has()` at Chrome 105 / Safari 15.4 / Firefox 121, container queries at Safari 16.0, `structuredClone`)
+  sit below it. The rejected option kept that lower floor and let readers into a gap where the site's styling breaks. The
+  versions are vendor and Tailwind documentation, not measured here: no engine older than the current Playwright builds was run.
+- **Features decide, versions only speak.** Two probes joined `FEATURE_PROBES`, `colorMix` and `registerProperty`, so the
+  tests line up with the table. `OLD_BROWSER_FEATURES` is every required feature but Workers and IndexedDB, which a current
+  browser can have switched off for privacy; the Studio declines on all seven. The versions live in `browser-floor.ts` with
+  each browser's update steps and its vendor's update page (every link checked on 2026-11-15). The notice reads the user agent
+  only to word its advice: "You have Safari 15.6. Lattice needs Safari 16.4 or newer", then the steps. A user agent it can't
+  read, or one that claims a new enough version, gets the general advice instead of a contradiction. Windows 7 and 8 get
+  their own line: Chrome and Edge stopped at 109 there and Firefox at 115, so no browser on them reaches the floor.
+- **One list, four readers.** The landing page's inline check, the notice, the Studio's decline screen (`declineWords` now
+  names the versions) and the docs' "Supported browsers" table in `getting-started.md` all read `device-profile.ts` and
+  `browser-floor.ts`; a unit test holds the docs table to the list.
+- **The look (owner's pick, "B").** The landing page stays visible behind the notice, blurred (`filter: blur`, with its
+  `-webkit-` twin) under a veil in the palette's background and a faint accent glow. A card in the site's own type (the
+  display face for the headline and the version strip, the mono face for the eyebrow and caption, the accent for the
+  button) holds one real slide, the landing page's hero waterfall rendered by the engine to a 32 KB JPEG per mode
+  (`docs/public/old-browser/hero-{light,dark}.jpg`), with "Lattice turns a few lines of plain text into slides like this
+  one." On screens 980 px and wider the slide sits beside the words, so the card fits 1440 x 900 without scrolling.
+  Rejected: A (the same card without the slide), which shows less of what the reader is missing, and C (a full editorial
+  page with a slideshow), which costs the most and has the most to break in an old browser. To re-render the slide after
+  the hero changes: `lattice <deck>.md <out>.png` on the hero source with `theme: cuoio` and `color-mode: light|dark`, then
+  `convert <png> -resize 1120x -strip -interlace JPEG -quality 82 <jpg>`.
+- **Semantic and readable (owner's ask, same day).** The notice is an `alertdialog` (`aria-modal`), named by its `h1`
+  and described by its lead, so a screen reader announces both as it opens. Inside, an `article` holds a `header` (eyebrow,
+  heading, lead), a `figure` (the slide, with alt text that says what the chart shows), a `section` titled by an `h2` "How
+  to update" (the versions as a `dl` of "You have" / "Lattice needs", a one-line note, the steps as an `ol`, one action per
+  step, and the links), and a `footer` (the security line; the feature names behind a collapsed `details` "Technical
+  details", so the jargon is there for whoever wants it; and "Continue anyway" after the sentence that says what it costs:
+  "parts of the site may not work"). The `article` keeps the header and footer from reading as the page's own banner and
+  footer landmarks. A link that opens a new tab says so to a screen reader. Every control has a visible accent focus
+  ring. The page beneath gets `inert` where the browser knows it, and for browsers that don't, focus that leaves the notice
+  is brought back to its heading, so a keyboard reader never lands on a link they can't see (the first build let Tab walk
+  into the blurred page; axe does not catch that, a keyboard walk did). axe (WCAG 2.0 to 2.2 A and AA plus best practices)
+  finds nothing on the notice in either mode, and `axe-site.spec.ts` stays clean on `/getting-started/` with the new
+  table at 1440, 820 and 390 px.
+- **Built so the browsers it is for can run it.** The inline check in `index.astro` is a classic ES5 script (about 1 KB;
+  `old-browser-check.es5.js`, inlined by `old-browser-check.ts` with its data as JSON literals: Astro's `define:vars` would
+  declare the data with `const`, which the first build shipped while calling itself ES5, until the card's checker caught it;
+  the home route's `htmlRaw` ends at 118.6 KB of its 119.1 KB ceiling). When a feature is missing it sets
+  `data-old-browser` on `<html>` and loads `/old-browser.js`, which `src/pages/old-browser.js.ts` builds from
+  `old-browser-notice.es5.js` with the floor table in front. The notice is ES5 (a unit test parses the served file with
+  `ecmaVersion: 5`) and its CSS uses only what these browsers have: flexbox, grid with a stacked fallback, custom
+  properties with a plain fallback, `filter`. It hides the page from assistive technology with `aria-hidden` (`inert` is too
+  new for them), turns off pointer events beneath, puts focus on the heading, and gives every touched style and attribute
+  back exactly on "Continue anyway", which lasts for the tab. A current browser never downloads the notice or the images.
+- **Verified.** `old-browser-notice.test.ts` runs the served file in jsdom for ten user agents (Safari, iOS, Chrome on iOS,
+  Chrome on Android and Windows, Edge, Firefox, Samsung Internet, Opera, Windows 7), the contradiction and unknown cases,
+  the restore, and the docs table. `docs/e2e/old-browser.spec.ts` runs on Chromium (1440 and 390 px), WebKit (phone and
+  tablet) and Firefox. Screenshots at 1440, 820 and 390 px, light and dark, are in the PR. **A real old engine**, not a
+  stand-in: Chromium 101 (installed by Playwright 1.21 into a scratch folder) on the built site, with no feature override
+  and no faked user agent, lacks `:has()`, container queries and `color-mix()`, shows the notice ("Chrome 101 / Chrome 111
+  or newer", three steps), keeps Tab inside it through the `focusin` fallback (Chromium 101 predates `inert`), and restores
+  the page on "Continue anyway", across a reload, with no page errors, at 1440 and 390 px in both modes. Firefox 115 ESR
+  was downloaded but could not be launched in the sandbox, and real Safari 15 / iOS 15 was not reachable: both
+  **UNVERIFIED**.
+- **Site-wide, as one build-time interceptor (owner, same day: "should this be a global filter/interceptor"; every
+  page).** The check is no longer in `index.astro`: `src/plugins/old-browser-check.mjs` is an Astro integration that
+  puts it in the `<head>` of every page the build emits, through `injectScript('head-inline', …)`. No route can forget
+  it or opt out, and a new route gets it with nothing to wire (203 of 203 built pages carry it; the other HTML files in
+  `dist/` are one-line redirect stubs to checked pages, plus the service worker's static `offline/` page). Rejected: a
+  server-side interceptor reading the user agent (Cloudflare middleware). It would gate on versions a browser can
+  misreport, need `Vary: User-Agent` and so a cache entry per browser, and turn a static site into one that runs code on
+  every request.
+  - **One screen per browser.** A missing feature is the notice's to say on every route, because it runs in browsers
+    too old to parse the Studio's bundled gate (measured: on real Chromium 101 the Studio's own screen did show, but
+    Edge 15 has no ES modules). `device-gate.ts` shows no screen of its own when `<html data-old-browser>` is set, and
+    keeps its screen for the hardware floor. The notice's "Continue anyway" also sets the device tier's own
+    `lattice-device-continue` and fires `lattice-old-browser-continue`, so the Studio and the Playground then run as
+    Lite under their banner, as their own "Continue anyway" did.
+  - **No flash of the broken page (owner: "during load i notice the broken site momentarily").** The notice comes in a
+    second download and shows once the page is parsed, so the page used to paint first, broken. The `<head>` check now
+    adds `body{visibility:hidden}` before the first paint when a feature is missing, and the notice removes it as it
+    shows, with the page already blurred. Two exits keep a reader from a blank page: the check lifts it when
+    `/old-browser.js` fails to load, and after 8 s if the notice never appears; both also mark the page `failed`, so the
+    Studio's own gate shows its screen (the 8 s case was the follow-up review's D1). Real Chromium 101, with the notice's
+    download held 2 s: before, the unblurred page showed mid-gap; after, only the background, then the notice.
+    **A notice that arrives after the 8 s give-up** (a slow connection) still shows, and takes the page back: it resets
+    the `failed` mark to `''`, and `device-gate.ts` takes down the decline it showed meanwhile, so the reader ends on one
+    screen, never two stacked (the round-8 checker's finding). Real Chromium 101, `/old-browser.js` held 10 s on
+    `/studio/`: at 8.5 s the Studio's decline showed, at the end only the notice; with the reset removed from the served
+    file, both screens stayed stacked.
+  - **The page beneath is not drawn while the notice is up (owner, Edge 15: "the mustard background is still there and
+    flickers momentarily").** A solid veil was not enough there. Without `color-mix()`, Tailwind's fallback for every faint
+    accent tint (`bg-[color-mix(…var(--accent) 4%…)]`) is the plain `--accent`, so the broken page beneath is full of
+    solid mustard, and whatever let it through for a frame showed it. The notice's stylesheet now hides every child of
+    `<body>` but itself, with `!important` and the ID so a page's own `visible` utility can't win. Its veil also takes the
+    body's computed color as a literal, in case an engine drops the `var(--bg,Canvas)` form. Real Chromium 101, the veil
+    forced clear and the card held at opacity 0: with the rule, only the background; without it, the broken landing page
+    and its mustard button.
+  - **Then the whole window, on every refresh (owner, Edge 15: whole screen, before any text, light mode, F5 and
+    Ctrl+F5 alike; never on a first visit).** That is the `<head>` check's own background, the only thing painting the
+    window then. It painted `var(--bg,Canvas)`; it now reads `--bg` once and paints the literal hex (white or near-black
+    by mode when none is readable), leaving legacy Edge no variable or `Canvas` keyword to resolve. Not reproducible
+    in Chromium 101 or Firefox 115, so a temporary `?lob-debug` mode made the notice print what the engine computed: the
+    hider rule, the html, body and veil backgrounds at show, +50 ms and +600 ms, and the same three saved at the previous
+    page's `pagehide`, for a screenshot from the engine we cannot run.
+  - **The cause, found in Edge 15 itself: `::selection { background: var(--accent) }`.** The owner's `?lob-debug`
+    traces read `<html>`'s background as `rgb(122, 90, 16)`, cuoio's `--accent`, with no rule on `<html>` setting a
+    background. A first guess blamed the `:root` widget colors (`accent-color`, `caret-color`, the tap tint) and put
+    them behind `@supports`; the flash stayed, same color and length, because the hider's `!important` had only masked
+    `<html>` in the trace. So `?lob-debug` learned to search by elimination in the engine: each stylesheet off in turn,
+    then each rule deleted and put back. In Edge 15 it named one rule on both `/` and `/getting-started/`: with the
+    plain `::selection { background: var(--accent) }` gone, `<html>` was clear. That rule is the build's fallback for
+    `::selection { background: color-mix(…) }`. EdgeHTML evidently applies a `var()` selection background to the
+    elements themselves: `<html>`, and on a docs page `<body>`, whose own `var(--sl-color-bg)` Edge 15 cannot resolve.
+    Fixes: `::selection` and `::target-text` sit behind `@supports (color: color-mix(…))`, so no fallback is emitted
+    and an engine below the floor keeps its own selection color; the notice's veil reads `--bg` as a literal, as the
+    hider does, rather than copying `<body>`'s color (which on docs pages was the accent). The widget-color guards are
+    undone, since they rested on the wrong guess; the tap tint stays behind `color-mix()`, since a full-accent tap
+    flash is wrong in any engine. This is probably also the "solid brown selection" the owner met first in Edge 15.
+    The `?lob-debug` mode was removed before merge at the owner's ask ("ship it after cleaning up"); it lives in this
+    PR's history (`14ef8ce`, `722a614`) if an engine we cannot run ever needs the same search again.
+  - **No color shift on the handoff (owner).** The page-hider paints `html` in `--bg`, the color the notice's veil
+    starts in, and the veil and glow fade in with the card (0.5 s) instead of arriving in one frame. Real Chromium 101,
+    transitions paused with `getAnimations()` at 0/250/500 ms: the notice's first frame equals the hidden page (light
+    250,247,242 both), then eases to its end state; before, it jumped at once (to 244,239,230).
+  - **No burnt-orange flicker (owner, after the color-shift fix).** The veil had thinned to 0.9 over a blurred page,
+    with an accent glow: in legacy Edge the page beneath is the broken rendering, full of orange chart bars, and both let
+    it bleed through. The veil is now solid site background from the first frame, with no glow, and the page beneath is
+    no longer blurred (nothing shows through to blur; it only cost old devices GPU work). It stays hidden from assistive
+    technology, the pointer and selection, as before. Real Chromium 101, transitions paused at 0/100/250/400/500 ms:
+    the margins outside the card are one flat color in every frame, 250,247,242 light and 21,17,13 dark. This retires
+    the "blurred page behind" glimpse of design B; matching the site's look had already reduced it to a hint, and in
+    the browsers that see this notice it was showing a broken page.
+  - **Weight 400 throughout (owner: "formatting is off with bolding", legacy Edge).** The site loads Outfit one static
+    weight at a time (`fonts.css`), and the notice's bold lead-ins and button asked for 500 and 600, which the page had
+    not loaded: legacy Edge drew them in the light 300 it had and never swapped, so the "bold" text came out thinnest.
+    The notice now sets 400 on its root and every Outfit element, and carries emphasis in the heading color instead.
+    A unit test holds every element that sets a weight to 400 (red with a 600 put back).
+  - **"Can't update?" as a labeled block (owner).** A bold question, then "On a work device: ask your IT team. They
+    manage its updates." and "On your own device: use any browser in the Supported browsers list below.", in place of
+    one long sentence.
+  - **The site's own look (owner: "the color palette and styling should match the real website").** Measured on the
+    landing page, then matched: the site's 61 px top bar with the mark and wordmark over a hairline; cards with 12 px
+    corners, a 1 px `--border` hairline and no shadow; the primary button at 40 px, 6 px corners, 14 px weight 500; mono
+    eyebrows at weight 500 with 0.16em tracking; a square-framed slide like the landing page's "After" panel. The veil
+    now ends at 0.9, the site's flat background with the blurred page only a hint behind it: an old browser draws that
+    page broken, and at the earlier 0.62 it averaged to a muddy tan in the owner's legacy Edge.
+  - **Written for readers who aren't technical (owner; a `prose-checker` pass, applied in full but one point).** The
+    owner renamed "Technical details" to "Capability requirements" and asked for bullets like the supported browsers:
+    each capability now reads in plain words first (`FEATURE_PLAIN` in `device-profile.ts`, "Arranging each slide
+    around what is on it"), its technical name small beside it, and its state as a word, Missing or Supported. The
+    pass found that a reader who CAN'T update had no way forward. Its first fix told them to open the site on another
+    device; **the owner struck that, for their infosec team: telling someone on a managed work laptop to use their phone or
+    home computer, or to install a browser of their choosing, steers them around their organization's controls.** A first fix
+    sent every reader who could not update to IT or called the device too old, which the owner then judged too
+    extreme: still actionable, just never what infosec would object to. The rule now (header of `browser-floor.ts`,
+    and a unit test across six kinds of reader): every fallback speaks to two readers. On a work device, ask the IT
+    team, and nothing that works around them. On the reader's own device, the real options, which may include
+    installing a supported browser. Never moving to another device. The test fails on any mention of another device,
+    on a reader with no "On a work …" sentence pointing to IT, and on an offer to install a browser outside a sentence
+    addressed to the reader's own device. Example: "Can't update? On a work device, your IT team manages updates: ask
+    them. On your own device, any browser under Supported browsers works."
+    - the Mac steps named System Settings first, though any Mac on Safari 15 or older has System Preferences;
+    - the iPhone and Android steps dead-ended on devices too old to update (each now says what to do then);
+    - old Windows sat under a heading promising an update that cannot happen; it now reads "What you can do", says
+      Windows 10 or later is needed and to ask IT about upgrading, with no dead-end button;
+    - the security line called the reader's browser "unsafe" and then offered Continue anyway; it now says updating
+      also brings security fixes, and that nothing is wrong with their device or files;
+    - Edge and Opera on Android were taken for Chrome or given desktop steps.
+    Kept against the pass: it would have named the section "Details for your IT team"; the owner chose
+    "Capability requirements", and the section's lead now tells a work-computer reader to show the list to IT.
+  - **Minified at build time.** The integration runs the check through esbuild (`target: 'es5'`) before injecting it:
+    1,268 bytes on every page, so the home page stays at 118.7 of its 119.1 KB ceiling with the flash fix included.
+    esbuild refuses to emit anything newer than ES5, so a `const` slipped into the source fails the build, and
+    `old-browser-check.node.test.ts` parses the shipped form with `ecmaVersion: 5`. The minifier runs in the Astro
+    integration (Node), not in the check module, because esbuild will not run in jsdom.
+  - **What the app adds after the notice shows** (the Studio mounts toasts and portals into `<body>`) joins the page
+    beneath through a `MutationObserver`, and is given back on "Continue anyway".
+  - **Measured:** real Chromium 101 shows the same notice on `/`, `/studio/`, `/playground/`, `/getting-started/` and
+    `/components/`, focus on the heading, no second screen; on the Studio, "Continue anyway" brings the Lite banner.
+    Route budgets: every route stays under its `htmlRaw` ceiling (Studio 245.8 of 247.5 KB, Getting started 89.3 of
+    91.7, home 118.6 of 119.1).
+- **Self-contained (owner, same day).** The notice links to no other page of this site: a browser too old for the landing
+  page is too old for Getting started too, so a "Supported browsers" link sent the reader to a second broken page. The
+  supported list (`supportedList()` in `browser-floor.ts`) travels inside the notice instead, collapsed in the footer as
+  "Supported browsers" beside "Capability requirements", for every reader (the owner asked for both to collapse alike). Both
+  are one button disclosure in every engine (`collapsible()`: a real `<button>` with `aria-expanded` and `aria-controls`
+  that shows and hides its section, under a drawn triangle), never `<details>`. The first build used `<details>` with a
+  button fallback chosen by a feature test; in the owner's browser the test guessed wrong, so the engine drew its own
+  arrow beside ours and kept the content shut. Browsers disagree about `<details>`, and the notice exists for the ones
+  that disagree most. The one
+  link left goes off the site, to the browser maker's own update page. A unit test fails on any link that is not
+  `https://`.
+- **The owner's real legacy Edge (EdgeHTML 15, Windows 10, 2026-11-15).** The check fired and the notice showed, but it
+  looked broken, for three reasons, each fixed and each pinned by a test:
+  1. **Solid brown over the text.** The site sets `::selection { background: var(--accent) }`, a tint where `color-mix()`
+     works. An engine without `color-mix()` paints it solid, and a selection on the page beneath, smeared by the blur,
+     read as a solid block. The notice now sets its own selection colors (`Highlight` / `HighlightText`, the system's
+     readable pair) and makes the page beneath unselectable while it shows. Reproduced on real Chromium 101, which also
+     lacks `color-mix()`: select-all before the fix took 10,214 characters, mostly from the page beneath, all in solid
+     accent; after, it takes the notice's 700, in the system highlight.
+  2. **A card far too wide.** EdgeHTML 15 has no CSS grid, but the wide-screen rules still widened the card. They now sit
+     inside `@supports (display: grid)`, so an engine without grid keeps the narrow stacked card.
+  3. **Wrong steps.** The original Edge (`Edge/12` to `Edge/18`) updates only with Windows and was retired in 2021. It now
+     gets its own entry: "the original Edge, which Microsoft stopped updating in 2021", the steps to install the current
+     Edge, and a link to microsoft.com/edge. The current Edge (`Edg/`) keeps its own steps.
 
 ## 7. Decisions (owner, 2026-11-12)
 
 1. **Decline on features and hardware**, best effort: the floor in §3.1, two agreeing signals, with the
    micro-benchmark and `detect-gpu` filling the gaps the browser's own numbers leave.
 2. **The decline screen keeps a "continue anyway" link.** The session then runs as LITE with a banner that stays up.
-3. **The gate covers the Studio, the Playground and Present.** Landing and docs pages serve everyone.
+3. **The gate covers the Studio, the Playground and Present.** Since 2026-11-15 a browser too old for the site, on any
+   page including the docs, gets the site-wide old-browser notice (§6.2); the device gate's own screen is for the
+   hardware floor. Every machine that can run the site is still served.
 4. **LITE triggers as proposed:** a software GPU, or ≤ 4 GB reported, or ≤ 4 cores reported outside Safari, or the
    boot probe. Any one is enough.
 
