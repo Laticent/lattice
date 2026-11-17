@@ -160,7 +160,14 @@ function remember(key: string, section: string) {
 }
 
 /** The door past its no-package fast path: two renders around the code-packages slot and the plugin-fence slot. */
-export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean): Promise<R> {
+export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean, stamped: Set<string> | null = null): Promise<R> {
+	// What this render DRAWS as approved: approved now AND in the stamp its CSS carries, when the caller gave that CSS
+	// (door.ts `approvalsInStamp`), so the markup and the plugin's sheet come from one moment. The stamp only ever
+	// narrows: code runs on a live approval, so a stale stamp cannot run a plugin whose approval was withdrawn.
+	// What it REPORTS as unapproved stays live: the notice asks for a yes not given yet, and a render that started
+	// before the yes must not bring the question back.
+	const drawsApproved = (p: StudioCodePackage) => isApproved(p) && (!stamped || stamped.has(`${p.name}@${p.sha256.slice(0, 16)}`));
+	const drawsPluginApproved = (p: StudioPlugin) => isPluginApproved(p) && (!stamped || stamped.has(`plugin/${p.name}@${p.sha256.slice(0, 16)}`));
 	const packages = codePackages();
 	// A snapshot: the Library can change the set while this render awaits a sandbox.
 	const pkgs = new Map(packages);
@@ -218,8 +225,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		const key = claimKey(c, p.sha256);
 		if (sections.has(key)) continue;
 		// Approval first, then the memo: a result drawn before an approval was withdrawn is not shown.
-		if (!isApproved(p)) {
-			unapproved.set(p.name, p);
+		if (!drawsApproved(p)) {
+			if (!isApproved(p)) unapproved.set(p.name, p);
 			sections.set(key, withFailureNote(c.html, c.pkg, 'its code has not been approved in this browser'));
 			continue;
 		}
@@ -292,8 +299,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		}
 		// A span that cannot draw keeps its code: a note is a block, and a block in a sentence breaks it. The strip says why.
 		const notDrawn = (why: string) => (kindOf ? c.block : withFenceNote(c.block, c.pkg, why));
-		if (!isPluginApproved(p)) {
-			unapproved.set(`plugin/${p.name}`, p);
+		if (!drawsPluginApproved(p)) {
+			if (!isPluginApproved(p)) unapproved.set(`plugin/${p.name}`, p);
 			// The same drawn card as an unlisted plugin's, with its own words: the strip above the preview is where the yes is given.
 			const hint = placeholderHint(p.placeholder);
 			// A span keeps its code: a card in a sentence would take the author's words out of a shared file, and the strip says why.

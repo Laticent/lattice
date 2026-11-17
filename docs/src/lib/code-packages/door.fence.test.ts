@@ -7,7 +7,7 @@
 import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHECKS, DECK, DECK_UNLISTED, PLUGIN } from '../../../../test/fixtures/fence-door-parity.mjs';
-import { approvePlugin, codePackagesStamp, isPluginApproved, offeredIn, onCodePackagesStatus, pluginDigest, pluginDigests, renderWithCodePackages, revokePlugin, setPlugins, studioPlugins, unapprovedIn } from './door';
+import { approvalsInStamp, approvePlugin, codePackagesStamp, isPluginApproved, offeredIn, onCodePackagesStatus, pluginDigest, pluginDigests, renderWithCodePackages, revokePlugin, setPlugins, studioPlugins, unapprovedIn } from './door';
 
 /** The shared deck's plugin blocks, every one of them drawn: no slide is shadowed (spec/LPM.md §10). */
 const DRAWN = 3;
@@ -552,5 +552,65 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 		const { html, failed } = await statusOf(DECK);
 		expect(html).toContain('it declares no return fields');
 		expect(failed.some((f) => /disabled for this render/.test(f.why))).toBe(true);
+	});
+});
+
+describe('a render draws by the stamp in the CSS it paints with (#3292)', () => {
+	const drawWith = async (css: string, status = false) => (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', { codeApproval: css, ...(status ? { codeStatus: true } : {}) })).html;
+
+	it('the stamp is read from the CSS, only a "+" counts, and CSS with none gives no stamp', async () => {
+		expect(approvalsInStamp('.a { color: red }')).toBeNull();
+		expect([...(approvalsInStamp(codePackagesStamp()) ?? ['x'])]).toEqual([]);
+		await approve();
+		expect([...(approvalsInStamp(`.a{}\n${codePackagesStamp()}`) ?? [])]).toEqual([`plugin/${PLUGIN.name}@${(await pluginDigest(code, PLUGIN.fence)).slice(0, 16)}`]);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a look-alike stamp in other CSS (a Library component, a finish) is not the stamp: it cannot narrow what draws', async () => {
+		await approve();
+		const forged = `/* lattice code packages: plugin/${PLUGIN.name}@0000000000000000- */\n/* lattice code packages zzzz: plugin/${PLUGIN.name}@0000000000000000- */\n.card{}`;
+		expect(approvalsInStamp(forged)).toBeNull();
+		const html = await drawWith(`${forged}\n${codePackagesStamp()}`);
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a render begun before the approval, with the stamp from before it, draws the placeholder and does not ask again', async () => {
+		const before = codePackagesStamp();
+		await approve();
+		let status: { unapproved: { name: string }[] } = { unapproved: [] };
+		const off = onCodePackagesStatus((s) => {
+			status = s;
+		});
+		const html = await drawWith(before, true);
+		off();
+		// Drawn as unapproved, matching the CSS it paints with, which has no sheet for the plugin yet.
+		expect(html).toContain('data-reason="unapproved"');
+		expect(opened).toEqual([]);
+		// And the notice is not told it is unapproved: the yes was given, so the question must not come back.
+		expect(status.unapproved.map((p) => p.name)).not.toContain('gantt-plugin');
+		// The render with the stamp the approval made draws it.
+		const after = await drawWith(codePackagesStamp());
+		expect(after).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a stamp only narrows: a stale stamp that says approved does not run a plugin whose approval was withdrawn', async () => {
+		await approve();
+		const approving = codePackagesStamp();
+		revokePlugin(PLUGIN.name);
+		const html = await drawWith(approving);
+		expect(opened).toEqual([]);
+		expect(html).toContain('data-reason="unapproved"');
+	});
+
+	it('CSS with no stamp leaves the live approvals in charge', async () => {
+		await approve();
+		const html = await drawWith('');
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
+		revokePlugin(PLUGIN.name);
 	});
 });

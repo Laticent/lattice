@@ -29,6 +29,7 @@ import { parsePaneMarker } from '../../../../lib/core/meta-door.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins, scopePluginCss } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
+import { CODE_APPROVALS_KEY } from './approvals-key';
 
 /** The `class` slice of the directive vocabulary: `unapprovedIn` asks one key (lib/core/comment-directive.mjs). */
 
@@ -66,7 +67,13 @@ export type StudioPluginKind = { name: string; slot?: unknown; placeholder?: { s
 /** What the notice above the preview shows: the code this deck uses that is not approved. `notes` are the door's own warnings (a slide it left alone, and why). */
 export type CodePackagesStatus = { unapproved: (StudioCodePackage | StudioPlugin)[]; failed: { name: string; slide: number; why: string }[]; /** Installed plugins whose fence the deck writes but whose name its `plugins:` list does not (a placeholder stands there). */ offered?: StudioPlugin[]; notes?: string[] };
 
-const APPROVALS_KEY = 'lattice-code-package-approvals';
+const APPROVALS_KEY = CODE_APPROVALS_KEY;
+/**
+ * A per-page secret in the stamp's comment (`codePackagesStamp`), so CSS from anywhere else on the page (a Library
+ * component's, a saved finish's) cannot pass for the stamp and narrow what a render draws (`approvalsInStamp`, #3292).
+ * Per page load: the render caches that key on the stamp live in memory only.
+ */
+const STAMP_NONCE = Array.from(crypto.getRandomValues(new Uint32Array(2)), (n) => n.toString(36)).join('');
 
 const packages = new Map<string, StudioCodePackage>();
 const plugins = new Map<string, StudioPlugin>();
@@ -333,6 +340,32 @@ export function report(s: CodePackagesStatus) {
 export type Renderer = { render: (source: string, theme: string, opts?: Record<string, unknown>) => { html: string } };
 
 /**
+ * The approvals a stamp (`codePackagesStamp`) records, as `name@digest16` for a component's package and
+ * `plugin/name@digest16` for a plugin; null when the CSS carries no stamp of THIS page (`STAMP_NONCE`). A render that is given the CSS it
+ * will paint with (`codeApproval`) draws a package or plugin as approved only when this stamp AND the live
+ * approvals say so, so its markup and its stylesheet describe the same moment. The stamp only narrows: code runs
+ * on a live approval, so a stale stamp never runs a plugin whose approval was withdrawn. An approval given while a render was in flight used to fill a plugin's slots in a
+ * render whose CSS did not have the plugin's sheet yet, and that frame painted unstyled (#3292). It also keeps
+ * the preview's caches, keyed by that CSS, from holding a drawing the key does not describe.
+ */
+export function approvalsInStamp(css: string): Set<string> | null {
+	// Only the comment carrying this page's nonce is the stamp: any other text that looks like one is someone's CSS.
+	const head = `/* lattice code packages ${STAMP_NONCE}: `;
+	const at = css.indexOf(head);
+	if (at < 0) return null;
+	const end = css.indexOf(' */', at + head.length);
+	if (end < 0) return null;
+	return new Set(css.slice(at + head.length, end).split(' ').filter((t) => t.endsWith('+')).map((t) => t.slice(0, -1)));
+}
+
+/** The door's own flags, never the engine's: `codeStatus` (report to the notice) and `codeApproval` (the CSS to draw by). */
+function withoutDoorFlags(opts: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+	if (!opts || !('codeStatus' in opts || 'codeApproval' in opts)) return opts;
+	const { codeStatus: _status, codeApproval: _approval, ...rest } = opts;
+	return rest;
+}
+
+/**
  * Render through the engine with the Studio's code packages. With none known it is exactly
  * `PG.render`; with some, it renders twice around the code-packages slot.
  */
@@ -340,12 +373,9 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	// The status the notice shows comes from the preview's own render only (`codeStatus`), never
 	// from a scan, a gate or an export rendering on the side (the checker).
 	const reporting = opts?.codeStatus === true;
-	// The flag is the door's, never the engine's; without it the caller's options pass untouched.
-	let engineOpts = opts;
-	if (opts && 'codeStatus' in opts) {
-		const { codeStatus: _flag, ...rest } = opts;
-		engineOpts = rest;
-	}
+	// Read before any await: the approvals this render draws by are the ones its CSS was made with.
+	const stamped = typeof opts?.codeApproval === 'string' ? approvalsInStamp(opts.codeApproval) : null;
+	const engineOpts = withoutDoorFlags(opts);
 	if (!packages.size && !plugins.size) {
 		if (reporting) report({ unapproved: [], failed: [] });
 		return PG.render(source, theme, engineOpts) as R;
@@ -353,7 +383,7 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	// Everything past this point loads only when the Library holds a code package: the kernel,
 	// the sanitizer, the runner and the shipped claim list stay out of the Studio's first load.
 	const { runWithCodePackages } = await import('./door-run');
-	return runWithCodePackages<R>(PG, source, theme, engineOpts, reporting);
+	return runWithCodePackages<R>(PG, source, theme, engineOpts, reporting, stamped);
 }
 
 /**
@@ -371,5 +401,5 @@ export function codePackagesStamp(): string {
 	// An approved plugin's own stylesheet rides with the stamp: the stamp is already part of every preview's and export's extra CSS,
 	// so the sheet reaches each of them through the one path that already passes `styleElementText` (HARD RULE #22).
 	const sheets = [...plugins.values()].filter((p) => p.css && isPluginApproved(p)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => scopePluginCss(p.name, p.css));
-	return `/* lattice code packages: ${parts.join(' ')} */${sheets.length ? `\n${sheets.join('\n')}` : ''}`;
+	return `/* lattice code packages ${STAMP_NONCE}: ${parts.join(' ')} */${sheets.length ? `\n${sheets.join('\n')}` : ''}`;
 }

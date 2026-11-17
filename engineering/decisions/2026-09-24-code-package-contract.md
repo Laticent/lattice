@@ -678,7 +678,13 @@ read them as comments too. Run from `claude/sandbox-probe-run` (run 37540765206)
 - **Caches.** A result is remembered by what the package was handed, so typing re-runs only the
   slides whose input changed. The package-and-approval state rides in the preview's extra CSS as an
   inert comment (`codePackagesStamp`), because every preview and export cache keys on that CSS, so
-  a new package or approval re-renders everything that showed the old state.
+  a new package or approval re-renders everything that showed the old state. A render handed the CSS
+  it paints with (`codeApproval`) draws a package or plugin as approved only when that stamp says so
+  as well as the live approval (`approvalsInStamp`, 2026-11-17, #3292): an approval given while a
+  render was in flight had filled a plugin's block in a render whose CSS lacked the plugin's sheet,
+  and the first frame painted unstyled. The stamp only narrows, so code still runs on a live yes;
+  it carries a per-page nonce, so look-alike text in a Library component's CSS is not the stamp; and
+  the Studio refreshes it on a `storage` event, so another tab's approval reaches this tab.
 
 **Classes: the package's own name, or what the slide carried** (`doorFilterAttr`, both doors). A
 later registry pass and the viewer's runtime act on classes they know: a package that added `video`

@@ -31,6 +31,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
+import { CODE_APPROVALS_KEY } from '@/lib/code-packages/approvals-key';
 import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
@@ -1786,6 +1787,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [localPlugins]);
 	const removePlugin = React.useCallback((id: string) => { deleteStudioPlugin(id).then(() => refreshComponents()); }, [refreshComponents]);
 	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);
+	// An approval given or withdrawn in another tab of this browser: the stamp decides what this tab's previews draw
+	// (code-packages/door.ts `approvalsInStamp`, #3292), so it must hear the change, or it keeps drawing the old answer.
+	React.useEffect(() => {
+		const heard = (e: StorageEvent) => {
+			if (e.key === CODE_APPROVALS_KEY) setCodeStamp(codePackagesStamp());
+		};
+		window.addEventListener('storage', heard);
+		return () => window.removeEventListener('storage', heard);
+	}, []);
 	// LIBRARY PHOTOS (`asset:<name>`): the registry holds a name → object-URL map for the shared
 	// assets plus this deck's own (media-urls.ts). Its stamp joins the preview's extra CSS, which
 	// every preview and export cache keys on, so adding, deleting or re-scoping a photo re-renders

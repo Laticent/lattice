@@ -45,7 +45,7 @@ describe('which packages a deck needs approved', () => {
 	});
 
 	it('the stamp names each package, its code and its approval, and is empty with none', async () => {
-		expect(codePackagesStamp()).toMatch(/^\/\* lattice code packages: tally@[0-9a-f]{16}- \*\/$/);
+		expect(codePackagesStamp()).toMatch(/^\/\* lattice code packages [0-9a-z]+: tally@[0-9a-f]{16}- \*\/$/);
 		approveCodePackage({ name: 'tally', sha256: await codeDigest(CODE) });
 		expect(codePackagesStamp()).toMatch(/tally@[0-9a-f]{16}\+/);
 		await setCodePackages([]);
@@ -83,6 +83,16 @@ describe('the render wrapper', () => {
 		expect(out.html).toContain('its code has not been approved in this browser');
 	});
 
+	it('a component package draws by the stamp in the CSS it paints with too: approved live, an older stamp still draws it unapproved (#3292)', async () => {
+		const before = codePackagesStamp();
+		approveCodePackage({ name: 'tally', sha256: await codeDigest(CODE) });
+		const old = await renderWithCodePackages<{ html: string }>(PG, 'tally', 'indaco', { codeApproval: before });
+		expect(old.html).toContain('its code has not been approved in this browser');
+		const now = await renderWithCodePackages<{ html: string }>(PG, 'tally', 'indaco', { codeApproval: codePackagesStamp() });
+		expect(now.html).not.toContain('its code has not been approved in this browser');
+		revokeCodePackage('tally');
+	});
+
 	it('the preview flag never reaches the engine', async () => {
 		let seen: Record<string, unknown> | undefined;
 		const PGseen = {
@@ -91,9 +101,10 @@ describe('the render wrapper', () => {
 				return { html: '' };
 			},
 		};
-		await renderWithCodePackages(PGseen, 'x', 'indaco', { codeStatus: true, baseUrl: '/b/' });
+		await renderWithCodePackages(PGseen, 'x', 'indaco', { codeStatus: true, codeApproval: '', baseUrl: '/b/' });
 		expect(seen).toMatchObject({ baseUrl: '/b/' });
 		expect(seen && 'codeStatus' in seen).toBe(false);
+		expect(seen && 'codeApproval' in seen).toBe(false);
 	});
 });
 

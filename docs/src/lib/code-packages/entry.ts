@@ -53,12 +53,12 @@ export function codePackagesStamp(): string {
 	return door ? door.codePackagesStamp() : '';
 }
 
-/** door.ts `renderWithCodePackages`; before the door loads, the engine's render without the door's flag. */
+/** door.ts `renderWithCodePackages`; before the door loads, the engine's render without the door's flags. */
 export async function renderWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, opts: Record<string, unknown> | undefined): Promise<R> {
 	if (door) return door.renderWithCodePackages<R>(PG, source, theme, opts);
 	let engineOpts = opts;
-	if (opts && 'codeStatus' in opts) {
-		const { codeStatus: _flag, ...rest } = opts;
+	if (opts && ('codeStatus' in opts || 'codeApproval' in opts)) {
+		const { codeStatus: _status, codeApproval: _approval, ...rest } = opts;
 		engineOpts = rest;
 	}
 	return PG.render(source, theme, engineOpts) as R;
