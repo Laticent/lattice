@@ -64,7 +64,7 @@ async function standInToast(page: Page, y: number): Promise<() => Promise<void>>
 	return () => page.evaluate(() => document.querySelector('[data-stand-in]')?.remove());
 }
 
-test('@mobile @parity a tap on a picker row under a toast chooses that row', async ({ page }, info) => {
+test('@mobile @parity @webkit-phone a tap on a picker row under a toast chooses that row', async ({ page }, info) => {
 	await openDeckSettingsAt(page, 390);
 	await openSection(page, CHROME.deckTab.chrome);
 	await page.getByRole('combobox', { name: 'Choose logo color' }).click();
@@ -86,7 +86,7 @@ test('@mobile @parity a tap on a picker row under a toast chooses that row', asy
 	await expect.poll(async () => JSON.parse(await persistedSource(page)) as string).toContain('logo-finish: accent');
 });
 
-test('@mobile an open dropdown menu sits above a toast', async ({ page }) => {
+test('@mobile @webkit-phone an open dropdown menu sits above a toast', async ({ page }) => {
 	await page.getByRole('button', { name: 'Slide actions' }).first().click();
 	const menu = '[data-slot="dropdown-menu-content"]';
 	await expect(page.locator(menu)).toBeVisible();
@@ -94,7 +94,7 @@ test('@mobile an open dropdown menu sits above a toast', async ({ page }) => {
 	expect(await topmostOverToast(page, menu)).toBe('popup');
 });
 
-test('@mobile an open popover sits above a toast', async ({ page }) => {
+test('@mobile @webkit-phone an open popover sits above a toast', async ({ page }) => {
 	await openChatAtWidth(page, 390);
 	await page.getByRole('button', { name: 'Attach from your Library' }).click();
 	const pop = '[data-slot="popover-content"]';
