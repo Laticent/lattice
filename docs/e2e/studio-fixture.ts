@@ -1005,15 +1005,19 @@ async function selectAllInEditor(page: Page): Promise<void> {
 export async function openSlideSettings(page: Page): Promise<void> {
 	await layoutSettled(page);
 	const direct = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
-	if (await direct.count()) return direct.first().click();
 	const more = page.getByRole('button', { name: CHROME.editorMore, exact: true }).filter({ visible: true });
-	if (await more.count()) {
+	if (await direct.count()) await direct.first().click();
+	else if (await more.count()) {
 		await more.first().click();
 		await page.getByRole('menuitem', { name: CHROME.slideSettings }).click();
-		return;
+	} else {
+		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
+		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
 	}
-	await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
-	await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
+	// Every door must land in the SLIDE scope, not merely open the panel: the same panel holds the Deck scope. The
+	// slide's own section strip (SlideContext `Slide settings sections`) is drawn only there, whichever door opened it;
+	// the Slide | Deck switch is not on every layout (desktop's rail opens the slide scope directly).
+	await expect(page.getByRole('tablist', { name: 'Slide settings sections' }).filter({ visible: true }).first()).toBeVisible();
 }
 
 /** Open the current slide's Slide settings at its Look section, at any width (see `openSlideSettings`). */
