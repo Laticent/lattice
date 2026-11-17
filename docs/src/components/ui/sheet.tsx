@@ -89,12 +89,38 @@ function SheetContent({
   // `PersistentSurface` rule (persistent-surface.tsx, "only if nothing else took it meanwhile").
   // A caller that handles the close itself (calls preventDefault) keeps the last word; an opener
   // that is gone (a drawer row that launched this sheet) falls back to Radix's own behavior.
-  const { onOpenAutoFocus, onCloseAutoFocus } = props
+  const { onOpenAutoFocus, onCloseAutoFocus, onPointerDownOutside, onInteractOutside } = props
   const returnTo = React.useRef<HTMLElement | null>(null)
   const launcher = React.useRef<HTMLElement | null>(null)
+  // A TAP ON THE SCRIM IS AN OUTSIDE TAP FROM THE SHEET'S FIRST FRAME. Radix starts listening for a pointer down
+  // outside the dialog only a `setTimeout(0)` after it mounts (@radix-ui/react-dismissable-layer). A sheet that mounts
+  // already in place has no motion to hide that gap: a lazy panel's real sheet replaces its loading sheet with the
+  // enter animation off (`PanelLoader`). A tap in the gap was not "outside" to Radix and did nothing; under load the
+  // browser runs the tap ahead of the queued timer, and a phone's deck tap on a just-loaded Library was lost
+  // (e2e/back-gesture.spec.ts:172). So a scrim pointerdown is marked, Radix clears the mark when it reports the tap,
+  // and a tap Radix never reported is put through the SAME decision Radix would have made: the caller's
+  // `onPointerDownOutside` and `onInteractOutside` see an outside event, and the sheet closes through Radix's own Close
+  // only if neither prevented it. One rule for "may an outside tap close this sheet", whoever saw the tap. The check
+  // waits until the click has finished dispatching, because on touch Radix reports the tap on that click.
+  const contentRef = React.useRef<HTMLDivElement | null>(null)
+  const closeRef = React.useRef<HTMLButtonElement | null>(null)
+  const scrimTap = React.useRef(false)
+  const onScrimClick = (e: React.MouseEvent) => {
+    const originalEvent = e.nativeEvent
+    window.setTimeout(() => {
+      if (!scrimTap.current) return
+      scrimTap.current = false
+      if (contentRef.current?.getAttribute("data-state") !== "open") return
+      const outside = new CustomEvent("dismissableLayer.pointerDownOutside", { bubbles: false, cancelable: true, detail: { originalEvent } })
+      type Outside = Parameters<NonNullable<typeof onPointerDownOutside>>[0]
+      onPointerDownOutside?.(outside as unknown as Outside)
+      onInteractOutside?.(outside as unknown as Outside)
+      if (!outside.defaultPrevented) closeRef.current?.click()
+    }, 0)
+  }
   return (
     <SheetPortal>
-      {overlay && <SheetOverlay className={overlayClassName} />}
+      {overlay && <SheetOverlay className={overlayClassName} onPointerDown={() => { scrimTap.current = true }} onClick={onScrimClick} />}
       <SheetPrimitive.Content
         // NO DESCRIPTION ON THE DIALOG. On an iPhone, VoiceOver read a dialog's description again after every
         // control inside it (owner, PR #3108: "Run a command or jump somewhere in the Studio" after each
@@ -112,6 +138,18 @@ function SheetContent({
           className
         )}
         {...props}
+        ref={(el: HTMLDivElement | null) => {
+          contentRef.current = el
+          // A caller's own ref (a prop in React 19) still gets the element.
+          const callerRef = (props as { ref?: React.Ref<HTMLDivElement> }).ref
+          if (typeof callerRef === "function") callerRef(el)
+          else if (callerRef) (callerRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+        }}
+        onPointerDownOutside={(e) => {
+          // Radix saw this tap: it decides, and the scrim's own check stands down.
+          scrimTap.current = false
+          onPointerDownOutside?.(e)
+        }}
         onOpenAutoFocus={(e) => {
           const active = document.activeElement
           returnTo.current = active instanceof HTMLElement && active !== document.body ? active : null
@@ -140,6 +178,8 @@ function SheetContent({
         }}
       >
         {children}
+        {/* The scrim's close (above): Radix's own Close, so a close it makes is reported as Radix reports any. */}
+        <SheetPrimitive.Close ref={closeRef} hidden tabIndex={-1} aria-hidden="true" />
         {/* DEVIATION from the vendored base, matching `dialog.tsx`: on a coarse
             pointer the close grows to a 44×44 target with the glyph left exactly
             where it was. See that file for the reasoning. (#1211)
