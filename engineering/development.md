@@ -1309,7 +1309,11 @@ test landed in the last legs (2026-11-16: legs 7 and 8 at 38.7 and 43.9 min agai
 `playwright.config.ts` gives every project the spec files it runs in that leg
 (`docs/e2e/shard-plan.mjs`). The unit is one (project, spec file) pair. A pair with a weight in
 `docs/e2e/shard-weights.json` (seconds) is dealt longest-first by `tools/shard-tests.js`'s
-`plan()`, the balancer the unit and integration legs use. A pair with no weight goes to the leg a
+`plan()`, the balancer the unit and integration legs use, **one project at a time**, so every leg
+carries about an eighth of every engine. An engine's speed moves from night to night (on
+2026-11-17 webkit-tablet ran about 30% over its weights), and a single plan over all pairs had
+put 1.7 min of webkit-tablet in one leg and 6.4 in another: replayed on that night, one plan read
+1.23x the mean and the per-project plan 1.09x. A pair with no weight goes to the leg a
 hash of its name picks, so a new spec spreads out rather than piling into one leg. Every pair
 lands in exactly one leg: check with `E2E_SHARD=K/8 npx playwright test --list` for each K, whose
 union is the unsharded `--list` with no duplicates. Unset, nothing changes, so a laptop and the

@@ -78,20 +78,38 @@ function ownMatch(p, testDir) {
  * Returns n arrays of pair keys, plus each leg's planned seconds (weighted pairs only).
  */
 export function planLegs({ projects, specs, weights, n, testDir = '/e2e' }) {
-	const known = [];
+	const legs = Array.from({ length: n }, () => ({ load: 0, keys: [] }));
 	const unknown = [];
+	const byProject = [];
 	for (const p of projects) {
 		const own = ownMatch(p, testDir);
+		const known = [];
 		for (const s of specs) {
 			if (!own(s)) continue;
 			const k = pairKey(p.name, s);
 			if (Number(weights[k]) > 0) known.push(k);
 			else unknown.push(k);
 		}
+		byProject.push({ name: p.name, known, total: known.reduce((t, k) => t + Number(weights[k]), 0) });
 	}
-	const bins = plan(known, weights, n);
-	for (const k of unknown) bins[hashLeg(k, n)].files.push(k);
-	return bins.map((b) => ({ load: b.load, keys: b.files.sort() }));
+	// PER PROJECT, so every leg carries about 1/n of every engine. An engine's speed moves from night to night (on
+	// 2026-11-17 webkit-tablet ran ~30% over its weights), and one plan for all pairs put 1.7 min of webkit-tablet in one
+	// leg and 6.4 in another, so the leg holding the most of a slow engine overran. Each project's pairs are dealt
+	// longest-first into n bins by `plan()`; its heaviest bin then joins the leg with the least total so far, and so on.
+	// Heaviest projects first, ties by name, so the plan stays a pure function of its inputs.
+	byProject.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+	for (const pr of byProject) {
+		if (!pr.known.length) continue;
+		const bins = plan(pr.known, weights, n).sort((a, b) => b.load - a.load);
+		const order = legs.map((_, i) => i).sort((a, b) => legs[a].load - legs[b].load || a - b);
+		bins.forEach((b, j) => {
+			const leg = legs[order[j]];
+			leg.load += b.load;
+			leg.keys.push(...b.files);
+		});
+	}
+	for (const k of unknown) legs[hashLeg(k, n)].keys.push(k);
+	return legs.map((l) => ({ load: l.load, keys: l.keys.sort() }));
 }
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

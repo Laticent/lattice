@@ -100,3 +100,15 @@ test('every test file Playwright would load is listed, not only *.spec.ts', asyn
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test('every leg carries an even share of every project, so one slow engine slows every leg alike', async () => {
+	const { planLegs } = await load('docs/e2e/shard-plan.mjs');
+	// One longest-first plan over ALL pairs gives desktop 100 + desktop 40 | webkit 70 + desktop 60 + webkit 30: both
+	// webkit pairs in one leg. Per project, each leg gets one of them (desktop 100 + webkit 70 | desktop 60 + 40 + webkit 30).
+	const projects = [{ name: 'desktop' }, { name: 'webkit-tablet' }];
+	const specs = ['a.spec.ts', 'b.spec.ts', 'c.spec.ts'];
+	const weights = { 'desktop|e2e/a.spec.ts': 100, 'desktop|e2e/b.spec.ts': 60, 'desktop|e2e/c.spec.ts': 40, 'webkit-tablet|e2e/a.spec.ts': 70, 'webkit-tablet|e2e/b.spec.ts': 30 };
+	const legs = planLegs({ projects, specs, weights, n: 2 });
+	for (const l of legs) assert.equal(l.keys.filter((k) => k.startsWith('webkit-tablet|') && weights[k]).length, 1, `webkit-tablet split evenly: ${l.keys.join(', ')}`);
+	assert.deepEqual(legs.map((l) => l.load).sort((a, b) => a - b), [130, 170]);
+});
