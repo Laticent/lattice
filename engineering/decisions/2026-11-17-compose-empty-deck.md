@@ -89,7 +89,7 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   grid **27px** down (desktop). A blank deck has no text to mark, so the gap and the wash are not drawn while it is empty.
   After both, the line and the grid sit at the same pixel through a tap, the first letter and Undo, at 390px and 1440px,
   and a pasted deck's first line lands where the empty line was. `compose-empty-deck.spec.ts` holds both.
-- **It fits a phone.** At an iPhone's 390×664 the grid ends 421px into a 505px canvas (WebKit; Chromium 422px).
+- **It fits a phone, just.** At an iPhone's 390×664 the grid ends 421px into the 435px left under the reserved bar and the line (WebKit; Chromium 422 of 434), so 14px spare. At a larger text size it scrolls inside its own box (`overflow-y:auto`) rather than shrinking the tiles.
 - **Preview and Present.** Preview drew a blank slide numbered 1 with the counter at "1 / 0", the deck menu said "1 slide"
   beside a status bar's "0 slides", and Present opened a blank slide. Preview now shows "No slides yet" over the live
   preview (kept warm, so the first slide paints at once), `SlideCount` reads "No slides", `slideCountLabel(0)` reads "No
