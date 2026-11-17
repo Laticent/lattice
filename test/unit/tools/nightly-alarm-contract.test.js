@@ -169,6 +169,32 @@ const code = (run) =>
 
 const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 
+/**
+ * The parts of an `if:` joined by `&&` at the top level, outside any parentheses. A guard has to be
+ * one of these to bind: `a || github.ref == 'refs/heads/main'` mentions the guard and binds nothing,
+ * and a text match passed it (#3269's card checker turned the fit filing step's `&&` into `||` and
+ * this file stayed green).
+ */
+function topLevelConjuncts(cond) {
+  const parts = [];
+  let depth = 0;
+  let from = 0;
+  for (let i = 0; i < cond.length; i++) {
+    const ch = cond[i];
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (depth === 0 && cond.startsWith('&&', i)) {
+      parts.push(cond.slice(from, i).trim());
+      from = i + 2;
+      i++;
+    }
+  }
+  parts.push(cond.slice(from).trim());
+  return parts;
+}
+const MAIN_ONLY = "github.ref == 'refs/heads/main'";
+const bindsMainOnly = (cond) => topLevelConjuncts(norm(cond)).some((p) => p.replace(/\s+/g, ' ') === MAIN_ONLY);
+
 /** Every SCHEDULED job that files a rolling issue. */
 function alarmJobs() {
   const out = [];
@@ -371,13 +397,13 @@ test('nightly alarm contract', async (t) => {
   await t.test('a filing step writes to the rolling issue only from main, as its stand-down already does', () => {
     // These issues track `main`. A `workflow_dispatch` on a branch, which is how a fix to a
     // nightly gets proven, used to file through the unguarded steps, and the comment said
-    // `main@<branch sha>`. On 2026-11-15 two branch dispatches posted that way to the fit and
-    // overflow issues. A branch run still writes its report to the job summary and artifacts.
-    // The aggregate alerts (AGGREGATE_ALERTS) are out of scope on purpose: platform-suites
-    // alerts on manual runs by design and names the ref in what it files.
-    const MAIN = /github\.ref == 'refs\/heads\/main'/;
+    // `main@<branch sha>`. On 2026-11-15 branch dispatches posted that way to the fit (#2989),
+    // overflow (#2060) and integration (#1845) issues. A branch run still writes its report to
+    // the job summary and artifacts. The guard must be a top-level `&&` part of the condition,
+    // or it binds nothing. The aggregate alerts (AGGREGATE_ALERTS) are out of scope on purpose:
+    // platform-suites alerts on manual runs by design and names the ref in what it files.
     for (const { id, filing } of jobs) {
-      assert.match(norm(filing.if), MAIN, `${id}: filing step can write to the rolling issue from a branch dispatch`);
+      assert.ok(bindsMainOnly(filing.if), `${id}: filing step can write to the rolling issue from a branch dispatch`);
     }
   });
 
@@ -595,8 +621,8 @@ test('nightly alarm contract', async (t) => {
     // recoverable (a duplicate issue); closing is not.
     for (const { id, standDown } of jobs) {
       if (!standDown) continue;
-      assert.match(
-        norm(standDown.if), /github\.ref\s*==\s*'refs\/heads\/main'/,
+      assert.ok(
+        bindsMainOnly(standDown.if),
         `${id}: the stand-down can act on a dispatch from any branch — it can close the real ` +
           'thread on evidence gathered somewhere else entirely',
       );

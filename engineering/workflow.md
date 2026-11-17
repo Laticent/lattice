@@ -920,9 +920,13 @@ thread — so each of these was a live defect found by an adversarial pass, not 
   literal true. The guard is on the steps that write to the issue, not on the job: a branch dispatch
   must still be able to RUN the checks, and it reports in the job summary and the artifacts. The
   FILING steps carry the same guard since 2026-11-15. Filing from a branch used to look loud and
-  recoverable, but it stamped `main@<branch sha>` on the live thread: two branch dispatches that
-  proved a nightly fix posted to the fit and overflow issues that way. The aggregate platform-suites
-  alert is the exception: it files on manual runs by design and names the ref it ran on.
+  recoverable, but it stamped `main@<branch sha>` on the live thread: branch dispatches that proved
+  nightly fixes posted that way to the fit (#2989), overflow (#2060) and integration (#1845)
+  issues. The guard has to be a top-level `&&` part of the `if:`; `a || <guard>` binds nothing, and
+  `nightly-alarm-contract.test.js` checks the structure, not just the words. The aggregate
+  platform-suites alert (`platform-suites.yml`) is the exception: it files on manual runs by design
+  and names the ref it ran on. Its supervisor (`platform-suites-supervisor.yml`) also files from a
+  branch run and does not name the ref (`followups.d/3269-p3`).
 - **THAT it measured anything.** `uncovered=false` / `failed=false` is each check's evidence of
   health and equally what a run that examined NOTHING produces. Both absolute closers gate on a
   count (`islands`, `cases`) emitted by the script and parsed by the step, and the contract test
