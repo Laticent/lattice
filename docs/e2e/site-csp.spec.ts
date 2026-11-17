@@ -54,7 +54,7 @@ async function watchViolations(page: Page) {
 // csp.mjs leaves them without a policy until stage 2.)
 const REPRESENTATIVE = ['/getting-started/', '/comparison/', '/features/', '/plugins/math/learn/', '/libraries/lente/', '/offline/'];
 
-test('@smoke @crosswidth @webkit-phone @gecko a page of every kind loads under its strict CSP with no violation', async ({ page }) => {
+test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a page of every kind loads under its strict CSP with no violation', async ({ page }) => {
 	const violations = await watchViolations(page);
 	for (const route of REPRESENTATIVE) {
 		await page.goto(route, { waitUntil: 'load' });
@@ -65,7 +65,7 @@ test('@smoke @crosswidth @webkit-phone @gecko a page of every kind loads under i
 	}
 });
 
-test('@smoke @crosswidth @webkit-phone @gecko search, the palette picker and the mode toggle work under the CSP', async ({ page }) => {
+test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko search, the palette picker and the mode toggle work under the CSP', async ({ page }) => {
 	const violations = await watchViolations(page);
 	await page.goto('/getting-started/');
 	await expect(page.locator(CSP_META)).toHaveCount(1);
@@ -147,7 +147,7 @@ test('@smoke Calco’s PowerPoint export embeds its fonts', async ({ page }) => 
 // Two signals this replaced: `waitForLoadState('networkidle')`, which returns at once on a page
 // that was already idle (found by review), and "the control is usable again", which never
 // comes for a control that disables itself for good (Squadra's "Fix all", once nothing is left).
-test('@crosswidth @webkit-phone @gecko every control on the library demos with a policy runs with no violation', async ({ page }) => {
+test('@crosswidth @webkit-phone @webkit-tablet @gecko every control on the library demos with a policy runs with no violation', async ({ page }) => {
 	test.setTimeout(300_000);
 	const demos = policyRoutes().filter((r) => /^\/libraries\/[^/]+\/$/.test(r));
 	expect(demos.length).toBeGreaterThan(5);
