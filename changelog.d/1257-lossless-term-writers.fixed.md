@@ -1,0 +1,1 @@
+- **Editing a deck's terms in the Studio no longer rewrites the rest of its front matter.** Saving the Terms list (and the older Lexicon and Acronyms lists) used to drop YAML comments and `_class:`, turn a `style: |` block into `"|"`, reorder keys and convert CRLF line endings. It now changes only its own block (#1257).

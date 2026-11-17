@@ -280,7 +280,8 @@ distinct, stable ID.
 |---|---|---|---|
 | `caption-key-retired` | error / warning | — | Front-matter `captions:` (renamed `say:`; ignored, so an error) or a `caption:` comment (now a speaker note: an error in lowercase, a warning when capitalized). |
 | `say-key-case` | warning | — | A capitalized `Say:`, which is a speaker note; only lowercase `say:` is spoken. |
-| `lexicon-single-letter-key` | warning | — | A single-letter/digit `lexicon:` key (`e:`, `2:`) — read-aloud rewrites every embedded occurrence, not just the standalone token, garbling the deck's narration. A single glyph (`→`, `×`) is safe. |
+| `lexicon-single-letter-key` | — | — | **Deprecated (2026-11-16), no longer emitted.** It warned that a single-letter/digit `lexicon:` key (`e:`, `2:`) was substituted inside every other word. A letter or digit key in `terms:`, `acronyms:` or `lexicon:` now applies only to the whole word, so the hazard is gone. |
+| `terms-key-renamed` | suggestion | ✓ | An `acronyms:` or `lexicon:` block, both older names for `terms:` and both still read. The fix renames the block and writes each plain `acronyms:` value as `{ expansion: … }`; it is offered only when the deck has one of the three blocks. |
 | `greeting-hardcoded-period` | warning | — | A greeting that names a time of day; `{greeting}` adapts to the listener's clock. |
 | `greeting-not-english` | warning | — | `{greeting}` (always English) in a deck whose `lang:` is not English. |
 | `unknown-bookend-placeholder` | warning | — | A `{placeholder}` in a greeting or closing that the voice would read aloud as written. |

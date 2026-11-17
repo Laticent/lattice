@@ -32,6 +32,8 @@ export const TOOL_TIERS: Readonly<Record<string, ToolTier>> = {
 	caption_asset: 'draft',
 	edit_slides: 'draft',
 	set_front_matter: 'draft',
+	set_terms: 'draft',
+	preview_speech: 'read',
 	set_theme: 'draft',
 	set_finish: 'draft',
 	chart_from_data: 'draft',

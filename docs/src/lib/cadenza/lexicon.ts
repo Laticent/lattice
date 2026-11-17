@@ -173,3 +173,55 @@ export const CONTEXT_MONTHS: Readonly<Record<string, string>> = { Jan: 'January'
 
 /** The set of domain pack names, for validation / docs. */
 export const LEX_DOMAINS: readonly LexDomain[] = ['legal', 'finance'];
+
+// ── HOUSE TERMS — the built-in list in the `terms:` shape ─────────────────────
+// The tables above hold ONE value per token: what the voice says. For most that is the expansion
+// (`arr` → "annual recurring revenue"); for a WORD or SPELL entry it is a pronunciation, and the
+// meaning is nowhere (`ebitda` → "ee bit dah"). `terms:` keeps the two apart
+// (engineering/decisions/2026-11-16-terms-registry.md), and a glossary, a term picker or the Studio
+// can only use this list if it does too. So the meaning of every WORD / SPELL entry lives here, and
+// `houseTerms()` joins the two. Speech is unchanged: `lookupLexicon` still reads the tables above.
+const HOUSE_EXPANSIONS: Record<string, string> = {
+  ebitda: 'earnings before interest, taxes, depreciation and amortization',
+  cagr: 'compound annual growth rate',
+  gaap: 'generally accepted accounting principles',
+  saas: 'software as a service',
+  sku: 'stock keeping unit',
+  ui: 'user interface',
+  ux: 'user experience',
+  EMEA: 'Europe, the Middle East and Africa',
+  APAC: 'Asia-Pacific',
+  LATAM: 'Latin America',
+  LatAm: 'Latin America',
+  ANZ: 'Australia and New Zealand',
+};
+
+// How each lower-cased BASE key is WRITTEN on a slide, where it is not simply upper case.
+const HOUSE_DISPLAY: Record<string, string> = { saas: 'SaaS', capex: 'CapEx', opex: 'OpEx' };
+
+// Entries in the tables that are not terms an author defines: quarters, durations, months, glyphs.
+const NOT_A_TERM = /^(?:q[1-4]|mos?|§§|Feb|Apr|Jul|Aug|Sept?|Oct|Nov|Dec)$/;
+
+/** One built-in term: how it is written, what it stands for, and how it is said when that differs. */
+export interface HouseTerm {
+  readonly term: string;
+  readonly expansion: string;
+  readonly pronounce?: string;
+}
+
+/**
+ * The always-on built-in terms (BASE + BASE_CASED), in the `terms:` shape: `expansion` is what the
+ * term stands for, `pronounce` how the voice says it when that is not the expansion. The data a
+ * glossary or a term picker can offer an author. Domain packs are opt-in, so they are not listed.
+ */
+export function houseTerms(): readonly HouseTerm[] {
+  const out: HouseTerm[] = [];
+  const add = (key: string, spoken: string, written: string) => {
+    if (NOT_A_TERM.test(key)) return;
+    const expansion = HOUSE_EXPANSIONS[key] ?? spoken;
+    out.push(expansion === spoken ? { term: written, expansion } : { term: written, expansion, pronounce: spoken });
+  };
+  for (const [key, spoken] of Object.entries(BASE)) add(key, spoken, HOUSE_DISPLAY[key] ?? key.toUpperCase());
+  for (const [key, spoken] of Object.entries(BASE_CASED)) add(key, spoken, key);
+  return out;
+}

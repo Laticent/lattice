@@ -33,6 +33,8 @@ export interface CadenzaNarratorOptions {
 	acronyms?: BuildOptions['acronyms'];
 	/** Read-aloud lexicon (token → spoken form); beats the built-in symbol commons. */
 	lexicon?: BuildOptions['lexicon'];
+	/** The deck's term registry (`termsSpokenMap`), which beats both maps above on a clash. */
+	terms?: BuildOptions['terms'];
 	/** Language tag. A non-English line skips the English lexicon and number expansion. */
 	lang?: string;
 	/** Emphasis spans for a line. A FUNCTION of the line, because a span is a char range into the
@@ -79,12 +81,12 @@ const TRACK_CACHE_MAX = 256;
  *  from being needed. */
 function trackCache(options: CadenzaNarratorOptions): { trackFor: (text: string) => CaptionTrack; clear: () => void } {
 	const pace: Pace = options.pace ?? 'moderate';
-	const { acronyms, lexicon, lang, emphasis } = options;
+	const { acronyms, lexicon, terms, lang, emphasis } = options;
 	const cache = new Map<string, CaptionTrack>();
 	const trackFor = (text: string): CaptionTrack => {
 		let t = cache.get(text);
 		if (!t) {
-			t = buildTrack(text, { pace, acronyms, lexicon, lang, emphasis: emphasis?.(text) });
+			t = buildTrack(text, { pace, acronyms, lexicon, terms, lang, emphasis: emphasis?.(text) });
 			if (cache.size >= TRACK_CACHE_MAX) cache.delete(cache.keys().next().value as string);
 			cache.set(text, t);
 		}

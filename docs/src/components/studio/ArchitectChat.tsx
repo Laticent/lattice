@@ -8,7 +8,7 @@ import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
-import { frontMatterBlock, getFrontMatter } from '../../lib/front-matter';
+import { frontMatterBlock, frontMatterBlockText, getFrontMatter } from '../../lib/front-matter';
 import { applyProposedEditsChecked, type ChatGrounding, type ChatReadiness, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
 import { ChatActivityRow } from './ChatActivityRow';
 import { ChatAttach } from './ChatAttach';
@@ -1238,6 +1238,7 @@ export function figureChange(before: string, after: string): { removed: string[]
 // dependency on the model layer.
 function isStale(source: string, e: ChatProposal): boolean {
 	if (e.action === 'insert') return false;
+	if (e.action === 'frontmatter' && e.raw.block) return frontMatterBlockText(source, e.raw.key ?? '') !== e.before;
 	if (e.action === 'frontmatter') {
 		const key = e.raw.key ?? '';
 		const cur = getFrontMatter(source, key);
