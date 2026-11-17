@@ -159,15 +159,18 @@ describe('the Lattice entry', () => {
     assert.deepEqual(out.map((f) => [f.rule, f.data.code]), [['squadra/rule-refused', 'not-verified']]);
   });
 
-  test('the committed ruleset loads clean against the committed digests', () => {
-    const rs = deckRuleset();
+  test('the committed ruleset loads clean against the committed digests, with the vocabulary the build verified it on', () => {
+    const vocab = require('../../../lib/authoring/lint').buildVocab();
+    const rs = deckRuleset(vocab);
     assert.deepEqual(rs.refused, []);
-    assert.deepEqual(lintDeck('# Hi\n'), []);
-    assert.equal(fixDeck('# Hi\n').text, '# Hi\n');
+    assert.deepEqual(lintDeck('# Hi\n', { vocab }), []);
+    assert.equal(fixDeck('# Hi\n', { vocab }).text, '# Hi\n');
+    // Without it, a rule that reads a list is refused, visibly, never run on an empty list.
+    assert.ok(deckRuleset({}).refused.some((r) => r.code === 'unknown-vocab'));
   });
 
-  test('the vocab bridge carries string lists, sorted, and drops structured fields', () => {
-    assert.deepEqual(squadraVocab({ names: new Set(['b', 'a']), capacity: { x: 1 }, finishNames: ['z', 'y'], n: 3 }), { names: ['a', 'b'], finishNames: ['y', 'z'] });
+  test('the vocab bridge carries string lists, sorted, keeps a register\'s names in order, and drops structured fields', () => {
+    assert.deepEqual(squadraVocab({ names: new Set(['b', 'a']), capacity: { x: 1 }, finishNames: ['z', 'y'], themeNames: ['z', 'y'], n: 3 }), { names: ['a', 'b'], finishNames: ['z', 'y'], themeNames: ['y', 'z'] });
   });
 });
 

@@ -1,1 +1,14 @@
-{}
+{
+  "unknown-finish": [
+    {
+      "kind": "lint",
+      "match": "^'hallo' isn't a valid `finish:` value",
+      "why": "The one deliberate change (decision 2026-11-13 §12): `finish: hallo  # note` renders with `hallo` and lint-core said nothing, because its bare-name pattern failed on the trailing comment. The port reads the value through the shared scalar rule, as the engine does. The source is test/unit/authoring/squadra-front-matter-registers.test.js, which pins exactly this."
+    },
+    {
+      "kind": "fix",
+      "match": "^test input 265$",
+      "why": "The same source as the lint entry: Squadra fixes `hallo` to `halo` where lint-core had no finding to fix. Matched by the recording's index, so a change to the lint tests' order makes this entry stale and the run red, which is the point: the entry is re-checked, not carried."
+    }
+  ]
+}
