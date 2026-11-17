@@ -421,3 +421,19 @@ test('a folded slide whose body overflows is unfolded before anything else, and 
   assert.equal(run.fellBack, 0, 'and the slide is not sent back whole');
   assert.deepEqual(run.plan['1'], [1], 'the fold pass after the loop does not fold it again');
 });
+
+// A LEDE PAGE THAT OVERFLOWS CONTINUES (owner, 2026-11-17, D1). Verify reports the lede page under `n:lede`; the loop
+// gives the lede another page (`ledeCont`), then a third, and never tightens the slide's rows for it.
+test('a lede page that overflows gets a second page, then a third, and no more', async () => {
+  const facts = [{ slide: '1', over: true }];
+  const plans = [];
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: [] }; },
+    verify: async () => ({ '1:lede': 120 }),
+  });
+  assert.deepEqual(plans.map((p) => p['1']), [
+    { atSeam: true }, { atSeam: true, ledeCont: 2 }, { atSeam: true, ledeCont: 3 },
+  ]);
+  assert.equal(run.plan['1'].ledeCont, 3, 'capped at three pages');
+});

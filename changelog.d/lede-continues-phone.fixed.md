@@ -1,0 +1,1 @@
+- On a phone, a slide's opening text longer than a whole page continues on the next page, breaking between paragraphs or at the end of a sentence, instead of clipping. It takes at most three pages.
