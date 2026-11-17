@@ -107,3 +107,10 @@ revealed frame, polled). The evidence is in that PR.
             and :151 (mobile) and present-beat.spec.ts:49; all passed alone (8 of 8 across desktop and mobile). Then
             compose-note-motion:260, journeys/chart-export:124, compose-stress:538 and studio-export-offline:114, 6 runs
             each at 4 workers on desktop: PR build 24 of 24; main af00ca3 23 of 24, the failure journeys/chart-export:124.
+2026-11-17 — the iOS Simulator Studio probe's Menu tap (docs/scripts/ios-safari/run.mjs `deckTapLeavesLibrary`, iPhone)
+            opened no menu in about 1 rep in 10 during PR #3278's counts (runs 44052932291, 44052943412, 44052948172),
+            with the sheet fix in and without it, so the sheet change does not cause it. The run ended "timed out waiting
+            for the Library row". PR #3278 made the probe tap only a Menu React has wired, and log the Menu tap's own
+            events on that timeout. Since then it has not come back: 15 of 15 Menu taps opened the menu across runs
+            44059959611 and 44135586134. Not fixed, because there is no failing run to read a cause from; the next red
+            prints the Menu tap's events in its job log.
