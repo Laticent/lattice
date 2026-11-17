@@ -290,11 +290,6 @@ function cacheKeyFor(rungName, modelId, voice, speed, text) {
 // session's real working set (a few dozen sentences × one voice/model/speed
 // combo at a time) sits well under this.
 const AUDIO_CACHE_LIMIT = 200;
-// AND a byte budget, because the count alone was sized for MP3. A Gemini voice answers uncompressed 24 kHz PCM, ten
-// times the bytes a second: 200 such clips are about 95 MB, and on an iPhone, on top of Present, that was enough for
-// Safari to reload the tab (2026-11-17, PROBE=present-narration). 24 MB still holds minutes of PCM, far past the
-// slide being read and the ones warmed ahead of it; an evicted clip is synthesized again only if it is played again.
-export const AUDIO_CACHE_MAX_BYTES = 24 * 1024 * 1024;
 
 // warm()'s prefetch cap. Bounded, not unbounded fire-all: a long deck shouldn't
 // spike into dozens of simultaneous OpenRouter requests (rate limit / cost /
@@ -391,11 +386,6 @@ function wavLike(buf) {
   // in a real browser. A real Blob's own `.arrayBuffer()` already re-reads fresh
   // bytes per call for exactly this reason; `.slice(0)` gives this duck-typed
   // stand-in the same replay safety.
-  // A REAL Blob wherever the engine has one that reads back (every browser): the browser may keep a Blob's bytes
-  // outside the page's memory, where an ArrayBuffer held in a cache always counts against it. That difference is the
-  // iPhone reload (2026-11-17): a Gemini voice's clips piled up here as page memory. jsdom's Blob cannot read back
-  // (no `.arrayBuffer()`), so the tests keep the duck-typed shape with the same replay safety.
-  if (typeof Blob === 'function' && typeof Blob.prototype.arrayBuffer === 'function') return new Blob([buf], { type: 'audio/wav' });
   return { size: buf.byteLength, type: 'audio/wav', arrayBuffer: async () => buf.slice(0) };
 }
 
@@ -1044,19 +1034,12 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // (2026-07-09-studio-cloud-ondevice-config-split.md) rather than sharing one
   // cache across surfaces.
   const audioCache = new Map(); // cacheKeyFor(...) → Blob
-  let audioCacheBytes = 0;
   function cacheSet(key, blob) {
-    const had = audioCache.get(key);
-    if (had) audioCacheBytes -= had.size || 0;
-    audioCache.set(key, blob);
-    audioCacheBytes += blob?.size || 0;
-    // Oldest first, until under BOTH the count and the byte budget, never the clip just stored.
-    while (audioCache.size > 1 && (audioCache.size > AUDIO_CACHE_LIMIT || audioCacheBytes > AUDIO_CACHE_MAX_BYTES)) {
+    if (!audioCache.has(key) && audioCache.size >= AUDIO_CACHE_LIMIT) {
       const oldest = audioCache.keys().next().value;
-      if (oldest === undefined || oldest === key) break;
-      audioCacheBytes -= audioCache.get(oldest)?.size || 0;
-      audioCache.delete(oldest);
+      if (oldest !== undefined) audioCache.delete(oldest);
     }
+    audioCache.set(key, blob);
   }
   // In-flight synth de-dup: two IDENTICAL sentences scheduled in the same
   // concurrency batch (a slide repeating a phrase across two bullets) used to
