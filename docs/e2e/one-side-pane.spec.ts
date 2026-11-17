@@ -1,4 +1,4 @@
-import { CHROME, expect, gotoStudio, openChat, test } from './studio-fixture';
+import { CHROME, caretSettled, editorFocusSettled, expect, gotoStudio, openChat, pressSettled, test } from './studio-fixture';
 
 // ONE side pane at a time (engineering/decisions/2026-11-15-one-side-pane.md), on the real Studio.
 // The unit tests pin the state; these pin what a person sees: one docked column, the drill-in chip,
@@ -71,7 +71,13 @@ test.describe('desktop @crosswidth @webkit-tablet @gecko', () => {
 		const title = page.locator('#studio-pane-editor .cs-host .ProseMirror h1').first();
 		await expect(title).toBeVisible();
 		await title.click();
-		await page.keyboard.press('Home');
+		// The click focuses Compose, and ProseMirror's 20 ms focus check writes its own selection back over a caret key
+		// pressed inside that window: under load, Home was undone and the caret stayed where the click put it, mid-title
+		// (3 of 20 Firefox runs at four workers), so the test measured from a premise that never held. Wait for the check
+		// and the click's selection, then press Home and wait for its move (studio-fixture.ts, #3150).
+		await editorFocusSettled(page);
+		await caretSettled(page);
+		await pressSettled(page, 'Home');
 		const ghost = page.locator('#studio-pane-editor .lx-ghost-caret');
 		// Its offset from the start of the title's text, and whether it lies inside the editor's scroll box.
 		const caretFit = () =>
