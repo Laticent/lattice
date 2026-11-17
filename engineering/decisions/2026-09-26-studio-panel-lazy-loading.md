@@ -644,11 +644,25 @@ its next step. `whenQuiet` waits for it, `afterFirstSlideAndPause` does not star
 schedules both of its queues through `heldWarmPanels(warmPanels)`, which makes each item wait for the release before it
 loads. The wrapper sits in `first-slide.ts` rather than in `warmPanels` because the Playground imports `lazy-panel.tsx`
 at startup and runs no draft render: inside `warmPanels`, the hold cost the Playground 443 bytes of eager JavaScript. A release counts as activity, so the queue resumes only after a fresh 2 s pause. A step
-already loading runs on. Both draft-fit renders hold it from the start until they settle, or until their budget runs
-out, so a render that never settles cannot stop the warm-up for good. After the fix, no warm-up step started inside any
-of 50 renders. Unit tests count the items loaded under a hold (`first-slide.test.ts`, `lazy-panel.test.tsx`,
-`draft-fit.test.ts`). Exports do not take the hold today. An export competes with the same queue, but it has no hard
-budget and shows its own progress.
+already loading runs on. Both draft-fit renders hold it from the start until they settle, or until their budget runs out, so a render that
+never settles cannot stop the warm-up for good. The chat (`ArchitectChat.tsx`) also holds it for the whole turn, from
+Send until the reply lands or fails: an item that started while the model was answering was still loading when
+`render_slide` began (the one red of 200 in the second measurement below), and with a real model that wait is seconds.
+
+Measured with the slide camera's font fix (`engineering/gotchas/fonts.md` › "A one-slide capture fetches fonts its
+slide never draws") in the same branch, webkit-phone, Full forced, 4 workers ×200, recording on, one machine:
+
+| | over budget | median | p90 | p99 | renders with a warm-up step inside |
+|---|---|---|---|---|---|
+| before | 11 / 200 | 10.89 s | 14.28 s | 18.33 s | 200 |
+| render hold + camera fix | 1 / 200 | 8.84 s | 11.78 s | 13.73 s | 1, started 65 ms before the hold |
+| + turn hold | 2 / 200 | 9.34 s | 11.58 s | 13.57 s | 1, started after the budget released the hold |
+
+The two that still ran over had no warm-up beside them and 9.9 s and 13.6 s of main-thread lag: a 4-core runner with
+four recording WebKit workers starving the page. The turn hold does not show in this harness, whose mocked model
+answers at once; it closes a gap that a real model's latency opens. Unit tests count the items loaded under a hold
+(`first-slide.test.ts`, `lazy-panel.test.tsx`, `draft-fit.test.ts`, `studio.chat-warm-hold.test.tsx`). Exports do not
+take the hold today. An export competes with the same queue, but it has no hard budget and shows its own progress.
 
 ## Delivery
 
