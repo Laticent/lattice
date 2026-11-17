@@ -655,6 +655,15 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (`PRESENT_BASELINE_URL`, time-boxed to 6 minutes) that is reported and never judged: the before until #3148 deployed,
   the live site after it. The first run
   (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
+  `ios-safari-codec-support` runs it with `PROBE=codec-support` (no docs build, a blank page, the iPhone alone): the iOS arm
+  of the narration codec bake-off. `codec-probe.js` decodes every file in `codec-fixtures/` (a 2 s Kokoro sentence as WAV,
+  and the same in Opus/Ogg, Opus/WebM, Opus/MP4, Opus/CAF, AAC/MP4, AAC/ADTS, LAME MP3 with and without a gapless tag,
+  FLAC and Vorbis) with `decodeAudioData` at 48 kHz, reports each one's added length, reads WebCodecs' `AudioEncoder` and
+  `AudioDecoder` support, and round-trips the source through `AudioEncoder` and `AudioDecoder` (Opus 24 and 32 kbps,
+  AAC 64). `codecs.mjs` fails it only on what the streaming design needs: Opus decodes from Ogg or WebM, with under 20 ms
+  of lead-in, and round-trips through WebCodecs. Linux WebKit decodes with GStreamer, not Apple's stack, so only this
+  run answers for an iPhone. `PROBE=codec-support node docs/scripts/ios-safari/probe.selftest.mjs` runs it in
+  Playwright's Chromium, WebKit and Firefox.
   `PROBE=present-memory [BASELINE_URL=<url>] node docs/scripts/ios-safari/probe.selftest.mjs` runs the same steps in
   Playwright's WebKit at iPhone size, without the footprint, so it proves the probe's steps, not the finding.
   `ios-safari-player-charts-ipad` and `ios-safari-player-charts-iphone` run it with `PROBE=player-charts` (#3259): chart

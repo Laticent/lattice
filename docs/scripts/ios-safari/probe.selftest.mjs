@@ -8,6 +8,7 @@
  *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
+ *   PROBE=codec-support node scripts/ios-safari/probe.selftest.mjs   # the narration codec probe, in Chromium, WebKit and Firefox
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
@@ -139,6 +140,30 @@ if (process.env.PROBE === 'player-charts') {
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
+
+if (process.env.PROBE === 'codec-support') {
+	// The narration codec probe, as run.mjs runs it, in each of Playwright's engines (the iPhone answer needs the Mac's
+	// simulator: Linux WebKit decodes with GStreamer, not Apple's media stack).
+	const { chromium, firefox } = await import('@playwright/test');
+	const { codecChecks } = await import('./codecs.mjs');
+	const probe = fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8');
+	const dir = path.join(here, 'codec-fixtures');
+	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));
+	await browser.close();
+	for (const [name, engine] of Object.entries({ chromium, webkit, firefox })) {
+		const b = await engine.launch();
+		const page = await b.newPage();
+		await page.route('https://codec.test/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>codec</title>' }));
+		await page.goto('https://codec.test/');
+		const r = await page.evaluate(`${probe}\nlatticeCodecProbe(${JSON.stringify(files)})`);
+		for (const [k, v] of Object.entries(r.roundTrip)) console.log(`  ${name} round trip ${k}: ${v.ok ? `${v.kbps} kbps, ${v.extraMs} ms longer` : `NO (${v.error})`}`);
+		const steps = codecChecks(r);
+		report(name, 'codec-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: '-', steps });
+		await b.close();
+	}
+	process.exit(failed ? 1 : 0);
+}
+
 if (process.env.PROBE === 'present-memory') {
 	// The Present probe, as run.mjs runs it, minus the footprint (only the Mac can read the simulator's): send the deck,
 	// import it, reload, open Present, step six slides. iPhone-sized only, as the suite runs it. BASELINE_URL adds a second

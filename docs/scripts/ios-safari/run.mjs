@@ -156,7 +156,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -885,6 +885,33 @@ async function runFocusSyncProbe(id) {
 		result.error = String(e?.message ?? e);
 	}
 	return result;
+}
+
+/**
+ * The narration codec probe (PROBE=codec-support, codec-probe.js): the iOS arm of the narration codec bake-off. On a blank
+ * page it decodes every file in codec-fixtures/ with decodeAudioData, reads what WebCodecs' AudioEncoder and AudioDecoder
+ * support, and round-trips the 2 s source speech through AudioEncoder and AudioDecoder (Opus, AAC). Linux WebKit uses
+ * GStreamer, so only this run can say what an iPhone decodes and encodes. The checks are the streaming design's needs
+ * (codecs.mjs `codecChecks`); everything else is reported for the bake-off.
+ */
+async function runCodecProbe(id) {
+	const { codecChecks } = await import('./codecs.mjs');
+	const probe = fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8');
+	const dir = path.join(here, 'codec-fixtures');
+	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+	const r = await wd('POST', `/session/${id}/execute/async`, {
+		script: `${probe}\nconst done = arguments[arguments.length - 1];\nlatticeCodecProbe(arguments[0]).then(done, (e) => done({ error: String(e) }));`,
+		args: [files],
+	});
+	if (r?.error) return { ok: false, error: r.error, steps: [] };
+	for (const [f, d] of Object.entries(r.decode)) console.log(`${LABEL}: decode ${f}: ${d.ok ? `ok, +${d.extraMs} ms` : `NO (${d.error})`}`);
+	console.log(`${LABEL}: WebCodecs encoder ${JSON.stringify(r.encoder)}`);
+	console.log(`${LABEL}: WebCodecs decoder ${JSON.stringify(r.decoder)}`);
+	for (const [k, v] of Object.entries(r.roundTrip)) console.log(`${LABEL}: round trip ${k}: ${v.ok ? `${v.bytes} B, ${v.kbps} kbps, ${v.extraMs} ms longer, encode ${v.encodeXRealtime}x realtime` : `NO (${v.error})`}`);
+	const steps = codecChecks(r);
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: r.ua, ...r, steps };
 }
 
 async function runJpegProbe(id) {
