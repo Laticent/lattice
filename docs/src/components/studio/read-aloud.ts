@@ -5,7 +5,7 @@ import { normalizeStoredVoice, readVoiceSelection, selectVoice } from '@/lib/mod
 import { loadOpenRouterKey, loadProviderKey, noteProviderStatus, providerKeyState, readOpenRouterKey, readProviderKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
-import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
+import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { readyKeys } from '@/playground/narration-store.js';
 import { loadCalibration, recordObservation, voiceKeyOf } from '@/playground/readaloud-calibration';
 import { speechOnsetMs } from '../../../../lib/core/speech-pcm.mjs';
@@ -346,6 +346,10 @@ function getRealVoice(): Promise<VoiceModel | null> {
 					// voice/speed pick in one surface never silently changes the other.
 					keyPrefix: 'studio',
 					getOpenRouterKey: readOpenRouterKey,
+					// Keep raw-audio narration (Gemini PCM, on-device Kokoro) as Ogg Opus, encoded in workers at the workspace's
+					// narration bitrate (engineering/decisions/2026-11-17-narration-codec-bakeoff.md). Loaded on first use, off
+					// the boot path.
+					packForStore: (blob: { type?: string; arrayBuffer(): Promise<ArrayBuffer> }) => import('@/playground/opus-encode-pool.js').then((p) => p.packForStore(blob, narrationBitrate())),
 					// The voice is the author's stored selection, resolved and never laddered
 					// (engineering/decisions/2026-11-07-studio-model-spine.md). Independent of chat.
 					selection: {
