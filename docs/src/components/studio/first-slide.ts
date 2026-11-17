@@ -51,6 +51,13 @@ export function afterFirstSlideAndPause(fn: () => void, quietMs = 3000): () => v
 		window.removeEventListener('keydown', arm, true);
 	};
 	function fire() {
+		// Foreground work the user is waiting on (`holdWarmUps`) outranks a pause: wait for it to end, then for a fresh pause.
+		if (held > 0) {
+			void whenNotHeld().then(() => {
+				if (!cancelled) arm();
+			});
+			return;
+		}
 		stopListening();
 		if (!cancelled) fn();
 	}
@@ -80,7 +87,57 @@ export function noteActivity(): void {
 	lastActivity = performance.now();
 }
 
-/** Resolves once there has been no input and no source edit for `quietMs`. */
+// FOREGROUND WORK holds the gate too. Input is not the only thing a warm-up can starve: the chat's `render_slide` look
+// and its draft fit (draft-fit.ts) build a whole capture frame and shoot a slide on this thread, under a 15 s budget,
+// and they start from a click, so the 2 s pause after that click ran out about 2 s into the render and the warm-up
+// loaded the Compose, Present and Read chunks and then fetched font after font beside it. Measured on webkit-phone under
+// 4 workers with Full forced, that overlap put the render past its budget (a Lite device skips the Compose, Present and Read chunks and the fonts, and never went red).
+// While any hold is out, no warm-up starts its next item (`whenQuiet`, `heldWarmPanels`, `afterFirstSlideAndPause`); a
+// release counts as activity, so the warm-up resumes only after a fresh pause. An item already loading runs on.
+let held = 0;
+let heldWaiters: Array<() => void> = [];
+
+/** Hold every warm-up while foreground work runs. Returns the release, which is idempotent; always call it (`finally`). */
+export function holdWarmUps(): () => void {
+	held += 1;
+	let released = false;
+	return () => {
+		if (released) return;
+		released = true;
+		held -= 1;
+		noteActivity();
+		if (held > 0) return;
+		const waiters = heldWaiters;
+		heldWaiters = [];
+		for (const w of waiters) w();
+	};
+}
+
+/** Resolves once no foreground work holds the warm-ups (`holdWarmUps`): at once when none does. */
+export function whenNotHeld(): Promise<void> {
+	return held === 0 ? Promise.resolve() : new Promise<void>((resolve) => heldWaiters.push(resolve));
+}
+
+/**
+ * `lazy-panel.tsx` › warmPanels, held: each item waits for `whenNotHeld` before it starts loading; an item already
+ * loading runs on, and one still waiting when the queue is cancelled never loads. The Studio schedules its queues through this. It lives here, not in `warmPanels`, because the
+ * Playground imports `lazy-panel.tsx` at startup and runs no draft render: importing this module there cost it 443
+ * bytes of eager JavaScript.
+ */
+type Warm = { load(): Promise<void> };
+export function heldWarmPanels(warm: (queue: ReadonlyArray<Warm>) => () => void): (queue: ReadonlyArray<Warm>) => () => void {
+	return (queue) => {
+		let cancelled = false;
+		// A cancel while an item waits for the release means it never loads, as it would not have started.
+		const cancel = warm(queue.map((w) => ({ load: () => whenNotHeld().then(() => (cancelled ? undefined : w.load())) })));
+		return () => {
+			cancelled = true;
+			cancel();
+		};
+	};
+}
+
+/** Resolves once there has been no input and no source edit for `quietMs`, and no foreground work holds the gate. */
 export function whenQuiet(quietMs = 2000): Promise<void> {
 	if (!watchingInput && typeof window !== 'undefined') {
 		watchingInput = true;
@@ -89,6 +146,10 @@ export function whenQuiet(quietMs = 2000): Promise<void> {
 	}
 	return new Promise<void>((resolve) => {
 		const check = () => {
+			if (held > 0) {
+				void whenNotHeld().then(check);
+				return;
+			}
 			const idle = performance.now() - lastActivity;
 			if (idle >= quietMs) resolve();
 			else window.setTimeout(check, quietMs - idle);

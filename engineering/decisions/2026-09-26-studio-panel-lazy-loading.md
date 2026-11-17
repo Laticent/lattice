@@ -626,6 +626,30 @@ The first slide does not move, and the 3 s window cannot move: the queue starts 
 overlapping ranges on four loads. The worst long task across all runs was 395 ms on this change and 372 ms on `main`;
 round 2 had 287 ms against 294 ms, so the difference is run-to-run noise. The download is the same as before #3074; it has moved off the startup path.
 
+## Foreground work holds the warm-up (2026-11-17)
+
+**The quiet gate read a click as the end of the work it started.** The chat's `render_slide` look and its draft fit
+(`draft-fit.ts`) build a capture frame and shoot a slide on the main thread, under a 15 s budget
+(`DRAFT_FIT_TIMEOUT_MS`). They start from a click, so the gate's 2 s with no input ran out about 2 s into the render.
+On a Full device the warm-up then loaded the Compose, Present and Read chunks and fetched font after font beside it.
+A Lite device runs neither (`saveData` is true on Lite), which is why the look's flake lived on the Full path.
+
+Measured on `webkit-phone`, 4 workers ×50, video and trace recording on, `?tier=full`. Across the 50 looks, 651 font
+warm-up steps started inside a render, and in about a third of them the panel chunks did too. In the one render that
+overran (18.5 s), the queue loaded ClipNotice, hide-ops, ComposeView, PresentOverlay (3.2 s) and ReadArticle (1.5 s)
+in turn, then fourteen fonts, while the capture frame took 3.6 s to load and the camera 5.9 s to inline its fonts.
+
+**The fix is a hold.** `first-slide.ts` › `holdWarmUps()` returns a release. While any hold is out, no warm-up starts
+its next step. `whenQuiet` waits for it, `afterFirstSlideAndPause` does not start the queue under it, and the Studio
+schedules both of its queues through `heldWarmPanels(warmPanels)`, which makes each item wait for the release before it
+loads. The wrapper sits in `first-slide.ts` rather than in `warmPanels` because the Playground imports `lazy-panel.tsx`
+at startup and runs no draft render: inside `warmPanels`, the hold cost the Playground 443 bytes of eager JavaScript. A release counts as activity, so the queue resumes only after a fresh 2 s pause. A step
+already loading runs on. Both draft-fit renders hold it from the start until they settle, or until their budget runs
+out, so a render that never settles cannot stop the warm-up for good. After the fix, no warm-up step started inside any
+of 50 renders. Unit tests count the items loaded under a hold (`first-slide.test.ts`, `lazy-panel.test.tsx`,
+`draft-fit.test.ts`). Exports do not take the hold today. An export competes with the same queue, but it has no hard
+budget and shows its own progress.
+
 ## Delivery
 
 One branch, one PR, one commit per split. Share + Workspace goes first, because it is the
