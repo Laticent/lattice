@@ -115,6 +115,22 @@ the per-theme curation had converged instead of diverging, and named two places 
   edge, and at their palettes' strength read as neon raspberry (`#DB0038`, chroma 0.23). A blocked outside the band
   now lands mid-band (26 degrees), and blocked's chroma is capped at 0.20 (0.23 vivid): indaco's is `#D12C2F`.
 
+A fifth scoring (light 8.5, dark 8, every named defect confirmed fixed) found two more on light:
+- Blocked on indaco and carbone, held to the crimson edge (20 degrees), could only keep the colorblind half against done
+  by going deep (L 0.39): it read wine, and the risk matrix's hot zone lost its heat. The light face now lands an
+  out-of-band blocked mid-range too (`clampRed`, 26 degrees), where it holds at L 0.42 (indaco `#920010`) and 0.44
+  (carbone `#9C0012`). The other crimson-anchored themes move with it.
+- Cuoio's deferred sat 0.050 (OKLab) from its olive done, against 0.091 on `main`, and the two bars read as one drab.
+  Deferred is free of the trio's rules, so it now keeps 0.07 from done wherever the face allows (`MUTE_APART`, held by
+  the audit on light, where every theme reaches it; the dark face sits at 0.050-0.086, as on `main`). Cuoio's deferred
+  steps down to `#5A503F`; ardesia's and brina's move too.
+  A rule that done may sit no lighter than at risk was tried and dropped: on cuoio the colorblind half then forces done
+  to a near-black olive (L 0.34), the defect the third scoring named.
+
+Dark etch's status bars read nearly hollow beside an etched pie. That is etch's design and predates this work: a
+mark that carries text (a status bar or a category bar) takes etch's backdrop level (14% light, 19% dark), and only a
+text-free mark (a pie slice) takes its body level (30%, 40%). A status chart and a category bar chart under etch match.
+
 The `a11y-*` palettes curate none of this. The base declares each triplet token's default as the one-ink pair (the ink
 `--on-mark`, an edge in the slide ink `--X`), and `a11y-base`, which extends onyx, declares that pair itself so it does
 not inherit onyx's triplet. Any theme the Studio derives keeps the pair too (follow-up below).

@@ -64,7 +64,8 @@ const BAND = { pass: [150, 40], warn: [75, 25], fail: [22, 25], info: [250, 55] 
 const FAIL_RED = [20, 32];
 /** The dark face's colorblind turn may take blocked a few degrees deeper toward crimson, never past this. */
 const FAIL_TURN_FLOOR = 17;
-const clampRed = (h) => Math.min(FAIL_RED[1], Math.max(FAIL_RED[0], ((h + 180) % 360) - 180));
+/** A blocked anchored outside the red range lands mid-range, not on its crimson edge (as `darkHue` does on dark). */
+const clampRed = (h) => { const x = ((h + 180) % 360) - 180; return x >= FAIL_RED[0] && x <= FAIL_RED[1] ? x : (FAIL_RED[0] + FAIL_RED[1]) / 2; };
 /** On the light face at risk sits at least this much lighter than blocked, so the two exceptions never read as one
  * heavy mass (the order the dark face takes from `DARK_SPREAD`, and `main`'s light bars, where at risk is lightest). */
 const LIGHT_SPREAD = 0.06;
@@ -101,6 +102,8 @@ const VIVID_BOOST = 1.35;
  * the same tolerance test/unit/palette/cvd-trio-floor.test.js applies (`EROSION_TOLERANCE`). */
 const TABLE_ROUNDING = 0.002;
 const WINDOW = 0.16;
+/** Deferred keeps at least this OKLab distance from done, where the face allows it (main's cuoio held 0.091). */
+const MUTE_APART = 0.07;
 
 const hueDist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
 const ok = (L, C, h) => oklchToHex({ L, C, h }).toUpperCase();
@@ -343,9 +346,13 @@ function solve(theme, facts, baseline, keep) {
       if (best) break;
       }
       if (!best) throw new Error(`${theme} ${face} ${intensity}: no trio meets the contract at --keep=${keep}`);
+      // Deferred is free of the trio's constraints, so it keeps its distance from done, the other quiet fill
+      // (MUTE_APART), wherever it can: cuoio's deferred sat 0.050 from its olive done and the two read as one drab.
       const one = (s) => {
-        const ok2 = cands(s).filter(([, f]) => offAccent({ [s]: f }, facts[face].accent, accentFloor(theme, face)));
-        const list = ok2.length ? ok2 : cands(s);
+        const apart = (f) => s !== 'mute' || oklabDistance(f, best.fills.pass) >= MUTE_APART;
+        const pool = cands(s).filter(([, f]) => apart(f));
+        const ok2 = (pool.length ? pool : cands(s)).filter(([, f]) => offAccent({ [s]: f }, facts[face].accent, accentFloor(theme, face)));
+        const list = ok2.length ? ok2 : (pool.length ? pool : cands(s));
         return list.sort((a, b) => Math.abs(a[0] - TARGET[face][s]) - Math.abs(b[0] - TARGET[face][s]))[0][1];
       };
       out[face][intensity] = { ...best.fills, info: one('info'), mute: one('mute') };
@@ -430,6 +437,9 @@ function audit(theme, facts, baseline, keep) {
         const c = hexToOklch(fills.fail).C;
         if (dark && c > FAIL_CHROMA_CAP[intensity] + 0.01) bad.push(`dark ${intensity} --${tok('fail')} chroma ${c.toFixed(3)} is louder than the cap ${FAIL_CHROMA_CAP[intensity]}`);
       }
+      if (!dark && fills.mute && fills.pass && oklabDistance(fills.mute, fills.pass) < MUTE_APART - 0.002) {
+        bad.push(`light ${intensity} --${tok('mute')} sits ${oklabDistance(fills.mute, fills.pass).toFixed(3)} from done (floor ${MUTE_APART})`);
+      }
       // Deferred is a gray in the theme's own neutral, not a borrowed slate.
       if (fills.mute && hexToOklch(fills.mute).C >= 0.008 && hueDist(hexToOklch(fills.mute).h, facts.anchor.mute.h) > 15) {
         bad.push(`${face} ${intensity} --${tok('mute')} hue ${hexToOklch(fills.mute).h.toFixed(0)} is off the theme's neutral (${facts.anchor.mute.h.toFixed(0)})`);
@@ -513,6 +523,6 @@ function main() {
   if (o.check && failed) process.exit(1);
 }
 
-module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, SPREAD_EXEMPT, FAIL_RED, FAIL_CHROMA_CAP, KANBAN };
+module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, SPREAD_EXEMPT, FAIL_RED, FAIL_CHROMA_CAP, MUTE_APART, KANBAN };
 
 if (require.main === module) main();
