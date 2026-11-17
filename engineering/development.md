@@ -1188,6 +1188,28 @@ shifts every pixel.
 - **A service worker from a prior `astro preview` can shadow `astro dev`**
   (same origin) → dev builds self-unregister on load; one reload clears it.
 
+### What the docs site tells crawlers and agents
+
+`docs/src/lib/discovery.mjs` is the one list of which pages are indexable, and it builds
+`/robots.txt` and `/llms.txt`. The sitemap filters with the same list. Every route that writes
+its own `<head>` includes `docs/src/components/site/PageMeta.astro` for its canonical link and
+Open Graph card. A new `noindex` page goes in `NOINDEX_PREFIXES` too: `docs/scripts/check-discovery.mjs`
+runs after `astro build` and fails when a page and the list disagree, or when a page is missing
+its canonical link. The sitemap's `lastmod` is each page's last content commit
+(`docs/src/lib/lastmod.mjs`); a shallow checkout omits it. `docs/scripts/md-twins.mjs` writes a
+plain-Markdown copy of every article page at its path plus `.md` (a component page's copy is its
+`.docs.md`) and fails the build on a copy that leaks markup.
+The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make-og-card.js`
+(committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
+slides it uses).
+
+`docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives each page that
+cannot build a preview frame a strict, hash-based Content-Security-Policy. **An inline script on
+such a page is fine** (it is hashed at build); a script built at run time, an inline event handler
+(`onerror=`), or a fetch to another origin is blocked, and `docs/e2e/site-csp.spec.ts` fails on it.
+Pages that can build a preview frame carry no policy until stage 2
+(`followups.d/3277-p1-csp-frame-pages.md`). Why: `engineering/decisions/2026-11-17-site-discovery.md`.
+
 ### The docs site is an installable PWA (offline cache)
 
 The site ships a web-app manifest (`docs/public/site.webmanifest`, icons

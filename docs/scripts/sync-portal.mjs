@@ -5,9 +5,10 @@
 // staged here.) The .md is generated from the manifests by
 // tools/build-docs-portal.js and committed under dist/docs/; this just
 // stages it for the Astro build.
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rebaseLinks } from './md-twins.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoReference = join(here, '..', '..', 'dist', 'docs');
@@ -22,7 +23,11 @@ for (const name of ['components.md']) {
 		console.error(`sync-portal: missing ${src} — run \`npm run docs:portal\` in the repo root.`);
 		process.exit(1);
 	}
-	copyFileSync(src, join(publicDir, name));
+	// The reference links design docs and gallery PDFs relative to where it is generated
+	// (dist/docs/), which resolve in the repo and 404 on the site: about 160 dead links, served
+	// for as long as the file has been, and found when #3207 began pointing agents at it. Resolve
+	// them against that location, which turns each into the file on GitHub.
+	writeFileSync(join(publicDir, name), rebaseLinks(readFileSync(src, 'utf8'), `dist/docs/${name}`));
 	copied++;
 }
 

@@ -7,6 +7,7 @@
 // deliberately excluded: `src/components/site/ArticleSchema.astro`.
 import Default from '@astrojs/starlight/components/Head.astro';
 import ArticleSchema from './site/ArticleSchema.astro';
+import OgImage from './site/OgImage.astro';
 
 const route = Astro.locals.starlightRoute;
 
@@ -26,6 +27,7 @@ const isArticle = route.entry.data.template !== 'splash';
 ---
 
 <Default><slot /></Default>
+<OgImage />
 {isArticle && <ArticleSchema
 	title={route.entry.data.title}
 	description={route.entry.data.description}

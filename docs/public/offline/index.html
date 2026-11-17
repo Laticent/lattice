@@ -4,12 +4,15 @@
      page cache. A directory index rather than offline.html because Cloudflare
      Pages 308-redirects *.html URLs, and a redirected response can't be
      replayed for a navigation. Fully self-contained on purpose: this must
-     render with NOTHING else cached. References the mark by URL only as a
-     bonus (it's usually in the asset cache); the page reads fine without it. -->
+     render with NOTHING else cached, which is why the mark is inline SVG (a copy
+     of public/lattice-mark-min.svg) rather than an <img> that a missing cache
+     would break. It used to be an <img> with an inline onerror handler, which
+     the site's Content-Security-Policy blocks (#3207). -->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
 <title>Offline — Lattice</title>
 <style>
 	:root { color-scheme: light dark; }
@@ -22,7 +25,7 @@
 		body { background: #15110D; color: #E8E2D8; }
 	}
 	main { padding: 2rem; max-width: 30rem; }
-	img { width: 72px; height: 72px; }
+	svg.mark { width: 72px; height: 72px; }
 	h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; }
 	p { font-size: 1rem; line-height: 1.55; opacity: 0.85; }
 	a { color: inherit; }
@@ -30,7 +33,7 @@
 </head>
 <body>
 <main>
-	<img src="/lattice-mark-min.svg" alt="" onerror="this.style.display='none'" />
+	<svg class="mark" aria-hidden="true" viewBox="0 0 128 128" fill="none"><style>.bond{stroke:#003D66}.halo{fill:#FAF7F2}@media(prefers-color-scheme:dark){.bond{stroke:#4FA8DA}.halo{fill:#15110D}}</style><g transform="rotate(45 64 64)" stroke-linecap="round"><line x1="31" y1="31" x2="97" y2="31" stroke="#003D66" class="bond" stroke-width="6.4"/><line x1="97" y1="31" x2="97" y2="97" stroke="#003D66" class="bond" stroke-width="6.4"/><line x1="97" y1="97" x2="31" y2="97" stroke="#003D66" class="bond" stroke-width="6.4"/><line x1="31" y1="97" x2="31" y2="31" stroke="#003D66" class="bond" stroke-width="6.4"/></g><circle cx="64.0" cy="17.3" r="12.7" fill="#FAF7F2" class="halo"/><circle cx="64.0" cy="17.3" r="11.0" fill="#5B86B8"/><circle cx="110.7" cy="64.0" r="12.7" fill="#FAF7F2" class="halo"/><circle cx="110.7" cy="64.0" r="11.0" fill="#A8628A"/><circle cx="64.0" cy="110.7" r="12.7" fill="#FAF7F2" class="halo"/><circle cx="64.0" cy="110.7" r="11.0" fill="#D08C42"/><circle cx="17.3" cy="64.0" r="12.7" fill="#FAF7F2" class="halo"/><circle cx="17.3" cy="64.0" r="11.0" fill="#7B72C0"/><circle cx="64.0" cy="64.0" r="16.2" fill="#FAF7F2" class="halo"/><circle cx="64.0" cy="64.0" r="14.0" fill="#C8A040"/><circle cx="64.0" cy="64.0" r="10.4" fill="none" stroke="#7A5A10" stroke-width="1.5" opacity="0.55"/></svg>
 	<h1>You're offline</h1>
 	<p>
 		This page isn't cached yet. Pages you've visited before are available
