@@ -29,6 +29,8 @@ import { hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
 const LLMS_MAX_BYTES = 4096;
+// Every entry in discovery.mjs's LLMS_LINKS, so a link the text builder silently drops fails.
+const LLMS_MIN_LINKS = Object.values(LLMS_LINKS).flat().length;
 const ONE_EACH = [
 	['<title>', /<title>/g],
 	['meta description', /<meta name="description"/g],
@@ -132,12 +134,17 @@ if (!fs.existsSync(llms)) fail('dist/llms.txt is missing');
 else {
 	const size = fs.statSync(llms).size;
 	if (size > LLMS_MAX_BYTES) fail(`llms.txt is ${size} bytes; keep it a router under ${LLMS_MAX_BYTES} (engineering/decisions/2026-09-05-agent-kit-by-destination.md §4)`);
-	for (const links of Object.values(LLMS_LINKS)) {
-		for (const [p] of links) {
-			const target = p.endsWith('/') ? path.join(DIST, p, 'index.html') : path.join(DIST, p);
-			if (!fs.existsSync(target)) fail(`llms.txt links ${p}, which was not built`);
-			else if (p.endsWith('/') && !indexable.has(p)) fail(`llms.txt links ${p}, which is not indexable`);
-		}
+	// Every link as the built file actually writes it: a page twin (`.md`) or a page. A twin's
+	// page must be indexable; a dead link fails.
+	const text = fs.readFileSync(llms, 'utf8');
+	const links = [...text.matchAll(/\]\(([^)]+)\)/g)].map(([, href]) => href).filter((href) => !/^https?:\/\/(?!lattice\.style)/.test(href));
+	if (links.length < LLMS_MIN_LINKS) fail(`llms.txt has ${links.length} site links; expected at least ${LLMS_MIN_LINKS}`);
+	for (const href of links) {
+		const p = new URL(href, 'https://lattice.style').pathname;
+		const target = p.endsWith('/') ? path.join(DIST, p, 'index.html') : path.join(DIST, p);
+		if (!fs.existsSync(target)) fail(`llms.txt links ${p}, which was not built`);
+		const page = p.endsWith('.md') ? (p === '/components.md' ? '/components/' : `${p.slice(0, -3)}/`) : p;
+		if (page.endsWith('/') && !indexable.has(page)) fail(`llms.txt links ${p}, whose page ${page} is not indexable`);
 	}
 }
 

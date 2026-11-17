@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalUrl, isIndexable, llmsTxt, robotsTxt } from './discovery.mjs';
+import { canonicalUrl, isIndexable, llmsTxt, robotsTxt, twinPath } from './discovery.mjs';
 
 const SITE = new URL('https://lattice.style');
 
@@ -38,7 +38,18 @@ describe('llmsTxt', () => {
 	it('is a short router with absolute links', () => {
 		const txt = llmsTxt({ site: SITE });
 		expect(txt.startsWith('# Lattice\n\n> ')).toBe(true);
-		expect(txt).toContain('(https://lattice.style/getting-started/)');
+		// Article pages link their Markdown copy; a page with no copy links the page.
+		expect(txt).toContain('(https://lattice.style/getting-started.md)');
+		expect(txt).toContain('(https://lattice.style/components.md)');
+		expect(txt).toContain('(https://lattice.style/features/)');
 		expect(new TextEncoder().encode(txt).length).toBeLessThan(4096);
+	});
+});
+
+describe('twinPath', () => {
+	it('puts a page\'s Markdown copy at its path plus .md, and keeps the portal file for /components/', () => {
+		expect(twinPath('/guides/cli/')).toBe('/guides/cli.md');
+		expect(twinPath('/')).toBe('/index.md');
+		expect(twinPath('/components/')).toBe('/components.md');
 	});
 });

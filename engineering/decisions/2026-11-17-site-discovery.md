@@ -5,8 +5,8 @@ summary: >
   pages it used to list that are not meant to be found (19 said noindex; two prototypes now do too), every standalone route carries a canonical link and an Open Graph card,
   robots.txt and a 1.6 KB llms.txt router ship from one module (docs/src/lib/discovery.mjs), and a post-build
   gate (docs/scripts/check-discovery.mjs) fails when any of them disagree. The sitemap carries each page's
-  last content commit, and the 78 pages that cannot build a preview frame carry a strict, hash-based CSP;
-  the frame pages are stage 2.
+  last content commit, every content page has a Markdown copy at its own path plus `.md`, and the 78
+  pages that cannot build a preview frame carry a strict, hash-based CSP; the frame pages are stage 2.
 ---
 
 # Site discovery: sitemap, canonical, robots.txt, llms.txt (2026-11-17)
@@ -98,15 +98,31 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     and drives search (Pagefind, whose load failure the menu swallows silently), the palette
     label and the mode toggle on Chromium at desktop and phone width, WebKit and Gecko.
 
+- **A Markdown copy ("twin") of every content page** (`docs/scripts/md-twins.mjs`, 177 pages):
+  every page that declares itself an article (docs pages, component pages, catalog pages,
+  `/comparison/`) gets `<path>.md`, linked from its `<head>` as `<link rel="alternate"
+  type="text/markdown">`, and `llms.txt` links the copies. App shells get none: a copy of the
+  Studio would be a list of button labels.
+  - A component page's copy is its `<name>.docs.md`, verbatim: the canonical agent doc
+    (HARD RULE #6).
+  - Every other copy is made from the BUILT page, not the source. 32 of the 58 docs pages are
+    MDX, whose components (the front-matter table, the form diagrams, 38 live CraftLabs) are
+    calls, not text; the built page is what a reader sees. The converter keeps `<main>`, drops
+    interface (navigation, buttons, the contents list, hidden and screen-reader-only text,
+    React's `<!-- -->` separators), keeps each code block's language, writes a definition list
+    as `**term:** value` bullets and a card title as a heading, and turns each CraftLab island,
+    whose props Astro serializes onto it, into the CSS and Markdown it would show.
+  - `md-twins.mjs --check` fails a missing copy, a copy with no heading, or HTML comments or
+    interface markup in its prose (code is exempt: a deck sample is full of `<!-- _class -->`).
+    A sweep of all 91 non-component copies found no "Section titled", "Copy", pagination or
+    contents-list text.
+
 ## 3. What was left out, and why
 
 - **A referrer meta tag.** `strict-origin-when-cross-origin` is already every current browser's default, so
   the tag would change nothing.
 - **`og:image`.** A link preview needs a raster card designed for it (link unfurlers mostly refuse SVG). The
   site has none, and a placeholder is worse than no image.
-- **Markdown twins of every docs page.** 32 of the 58 docs pages are MDX, and their raw source is component
-  calls, not readable Markdown. The twin that matters to an agent, `/components.md`, already ships and is in
-  `llms.txt`.
 
 ## 4. Secrets on a public static site
 

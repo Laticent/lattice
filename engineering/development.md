@@ -1182,7 +1182,9 @@ its own `<head>` includes `docs/src/components/site/PageMeta.astro` for its cano
 Open Graph card. A new `noindex` page goes in `NOINDEX_PREFIXES` too: `docs/scripts/check-discovery.mjs`
 runs after `astro build` and fails when a page and the list disagree, or when a page is missing
 its canonical link. The sitemap's `lastmod` is each page's last content commit
-(`docs/src/lib/lastmod.mjs`); a shallow checkout omits it.
+(`docs/src/lib/lastmod.mjs`); a shallow checkout omits it. `docs/scripts/md-twins.mjs` writes a
+plain-Markdown copy of every article page at its path plus `.md` (a component page's copy is its
+`.docs.md`) and fails the build on a copy that leaks markup.
 
 `docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives each page that
 cannot build a preview frame a strict, hash-based Content-Security-Policy. **An inline script on

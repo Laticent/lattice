@@ -81,18 +81,28 @@ export const LLMS_LINKS = Object.freeze({
 		['/guides/authoring/', 'Authoring guide', 'How to write a deck: front matter, slides, layouts'],
 	],
 	Reference: [
-		['/components.md', 'Component reference (Markdown)', 'Every slide layout (`_class:`) with its slots and variants, as plain Markdown'],
-		['/components/', 'Component catalog', 'The same catalog with live previews'],
+		['/components/', 'Component reference', 'Every slide layout (`_class:`) with its slots and variants; each component also has its own page and `.md` copy under /components/<bucket>/<name>/'],
 		['/reference/front-matter/', 'Front matter', 'Every deck-level front-matter key'],
 		['/reference/cli/', 'CLI reference', 'The `lattice` command line: render, export, lint'],
 		['/guides/themes/', 'Themes', 'Palettes and color modes'],
 	],
 	Optional: [
-		['/features/', 'Features', 'The full capability list'],
+		// A card-grid catalog, not an article, so it has no .md copy: linked as the page.
+		['/features/', 'Features', 'The full capability list', { page: true }],
 		['/comparison/', 'Comparison', 'Lattice against AI generators, Office, code engines and design tools'],
 		['/spec/lfm/', 'LFM specification', 'The Lattice Flavored Markdown specification'],
 	],
 });
+
+/**
+ * Markdown twins (scripts/md-twins.mjs): every content page has a plain-Markdown copy at its own
+ * path plus `.md`. `/components/` is the one page whose twin another step already writes: the
+ * whole component reference, from tools/build-docs-portal.js.
+ */
+export const EXISTING_TWINS = Object.freeze({ '/components/': '/components.md' });
+
+/** `/guides/cli/` → `/guides/cli.md`; `/` → `/index.md`. */
+export const twinPath = (route) => EXISTING_TWINS[route] ?? (route === '/' ? '/index.md' : `${route.replace(/\/$/, '')}.md`);
 
 export const REPO_URL = 'https://github.com/Laticent/lattice';
 export const AGENT_KIT_URL = 'https://github.com/Laticent/lattice/tree/dist-kits/agent';
@@ -106,10 +116,12 @@ export function llmsTxt({ site }) {
 		'',
 		`Source: ${REPO_URL}. An agent writing decks should start from the agent kit (${AGENT_KIT_URL}), which carries a one-line-per-layout picker and the authoring rules.`,
 		'',
+		'Every docs, component and catalog page has a plain-Markdown copy at its own path plus `.md` (`/guides/cli/` → `/guides/cli.md`), linked from the page as `<link rel="alternate" type="text/markdown">`. The links below point at those copies.',
+		'',
 	];
 	for (const [section, links] of Object.entries(LLMS_LINKS)) {
 		out.push(`## ${section}`, '');
-		for (const [p, title, note] of links) out.push(`- [${title}](${abs(p)}): ${note}`);
+		for (const [p, title, note, opts] of links) out.push(`- [${title}](${abs(p.endsWith('/') && !opts?.page ? twinPath(p) : p)}): ${note}`);
 		out.push('');
 	}
 	return out.join('\n');
