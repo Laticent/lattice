@@ -112,3 +112,15 @@ test('every leg carries an even share of every project, so one slow engine slows
 	for (const l of legs) assert.equal(l.keys.filter((k) => k.startsWith('webkit-tablet|') && weights[k]).length, 1, `webkit-tablet split evenly: ${l.keys.join(', ')}`);
 	assert.deepEqual(legs.map((l) => l.load).sort((a, b) => a - b), [130, 170]);
 });
+
+test("a small project's one big pair is levelled by the big projects' small pairs, not stranded on one leg", async () => {
+	const { planLegs } = await load('docs/e2e/shard-plan.mjs');
+	// compose-default's real shape: one 6-minute `lessons` pair and little else, beside a big project of even small pairs.
+	// Whole bins, heaviest project first, gave 140 | 90; dealt into the running totals, lightest project first, 120 | 110.
+	const projects = [{ name: 'desktop' }, { name: 'compose-default' }];
+	const specs = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'lessons'].map((s) => `${s}.spec.ts`);
+	const weights = { 'compose-default|e2e/lessons.spec.ts': 60, 'compose-default|e2e/a.spec.ts': 10 };
+	for (const s of specs.slice(0, 8)) weights[`desktop|e2e/${s}`] = 20;
+	const loads = planLegs({ projects, specs, weights, n: 2 }).map((l) => l.load);
+	assert.ok(Math.max(...loads) <= 120, `legs ${loads.join(' | ')}: the lump was not levelled`);
+});

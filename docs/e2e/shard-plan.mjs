@@ -92,20 +92,20 @@ export function planLegs({ projects, specs, weights, n, testDir = '/e2e' }) {
 		}
 		byProject.push({ name: p.name, known, total: known.reduce((t, k) => t + Number(weights[k]), 0) });
 	}
-	// PER PROJECT, so every leg carries about 1/n of every engine. An engine's speed moves from night to night (on
-	// 2026-11-17 webkit-tablet ran ~30% over its weights), and one plan for all pairs put 1.7 min of webkit-tablet in one
-	// leg and 6.4 in another, so the leg holding the most of a slow engine overran. Each project's pairs are dealt
-	// longest-first into n bins by `plan()`; its heaviest bin then joins the leg with the least total so far, and so on.
-	// Heaviest projects first, ties by name, so the plan stays a pure function of its inputs.
-	byProject.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+	// PER PROJECT, into the legs' RUNNING totals. An engine's speed moves from night to night (on 2026-11-17 webkit-tablet ran
+	// ~30% over its weights), and one plan over all pairs had put 1.7 min of webkit-tablet in one leg and 6.4 in another, so
+	// the leg holding the most of a slow engine overran. Dealing each project on its own spreads each engine; dealing it
+	// into the totals so far (not as whole bins) lets a later project level what an earlier one left uneven. Lightest
+	// project first: a small project with one big pair (compose-default's 6.2 min `lessons`) lands early, and the many
+	// small pairs of the big engines, dealt last, fill around it. Ties by name, so the plan stays a pure function of its
+	// inputs. (Whole bins, heaviest project first, planned 1.08x every night: the lump arrived when nothing could absorb it.)
+	byProject.sort((a, b) => a.total - b.total || a.name.localeCompare(b.name));
 	for (const pr of byProject) {
 		if (!pr.known.length) continue;
-		const bins = plan(pr.known, weights, n).sort((a, b) => b.load - a.load);
-		const order = legs.map((_, i) => i).sort((a, b) => legs[a].load - legs[b].load || a - b);
-		bins.forEach((b, j) => {
-			const leg = legs[order[j]];
-			leg.load += b.load;
-			leg.keys.push(...b.files);
+		const bins = plan(pr.known, weights, n, legs.map((l) => l.load));
+		bins.forEach((b, i) => {
+			legs[i].load = b.load;
+			legs[i].keys.push(...b.files);
 		});
 	}
 	for (const k of unknown) legs[hashLeg(k, n)].keys.push(k);
