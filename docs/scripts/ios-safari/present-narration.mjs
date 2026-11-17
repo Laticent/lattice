@@ -62,8 +62,9 @@ export function narrationChecks(arms, { slides, capMB, audioCapMB, memory }) {
 	const last = on.samples?.at(-1) ?? {};
 	const checks = [
 		{ name: 'the deck imported and Present counts all its slides', pass: !on.error && on.total === slides, detail: on.error || `${on.total} of ${slides} slides` },
-		// Narration requested for most of the deck: four sentences a slide, so 30 slides ask for well over 60.
-		{ name: 'the voice arm asked for narration across the deck', pass: (last.speech ?? 0) >= 60 && (last.slide ?? 1) >= 20, detail: `${last.speech ?? 0} sentences asked for (${last.pcm ?? 0} as PCM), on slide ${last.slide ?? '?'} after ${on.playedS ?? '?'} s` },
+		// Narration requested across the deck: four sentences a slide. Slide 15, not 20: the simulator takes about 20 s per
+		// Next, so a 6-minute arm reached slide 18 (run 44024954648) and 22 (44025172449).
+		{ name: 'the voice arm asked for narration across the deck', pass: (last.speech ?? 0) >= 60 && (last.slide ?? 1) >= 15, detail: `${last.speech ?? 0} sentences asked for (${last.pcm ?? 0} as PCM), on slide ${last.slide ?? '?'} after ${on.playedS ?? '?'} s` },
 		{ name: 'the page did not reload while narration played', pass: on.alive === true, detail: on.alive ? '' : 'the mark Present left is gone' },
 		{ name: `the decoded narration the page holds stays under ${audioCapMB} MB`, pass: last.liveMB !== undefined && last.liveMB <= audioCapMB, detail: `${last.liveMB ?? '?'} MB held of ${last.decodedMB ?? '?'} MB decoded, ${last.clips ?? '?'} clips at ${last.sampleRate ?? '?'} Hz` },
 	];

@@ -666,8 +666,9 @@ async function runPresentMemoryProbe(id) {
  * with narration and Guide on, and not with narration off (2026-11-17). present-narration.mjs builds a deck of that shape;
  * present-narration-probe.js imports it, installs a stand-in cloud voice that answers in the page (no key spent, HARD
  * RULE #24): NARRATION_VOICE=openrouter-gemini (the default, the owner's: Gemini 3.1 Flash TTS through OpenRouter,
- * headerless PCM), openrouter (Kokoro, WAV) or gemini (Gemini's own API, JSON with base64 WAV inside). Then it opens Present on slide 1 with Guide on and TAPS Play with a
- * WebDriver touch: iOS unlocks audio only for a real one, and a scripted click left the first run on slide 1. Two arms on one fresh Studio each: voice ON for
+ * headerless PCM), openrouter (Kokoro, WAV) or gemini (Gemini's own API, JSON with base64 WAV inside). Then it opens
+ * Present on slide 1 with Guide on and presses Play: on the simulator only a script click reaches the page, so audio stays
+ * suspended and the probe walks the deck with Next (see the loop below). Two arms on one fresh Studio each: voice ON for
  * NARRATION_PLAY_S (judged), then voice OFF for NARRATION_SILENT_S (reported, so the difference is the narration's).
  * Every 30 s the probe reads where Present is, the narration audio the page has decoded and still holds, and the
  * simulator's WebKit footprint (photo-memory.mjs). The verdict is present-narration.mjs `narrationChecks`: work, not time

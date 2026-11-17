@@ -291,9 +291,10 @@ function cacheKeyFor(rungName, modelId, voice, speed, text) {
 // combo at a time) sits well under this.
 const AUDIO_CACHE_LIMIT = 200;
 // AND a byte budget, because the count alone was sized for MP3. A Gemini voice answers uncompressed 24 kHz PCM, ten
-// times the bytes a second: 200 such clips are about 95 MB, and on an iPhone, on top of Present, that was enough for
-// Safari to reload the tab (2026-11-17, PROBE=present-narration). 24 MB still holds minutes of PCM, far past the
-// slide being read and the ones warmed ahead of it; an evicted clip is synthesized again only if it is played again.
+// times the bytes a second: 200 such clips are about 95 MB. A safety limit, NOT the fix for the iPhone reload during
+// narrated Present: the iOS Simulator grew about the same with and without it (PROBE=present-narration, runs
+// 44025172449 and 44024954648). 24 MB still holds minutes of PCM, far past the slide being read and the ones warmed
+// ahead of it; an evicted clip is synthesized again only if it is played again.
 export const AUDIO_CACHE_MAX_BYTES = 24 * 1024 * 1024;
 
 // warm()'s prefetch cap. Bounded, not unbounded fire-all: a long deck shouldn't
@@ -392,8 +393,8 @@ function wavLike(buf) {
   // bytes per call for exactly this reason; `.slice(0)` gives this duck-typed
   // stand-in the same replay safety.
   // A REAL Blob wherever the engine has one that reads back (every browser): the browser may keep a Blob's bytes
-  // outside the page's memory, where an ArrayBuffer held in a cache always counts against it. That difference is the
-  // iPhone reload (2026-11-17): a Gemini voice's clips piled up here as page memory. jsdom's Blob cannot read back
+  // outside the page's memory, where an ArrayBuffer held in a cache always counts against it, and a Gemini voice's
+  // uncompressed clips are the large ones (2026-11-17; not shown to be the iPhone reload). jsdom's Blob cannot read back
   // (no `.arrayBuffer()`), so the tests keep the duck-typed shape with the same replay safety.
   if (typeof Blob === 'function' && typeof Blob.prototype.arrayBuffer === 'function') return new Blob([buf], { type: 'audio/wav' });
   return { size: buf.byteLength, type: 'audio/wav', arrayBuffer: async () => buf.slice(0) };
