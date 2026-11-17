@@ -141,7 +141,11 @@ jobs:
     # 30 per suite, 40 for office-quicklook. Its Suite step took 25.5 min on run 43970893314 (every slide ok) and setup
     # about 4 more, so the job hit 30m04s and was canceled during teardown after the suite had passed. Raised for that
     # suite only (coordinator call, 2026-11-17, on #3270), the pattern ci.yml uses for integration shard 4.
-    timeout-minutes: ${{ matrix.suite == 'office-quicklook' && 40 || 30 }}
+    # ios-safari-font-cache gets 40 too: it starts two simulators one after the other, about 8 min each before its probe,
+    # so 19 runs (11-12 to 11-17) took a median 25.3 min, the worst that finished 29.7, and 3 were killed at 30 (one 4 s
+    # after its probe passed, run 44096107262). Its matrix entry raises run.sh's SUITE_DEADLINE to match (coordinator
+    # call, 2026-11-17).
+    timeout-minutes: ${{ contains(fromJSON('["office-quicklook","ios-safari-font-cache"]'), matrix.suite) && 40 || 30 }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
