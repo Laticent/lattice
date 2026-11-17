@@ -87,8 +87,11 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await expect(preview.locator(`section[data-returned-${NAME}--status="at-risk"]`)).toHaveCount(1);
 
 		// 2. STYLED, and scoped: the badge has a fill from the plugin's sheet; a heading outside the root is not touched by it.
-		const fill = await root.locator('.lp-status-card-badge').evaluate((el) => getComputedStyle(el).backgroundColor);
-		expect(fill, 'the badge carries the plugin stylesheet fill').not.toMatch(/^rgba\(0, 0, 0, 0\)$|^transparent$/);
+		// The fill is polled, not read once: the badge's text can paint one render before the sheet does (CI caught the
+		// badge transparent while its screenshot, taken a moment later, showed it filled), so a single read races the sheet.
+		await expect
+			.poll(() => root.locator('.lp-status-card-badge').evaluate((el) => getComputedStyle(el).backgroundColor), { message: 'the badge carries the plugin stylesheet fill', timeout: 30_000 })
+			.not.toMatch(/^rgba\(0, 0, 0, 0\)$|^transparent$/);
 		const bordered = await root.locator('.lp-status-card-card').evaluate((el) => getComputedStyle(el).borderTopWidth);
 		expect(bordered).toBe('1px');
 		const heading = await preview.locator('h2').first().evaluate((el) => getComputedStyle(el).borderTopWidth);
