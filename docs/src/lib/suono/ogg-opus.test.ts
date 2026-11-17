@@ -60,17 +60,18 @@ describe('muxOggOpus', () => {
 		expect(Number(pages.at(-1)!.granule)).toBe(preSkip! + length); // the end padding trimmed to the original length
 	});
 
-	it('counts granule positions in 48 kHz samples from the start, pre-skip included, and only grows them', () => {
+	it('counts granule positions as the samples the packets decode to, like ffmpeg, and only grows them', () => {
 		const pages = readOggPages(muxOggOpus({ packets: Array.from({ length: 120 }, (_, i) => ({ data: pkt20(60, i) })), preSkip: 312 }));
 		const audio = pages.slice(2);
 		expect(audio.length).toBeGreaterThanOrEqual(3); // 2.4 s of 20 ms packets: several one-second pages
 		const granules = audio.map((p) => Number(p.granule));
 		for (let i = 1; i < granules.length; i++) expect(granules[i]).toBeGreaterThan(granules[i - 1]);
-		expect(granules.at(-1)).toBe(312 + 120 * 960);
+		expect(granules.at(-1)).toBe(120 * 960); // no length given: every packet's samples
 		let seen = 0;
 		for (const p of audio.slice(0, -1)) {
 			seen += p.packets.length * 960;
-			expect(Number(p.granule)).toBe(312 + seen); // each page ends at the samples of the packets it completed
+			// each page ends at the samples its completed packets decode to; pre-skip is inside them, not added on top
+			expect(Number(p.granule)).toBe(seen);
 		}
 		expect(pages.map((p) => p.sequence)).toEqual(pages.map((_, i) => i));
 	});
@@ -88,7 +89,15 @@ describe('muxOggOpus', () => {
 
 	it('never claims more audio than was encoded when trimming the end', () => {
 		const pages = readOggPages(muxOggOpus({ packets: Array.from({ length: 5 }, () => ({ data: pkt20(40) })), preSkip: 312, length: 999999 }));
-		expect(Number(pages.at(-1)!.granule)).toBe(312 + 5 * 960);
+		expect(Number(pages.at(-1)!.granule)).toBe(5 * 960);
+	});
+
+	it("writes the same page granules as ffmpeg for ffmpeg's own packets", () => {
+		const src = readOggPages(fixture());
+		const preSkip = preSkipFromDescription(src[0].packets[0])!;
+		const audio = src.slice(2).flatMap((p) => p.packets);
+		const ours = readOggPages(muxOggOpus({ packets: audio.map((data) => ({ data })), preSkip, length: Number(src.at(-1)!.granule) - preSkip }));
+		expect(ours.slice(2).map((p) => Number(p.granule))).toEqual(src.slice(2).map((p) => Number(p.granule)));
 	});
 
 	it('reads no pre-skip from a description that is not an OpusHead, and refuses no packets', () => {

@@ -146,8 +146,10 @@ if (process.env.PROBE === 'codec-support') {
 	// simulator: Linux WebKit decodes with GStreamer, not Apple's media stack).
 	const { chromium, firefox } = await import('@playwright/test');
 	const { codecChecks } = await import('./codecs.mjs');
-	const { transformSync } = await import('esbuild');
-	const muxer = transformSync(fs.readFileSync(path.join(here, '../../src/lib/suono/ogg-opus.ts'), 'utf8'), { loader: 'ts' }).code.replace(/^export /gm, '');
+	// Suono's Opus encoder and Ogg writer (docs/src/lib/suono/opus.ts), the code the Studio ships, bundled by esbuild into
+	// one plain script that puts them on `SuonoOpus`.
+	const { buildSync } = await import('esbuild');
+	const muxer = buildSync({ entryPoints: [path.join(here, '../../src/lib/suono/opus.ts')], bundle: true, format: 'iife', globalName: 'SuonoOpus', write: false }).outputFiles[0].text;
 	const probe = `${muxer}\n${fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8')}`;
 	const dir = path.join(here, 'codec-fixtures');
 	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));

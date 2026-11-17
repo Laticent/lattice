@@ -11,8 +11,8 @@
  * codecs WebCodecs' AudioEncoder and AudioDecoder support; and a real round trip: the source speech encoded with
  * AudioEncoder (Opus, AAC) and decoded back with AudioDecoder, with the bytes written and the change in length. That
  * round trip is the path the streaming design would use: raw packets in storage, no container, no decodeAudioData.
- * WebDriver sends it as text, after Suono's Ogg writer (docs/src/lib/suono/ogg-opus.ts) compiled to plain script by run.mjs:
- * it uses its argument, the page's own APIs and that writer.
+ * WebDriver sends it as text, after Suono's Opus encoder (docs/src/lib/suono/opus.ts) bundled to plain script by run.mjs as
+ * `SuonoOpus`: it uses its argument, the page's own APIs and that encoder.
  */
 
 async function latticeCodecProbe(files) {
@@ -122,20 +122,14 @@ async function latticeCodecProbe(files) {
 			return { ok: false, error: `decode: ${String(e?.message || e).slice(0, 80)}`, bytes };
 		}
 		if (decError) return { ok: false, error: `decode: ${decError.slice(0, 80)}`, bytes };
-		// E. The same packets in OUR Ogg file (Suono's ogg-opus.ts, sent ahead of this script by run.mjs), played back with
-		// decodeAudioData: the stored-clip path the streaming design uses. Its added length is what a listener hears.
+		// E. The streaming design's real path: Suono's encodeOpus (WebCodecs, the measured lead-in, our Ogg writer), sent ahead
+		// of this script by run.mjs as `SuonoOpus`, played back with decodeAudioData. Its added length is what a listener hears.
 		let ogg = null;
-		if (codec === 'opus' && typeof muxOggOpus === 'function') {
+		if (codec === 'opus' && typeof SuonoOpus !== 'undefined') {
 			try {
-				const preSkip = preSkipFromDescription(decoderConfig?.description) ?? DEFAULT_PRE_SKIP;
-				const file = muxOggOpus({
-					packets: chunks.map((c) => ({ data: c.data })),
-					preSkip,
-					inputSampleRate: sampleRate,
-					length: Math.round((samples.length * 48000) / sampleRate),
-				});
+				const file = await SuonoOpus.encodeOpus(samples, sampleRate, { bitrate });
 				const buf = await new OfflineAudioContext(1, 1, 48000).decodeAudioData(file.slice().buffer);
-				ogg = { ok: true, bytes: file.length, extraMs: Math.round((buf.duration - samples.length / sampleRate) * 1000), preSkip, preSkipReported: preSkipFromDescription(decoderConfig?.description) !== null };
+				ogg = { ok: true, bytes: file.length, extraMs: Math.round((buf.duration - samples.length / sampleRate) * 1000), preSkip: await SuonoOpus.measureOpusDelay(sampleRate), preSkipReported: true };
 			} catch (e) {
 				ogg = { ok: false, error: String(e?.name || e?.message || e).slice(0, 80) };
 			}

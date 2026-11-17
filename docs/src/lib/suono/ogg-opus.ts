@@ -9,9 +9,11 @@
 // WHAT IT WRITES. Page 0 holds the ID header (OpusHead: version 1, channel count, pre-skip, the input sample rate, gain 0,
 // mapping family 0), marked beginning-of-stream. Page 1 holds the comment header (OpusTags: a vendor string, no comments).
 // Audio pages follow, each closed after about one second of packets or before its segment table would pass 255 entries.
-// A page's granule position is the 48 kHz sample count at the end of its last packet, pre-skip included. The last page,
-// marked end-of-stream, may carry a smaller granule, the original length plus pre-skip, which tells the decoder to drop
-// the encoder's end padding (RFC 7845 §4). Each packet's length is read from its own TOC byte, never the encoder's
+// A page's granule position is the number of 48 kHz samples its completed packets decode to, counted from the first
+// packet; those samples already include the pre-skip region, so pre-skip is NOT added on top (doing so made Chromium and
+// Firefox play every clip 6.5 ms short; WebKit ignored it). The last page, marked end-of-stream, carries the original
+// length plus pre-skip, never more than was encoded, which tells the decoder to drop the encoder's end padding
+// (RFC 7845 §4). Each packet's length is read from its own TOC byte, never the encoder's
 // metadata.
 
 /** Ogg's CRC-32: polynomial 0x04C11DB7, initial value 0, no reflection, no final XOR (RFC 3533 §6). */
@@ -149,14 +151,14 @@ export function muxOggOpus({ packets, channels = 1, preSkip = DEFAULT_PRE_SKIP, 
 	pages.push(page([opusTags(vendor)], 0n, serial, sequence++, 0));
 	const sized = packets.map((p) => ({ data: p.data, samples: opusPacketSamples(p.data) }));
 	const total = sized.reduce((n, p) => n + p.samples, 0);
-	let granule = BigInt(preSkip);
+	let granule = 0n; // samples the completed packets decode to, pre-skip region included
 	let held: Uint8Array[] = [];
 	let heldSegments = 0;
 	let heldSamples = 0;
 	const flush = (last: boolean) => {
 		let g = granule;
 		// The last page may end before the encoder's padding: original length plus pre-skip, never past what was encoded.
-		if (last && length !== undefined && Number.isFinite(length) && length > 0) g = BigInt(Math.min(preSkip + Math.round(length), preSkip + total));
+		if (last && length !== undefined && Number.isFinite(length) && length > 0) g = BigInt(Math.min(preSkip + Math.round(length), total));
 		pages.push(page(held, g, serial, sequence++, last ? HEADER_TYPE.eos : 0));
 		held = [];
 		heldSegments = 0;
