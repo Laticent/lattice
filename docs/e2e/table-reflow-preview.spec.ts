@@ -60,9 +60,13 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		// column headers leave the accessibility tree; the label each card line prints (`data-lat-col`,
 		// drawn by `::before`) is part of the cell's accessible name instead. Measured identical in
 		// Chromium and WebKit; a regression here leaves values with no column at all.
-		const ax = await t.ariaSnapshot();
-		expect(ax).toContain('cell "Role Reviewer"');
-		expect(ax).toContain('cell "Status Open"');
+		//
+		// Polled, not read once: a single `ariaSnapshot()` 250ms into the first render came back "" on a nightly
+		// (2026-11-16, desktop), with the class and row display above already right and the final tree correct. Not
+		// reproduced since (130 runs at 4-6 workers, 4x CPU throttle; no hidden or aria-hidden ancestor in a
+		// frame-by-frame probe). The assertion waits for the tree it checks, so a cell with no column label still fails.
+		await expect.poll(() => t.ariaSnapshot()).toContain('cell "Role Reviewer"');
+		await expect.poll(() => t.ariaSnapshot()).toContain('cell "Status Open"');
 		const path = info.outputPath('three-rows-cards.png');
 		await page.screenshot({ path });
 		await info.attach('three-rows-cards.png', { path, contentType: 'image/png' });

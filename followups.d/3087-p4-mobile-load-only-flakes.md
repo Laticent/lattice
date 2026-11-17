@@ -67,6 +67,11 @@ also      — 2026-11-10, same PR: collage-lightbox.spec.ts:395 on gecko
             and gecko at 3), recorded nowhere before: back-gesture.spec.ts:183 (webkit-phone), switch-controls.spec.ts:97
             (webkit-tablet) and table-reflow-preview.spec.ts:71 (webkit-tablet; then 8 of 8 at 4 workers). Each failed once in its full run and passed 3 of 3 alone. Not
             compared against main; not investigated.
+            table-reflow-preview.spec.ts:47 (desktop) then failed once on the 2026-11-16 scheduled nightly: a one-shot
+            `ariaSnapshot()` of the cards table read "" about 250ms into the first render, with the final tree correct. Not
+            reproduced in 130 runs (4-6 workers, 4x CPU throttle). The fix branch fix/e2e-table-reflow-aria polls the
+            snapshot until the asserted cells appear; the cause (the accessibility tree lagging the first render) is a best
+            fit, not caught in a trace. :71 is a different assertion, already polled, and is unchanged.
 where     — the specs named above that the "fixed" entry does not name.
 done when — each failure is reproduced under full-project load and fixed at its cause, or 10 full
             mobile-project runs on main pass and this file is deleted with that evidence.
