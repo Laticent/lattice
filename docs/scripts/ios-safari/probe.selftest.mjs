@@ -9,6 +9,7 @@
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
+ *   PROBE=empty-deck [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # empty the deck, tap the start grid's canvas, read the caret
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
  */
@@ -209,6 +210,41 @@ if (process.env.PROBE === 'icon-grid') {
 		}
 	}
 	report('iPhone-sized', 'icon-grid-probe.js', { ok: !error, error, width: 393, steps });
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'empty-deck') {
+	// The empty-deck tap, as run.mjs runs it after the Compose tap: empty the deck, a real touch on the start grid's
+	// background, read the caret, put the deck back. A first visit (nothing stored), so the Studio opens in Compose.
+	const EMPTY = withEditorHelper(fs.readFileSync(path.join(here, 'empty-deck-probe.js'), 'utf8'));
+	for (const { label, options } of shapes) {
+		const context = await browser.newContext({ ...options, hasTouch: true });
+		const page = await context.newPage();
+		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		await page.addScriptTag({ content: EMPTY });
+		const steps = [];
+		const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+		let error;
+		try {
+			const prep = await page.evaluate(() => globalThis.latticeEmptyDeckPrep());
+			step('the start grid shows on the emptied deck, with a still point on its background', prep.hit, `${prep.x},${prep.y} under ${prep.under}, still ${prep.still} frames`);
+			step('the editor does not have the focus before the tap', !prep.focusedBefore);
+			if (prep.hit) {
+				await page.touchscreen.tap(prep.x, prep.y);
+				const seen = await page.evaluate(() => globalThis.latticeEmptyDeckRead());
+				step('a tap on the canvas gives the editor the focus', seen.focused, `active: ${seen.active}`);
+				step('a caret, not a range, sits in the empty line', seen.inLine && seen.caret, `in ${seen.where}`);
+				step('the start grid stays until something is typed', seen.shown);
+				if (process.env.SHOTS) await page.screenshot({ path: path.join(process.env.SHOTS, `empty-deck-${label}.png`) });
+			}
+			step('the saved deck is back, and the start grid stands down', await page.evaluate((t) => globalThis.latticeEmptyDeckRestore(t), prep.saved), `${prep.saved.length} characters`);
+		} catch (e) {
+			error = String(e.message || e);
+		}
+		const result = { ok: !error && steps.every((s) => s.pass), error, width: page.viewportSize()?.width, steps };
+		report(label, 'empty-deck-probe.js', result);
+		await context.close();
+	}
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }

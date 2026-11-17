@@ -109,7 +109,17 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
     landed. The flag now follows the editor's own text: set at creation, on every emitted edit, in `resyncFrom` and on an
     undo applied in place. `ComposeView.sync.test.tsx` holds the parked case; restoring the prop effect turns it red. A
     refused live merge takes the same path (the editor shows the author's text until the held change lands through
-    `resyncFrom`), but no test drives a two-browser live session into an empty deck: that case rests on the shared path.
+    `resyncFrom`). `filo-live.spec.ts` holds it (PR 3288): the host empties the deck while the guest composes; the grid
+    stays hidden while the guest's editor shows text and appears once the refused edit settles. Restoring the prop effect
+    put the grid over the composing text.
+- **A real touch on the canvas (PR 3288).** The phone hint says "tap here to start writing", and only Safari's own tap
+  path can show that the tap gives the editor the focus. The Studio iOS suites now run `empty-deck-probe.js` after the
+  Compose tap: it empties the deck through Source, sends one WebDriver touch on the start grid's own background (its
+  side padding, held still five frames), reads that the editor has the focus with a caret in the empty line and the grid
+  still up, then puts the deck back. `PROBE=empty-deck node scripts/ios-safari/probe.selftest.mjs` runs the same probe on
+  Playwright's WebKit at the iPad, iPad-Safari and iPhone sizes. Making the canvas click a no-op turned all three red.
+  WebKit's `delete` command left CodeMirror's text as it was, so the probe empties the deck with one space, which is blank
+  by the empty rule.
 - **Nothing moves (owner, 2026-11-17: "make sure there is no jank").** Two moves were measured on the real Studio and
   fixed. (1) The first build hid the slide bar with `display:none`, so the first letter brought it back above the line and
   pushed the text down under the author's caret: **94px on a phone, 54px on a desktop**, and Undo pulled it back up. The

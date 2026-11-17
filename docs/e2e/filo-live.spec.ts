@@ -345,6 +345,37 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await expect(guest.locator('.cs-host .cs-slide').first(), "the guest's Compose shows the host's change").toContainText('Gone');
 	});
 
+	// THE EMPTY STATE THROUGH A REFUSED MERGE (engineering/decisions/2026-11-17-compose-empty-deck.md §4). Compose's empty
+	// flag follows the text its editor shows, not the deck it is handed: while the guest's composition is held, the host
+	// empties the deck, and the guest's editor still shows text, so its start grid must stay hidden; when the refused edit
+	// settles and the host's empty deck lands, the grid must appear. A flag that followed the deck put the grid over the
+	// guest's composing text.
+	test('a refused edit while the co-editor empties the deck: the start grid follows what the editor shows', async ({ browser, browserName }, info) => {
+		test.skip(browserName !== 'chromium', 'IME composition is driven through the Chrome DevTools Protocol');
+		const pair = await liveSession(await sessionBrowser(browser), info);
+		const { host, guest } = pair;
+		await openCompose(guest);
+		await caretInCompose(guest, 0);
+		const grid = guest.locator('[data-start-grid]');
+		const ime = await guest.context().newCDPSession(guest);
+		await ime.send('Input.imeSetComposition', { text: 'に', selectionStart: 1, selectionEnd: 1 });
+		await bothHold(pair, (s) => s.includes('Body one.に'), "the guest's composing character crossed");
+		// The host empties the whole deck in Source while the guest is still composing.
+		await setEditorContent(host, '');
+		await expect.poll(() => sourceOf(host), { message: 'the host emptied the deck' }).toBe('');
+		// Held for the composition: the guest's editor still shows its text, so no start grid over it.
+		await expect(guest.locator('.cs-host .cs-slide').first(), 'the guest still sees its composing text').toContainText('に');
+		await expect(grid, 'the start grid appeared over the guest\'s composing text').toBeHidden();
+		// The guest's IME turns its character into another: an edit to text the host has removed, refused.
+		await ime.send('Input.imeSetComposition', { text: 'ニ', selectionStart: 1, selectionEnd: 1 });
+		await ime.send('Input.insertText', { text: 'ニ' });
+		await expect(guest.getByText('Someone edited that part at the same moment', { exact: false }).first(), 'the guest is told').toBeVisible({ timeout: 20_000 });
+		// Settled: the host's empty deck is on the guest's screen, and so is the start grid.
+		await expect.poll(() => sourceOf(guest), { message: "the guest never took the host's empty deck", timeout: 20_000 }).toBe('');
+		await expect(guest.getByRole('region', { name: 'Start your deck' }), 'the start grid did not come back with the empty deck').toBeVisible({ timeout: 20_000 });
+		await expect(guest.locator('.cs-slide-bar').first()).toBeHidden();
+	});
+
 		test("Compose's pill undoes each person's own edit, and only theirs", async ({ browser }, info) => {
 		const pair = await liveSession(await sessionBrowser(browser), info);
 		const { host, guest } = pair;
