@@ -120,6 +120,10 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   Playwright's WebKit at the iPad, iPad-Safari and iPhone sizes. Making the canvas click a no-op turned all three red.
   WebKit's `delete` command left CodeMirror's text as it was, so the probe empties the deck with one space, which is blank
   by the empty rule.
+  On the iPhone simulator (run 44087025343) every tap check passed; the first build's clean-up then failed, because the
+  restored deck never reached Compose: the tap had left Compose focused, Compose parks an outside change until it loses
+  focus, and a script's `focus()` into Source did not seem to take it away there. A person's tap into Source does. The
+  restore now leaves the editor first, as the prep always did, and on a failure says what Compose and Source each hold.
 - **Nothing moves (owner, 2026-11-17: "make sure there is no jank").** Two moves were measured on the real Studio and
   fixed. (1) The first build hid the slide bar with `display:none`, so the first letter brought it back above the line and
   pushed the text down under the author's caret: **94px on a phone, 54px on a desktop**, and Undo pulled it back up. The

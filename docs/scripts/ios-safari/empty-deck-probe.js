@@ -139,9 +139,21 @@ globalThis.latticeEmptyDeckRead = async () => {
 };
 
 globalThis.latticeEmptyDeckRestore = async (text) => {
-	const { until, grid, replaceSource, showCompose } = latticeEmptyDeckParts();
+	const { until, pm, grid, replaceSource, showCompose } = latticeEmptyDeckParts();
+	// Off the editor first, as the prep does. The tap left Compose focused, and Compose parks an outside change until it
+	// loses focus (ComposeView `pendingResyncRef`). A person's tap into Source moves the focus; on the iOS Simulator a
+	// script's `focus()` did not seem to (run 44087025343: the restored deck never reached Compose in 10 s).
+	document.activeElement?.blur?.();
+	getSelection()?.removeAllRanges();
 	await replaceSource(text);
 	await showCompose();
-	if (text.trim()) await until(() => !grid(), 10000, 'the start grid to stand down on the restored deck');
+	if (text.trim()) {
+		try {
+			await until(() => !grid(), 10000, 'the start grid to stand down on the restored deck');
+		} catch (e) {
+			const el = document.querySelector('[aria-label="Deck source"]');
+			throw new Error(`${e.message}; Compose shows ${pm()?.textContent.length ?? 'no editor'} characters, Source holds ${el ? el.textContent.length : 'no editor'}, focus on ${document.activeElement ? String(document.activeElement.className).slice(0, 40) : 'none'}`);
+		}
+	}
 	return true;
 };
