@@ -2524,7 +2524,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				{/* Lens switch — the shared LensPicker (same widget as the editor's preview
 				    header), centered. Was a horizontally-scrolling chip row that clipped. */}
 				<div className="flex min-w-0 flex-1 justify-center">
-					<LensPicker value={lens} onChange={pickLens} count={count} total={slides.length} align="center" lenses={lensEntries} menuClassName="z-[130] bg-card shadow-xl" />
+					<LensPicker value={lens} onChange={pickLens} count={count} total={slides.length} align="center" lenses={lensEntries} menuClassName="bg-card shadow-xl" />
 				</div>
 				{/* Only surfaced while zoomed — the way back to fit for a presenter who
 				    pinched to make a point and now needs the whole slide again. A pinch-in
@@ -2539,7 +2539,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 							<button type="button" aria-label={`Venue: ${venueOption(shownVenue)?.label ?? 'Default'}`} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', venuePick !== undefined && venuePick !== authoredVenue ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Users className="size-4" /><span className="hidden md:inline">{venueOption(shownVenue)?.label ?? 'Venue'}</span></button>
 						</DropdownMenuTrigger>
 					</Tip>
-					<DropdownMenuContent align="end" className="z-[130] w-60 bg-card shadow-xl">
+					<DropdownMenuContent align="end" className="w-60 bg-card shadow-xl">
 						<DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Room size · this showing</DropdownMenuLabel>
 						<DropdownMenuItem onSelect={() => setVenuePick(null)}>Default<span className="ml-2 text-muted-foreground">designed size</span>{shownVenue === null && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
 						{VENUES.map((v) => (

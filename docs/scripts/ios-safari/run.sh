@@ -7,7 +7,8 @@
 # simulators and then in the Mac's own Safari. PROBE=chat-storage checks that chats move from localStorage to IndexedDB
 # across a reload, and measures the localStorage allowance (chat-storage-probe.js), against the site in both simulators. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
 # cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
-# photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=office opens each one-slide editable .pptx that
+# photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=player-charts
+# exports two decks to HTML players and taps their chart detail cards open and shut (player-charts.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
 # and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
@@ -73,6 +74,16 @@ elif [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ]; then
   (cd "$page" && python3 -m http.server $PORT > "$OUT/preview.log" 2>&1) &
   server=$!
   ready="http://localhost:$PORT/"
+elif [ "$PROBE" = player-charts ]; then
+  # Two decks exported to standalone HTML players with the real CLI (player-charts.mjs): the test deck and the checker's
+  # hostile deck. The export renders through Puppeteer's Chrome, which npm ci installed. A plain server is all they need.
+  page="$RUNNER_TEMP/player-charts-page"
+  mkdir -p "$page"
+  node lattice.js examples/chart-detail-reveal.md "$page/chart-detail-reveal.html" --player -q
+  node lattice.js docs/scripts/ios-safari/player-charts-hostile.md "$page/hostile.html" --player -q
+  (cd "$page" && python3 -m http.server $PORT > "$OUT/preview.log" 2>&1) &
+  server=$!
+  ready="http://localhost:$PORT/chart-detail-reveal.html"
 else
   # The docs site, served the way the e2e suite serves it. The workflow's docs-site job builds it once on Linux and this
   # job downloads it into docs/dist (D1 B on #3034: that build cost each macOS job 65-94 s); serving still needs docs'

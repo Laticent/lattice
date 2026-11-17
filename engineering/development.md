@@ -657,6 +657,16 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
   `PROBE=present-memory [BASELINE_URL=<url>] node docs/scripts/ios-safari/probe.selftest.mjs` runs the same steps in
   Playwright's WebKit at iPhone size, without the footprint, so it proves the probe's steps, not the finding.
+  `ios-safari-player-charts-ipad` and `ios-safari-player-charts-iphone` run it with `PROBE=player-charts` (#3259): chart
+  detail cards in an EXPORTED HTML player, the only check that reaches them in Safari. `run.sh` exports
+  `examples/chart-detail-reveal.md` and the checker's hostile deck (`player-charts-hostile.md`, an author `style` that once
+  covered the whole player) with the real CLI and serves the two files; no docs build. `player-charts.mjs` holds the sequence
+  and its checks, and `player-charts-probe.js` the page side: a WebDriver touch on a funnel band pins its card, which must sit in
+  the top layer, inside the visible viewport and never under the finger, take touches, close on a second tap and on a tap
+  elsewhere, and never turn the slide; in the hostile deck nothing the author styled may cover the player. A touch log records
+  where each tap landed and which mark it hit, so a tap that missed and a card that did not open read differently.
+  `PROBE=player-charts node docs/scripts/ios-safari/probe.selftest.mjs` runs the same sequence in Playwright's WebKit with its
+  touchscreen, at iPad and iPhone size.
   `ios-safari-font-cache` runs it with `PROBE=font-cache` (#3087, D2 A): does Safari read the Studio's warmed fonts
   (`studio-warm.ts`, 31 faces, about 2.7 MB) from its HTTP cache? `run.sh` serves the built site with
   `font-cache-server.mjs` instead of `preview:e2e`: GitHub Pages' `max-age=600` on every file, a 404 for `sw.js` (the
@@ -1178,6 +1188,28 @@ shifts every pixel.
 - **A service worker from a prior `astro preview` can shadow `astro dev`**
   (same origin) → dev builds self-unregister on load; one reload clears it.
 
+### What the docs site tells crawlers and agents
+
+`docs/src/lib/discovery.mjs` is the one list of which pages are indexable, and it builds
+`/robots.txt` and `/llms.txt`. The sitemap filters with the same list. Every route that writes
+its own `<head>` includes `docs/src/components/site/PageMeta.astro` for its canonical link and
+Open Graph card. A new `noindex` page goes in `NOINDEX_PREFIXES` too: `docs/scripts/check-discovery.mjs`
+runs after `astro build` and fails when a page and the list disagree, or when a page is missing
+its canonical link. The sitemap's `lastmod` is each page's last content commit
+(`docs/src/lib/lastmod.mjs`); a shallow checkout omits it. `docs/scripts/md-twins.mjs` writes a
+plain-Markdown copy of every article page at its path plus `.md` (a component page's copy is its
+`.docs.md`) and fails the build on a copy that leaks markup.
+The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make-og-card.js`
+(committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
+slides it uses).
+
+`docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives each page that
+cannot build a preview frame a strict, hash-based Content-Security-Policy. **An inline script on
+such a page is fine** (it is hashed at build); a script built at run time, an inline event handler
+(`onerror=`), or a fetch to another origin is blocked, and `docs/e2e/site-csp.spec.ts` fails on it.
+Pages that can build a preview frame carry no policy until stage 2
+(`followups.d/3277-p1-csp-frame-pages.md`). Why: `engineering/decisions/2026-11-17-site-discovery.md`.
+
 ### The docs site is an installable PWA (offline cache)
 
 The site ships a web-app manifest (`docs/public/site.webmanifest`, icons
@@ -1305,6 +1337,34 @@ nightly by hand on your branch with its `spec` input (Actions → Studio E2E nig
 workflow, or `workflow_dispatch` with `spec: e2e/<name>.spec.ts`). It runs only those specs,
 across every project, and files nothing on the rolling issue (only a scheduled or unfiltered
 run on `main` does).
+
+**The nightly's eight `e2e` legs are dealt by measured time, not by Playwright's `--shard`.**
+`--shard=K/N` cuts the test list into equal counts in project order, so every WebKit and Gecko
+test landed in the last legs (2026-11-16: legs 7 and 8 at 38.7 and 43.9 min against the
+45-minute step, leg 1 at 22.1). Each leg sets `E2E_SHARD=K/8` instead, and
+`playwright.config.ts` gives every project the spec files it runs in that leg
+(`docs/e2e/shard-plan.mjs`). The unit is one (project, spec file) pair. A pair with a weight in
+`docs/e2e/shard-weights.json` (seconds) is dealt longest-first by `tools/shard-tests.js`'s
+`plan()`, the balancer the unit and integration legs use, **one project at a time, into the
+legs' running totals** (`plan()`'s `seed`), lightest project first. Dealing per project keeps
+each big engine even: on the committed weights desktop, gecko, webkit-tablet and webkit-phone
+each sit within 0.1 min per leg, and a small project with one big pair (compose-default's 6-minute
+`lessons`) lands early, with the big engines' many small pairs filling around it. It matters
+because an engine's speed moves from night to night: on 2026-11-17 webkit-tablet ran about 30%
+over its weights, and one plan over all pairs had put 1.7 min of webkit-tablet in one leg and 6.4
+in another. Replays of five nights' measured seconds read 1.01-1.03x the mean, but treat that as
+optimistic: **heavy specs that share a leg slow each other** (about +55% on 2026-11-17), so a
+plan's own run measures worse than a replay predicts. A pair with no weight goes to the leg a
+hash of its name picks, so a new spec spreads out rather than piling into one leg. Every pair
+lands in exactly one leg: check with `E2E_SHARD=K/8 npx playwright test --list` for each K, whose
+union is the unsharded `--list` with no duplicates. Unset, nothing changes, so a laptop and the
+per-PR jobs run as before.
+
+**Re-bless the weights** when the legs drift past about 1.5x their mean. Download
+`studio-e2e-text-1` to `-8` from three or more recent **scheduled** runs (a dispatch can run a
+subset, and its pairs would read as cheap), unzip each into `r<run id>-<K>/`, then run
+`node scripts/e2e-shard-bless.mjs <dir>` from `docs/`. It prints each run's measured legs and the
+plan the new weights would give (test seconds over 2 workers), and `--write` rewrites the weights.
 
 **`@perf` — the preview render-path measurement** (`e2e/studio-preview-perf.spec.ts`). Reports
 raw per-render RENDER / FRAME / TOTAL for the two interactions that drive a preview render —

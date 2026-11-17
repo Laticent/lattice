@@ -67,9 +67,10 @@ jobs:
     # 45-minute step every scheduled night from 2026-09-22: on 2026-10-28 it reached test 509 of 2,118
     # (about 5.2 s a test on two workers, so the suite needs about 185 minutes). Eight legs is about 23
     # minutes each, inside the same 45-minute step with room for the suite to double; four would have
-    # been about 46. Each leg runs `--shard=K/8` and uploads its own report and verdict, and the
+    # been about 46. Each leg runs one time-balanced eighth (E2E_SHARD=K/8) and uploads its own report and verdict, and the
     # `e2e-report` job below reads all eight and files or stands down the ONE rolling issue. Re-derive
-    # the count from a full run's per-leg times; if the legs drift past ~1.5x their mean, rebalance.
+    # the count from a full run's per-leg times; if the legs drift past ~1.5x their mean, re-bless
+    # docs/e2e/shard-weights.json (`node docs/scripts/e2e-shard-bless.mjs`, engineering/development.md).
     strategy:
       fail-fast: false
       matrix:
@@ -162,7 +163,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/studio-e2e-text"
           # `--pass-with-no-tests`: a filtered dispatch (one spec) leaves most legs with nothing to run,
           # and an empty leg is not a failure.
-          if npm run test:e2e -- --grep-invert "@perf|@player-parity" --shard="${SHARD}" --pass-with-no-tests "${specs[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-text/report.txt"; then
+          if npm run test:e2e -- --grep-invert "@perf|@player-parity" --pass-with-no-tests "${specs[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-text/report.txt"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
             echo "failed=false" > "$GITHUB_WORKSPACE/studio-e2e-text/verdict.txt"
           else
@@ -173,7 +174,10 @@ jobs:
         env:
           CI: 'true'
           SPEC: ${{ inputs.spec }}
-          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+          # Not `--shard`: playwright.config.ts reads this and gives each project the spec files it runs in
+          # this leg, dealt by measured seconds (e2e/shard-plan.mjs, e2e/shard-weights.json). `--shard`
+          # split by test COUNT in project order and stacked WebKit and Gecko into legs 7 and 8.
+          E2E_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
 
       # The leg's report text and verdict, for the `e2e-report` job. A leg whose run step timed out
       # writes no verdict, and the report job reads that absence as a failure, never as a pass.

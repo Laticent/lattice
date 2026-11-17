@@ -514,3 +514,80 @@ warning, the same on a fresh dev server of main `af00ca3`.
   renders as a slide. About 15 files in lib/ (some on the render path: `resolve-preset`, `resolve-pace`,
   `settings-block-fold`, `deck-front-matter`; the Marp export), and about 30 in docs/src and tools/. Each move is a
   behavior change of its own. followups.d/3042-p3-front-matter-fence-copies.md lists them.
+
+## 12. Step 4, first family: the single-value registers (2026-11-17)
+
+Built on `claude/squadra-front-matter-register-qiok7q`, cut from `main` at `5c4be2f`. No consumer reads these rules yet
+(§7: steps 5 and 6 land together), so nothing a deck author sees changes.
+
+**What moved.** 23 of lint-core's front-matter validators, the ones that check one register against one closed list:
+`finish`, `mode`, `claim`, `stamp`, `tone`, `spectrum`, `spectrum-edge`, `spectrum-card`, `spectrum-card-edge`,
+`spectrum-trim`, `rule`, `eyebrow`, `headline`, `corners`, `lift`, `cards`, `split`, `inline-code`, `venue`, `preset`,
+`pace`, `delivery` and `color-mode`, each now `deck/unknown-<key>` (`deck/unknown-tone` for `tone:`, as lint-core named
+it). They shared one shape and differed in four things (the key, the list, how the line was read, the sentence), so they
+are one factory (lib/authoring/rules/front-matter/register-value.js) and one row each (front-matter/index.js), with a
+fixtures file per rule. Each reads the `front-matter` node's `fm-key` children and never the text; the message and the
+hint are lint-core's word for word; the fix is the did-you-mean lint-core attached (`withTokenSuggestion`), as an `edits`
+replace on the value's own span.
+
+**How a row reads its line.** `pick` is `loose` (the last column-0 line, else the first indented one: `looseKey`, which
+every register resolver reads through) or `top` (column 0 only: `color-mode:` and `preset:`, whose resolvers read only
+that). `value` is `scalar` (the shared scalar rule, `frontMatterScalar`), `bare` (the scalar rule, then a bare name:
+`frontMatterName`) or `venue` (lint-core's own pattern, any text up to a quote or `#`).
+
+**One deliberate change.** lint-core's 17 bare-name validators matched `^…:\s*["']?([A-Za-z0-9_-]+)["']?\s*$`, so
+`finish: hallo  # for the board` failed to match and the rule said nothing while the engine read `hallo` and drew no
+backdrop. `inline-code:`, `pace:`, `color-mode:` and `preset:` had been moved onto the scalar rule for exactly this; the
+17 had not. The port reads them through it. That is a defect on the surface this change lints, so it is fixed here
+(HARD RULE #18), pinned by a `comment` example in every row's fixtures, and the findings it adds are listed as intended
+in tools/squadra/explained.json. The reading the port shares with lint-core is otherwise held at 0 by the diff.
+
+**The vocab bridge keeps a register's order.** It sorted every list, so the stamp would not depend on manifest load
+order. A register's names are a code constant whose order means something: the hint prints it ("Use one of: on, solid,
+duo, mono, off", the default first) and the did-you-mean takes the FIRST name at the best edit distance, so sorted,
+`spectrum: of` became `off` where lint-core wrote `on`. The 23 lists the family reads now cross in their authored order
+(`ORDERED` in lib/authoring/squadra/vocab.js); a unit test holds `ORDERED` to exactly the rows' lists.
+
+**A rule that reads a list is refused without it.** `lintDeck(src)` with no vocabulary now reports each of the 23 as
+`squadra/rule-refused` (`unknown-vocab`), as §10 said it would; the unit test that linted with none passes the
+vocabulary, and pins the refusal.
+
+**`lattice-deck` reads a bundle deck's settings block as front matter.** The first full diff found one finding only
+lint-core had: `finish: atriumm` written in a `<script type="application/lattice-settings">` block under the front
+matter. The engine folds that block into the front matter before it reads anything (lib/engine/index.js,
+`foldSettingsBlock`), and so does lint-core; step 3's island read only the `---` block, so every fm-key rule was blind
+to it. `lattice-deck` now reads the folded front matter, as the engine does. The fold keeps every line on its number, so
+each key maps back to its own line and column in the author's text (`settingsFold`), and `locate` puts a finding in the
+block on slide 0. A block key that repeats a front-matter key wins, as the fold makes it: the front matter's line is not
+read. Pinned on LF and CRLF in test/unit/authoring/squadra-front-matter-registers.test.js; with the fold switched off
+that test goes red.
+
+**The venue read is a scan, not lint-core's pattern.** The regex census (HARD RULE #32) calls
+`^[ \t]*["']?([^"'#\n]*?)["']?[ \t]*(?:#.*)?$` polynomial. `readVenue` scans instead; over every string of up to six
+characters from blank, tab, two letters, both quotes, `#` and `-` (299,593 strings) it returns what the pattern did.
+
+**Review.** One independent checker (maker-checker, the plan's tier for a family) ran about 90 edge inputs against
+lint-core and found three things, all fixed here: the settings block above (it found it at the same time as the diff);
+`explained.json` not yet listing the deliberate change; and mismatched quotes (`mode: "sketchy'`), which the engine
+reads as no name and lint-core reported, going silent in the port. A bare row now falls back to lint-core's token read
+when the scalar rule gives no name, pinned in the unit test. It also found four places where the port is better than
+lint-core, none in the corpus: a key line inside a block scalar's body (lint-core reported it; the engine never reads
+it); Fix all doing nothing on a BOM deck, on `mode : x`, or after a `---x` closer; and a repeated identical line, which
+lint-core rewrote twice and the port fixes once, on the line the engine reads.
+
+**The edge table (the card grader's raise, 2026-11-17).** The grader held Evidence at `high` because the corpus held only
+2 to 11 findings per rule. A unit test now runs every row against lint-core over ten value shapes and nine layouts
+(2,070 inputs: CRLF, `key :`, nested, repeated, tabs, a settings block, a block scalar's body), and asserts parity on
+the 1,700-odd that are not one of the two deliberate classes; those it holds on the Squadra side only. Since the test
+calls lint-core, the diff's recording picks the inputs up. Failing arm: changing one row's message turned the table
+red on `unknown-mode`; restored. Green five times alone and under four parallel files. The diff then found one more
+kind of difference, in Fix all only: on a `key :` line lint-core reports the typo but names the line as `key: value`
+(its scan normalizes the blank away), which is not a line of the source, so its fix does nothing; the port fixes it.
+94 sources, every fixable row. `explained.json` names them with one entry per rule that matches the source text
+(`^<key>[ \t]+:`) and requires lint-core's fix to have left the source unchanged (`lintCoreNoop`), a field the diff
+tool gained for this (pinned in squadra-lattice-deck.test.js), instead of 94 recording indexes.
+
+The final run (`squadra:reference-diff -- --fix`, lint-core at `5c4be2fee`): 94,442 sources (60,898 test inputs, 33,017
+mutated decks, 527 tracked decks); 23 rules, 26 to 49 findings each, every one matched except the explained `hallo`;
+Fix all identical on 93,129, the 95 that differ on these rules all explained, 1,218 differing only on rules not yet
+migrated. PASS, exit 0.

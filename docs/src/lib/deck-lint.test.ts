@@ -157,9 +157,9 @@ describe('slideClass (fuzz)', () => {
 			FC,
 		);
 		// Bare-Markdown slide (no _class) and degenerate inputs fall back to `text`.
-		expect(slideClass('## Just a heading\n\nSome prose.')).toBe('text');
-		expect(slideClass('')).toBe('text');
-		expect(slideClass(undefined as unknown as string)).toBe('text');
+		expect(slideClass('## Just a heading\n\nSome prose.')).toBe('content');
+		expect(slideClass('')).toBe('content');
+		expect(slideClass(undefined as unknown as string)).toBe('content');
 	});
 
 	// CORRECTED 2026-09-05, and the correction is the interesting part: this test used to
@@ -169,7 +169,7 @@ describe('slideClass (fuzz)', () => {
 	// a `---` to merge two slides, so the rail was naming the slide that got absorbed.
 	it('names a panes slide `panes`: its two components are the panes\', not the slide\'s', () => {
 		expect(slideClass('## Title\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| a |\n|---|\n| 1 |\n')).toBe('panes');
-		expect(slideClass('## Title\n\n<!-- pane: list -->\n\n- a\n')).toBe('text'); // one marker carves nothing
+		expect(slideClass('## Title\n\n<!-- pane: list -->\n\n- a\n')).toBe('content'); // one marker carves nothing
 	});
 
 	// Every marker spelling is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`, record note §5.4.1).
@@ -181,8 +181,8 @@ describe('slideClass (fuzz)', () => {
 		expect(slideClass(two('<!-- {footer=x, pane="list"} -->', '<!-- {pane="table", footer=y} -->'))).toBe('panes');
 		expect(slideClass(two('<!-- lat-meta: {"carry":false,"d":{"pane":"list"}} -->', '<!-- lat-meta: {"carry":false,"d":{"pane":"table"}} -->'))).toBe('panes');
 		expect(slideClass(two('<!-- _pane: list -->', '<!-- {pane="table"} -->'))).toBe('panes');
-		expect(slideClass('## Title\n\n<!-- {pane="list"} -->\n\n- a\n')).toBe('text');
-		expect(slideClass(two('<!-- {footer=x} -->', '<!-- {footer=y} -->'))).toBe('text');
+		expect(slideClass('## Title\n\n<!-- {pane="list"} -->\n\n- a\n')).toBe('content');
+		expect(slideClass(two('<!-- {footer=x} -->', '<!-- {footer=y} -->'))).toBe('content');
 	});
 
 	it('reads the LAST class when a slide carries two — the one the engine applies', () => {
@@ -494,7 +494,7 @@ describe('usedComponents / slideClass agree with the engine about what a directi
 	];
 	for (const [what, src] of IGNORED) {
 		it(`ignores ${what}`, () => {
-			expect(slideClass(src)).toBe('text');
+			expect(slideClass(src)).toBe('content');
 			expect(usedComponents(src)).toEqual([]);
 		});
 	}
@@ -527,7 +527,7 @@ describe('slideClasses: a slide that only inherits a running class is named by i
 	it('carries a running class across heading parts and `---` slides, and a spot class stays on its slide', () => {
 		const parts = ['<!-- class: image -->\n## One\n\n![A](a.jpg)', '## Two\n\n![B](b.jpg)', '<!-- _class: kpi -->\n## Three', '## Four'];
 		expect(slideClasses(parts)).toEqual(['image', 'image', 'kpi', 'image']);
-		expect(slideClasses(['<!-- _class: image -->\n## A', '## B'])).toEqual(['image', 'text']);
+		expect(slideClasses(['<!-- _class: image -->\n## A', '## B'])).toEqual(['image', 'content']);
 	});
 	it('reads one slide as `slideClass` does, and a pasted photo is cut short before the scan', () => {
 		expect(slideClasses(['<!-- _class: quote -->\n> x'])).toEqual(['quote']);

@@ -57,11 +57,20 @@ function caretIn(view: EditorView, needle: string, after = false) {
 }
 
 describe('what an image source is', () => {
-	it('tells a Library photo, an embedded photo and everything else apart', () => {
+	it('tells a Library photo, an embedded photo, sample art and everything else apart', () => {
 		expect(imageSourceKind('asset:harbor')).toBe('asset');
 		expect(imageSourceKind('data:image/png;base64,iVBORw0KGgo=')).toBe('data');
 		expect(imageSourceKind('https://example.com/x.png')).toBe('other');
-		expect(imageSourceKind('sample:harbor')).toBe('other');
+		// The Studio's own sample art is drawn from its own folder (owner, 2026-11-17): the engine's shape only, so a path or an
+		// empty name stays a stand-in.
+		expect(imageSourceKind('sample:harbor')).toBe('sample');
+		expect(imageSourceKind('sample:portrait-ada.svg')).toBe('sample');
+		expect(imageSourceKind('sample:../secrets.svg')).toBe('other');
+		expect(imageSourceKind('sample:')).toBe('other');
+		expect(imageSourceKind('sample:a/b.svg')).toBe('other');
+		// The engine refuses `..` in a sample name; so does Compose.
+		// Built, not written whole: sample-images.test.js fails on any literal `sample:` name with no file.
+		expect(imageSourceKind(['sample:', 'a..b.svg'].join(''))).toBe('other');
 		expect(imageSourceKind('./local.png')).toBe('other');
 		// Not an image type, so not drawn from the document: a data URI of any other kind could be markup.
 		expect(imageSourceKind('data:text/html;base64,PGI+')).toBe('other');

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { acceptCompletion, appendToEditor, CHROME, expect, gotoStudio, isPhone, openSection, persistedSource, setEditorContent, test, typeDeck, watchMenuOpen } from './studio-fixture';
+import { acceptCompletion, appendToEditor, CHROME, expect, gotoStudio, isPhone, openSection, openSlideSettings, persistedSource, setEditorContent, test, typeDeck, watchMenuOpen } from './studio-fixture';
 
 // Editing a slide-metadata RECORD (`<!-- {layout=kpi, note="…"} -->`) in the real Studio (record note step 3,
 // engineering/decisions/2026-10-17-meta-record.md §9). The drawer and Compose are driven by
@@ -9,13 +9,7 @@ import { acceptCompletion, appendToEditor, CHROME, expect, gotoStudio, isPhone, 
 // record). Asserted on the persisted source, which is what the engine reads (a JSON string, so quotes are `\"`).
 
 async function openSlideSection(page: Page, name: string): Promise<void> {
-	// At 390px the bottom bar's Settings opens both scopes behind a Slide | Deck switch.
-	const slideButton = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
-	if (await slideButton.count()) await slideButton.first().click();
-	else {
-		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
-		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
-	}
+	await openSlideSettings(page);
 	await openSection(page, name);
 }
 

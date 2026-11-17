@@ -159,15 +159,18 @@ describe('the Lattice entry', () => {
     assert.deepEqual(out.map((f) => [f.rule, f.data.code]), [['squadra/rule-refused', 'not-verified']]);
   });
 
-  test('the committed ruleset loads clean against the committed digests', () => {
-    const rs = deckRuleset();
+  test('the committed ruleset loads clean against the committed digests, with the vocabulary the build verified it on', () => {
+    const vocab = require('../../../lib/authoring/lint').buildVocab();
+    const rs = deckRuleset(vocab);
     assert.deepEqual(rs.refused, []);
-    assert.deepEqual(lintDeck('# Hi\n'), []);
-    assert.equal(fixDeck('# Hi\n').text, '# Hi\n');
+    assert.deepEqual(lintDeck('# Hi\n', { vocab }), []);
+    assert.equal(fixDeck('# Hi\n', { vocab }).text, '# Hi\n');
+    // Without it, a rule that reads a list is refused, visibly, never run on an empty list.
+    assert.ok(deckRuleset({}).refused.some((r) => r.code === 'unknown-vocab'));
   });
 
-  test('the vocab bridge carries string lists, sorted, and drops structured fields', () => {
-    assert.deepEqual(squadraVocab({ names: new Set(['b', 'a']), capacity: { x: 1 }, finishNames: ['z', 'y'], n: 3 }), { names: ['a', 'b'], finishNames: ['y', 'z'] });
+  test('the vocab bridge carries string lists, sorted, keeps a register\'s names in order, and drops structured fields', () => {
+    assert.deepEqual(squadraVocab({ names: new Set(['b', 'a']), capacity: { x: 1 }, finishNames: ['z', 'y'], themeNames: ['z', 'y'], n: 3 }), { names: ['a', 'b'], finishNames: ['z', 'y'], themeNames: ['y', 'z'] });
   });
 });
 
@@ -253,6 +256,19 @@ describe('the reference diff: matching and explanations', () => {
     assert.ok(explain(entries, 'x', 'lint', 'known gap'));
     assert.equal(explain(entries, 'x', 'lint', 'other'), null);
     assert.equal(explain(entries, 'x', 'fix', 'known gap'), null);
+    assert.equal(entries[0].hits, 1);
+  });
+
+  test('a fix explanation can require the source text and that lint-core\'s fix did nothing', () => {
+    const entries = [{ rule: 'x', kind: 'fix', re: /./, text: /^mode[ \t]+:/m, lintCoreNoop: true, why: 'intended', hits: 0 }];
+    const src = '---\nmode : sketchh\n---\n';
+    assert.ok(explain(entries, 'x', 'fix', 'test input 1', { text: src, oldText: src }));
+    // lint-core changed the source: not the edge the entry names.
+    assert.equal(explain(entries, 'x', 'fix', 'test input 1', { text: src, oldText: src.replace('sketchh', 'sketch') }), null);
+    // a different source text.
+    assert.equal(explain(entries, 'x', 'fix', 'test input 1', { text: '---\nmode: sketchh\n---\n', oldText: '---\nmode: sketchh\n---\n' }), null);
+    // a fix entry with text and no source to read cannot explain anything.
+    assert.equal(explain(entries, 'x', 'fix', 'test input 1'), null);
     assert.equal(entries[0].hits, 1);
   });
 });

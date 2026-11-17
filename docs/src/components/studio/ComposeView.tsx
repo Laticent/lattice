@@ -31,6 +31,7 @@ import { activeRegister, applicableRegisters, applyRegister, type Reg, type Slid
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { applySlideLayout, layoutBlocker, restoreSlide, type SlideLayoutChoice, slideComponent, slideFit, slideStarter } from '@/lib/compose/slide-layout';
 import { stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { isBlankDeck } from '@/lib/deck-empty';
 import { type CarriedColumn, lineOffsetIn, plainColumnOf, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { ensurePluginData } from '@/lib/ensure-plugin-data';
 import type { FindTarget } from '@/lib/find-types';
@@ -621,11 +622,11 @@ function paneBar(view: EditorView, getPos: () => number | undefined, info: { dir
 	change.className = 'cs-pane-change';
 	change.disabled = locked || !open;
 	change.title = locked ? 'This slide is edited in Source' : 'Change what this pane holds';
-	change.setAttribute('aria-label', `${where} holds ${pane.cls === 'content' ? 'text' : pane.cls}. Change what this pane holds`);
+	change.setAttribute('aria-label', `${where} holds ${pane.cls}. Change what this pane holds`);
 	change.setAttribute('aria-haspopup', 'dialog');
 	const name = document.createElement('span');
 	name.className = 'cs-pane-name';
-	name.textContent = pane.cls === 'content' ? 'text' : pane.cls;
+	name.textContent = pane.cls;
 	const verb = document.createElement('span');
 	verb.className = 'cs-pane-verb';
 	verb.textContent = 'Change';
@@ -1256,7 +1257,7 @@ class SlideView {
 	/** Name the slide's component on both buttons, and disable them on a slide Compose cannot rewrite. */
 	private syncLayout() {
 		const cls = slideComponent(this.node);
-		const shown = cls === 'content' ? 'text' : cls;
+		const shown = cls;
 		const blocked = layoutBlocker(this.node);
 		const sig = `${shown}|${blocked}|${!!this.openLayout}`;
 		if (sig === this.layoutSig) return;
@@ -2435,7 +2436,15 @@ export function refinableRange(state: EditorState): { from: number; to: number }
 	return clean ? { from, to } : null;
 }
 
+/** What Compose tells the shell about an empty deck: whether it is blank (from the text Compose itself emits, so the first
+ *  keystroke reports it in the same frame), and the empty line's bottom edge in client pixels, where the shell's start grid
+ *  begins. The grid lives in the shell, not here: Compose unmounts on a switch to Source, Read or a lens, and a grid inside it
+ *  rebuilt its four preview frames on every return (the checker on #3273, 4 → 8 → 12). */
+export type EmptyState = { blank: boolean; lineBottom: number | null };
+
 export type ComposeHandle = {
+	/** Put the caret on a blank deck's empty line and focus it: the shell's start grid calls it on a tap outside its controls. */
+	focusEmptyLine: () => void;
 	/** The caret's column in its block, in the plain form both editors share (caret-line.ts), or null with no text caret. */
 	caretColumn: () => CarriedColumn;
 	/** The text Refine would rewrite: a selection inside one textblock of an editable slide, as plain text. */
@@ -2488,7 +2497,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: (peek?: boolean) => { slide: number; line?: string | null; col?: CarriedColumn; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLayoutMenu?: (req: LayoutRequest) => void; onFind?: () => void; onView?: () => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string; live?: boolean }>(function ComposeView({ source, onChange, onHistory, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLayoutMenu, onFind, onView, onOpenLibrary, pluginKinds, onRetire, describeDelete, live = false }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: (peek?: boolean) => { slide: number; line?: string | null; col?: CarriedColumn; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLayoutMenu?: (req: LayoutRequest) => void; onFind?: () => void; onView?: () => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string; live?: boolean; emptyStart?: boolean; onEmpty?: (e: EmptyState) => void }>(function ComposeView({ source, onChange, onHistory, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLayoutMenu, onFind, onView, onOpenLibrary, pluginKinds, onRetire, describeDelete, live = false, emptyStart = false, onEmpty }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2542,6 +2551,47 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	const [failed, setFailed] = React.useState(false);
 	// A change painted by the flash that is out of view: a chip says how many lines are above or below and scrolls to the nearest on a tap.
 	const [flashChip, setFlashChip] = React.useState<{ dir: 'above' | 'below'; n: number; pos: number } | null>(null);
+	// AN EMPTY DECK IS DRAWN EMPTY (engineering/decisions/2026-11-17-compose-empty-deck.md). The schema still holds one empty
+	// slide (`doc → slide+`), but while the deck is blank (`isBlankDeck`) Compose draws none of its chrome: one empty line to
+	// write on, as Source shows, and the host's start grid (`emptyStart`) under it. Read from the text Compose itself emits,
+	// so the first keystroke clears it in the same frame, and from `source`, so an undo or a Source edit brings it back.
+	// THE EDITOR'S OWN TEXT decides, never the `source` prop: an outside change parked while the author types (or held for an
+	// IME composition in a live session) is not on screen yet, and a flag that followed the prop showed the empty state over
+	// text, or slide chrome over an empty line, until the next change (the checker on #3273). Set where the editor's text is
+	// established: at creation, on every emitted edit, on a resync (`resyncFrom`) and on an undo applied in place.
+	const [blank, setBlank] = React.useState(() => isBlankDeck(source));
+	// The empty line's bottom edge, reported with `blank` to the shell, which places its start grid under it. Measured, not a
+	// constant: the reserved bar's height depends on the pane's width (the pill wraps on a narrow pane) and on whether the slide
+	// is active. Re-measured when the editor is rebuilt for another deck (`resetKey`): the slide node is new, and an observer
+	// left on the old one would keep a stale edge (the checker on #3273).
+	const onEmptyRef = React.useRef(onEmpty);
+	onEmptyRef.current = onEmpty;
+	const lastEmpty = React.useRef<EmptyState | null>(null);
+	const report = React.useCallback((e: EmptyState) => {
+		const was = lastEmpty.current;
+		if (was && was.blank === e.blank && was.lineBottom === e.lineBottom) return;
+		lastEmpty.current = e;
+		onEmptyRef.current?.(e);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: resetKey stands for "the editor was rebuilt", so the slide node is new.
+	React.useLayoutEffect(() => {
+		const host = hostRef.current;
+		if (!blank || !emptyStart || !host) {
+			report({ blank, lineBottom: null });
+			return;
+		}
+		const measure = () => {
+			const line = host.querySelector('.cs-slide-content');
+			report({ blank: true, lineBottom: line ? Math.ceil(line.getBoundingClientRect().bottom) : null });
+		};
+		measure();
+		const ro = new ResizeObserver(measure);
+		ro.observe(host);
+		// The slide too: its bar changes height when the slide turns active on a tap, and the host does not resize then.
+		const slide = host.querySelector('.cs-slide');
+		if (slide) ro.observe(slide);
+		return () => ro.disconnect();
+	}, [blank, emptyStart, resetKey, report]);
 	// The floating selection bar (inline marks over a text selection) on DESKTOP, or null when there
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
@@ -2703,6 +2753,12 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// the slide's first editable position so the next keystroke edits the slide the
 	// preview picker just chose (#1288).
 	React.useImperativeHandle(ref, () => ({
+		focusEmptyLine: () => {
+			const v = viewRef.current;
+			if (!v || v.isDestroyed) return;
+			v.dispatch(v.state.tr.setSelection(TextSelection.atStart(v.state.doc)));
+			v.focus();
+		},
 		caretColumn() {
 			const v = viewRef.current;
 			const sel = v?.state.selection;
@@ -2875,6 +2931,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				return;
 			}
 			lastEmittedRef.current = text;
+			setBlank(isBlankDeck(text));
 			pendingResyncRef.current = null;
 			liveHoldRef.current = null;
 			// New slides arrive with their pills as text: a silent pass turns them back into objects.
@@ -3293,6 +3350,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// ordering hygiene against a latent hazard, not a fixed break.
 		baselineRef.current = initBaseline(doc);
 		lastEmittedRef.current = src;
+		setBlank(isBlankDeck(src));
 		pendingResyncRef.current = null;
 		liveHoldRef.current = null;
 		// The rebuilt doc has its pills as text again: turn them back into objects (a silent pass, so
@@ -3356,6 +3414,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		try {
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
+			setBlank(isBlankDeck(source));
 			// A NEW VIEW FOLLOWS THE FOCUS; it does not announce its own caret (the Markdown editor's rule, Editor.tsx). A view built
 			// after a round trip through Source, or on a phone when the Compose pane comes back, started at the top of the deck, and
 			// its first transaction reported slide 1 as the author's move: the preview and the rail jumped there (owner, iPhone).
@@ -3434,6 +3493,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						const base = baselineRef.current ?? initBaseline(next.doc);
 						const src = emitDeck(next.doc, base);
 						baselineRef.current = base;
+						setBlank(isBlankDeck(src));
 						// In a live session a co-editor's change held for an IME composition is MERGED, not superseded: the
 						// author's edit (base to src) is moved onto it, and the merge goes out, so the session keeps both. The
 						// editor shows the merge when the composition ends. An edit that cannot be placed is refused, as the
@@ -3675,7 +3735,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		);
 	}
 	return (
-		<div className={cn('cs-surface', !visible && 'cs-paused', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
+		<div className={cn('cs-surface', !visible && 'cs-paused', className)} data-empty={blank && emptyStart ? '' : undefined} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
 			<ComposeStyles />
 			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
 			    (context-sensitive). Just the writing surface. */}
@@ -3771,6 +3831,22 @@ function ComposeStyles() {
 		<style>{`
 			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff)}
 			.cs-frame{display:flex;height:100%;position:relative}
+			/* AN EMPTY DECK (2026-11-17-compose-empty-deck.md): no slide chrome, one line to write on, the start grid under it. */
+			/* HIDDEN, NOT REMOVED: the bar keeps its height, so the first keystroke (which brings it back) does not push the
+			   line down under the author's caret. Measured before this: 94px on a phone, 54px on a desktop. visibility also
+			   takes its buttons out of the tab order and the accessibility tree, as display:none did. */
+			/* …and every descendant, at a higher specificity: the active slide's pill sets visibility:visible, which beats a hidden
+			   ancestor (the trap noted at the active pill's rule below). */
+			.cs-surface[data-empty] .cs-slide-bar,.cs-surface[data-empty] .cs-slide .cs-slide-bar *{visibility:hidden}
+			.cs-surface[data-empty] .cs-active-line{background:none}
+			/* Every paragraph of a blank deck is empty, so the first one carries the placeholder. Not \`:has(> br:only-child)\`: an
+			   Undo's change mark puts a widget beside the break and the placeholder vanished. */
+			.cs-surface[data-empty] .cs-slide-content > p:first-child::before{content:"Start typing…";float:left;height:0;pointer-events:none;color:var(--text-muted,#6b7f9a);font-style:italic}
+			@media (pointer:coarse){.cs-surface[data-empty] .cs-slide-content > p:first-child::before{content:"Tap here to start writing"}}
+			/* No change marks on a blank deck: an Undo back to empty has no text to point at, and the deletion gap gave the
+			   empty line a second row for the length of the flash, pushing the grid 27px down and back (measured, desktop). */
+			.cs-surface[data-empty] .cs-flash-gap{display:none}
+			.cs-surface[data-empty] .cs-flash-block{animation:none;background:none;box-shadow:none}
 			${CHANGE_FLASH_CSS}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size;position:relative}

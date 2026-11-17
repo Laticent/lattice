@@ -10,6 +10,8 @@
 // WHAT THE MAP HOLDS is the assets the open deck may see: every shared asset plus that deck's
 // own. Another deck's asset is deliberately absent, so a reference to it renders the missing-image
 // stand-in rather than quietly working.
+
+import { samplesBaseFor } from '@/lib/samples-base';
 import type { AssetChoice } from './editor-complete';
 import { listMedia, type MediaRecord, namesOf, visibleMedia } from './media-store';
 
@@ -256,4 +258,17 @@ export function resetAssetUrlsForTests(): void {
 	rev = 0;
 	loaded = null;
 	listeners.clear();
+}
+
+/** The Studio page's sample folder, from the boot data it publishes (studio.astro), or null off the Studio. The one reader for
+ *  every Studio surface that draws a `sample:` picture outside the engine (Compose's image node, the photo-ink read). It lives
+ *  here, Studio-only, and not in lib/samples-base.ts: the home page and the playground load that module eagerly, and CI's
+ *  route budget measured 62 bytes there for code they never run. */
+export function studioSamplesBase(): string | null {
+	try {
+		const boot = JSON.parse(document.querySelector('script[data-studio-boot]')?.textContent ?? 'null') as { themeBase?: string } | null;
+		return boot?.themeBase ? (samplesBaseFor(boot.themeBase) ?? null) : null;
+	} catch {
+		return null;
+	}
 }

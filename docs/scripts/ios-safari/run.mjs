@@ -7,7 +7,8 @@
  * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
  * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
  * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
- * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js). SIM_UDID=mac drives the
+ * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), or chart detail cards in an
+ * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
@@ -25,6 +26,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
+import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
 import { LONG_PRESS_MS, pressSelected, tapHold, tapVerdict } from './tap-guard.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -154,7 +156,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -453,6 +455,40 @@ async function composeTouchTap(id) {
 	} catch (e) {
 		return { ok: false, steps, error: String(e.message || e) };
 	}
+}
+
+/**
+ * The player chart suite (PROBE=player-charts, player-charts.mjs): chart detail cards in two exported HTML players, which
+ * run.sh exports with the real CLI and serves at STUDIO_URL. The taps are WebDriver touches with no hold between down and
+ * up (composeTouchTap says why), and each returns how long the gesture took, so a tap read as a long press names itself.
+ */
+async function runPlayerChartsProbe(id) {
+	return runPlayerCharts({
+		players: { deck: `${BASE}/chart-detail-reveal.html`, hostile: `${BASE}/hostile.html` },
+		go: (url) => wd('POST', `/session/${id}/url`, { url }),
+		call: (expr) =>
+			wd('POST', `/session/${id}/execute/async`, {
+				args: [],
+				script: `${PLAYER_CHARTS_SOURCE}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ ok: false, error: String(e) }));`,
+			}),
+		tap: async (x, y) => {
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			const t0 = Date.now();
+			await wd('POST', `/session/${id}/actions`, {
+				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+			});
+			const ms = Date.now() - t0;
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			return ms;
+		},
+		swipe: async (x1, y1, x2, y2) => {
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			await wd('POST', `/session/${id}/actions`, {
+				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: x1, y: y1 }, { type: 'pointerDown', button: 0 }, { type: 'pointerMove', duration: 250, x: x2, y: y2 }, { type: 'pointerUp', button: 0 }] }],
+			});
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		},
+	});
 }
 
 /** The photo memory suite (PROBE=photo-memory): the two arms below, on pages of their own (no docs build). */

@@ -60,8 +60,13 @@ jobs:
             echo "$MSG (Expected on Dependabot PRs; anywhere else the repo secret is missing.)" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Full history without file contents, as docs.yml: the sitemap's lastmod needs each page's
+      # last content commit (docs/src/lib/lastmod.mjs). Owner call on #3207.
       - uses: actions/checkout@v4
         if: steps.guard.outputs.have == 'true'
+        with:
+          fetch-depth: 0
+          filter: blob:none
 
       - uses: actions/setup-node@v4
         if: steps.guard.outputs.have == 'true'

@@ -95,6 +95,7 @@ const {
   checkCalcoBoundary,
   checkFuocoBoundary,
   checkVedutaBoundary,
+  checkCennoBoundary,
   checkFiloBoundary,
   checkMarkupBoundary,
   checkSegnoMarkdownBoundary,
@@ -2517,6 +2518,47 @@ describe('check-ownership', () => {
     test('a sanctioned file passes, and a stale sanction fails', () => {
       assert.deepEqual(run({ 'X.tsx': "import { undo } from 'prosemirror-history';" }, ['X.tsx']), []);
       assert.equal(run({ 'X.tsx': 'export const x = 1;' }, ['X.tsx']).length, 1);
+    });
+  });
+
+  // Cenno: the popover core has no dependencies and knows nothing about Lattice; the chart reveal
+  // that builds its cards lives outside it (2026-11-16-cenno-popover-library.md §7).
+  describe('Cenno import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cenno-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        checkCennoBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkCennoBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('only relative imports inside the folder; nothing from Lattice, a framework, a library or node', () => {
+      assert.deepEqual(run({ 'index.ts': "export { place } from './place.js';", 'place.ts': 'export const place = () => 1;' }), []);
+      for (const src of [
+        "import { computePosition } from '@floating-ui/dom';",
+        "import * as React from 'react';",
+        "import * as M from '../../../../lib/runtime/chart-reveal/model.mjs';",
+        "import { createFocusHub } from '../fuoco';",
+        "import fs from 'node:fs';",
+        "const m = await import('radix-ui');",
+      ]) {
+        assert.equal(run({ 'cenno.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'cenno.test.ts': "import { it } from 'vitest';" }), [], 'tests may import their runner');
+    });
+    test('a triple-slash reference is an ambient dependency, and is caught', () => {
+      assert.equal(run({ 'cenno.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
     });
   });
 

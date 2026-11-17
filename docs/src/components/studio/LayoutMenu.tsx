@@ -55,7 +55,6 @@ export type LayoutMenuProps = {
 	onClose: () => void;
 };
 
-const shown = (name: string) => (name === 'content' ? 'text' : name);
 
 export function LayoutMenu(props: LayoutMenuProps) {
 	const { open, phone, anchor, onClose } = props;
@@ -194,15 +193,15 @@ function LayoutMenuBody({ open, slideNumber, sample, current, looks, keeps, fres
 				>
 					<span className="block overflow-hidden rounded-[4px] border border-border">{thumb(c.sample, 'w-16')}</span>
 					<span className="min-w-0">
-						<span className="block truncate font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{shown(c.name)}</span>
+						<span className="block truncate font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{c.name}</span>
 						{!!c.when && <span className="block text-[12px] leading-snug text-muted-foreground">{c.when}</span>}
 					</span>
 					{on ? <Check className="size-4 text-[var(--accent)]" aria-label="Current layout" /> : isFresh ? <span className="whitespace-nowrap text-[11px] text-[var(--accent)]">Replaces text</span> : null}
 				</button>
 				{confirm === c.name && (
 					// biome-ignore lint/a11y/useSemanticElements: a labeled group of two buttons, not a form field set.
-					<div role="group" aria-label={`Replace this slide’s text with the ${shown(c.name)} example?`} className="flex flex-wrap items-center gap-2 pb-2 pl-[82px] pr-2 text-[12.5px]">
-						<span className="basis-full text-muted-foreground">{shown(c.name)} cannot read this slide’s text, so it starts from its example. Undo brings your text back.</span>
+					<div role="group" aria-label={`Replace this slide’s text with the ${c.name} example?`} className="flex flex-wrap items-center gap-2 pb-2 pl-[82px] pr-2 text-[12.5px]">
+						<span className="basis-full text-muted-foreground">{c.name} cannot read this slide’s text, so it starts from its example. Undo brings your text back.</span>
 						<button
 							type="button"
 							data-nav=""
@@ -233,7 +232,7 @@ function LayoutMenuBody({ open, slideNumber, sample, current, looks, keeps, fres
 				<div className="flex items-center gap-3 px-1 pb-2">
 					<span className="block w-[45%] max-w-[180px] shrink-0 overflow-hidden rounded-md border border-border">{thumb(sample, 'w-full')}</span>
 					<span className="min-w-0">
-						<span className="block font-mono text-[13px] font-semibold text-[var(--text-heading)]">{shown(current)}</span>
+						<span className="block font-mono text-[13px] font-semibold text-[var(--text-heading)]">{current}</span>
 						<span className="block text-[12px] text-muted-foreground">Slide {slideNumber}</span>
 					</span>
 				</div>
@@ -382,7 +381,7 @@ export function LayoutMenuHost({ req, onDone, compose, slides, components, front
 		const end = slidesNow.current[done.index];
 		if (end === undefined || end === done.start) return;
 		const cls = getClassTokens(end)[0] ?? 'content';
-		notifyAction(`Slide ${done.index + 1} is now ${cls === 'content' ? 'text' : cls}.`, {
+		notifyAction(`Slide ${done.index + 1} is now ${cls}.`, {
 			label: 'Undo',
 			onClick: () => {
 				// Only while the slide is as the menu left it: an Undo here must never take back typing done since.

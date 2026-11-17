@@ -66,8 +66,8 @@ const fallbackPalette = seedablePalettes[0] ?? null;
 // rather than written into the DOM by a script that has to beat the first frame (#1592).
 // PaletteControls renders every label and these show one — the same shape as the mode
 // toggle's three icons, and for the same reason: the server cannot know the answer, but the
-// attribute carrying it is set before anything paints. Handed to the seed below and appended
-// to <head> there; see the note at that line for why it cannot be a <style> in this template.
+// attribute carrying it is set before anything paints. Emitted as an `is:inline` <style> just
+// above the seed, so it is parsed before the header markup it styles (see the note there).
 const paletteLabelCss = seedablePalettes
 	.map((p) => `:root[data-palette="${p}"] [data-palette-label="${p}"]{display:inline}`)
 	.join('\n');
@@ -93,7 +93,15 @@ const paletteLabelCss = seedablePalettes
      already stamp `data-palette` (playground.astro, ComponentsLayout, ThemeProvider) — they
      agree by construction, both reading `lattice-docs-palette` — and it is the only one on
      the landing, which has none. -->
-<script is:inline define:vars={{ paletteLabels, fallbackPalette, paletteLabelCss }}>
+{/* THE LABEL RULES. `is:inline` keeps this <style> exactly here, ABOVE the header markup:
+     a processed <style> in an .astro component is moved to the end of the body, after the
+     header it styles, which reopened the window the seed closes (measured: no label from
+     t≈165ms to t≈365ms, ~1 run in 3). It used to be appended to <head> by the script below;
+     a static element does the same job before the same markup, with no script (#3207).
+     It is the whole table, not just the palette in force, so a later pick is styled too.
+     Written as a JSX comment, not <!-- -->, so it is not shipped in every page's HTML. */}
+<style is:inline set:html={paletteLabelCss}></style>
+<script is:inline define:vars={{ paletteLabels, fallbackPalette }}>
 	(function () {
 		try {
 			var r = document.documentElement;
@@ -118,16 +126,6 @@ const paletteLabelCss = seedablePalettes
 			// Publish it even when it did not change: the label rules below resolve from this
 			// attribute, so leaving an unshippable one in place would show no label at all.
 			if (shipped(p)) r.setAttribute('data-palette', p);
-			// THE LABEL RULES, injected here rather than shipped as a <style> in the template.
-			// A dynamic style tag in an .astro component is not bundled into the head — Astro
-			// emits it at the END of the body, i.e. after the header it is supposed to style,
-			// which reopens the very window this seed exists to close (measured: no label at
-			// all from t≈165ms to t≈365ms, ~1 run in 3). Appending it to <head> from a script
-			// that runs before the header is parsed does not have that problem. It is the whole
-			// table, not just the palette in force, so a later pick is styled too.
-			var st = document.createElement('style');
-			st.textContent = paletteLabelCss;
-			(document.head || r).appendChild(st);
 			// The mode PREFERENCE, which `data-mode` cannot express: System-resolved-dark and
 			// pinned-dark are the same resolved mode and a different stop.
 			var m = null;

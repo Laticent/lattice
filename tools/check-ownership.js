@@ -5827,6 +5827,9 @@ const SANCTIONED_MARK_IDENTITY = [
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],
+  // The chart-reveal player bundle is GENERATED from lib/runtime/chart-reveal (tools/build-chart-reveal-player.js);
+  // it carries the model's READS of a mark's label and value, listed for the census total, not as an emitter.
+  ['export/chart-reveal-player-bundle.generated.mjs', true, true],
   // matrix-grid's filled cell, named by its own label ("Junior") — written here rather than in the
   // component because both render paths (markdown-it and the live DOM) build cells through it.
   ['core/matrix-grid-cells.js', true, false],
@@ -5838,6 +5841,10 @@ const SANCTIONED_MARK_IDENTITY = [
   // The redraw's check-before-trust (`said`) READS each mark's label and value to compare a pane chart's
   // redrawn data with its exported data; it writes neither.
   ['runtime/chart-redraw.js', true, true],
+  // The chart REVEAL model (engineering/decisions/2026-11-16-cenno-popover-library.md §7) READS a mark's
+  // label and value to title its detail card, in the Studio and the exported player. It names the
+  // attributes only to read them and authors no identity: the card says what the mark already says.
+  ['runtime/chart-reveal/model.mjs', true, true],
   ['runtime/chart-readers/gantt.js', true, false],
   ['runtime/chart-readers/histogram.js', true, true],
   ['runtime/chart-readers/quadrant.js', true, false],
@@ -9002,6 +9009,25 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //                       `performance.getEntries*()`, a key copied from one (`({ ms: m.duration })`, then `worst.ms`), or
 //                       a value that is one (`entries.map((e) => e.duration)`). An `expect`'s message argument is not read.
 //   unseeded-random F5  `Math.random()`.
+//   offset-geometry     (docs/e2e only) an element's `.offsetTop` / `.offsetLeft`. It is measured from the element's
+//                       offsetParent, and in the Playground's preview frame that is `.lattice` (its `filter` makes it one),
+//                       so the frame's 36 px of padding drops out and a slide reads a fifth of a slide too high (#3252,
+//                       #3253). Place an element at `getBoundingClientRect()` plus the scroll. `visualViewport.offsetTop` is
+//                       a different property, the visual viewport's own offset, and is not counted.
+//   clock-resume        `<page>.clock.resume()`. After it, a frame born later replays the resume plus every real millisecond
+//                       since, runs ahead of the main frame, and a later `clock.pauseAt()` throws "Cannot fast-forward to
+//                       the past" (#3250). Advance a paused clock with `clock.runFor(ms)` instead.
+//   tree-write          a test that writes, appends, makes a folder, copies, renames, links or deletes INSIDE the
+//                       repository's own `lib/` or `examples/` (`fs.writeFileSync(path.join(ROOT, 'lib', …))`). Many tests
+//                       walk those folders for every deck, so a file another test writes and deletes shows up in one walk's
+//                       listing and is gone when it is read (#3238). Write to a `mkdtemp` folder under `os.tmpdir()`. The
+//                       gate reads the destination argument (the second one for a copy, a rename or a link) and works out
+//                       where it lands from a known base: the repository root (`ROOT`, `REPO_ROOT`, `process.cwd()`) or the
+//                       file's own folder (`__dirname`, `import.meta.dirname`, `fileURLToPath(new URL('..', import.meta.url))`),
+//                       through `path.join` / `path.resolve` (or a bare `join` / `resolve` from `path`), a template string
+//                       or a `+`. A `..` counts against the file's real depth, so `path.join(__dirname, '..')` in
+//                       test/unit/tools/ is test/unit, not the root. A tmpdir / mkdtemp folder, a deeper base
+//                       (`ROOT/.scratch/…`) or a `let` is not a known base.
 //   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
 //                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
 //                       exemption is a comment block right above the call reading `// disabled: tried …; evidence <URL, file or
@@ -9021,14 +9047,18 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 // Known limits: a timing is followed through a declaration's initializer (a name resolves to its nearest enclosing
 // declaration), not through an assignment, a `.push` or a `.map`, nor into another module; a clock compared without a
 // subtraction (`expect(performance.now()).toBeLessThan(start + 5)`) and `process.hrtime(start)` are not seen; a count
-// cannot tell one sleep swapped for another in the same file; a file not yet committed is not read; and F3, F4, F6 to F9
-// are behavior, not spelling. Those are held by review.
+// cannot tell one sleep swapped for another in the same file; a file not yet committed is not read; a tree-write follows
+// a path through a `const` (never a `let`, which may be reassigned to a temp folder) and through `path.join` /
+// `path.resolve`, so a path built in a loop (`for (const [f] of …) writeFileSync(path.join(ROOT, f))`) or in a helper is
+// not seen, and a function parameter named `ROOT` reads as the root; offset-geometry and clock-resume read a property
+// access, so `el['offsetTop']`, `const { offsetTop } = el` and `const { clock } = page; clock.resume()` are not seen;
+// and F3, F4, F6 to F9 are behavior, not spelling. Those are held by review.
 const FLAKY_TEST_BASELINE_FILE = path.join(ROOT, 'tools', 'flaky-test-baseline.json');
 const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /^docs\/e2e\/.*\.[cm]?[jt]sx?$/.test(rel);
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime|getEntries(?:ByType|ByName)?\s*\(/;
+const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime|getEntries(?:ByType|ByName)?\s*\(|offset(?:Top|Left)|\.resume\s*\(|(?:write|append|copy)File|output(?:File|Json)|writeJson|\b(?:cpSync|cp|renameSync|rename|mkdirSync|mkdir|rmSync|rm|unlinkSync|unlink|symlinkSync|symlink|createWriteStream)\s*\(/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {
@@ -9298,6 +9328,113 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
       if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
     }
+  });
+
+  // offset-geometry, clock-resume and tree-write: traps the testing guide's gotchas name (engineering/testing.md Part 3).
+  // Each is a #32 shape, so a `// flaky-ok: <why>` on the line excuses it, through `add`.
+  const constInit = (id) => {
+    const init = resolve(id);
+    const d = init && init.parent;
+    return d && ts.isVariableDeclaration(d) && d.initializer === init && d.parent && (d.parent.flags & ts.NodeFlags.Const) ? init : null;
+  };
+  const strText = (e) => (e && (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) ? e.text : null);
+  // `path.join` / `path.resolve`, or a bare `join` / `resolve` when the file imports it from `path` / `node:path`.
+  const bareFromPath = /\b(?:join|resolve)\b[^;]*?(?:from\s*['"](?:node:)?path['"]|require\(\s*['"](?:node:)?path['"]\s*\))/.test(sf.text);
+  const isPathCall = (e) => {
+    if (!ts.isCallExpression(e)) return false;
+    const c = e.expression;
+    if (ts.isPropertyAccessExpression(c)) return /^(?:join|resolve)$/.test(c.name.text) && ts.isIdentifier(c.expression) && c.expression.text === 'path';
+    return bareFromPath && ts.isIdentifier(c) && /^(?:join|resolve)$/.test(c.text) && !resolve(c);
+  };
+  const isCall = (e, obj, name) => ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && e.expression.name.text === name && (!obj || (ts.isIdentifier(e.expression.expression) && e.expression.expression.text === obj));
+  const ROOT_NAMES = /^(?:ROOT|REPO|REPO_ROOT|repoRoot)$/;
+  const here = path.posix.dirname(rel.split(path.sep).join('/'));
+  // A path expression, evaluated to a path relative to the repository root: `{ p, partial }`, where `partial` means the
+  // rest of the path is not known (a name built at run time), or null when the base is not the repository at all (a
+  // tmpdir or mkdtemp folder, a `let`, a parameter's value). The base is the root itself (a root name, `process.cwd()`)
+  // or this file's own folder (`__dirname`, `import.meta.dirname`, `fileURLToPath(new URL('..', import.meta.url))`), so
+  // `path.join(__dirname, '..')` is measured against the file's real depth, not taken as the root.
+  const evalPath = (e, depth = 0) => {
+    if (!e || depth > 8) return null;
+    if (ts.isParenthesizedExpression(e) || ts.isNonNullExpression(e) || ts.isAsExpression?.(e)) return evalPath(e.expression, depth + 1);
+    const lit = strText(e);
+    if (lit !== null) return { p: lit, partial: false };
+    if (ts.isIdentifier(e)) {
+      if (e.text === '__dirname' && !resolve(e)) return { p: here, partial: false };
+      const init = constInit(e);
+      if (init) return evalPath(init, depth + 1);
+      return ROOT_NAMES.test(e.text) && !resolve(e) ? { p: '', partial: false } : null;
+    }
+    if (ts.isPropertyAccessExpression(e) && /^import\.meta\.dirname$/.test(e.getText(sf))) return { p: here, partial: false };
+    if (isCall(e, 'process', 'cwd')) return { p: '', partial: false };
+    if (ts.isCallExpression(e) && ts.isIdentifier(e.expression) && e.expression.text === 'fileURLToPath') {
+      const u = e.arguments[0];
+      if (u && /^import\.meta\.url$/.test(u.getText(sf))) return { p: path.posix.join(here, path.posix.basename(rel)), partial: false };
+      if (u && ts.isNewExpression(u) && u.arguments?.length === 2 && /^import\.meta\.url$/.test(u.arguments[1].getText(sf))) {
+        const t = strText(u.arguments[0]);
+        return t === null ? null : { p: path.posix.join(here, t), partial: false };
+      }
+      return null;
+    }
+    if (isCall(e, 'path', 'dirname')) { const b = evalPath(e.arguments[0], depth + 1); return b && !b.partial ? { p: path.posix.dirname(b.p), partial: false } : null; }
+    const join = (base, parts) => {
+      let p = base.p;
+      for (const a of parts) {
+        const t = strText(a) ?? (ts.isIdentifier(a) ? strText(constInit(a)) : null);
+        if (t === null) return { p, partial: true };
+        p = p === '' ? t : `${p}/${t}`;
+      }
+      return { p, partial: base.partial };
+    };
+    if (isPathCall(e)) {
+      const [b, ...rest] = e.arguments;
+      const base = evalPath(b, depth + 1);
+      return base && !base.partial ? join(base, rest) : base;
+    }
+    if (ts.isTemplateExpression(e) && e.head.text === '' && e.templateSpans.length) {
+      const base = evalPath(e.templateSpans[0].expression, depth + 1);
+      if (!base || base.partial) return base;
+      const tail = e.templateSpans[0].literal.text;
+      return { p: base.p + tail, partial: e.templateSpans.length > 1 };
+    }
+    if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+      const base = evalPath(e.left, depth + 1);
+      if (!base || base.partial) return base;
+      const t = strText(e.right);
+      return t === null ? { p: base.p, partial: true } : { p: base.p + t, partial: false };
+    }
+    return null;
+  };
+  const TREE = /^(?:lib|examples)(?:\/|$)/;
+  // Whether a path expression lands in the repository's own lib/ or examples/. A partial path counts only when its known
+  // part already sits inside one of them (`path.join(ROOT, 'lib', name)`).
+  const intoTree = (e) => {
+    const r = evalPath(e);
+    if (!r) return false;
+    const norm = path.posix.normalize(r.p.replace(/\/+$/, '') || '.');
+    if (norm.startsWith('..') || norm.startsWith('/')) return false;
+    return TREE.test(norm) && (!r.partial || norm.includes('/') || /^(?:lib|examples)$/.test(norm));
+  };
+  // `window.visualViewport.offsetTop`, directly or through a `const vv = window.visualViewport`, is the visual viewport's
+  // own offset, not an element's.
+  const isViewport = (e) => {
+    const strip = (x) => (ts.isNonNullExpression(x) || ts.isParenthesizedExpression(x) ? strip(x.expression) : x);
+    const x = strip(e);
+    if (ts.isPropertyAccessExpression(x) && x.name.text === 'visualViewport') return true;
+    if (ts.isIdentifier(x) && x.text === 'visualViewport' && !resolve(x)) return true;
+    const init = ts.isIdentifier(x) ? constInit(x) : null;
+    return !!init && isViewport(init);
+  };
+  const WRITE_ARG0 = /^(?:writeFileSync|writeFile|appendFileSync|appendFile|mkdirSync|mkdir|rmSync|rm|unlinkSync|unlink|createWriteStream|outputFileSync|outputFile|outputJsonSync|outputJson|writeJsonSync|writeJson)$/;
+  const WRITE_ARG1 = /^(?:copyFileSync|copyFile|cpSync|cp|renameSync|rename|symlinkSync|symlink)$/;
+  each(sf, (n) => {
+    if (inE2E && ts.isPropertyAccessExpression(n) && /^offset(?:Top|Left)$/.test(n.name.text) && !isViewport(n.expression)) add('offset-geometry', n);
+    if (!ts.isCallExpression(n)) return;
+    const e = n.expression;
+    if (ts.isPropertyAccessExpression(e) && e.name.text === 'resume' && ts.isPropertyAccessExpression(e.expression) && e.expression.name.text === 'clock') { add('clock-resume', n); return; }
+    const name = calleeName(n);
+    const dest = WRITE_ARG0.test(name) ? n.arguments[0] : WRITE_ARG1.test(name) ? n.arguments[1] : null;
+    if (dest && intoTree(dest)) add('tree-write', n);
   });
   return out;
 }
@@ -10708,6 +10845,35 @@ function checkVedutaBoundary(errors, dir = VEDUTA_DIR) {
       errors.push(
         `${relPosix(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Veduta core declares ` +
           `no ambient types; import what it needs from inside docs/src/lib/veduta/.`,
+      );
+    }
+  }
+}
+
+// ── Cenno (docs/src/lib/cenno) — popovers and detail cards ─────────────────
+// Cenno places, opens and tracks a card next to an anchor and knows nothing about what the card
+// says or what it points at: Lattice's chart reveal (which reads chart marks and builds their cards)
+// lives OUTSIDE the folder (engineering/decisions/2026-11-16-cenno-popover-library.md §7). So the
+// core imports nothing outside it, not even `node:`, and not `react`: it has no framework adapter yet.
+const CENNO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'cenno');
+function checkCennoBoundary(errors, dir = CENNO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Cenno folder. Cenno has no dependencies and knows ` +
+      `nothing about Lattice, so every import must resolve inside docs/src/lib/cenno/; the chart reveal ` +
+      `lives outside it (engineering/decisions/2026-11-16-cenno-popover-library.md §7).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file)) continue;
+    const raw = fs.readFileSync(file, 'utf8');
+    // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
+    for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
+      errors.push(
+        `${relPosix(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Cenno core declares ` +
+          `no ambient types; import what it needs from inside docs/src/lib/cenno/.`,
       );
     }
   }
@@ -15544,6 +15710,7 @@ function run() {
   checkTavolaBoundary(errors);
   checkFuocoBoundary(errors);
   checkVedutaBoundary(errors);
+  checkCennoBoundary(errors);
   checkFiloBoundary(errors);
   checkMarkupBoundary(errors);
   checkSegnoMarkdownBoundary(errors);
@@ -15623,6 +15790,7 @@ module.exports = {
   checkTavolaBoundary,
   checkFuocoBoundary,
   checkVedutaBoundary,
+  checkCennoBoundary,
   checkFiloBoundary,
   checkMarkupBoundary,
   checkSegnoMarkdownBoundary,

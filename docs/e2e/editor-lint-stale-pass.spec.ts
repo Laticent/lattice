@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { documentSettled, schedulerDrained } from './barriers';
 import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection, test } from './studio-fixture';
 
@@ -11,9 +12,30 @@ import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection,
 // network load held back so the pass is still waiting when validation goes off.
 //
 // Its own file, not editor-lint.spec.ts: the hold must be in place before the Studio loads, and that
-// file's beforeEach opens the Studio first. Desktop only: the toggle and "Fix all" are the desktop layout.
+// file's beforeEach opens the Studio first. The toggle and "Fix all" are the wide layout: desktop, and WebKit at
+// 1180px. There the open Inspector narrows the editor pane enough that the bar moves "Fix all" into its ⋯ menu
+// (StudioShell `EDIT_FIT`), so the last assertion reads it wherever the layout drew it.
 
 const UNKNOWN_SLIDE = '\n\n---\n\n<!-- _class: kpii -->\n\n# Stray slide\n';
+
+/** "Fix all issues" is the editor bar's button while the bar has room, and an item in the bar's ⋯ menu once the bar
+ *  has moved it out to fit its pane. Assert it is disabled in whichever form the settled layout drew. */
+async function expectFixAllDisabled(page: Page): Promise<void> {
+	const button = page.getByRole('button', { name: 'Fix all issues', exact: true }).filter({ visible: true });
+	const more = page.getByRole('button', { name: CHROME.editorMore, exact: true }).filter({ visible: true });
+	// The bar can re-fit between the read and the assertion (its fit re-runs when the issue count changes), so a form
+	// that moved fails its short attempt and the next attempt reads the bar again (see studio-fixture `openSlideSettings`).
+	await expect(async () => {
+		if (await page.getByRole('menu').filter({ visible: true }).count()) await page.keyboard.press('Escape');
+		if (await button.count()) {
+			await expect(button).toBeDisabled({ timeout: 2_000 });
+			return;
+		}
+		await more.click({ timeout: 2_000 });
+		await expect(page.getByRole('menuitem', { name: 'Fix all issues' })).toBeDisabled({ timeout: 2_000 });
+		await page.keyboard.press('Escape');
+	}).toPass({ timeout: 15_000 });
+}
 
 test('@webkit-tablet @gecko a lint pass still loading when validation goes off never brings an underline back', async ({ page }) => {
 	let release: () => void = () => {};
@@ -60,5 +82,5 @@ test('@webkit-tablet @gecko a lint pass still loading when validation goes off n
 	await schedulerDrained(page);
 	await documentSettled(page, '.cm-editor');
 	await expect(page.locator('.cm-lintRange')).toHaveCount(0);
-	await expect(page.getByRole('button', { name: 'Fix all issues', exact: true })).toBeDisabled();
+	await expectFixAllDisabled(page);
 });

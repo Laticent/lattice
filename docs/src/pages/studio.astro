@@ -28,6 +28,7 @@ import ViewportDebugOverlay from '../components/studio/ViewportDebugOverlay.astr
 import PreviewFidelityOverlay from '../components/studio/PreviewFidelityOverlay.astro';
 import SkipLink from '../components/SkipLink.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
+import PageMeta from '../components/site/PageMeta.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
@@ -528,8 +529,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		<CrashSentinel />
 		{/* The preview runtime is prefetched by studio-boot.ts once the island's code has landed, not
 		    here: from the HTML it shared the throttled link with that code (the slide needs it last). */}
-		<title>Lattice Studio — one workspace</title>
-		<meta name="description" content="The Lattice Studio: compose, present, and fabricate decks in one workspace. A live prototype of the app redesign." />
+		<PageMeta title="Lattice Studio — one workspace" description="The Lattice Studio: compose, present, and fabricate decks in one workspace. A live prototype of the app redesign." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<style is:global>
 			html, body { margin: 0; height: 100%; overflow: hidden; }

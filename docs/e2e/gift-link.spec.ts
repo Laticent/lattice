@@ -68,7 +68,10 @@ test.describe('gift link @crosswidth', () => {
 
 test('the ready and PIN states have no axe findings, in either color mode', async ({ page }) => {
 	const scan = async () => {
-		await page.addScriptTag({ content: AXE_SRC });
+		// Evaluated, not added as a <script>: /gift/ carries a strict CSP (docs/scripts/csp.mjs),
+		// which rightly refuses an inline script tag. page.evaluate runs through DevTools, outside
+		// the page's policy, the way axe-site.spec.ts already injects it.
+		await page.evaluate(AXE_SRC);
 		const ids = await page.evaluate(async () => {
 			// biome-ignore lint/suspicious/noExplicitAny: axe is injected at runtime
 			const r = await (window as any).axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });

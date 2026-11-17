@@ -18,6 +18,7 @@ import SiteHeader from '../components/site/SiteHeader.astro';
 import PerfOverlay from '../components/site/PerfOverlay.astro';
 import StorageOverlay from '../components/site/StorageOverlay.astro';
 import PwaHead from '../components/site/PwaHead.astro';
+import PageMeta from '../components/site/PageMeta.astro';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -138,6 +139,7 @@ const CATALOG = [
 		],
 	},
 ];
+const featuresDescription = `A scannable, segmented catalog of everything Lattice does: ${componentCount} field-native components across ${bucketCount} buckets, ${editorialPalettes.length} palettes with guaranteed WCAG-AA, one source rendered pixel-identical to PDF/PPTX/PNG/HTML, a deck that behaves like code, native diagrams and math, AI authoring, and open-source/offline/no-lock-in.`;
 ---
 
 <!doctype html>
@@ -145,11 +147,7 @@ const CATALOG = [
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<title>Features — the full Lattice capability catalog</title>
-		<meta
-			name="description"
-			content={`A scannable, segmented catalog of everything Lattice does: ${componentCount} field-native components across ${bucketCount} buckets, ${editorialPalettes.length} palettes with guaranteed WCAG-AA, one source rendered pixel-identical to PDF/PPTX/PNG/HTML, a deck that behaves like code, native diagrams and math, AI authoring, and open-source/offline/no-lock-in.`}
-		/>
+		<PageMeta title="Features — the full Lattice capability catalog" description={featuresDescription} />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		{/* Manifest + service-worker registration (this page has its own head,
 		    so it doesn't go through <ResourceHints>). */}
@@ -209,7 +207,7 @@ const CATALOG = [
 						Everything Lattice does, in one place.
 					</h1>
 					<p class="m-0 text-[clamp(16px,1.8vw,18px)] leading-[1.5] text-foreground">
-						The full capability catalog, grouped and scannable. For the pitch, see the
+						The full capability catalog, grouped and scannable. For the pitch, see the{' '}
 						<a href={url('')} class="font-semibold text-primary hover:underline">landing</a>; for how we stack up against
 						the field, the <a href={url('comparison/')} class="font-semibold text-primary hover:underline">comparison</a>.
 					</p>

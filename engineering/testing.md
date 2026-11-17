@@ -67,6 +67,11 @@ produce the slides we expect, with the page count we expect.
 **Fidelity gaps.**
 
 - **One engine.** Integration renders with Chromium only. WebKit and Gecko layout is not exercised.
+  One exception, nightly only: `npm-plugin-export-check` (`test/integration/export-nightly/`, run by
+  `test:integration:nightly`) drives WebKit and Firefox through docs' Playwright, and an engine that
+  cannot start fails it rather than skipping. A fresh sandbox has neither, so install them first:
+  `node docs/node_modules/playwright-core/cli.js install-deps webkit firefox && node docs/node_modules/playwright-core/cli.js install webkit firefox`,
+  then run it with `LATTICE_PLAYWRIGHT=$PWD/docs/node_modules/playwright`.
 - **Linux only.** The per-PR runners are Linux. Font fallback, file-system case rules and sandboxing
   differ on macOS and Windows.
 - **No user.** Nobody types, taps or scrolls. Interaction is out of scope here.
@@ -231,6 +236,8 @@ measured 36–48%, and the swipe test went red 10 times in 60 at 4 workers.
 **Do instead.** Place a slide at `getBoundingClientRect().top` plus the scroll, the way the app's
 `frameBands` does. #3252 fixed the measure; #3253 fixed the same offset in the test's scroll-to-slide step.
 
+**Gated.** `checkFlakyTests` counts `offsetTop` and `offsetLeft` in `docs/e2e/**` as the `offset-geometry` shape, held to `tools/flaky-test-baseline.json`. It skips `visualViewport.offsetTop`, a different property.
+
 ## Playwright's fake clock: `resume()` lets frames drift
 
 **Trap.** Playwright keeps one fake clock per frame and replays the clock log into any frame born
@@ -244,6 +251,8 @@ and the pause was refused.
 
 **Do instead.** Advance time while staying paused: `clock.runFor(1100)` instead of `resume()`.
 Every frame, including one born later, then sits at the same time (#3250).
+
+**Gated.** `checkFlakyTests` counts every `<page>.clock.resume()` as the `clock-resume` shape, held to `tools/flaky-test-baseline.json`. A resume that is right where it is takes `// flaky-ok: <why>`.
 
 ## The device tier drops to Lite under load
 
@@ -302,6 +311,8 @@ writes there and deletes appears in one walk's listing and is gone when it reads
 
 **Do instead.** Write temp files to a `mkdtemp` folder under `os.tmpdir()`. Deck walkers also skip
 `*.tmp.md`, which the gallery builders write beside decks while rendering (#3238).
+
+**Gated.** `checkFlakyTests` counts a write, append, mkdir, copy, rename, symlink or delete whose destination lands in the repository's own `lib/` or `examples/` as the `tree-write` shape, held to `tools/flaky-test-baseline.json`. It skips a temp folder, `ROOT/.scratch` and a copy *from* the tree. It cannot see a path built in a loop or a helper; its Known limits list those.
 
 ## Playwright empties `test-results/` when a run starts
 

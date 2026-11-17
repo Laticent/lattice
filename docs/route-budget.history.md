@@ -6,6 +6,23 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-17 — the owner raised two ceilings by hand, for PRs 3294, 3256 and 3278: home eagerJsGz to 320.5 KB, studio eagerJsGz to 621.7 KB
+
+Owner OK 2026-11-17, relayed by the Segno coordinator session; one raise sized for three open Segno PRs, after repeated small raises were outgrown by other merges.
+
+Measured with `docs/scripts/measure-route-base.sh` on `main` at 1177cdcf, the same base CI's route-budget check used: home is 323,323 B and studio 631,881 B. Each open PR's eager-JS delta over `main`, as CI's route-budget check reports it:
+
+- PR 3294 (Segno P5a, one CSS tokenizer): home +2,600 B, studio +2,652 B. The tokenizer reaches the eager path through the preview sanitizer (`sanitize-slide-html` +4,554, `remote-ref` −1,911); the owner chose one tokenizer everywhere over keeping a second scanner on the eager path (option A, 2026-11-17).
+- PR 3256 (Segno P4, the inline pass): home +609 B, studio +609 B.
+- PR 3278 (the sheet fix): home +536 B, studio +536 B.
+
+With all three, home is 327,068 B and studio 635,678 B. The ceilings rise 323584 -> 328192 (home, +4,608) and 633052 -> 636636 (studio, +3,584), which leaves 1,124 B on home and 958 B on studio after all three. This replaces a raise of +2.5 KB on each sized for PR 3294 alone: studio's `main` grew 1.2 KB after that was sized. The soft targets are unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | eagerJsGz | 291531 | 291531 | +0 | 328192 |
+| studio | eagerJsGz | 571778 | 571778 | +0 | 636636 |
+
 ### 2026-11-17 — the owner raised one ceiling by hand, for PR 3263: studio eagerJsGz to 618.2 KB
 
 Owner OK 2026-11-17, relayed by the Segno coordinator session: raise studio's eager-JS ceiling by 2 KB more, sized with about 1 KB of margin because two raises sized to a small margin were outgrown by other merges the same day.
