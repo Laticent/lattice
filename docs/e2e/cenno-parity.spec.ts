@@ -237,8 +237,10 @@ test('under a real pinch, the card keeps its size on screen and stays in view', 
 		const { createCenno } = window.Cenno;
 		const card = createCenno().open(document.getElementById('a') as HTMLElement, 'A detail card with a few words', { gap: 8 });
 		const b = (card.element as HTMLElement).getBoundingClientRect();
-		const vv = window.visualViewport as VisualViewport;
-		return { w: b.width, left: b.left, top: b.top, right: b.right, bottom: b.bottom, vx: vv.offsetLeft, vy: vv.offsetTop, vw: vv.width, vh: vv.height, scale: vv.scale };
+		// Read through `visualViewport` by name: the offset-geometry gate (HARD RULE #32) skips the visual viewport's
+		// own offsets, which are what this test needs, and recognizes them by that name.
+		const vv = window.visualViewport!;
+		return { w: b.width, left: b.left, top: b.top, right: b.right, bottom: b.bottom, vx: window.visualViewport!.offsetLeft, vy: window.visualViewport!.offsetTop, vw: vv.width, vh: vv.height, scale: vv.scale };
 	});
 	// Layout pixels shrink by the pinch scale, so steady screen size means half the layout width.
 	expect(r.w * r.scale).toBeCloseTo(unzoomed, 0);
