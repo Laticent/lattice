@@ -231,6 +231,8 @@ measured 36–48%, and the swipe test went red 10 times in 60 at 4 workers.
 **Do instead.** Place a slide at `getBoundingClientRect().top` plus the scroll, the way the app's
 `frameBands` does. #3252 fixed the measure; #3253 fixed the same offset in the test's scroll-to-slide step.
 
+**Gated.** `checkFlakyTests` counts `offsetTop` and `offsetLeft` in `docs/e2e/**` as the `offset-geometry` shape, held to `tools/flaky-test-baseline.json`. `visualViewport.offsetTop` is a different property and is not counted.
+
 ## Playwright's fake clock: `resume()` lets frames drift
 
 **Trap.** Playwright keeps one fake clock per frame and replays the clock log into any frame born
@@ -244,6 +246,8 @@ and the pause was refused.
 
 **Do instead.** Advance time while staying paused: `clock.runFor(1100)` instead of `resume()`.
 Every frame, including one born later, then sits at the same time (#3250).
+
+**Gated.** `checkFlakyTests` counts every `<page>.clock.resume()` as the `clock-resume` shape, held to `tools/flaky-test-baseline.json`. A resume that is right where it is takes `// flaky-ok: <why>`.
 
 ## The device tier drops to Lite under load
 
@@ -302,6 +306,8 @@ writes there and deletes appears in one walk's listing and is gone when it reads
 
 **Do instead.** Write temp files to a `mkdtemp` folder under `os.tmpdir()`. Deck walkers also skip
 `*.tmp.md`, which the gallery builders write beside decks while rendering (#3238).
+
+**Gated.** `checkFlakyTests` counts a write, copy, rename or delete whose destination is inside the repository's own `lib/` or `examples/` as the `tree-write` shape, held to `tools/flaky-test-baseline.json`. A temp folder, `ROOT/.scratch` and a copy *from* the tree are not counted.
 
 ## Playwright empties `test-results/` when a run starts
 
