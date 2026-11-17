@@ -86,7 +86,10 @@ test('@smoke @crosswidth @webkit-phone @gecko search, the palette picker and the
 	expect(new Set(labels.current)).toEqual(new Set(['inline']));
 	expect(labels.others).toEqual(['none']);
 
-	// Search: a real Pagefind hit, not merely an open dialog.
+	// Search: a real Pagefind hit, not merely an open dialog. The signal it can open: the island
+	// that holds the search button has hydrated (Astro removes `ssr` on mount). A click before
+	// that lands on the server-rendered button, opens nothing, and failed 1 run in 10.
+	await expect(page.locator('.site-header astro-island:has(button[aria-label^="Search"])').first()).not.toHaveAttribute('ssr');
 	await page.locator('.site-header').getByRole('button', { name: /^Search/ }).filter({ visible: true }).first().click();
 	await page.getByPlaceholder(/Search docs, jump to a page/).fill('front matter');
 	await expect(page.getByRole('option', { name: /front.matter reference/i }).first()).toBeVisible();
