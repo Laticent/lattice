@@ -543,3 +543,20 @@ when the scalar rule gives no name, pinned in the unit test. It also found four 
 lint-core, none in the corpus: a key line inside a block scalar's body (lint-core reported it; the engine never reads
 it); Fix all doing nothing on a BOM deck, on `mode : x`, or after a `---x` closer; and a repeated identical line, which
 lint-core rewrote twice and the port fixes once, on the line the engine reads.
+
+**The edge table (the card grader's raise, 2026-11-17).** The grader held Evidence at `high` because the corpus held only
+2 to 11 findings per rule. A unit test now runs every row against lint-core over ten value shapes and nine layouts
+(2,070 inputs: CRLF, `key :`, nested, repeated, tabs, a settings block, a block scalar's body), and asserts parity on
+the 1,700-odd that are not one of the two deliberate classes; those it holds on the Squadra side only. Since the test
+calls lint-core, the diff's recording picks the inputs up. Failing arm: changing one row's message turned the table
+red on `unknown-mode`; restored. Green five times alone and under four parallel files. The diff then found one more
+kind of difference, in Fix all only: on a `key :` line lint-core reports the typo but names the line as `key: value`
+(its scan normalizes the blank away), which is not a line of the source, so its fix does nothing; the port fixes it.
+94 sources, every fixable row. `explained.json` names them with one entry per rule that matches the source text
+(`^<key>[ \t]+:`) and requires lint-core's fix to have left the source unchanged (`lintCoreNoop`), a field the diff
+tool gained for this (pinned in squadra-lattice-deck.test.js), instead of 94 recording indexes.
+
+The final run (`squadra:reference-diff -- --fix`, lint-core at `5c4be2fee`): 94,442 sources (60,898 test inputs, 33,017
+mutated decks, 527 tracked decks); 23 rules, 26 to 49 findings each, every one matched except the explained `hallo`;
+Fix all identical on 93,129, the 95 that differ on these rules all explained, 1,218 differing only on rules not yet
+migrated. PASS, exit 0.
