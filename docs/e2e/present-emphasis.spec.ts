@@ -40,8 +40,8 @@ const STEP_MS = 100;
 /**
  * After a cue goes live, the drive leaps this far in one run before it steps again. Every cue in DECK lasts over two
  * seconds, so no boundary falls inside a leap; one that did fails the drive rather than recording a late onset. The
- * leaps are what keep the drive short: a 50 ms step with no leaps made about a thousand calls into the page, and on
- * four cores at eight workers every run passed the 60 s test timeout.
+ * leaps are what keep the drive short: a 50 ms step with no leaps ran every frame of both drives and made about a
+ * thousand calls into the page, and on four cores at eight workers every run passed the 60 s test timeout.
  */
 const LEAP_STEPS = 15;
 /** How far the drive runs the paused clock. */
@@ -117,7 +117,10 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 	while (n * STEP_MS < RUN && out.length <= 4) {
 		const leap = last >= 0 && n === out[last];
 		const by = leap ? LEAP_STEPS : 1;
-		await page.clock.runFor(by * STEP_MS);
+		// A leap JUMPS the clock (due timers fire once) rather than running every frame inside it: no cue changes there, and
+		// rendering those frames was most of the drive's cost, which is what grew with the machine's load.
+		if (leap) await page.clock.fastForward(by * STEP_MS);
+		else await page.clock.runFor(by * STEP_MS);
 		n += by;
 		const ci = await liveCue();
 		if (ci >= 0 && ci !== last) {
