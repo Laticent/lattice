@@ -23,8 +23,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { assetNameOf, bgKeywords, imageSourceKind, placementAt, sampleNameOf } from '@/lib/compose/image-objects';
 import { openObjectEditor } from '@/lib/compose/inline-objects';
-import { studioSamplesBase } from '@/lib/samples-base';
-import { ensureAssetUrls, onAssetUrlsChanged } from './media-urls';
+import { ensureAssetUrls, onAssetUrlsChanged, studioSamplesBase } from './media-urls';
 
 /** The Library's name → URL map, as of the last read. Empty until the first read finishes. */
 let urls: Record<string, string> = {};

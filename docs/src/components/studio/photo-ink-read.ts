@@ -1,8 +1,7 @@
 import { compositionOf, coverSourceRect, effectiveCard, meanRgb } from '../../../../lib/core/card-ink.mjs';
-import { studioSamplesBase } from '../../lib/samples-base';
 import { getClassTokens } from '../../lib/slide-directives';
 import { photoRefOf } from './card-ink-pick';
-import { ensureAssetUrls } from './media-urls';
+import { ensureAssetUrls, studioSamplesBase } from './media-urls';
 import { deckImageCardClasses } from './slide-provenance';
 
 // The photo-file half of the photo verdict (photo-verdict.ts): for a slide the preview is not showing, the photo's mean
