@@ -172,16 +172,24 @@ export function attach(cenno: Cenno, trigger: Element, content: () => Content, o
 	}
 
 	// ── press ──────────────────────────────────────────────────────────────────────
-	// A press opened from the KEYBOARD (Enter or Space make a click with `detail` 0) moves focus into the
-	// card, so a keyboard user can reach what it holds; leaving it closes it, Escape returns to the trigger.
-	// A pointer press leaves focus where it is.
-	const onClick = (e: Event) => {
+	// A press opened from the KEYBOARD moves focus into the card, so a keyboard user can reach what it
+	// holds; leaving it closes it, Escape returns to the trigger. A pointer press, or a script's
+	// `element.click()`, leaves focus where it is. Keyboard is told by the Enter or Space that came first
+	// (a click's `detail` is 0 for a script too, so it cannot tell them apart).
+	let byKey = false;
+	const onTriggerKey = (e: Event) => {
+		const k = (e as KeyboardEvent).key;
+		if (k === 'Enter' || k === ' ' || k === 'Spacebar') byKey = true;
+	};
+	const onClick = () => {
+		const keyed = byKey;
+		byKey = false;
 		if (card?.isOpen) {
 			hide();
 			return;
 		}
 		show();
-		if ((e as MouseEvent).detail === 0 && card) {
+		if (keyed && card) {
 			card.element.setAttribute('tabindex', '-1');
 			card.element.focus();
 		}
@@ -212,6 +220,7 @@ export function attach(cenno: Cenno, trigger: Element, content: () => Content, o
 		trigger.addEventListener('focusout', onFocusOut);
 	}
 	if (isDialog) {
+		trigger.addEventListener('keydown', onTriggerKey);
 		trigger.addEventListener('click', onClick);
 		doc.addEventListener('pointerdown', onOutside, true);
 	}
@@ -224,6 +233,7 @@ export function attach(cenno: Cenno, trigger: Element, content: () => Content, o
 		trigger.removeEventListener('focusin', onFocusIn);
 		trigger.removeEventListener('focusout', onFocusOut);
 		trigger.removeEventListener('click', onClick);
+		trigger.removeEventListener('keydown', onTriggerKey);
 		doc.removeEventListener('pointerdown', onOutside, true);
 		doc.removeEventListener('keydown', onKey, true);
 		if (isDialog) {

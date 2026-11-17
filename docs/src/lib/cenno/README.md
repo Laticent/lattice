@@ -150,10 +150,10 @@ Every module states what it buys. There is no byte budget; a change that grows a
 | `place.ts` | Where the card goes: flip, shift, size, arrow, hide. Pure arithmetic. | 1490 B | 0.7 KB |
 | `measure.ts` | Reads anchors (elements, points, iframes at any depth), the visual viewport and clipping ancestors. | 1799 B | 0.8 KB |
 | `cenno.ts` | Opens, moves and closes cards: top layer, fullscreen, steady size under pinch, tracking. | 4452 B | 2.0 KB |
-| `intent.ts` | Hover with a grace corridor, focus, press, Escape, outside press, the ARIA wiring. | 3530 B | 1.3 KB |
+| `intent.ts` | Hover with a grace corridor, focus, press, Escape, outside press, the ARIA wiring. | 3671 B | 1.3 KB |
 | `card.ts` | The optional anatomy (header, body, footer) and the part names. | 805 B | 0.4 KB |
 | `styles.ts` | The one stylesheet: tokens with system-color fallbacks. | 2723 B | 0.9 KB |
-| **All of it** | One bundle of `index.ts` | **14513 B** | **5.3 KB** |
+| **All of it** | One bundle of `index.ts` | **14656 B** | **5.3 KB** |
 <!-- cenno-sizes:end -->
 
 ## Tests

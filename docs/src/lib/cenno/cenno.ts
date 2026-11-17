@@ -170,6 +170,8 @@ export function createCenno(options: CennoOptions = {}): Cenno {
 			// A card wider than its room is capped, and capping the width re-wraps its text, so it grows
 			// TALLER: measure it at the capped width before placing again, or a card on the top side
 			// overlaps its anchor by the height it gained.
+			// (Once. Measured at the cap, the card fits its side exactly, and `place` never flips a card that
+			// fits, so the re-place cannot move it into a narrower room.)
 			if (w > p.maxWidth) {
 				el.style.setProperty('--cenno-room-w', `${p.maxWidth / s}px`);
 				w = el.offsetWidth * s;

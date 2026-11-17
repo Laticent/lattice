@@ -76,6 +76,11 @@ test('the deck CSS is read once, and read again only when a stylesheet changes',
   render();
   assert.equal(reads, 1, 'three more cards, no stylesheet change: the CSS is not read again');
   assert.equal(textScans, 0, 'and no card gathers the style text to compare it');
+  // A restyle and a card in the SAME task: the observer has not delivered yet, and the card must still be current.
+  d.getElementById('deck').textContent = 'article.lattice > section .pill{font-weight:500}';
+  assert.match(cssIn(render()), /font-weight: ?500/, 'a card drawn in the same task as the restyle');
+  await new Promise((r) => w.setTimeout(r, 0));
+  reads = 1;
   // A theme or mode flip rewrites a <style> in place: the next card must carry the new rules.
   d.getElementById('deck').textContent = 'article.lattice > section .pill{font-weight:400}';
   await new Promise((r) => w.setTimeout(r, 0)); // MutationObserver delivers on a microtask

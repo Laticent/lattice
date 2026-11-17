@@ -137,6 +137,36 @@ test('only the slide on stage carries Tab stops, and leaving Present clears them
   assert.equal(svg.getAttribute('tabindex'), null, 'Read · Slides: no chart promises keys it will not answer');
 });
 
+test('a re-render of the slide on stage never takes the tabindex off its charts (a browser drops focus with it)', async () => {
+  const { w, d, svg, clock } = await boot(funnel);
+  svg.focus();
+  // JSDOM keeps focus on an element that loses its tabindex; a browser does not. So record whether the
+  // attribute is ever REMOVED, rather than read focus afterwards.
+  const changes = [];
+  const mo = new w.MutationObserver((list) => {
+    for (const m of list) changes.push(svg.getAttribute(m.attributeName));
+  });
+  mo.observe(svg, { attributes: true, attributeFilter: ['tabindex'] });
+  d.querySelector('[data-lp-btn="present"]').click(); // setView('present') re-renders the same slide
+  await clock.settle();
+  mo.disconnect();
+  assert.deepEqual(changes, [], 'the stage chart keeps its tabindex through the re-render');
+  assert.equal(svg.getAttribute('tabindex'), '0');
+});
+
+test('the lightbox fallback (a role="dialog" aria-modal div, where <dialog> is missing) owns the keys too', async () => {
+  const { d, key, card } = await boot(funnel);
+  const div = d.createElement('div');
+  div.setAttribute('role', 'dialog');
+  div.setAttribute('aria-modal', 'true');
+  d.body.append(div);
+  key('2');
+  assert.equal(card(), null);
+  div.remove();
+  key('2');
+  assert.ok(card());
+});
+
 test('an open modal (the collage lightbox is one) owns the keys: a digit opens no card under it', async () => {
   const { w, d, key, card } = await boot(funnel);
   const dialog = d.createElement('dialog');

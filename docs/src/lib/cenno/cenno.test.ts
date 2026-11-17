@@ -347,17 +347,25 @@ describe('attach — intents', () => {
 		expect(seen).toEqual(['INPUT']);
 	});
 
-	it('a press card opened from the keyboard takes focus; one opened by a pointer does not', () => {
+	it('a press card opened from the keyboard takes focus; by a pointer or a script, it does not', () => {
 		const cn = createCenno();
 		const t = anchorAt({ x: 100, y: 100, width: 40, height: 20 });
 		attach(cn, t, () => 'menu', { intent: 'press' });
 		t.focus();
+		const toggle = () => t.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+		// A pointer.
 		t.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
 		expect(document.activeElement).toBe(t);
-		t.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
-		t.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
-		const card = [...cn.cards][0];
-		expect(document.activeElement).toBe(card.element);
+		toggle();
+		// A script's element.click(): detail 0 too, but no key came first.
+		toggle();
+		expect(cn.cards.size).toBe(1);
+		expect(document.activeElement).toBe(t);
+		toggle();
+		// The keyboard: Enter, then the click it makes.
+		t.dispatchEvent(Object.assign(new Event('keydown', { bubbles: true }), { key: 'Enter' }));
+		toggle();
+		expect(document.activeElement).toBe([...cn.cards][0].element);
 	});
 
 	it('detach closes the card and clears what it set', () => {
