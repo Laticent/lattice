@@ -15,7 +15,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { makeCssRefSpans } = require('../../../lib/core/css-ref-reader.js');
 const helpers = require('../../../lib/core/remote-ref.js');
-const cssRefSpans = makeCssRefSpans(require('../../../lib/core/css-ref.generated.js'), helpers);
+const cssRefSpans = makeCssRefSpans(require('../../../lib/core/css-tokens.mjs').cssParser, helpers);
 const legacy = require('../../../tools/segno-legacy/css-ref-spans.js');
 
 const same = (css) => {
@@ -139,11 +139,11 @@ describe('the grammar-driven reader returns the old tokenizer\'s spans', () => {
   test('the fuzz can fail: a parser whose url( window is too short is caught', () => {
     // The real generated parser with the attempt window cut from 32 characters to 5, so the long
     // escaped spellings of `url` stop being recognized. The same reader, the same comparison.
-    const source = fs.readFileSync(path.resolve(__dirname, '../../../lib/core/css-ref.generated.js'), 'utf8');
-    assert.ok(source.includes('i0 + 32'), 'the attempt window moved; update this mutant');
-    const mod = { exports: {} };
-    new Function('module', 'exports', source.replace('i0 + 32', 'i0 + 5'))(mod, mod.exports);
-    const broken = makeCssRefSpans(mod.exports, helpers);
+    // The parser is generated into a region of lib/core/css-tokens.mjs, as `const cssGrammar = (() => { … })();`.
+    const file = fs.readFileSync(path.resolve(__dirname, '../../../lib/core/css-tokens.mjs'), 'utf8');
+    const region = /^const cssGrammar = \(\(\) => \{[\s\S]*?^\}\)\(\);$/m.exec(file)?.[0];
+    assert.ok(region?.includes('i0 + 32'), 'the parser region or its attempt window moved; update this mutant');
+    const broken = makeCssRefSpans(new Function(`${region.replaceAll('i0 + 32', 'i0 + 5')}\nreturn cssGrammar;`)(), helpers);
     const r = rng(2026);
     let caught = 0;
     for (let k = 0; k < 20_000; k++) {
@@ -155,7 +155,7 @@ describe('the grammar-driven reader returns the old tokenizer\'s spans', () => {
 
   test('a parser that lacks a kind the reader needs is refused at once', () => {
     const { NEEDED } = require('../../../lib/core/css-ref-reader.js');
-    const real = require('../../../lib/core/css-ref.generated.js');
+    const real = require('../../../lib/core/css-tokens.mjs').cssParser;
     for (const k of NEEDED) {
       const renamed = { parse: (...a) => { const r = real.parse(...a); return r.ok ? { ...r, tree: { ...r.tree, kinds: r.tree.kinds.map((x) => (x === k ? `${k}2` : x)) } } : r; } };
       assert.throws(() => makeCssRefSpans(renamed, helpers), new RegExp(`"${k}"`));

@@ -988,9 +988,21 @@ rendered byte, so `npm run identity:check -- --strict` holds it.
 
 **The tokenizer** is lib/core/css-tokens.mjs: `eachCssToken(css, visit, from, to)` and `cssTokens(css, from, to)`, one
 API for a whole sheet and for an island (a stretch of a host text, offsets in the host's coordinates). Its grammar is
-`cssSheetSpec` in lib/core/css-ref-grammar.js, which shares the escape, string and `url(` rules with `cssSpec`, the
-reader behind `cssRefSpans` (#2871); `cssSpec` and its generated parser are unchanged. It stays LL(1) but for the one
-bounded `url(` attempt `cssSpec` already has. test/unit/core/css-tokens.test.js holds it to css-tree's spec tokenizer
+the `sheet` entry of `cssSpec` in lib/core/css-ref-grammar.js, whose `top` entry is the reader behind `cssRefSpans`
+(#2871); the two share the escape, string and `url(` rules. It stays LL(1) but for the one bounded `url(` attempt `top`
+already has.
+
+**One parser, not two (coordinator, 2026-11-17).** Minified and gzipped, the `top` parser alone was 2,585 B, a separate
+`sheet` parser 2,840 B, and one parser with both entries 3,073 B. The Studio already loads the `top` parser through
+remote-ref.js, so two parsers would have cost it about 2.8 KB and one costs about 0.5 KB. So lib/core/css-ref.generated.js
+is deleted, the one parser is generated into lib/core/css-tokens.mjs and exported as `cssParser`, and every reader that
+handed `css-ref.generated.js` to `makeCssRefSpans` hands it `cssParser` instead. No reading logic changed. The evidence:
+- every function `top` runs (`r_wsUnit`, `r_hexEscape`, `r_escape`, `r_stringDq`, `r_stringSq`, `r_top`, `r_token`,
+  `r_urlBody`), `parse` and every other top-level name of the deleted file are byte-identical in the new region but
+  two: `KINDS` (seven kinds appended, the old ones keep their numbers) and `RULES` (a superset);
+- `makeCssRefSpans` over the deleted parser and over `cssParser`, with no options and with `imageSet`, `urlArg` and
+  `decls`, on the 209 stylesheets in the repo and 100,000 seeded inputs: 200,418 comparisons, 0 differ;
+- test/unit/core/css-ref-spans-differential.test.js (the frozen legacy tokenizer) passes on the new source. test/unit/core/css-tokens.test.js holds it to css-tree's spec tokenizer
 on 4,000 seeded inputs, token for token; the file's header lists the three places css-tree itself departs from the
 spec and from Chromium, and the three places this tokenizer departs from it on purpose.
 

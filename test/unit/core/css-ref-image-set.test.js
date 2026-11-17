@@ -4,7 +4,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { makeCssRefSpans } = require('../../../lib/core/css-ref-reader.js');
-const parser = require('../../../lib/core/css-ref.generated.js');
+const parser = require('../../../lib/core/css-tokens.mjs').cssParser;
 const helpers = require('../../../lib/core/css-token-readers.js');
 
 const { imageSetBlock } = require('../../../lib/core/css-image-set-block.js');
