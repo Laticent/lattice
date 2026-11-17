@@ -9060,7 +9060,7 @@ const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime|getEntries(?:ByType|ByName)?\s*\(|offset(?:Top|Left)|\.resume\s*\(|(?:write|append|copy)File|\b(?:cpSync|cp|renameSync|rename|mkdirSync|mkdir|rmSync|rm|unlinkSync|unlink|symlinkSync|symlink|createWriteStream)\s*\(/;
+const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime|getEntries(?:ByType|ByName)?\s*\(|offset(?:Top|Left)|\.resume\s*\(|(?:write|append|copy)File|output(?:File|Json)|writeJson|\b(?:cpSync|cp|renameSync|rename|mkdirSync|mkdir|rmSync|rm|unlinkSync|unlink|symlinkSync|symlink|createWriteStream)\s*\(/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {

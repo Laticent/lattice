@@ -370,10 +370,15 @@ describe('the guide-named shapes: offset-geometry, clock-resume, tree-write', ()
       'docs/e2e/geo.spec.ts': `const top = el.${OT};\n`,
       'docs/e2e/clk.spec.ts': `${RESUME}\n`,
       'test/w.test.js': `fs.${WRITE}('lib/a.js', 'x');\n`,
+      // fs-extra's writers, the only tree-write names the fast path matches by their own spelling.
+      'test/o.test.js': `fse.outputFileSync('lib/a.js', 'x');\n`,
+      'test/j.test.js': `fse.writeJsonSync('examples/a.json', {});\n`,
     }, {});
     assert.deepEqual(flakyTestTree(root), {
       'docs/e2e/clk.spec.ts': { 'clock-resume': 1 },
       'docs/e2e/geo.spec.ts': { 'offset-geometry': 1 },
+      'test/j.test.js': { 'tree-write': 1 },
+      'test/o.test.js': { 'tree-write': 1 },
       'test/w.test.js': { 'tree-write': 1 },
     });
   });
