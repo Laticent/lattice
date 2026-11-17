@@ -20,9 +20,8 @@
     "lib/components/imagery/video/video.transform.js": 6,
     "lib/components/inventory/team-profile/team-profile.transform.js": 3,
     "lib/components/progression/cycle/cycle.transform.js": 1,
-    "lib/components/surfaces.js": 3,
+    "lib/components/surfaces.js": 2,
     "lib/conformance/changed-paths.js": 3,
-    "lib/conformance/kinds/component.contract.js": 9,
     "lib/conformance/kinds/deck-setting.contract.js": 1,
     "lib/core/agenda-autofill.js": 1,
     "lib/core/auto-split.js": 11,
@@ -343,38 +342,6 @@
       "why": "recheck cannot model it: look-behind assertion"
     },
     "/(?<![-\\w])class=\"[^\"]*\\bform\\b[^\"]*\"/": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-behind assertion"
-    },
-    "/(?<![\\w#.-])(?:background|object|mask)-position\\s*:[^;}]*\\b(?:left|right)\\b/gi": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-behind assertion"
-    },
-    "/(?<![\\w#.-])(?:left|right)\\s*:/gi": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-behind assertion"
-    },
-    "/(?<![\\w#.-])(?:margin|padding|border|scroll-margin|scroll-padding)-(?:left|right)(?:-[a-z]+)*\\s*:/gi": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-behind assertion"
-    },
-    "/(?<![\\w#.-])(?:margin|padding|inset|scroll-margin|scroll-padding|border-width|border-style|border-color)\\s*:\\s*([^;}]+)/gi": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-behind assertion"
-    },
-    "/(?<![\\w#.-])border-(?:top|bottom)-(?:left|right)-radius\\s*:/gi": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-behind assertion"
-    },
-    "/(?<![\\w#.-])float\\s*:\\s*(?:left|right)\\b/gi": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-behind assertion"
-    },
-    "/(?<![\\w#.-])justify-(?:content|items|self)\\s*:\\s*(?:left|right)\\b/gi": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-behind assertion"
-    },
-    "/(?<![\\w#.-])text-align\\s*:\\s*(?:left|right)\\b/gi": {
       "verdict": "unknown",
       "why": "recheck cannot model it: look-behind assertion"
     },
@@ -1202,7 +1169,6 @@
     "/\\.(?:woff2?|ttf|otf)(?:[?#]|$)/i": "safe",
     "/\\.(?:woff2?|ttf|otf|eot)(?:[?#]|$)/i": "safe",
     "/\\.([\\w-]+)/g": "safe",
-    "/\\.([a-z][a-z0-9-]*)/g": "safe",
     "/\\.(css|md|json|svg|js|txt)$/i": "safe",
     "/\\.(html?|md)$/i": "safe",
     "/\\.(m?js)$/": "safe",
@@ -1288,6 +1254,7 @@
     "/\\b(?:gartner|forrester|idc|mckinsey|bain|deloitte|nielsen|statista|bloomberg|reuters|the economist|sec\\b|10-?k|annual report|census|world bank|imf|oecd|eurostat)\\b/i": "safe",
     "/\\b(?:javascript|vbscript)\\s*:/gi": "safe",
     "/\\b(?:lat-svg[td]|pie-wedge|radar-area|chart-spine|gantt-fill|gantt-barclip|q-tint|cart-fill)[\\w-]*-\\d+\\b/g": "polynomial",
+    "/\\b(?:left|right)\\b/i": "safe",
     "/\\b(?:obligation-matrix|state-cells)\\b/": "safe",
     "/\\b(?:our|we|we're|we've|us|my|in-house|internal(?:ly)?|proprietary|unpublished)\\b/i": "safe",
     "/\\b(?:section)?:lattice-root\\b/g": "safe",
@@ -1716,6 +1683,7 @@
     "/^(?:#|rank|no\\.?|pos(?:ition)?|place)$/i": "safe",
     "/^(?:#|№|no\\.?|num(?:ber)?|idx|index|ref\\.?|id|item\\s*#|line\\s*#|s\\/?n)$/i": "safe",
     "/^(?:(?:https?|wss?|ftp|file|blob|javascript|vbscript):|\\/\\/|\\\\\\\\|\\\\\\/|\\/\\\\)/i": "safe",
+    "/^(?:(?:margin|padding|border|scroll-margin|scroll-padding)-(?:left|right)(?:-[a-z]+)*|border-(?:top|bottom)-(?:left|right)-radius|left|right)$/": "safe",
     "/^(?:(?:q[1-4]|h[12]|fy\\s?'?\\d{2,4}|cy\\s?\\d{2,4}|\\d{4}|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\\s+|$))+/": "safe",
     "/^(?:(\\d{4})\\s*)?([A-Za-z]+)$/": "safe",
     "/^(?:(\\d{4})\\s*)?Q([1-4])$/i": "safe",
@@ -1786,6 +1754,7 @@
     "/^(?:javascript|vbscript):/": "safe",
     "/^(?:javascript|vbscript):/i": "safe",
     "/^(?:lefthook\\.yml|biome\\.jsonc?)$/": "safe",
+    "/^(?:left|right)\\b/i": "safe",
     "/^(?:module|(?:application|text)\\/(?:x-)?(?:java|ecma)script|text\\/jscript|text\\/livescript|text\\/javascript1\\.[0-5])$/i": "safe",
     "/^(?:no-logo|logo-(?:top-left|top-center|top-right|bottom-left|bottom-center|bottom-right|auto|accent|ink|muted|canvas|inverse|brand|accent-ink|accent-canvas|ink-canvas|no-plate|plate|sm|md|lg|all|title))$/": "safe",
     "/^(?:p|h[1-6])$/": "safe",
