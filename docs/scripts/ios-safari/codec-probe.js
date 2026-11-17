@@ -11,7 +11,8 @@
  * codecs WebCodecs' AudioEncoder and AudioDecoder support; and a real round trip: the source speech encoded with
  * AudioEncoder (Opus, AAC) and decoded back with AudioDecoder, with the bytes written and the change in length. That
  * round trip is the path the streaming design would use: raw packets in storage, no container, no decodeAudioData.
- * Self-contained (WebDriver sends it as text): it uses only its argument and the page's own APIs.
+ * WebDriver sends it as text, after lib/core/ogg-opus.mjs with its `export`s removed (run.mjs `withMuxer`): it uses its
+ * argument, the page's own APIs and that muxer.
  */
 
 async function latticeCodecProbe(files) {
@@ -86,9 +87,13 @@ async function latticeCodecProbe(files) {
 		});
 		try {
 			enc.configure({ codec, sampleRate, numberOfChannels: 1, bitrate });
+			// 30 ms of silence after the speech, so the encoder's lookahead releases ALL of it on flush; the Ogg writer's
+			// `length` trims the file back to the speech.
+			const input = new Float32Array(samples.length + Math.ceil(sampleRate * 0.03));
+			input.set(samples);
 			const frame = 1024;
-			for (let i = 0; i < samples.length; i += frame) {
-				const slice = samples.slice(i, Math.min(i + frame, samples.length));
+			for (let i = 0; i < input.length; i += frame) {
+				const slice = input.slice(i, Math.min(i + frame, input.length));
 				enc.encode(new AudioData({ format: 'f32', sampleRate, numberOfFrames: slice.length, numberOfChannels: 1, timestamp: Math.round((i / sampleRate) * 1e6), data: slice }));
 			}
 			await enc.flush();
@@ -117,7 +122,26 @@ async function latticeCodecProbe(files) {
 			return { ok: false, error: `decode: ${String(e?.message || e).slice(0, 80)}`, bytes };
 		}
 		if (decError) return { ok: false, error: `decode: ${decError.slice(0, 80)}`, bytes };
+		// E. The same packets in OUR Ogg file (lib/core/ogg-opus.mjs, sent ahead of this script by run.mjs), played back with
+		// decodeAudioData: the stored-clip path the streaming design uses. Its added length is what a listener hears.
+		let ogg = null;
+		if (codec === 'opus' && typeof muxOggOpus === 'function') {
+			try {
+				const preSkip = preSkipFromDescription(decoderConfig?.description) ?? DEFAULT_PRE_SKIP;
+				const file = muxOggOpus({
+					packets: chunks.map((c) => ({ data: c.data })),
+					preSkip,
+					inputSampleRate: sampleRate,
+					length: Math.round((samples.length * 48000) / sampleRate),
+				});
+				const buf = await new OfflineAudioContext(1, 1, 48000).decodeAudioData(file.slice().buffer);
+				ogg = { ok: true, bytes: file.length, extraMs: Math.round((buf.duration - samples.length / sampleRate) * 1000), preSkip, preSkipReported: preSkipFromDescription(decoderConfig?.description) !== null };
+			} catch (e) {
+				ogg = { ok: false, error: String(e?.name || e?.message || e).slice(0, 80) };
+			}
+		}
 		return {
+			ogg,
 			ok: decoded > 0,
 			label,
 			bytes,

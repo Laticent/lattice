@@ -1054,7 +1054,9 @@ async function runFocusSyncProbe(id) {
  */
 async function runCodecProbe(id) {
 	const { codecChecks } = await import('./codecs.mjs');
-	const probe = fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8');
+	// The page gets the Ogg writer the Studio uses (lib/core/ogg-opus.mjs) as plain script: its `export`s removed.
+	const muxer = fs.readFileSync(path.join(ROOT, 'lib/core/ogg-opus.mjs'), 'utf8').replace(/^export /gm, '');
+	const probe = `${muxer}\n${fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8')}`;
 	const dir = path.join(here, 'codec-fixtures');
 	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
@@ -1066,7 +1068,7 @@ async function runCodecProbe(id) {
 	for (const [f, d] of Object.entries(r.decode)) console.log(`${LABEL}: decode ${f}: ${d.ok ? `ok, +${d.extraMs} ms` : `NO (${d.error})`}`);
 	console.log(`${LABEL}: WebCodecs encoder ${JSON.stringify(r.encoder)}`);
 	console.log(`${LABEL}: WebCodecs decoder ${JSON.stringify(r.decoder)}`);
-	for (const [k, v] of Object.entries(r.roundTrip)) console.log(`${LABEL}: round trip ${k}: ${v.ok ? `${v.bytes} B, ${v.kbps} kbps, ${v.extraMs} ms longer, encode ${v.encodeXRealtime}x realtime` : `NO (${v.error})`}`);
+	for (const [k, v] of Object.entries(r.roundTrip)) console.log(`${LABEL}: round trip ${k}: ${v.ok ? `${v.bytes} B, ${v.kbps} kbps, ${v.extraMs} ms longer, encode ${v.encodeXRealtime}x realtime` : `NO (${v.error})`}${v.ogg ? `; as our Ogg: ${v.ogg.ok ? `${v.ogg.bytes} B, ${v.ogg.extraMs} ms longer, pre-skip ${v.ogg.preSkip}${v.ogg.preSkipReported ? ' reported' : ' default'}` : `NO (${v.ogg.error})`}` : ''}`);
 	console.log(`${LABEL}: Opus in a worker: ${r.worker?.ok ? `${r.worker.bytes} B, ${r.worker.encodeXRealtime}x realtime` : `NO (${r.worker?.error})`}`);
 	const steps = codecChecks(r);
 	const failed = steps.filter((s) => !s.pass);
