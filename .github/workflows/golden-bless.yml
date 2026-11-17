@@ -192,13 +192,17 @@ jobs:
           # green. Idempotent. Only when the bless re-recorded something and the tree is sound
           # (verdict.json's autoMerge); held goldens are already out of the commit.
           # With a merge queue, gh prints "! The merge strategy for main is set by the merge queue" and exits 0
-          # either way, so the step reads the PR back: a bless that should merge itself and is neither armed
-          # nor merged turns the run red instead of sitting open unseen.
+          # either way, so the step reads the PR back: a bless that should merge itself and is not armed,
+          # queued or merged turns the run red instead of sitting open unseen.
           if [ "$(jq -r .autoMerge .scratch/golden-bless/verdict.json)" = "true" ]; then
             gh pr merge "$BLESS_BRANCH" --auto --squash
-            # REST keeps `auto_merge` set while the PR waits in the queue, until it merges.
+            # Armed, queued or merged all count. GitHub CLEARS `auto_merge` once it queues the PR (measured on
+            # #3259 2026-11-17: in the queue, `auto_merge: null`), so "queued" is read off the timeline: the
+            # latest queue event is `added_to_merge_queue`.
             ARMED="$(gh api "repos/${REPO}/pulls/${PR_NUM}" --jq '(.auto_merge != null) or .merged')"
-            if [ "$ARMED" != "true" ]; then
+            QUEUE_EVENT="$(gh api "repos/${REPO}/issues/${PR_NUM}/timeline?per_page=100" --paginate \
+              --jq '.[] | select(.event == "added_to_merge_queue" or .event == "removed_from_merge_queue") | .event' | tail -1)"
+            if [ "$ARMED" != "true" ] && [ "$QUEUE_EVENT" != "added_to_merge_queue" ]; then
               echo "::error::golden-bless: auto-merge did not turn on for the bless PR; it will not merge itself."
               exit 1
             fi
