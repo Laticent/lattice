@@ -152,9 +152,9 @@
   --pass-mark: light-dark(#41623C, #467251);
   --warn-mark: light-dark(#8D5B1A, #AD6200);
   --fail-mark: light-dark(#920010, #D12C2F);
-  --pass-vivid-mark: light-dark(#34622D, #007839);
-  --warn-vivid-mark: light-dark(#905900, #AD6200);
-  --fail-vivid-mark: light-dark(#86000E, #DE001F);
+  --pass-vivid-mark: light-dark(#366530, #007839);
+  --warn-vivid-mark: light-dark(#975700, #AD6200);
+  --fail-vivid-mark: light-dark(#8B000F, #DE001F);
   --warn-signal-mark: light-dark(#FFBB6F, #F79C00);
   --fail-signal-mark: light-dark(#FFB5AD, #FF797D);
   --info-mark: light-dark(#175686, #1E7CA9);
@@ -174,9 +174,9 @@
   --fail-edge-mark: light-dark(#920010, var(--fail));
   --info-edge-mark: light-dark(#175686, var(--info));
   --mute-edge-mark: light-dark(#586475, var(--mute));
-  --pass-vivid-edge-mark: light-dark(#34622D, var(--pass));
-  --warn-vivid-edge-mark: light-dark(#905900, var(--warn));
-  --fail-vivid-edge-mark: light-dark(#86000E, var(--fail));
+  --pass-vivid-edge-mark: light-dark(#366530, var(--pass));
+  --warn-vivid-edge-mark: light-dark(#975700, var(--warn));
+  --fail-vivid-edge-mark: light-dark(#8B000F, var(--fail));
   --info-vivid-edge-mark: light-dark(#00558B, var(--info));
   /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
    * (risk-matrix's critical band, a state-chart status row's chip). */

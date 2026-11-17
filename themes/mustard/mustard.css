@@ -110,17 +110,17 @@
    * this theme's own brand and chart colors (held inside the status bands on dark); the trio keeps at least half of
    * its recorded colorblind separation (test/fixtures/status-fill-cvd-baseline.json); the a11y palettes carry the
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
-  --pass-mark: light-dark(#355133, #496646);
-  --warn-mark: light-dark(#7B4C00, #A96419);
-  --fail-mark: light-dark(#831C0D, #C62D17);
-  --pass-vivid-mark: light-dark(#1D451B, #246D21);
-  --warn-vivid-mark: light-dark(#7B4C00, #AD6200);
-  --fail-vivid-mark: light-dark(#880F00, #CE1D00);
-  --warn-signal-mark: light-dark(#FFBB6B, #E7AD00);
+  --pass-mark: light-dark(#3A5738, #496646);
+  --warn-mark: light-dark(#874F19, #A96419);
+  --fail-mark: light-dark(#8B2516, #C62D17);
+  --pass-vivid-mark: light-dark(#30582E, #246D21);
+  --warn-vivid-mark: light-dark(#864E00, #AD6200);
+  --fail-vivid-mark: light-dark(#911100, #CE1D00);
+  --warn-signal-mark: light-dark(#FFBA81, #E7AD00);
   --fail-signal-mark: light-dark(#FFB5A7, #FA725B);
   --info-mark: light-dark(#1B589E, #367CA2);
   --info-vivid-mark: light-dark(#0056AA, #007DAF);
-  --mute-mark: light-dark(#615C49, #6B6961);
+  --mute-mark: light-dark(#44402E, #6B6961);
   /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each status
    * fill, and its border. Light: the slide's own paper, and the fill itself (it clears 4.5:1 against every surface).
    * Dark: the one ink, and the status ink `--X` (a rim that stands the mid-tone fill off a tinted row or a card).
@@ -130,14 +130,14 @@
   --fail-on-mark: light-dark(#F5EFD8, #FFFFFF);
   --info-on-mark: light-dark(#F5EFD8, #FFFFFF);
   --mute-on-mark: light-dark(#F5EFD8, #FFFFFF);
-  --pass-edge-mark: light-dark(#355133, var(--pass));
-  --warn-edge-mark: light-dark(#7B4C00, var(--warn));
-  --fail-edge-mark: light-dark(#831C0D, var(--fail));
+  --pass-edge-mark: light-dark(#3A5738, var(--pass));
+  --warn-edge-mark: light-dark(#874F19, var(--warn));
+  --fail-edge-mark: light-dark(#8B2516, var(--fail));
   --info-edge-mark: light-dark(#1B589E, var(--info));
-  --mute-edge-mark: light-dark(#615C49, var(--mute));
-  --pass-vivid-edge-mark: light-dark(#1D451B, var(--pass));
-  --warn-vivid-edge-mark: light-dark(#7B4C00, var(--warn));
-  --fail-vivid-edge-mark: light-dark(#880F00, var(--fail));
+  --mute-edge-mark: light-dark(#44402E, var(--mute));
+  --pass-vivid-edge-mark: light-dark(#30582E, var(--pass));
+  --warn-vivid-edge-mark: light-dark(#864E00, var(--warn));
+  --fail-vivid-edge-mark: light-dark(#911100, var(--fail));
   --info-vivid-edge-mark: light-dark(#0056AA, var(--info));
   /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
    * (risk-matrix's critical band, a state-chart status row's chip). */

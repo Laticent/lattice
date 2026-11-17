@@ -84,12 +84,13 @@ test('deferred is a gray in the theme\'s own neutral', () => {
   const dark = V0['mute-mark'].replace(/^light-dark\(#[0-9A-Fa-f]{6},\s*(#[0-9A-Fa-f]{6})\)$/, '$1');
   const bad = run({ 'mute-mark': `light-dark(#565D6F, ${dark})` });
   assert.ok(bad.some((b) => /light muted --mute-mark hue .* off the theme's neutral/.test(b)), bad.join(' | '));
-  // And it stands apart from done: cuoio's earlier deferred sat 0.050 from its olive done, and the two read as one drab.
+  // And it stands apart from done: cuoio's deferred once sat 0.050 from its olive done, and the two read as one drab.
+  // The arm is an olive-gray 0.039 from cuoio's done.
   const C0 = mergedVars('cuoio');
   const cuoio = (patch) => audit('cuoio', themeFacts('cuoio', { ...C0, ...patch }), baseline, 1);
   assert.deepEqual(cuoio({}), [], 'cuoio as shipped');
   const cDark = C0['mute-mark'].replace(/^light-dark\(#[0-9A-Fa-f]{6},\s*(#[0-9A-Fa-f]{6})\)$/, '$1');
-  const near = cuoio({ 'mute-mark': `light-dark(#6D6250, ${cDark})` });
+  const near = cuoio({ 'mute-mark': `light-dark(#4A4A38, ${cDark})` });
   assert.ok(near.some((b) => /light muted --mute-mark sits .* from done/.test(b)), near.join(' | '));
 });
 

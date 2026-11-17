@@ -104,6 +104,8 @@ const TABLE_ROUNDING = 0.002;
 const WINDOW = 0.16;
 /** Deferred keeps at least this OKLab distance from done, where the face allows it (main's cuoio held 0.091). */
 const MUTE_APART = 0.07;
+/** What one degree of at risk's step off its own hue costs, in summed lightness off target (0.05 for 15 degrees). */
+const SHIFT_COST = 0.0033;
 
 const hueDist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
 const ok = (L, C, h) => oklchToHex({ L, C, h }).toUpperCase();
@@ -314,7 +316,7 @@ function solve(theme, facts, baseline, keep) {
       // gold accent reads khaki, and a blocked on a magenta reads as a category.
       const inBand = (s, h) => { const [lo, hi] = LIGHT_BAND[s]; return Math.min(hi, Math.max(lo, h)); };
       const hueOf = (s) => (s === 'mute' ? facts.anchor.mute.h : s === 'fail' ? clampRed(facts.anchor.fail.h)
-        : inBand(s, facts.anchor[s].h + (s === 'warn' ? warnShift : 0)));
+        : s === 'warn' ? inBand(s, inBand(s, facts.anchor.warn.h) + warnShift) : inBand(s, facts.anchor[s].h));
       const cands = (s) => {
         const list = [];
         for (let L = 0.2; L <= 0.96; L += 0.005) {
@@ -324,14 +326,17 @@ function solve(theme, facts, baseline, keep) {
         return list.filter(([L, f]) => Math.abs(L - TARGET[face][s]) <= WINDOW && (s !== 'fail' || theme in SPREAD_EXEMPT || (L >= LIGHT_RED.L && hexToOklch(f).C >= LIGHT_RED.C - 0.01)));
       };
       let best = null;
-      // Warn keeps the theme's own hue; only where no trio can then clear the accent floor does it step off the accent's
-      // hue, 5 degrees at a time and never past its band (cuoio's dark face, whose warn IS its accent, is the one case).
+      // Warn starts at the theme's own hue (held in its band) and may step away from the accent's hue, 5 degrees at a
+      // time inside the band, where that buys a trio closer to the lightness targets. Each degree costs SHIFT_COST, so a
+      // theme keeps its own amber unless the step pays: cuoio's and mustard's at risk, anchored ON their gold accent,
+      // could only clear it by sinking, which sank blocked to a wine red under it. Stepping toward orange lets both rise.
       let warnShift = 0;
-      const accentH = facts[face].accent ? hexToOklch(facts[face].accent).h : facts.anchor.warn.h;
-      const away = Math.sign(facts.anchor.warn.h - accentH) || 1;
+      const warn0 = inBand('warn', facts.anchor.warn.h);
+      const accentH = facts[face].accent ? hexToOklch(facts[face].accent).h : warn0;
+      const away = Math.sign(warn0 - accentH) || -1;
       for (const step of [0, 5, 10, 15]) {
       warnShift = away * step;
-      if (hueDist(facts.anchor.warn.h + warnShift, BAND.warn[0]) > BAND.warn[1]) break;
+      if (step && inBand('warn', warn0 + warnShift) !== warn0 + warnShift) break;
       const R = {};
       for (const s of TRIO) R[s] = cands(s);
       for (const p of R.pass) for (const w of R.warn) for (const f of R.fail) {
@@ -340,10 +345,9 @@ function solve(theme, facts, baseline, keep) {
         if (!urgent(fills, bg) || !offAccent(fills, facts[face].accent, accentFloor(theme, face))) continue;
         if (!separationOk(theme, intensity, face, fills, baseline, keep)) continue;
         const t = TARGET[face];
-        const dev = Math.abs(p[0] - t.pass) + Math.abs(w[0] - t.warn) + Math.abs(f[0] - t.fail);
+        const dev = Math.abs(p[0] - t.pass) + Math.abs(w[0] - t.warn) + Math.abs(f[0] - t.fail) + step * SHIFT_COST;
         if (!best || dev < best.dev) best = { dev, fills };
       }
-      if (best) break;
       }
       if (!best) throw new Error(`${theme} ${face} ${intensity}: no trio meets the contract at --keep=${keep}`);
       // Deferred is free of the trio's constraints, so it keeps its distance from done, the other quiet fill

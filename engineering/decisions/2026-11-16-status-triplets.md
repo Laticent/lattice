@@ -100,7 +100,7 @@ at risk at khaki (82-84 degrees, anchored on a gold accent) and their light trio
 owner set the bar: no worse than `main` (scored on the same rubric: light 6.5, dark 6), aiming for 9. So the light face now
 holds each status inside the chart solids' bands too (`LIGHT_BAND`): done 120-165, at risk 45-70 (a gold at most, not
 khaki), blocked 20-32, pilot 200-255 (out to a theme's own brand blue; pilot is not in the colorblind trio). The theme's
-own hue is kept wherever it falls inside its band. At risk now sits at about 70 degrees on every theme: amber has little
+own hue is kept wherever it falls inside its band. At risk sits at about 70 degrees on most themes: amber has little
 room to differ between brands, and the per-theme character shows in done, blocked, pilot and each fill's depth instead.
 
 **Done, deferred and dark blocked follow the brand, not one shared look.** A fourth scoring (light 7.5, dark 7) found
@@ -126,6 +126,16 @@ A fifth scoring (light 8.5, dark 8, every named defect confirmed fixed) found tw
   steps down to `#5A503F`; ardesia's and brina's move too.
   A rule that done may sit no lighter than at risk was tried and dropped: on cuoio the colorblind half then forces done
   to a near-black olive (L 0.34), the defect the third scoring named.
+
+A sixth scoring (light 8.5, dark 8) confirmed both, and found the same wine blocked on cuoio (L 0.38) and mustard
+(0.40), with cuoio's deferred, darkened by the step above, now crowding its at risk (0.066). The cause was at risk: both
+themes anchor it on their gold accent, so it could only clear the accent floor by sinking, and blocked sinks 0.06 under
+it. The solver did offer at risk a step off the accent's hue, but it stepped the wrong way (past the band's top) and
+only when no trio existed at all. It now steps away from the accent inside the band, 5 degrees at a time, and keeps the
+step whose trio sits closest to the lightness targets, each degree costing 0.0033 (`SHIFT_COST`), so a theme keeps its
+own amber unless the step pays. Cuoio's at risk moves to an amber-orange at 54 degrees (`#905326`, L 0.50), which frees
+blocked to `#902921` (L 0.44) and deepens done to `#3D4D26` (L 0.40); mustard's to 60 degrees, with blocked at L 0.43.
+No other theme steps. Deferred now clears 0.07 from both done and at risk on every light face (the tightest, 0.072).
 
 Dark etch's status bars read nearly hollow beside an etched pie. That is etch's design and predates this work: a
 mark that carries text (a status bar or a category bar) takes etch's backdrop level (14% light, 19% dark), and only a
