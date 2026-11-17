@@ -174,9 +174,8 @@ describe('warmPanels', () => {
 		vi.useFakeTimers();
 		const loader = vi.fn(async () => Real);
 		const release = holdWarmUps();
-		let cancel = () => {};
 		try {
-			cancel = heldWarmPanels(warmPanels)([lazyPanel('A', loader)]);
+			const cancel = heldWarmPanels(warmPanels)([lazyPanel('A', loader)]);
 			await act(async () => vi.advanceTimersByTimeAsync(5000)); // the item has started and waits on the hold
 			cancel(); // the Studio unmounts
 		} finally {
