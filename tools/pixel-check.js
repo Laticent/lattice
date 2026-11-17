@@ -220,6 +220,16 @@ function montageTriptych(page, outPng, opts = {}) {
   return null;
 }
 
+// Which montage failure to report, given the one kept so far and a new one from `lastError`: the first
+// ImageMagick error wins over a page added or removed (routine, and the reason a page has no tile);
+// otherwise the first failure stays. Each names its golden.
+const MISSING_TILE = /: no (before|after) image/;
+function keepMontageError(kept, next, relPath) {
+  if (!next) return kept;
+  if (!kept || (MISSING_TILE.test(kept) && !MISSING_TILE.test(next))) return `${relPath} ${next}`;
+  return kept;
+}
+
 // Bundle a list of PNGs into one PDF (ImageMagick `convert`). Returns the PDF
 // path, or null if `convert` is missing or there's nothing to bundle. (CI relaxes
 // the IM PDF-coder policy so the write is allowed — see the workflow.)
@@ -407,4 +417,4 @@ function main(argv) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { snapshot, diff, clean, ls, pixelDiff, montageTriptych, pngsToPdf };
+module.exports = { snapshot, diff, clean, ls, pixelDiff, montageTriptych, pngsToPdf, keepMontageError };

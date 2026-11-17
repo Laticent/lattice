@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { montageTriptych, pngsToPdf } = require('../../../tools/pixel-check.js');
+const { montageTriptych, pngsToPdf, keepMontageError } = require('../../../tools/pixel-check.js');
 
 test('a page with no before image names the missing side', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'montage-err-'));
@@ -49,4 +49,17 @@ test('a montage or PDF ImageMagick rejects reports ImageMagick\'s own message', 
     process.env.PATH = savedPath;
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// Maker-checker on #3290: golden-diff showed only the LAST failure, so one routine added page after a real
+// ImageMagick error blamed the page. The first ImageMagick error wins, and each reason names its golden.
+test('an ImageMagick error is reported over a page added or removed, with the golden it came from', () => {
+  const page = 'page 9: no before image (a page added or removed)';
+  const magick = 'montage exited 1: montage-im6.q16: unable to read font';
+  let kept = keepMontageError('', magick, 'examples/a.pdf');
+  kept = keepMontageError(kept, page, 'examples/b.pdf');
+  assert.equal(kept, `examples/a.pdf ${magick}`, 'a later added page does not hide the tool error');
+  assert.equal(keepMontageError(`examples/b.pdf ${page}`, magick, 'examples/c.pdf'), `examples/c.pdf ${magick}`, 'a tool error replaces a missing tile');
+  assert.equal(keepMontageError(`examples/a.pdf ${magick}`, 'montage exited 1: other', 'examples/d.pdf'), `examples/a.pdf ${magick}`, 'the first tool error stays');
+  assert.equal(keepMontageError('', undefined, 'examples/e.pdf'), '');
 });

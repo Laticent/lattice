@@ -69,7 +69,7 @@ import { failFractionForDeck, failFractionForGallery, galleryDecks, renderDeck, 
 import { classifyChangedPdf, deckGoldenPdfs } from './lib/golden-set.mjs';
 
 const require = createRequire(import.meta.url);
-const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
+const { pixelDiff, montageTriptych, pngsToPdf, keepMontageError } = require('./pixel-check.js');
 // classify(): which markdown should have a committed PDF. Pull requests no longer commit
 // PDFs (goldens step 3), so a new deck has none, and this is how its PR still renders it.
 const { classify } = require('./build-staged-pdfs.js');
@@ -301,6 +301,13 @@ function renderAndCompare(base, item) {
   }
 }
 
+// Why no montage was made, for the PR comment: pixel-check.js `keepMontageError` keeps ImageMagick's own
+// error over a routine page added or removed, so a real tool failure is never hidden behind one.
+let montageError = '';
+const noteMontageError = (relPath) => { montageError = keepMontageError(montageError, montageTriptych.lastError, relPath); };
+// A code span that survives the backticks and underscores ImageMagick prints around file names.
+const inlineCode = (text) => `\`${String(text).replace(/`/g, "'")}\``;
+
 function main() {
   const args = process.argv.slice(2);
   const json = args.includes('--json');
@@ -377,7 +384,7 @@ function main() {
       const slugName = `${relPath.replace(/[^a-z0-9]+/gi, '_')}`;
       const m = join(diff.tmpDir, `gd-${slugName}-${String(d.page).padStart(3, '0')}.png`);
       const made = montageTriptych(d, m, { title: `${name} · ${mood} · slide ${d.page}` });
-      if (!made) continue;
+      if (!made) { noteMontageError(relPath); continue; }
       // Persist into MONTAGE_DIR under a stable, URL-safe, COLLISION-FREE basename
       // so CI can push it to the image branch and embed a deterministic raw URL.
       // The basename derives from the full relPath (which is unique), NOT from
@@ -449,7 +456,7 @@ function main() {
         const slugName = item.relPath.replace(/[^a-z0-9]+/gi, '_');
         const m = join(r.diff.tmpDir, `gd-${slugName}-${String(d.page).padStart(3, '0')}.png`);
         const made = montageTriptych(d, m, { title: `${name} · ${mood} · slide ${d.page} (${why})` });
-        if (!made) continue;
+        if (!made) { noteMontageError(item.relPath); continue; }
         const slug = item.relPath.replace(/^lib\/components\//, '').replace(/\.pdf$/, '').replace(/[^a-z0-9]+/gi, '_');
         const file = `${slug}_s${String(d.page).padStart(3, '0')}.png`;
         const dest = join(MONTAGE_DIR, file);
@@ -494,7 +501,7 @@ function main() {
       lines.push('');
       lines.push(artifact
         ? '↪ Flip through the full **before │ after │ overlay** montage in the **`golden-diff-changes`** artifact below.'
-        : `_(montage artifact unavailable: ${(montagePngs.length ? pngsToPdf.lastError : montageTriptych.lastError) || 'no slide had both a before and an after image'}.)_`);
+        : `_(montage artifact unavailable.)_ Why: ${inlineCode((montagePngs.length ? pngsToPdf.lastError : montageError) || 'no slide had both a before and an after image')}`);
       if (montagesOmitted) {
         lines.push('', `⚠️ **${montagesOmitted} changed slide${montagesOmitted === 1 ? '' : 's'} ${montagesOmitted === 1 ? 'has' : 'have'} no montage** — the montage cap is ${MONTAGE_CAP} and this change is past it. Every changed slide is still counted in the table above; only the pictures stop. Re-run \`node tools/golden-diff.mjs\` locally for the full set.`);
       }

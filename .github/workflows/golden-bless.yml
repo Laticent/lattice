@@ -198,10 +198,14 @@ jobs:
             gh pr merge "$BLESS_BRANCH" --auto --squash
             # Armed, queued or merged all count. GitHub CLEARS `auto_merge` once it queues the PR (measured on
             # #3259 2026-11-17: in the queue, `auto_merge: null`), so "queued" is read off the timeline: the
-            # latest queue event is `added_to_merge_queue`.
+            # latest queue event is `added_to_merge_queue`. Only events after tonight's force-push count: a
+            # PR queued last night and dropped by the push may not show `removed_from_merge_queue` yet, and
+            # gh then skips arming it ("already queued to merge").
             ARMED="$(gh api "repos/${REPO}/pulls/${PR_NUM}" --jq '(.auto_merge != null) or .merged')"
-            QUEUE_EVENT="$(gh api "repos/${REPO}/issues/${PR_NUM}/timeline?per_page=100" --paginate \
-              --jq '.[] | select(.event == "added_to_merge_queue" or .event == "removed_from_merge_queue") | .event' | tail -1)"
+            QUEUE_EVENT="$(gh api "repos/${REPO}/issues/${PR_NUM}/timeline?per_page=100" --paginate --slurp | jq -r '
+              add | (map(select(.event == "head_ref_force_pushed") | .created_at) | max // "") as $push
+              | map(select((.event == "added_to_merge_queue" or .event == "removed_from_merge_queue") and .created_at > $push) | .event)
+              | last // ""')"
             if [ "$ARMED" != "true" ] && [ "$QUEUE_EVENT" != "added_to_merge_queue" ]; then
               echo "::error::golden-bless: auto-merge did not turn on for the bless PR; it will not merge itself."
               exit 1
