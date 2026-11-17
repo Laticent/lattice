@@ -261,7 +261,18 @@ function latticeNarrationPlayButton() {
 /** After the runner's tap: Present is playing. */
 async function latticeNarrationStarted(ms = 15000) {
 	const h = latticeNarrationHelpers();
-	await h.until(() => h.button(/^Pause$/, h.dialog() || document), ms, 'Present to start playing after the tap');
+	// ANY button labelled Pause, visible or not. On a phone Present hides its controls once it plays ("controls reveal as
+	// you go"), so the Pause button exists but is hidden: requiring it visible read every press as "not playing" (runs
+	// 44009322098 and 44009557663, element click, touch and mouse alike, voice on and off).
+	const d = () => h.dialog() || document;
+	const playing = () => [...d().querySelectorAll('button[aria-label]')].some((b) => b.getAttribute('aria-label') === 'Pause');
+	try {
+		await h.until(playing, ms, 'Present to start playing after the press');
+	} catch (e) {
+		// Say what the dock shows instead, so a failure names its own cause.
+		const labels = [...d().querySelectorAll('button[aria-label]')].map((b) => b.getAttribute('aria-label')).filter((l) => /play|pause|rehears/i.test(l));
+		throw new Error(`${e.message}; the dock's play buttons read ${JSON.stringify(labels)}`);
+	}
 	return { ok: true };
 }
 
