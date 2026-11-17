@@ -733,11 +733,16 @@ async function runPresentNarrationProbe(id) {
 				],
 				['touch tap', pointer('touch', [{ type: 'pause', duration: 80 }])],
 				['mouse click', pointer('mouse', [{ type: 'pause', duration: 50 }])],
+				// Last: a scripted click, which run 43993979079 showed DOES start Present. iOS does not count it as a gesture,
+				// so audio stays suspended, and the 'played with audio running' check says so instead of passing on silence.
+				['script click', async () => failIf(await call('latticeNarrationScriptClick()'), 'the scripted click')],
 			];
 			let started = null;
 			const tried = [];
+			await call('latticeNarrationEvents()');
 			for (const [name, press] of ways) {
 				await release();
+				await call('latticeNarrationEvents()');
 				try {
 					await press();
 				} catch (e) {
@@ -746,7 +751,10 @@ async function runPresentNarrationProbe(id) {
 				}
 				await release();
 				started = await call('latticeNarrationStarted(5000)');
-				tried.push(`${name}: ${started?.error ? 'not playing' : 'playing'}`);
+				// What the page saw of this press, and what the dock reads after it: a failure names its own cause.
+				const seen = await call('latticeNarrationEvents()');
+				const dock = await call('latticeNarrationDock()');
+				tried.push(`${name}: ${started?.error ? 'not playing' : 'playing'} (events ${JSON.stringify(seen)}, dock ${JSON.stringify(dock)})`);
 				if (!started?.error) {
 					out.pressedWith = name;
 					break;

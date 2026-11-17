@@ -252,6 +252,44 @@ async function latticeNarrationReady(voiceOn) {
 	return { mark: window.__latticeNarrationMark, total: h.counter()[1], x: at.x, y: at.y };
 }
 
+/** Start logging, in the capture phase, every touch, pointer and click event the page sees, and what it hit: so a press that
+ *  "did nothing" says whether it never arrived, arrived somewhere else, or arrived at Play and was ignored. */
+function latticeNarrationEvents() {
+	const prev = window.__latticeNarrationEvents || [];
+	window.__latticeNarrationEvents = [];
+	if (!window.__latticeNarrationListening) {
+		window.__latticeNarrationListening = true;
+		for (const type of ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click']) {
+			document.addEventListener(
+				type,
+				(e) => {
+					const t = e.target instanceof Element ? e.target.closest('button') || e.target : null;
+					const name = t ? t.getAttribute?.('aria-label') || t.tagName : 'none';
+					window.__latticeNarrationEvents?.push(`${type}${e.isTrusted ? '' : '(untrusted)'}@${name}`);
+				},
+				true,
+			);
+		}
+	}
+	return prev.slice(0, 16);
+}
+
+/** What the dock's play controls read now. */
+function latticeNarrationDock() {
+	const h = latticeNarrationHelpers();
+	return [...(h.dialog() || document).querySelectorAll('button[aria-label]')].map((b) => b.getAttribute('aria-label')).filter((l) => /play|pause|rehears/i.test(l));
+}
+
+/** The last way of pressing Play: a scripted click. It starts Present (run 43993979079), but iOS does not count it as a
+ *  gesture, so audio stays suspended: the probe reports that rather than calling it narration. */
+function latticeNarrationScriptClick() {
+	const h = latticeNarrationHelpers();
+	const b = h.button(/^Play the presentation$/, h.dialog() || document);
+	if (!b) return { error: 'no Play button' };
+	b.click();
+	return { ok: true };
+}
+
 /** The Play button itself, for a WebDriver element click (execute/sync returns it as an element reference). */
 function latticeNarrationPlayButton() {
 	const h = latticeNarrationHelpers();
@@ -285,4 +323,4 @@ function latticeNarrationSample() {
 }
 
 // Reached by name from source text (run.mjs's execute-script, probe.selftest.mjs's evaluate), so put on the global object.
-Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationReady, latticeNarrationPlayButton, latticeNarrationStarted, latticeNarrationSample });
+Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationReady, latticeNarrationEvents, latticeNarrationDock, latticeNarrationScriptClick, latticeNarrationPlayButton, latticeNarrationStarted, latticeNarrationSample });
