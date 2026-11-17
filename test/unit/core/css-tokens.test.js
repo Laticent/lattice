@@ -179,7 +179,7 @@ test('css-tokens: cssUnescape and cssStringValue decode as CSS Syntax 3 §4.3.7 
 });
 
 test('css-tokens: cssImports reads each @import and the token after it', () => {
-  const { cssImports } = require('../../../lib/core/css-rules.mjs');
+  const { cssImports } = require('../../../lib/core/css-tokens.mjs');
   const read = (css) => cssImports(css).map((r) => [css.slice(r.from, r.to), r.target]);
   assert.deepEqual(read("@import 'onyx';\n:root{}"), [["@import 'onyx';", { type: 'string', value: 'onyx', closed: true }]]);
   assert.deepEqual(read('@import"x"'), [['@import"x"', { type: 'string', value: 'x', closed: true }]]);
@@ -219,7 +219,7 @@ test('css-tokens: cssUrls reads each url() as CSS does, with its decoded address
 });
 
 test('css-tokens: cssCommaParts splits at top-level commas only', () => {
-  const { cssCommaParts } = require('../../../lib/core/css-rules.mjs');
+  const { cssCommaParts } = require('../../../lib/core/css-tokens.mjs');
   const parts = (css) => cssCommaParts(css).map(([a, b]) => css.slice(a, b));
   assert.deepEqual(parts('url("a,b"), linear-gradient(red, blue)'), ['url("a,b")', ' linear-gradient(red, blue)']);
   assert.deepEqual(parts('a /* , */ b'), ['a /* , */ b']);
@@ -227,7 +227,7 @@ test('css-tokens: cssCommaParts splits at top-level commas only', () => {
 });
 
 test('css-tokens: rewriteCssUrls changes only the addresses it is asked to, byte for byte around them', () => {
-  const { rewriteCssUrls } = require('../../../lib/core/css-rules.mjs');
+  const { rewriteCssUrls } = require('../../../lib/core/css-tokens.mjs');
   const css = 'a{b:url( fonts/x.woff2 ) url("fonts/y.woff2") url(keep.png)} /* url(fonts/z) */ c::after{content:"url(fonts/q)"}';
   assert.equal(
     rewriteCssUrls(css, (raw) => (raw.startsWith('fonts/') ? `/base/${raw}` : undefined)),
