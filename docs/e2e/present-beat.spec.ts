@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { FRAME_MS, pauseFrames, stepFrame, stepFramesUntil } from './frame-clock';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
@@ -30,6 +31,21 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // hold's length is a count of frames.
 const CAP_FRAMES = (ms: number) => Math.ceil(ms / FRAME_MS);
 
+/** How far the clock moves per step where a test needs no single-frame precision (see the transport test). */
+const CHUNK_MS = 250;
+/** Move the fake clock by `ms`, then return once React has committed what that span set (frame-clock.ts `stepFrame`). */
+async function runAndCommit(page: Page, ms: number): Promise<void> {
+	await page.clock.runFor(ms);
+	await page.evaluate(
+		() =>
+			new Promise<void>((done) => {
+				const ch = new MessageChannel();
+				ch.port1.onmessage = () => done();
+				ch.port2.postMessage(0);
+			}),
+	);
+}
+
 test.describe('Present — the between-slide beat', () => {
 	test.beforeEach(async ({ page }) => {
 		// A long, deliberate beat so the hold is a window a test can observe rather than a race.
@@ -56,18 +72,41 @@ test.describe('Present — the between-slide beat', () => {
 		const label = () => transport.getAttribute('aria-label');
 		const position = async () => (await counter.textContent())?.trim() ?? '';
 
-		const first = await position();
 		await pauseFrames(page);
+		// THE LABEL AT THE ADVANCE, read by the page in the commit that changes the slide counter. The hold is a window,
+		// and catching a defect inside it means reading the control once, while it is open: `toHaveAccessibleName` would
+		// poll and wait the hold out, which is why the first version of this test passed against the unfixed build. A
+		// MutationObserver on the counter fires in the same task as the commit that changed it, so the label it reads is
+		// the one the presenter sees on that frame.
+		//
+		// The clock then moves in 250 ms chunks rather than one 16 ms frame at a time. Frame by frame, the advance took
+		// about 500 steps of three round trips each, and the hold below 281 more: on a loaded nightly runner that was
+		// about 70 ms a frame, and the test crossed its 60 s limit with every assertion passing (run 44096554295,
+		// 2026-11-17, HARD RULE #32). The observer keeps the precision the frame steps were for.
+		await page.evaluate(
+			([counterEl, transportEl]) => {
+				const w = window as unknown as { __labelAtAdvance?: string | null };
+				w.__labelAtAdvance = null;
+				const before = counterEl?.textContent?.trim();
+				const watch = new MutationObserver(() => {
+					if (w.__labelAtAdvance !== null || counterEl?.textContent?.trim() === before) return;
+					w.__labelAtAdvance = transportEl?.getAttribute('aria-label') ?? '';
+					watch.disconnect();
+				});
+				if (counterEl) watch.observe(counterEl, { childList: true, characterData: true, subtree: true });
+			},
+			[await counter.elementHandle(), await transport.elementHandle()],
+		);
 		await transport.click(); // the ONE Play: narrate this slide AND chain
 
-		// Sample the control AT THE INSTANT the slide advances — no auto-retrying matcher.
-		// `toHaveAccessibleName` would poll for up to 15s and simply wait out the 4s hold, which
-		// is why the first version of this test passed against the unfixed build. The hold is a
-		// window; catching a defect inside it means reading the value, once, while it is open.
-		// Stepping frame by frame, the first frame after the advance is the one read.
-		const frames = await stepFramesUntil(page, async () => (await position()) !== first, CAP_FRAMES(45_000));
-		expect(frames, 'the deck never advanced inside 45 s of virtual time').toBeLessThan(CAP_FRAMES(45_000));
-		const labelAtAdvance = await label();
+		const atAdvance = () => page.evaluate(() => (window as unknown as { __labelAtAdvance?: string | null }).__labelAtAdvance ?? null);
+		let virtualMs = 0;
+		while (virtualMs < 45_000 && (await atAdvance()) === null) {
+			await runAndCommit(page, CHUNK_MS);
+			virtualMs += CHUNK_MS;
+		}
+		const labelAtAdvance = await atAdvance();
+		expect(labelAtAdvance, 'the deck never advanced inside 45 s of virtual time').not.toBeNull();
 
 		// THE ASSERTION. Measured against the unfixed build, the control read "Play the
 		// presentation" from the advance until the beat expired ~3.7s later, at every transition.
@@ -89,7 +128,7 @@ test.describe('Present — the between-slide beat', () => {
 		// instant it ran. So the clock is stepped past the 4000 ms beat the tap interrupted (set in
 		// beforeEach): a timer that survived the tap has then fired, on every runner, and its
 		// barge-in is on the page when the state is read.
-		for (let i = 0; i < CAP_FRAMES(4_500); i++) await stepFrame(page);
+		for (let t = 0; t < 4_500; t += CHUNK_MS) await runAndCommit(page, CHUNK_MS);
 		expect(await label(), 'no timer survived the tap to resume playback').toBe('Play the presentation');
 		expect(await position(), 'and the deck did not advance past the slide it was paused on').toBe(held);
 	});
