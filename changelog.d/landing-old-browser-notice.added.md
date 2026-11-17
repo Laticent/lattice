@@ -27,3 +27,6 @@
   older iPhones and Android phones.
 - The page beneath the notice is not drawn at all while the notice shows, so an old browser no longer flashes the
   broken page's colors (a mustard flicker in the original Edge) as the notice appears.
+- In the original Edge, the page's background no longer turns the site's accent color: the site's caret, form-control
+  and tap-highlight colors now apply only in browsers that support those properties. This was the mustard flash on
+  every refresh of the old-browser notice.

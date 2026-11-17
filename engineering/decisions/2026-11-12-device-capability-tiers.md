@@ -514,6 +514,18 @@ versions and how to update, and it looks like the site, not like an error page.
     in Chromium 101 or Firefox 115, so `?lob-debug` on any page makes the notice print what the engine computed: the
     hider rule, the html, body and veil backgrounds at show, +50 ms and +600 ms, and the same three saved at the previous
     page's `pagehide`, for a screenshot from the engine we cannot run. Reads only; off without the flag.
+  - **The trace found it: legacy Edge paints `<html>` in the accent.** The owner's `?lob-debug` screenshot read
+    `html rgb(122, 90, 16)`, exactly cuoio's `--accent`, where every current engine reads it clear. No rule sets a
+    background on `<html>`; the only accent rule on it is `native-widgets.css`'s
+    `:root{accent-color; caret-color; -webkit-tap-highlight-color}`, three properties EdgeHTML 15 does not know, each
+    with a `var()`. The owner's trace is consistent with EdgeHTML mishandling such a declaration as a background; it is not
+    reproducible outside Edge. Two changes:
+    (1) each of those `:root` declarations, and `scrollbar-color`, now sits behind `@supports` for its own property (the
+    tap tint also needs `color-mix()`, so the build emits no full-accent fallback), so an engine that does not know the
+    property never sees the `var()`; current Chromium computes all four as before.
+    (2) the hider's `<html>` background is `!important`, because `:root` outranks `html`, and it stays while the notice
+    is up (the notice's own rule hides the page), leaving only on Continue anyway.
+    Real Chromium 101 `?lob-debug` after: `html` cream at show, +50 ms, +600 ms and at the previous page's pagehide.
   - **No color shift on the handoff (owner).** The page-hider paints `html` in `--bg`, the color the notice's veil
     starts in, and the veil and glow fade in with the card (0.5 s) instead of arriving in one frame. Real Chromium 101,
     transitions paused with `getAnimations()` at 0/250/500 ms: the notice's first frame equals the hidden page (light

@@ -103,7 +103,7 @@ describe('the inline check in <head>', () => {
 			expect(hider()).toBeNull();
 			check(/:has\(/);
 			// No palette here, so no --bg: a plain light background, still a literal.
-			expect(hider()?.textContent).toBe('html{background:#fff}body{visibility:hidden}');
+			expect(hider()?.textContent).toBe('html{background:#fff!important}body{visibility:hidden}');
 		});
 
 		it("paints the page's own --bg as a literal color, never a var() an old engine resolves (legacy Edge's mustard flash)", () => {
@@ -111,7 +111,7 @@ describe('the inline check in <head>', () => {
 			palette.textContent = ':root{--bg:#faf7f2}';
 			document.head.append(palette);
 			check(/:has\(/);
-			expect(hider()?.textContent).toBe('html{background:#faf7f2}body{visibility:hidden}');
+			expect(hider()?.textContent).toBe('html{background:#faf7f2!important}body{visibility:hidden}');
 			expect(hider()?.textContent).not.toContain('var(');
 		});
 
@@ -150,12 +150,16 @@ describe('the inline check in <head>', () => {
 			expect(hider()).not.toBeNull();
 			const main = document.createElement('main');
 			document.body.append(main);
-			run('SomeBrowser/1.0');
-			expect(hider()).toBeNull();
+			const screen = run('SomeBrowser/1.0');
+			// The page stays hidden by the notice's own rule; the hider keeps only <html>'s literal background, with
+			// !important (legacy Edge painted <html> in the accent through :root), until Continue anyway.
+			expect(hider()?.textContent).toBe('html{background:#fff!important}');
 			expect(main.getAttribute('aria-hidden')).toBe('true');
 			// Solid: nothing of the page can show through (no blur, no glow to bleed it).
 			expect(main.style.filter).toBe('');
 			expect(document.querySelector('.lob-glow')).toBeNull();
+			screen.querySelector<HTMLButtonElement>('.lob-go')?.click();
+			expect(hider()).toBeNull();
 		});
 	});
 

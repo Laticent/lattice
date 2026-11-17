@@ -48,7 +48,7 @@ function latticeOldBrowserCheck(checks, src) {
 	// Every palette's --bg is a hex color; anything else (none yet, an engine without custom properties) gets a plain one.
 	var bg = /#\w+/.exec(getComputedStyle(document.documentElement).getPropertyValue('--bg'));
 	bg = bg ? bg[0] : document.documentElement.getAttribute('data-mode') === 'dark' ? '#111' : '#fff';
-	veil.appendChild(document.createTextNode('html{background:' + bg + '}body{visibility:hidden}'));
+	veil.appendChild(document.createTextNode('html{background:' + bg + '!important}body{visibility:hidden}'));
 	document.head.appendChild(veil);
 	// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 	var lift = function () {

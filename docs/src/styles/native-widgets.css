@@ -29,16 +29,42 @@
  * in tailwind.css — not here. */
 
 :root {
-	scrollbar-color: color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent;
 	scrollbar-width: thin;
-	/* Checkboxes, radios, range + progress, and the text caret — one line each,
-	 * universal support, so form controls stop rendering in OS blue. */
-	accent-color: var(--accent);
-	caret-color: var(--accent);
-	/* Mobile: the tap flash on any tappable element. Inherited, so setting it
-	 * once at the root tints every touch highlight to a faint accent instead of
-	 * the OS gray/blue box. Touch-only — no effect on pointer devices. */
-	-webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+/* Each declaration below sits behind @supports for its OWN property, because legacy Edge (EdgeHTML 15) mishandles a
+ * var() in a property it does not know: the owner's `?lob-debug` trace read <html>'s background as exactly
+ * `--accent` (rgb 122,90,16) there, which flashed the whole window mustard on every refresh of the old-browser notice
+ * and would tint the margins of any page after "Continue anyway". A browser that knows the property gets the same
+ * rules as before; one that doesn't never sees the var(). */
+@supports (scrollbar-color: red transparent) {
+	:root {
+		scrollbar-color: color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent;
+	}
+}
+
+/* Checkboxes, radios, range + progress, and the text caret — one line each,
+ * universal support, so form controls stop rendering in OS blue. */
+@supports (accent-color: red) {
+	:root {
+		accent-color: var(--accent);
+	}
+}
+
+@supports (caret-color: red) {
+	:root {
+		caret-color: var(--accent);
+	}
+}
+
+/* Mobile: the tap flash on any tappable element. Inherited, so setting it
+ * once at the root tints every touch highlight to a faint accent instead of
+ * the OS gray/blue box. Touch-only — no effect on pointer devices. Only where color-mix()
+ * works, so the build emits no full-accent fallback for an engine without it. */
+@supports (-webkit-tap-highlight-color: red) and (color: color-mix(in srgb, red, red)) {
+	:root {
+		-webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 24%, transparent);
+	}
 }
 
 /* Text selection — the native highlight we can tint cross-browser. THIS RULE IS THE

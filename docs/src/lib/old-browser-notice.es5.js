@@ -286,9 +286,9 @@
 
 	// `?lob-debug`: the colors this engine computes as the notice takes over, shown in the card so a reader on a browser we
 	// can't run (legacy Edge) can send a screenshot. It reads, and saves its own readings at pagehide for the next load.
-	function traceColors(card, veil, pageHider) {
+	function traceColors(card, veil, hiderText) {
 		var root = document.documentElement;
-		var trace = [['hider ' + (pageHider ? pageHider.textContent : 'none')]];
+		var trace = [['hider ' + (hiderText || 'none')]];
 		var out = el('pre');
 		out.setAttribute('data-testid', 'lob-trace');
 		out.style.cssText = 'font:11px/1.4 monospace;white-space:pre-wrap;padding:8px 0 0;margin:0';
@@ -536,6 +536,7 @@
 			root.style.overflow = overflow;
 			screen.parentNode.removeChild(screen);
 			style.parentNode.removeChild(style);
+			if (pageHider && pageHider.parentNode) pageHider.parentNode.removeChild(pageHider);
 			// Tell the page (device-gate.ts on the Studio and the Playground); `createEvent` because these browsers may not
 			// construct events with `new Event`.
 			var ev = document.createEvent('Event');
@@ -546,15 +547,18 @@
 		document.body.appendChild(screen);
 		if (watcher) watcher.observe(document.body, { childList: true });
 		// The <head> check hid the page before its first paint (old-browser-check.es5.js); the solid veil covers it from now on.
+		// Its own rule hides the page from now on, so the hider keeps only its literal <html> background, until Continue
+		// anyway: legacy Edge otherwise painted <html> in the accent, and a refresh flashed the window mustard.
 		var pageHider = document.getElementById('lattice-old-browser-veil');
-		if (pageHider) pageHider.parentNode.removeChild(pageHider);
+		var hiderText = pageHider ? pageHider.textContent : '';
+		if (pageHider) pageHider.textContent = hiderText.replace('body{visibility:hidden}', '');
 		// A notice that arrived after the head check gave up on it (8 s, old-browser-check.es5.js) takes the page back: the
 		// mark returns from "failed", so the Studio's gate takes its own screen down rather than stacking one on this.
 		if (root.getAttribute('data-old-browser') === 'failed') root.setAttribute('data-old-browser', '');
 		title.focus();
 		// `?lob-debug`: the colors this engine computes as the notice takes over,
 		// shown in the card so a reader on a browser we can't run can send a screenshot. Reads only.
-		if (/[?&]lob-debug/.test(location.search)) traceColors(card, veil, pageHider);
+		if (/[?&]lob-debug/.test(location.search)) traceColors(card, veil, hiderText);
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		setTimeout(function () {
 			screen.className = 'lob-in';
