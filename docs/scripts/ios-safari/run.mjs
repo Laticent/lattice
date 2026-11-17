@@ -300,7 +300,10 @@ async function deckTapLeavesLibrary(id) {
 			}
 			await touch(row.x, row.y);
 			await until(`return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`, 15000, 'the Library sheet');
-			// The deck band above the sheet, where a thumb reaches for "get out".
+			// The deck band above the sheet, where a thumb reaches for "get out". The log starts again here, so a failure shows
+			// THIS tap's events: it used to keep the first 14 of the whole run, the Menu and Library taps, and fold the deck tap
+			// into "+N more", which hid that Mobile Safari had sent no click for it (run 44036700626).
+			await run(tapLogInstall());
 			await touch(Math.round(width / 2), 25);
 			let settled = false;
 			let last = '';
@@ -328,7 +331,14 @@ async function deckTapLeavesLibrary(id) {
 function tapLogInstall() {
 	return `
 	const log = (window.__tapLog = { t0: performance.now(), events: [] });
-	const name = (el) => (el && el.nodeType === 1 ? el.tagName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
+	// Each element gets a number the first time an event lands on it, so a target that was REPLACED between two events (a
+	// sheet's scrim swapped mid-tap) shows as two numbers where one element would show one.
+	const ids = (window.__tapIds ??= { seq: 0, of: new WeakMap() });
+	const idOf = (el) => {
+		if (!ids.of.has(el)) ids.of.set(el, ++ids.seq);
+		return ids.of.get(el);
+	};
+	const name = (el) => (el && el.nodeType === 1 ? el.tagName + '#' + idOf(el) + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
 	if (!window.__tapLogOn) {
 		window.__tapLogOn = true;
 		for (const type of ['touchstart', 'touchend', 'touchcancel', 'pointerdown', 'pointerup', 'pointercancel', 'mousedown', 'mouseup', 'click', 'contextmenu']) {
