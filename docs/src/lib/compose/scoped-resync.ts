@@ -152,8 +152,9 @@ export function emitPatch(before: string, after: string): SourcePatch | null {
  * `scopedResync`, driven by a source patch instead of a whole new source: only the slides the
  * patch overlaps are split and parsed, so the cost follows the edit, not the deck. `patch` is
  * in offsets of the baseline's emit. Falls back to the whole-source path (same result, more
- * work) when the patch reaches into the front matter, or when the edited run no longer ends
- * at the next slide's separator (an edit that opened a code fence, say).
+ * work) when the patch reaches into the front matter, when the edited run no longer ends
+ * at the next slide's separator (an edit that opened a code fence, say), when the run's split
+ * does not spell back the edited bytes, or when the narrow resync itself declines.
  */
 export function scopedResyncPatch(state: EditorState, baseline: EmitBaseline, patch: SourcePatch): ScopedResync | null {
 	const doc = state.doc;
@@ -182,7 +183,9 @@ export function scopedResyncPatch(state: EditorState, baseline: EmitBaseline, pa
 	const regionEnd = start[last] + raws[last].length;
 	let region = raws[first];
 	for (let i = first + 1; i <= last; i++) region += slideSep(doc, i) + raws[i];
-	if (patch.to > regionEnd) return whole(); // cannot happen with the run chosen above; a guard, not a path
+	// An edit to the last slide whose diff reaches into the deck's tail (its trailing newline) ends past the run, and takes the
+	// whole-source path (followups.d/3254-p2-last-slide-patch-path.md).
+	if (patch.to > regionEnd) return whole();
 	const edited = normalizeSource(region.slice(0, patch.from - regionStart) + patch.insert + region.slice(patch.to - regionStart));
 	// Split as the whole deck would: a run that does not open the deck must not have a blank
 	// first chunk dropped, so it is split behind a sentinel slide.
@@ -200,11 +203,21 @@ export function scopedResyncPatch(state: EditorState, baseline: EmitBaseline, pa
 	const runFrame = deckFrame(first === 0 ? edited : `x${SEP}${edited}`, first === 0 ? mid : ['x', ...mid]);
 	const midSeps = first === 0 ? runFrame.seps : runFrame.seps.slice(1);
 	if (runFrame.head || runFrame.tail) return whole();
+	// The run's first slide keeps the separator the doc wrote before it, PLUS any newlines the byte diff carried across that
+	// separator. A narrow diff is not aligned to slide boundaries: between two separators spelled differently (`\n\n---\n`,
+	// then `\n\n---\n\n`) a deletion or an insertion moves a newline from one separator into the edited run, and dropping it
+	// either failed the resync (#3254's merge-queue red) or emitted a deck one newline short.
+	const lead = first > 0 && midSeps[0]?.startsWith(SEP) ? midSeps[0].slice(SEP.length) : '';
 	const seps: string[] = [];
 	for (let i = 0; i < first; i++) seps.push(slideSep(doc, i));
 	mid.forEach((_m, k) => {
-		seps.push(k === 0 ? slideSep(doc, first) : midSeps[k]);
+		seps.push(k === 0 ? slideSep(doc, first) + lead : midSeps[k]);
 	});
 	for (let i = last + 1; i < raws.length; i++) seps.push(slideSep(doc, i));
-	return resyncToRaws(state, baseline, fm, [...raws.slice(0, first), ...mid, ...raws.slice(last + 1)], { head: (doc.attrs.head as string) || '', tail: (doc.attrs.tail as string) || '', seps }, read);
+	// The run must spell exactly the bytes the patch produced. If it does not, the narrow split misread them: take the
+	// whole-source path, which this function promises as its fallback, rather than emit a deck that differs from the edit.
+	let spelled = lead + (mid[0] ?? '');
+	for (let k = 1; k < mid.length; k++) spelled += midSeps[k] + mid[k];
+	if (spelled !== edited) return whole();
+	return resyncToRaws(state, baseline, fm, [...raws.slice(0, first), ...mid, ...raws.slice(last + 1)], { head: (doc.attrs.head as string) || '', tail: (doc.attrs.tail as string) || '', seps }, read) ?? whole();
 }

@@ -101,6 +101,32 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Compose on Filo $
 		await expect(slides(page).nth(2)).not.toContainText('FROMMD');
 	});
 
+	// #3254's resync fix, on the real surface. Compose takes the NARROW resync only when the undo reverses text Compose
+	// wrote itself, so the slide is deleted with Compose's own control. Two sits behind the canonical `\n\n---\n\n` and Three
+	// keeps the short `\n\n---\n`; the undo re-inserts Two, and the narrow diff starts with the separator's last newline.
+	// Before the fix the narrow resync came back one newline short, ComposeView's check caught the mismatch, and the undo
+	// paid a full rebuild (it marks filo:compose-resync). Now the scoped apply is exact and no rebuild runs.
+	test('undoing a Compose slide delete between differently spelled separators stays a scoped apply', async ({ page }) => {
+		const MIXED = '<!-- _class: content -->\n\n# One\n\nBody one.\n\n---\n\n<!-- _class: content -->\n\n# Two\n\nBody two.\n\n---\n<!-- _class: content -->\n\n# Three\n\nBody three.';
+		await openDeckInCompose(page, MIXED);
+		await expect.poll(() => savedDeck(page), 'witness: the mixed spellings were saved as typed').toBe(MIXED);
+		await slides(page).nth(1).getByRole('button', { name: 'Delete slide' }).click();
+		await page.getByRole('button', { name: 'Confirm delete slide' }).first().click();
+		await expect(slides(page), 'witness: Compose deleted slide Two').toHaveCount(2);
+		await expect.poll(() => savedDeck(page)).not.toContain('Body two.');
+		const rebuilds = () => page.evaluate(() => performance.getEntriesByName('filo:compose-resync').length);
+		const before = await rebuilds();
+		await caretInBody(page, 0);
+		await chord(page, 'undo');
+		await expect(slides(page), 'the undo did not bring slide Two back').toHaveCount(3);
+		await expect.poll(() => savedDeck(page)).toBe(MIXED);
+		expect(await rebuilds(), 'the undo fell back to a full Compose rebuild').toBe(before);
+		// Compose writes from its own copy next: every separator comes back exactly as it was.
+		await caretInBody(page, 0);
+		await page.keyboard.type(' X');
+		await expect.poll(() => savedDeck(page)).toBe(MIXED.replace('Body one.', 'Body one. X'));
+	});
+
 	// An IME composition owns the keys: an undo asked for during one waits for it to end. A real IME is
 	// not drivable here, so the composition is the browser's own `compositionstart` / `compositionend`
 	// on the editor, which is what ProseMirror reads `view.composing` from.

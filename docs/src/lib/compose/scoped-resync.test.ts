@@ -248,3 +248,113 @@ describe('an edit that opens a code fence', () => {
 		expect(checked).toBeGreaterThan(20);
 	});
 });
+
+describe('a deletion between two differently spelled separators', () => {
+	// examples/semantic-testing.md spells one separator `\n\n---\n` and the next `\n\n---\n\n`. Deleting the slide between them
+	// gives a byte diff that ends inside the second separator, so the narrow run read one stray newline and the patch path
+	// returned null, sending Compose to a full resync (#3254's merge-queue red). It must reach the same deck instead.
+	it('the patch path still resyncs, byte-exact, and keeps the slide before it', () => {
+		const src = '---\ntitle: x\n---\n\n# A\n\nbody a\n\n---\n# B\n\nbody b\n\n---\n\n# C\n\nbody c\n';
+		const d = deckToDoc(src);
+		const b = initBaseline(d);
+		const S0 = emitDeck(d, b);
+		expect(b.raws.length).toBe(3);
+		expect([slideSep(d, 1), slideSep(d, 2)], 'the two spellings this case needs').toEqual(['\n\n---\n', '\n\n---\n\n']);
+		const fm = (d.attrs.frontMatter as string) || '';
+		const S1 = `${fm}${(d.attrs.head as string) || ''}${b.raws[0]}${slideSep(d, 2)}${b.raws[2]}${(d.attrs.tail as string) || ''}`;
+		const patch = emitPatch(S0, S1);
+		expect(patch).not.toBeNull();
+		const st = EditorState.create({ doc: d, schema: deckSchema });
+		const rp = scopedResyncPatch(st, b, patch!);
+		expect(rp, 'patch resync').not.toBeNull();
+		const sp = st.apply(rp!.tr);
+		rp!.commit(sp.doc);
+		expect(emitDeck(sp.doc, b)).toBe(S1);
+		expect(sp.doc.child(0) === d.child(0), 'the slide before the deletion keeps its node').toBe(true);
+	});
+});
+
+describe('the patch path over every separator spelling', () => {
+	// Enumerated, not random (HARD RULE #32): 4-slide decks, with and without front matter, every mix of separator spellings,
+	// and a delete, an insert and an edit at every slide, both ways. The narrow diff is not aligned to slide boundaries, so a
+	// newline can cross from a separator into the edited run; the patch path must spell the same bytes the edit made, or
+	// decline. A non-null result with the wrong bytes was the failure the fallback could not catch (the maker-checker's fuzz:
+	// 144 of 3,072 cases, all insertions next to a non-canonical separator).
+	it('never returns a resync whose deck differs from the edit', () => {
+		const SPELLINGS = ['\n\n---\n\n', '\n\n---\n', '\n---\n', '\n---\n\n', '\n\n---\n\n\n'];
+		const bodies = ['# A\n\nbody a', '# B\n\nbody b', '# C\n\nbody c', '# D\n\nbody d'];
+		let checked = 0;
+		let narrow = 0;
+		const wrong: string[] = [];
+		for (const fm of ['', '---\ntitle: x\n---\n\n']) {
+			for (const a of SPELLINGS) for (const b of SPELLINGS) for (const c of SPELLINGS) {
+				const src = `${fm}${bodies[0]}${a}${bodies[1]}${b}${bodies[2]}${c}${bodies[3]}\n`;
+				const d0 = deckToDoc(src);
+				const b0 = initBaseline(d0);
+				if (emitDeck(d0, b0) !== src || b0.raws.length !== 4) continue; // a spelling the parser does not keep exactly
+				const fm0 = (d0.attrs.frontMatter as string) || '';
+				const frame = (raws: string[], seps: string[]) => {
+					let body = (d0.attrs.head as string) || '';
+					raws.forEach((r, i) => {
+						body += (i > 0 ? seps[i] || SEP : '') + r;
+					});
+					return fm0 + body + ((d0.attrs.tail as string) || '');
+				};
+				for (let k = 0; k < 4; k++) {
+					for (const op of ['delete', 'insert', 'edit'] as const) {
+						const raws = b0.raws.slice();
+						const seps = raws.map((_x, i) => slideSep(d0, i));
+						if (op === 'delete') {
+							raws.splice(k, 1);
+							seps.splice(k, 1);
+						} else if (op === 'insert') {
+							raws.splice(k + 1, 0, '# New\n\nx');
+							seps.splice(k + 1, 0, SEP);
+						} else raws[k] = `${raws[k]}\n\nmore`;
+						const S0 = src;
+						const S1 = frame(raws, seps);
+						for (const [from, to] of [[S0, S1], [S1, S0]]) {
+							const d = deckToDoc(from);
+							const bb = initBaseline(d);
+							if (emitDeck(d, bb) !== from) continue;
+							const p = emitPatch(from, to);
+							if (!p) continue;
+							const st = EditorState.create({ doc: d, schema: deckSchema });
+							const rp = scopedResyncPatch(st, bb, p);
+							checked++;
+							if (!rp) continue;
+							if (rp.scanned < from.length) narrow++;
+							const sp = st.apply(rp.tr);
+							rp.commit(sp.doc);
+							if (emitDeck(sp.doc, bb) !== to) wrong.push(`${JSON.stringify([a, b, c])} fm=${!!fm} ${op}@${k} ${from === S0 ? 'fwd' : 'back'}`);
+						}
+					}
+				}
+			}
+		}
+		expect(wrong, 'resyncs whose deck differs from the edit').toEqual([]);
+		expect(checked).toBeGreaterThan(1000);
+		// Most cases stay on the narrow path; the fallback is for the few the split cannot place.
+		expect(narrow / checked).toBeGreaterThan(0.5);
+	});
+});
+
+describe('an edit that adds front matter to a deck that had none', () => {
+	// The guard's own case. A run that opens the deck goes through `deckFrame`, which strips front matter, so a typed
+	// `---\ntitle: y\n---` block reads as front matter there but as slide text in the split: the run's separators come back
+	// empty and the narrow resync, unchecked, dropped the leading `---\n`. The guard sees the run does not spell back the
+	// edited bytes and takes the whole-source path.
+	it('the patch path still emits exactly the edited deck', () => {
+		const src = '# A\n\na\n\n---\n\n# Z\n\nz\n';
+		const to = `---\ntitle: y\n---\n\n# B\n\n---\n\n${src}`;
+		const d = deckToDoc(src);
+		const b = initBaseline(d);
+		expect(emitDeck(d, b)).toBe(src);
+		const st = EditorState.create({ doc: d, schema: deckSchema });
+		const rp = scopedResyncPatch(st, b, emitPatch(src, to)!);
+		expect(rp, 'patch resync').not.toBeNull();
+		const sp = st.apply(rp!.tr);
+		rp!.commit(sp.doc);
+		expect(emitDeck(sp.doc, b)).toBe(to);
+	});
+});

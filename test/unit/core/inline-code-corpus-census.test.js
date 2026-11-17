@@ -83,6 +83,8 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/inventory/cards-stack/cards-stack.gallery.md', 'cards-stack: a `{status}` pill on each card title'],
   ['examples/matrix-grid-rendering-jank.md', 'a cards-stack slide whose title row carries a `{fixed}` pill'],
   ['examples/prose-density.md', 'cards-grid: the word and line budgets, each a pill on its card title'],
+  ['examples/semantic-testing.md', 'a cards-grid reveal: a `[x]` or `[!]` mark on each card title shows which part of a test description is named and which is missing'],
+  ['examples/semantic-testing-deep-dive.md', 'a cards-grid reveal: a `[x]` or `[!]` mark on each card title shows which part of a test description is named and which is missing'],
   ['lib/components/inventory/logo-wall/logo-wall.gallery.md', 'logo-wall: a `{tier}` pill under each mark'],
   ['lib/components/inventory/inventory.gallery.md', 'the inventory family gallery: its logo-wall slides carry a `{tier}` pill under each mark'],
   ['examples/logo-wall.md', 'logo-wall: a `{tier}` pill under each mark'],
