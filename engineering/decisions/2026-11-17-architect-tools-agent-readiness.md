@@ -232,7 +232,7 @@ call's clean verdict, and the turn ends "settled" without a check. So:
    that moving a rule changes behavior. Build #34's replay of the #3208 session first, through the
    opt-in live runner (HARD RULE #24), and compare.
 
-**Out of scope here: an MCP server.** 11-06 §8 says it has no consumer, and the Studio is a static,
+**Superseded for the MCP server and the action record by `2026-11-17-use-case-layer.md`**, which the owner asked for after this note: an MCP server will ship, the Studio chat is its first consumer, and the layer is called use cases. The paragraph below is kept as the reasoning at the time. **Out of scope here: an MCP server.** 11-06 §8 says it has no consumer, and the Studio is a static,
 bring-your-own-key browser app with no transport. Two notes for whoever builds it: a remote host
 that auto-answers a confirm looks exactly like a person pressing yes, so a host-side confirm is not
 a safety boundary across that trust line; and a deck-wide revision check belongs where edits are

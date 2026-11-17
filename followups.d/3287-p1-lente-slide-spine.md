@@ -27,6 +27,10 @@ where     — Existing parts to gather behind it: `docs/src/lib/deck-outline/` (
             slice-equivalence-core, coach-core and deck-lint; `deckSlides` (architect-agent);
             `splitTopLevel` / `sliceSlide` (architect-edits); the four `slideCount`s;
             `splitSlideChunks`; `buildDeckIndex` (some may already delegate; not traced).
+            Owner decision (2026-11-17): the spine's design comes BEFORE the use-case layer's
+            edit ops (engineering/decisions/2026-11-17-use-case-layer.md §5.2, §10 step 0), which
+            names what it needs from the spine: addressing, atomic applyOps that owns index-keyed
+            fix-ups, and refusal of human-gated fields.
 done when — A design note settles three forks with the owner in one round: (1) where it lives, given
             the CLI needs it too (HARD RULE #1), so likely Lente's core moved to `lib/`; (2) whether
             slide ids are written into the file or stay in memory for the session (recommended:
