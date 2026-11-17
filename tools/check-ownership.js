@@ -5827,6 +5827,9 @@ const SANCTIONED_MARK_IDENTITY = [
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],
+  // The chart-reveal player bundle is GENERATED from lib/runtime/chart-reveal (tools/build-chart-reveal-player.js);
+  // it carries the model's READS of a mark's label and value, listed for the census total, not as an emitter.
+  ['export/chart-reveal-player-bundle.generated.mjs', true, true],
   // matrix-grid's filled cell, named by its own label ("Junior") — written here rather than in the
   // component because both render paths (markdown-it and the live DOM) build cells through it.
   ['core/matrix-grid-cells.js', true, false],
@@ -5838,6 +5841,10 @@ const SANCTIONED_MARK_IDENTITY = [
   // The redraw's check-before-trust (`said`) READS each mark's label and value to compare a pane chart's
   // redrawn data with its exported data; it writes neither.
   ['runtime/chart-redraw.js', true, true],
+  // The chart REVEAL model (engineering/decisions/2026-11-16-cenno-popover-library.md §7) READS a mark's
+  // label and value to title its detail card, in the Studio and the exported player. It names the
+  // attributes only to read them and authors no identity: the card says what the mark already says.
+  ['runtime/chart-reveal/model.mjs', true, true],
   ['runtime/chart-readers/gantt.js', true, false],
   ['runtime/chart-readers/histogram.js', true, true],
   ['runtime/chart-readers/quadrant.js', true, false],
@@ -10852,6 +10859,35 @@ function checkVedutaBoundary(errors, dir = VEDUTA_DIR) {
   }
 }
 
+// ── Cenno (docs/src/lib/cenno) — popovers and detail cards ─────────────────
+// Cenno places, opens and tracks a card next to an anchor and knows nothing about what the card
+// says or what it points at: Lattice's chart reveal (which reads chart marks and builds their cards)
+// lives OUTSIDE the folder (engineering/decisions/2026-11-16-cenno-popover-library.md §7). So the
+// core imports nothing outside it, not even `node:`, and not `react`: it has no framework adapter yet.
+const CENNO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'cenno');
+function checkCennoBoundary(errors, dir = CENNO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Cenno folder. Cenno has no dependencies and knows ` +
+      `nothing about Lattice, so every import must resolve inside docs/src/lib/cenno/; the chart reveal ` +
+      `lives outside it (engineering/decisions/2026-11-16-cenno-popover-library.md §7).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file)) continue;
+    const raw = fs.readFileSync(file, 'utf8');
+    // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
+    for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
+      errors.push(
+        `${relPosix(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Cenno core declares ` +
+          `no ambient types; import what it needs from inside docs/src/lib/cenno/.`,
+      );
+    }
+  }
+}
+
 // ── Filo (docs/src/lib/filo) — one undo history per document ────────────────
 // Filo records every change to a document as an invertible patch and knows nothing about what
 // the document is or which views edit it: the Studio's glue (the commit path, the root keymap,
@@ -15683,6 +15719,7 @@ function run() {
   checkTavolaBoundary(errors);
   checkFuocoBoundary(errors);
   checkVedutaBoundary(errors);
+  checkCennoBoundary(errors);
   checkFiloBoundary(errors);
   checkMarkupBoundary(errors);
   checkSegnoMarkdownBoundary(errors);
@@ -15762,6 +15799,7 @@ module.exports = {
   checkTavolaBoundary,
   checkFuocoBoundary,
   checkVedutaBoundary,
+  checkCennoBoundary,
   checkFiloBoundary,
   checkMarkupBoundary,
   checkSegnoMarkdownBoundary,

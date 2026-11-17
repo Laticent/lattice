@@ -29,6 +29,30 @@
 // node to point at) and gives real flip/shift/collision handling instead of a
 // hand-rolled clamp. A direct dependency (not borrowed transitively from Radix).
 import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
+// The chart MODEL — selectors, mark lookup, the card's title/value/color and detail, the near-miss hit
+// test, the label proxies, the hold zone and the emphasis — is shared with the exported HTML player
+// (HARD RULE #1). This file is the Studio's HOST for it: the iframe bridge, the pinned hit-surface,
+// the popover and the timers. engineering/decisions/2026-11-16-cenno-popover-library.md §7.
+import {
+  CHART_SVG_SEL,
+  revealable as canReveal,
+  chartSvgIn,
+  markCount as countMarks,
+  DETAILS_SEL,
+  detailFor,
+  emphasize as emphasizeMarks,
+  inHoldZone as inMarkHoldZone,
+  MARK_SEL,
+  markIndex,
+  infoFor as markInfo,
+  marksFor as marksAt,
+  markEls as marksOf,
+  namedMark,
+  nearestMark,
+  sectionScale,
+  TPL_SEL,
+  unemphasize,
+} from '../../../lib/runtime/chart-reveal/model.mjs';
 import { frameGeom as sharedFrameGeom } from './frame-geom.js';
 
 const REDUCED = (() => {
@@ -63,49 +87,8 @@ const escText = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<'
  *   popover stays a parent overlay. Re-bind to the doc on every srcdoc rewrite.
  */
 export function createChartInteract({ stage, getFrame, lift = true, onReveal, onDetail, hoverAny = false }) {
-  const useLift = lift && !REDUCED;
 
-  // Chart-family vocabulary. Every SVG chart — pie included, now that it rides
-  // the shared mark-detail substrate — emits ONE vocabulary: each mark carries
-  // data-mark; the inert payload is .chart-details holding template.chart-detail.
-  // (.piechart-svg etc. are just the per-chart figure classes the reveal layer
-  // scopes to.) See engineering/decisions/2026-06-20-chart-detail-reveal-family.md.
-  // The chart ROOT the interaction scopes to. Tier-1 roots are the SVG sheet
-  // itself (the marks are SVG elements). Tier-2 roots are HTML containers (the
-  // marks are HTML elements — state-chart nodes today): the root is the figure,
-  // so its nodes and edge overlay are one scope (the figure must NOT contain the inert .chart-details
-  // payload, or its <template data-mark> would be miscounted as a mark — the
-  // kernels emit the payload as a sibling). See
-  // engineering/decisions/2026-06-20-chart-detail-reveal-family.md.
-  // Every entry is the chart's own <svg>, which is what the Anima host mounts as
-  // the live clone — so the same selector finds the static poster AND the animated
-  // copy. `.gantt-chart` used to appear here because the gantt was HTML; it is
-  // SVG-native now, so it is matched by `.gantt-svg` like every other chart.
-  // The state-chart lists BOTH its figure and its `.state-chart-edges` svg: the
-  // figure is the static root (and still holds the measuring column's marks),
-  // while the svg is what gets cloned onto the live stage, so listing only the
-  // figure would leave the popover unbound during motion.
-  const CHART_SVG_SEL = '.bar-svg, .bullet-svg, .line-svg, .scatter-svg, .slope-svg, .stacked-bar-svg, .waterfall-svg, .tower-svg, .risk-matrix-svg, .histogram-svg, .ep-curve-svg, .piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .hub-spoke-svg, .heatmap-svg, .state-chart-figure, .state-chart-edges, .flowchart-svg, .gantt-svg';
-  // The same list scoped to the Anima live stage — each selector must be prefixed individually (a bare
-  // `.scene-live ${CHART_SVG_SEL}` would only scope the FIRST of the comma list). Prefers the clone
-  // EXPLICITLY over inferring visibility from box size (see chartSvgIn).
-  const LIVE_CHART_SVG_SEL = CHART_SVG_SEL.split(',').map((s) => `.scene-live ${s.trim()}`).join(', ');
-  const DETAILS_SEL = '.chart-details';
-  const TPL_SEL = 'template.chart-detail';
-  const MARK_SEL = '[data-mark]';
-  // A TAP PROXY — text that names one mark (a slope entity's name and values, a funnel stage's
-  // label, a bar's, stacked bar's, bullet's or waterfall's category and value, a quadrant dot's
-  // name, a pie or map legend row) carries `data-mark-for="i"`. It is a
-  // separate attribute from `data-mark` so the proxy never becomes a mark: `chartToScene` strokes
-  // every highlighted `[data-mark]` and the Present Guide ranks `[data-label]` nodes, and neither
-  // should see the labels as marks. Two readers use the link: this file, which dims a label with its
-  // mark and (see `namedMark`) opens its card on a tap, and the Present Guide's `focusUnit`.
-  const PROXY_SEL = '[data-mark-for]';
-  const markIndex = (elm) => {
-    if (!elm) return -1;
-    const v = elm.dataset.mark;
-    return v == null ? -1 : Number(v);
-  };
+  // Chart-family vocabulary: one per kind, shared with the player (lib/runtime/chart-reveal/model.mjs).
 
   // Parent chrome: a transparent container (pointer-events:none — lets the
   // capture layer/HUD through) holding the hit-surface and the popover, which
@@ -143,90 +126,11 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   // coordinate bridge is how they end up disagreeing by a pane width (HARD RULE #15).
   const frameGeom = () => sharedFrameGeom(getFrame());
 
-  // ── generic mark access (one code path for every chart kind) ────────────────
-  // Marks are the addressable data elements INSIDE the chart <svg> (pie wedges,
-  // funnel bands, map regions, quadrant dots, radar axis labels). Scoping to
-  // chartEl excludes the inert <template> payloads (they live in a sibling
-  // .chart-details div) and legend swatches (no data-mark).
-  const markEls = () => (chartEl ? [...chartEl.querySelectorAll(MARK_SEL)] : []);
-  // The chart svg to bind to — the visible one when a chart has both a hidden poster and a live
-  // animated clone (see setChart). PREFER the Anima clone EXPLICITLY: it's mounted inside `.scene-live`
-  // (the host's live stage), so a direct `.scene-live` query is robust to HOW the poster is hidden. Only
-  // if there's no live stage (a static chart) do we fall back to the "has a box" heuristic — which works
-  // ONLY because the Anima host hides the poster with `display:none` (docs/src/lib/anima/hydrate.ts) →
-  // zero box; a future `visibility:hidden`/`opacity:0` would keep a box and fool the heuristic, but NOT
-  // the explicit `.scene-live` query above (see docs/src/lib/chart-anima.ts, which flags the coupling).
-  const chartSvgIn = (sec) => {
-    const live = sec.querySelector(LIVE_CHART_SVG_SEL);
-    if (live) return live;
-    const all = [...sec.querySelectorAll(CHART_SVG_SEL)];
-    return all.find((s) => s.getBoundingClientRect().width > 0) || all[0] || null;
-  };
-  const marksFor = (i) => markEls().filter((m) => markIndex(m) === i);
-  // Distinct mark indices present (a map group shares one index across regions),
-  // so number keys / range checks count data points, not DOM nodes.
-  const markCount = () => {
-    const s = new Set(markEls().map(markIndex).filter((n) => n >= 0));
-    return s.size;
-  };
-
-  // Title / value / color for mark i, from whichever source the kind provides:
-  //   label  — the mark's data-label (funnel/map/quadrant) · its own text node
-  //            (radar axis label) · the legend row (pie has no text on a wedge).
-  //   value  — data-value · the legend value column (pie).
-  //   color — the legend swatch's computed fill (pie/map gradients are URL refs,
-  //            meaningless in the parent) · else the mark's own computed fill.
-  function infoFor(i) {
-    const el = marksFor(i)[0] || null;
-    let label = '';
-    let value = '';
-    if (el && el.dataset.label != null) {
-      // substrate marks self-describe (funnel/map/quadrant)
-      label = el.dataset.label;
-      value = el.dataset.value || '';
-    } else if (el && isTextMark(el)) {
-      // radar axis label IS the text node — but its text may be split across
-      // <tspan> lines now that in-diagram labels wrap, so read it the same way
-      // `textOf` reads a wrapped legend row rather than testing for "no child
-      // elements" (which a wrapped label always fails, silently falling through
-      // to the pie branch and titling the popover with a SERIES name).
-      label = tspanText(el);
-    } else {
-      // pie — the wedge has no text, so read the SVG legend row by index
-      label = textOf('.chart-key-label', i);
-      value = textOf('.chart-key-value', i);
-    }
-    const swatch = curSection?.querySelectorAll('.chart-key-swatch')[i];
-    // A usable swatch color — reject the SVG `fill` INITIAL (black) that an HTML
-    // box computes to, plus transparents, so an HTML mark never shows a stray
-    // black dot. Returns null when there's no real color (→ the dot is hidden).
-    // A paint-server reference (`url("#cart-fill-…")` — every gradient-filled bar, band and wedge) is
-    // not a color either: as a CSS background it paints nothing, so the card showed an EMPTY dot
-    // that still took its space and pushed the title right. Rejecting it falls through to the
-    // mark's stroke, which is its real outline color.
-    const usable = (c) => (c && c !== 'none' && c !== 'transparent' && c !== 'rgba(0, 0, 0, 0)' && !c.startsWith('url(')) ? c : null;
-    let dot = null;
-    try {
-      if (swatch) {
-        dot = usable((swatch.ownerDocument?.defaultView || window).getComputedStyle(swatch).fill) || 'currentColor';
-      } else if (el) {
-        const cs = (el.ownerDocument?.defaultView || window).getComputedStyle(el);
-        dot = typeof el.getBBox === 'function'
-          // SVG mark — fill (or stroke) IS the wedge color.
-          ? (usable(cs.fill) || usable(cs.stroke) || 'currentColor')
-          // HTML mark (gantt bar, state node): `fill` is the SVG initial (black)
-          // on an HTML box — useless. These paint their status via the canonical
-          // chart fill, whose --fill-ink shows as the left ACCENT BORDER; read
-          // that resolved color — but only when a left border actually exists
-          // (borderLeftColor otherwise computes to currentColor, never
-          // transparent). A mark with no accent (e.g. a milestone diamond
-          // container) returns null → the dot is hidden, not a dark blob.
-          : (cs.borderLeftStyle !== 'none' && parseFloat(cs.borderLeftWidth) > 0
-              ? usable(cs.borderLeftColor) : null);
-      }
-    } catch { /* cross-doc / detached */ }
-    return { label, value, dot };
-  }
+  // ── the current chart, through the shared model ─────────────────────────────
+  const markEls = () => marksOf(chartEl);
+  const marksFor = (i) => marksAt(chartEl, i);
+  const markCount = () => countMarks(chartEl);
+  const infoFor = (i) => markInfo(curSection, chartEl, i);
 
   // ── geometry ──────────────────────────────────────────────────────────────
   // Map the chart's box (measured inside the iframe) into stage coordinates and
@@ -409,65 +313,16 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     return named >= 0 ? named : nearestMark(chartEl, x, y, reachPx() / g.S);
   }
 
-  // The mark a piece of TEXT names, or -1 — a tap proxy (`data-mark-for`, see PROXY_SEL). A pie or
-  // map LEGEND row is one too: the legend kernel stamps it only when the chart says which mark the
-  // row names, so a legend of SERIES (line, stacked-bar, radar) stays inert rather than being
-  // matched by position or text to some unrelated mark.
-  function namedMark(t, svg) {
-    if (!t || !svg?.contains(t)) return -1;
-    const px = t.closest?.(PROXY_SEL);
-    if (!px) return -1;
-    const n = Number(px.getAttribute('data-mark-for'));
-    if (!Number.isInteger(n) || n < 0) return -1;
-    // The label must name ONE card. No mark at n would open an empty card and dim the whole chart;
-    // marks at n that name different things (a stacked bar's segments, a grouped bar's series) would
-    // open the first one's card — tap a bar's total `28` and read `Licenses 19`. Either way the
-    // label still recedes with its bar (`emphasize`); it just stops being a tap target, and the tap
-    // falls through to the nearest mark as it did before the label was linked. A map region split
-    // over several paths shares one name, so it stays a target.
-    const marks = marksFor(n);
-    if (!marks.length) return -1;
-    const names = new Set(marks.map((m) => m.dataset?.label).filter((l) => l != null));
-    return names.size <= 1 ? n : -1;
-  }
-
-  // ── near-miss hit-testing: the THIN-MARK problem ──────────────────────────────
-  // elementFromPoint only finds a mark when the pointer is ON its painted geometry. That is fine
-  // for a bar or a wedge, but a slope chart's marks are its LINES, about 1.5 slide px wide: on a
-  // phone the preview is scaled to roughly a third, so the stroke is under one screen pixel and a
-  // finger practically never lands on it (seen on a real iPhone: tapping a slope line did nothing).
-  // So when a point misses every mark, take the nearest mark whose OUTLINE is within reach, where
-  // reach is set in SCREEN px — a fingertip on touch, a small halo for a mouse. The distance is
-  // measured to points sampled along each mark's outline, not to its box: a slope line's box is
-  // the whole diagonal and overlaps its neighbors', so the box would pick the wrong line at a
-  // crossing. A mark the pointer is actually ON still wins outright (the caller tries that first).
+  // The near-miss reach in SCREEN px — a fingertip on touch, a small halo for a mouse. The model's
+  // `nearestMark` measures in the slide document's px, so callers divide by the frame scale.
   const reachPx = () => (COARSE ? 22 : 6);
-  function nearestMark(svg, x, y, reach) {
-    if (!svg || !(reach > 0)) return -1;
-    let best = -1, bestD = reach;
-    for (const m of svg.querySelectorAll(MARK_SEL)) {
-      if (typeof m.getTotalLength !== 'function') continue;
-      let ctm, L;
-      try { ctm = m.getScreenCTM(); L = m.getTotalLength(); } catch { continue; }
-      if (!ctm || !(L > 0)) continue;
-      // One sample every ~3 iframe px along the outline, bounded both ways.
-      const n = Math.max(12, Math.min(240, Math.ceil((L * Math.hypot(ctm.a, ctm.b)) / 3)));
-      for (let k = 0; k <= n; k++) {
-        const p = m.getPointAtLength((L * k) / n);
-        const px = ctm.a * p.x + ctm.c * p.y + ctm.e, py = ctm.b * p.x + ctm.d * p.y + ctm.f;
-        const dd = Math.hypot(px - x, py - y);
-        if (dd < bestD) { bestD = dd; best = markIndex(m); }
-      }
-    }
-    return best;
-  }
 
   // ── reveal command (pointer / keys / presenter window all route here) ───────
   // Whether mark index i can open. By the marks THEMSELVES, not a count: indices can have gaps (a bar
   // whose value is not a number draws no rect, so marks run 0, 2), and a count of 2 locked mark 2 —
   // and its name, since the name became a tap target — out of ever opening. `sliceN` is the fallback
   // for a chart whose marks do not query.
-  const revealable = (i) => i >= 0 && (marksFor(i).length > 0 || (!markCount() && i < sliceN));
+  const revealable = (i) => canReveal(chartEl, i, sliceN);
 
   function reveal(i) {
     if (!interactive()) return;
@@ -480,13 +335,10 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     // so a multi-chart preview reads the HOVERED chart's detail, not the first
     // chart in the doc. See infoFor().
     const { label, value, dot } = infoFor(i);
-    const tpl = detailsEl?.querySelector(`template.chart-detail[data-mark="${i}"]`);
-    // The template's OWN items only. A row's `>` description (the first item) is rich Markdown
-    // and may hold a list; `querySelectorAll('li')` also took that list's items and spread them
-    // into the meta line. lib/plugins/chart-family/shared/mark-detail.js writes the payload.
-    const lis = tpl ? [...tpl.content.children].filter((n) => n.tagName === 'LI').map((n) => n.innerHTML.trim()) : [];
-    const body = lis[0] || '';
-    const meta = lis.slice(1).join(' · ');
+    // The template's OWN items only (detailFor): the first is the description, the rest the meta line.
+    const d = detailFor(detailsEl, i);
+    const body = d.body ? d.body.innerHTML.trim() : '';
+    const meta = d.meta.map((n) => n.innerHTML.trim()).join(' · ');
     // Two reveal depths (the data-viz "details-on-demand" model). Every mark is
     // revealable, but a mark with NO authored body/meta (e.g. a pie slice that
     // didn't author a detail sublist) gets a COMPACT value-on-hover tooltip chip,
@@ -525,35 +377,6 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     pop.classList.add('show');
     reflow();   // re-pin the Present hit-surface
     startPop(); // Floating UI owns the popover position from here
-  }
-
-  // A mark whose own text IS its label (the radar's axis labels). True for a
-  // <text> node with no element children AND for one whose only children are
-  // the <tspan> lines a wrapped label emits.
-  function isTextMark(el) {
-    if (!el.textContent?.trim()) return false;
-    const kids = el.children ? [...el.children] : [];
-
-    return kids.every((k) => k.tagName?.toLowerCase() === 'tspan');
-  }
-
-  // The visible text of a node whose lines may be split across <tspan>s —
-  // joined with a space so a wrapped label doesn't read "Costpredictability".
-  function tspanText(el) {
-    const spans = el.querySelectorAll?.('tspan') || [];
-    return (spans.length
-      ? [...spans].map((s2) => s2.textContent.trim()).join(' ')
-      : el.textContent).trim();
-  }
-
-  function textOf(sel, i) {
-    if (!curSection) return '';
-    const n = curSection.querySelectorAll(sel)[i];
-    if (!n) return '';
-    // A wrapped legend label is split across <tspan> lines; textContent would glue
-    // them ("Actuallydeciding") — join the tspans with a space instead.
-    const spans = n.querySelectorAll('tspan');
-    return (spans.length ? [...spans].map((s) => s.textContent.trim()).join(' ') : n.textContent).trim();
   }
 
   // The popover anchors to the pie DISC (the union of the current chart's wedge
@@ -623,163 +446,11 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     if (stopAutoUpdate) { stopAutoUpdate(); stopAutoUpdate = null; }
   }
 
-  // An ANIMATED chart's live svg is the Anima clone (mounted inside `.scene-live`), whose marks carry
-  // the renderer's baked final-frame transform/opacity. The reveal's dim/lift (and its reset on clear)
-  // would OVERWRITE those inline styles and shift the settled chart — so for an anima chart the reveal
-  // is popover-ONLY: it never touches the marks. A static chart's poster is not in `.scene-live`, so it
-  // keeps the full emphasis (no regression).
-  const isAnimaChart = () => !!chartEl?.closest?.('.scene-live');
-
-  // A MATRIX chart — a grid of abutting tiles whose ROW and COLUMN are the reading. It takes the dim
-  // and the emphasis class but NO lift: a shadow or a grow on one tile spills over the two neighbors
-  // it shares an edge with, and a matrix locates a value by the INTERSECTION of two discrete labels,
-  // so anything that blurs a tile's edge makes the reader re-count.
-  //
-  // What carries the emphasis instead is the dim. The active mark does take `.chart-mark-active`, and
-  // chart-family.styles.css thickens its stroke to `--chart-edge-strong` — but a heatmap cell's stroke is the
-  // GUTTER color (`var(--bg)`, measured `rgb(255,255,255)` in light and `rgb(0,29,51)` in dark), so
-  // that rule only widens the gap around the tile. The cue a reader sees is that every OTHER tile drops
-  // to 0.45 while this one stays at 1 — emphasis in the chart's own language, color intensity.
-  const isMatrixChart = () => !!chartEl?.classList?.contains('heatmap-svg');
-
-  // ── EMPHASIS: dim the rest, lift the one — and never move the data ──────────────────────────────
-  //
-  // This used to tip the whole chart back with `perspective(900px) rotateX(7deg)` and push the active
-  // mark 7 units away from the mean of all mark centers. Both distorted exactly what a chart is for:
-  //  * The rotation keystoned the sheet. A 900px perspective on a ~1000px-wide svg shrinks its top edge
-  //    visibly, so bars turned into trapezoids, the baseline and gridlines went oblique, and every label
-  //    rendered skewed — the "cheap 3D" look.
-  //  * The push moved the value. A bar rose off its baseline and into its own value label, a funnel's
-  //    top and bottom bands moved in opposite directions while the middle ones stayed put, and a dot
-  //    left the coordinates it plots.
-  //  * Both moved the mark out from under the cursor, so near an edge the pointer landed on a gap, the
-  //    card closed, the mark settled back under the pointer and the card re-opened.
-  //
-  // Depth now comes from ELEVATION, not rotation: the active mark casts a soft two-layer shadow (a
-  // tight contact shadow plus a wide ambient one), so it reads as lifted toward the viewer while its
-  // geometry stays exactly where the data puts it. On top of that, each GEOMETRY gets the one extra
-  // move it can carry without lying — keyed off the `data-anima-role` every chart kernel already stamps:
-  //   sector  (pie wedge)       → steps out along its own bisector from the true disc center, by 3% of
-  //                                the radius. An exploded slice is the pie's native emphasis, and it
-  //                                keeps the slice's angle, which is the value.
-  //   point   (scatter/quadrant) → grows about its own center by a fixed ~3 slide px of radius. The
-  //                                center (the value) never moves.
-  //   everything else (bars, bands, segments, regions, slope lines, state nodes) → elevation only.
-  // A text mark (the radar's axis labels) and an HTML mark (the state-chart's measuring <li>) take the
-  // dim and the class only — a shadow on type blurs it.
-  //
-  // Sizes are authored in SLIDE px (a 1280-wide slide) and converted to the svg's own user units, so a
-  // lift looks the same on a pie drawn in a 400-unit viewBox and a map drawn in a 1000-unit one, and
-  // stays proportional on a scaled-down preview.
-  const DIM = '0.45';
-  const EASE = 'cubic-bezier(.2,.7,.3,1)';
-  const SECTOR_OUT = 0.03;   // explode distance, as a share of the disc radius
-  const POINT_GROW = 3;      // extra radius on a hovered dot, slide px
-  const POINT_MAX = 1.5;     // …but never more than this scale (a tiny quadrant dot)
-
-  // User units per slide px for mark `w`. getScreenCTM maps user units → iframe px, which includes
-  // the preview's own fit-scale on the <section>; dividing that back out leaves slide px.
-  function unitsPerSlidePx(w) {
-    try {
-      const a = w.getScreenCTM?.()?.a;
-      const sec = w.closest?.('section');
-      const s = sec?.offsetWidth ? sec.getBoundingClientRect().width / sec.offsetWidth : 1;
-      return a ? s / a : 1;
-    } catch { return 1; }
-  }
-
-  // Elevation — a contact shadow plus an ambient one, both below the mark (light from above).
-  function liftShadow(w) {
-    const u = unitsPerSlidePx(w);
-    const n = (v) => (v * u).toFixed(2);
-    return `drop-shadow(0 ${n(1)}px ${n(1.5)}px rgba(0,0,0,.18)) drop-shadow(0 ${n(6)}px ${n(10)}px rgba(0,0,0,.16))`;
-  }
-
-  // A pie wedge's outward step: the circular mean of the directions from the disc center to points
-  // sampled along the wedge's outline, skipping the hub. The disc center is the middle of the union of
-  // every wedge's box, which is exact for a whole pie — the old mean-of-centroids drifted toward the
-  // largest slice, so a 46% slice and its neighbor were pushed along visibly different axes.
-  function sectorStep(w, all) {
-    try {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      all.forEach((o) => { const b = o.getBBox(); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height); });
-      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, R = Math.max(x1 - x0, y1 - y0) / 2;
-      const L = w.getTotalLength();
-      let sx = 0, sy = 0;
-      for (let k = 0; k < 48; k++) {
-        const p = w.getPointAtLength((L * k) / 48);
-        const dx = p.x - cx, dy = p.y - cy, d = Math.hypot(dx, dy);
-        if (d > R * 0.2) { sx += dx / d; sy += dy / d; }
-      }
-      const len = Math.hypot(sx, sy);
-      if (!R || len < 1e-3) return ''; // a lone full-circle slice has no "out"
-      const out = R * SECTOR_OUT;
-      return `translate(${((sx / len) * out).toFixed(2)}px, ${((sy / len) * out).toFixed(2)}px)`;
-    } catch { return ''; }
-  }
-
-  function pointGrow(w) {
-    try {
-      const r = w.r?.baseVal?.value;
-      if (!r) return '';
-      const rPx = r / unitsPerSlidePx(w);
-      return `scale(${Math.min(POINT_MAX, 1 + POINT_GROW / rPx).toFixed(3)})`;
-    } catch { return ''; }
-  }
-
-  // What the active mark gets: { transform, filter }. Empty strings mean "leave it alone".
-  function emphasisFor(w, marks) {
-    if (typeof w.getBBox !== 'function' || isMatrixChart()) return { transform: '', filter: '' };
-    if (w.tagName?.toLowerCase() === 'text') return { transform: '', filter: '' };
-    const filter = liftShadow(w);
-    // A mark with its own `transform` attribute would lose it to a CSS transform (the property
-    // replaces the attribute), so such a mark keeps its shadow and skips the geometric move.
-    if (!useLift || w.hasAttribute('transform')) return { transform: '', filter };
-    const role = w.dataset?.animaRole;
-    if (role === 'sector') return { transform: sectorStep(w, marks.filter((o) => o.dataset?.animaRole === 'sector')), filter };
-    if (role === 'point') return { transform: pointGrow(w), filter };
-    return { transform: '', filter };
-  }
-
+  // EMPHASIS — dim the rest, lift the one, never move the data (emphasize, with the rules for each
+  // geometry, the matrix chart and the Anima clone).
   function emphasize(i) {
-    if (!chartEl || !curSection || isAnimaChart()) return;
-    const marks = markEls();
-    const tr = REDUCED ? 'none' : `transform .24s ${EASE}, opacity .2s ease, filter .24s ${EASE}`;
-    // Compare by MARK index, not DOM order — a map group shares one index across
-    // several region paths, and quadrant/radar DOM order ≠ data index.
-    marks.forEach((w) => {
-      const active = markIndex(w) === i;
-      const { transform, filter } = active ? emphasisFor(w, marks) : { transform: '', filter: '' };
-      w.style.transition = tr;
-      w.style.opacity = active ? '1' : DIM;
-      // A point grows about its OWN center. Set on every point, active or not, and never reset: a
-      // dot shrinking back after the pointer moves on must ease about its own center too, not jump
-      // to scale about the svg origin halfway through.
-      if (w.dataset?.animaRole === 'point') { w.style.transformBox = 'fill-box'; w.style.transformOrigin = 'center'; }
-      w.style.transform = transform;
-      w.style.filter = filter;
-      // CSS emphasis hook — lets a chart style its active mark (the gantt bar's
-      // ink edge) without the reveal layer hard-coding per-chart visuals.
-      w.classList?.toggle('chart-mark-active', active);
-    });
-    // The proxies dim with their marks, so the open entry's own name and values stay at full
-    // strength while every other entry's recede — the card and the chart agree on what is open.
-    chartEl.querySelectorAll(PROXY_SEL).forEach((p) => {
-      p.style.transition = REDUCED ? 'none' : 'opacity .2s ease';
-      p.style.opacity = Number(p.getAttribute('data-mark-for')) === i ? '' : DIM;
-    });
-  }
-
-  // Put every mark back. The transition stays on, so the exit eases out the way the entry eased in,
-  // and a point's transform box stays on its own center for the same reason (see emphasize).
-  function unemphasize() {
-    markEls().forEach((w) => {
-      w.style.opacity = '';
-      w.style.transform = '';
-      w.style.filter = '';
-      w.classList?.remove('chart-mark-active');
-    });
-    chartEl?.querySelectorAll(PROXY_SEL).forEach((p) => { p.style.opacity = ''; });
+    if (!chartEl || !curSection) return;
+    emphasizeMarks(chartEl, i, { lift, reduced: REDUCED });
   }
 
   function clear() {
@@ -790,9 +461,9 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     stopPop();
     if (onDetail) { try { onDetail(null); } catch { /* host hook */ } }
     pop.classList.remove('show');
-    // Reset the lift/dim we applied — but NOT on an anima chart, where those inline styles are the
-    // renderer's baked frame (emphasize never touched them), so clearing would shift the settled chart.
-    if (!isAnimaChart()) unemphasize();
+    // Reset the lift/dim we applied (a no-op on an anima chart, whose inline styles are the renderer's
+    // baked frame — emphasize never touched them).
+    unemphasize(chartEl);
   }
 
   // ── keyboard: number keys reveal; 0/Esc clear ───────────────────────────────
@@ -859,22 +530,12 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   // the pinned hit-surface clears only on pointerleave, so it never edge-flickers.
   let hoverClearTimer = 0;
   function cancelHoverClear() { if (hoverClearTimer) { clearTimeout(hoverClearTimer); hoverClearTimer = 0; } }
-  // Hold zone: the open mark's CURRENT box (after its lift) grown by a few slide px. A pointer that
-  // slips off the mark into empty chart — the gap between two bars, the hairline between a stepped-out
-  // wedge and the hub, the rim of a grown dot — keeps the card, instead of closing it and re-opening it
-  // a frame later. Landing on a DIFFERENT mark still switches at once (resolveAt wins before this runs),
-  // so the zone only ever decides "keep or close", never "which".
+  // HOLD ZONE (inHoldZone): the open mark's box grown by HOLD_SLIDE_PX slide px, so a pointer that
+  // slips into the gap between marks keeps the card instead of flickering it.
   const HOLD_SLIDE_PX = 10;
   function inHoldZone(e) {
     if (openSlice < 0 || !curSection) return false;
-    let pad = HOLD_SLIDE_PX;
-    try { if (curSection.offsetWidth) pad *= curSection.getBoundingClientRect().width / curSection.offsetWidth; } catch { /* detached */ }
-    return marksFor(openSlice).some((m) => {
-      let r;
-      try { r = m.getBoundingClientRect(); } catch { return false; }
-      return r.width > 0 && e.clientX >= r.left - pad && e.clientX <= r.right + pad
-        && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
-    });
+    return inMarkHoldZone(chartEl, openSlice, e.clientX, e.clientY, HOLD_SLIDE_PX * sectionScale(curSection));
   }
   function onDocMove(e) {
     // resolveAt → setChart may clear() (which nulls ptr) when the hovered chart

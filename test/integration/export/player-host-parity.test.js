@@ -64,8 +64,12 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // Rebased on the step cursor above: the same +863 bytes of CSS on its 107,176, so 108,039. Both hosts agree.
 // Re-blessed 2026-11-11 (the slide-metadata record, step 2, rebased on both above): the notes-hide rule also hides the
 // reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}` (108,039 -> +21 bytes = 108,060). Both hosts agree.
-const GOLDEN_SHA = '3df7eed089be16e23540800a1a0b4d8c2e913b84ec96e8823b2d6e10f05c22d8';
-const GOLDEN_BYTES = 108060;
+// Re-blessed 2026-11-17 (#3259): the present stage measures a swipe from the press to the LAST pointermove, not to
+// the pointerup's own point, which Mobile Safari reported as (0, 0) on every touch (iOS 26.5 simulator, platform suite
+// run 44013499171), so a tap could turn the slide. Script only: one pointermove listener and two variables
+// (108,060 -> +483 bytes = 108,543). Both hosts agree.
+const GOLDEN_SHA = '24fc34fba59836e8c56215b8019557f3c74a68b8903b848c596b89f4d6417df8';
+const GOLDEN_BYTES = 108543;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 
