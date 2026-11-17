@@ -1802,6 +1802,17 @@ function reviewerTraps() {
 }
 
 /**
+ * The checker reads `../reference/components.json` beside itself; fetched alone it runs a PARTIAL
+ * check and says so. Found by downloading it from the docs preview the way an agent would.
+ */
+const CHECKER_FETCH = [
+  'mkdir -p lattice/review lattice/reference',
+  'curl -fsSL https://lattice.style/agents/review/check.mjs -o lattice/review/check.mjs',
+  'curl -fsSL https://lattice.style/agents/reference/components.json -o lattice/reference/components.json',
+  'node lattice/review/check.mjs deck.md',
+].join('\n');
+
+/**
  * render/lattice-render-a-deck.md — how to see the deck. Lattice renders it.
  *
  * Until 2026-11-17 this page led with the Marp kit, because `@laticent/lattice` was not
@@ -1843,6 +1854,10 @@ function renderDoc() {
     '## Check the deck first',
     '',
     ...fenced('node review/check.mjs your-deck.md   # from the kit root', 'sh'),
+    '',
+    'No kit on disk? Fetch the checker and the catalog it reads, side by side as in the kit:',
+    '',
+    ...fenced(CHECKER_FETCH, 'sh'),
     '',
     'It is code, not a model: no tokens, offline, about a tenth of a second, and it cannot',
     'be talked into approving a deck the way a model reviewing its own draft can. It catches',
@@ -3153,6 +3168,11 @@ function startDoc(files, cat) {
       ].join('\n'),
       'sh',
     ),
+    '',
+    'Reading this on lattice.style rather than from the kit? Fetch the checker and the catalog',
+    'it reads, side by side as in the kit; without the catalog it skips the word budgets:',
+    '',
+    ...fenced(CHECKER_FETCH, 'sh'),
     '',
     'No command line? Open the file in the Lattice Studio at <https://lattice.style/studio>',
     `and export from there. More in [\`${RENDER}/lattice-render-a-deck.md\`](./${RENDER}/lattice-render-a-deck.md).`,
