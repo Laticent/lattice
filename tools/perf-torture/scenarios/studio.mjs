@@ -86,6 +86,61 @@ async function READALOUD(page) {
 	await wait(page, 200);
 	await page.keyboard.press('ArrowRight'); await wait(page, 300); // next slide
 }
+// ── narration: Present reading aloud with a raw-audio cloud voice (the iPhone reload, #3289) ──
+// A stand-in for OpenRouter's Gemini TTS, the voice that answers raw 24 kHz PCM rather than MP3: every speech
+// request gets silent PCM as long as the sentence would take to say (about 2.6 words a second). Silent, because
+// the cycle measures what the Studio KEEPS, not what it sounds like. No key is read or spent (HARD RULE #24): the
+// stored key is a dummy and no request leaves the page.
+const NARRATION_MODEL = 'google/gemini-3.1-flash-tts-preview';
+function standInSpeech(page) {
+	return page.setRequestInterception(true).then(() =>
+		page.on('request', (req) => {
+			if (req.isInterceptResolutionHandled?.()) return;
+			const url = req.url();
+			if (!url.startsWith('https://openrouter.ai/')) return req.continue();
+			if (url.includes('/audio/speech')) {
+				let words = 1;
+				try { words = String(JSON.parse(req.postData() || '{}').input || '').split(/\s+/).filter(Boolean).length || 1; } catch {}
+				const body = Buffer.alloc(Math.max(4800, Math.round((words / 2.6) * 24000)) * 2);
+				return req.respond({ status: 200, contentType: 'audio/pcm;rate=24000;channels=1', body });
+			}
+			if (url.includes('/models')) {
+				return req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: NARRATION_MODEL, name: 'Gemini Flash TTS', pricing: { prompt: '0.0000005', completion: '0' }, architecture: { output_modalities: ['speech'] }, supported_voices: ['Kore'] }] }) });
+			}
+			return req.respond({ status: 200, contentType: 'application/json', body: '{"data":{}}' });
+		}),
+	);
+}
+// Every decoded clip, held by a WeakRef: after the engine's forced GC, the live ones are what the page still keeps.
+const DECODE_TALLY = `(() => {
+	if (window.__narrationTally) return;
+	const refs = [];
+	window.__narrationTally = { refs, decoded: 0 };
+	for (const C of [window.AudioContext, window.webkitAudioContext, window.OfflineAudioContext]) {
+		if (!C || C.prototype.__tallied) continue;
+		const orig = C.prototype.decodeAudioData;
+		C.prototype.decodeAudioData = function (...a) {
+			return orig.apply(this, a).then((buf) => { refs.push(new WeakRef(buf)); window.__narrationTally.decoded++; return buf; });
+		};
+		C.prototype.__tallied = true;
+	}
+})()`;
+async function NARRATION(page) {
+	const dlg = '[role="dialog"][aria-label="Present"]';
+	// Hear one slide's narration (the stand-in clips are a few seconds long), then move on, wrapping at the end
+	// so every cycle reads new sentences until the deck repeats.
+	await wait(page, 3000);
+	const atEnd = await page.evaluate((d) => {
+		const m = /(\d+)\s*\/\s*(\d+)/.exec(document.querySelector(d)?.textContent || '');
+		return !!m && m[1] === m[2];
+	}, dlg);
+	await page.keyboard.press(atEnd ? 'Home' : 'ArrowRight');
+	await wait(page, 300);
+	if (!(await exists(page, `${dlg} button[aria-label="Pause"]`))) {
+		await clickIn(page, `${dlg} button[aria-label="Play the presentation"]`);
+		await wait(page, 300);
+	}
+}
 async function LANDING_CYCLE(page) {
 	// flip the hero Preview/Source tab (remounts the hero iframe — the leak lever) + flip palette
 	// (MutationObserver on <html> re-renders ALL landing islands at once).
@@ -126,6 +181,7 @@ const CYCLES = {
 	async decksettings(page) { await DECKSETTINGS(page); },
 	async deckswitch2(page) { await DECKSWITCH(page); },
 	async readaloud(page) { await READALOUD(page); },
+	async narration(page) { await NARRATION(page); },
 	async mixed(page) { await CYCLES.typing(page); await CYCLES.present(page); await CYCLES.palette(page); },
 	// ── landing surface ──
 	async landing(page) { await LANDING_CYCLE(page); },
@@ -146,6 +202,18 @@ const PREP = {
 		await clickSel(page, 'button[aria-label="Present"]'); await wait(page, 900);
 		if (opts.tts && key) { await page.click('button[aria-label^="Voice off"]').catch(() => {}); await wait(page, 300); }
 	},
+	// Present, Voice on, Play: the run is live before the first measured cycle.
+	async narration(page) {
+		await page.evaluate(DECODE_TALLY);
+		await clickSel(page, 'button[aria-label="Present"]');
+		await wait(page, 900);
+		const dlg = '[role="dialog"][aria-label="Present"]';
+		await clickIn(page, `${dlg} button[aria-label^="Voice off"]`);
+		await wait(page, 300);
+		await clickSel(page, `${dlg} button[aria-label="Play the presentation"]`, 4000);
+		await wait(page, 1500);
+		if (!(await page.evaluate(() => window.__narrationTally.decoded))) throw new Error('narration: nothing decoded — the stand-in voice is not being used');
+	},
 	async landing(page) {
 		for (let y = 0; y < 8; y++) { await page.evaluate(() => window.scrollBy(0, 700)); await wait(page, 350); }
 		await wait(page, 2600); // one RestyleShowcase cycle
@@ -158,7 +226,7 @@ export default {
 	name: 'studio',
 	distDir: DIST,
 	// idle first (the CONTROL); the rest in a stable order.
-	defaultCycles: ['idle', 'typing', 'present', 'overview', 'palette', 'fullwrite', 'compose', 'slidenav', 'insert', 'slidesettings', 'decksettings', 'deckswitch2', 'readaloud', 'landing', 'pgslide', 'pgvariant', 'pgscroll', 'mixed'],
+	defaultCycles: ['idle', 'typing', 'present', 'overview', 'palette', 'fullwrite', 'compose', 'slidenav', 'insert', 'slidesettings', 'decksettings', 'deckswitch2', 'readaloud', 'narration', 'landing', 'pgslide', 'pgvariant', 'pgscroll', 'mixed'],
 	surfaces: {
 		studio: {
 			// NB: drive the PRODUCTION surface `/studio`, NOT `/studio?perf` (2026-07-21-studio-compose-
@@ -182,8 +250,25 @@ export default {
 		},
 		landing: { url: '/', ready: '[role="tablist"][aria-label="Hero view"]', settle: 2000 },
 		playground: { url: '/playground', ready: '#editor-host .cm-editor', settle: 2000 },
+		// The Studio, with the stand-in voice chosen before the app reads its settings: stub the network, store the
+		// choice, reload, then the same Craft posture as `studio`.
+		narration: {
+			url: '/studio', ready: '.cm-content', settle: 1500,
+			setup: async (page) => {
+				await standInSpeech(page);
+				await page.evaluate((model) => {
+					localStorage.setItem('lattice-db-or-key', 'sk-or-v1-torture-stand-in-0000');
+					localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model, voice: 'Kore' }));
+				}, NARRATION_MODEL);
+				await page.reload({ waitUntil: 'networkidle0', timeout: 90000 });
+				await settle(page, '.cm-content', 30000);
+				await wait(page, 1500);
+				await page.click('button[aria-label="Craft — every panel"]');
+				await wait(page, 700);
+			},
+		},
 	},
-	cycleSurface: { landing: 'landing', pgslide: 'playground', pgvariant: 'playground', pgscroll: 'playground' },
+	cycleSurface: { narration: 'narration', landing: 'landing', pgslide: 'playground', pgvariant: 'playground', pgscroll: 'playground' },
 	cycles: CYCLES,
 	prep: PREP,
 	// App-specific observables layered onto the engine's universal metrics. Each returns a number;
@@ -192,14 +277,18 @@ export default {
 		const q = (s) => { try { return document.querySelectorAll(s).length; } catch { return -1; } };
 		let themeCount = -1;
 		try { const PG = window.LatticePlayground || window.PG; if (PG?.themes) themeCount = (PG.themes.size ?? PG.themes.length ?? Object.keys(PG.themes).length); } catch {}
-		return { liveIframes: q('iframe.live'), cmEditors: q('.cm-editor'), themeCount };
+		// Decoded narration the page still holds, in MB of Float32 samples; -1 off the narration cycle.
+		const t = window.__narrationTally;
+		let liveDecodedMB = -1;
+		if (t) { liveDecodedMB = 0; for (const r of t.refs) { const b = r.deref(); if (b) liveDecodedMB += (b.length * b.numberOfChannels * 4) / 1e6; } }
+		return { liveIframes: q('iframe.live'), cmEditors: q('.cm-editor'), themeCount, liveDecodedMB: Math.round(liveDecodedMB * 100) / 100 };
 	}),
 	// Absolute per-cycle noise floors for the UNIVERSAL heap/DOM metrics, calibrated to the docs site
 	// (a heavy app: CodeMirror + srcdoc iframes + ~560KB theme strings) from its idle control. Owned
 	// here rather than inherited from the engine's built-in defaults, so a lighter app writing its own
 	// scenario is forced to set its own (or gets warned) instead of silently reusing Studio's.
 	universalFloors: { retainedHeap: 40000, peakHeap: 60000, heapTotal: 60000, nodes: 0.4, listeners: 0.4, documents: 0.1, frames: 0.1 },
-	probeFloors: { liveIframes: 0.1, cmEditors: 0.1, themeCount: 0.4 },
+	probeFloors: { liveIframes: 0.1, cmEditors: 0.1, themeCount: 0.4, liveDecodedMB: 0.1 },
 	// What a leaked object looks like for the `--retainers` walk: the big (~560KB) retained theme-CSS
 	// / engine-scaffold strings. (Detached-realm targeting via `--realm` is generic, in the engine.)
 	retainerTarget: (name, self) => self >= 200000 && /lattice-min\.css|lattice-engine scaffold|<article class="lattice">/.test(name),
