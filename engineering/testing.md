@@ -67,6 +67,11 @@ produce the slides we expect, with the page count we expect.
 **Fidelity gaps.**
 
 - **One engine.** Integration renders with Chromium only. WebKit and Gecko layout is not exercised.
+  One exception, nightly only: `npm-plugin-export-check` (`test/integration/export-nightly/`, run by
+  `test:integration:nightly`) drives WebKit and Firefox through docs' Playwright, and an engine that
+  cannot start fails it rather than skipping. A fresh sandbox has neither, so install them first:
+  `node docs/node_modules/playwright-core/cli.js install-deps webkit firefox && node docs/node_modules/playwright-core/cli.js install webkit firefox`,
+  then run it with `LATTICE_PLAYWRIGHT=$PWD/docs/node_modules/playwright`.
 - **Linux only.** The per-PR runners are Linux. Font fallback, file-system case rules and sandboxing
   differ on macOS and Windows.
 - **No user.** Nobody types, taps or scrolls. Interaction is out of scope here.
