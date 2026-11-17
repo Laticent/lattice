@@ -81,4 +81,49 @@ describe('the front-matter register family', () => {
     // The block's key wins: the front matter's own line is commented out by the fold, so its typo is not read.
     assert.deepEqual(lintDeck(block('finish: atriumm', 'finish: halo'), { vocab }), []);
   });
+
+  // The edge table: every row against lint-core over value shapes × layouts (2,070 inputs). The parity cases go through
+  // lint-core, so the reference diff's recording picks them up and re-runs them on every diff. Two classes differ on
+  // purpose and are held on the Squadra side only, so they never enter the corpus as differences to explain:
+  //   - a key line inside a block scalar's body: lint-core read it; the engine never does, nor does the port;
+  //   - a trailing comment: the port reads the value past it, as the engine does (§12's deliberate change).
+  test('the edge table: the port agrees with lint-core on every shape but the two it fixes', () => {
+    const values = (t, k) => ({ typo: t, known: k, upper: k.toUpperCase(), dq: `"${t}"`, sq: `'${t}'`, mixq: `"${t}'`, comment: `${t}  # c`, words: 'two words', empty: '', hash: '# c' });
+    const layouts = {
+      top: (kv) => `---\ntitle: Q\n${kv}\n---\n\n# A\n`,
+      crlf: (kv) => `---\r\ntitle: Q\r\n${kv}\r\n---\r\n\r\n# A\r\n`,
+      spaced: (kv) => `---\n${kv.replace(':', ' :')}\n---\n\n# A\n`,
+      nested: (kv) => `---\npptx:\n  ${kv}\n---\n\n# A\n`,
+      repeat: (kv, k) => `---\n${kv}\n${kv.split(':')[0]}: ${k}\n---\n\n# A\n`,
+      repeatLast: (kv, k) => `---\n${kv.split(':')[0]}: ${k}\n${kv}\n---\n\n# A\n`,
+      blockBody: (kv) => `---\nstyle: |\n  ${kv}\n---\n\n# A\n`,
+      settings: (kv) => `---\nmarp: true\n---\n<script type="application/lattice-settings">\n${kv}\n</script>\n\n# A\n`,
+      tabs: (kv) => `---\n${kv.replace(': ', ':\t')}\t\n---\n\n# A\n`,
+    };
+    const key = (f) => `${f.rule.replace(/^deck\//, '')}|${f.message}`;
+    let compared = 0;
+    for (const row of ROWS) {
+      const k = [...vocab[row.vocab]].find((n) => n !== 'none');
+      const t = k + k.at(-1);
+      for (const [vn, v] of Object.entries(values(t, k))) {
+        for (const [ln, layout] of Object.entries(layouts)) {
+          const src = layout(`${row.key}: ${v}`.trimEnd(), k);
+          const mine = lintDeck(src, { vocab }).filter((f) => f.rule === `deck/${row.name}`).map(key);
+          if (ln === 'blockBody') {
+            assert.deepEqual(mine, [], `${row.name} ${vn}/${ln}: a block scalar's body is never read`);
+            continue;
+          }
+          if (vn === 'comment' && row.value === 'bare') {
+            // `repeat` puts a known value on the last line, which wins.
+            assert.equal(mine.length, ln === 'repeat' ? 0 : 1, `${row.name} ${vn}/${ln}: the value is read past its comment`);
+            continue;
+          }
+          const theirs = lintText(src, vocab).filter((f) => f.rule === row.name).map(key);
+          assert.deepEqual(mine.sort(), theirs.sort(), `${row.name} ${vn}/${ln}`);
+          compared++;
+        }
+      }
+    }
+    assert.ok(compared > 1700, `compared ${compared}`);
+  });
 });
