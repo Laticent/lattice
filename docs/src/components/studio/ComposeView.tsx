@@ -2553,6 +2553,28 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// destroyed frame's document (preview-pool.tsx), so an undo back to empty must not build a new set.
 	const [startShown, setStartShown] = React.useState(false);
 	if (blank && emptyStart && !startShown) setStartShown(true);
+	// The grid starts under the empty line, wherever the reserved bar puts it at this width (the pill wraps to two rows
+	// on a narrow pane): measured, not a constant, so the line and the grid never overlap and nothing moves.
+	const frameRef = React.useRef<HTMLDivElement>(null);
+	const [emptyTop, setEmptyTop] = React.useState<number | null>(null);
+	React.useLayoutEffect(() => {
+		const frame = frameRef.current;
+		const host = hostRef.current;
+		if (!blank || !startShown || !frame || !host) return;
+		const measure = () => {
+			const line = host.querySelector('.cs-slide-content');
+			if (!line) return;
+			const top = Math.ceil(line.getBoundingClientRect().bottom - frame.getBoundingClientRect().top + host.scrollTop);
+			setEmptyTop((t) => (t === top ? t : top));
+		};
+		measure();
+		const ro = new ResizeObserver(measure);
+		ro.observe(host);
+		// The slide too: its bar changes height when the slide turns active on a tap, and the host does not resize then.
+		const slide = host.querySelector('.cs-slide');
+		if (slide) ro.observe(slide);
+		return () => ro.disconnect();
+	}, [blank, startShown]);
 	// The floating selection bar (inline marks over a text selection) on DESKTOP, or null when there
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
@@ -3691,7 +3713,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			<ComposeStyles />
 			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
 			    (context-sensitive). Just the writing surface. */}
-			<div className="cs-frame">
+			<div ref={frameRef} className="cs-frame" style={emptyTop != null ? ({ '--cs-empty-top': `${emptyTop}px` } as React.CSSProperties) : undefined}>
 				{/* Compose's undo is the Studio's (Filo): the root keymap owns ⌘Z here as in the Markdown editor. */}
 				<div ref={hostRef} className="cs-host" data-filo-owned="" />
 				{startShown && (
@@ -3802,11 +3824,22 @@ function ComposeStyles() {
 			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff)}
 			.cs-frame{display:flex;height:100%;position:relative}
 			/* AN EMPTY DECK (2026-11-17-compose-empty-deck.md): no slide chrome, one line to write on, the start grid under it. */
-			.cs-surface[data-empty] .cs-slide-bar{display:none}
+			/* HIDDEN, NOT REMOVED: the bar keeps its height, so the first keystroke (which brings it back) does not push the
+			   line down under the author's caret. Measured before this: 94px on a phone, 54px on a desktop. visibility also
+			   takes its buttons out of the tab order and the accessibility tree, as display:none did. */
+			/* …and every descendant, at a higher specificity: the active slide's pill sets visibility:visible, which beats a hidden
+			   ancestor (the trap noted at the active pill's rule below). */
+			.cs-surface[data-empty] .cs-slide-bar,.cs-surface[data-empty] .cs-slide .cs-slide-bar *{visibility:hidden}
 			.cs-surface[data-empty] .cs-active-line{background:none}
-			.cs-surface[data-empty] .cs-slide-content > p:only-child:has(> br:only-child)::before{content:"Start typing…";float:left;height:0;pointer-events:none;color:var(--text-muted,#6b7f9a);font-style:italic}
-			@media (pointer:coarse){.cs-surface[data-empty] .cs-slide-content > p:only-child:has(> br:only-child)::before{content:"Tap here to start writing"}}
-			.cs-empty-start{position:absolute;inset:56px 0 0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:clamp(8px,4vh,48px) 16px 24px;cursor:text}
+			/* Every paragraph of a blank deck is empty, so the first one carries the placeholder. Not \`:has(> br:only-child)\`: an
+			   Undo's change mark puts a widget beside the break and the placeholder vanished. */
+			.cs-surface[data-empty] .cs-slide-content > p:first-child::before{content:"Start typing…";float:left;height:0;pointer-events:none;color:var(--text-muted,#6b7f9a);font-style:italic}
+			@media (pointer:coarse){.cs-surface[data-empty] .cs-slide-content > p:first-child::before{content:"Tap here to start writing"}}
+			/* No change marks on a blank deck: an Undo back to empty has no text to point at, and the deletion gap gave the
+			   empty line a second row for the length of the flash, pushing the grid 27px down and back (measured, desktop). */
+			.cs-surface[data-empty] .cs-flash-gap{display:none}
+			.cs-surface[data-empty] .cs-flash-block{animation:none;background:none;box-shadow:none}
+			.cs-empty-start{position:absolute;inset:var(--cs-empty-top,56px) 0 0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:clamp(8px,4vh,48px) 16px 24px;cursor:text}
 			.cs-empty-start[hidden]{display:none}
 			${CHANGE_FLASH_CSS}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */

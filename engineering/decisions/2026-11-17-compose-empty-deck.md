@@ -78,6 +78,17 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   hidden, because WebKit never frees a destroyed frame's document (about 11 MB each, `preview-pool.tsx`), and mounting it
   afresh on every Undo back to empty would have stranded four frames each time. The pool is not shared with the picker:
   each `PreviewPool` owns its frames.
+- **Nothing moves (owner, 2026-11-17: "make sure there is no jank").** Two moves were measured on the real Studio and
+  fixed. (1) The first build hid the slide bar with `display:none`, so the first letter brought it back above the line and
+  pushed the text down under the author's caret: **94px on a phone, 54px on a desktop**, and Undo pulled it back up. The
+  bar is now `visibility:hidden` while the deck is empty: it keeps its height, and its buttons stay out of the tab order
+  and the accessibility tree. Every descendant is hidden at a higher specificity, because the active pill sets
+  `visibility:visible`, which beats a hidden ancestor (the trap the `.cs-paused` rule already notes). The grid's top is
+  measured from the line, not a constant, so it follows the bar's height at every width. (2) After an Undo back to empty,
+  the change mark (`change-flash.ts`) put a deletion gap in the empty line, which gave it a second row and pushed the
+  grid **27px** down (desktop). A blank deck has no text to mark, so the gap and the wash are not drawn while it is empty.
+  After both, the line and the grid sit at the same pixel through a tap, the first letter and Undo, at 390px and 1440px,
+  and a pasted deck's first line lands where the empty line was. `compose-empty-deck.spec.ts` holds both.
 - **It fits a phone.** At an iPhone's 390×664 the grid ends 421px into a 505px canvas (WebKit; Chromium 422px).
 - **Preview and Present.** Preview drew a blank slide numbered 1 with the counter at "1 / 0", the deck menu said "1 slide"
   beside a status bar's "0 slides", and Present opened a blank slide. Preview now shows "No slides yet" over the live

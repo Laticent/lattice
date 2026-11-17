@@ -32,6 +32,11 @@ async function openEmptyDeck(page: Page): Promise<void> {
 	await expect(start(page)).toBeVisible();
 }
 
+/** A box's top edge in CSS pixels, to a tenth. */
+async function topOf(page: Page, selector: string): Promise<number> {
+	return page.locator(selector).first().evaluate((el) => Math.round(el.getBoundingClientRect().top * 10) / 10);
+}
+
 const start = (page: Page) => page.getByRole('region', { name: 'Start your deck' });
 const tiles = (page: Page) => start(page).getByRole('list', { name: 'Starting slides' }).getByRole('button');
 const editor = (page: Page) => page.locator('.cs-host .ProseMirror');
@@ -97,7 +102,9 @@ test('@crosswidth @webkit-phone @gecko a tile makes slide 1 in its layout, and U
 test('@crosswidth a whole deck pasted into an empty one arrives as its own slides', async ({ page, browserName }) => {
 	await openEmptyDeck(page);
 	await caretOnEmptyLine(page);
-	const deck = '# One\n\nFirst point.\n\n---\n\n<!-- _class: big-number -->\n\n# 93%';
+	// A whole deck, settings included: its front matter becomes the deck's, its breaks become slides.
+	const deck = '---\ntheme: cuoio\npaginate: true\n---\n\n# One\n\nFirst point.\n\n---\n\n<!-- _class: big-number -->\n\n# 93%';
+	const lineTop = await topOf(page, '.cs-host .cs-slide-content > *');
 	if (browserName === 'firefox') {
 		await page.evaluate((t) => navigator.clipboard.writeText(t), deck);
 		await page.keyboard.press('ControlOrMeta+v');
@@ -112,8 +119,37 @@ test('@crosswidth a whole deck pasted into an empty one arrives as its own slide
 	// The save is debounced: wait for the pasted deck to be the deck, then check nothing blank sits before it.
 	await expect.poll(() => deckSource(page)).toContain('<!-- _class: big-number -->');
 	const src = await deckSource(page);
-	expect(src.trimStart().startsWith('# One'), `a blank slide was left before the pasted deck: ${JSON.stringify(src)}`).toBe(true);
+	expect(src.startsWith('---\ntheme: cuoio\npaginate: true\n---\n'), `the pasted settings did not become the deck's: ${JSON.stringify(src)}`).toBe(true);
+	expect(src.replace(/^---\n[\s\S]*?\n---\n/, '').trimStart().startsWith('# One'), `a blank slide was left before the pasted deck: ${JSON.stringify(src)}`).toBe(true);
 	await expect(start(page)).toBeHidden();
+	// The first pasted line lands where the empty line was: the reserved bar means nothing above it moves.
+	expect(await topOf(page, '.cs-host .cs-slide-content > *')).toBe(lineTop);
+	// One Undo takes back the slides and the settings together, to an empty file.
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect.poll(() => deckSource(page)).toBe('');
+	await expect(start(page)).toBeVisible();
+});
+
+test('@crosswidth @webkit-phone @gecko nothing moves: the line and the grid hold still through a tap, a letter and Undo', async ({ page }) => {
+	await openEmptyDeck(page);
+	const line = '.cs-host .cs-slide-content > p';
+	const grid = '[data-empty-start]';
+	const before = { line: await topOf(page, line), grid: await topOf(page, grid) };
+	await caretOnEmptyLine(page);
+	expect({ line: await topOf(page, line), grid: await topOf(page, grid) }, 'the tap moved the line or the grid').toEqual(before);
+	// The first letter brings the slide bar back. It was reserved, so the letter is typed where the caret was.
+	await page.keyboard.type('W');
+	await expect(start(page)).toBeHidden();
+	expect(await topOf(page, line), 'the first letter pushed the line down').toBe(before.line);
+	// Undo: back to the same picture, with no change mark giving the empty line a second row.
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(start(page)).toBeVisible();
+	await expect.poll(() => topOf(page, grid), { message: 'the grid moved after Undo' }).toBe(before.grid);
+	expect(await topOf(page, line)).toBe(before.line);
+	// The change mark is not drawn on a blank deck, so nothing is left to move the grid when it would have faded: its gap had
+	// given the empty line a second row (27px on a desktop, measured before the fix).
+	await expect(page.locator('.cs-host .cs-flash-gap')).toBeHidden();
+	expect(await topOf(page, grid)).toBe(before.grid);
 });
 
 test('@crosswidth Browse all opens the add-slide picker, which says the pick becomes slide 1', async ({ page }) => {
