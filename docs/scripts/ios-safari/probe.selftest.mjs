@@ -10,6 +10,7 @@
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
+ *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -88,6 +89,40 @@ if (process.env.PROBE === 'chat-storage') {
 		}
 		await context.close();
 	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'player-charts') {
+	// The player chart probe (player-charts.mjs), the same sequence run.mjs runs in Mobile Safari, with Playwright's
+	// touchscreen for the taps: an iPad-sized and an iPhone-sized page with touch. It exports the two decks itself, as
+	// run.sh does, through the real CLI (CHROME_PATH or Puppeteer's Chrome).
+	const { execFileSync } = await import('node:child_process');
+	const { PLAYER_CHARTS_DECKS, PLAYER_CHARTS_SOURCE, runPlayerCharts } = await import('./player-charts.mjs');
+	const root = path.resolve(here, '..', '..', '..');
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'player-charts-'));
+	const players = {};
+	for (const [key, deck] of Object.entries(PLAYER_CHARTS_DECKS)) {
+		players[key] = path.join(dir, `${key}.html`);
+		execFileSync(process.execPath, [path.join(root, 'lattice.js'), path.join(root, deck), players[key], '--player', '-q'], { cwd: root, stdio: 'inherit' });
+	}
+	for (const shape of [{ label: 'iPad-sized', options: { viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true } }, shapes.at(-1)]) {
+		const context = await browser.newContext(shape.options);
+		const page = await context.newPage();
+		const result = await runPlayerCharts({
+			players: { deck: `file://${players.deck}`, hostile: `file://${players.hostile}` },
+			go: (url) => page.goto(url),
+			// In a function scope of its own, as WebDriver's execute-script runs it, so a second call never redeclares a const.
+			call: (expr) => page.evaluate(`(() => {\n${PLAYER_CHARTS_SOURCE}\nreturn ${expr};\n})()`),
+			tap: async (x, y) => {
+				const t0 = Date.now();
+				await page.touchscreen.tap(x, y);
+				return Date.now() - t0;
+			},
+		});
+		report(shape.label, 'player-charts-probe.js', result);
+		await context.close();
+	}
+	fs.rmSync(dir, { recursive: true, force: true });
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }

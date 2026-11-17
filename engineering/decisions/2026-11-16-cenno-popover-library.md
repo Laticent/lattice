@@ -548,3 +548,20 @@ without its fix:**
   tooltip never swallows a host dialog's Escape; a press card opened from the keyboard takes focus, so
   its contents are reachable.
 
+
+**The regrades (2026-11-17) found five low findings, then one leftover; all are fixed or shown unreachable:**
+- A card drawn in the same task as a stylesheet change reads the observer's pending records first, so
+  it never carries the old rules.
+- An open modal is any `dialog[open]` or `[role=dialog][aria-modal=true]` (the lightbox's fallback).
+- A slide change keeps the reveal marks on the charts still on stage.
+- Cenno: a `press` card opened with Enter or Space takes focus, and a pointer press on the trigger ends
+  that keyboard turn (a trigger that is not a `<button>` makes no click from a key).
+- Not done: a second width-capped re-measure. A card measured at the cap fits, and `place` never flips
+  a card that fits, so the side cannot change; the checker agreed.
+
+**Real iOS Safari (the owner's call, 2026-11-17: add it in this PR).** `ios-safari-player-charts-ipad`
+and `-iphone` export the test deck and the hostile deck with the real CLI and tap the cards open and
+shut in an iOS Simulator (`docs/scripts/ios-safari/player-charts.mjs`; `engineering/development.md`
+§Platform suites). Like every iOS suite they run nightly and on dispatch, never on a pull request.
+The same sequence passes in Playwright's WebKit through `probe.selftest.mjs`; it fails when author
+styles survive in the card or when a tap no longer pins it.

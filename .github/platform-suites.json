@@ -146,6 +146,48 @@
       "docs_site": true
     },
     {
+      "name": "ios-safari-player-charts-ipad",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/player-charts.mjs",
+        "docs/scripts/ios-safari/player-charts-probe.js",
+        "docs/scripts/ios-safari/player-charts-hostile.md",
+        "examples/chart-detail-reveal.md",
+        "lib/runtime/chart-reveal/*",
+        "lib/export/player-core.mjs",
+        "lib/export/chart-reveal-player-bundle.generated.mjs",
+        "docs/src/lib/cenno/*"
+      ],
+      "run": "PROBE=player-charts DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+      "why": "Chart detail cards in an exported HTML player, in real Mobile Safari in an iPad iOS Simulator (player-charts.mjs, #3259). The real CLI exports two decks; WebDriver touches tap a funnel band and the card must pin there, sit in the top layer inside the visible viewport and never under the finger, take touches, close on a second tap or a tap elsewhere, and never turn the slide; a deck whose detail carries author styles must keep them inside the card (HARD RULE #22). A touch log records where each tap landed, so a missed tap and a card that did not open read differently. docs/e2e/player-chart-reveal.spec.ts proves the same in Playwright's WebKit on Linux, which is not iOS Safari. One device per job, as the Studio suites run.",
+      "on_pull_request": false
+    },
+    {
+      "name": "ios-safari-player-charts-iphone",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/player-charts.mjs",
+        "docs/scripts/ios-safari/player-charts-probe.js",
+        "docs/scripts/ios-safari/player-charts-hostile.md",
+        "examples/chart-detail-reveal.md",
+        "lib/runtime/chart-reveal/*",
+        "lib/export/player-core.mjs",
+        "lib/export/chart-reveal-player-bundle.generated.mjs",
+        "docs/src/lib/cenno/*"
+      ],
+      "run": "PROBE=player-charts DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+      "why": "Chart detail cards in an exported HTML player, in real Mobile Safari in an iPhone iOS Simulator (player-charts.mjs, #3259). The real CLI exports two decks; WebDriver touches tap a funnel band and the card must pin there, sit in the top layer inside the visible viewport and never under the finger, take touches, close on a second tap or a tap elsewhere, and never turn the slide; a deck whose detail carries author styles must keep them inside the card (HARD RULE #22). A touch log records where each tap landed, so a missed tap and a card that did not open read differently. docs/e2e/player-chart-reveal.spec.ts proves the same in Playwright's WebKit on Linux, which is not iOS Safari. One device per job, as the Studio suites run.",
+      "on_pull_request": false
+    },
+    {
       "name": "ios-safari-font-cache",
       "os": [
         "macos-26"

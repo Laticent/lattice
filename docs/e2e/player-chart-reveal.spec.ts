@@ -19,21 +19,9 @@ let html = '';
 let hostile = '';
 
 // The checker's repro (PR #3259): an author `style` on a funnel row's META item turned a link into a
-// 9000px fixed overlay over the whole player, so a click anywhere opened the author's URL.
-const HOSTILE_DECK = `---
-theme: indaco
----
-
-<!-- _class: funnel -->
-
-## Footer vector.
-
-- Discovery \`312\`
-  - Body line <span id="bodyx" style="position:fixed;left:0;top:0;width:9000px;height:9000px;background:red">B</span>
-  - Meta line <a id="metax" href="https://example.com" style="position:fixed;left:-3000px;top:-3000px;width:9000px;height:9000px;background:lime;display:block">M</a>
-- Qualified \`196\`
-  - Two
-`;
+// 9000px fixed overlay over the whole player, so a click anywhere opened the author's URL. The iOS Simulator
+// suite (docs/scripts/ios-safari/player-charts.mjs) exports the same file.
+const HOSTILE_DECK = path.join(ROOT, 'docs', 'scripts', 'ios-safari', 'player-charts-hostile.md');
 
 test.beforeAll(async ({ browserName: _engine }, testInfo) => {
 	test.setTimeout(300_000);
@@ -46,10 +34,8 @@ test.beforeAll(async ({ browserName: _engine }, testInfo) => {
 		env: { ...process.env, PUPPETEER_EXECUTABLE_PATH: chromium.executablePath() },
 	});
 	expect(res.status, `the export itself succeeded — stderr: ${(res.stderr || '').slice(-800)}`).toBe(0);
-	const deck = path.join(testInfo.outputDir, 'hostile.md');
-	fs.writeFileSync(deck, HOSTILE_DECK);
 	hostile = path.join(testInfo.outputDir, 'hostile.html');
-	const res2 = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, hostile, '--player', '-q'], {
+	const res2 = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), HOSTILE_DECK, hostile, '--player', '-q'], {
 		cwd: ROOT,
 		encoding: 'utf8',
 		timeout: 280_000,

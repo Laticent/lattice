@@ -657,6 +657,16 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
   `PROBE=present-memory [BASELINE_URL=<url>] node docs/scripts/ios-safari/probe.selftest.mjs` runs the same steps in
   Playwright's WebKit at iPhone size, without the footprint, so it proves the probe's steps, not the finding.
+  `ios-safari-player-charts-ipad` and `ios-safari-player-charts-iphone` run it with `PROBE=player-charts` (#3259): chart
+  detail cards in an EXPORTED HTML player, the only check that reaches them in Safari. `run.sh` exports
+  `examples/chart-detail-reveal.md` and the checker's hostile deck (`player-charts-hostile.md`, an author `style` that once
+  covered the whole player) with the real CLI and serves the two files; no docs build. `player-charts.mjs` holds the sequence
+  and its checks, and `player-charts-probe.js` the page side: a WebDriver touch on a funnel band pins its card, which must sit in
+  the top layer, inside the visible viewport and never under the finger, take touches, close on a second tap and on a tap
+  elsewhere, and never turn the slide; in the hostile deck nothing the author styled may cover the player. A touch log records
+  where each tap landed and which mark it hit, so a tap that missed and a card that did not open read differently.
+  `PROBE=player-charts node docs/scripts/ios-safari/probe.selftest.mjs` runs the same sequence in Playwright's WebKit with its
+  touchscreen, at iPad and iPhone size.
   `ios-safari-font-cache` runs it with `PROBE=font-cache` (#3087, D2 A): does Safari read the Studio's warmed fonts
   (`studio-warm.ts`, 31 faces, about 2.7 MB) from its HTTP cache? `run.sh` serves the built site with
   `font-cache-server.mjs` instead of `preview:e2e`: GitHub Pages' `max-age=600` on every file, a 404 for `sw.js` (the
