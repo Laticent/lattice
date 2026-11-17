@@ -643,7 +643,7 @@
    * solids in its own hues under the one ink, edged in the status ink. The ink (`--X-on-mark`) and edge (`--X-edge-mark`)
    * are curated beside the fills; their defaults are just below `--on-mark`. Two intensities, picked with
    * `marks:` (resolve-marks.js): MUTED, the default (`--X-mark`), where done stays quiet and the
-   * exceptions carry the color; VIVID (`--X-vivid-mark`), every status rich, done an emerald. `--mute-mark` is a
+   * exceptions carry the color; VIVID (`--X-vivid-mark`), every status more saturated. `--mute-mark` is a
    * neutral and has no vivid. A status shares a lightness with the categories, so the chart family tells it apart by
    * what it adds: a drawn MARK on every status, and a SIGNAL ring on the two exceptions.
    *

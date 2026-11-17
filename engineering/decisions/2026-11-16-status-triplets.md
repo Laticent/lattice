@@ -175,6 +175,12 @@ light blocked takes 34 degrees (`FAIL_HUE_EXEMPT`), a red-orange. Both exemption
 The author docs (`lib/base/base.registers.docs.md` § Intensity, `engineering/chart-styling.md` § Two intensities) still
 described the old light contract (white text, 7:1, an emerald done) and now describe this one.
 
+An eleventh scoring (light 8.5, dark 9) found no theme worse than `main` and named the half-point as one stale doc line
+(`engineering/chart-styling.md`'s white-7:1 bullet, now scoped to category solids beside the triplet's 4.5:1 paper
+rule). Two residuals it called minor are kept, each tried and measured: onyx's light blocked sits at the 0.07 floor
+from its crimson first category (`main` 0.075), and reaching 0.075 sinks it to L 0.41; concrete's light deferred is a
+cool slate where `main`'s was its warm neutral, and warming it crowds concrete's at risk until blocked sinks to L 0.30.
+
 Dark etch's status bars read nearly hollow beside an etched pie. That is etch's design and predates this work: a
 mark that carries text (a status bar or a category bar) takes etch's backdrop level (14% light, 19% dark), and only a
 text-free mark (a pie slice) takes its body level (30%, 40%). A status chart and a category bar chart under etch match.

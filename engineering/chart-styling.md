@@ -153,8 +153,11 @@ brand green bar and a "done" bar can look alike. Two things separate them:
 The contract, held for every palette in both modes and both intensities by
 `test/unit/palette/chart-solids.test.js` and `chart-one-ink.test.js`:
 
-- white clears **7:1** on every light-face solid and **4.5:1** on every dark-face one, where a fill is the lightest
-  tone of its hue white still clears (4.6:1 by construction), so it stands off the dark slide;
+- white clears **7:1** on every light-face CATEGORY solid and **4.5:1** on every dark-face one, where a fill is the
+  lightest tone of its hue white still clears (4.6:1 by construction), so it stands off the dark slide;
+- a brand theme's light-face STATUS solid wears its triplet instead: its ink is the slide's paper at **4.5:1**, and the
+  fill clears **4.5:1** against every surface it sits on (slide, card, hero tile, its row tint, a kanban card);
+  `tools/curate-status-triplets.js --check` holds it;
 - every solid clears **3:1** against the slide (WCAG 1.4.11) by itself;
 - a status LINE or status TEXT (a slope, a waterfall step, a kanban header: `--state-X-ink`) paints the theme's
   status ink `--pass` … `--mute`, the color that status is in every other component, so a deck has one color per
