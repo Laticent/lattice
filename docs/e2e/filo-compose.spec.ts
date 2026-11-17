@@ -205,6 +205,10 @@ for (const tag of ['@gecko', '@webkit-tablet']) test(`an undo in Compose replace
 		// A marker the deck does not already hold ("budget" appears in it seventeen times). WebKit
 		// re-renders a replaced slide of this deck in 50-400 ms, so these waits are longer than the default.
 		await page.keyboard.type(' FILOMARK');
+		// Witness: the typing reached slide i. On the 2026-11-16 nightly (webkit-tablet) it did not: the click into
+		// slide 1 lost to ProseMirror's focus timer, the typing landed in slide 3, and the test failed three steps
+		// later at the redo. `caretInBody` now waits that timer out (#3266); this line names the failure where it starts.
+		await expect(slides(page).nth(i), `the typing landed outside slide ${i}`).toContainText('FILOMARK', { timeout: 20_000 });
 		await chord(page, 'undo');
 		await expect(slides(page).nth(i)).not.toContainText('FILOMARK', { timeout: 20_000 });
 		await chord(page, 'redo');
