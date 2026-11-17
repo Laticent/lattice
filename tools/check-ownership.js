@@ -7250,6 +7250,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/platform-harness.js',
+    why: 'folds a PR COMMENT the warm harness reads as a command (`/harness sh` and its bash fence): a comment typed on '
+       + 'Windows arrives CRLF, and a CR left in the script makes bash read `ls\\r`. It reads no markdown source and '
+       + 'writes nothing back; the folded text only becomes a shell script.',
+  },
+  {
     file: 'lib/core/meta-edit.mjs',
     why: 'folds a line break inside ONE FIELD VALUE the Studio hands the structured edit (a note typed in a textarea), '
        + 'so a note channel becomes a `key: |` block and any other field a single line: a raw CR would end the record\'s '

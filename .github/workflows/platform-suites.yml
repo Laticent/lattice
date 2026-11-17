@@ -56,6 +56,16 @@ on:
         default: 'none'
         type: choice
         options: ['none', 'no-session']
+      harness:
+        description: 'Warm harness: a pull request number. Instead of the suites, one runner builds once and takes `/harness` commands from that PR (tools/platform-harness.js)'
+        required: false
+        default: ''
+      harness_os:
+        description: 'The harness runner'
+        required: false
+        default: 'macos-26'
+        type: choice
+        options: ['macos-26', 'windows-2025']
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -71,7 +81,9 @@ concurrency:
 
 jobs:
   plan:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    # A harness dispatch runs the `harness` job alone; with `plan` skipped, `docs-site`, `run` and `alert` skip too.
+    # A draft pull request skips it as well (#3342).
+    if: ${{ (github.event.inputs.harness == '' || github.event.inputs.harness == null) && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -200,6 +212,79 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           overwrite: true # the supervisor's re-run uploads the same name again
+
+  harness:
+    # WARM HARNESS (engineering/decisions/2026-11-17-platform-harness.md). One runner checks out the dispatched branch,
+    # installs and builds once, then tools/platform-harness.js takes `/harness` commands from the pull request named in the
+    # `harness` input: only the dispatching login's comments run, a new commit is synced and rebuilt incrementally, and each
+    # result is replied on the PR. It stops after 15 idle minutes, 90 minutes after the job started, or on `/harness stop`.
+    # One at a time: a second dispatch waits for the first rather than taking another macOS slot from the nightly (GitHub
+    # keeps one pending job per group, so a third dispatch replaces the waiting second).
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.harness != '' }}
+    runs-on: ${{ github.event.inputs.harness_os }}
+    timeout-minutes: 105
+    concurrency:
+      group: platform-harness
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    name: harness (${{ github.event.inputs.harness_os }}, PR ${{ github.event.inputs.harness }})
+    steps:
+      - name: Start the clock
+        # The 90-minute deadline counts from here, not from the end of setup, so a job is killed before the 105-minute
+        # timeout and the artifact upload still runs.
+        shell: bash
+        run: echo "HARNESS_T0=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          # Keep the token out of .git/config: a job runs arbitrary branch code and its output is posted on the PR.
+          # Fetching a public repository needs no credentials.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        timeout-minutes: 10
+      - name: Build the generated bundles
+        run: npm run build
+      - name: Build the docs site the iOS probes serve
+        if: runner.os == 'macOS'
+        working-directory: docs
+        shell: bash
+        run: |
+          npm ci
+          npm run build:e2e
+          printf '%s built on the harness\n' "$GITHUB_SHA" > dist/.prebuilt
+      - name: Serve /harness commands
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.inputs.harness }}
+          ACTOR: ${{ github.triggering_actor }}
+          BRANCH: ${{ github.ref_name }}
+          HARNESS_OS: ${{ github.event.inputs.harness_os }}
+          DOCS_SITE: ${{ runner.os == 'macOS' && '1' || '' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          IDLE_MINUTES: '15'
+          DEADLINE_MINUTES: '90'
+        run: node tools/platform-harness.js
+      - name: Upload every job's log and artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-${{ github.event.inputs.harness_os }}
+          path: harness-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
 
   alert:
     # Runs when `plan`, `docs-site` or any suite failed on a scheduled or manual run. It sorts the failures
