@@ -6,6 +6,8 @@
  * 6). Cases, on the real CLI export at square:
  *   TITLE  a title with two long lede paragraphs: a cover, then the paragraphs over two pages, nothing clipped
  *   TOPIC  a topic fact whose claim and source run past one page: a cover, then the claim and its source over two pages
+ *   PANEL  a split panel whose lede (a bare text run, system-design-foundations.md 38) runs past its lede page: the lede
+ *          continues at a sentence break, then the points follow
  * Every lede word appears once across the lede pages, in order.
  *
  * FALSIFIABLE: without `ledeCont` (one lede page) the export prints OVERFLOW on both lede pages. Needs Chromium.
@@ -48,6 +50,23 @@ Rendered in atelier rather than indaco, deliberately: indaco is one of the palet
 A topic slide paints an inverse panel in every mode, and had never been named in the finish file at all.
 
 \`the print face is in examples/finish-canvas-print-face.md\`
+
+---
+
+<!-- _class: split-panel capstone cat-3 -->
+
+\`Instagram · the antagonist\`
+
+## The antagonist is not scale. It is the shape of the follow graph.
+
+Scale is a quantity, and quantities have a price you can pay. The thing you cannot buy your way out of is a distribution. Follower counts are heavy-tailed: almost everyone has a few hundred, and a handful have hundreds of millions. No single account looks like the average, and the far end sits six orders of magnitude from the middle.
+
+- The number that matters
+  - The median account has about 150 followers. The largest has five hundred million.
+- One algorithm cannot serve both
+  - That gap is why the design ends up with two paths instead of one.
+- Hold on to this
+  - Every hard decision in Part five is this one fact again.
 `;
 
 let dir;
@@ -90,4 +109,14 @@ test('TOPIC: the claim and its source continue after the cover, every word once'
   assert.equal(all.split('had never been named').length - 1, 1);
   assert.equal(all.split('finish-canvas-print-face').length - 1, 1);
   assert.ok(all.indexOf('had never been named') < all.indexOf('finish-canvas-print-face'), 'the claim, then its source');
+});
+
+test('PANEL: a split panel lede continues at a sentence break, then the points follow', () => {
+  const run = pages.filter((p) => p.slide === '3');
+  const ledes = run.filter((p) => p.text.includes('Scale is a quantity') || p.text.includes('Follower counts'));
+  assert.ok(ledes.length >= 2, `${ledes.length} lede pages`);
+  // The point's body, not its title: the last lede page names the next page's first point on purpose (the run's signal).
+  assert.ok(!ledes.some((p) => p.text.includes('median account has about 150')), 'the points follow the lede, not on its pages');
+  const all = run.map((p) => p.text).join(' ');
+  assert.ok(all.indexOf('distribution.') < all.indexOf('Follower counts'), 'in order');
 });

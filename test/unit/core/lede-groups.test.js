@@ -51,3 +51,9 @@ test('NO-SEAM: a lone one-sentence paragraph stays one page', () => {
   const outers = ['<p>A single sentence with no break in it</p>'];
   assert.deepEqual(ledeGroups(outers, 2), [outers]);
 });
+
+test('BARE: a bare text run (split-panel keeps its lede so) cuts at a sentence break too', () => {
+  const pages = ledeGroups(['Scale is a quantity. The thing you cannot buy is a distribution. Counts are heavy-tailed. No account is average.'], 2);
+  assert.equal(pages.length, 2);
+  assert.match(pages[1][0], /^\s*[A-Z]/, 'the second page starts a sentence');
+});

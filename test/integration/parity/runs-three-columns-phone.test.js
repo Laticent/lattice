@@ -11,8 +11,11 @@
  *   RUNS  nothing clips; the table carries the force mark; every row appears once across the body pages, more than one
  *         row on a page, and each body page shows both value columns as blocks (Before, then After)
  *
+ *   RANGES a paragraph split at its sentence breaks (its members are text ranges, not elements) exports: the boxless-row
+ *          check first read a style from every member and crashed the whole export (state-chart.md 9 at square)
+ *
  * FALSIFIABLE: without the forced three-column step (or with the `cols < 4` refusal back) the export prints OVERFLOW;
- * without the measure reading a boxless row the split puts one row on each page. Needs Chromium (CHROME_PATH).
+ * without the measure reading a boxless row the split puts one row on each page; reading a style from a text-range member crashes the export (RANGES). Needs Chromium (CHROME_PATH).
  */
 
 const { test, before, after } = require('node:test');
@@ -43,6 +46,14 @@ size: square
 | reconciliation marker | \`data-lattice-slide-bake\` | deleted |
 
 \`getComputedStyle(section)\` already returns what that slide's cascade produced. CSS inheritance answers the question offline resolution has to compute, which is why this is a parameter and not a rewrite.
+
+---
+
+<!-- _class: content -->
+
+## Why a native state chart.
+
+Mermaid's \`stateDiagram-v2\` works, but theming it cleanly requires a CSS override cascade with \`!important\` (see \`docs/theming.md\`). The native chart uses palette tokens directly — \`var(--cat-1-fill)\`, \`var(--diagram-stroke)\`, \`var(--diagram-line)\`, \`var(--cat-on-fill)\` — and inherits dark / light, every theme, automatically. No mmdc subprocess, no opaque SVG class names, no version coupling. Composite states are a sub-list; parallel regions, history states and guards are not in the grammar. When you need those, \`<!-- _class: diagram -->\` is the Mermaid escape hatch.
 `;
 
 let dir;
@@ -58,7 +69,7 @@ before(() => {
   if (r.status !== 0) throw new Error(`export failed: ${r.stderr}`);
   log = `${r.stdout}${r.stderr}`;
   html = fs.readFileSync(pdf.replace(/\.pdf$/, '.html'), 'utf8');
-  body = splitSections(html.slice(html.indexOf('<section'))).filter((p) => p.type === 'section' && /data-split-role="body"/.test(p.openTag))
+  body = splitSections(html.slice(html.indexOf('<section'))).filter((p) => p.type === 'section' && /data-split-role="body"/.test(p.openTag) && /data-lattice-slide="1\./.test(p.openTag))
     // The table only: the page also names the next page's first row on purpose (the run's relationship signal).
     .map((p) => removeTags(p.inner.slice(p.inner.indexOf('<table'), p.inner.indexOf('</table>') + 8)));
 });
