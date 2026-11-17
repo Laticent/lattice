@@ -146,6 +146,19 @@ On dark, deferred sat a little closer to done than on `main` on cuoio, ardesia a
 toward at risk's lighter spread position until it clears 0.075 (`DARK_MUTE_APART`). Every theme does except concrete,
 which reaches 0.066 (it was 0.050).
 
+An eighth scoring (light 8.5, dark 8.5) confirmed both and found deferred was never measured against pilot. On a
+cool-neutral theme deferred takes its neutral's blue, which is pilot's own hue: concrete's light deferred sat 0.039 from
+its pilot (`main` 0.082), ardesia's 0.064 and brina's 0.059. And at risk and deferred sat near the 0.07 floor on cuoio,
+burgundy and mustard, against about 0.105 on `main`. So pilot is now picked before deferred, and deferred clears done
+0.07, at risk 0.09 and pilot 0.07 (`MUTE_APART`, all three held by the audit on light). Where the theme's tinted gray
+cannot clear all three, deferred drops to a near-neutral gray (chroma 0.012). Concrete, whose mid-gray slide leaves no
+deferred that clears every floor, picks its pilot and deferred together, farthest apart: pilot deepens to `#00343F` and
+the two sit 0.099 apart. Both intensities paint deferred with one token, so the vivid pilot is re-picked to clear it.
+On dark, deferred may shed its tint (to 0.006, then a pure gray) and step either way along the spread; it then sits
+0.069-0.086 from done and pilot on every theme. Ardesia, concrete and onyx stay a little under `main` on the pilot pair
+(0.070-0.073 against 0.081-0.085): a dark fill must take white ink at 4.6:1 and stand 3:1 off the slide, which leaves
+deferred little room, and a near-neutral gray beside a tinted pilot reads apart by chroma (the scorer saw no defect).
+
 Dark etch's status bars read nearly hollow beside an etched pie. That is etch's design and predates this work: a
 mark that carries text (a status bar or a category bar) takes etch's backdrop level (14% light, 19% dark), and only a
 text-free mark (a pie slice) takes its body level (30%, 40%). A status chart and a category bar chart under etch match.

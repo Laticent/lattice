@@ -102,8 +102,14 @@ const VIVID_BOOST = 1.35;
  * the same tolerance test/unit/palette/cvd-trio-floor.test.js applies (`EROSION_TOLERANCE`). */
 const TABLE_ROUNDING = 0.002;
 const WINDOW = 0.16;
-/** Deferred keeps at least this OKLab distance from done, where the face allows it (main's cuoio held 0.091). */
-const MUTE_APART = 0.07;
+/**
+ * Deferred keeps at least these OKLab distances, where the face allows it: from done 0.07 (main's cuoio held 0.091),
+ * from at risk 0.09 (main held about 0.105; at 0.073 the two read as one khaki beside an orange-brown), from pilot 0.07
+ * (main held about 0.08).
+ */
+const MUTE_APART = { pass: 0.07, warn: 0.09, info: 0.07 };
+/** The near-neutral chroma deferred may drop to where the theme's tinted gray cannot clear all three. */
+const MUTE_GRAY_C = 0.012;
 /** What one degree of at risk's step off its own hue costs, in summed lightness off target (0.05 for 15 degrees). */
 const SHIFT_COST = 0.0033;
 /** Dark deferred keeps at least this from dark done, where a lighter spread position reaches it (main sat 0.060-0.086). */
@@ -267,12 +273,19 @@ function solveDark(theme, facts, baseline, keep) {
     for (const intensity of ['muted', 'vivid']) {
       o[intensity] = {};
       for (const s of ['pass', 'warn', 'fail', 'info']) o[intensity][s] = tone(hue[s], statusChroma(intensity, s, facts.strength), s);
-      // Deferred sits at its spread position unless that puts it within DARK_MUTE_APART of done, two quiet fills at one
-      // lightness; then it steps lighter (toward at risk's position), the least step that clears.
-      for (const at of [0.5, 0.4, 0.3, 0.2, 0.1, 0]) {
-        o[intensity].mute = tone(facts.anchor.mute.h, 0.012, 'mute', at);
-        if (oklabDistance(o[intensity].mute, o[intensity].pass) >= DARK_MUTE_APART) break;
+      // Deferred sits at its spread position unless that puts it within DARK_MUTE_APART of done or pilot, quiet fills
+      // at one lightness; then it steps, either way, the least step that clears both (else the step that comes closest).
+      let pick = null;
+      // A cool theme's neutral shares pilot's hue, so deferred may also shed its tint (0.006, then a pure gray).
+      search: for (const mc of [0.012, 0.006, 0]) {
+        for (const at of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.1, 0.9, 0, 1]) {
+          const m = tone(facts.anchor.mute.h, mc, 'mute', at);
+          const gap = Math.min(oklabDistance(m, o[intensity].pass), oklabDistance(m, o[intensity].info));
+          if (!pick || gap > pick.gap + 1e-9) pick = { m, gap };
+          if (gap >= DARK_MUTE_APART) break search;
+        }
       }
+      o[intensity].mute = pick.m;
     }
     return o;
   };
@@ -324,16 +337,20 @@ function solve(theme, facts, baseline, keep) {
       const inBand = (s, h) => { const [lo, hi] = LIGHT_BAND[s]; return Math.min(hi, Math.max(lo, h)); };
       const hueOf = (s) => (s === 'mute' ? facts.anchor.mute.h : s === 'fail' ? clampRed(facts.anchor.fail.h)
         : s === 'warn' ? inBand(s, inBand(s, facts.anchor.warn.h) + warnShift) : inBand(s, facts.anchor[s].h));
-      const cands = (s) => {
+      const cands = (s, Cv = C(s)) => {
         const list = [];
         for (let L = 0.2; L <= 0.96; L += 0.005) {
-          const f = ok(L, C(s), hueOf(s));
+          const f = ok(L, Cv, hueOf(s));
           if (facts[face].surfaces(s, f).every((x) => cr(f, x.hex) >= FILL_MIN) && cr(text, f) >= INK_MIN) list.push([L, f]);
         }
         return list.filter(([L, f]) => Math.abs(L - TARGET[face][s]) <= WINDOW && (s !== 'fail' || theme in SPREAD_EXEMPT || (L >= LIGHT_RED.L && hexToOklch(f).C >= LIGHT_RED.C - 0.01)));
       };
       let best = null;
       let loose = null;
+      let info = null;
+      let muteAll = [];
+      let muteRaw = [];
+      const offAcc = (s) => ([, f]) => offAccent({ [s]: f }, facts[face].accent, accentFloor(theme, face));
       // Warn starts at the theme's own hue (held in its band) and may step away from the accent's hue, 5 degrees at a
       // time inside the band, where that buys a trio closer to the lightness targets. Each degree costs SHIFT_COST, so a
       // theme keeps its own amber unless the step pays: cuoio's and mustard's at risk, anchored ON their gold accent,
@@ -350,10 +367,18 @@ function solve(theme, facts, baseline, keep) {
       // Deferred is chosen WITH the trio, not after it: it must recede (no darker than done or blocked) and stand
       // MUTE_APART from done and at risk. Picked after, it could only stay apart from a mid-light done by going darker,
       // and mustard's and ardesia's became the heaviest pill on the slide.
-      const muteC = cands('mute').filter(([, f]) => offAccent({ mute: f }, facts[face].accent, accentFloor(theme, face)));
+      // Pilot is free of the trio, so it is picked first, and deferred clears it too: a cool theme's neutral sits at
+      // pilot's own hue, and concrete's deferred landed 0.039 from its pilot. Where the theme's tinted gray cannot clear
+      // all three, deferred may drop to a near-neutral gray (MUTE_GRAY_C), at a small cost in the pick.
+      const infoC = cands('info').filter(offAcc('info'));
+      info = (infoC.length ? infoC : cands('info')).sort((a, b) => Math.abs(a[0] - TARGET[face].info) - Math.abs(b[0] - TARGET[face].info))[0][1];
+      const muteC = [...cands('mute').map(([L, f]) => [L, f, 0]), ...cands('mute', MUTE_GRAY_C).map(([L, f]) => [L, f, 0.02])]
+        .filter(offAcc('mute')).filter(([, m]) => oklabDistance(m, info) >= MUTE_APART.info);
+      muteAll = muteC;
+      muteRaw = [...cands('mute'), ...cands('mute', MUTE_GRAY_C)].filter(offAcc('mute'));
       const muteFor = (p, w, f) => muteC.filter(([L, m]) => L >= Math.max(p[0], f[0]) - 1e-9
-        && oklabDistance(m, p[1]) >= MUTE_APART && oklabDistance(m, w[1]) >= MUTE_APART)
-        .sort((a, b) => Math.abs(a[0] - TARGET[face].mute) - Math.abs(b[0] - TARGET[face].mute))[0];
+        && oklabDistance(m, p[1]) >= MUTE_APART.pass && oklabDistance(m, w[1]) >= MUTE_APART.warn)
+        .sort((a, b) => Math.abs(a[0] - TARGET[face].mute) + a[2] - Math.abs(b[0] - TARGET[face].mute) - b[2])[0];
       for (const p of R.pass) for (const w of R.warn) for (const f of R.fail) {
         const fills = { pass: p[1], warn: w[1], fail: f[1] };
         if (w[0] - f[0] < spreadFor(theme) - 1e-9) continue;
@@ -374,13 +399,38 @@ function solve(theme, facts, baseline, keep) {
       // Deferred is free of the trio's constraints, so it keeps its distance from done, the other quiet fill
       // (MUTE_APART), wherever it can: cuoio's deferred sat 0.050 from its olive done and the two read as one drab.
       const one = (s) => {
-        const apart = (f) => s !== 'mute' || (oklabDistance(f, best.fills.pass) >= MUTE_APART && oklabDistance(f, best.fills.warn) >= MUTE_APART);
-        const pool = cands(s).filter(([, f]) => apart(f));
+        const apart = (f) => s !== 'mute' || (oklabDistance(f, best.fills.pass) >= MUTE_APART.pass && oklabDistance(f, best.fills.warn) >= MUTE_APART.warn);
+        const pool = (s === 'mute' ? muteAll : cands(s)).filter(([, f]) => apart(f));
+        // Where nothing clears every floor (concrete's mid-gray slide), deferred takes the fill farthest from all three.
+        // Pilot is re-picked with it there, since pilot is the one other free fill.
+        if (s === 'mute' && !pool.length && muteRaw.length) {
+          const infos = cands('info').filter(offAcc('info'));
+          let top = null;
+          for (const [, i] of infos.length ? infos : [[0, info]]) {
+            for (const [, m] of muteRaw) {
+              const g = Math.min(oklabDistance(m, best.fills.pass), oklabDistance(m, best.fills.warn), oklabDistance(m, i));
+              if (!top || g > top.g + 1e-9) top = { g, i, m };
+            }
+          }
+          info = top.i;
+          return top.m;
+        }
         const ok2 = (pool.length ? pool : cands(s)).filter(([, f]) => offAccent({ [s]: f }, facts[face].accent, accentFloor(theme, face)));
         const list = ok2.length ? ok2 : (pool.length ? pool : cands(s));
         return list.sort((a, b) => Math.abs(a[0] - TARGET[face][s]) - Math.abs(b[0] - TARGET[face][s]))[0][1];
       };
-      out[face][intensity] = { ...best.fills, info: one('info'), mute: best.mute ?? one('mute') };
+      let mute = best.mute ?? one('mute');
+      // Both intensities paint deferred with one token (`--mute-mark`), so the vivid face keeps the muted deferred and
+      // its pilot is re-picked to clear it, the candidate nearest its target that does (else the farthest).
+      if (intensity === 'vivid') {
+        mute = out[face].muted.mute;
+        const infos = cands('info').filter(offAcc('info'));
+        const clear = infos.filter(([, i]) => oklabDistance(i, mute) >= MUTE_APART.info);
+        info = clear.length
+          ? clear.sort((a, b) => Math.abs(a[0] - TARGET[face].info) - Math.abs(b[0] - TARGET[face].info))[0][1]
+          : infos.reduce((a, b) => (oklabDistance(b[1], mute) > oklabDistance(a[1], mute) ? b : a), [0, info])[1];
+      }
+      out[face][intensity] = { ...best.fills, info, mute };
     }
   }
   return out;
@@ -462,8 +512,11 @@ function audit(theme, facts, baseline, keep) {
         const c = hexToOklch(fills.fail).C;
         if (dark && c > FAIL_CHROMA_CAP[intensity] + 0.01) bad.push(`dark ${intensity} --${tok('fail')} chroma ${c.toFixed(3)} is louder than the cap ${FAIL_CHROMA_CAP[intensity]}`);
       }
-      if (!dark && fills.mute && fills.pass && oklabDistance(fills.mute, fills.pass) < MUTE_APART - 0.002) {
-        bad.push(`light ${intensity} --${tok('mute')} sits ${oklabDistance(fills.mute, fills.pass).toFixed(3)} from done (floor ${MUTE_APART})`);
+      if (!dark && fills.mute) {
+        for (const [s, name] of [['pass', 'done'], ['warn', 'at risk'], ['info', 'pilot']]) {
+          const d = fills[s] && oklabDistance(fills.mute, fills[s]);
+          if (fills[s] && d < MUTE_APART[s] - 0.002) bad.push(`light ${intensity} --${tok('mute')} sits ${d.toFixed(3)} from ${name} (floor ${MUTE_APART[s]})`);
+        }
       }
       // Deferred recedes: on light it is never the darkest of done, blocked and itself (the lowest priority, shouting).
       if (!dark && fills.mute && fills.pass && fills.fail && !(theme in SPREAD_EXEMPT)) {

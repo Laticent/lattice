@@ -95,6 +95,14 @@ test('deferred is a gray in the theme\'s own neutral', () => {
   // And it recedes: mustard's deferred once went to #44402E (L 0.37), the heaviest pill on the slide.
   const heavy = run({ 'mute-mark': `light-dark(#44402E, ${dark})` });
   assert.ok(heavy.some((b) => /light muted --mute-mark sits at L .* darker than done or blocked/.test(b)), heavy.join(' | '));
+  // And it clears pilot: on concrete, a cool neutral, deferred once sat 0.039 from its pilot (#004E5C) and the two bars
+  // read as twins.
+  const K0 = mergedVars('concrete');
+  const concrete = (patch) => audit('concrete', themeFacts('concrete', { ...K0, ...patch }), baseline, 1);
+  assert.deepEqual(concrete({}), [], 'concrete as shipped');
+  const kDark = K0['info-mark'].replace(/^light-dark\(#[0-9A-Fa-f]{6},\s*(#[0-9A-Fa-f]{6})\)$/, '$1');
+  const twin = concrete({ 'info-mark': `light-dark(#004E5C, ${kDark})` });
+  assert.ok(twin.some((b) => /light muted --mute-mark sits .* from pilot/.test(b)), twin.join(' | '));
 });
 
 test('a surface the tool cannot resolve stops it rather than being skipped', () => {
