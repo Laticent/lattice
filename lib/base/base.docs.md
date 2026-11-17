@@ -356,12 +356,16 @@ audience should remember from a card-grid slide.
 
 ## The framework has four components.
 
-- **Signal Intake.** Body text.
-- **Scoring Model.** Body text.
-- **Decision Log.** Body text.
-- **Calibration Loop.** Body text.
+- Signal Intake
+  - Every request is logged with its source.
+- Scoring Model
+  - Each signal gets a weight and a score.
+- Decision Log
+  - The call, the owner and the reason, in one place.
+- Calibration Loop
+  - Outcomes feed back into the weights.
 
-> Key insight: signals without decisions are noise.
+> Signals without decisions are noise.
 ```
 
 **Supported layouts: almost all of them — this block is OPT-OUT.** A layout renders
@@ -1246,15 +1250,14 @@ token for that).
 | `scale-xl`  | ×1.3  | ~21 pt |
 | `scale-2xl` | ×1.5  | 24 pt  |
 
-Scope is native Marp class scoping — the same class does both:
+Scope works like every other class: `_class:` scopes it to one slide, front-matter `class:` to the whole deck.
 
 ```markdown
-<!-- _class: cards-grid scale-xl -->   <!-- this slide only -->
+<!-- _class: cards-grid scale-xl -->
 ```
 
 ```yaml
 ---
-marp: true
 class: scale-xl                        # whole deck (front-matter directive)
 ---
 ```

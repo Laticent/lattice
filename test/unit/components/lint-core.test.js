@@ -310,6 +310,24 @@ describe('lint-core: lintTextWith rules', () => {
     assert.equal(ruleFor(`${FM}<!-- _class: kpi -->\n\n## H\n\n1. 94%\n   - label\n`, 'ledger-inline-title'), undefined);
   });
 
+  // The list-steps manifest skeleton taught `1. Title — body` until 2026-11-17, and every copy of
+  // it rendered the whole sentence as the bold step title (2026-11-17-agent-pack.md).
+  test('rule 2c — a list-steps step with its title and body on one line is a warning, and fixes', () => {
+    const src = `${FM}<!-- _class: list-steps -->\n\n## H\n\n1. Freeze new integrations — two weeks before cutover.\n2. Rehearse — a full dry run.\n`;
+    const f = ruleFor(src, 'list-steps-inline-body');
+    assert.ok(f, '`1. Title — body` on list-steps must be flagged');
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.autofixable, true);
+    const fixed = core.applyFix(src, f);
+    assert.match(fixed, /^1\. Freeze new integrations\n {3}- Two weeks before cutover\.$/m);
+  });
+
+  test('rule 2c — a step that already has a body, the timeline variant and other layouts are left alone', () => {
+    assert.equal(ruleFor(`${FM}<!-- _class: list-steps -->\n\n## H\n\n1. Freeze — the window\n   - Two weeks out.\n`, 'list-steps-inline-body'), undefined);
+    assert.equal(ruleFor(`${FM}<!-- _class: list-steps timeline -->\n\n## H\n\n1. Hold — wait a beat\n`, 'list-steps-inline-body'), undefined);
+    assert.equal(ruleFor(`${FM}<!-- _class: list -->\n\n## H\n\n1. Hold — wait a beat\n`, 'list-steps-inline-body'), undefined);
+  });
+
   test('rule 3 — bold in an ordered statement (principles) is an error', () => {
     const f = ruleFor(`${FM}<!-- _class: principles -->\n\n1. a **bold** span\n`, 'statement-ol-bold');
     assert.ok(f);
