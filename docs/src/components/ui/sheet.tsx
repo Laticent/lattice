@@ -60,11 +60,62 @@ export function sheetBox(side: "top" | "right" | "bottom" | "left") {
   )
 }
 
-/** The pointer that went down on a sheet's scrim, kept outside any one sheet: the scrim it touched can be replaced by
- *  the next sheet's before the finger lifts (see `SheetContent`). */
-let scrimDown: { id: number; x: number; y: number } | null = null
-/** How far a finger may move between down and up and still be a tap, in CSS pixels. */
+/**
+ * WHICH POINTERS ARE DOWN ON A SCRIM, kept outside any one sheet: the scrim a finger touched can be replaced by the next
+ * sheet's before the finger lifts (see `SheetContent`). A tap is exactly one pointer, down and up on a scrim, that did not
+ * move past `TAP_SLOP` and was not held past `TAP_MAX_MS`. A second finger spoils it, a pointercancel (a scroll) ends it,
+ * and every entry carries its event time, so a stale entry (a finger that lifted somewhere else) never matches a later
+ * pointer that reuses its id: it is pruned at the next pointerdown. When the last scrim unmounts, the record is cleared,
+ * unless another mounted in its place in the same commit (the swap a tap has to survive).
+ */
+const scrimPointers = new Map<number, number>()
+let scrimTap: { id: number; x: number; y: number; t: number } | null = null
+let scrimsMounted = 0
+/** How far a pointer may move between down and up and still be a tap, in CSS pixels. */
 const TAP_SLOP = 10
+/** How long a pointer may stay down and still be a tap, in ms; longer is a press, and older entries are pruned. */
+const TAP_MAX_MS = 1000
+
+function scrimPointerDown(e: React.PointerEvent): void {
+  for (const [id, t] of scrimPointers) if (e.timeStamp - t > TAP_MAX_MS) scrimPointers.delete(id)
+  scrimPointers.set(e.pointerId, e.timeStamp)
+  scrimTap = scrimPointers.size === 1 ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp } : null
+}
+
+/** Whether this pointerup completes a tap; it consumes the record either way. */
+function scrimPointerUp(e: React.PointerEvent): boolean {
+  scrimPointers.delete(e.pointerId)
+  const tap = scrimTap
+  if (!tap || tap.id !== e.pointerId) return false
+  scrimTap = null
+  if (scrimPointers.size > 0) return false
+  if (e.timeStamp - tap.t > TAP_MAX_MS) return false
+  return Math.abs(e.clientX - tap.x) <= TAP_SLOP && Math.abs(e.clientY - tap.y) <= TAP_SLOP
+}
+
+function scrimPointerCancel(e: React.PointerEvent): void {
+  scrimPointers.delete(e.pointerId)
+  scrimTap = null
+}
+
+/** A scrim mounted; the returned function is its unmount. */
+function scrimMounted(): () => void {
+  scrimsMounted++
+  return () => {
+    scrimsMounted--
+    queueMicrotask(() => {
+      if (scrimsMounted > 0) return
+      scrimPointers.clear()
+      scrimTap = null
+    })
+  }
+}
+
+/** For tests: forget every pointer, as a fresh page would. */
+export function resetScrimPointers(): void {
+  scrimPointers.clear()
+  scrimTap = null
+}
 
 function SheetContent({
   className,
@@ -105,8 +156,8 @@ function SheetContent({
   // (`PanelLoader`), so the scrim a finger went down on is gone before the finger lifts. Mobile Safari then sends no `click`
   // at all (the iOS Simulator logged pointerdown, touchstart, pointerup, touchend and nothing after, on every lost tap), and
   // a phone's deck tap on a just-loaded Library did nothing (e2e/back-gesture.spec.ts:172; the iOS deck-tap probe).
-  // So the tap is the pointer's own sequence. A scrim's pointerdown is recorded OUTSIDE any one sheet (`scrimDown`), so a
-  // pointerup on the scrim that replaced it completes the tap; a finger that moved, or a pointercancel (a scroll), ends it.
+  // So the tap is the pointer's own sequence. A scrim's pointers are tracked OUTSIDE any one sheet (`scrimPointers`), so a
+  // pointerup on the scrim that replaced it completes the tap; a moved, held, cancelled or second finger is not a tap.
   // The tap is put through the SAME decision Radix would have made: the caller's `onPointerDownOutside` and
   // `onInteractOutside` see an outside event, and the sheet closes through Radix's own Close only if neither prevented it.
   // When Radix reports the tap first (a mouse, once it listens), it decides and the record is dropped; when it reports the
@@ -116,11 +167,9 @@ function SheetContent({
   const closeRef = React.useRef<HTMLButtonElement | null>(null)
   const decided = React.useRef(false)
   type Outside = Parameters<NonNullable<typeof onPointerDownOutside>>[0]
+  React.useEffect(() => (overlay ? scrimMounted() : undefined), [overlay])
   const onScrimPointerUp = (e: React.PointerEvent) => {
-    const down = scrimDown
-    scrimDown = null
-    if (!down || down.id !== e.pointerId) return
-    if (Math.abs(e.clientX - down.x) > TAP_SLOP || Math.abs(e.clientY - down.y) > TAP_SLOP) return
+    if (!scrimPointerUp(e)) return
     if (contentRef.current?.getAttribute("data-state") !== "open") return
     const outside = new CustomEvent("dismissableLayer.pointerDownOutside", { bubbles: false, cancelable: true, detail: { originalEvent: e.nativeEvent } })
     decided.current = true
@@ -135,12 +184,10 @@ function SheetContent({
           className={overlayClassName}
           onPointerDown={(e) => {
             decided.current = false
-            scrimDown = { id: e.pointerId, x: e.clientX, y: e.clientY }
+            scrimPointerDown(e)
           }}
           onPointerUp={onScrimPointerUp}
-          onPointerCancel={() => {
-            scrimDown = null
-          }}
+          onPointerCancel={scrimPointerCancel}
         />
       )}
       <SheetPrimitive.Content
@@ -174,7 +221,7 @@ function SheetContent({
             return
           }
           // Radix saw this tap first: it decides, and the scrim's record stands down.
-          scrimDown = null
+          scrimTap = null
           onPointerDownOutside?.(e)
         }}
         onInteractOutside={(e) => {
