@@ -181,6 +181,11 @@ export function attach(cenno: Cenno, trigger: Element, content: () => Content, o
 		const k = (e as KeyboardEvent).key;
 		if (k === 'Enter' || k === ' ' || k === 'Spacebar') byKey = true;
 	};
+	// A trigger that is not a <button> makes no click from Enter or Space, so the flag would wait for the
+	// next mouse click and move focus into the card. A pointer press ends any keyboard turn.
+	const onTriggerPointer = () => {
+		byKey = false;
+	};
 	const onClick = () => {
 		const keyed = byKey;
 		byKey = false;
@@ -221,6 +226,7 @@ export function attach(cenno: Cenno, trigger: Element, content: () => Content, o
 	}
 	if (isDialog) {
 		trigger.addEventListener('keydown', onTriggerKey);
+		trigger.addEventListener('pointerdown', onTriggerPointer);
 		trigger.addEventListener('click', onClick);
 		doc.addEventListener('pointerdown', onOutside, true);
 	}
@@ -234,6 +240,7 @@ export function attach(cenno: Cenno, trigger: Element, content: () => Content, o
 		trigger.removeEventListener('focusout', onFocusOut);
 		trigger.removeEventListener('click', onClick);
 		trigger.removeEventListener('keydown', onTriggerKey);
+		trigger.removeEventListener('pointerdown', onTriggerPointer);
 		doc.removeEventListener('pointerdown', onOutside, true);
 		doc.removeEventListener('keydown', onKey, true);
 		if (isDialog) {

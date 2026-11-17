@@ -368,6 +368,21 @@ describe('attach — intents', () => {
 		expect(document.activeElement).toBe([...cn.cards][0].element);
 	});
 
+	it('an Enter on a trigger that makes no click does not hand focus to the next mouse press', () => {
+		const cn = createCenno();
+		const t = anchorAt({ x: 100, y: 100, width: 40, height: 20 });
+		attach(cn, t, () => 'menu', { intent: 'press' });
+		t.focus();
+		// A div with role=button: Enter makes no click, so nothing opens.
+		t.dispatchEvent(Object.assign(new Event('keydown', { bubbles: true }), { key: 'Enter' }));
+		expect(cn.cards.size).toBe(0);
+		// Later, a mouse press: pointerdown, then its click.
+		t.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+		t.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+		expect(cn.cards.size).toBe(1);
+		expect(document.activeElement).toBe(t);
+	});
+
 	it('detach closes the card and clears what it set', () => {
 		const cn = createCenno();
 		const t = anchorAt({ x: 100, y: 100, width: 40, height: 20 });
