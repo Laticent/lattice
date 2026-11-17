@@ -295,7 +295,16 @@ async function deckTapLeavesLibrary(id) {
 			// The row's point once the menu has stopped sliding: two reads in a row agree. One read taken while it slid in touched
 			// the next row down (Live) on run 43996905347.
 			const rowAt = centerOf(`() => [...document.querySelectorAll('[role=dialog][data-state=open] button')].find((b) => (${live})(b) && b.textContent.trim().startsWith('Library'))`);
-			let row = await until(rowAt, 15000, 'the Library row');
+			// A menu that never opened is reported with the Menu tap's own events: a dropped tap and a menu that opened and shut
+			// look the same from here (run 44052932291, the 8th repetition: the Studio on screen, no menu).
+			const withLog = async (p) => {
+				try {
+					return await p;
+				} catch (e) {
+					throw new Error(`${e.message}; ${summarizeTapLog(await run('return window.__tapLog'))}`);
+				}
+			};
+			let row = await withLog(until(rowAt, 15000, 'the Library row'));
 			for (let k = 0; k < 40; k++) {
 				await new Promise((r) => setTimeout(r, 50));
 				const again = await until(rowAt, 15000, 'the Library row');
@@ -303,7 +312,7 @@ async function deckTapLeavesLibrary(id) {
 				row = again;
 			}
 			await touch(row.x, row.y);
-			await until(`return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`, 15000, 'the Library sheet');
+			await withLog(until(`return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`, 15000, 'the Library sheet'));
 			// The deck band above the sheet, where a thumb reaches for "get out". The log starts again here, so a failure shows
 			// THIS tap's events: it used to keep the first 14 of the whole run, the Menu and Library taps, and fold the deck tap
 			// into "+N more", which hid that Mobile Safari had sent no click for it (run 44036700626).
