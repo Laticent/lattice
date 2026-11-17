@@ -1,0 +1,9 @@
+- The agent kit teaches Lattice, not Marp. Every deck shape it hands a model now opens with `theme: indaco` and `paginate: true`, without `marp: true`, and its render page leads with `npx @laticent/lattice deck.md deck.pdf` and the Studio. Rendering with marp-cli moved to one page, `render/lattice-export-to-marp.md`.
+- The agent kit has a single entry file, `start.md` (about 7.6k tokens): what a good deck is, the rules, all 80 layouts in one line each, the skeletons of the 19 most-used, and how to check and render.
+- The kit's build fails when a link points outside the kit, or when any page but the export page teaches Marp.
+- The kit's starter deck draws its kpi status pills again: `` `{On plan}` `` replaces a bare `` `On plan` `` span, which has rendered as plain code since 2026-10.
+- `lint:deck`'s `bare-row-pill` fix now says the backticks are part of the notation. The old wording read as Markdown formatting, and the braces printed as text.
+- lattice.style serves the agent pack at `/agents/` (`/agents/start.md`, one file per layout under `/agents/components/`, the craft guides under `/agents/skills/`, the checker at `/agents/review/check.mjs`). `/llms.txt` sends agents there first, and lists the 700 KB component reference last.
+- A site page's Markdown copy now links other pages' Markdown copies instead of their HTML pages.
+- The authoring guide links the agent pack and the modifier catalog. Its old link to a GitHub copy of the component reference was dead.
+- A nightly eval (`tools/agent-pack-eval.mjs`) has a model write three decks from `start.md` alone, and a small model three from the solo paste text, then lints and renders each one.

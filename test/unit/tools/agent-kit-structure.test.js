@@ -571,7 +571,8 @@ test('agent kit structure', { skip }, async (t) => {
 	 */
 	await t.test('the deck-writing path teaches front matter and the modifier catalog', () => {
 		const readme = fs.readFileSync(path.join(KIT, 'authoring', 'README.md'), 'utf8');
-		assert.match(readme, /marp:\s*true/, 'the authoring README never shows front matter');
+		assert.match(readme, /paginate:\s*true/, 'the authoring README never shows front matter');
+		assert.doesNotMatch(readme, /marp:\s*true/, 'the authoring README teaches Marp front matter (2026-11-17-agent-pack.md)');
 		assert.match(readme, /theme:/, 'the authoring README never shows how to pick a theme');
 		assert.match(readme, /modifiers\.md/, 'the authoring README never points at the modifier catalog');
 	});
@@ -713,27 +714,21 @@ test('agent kit structure', { skip }, async (t) => {
 	});
 
 	/**
-	 * The whole point of the `cuoio` switch: the Marp kit registers `lattice`,
-	 * `cuoio` and `cuoio-dark` and nothing else, and Marp resolves a palette BY
-	 * NAME — so a kit that tells a model to write any other theme produces an
-	 * unstyled deck with no error. The `max` paste text reintroduced `indaco`
-	 * two commits into the fix.
+	 * Every theme a generated deck or skeleton names has to be a palette Lattice ships.
+	 * This test used to pin the three palettes the Marp kit registers, because the kit's
+	 * render route was marp-cli. It is now `npx @laticent/lattice`, which knows every
+	 * palette under themes/ (2026-11-17-agent-pack.md §4.2).
 	 */
-	await t.test('no generated file promises a theme the Marp kit cannot resolve', () => {
-		const registered = new Set(['cuoio', 'cuoio-dark', 'lattice']);
+	await t.test('no generated file names a theme Lattice does not ship', () => {
+		const shipped = new Set(fs.readdirSync(path.join(ROOT, 'themes')).flatMap((d) => [d, `${d}-dark`]));
 		const offenders = [];
 		for (const rel of kitMarkdown()) {
 			if (rel.startsWith('skills/') || rel.startsWith('library/')) continue; // verbatim copies
 			for (const m of readKit(rel).matchAll(/^theme:\s*([a-z0-9-]+)\s*$/gm)) {
-				if (!registered.has(m[1])) offenders.push(`${rel}: theme: ${m[1]}`);
+				if (!shipped.has(m[1])) offenders.push(`${rel}: theme: ${m[1]}`);
 			}
 		}
-		assert.deepEqual(
-			offenders,
-			[],
-			'A generated deck or skeleton names a theme the copy-and-go Marp route does not ' +
-				'register. It renders unstyled, with no error and no failing gate.',
-		);
+		assert.deepEqual(offenders, [], 'A generated deck or skeleton names a theme Lattice does not ship; the render stops with "unknown palette".');
 	});
 
 	/**
@@ -777,8 +772,8 @@ test('agent kit structure', { skip }, async (t) => {
 	 * fonts away from the output yield a system serif, and a missing script
 	 * yields a layout flattened to a list.
 	 */
-	await t.test('the render page teaches a route that does not move the deck', () => {
-		const doc = readKit('render/lattice-render-a-deck.md');
+	await t.test('the Marp export page teaches a route that does not move the deck', () => {
+		const doc = readKit('render/lattice-export-to-marp.md');
 		for (const [re, why] of [
 			[/--theme-set/, 'never shows how to hand marp-cli the stylesheets directly'],
 			[/--html/, 'never says to pass --html, without which marp-core escapes the script tags'],
@@ -788,7 +783,7 @@ test('agent kit structure', { skip }, async (t) => {
 			[/cdn\.jsdelivr\.net/, 'never gives a script URL that a browser will actually execute'],
 			[/raw\.githubusercontent\.com/, 'never warns that the raw host serves JS as text/plain'],
 		]) {
-			assert.match(doc, re, `render/lattice-render-a-deck.md ${why}`);
+			assert.match(doc, re, `render/lattice-export-to-marp.md ${why}`);
 		}
 	});
 
@@ -882,6 +877,56 @@ test('agent kit structure', { skip }, async (t) => {
 			const n = [...readKit(`paste/${f}`)].length;
 			assert.ok(n <= cap, `paste/${f} is ${n} chars, over its ${cap} budget`);
 			assert.ok(n > 500, `paste/${f} is ${n} chars — suspiciously empty`);
+		}
+	});
+
+	/**
+	 * start.md is the one file an agent reads first (2026-11-17-agent-pack.md §4.1). It
+	 * must name every layout (a layout it leaves out is one an agent never picks), stay
+	 * inside its budget, teach Lattice's own front matter, and lead to the render route.
+	 */
+	await t.test('start.md names every layout, holds its budget and teaches Lattice front matter', () => {
+		const start = readKit('start.md');
+		const { components } = JSON.parse(readKit('reference/components.json'));
+		const missing = components.map((c) => c.name).filter((n) => !start.includes(`[\`${n}\`](./components/${n}.md)`));
+		assert.deepEqual(missing, [], 'start.md leaves layouts out of its catalog');
+		assert.ok(start.length <= 40000, `start.md is ${start.length} chars, over its 40000 budget`);
+		assert.match(start, /^theme: indaco$/m);
+		assert.doesNotMatch(start, /^marp:/m);
+		assert.match(start, /npx @laticent\/lattice/);
+	});
+
+	/**
+	 * Every skeleton start.md tells an agent to copy, and every example deck, lints with
+	 * zero errors and zero warnings. The starter deck's kpi pills carried a pre-2026-10
+	 * bare span for a month: three warnings in the one file the kit says to copy, and the
+	 * pills printed as plain code.
+	 */
+	await t.test('start.md skeletons and the example decks lint clean', () => {
+		const { execFileSync } = require('node:child_process');
+		const os = require('node:os');
+		const start = readKit('start.md');
+		const section = start.split(/^## 6\./m)[1].split(/^## 7\./m)[0];
+		const blocks = [...section.matchAll(/```\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+		assert.ok(blocks.length >= 15, `start.md section 6 holds ${blocks.length} skeletons`);
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-pack-'));
+		try {
+			const deck = path.join(dir, 'skeletons.md');
+			fs.writeFileSync(deck, `---\ntheme: indaco\npaginate: true\n---\n\n${blocks.join('\n\n---\n\n')}\n`);
+			const examples = fs.readdirSync(path.join(KIT, 'examples')).filter((f) => f.endsWith('.md')).map((f) => path.join(KIT, 'examples', f));
+			for (const file of [deck, ...examples]) {
+				let out;
+				try {
+					out = execFileSync(process.execPath, [path.join(ROOT, 'tools', 'lint-deck.js'), '--json', file], { encoding: 'utf8' });
+				} catch (e) {
+					out = e.stdout;
+				}
+				const r = JSON.parse(out);
+				const bad = r.findings.filter((f) => f.severity === 'error' || f.severity === 'warning').map((f) => `${path.basename(file)} slide ${f.slide}: ${f.rule}`);
+				assert.deepEqual(bad, [], `${path.basename(file)} has lint errors or warnings`);
+			}
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
 		}
 	});
 });

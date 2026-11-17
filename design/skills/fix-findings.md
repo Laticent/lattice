@@ -144,7 +144,6 @@ For a rule not listed here, the `fix:` line is the instruction. Grep
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: indaco
 finish: atriumm
@@ -192,7 +191,6 @@ the headings and the cut were judgment. The deck is lint-clean:
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: indaco
 finish: atrium

@@ -168,7 +168,6 @@ The second lane opens when the floor resurfacing finishes in October.
 
 ```yaml
 ---
-marp: true
 theme: a11y-deuteranopia   # or a11y-protanopia | a11y-tritanopia | a11y-achromatopsia
 venue: conference          # laptop (default) | huddle | conference | hall
 ---

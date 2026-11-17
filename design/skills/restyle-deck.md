@@ -138,7 +138,6 @@ Deck-level restyle — the content below the front matter did not change:
 
 ```yaml
 ---
-marp: true
 size: 4k
 theme: cuoio
 color-mode: dark
@@ -183,7 +182,6 @@ A full restyled deck (lint-clean):
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: cuoio
 color-mode: dark
