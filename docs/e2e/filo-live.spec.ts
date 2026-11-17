@@ -373,8 +373,8 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await ime.send('Input.imeSetComposition', { text: 'ニ', selectionStart: 1, selectionEnd: 1 });
 		await ime.send('Input.insertText', { text: 'ニ' });
 		await expect(guest.getByText('Someone edited that part at the same moment', { exact: false }).first(), 'the guest is told').toBeVisible({ timeout: 20_000 });
-		// Settled: the host's empty deck is on the guest's screen, and so is the start grid.
-		await expect.poll(() => sourceOf(guest), { message: "the guest never took the host's empty deck", timeout: 20_000 }).toBe('');
+		// Settled: the guest's editor now shows the host's empty deck, so the start grid is up and the slide bar is not.
+		// (The guest's saved deck was already empty above, so it proves nothing here.)
 		await expect(guest.getByRole('region', { name: 'Start your deck' }), 'the start grid did not come back with the empty deck').toBeVisible({ timeout: 20_000 });
 		await expect(guest.locator('.cs-slide-bar').first()).toBeHidden();
 	});

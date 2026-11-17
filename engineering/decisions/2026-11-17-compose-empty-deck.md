@@ -124,6 +124,12 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   which switched back to Compose after restoring the deck in Source, failed both times: Compose kept the empty deck,
   focused, with the restored text not applied. The probe now restores the deck in Source and stays there. Whether a
   person with a keyboard can lose a Source edit this way is open: `followups.d/3288-p2-compose-parks-a-source-edit-on-a-phone.md`.
+  The likely mechanism, found by reading: a Source edit reaches the shell's `source` in a React transition, and the
+  phone's Compose cell asks the rebuilt Compose to take the focus, so a switch that renders first builds Compose from the
+  old text and parks the edit. A local try (desktop Chromium, iPhone-sized WebKit) did not reach it, because a scripted
+  click did not give Compose the focus there. The note is `blocked` until PR 3291 lets the iPhone suite reach this step.
+  The simulators show no software keyboard (a hardware keyboard is attached), so the probe proves the focus and the
+  caret a tap gives, not that the phone's keyboard comes up.
 - **Nothing moves (owner, 2026-11-17: "make sure there is no jank").** Two moves were measured on the real Studio and
   fixed. (1) The first build hid the slide bar with `display:none`, so the first letter brought it back above the line and
   pushed the text down under the author's caret: **94px on a phone, 54px on a desktop**, and Undo pulled it back up. The
