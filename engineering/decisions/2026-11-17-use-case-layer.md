@@ -17,7 +17,7 @@ decisions taken on them, shaped this version. It builds nothing.
 | Question | Answer |
 |---|---|
 | Who is the first consumer | **The Studio chat.** Whatever it needs, it gets. The layer offers holistic capabilities: reading a deck *correctly*, with its structure, its semantics and deterministic answers, is what our tools give an agent that raw Markdown cannot |
-| What the layer is called | **Use cases** (Clean Architecture's term), in `lib/use-cases/`. "Bridge" was refused because the repo already uses it (`lib/authoring/squadra/bridge.js`, export to Marp) |
+| What the layer is called | **Use cases** (Clean Architecture's term), in `lib/use-cases/`. "Bridge" was refused because the repo already uses it (`lib/authoring/squadra/bridge.js`, and the Marp export) |
 | What an edit does on the file host | **Stage, then submit.** Edits collect in a changeset; submitting runs the safeguards before anything is written |
 | What comes before the edit ops | **The slide spine's design** (`followups.d/3287-p1-lente-slide-spine.md`). The ops are the spine's structural edits, not a second set |
 
@@ -130,12 +130,12 @@ and MCP has no tool versioning.
       "changeset": { "type": "string", "maxLength": 64, "description": "Stage into this changeset (MCP). The chat host uses its turn's changeset and leaves it out." },
       "map": { "type": "string", "enum": ["acronyms", "lexicon"], "description": "Which map." },
       "set": {
-        "type": "object", "maxProperties": 50,
+        "type": "object", "maxProperties": 50, "propertyNames": { "maxLength": 100 },
         "additionalProperties": {
           "anyOf": [
             { "type": "string", "maxLength": 200 },
             { "type": "null" },
-            { "type": "object", "additionalProperties": false, "properties": { "expansion": { "type": "string", "maxLength": 200 }, "definition": { "type": "string", "maxLength": 400 } } }
+            { "type": "object", "additionalProperties": false, "required": ["expansion"], "properties": { "expansion": { "type": "string", "maxLength": 200, "description": "The spoken form." }, "definition": { "type": "string", "maxLength": 400, "description": "Optional glossary text (acronyms only)." } } }
           ]
         },
         "description": "Term to spoken form, or an acronym entry with a definition. null removes it. A possessive or plural is its own term."
@@ -145,7 +145,7 @@ and MCP has no tool versioning.
   },
   "output": { "type": "object", "required": ["map"], "properties": { "map": { "type": "object" } } },
   "errors": [
-    { "code": "INVALID_TERM", "meaning": "A term has characters the map cannot hold (the acronym grammar refuses an apostrophe).", "alternatives": ["Use the lexicon map for that term."] },
+    { "code": "INVALID_TERM", "meaning": "A term has characters the map cannot hold (the acronym grammar refuses an apostrophe), or a lexicon entry is an object (lexicon entries are spoken forms only).", "alternatives": ["Use the lexicon map for that term.", "Send the lexicon entry as a string."] },
     { "code": "CASE_DUPLICATE", "meaning": "Two terms differ only in case.", "alternatives": ["Send each term once, in the case the slide uses."] },
     { "code": "STALE", "meaning": "The map changed since it was read.", "alternatives": ["Read the deck again, then retry."] }
   ],
@@ -153,7 +153,7 @@ and MCP has no tool versioning.
   "requires": [],
   "hosts": ["chat", "palette", "mcp"],
   "toolset": "narration",
-  "examples": [{ "host": "mcp", "args": { "deck": "decks/q3.md", "map": "acronyms", "set": { "Derby": "Darby" } }, "fixture": "test/fixtures/use-cases/two-slides.md", "expect": { "map": { "Derby": "Darby" } } }]
+  "examples": [{ "host": "mcp", "args": { "deck": "decks/q3.md", "map": "lexicon", "set": { "Derby": "Darby" } }, "fixture": "test/fixtures/use-cases/two-slides.md", "expect": { "map": { "Derby": "Darby" } } }]
 }
 ```
 
@@ -164,9 +164,10 @@ data. A term the writer would drop is an error, never a silent omission.
 
 - the chat's tool definitions (replacing `AGENT_TOOLS`, `ASSET_TOOLS`, `TOOL_TIERS`, `EDIT_TOOLS` /
   `READ_TOOLS` and the `run` switch, five hand lists today);
-- palette entries for the **deck-editing** commands (`slide-*`, `fix-all`, `format-code`). About two
-  thirds of `studio-commands.ts`'s ids are UI verbs (`present`, `focus`, `library`, …) with no kernel;
-  they stay as they are;
+- palette entries for the **deck-editing** commands: 8 of `studio-commands.ts`'s 30 ids (`fix-all`,
+  `format-code`, `slide-duplicate`, `slide-move-before`, `slide-move-after`, `slide-hide`,
+  `slide-show`, `slide-delete`). The other 22 are UI verbs (`present`, `focus`, `library`,
+  `slide-settings`, …) with no kernel, and stay as they are;
 - the MCP `tools/list`, sorted by id, with all four annotations emitted explicitly per host (§6.6);
 - `dist/docs/use-cases.pick.md` and `use-cases.json`, published to `dist-kits` beside the other agent
   catalogs. That is #3208 item 26, the assistant's generated list of its own tools.
@@ -174,10 +175,11 @@ data. A term the writer would drop is an error, never a silent omission.
 ### 3.5 Gates (in `build:check`)
 
 `checkUseCaseManifests` in `tools/check-ownership.js` refuses an invalid manifest, an unbounded or
-undescribed input property, a type constraint inside a `oneOf` branch, an over-long description, an
+undescribed input property, a type constraint inside a `oneOf` branch (deliberately `oneOf` only:
+§3.3's `anyOf` of types is sound because each branch is self-contained), an over-long description, an
 error code declared but never exercised (or returned but never declared), an example that fails its
-host's projection, an `idempotent: true` that fails a run-twice test, and an op that writes a
-`humanGated` field. It **reports** the generated default MCP toolset's size on every build; the cap
+host's projection, and an `idempotent: true` that fails a run-twice test. A fixture test also asserts that no
+example's ops write a `humanGated` field; the real enforcement is at runtime, in the applier (§5.2). It **reports** the generated default MCP toolset's size on every build; the cap
 is a review threshold, not a blocking gate, because a byte gate rewards cutting the "when not to use
 it" text that matters most.
 
@@ -225,13 +227,16 @@ whose requirement the host lacks is not offered there; called anyway, it returns
 **`DeckModel` and `applyOps` belong to the slide spine**, whose design comes first. This note fixes
 only what the use-case layer needs from it:
 
-- **Addressing.** A slide is addressed by the spine's id when the host has one; otherwise by a
+- **Addressing (a requirement to the spine, not a decision for it).** A slide is addressed by the spine's id when the host has one; otherwise by a
   fingerprint (SHA-256, at least 128 bits, over a documented normalization of the written block) plus
   its ordinal among equal fingerprints. Duplicate slides that cannot be told apart return
-  `AMBIGUOUS`, never a guess. The unit is the written block, with a part index for its rendered pages
-  under `split: headings`. An insert may anchor to `null`, meaning first.
-- **Ops** (Commands): `slide.replace`, `slide.insert`, `slide.delete`, `slide.move`, `slide.copy`,
-  `fm.set`, `fm.block`, `asset.caption`, `deck.create`.
+  `AMBIGUOUS`, never a guess. Whether the unit is the written block with a part index for its
+  rendered pages, or the page itself, is the spine's fork; what this layer requires is that an op can
+  name either one unambiguously. An insert may anchor to `null`, meaning first.
+- **Ops** (Commands), in two groups. **Spine ops**, which the spine's `applyOps` owns:
+  `slide.replace`, `slide.insert`, `slide.delete`, `slide.move`, `slide.copy`. **Use-case-layer ops**,
+  which the dispatcher applies after the spine's: `fm.set`, `fm.block` (front matter),
+  `asset.caption` (a Library write, outside the deck) and `deck.create`.
 - **Atomic by default.** A changeset applies whole or not at all. A later op is evaluated against the
   result of the earlier ones, in order, and that is the documented rule.
 - **Index-keyed fix-ups belong to the applier.** Renumbering `say:` entries, carrying lens tags, and
@@ -239,7 +244,9 @@ only what the use-case layer needs from it:
   renumbering cannot land apart.
 - **Human-gated fields are refused.** No op may add or change `approved:` in `lenses:`: the
   approval hash is unkeyed, so a writer of deck text could otherwise mint an approved lens (the red
-  team reproduced it). Approving a lens is a `confirm: always` use case offered only in the Studio.
+  team reproduced it). That includes `deck.create`, whose whole Markdown may carry a `lenses:` block,
+  so the applier parses full deck text, not only `fm.*` ops. Approving a lens is a `confirm: always`
+  use case offered only in the Studio.
 - **The check runs on what was committed**, never on a draft that only partly landed.
 
 The review card renders ops directly, which retires the draft-to-proposal fold (`proposalFromDraft`)
@@ -247,7 +254,8 @@ and the losses the audit reproduced.
 
 ### 5.3 Where kernels live
 
-Ad-hoc Studio modules a kernel needs (`deck-ops.ts`, `docs/src/lib/front-matter.ts`) move to `lib/`.
+Ad-hoc Studio modules a kernel needs (`docs/src/lib/front-matter.ts`) move to `lib/`. `deck-ops.ts`
+moves as part of the spine, which gathers it.
 Workspace libraries (`@laticent/lente`, `@laticent/fuoco`, and the spine wherever it lands) are reached
 as `@laticent/*` dependencies, the way `lib/` already reaches `@laticent/markup` and `@laticent/segno`.
 
@@ -290,7 +298,7 @@ interface Host {
 |---|---|---|---|---|
 | **`studio-chat`** (first) | the open deck | Review: a card. Auto: apply with a History checkpoint when `autoHold` allows, else a card | the Studio UI | yes |
 | **`palette`** | the open deck | apply through `setSource(…, { origin: 'palette' })`; the person pressed it | the Studio UI | yes |
-| **`mcp-files`** (`lattice mcp`) | `.md` files under one root | **stage, then submit**: draft calls stage into a changeset; `submit_changeset` runs the `autoHold` predicates (nothing deleted, at most `max(2, ⌈n/2⌉)` slides rewritten, the deck unchanged on disk since the base revision); a changeset that passes is written, one that fails is held until a person confirms through a channel the client cannot answer (§6.4) | §6.4 | via the CLI's Chromium, without `--allow-remote` |
+| **`mcp-files`** (`lattice mcp`) | `.md` files under one root | **stage, then submit**: draft calls stage into a changeset; `submit_changeset` writes it only if its check is clean (no lint or review errors; fit run, or reported "not run"), it holds no `slide.delete` and no op from a `destructive: true` use case, at most `max(2, ⌈n/2⌉)` slides are replaced, inserted, moved or copied, and the deck is unchanged on disk since the base revision. Otherwise it is held until a person confirms (§6.4). These are `autoHold`'s rules extended to the new op kinds; its `aborted`, `via` and `live` rules describe a chat turn and have no file-host equivalent | §6.4 | via the CLI's Chromium, without `--allow-remote` |
 | **`test`** | fixtures | apply in memory | scripted | stubbed |
 
 The test host proves the dispatcher is host-agnostic before any MCP code. A public `lattice
@@ -301,16 +309,25 @@ must meet.
 
 ### 6.4 Confirmation and trust
 
-**Nothing a client can answer counts as the author's confirmation for an act-tier use case or a held
-changeset.** In order of preference on `mcp-files`:
+**Nothing a client can answer counts as the author's confirmation for a destructive use case or a
+held changeset.** A non-destructive `confirm: act` use case may accept a form answer, which a client
+can give itself; that is the one exception, and it is stated, not implied. In order of preference on
+`mcp-files`:
 
-1. **URL-mode elicitation** to a one-time page that Lattice serves on `127.0.0.1` and draws itself.
-   The spec requires the client to open it where neither the client nor the model can read or press
-   it.
-2. **Form elicitation**, only for `confirm: act` use cases with no destructive effect: one boolean,
-   no `default` (or `default: false`), every interpolated string passed through `visibleTitle` /
+1. **A page Lattice opens itself.** `lattice mcp` serves a one-time confirm page on `127.0.0.1` and
+   opens it in the default browser with a one-time token that is **never sent to the client**. The
+   page accepts approval only with that token. A URL-mode elicitation (or, without one, the tool
+   result) only tells the person to look for the page, and carries no token. The spec requires a
+   compliant client to open elicitation URLs where neither it nor the model can read or press them;
+   a hostile client is not compliant, and a coding agent with a shell could post to a URL it was
+   given, which is why the token never travels through the client. This also meets the spec's rule
+   that the server verifies who opens the page.
+2. **Form elicitation**, only for non-destructive `confirm: act` use cases: one boolean, no
+   `default` (or `default: false`), every interpolated string passed through `visibleTitle` /
    `outlineTitle` as the 11-06 confirm does.
-3. Otherwise `CONFIRM_UNAVAILABLE`. Nothing is auto-approved.
+3. Otherwise `CONFIRM_UNAVAILABLE`. Nothing is auto-approved. A client older than revision
+   2026-07-28 (no `InputRequiredResult`) gets `CONFIRM_UNAVAILABLE` for every held changeset; only
+   changesets that pass §6.3's checks are written for it.
 
 `confirm: always` use cases and any `network` effect are not offered at all unless the person who
 started the server named them in `--allow`, and **`--allow` offers a use case; it never approves one.**
@@ -348,7 +365,8 @@ One `Result`, formatted per host:
 
 `read_component`, `read_guide` and `read_front_matter` become MCP resource templates
 (`lattice://component/{name}`, `lattice://guide/{topic}`, `lattice://front-matter/{key}`) with caching
-hints, loaded only when needed. The chat keeps them as tools. Deck status is
+hints (a MUST on `resources/list`, `resources/templates/list` and `resources/read`), loaded only when
+needed. The chat keeps them as tools. Deck status is
 `lattice://deck/{id}/status` with `ttlMs: 0`, `cacheScope: "private"`, and its update notifications
 are debounced.
 
@@ -360,7 +378,8 @@ so string-length checks emit no `require("ajv/dist/runtime/ucs2length")`, and wr
 
 **Measured on §3.3's input schema (ajv 8.20.0, 2026-11-17):** with default options the standalone
 code is 10,309 bytes and imports `ajv/dist/runtime/ucs2length`; with `unicode: false` it is 10,248
-bytes and imports nothing from ajv. But ajv 8.20 prints `unicode` as **deprecated**, so this route
+bytes and imports nothing from ajv. With it, `maxLength` counts UTF-16 code units rather than
+characters, so limits are set with headroom. But ajv 8.20 prints `unicode` as **deprecated**, so this route
 can break on an upgrade. The gate therefore also fails any generated validator that imports from
 ajv, and the fallback is a restricted keyword subset the gate enforces. Ten kilobytes per use case is
 unminified; the first slice measures what it costs gzipped in the Studio's route budget.
@@ -399,11 +418,16 @@ unminified; the first slice measures what it costs gzipped in the Studio's route
 
 0. **The spine's design note** (`followups.d/3287-p1-lente-slide-spine.md`): the deck model,
    addressing and `applyOps` (§5.2).
+
+   0b. **The spine slices that ship `DeckModel` and `applyOps`.** Until they land, steps 1–3 run on an
+   interim `DeckModel` adapter over today's slide splitting (`deckSlides`, `buildDeckIndex`), which
+   the spine then replaces.
 1. **Manifests, the generator, the dispatcher and the test host**, with the chat's 15 tools under the
-   legacy list and no model-visible change.
+   legacy list and no model-visible change. Step 1 validates with build-time ajv in tests only; the
+   generated validators replace it in step 2.
 2. **Validators** (§7, measured).
 3. **Semantic read use cases for the chat** (§4).
-4. **Ops on the spine**: the card renders ops; `proposalFromDraft` is deleted.
+4. **Ops on the spine** (after 0b): the card renders ops; `proposalFromDraft` is deleted.
 5. **New edit use cases for the chat**: `set_front_matter_map`, `move_slides`.
 6. **`lattice mcp`**: the read toolset and the docs resources first, then the editing toolsets with
    staging, confirmation and the file-host safety of §8.
@@ -442,6 +466,13 @@ Munger inversion and an independent checker.
   (checker, measured); the token budget made a report, not a gate (inversion); the desktop host moved
   to Appendix A and the public CLI host cut (inversion); the corrected 145-token figure and the
   example manifest that now passes its own gate (checker).
+- **A second checker on the rewrite (commit 032ebad)** found nine wording faults and no design fault,
+  all fixed: §6.4's rule now names its one stated exception; the confirm page carries a token the
+  client never sees; §6.3's submit check now includes a clean check and counts moves, copies and
+  destructive use cases; §10 schedules the spine's implementation (0b); §5.2 splits spine ops from
+  this layer's ops and states addressing as a requirement to the spine; older clients get
+  `CONFIRM_UNAVAILABLE`; the example bounds its term length and requires an expansion; §7 notes that
+  lengths count UTF-16 units.
 - **Kept against a finding:** a JSON manifest rather than a TypeScript record (inversion). The MCP
   server and the generated docs read it without running code, and per-host wording plus `enumFrom`
   answer the runtime-list objection.
