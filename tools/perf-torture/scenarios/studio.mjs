@@ -16,6 +16,19 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // The docs production build the harness serves (needs `cd docs && npm run build` first).
 const DIST = join(HERE, '..', '..', '..', 'docs', 'dist');
 
+// The Studio opens in the rich Compose editor, so `.cm-content` (the Markdown source editor) is no longer there on
+// load: waiting for it timed out every studio cycle. Wait for the toolbar, dial to Craft, then open Markdown source,
+// the editor the `typing` and `compose` cycles and the calibrated floors assume. Uncaught on purpose, like `setup`.
+async function craftWithSource(page) {
+	await page.click('button[aria-label="Craft — every panel"]');
+	await wait(page, 700);
+	if (!(await exists(page, '.cm-content'))) {
+		await clickSel(page, 'button[aria-label="Markdown source"]');
+		await settle(page, '.cm-content', 8000);
+		await wait(page, 400);
+	}
+}
+
 // App-specific DOM helper (generic ones live in the engine).
 const railCount = (page) => page.evaluate(() => document.querySelectorAll('nav[aria-label="Slide navigator"] > button').length);
 
@@ -98,16 +111,19 @@ function standInSpeech(page) {
 			if (req.isInterceptResolutionHandled?.()) return;
 			const url = req.url();
 			if (!url.startsWith('https://openrouter.ai/')) return req.continue();
+			// A cross-origin call: answer the preflight, and let every answer be read.
+			const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS' };
+			if (req.method() === 'OPTIONS') return req.respond({ status: 204, headers });
 			if (url.includes('/audio/speech')) {
 				let words = 1;
 				try { words = String(JSON.parse(req.postData() || '{}').input || '').split(/\s+/).filter(Boolean).length || 1; } catch {}
 				const body = Buffer.alloc(Math.max(4800, Math.round((words / 2.6) * 24000)) * 2);
-				return req.respond({ status: 200, contentType: 'audio/pcm;rate=24000;channels=1', body });
+				return req.respond({ status: 200, headers, contentType: 'audio/pcm;rate=24000;channels=1', body });
 			}
 			if (url.includes('/models')) {
-				return req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: NARRATION_MODEL, name: 'Gemini Flash TTS', pricing: { prompt: '0.0000005', completion: '0' }, architecture: { output_modalities: ['speech'] }, supported_voices: ['Kore'] }] }) });
+				return req.respond({ status: 200, headers, contentType: 'application/json', body: JSON.stringify({ data: [{ id: NARRATION_MODEL, name: 'Gemini Flash TTS', pricing: { prompt: '0.0000005', completion: '0' }, architecture: { output_modalities: ['speech'] }, supported_voices: ['Kore'] }] }) });
 			}
-			return req.respond({ status: 200, contentType: 'application/json', body: '{"data":{}}' });
+			return req.respond({ status: 200, headers, contentType: 'application/json', body: '{"data":{}}' });
 		}),
 	);
 }
@@ -239,21 +255,21 @@ export default {
 			// gated on the `lattice-perf-overlay` pref (default off), so a bare `/studio` never loads
 			// web-vitals. Selector determinism comes from the CRAFT-posture `setup` below, not from `?perf`.
 			// Confirm the honest surface with: `npm run torture -- --scenario studio --cycle idle,compose --listeners`.
-			url: '/studio', ready: '.cm-content', settle: 1500,
+			url: '/studio', ready: 'button[aria-label="Present"]', settle: 1500,
 			// dial to the CRAFT posture so the full UI (activity bar, op rail, both editor toggles)
 			// is present + selectors deterministic; every studio cycle shares this → matched floors.
 			// NOT `.catch(() => {})`. A swallowed click here does not fail — it silently benchmarks
 			// the WRITE surface against floors calibrated for Craft, which is worse than a red run.
 			// (That is exactly what the Build → Craft rename did to this line before the checker
 			// caught it: comments renamed, selector not, error eaten.)
-			setup: async (page) => { await page.click('button[aria-label="Craft — every panel"]'); await wait(page, 700); },
+			setup: async (page) => { await craftWithSource(page); },
 		},
 		landing: { url: '/', ready: '[role="tablist"][aria-label="Hero view"]', settle: 2000 },
 		playground: { url: '/playground', ready: '#editor-host .cm-editor', settle: 2000 },
 		// The Studio, with the stand-in voice chosen before the app reads its settings: stub the network, store the
 		// choice, reload, then the same Craft posture as `studio`.
 		narration: {
-			url: '/studio', ready: '.cm-content', settle: 1500,
+			url: '/studio', ready: 'button[aria-label="Present"]', settle: 1500,
 			setup: async (page) => {
 				await standInSpeech(page);
 				await page.evaluate((model) => {
@@ -261,10 +277,9 @@ export default {
 					localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model, voice: 'Kore' }));
 				}, NARRATION_MODEL);
 				await page.reload({ waitUntil: 'networkidle0', timeout: 90000 });
-				await settle(page, '.cm-content', 30000);
+				await settle(page, 'button[aria-label="Present"]', 30000);
 				await wait(page, 1500);
-				await page.click('button[aria-label="Craft — every panel"]');
-				await wait(page, 700);
+				await craftWithSource(page);
 			},
 		},
 	},
