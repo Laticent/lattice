@@ -505,8 +505,9 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	await context.route('https://esm.run/kokoro-js', (route) => route.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: FAKE_KOKORO }));
 	await mockOpenRouter(page);
 	// THE TIER IS PINNED FULL. A LITE device does not offer the on-device voice (voice-model.js `kokoroSupported`), so Present
-	// reads captions, as it should. Unpinned, the tier is decided by a CPU probe after the first slide shows, and a loaded
-	// machine scored LITE before Play: 3 in 24 runs at 4 workers read "Captions" instead of "Loading voice… 42%".
+	// reads captions, as it should. Every context starts with the stored choice LITE (playwright.config.ts `tierPin`), which
+	// device-tier.ts applies only after the first slide shows, so on a loaded machine LITE landed before Play: 3 in 24 runs at
+	// 4 workers read "Captions" instead of "Loading voice… 42%". A `?tier=` pin applies before first paint and outranks it.
 	await gotoStudio(page, { query: '?tier=full' });
 	// Undo the fixture's worker block: a read loads the on-device voice OFF the main thread only,
 	// so with the block in place the load fails and Present reads captions (see share-ondevice-narration.spec.ts).
