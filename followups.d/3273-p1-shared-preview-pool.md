@@ -28,6 +28,16 @@ evidence  — The hard part is that a frame cannot move between hosts: moving an
             placed over tiles in page coordinates, the design the pool's header rejected because a picture lags behind its
             label while a grid scrolls. The design owes an answer to that lag (for example, re-place on scroll inside one
             frame, measured) before any code.
+options   — The owner asked (2026-11-17) why it must be an iframe at all. LEAD CANDIDATE: tiles as shadow roots in one
+            document, styles via `adoptedStyleSheets`. The pool's header rejected one shared document only because a saved
+            component's `extraCss` would restyle every tile; a shadow root scopes it per tile, and `chart-detail-layer.tsx`
+            already renders slide content this way. It removes the frame leak and the can't-move-a-frame problem, so every
+            grid could share one renderer. What it costs, counted in dist/lattice.css: 164 `:root` rules to rewrite to
+            `:host` at build time, 54 `@font-face` rules to hoist to the page, `lib/runtime`'s ~80 direct `document`
+            lookups to point at a root (unless static thumbnails need no runtime: unmeasured), four theme files' page-level
+            media queries, and the font-swap gate per tile. Start with a SPIKE: the add-slide picker's 80 tiles as shadow
+            roots; WebKit memory against frames; `tools/pixel-check.js` against today's iframe tiles; list what breaks
+            without the runtime.
 verify    — Count every `<iframe>` the page creates (the MutationObserver counter in the PR 3273 note's §4) while opening
             the picker, the layout menu, the map and an empty deck in turn, five times each, on WebKit and Chromium; and the
             preview-pool frame test in LayoutMenu's spec. Adversarial trio (HARD RULE #25): it changes a kernel seven
