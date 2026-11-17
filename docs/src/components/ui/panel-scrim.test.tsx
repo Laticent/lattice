@@ -13,9 +13,9 @@
 // (components/ui/sheet.tsx).
 import { fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PanelNav, PanelSheet } from '@/components/ui/panel';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { resetScrimPointers, Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
 function Host({ onClose, onLeave }: { onClose: (v: boolean) => void; onLeave: () => void }) {
 	const [open, setOpen] = React.useState(true);
@@ -40,10 +40,12 @@ const scrim = () => document.querySelector('[data-slot="sheet-overlay"]') as HTM
 // so Radix would take every tap for a mouse and a moved finger would read as still. Build the event and pin the fields,
 // as help-tip.test.tsx does.
 type Ptr = 'pointerdown' | 'pointerup' | 'pointercancel';
-function ptr(el: HTMLElement, type: Ptr, pointerType: 'mouse' | 'touch', x = 20) {
+type Kind = 'mouse' | 'touch' | 'pen';
+function ptr(el: HTMLElement, type: Ptr, pointerType: Kind, x = 20, { id = pointerType === 'mouse' ? 1 : 7, at }: { id?: number; at?: number } = {}) {
 	const ev = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: 20 });
 	Object.defineProperty(ev, 'pointerType', { value: pointerType });
-	Object.defineProperty(ev, 'pointerId', { value: pointerType === 'touch' ? 7 : 1 });
+	Object.defineProperty(ev, 'pointerId', { value: id });
+	if (at !== undefined) Object.defineProperty(ev, 'timeStamp', { value: at });
 	fireEvent(el, ev);
 }
 /** A mouse tap: pointerdown, pointerup, click. */
@@ -60,6 +62,8 @@ const touch = (el: HTMLElement, { click = true, to = 20 } = {}) => {
 };
 
 describe('PanelSheet — a tap on the scrim', () => {
+	beforeEach(() => resetScrimPointers());
+
 	it('closes the sheet and leaves to the deck before Radix has started listening', () => {
 		vi.useFakeTimers();
 		try {
@@ -167,6 +171,97 @@ describe('PanelSheet — a tap on the scrim', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it('closes once on a mouse and on a pen, as before', () => {
+		vi.useFakeTimers();
+		try {
+			for (const kind of ['mouse', 'pen'] as const) {
+				const onOpenChange = vi.fn();
+				const { unmount } = render(
+					<Sheet open onOpenChange={onOpenChange}>
+						<SheetContent>
+							<SheetTitle>Kept</SheetTitle>
+						</SheetContent>
+					</Sheet>,
+				);
+				vi.runOnlyPendingTimers();
+				ptr(scrim(), 'pointerdown', kind);
+				ptr(scrim(), 'pointerup', kind);
+				fireEvent.click(scrim(), { clientX: 20, clientY: 20 });
+				vi.runOnlyPendingTimers();
+				expect(onOpenChange.mock.calls, kind).toEqual([[false]]);
+				unmount();
+			}
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('is not a tap: an up with no down, a second finger, a press held past the limit, a stale pointer id', () => {
+		vi.useFakeTimers();
+		try {
+			const cases: Record<string, (el: () => HTMLElement) => void> = {
+				'an up with no down': (el) => ptr(el(), 'pointerup', 'touch'),
+				'a second finger': (el) => {
+					ptr(el(), 'pointerdown', 'touch', 20, { id: 7 });
+					ptr(el(), 'pointerdown', 'touch', 60, { id: 8 });
+					ptr(el(), 'pointerup', 'touch', 60, { id: 8 });
+					ptr(el(), 'pointerup', 'touch', 20, { id: 7 });
+				},
+				'a press held past the limit': (el) => {
+					ptr(el(), 'pointerdown', 'touch', 20, { at: 1000 });
+					ptr(el(), 'pointerup', 'touch', 20, { at: 2500 });
+				},
+				'a stale pointer id': (el) => {
+					// A finger that lifted somewhere else leaves its entry; long after, a pointer reuses the id and only lifts here.
+					ptr(el(), 'pointerdown', 'touch', 20, { id: 9, at: 1000 });
+					ptr(el(), 'pointerdown', 'touch', 20, { id: 7, at: 5000 });
+					ptr(el(), 'pointercancel', 'touch', 20, { id: 7, at: 5010 });
+					ptr(el(), 'pointerup', 'touch', 20, { id: 9, at: 5020 });
+				},
+			};
+			for (const [name, run] of Object.entries(cases)) {
+				resetScrimPointers();
+				const onOpenChange = vi.fn();
+				const { unmount } = render(
+					<Sheet open onOpenChange={onOpenChange}>
+						<SheetContent>
+							<SheetTitle>Kept</SheetTitle>
+						</SheetContent>
+					</Sheet>,
+				);
+				run(scrim);
+				vi.runOnlyPendingTimers();
+				expect(onOpenChange, name).not.toHaveBeenCalled();
+				unmount();
+			}
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('forgets a finger once the last scrim is gone, so a later sheet does not take its lift for a tap', async () => {
+		const first = render(
+			<Sheet open>
+				<SheetContent>
+					<SheetTitle>First</SheetTitle>
+				</SheetContent>
+			</Sheet>,
+		);
+		ptr(scrim(), 'pointerdown', 'touch');
+		first.unmount();
+		await Promise.resolve(); // the unmount's microtask: no scrim took its place
+		const onOpenChange = vi.fn();
+		render(
+			<Sheet open onOpenChange={onOpenChange}>
+				<SheetContent>
+					<SheetTitle>Later</SheetTitle>
+				</SheetContent>
+			</Sheet>,
+		);
+		ptr(scrim(), 'pointerup', 'touch');
+		expect(onOpenChange).not.toHaveBeenCalled();
 	});
 
 	it('stays open, in the gap and after it, when the caller keeps an outside tap from closing the sheet', () => {
