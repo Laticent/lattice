@@ -1,4 +1,5 @@
 import { test as base, expect, type FrameLocator, type Locator, type Page } from '@playwright/test';
+import { layoutSettled } from './barriers';
 
 // Shared harness for the Studio E2E suite. Playwright gives each test its own
 // browser context, so `localStorage` (the `lattice-studio-*` keys) starts empty
@@ -27,6 +28,8 @@ export const CHROME = {
 	deckScope: 'Deck scope',
 	/** Opens the Inspector pointed at SLIDE scope (editor row / mobile preview bar). */
 	slideSettings: 'Slide settings',
+	/** The editor bar's ⋯: what the bar has moved out to fit its pane (StudioShell `EDIT_FIT`), Slide settings among them. */
+	editorMore: 'More editor actions',
 	/**
 	 * The SAME destination as `deckScope`, reached the two other ways the Studio offers it.
 	 * `deckScope` is a desktop-only control: at 820px there is no scope rail, and at 390px
@@ -987,15 +990,35 @@ async function selectAllInEditor(page: Page): Promise<void> {
 	throw new Error('setEditorContent: neither ControlOrMeta+a nor Meta+a selected the editor document');
 }
 
-/** Open the current slide's Slide settings at its Look section, at any width. Wide layouts show a Slide settings
- *  button; at phone width (390px) the bottom bar's Settings opens both scopes behind a Slide | Deck switch. */
-export async function openSlideLook(page: Page): Promise<void> {
-	const slideButton = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
-	if (await slideButton.count()) await slideButton.first().click();
-	else {
-		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
-		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
+/**
+ * Open the current slide's Slide settings, at any width. There are three doors, and the layout picks one:
+ *  - the editor bar's Slide settings button, while the bar has room for it;
+ *  - the same item in the bar's ⋯ menu, once the bar has moved it out to fit its pane (StudioShell `EDIT_FIT`). At
+ *    820px the editor pane is about 375px wide, so this is the tablet door;
+ *  - at phone width, the bottom bar's Settings, which opens both scopes behind a Slide | Deck switch.
+ *
+ * Which door exists is decided after a resize by React's re-render and the bar's fit, so the helper waits for both
+ * (`layoutSettled`) before it looks. A copy of this in image-card-register counted the bar button the moment it had
+ * resized 390 → 820px: it saw the button while the fit had not yet run, and passed; under load the fit had run, it saw
+ * 0, took the phone route, and waited for a bottom bar 820px never draws (a nightly shard, 2026-11-17).
+ */
+export async function openSlideSettings(page: Page): Promise<void> {
+	await layoutSettled(page);
+	const direct = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
+	if (await direct.count()) return direct.first().click();
+	const more = page.getByRole('button', { name: CHROME.editorMore, exact: true }).filter({ visible: true });
+	if (await more.count()) {
+		await more.first().click();
+		await page.getByRole('menuitem', { name: CHROME.slideSettings }).click();
+		return;
 	}
+	await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
+	await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
+}
+
+/** Open the current slide's Slide settings at its Look section, at any width (see `openSlideSettings`). */
+export async function openSlideLook(page: Page): Promise<void> {
+	await openSlideSettings(page);
 	await openSection(page, CHROME.slideTab.look);
 }
 

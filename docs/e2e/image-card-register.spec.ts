@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, openInspectorTab, openSection, persistedSource, setEditorContent, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openInspectorTab, openSection, openSlideSettings, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // The `image-card:` register's two Studio surfaces: the deck Image tab in deck settings, and the
 // per-slide Image tab in Slide settings on an image slide. Asserted on the persisted source,
@@ -34,13 +34,7 @@ function slider(page: Page, name: string) {
 }
 
 async function openSlideImageTab(page: Page): Promise<void> {
-	// At 390px the bottom bar's Settings opens both scopes behind a Slide | Deck switch.
-	const slideButton = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
-	if (await slideButton.count()) await slideButton.first().click();
-	else {
-		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
-		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
-	}
+	await openSlideSettings(page);
 	await openSection(page, CHROME.slideTab.image);
 }
 
