@@ -650,11 +650,11 @@ test('@smoke the rail names the component the engine actually renders', async ({
 	const CASES: Array<[what: string, source: string, rail: string, painted: string]> = [
 		['the plain shape', '<!-- _class: kpi -->\n\n# One\n', 'kpi', 'kpi'],
 		// One stray character after the close. The engine stops seeing a directive; so must the rail.
-		['one character after the close', '<!-- _class: kpi -->.\n\n# One\n', 'text', 'content'],
-		['words after the close', '<!-- _class: kpi --> trailing\n\n# One\n', 'text', 'content'],
-		['prose before the open', 'text <!-- _class: kpi -->\n\n# One\n', 'text', 'content'],
+		['one character after the close', '<!-- _class: kpi -->.\n\n# One\n', 'content', 'content'],
+		['words after the close', '<!-- _class: kpi --> trailing\n\n# One\n', 'content', 'content'],
+		['prose before the open', 'text <!-- _class: kpi -->\n\n# One\n', 'content', 'content'],
 		// A deck that documents Lattice quotes a directive. That is a code sample, not an assignment.
-		['a directive quoted in a fence', '```md\n<!-- _class: kpi -->\n```\n\n# One\n', 'text', 'content'],
+		['a directive quoted in a fence', '```md\n<!-- _class: kpi -->\n```\n\n# One\n', 'content', 'content'],
 		// Two directives on ONE slide — what deleting a `---` to merge two slides leaves
 		// behind. The engine applies the LAST; the rail used to name the first, so it went on
 		// naming the slide that had just been absorbed.

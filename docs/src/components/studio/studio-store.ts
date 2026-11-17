@@ -286,8 +286,10 @@ export function checkpointMeta(cp: Checkpoint): string {
 /** "N slides", counting RENDERED slides — the PDF's count, heading splits included, so the deck
  *  chip agrees with the rail and the counter (docs/src/lib/fuoco). */
 export function slideCountLabel(rendered: number): string {
-	const n = rendered || 1;
-	return `${n} slide${n === 1 ? '' : 's'}`;
+	// An empty deck has none, and says so: it used to read "1 slide" beside a status bar's "0 slides"
+	// (2026-11-17-compose-empty-deck.md).
+	if (!rendered) return 'No slides';
+	return `${rendered} slide${rendered === 1 ? '' : 's'}`;
 }
 
 /**

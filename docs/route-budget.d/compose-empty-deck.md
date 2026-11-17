@@ -1,0 +1,3 @@
+studio: +1100
+An empty deck's start grid (`EmptyDeckStart`, which reuses the add-slide picker's `Tile` and `PreviewPool`), hosted in the editor pane so it survives Compose unmounting (the code review: a grid inside Compose rebuilt its preview frames on every return), the empty-state wiring in the shell, and `isBlankDeck`. CI measured +1059 against main; 4.5KB stays under the studio ceiling.
+Given back: lazy-loading the grid was tried and cost more (+1677, it split the picker into its own chunk); the sample-folder reader and `isBlankDeck` live in Studio-only modules, so the home page and the playground carry nothing from this PR.

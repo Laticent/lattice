@@ -46,14 +46,14 @@ test('@crosswidth each pane opens with its place, what it holds, and its title a
 	await expect(bars.nth(0)).toContainText('Left pane');
 	await expect(bars.nth(0)).toContainText('bar');
 	await expect(bars.nth(1)).toContainText('Right pane');
-	await expect(bars.nth(1)).toContainText('text');
+	await expect(bars.nth(1)).toContainText('content');
 	await expect(page.locator('h3.cs-pane-title')).toHaveCount(2);
 	await expect(page.locator('.cs-pane-marker')).toBeHidden();
 });
 
 test('@crosswidth the pane gallery says what each pick does, starts fresh with an Undo, and keeps the slide\'s Key Insight', async ({ page }) => {
 	await openPanes(page);
-	await page.getByRole('button', { name: /^Right pane holds text/ }).click();
+	await page.getByRole('button', { name: /^Right pane holds content/ }).click();
 	const gallery = page.getByRole('dialog', { name: 'Right pane: what it holds' });
 	await expect(gallery).toBeVisible();
 	// The outcome is on the tile before the pick: a list keeps the pane's text, a bar chart cannot.
@@ -72,7 +72,7 @@ test('@crosswidth the pane gallery says what each pick does, starts fresh with a
 
 test('@crosswidth a pick that keeps the text only names the component, and a title edit stays in place', async ({ page }) => {
 	await openPanes(page);
-	await page.getByRole('button', { name: /^Right pane holds text/ }).click();
+	await page.getByRole('button', { name: /^Right pane holds content/ }).click();
 	await page.getByRole('dialog', { name: 'Right pane: what it holds' }).getByRole('button', { name: /^Use list in the right pane/ }).click();
 	await expect.poll(() => deckSource(page)).toContain('<!-- _pane: list -->\n\n### What changed\n\n- Services crossed licenses');
 	await page.locator('h3.cs-pane-title').filter({ hasText: 'What changed' }).click();

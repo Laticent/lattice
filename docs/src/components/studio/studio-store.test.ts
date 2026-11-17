@@ -43,6 +43,7 @@ import {
 	saveSettings,
 	saveSource,
 	setDeckLabel,
+	slideCountLabel,
 	storedTitleFor,
 	syncDerivedTitle,
 	titleFromSource,
@@ -240,6 +241,10 @@ describe('studio-store — per-deck source', () => {
 	it('metaFor counts slides — agreeing with the rail splitter on tight separators', () => {
 		expect(metaFor('a\n\n---\n\nb\n\n---\n\nc')).toBe('3 slides');
 		expect(metaFor('only one')).toBe('1 slide');
+		// An empty deck says so; front matter alone is still empty (isBlankDeck).
+		expect(metaFor('')).toBe('No slides');
+		expect(metaFor('---\ntheme: cuoio\n---\n\n')).toBe('No slides');
+		expect(slideCountLabel(0)).toBe('No slides');
 		// Tight + trailing separators count the same as the live rail (splitSlides),
 		// not the old per-variant regex (which over/under-counted these).
 		expect(metaFor('# A\n---\n# B')).toBe('2 slides');

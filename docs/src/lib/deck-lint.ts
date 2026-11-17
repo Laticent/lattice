@@ -147,7 +147,7 @@ function paneMarkerLines(src: string): number {
 }
 
 /** The component label for a single slide — the class the ENGINE would apply to it, or
- *  `text` for a bare-Markdown slide. Drives the slide-navigator chips.
+ *  `content` for a bare-Markdown slide (the default component, named as Source names it). Drives the slide-navigator chips.
  *
  *  THE LAST directive, not the first, because that is what the engine applies — measured:
  *  `<!-- _class: big-number -->` … `<!-- _class: stats -->` on one slide renders `stats
@@ -164,9 +164,9 @@ export function slideClass(slideSrc: string): string {
 	if (found.length) {
 		const payload = found[found.length - 1].payload;
 		if (/(?:^|\s)(?:columns|rows)(?:\s|$)/.test(payload)) return 'panes';
-		return componentOf(payload) || (panes ? 'panes' : 'text');
+		return componentOf(payload) || (panes ? 'panes' : 'content');
 	}
-	return panes ? 'panes' : 'text';
+	return panes ? 'panes' : 'content';
 }
 
 // A slide's text as the class scan needs it (see `slideClasses`): '.' when it holds no comment, else the text with each long
@@ -225,9 +225,9 @@ export function slideClasses(texts: readonly string[]): string[] {
 	return texts.map((t, i) => {
 		const payload = dirs[i]?.payload ?? '';
 		const panes = paneMarkerLines(t) >= 2;
-		if (!payload) return panes ? 'panes' : 'text';
+		if (!payload) return panes ? 'panes' : 'content';
 		if (/(?:^|\s)(?:columns|rows)(?:\s|$)/.test(payload)) return 'panes';
-		return componentOf(payload) || (panes ? 'panes' : 'text');
+		return componentOf(payload) || (panes ? 'panes' : 'content');
 	});
 }
 

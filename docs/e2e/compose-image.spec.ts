@@ -63,6 +63,26 @@ test.describe('compose images', () => {
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 
+	// The Studio's own sample art (an example's portraits, `team-profile`) is a picture in Compose, as in the preview: it is
+	// served from the Studio's own folder, so drawing it reaches no other site (owner, 2026-11-17).
+	test('@crosswidth @webkit-phone sample art is drawn as the picture, not a box that names it', async ({ page }) => {
+		await gotoStudio(page);
+		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## A face', '', '![](sample:portrait-ada.svg)'].join('\n'));
+		const face = page.locator('.cs-img-btn img').first();
+		await expect(face).toBeVisible();
+		await expect.poll(() => face.evaluate((el: HTMLImageElement) => (el.complete ? el.naturalWidth : -1))).toBeGreaterThan(0);
+		await expect(page.locator('.cs-img-stand')).toHaveCount(0);
+	});
+
+	test('a sample name not in the folder is a stand-in that names it, not a broken image', async ({ page }) => {
+		await gotoStudio(page);
+		// Built, not written whole: test/unit/core/sample-images.test.js fails on any literal `sample:` name with no file.
+		const typo = ['sample:', 'portrait-nobody.svg'].join('');
+		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## A typo', '', `![](${typo})`].join('\n'));
+		await expect(page.locator('.cs-img-stand')).toContainText('portrait-nobody.svg');
+		await expect(page.locator('.cs-img-btn img')).toHaveCount(0);
+	});
+
 	test('a photo the Library does not hold is a stand-in that names it, not a broken image', async ({ page }) => {
 		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## Lost', '', '![Gone](asset:never-added)'].join('\n'));
 		await expect(page.locator('.cs-img-missing')).toContainText('never-added');

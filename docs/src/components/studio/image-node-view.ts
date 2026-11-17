@@ -6,7 +6,9 @@
 //   · A Library photo is drawn from the Studio's own name → URL map (media-urls.ts), the one the preview renders with, and
 //     it redraws when the Library changes.
 //   · An image the author embedded as a data URI is drawn as it is: its bytes are in the document already.
-//   · Anything else (a web address, `sample:` art, a relative file) is drawn as a stand-in that says what it is. The editor
+//   · The Studio's own `sample:` art is drawn from the Studio's own sample folder (the one the preview resolves into), so the
+//     portraits in an example like `team-profile` are pictures, not boxes. It reaches no other site (owner, 2026-11-17).
+//   · Anything else (a web address, a relative file) is drawn as a stand-in that says what it is. The editor
 //     fetches nothing the author did not put in the deck's own bytes, so opening a deck never reaches the network; the slide
 //     preview beside Compose draws the real picture, under the Studio's own web-image setting.
 //   · An old Marp `![bg right](…)` says so: Lattice draws it as a picture in the text since 2026-11-13, and Placement turns it
@@ -19,9 +21,9 @@
 
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
-import { assetNameOf, bgKeywords, imageSourceKind, placementAt } from '@/lib/compose/image-objects';
+import { assetNameOf, bgKeywords, imageSourceKind, placementAt, sampleNameOf } from '@/lib/compose/image-objects';
 import { openObjectEditor } from '@/lib/compose/inline-objects';
-import { ensureAssetUrls, onAssetUrlsChanged } from './media-urls';
+import { ensureAssetUrls, onAssetUrlsChanged, studioSamplesBase } from './media-urls';
 
 /** The Library's name → URL map, as of the last read. Empty until the first read finishes. */
 let urls: Record<string, string> = {};
@@ -84,6 +86,17 @@ class ImageView implements NodeView {
 		this.paint();
 	}
 
+	/** The stand-in for a picture the editor does not draw: a tile that says what it is. */
+	private standIn(text: string, missing: boolean): HTMLElement {
+		const tile = document.createElement('span');
+		tile.className = `cs-img-stand${missing ? ' cs-img-missing' : ''}`;
+		const label = document.createElement('span');
+		label.className = 'cs-img-stand-label';
+		label.textContent = text;
+		tile.append(label);
+		return tile;
+	}
+
 	paint(): void {
 		const src = String(this.node.attrs.src ?? '');
 		const alt = String(this.node.attrs.alt ?? '');
@@ -102,23 +115,21 @@ class ImageView implements NodeView {
 
 		// The engine matches a name without regard to case, and a name is never an object's own property (`asset:constructor`).
 		const key = name?.toLowerCase() ?? '';
-		const url = kind === 'asset' && name ? (Object.hasOwn(urls, key) ? urls[key] : null) : kind === 'data' ? src : null;
+		const sample = kind === 'sample' ? sampleNameOf(src) : null;
+		const samples = sample ? studioSamplesBase() : null;
+		const url = kind === 'asset' && name ? (Object.hasOwn(urls, key) ? urls[key] : null) : kind === 'data' ? src : sample && samples ? new URL(sample, samples).href : null;
 		if (url) {
 			const img = document.createElement('img');
 			img.src = url;
 			// The alt is the author's description of the picture; a background's alt is a directive, not a description.
 			img.alt = bg ? '' : alt;
 			img.draggable = false;
+			// A sample name that is not in the folder (a typo) 404s: show the stand-in that names it, never a broken image.
+			if (kind === 'sample') img.onerror = () => img.replaceWith(this.standIn(describe(src, alt), false));
 			this.btn.append(img);
 		} else {
 			const missing = kind === 'asset' && loaded;
-			const tile = document.createElement('span');
-			tile.className = `cs-img-stand${missing ? ' cs-img-missing' : ''}`;
-			const label = document.createElement('span');
-			label.className = 'cs-img-stand-label';
-			label.textContent = kind === 'asset' ? (missing ? `Photo not in this Library: ${name}` : `Loading ${name}…`) : describe(src, alt);
-			tile.append(label);
-			this.btn.append(tile);
+			this.btn.append(this.standIn(kind === 'asset' ? (missing ? `Photo not in this Library: ${name}` : `Loading ${name}…`) : describe(src, alt), missing));
 		}
 		if (placedHere) {
 			const badge = document.createElement('span');
