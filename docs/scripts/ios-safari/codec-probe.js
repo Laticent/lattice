@@ -15,7 +15,7 @@
  */
 
 async function latticeCodecProbe(files) {
-	const out = { ua: navigator.userAgent, decode: {}, encoder: {}, decoder: {}, roundTrip: {} };
+	const out = { ua: navigator.userAgent, width: innerWidth, decode: {}, encoder: {}, decoder: {}, roundTrip: {} };
 	const bytesOf = (b64) => {
 		const bin = atob(b64);
 		const u = new Uint8Array(bin.length);
