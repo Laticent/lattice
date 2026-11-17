@@ -18,6 +18,7 @@ src/lib/*/LICENSE
 # portal copies staged from ../docs by scripts/sync-portal.mjs
 public/components.html
 public/components.md
+public/agents/
 public/gallery.pdf
 # engine + palette stylesheets + runtime, staged for the playground at build
 # time into a content-hashed dir (scripts/sync-playground-assets.mjs)
