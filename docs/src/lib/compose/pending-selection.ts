@@ -7,7 +7,9 @@ import type { EditorView } from 'prosemirror-view';
  * dispatched before that event is read is built on the OLD selection, and `updateState` writes the state's selection
  * back to the DOM: the arrow the author just pressed is undone. Compose dispatches from timers and loaders as well as
  * from input (the code-highlight poll, every 400 ms for up to 12 s after a deck opens; the inline-object pass when the
- * pill kernels load), so a caret key pressed at the wrong moment was thrown away. Logged in-page on
+ * pill kernels load; the change flash clearing itself after an undo or redo; a Markdown paste resuming after its
+ * `await`), so a caret key or a click at the wrong moment was thrown away. The flash's clear threw away a CLICK into
+ * another slide: the typing that followed landed where the caret had been (compose-flash-caret.spec.ts). Logged in-page on
  * compose-pill-editor.spec.ts: the first ArrowRight of a walk moved the caret from 0 to 1, a `selectionchange` then
  * found it back at 0, and the walk ended one step short of the pill.
  *

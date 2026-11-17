@@ -3261,6 +3261,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// the add-slide gallery, a Markdown round trip), and each one used to silently unfold
 		// everything. Read first, restore after — the doc the keys are matched against has to be
 		// the new one.
+		// A resync can start with no key or click (a co-editor's change in a live session, a held change settling on a
+		// timer), and the caret it keeps is read from the state below: read a click ProseMirror has not taken in yet first,
+		// or the rebuilt state puts the caret back on the slide the author just left (pending-selection.ts).
+		takePendingSelection(view);
 		const folded = collapsedKeys(view.state);
 		const before = view.state.doc;
 		const doc = deckToDoc(src);
