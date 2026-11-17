@@ -362,8 +362,11 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await bothHold(pair, (s) => s.includes('Body one.に'), "the guest's composing character crossed");
 		// The host empties the whole deck in Source while the guest is still composing.
 		await setEditorContent(host, '');
-		await expect.poll(() => sourceOf(host), { message: 'the host emptied the deck' }).toBe('');
-		// Held for the composition: the guest's editor still shows its text, so no start grid over it.
+		// On BOTH sides before the guest's next keystroke, as the test above waits. With only the host's side checked, a
+		// keystroke that beats the empty deck to the guest is an ordinary edit, not a refused one, and no notice comes: the
+		// likely cause of the 1 failure in 10 repeats on PR 3288, whose error that run did not keep.
+		await bothHold(pair, (s) => s === '', 'the host emptied the deck');
+		// Held for the composition: the guest's deck is empty, but its editor still shows its text, so no start grid over it.
 		await expect(guest.locator('.cs-host .cs-slide').first(), 'the guest still sees its composing text').toContainText('に');
 		await expect(grid, 'the start grid appeared over the guest\'s composing text').toBeHidden();
 		// The guest's IME turns its character into another: an edit to text the host has removed, refused.
