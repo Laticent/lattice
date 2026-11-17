@@ -27,6 +27,9 @@ describe('policyFor', () => {
 		expect(scriptHashes(html1)).toEqual([sha256('real()')]);
 		const html2 = page('<style>/* <script>x</script> */ a{}</style><script>y()</script>');
 		expect(scriptHashes(html2)).toEqual([sha256('y()')]);
+		// An end tag with attributes or whitespace is valid HTML and still closes the script.
+		const html3 = page('<script>z()</script\t\n foo><script>w()</script >');
+		expect(scriptHashes(html3).sort()).toEqual([sha256('z()'), sha256('w()')].sort());
 	});
 
 	it('allows nothing it was not given: no inline handlers, no eval, no other origin', () => {

@@ -41,29 +41,29 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fromHtml } from 'hast-util-from-html';
+import { selectAll } from 'hast-util-select';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
 
 const META_RE = /<meta http-equiv="Content-Security-Policy" content="[^"]*">/gi;
-// ONE left-to-right scan over comments, scripts and styles, the way the HTML parser reads them:
-// whichever opens first owns the text up to its own close. Matching each kind in its own pass
-// got this wrong: an HTML comment that says `<style>` (SiteHeader's) started a phantom element
-// whose close swallowed the real one, so its hash was of the wrong bytes. A comment or a style
-// that says `<script>` would do the same to a script hash.
-const RAW_RE = /<!--[\s\S]*?-->|<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi;
 // A data block (JSON, ld+json) is never run, so CSP does not govern it and it needs no hash.
-const isDataBlock = (attrs) => /\btype=["']?application\/(?:ld\+)?json/i.test(attrs);
+const isDataBlock = (type) => /^application\/(?:ld\+)?json$/i.test(String(type ?? '').trim());
 
 export const sha256 = (text) => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
 
 /** The policy for one page, from the final bytes of its inline scripts. */
 export function policyFor(html) {
+	// Parse the page the way the browser does (parse5, via hast) and hash each inline script's
+	// text exactly as the parser hands it over. Pattern-matching the markup got this wrong twice
+	// (an HTML comment that says `<style>` swallowed a real element; an end tag such as
+	// `</script foo>` is valid HTML that a regex misses), and a hash of the wrong bytes blocks
+	// the script it was meant to allow.
 	const scripts = new Set();
-	for (const [whole, scriptAttrs, scriptBody] of html.matchAll(RAW_RE)) {
-		if (whole.startsWith('<!--') || scriptBody === undefined) continue;
-		if (/\bsrc=/i.test(scriptAttrs) || isDataBlock(scriptAttrs)) continue;
-		scripts.add(sha256(scriptBody));
+	for (const el of selectAll('script', fromHtml(html))) {
+		if (el.properties.src !== undefined || isDataBlock(el.properties.type)) continue;
+		scripts.add(sha256(el.children.map((c) => (c.type === 'text' ? c.value : '')).join('')));
 	}
 	return [
 		"default-src 'self'",
