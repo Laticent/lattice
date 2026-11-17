@@ -264,8 +264,16 @@ test.describe('notes and motion in Compose', () => {
 		// Slide Two's own control (the toolbar's Delete slide acts on the slide with the caret).
 		await page.locator('.cs-slide', { hasText: 'Body two.' }).getByRole('button', { name: 'Delete slide' }).click();
 		await page.getByRole('button', { name: 'Confirm delete slide' }).click();
-		await expect.poll(() => savedDeck(page)).toContain('<!-- old note EDITED -->');
-		expect(await savedDeck(page)).not.toContain('## Two');
+		// ONE SAVED DECK HOLDS BOTH. Pressing Delete blurs the note, and that blur saves a deck that still has slide Two;
+		// the delete's own save lands after it. Reading the deck once, after the note's save, sometimes read that first save
+		// (gecko, 9 in 24 at 4 workers). Waiting for a single snapshot with the note kept AND the slide gone asks for the end
+		// state the test is about, and a lost note or a delete that never saves still fails it.
+		await expect
+			.poll(async () => {
+				const deck = await savedDeck(page);
+				return { noteKept: deck.includes('<!-- old note EDITED -->'), slideGone: !deck.includes('## Two') };
+			})
+			.toEqual({ noteKept: true, slideGone: true });
 	});
 
 	test('@crosswidth @gecko @webkit-tablet Remove on a folded slide never sends the next keys into its hidden text', async ({ page }) => {
