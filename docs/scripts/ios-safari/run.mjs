@@ -278,14 +278,26 @@ async function deckTapLeavesLibrary(id) {
 			step('a phone layout to tap on', true, `not applicable at ${width}px: the Library docks here`);
 			return { ok: true, steps };
 		}
-		const REPS = 5;
+		const REPS = 10;
 		let passed = 0;
 		for (let i = 1; i <= REPS; i++) {
 			if (i > 1) await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
 			await until(`return !!document.querySelector('[aria-label="Live deck preview"] iframe.live')`, 30000, 'the live preview');
+			// Every touch, pointer, mouse and click event from here on, with its target: read back only when a tap fails. Installed
+			// now, not between the sheet and the tap, so it adds no round trip to the window under test.
+			await run(tapLogInstall());
 			const menu = await until(centerOf(`() => [...document.querySelectorAll('button[aria-label="Menu"]')].find(${live})`), 15000, 'the Menu button');
 			await touch(menu.x, menu.y);
-			const row = await until(centerOf(`() => [...document.querySelectorAll('[role=dialog][data-state=open] button')].find((b) => (${live})(b) && b.textContent.trim().startsWith('Library'))`), 15000, 'the Library row');
+			// The row's point once the menu has stopped sliding: two reads in a row agree. One read taken while it slid in touched
+			// the next row down (Live) on run 43996905347.
+			const rowAt = centerOf(`() => [...document.querySelectorAll('[role=dialog][data-state=open] button')].find((b) => (${live})(b) && b.textContent.trim().startsWith('Library'))`);
+			let row = await until(rowAt, 15000, 'the Library row');
+			for (let k = 0; k < 40; k++) {
+				await new Promise((r) => setTimeout(r, 50));
+				const again = await until(rowAt, 15000, 'the Library row');
+				if (again.x === row.x && again.y === row.y) break;
+				row = again;
+			}
 			await touch(row.x, row.y);
 			await until(`return [...document.querySelectorAll('[role=dialog][data-state=open]')].some((d) => /Library/.test(d.querySelector('h2,[data-slot=sheet-title]')?.textContent ?? ''))`, 15000, 'the Library sheet');
 			// The deck band above the sheet, where a thumb reaches for "get out".
@@ -302,7 +314,7 @@ async function deckTapLeavesLibrary(id) {
 				await new Promise((r) => setTimeout(r, 100));
 			}
 			if (settled) passed++;
-			step(`tap ${i}: the deck band closes the Library`, settled, settled ? '' : `still ${last} after 5 s`);
+			step(`tap ${i}: the deck band closes the Library`, settled, settled ? '' : `still ${last} after 5 s; ${summarizeTapLog(await run('return window.__tapLog'))}`);
 		}
 		const ok = passed === REPS;
 		return { ok, steps, ...(ok ? {} : { error: `${REPS - passed} of ${REPS} deck taps left the Library open` }) };
