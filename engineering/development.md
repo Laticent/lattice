@@ -615,6 +615,10 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   that a finding leaves with its slide (engineering/decisions/2026-10-26-photo-contrast-coach.md). The two were one suite
   until it ran out of its 30 minutes on a slow runner (#2961); split, each runs only when its own code changes. Each iOS
   suite's `paths` name its own probe plus the shared `run.sh` and `run.mjs` (and `show-editor.js` for the suites that load it), so a probe edit runs one suite, not all of them.
+  On the iPhone, the Studio suite also runs `icon-grid-probe.js` (#2578): Menu → Search / commands → Insert an icon…, a pick
+  from the source pane (the span lands at the caret) and one from the Preview pane (copied, with a toast), each pick a real
+  WebDriver touch tap because the clipboard write needs a user gesture; `PROBE=icon-grid node scripts/ios-safari/probe.selftest.mjs`
+  runs it on Playwright's WebKit first.
   The Studio probes reach the editor through one helper, `show-editor.js` (`latticeShowDeckEditor`, sent ahead of each probe):
   on a phone it taps the Markdown source pane every 2 s until the editor shows, because a tap before the Studio hydrates does
   nothing, and it never taps a button inside the inert pre-paint skeleton, whose look-alike buttons do nothing. Each probe used

@@ -18,7 +18,14 @@
 // Match a leading `---` block AND any fully-blank lines that follow it, so
 // stripping the block leaves the body flush — WITHOUT eating a content line's own
 // leading indentation (each consumed blank line must end in a newline).
-const FM_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n(?:[ \t]*\r?\n)*)?/;
+// A leading BOM belongs to the block: the engine drops it before it looks for front matter
+// (S0, lib/core/deck-model.mjs), so `\uFEFF---` opens the deck's settings there, and the Studio
+// reads the same block (followups.d/3042-p3, now closed). Writers keep the BOM where it was.
+const FM_RE = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n(?:[ \t]*\r?\n)*)?/;
+/** The block's opening line, its BOM included, so an offset past it indexes the source. */
+const FM_OPEN_RE = /^\uFEFF?---[ \t]*\r?\n/;
+/** A leading byte-order mark, or ''. */
+const bomOf = (src: string) => (src.charCodeAt(0) === 0xfeff ? '\uFEFF' : '');
 
 /** The raw leading front-matter block (incl. delimiters + trailing newline), or ''. */
 export function frontMatterBlock(source: string): string {
@@ -202,7 +209,7 @@ export function frontMatterKeySpan(source: string, key: string): { start: number
 	const src = String(source ?? '');
 	const m = FM_RE.exec(src);
 	if (!m) return null;
-	const open = /^---[ \t]*\r?\n/.exec(m[0]);
+	const open = FM_OPEN_RE.exec(m[0]);
 	if (!open) return null;
 	const lines = m[1].split('\n'); // '\r' stays attached to the line, like `parseFm`'s own split
 	const bare = (raw: string) => raw.slice(0, raw.length - (raw.endsWith('\r') ? 1 : 0));
@@ -282,14 +289,14 @@ function removeKeySpan(src: string, span: { start: number; end: number }): strin
 	// re-parsing the result: `FM_RE` does not match a degenerate `---\n---`, so the naive
 	// re-parse reports "no block" and leaves the empty delimiters stranded in the source.
 	const m = FM_RE.exec(src);
-	const open = m && /^---[ \t]*\r?\n/.exec(m[0]);
+	const open = m && FM_OPEN_RE.exec(m[0]);
 	if (m && open) {
 		const innerStart = open[0].length;
 		const innerEnd = innerStart + m[1].length;
 		const remaining = src.slice(innerStart, span.start) + src.slice(end, innerEnd);
 		// Nothing but blanks left → drop the whole block, so clearing the last directive
 		// leaves the deck exactly as clean as it was before the first one was set.
-		if (!remaining.trim()) return src.slice(m[0].length);
+		if (!remaining.trim()) return `${bomOf(src)}${src.slice(m[0].length)}`;
 	}
 	return `${src.slice(0, span.start)}${src.slice(end)}`;
 }
@@ -323,7 +330,7 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
 		// dead one count instead, or an indented one the reader falls back to (Lattice #3050, D1). A key nested under a block
 		// is never the deck's, so `frontMatterKeySpan` never returns it.
 		// Stop once the block is gone: what follows is slide content, and a `---` run there must never be read as it.
-		const dropped = (before: string, after: string) => after === before.slice(FM_RE.exec(before)?.[0].length ?? 0);
+		const dropped = (before: string, after: string) => after === bomOf(before) + before.slice(FM_RE.exec(before)?.[0].length ?? 0);
 		let out = removeKeySpan(src, span);
 		let more = !dropped(src, out);
 		while (more) {
@@ -338,7 +345,7 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
 	if (span) return `${src.slice(0, span.start)}${span.indent}${key}: ${quoteIfNeeded(value)}${src.slice(span.end)}`;
 	const m = FM_RE.exec(src);
 	if (m) {
-		const open = /^---[ \t]*\r?\n/.exec(m[0]);
+		const open = FM_OPEN_RE.exec(m[0]);
 		if (open) {
 			const eol = m[0].includes('\r\n') ? '\r\n' : '\n';
 			const at = open[0].length + m[1].length; // end of the inner body, before the closing `---`
@@ -346,7 +353,8 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
 		}
 	}
 	const eol = src.includes('\r\n') ? '\r\n' : '\n';
-	return `---${eol}${key}: ${quoteIfNeeded(value)}${eol}---${eol}${eol}${src.replace(/^(?:[ \t]*\r?\n)+/, '')}`;
+	const bom = bomOf(src);
+	return `${bom}---${eol}${key}: ${quoteIfNeeded(value)}${eol}---${eol}${eol}${src.slice(bom.length).replace(/^(?:[ \t]*\r?\n)+/, '')}`;
 }
 
 /**
@@ -366,7 +374,7 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
 export function frontMatterBlockSpan(source: string, key: string): { start: number; end: number } | null {
 	const src = String(source ?? '');
 	const m = FM_RE.exec(src);
-	const open = m && /^---[ \t]*\r?\n/.exec(m[0]);
+	const open = m && FM_OPEN_RE.exec(m[0]);
 	if (!m || !open) return null;
 	const lines = m[1].split('\n');
 	const bare = (raw: string) => raw.slice(0, raw.length - (raw.endsWith('\r') ? 1 : 0));
@@ -417,12 +425,14 @@ export function writeFrontMatterBlock(source: string, key: string, children: rea
 	}
 	const span = frontMatterBlockSpan(src, key);
 	if (span) return `${src.slice(0, span.start)}${text}${src.slice(span.end)}`;
-	const open = fm && /^---[ \t]*\r?\n/.exec(fm[0]);
+	const open = fm && FM_OPEN_RE.exec(fm[0]);
 	if (fm && open) {
 		const end = open[0].length + fm[1].length;
 		return `${src.slice(0, end)}${eol}${text}${src.slice(end)}`;
 	}
-	return `---${eol}${text}${eol}---${eol}${eol}${src.replace(/^(?:[ \t]*\r?\n)+/, '')}`;
+	// A new block goes after a leading BOM, as `writeFrontMatterLine` puts it: the BOM stays in front, never in the body.
+	const bom = bomOf(src);
+	return `${bom}---${eol}${text}${eol}---${eol}${eol}${src.slice(bom.length).replace(/^(?:[ \t]*\r?\n)+/, '')}`;
 }
 
 /** A root nested block's text (`key:` and its children, LF line endings), or '' when absent — what

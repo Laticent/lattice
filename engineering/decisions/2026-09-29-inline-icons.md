@@ -717,3 +717,20 @@ most runs: a probe that does not wait for the paint measures the network, not th
 stale. What differs from #2558's runs is not knowable without its script. If it comes back, the probe
 above is the place to start, with the frame captured while still loading, since a stale scale would
 show between the first paint and the fit.
+
+## 19. Seen on the real surfaces (2026-11-16, #2578)
+
+§16 and §17 were emulated where they shipped. Both have now run on the surface a person uses.
+
+**The Export-to-Marp bundle in VS Code's Marp preview.** VS Code desktop 1.146.0 under xvfb, Marp for VS Code 3.6.1
+from Open VSX, the bundle of `examples/inline-icons.md` (`npm run export:marp`), opened as its README says: the folder
+trusted, then step 6, the preview's security level set to Disable so the deck's own scripts run. Every icon draws: the
+four looks of the table, the framed and bare icons in a sentence, the pills, the card corners. At the default level
+(Strict) the preview shows the banner "Some content has been disabled" and the spans stay code, which is the README's
+step 6 and engineering/gotchas/vscode.md's settled answer, not a defect. The harness is the recipe in that gotcha,
+with the X display captured by ImageMagick's `import` instead of a debugging port; none of it is committed.
+
+**The icon grid on an iPhone.** The iPhone's Studio platform suite (`ios-safari-studio-iphone`) now runs
+`docs/scripts/ios-safari/icon-grid-probe.js`: Menu → Search / commands → Insert an icon…, then a real WebDriver touch tap
+on the first icon, from the source pane (the span lands at the caret) and from the Preview pane (no editor takes it; the
+clipboard gets it and a toast says so). The run is linked on PR #2578's closing pull request.

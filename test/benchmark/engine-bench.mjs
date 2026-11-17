@@ -459,7 +459,7 @@ async function studioBoundaryReaders() {
   }
 }
 function boundaryKeystrokes(readers, src) {
-  if (!readers) return { parses: null, ms: null, metaMs: null, drawerMs: null };
+  if (!readers) return { parses: null, deckParses: null, extraLines: null, ms: null, metaMs: null, drawerMs: null };
   const { sb, scanMetaSource, commentBlocks, readMetaField, stats } = readers;
   const classReads = (t) => {
     if (!commentBlocks) return;
@@ -475,21 +475,36 @@ function boundaryKeystrokes(readers, src) {
   sb.slideBoundaries(sampleOf(text));
   classReads(text);
   const before = stats.full;
+  const decksBefore = stats.fullDecks ?? 0;
+  const chunksOf = (t) => sb.splitSlideChunks(t.slice(sb.frontMatterBlockOf(t).length)).chunks;
+  let extra = 0;
   const times = [];
   const N = 10;
   for (let i = 0; i < N; i++) {
     // A character typed at the end of a line in the deck's middle slide, as an author types.
     const at = text.indexOf('\n', Math.floor(text.length / 2));
+    const was = chunksOf(text);
     text = at < 0 ? `${text}x` : `${text.slice(0, at)}x${text.slice(at)}`;
+    // The lines of the slide the keystroke changed: what a parse of that slide alone has to read.
+    const now = chunksOf(text);
+    const k = now.findIndex((c, j) => c !== was[j]);
+    const slideLines = k < 0 ? 0 : now[k].split('\n').length - (now[k].endsWith('\n') ? 1 : 0);
+    const linesAt = stats.fullLines ?? 0;
     const sample = sampleOf(text);
     const t = process.hrtime.bigint();
     scanMetaSource(text);
     sb.slideBoundaries(sample);
     classReads(text);
     times.push(Number(process.hrtime.bigint() - t) / 1e6);
+    // Lines parsed from nothing this keystroke past the edited slide's own (none when nothing was parsed).
+    extra += Math.max(0, (stats.fullLines ?? 0) - linesAt - slideLines);
   }
   times.sort((a, b) => a - b);
   const parses = round2((stats.full - before) / N);
+  // `deckParses`: parses from nothing of a text holding more than one slide. `extraLines`: lines those parses read past the
+  // edited slide's own, per keystroke; 0 means every parse from nothing read only the slide the keystroke changed.
+  const deckParses = stats.fullDecks === undefined ? null : round2((stats.fullDecks - decksBefore) / N);
+  const extraLines = stats.fullLines === undefined ? null : round2(extra / N);
   // THE RECORD NOTE'S KEYSTROKE BENCH (step 3): the two slide-metadata reads on their own, after the work-counted loop
   // above so they move no `parses`. `metaMs`: `scanMetaSource` over the whole deck, the linter's per-keystroke scan.
   // `drawerMs`: the drawer's `readMetaField(chunk, 'class')` on every slide, which on a record slide reads and parses
@@ -509,7 +524,7 @@ function boundaryKeystrokes(readers, src) {
     drawer.push(Number(process.hrtime.bigint() - t1) / 1e6);
   }
   const median = (a) => (a.length ? a.sort((x, y) => x - y)[Math.floor(a.length / 2)] : null);
-  return { parses, ms: times[Math.floor(N / 2)], metaMs: median(meta), drawerMs: median(drawer) };
+  return { parses, deckParses, extraLines, ms: times[Math.floor(N / 2)], metaMs: median(meta), drawerMs: median(drawer) };
 }
 
 async function editTier() {
@@ -570,6 +585,8 @@ async function editTier() {
       burstMs,
       burstTypesets,
       parses: studio.parses,
+      deckParses: studio.deckParses,
+      extraLines: studio.extraLines,
       parseMs: studio.ms,
       metaMs: studio.metaMs,
       drawerMs: studio.drawerMs,
@@ -577,7 +594,7 @@ async function editTier() {
   }
 
   console.log('\n=== EDIT \u00b7 warm re-render per keystroke ===');
-  console.log(`${'dataset'.padEnd(28)}${'ms/key'.padStart(9)}${'scan ms/key'.padStart(13)}${'typesets/key'.padStart(14)}${`burst ${EDIT_BURST} ms`.padStart(13)}${'burst typesets'.padStart(16)}${'parses/key'.padStart(12)}${'bounds ms/key'.padStart(15)}${'meta ms/key'.padStart(13)}${'drawer ms/key'.padStart(15)}`);
+  console.log(`${'dataset'.padEnd(28)}${'ms/key'.padStart(9)}${'scan ms/key'.padStart(13)}${'typesets/key'.padStart(14)}${`burst ${EDIT_BURST} ms`.padStart(13)}${'burst typesets'.padStart(16)}${'parses/key'.padStart(12)}${'bounds ms/key'.padStart(15)}${'meta ms/key'.padStart(13)}${'drawer ms/key'.padStart(15)}${'deck parses/key'.padStart(17)}${'extra lines/key'.padStart(17)}`);
   for (const r of summary) {
     const tps = r.typesets === null ? 'n/a' : r.typesets.toFixed(1);
     const burst = r.burstTypesets === null ? 'n/a' : String(r.burstTypesets);
@@ -586,7 +603,7 @@ async function editTier() {
     const mms = r.metaMs == null ? 'n/a' : r.metaMs.toFixed(2);
     const dms = r.drawerMs == null ? 'n/a' : r.drawerMs.toFixed(2);
     console.log(
-      `${r.dataset.padEnd(28)}${r.ms.toFixed(2).padStart(9)}${r.scanMs.toFixed(2).padStart(13)}${tps.padStart(14)}${r.burstMs.toFixed(1).padStart(13)}${burst.padStart(16)}${parses.padStart(12)}${pms.padStart(15)}${mms.padStart(13)}${dms.padStart(15)}`,
+      `${r.dataset.padEnd(28)}${r.ms.toFixed(2).padStart(9)}${r.scanMs.toFixed(2).padStart(13)}${tps.padStart(14)}${r.burstMs.toFixed(1).padStart(13)}${burst.padStart(16)}${parses.padStart(12)}${pms.padStart(15)}${mms.padStart(13)}${dms.padStart(15)}${(r.deckParses == null ? 'n/a' : r.deckParses.toFixed(1)).padStart(17)}${(r.extraLines == null ? 'n/a' : r.extraLines.toFixed(1)).padStart(17)}`,
     );
   }
   return { summary };
@@ -2091,6 +2108,7 @@ function blessBaseline(summary, render, opts = {}) {
     scanMs: round2(s.scanMs),
     burstMs: round2(s.burstMs),
     ...(s.parses === null ? {} : { parses: s.parses, parseMs: round2(s.parseMs) }),
+    ...(s.deckParses == null ? {} : { deckParses: s.deckParses, extraLines: s.extraLines }),
     ...(s.metaMs == null ? {} : { metaMs: round2(s.metaMs) }),
     ...(s.drawerMs == null ? {} : { drawerMs: round2(s.drawerMs) }),
   }));
@@ -2528,9 +2546,16 @@ function checkBaseline(summary, render, opts = {}) {
       // A baseline number this run could not measure (the readers failed to load) is drift, never a silent pass.
       const parsesLost = !parsesKnown && typeof b.parses === 'number';
       if (parsesNew || parsesLost) drift = true;
-      const worse = s2.typesets > (b.typesets ?? 0) + 0.005 || s2.burstTypesets > (b.burstTypesets ?? 0) || parsesWorse;
-      const verdict = worse ? (parsesWorse ? 'REGRESSION (more parses from nothing)' : 'REGRESSION (more typesets)')
-        : (tpsMoved || burstMoved || parsesMoved) ? 'less work — re-bless to ratchet' : parsesNew ? 'NEW parses column (re-bless)' : parsesLost ? 'parses NOT MEASURED (readers failed to load)' : 'ok';
+      // `deckParses` (a parse from nothing of more than one slide) and `extraLines` (lines such parses read past the edited
+      // slide): gated the same way, so a reader that starts re-reading the deck from nothing per keystroke is a regression
+      // even while `parses` holds at the one-slide read.
+      const wideKnown = s2.deckParses != null && typeof b.deckParses === 'number';
+      const wideWorse = wideKnown && (s2.deckParses > b.deckParses + 0.005 || s2.extraLines > b.extraLines + 0.005);
+      const wideMoved = wideKnown && (Math.abs(s2.deckParses - b.deckParses) > 0.005 || Math.abs(s2.extraLines - b.extraLines) > 0.005);
+      if (s2.deckParses != null && b.deckParses === undefined) drift = true;
+      const worse = s2.typesets > (b.typesets ?? 0) + 0.005 || s2.burstTypesets > (b.burstTypesets ?? 0) || parsesWorse || wideWorse;
+      const verdict = worse ? (parsesWorse || wideWorse ? 'REGRESSION (more parses from nothing)' : 'REGRESSION (more typesets)')
+        : (tpsMoved || burstMoved || parsesMoved || wideMoved) ? 'less work — re-bless to ratchet' : parsesNew ? 'NEW parses column (re-bless)' : parsesLost ? 'parses NOT MEASURED (readers failed to load)' : 'ok';
       if (worse) regressedDatasets.push(s2.dataset);
       if (verdict.startsWith('less work')) won = true;
       console.log(

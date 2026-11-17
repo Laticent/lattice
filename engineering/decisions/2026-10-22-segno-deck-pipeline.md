@@ -737,7 +737,8 @@ docblock are gone (lint-core.js: 28 lines in, 255 out).
   slides apart (a BOM also hid the front matter from the split), so rule 12 read another slide. `lintTextWith` now
   drops a leading BOM and folds a lone `\r` to `\n` first, which no tracked file has, so the corpus is unchanged.
 
-**Still owed, and why.**
+**Still owed, and why.** *(Superseded 2026-11-16: every item below is closed or owned elsewhere; see §The last P3
+islands.)*
 
 - **The front matter, through the register grammar**, and **the Mermaid fence matcher.** Each changes the bytes an
   export bakes (a BOM-led deck's front matter; a fence inside an HTML block), so each waits for the owner's sign-off on
@@ -748,6 +749,9 @@ docblock are gone (lint-core.js: 28 lines in, 255 out).
   already read. The register GRAMMAR named here was not built: the island is a regex fence and a line loop, not a
   Segno-generated parser, and whether one should replace it is open for the owner
   (followups.d/3042-p2-front-matter-register-grammar.md). 2026-11-13-squadra-replaces-lint-core.md §11.)*
+  *(2026-11-16: the register grammar landed, a Segno grammar for the fence and each line plus a driver for where a block
+  scalar's body ends, the one rule no context-free grammar can state. 2026-11-13-squadra-replaces-lint-core.md §11,
+  "The register grammar landed".)*
 - **lint-core's other comment scans.** About sixteen sites still find `<!--` by regex or `indexOf`. Some read the
   RENDERED body (`withoutHtmlComments`, the unterminated-comment rule), where a browser's comment rules, inline
   comments included, are the right model, so they are not islands. The rest each need their own look, one at a time,
@@ -796,7 +800,8 @@ against 148.6 KB). So it is injected instead (lib/core/slide-boundaries.mjs `set
 front-matter reader (docs/src/lib/front-matter.ts `FM_RE`) swallows the blank lines after the closing `---`, and the
 engine's split keeps them in the body, so the two models' line numbers differ by those lines. A first cut handed the
 outline's model to the memo; it helped only a deck with no front matter, so it went. Sharing one model needs one
-front-matter split, which is followups.d/3042-p3 (`frontMatterBlock` and its nine writers). The preview's sample is a
+front-matter split. (followups.d/3042-p3-outline-front-matter-after-a-bom.md was the BOM half of that and is closed, §The last P3 islands; the blank lines
+the Studio's block swallows still differ.) The preview's sample is a
 third string by design.
 
 Held by a differential in test/unit/core/slide-boundaries.test.js: a random walk of 1,000 edits over corpus-shaped
@@ -852,3 +857,115 @@ unterminated CDATA flood in foreign content was quadratic (about 15,000 characte
 with the same reuse rule as `nx_<code>`, and keeps it across parses while the input is the same text (compared by
 value, so a copy keeps it); a different text resets it. `nx_<code>` is unchanged and still resets per parse. A grammar
 without stops generates exactly as before. The same CDATA input now covers 2.6 times its length through R3.
+
+## The last P3 islands, and math decks splice (2026-11-16)
+
+**Where each P3 island went.** §P3 islands left four readers on their own scans. None is left on this pipeline's
+list:
+
+| Reader | Where it went |
+|---|---|
+| The Mermaid fence matcher (`mermaid-fences.js`) | Deleted by the plugin contract's D2 slice 3 and 4: every reader of a plugin's fences reads the engine's own block parse, `pluginFences` (lib/core/plugin-fences.mjs; engineering/decisions/2026-11-06-plugin-patterns.md §4). That parse is markdown-it as the engine configures it, so it is the engine's answer, not an approximation of it; it moves onto the model when P7 removes markdown-it |
+| `comments()`, the notes channel's reader (lib/core/meta-record.mjs) | **Moved here, below** |
+| `parseFrontMatter` | The front-matter island (PR #3228, landed 2026-11-16; engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §11), and the register grammar under it (lib/core/front-matter-grammar.js, this PR; §11 "The register grammar landed") |
+| lint-core's ~16 comment scans | Out of this pipeline: Squadra deletes lint-core.js (followups.d/3194-p1-squadra-replaces-lint-core.md, §8 "lint-core.js is gone") |
+
+followups.d/3042-p1-segno-p3-the-remaining-islands.md is deleted with this change.
+
+**`comments()` reads the deck model.** It was a text scan that skipped `fenceRanges` (lib/core/fence-ranges.mjs, a
+fence scan of its own). It now takes each `<!--` by the block the model says holds it:
+
+- inside an HTML block (a comment block, or a `<div>` block it folds into): a comment, closed by the first `-->` after
+  it, as the block renders raw;
+- inside a leaf (a paragraph, a heading): a comment only if its `-->` is in the same leaf, because markdown-it's
+  `html_inline` reads only the leaf's own text;
+- inside a table row: markdown-it's own answer, because where a cell ends is the table rule's split (escaped pipes, and
+  cells past the header's count dropped), and a cell has no line range in the model. Only a slide with an opener on a
+  table row pays for that parse;
+- anywhere else: text. That is a fenced or indented code block, a plugin block (a `$$` equation), the front matter
+  and a link reference definition.
+
+So four shapes the fence scan got wrong now agree with the engine: a comment in a `$$` block or an indented code block
+is code; a fence inside a `<div>` block is HTML, so the comment in it is a note; an unclosed `<!--` in a fence no
+longer pairs with the next note's `-->` and swallows it; an inline opener no longer closes two paragraphs down.
+Inside a leaf, inline structure is S2's (P4): an opener inside a code span still counts, as it did before.
+
+`comments()` and `commentBlocks` share one memo: each text's records, and the model of the LAST text read, so a slide
+both editors read (the class editor and the notes editor, on the slide being typed in) is parsed once per keystroke,
+not once per reader, and the memo holds records, not tapes. The scan remembers the last `-->` it found, so a run of
+openers whose closers lie past their own paragraph costs one search, not one each (the checker's
+`'p <!--\n\n'.repeat(40000) + '-->'` took 15 s on the first cut; it is now a counted test in
+test/unit/core/meta-record.test.js).
+
+| Held to | Result |
+|---|---|
+| test/unit/core/comments-model.test.js: 4,000 seeded decks (seed 3042) against markdown-it's `html_block` / `html_inline` tokens, the rule notes-core's `liveCommentOpeners` reads notes by | 0 disagreements; the fence scan fails it and the shape tests |
+| The checker's own fuzz: HTML block types 1-7, lazy continuation, nested quotes, tab code, CRLF and BOM, 140,000 decks over seeds 1-5 | 0 disagreements |
+| `npm run identity:check -- --strict` | 0 renders differ; the reader is Studio-only, so no export byte moves |
+| The Studio's own suites (`docs/src/components/studio`, slide-directives) | 331 files, 4,672 tests green |
+
+**The Studio reads front matter under a BOM (followups.d/3042-p3-outline-front-matter-after-a-bom.md, closed).** The engine drops a leading BOM before it
+looks for front matter (S0), so `\uFEFF---` / `theme: x` / `---` is the deck's settings. The Studio's reader
+(docs/src/lib/front-matter.ts `FM_RE`) did not skip it, so the outline listed `theme: x` as a slide and every
+front-matter control read nothing. `FM_RE` now takes the BOM as part of the block, and the writers keep it where it was:
+a line splice leaves it alone, a block that empties keeps it, a new block goes after it, and the block writers
+(`setFrontMatterBlock`, `setFrontMatterAcronyms`) put it back in front, never into the body as text. The outline
+(docs/src/lib/deck-outline/deck-outline.ts `bodyStartOf`) also starts the body past a BOM when there is no front
+matter, so `\uFEFF---` is a break there as it is to the engine. Pinned in docs/src/lib/front-matter.test.ts and
+docs/src/lib/deck-outline/deck-outline.test.ts (each against `splitSourceToSections`). The other ways the Studio's fence
+is laxer than the engine's (trailing spaces after `---`, CRLF) are the fence copies PR #3228 lists
+(followups.d/3042-p3-front-matter-fence-copies.md).
+
+**Math decks splice (followups.d/3042-p2-segno-math-decks-still-parse.md, closed).** `updateDeckModel` parsed the deck from nothing whenever a
+`scansAhead` rule (math's `$$`) had been tried above the reused tail, because such a rule reads past a break and its
+"no closer ahead" memo carries from one slide into the next. Both risks are narrower than "tried". The rule's
+contract, which math keeps, is that a try reads no line past the block it opens, and a try that declines after
+reading ahead writes its memo. A block ends before the next top-level break, so a try that left no memo cannot reach
+the edit from above or the tail from the re-read slides. Only a held memo can. So the block pass now records where a
+memo was first held (`memoAt`, asked through the new `memoHeld` option; lib/plugins/state-facade.mjs `memoHeld`
+answers for the plugin facades), each segment keeps it, and the update rebuilds only when a memo is held at the
+restart or the reused tail's start in the old parse, or at the stop in the new one. A host that passes no `memoHeld`
+gets the old rule exactly: every try counts as holding one.
+
+| `npm run bench`, edit tier, same machine | parses/key | bounds ms/key | meta ms/key | ms/key |
+|---|---|---|---|---|
+| math, before | 3.0 | 0.71 | 0.49 | 26.12 |
+| math, after | **1.0** | 0.39 | 0.20 | 20.77 |
+
+The math row now reads what every other row reads; the `$$` limit's extra 2 is gone. The milliseconds are commentary
+on a shared machine; the counts are the gate, and baseline.json is re-blessed with them.
+
+**The 1.0 left on every row is the edit's own work, not a parse of the deck.** followups.d/3042-p2-segno-math-decks-still-parse.md asked for 0, written
+when the column counted only the deck readers; on 2026-11-06 the bench added the class editor's read (§The editors install
+the deriver: "The 1.1 left is that slide"). That read asks `commentBlocks(chunk)` for each slide, and the one chunk a
+keystroke changes is a text it has not seen, so it is parsed. Three things show it is necessary and minimal:
+
+- **It reads only the edited slide.** Two new edit-tier counts say so on every dataset: `deck parses/key`, parses from
+  nothing of a text holding more than one slide, reads **0.0**; `extra lines/key`, lines those parses read past the
+  edited slide's own, reads **0.0**. Both are gated like `parses` (a rise is a regression).
+- **Nothing could be reused.** A chunk is one slide, and the model's splice unit is one slide: `updateDeckModel` from the
+  slide's previous text would restart at that slide's first line and re-read every line of it, the same lines, counted as
+  "incremental" instead. Deriving it would move the counter, not the work.
+- **The deck readers' model of that slide is not its answer.** The deck model reads the slide in the deck's context (a `$$`
+  memo held above it, a block running from a slide before); the class editor reads the chunk alone, as its writer edits it.
+  The two can differ, so one cannot stand in for the other without a second rule, which this pipeline does not add.
+
+| edit tier, per keystroke | parses | deck parses | extra lines |
+|---|---|---|---|
+| math, before (the old splice rule put back) | 3.0 | 2.0 | 264.0 |
+| every dataset, after | 1.0 (0.0 on the comment-free div deck) | **0.0** | **0.0** |
+
+The "before" row is also the gate's failing arm: with the old rule restored, `npm run bench:check` reports
+`edit · math … REGRESSION (more parses from nothing)`.
+
+So the precise metric the follow-up meant is `deck parses/key` = 0, and every row meets it.
+
+Held by two tests in test/unit/core/deck-model.test.js: a seeded walk (seed 3042) of 3,000 edits over math-shaped
+atoms (unclosed openers at the top and in containers, blocks closing across a break, a `$$` line under a paragraph,
+inline `$`), each update compared with a parse from nothing on the tape and every range list, with more than 1,000
+splices taken; and a memo the edit creates two slides above a single-line `$$ y $$`. Dropping the old-parse check
+fails the walk; dropping the new-parse check fails the second test. An independent checker ran its own differential (math in lists and
+quotes closing across a break, unclosed `$$` in containers, edits that change nesting, front matter, a BOM, CRLF): 176,000
+updates over 11 seeds, 0 mismatches. It also confirmed the contract holds for math as installed: `math_block` has no
+`alt`, so it never ends a paragraph, list or quote and is never tried silently.
+

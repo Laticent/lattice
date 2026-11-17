@@ -1,0 +1,3 @@
+- The Studio's speaker-note, `describe:` and `say:` editors find a slide's comments where the engine does: a comment in a `$$` equation or an indented code block is code, a comment in a fence inside a `<div>` block is a note, and an unclosed `<!--` in a code fence no longer hides the note after it.
+- The Studio's outline and preview no longer re-read a whole deck on every keystroke when it holds a `$$` equation: an edit re-reads only its slide unless a `$$` with no closer is above it.
+- Lattice now reads a deck's front matter with a generated grammar: the `---` block and each settings line, with a small reader for where a `style: |` block's text ends. No deck renders or lints differently.

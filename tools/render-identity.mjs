@@ -110,6 +110,9 @@ function buildTree(dir, label) {
   // compared below is fresh in both trees.
   steps.push('build-css.js');
   if (fs.existsSync(path.join(dir, 'tools/build-default-bundle.js'))) steps.push('build-default-bundle.js');
+  // The VS Code-shaped stylesheets (dist/lattice-vscode*.css) are built from the bundle too. Left out, the ref tree kept
+  // whatever its checkout had (none) while this tree kept `npm run build`'s, so `--strict` failed on main against itself.
+  if (fs.existsSync(path.join(dir, 'tools/build-marp-vscode-css.js'))) steps.push('build-marp-vscode-css.js');
   for (const step of steps) {
     try {
       execFileSync(process.execPath, [path.join(dir, 'tools', step)], { cwd: dir, encoding: 'utf8', stdio: 'pipe', maxBuffer: 64 * 1024 * 1024 });
@@ -181,10 +184,10 @@ for (const p of sourceChanged) {
   removed.splice(removed.indexOf(p), 1);
 }
 const lintSame = JSON.stringify(here.lint) === JSON.stringify(there.lint);
-// Compared: the stylesheets both trees have. A file only HERE is listed, not failed: the other tree is a fresh worktree
-// that ran only the CSS steps above, so a stylesheet a FULL `npm run build` writes (the VS Code bundles,
-// build-marp-vscode-css.js) sits in this tree alone and once read as four stylesheets that "differ". A file only THERE
-// is a stylesheet the CSS build no longer writes, which `--strict` fails on like any other unpaired output.
+// Compared: the stylesheets both trees have. Both trees run the same CSS steps (`buildTree`, the VS Code bundles
+// included), so every stylesheet those write is paired and compared byte for byte. A file only HERE is listed, not
+// failed: a stylesheet some other step of a full `npm run build` wrote into this tree. A file only THERE is a stylesheet
+// the CSS build no longer writes, which `--strict` fails on like any other unpaired output.
 const cssNames = Object.keys(here.css).filter((n) => n in there.css).sort();
 const cssChanged = cssNames.filter((n) => here.css[n] !== there.css[n]);
 const cssLostNames = Object.keys(there.css).filter((n) => !(n in here.css)).sort();

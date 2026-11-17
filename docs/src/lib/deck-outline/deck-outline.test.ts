@@ -370,3 +370,19 @@ describe('DeckIndex — forward-scanning plugin rules', () => {
 		expect(shape(updateDeckIndex(ix, next))).toEqual(shape(buildDeckIndex(next)));
 	});
 });
+
+describe('a BOM-led deck: the outline splits as the engine does (3042-p3)', () => {
+	it('front matter under a BOM is settings, not a slide', () => {
+		const src = '\uFEFF---\ntheme: x\n---\n\n# A\n';
+		const index = buildDeckIndex(src);
+		expect(index.units.map((u) => src.slice(u.start, u.end).trim())).toEqual(['# A']);
+		expect(sectionSplit.splitSourceToSections(src).length).toBe(index.units.length);
+	});
+	it('a break under a BOM with no front matter is a break', () => {
+		// No closing `---`, so no front matter: the engine drops the BOM and reads a break, then one slide.
+		const src = '\uFEFF---\n\n# A\n';
+		const index = buildDeckIndex(src);
+		expect(index.units.map((u) => src.slice(u.start, u.end).trim())).toEqual(['# A']);
+		expect(sectionSplit.splitSourceToSections(src).length).toBe(index.units.length);
+	});
+});

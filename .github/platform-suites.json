@@ -129,6 +129,8 @@
         "docs/scripts/ios-safari/run.mjs",
         "docs/scripts/ios-safari/studio-probe.js",
         "docs/scripts/ios-safari/panes-probe.js",
+        "docs/scripts/ios-safari/icon-grid-probe.js",
+        "docs/src/components/studio/IconGrid.tsx",
         "docs/scripts/ios-safari/show-editor.js",
         "docs/scripts/ios-safari/seed-settings.js",
         "docs/src/playground/single-slide-render.ts",
@@ -139,7 +141,7 @@
         "lib/transformers/inline-run.js"
       ],
       "run": "DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
-      "why": "Real Mobile Safari, in an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job: the iPad and the iPhone back to back took 21 to 27 of the job's 30 minutes on main and were canceled at 30 on slower runners with every check passed (runs 43278314890, 43285290891; flaky shape F4), most of it two simulator boots in series, so each device now has the whole limit, as the undo suites do.",
+      "why": "Real Mobile Safari, in an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires; and opens the icon grid through Menu → Search / commands, inserting from the source pane and copying from the preview with a real touch tap (#2578). Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job: the iPad and the iPhone back to back took 21 to 27 of the job's 30 minutes on main and were canceled at 30 on slower runners with every check passed (runs 43278314890, 43285290891; flaky shape F4), most of it two simulator boots in series, so each device now has the whole limit, as the undo suites do.",
       "on_pull_request": false,
       "docs_site": true
     },

@@ -1,5 +1,6 @@
 /**
- * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js, then panes-probe.js, in the
+ * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js, then panes-probe.js (and on
+ * the iPhone, icon-grid-probe.js), in the
  * real Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), the photo memory arms of photo-memory.mjs
  * on pages of their own (PROBE=photo-memory), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
@@ -219,13 +220,15 @@ async function runStudioProbe(id) {
 	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
 	// which never shows the keyboard or runs Safari's own tap-to-focus path.
 	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
+	// The icon grid's phone path (icon-grid-probe.js, #2578): the iPhone only, where Menu → Search / commands is the way in.
+	const icons = LABEL === 'iPhone' ? await shotIfFailed('icon-grid', await iconGridProbe(id)) : { ok: true, steps: [] };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!icons.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, icons.error && `icon grid: ${icons.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('icon grid', icons)],
 	};
 }
 
@@ -280,6 +283,46 @@ async function wdRoundTrip(id) {
 		times.push(Date.now() - t);
 	}
 	return times.sort((a, b) => a - b)[1];
+}
+
+/**
+ * The icon grid on the phone (icon-grid-probe.js, #2578 P2): from the Markdown source pane, then from the Preview pane, open the
+ * grid through Menu → Search / commands → Insert an icon…, pick the first icon with a real WebDriver touch tap (the clipboard
+ * write needs a user gesture), and read what the pick did: the span in the editor, or the copied toast. A screenshot of each
+ * result goes in the artifacts, so a person sees the toast.
+ */
+async function iconGridProbe(id) {
+	const source = withEditorHelper(fs.readFileSync(path.join(here, 'icon-grid-probe.js'), 'utf8'));
+	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\n${expr}.then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`, args: [] });
+	const steps = [];
+	let first = true;
+	for (const where of ['source', 'preview']) {
+		if (first) {
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+			await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+			first = false;
+		}
+		const open = await call(`latticeIconGridOpen(${JSON.stringify(where)})`);
+		steps.push(...(open.steps || []));
+		if (!open.ok) return { ok: false, steps, error: `${where}: ${open.error}`, ua: open.ua, width: open.width };
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		// NO HOLD between down and up: a hold can read as a long press on a slow simulator (composeTouchTap).
+		await wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: open.x, y: open.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+		});
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		const check = await call(`latticeIconGridCheck(${JSON.stringify(where)}, ${JSON.stringify(open.name)}, ${Number(open.before) || 0})`);
+		steps.push(...(check.steps || []));
+		try {
+			const png = await wd('GET', `/session/${id}/screenshot`);
+			fs.writeFileSync(path.join(OUT, `${PROBE}-${LABEL}-icon-grid-${where}.png`), Buffer.from(png, 'base64'));
+		} catch (e) {
+			console.log(`${LABEL}: no screenshot of the icon grid's ${where} pick (${e.message})`);
+		}
+		if (!check.ok) return { ok: false, steps, error: `${where}: ${check.error}` };
+	}
+	return { ok: true, steps };
 }
 
 /**
