@@ -1,93 +1,131 @@
 ---
 status: proposed
-summary: Audit of the Studio chat's tools against #3208 — the tool layer is already headless; the gaps are capabilities that exist as pure functions but are not exposed, prose-only tool results, and a chat history that never learns whether an edit landed. Proposes finishing the action registry with one structured result shape.
+summary: Audit of the Studio chat's tools against #3208 — the tool layer is already headless, but the path that turns the chat's draft into the edits the author applies cannot carry front-matter maps or slide moves, so that path is the first build; then nested-map edits, an edit-outcome signal, move_slides with heading preconditions, and refusal codes.
 ---
 
 # How ready the Architect's tools are for an agent, and how to grow them
 
-**Asked (2026-11-17).** The owner asked for an architect's audit of the Studio chat's existing
-tools (the "Architect") against issue #3208, which lists 37 tool gaps found in one long editing
-session. The audit has three questions: how tightly each tool is bound to the UI; whether an
-agent can tell how to use it from its schema alone; and whether its result and the UI's state
-stay in sync when a model, not a person, calls it.
+**Asked (2026-11-17).** The owner asked for an architect's audit of the Studio chat's tools (the
+"Architect") against issue #3208, which lists 37 tool gaps found in one long editing session. The
+audit asks three questions: how tightly each tool is bound to the UI; whether an agent can tell
+how to use a tool from its schema alone; and whether the result and the UI's state stay in sync
+when a model, not a person, calls the tool.
 
-**The answer.** The tool layer is already headless. What blocks the issue's top items is not
-coupling to React. It is three other things:
+**The answer.**
 
-1. Most of the capabilities the issue asks for **already exist as pure functions**. The chat is
-   not given them as tools (§2).
-2. Every tool **returns prose**. The structure exists inside the toolbox and is flattened before
-   the model sees it (§3).
-3. **The chat history never records whether an edit landed.** That one gap is the root cause of
-   the issue's "state mismatch" evidence and of items #5 and #27 (§4).
+1. **The tool layer is already headless** (§1). The coupling #3208 runs into is reach: most of
+   what it asks for exists as plain functions the chat is not given (§2).
+2. **But "expose the function" is not enough.** The chat edits a draft, and a separate step turns
+   that draft into the per-slide edits the author applies. That step only knows slide
+   replace/insert/delete and one-line front-matter keys, so a map edit is dropped and a slide move
+   loses its narration renumbering. **Extending that step is the first build** (§3).
+3. **Results are prose and refusals carry no code** (§4).
+4. **Nothing tells the model whether its earlier edits landed** (§5). It can only infer the outcome
+   by re-reading the deck.
 
-This note builds on `2026-10-05-studio-chat-agent.md` (the agent loop) and
-`2026-11-06-skills-tools-and-chat-reach.md` §4 (the three-tier action registry), and does not
-restate them.
+Builds on `2026-10-05-studio-chat-agent.md` (the agent loop) and
+`2026-11-06-skills-tools-and-chat-reach.md` §4 (the three-tier action registry).
+
+**How this was checked.** A first draft went to an independent `checker` and a Munger `inversion`
+agent. Both found, separately, that the first draft called #1, #2 and #4 "thin wrappers" when the
+apply step cannot carry their output. The checker confirmed that with two scratch tests against the
+real functions (§3). This version folds in every confirmed finding. The note was checked against
+code only: no live model turn ran (HARD RULE #23), so §5's account of the #3208 session's mismatch
+is inferred from the code, not observed.
 
 ## 1. What is already right
 
-`docs/src/components/studio/architect-agent.ts` is the pure half of the chat agent:
+`docs/src/components/studio/architect-agent.ts` is the pure half of the chat agent. It has no
+`document`, `window`, `localStorage` or React.
 
-- Every tool has a JSON Schema (`AGENT_TOOLS`, `ASSET_TOOLS`, and the act-tier and look tools in
-  `chat-actions.ts`).
-- `createToolbox` runs every tool against a **draft string** of the deck. The model call, the
-  doc loaders, the linter and the slide renderer are injected, so a test drives a whole turn with
-  a scripted model and no network or DOM.
+- Every tool has a JSON Schema (`AGENT_TOOLS`, `ASSET_TOOLS`, and `makeLookTools` /
+  `CREATE_DECK_TOOL` / the render tool in `chat-actions.ts`).
+- `createToolbox` runs deck tools against a **draft string**. The model call, the doc loaders, the
+  linter, the renderer and the Library are injected, so a test drives a whole turn with a scripted
+  model (`architect-agent.test.ts`).
 - `chat-actions.ts` puts every tool in a tier (`read`, `draft`, `act`). Code enforces the tier
-  twice, in `toolsForMode` (which tools the request carries) and `toolAllowed` (checked on every
-  call). An untiered tool is refused in every mode.
-- Every draft-tier result folds back into per-slide edits (`proposalFromDraft`), which the diff
-  card shows and `ArchitectChat.applyProposal` re-applies against the **current** deck, not a
-  stale snapshot.
+  twice: `toolsForMode` decides which tools a request carries, and `toolAllowed` runs on every call.
+  An untiered tool is refused in every mode.
+- The descriptions read as instructions: `edit_slides` says what `body` must hold, `view_asset` says
+  when **not** to call it, and `set_theme` / `set_finish` limit the name to an `enum`.
 
-Nothing in that path reads the DOM or a click handler. The descriptions also read as
-instructions, not labels: `edit_slides` says exactly what `body` must hold, `view_asset` says when
-**not** to call it, and `set_theme` / `set_finish` constrain the name to an `enum`.
+**Two exceptions to "deck tools only change the draft"**, worth naming before anything is built on
+the property: `caption_asset` (tier `draft`) writes the caption to the Library during the call,
+with no card and no History checkpoint; and `create_deck` (tier `act`) queues a `ChatAction` rather
+than returning source.
 
 ## 2. Coupling: the gap is reach, not React
 
-The UI coupling lives in the capabilities the chat cannot reach. For the issue's P1 items:
-
-| #3208 item | Already exists as | Why the chat cannot use it |
+| #3208 item | Already exists | What stands between it and the chat |
 |---|---|---|
-| #1 nested front-matter maps (`acronyms:`, `lexicon:`, `say:`) | `setFrontMatterBlock` and `setFrontMatterAcronyms` in `docs/src/lib/front-matter.ts` — they quote keys and escape values | `set_front_matter` refuses multi-line values and block keys by design (`writeKey` and `isBlockKey` in `architect-agent.ts`). Only the Acronym editor's `onChange` reaches the map writers. |
-| #2 move and copy slides | `moveSlide`, `duplicateSlide`, `carrySay` in `docs/src/components/studio/deck-ops.ts` — byte-preserving, and they renumber front-matter `say:` with the slide | Not exposed. The model retypes whole slides through `edit_slides`, which is where the issue's wording-drift risk comes from. |
-| #3 spoken-text preview | `resolveDeck` in `docs/src/components/studio/narration-bake.ts` composes `slideToSpeech` (`lib/core/slide-speech.js`) with `acronymSpokenMap`, `lexiconMap` and `frontMatterSayMap` (`lib/core/resolve-narration.mjs`) — the same text the bake and Present narrate | Not exported, and full fidelity needs the render-side projection (`projectSectionsToScript`). Without a render it falls back to the markdown flatten, which can differ (`engineering/pipeline.md` §6). |
-| #4 create and edit lenses | Reading is pure (`docs/src/lib/lente/project.ts`, `parseLensRegistry`); per-slide membership is `applyTag` | The **write** is a closure inside a React callback, `writeTags` and `writeRegistry` in `StudioShell.tsx`. This is the one real UI coupling in the P1 set. |
+| #1 nested front-matter maps | `setFrontMatterAcronyms` (keys unquoted, by design) and `setFrontMatterBlock` (keys always quoted) in `docs/src/lib/front-matter.ts`. The Acronym and Lexicon editors call them. | `set_front_matter` refuses multi-line values and block keys (`writeKey`, `isBlockKey`). **`say:` has no writer.** `setFrontMatterBlock` would write `"1": …`, and `parseSayMap` (`lib/core/resolve-narration.mjs`) reads only bare digit keys, so that narration would be silently ignored. The issue also names `finish-override:` and `progress-rail`; both are out of scope here because neither has a writer and neither came up in the session's evidence. And §3 applies. |
+| #2 move and copy slides | `moveSlide`, `duplicateSlide`, `carrySay` in `docs/src/components/studio/deck-ops.ts`. They keep untouched slides' bytes and renumber `say:` with the slide. | They act on one 0-based slide, so ranges and split slides (the `*At` variants) need composing. And §3 applies: the move's renumbering never reaches the deck. |
+| #3 spoken-text preview | The narration resolve in `narration-bake.ts` (`resolveDeck`, not exported). In order: inline `say`, front-matter `say`, chart narration, the render projection (`projectDeckScript` in `narration-projection.ts`), then `slideToSpeech` as the last fallback. Acronyms and lexicon apply in `buildTrack`. Hidden slides are skipped, and opening and closing lines are spoken. | One export. The projection needs a DOM render, so any host without one gets only the fallback text. **Speaker notes are deliberately not narrated** (`narration-resolve.ts`), although the issue asked for them. |
+| #4 create and edit lenses | Reading is pure (`docs/src/lib/lente/`). Membership is a tag inside the slide's own text (`applyTag`), so it moves with the slide. | The write is about 8 lines in `StudioShell.tsx` (`writeTags`, `writeRegistry`) composing `applyTag`, `replaceSlide`, `parseLensRegistry` and the registry writer. Its one outside input is the workspace lens setting (`wsLenses`), which a headless host must be given. The registry is a front-matter block, so §3 applies. |
 
-So the issue's first open question ("which of these already exist and only need exposing?") has a
-concrete answer: #1, #2 and most of #4 are thin wrappers; #3 needs one export and a decision about
-the render-free fallback; #4's write needs lifting into `lib/lente/` first.
+## 3. The real prerequisite: the path from draft to applied edit
 
-## 3. Schema quality: what an agent cannot tell from the contract
+The chat never applies its draft as a whole. `proposalFromDraft` (`architect-agent.ts`) compares the
+original slides with the draft's slides (an LCS match on trimmed text) and emits only:
 
-- **Slide numbers are positions.** After any move or insert, every number the model holds is
-  wrong. `edit_slides` documents that "numbers refer to the draft as it stands", which is right
-  inside one turn but gives no protection across turns or against the author editing meanwhile.
-  The diff card already guards this with `isProposedEditStale` (it compares the slide's text at
-  propose time with its text now). That guard belongs in the tool contract as a precondition.
-- **Results are prose with instructions mixed in.** `create_deck` returns "tell the author it is
-  ready to confirm below, never that it was created". That is guidance for one model inside the
-  data. Meanwhile the structured `EditVerdict` (`refused`, `checked`, `errors`, `warnings`) is read
-  by the loop (`settled()`) and never reaches the model as fields.
+- slide `replace`, `insert` and `delete`, and
+- one-line `frontmatter` edits for keys the chat set, read back with `getFrontMatter`.
+
+The card then re-applies those edits with `applyEditsChecked` (`architect.ts`), which writes front
+matter only through `writeFrontMatterLine`. The checker's scratch tests show what that does to the
+new tools:
+
+| Probe | Result |
+|---|---|
+| `setFrontMatterAcronyms` on the draft, with `acronyms` marked as touched | The proposal is **empty**. `getFrontMatter` reads `undefined` for a block key on both sides, so the edit is dropped with no message. |
+| `moveSlide(deck, 0, 2)` on a deck with `say: {1, 3}` | The draft renumbers `say:` correctly. The proposal becomes "insert a retyped copy after slide 3, delete slide 1", and applying it leaves `say:` unchanged, so the moved slide speaks another slide's line. |
+
+Three more consequences follow from the code:
+
+- `autoHold` (`chat-actions.ts`) holds any edit set containing a `delete`, so Auto would hold every
+  move as "it deletes slides".
+- The card's stale check is positional and never fires for an insert, so a slide the author edits
+  before pressing Apply can be overwritten by the old text the move re-inserts.
+- The lens registry is a front-matter block too, so #4 hits the same drop.
+
+**So the first build is new edit kinds**, each carried through `AgentRawEdit`, `proposalFromDraft`,
+`describeEdit`, the card's stale check, `applyEditsChecked` and `autoHold`:
+
+- `fm-block`: replace one whole front-matter block, shown on the card as a block diff;
+- `move` / `copy`: slide references, not retyped bodies, carrying the `say:` renumbering.
+
+The alternative, applying the whole draft source with a per-slide display, is simpler but drops the
+property that an author's interim edits to *other* slides survive Apply. That is why this note
+recommends new edit kinds.
+
+## 4. Schema quality: what an agent cannot tell from the contract
+
+- **Slide numbers are positions.** After a move or insert, every number the model holds is wrong.
+  The card's guard does not cover it: `isProposedEditStale` (`architect.ts`) has **no callers**, and
+  the card uses a private copy (`isStale` in `ArchitectChat.tsx`) that only **warns** ("Apply will
+  replace your current version"), compares by position and never fires for an insert. The cheap fix,
+  with no format change, is a **heading precondition**: every slide-addressed call carries the
+  heading the model expects at that number, and the tool refuses with `STALE` when it differs.
+- **Results are prose.** The structured `EditVerdict` (`refused`, `checked`, `errors`, `warnings`)
+  is read only by the turn loop (`settled()`). The model sees the prose `withCheck` writes.
 - **Refusals have no code.** `refuse('Only single-line values can be set here…')` is the whole
-  contract, so the model has to work out the alternative itself. This is #28.
+  contract (#28). A stable code plus the existing sentence costs little and lets the model and the
+  author tell "not supported" from "try again".
 
-### Draft schemas for the first three wrappers
+### Draft schemas for the first three tools
 
 ```jsonc
 {
   "name": "set_front_matter_map",
-  "description": "Add, change or remove entries in a nested front-matter map: acronyms, lexicon or say. Use this for pronunciation fixes; use set_front_matter for single-line keys. Entries you do not name are kept. Returns the whole map after the change.",
+  "description": "Add, change or remove entries in the acronyms or lexicon map: pronunciation fixes. Use set_front_matter for single-line keys. Entries you do not name are kept. Returns the whole map after the change.",
   "input_schema": {
     "type": "object",
     "properties": {
-      "map": { "type": "string", "enum": ["acronyms", "lexicon", "say"] },
+      "map": { "type": "string", "enum": ["acronyms", "lexicon"] },
       "set": {
         "type": "object",
         "additionalProperties": { "type": ["string", "null"] },
-        "description": "Term to spoken form. null removes the entry. Write the term exactly as it appears on the slide; a possessive or plural is its own term."
+        "description": "Term to spoken form; null removes the entry. Write the term exactly as it appears on the slide. A possessive or plural is its own term."
       },
       "summary": { "type": "string", "description": "One sentence to the author." }
     },
@@ -96,13 +134,14 @@ the render-free fallback; #4's write needs lifting into `lib/lente/` first.
 }
 ```
 
-`acronyms` entries also carry an optional glossary definition (`AcronymEntry`), and `say` is keyed
-by slide number; the built tool should give each map its own value schema rather than share one.
+`acronyms` entries also take an optional glossary definition (`AcronymEntry`), so the built tool
+gives each map its own value schema. `say` joins the enum only once it has a writer that emits bare
+digit keys, and once the numbering question in §8 is settled.
 
 ```jsonc
 {
   "name": "move_slides",
-  "description": "Move or copy a range of slides without retyping them. Content, notes and say: lines move byte for byte. Use this instead of edit_slides whenever a slide's text does not change.",
+  "description": "Move or copy a range of slides without retyping them. Slide content and notes carry over unchanged, and say: entries are renumbered to follow their slides. Use this instead of edit_slides whenever a slide's text does not change.",
   "input_schema": {
     "type": "object",
     "properties": {
@@ -110,9 +149,9 @@ by slide number; the built tool should give each map its own value schema rather
       "to": { "type": "integer", "minimum": 1, "description": "Last slide of the range; defaults to from." },
       "after": { "type": "integer", "minimum": 0, "description": "Place the slides after this slide of the draft; 0 puts them first." },
       "copy": { "type": "boolean", "default": false },
-      "expect_revision": { "type": "string", "description": "The revision you read. The call is refused if the deck changed since." }
+      "expect_heading": { "type": "string", "description": "The heading you expect slide `from` to have. The call is refused with STALE if it differs." }
     },
-    "required": ["from", "after"]
+    "required": ["from", "after", "expect_heading"]
   }
 }
 ```
@@ -120,7 +159,7 @@ by slide number; the built tool should give each map its own value schema rather
 ```jsonc
 {
   "name": "preview_speech",
-  "description": "Return the exact text the voice reads for some slides, after acronyms, lexicon, say: lines and notes apply. Lists which substitutions fired and which hard-looking terms matched nothing. Read-only; use it before guessing a pronunciation.",
+  "description": "Return what the voice reads for some slides, after inline say, front-matter say, acronyms and lexicon apply. Lists which substitutions fired and which hard-looking terms matched nothing. Speaker notes are not narrated. Hidden slides are skipped. Read-only; use it before guessing a pronunciation.",
   "input_schema": {
     "type": "object",
     "properties": { "from": { "type": "integer", "minimum": 1 }, "to": { "type": "integer", "minimum": 1 } },
@@ -129,76 +168,107 @@ by slide number; the built tool should give each map its own value schema rather
 }
 ```
 
-`preview_speech` must say in its result whether it used the render projection or the markdown
-fallback, so the model never presents an approximation as the exact text.
+Without a render, `preview_speech` returns the substitutions and the unmatched terms, **not** a
+claimed full text. The author sees the same "approximate" label the model does.
 
-## 4. Output and state sync
+## 5. Output and state sync
 
-**Why the chat described edits the deck did not contain.** A stored turn is
-`ChatTurn = { role, content }` (`architect.ts`). When the author applies or discards a card,
-`ArchitectChat.applyProposal` records `applied`, `appliedCount` and `refused` on the **message**,
-but the history sent to the model on the next turn carries only `content`. The model reads its
-own "added a divider at slide 47" and has no way to learn it was never applied. Items #5 and #27
-are mostly this one gap.
+**What the model is told today.** A stored turn is `ChatTurn = { role, content }`, and
+`ArchitectChat` sends `history.map(m => ({ role, content }))`. The `applied`, `appliedCount`,
+`refused` and `autoHeld` flags the card records are never sent, and tool results do not cross
+turns. The current deck **is** sent every turn (`deckForTurn`, or its outline plus `read_slides` for
+a long deck), so the model *could* re-read the deck to see what landed. Nothing **tells** it. The
+one existing signal is in compaction: older replies are tagged `[edits applied]` or `[edits
+proposed, not applied]` for the summarizer (`chat-compact.ts`). It is lossy and covers only older
+turns.
 
-**The cheapest fix:** on each turn, prepend one status line per earlier proposal ("turn 4:
-applied 3 of 4; slide 47 refused") and a short hash of the current deck to the turn's context.
-That needs no new UI and no new tool.
+**Why a history replay would not fix #3208's evidence.** That session was splitting a deck: 47+
+slides fell to 35–36. Turn 4's "slide 47" could truthfully read "applied" and still be gone later,
+because later edits renumber everything. A line like "turn 4: applied 3 of 4; slide 47 refused"
+would mislead in exactly that case.
 
-**How a background agent's change reaches React.** Every tool changes the draft string; the diff
-card or Auto mode writes it through `onApply` / `onAutoApply`, and Auto saves a History checkpoint
-first. Because every change ends as a source edit through the same writer a human uses, a headless
-caller needs no second state channel. Keep that property: an action never mutates Studio state
-except by returning new source.
+**Proposal: state the present, not the history.** Append one line to the **last user turn only**:
+"The deck now has 36 slides. Slide numbers from earlier turns no longer hold. Re-read before citing
+a slide." Add, per earlier proposal, a status of `applied | partial | discarded | pending |
+superseded`, written as a refusal **code**, never a free-text reason (some reasons quote deck or
+model text, which in a line that reads as host truth is a prompt-injection channel).
 
-## 5. Proposal: finish the action registry, one result shape
+That needs new persisted state. Today `discardProposal` sets `proposed: undefined` and records
+nothing, and a failed Apply leaves the message unchanged. The new field must travel through the Yjs
+chat thread (Yjs is the CRDT library behind shared chat, `2026-11-12-chat-threads-crdt.md`), the
+workspace backup and the legacy-key merge. **#5 and #27 are "new host state", not free.**
 
-Do not build a separate MCP server. Finish the registry `2026-11-06-skills-tools-and-chat-reach.md`
-§4 designed and §8 shaped for a later MCP or CLI-JSON reader.
+**How a change reaches React.** Deck tools change the draft. The card's Apply or Auto writes it
+through `onApply` / `onAutoApply`, and both save a History checkpoint (Review in `StudioShell.tsx`,
+Auto before applying). Keep that: a deck action changes Studio state only by producing source edits
+the card applies. `caption_asset` is the standing exception (§1). Moving it behind the card is a
+fair follow-up, but no evidence in #3208 asks for it.
 
-1. **One action shape:** `id`, `tier`, a JSON Schema for the input, a description, and
-   `run(ctx, args) → Result`. `ctx` holds the draft and the injected dependencies, as
-   `createToolbox` does today.
-2. **One result shape**, formatted per consumer:
+## 6. Proposal
 
-   ```ts
-   type Result =
-     | { ok: true; changed: { slides: number[]; keys: string[] }; revision: string; check?: EditVerdict; data?: unknown; next_step?: string }
-     | { ok: false; code: 'NESTED_KEY' | 'STALE' | 'OUT_OF_RANGE' | 'UNKNOWN_NAME' | 'MODE'; reason: string; alternatives: string[] };
-   ```
+**One record per action generates every list.** Today four parallel lists must agree: `TOOL_TIERS`,
+the schema arrays, the `run` switch, and `EDIT_TOOLS` / `READ_TOOLS`. Each draft case also resets
+the verdict and calls `withCheck` by hand. A new case that forgets the reset inherits the previous
+call's clean verdict, and the turn ends "settled" without a check. So:
 
-   The chat renders it as compact text through one formatter; an MCP server would send the JSON.
-   Guidance now buried in results ("never say it was created") moves to `next_step`, which only
-   the chat formatter reads.
-3. **Lift the write paths that live in components**, starting with `writeTags` / `writeRegistry`
-   into `lib/lente/`, then wrap `deck-ops`, the front-matter map writers and the narration resolve
-   as actions. Each is already a function from source to source.
-4. **Keep the author's confirm as a host capability.** The act-tier confirm is a safety boundary
-   (§4 of the 11-06 note: the one place injected text can do harm), not a UI artifact. A headless
-   host supplies `confirm(payload)`: in the Studio it draws today's confirm; over MCP it maps to the
-   protocol's user-elicitation request. A host that cannot supply it gets act-tier calls refused,
-   never auto-approved.
-5. **Every draft-tier action takes `expect_revision`**, reusing the stale guard, so a background
-   agent cannot overwrite an edit the author made in between.
+1. **An action record:** `id`, `tier`, input schema, description, `run(ctx, args)`. It generates the
+   four lists, and the palette half of 11-06 §4 (`studio-commands.ts`) reads the same records.
+2. **The dispatcher, not each case, resets the verdict and runs the check** for every draft-tier
+   action. A table test asserts that every draft action returns a fresh, checked verdict.
+3. **`run` returns `{ ok, code?, text, check? }`.** `text` is today's prose, so the model reads what
+   it reads now; `code` is the stable refusal code. Honesty guidance ("never say it was created")
+   stays in `text`, because every consumer needs it.
+4. **Do not change the result wording without a measurement.** The one live run (11-06 §4.2) showed
+   that moving a rule changes behavior. Build #34's replay of the #3208 session first, through the
+   opt-in live runner (HARD RULE #24), and compare.
 
-### What this means for #3208's list
+**Out of scope here: an MCP server.** 11-06 §8 says it has no consumer, and the Studio is a static,
+bring-your-own-key browser app with no transport. Two notes for whoever builds it: a remote host
+that auto-answers a confirm looks exactly like a person pressing yes, so a host-side confirm is not
+a safety boundary across that trust line; and a deck-wide revision check belongs where edits are
+committed, not in a draft tool. Inside the Studio the model's own edits change the draft, so a
+deck-wide revision would refuse the model's second call.
 
-- **Thin wrappers over existing code:** #1, #2, #3 (with the fallback caveat), #4 (after the lift),
-  #6, #7, #8, #24.
-- **Need new host state:** #5 and #27 (cheap, §4), #10, #14, #21.
-- **Send data out of the workspace:** #11 and #23, which stay behind #32 (privacy boundary) and
-  #33 (injection test set), as the issue already says.
+### Order
 
-## 6. Open, for the owner
+1. **The apply path:** the `fm-block` and `move`/`copy` edit kinds (§3) with their stale and
+   `autoHold` rules; one action record; the check in the dispatcher.
+2. **`set_front_matter_map`** for `acronyms` and `lexicon`. Pronunciation was the most-repeated pain
+   in the session.
+3. **The present-state line** with persisted proposal status (§5).
+4. **`move_slides`** with the heading precondition.
+5. **Lift the lens write** into `docs/src/lib/lente/`, taking `wsLenses` as a parameter; then lens
+   tools.
+6. **`preview_speech`**, with the narrowed fallback.
 
-- **Prompt-cache cost of the result shape.** If the chat formatter reproduces today's wording, the
-  cached prefix is unchanged; that should be measured on a real turn before the shape lands.
-- **Stable slide identity for lenses.** Lens membership rides on per-slide tags (`applyTag`), which
-  already survive reordering because the tag moves with the slide. Whether the *tools* should also
-  address slides by a stable id instead of by position is a separate fork from the lens storage.
+### Where #3208's other items stand (classified: P1 plus selected items)
+
+- **Need the §3 edit kinds first:** #1, #2, #4, and #14 and #21 (which change what a card is).
+- **New code on existing pieces:** #6 (the existing find/replace is bound to the editors,
+  CodeMirror and ProseMirror, and is not field-aware), #7, #8 and #24 (building blocks exist in
+  `cadenza`, `review-core` and `lint-core`; per-element budgets are unverified).
+- **New host state:** #5, #27, #10.
+- **Follow from the registry:** #26 (self-description generated from the records) and #28
+  (refusal codes).
+- **Send data out:** share links and #23, behind #32 and #33 as the issue says. A local PDF export
+  (part of #11) sends nothing out and does not need that gate.
 
 ## 7. What this note does not do
 
-- It does not build any tool. It is the design for the slices that follow.
-- It does not run a live model turn or measure cost; §6's first item owes that.
-- It does not change the tiers, the modes or the confirm, which the 11-06 note settled.
+- It builds no tool. It is the design for the slices in §6's order.
+- It runs no live model turn and measures no cost.
+- It does not change the tiers, the modes or the confirm, which 11-06 settled. 11-06 lets Auto skip
+  the confirm for an act the author allowed by name; nothing here changes that.
+
+## 8. Open, for the owner
+
+- **Which numbering `say:` uses.** `deck-ops.ts` treats `say:` keys as rendered slide numbers, while
+  `narration-bake.ts` and `parseSayMap` use the authored index. Under `split: headings` these can
+  differ. The `say` value schema waits on this.
+- **Prompt-cache cost.** Tool results do not cross turns, so the result shape matters only inside a
+  turn. The cost question is the §5 status line: appended to the last user turn it leaves the cached
+  prefix alone; written into earlier messages or the system tail, it would rewrite the prefix. The
+  trace's `sent.tools` (`chat-agent.ts`) measures it.
+- **Whether tools should address slides by a stable id** rather than by position plus a heading
+  precondition. Lens membership already survives reordering (the tag moves with the slide), so this
+  is about tool addressing only.
