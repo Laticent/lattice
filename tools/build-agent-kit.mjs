@@ -413,7 +413,14 @@ function pluginSummary(body) {
   const { MARKER_CLASS } = require(path.join(ROOT, 'lib', 'core', 'checks-registry.js'));
   const notation = new RegExp(`\`[~^!@a-z]*\\{|^\\s*-\\s\\[${MARKER_CLASS}\\]`);
   const line = ex?.[1].split('\n').find((l) => notation.test(l));
-  return { lead, example: line ? line.trim() : '' };
+  // Where the example works: the layout its own example block sets, when it sets one. A callout
+  // copied onto a `content` slide renders as code (found by rendering every example, 2026-11-17).
+  const cls = ex?.[1].match(/<!--\s*_class:\s*([a-z0-9-]+)/)?.[1] ?? '';
+  // A plugin whose own "Where it draws today" says its authored form is not drawn yet gets no
+  // example: an agent copies examples. When the doc stops saying so, the example comes back.
+  const today = text.split(/^## Where it draws today\s*$/m)[1]?.split(/^## /m)[0] ?? '';
+  const notDrawn = /\bis not drawn\b/.test(today);
+  return { lead, example: line && !notDrawn ? line.trim() : '', cls };
 }
 
 function skillDocs() {
@@ -3083,9 +3090,9 @@ function startDoc(files, cat) {
   const pluginRows = [];
   for (const [rel, buf] of [...files].filter(([k]) => /^plugins\/[^/]+\.md$/.test(k)).sort()) {
     const name = rel.slice('plugins/'.length, -3);
-    const { lead, example } = pluginSummary(buf.toString('utf8'));
+    const { lead, example, cls } = pluginSummary(buf.toString('utf8'));
     pluginRows.push(`- [\`${name}\`](./${rel}): ${lead}`);
-    if (example) pluginRows.push(`  Example: ${example.includes('`') ? `\`\` ${example} \`\`` : `\`${example}\``}`);
+    if (example) pluginRows.push(`  Example${cls ? ` (on a \`${cls}\` slide)` : ''}: ${example.includes('`') ? `\`\` ${example} \`\`` : `\`${example}\``}`);
   }
   if (!pluginRows.length) throw new Error('build-agent-kit: start.md found no plugins/*.md; pluginDocs() must run before startDoc().');
   return [
@@ -3150,6 +3157,11 @@ function startDoc(files, cat) {
     'Plugins add small drawn things you write in inline code: pills, icons, word-sized charts,',
     'check marks, portraits, pictures. **The backticks are part of the notation**: `` `{On plan}` ``',
     'is a pill, while a bare {On plan} prints as text. Each name links to the full notation.',
+    'Most work on any slide. Three do not: a callout works on the charts its file lists; the',
+    '`[x]` shortcuts lead a list item only on layouts that read them (checklist, verdict-grid,',
+    'pricing and a few more), though `` `[x]` `` as inline code draws anywhere; and an authored',
+    '`@legend{…}` key is not drawn by any layout yet, since the charts draw their own keys.',
+    '`lint:deck` warns when nothing on the slide reads a callout or legend.',
     '',
     ...pluginRows,
     '',
