@@ -1095,6 +1095,9 @@ function build() {
       }
       w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${CRITICAL}`]));
       w(rule(name, '.risk-key-number[data-band="critical"]', ['fill: var(--state-fail-on-ink)']));
+      // On the dark face critical steps toward the slide, so on an a11y palette's bright fill it is darker than the fill
+      // its curated near-black ink was chosen for (4.42:1 on a11y-protanopia); its number picks its own ink there.
+      w(supports(rule(name, '.risk-key-number[data-band="critical"]', [`fill: light-dark(var(--state-fail-on-ink), ${inkOn('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--bg))')})`])));
       // A slope's signal lines wear the curated status fill, not its text ink (which is neon on a dark slide): the same
       // solid a risk cell takes, unmodified on both faces.
       w(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]', ['stroke: var(--state-pass-hue)']));

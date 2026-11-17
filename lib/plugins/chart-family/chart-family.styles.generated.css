@@ -855,6 +855,12 @@ section.marks-pigment :where(.risk-key-number[data-band="critical"]),
 figure.marks-pigment :where(.risk-key-number[data-band="critical"]) {
   fill: var(--state-fail-on-ink) !important;
 }
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-pigment :where(.risk-key-number[data-band="critical"]),
+figure.marks-pigment :where(.risk-key-number[data-band="critical"]) {
+  fill: light-dark(var(--state-fail-on-ink), color(from color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+}
+}
 section.marks-pigment :where(.slope-svg.slope-signal .slope-line[data-dir="up"]),
 figure.marks-pigment :where(.slope-svg.slope-signal .slope-line[data-dir="up"]) {
   stroke: var(--state-pass-hue) !important;
