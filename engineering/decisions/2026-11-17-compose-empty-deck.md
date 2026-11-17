@@ -123,7 +123,7 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   On the iPhone simulator (runs 44087025343 and 44092405081) every tap check passed both times. The probe's clean-up,
   which switched back to Compose after restoring the deck in Source, failed both times: Compose kept the empty deck,
   focused, with the restored text not applied. The probe now restores the deck in Source and stays there. Whether a
-  person with a keyboard can lose a Source edit this way is open: `followups.d/3288-p2-compose-parks-a-source-edit-on-a-phone.md`.
+  person with a keyboard can lose a Source edit this way is open: `followups.d/3288-p1-compose-parks-a-source-edit-on-a-phone.md`.
   The likely mechanism, found by reading: a Source edit reaches the shell's `source` in a React transition, and the
   phone's Compose cell asks the rebuilt Compose to take the focus, so a switch that renders first builds Compose from the
   old text and parks the edit. A local try (desktop Chromium, iPhone-sized WebKit) did not reach it, because a scripted

@@ -143,7 +143,7 @@ globalThis.latticeEmptyDeckRestore = async (text) => {
 	const { replaceSource } = latticeEmptyDeckParts();
 	// Off the editor first, as the prep does, then put the text back in Source and STAY there: the icon grid probe after
 	// this one starts in Source. On the iOS Simulator a switch back to Compose kept showing the empty deck, focused, with the
-	// restored text parked (runs 44087025343 and 44092405081): followups.d/3288-p2-compose-parks-a-source-edit-on-a-phone.md.
+	// restored text parked (runs 44087025343 and 44092405081): followups.d/3288-p1-compose-parks-a-source-edit-on-a-phone.md.
 	document.activeElement?.blur?.();
 	getSelection()?.removeAllRanges();
 	await replaceSource(text);
