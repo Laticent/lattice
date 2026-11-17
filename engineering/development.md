@@ -1181,7 +1181,15 @@ shifts every pixel.
 its own `<head>` includes `docs/src/components/site/PageMeta.astro` for its canonical link and
 Open Graph card. A new `noindex` page goes in `NOINDEX_PREFIXES` too: `docs/scripts/check-discovery.mjs`
 runs after `astro build` and fails when a page and the list disagree, or when a page is missing
-its canonical link. Why, and what was left out (CSP, `og:image`): `engineering/decisions/2026-11-17-site-discovery.md`.
+its canonical link. The sitemap's `lastmod` is each page's last content commit
+(`docs/src/lib/lastmod.mjs`); a shallow checkout omits it.
+
+`docs/scripts/csp.mjs` runs after every other step that rewrites HTML and gives each page that
+cannot build a preview frame a strict, hash-based Content-Security-Policy. **An inline script on
+such a page is fine** (it is hashed at build); a script built at run time, an inline event handler
+(`onerror=`), or a fetch to another origin is blocked, and `docs/e2e/site-csp.spec.ts` fails on it.
+Pages that can build a preview frame carry no policy until stage 2
+(`followups.d/3277-p1-csp-frame-pages.md`). Why: `engineering/decisions/2026-11-17-site-discovery.md`.
 
 ### The docs site is an installable PWA (offline cache)
 

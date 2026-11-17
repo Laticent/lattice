@@ -4,8 +4,9 @@ summary: >
   lattice.style now tells crawlers and agents the same thing its pages do. A filtered sitemap drops the 21
   pages it used to list that are not meant to be found (19 said noindex; two prototypes now do too), every standalone route carries a canonical link and an Open Graph card,
   robots.txt and a 1.6 KB llms.txt router ship from one module (docs/src/lib/discovery.mjs), and a post-build
-  gate (docs/scripts/check-discovery.mjs) fails when any of them disagree. A CSP meta tag, an og:image card
-  and per-page Markdown twins were weighed and left out, with the reason for each.
+  gate (docs/scripts/check-discovery.mjs) fails when any of them disagree. The sitemap carries each page's
+  last content commit, and the 78 pages that cannot build a preview frame carry a strict, hash-based CSP;
+  the frame pages are stage 2.
 ---
 
 # Site discovery: sitemap, canonical, robots.txt, llms.txt (2026-11-17)
@@ -67,14 +68,38 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
   lastmod entirely. The gate holds it all-or-nothing: with history every URL must carry the
   computed date, and without it none may carry one.
 
+- **A strict Content-Security-Policy on the 78 routes that cannot build a preview frame**
+  (owner call, 2026-11-17: stage it). GitHub Pages cannot send headers, so it is a `<meta>` tag,
+  written by `docs/scripts/csp.mjs` after every other step that rewrites HTML, so its hashes are
+  of the bytes that ship. Measured before choosing that design:
+  - Astro 7's own `security.csp` does not hash `is:inline` scripts (every route has three or
+    more), is computed before our post-build steps rewrite the HTML, and on the landing page
+    put the tag where the browser ignored the whole policy.
+  - A slide preview is a same-origin `srcdoc` frame, which inherits its parent's policy, and
+    the engine writes inline scripts into it at run time with per-deck values. Under a strict
+    policy the Playground preview rendered blank. So a page that can build a frame (its HTML
+    names the runtime, or a module it can load, statically or dynamically, contains `srcdoc`)
+    gets no policy for now: 125 of 203 routes. Moving the frame scripts into files is stage 2,
+    `followups.d/3277-p1-csp-frame-pages.md`. (The question put to the owner said "about 100"
+    frame-free pages; the measured number is 78.)
+  - The policy: scripts from our origin plus the hash of each inline script, nothing else (no
+    inline handlers, no eval); images, fonts, media and fetches from our origin plus `data:`/
+    `blob:`; no frames, no plugins; `base-uri` and `form-action` our origin. Styles allow
+    inline: Radix's dialog scroll lock injects a `<style>` carrying the visitor's measured
+    scrollbar width, which no hash can match, and blocking it lets the page scroll behind every
+    open dialog. A nonce is a public constant on a static site. What injected CSS could do is
+    read the page through selectors and leak it in a `url()`, and the image, font and fetch
+    rules close every such channel.
+  - Two things on those pages broke under the policy and are fixed at the source: the header's
+    palette-label rules were a `<style>` a script built at run time (now a static `is:inline`
+    element above the header, same paint order), and the offline page hid a missing logo with
+    an inline `onerror` (now inline SVG, so it needs no cached asset).
+  - `e2e/site-csp.spec.ts` loads every policy page and fails on any `securitypolicyviolation`,
+    and drives search (Pagefind, whose load failure the menu swallows silently), the palette
+    label and the mode toggle on Chromium at desktop and phone width, WebKit and Gecko.
+
 ## 3. What was left out, and why
 
-- **A Content-Security-Policy `<meta>` tag.** GitHub Pages cannot send headers, so a meta tag is the only
-  route. But the site runs inline boot scripts on most routes, sandboxed preview frames with their own policy
-  (`docs/src/playground/preview-csp.js`), Web Workers and the user's own OpenRouter key. A site-wide policy
-  strict enough to matter needs a per-route inventory of every script, frame and fetch origin, and a wrong
-  one breaks the Studio silently for whoever hits the path it missed. That is its own change with its own
-  e2e evidence, not a rider here. The sandboxed frames, which run untrusted deck content, already carry one.
 - **A referrer meta tag.** `strict-origin-when-cross-origin` is already every current browser's default, so
   the tag would change nothing.
 - **`og:image`.** A link preview needs a raster card designed for it (link unfurlers mostly refuse SVG). The
