@@ -2500,6 +2500,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// measures the wrong window. This is the same trick the Vetrina tour uses for its
 				// own oracles (`data-vt-phase`): publish the state rather than infer it.
 				data-beat={holding ? 'hold' : undefined}
+				// Which text the room would hear, as observable state: `projected` once the shared projection has landed
+				// for the presented set (it carries the emphasis holds), `fallback` while Present speaks the markdown
+				// flatten it opens with (no emphasis spans). Present opens instantly by design, so a test of the holds
+				// waits for `projected` before it plays (e2e/present-emphasis.spec.ts) rather than guessing how long the
+				// projection takes on a loaded machine.
+				data-narration={projected.set === set ? 'projected' : 'fallback'}
 				className="lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden"
 			>
 			<div className="pointer-events-auto flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">
