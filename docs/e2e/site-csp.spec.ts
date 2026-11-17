@@ -136,11 +136,14 @@ test('@smoke Calco’s PowerPoint export embeds its fonts', async ({ page }) => 
 // the click that caused it (Calco's subsetter evaluates code only after it rasterizes). So:
 //   - violations are reported OUT of the page, through a binding, as they happen. Nothing is
 //     read-then-cleared, and a navigation cannot erase one;
-//   - after each click the test waits until the control is usable again (a demo disables its
-//     button while it works; Calco does) AND no request is in flight, then runs one task on the
-//     page's main thread, so a violation event already queued has been delivered.
-// `waitForLoadState('networkidle')` is not that signal: it returns at once on a page that was
-// already idle, which is what the first version relied on (found by review).
+//   - after each click the test waits until the page has settled: no request in flight AND the
+//     main thread idle (requestIdleCallback, which fires only when no task is queued; two
+//     animation frames on WebKit, which lacks it), checked until two rounds in a row agree, so
+//     work a click spawned in stages is waited out. A violation event queued before that has
+//     been delivered by then.
+// Two signals this replaced: `waitForLoadState('networkidle')`, which returns at once on a page
+// that was already idle (found by review), and "the control is usable again", which never
+// comes for a control that disables itself for good (Squadra's "Fix all", once nothing is left).
 test('@crosswidth @webkit-phone @gecko every control on the library demos with a policy runs with no violation', async ({ page }) => {
 	test.setTimeout(300_000);
 	const demos = policyRoutes().filter((r) => /^\/libraries\/[^/]+\/$/.test(r));
@@ -162,11 +165,29 @@ test('@crosswidth @webkit-phone @gecko every control on the library demos with a
 	page.on('request', () => inFlight++);
 	page.on('requestfinished', () => inFlight--);
 	page.on('requestfailed', () => inFlight--);
+	const idle = () =>
+		page.evaluate(
+			() =>
+				new Promise<void>((done) => {
+					const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void };
+					if (w.requestIdleCallback) w.requestIdleCallback(() => done(), { timeout: 10_000 });
+					else requestAnimationFrame(() => requestAnimationFrame(() => done()));
+				}),
+		);
+	/** No request in flight and the main thread idle, twice in a row. */
+	const settle = async () => {
+		let quiet = 0;
+		while (quiet < 2) {
+			await expect.poll(() => inFlight, { timeout: 60_000 }).toBe(0);
+			await idle();
+			quiet = inFlight === 0 ? quiet + 1 : 0;
+		}
+	};
 
 	const pressedOn: Record<string, number> = {};
 	for (const route of demos) {
 		await page.goto(route, { waitUntil: 'load' });
-		await expect.poll(() => inFlight, { timeout: 30_000 }).toBe(0);
+		await settle();
 		// One fixed list per page, taken before anything is pressed: re-querying by index while
 		// clicks show and hide controls would skip some and press others twice.
 		const controls = await page.locator('main button, .wrap button').elementHandles();
@@ -176,10 +197,7 @@ test('@crosswidth @webkit-phone @gecko every control on the library demos with a
 			if (!(await control.click({ timeout: 2_000 }).then(() => true, () => false))) continue;
 			pressedOn[route]++;
 			if (new URL(page.url()).pathname !== route) break; // it navigated: the rest of the list is gone
-			await expect
-				.poll(async () => inFlight === 0 && (!(await control.isVisible()) || (await control.isEnabled())), { timeout: 60_000 })
-				.toBe(true);
-			await page.evaluate(() => undefined);
+			await settle();
 		}
 	}
 	expect(seen).toEqual([]);
@@ -189,6 +207,9 @@ test('@crosswidth @webkit-phone @gecko every control on the library demos with a
 });
 
 test('every page that carries the CSP loads with no violation', async ({ page }) => {
+	// 75 pages, each loaded and waited to network quiet: the default 60 s is a budget for one
+	// page's worth of test, and ran out under load (4 workers).
+	test.setTimeout(300_000);
 	const routes = policyRoutes();
 	// csp.mjs gave 75 routes a policy when this landed; far fewer means the build lost them.
 	expect(routes.length).toBeGreaterThan(60);
