@@ -8,6 +8,8 @@
  *   TOPIC  a topic fact whose claim and source run past one page: a cover, then the claim and its source over two pages
  *   PANEL  a split panel whose lede (a bare text run, system-design-foundations.md 38) runs past its lede page: the lede
  *          continues at a sentence break, then the points follow
+ *   INLINE the PANEL lede opening with inline markup (\`**quantity**\`, \`*distribution*\`): its run starts with a tag, and
+ *          the cut read that as a block and dropped the whole lede (final checker, 2026-11-17)
  * Every lede word appears once across the lede pages, in order.
  *
  * FALSIFIABLE: without `ledeCont` (one lede page) the export prints OVERFLOW on both lede pages. Needs Chromium.
@@ -67,6 +69,23 @@ Scale is a quantity, and quantities have a price you can pay. The thing you cann
   - That gap is why the design ends up with two paths instead of one.
 - Hold on to this
   - Every hard decision in Part five is this one fact again.
+
+---
+
+<!-- _class: split-panel capstone cat-3 -->
+
+\`Instagram · the antagonist, marked up\`
+
+## The antagonist is not scale. It is the shape of the follow graph.
+
+Scale is a **quantity**, and quantities have a price you can pay. The thing you cannot buy your way out of is a *distribution*. Follower counts are heavy-tailed: almost everyone has a few hundred, and a handful have hundreds of millions. No single account looks like the average, and the far end sits six orders of magnitude from the middle.
+
+- The number that matters
+  - The median account has about 150 followers. The largest has five hundred million.
+- One algorithm cannot serve both
+  - That gap is why the design ends up with two paths instead of one.
+- Hold on to this
+  - Every hard decision in Part five is this one fact again.
 `;
 
 let dir;
@@ -119,4 +138,12 @@ test('PANEL: a split panel lede continues at a sentence break, then the points f
   assert.ok(!ledes.some((p) => p.text.includes('median account has about 150')), 'the points follow the lede, not on its pages');
   const all = run.map((p) => p.text).join(' ');
   assert.ok(all.indexOf('distribution.') < all.indexOf('Follower counts'), 'in order');
+});
+
+test('INLINE: a split panel lede that carries inline markup keeps every sentence, once, in order', () => {
+  const all = pages.filter((p) => p.slide === '4').map((p) => p.text).join(' ');
+  const sentences = ['Scale is a quantity', 'The thing you cannot buy', 'Follower counts are heavy-tailed', 'No single account looks like the average'];
+  for (const t of sentences) assert.equal(all.split(t).length - 1, 1, `"${t}" appears once`);
+  const at = sentences.map((t) => all.indexOf(t));
+  assert.deepEqual(at, [...at].sort((a, b) => a - b), 'in order');
 });

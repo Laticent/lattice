@@ -57,3 +57,10 @@ test('BARE: a bare text run (split-panel keeps its lede so) cuts at a sentence b
   assert.equal(pages.length, 2);
   assert.match(pages[1][0], /^\s*[A-Z]/, 'the second page starts a sentence');
 });
+
+test('INLINE: a bare run that opens with inline markup cuts at a sentence break too, every word kept', () => {
+  const run = '<strong>Scale</strong> is a quantity. The thing you cannot buy is a <em>distribution</em>. Counts are heavy-tailed. No account is average.';
+  const pages = ledeGroups([run], 2);
+  assert.equal(pages.length, 2, 'an inline tag at the start is not a block');
+  assert.equal(text(pages), text([[run]]));
+});

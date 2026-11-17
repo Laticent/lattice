@@ -437,3 +437,48 @@ test('a lede page that overflows gets a second page, then a third, and no more',
   ]);
   assert.equal(run.plan['1'].ledeCont, 3, 'capped at three pages');
 });
+
+// THE FOLD ALSO LANDS ON A LEDE PAGE (final checker, 2026-11-17). A title's or anchor's lede page is its run's last
+// body page, so the beats folded there can overflow it; verify reports that page as `n:lede`, and the undo read only
+// `n` and `n:cover`, so the fold stayed on an overflowing lede page.
+test('the fold pass undoes a fold that makes a lede page overflow', async () => {
+  const facts = [over('1', [300, 300, 300], 700)];
+  let verifies = 0;
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => ({ planned: Object.keys(plan) }),
+    // The loop's verify is clean; the fold's verify says the lede page overflows.
+    verify: async () => { verifies += 1; return verifies === 2 ? { '1:lede': 30 } : {}; },
+    foldable: async () => ['1'],
+  });
+  assert.ok(!run.plan['1']?.foldCoda, 'the fold that overflowed the lede page was undone');
+});
+
+// The unfold rides the round's replan with every other slide's move (final checker, 2026-11-17): it spent a round of
+// its own, so a deck with one folded slide gave every other slide one round fewer to tighten.
+test('an unfold does not cost the other slides a round', async () => {
+  const facts = [{ ...over('1', [706], 929), coda: 120 }, over('2', [300, 300, 300, 300], 700)];
+  const plans = [];
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: Object.keys(plan) }; },
+    // Slide 1's fold overflows and slide 2 runs over, both on the first verify; the next is clean.
+    verify: async () => (plans.length === 1 ? { 1: 23, 2: 40 } : {}),
+  });
+  assert.equal(plans.length, 2, 'one replan carries both moves');
+  assert.deepEqual(plans[1]['1'], [1], 'slide 1 is unfolded');
+  assert.notDeepEqual(plans[1]['2'], plans[0]['2'], 'and slide 2 tightened in the same round');
+  assert.equal(run.fellBack, 0);
+});
+
+test('a folded slide whose lede page overflows is unfolded, not given another lede page', async () => {
+  const facts = [{ ...over('1', [706], 929), coda: 120 }];
+  const plans = [];
+  await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: Object.keys(plan) }; },
+    verify: async () => (plans.length === 1 ? { '1:lede': 23 } : {}),
+  });
+  assert.deepEqual(plans[0]['1'], { sizes: [1], foldCoda: true });
+  assert.deepEqual(plans[1]['1'], [1], 'unfolded, with no ledeCont');
+});
