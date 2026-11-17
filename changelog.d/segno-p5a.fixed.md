@@ -1,0 +1,1 @@
+- The CLI's `--css` stylesheet resolves its `@import` lines the way CSS reads them: an `@import` written inside a string, or one spelled `@importx`, is no longer followed, and one written in capitals or with escapes (`@IMPORT`) now is.

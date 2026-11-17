@@ -1022,6 +1022,7 @@ readers that ship.
 | core/web-ref-readers.js: `MERMAID_FORBIDDEN` | `@import` in Mermaid CSS | 2 | yes | no |
 | core/remote-ref.js: `cssRefSpans`, the `@import` probe | off-device refs in CSS (already on the css-ref grammar, #2871) | 21 | yes | no |
 | engine/css.js: `URL_IMPORT_RE`, `THEME_IMPORT_RE` | a remote or quoted `@import` in author or theme CSS | 7 | yes | yes |
+| engine/themes.js: `THEME_NAME_IMPORT_RE` | which theme-name `@import` resolves against the registry; css.js's `THEME_IMPORT_RE` must agree with it and theme/gate.js allows a pinned subset of it (theme-gate.test.js), so it moves with those two | 2 | yes (through the agreement) | yes |
 | packages/import-gate.js | the package gate's refusing rules (css-scan's rule ids) | 7 | yes | no |
 | core/url-scheme.js: the `url()` matcher | the scheme of each `url()` in a slide's CSS | 6 | yes | yes |
 
@@ -1046,11 +1047,10 @@ readers that ship.
 
 | File: symbol | Reads | Callers | #22 | Bytes |
 |---|---|---|---|---|
-| engine/themes.js: `THEME_NAME_IMPORT_RE`; theme/chain.mjs: the import loop | the `@import` chain between themes | 2, 11 | no | yes |
+| theme/chain.mjs: `flattenCssImports`'s import loop | the `@import` chain of a caller-supplied `--css` sheet | 1 (lattice.js) | no | yes |
 | core/leading-is.js: `splitSelectorList`, `leadingIsArms`, `splitLeadingTrivia`, `distributeLeadingIs` | selector lists and a leading `:is()`, for the engine's `packTheme`, pane twins and the Marp bundle | 3 | no | yes |
 | core/pane-css.js: `skipToken`, `pullComments`, `widenForPanes` | strings, `url(` and comments while twinning pane selectors | 7 | no | yes |
 | theme/contrast.js: the `light-dark()` and `var(--x)` reads | a token alias, per mode | 3 | no | no |
-| core/accessibility-textures.js: `TEXTURE_REF_RE` | texture `url(#…)` refs | 4 | no | yes |
 | components/surfaces.js; conformance/kinds/component.contract.js (both the naive strip) | selector text; component CSS | 2, 0 | no | no (tooling) |
 
 ### Family D: DOM and computed-style readers, one value at a time (islands). P5a
@@ -1076,6 +1076,12 @@ readers that ship.
 **Decided by the owner 2026-11-17: css-tree and theme/parse.js stay as the full-sheet reader until P5c lands; then
 measure the P5 reader against them (the 64 ms cold require included) and put the choice to the owner.** The later
 decision is followups.d/3042-p3-p5-css-tree-and-theme-parse.md.
+
+**Reviewed and kept as it is.** core/accessibility-textures.js `TEXTURE_REF_RE` finds `url(#latt-…)` references in
+style text that the runtime glues to SVG `fill` and `stroke` attribute values (lib/runtime/index.js
+`referencedTextureSets`). It errs toward finding too much, and a miss is the bad side: a `url(#…)` with no pattern paints
+black. A tokenizer read of the glued text would drop every reference after an unclosed comment or string in it, so it
+would be worse than the regex, not better.
 
 **Left out, and why.** export/export-scaffold.js, core/print-sheet.mjs, theme/serialize.js, lib/forms/index.js's token
 checks, draw-frame-core.mjs, face-rule.js and face-css's builders WRITE CSS. plugins/resolve.js strips JavaScript

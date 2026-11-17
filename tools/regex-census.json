@@ -961,7 +961,6 @@
       "why": "recheck cannot model it: back-reference"
     },
     "/@import\\s*[\"']([\\w-]+)[\"']\\s*;/g": "safe",
-    "/@import\\s*['\"]?([A-Za-z0-9_-]+)['\"]?\\s*;?/g": "safe",
     "/@size\\s+([A-Za-z0-9:_-]+)\\s+(\\S+)\\s+(\\S+)/g": "safe",
     "/@theme\\s+([A-Za-z0-9_-]+)/": "safe",
     "/Cannot find (?:package|module) '((?:@[^/']+\\/)?[^/']+)/": "safe",
@@ -1253,6 +1252,7 @@
     },
     "/\\\\(.)/g": "safe",
     "/\\\\(?:([0-9a-f]{1,6})\\s?|(.))/gis": "safe",
+    "/\\\\(?:(\\r\\n|[\\n\\r\\f])|([0-9a-fA-F]{1,6})(?:\\r\\n|[ \\t\\n\\r\\f])?|([\\s\\S]))|\\\\$/g": "safe",
     "/\\\\(?:\\r\\n|\\r|\\n)[ \\t]*/g": "safe",
     "/\\\\(?:cr|newline)(?![a-zA-Z])/": "safe",
     "/\\\\(?:x([0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|U([0-9a-fA-F]{8}))/g": "safe",
@@ -2262,6 +2262,7 @@
     "/^[A-Za-z0-9][A-Za-z0-9_-]*$/": "safe",
     "/^[A-Za-z0-9][\\w.&/-]*\\s*:/": "safe",
     "/^[A-Za-z0-9_-]+$/": "safe",
+    "/^[A-Za-z0-9_-]+/": "safe",
     "/^[A-Za-z0-9_:.-]+$/": "safe",
     "/^[A-Za-z]$/": "safe",
     "/^[A-Za-z]/": "safe",

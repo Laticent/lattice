@@ -159,3 +159,35 @@ test('css-tokens: linear work on hostile input (counted, not timed)', () => {
     }
   }
 });
+
+test('css-tokens: cssUnescape and cssStringValue decode as CSS Syntax 3 §4.3.7 does', () => {
+  const { cssUnescape, cssStringValue } = require('../../../lib/core/css-tokens.mjs');
+  assert.equal(cssUnescape('\\75 rl'), 'url');
+  assert.equal(cssUnescape('\\000075rl'), 'url');
+  assert.equal(cssUnescape('a\\:b'), 'a:b');
+  assert.equal(cssUnescape('\\0 '), '�');
+  assert.equal(cssUnescape('\\d800 x'), '�x');
+  assert.equal(cssUnescape('\\110000'), '�');
+  assert.equal(cssUnescape('x\\'), 'x�');
+  assert.equal(cssUnescape('a\\\r\nb'), 'ab');
+  const v = (css) => cssStringValue(css, 0, css.length);
+  assert.deepEqual(v('"a\\"b"'), { value: 'a"b', closed: true });
+  assert.deepEqual(v('"a\\\\"'), { value: 'a\\', closed: true });
+  assert.deepEqual(v('"a\\"'), { value: 'a"', closed: false });
+  assert.deepEqual(v("'open"), { value: 'open', closed: false });
+  assert.deepEqual(v('"'), { value: '', closed: false });
+});
+
+test('css-tokens: cssImports reads each @import and the token after it', () => {
+  const { cssImports } = require('../../../lib/core/css-tokens.mjs');
+  const read = (css) => cssImports(css).map((r) => [css.slice(r.from, r.to), r.target]);
+  assert.deepEqual(read("@import 'onyx';\n:root{}"), [["@import 'onyx';", { type: 'string', value: 'onyx', closed: true }]]);
+  assert.deepEqual(read('@import"x"'), [['@import"x"', { type: 'string', value: 'x', closed: true }]]);
+  assert.deepEqual(read('@import x;'), [['@import x;', { type: 'ident', value: 'x', closed: true }]]);
+  // The whitespace and comments after the target, and one `;`, are inside the span.
+  assert.deepEqual(read('@import/*a*/"y" /*n*/ ;b{}'), [['@import/*a*/"y" /*n*/ ;', { type: 'string', value: 'y', closed: true }]]);
+  assert.deepEqual(read('@IMP\\6frt  url(z);'), [['@IMP\\6frt  url(z);', { type: 'url', value: 'url(z)', closed: true }]]);
+  assert.deepEqual(read('@import'), [['@import', null]]);
+  // Not an @import: inside a string, inside a comment, another at-keyword, an escaped `@`.
+  assert.deepEqual(read('a{content:"@import \'q\'"} /* @import r; */ @importq; \\@import s;'), []);
+});
