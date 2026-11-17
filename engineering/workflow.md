@@ -918,8 +918,22 @@ thread — so each of these was a live defect found by an adversarial pass, not 
   branch's file against the branch's code. Without a guard, neutering a check on a throwaway branch
   and dispatching closes the live alarm and records `main@<sha>` for a sha never on `main`. The
   stand-downs require `github.ref == 'refs/heads/main'`, which is also what makes that `main@`
-  literal true. The guard is on the stand-down, not the job: a branch dispatch must still be able to
-  RUN the checks, and filing from a branch is loud and recoverable where closing is not.
+  literal true. The guard is on the steps that write to the issue, not on the job: a branch dispatch
+  must still be able to RUN the checks, and it reports in its own run (the job summary, the
+  artifacts, or both). Since #3269 every step that WRITES to the issue carries the same guard, the
+  filing steps as well as the stand-downs. Filing from a branch used to look loud and recoverable,
+  but it stamped `main@<branch sha>` on the live thread: on 2026-11-15 and 16, branch dispatches
+  that proved nightly fixes posted that way to the fit (#2989), overflow (#2060) and integration
+  (#1845) issues. The guard has to be a top-level `&&` part of the `if:`, with no top-level `||`
+  anywhere (`a && <guard> || b` is `(a && <guard>) || b`, which binds nothing), and
+  `nightly-alarm-contract.test.js` checks that structure on every issue-writing step of every
+  scheduled workflow, however it writes (`gh issue …` or `gh api … /issues`). The guard is a
+  safety rail, not a lock: a branch dispatch runs the branch's own copy of the workflow, so a
+  branch cut before the guard, or one that edits it, still files. The aggregate platform-suites
+  alert (`platform-suites.yml`) is the exception: it files on manual runs by design and names the
+  ref it ran on. Its supervisor (`platform-suites-supervisor.yml`) also files from a branch run
+  and does not name the ref (`followups.d/3269-p3`), and `preview-e2e-nightly.yml` still publishes
+  a branch run's screenshots to the shared screenshot branch (`followups.d/3269-p4`).
 - **THAT it measured anything.** `uncovered=false` / `failed=false` is each check's evidence of
   health and equally what a run that examined NOTHING produces. Both absolute closers gate on a
   count (`islands`, `cases`) emitted by the script and parsed by the step, and the contract test

@@ -167,7 +167,7 @@ jobs:
         # report, no issue at all, on a night the e2e run had genuinely failed. Seventh
         # instance in the family; caught by the filing-step arm in
         # test/unit/tools/nightly-alarm-contract.test.js, added 2026-09-05.
-        if: always() && steps.e2e.outputs.failed == 'true'
+        if: always() && steps.e2e.outputs.failed == 'true' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE: ${{ steps.shots.outputs.base }}
