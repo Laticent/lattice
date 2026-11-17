@@ -2436,7 +2436,15 @@ export function refinableRange(state: EditorState): { from: number; to: number }
 	return clean ? { from, to } : null;
 }
 
+/** What Compose tells the shell about an empty deck: whether it is blank (from the text Compose itself emits, so the first
+ *  keystroke reports it in the same frame), and the empty line's bottom edge in client pixels, where the shell's start grid
+ *  begins. The grid lives in the shell, not here: Compose unmounts on a switch to Source, Read or a lens, and a grid inside it
+ *  rebuilt its four preview frames on every return (the checker on #3273, 4 → 8 → 12). */
+export type EmptyState = { blank: boolean; lineBottom: number | null };
+
 export type ComposeHandle = {
+	/** Put the caret on a blank deck's empty line and focus it: the shell's start grid calls it on a tap outside its controls. */
+	focusEmptyLine: () => void;
 	/** The caret's column in its block, in the plain form both editors share (caret-line.ts), or null with no text caret. */
 	caretColumn: () => CarriedColumn;
 	/** The text Refine would rewrite: a selection inside one textblock of an editable slide, as plain text. */
@@ -2489,7 +2497,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: (peek?: boolean) => { slide: number; line?: string | null; col?: CarriedColumn; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLayoutMenu?: (req: LayoutRequest) => void; onFind?: () => void; onView?: () => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string; live?: boolean; emptyStart?: React.ReactNode }>(function ComposeView({ source, onChange, onHistory, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLayoutMenu, onFind, onView, onOpenLibrary, pluginKinds, onRetire, describeDelete, live = false, emptyStart }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: (peek?: boolean) => { slide: number; line?: string | null; col?: CarriedColumn; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLayoutMenu?: (req: LayoutRequest) => void; onFind?: () => void; onView?: () => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string; live?: boolean; emptyStart?: boolean; onEmpty?: (e: EmptyState) => void }>(function ComposeView({ source, onChange, onHistory, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLayoutMenu, onFind, onView, onOpenLibrary, pluginKinds, onRetire, describeDelete, live = false, emptyStart = false, onEmpty }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2549,23 +2557,29 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// so the first keystroke clears it in the same frame, and from `source`, so an undo or a Source edit brings it back.
 	const [blank, setBlank] = React.useState(() => isBlankDeck(source));
 	React.useEffect(() => setBlank(isBlankDeck(source)), [source]);
-	// Once shown, the start grid stays mounted and is only hidden: its live previews are frames, and WebKit never frees a
-	// destroyed frame's document (preview-pool.tsx), so an undo back to empty must not build a new set.
-	const [startShown, setStartShown] = React.useState(false);
-	if (blank && emptyStart && !startShown) setStartShown(true);
-	// The grid starts under the empty line, wherever the reserved bar puts it at this width (the pill wraps to two rows
-	// on a narrow pane): measured, not a constant, so the line and the grid never overlap and nothing moves.
-	const frameRef = React.useRef<HTMLDivElement>(null);
-	const [emptyTop, setEmptyTop] = React.useState<number | null>(null);
+	// The empty line's bottom edge, reported with `blank` to the shell, which places its start grid under it. Measured, not a
+	// constant: the reserved bar's height depends on the pane's width (the pill wraps on a narrow pane) and on whether the slide
+	// is active. Re-measured when the editor is rebuilt for another deck (`resetKey`): the slide node is new, and an observer
+	// left on the old one would keep a stale edge (the checker on #3273).
+	const onEmptyRef = React.useRef(onEmpty);
+	onEmptyRef.current = onEmpty;
+	const lastEmpty = React.useRef<EmptyState | null>(null);
+	const report = React.useCallback((e: EmptyState) => {
+		const was = lastEmpty.current;
+		if (was && was.blank === e.blank && was.lineBottom === e.lineBottom) return;
+		lastEmpty.current = e;
+		onEmptyRef.current?.(e);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: resetKey stands for "the editor was rebuilt", so the slide node is new.
 	React.useLayoutEffect(() => {
-		const frame = frameRef.current;
 		const host = hostRef.current;
-		if (!blank || !startShown || !frame || !host) return;
+		if (!blank || !emptyStart || !host) {
+			report({ blank, lineBottom: null });
+			return;
+		}
 		const measure = () => {
 			const line = host.querySelector('.cs-slide-content');
-			if (!line) return;
-			const top = Math.ceil(line.getBoundingClientRect().bottom - frame.getBoundingClientRect().top + host.scrollTop);
-			setEmptyTop((t) => (t === top ? t : top));
+			report({ blank: true, lineBottom: line ? Math.ceil(line.getBoundingClientRect().bottom) : null });
 		};
 		measure();
 		const ro = new ResizeObserver(measure);
@@ -2574,7 +2588,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		const slide = host.querySelector('.cs-slide');
 		if (slide) ro.observe(slide);
 		return () => ro.disconnect();
-	}, [blank, startShown]);
+	}, [blank, emptyStart, resetKey, report]);
 	// The floating selection bar (inline marks over a text selection) on DESKTOP, or null when there
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
@@ -2736,6 +2750,12 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// the slide's first editable position so the next keystroke edits the slide the
 	// preview picker just chose (#1288).
 	React.useImperativeHandle(ref, () => ({
+		focusEmptyLine: () => {
+			const v = viewRef.current;
+			if (!v || v.isDestroyed) return;
+			v.dispatch(v.state.tr.setSelection(TextSelection.atStart(v.state.doc)));
+			v.focus();
+		},
 		caretColumn() {
 			const v = viewRef.current;
 			const sel = v?.state.selection;
@@ -3713,27 +3733,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			<ComposeStyles />
 			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
 			    (context-sensitive). Just the writing surface. */}
-			<div ref={frameRef} className="cs-frame" style={emptyTop != null ? ({ '--cs-empty-top': `${emptyTop}px` } as React.CSSProperties) : undefined}>
+			<div className="cs-frame">
 				{/* Compose's undo is the Studio's (Filo): the root keymap owns ⌘Z here as in the Markdown editor. */}
 				<div ref={hostRef} className="cs-host" data-filo-owned="" />
-				{startShown && (
-					// A tap anywhere the grid has no control puts the caret on the empty line: on a phone that tap is what
-					// raises the keyboard, so the whole canvas is the place to start writing.
-					// biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: the pointer shortcut to the editor, which Tab reaches first anyway.
-					<div
-						className="cs-empty-start"
-						hidden={!blank}
-						onClick={(e) => {
-							if ((e.target as Element).closest('button, a, input, [role="button"]')) return;
-							const v = viewRef.current;
-							if (!v || v.isDestroyed) return;
-							v.dispatch(v.state.tr.setSelection(TextSelection.atStart(v.state.doc)));
-							v.focus();
-						}}
-					>
-						{emptyStart}
-					</div>
-				)}
 				{flashChip && (
 					<button
 						type="button"
@@ -3839,8 +3841,6 @@ function ComposeStyles() {
 			   empty line a second row for the length of the flash, pushing the grid 27px down and back (measured, desktop). */
 			.cs-surface[data-empty] .cs-flash-gap{display:none}
 			.cs-surface[data-empty] .cs-flash-block{animation:none;background:none;box-shadow:none}
-			.cs-empty-start{position:absolute;inset:var(--cs-empty-top,56px) 0 0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:clamp(8px,4vh,48px) 16px 24px;cursor:text}
-			.cs-empty-start[hidden]{display:none}
 			${CHANGE_FLASH_CSS}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size;position:relative}

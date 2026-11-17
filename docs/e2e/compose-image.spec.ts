@@ -74,6 +74,13 @@ test.describe('compose images', () => {
 		await expect(page.locator('.cs-img-stand')).toHaveCount(0);
 	});
 
+	test('a sample name not in the folder is a stand-in that names it, not a broken image', async ({ page }) => {
+		await gotoStudio(page);
+		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## A typo', '', '![](sample:portrait-nobody.svg)'].join('\n'));
+		await expect(page.locator('.cs-img-stand')).toContainText('portrait-nobody.svg');
+		await expect(page.locator('.cs-img-btn img')).toHaveCount(0);
+	});
+
 	test('a photo the Library does not hold is a stand-in that names it, not a broken image', async ({ page }) => {
 		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## Lost', '', '![Gone](asset:never-added)'].join('\n'));
 		await expect(page.locator('.cs-img-missing')).toContainText('never-added');

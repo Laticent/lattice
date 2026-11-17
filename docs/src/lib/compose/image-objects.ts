@@ -59,7 +59,9 @@ export function imageSourceKind(src: string): ImageSourceKind {
 
 /** The file in a `sample:` reference, or null: the engine's own shape (lib/core/media-sources.js `SAMPLE_REF`). */
 export function sampleNameOf(src: string): string | null {
-	return /^sample:([A-Za-z0-9][A-Za-z0-9._-]*)$/i.exec(src)?.[1] ?? null;
+	const name = /^sample:([A-Za-z0-9][A-Za-z0-9._-]*)$/i.exec(src)?.[1] ?? null;
+	// The engine refuses a name with `..` in it (media-sources.js), so Compose must not draw what the slide will not.
+	return name && !name.includes('..') ? name : null;
 }
 
 /** The Library name in an `asset:` reference, or null. */

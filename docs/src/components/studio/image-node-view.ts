@@ -86,6 +86,17 @@ class ImageView implements NodeView {
 		this.paint();
 	}
 
+	/** The stand-in for a picture the editor does not draw: a tile that says what it is. */
+	private standIn(text: string, missing: boolean): HTMLElement {
+		const tile = document.createElement('span');
+		tile.className = `cs-img-stand${missing ? ' cs-img-missing' : ''}`;
+		const label = document.createElement('span');
+		label.className = 'cs-img-stand-label';
+		label.textContent = text;
+		tile.append(label);
+		return tile;
+	}
+
 	paint(): void {
 		const src = String(this.node.attrs.src ?? '');
 		const alt = String(this.node.attrs.alt ?? '');
@@ -113,16 +124,12 @@ class ImageView implements NodeView {
 			// The alt is the author's description of the picture; a background's alt is a directive, not a description.
 			img.alt = bg ? '' : alt;
 			img.draggable = false;
+			// A sample name that is not in the folder (a typo) 404s: show the stand-in that names it, never a broken image.
+			if (kind === 'sample') img.onerror = () => img.replaceWith(this.standIn(describe(src, alt), false));
 			this.btn.append(img);
 		} else {
 			const missing = kind === 'asset' && loaded;
-			const tile = document.createElement('span');
-			tile.className = `cs-img-stand${missing ? ' cs-img-missing' : ''}`;
-			const label = document.createElement('span');
-			label.className = 'cs-img-stand-label';
-			label.textContent = kind === 'asset' ? (missing ? `Photo not in this Library: ${name}` : `Loading ${name}…`) : describe(src, alt);
-			tile.append(label);
-			this.btn.append(tile);
+			this.btn.append(this.standIn(kind === 'asset' ? (missing ? `Photo not in this Library: ${name}` : `Loading ${name}…`) : describe(src, alt), missing));
 		}
 		if (placedHere) {
 			const badge = document.createElement('span');

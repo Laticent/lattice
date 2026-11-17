@@ -68,6 +68,8 @@ describe('what an image source is', () => {
 		expect(imageSourceKind('sample:../secrets.svg')).toBe('other');
 		expect(imageSourceKind('sample:')).toBe('other');
 		expect(imageSourceKind('sample:a/b.svg')).toBe('other');
+		// The engine refuses `..` in a sample name; so does Compose.
+		expect(imageSourceKind('sample:a..b.svg')).toBe('other');
 		expect(imageSourceKind('./local.png')).toBe('other');
 		// Not an image type, so not drawn from the document: a data URI of any other kind could be markup.
 		expect(imageSourceKind('data:text/html;base64,PGI+')).toBe('other');

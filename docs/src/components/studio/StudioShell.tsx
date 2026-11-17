@@ -79,7 +79,7 @@ import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACT
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
-import type { ComposeHandle, LayoutRequest, PaneRequest } from './ComposeView';
+import type { ComposeHandle, EmptyState, LayoutRequest, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
@@ -5748,8 +5748,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// AN EMPTY DECK (2026-11-17-compose-empty-deck.md): Compose shows its start grid, which is then the one way to add a
 	// slide there, so the floating "New slide" doors stand down until the first slide exists. Source keeps them.
 	const deckBlank = isBlankDeck(source);
-	const startGridShown = deckBlank && editMode === 'compose';
-	const newSlideShown = effectiveStop !== 'read' && !startGridShown;
+	const [composeEmpty, setComposeEmpty] = React.useState<EmptyState | null>(null);
+
 	// What deleting block `i` takes, named for the confirm: its title and how many rendered slides go with it
 	// (2026-10-27-slide-structure-strip.md §12 item 2). `slides` and `deckIndex.units` are both full-deck.
 	const deleteName = (i: number) => deleteTargetName(slideTitle(slides[i] ?? ''), deckIndex.units[i]?.parts.length ?? 1);
@@ -5838,6 +5838,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// reordered subset, where a view index would hit the wrong slide), at the Read stop, in the landscape-phone view, or
 	// for a read-only Live member.
 	const stripEditable = composeLens === 'full' && effectiveStop !== 'read' && !landscapePhone && !live.collab?.readOnly;
+	// THE START GRID (2026-11-17-compose-empty-deck.md): on screen only where Compose is, the deck is empty and its doors are
+	// open (`stripEditable`: never under a lens, at Read, on a landscape phone or for a read-only member). The New slide doors
+	// stand down only while the grid is actually on screen, so a collapsed editor or a phone's Preview tab keeps its door (the
+	// checker on #3273 found a collapsed editor left an empty deck with no way to add a slide). `composeEmpty.blank` is Compose's
+	// own reading, current on the first keystroke; `deckBlank` covers the moments Compose has not reported.
+	const composeOnScreen = editMode === 'compose' && !holdEditor && (mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a'));
+	const startGridShown = stripEditable && composeOnScreen && (composeEmpty?.blank ?? deckBlank);
+	const newSlideShown = effectiveStop !== 'read' && !startGridShown;
+	// Once shown, the grid stays mounted for the session and is only hidden (display:none, so its preview frames park): WebKit
+	// never frees a destroyed frame, and a grid rebuilt on each return to Compose cost four new frames a time.
+	const [startGridMounted, setStartGridMounted] = React.useState(false);
+	if (startGridShown && !startGridMounted) setStartGridMounted(true);
+	// Where the grid starts: under Compose's empty line, as Compose reports its bottom edge (client pixels), relative to the
+	// editor pane that hosts the grid.
+	const editPaneRef = React.useRef<HTMLElement>(null);
+	const [startGridTop, setStartGridTop] = React.useState<number | null>(null);
+	React.useLayoutEffect(() => {
+		const pane = editPaneRef.current;
+		const edge = composeEmpty?.lineBottom;
+		if (!startGridShown || !pane || edge == null) return;
+		const top = Math.ceil(edge - pane.getBoundingClientRect().top);
+		setStartGridTop((t) => (t === top ? t : top));
+	}, [startGridShown, composeEmpty?.lineBottom]);
 	// Opening makes the menu's slide current, which reaches `hereAt` a render later. Once it has, the menu closes the
 	// moment its slide stops being current any other way (an op, a pick, a key), so it never offers to act on a slide
 	// the author has left.
@@ -7516,6 +7539,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const editorPane = (
 		<section
+			ref={editPaneRef}
 			id="studio-pane-editor"
 			// Non-interactive whenever the editor is collapsed to 0px — the split's
 			// preview-only state, OR the Read stop (editor mounted at 0px for no-remount).
@@ -7648,7 +7672,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<React.Suspense fallback={<ComposeSkeleton />}>
 				{/* Held on a phone until the first slide, exactly as the Editor below: ProseMirror is the largest
 				    piece of startup the first slide does not need, and Compose is now the default (2026-11-10). */}
-				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={setLayoutReq} onFind={openFind} onView={onEditorView} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} emptyStart={stripEditable ? <EmptyDeckStart items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onInsertComponent} onBrowse={() => opAddSlide('after')} /> : undefined} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
+				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={setLayoutReq} onFind={openFind} onView={onEditorView} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} emptyStart={stripEditable} onEmpty={setComposeEmpty} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
@@ -7657,6 +7681,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
 					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} onFind={openFind} onView={onEditorView} value={source} latestValue={latestSource} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionSamples={completionSamples} completionLoading={catalogLoading} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
+			)}
+			{/* THE START GRID, hosted here rather than in Compose so it survives Compose unmounting (Source, Read, a lens): see
+			    `startGridMounted`. Hidden is display:none, so its tiles have no box and the pool parks their frames, and a phone's
+			    Preview tab, which only covers this pane with `invisible`, does not keep them live (the checker on #3273). A tap where
+			    the grid has no control puts the caret on Compose's empty line: on a phone that tap is what raises the keyboard. */}
+			{startGridMounted && (
+				// biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: the pointer shortcut to the editor's line, which Tab reaches first anyway.
+				<div
+					data-start-grid=""
+					hidden={!startGridShown}
+					// `hidden` alone loses to `flex` (display), which left the grid on screen over the typed text: the class does it.
+					className={cn('absolute inset-x-0 bottom-0 z-10 flex cursor-text flex-col items-center overflow-y-auto px-4 pt-[clamp(8px,4vh,48px)] pb-6', !startGridShown && 'hidden')}
+					style={{ top: startGridTop ?? 56 }}
+					onClick={(e) => {
+						if ((e.target as Element).closest('button, a, input, [role="button"]')) return;
+						composeRef.current?.focusEmptyLine();
+					}}
+				>
+					<EmptyDeckStart items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onInsertComponent} onBrowse={() => opAddSlide('after')} />
+				</div>
 			)}
 			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too
 			    (2026-10-27-slide-structure-strip.md §5), drawn only while this pane is the one on screen, so a

@@ -80,6 +80,24 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   each `PreviewPool` owns its frames. The owner asked for a shared pool (2026-11-17); none exists, and a frame cannot move between hosts without
   reloading. The owner chose to ship this grid on its own pool and build one shared pool, with a global cap, as its own
   PR: `followups.d/3273-p1-shared-preview-pool.md`.
+- **Where the grid lives: the shell, not Compose (the code review).** The first build rendered the grid inside
+  `ComposeView`. The maker-checker review found that this made it go wrong in four ways once the grid was off screen, each
+  confirmed on the real Studio and each now held by a test that a mutation turns red:
+  1. *A collapsed editor left an empty deck with no way to add a slide.* The New slide doors stood down whenever the deck
+     was empty in Compose, whether or not the grid could be seen. They now stand down only while the grid is on screen:
+     Compose is visible (not collapsed, not Read, not the phone's Preview tab) and its doors are open (`stripEditable`).
+  2. *Each return to Compose built four new frames* (4, 8, 12 over Compose → Source round trips), because Compose
+     unmounts on Source, Read or a lens and took the grid's pool with it. The grid now lives in the editor pane
+     (`StudioShell.tsx`, `[data-start-grid]`), mounted once per session and hidden when off screen; Compose reports `blank`
+     and its empty line's edge (`onEmpty`) and exposes `focusEmptyLine()`. Two round trips now build none.
+  3. *On a phone's Preview tab the frames stayed live*, because that tab only covers the edit pane (`invisible`) and the
+     pool still saw four tiles in view. Hidden is now `display:none`, so the tiles have no box and the pool parks them.
+     (The first cut of the move set the `hidden` attribute beside Tailwind's `flex`, which outranks it: the grid stayed on
+     screen over typed text until the class was used. The spec caught it.)
+  4. *An invisible click-catcher* could stay over the editor once the grid prop went away; it went with the move.
+  It also found the grid's top could go stale when one empty deck replaced another (the measurement now reruns on
+  `resetKey`), that a misspelled `sample:` name drew a broken image (it falls back to the stand-in that names it) and that
+  Compose accepted a `..` in a sample name the engine refuses (it refuses it too).
 - **Nothing moves (owner, 2026-11-17: "make sure there is no jank").** Two moves were measured on the real Studio and
   fixed. (1) The first build hid the slide bar with `display:none`, so the first letter brought it back above the line and
   pushed the text down under the author's caret: **94px on a phone, 54px on a desktop**, and Undo pulled it back up. The
@@ -119,8 +137,8 @@ round's second decision), and the five aliases are gone. `compose-panes.spec.ts`
 
 ## 6. Verification
 
-The real Studio, served by `npm run dev`, driven by `docs/e2e/compose-empty-deck.spec.ts`: seven tests on Chromium desktop
-and the 390px phone project, and three of them (the empty state, typing and Undo, a tile and Undo) on WebKit phone and Gecko as well. They cover no slide chrome
+The real Studio, served by `npm run dev`, driven by `docs/e2e/compose-empty-deck.spec.ts`: ten tests on Chromium desktop
+and the 390px phone project, and four of them (the empty state, typing and Undo, a tile and Undo, nothing moves) on WebKit phone and Gecko as well; the collapsed-editor test runs on desktop only, where there is a split to collapse. They cover no slide chrome
 and no second door; typing then one Undo back to an empty file; keys that write nothing; a tile making slide 1, then Undo;
 a pasted deck arriving as two slides with nothing blank before them; the picker's "as slide 1"; and Preview and Present
 saying the deck is empty. Each failing arm is in the PR body.

@@ -85,7 +85,8 @@ test('@crosswidth keys that write nothing leave the deck empty, and Tab reaches 
 	await caretOnEmptyLine(page);
 	await page.keyboard.press('Tab');
 	await expect(tiles(page).first()).toBeFocused();
-	expect(await deckSource(page)).toBe('');
+	// The editor itself, not storage: a deck that was never saved also reads '' from storage (the checker on #3273).
+	await expect(page.locator('.cs-host .cs-slide-content')).toHaveText('');
 	await expect(start(page)).toBeVisible();
 });
 
@@ -176,3 +177,48 @@ test('@crosswidth Preview and Present say the deck is empty instead of showing a
 	await expect(page.getByText('Add a slide to present.').filter({ visible: true }).first()).toBeVisible();
 	await expect(page.getByRole('dialog', { name: /present/i })).toHaveCount(0);
 });
+
+// The checker on #3273 found three ways the first build went wrong once the grid was not on screen. Each is held here.
+
+test('a collapsed editor on an empty deck still offers New slide', async ({ page }) => {
+	// Desktop only (no @crosswidth): a phone has no split to collapse; its Preview tab is the next test.
+	await openEmptyDeck(page);
+	await expect(page.locator('[data-new-slide]')).toHaveCount(0);
+	await page.getByRole('button', { name: 'Collapse editor', exact: true }).click();
+	// The grid went with the editor, so a door comes back: the deck is never left with no way to add a slide.
+	await expect(page.locator('[data-start-grid]')).toBeHidden();
+	await expect(page.getByRole('button', { name: 'New slide', exact: true }).filter({ visible: true }).first()).toBeVisible();
+});
+
+test('@crosswidth going to Source and back builds no new preview frames, and Preview hides the grid outright', async ({ page }) => {
+	// Count every <iframe> the page ever creates (WebKit never frees a destroyed one, preview-pool.tsx).
+	await page.addInitScript(() => {
+		const w = window as unknown as { __frames: number };
+		w.__frames = 0;
+		new MutationObserver((ms) => {
+			for (const m of ms)
+				for (const n of m.addedNodes) {
+					if (n.nodeName === 'IFRAME') w.__frames++;
+					if (n instanceof Element) w.__frames += n.querySelectorAll('iframe').length;
+				}
+		}).observe(document, { childList: true, subtree: true });
+	});
+	await openEmptyDeck(page);
+	await expect(tiles(page)).toHaveCount(4);
+	const frames = () => page.evaluate(() => (window as unknown as { __frames: number }).__frames);
+	await expect.poll(() => page.locator('[data-start-grid] iframe').count()).toBeGreaterThan(0);
+	const before = await frames();
+	for (let i = 0; i < 2; i++) {
+		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+		await expect(page.locator('[data-start-grid]')).toBeHidden();
+		await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+		await expect(start(page)).toBeVisible();
+	}
+	expect(await frames(), 'a return to Compose built new preview frames').toBe(before);
+	// On a phone the Preview tab only covers the edit pane; the grid must be display:none under it, so its frames park.
+	if ((page.viewportSize()?.width ?? 1440) < 768) {
+		await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
+		await expect(page.locator('[data-start-grid]')).toHaveCSS('display', 'none');
+	}
+});
+
