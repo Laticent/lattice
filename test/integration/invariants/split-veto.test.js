@@ -49,9 +49,15 @@ describe('split veto — a hoistable lede + note must not veto the split', () =>
     assert.ok(roles.slice(1, -1).every((r) => r === 'body'), `the middle must be body pages — ${JSON.stringify(roles)}`);
     assert.equal(roles.at(-1), 'closing', `a run with a trailing note ends on a closing page — ${JSON.stringify(roles)}`);
 
-    // The two hoists the veto has to account for, landing where the envelope says: the lede on
-    // the COVER, the note on the CLOSING page (it rode the last BODY page until 2026-09-01).
-    assert.match(sections[0].inner, /split-feat-lede/, 'the lede did not reach the cover');
+    // The two hoists the veto has to account for, landing where the envelope says: the lede off
+    // the body pages, the note on the CLOSING page (it rode the last BODY page until 2026-09-01).
+    // The lede goes on the COVER, or, when the cover with it overflows, on a lede page of its own
+    // right after the cover (owner, 2026-11-13; fit-everywhere-model.md §25). This fixture's lede
+    // is long on purpose and runs the portrait cover 241px over, so it takes the lede page.
+    const ledeAt = sections.findIndex((p) => /split-feat-lede/.test(p.inner));
+    assert.ok(ledeAt === 0 || (ledeAt === 1 && /\blat-split-lede\b/.test(sections[1].openTag)),
+      `the lede must reach the cover or the lede page after it, found it at section ${ledeAt}`);
+    assert.equal(sections.filter((p) => /split-feat-lede/.test(p.inner)).length, 1, 'the lede rides one page');
     const noted = sections.filter((p) => /\bbelow-note\b/.test(p.inner));
     assert.equal(noted.length, 1, 'the below-note must ride exactly one page');
     assert.equal(noted[0].inner, sections.at(-1).inner, 'and that page is the CLOSING page');
