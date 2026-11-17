@@ -139,6 +139,51 @@ if (process.env.PROBE === 'player-charts') {
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
+
+if (process.env.PROBE === 'present-narration') {
+	// The narration probe, as run.mjs runs it, minus the footprint: import the 4K deck, install the stand-in voice, play
+	// Present with Guide on, voice on and then off. NARRATION_PLAY_S / NARRATION_SILENT_S shorten the arms here (default
+	// 120 s / 30 s), since the steps, not the long-run memory, are what this proves.
+	const { buildNarrationDeck, NARRATION_TITLE, narrationChecks } = await import('./present-narration.mjs');
+	const NARRATION = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
+	const deck = await buildNarrationDeck();
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const arm = async (voice, seconds) => {
+		const out = { arm: voice ? 'voice on' : 'voice off', voice, samples: [] };
+		const context = await browser.newContext(shapes.at(-1).options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		const call = (expr) => page.evaluate(`${NARRATION}\n${expr}`);
+		try {
+			await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+			await call(`latticeNarrationReceive(${JSON.stringify(b64)}, 0, 1)`);
+			Object.assign(out, await call(`latticeNarrationImport(${JSON.stringify(NARRATION_TITLE)})`));
+			await call('latticeNarrationVoice()');
+			const played = await call(`latticeNarrationPlay(${voice})`);
+			out.total = played.total;
+			const t0 = Date.now();
+			while (Date.now() - t0 < seconds * 1000) {
+				// A sampling interval, as run.mjs reads every 30 s: what is read is work done (slide, clips, bytes), never time.
+				await new Promise((r) => setTimeout(r, 10_000)); // flaky-ok: a sampling interval, the samples are judged on work done
+				const s = await call('latticeNarrationSample()');
+				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), ...s });
+				console.log(`  ${out.arm} +${out.samples.at(-1).t}s: slide ${s.slide}, ${s.speech} spoken, ${s.liveMB} MB audio held of ${s.decodedMB} MB decoded at ${s.sampleRate} Hz`);
+			}
+			out.playedS = Math.round((Date.now() - t0) / 1000);
+			out.alive = out.samples.at(-1)?.mark === played.mark;
+		} catch (e) {
+			out.error = String(e.message || e).split('\n')[0].slice(0, 300);
+		}
+		await context.close();
+		return out;
+	};
+	const arms = [await arm(true, Number(process.env.NARRATION_PLAY_S || 120)), await arm(false, Number(process.env.NARRATION_SILENT_S || 30))];
+	const steps = narrationChecks(arms, { slides: deck.slides, audioCapMB: Number(process.env.NARRATION_AUDIO_CAP_MB || 40), memory: false });
+	report('iPhone-sized', 'present-narration-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: arms[0].width, steps });
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+
 if (process.env.PROBE === 'present-memory') {
 	// The Present probe, as run.mjs runs it, minus the footprint (only the Mac can read the simulator's): send the deck,
 	// import it, reload, open Present, step six slides. iPhone-sized only, as the suite runs it. BASELINE_URL adds a second
