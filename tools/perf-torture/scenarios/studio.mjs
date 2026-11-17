@@ -16,8 +16,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // The docs production build the harness serves (needs `cd docs && npm run build` first).
 const DIST = join(HERE, '..', '..', '..', 'docs', 'dist');
 
+// The Studio is READY once one of its two editors is mounted: the rich Compose editor it opens in, or Markdown source. Only
+// the hydrated app draws either. The server-rendered skeleton (StudioChromeSkeleton.tsx) draws the toolbar, Present button
+// and posture dials too, with no-op handlers, so waiting for one of those let a click land before the app could answer it.
+const STUDIO_READY = '.ProseMirror, .cm-content';
+
 // The Studio opens in the rich Compose editor, so `.cm-content` (the Markdown source editor) is no longer there on
-// load: waiting for it timed out every studio cycle. Wait for the toolbar, dial to Craft, then open Markdown source,
+// load: waiting for it timed out every studio cycle. Once an editor is mounted (STUDIO_READY), dial to Craft, then open Markdown source,
 // the editor the `typing` and `compose` cycles and the calibrated floors assume. Uncaught on purpose, like `setup`.
 async function craftWithSource(page) {
 	await page.click('button[aria-label="Craft — every panel"]');
@@ -255,7 +260,7 @@ export default {
 			// gated on the `lattice-perf-overlay` pref (default off), so a bare `/studio` never loads
 			// web-vitals. Selector determinism comes from the CRAFT-posture `setup` below, not from `?perf`.
 			// Confirm the honest surface with: `npm run torture -- --scenario studio --cycle idle,compose --listeners`.
-			url: '/studio', ready: 'button[aria-label="Present"]', settle: 1500,
+			url: '/studio', ready: STUDIO_READY, settle: 1500,
 			// dial to the CRAFT posture so the full UI (activity bar, op rail, both editor toggles)
 			// is present + selectors deterministic; every studio cycle shares this → matched floors.
 			// NOT `.catch(() => {})`. A swallowed click here does not fail — it silently benchmarks
@@ -269,7 +274,7 @@ export default {
 		// The Studio, with the stand-in voice chosen before the app reads its settings: stub the network, store the
 		// choice, reload, then the same Craft posture as `studio`.
 		narration: {
-			url: '/studio', ready: 'button[aria-label="Present"]', settle: 1500,
+			url: '/studio', ready: STUDIO_READY, settle: 1500,
 			setup: async (page) => {
 				await standInSpeech(page);
 				await page.evaluate((model) => {
@@ -277,7 +282,7 @@ export default {
 					localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model, voice: 'Kore' }));
 				}, NARRATION_MODEL);
 				await page.reload({ waitUntil: 'networkidle0', timeout: 90000 });
-				await settle(page, 'button[aria-label="Present"]', 30000);
+				await settle(page, STUDIO_READY, 30000);
 				await wait(page, 1500);
 				await craftWithSource(page);
 			},
