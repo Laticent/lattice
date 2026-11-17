@@ -15,6 +15,8 @@ export type { BoundedCache, Inflight } from './cache.js';
 export { createBoundedCache, createInflight } from './cache.js';
 export { encodeWav, parsePcmContentType, toBlobLike, wrapPcm } from './encode.js';
 export { clampFadeMs } from './envelope.js';
+export type { OggOpusOptions, OggPage } from './ogg-opus.js';
+export { DEFAULT_PRE_SKIP, muxOggOpus, oggCrc, opusHead, opusPacketSamples, preSkipFromDescription, readOggPages } from './ogg-opus.js';
 export type { SequenceStage } from './sequence.js';
 export { makeSequence } from './sequence.js';
 export { createStage } from './stage.js';

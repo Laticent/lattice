@@ -148,7 +148,8 @@ if (process.env.PROBE === 'codec-support') {
 	// simulator: Linux WebKit decodes with GStreamer, not Apple's media stack).
 	const { chromium, firefox } = await import('@playwright/test');
 	const { codecChecks } = await import('./codecs.mjs');
-	const muxer = fs.readFileSync(path.join(here, '../../../lib/core/ogg-opus.mjs'), 'utf8').replace(/^export /gm, '');
+	const { transformSync } = await import('esbuild');
+	const muxer = transformSync(fs.readFileSync(path.join(here, '../../src/lib/suono/ogg-opus.ts'), 'utf8'), { loader: 'ts' }).code.replace(/^export /gm, '');
 	const probe = `${muxer}\n${fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8')}`;
 	const dir = path.join(here, 'codec-fixtures');
 	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));

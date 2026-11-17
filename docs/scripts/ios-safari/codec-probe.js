@@ -11,8 +11,8 @@
  * codecs WebCodecs' AudioEncoder and AudioDecoder support; and a real round trip: the source speech encoded with
  * AudioEncoder (Opus, AAC) and decoded back with AudioDecoder, with the bytes written and the change in length. That
  * round trip is the path the streaming design would use: raw packets in storage, no container, no decodeAudioData.
- * WebDriver sends it as text, after lib/core/ogg-opus.mjs with its `export`s removed (run.mjs `withMuxer`): it uses its
- * argument, the page's own APIs and that muxer.
+ * WebDriver sends it as text, after Suono's Ogg writer (docs/src/lib/suono/ogg-opus.ts) compiled to plain script by run.mjs:
+ * it uses its argument, the page's own APIs and that writer.
  */
 
 async function latticeCodecProbe(files) {
@@ -122,7 +122,7 @@ async function latticeCodecProbe(files) {
 			return { ok: false, error: `decode: ${String(e?.message || e).slice(0, 80)}`, bytes };
 		}
 		if (decError) return { ok: false, error: `decode: ${decError.slice(0, 80)}`, bytes };
-		// E. The same packets in OUR Ogg file (lib/core/ogg-opus.mjs, sent ahead of this script by run.mjs), played back with
+		// E. The same packets in OUR Ogg file (Suono's ogg-opus.ts, sent ahead of this script by run.mjs), played back with
 		// decodeAudioData: the stored-clip path the streaming design uses. Its added length is what a listener hears.
 		let ogg = null;
 		if (codec === 'opus' && typeof muxOggOpus === 'function') {

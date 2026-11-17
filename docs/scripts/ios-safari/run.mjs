@@ -1054,8 +1054,10 @@ async function runFocusSyncProbe(id) {
  */
 async function runCodecProbe(id) {
 	const { codecChecks } = await import('./codecs.mjs');
-	// The page gets the Ogg writer the Studio uses (lib/core/ogg-opus.mjs) as plain script: its `export`s removed.
-	const muxer = fs.readFileSync(path.join(ROOT, 'lib/core/ogg-opus.mjs'), 'utf8').replace(/^export /gm, '');
+	// The page gets Suono's Ogg writer (docs/src/lib/suono/ogg-opus.ts), the one the Studio uses, as plain script: esbuild
+	// strips the types, and its `export`s are removed.
+	const { transformSync } = await import('esbuild');
+	const muxer = transformSync(fs.readFileSync(path.join(ROOT, 'docs/src/lib/suono/ogg-opus.ts'), 'utf8'), { loader: 'ts' }).code.replace(/^export /gm, '');
 	const probe = `${muxer}\n${fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8')}`;
 	const dir = path.join(here, 'codec-fixtures');
 	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));

@@ -142,6 +142,7 @@ WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`
 | `createStage(opts?)` | the owned context + playback. `unlock()`, `decode(bytes, key?)`, `play(clip, {onStart, signal, pan})` → a `PlayHandle` (`stop()`, `pause()`, `resume()`, `setPan(pan, glideMs?)`, `done`), `clockMs()`, `latencyMs()`, `state()`, `suspend()`/`resume()`, `stopAll()`, `sequence(opts)`, `dispose()`. |
 | `stage.sequence(opts)` / `makeSequence(stage, opts)` | the scheduler: `play`/`pause`/`resume`/`stop`/`warm`. Opts: `items`, `produce`, `keyOf?`, `gapMs?`, `concurrency?`, `onItemStart?`, `onState?`. `warm(items)` **preloads** — prefetches bytes AND decodes them, so a later play skips both. |
 | `encodeWav(samples, rate)` | Float32 PCM → WAV `BlobLike` (pure, node-safe). |
+| `muxOggOpus({ packets, preSkip, length })` | Raw Opus packets (WebCodecs' `AudioEncoder` output) → a standard Ogg Opus file (RFC 7845) that every engine's `decodeAudioData` plays with no added lead-in. Each packet's length comes from its TOC byte; `length` trims the encoder's end padding. Pure, node-safe. `readOggPages`, `opusPacketSamples`, `preSkipFromDescription` read it back. |
 | `wrapPcm(bytes, contentType)` | raw PCM response → WAV `BlobLike` (pure). |
 | `createBoundedCache` / `createInflight` | the FIFO cache + in-flight dedup primitives (pure). |
 
@@ -154,6 +155,7 @@ Types: `Stage`, `Sequence`, `Clip`, `Bytes`, `BlobLike`, `Onset`, `SequenceOptio
 ```
 types.ts     the public contract
 encode.ts    encodeWav + wrapPcm (Float32/raw PCM → WAV) — PURE, node-safe
+ogg-opus.ts  muxOggOpus + readOggPages (Opus packets to and from Ogg Opus, RFC 7845) — PURE, node-safe
 cache.ts     createBoundedCache (FIFO) + createInflight (dedup) — PURE, node-safe
 stage.ts     createStage — owned AudioContext, decode+cache, play, unlock, clock (browser)
 sequence.ts  makeSequence — the bounded, pause-gated, abortable scheduler over an injected stage
