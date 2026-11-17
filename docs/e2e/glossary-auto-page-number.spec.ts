@@ -35,21 +35,45 @@ test('a glossary: auto deck numbers every preview slide as its PDF does, steppin
 
 	const prev = page.getByRole('button', { name: 'Previous slide' }).first();
 	const next = page.getByRole('button', { name: 'Next slide' }).first();
-	const numberShown = () =>
-		currentSlide(page)
-			.locator('section')
-			.first()
-			.evaluate((el) => ({
-				n: el.getAttribute('data-lattice-pagination') ?? '',
-				tot: el.getAttribute('data-lattice-pagination-total') ?? '',
-				badge: (el.querySelector('.lat-pagination')?.textContent || '').trim(),
-			}));
+	type Shown = { n: string; tot: string; badge: string };
+	// One read of the painted slide's number, its total and its badge. The preview swaps its document when a render lands,
+	// and a read that meets the swap throws "Execution context was destroyed"; `expect.poll` does not retry a throw, so
+	// that read counts as "not painted yet" (null) and the poll reads again. Any other error still fails the test.
+	const numberShown = async (): Promise<Shown | null> => {
+		try {
+			return await currentSlide(page)
+				.locator('section')
+				.first()
+				.evaluate((el) => ({
+					n: el.getAttribute('data-lattice-pagination') ?? '',
+					tot: el.getAttribute('data-lattice-pagination-total') ?? '',
+					badge: (el.querySelector('.lat-pagination')?.textContent || '').trim(),
+				}));
+		} catch (e) {
+			if (/Execution context was destroyed|Frame was detached/.test(String(e))) return null;
+			throw e;
+		}
+	};
+	// Wait until the painted slide carries `want`, and return that same read, so the total and the badge checked
+	// after it come from the document that showed the number, never from a later swap.
+	const settled = async (want: string): Promise<Shown> => {
+		let last: Shown | null = null;
+		await expect
+			.poll(
+				async () => {
+					last = await numberShown();
+					return last?.n;
+				},
+				{ timeout: 15000 },
+			)
+			.toBe(want);
+		return last as unknown as Shown;
+	};
 
 	// The caret ends on the last slide after the paste. Walk back to the first, reading each.
 	const back: string[] = [];
 	for (let i = authored; i >= 1; i--) {
-		await expect.poll(async () => (await numberShown()).n, { timeout: 15000 }).toBe(PDF_NUMBER[i - 1]);
-		const s = await numberShown();
+		const s = await settled(PDF_NUMBER[i - 1]);
 		if (s.n) expect(s.tot).toBe(total);
 		if (s.badge) expect(s.badge).toBe(PDF_NUMBER[i - 1]);
 		back.push(s.n);
@@ -58,8 +82,7 @@ test('a glossary: auto deck numbers every preview slide as its PDF does, steppin
 	// …and forward again to the end.
 	const fwd: string[] = [];
 	for (let i = 1; i <= authored; i++) {
-		await expect.poll(async () => (await numberShown()).n, { timeout: 15000 }).toBe(PDF_NUMBER[i - 1]);
-		fwd.push((await numberShown()).n);
+		fwd.push((await settled(PDF_NUMBER[i - 1])).n);
 		if (i < authored) await next.click();
 	}
 	expect(back).toEqual([...PDF_NUMBER].reverse());

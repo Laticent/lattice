@@ -6957,18 +6957,17 @@ async function projectDeckSpeechFromHtml(docHtml, browser, g) {
 // voice speaks are the sentences the captions show. Returns the per-slide texts beside the tracks.
 async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   const { buildReadAlong, emphasisForResolved, mergeNarration, refsForResolved } = require('./lib/core/read-along-build.js');
-  // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
-  // front-matter `say:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
-  // the shared resolver so both producers can't drift (#904).
-  let acronyms;
-  let lexicon; // author `lexicon:` — a token (glyph or word) → spoken; beats the built-in commons
+  // Deck term registry (`terms:`, with the `acronyms:` and `lexicon:` it absorbs —
+  // engineering/decisions/2026-11-16-terms-registry.md) → key→spoken map, and the front-matter
+  // `say:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from the shared resolver so
+  // both producers can't drift (#904).
+  let terms;
   let fmSayMap;
   let lang; // deck language (Marp `lang:`); a non-English deck bypasses English say-as (#919)
   let bookends; // the `greeting:` / `closing:` kernel (lib/core/resolve-bookends.mjs); a caption file has no viewer clock, so it takes the NEUTRAL greeting
   try {
-    const { acronymSpokenMap, frontMatterSayMap, frontMatterLang, lexiconMap } = await import('./lib/core/resolve-narration.mjs');
-    acronyms = acronymSpokenMap(rawMd);
-    lexicon = lexiconMap(rawMd);
+    const { termsSpokenMap, frontMatterSayMap, frontMatterLang } = await import('./lib/core/resolve-narration.mjs');
+    terms = termsSpokenMap(rawMd);
     fmSayMap = frontMatterSayMap(rawMd);
     lang = frontMatterLang(rawMd);
     const bookendsMod = await import('./lib/core/resolve-bookends.mjs');
@@ -7164,9 +7163,8 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
     pace: 'moderate',
-    acronyms,
+    terms,
     emphasis,
-    lexicon,
     lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
     bookends: bookendTexts,
   });
@@ -7175,8 +7173,8 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // its segment hashes are the ones the Studio would write for the same text.
   const inputs = {
     ...(lang ? { lang } : {}),
-    ...(lexicon?.size ? { lexicon: Object.fromEntries(lexicon) } : {}),
-    ...(acronyms?.size ? { acronyms: Object.fromEntries(acronyms) } : {}),
+    // LTT 1.0's `acronyms` input hashes the whole term registry (narration-bake.ts does the same).
+    ...(terms?.size ? { acronyms: Object.fromEntries(terms) } : {}),
   };
   return { readAlong, slideTexts, emphasis, refs, inputs };
 }

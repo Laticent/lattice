@@ -195,14 +195,24 @@ else; it travels in the deck as an HTML comment, for the author.
 
 **Display form vs spoken form.** A word carries both `$4.2M` (displayed) and "four
 point two million dollars" (spoken); the on-screen caption shows the glyphs while the timed
-track speaks the words. Expand your own acronyms with a front-matter `acronyms:`
-block so the spoken form is right without cluttering the caption:
+track speaks the words. Teach the voice your own terms with a front-matter `terms:`
+block, so the spoken form is right while the slide and its caption stay as written:
 
 ```yaml
-acronyms:
-  CRO: chief revenue officer
-  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }
+terms:
+  Derby: Darby                                # a plain value is what the voice says
+  "Twinkima G": Twinkee mah Gee               # quote a key with a space or a symbol
+  CRO: { expansion: chief revenue officer }   # what it stands for, said aloud
+  EBITDA:
+    expansion: earnings before interest, taxes, depreciation and amortization
+    pronounce: ee bit dah                     # how to say it, when that differs
+    definition: "A measure of operating profit."   # feeds glossary: auto
 ```
+
+One entry covers the forms a deck writes: `CROs`, `CRO's`, `CRO-led`, `CRO/CFO`, and
+`DERBY` in a title (a lower-case or Capitalized key matches its other cases; `CRO` stays
+case-exact). `acronyms:` and `lexicon:` are older names for `terms:` and still work;
+`lint:deck` offers to move them.
 
 **The timing model** (the Cadenza engine — pure, deterministic, offline, no AI):
 a prosody-grounded estimate (≈150 wpm, ~200 ms/syllable, pauses graded by boundary
@@ -323,11 +333,11 @@ does the cadence vary? What you flag becomes a review comment (§3) or a direct 
 ```
 
 ```yaml
-# front matter, for note-free slides and acronym expansion
+# front matter, for note-free slides and how terms are spoken
 say:
   1: Meridian Freight — the quarter beat plan, and we need a capacity call today.
-acronyms:
-  ARR: annual recurring revenue
+terms:
+  ARR: { expansion: annual recurring revenue }
 ```
 
 *(Review comments are added in Studio, not here — they live in the `.lattice`
@@ -342,7 +352,7 @@ Render with narration sidecars: `npx @laticent/lattice deck.md deck.pdf
 
 - [ ] Notes add spoken subtext, never restate the slide.
 - [ ] Any private/reviewer remark is a **review comment** (Studio), not a note.
-- [ ] `say:` lines read naturally aloud; acronyms expanded via `acronyms:`.
+- [ ] `say:` lines read naturally aloud; acronyms expanded via `terms:`.
 - [ ] Narration precedence understood (a `say:` replaces the generated line entirely; a note is never narrated at all).
 - [ ] Review comments are specific, actionable, and left off the default export.
 - [ ] `--notes` / `--captions` sidecars generated and spot-checked if narration
@@ -357,7 +367,7 @@ Render with narration sidecars: `npx @laticent/lattice deck.md deck.pdf
    review comment.
 3. **Two `say:` lines on one slide** — a `say:` replaces; last non-empty wins, so two
    contradict.
-4. **Expecting a `say:` line to auto-expand acronyms** without an `acronyms:` entry.
+4. **Expecting a `say:` line to auto-expand acronyms** without a `terms:` entry.
    *(Also: still writing `<!-- caption: … -->` or `captions:` — both are retired; the engine
    reads the comment as a speaker note. `lint:deck` flags it.)*
 5. **Assuming review comments are private** or that they ship by default (they're

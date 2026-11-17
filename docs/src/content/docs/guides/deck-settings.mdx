@@ -166,17 +166,24 @@ but ships still charts in the exported player.
 
 `pace:` sets how long a self-presenting deck holds on a slide before speaking,
 and how long it lets the last sentence land before the next slide appears.
-`lexicon:` teaches the voice how to say a word, and `acronyms:` spells out
-abbreviations. Definitions in `acronyms:` also feed `glossary: auto`, which adds
-a glossary slide at the end:
+`terms:` teaches the voice how to say a word, a name, an acronym or a symbol,
+while the slide keeps the words as you wrote them. A plain value is what the
+voice says. The longer form also records what a term stands for and a
+definition, and definitions feed `glossary: auto`, which adds a glossary slide
+at the end:
 
 ```yaml
 ---
-acronyms:
-  ARR: annual recurring revenue
+terms:
+  Derby: Darby
+  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }
+  EBITDA: { pronounce: ee bit dah, definition: "A measure of operating profit." }
 glossary: auto
 ---
 ```
+
+One entry also covers the plural, the possessive and a hyphenated compound
+(`ARRs`, `ARR's`, `ARR-based`). The older `acronyms:` and `lexicon:` still work.
 
 ## Settings to reach for last
 

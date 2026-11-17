@@ -206,10 +206,11 @@ test.describe('native drags (Chromium CDP)', () => {
 		expect((await allSources(page)).filter((s) => s === DECK)).toHaveLength(0);
 	});
 
-	// The shell refuses a file drop in a zone that did not take it, instead of letting the
-	// browser navigate the tab to the file. The compose editor is the case that needs it:
-	// ProseMirror cancels `dragover`, then ignores a drop with no text in it.
-	test('a PDF dropped on the compose editor is refused: no import, and the tab stays in the Studio', async ({ page }) => {
+	// A file dropped on Compose opens as a new deck, as it would anywhere else on the shell: ProseMirror reads only
+	// text from a drop, so its plugin lets a drag carrying `Files` pass uncancelled and the shell's funnel takes it
+	// (the owner's ruling, engineering/decisions/2026-11-15-compose-markdown-clipboard.md §4). Before #3234 Compose was
+	// a refusing zone, and a deck dropped there vanished with no message.
+	test('a re-openable PDF dropped on the compose editor opens as a new deck, and the tab stays in the Studio', async ({ page }) => {
 		const sourceTab = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
 		if (await sourceTab.isVisible().catch(() => false)) await sourceTab.click();
 		await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
@@ -217,17 +218,19 @@ test.describe('native drags (Chromium CDP)', () => {
 		await compose.waitFor();
 		const url = page.url();
 		const before = await importsStarted(page);
-		const dropped = await armDropSeen(page);
 		await nativeDrag(page, compose, [files.pdf], {
 			before: async () => {
-				await expect(sign(page)).toBeHidden();
+				// Over Compose the shell's sign is up, as over the preview: the editor no longer keeps file drags.
+				await expect(sign(page)).toBeVisible();
 			},
 		});
-		await dropped();
-		expect(await importsStarted(page), 'the compose drop started an import').toBe(before);
+		await expect(sign(page)).toBeHidden();
+		await expect(toastText(page)).toContainText('Imported');
+		await expect.poll(() => activeSource(page)).toBe(DECK);
+		expect(await importsStarted(page), 'the compose drop started one import').toBe(before + 1);
+		// The browser never navigated the tab to the file, and the open deck was kept.
 		expect(page.url()).toBe(url);
-		expect(await activeSource(page)).toBe(SCRATCH);
-		expect((await allSources(page)).filter((s) => s === DECK)).toHaveLength(0);
+		expect(await allSources(page)).toContain(SCRATCH);
 	});
 
 	// Present is a talk in progress: a drop must not swap the deck the audience is watching.

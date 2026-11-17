@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PanelSheetInstantCtx } from '@/components/ui/panel';
+import { heldWarmPanels, holdWarmUps } from './first-slide';
 import { lazyPanel, PanelLoader, SHEET_ENTER_MS, SHEET_EXIT_MS, useLatch, warmPanels } from './lazy-panel';
 
 function Real({ label }: { label: string }) {
@@ -141,6 +142,47 @@ describe('warmPanels', () => {
 		expect(order).toEqual([]);
 		await act(async () => vi.runAllTimersAsync());
 		expect(order).toEqual(['a', 'b']);
+	});
+
+	// Foreground work (`holdWarmUps`, first-slide.ts) holds the Studio's queue (`heldWarmPanels`): the chat's render_slide
+	// overran its budget with the Compose, Present and Read chunks loading beside it. Counted in loads, not time.
+	it('starts no item while foreground work holds it; an item already loading runs on', async () => {
+		vi.useFakeTimers();
+		const started: string[] = [];
+		const gate = deferred<typeof Real>();
+		const a = lazyPanel('A', () => { started.push('a'); return gate.promise; });
+		const b = lazyPanel('B', async () => { started.push('b'); return Real; });
+		const c = lazyPanel('C', async () => { started.push('c'); return Real; });
+		heldWarmPanels(warmPanels)([a, b, c]);
+		await act(async () => vi.advanceTimersByTimeAsync(5000));
+		expect(started).toEqual(['a']); // a is loading
+		const release = holdWarmUps();
+		try {
+			await act(async () => {
+				gate.resolve(Real);
+				await vi.runAllTimersAsync();
+			});
+			expect(started).toEqual(['a']); // a finished, but b waits for the release
+		} finally {
+			release(); // the hold is module state: never leave it out for the next test
+		}
+		await act(async () => vi.runAllTimersAsync());
+		expect(started).toEqual(['a', 'b', 'c']);
+	});
+
+	it('an item still waiting for the release never loads once the queue is cancelled', async () => {
+		vi.useFakeTimers();
+		const loader = vi.fn(async () => Real);
+		const release = holdWarmUps();
+		try {
+			const cancel = heldWarmPanels(warmPanels)([lazyPanel('A', loader)]);
+			await act(async () => vi.advanceTimersByTimeAsync(5000)); // the item has started and waits on the hold
+			cancel(); // the Studio unmounts
+		} finally {
+			release();
+		}
+		await act(async () => vi.runAllTimersAsync());
+		expect(loader).not.toHaveBeenCalled();
 	});
 
 	it('stops when cancelled', async () => {

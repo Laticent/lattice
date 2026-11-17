@@ -2,8 +2,8 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
-import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
-import { frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
+import { acronymEntries, lexiconMap, termEntries } from '@/lib/resolve-narration';
+import { frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, setFrontMatterTerms, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
 
@@ -601,5 +601,108 @@ describe('a leading BOM: the block is the engine’s settings block, and every w
 		expect(setFrontMatterBlock(`${B}# A\n`, 'lexicon', [])).toBe(`${B}# A\n`);
 		const acr = setFrontMatterAcronyms(`${B}# A\n`, [['CRO', { expansion: 'chief revenue officer' }]]);
 		expect(acr).toBe(`${B}---\nacronyms:\n  CRO: "chief revenue officer"\n---\n\n# A\n`);
+		// An existing block under a BOM is replaced in place (the span path), the BOM still in front.
+		const withBlock = `${B}---\ntheme: x\nlexicon:\n  "a": b\n---\n\n# A\n`;
+		expect(setFrontMatterBlock(withBlock, 'lexicon', [['c', 'd']])).toBe(`${B}---\ntheme: x\nlexicon:\n  "c": d\n---\n\n# A\n`);
+		expect(setFrontMatterBlock(withBlock, 'lexicon', [])).toBe(`${B}---\ntheme: x\n---\n\n# A\n`);
+	});
+});
+
+// #1257 — the nested-block writers splice only their own block. The repro deck from the issue: a
+// comment, `_class:`, a `style: |` body and a flow sequence, all of which the old whole-block rebuild
+// dropped or mangled.
+describe('nested-block writers are lossless (#1257)', () => {
+	const deck = [
+		'---',
+		'# legal signed off on this footer',
+		'theme: indaco',
+		'_class: lead',
+		'style: |',
+		'  section.title h1 { color: red; }',
+		'tags: [alpha, beta]',
+		'---',
+		'',
+		'# Q4',
+		'',
+	].join('\n');
+
+	it('adding a lexicon entry keeps every other byte', () => {
+		const out = setFrontMatterBlock(deck, 'lexicon', [['Derby', 'Darby']]);
+		expect(out).toBe(deck.replace('tags: [alpha, beta]\n', 'tags: [alpha, beta]\nlexicon:\n  "Derby": Darby\n'));
+	});
+
+	it('replacing and then removing an acronyms block touches only that block', () => {
+		const withBlock = deck.replace('theme: indaco\n', 'theme: indaco\nacronyms:\n  CRO: old\n\n  # a comment inside the block\n');
+		const out = setFrontMatterAcronyms(withBlock, [['CRO', { expansion: 'chief revenue officer' }]]);
+		expect(out).toBe(deck.replace('theme: indaco\n', 'theme: indaco\nacronyms:\n  CRO: "chief revenue officer"\n'));
+		expect(setFrontMatterAcronyms(out, [])).toBe(deck);
+	});
+
+	it('keeps CRLF line endings', () => {
+		const crlf = deck.replace(/\n/g, '\r\n');
+		const out = setFrontMatterBlock(crlf, 'lexicon', [['→', 'leads to']]);
+		expect(out).toBe(crlf.replace('tags: [alpha, beta]\r\n', 'tags: [alpha, beta]\r\nlexicon:\r\n  "→": "leads to"\r\n'));
+	});
+
+	it('creates front matter on a deck with none', () => {
+		expect(setFrontMatterBlock('# Q4\n', 'lexicon', [['→', 'to']])).toBe('---\nlexicon:\n  "→": to\n---\n\n# Q4\n');
+	});
+});
+
+describe('setFrontMatterTerms', () => {
+	it('writes each entry in the shortest form the reader reads back the same', () => {
+		const out = setFrontMatterTerms('---\ntheme: indaco\n---\n\n# Q4\n', [
+			['Derby', { pronounce: 'Darby' }],
+			['🎯', { pronounce: '' }],
+			['Twinkima G', { pronounce: 'Twinkee mah Gee' }],
+			['EBITDA', { expansion: 'earnings before interest, taxes', pronounce: 'ee bit dah', definition: 'Operating profit.' }],
+			['pronounce', { pronounce: 'a field name, so quoted' }],
+		]);
+		expect(out).toBe([
+			'---',
+			'theme: indaco',
+			'terms:',
+			'  Derby: Darby',
+			'  "🎯": ""',
+			'  "Twinkima G": "Twinkee mah Gee"',
+			'  EBITDA:',
+			'    expansion: "earnings before interest, taxes"',
+			'    pronounce: "ee bit dah"',
+			'    definition: "Operating profit."',
+			'  "pronounce": "a field name, so quoted"',
+			'---',
+			'',
+			'# Q4',
+			'',
+		].join('\n'));
+		const read = termEntries(out);
+		expect(read.get('🎯')).toEqual({ pronounce: '', from: 'terms' });
+		expect(read.get('EBITDA')).toEqual({ expansion: 'earnings before interest, taxes', pronounce: 'ee bit dah', definition: 'Operating profit.', from: 'terms' });
+		expect(read.get('pronounce')).toEqual({ pronounce: 'a field name, so quoted', from: 'terms' });
+	});
+
+	it('removes EVERY root copy of an absorbed key, so a dead repeat cannot come back', () => {
+		const src = '---\nacronyms:\n  CRO: old\ntheme: indaco\nacronyms:\n  ARR: annual recurring revenue\n---\n\n# Q4\n';
+		const out = setFrontMatterTerms(src, [['ARR', { expansion: 'annual recurring revenue' }]], ['acronyms']);
+		expect(out).toBe('---\ntheme: indaco\nterms:\n  ARR:\n    expansion: "annual recurring revenue"\n---\n\n# Q4\n');
+		expect(termEntries(out).has('CRO')).toBe(false);
+	});
+
+	it('writes the line the reader reads when the last copy is an inline value', () => {
+		const out = setFrontMatterTerms('---\nterms:\n  Old: dead\nterms: {}\n---\n\n# Q4\n', [['Derby', { pronounce: 'Darby' }]]);
+		expect(out).toBe('---\nterms:\n  Old: dead\nterms:\n  Derby: Darby\n---\n\n# Q4\n');
+		expect([...termEntries(out).keys()]).toEqual(['Derby']);
+	});
+
+	it('round-trips a term holding a double quote, and drops one holding both quote marks', () => {
+		const out = setFrontMatterTerms('# Q4\n', [['say "hi"', { pronounce: 'hello' }], [`it's "x"`, { pronounce: 'no' }]]);
+		expect(out).toBe(`---\nterms:\n  'say "hi"': hello\n---\n\n# Q4\n`);
+		expect(termEntries(out).get('say "hi"')?.pronounce).toBe('hello');
+	});
+
+	it('absorbs the older keys it is told to remove', () => {
+		const src = '---\nacronyms:\n  CRO: chief revenue officer\nlexicon:\n  Derby: Darby\ntheme: indaco\n---\n\n# Q4\n';
+		const out = setFrontMatterTerms(src, [['CRO', { expansion: 'chief revenue officer' }], ['Derby', { pronounce: 'Darby' }]], ['acronyms', 'lexicon']);
+		expect(out).toBe('---\ntheme: indaco\nterms:\n  CRO:\n    expansion: "chief revenue officer"\n  Derby: Darby\n---\n\n# Q4\n');
 	});
 });

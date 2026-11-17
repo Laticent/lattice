@@ -111,7 +111,7 @@ Review in this order: the cheap machine pass first, then the human passes it can
    chart fails here.
 7. **Captions and voice.** If the deck will be narrated or played, check `say:` lines
    read well aloud, and that acronyms that should be spoken as words are listed in
-   `acronyms:`. `--captions` writes the `.vtt`.
+   `terms:`. `--captions` writes the `.vtt`.
 8. **Motion.** Nothing essential may exist only mid-animation. A build (`_build`)
    shows its finished slide in every PDF and reveals without a transition under
    reduced motion; `chart-anima` and `motion: on` diagrams show the finished still.

@@ -13,7 +13,7 @@ import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, 
 import { deckPluginsOff } from '@/lib/plugin-admission';
 import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
 import { DELIVERY_STYLES, frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
-import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
+import { frontMatterLang, frontMatterSayMap, termsSpokenMap } from '@/lib/resolve-narration';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import { CHROME_CHANGE_EVENT } from '@/lib/site-chrome';
 import { slideFrameStyle } from '@/lib/slide-frame';
@@ -943,13 +943,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// Autoplay = read-aloud that chains across slides. Refs (declared above, near the
 	// narration state the projection-upgrade guard reads) let the once-bound onFinish read
 	// live position/intent without re-binding the reader each slide.
-	// The deck's author-supplied acronym registry (term → spoken expansion), parsed from
-	// front-matter. Author pronunciations beat the built-in dictionary and the patterns,
-	// on BOTH the live reader and the warm-ahead prefetch (same map → cache keys match).
-	const acronyms = React.useMemo(() => acronymSpokenMap(frontMatter), [frontMatter]);
-	// The deck's read-aloud lexicon (`lexicon:` front-matter) — author say-as for a word or glyph
-	// beats the built-in Speech Symbol Commons, on the live reader AND the warm-ahead prefetch.
-	const lexicon = React.useMemo(() => lexiconMap(frontMatter), [frontMatter]);
+	// The deck's term registry (`terms:`, with the `acronyms:` and `lexicon:` it absorbs), parsed from
+	// front-matter. Author pronunciations beat the built-in dictionary, the symbol commons and the
+	// patterns, on BOTH the live reader and the warm-ahead prefetch (same map → cache keys match).
+	const terms = React.useMemo(() => termsSpokenMap(frontMatter), [frontMatter]);
 	// The deck's language (Marp `lang:`). A non-English deck bypasses Cadenza's English
 	// lexicon + number/period say-as so read-aloud doesn't inject English into it (#919) —
 	// threaded into the reader AND the warm-ahead prefetch so both agree with the export.
@@ -1000,8 +997,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const reader = useReadAloud(
 		narrationText,
 		{
-			acronyms,
-			lexicon,
+			terms,
 			lang,
 			muted,
 			emphasis: narrationEmphasis,
@@ -1336,9 +1332,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// finding). A request already in flight when this fires just finishes on its own;
 		// see warm()'s own comment in voice-model.js.
 		const ctl = new AbortController();
-		warmNarrationWindow(texts, ctl.signal, acronyms, lang, lexicon);
+		warmNarrationWindow(texts, ctl.signal, terms, lang);
 		return () => ctl.abort();
-	}, [open, muted, roomClipAsk, following, clamped, lookahead, set, narrationAt, acronyms, lang, lexicon]);
+	}, [open, muted, roomClipAsk, following, clamped, lookahead, set, narrationAt, terms, lang]);
 	// Per-slide narration readiness for the rail's "ready" band.
 	//
 	// Split into an EXPENSIVE part and a CHEAP part, because this has to be polled. The
@@ -1358,8 +1354,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// on every deck edit — an O(deck) pass on the EDITOR's typing path, for a readiness display
 	// nobody had open (Munger inversion, #1352). Present-only work belongs to Present.
 	const readinessSentences = React.useMemo(
-		() => (open ? spokenSentencesPerSlide(set.map((_, i) => narrationAt(i).text), { acronyms, lang, lexicon }) : EMPTY_SENTENCES),
-		[open, set, narrationAt, acronyms, lang, lexicon],
+		() => (open ? spokenSentencesPerSlide(set.map((_, i) => narrationAt(i).text), { terms, lang }) : EMPTY_SENTENCES),
+		[open, set, narrationAt, terms, lang],
 	);
 	// The presenter answers a member's request for a sentence's clip from what it already holds. It names the
 	// run's sentences by hash, so a request for anything else (another deck's text) finds nothing (§7.3).

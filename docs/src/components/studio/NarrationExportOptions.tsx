@@ -511,11 +511,11 @@ function Line({ term, detail }: { term: string; detail: string }) {
  */
 /** What the Guide adds to an exported webpage: its bundle (`lib/export/guide-player-bundle.generated.mjs`),
  *  its switch and its focus rules. MEASURED, not imported, so the Studio does not load 120 KB to say
- *  so: the bundle is 119,910 characters with each component's gesture, the three delivery styles, the
- *  scene path and the strict number reader in it (85,675 before the gestures), plus ~4 KB for the switch
- *  and the focus rules. `NarrationExportOptions.test.tsx` holds it to the bundle's real length, so it
+ *  so: the bundle is 128,867 characters with each component's gesture, the three delivery styles, the
+ *  scene path, the strict number reader and the deck-term matcher in it (85,675 before the gestures;
+ *  125,313 before the term matcher, 2026-11-16), plus ~4 KB for the switch and the focus rules. `NarrationExportOptions.test.tsx` holds it to the bundle's real length, so it
  *  cannot drift. */
-export const GUIDE_EXPORT_BYTES = 124_000;
+export const GUIDE_EXPORT_BYTES = 133_000;
 
 function captionBytes(m: NarrationMeasure): number {
 	return Math.round(m.totalChars * 2.2);

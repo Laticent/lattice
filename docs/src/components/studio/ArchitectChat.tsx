@@ -8,7 +8,7 @@ import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
-import { frontMatterBlock, getFrontMatter } from '../../lib/front-matter';
+import { frontMatterBlock, frontMatterBlockText, getFrontMatter } from '../../lib/front-matter';
 import { applyProposedEditsChecked, type ChatGrounding, type ChatReadiness, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
 import { ChatActivityRow } from './ChatActivityRow';
 import { ChatAttach } from './ChatAttach';
@@ -28,6 +28,7 @@ import { addChatPhotos, addChatVideo, discardChatVideo, MAX_CHAT_PHOTOS, photoDa
 import { THINKING } from './chat-status';
 import { chatLoaded, hydrateChat } from './chat-store';
 import { DiffCard } from './diff-card';
+import { holdWarmUps } from './first-slide';
 import { classifyMedia, LIBRARY_MEDIA_ACCEPT } from './media-import';
 import type { MediaRecord } from './media-store';
 import { refreshAssetUrls, setActiveAssetDeck } from './media-urls';
@@ -587,6 +588,10 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 			if (tok) setLiveActivity(null);
 			if (mountedRef.current) paintRef.current.request();
 		};
+		// The Studio's warm-ups wait for the whole turn (first-slide.ts `holdWarmUps`), not only for a draft render inside
+		// it: a warm-up item that starts while the model is answering is still loading when its `render_slide` runs, and
+		// on a busy phone that pushed the render past its 15 s budget. Released in the `finally` below.
+		const releaseWarmUps = holdWarmUps();
 		try {
 			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
 			// re-sent: each image is billed as input every time it travels. Only the LAST turn's go as pixels.
@@ -661,6 +666,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		} catch {
 			raiseTurnNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
 		} finally {
+			releaseWarmUps();
 			abortRef.current = null;
 			// CANCEL THE PENDING PAINT BEFORE CLEARING THE BUBBLE. The last token's frame can
 			// still be queued when `chatComplete` resolves; it would fire after the store is cleared
@@ -1232,6 +1238,7 @@ export function figureChange(before: string, after: string): { removed: string[]
 // dependency on the model layer.
 function isStale(source: string, e: ChatProposal): boolean {
 	if (e.action === 'insert') return false;
+	if (e.action === 'frontmatter' && e.raw.block) return frontMatterBlockText(source, e.raw.key ?? '') !== e.before;
 	if (e.action === 'frontmatter') {
 		const key = e.raw.key ?? '';
 		const cur = getFrontMatter(source, key);

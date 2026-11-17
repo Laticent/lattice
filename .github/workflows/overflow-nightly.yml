@@ -240,7 +240,7 @@ jobs:
       # output (an npm failure, an OOM, a canceled job) still files rather than passing in
       # silence. On a green run `failed=false` is written and this does not fire — verified.
       - name: Open / append overflow issue
-        if: always() && steps.sweep.outputs.failed != 'false'
+        if: always() && steps.sweep.outputs.failed != 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

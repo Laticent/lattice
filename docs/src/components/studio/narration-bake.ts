@@ -31,7 +31,7 @@
 import { buildTrack, type CaptionTrack, interCueGapMs } from '@/lib/cadenza';
 import { deckPluginsOff } from '@/lib/plugin-admission';
 import { GREETING_VARIANTS, greetingText, resolveBookends, withoutRedundantBookends } from '@/lib/resolve-bookends';
-import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
+import { frontMatterLang, frontMatterSayMap, termsSpokenMap } from '@/lib/resolve-narration';
 import { compressClip, DEFAULT_BITRATE_KBPS, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled, parallelPref } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
@@ -322,8 +322,9 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 	const authored = every.map((_, i) => i).filter((i) => !slideSourceHidden(every[i]));
 	const slides = authored.map((i) => every[i]);
 	const fmSayMap = frontMatterSayMap(source);
-	const acronyms = acronymSpokenMap(source);
-	const lexicon = lexiconMap(source);
+	// The deck's term registry (`terms:`, with the `acronyms:` and `lexicon:` it absorbs) — the same map
+	// Present hands its reader, so a baked clip and a live one say every term the same way.
+	const terms = termsSpokenMap(source);
 	const lang = frontMatterLang(source) ?? undefined;
 	// THE AUTO-GLOSSARY SECTION IS TRIMMED, by the same kernel the projection's producer and the
 	// CLI use (lib/core/glossary-auto.mjs `withoutAutoGlossary`). `glossary: auto` makes the render
@@ -387,7 +388,7 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 			emphases.push(undefined);
 		}
 	}
-	const tracks = texts.map((t, i) => (t ? buildTrack(t, { acronyms, emphasis: emphases[i], lang, lexicon }) : null));
+	const tracks = texts.map((t, i) => (t ? buildTrack(t, { terms, emphasis: emphases[i], lang }) : null));
 	const perSlide = tracks.map((track) => (track ? track.cues.map((c) => c.words.map((w) => w.spoken).join(' ')) : []));
 	// "A projection was SUPPLIED", not "was used". A misaligned one is stood down, but the
 	// fallback rung above then reproduces exactly what Present does with the same input — so
@@ -405,8 +406,9 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 		projectionUsed: Array.isArray(projected),
 		inputs: {
 			...(lang ? { lang } : {}),
-			...(lexicon?.size ? { lexicon: Object.fromEntries(lexicon) } : {}),
-			...(acronyms?.size ? { acronyms: Object.fromEntries(acronyms) } : {}),
+			// LTT 1.0's `acronyms` input carries the whole term registry it grew into (a "did it change"
+			// hash, never read back as data); `lexicon` is folded into it and no longer written.
+			...(terms.size ? { acronyms: Object.fromEntries(terms) } : {}),
 		},
 	};
 }

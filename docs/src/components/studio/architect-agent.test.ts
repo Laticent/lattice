@@ -163,6 +163,39 @@ describe('the toolbox', () => {
 		expect(await tb.run('set_front_matter', JSON.stringify({ key: 'finish-override', value: 'a\nb' }))).toContain('single-line');
 	});
 
+	// #3208 item 1: the agent edits the nested `terms:` map, losslessly, and the author reviews one
+	// block row (2026-11-16-terms-registry.md).
+	it('set_terms merges into one terms: block, absorbs the older keys, and proposes one block row each', async () => {
+		const src = DECK.replace('theme: indaco\n', 'theme: indaco # kept\nacronyms:\n  CRO: chief revenue officer\n');
+		const tb = toolbox({ source: src });
+		const out = await tb.run('set_terms', JSON.stringify({ set: [{ term: 'Derby', pronounce: 'Darby' }, { term: 'CRO', pronounce: 'C R O' }], summary: 'Fixed two pronunciations.' }));
+		expect(out).toContain('2 entries');
+		expect(tb.draft).toContain('theme: indaco # kept\nterms:\n  CRO:\n    expansion: "chief revenue officer"\n    pronounce: "C R O"\n  Derby: Darby\n---');
+		expect(tb.draft).not.toContain('acronyms:');
+		const rows = tb.proposal().filter((e) => e.action === 'frontmatter');
+		expect(rows.map((e) => [e.key, e.block, e.value === null])).toEqual([
+			['terms', true, false],
+			['acronyms', true, true],
+		]);
+		// The review applies those rows to the ORIGINAL deck and lands on exactly the draft.
+		const { applyEditsChecked } = await import('./architect');
+		expect(applyEditsChecked(src, rows).source).toBe(tb.draft);
+	});
+
+	it('set_terms removes a term and reports one it could not find', async () => {
+		const tb = toolbox({ source: DECK.replace('theme: indaco\n', 'theme: indaco\nterms:\n  Derby: Darby\n') });
+		const out = await tb.run('set_terms', JSON.stringify({ remove: ['Derby', 'Nope'], summary: 'Removed one.' }));
+		expect(out).toContain('Not in the deck, so nothing to remove: Nope');
+		expect(tb.draft).not.toContain('terms:');
+	});
+
+	it('preview_speech reads a slide with the draft terms', async () => {
+		const tb = toolbox({ source: DECK.replace('theme: indaco\n', 'theme: indaco\nterms:\n  Revenue: rev a new\n') });
+		const out = await tb.run('preview_speech', JSON.stringify({ slide: 2 }));
+		expect(out).toMatch(/^Spoken as: .*rev a new grew/);
+		expect(out).toContain('four point two million dollars');
+	});
+
 	it('checks the DRAFT with the host checker, errors first, and flags slides over budget', async () => {
 		const check = vi.fn(async () => ({ findings: [{ slide: 1, severity: 'warning', rule: 'w', message: 'meh' }, { slide: 2, severity: 'error', rule: 'e', message: 'broken' }], diagrams: [{ slide: 3, message: 'Parse error' }] }));
 		const tb = toolbox({ check, slideWordBudget: 3 });

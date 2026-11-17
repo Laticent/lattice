@@ -12,8 +12,8 @@
 // was destructive by construction, and a writer that can silently delete a user's
 // YAML comments, `_`-prefixed keys and block scalars must not remain reachable.
 // See `engineering/decisions/2026-07-29-front-matter-lossless-writers.md`.
-// `parseFm`/`emitFm` survive because the two NESTED-block writers below
-// (`setFrontMatterBlock`, `setFrontMatterAcronyms`) genuinely re-emit a block.
+// The NESTED-block writers (`lexicon:`, `acronyms:`, `terms:`) went lossless too in #1257: each
+// splices only its own block (`writeFrontMatterBlock`), so the re-emitter they used is gone.
 
 // Match a leading `---` block AND any fully-blank lines that follow it, so
 // stripping the block leaves the body flush — WITHOUT eating a content line's own
@@ -115,24 +115,6 @@ function parseFm(source: string): { pairs: [string, string][]; blocks: [string, 
  *  blanks; callers trim it). The tail is an alternation so a long run of spaces cannot
  *  backtrack quadratically; the engine's copy in lib/core/front-matter-key.js says why. */
 const BLOCK_SCALAR_RE = /^(\s*)([A-Za-z][\w-]*)[ \t]*:[ \t]+([|>](?:[1-9][+-]?|[+-][1-9]?)?(?:[ \t]+#.*|[ \t]*))\r?$/;
-
-/** Re-emit a front-matter block from flat pairs + nested blocks (verbatim child lines),
- *  or the bare body when nothing remains. Nested blocks trail the flat keys. A block scalar
- *  re-emits its indicator and body verbatim, never the quoted string `"|"`. */
-function emitFm(pairs: [string, string][], blocks: [string, string[]][], body: string, scalars = new Map<string, { head: string; body: string[] }>(), bom = ''): string {
-	const lines = pairs.flatMap(([k, v]) => {
-		const s = scalars.get(k);
-		return s && s.head === v ? [`${k}: ${s.head}`, ...s.body] : [`${k}: ${quoteIfNeeded(v)}`];
-	});
-	for (const [k, child] of blocks) {
-		lines.push(`${k}:`);
-		for (const c of child) lines.push(c);
-	}
-	// The BOM goes back where it was: in front of the block, never into the body as text.
-	const lead = body.startsWith('\uFEFF') ? '' : bom;
-	if (!lines.length) return `${lead}${body}`;
-	return `${bom}---\n${lines.join('\n')}\n---\n\n${body.replace(/^\uFEFF/, '').replace(/^(?:[ \t]*\r?\n)+/, '')}`;
-}
 
 function unquote(v: string): string {
 	const t = v.trim();
@@ -376,6 +358,144 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
 }
 
 /**
+ * The character span of ONE root-level NESTED block — a column-0 bare `key:` header plus every
+ * indented line under it — inside the leading front-matter block. The END excludes the last child
+ * line's terminator (and its CRLF `\r`), so a splice keeps the file's line endings. The LAST root
+ * line of the key wins, as every reader reads a repeated key (#3050, D1) — and when that line carries
+ * a value (`terms: {}`), the span is that one line, because it is what the reader reads. Blank lines
+ * inside the block belong to it; trailing blank lines after the last child do not. Null when the key
+ * has no root line.
+ *
+ * The block twin of `frontMatterKeySpan`, built for #1257: the nested writers (`lexicon:`,
+ * `acronyms:`, `terms:`) used to rebuild the whole front matter through `parseFm`/`emitFm`, which
+ * dropped comments, `_class:`, `style: |` bodies and key order. With the span they replace their own
+ * lines and leave every other byte alone.
+ */
+export function frontMatterBlockSpan(source: string, key: string): { start: number; end: number } | null {
+	const src = String(source ?? '');
+	const m = FM_RE.exec(src);
+	const open = m && FM_OPEN_RE.exec(m[0]);
+	if (!m || !open) return null;
+	const lines = m[1].split('\n');
+	const bare = (raw: string) => raw.slice(0, raw.length - (raw.endsWith('\r') ? 1 : 0));
+	const offsets: number[] = [];
+	let at = open[0].length;
+	for (const raw of lines) {
+		offsets.push(at);
+		at += raw.length + 1;
+	}
+	const esc = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const rootLine = new RegExp(`^${esc}[ \\t]*:`);
+	const header = new RegExp(`^${esc}[ \\t]*:[ \\t]*(?:#.*)?$`);
+	const startLine = lines.findLastIndex((raw) => rootLine.test(bare(raw)));
+	if (startLine < 0) return null;
+	if (!header.test(bare(lines[startLine]))) return { start: offsets[startLine], end: offsets[startLine] + bare(lines[startLine]).length };
+	let last = startLine;
+	for (let i = startLine + 1; i < lines.length; i++) {
+		const line = bare(lines[i]);
+		if (!line.trim()) continue;
+		if (!/^\s/.test(line)) break; // a root sibling ends the block
+		last = i;
+	}
+	return { start: offsets[startLine], end: offsets[last] + bare(lines[last]).length };
+}
+
+/**
+ * Set (or, with `children === null` or empty, remove) ONE root-level nested block **losslessly**:
+ * `key:` plus the given child lines (already indented). Every byte outside the block survives — the
+ * same contract `writeFrontMatterLine` keeps for a flat key. The line the reader reads is the one
+ * replaced, block or inline-flow line (`acronyms: {}`); with neither, the block is appended before the
+ * closing `---` (or a new front matter is prepended). REMOVAL takes every root copy of the key, so an
+ * earlier, dead repeat cannot come back to life once the last one is gone. The line ending is kept.
+ */
+export function writeFrontMatterBlock(source: string, key: string, children: readonly string[] | null): string {
+	const src = String(source ?? '');
+	const fm = FM_RE.exec(src);
+	const eol = (fm ? fm[0] : src).includes('\r\n') ? '\r\n' : '\n';
+	const text = children?.length ? [`${key}:`, ...children].join(eol) : null;
+	if (text === null) {
+		let out = src;
+		for (let span = frontMatterBlockSpan(out, key); span; span = frontMatterBlockSpan(out, key)) {
+			const next = removeKeySpan(out, span);
+			if (next === out) break;
+			out = next;
+			if (!FM_RE.exec(out)) break; // the block emptied and went: what follows is slides, never front matter
+		}
+		return out;
+	}
+	const span = frontMatterBlockSpan(src, key);
+	if (span) return `${src.slice(0, span.start)}${text}${src.slice(span.end)}`;
+	const open = fm && FM_OPEN_RE.exec(fm[0]);
+	if (fm && open) {
+		const end = open[0].length + fm[1].length;
+		return `${src.slice(0, end)}${eol}${text}${src.slice(end)}`;
+	}
+	// A new block goes after a leading BOM, as `writeFrontMatterLine` puts it: the BOM stays in front, never in the body.
+	const bom = bomOf(src);
+	return `${bom}---${eol}${text}${eol}---${eol}${eol}${src.slice(bom.length).replace(/^(?:[ \t]*\r?\n)+/, '')}`;
+}
+
+/** A root nested block's text (`key:` and its children, LF line endings), or '' when absent — what
+ *  a review card shows as the before/after of a block write, and how it tells a stale one. */
+export function frontMatterBlockText(source: string, key: string): string {
+	const span = frontMatterBlockSpan(source, key);
+	return span ? String(source).slice(span.start, span.end).replace(/\r$/gm, '') : '';
+}
+
+/** One `terms:` entry (engineering/decisions/2026-11-16-terms-registry.md §3). With only `pronounce`
+ *  it writes the plain form (`Derby: Darby`; `""` silences); otherwise the block-object form. */
+export interface TermEntry {
+	expansion?: string;
+	pronounce?: string;
+	definition?: string;
+}
+
+// A `terms:` key the reader takes BARE: no space, colon, quote or `#`, and not one of the field names
+// (an under-indented field line must never read as a term), and holding a letter or digit, so a
+// symbol key reads as one (`"→"`). Anything else is written quoted.
+const BARE_TERM_RE = /^[^\s:"'#{}[\],&*!|>%@`-][^\s:]*$/u;
+const TERM_FIELDS = new Set(['expansion', 'pronounce', 'definition']);
+// The reader takes a quoted key VERBATIM (no escapes), so a term with a `"` is written in single quotes.
+const termKey = (term: string) =>
+	BARE_TERM_RE.test(term) && /[\p{L}\p{N}]/u.test(term) && !TERM_FIELDS.has(term) ? term : term.includes('"') ? `'${term}'` : `"${term}"`;
+
+/**
+ * Set (or, with no entries, remove) the deck's `terms:` block, losslessly. `alsoRemove` names the
+ * older keys this write supersedes (`acronyms`, `lexicon`): the Studio's Terms editor shows all three
+ * as one list, so saving it writes the one canonical block and removes the aliases it absorbed. An
+ * entry with no field is dropped; later duplicates win, in first-seen order.
+ */
+export function setFrontMatterTerms(source: string, entries: Iterable<[string, TermEntry]>, alsoRemove: readonly string[] = []): string {
+	const seen = new Map<string, TermEntry>();
+	for (const [raw, e] of entries) {
+		const term = String(raw ?? '').trim();
+		// A term the reader cannot take back: empty, multi-line, or holding both quote marks.
+		if (!term || /[\r\n]/.test(term) || (term.includes('"') && term.includes("'"))) continue;
+		const clean: TermEntry = {};
+		const expansion = String(e?.expansion ?? '').trim();
+		const definition = String(e?.definition ?? '').trim();
+		if (expansion) clean.expansion = expansion;
+		if (e?.pronounce !== undefined) clean.pronounce = String(e.pronounce).trim();
+		if (definition) clean.definition = definition;
+		if (clean.expansion || clean.definition || clean.pronounce !== undefined) seen.set(term, clean);
+	}
+	const child: string[] = [];
+	for (const [term, e] of seen) {
+		if (e.expansion === undefined && e.definition === undefined) {
+			child.push(`  ${termKey(term)}: ${e.pronounce ? quoteIfNeeded(e.pronounce) : '""'}`);
+			continue;
+		}
+		child.push(`  ${termKey(term)}:`);
+		if (e.expansion) child.push(`    expansion: ${quoteIfNeeded(e.expansion)}`);
+		if (e.pronounce !== undefined) child.push(`    pronounce: ${e.pronounce ? quoteIfNeeded(e.pronounce) : '""'}`);
+		if (e.definition) child.push(`    definition: ${quoteIfNeeded(e.definition)}`);
+	}
+	let out = String(source ?? '');
+	for (const key of alsoRemove) out = writeFrontMatterBlock(out, key, null);
+	return writeFrontMatterBlock(out, 'terms', child);
+}
+
+/**
  * Parse the deck's `finish-override:` block into a PARTIAL recipe — a map of layer →
  * `{ attr: rawStringValue }`, nested one level under each layer key to mirror the recipe
  * shape (`backdrop: { strength: 0.4, clearance: off }`, `wash: { intensity: 5 }`, …).
@@ -485,30 +605,21 @@ export function withPrintCanvas(source: string): string {
  * Set (or, with empty `entries`, remove) a NESTED child-map block — a bare `key:` header with
  * indented `"child": value` lines. This is the shape the narration keys use (`lexicon:` token →
  * spoken, and `acronyms:` term → spoken); `writeFrontMatterLine` handles only flat scalars and
- * can't express it. Preserves the flat directives, any OTHER nested block, and the body — but,
- * unlike the flat writer, it DOES re-emit the whole block, so it still normalizes what
- * `parseFm` does not model (#1256 scoped the two nested writers out; the gap is tracked as a
- * follow-up rather than left unrecorded). The reader is
+ * can't express it. Lossless since #1257: it splices only this block's lines, so comments, `_class:`,
+ * `style: |`, key order and CRLF all survive (`writeFrontMatterBlock`). The reader is
  * `lexiconMap` / `parseNarrationFrontMatter` (resolve-narration). Entries emit in order; the
  * child KEY is always quoted (a token can be `:` or whitespace-adjacent), the VALUE quoted only
  * when needed — an empty value emits `""`, the explicit "silence this token" form. Drops any prior
  * form of the key (a nested block OR a flat/inline-flow scalar of the same name) before writing.
  */
 export function setFrontMatterBlock(source: string, key: string, entries: Iterable<[string, string]>): string {
-	const list = [...entries];
-	const body = stripFrontMatter(source);
-	const { pairs: all, blocks: allBlocks, scalars } = parseFm(source);
-	const pairs = all.filter(([k]) => k !== key);
-	const blocks = allBlocks.filter(([k]) => k !== key);
-	if (list.length) {
-		// Escape backslash FIRST, then quote — else a `\` before a `"` would break the quoting
-		// (CodeQL: incomplete string escaping). Glyph keys never actually carry either, but the
-		// escaping must be complete.
-		const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-		const child = list.map(([k, v]) => `  "${esc(String(k))}": ${quoteIfNeeded(String(v))}`);
-		blocks.push([key, child]);
-	}
-	return emitFm(pairs, blocks, body, scalars, bomOf(String(source ?? '')));
+	// Escape backslash FIRST, then quote — else a `\` before a `"` would break the quoting
+	// (CodeQL: incomplete string escaping). Glyph keys never actually carry either, but the
+	// escaping must be complete.
+	const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+	const child = [...entries].map(([k, v]) => `  "${esc(String(k))}": ${quoteIfNeeded(String(v))}`);
+	// Lossless since #1257: only this block's own lines change (`writeFrontMatterBlock`).
+	return writeFrontMatterBlock(source, key, child);
 }
 
 /** One acronym registry entry: the spoken expansion (required) + an optional glossary definition. */
@@ -538,10 +649,6 @@ const ACRONYM_TERM_RE = /^[A-Za-z0-9][\w.&/-]*$/;
  * or an empty expansion is dropped (the parser would skip it too). Later duplicate terms win.
  */
 export function setFrontMatterAcronyms(source: string, entries: Iterable<[string, AcronymEntry]>): string {
-	const body = stripFrontMatter(source);
-	const { pairs: all, blocks: allBlocks, scalars } = parseFm(source);
-	const pairs = all.filter(([k]) => k !== 'acronyms');
-	const blocks = allBlocks.filter(([k]) => k !== 'acronyms');
 	// De-dupe by term (last wins, mirroring the parser), preserving first-seen order.
 	const seen = new Map<string, AcronymEntry>();
 	for (const [rawTerm, entry] of entries) {
@@ -562,6 +669,6 @@ export function setFrontMatterAcronyms(source: string, entries: Iterable<[string
 			child.push(`  ${term}: ${quoteIfNeeded(entry.expansion)}`);
 		}
 	}
-	if (child.length) blocks.push(['acronyms', child]);
-	return emitFm(pairs, blocks, body, scalars, bomOf(String(source ?? '')));
+	// Lossless since #1257: only this block's own lines change (`writeFrontMatterBlock`).
+	return writeFrontMatterBlock(source, 'acronyms', child);
 }

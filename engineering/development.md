@@ -483,7 +483,12 @@ integration tests, not unit tests.
   the median weight until the weights are re-blessed: time each file alone, write
   `file<TAB>seconds` lines, then `node tools/shard-tests.js --weights
   test/integration/shard-weights.json --bless TIMES.tsv`. Re-bless when the legs drift
-  past ~1.2x of their mean. The `ci` gate still sees one
+  past ~1.2x of their mean. **Install what CI has before you time**, or a file whose
+  tests skip here times at 0.2 s and its leg is overloaded in CI: the pinned marp-cli
+  (`npm ci --prefix test/fixtures/marp-cli --ignore-scripts`, six `marp-*` files) and a
+  .NET SDK (`apt-get install -y dotnet-sdk-8.0`, `office-conformance`). Check the
+  timing log for `# skipped` lines above 0 before you bless; the 2026-11-17 re-bless
+  caught seven files that way. The `ci` gate still sees one
   `needs.integration.result` for all four legs, and any red leg makes it `failure`.
 - **`player-webkit`** — re-runs `test/integration/export/player-no-js.test.js` (the
   exported player with JavaScript off) in Playwright's WebKit, because iOS Quick Look

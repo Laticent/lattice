@@ -169,6 +169,99 @@ const code = (run) =>
 
 const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 
+/**
+ * The parts of an `if:` joined by `&&` at the top level, outside any parentheses. A guard has to be
+ * one of these to bind: `a || github.ref == 'refs/heads/main'` mentions the guard and binds nothing,
+ * and a text match passed it (#3269's card checker turned the fit filing step's `&&` into `||` and
+ * this file stayed green).
+ */
+function topLevelConjuncts(cond) {
+  const parts = [];
+  let depth = 0;
+  let from = 0;
+  for (let i = 0; i < cond.length; i++) {
+    const ch = cond[i];
+    if (ch === "'") {
+      // A string literal: skip it whole, so a '(' or '||' inside one cannot hide or fake a real one.
+      // GitHub escapes a quote inside a literal by doubling it.
+      for (i++; i < cond.length; i++) {
+        if (cond[i] === "'" && cond[i + 1] === "'") i++;
+        else if (cond[i] === "'") break;
+      }
+      continue;
+    }
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (depth === 0 && cond.startsWith('||', i)) return null;
+    else if (depth === 0 && cond.startsWith('&&', i)) {
+      parts.push(cond.slice(from, i).trim());
+      from = i + 2;
+      i++;
+    }
+  }
+  parts.push(cond.slice(from).trim());
+  return parts;
+}
+const MAIN_ONLY = "github.ref == 'refs/heads/main'";
+/**
+ * True only when the guard is one top-level `&&` part and nothing ORs around it. A top-level `||`
+ * anywhere unbinds it, because `&&` binds tighter: `guard && x || y` is `(guard && x) || y`, which
+ * files from a branch whenever `y` holds (the card checker's second-round mutation). An `if:` may be
+ * written inside `${{ … }}`; that wrapper is stripped first.
+ */
+function bindsMainOnly(cond) {
+  let c = norm(cond);
+  const wrapped = /^\$\{\{([\s\S]*)\}\}$/.exec(c);
+  if (wrapped) c = wrapped[1].trim();
+  const parts = topLevelConjuncts(c);
+  return !!parts && parts.some(isMainOnly);
+}
+function isMainOnly(part) {
+  let p = part.trim();
+  while (/^\(.*\)$/.test(p) && topLevelConjuncts(p.slice(1, -1)) !== null && balanced(p.slice(1, -1))) p = p.slice(1, -1).trim();
+  const compact = p.replace(/\s+/g, '');
+  const [lhs, rhs] = MAIN_ONLY.replace(/\s+/g, '').split('==');
+  return compact === `${lhs}==${rhs}` || compact === `${rhs}==${lhs}`;
+}
+function balanced(s) {
+  let d = 0;
+  for (const ch of s) {
+    if (ch === '(') d++;
+    else if (ch === ')' && --d < 0) return false;
+  }
+  return d === 0;
+}
+
+/** A step that WRITES to an issue: opens, comments on, edits, closes or reopens one, through `gh` or the REST API. */
+const ISSUE_WRITE = /\bgh issue (create|comment|edit|close|reopen)\b|\bgh api\b[^\n]*\/issues\b[^\n]*(-X|--method)\s*(POST|PATCH)|\bgh api\b[^\n]*(-X|--method)\s*(POST|PATCH)[^\n]*\/issues\b/;
+
+/**
+ * EVERY issue-writing step in a scheduled workflow, not only the jobs alarmJobs() finds by their
+ * `gh issue create`. The main-only arm walks this wider set, so a new nightly that files through
+ * `gh issue comment` or `gh api … /issues` is held to the guard too (#3269's maker-checker added a
+ * probe nightly that posted through `gh api -X POST …/issues` and the suite stayed green).
+ */
+/** Scheduled jobs that write through the issues API but never to a ROLLING issue, each with why. */
+const NOT_A_ROLLING_ISSUE = {
+  'golden-bless.yml::bless':
+    'it edits the verdict comment on its own bless PR (PRs are issues to the API); it never writes to a rolling alarm',
+};
+
+function issueWriters() {
+  const out = [];
+  for (const file of fs.readdirSync(WF_DIR).filter((f) => f.endsWith('.yml'))) {
+    const doc = YAML.parse(fs.readFileSync(path.join(WF_DIR, file), 'utf8'));
+    if (!doc?.on?.schedule) continue;
+    for (const [job, spec] of Object.entries(doc.jobs || {})) {
+      if (`${file}::${job}` in AGGREGATE_ALERTS || `${file}::${job}` in NOT_A_ROLLING_ISSUE) continue;
+      for (const step of spec.steps || []) {
+        if (ISSUE_WRITE.test(code(step.run))) out.push({ id: `${file}::${job}::${step.name || '(unnamed)'}`, step });
+      }
+    }
+  }
+  return out;
+}
+
 /** Every SCHEDULED job that files a rolling issue. */
 function alarmJobs() {
   const out = [];
@@ -365,6 +458,21 @@ test('nightly alarm contract', async (t) => {
     for (const { id, filing } of jobs) {
       if (!filing) continue;
       assert.match(norm(filing.if), /always\(\)/, `${id}: filing step lacks always()`);
+    }
+  });
+
+  await t.test('a filing step writes to the rolling issue only from main, as its stand-down already does', () => {
+    // These issues track `main`. A `workflow_dispatch` on a branch, which is how a fix to a
+    // nightly gets proven, used to file through the unguarded steps, and the comment said
+    // `main@<branch sha>`. On 2026-11-15 branch dispatches posted that way to the fit (#2989),
+    // overflow (#2060) and integration (#1845) issues. A branch run still writes its report to
+    // the job summary and artifacts. The guard must be a top-level `&&` part of the condition,
+    // or it binds nothing. The aggregate alerts (AGGREGATE_ALERTS) are out of scope on purpose:
+    // platform-suites alerts on manual runs by design and names the ref in what it files.
+    const writers = issueWriters();
+    assert.ok(writers.length >= jobs.length, `found ${writers.length} issue-writing steps for ${jobs.length} alarm jobs`);
+    for (const { id, step } of writers) {
+      assert.ok(bindsMainOnly(step.if), `${id}: this step can write to an issue from a branch dispatch`);
     }
   });
 
@@ -582,8 +690,8 @@ test('nightly alarm contract', async (t) => {
     // recoverable (a duplicate issue); closing is not.
     for (const { id, standDown } of jobs) {
       if (!standDown) continue;
-      assert.match(
-        norm(standDown.if), /github\.ref\s*==\s*'refs\/heads\/main'/,
+      assert.ok(
+        bindsMainOnly(standDown.if),
         `${id}: the stand-down can act on a dispatch from any branch — it can close the real ` +
           'thread on evidence gathered somewhere else entirely',
       );

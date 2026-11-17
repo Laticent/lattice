@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Ellipsis, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, TextSearch, Trash2, Undo2, Upload, UsersRound, Volume2, Wand2, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Ellipsis, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, TextSearch, Trash2, Undo2, Upload, UsersRound, Wand2, X } from 'lucide-react';
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
@@ -51,7 +51,7 @@ import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
 import { analysisText } from '@/lib/payload-elision';
 import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
-import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
+import { termEntries } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { slideFrameShadow } from '@/lib/slide-frame';
@@ -66,7 +66,7 @@ import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
 import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
 import { type PresentLens, presentationIndices, slideTitle, splitSlides, unknownComponents, usedComponents } from '../../lib/deck-lint';
-import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
+import { frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterTerms, stripFrontMatter, type TermEntry, writeFrontMatterLine } from '../../lib/front-matter';
 import { activeMode, MODES } from '../../lib/mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
@@ -74,7 +74,6 @@ import { canEditClass, getClassTokens } from '../../lib/slide-directives';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
-import { AcronymEditor } from './AcronymEditor';
 import { type AgendaAxis, agendaLabel, agendaOptions, agendaValue, parseAgenda } from './agenda';
 import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
@@ -108,7 +107,7 @@ import { FocusedPreview } from './FocusedPreview';
 import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
+import { afterFirstSlideAndPause, firstSlideShown, heldWarmPanels, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
@@ -119,9 +118,8 @@ import { isIOSLike } from './ios-like';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
-import { LexiconEditor } from './LexiconEditor';
 import type { LatticeImport } from './lattice-file';
-import { PanelLoader, useLatch, warmPanels } from './lazy-panel';
+import { PanelLoader, useLatch, warmPanels as warmPanelsNow } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { LESSONS } from './lessons/catalog';
@@ -188,6 +186,9 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+// The warm-up queue, held while the chat renders a draft (first-slide.ts `holdWarmUps`).
+const warmPanels = heldWarmPanels(warmPanelsNow);
 
 // The math plugin's own detectors (math.syntax.mjs), through the generated detector table, never by
 // importing the plugin's folder (tools/structure.js holds that line).
@@ -268,6 +269,10 @@ const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ defa
 const PresentOverlay = React.lazy(() =>
 	Promise.all([import('./PresentOverlay'), import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())]).then(([m]) => ({ default: m.PresentOverlay })),
 );
+
+// The Terms list draws only when Deck setup's Speech tab opens, so its chunk (and its icons) stay off the
+// Studio's first load (docs/route-budget.json).
+const TermsEditor = React.lazy(() => import('./TermsEditor').then((m) => ({ default: m.TermsEditor })));
 
 // The code-package notice renders only once the Library holds a code package (`codeStamp` is empty
 // until then), so its chunk is not part of the Studio's first load (docs/route-budget.json).
@@ -1358,8 +1363,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setDrawerPendingReturn(false);
 		setMoreOpen(true);
 	}, [drawerPendingReturn, drawerChildOpen]);
-	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the two
-	// read-aloud groups (Lexicon + Acronyms) fold into one Speech tab so the panel
+	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the
+	// read-aloud groups (Pace, Delivery, Terms) fold into one Speech tab so the panel
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
 	// §"Deck inspector: NOT tabbed" — see 2026-07-17-panel-drawer-cohesion.)
 	const [deckTab, setDeckTab] = React.useState<DeckTab>('look');
@@ -3223,14 +3228,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setDeckName = (v: string) => settingsWrite('Deck name', (s) => writeFrontMatterLine(s, 'title', v.trim() || null));
 	const setHeaderText = (v: string) => settingsWrite('Header', (s) => writeFrontMatterLine(s, 'header', v.trim() || null));
 	const setFooterText = (v: string) => settingsWrite('Footer', (s) => writeFrontMatterLine(s, 'footer', v.trim() || null));
-	// The deck's `lexicon:` (word-or-symbol → spoken). Read from the front-matter block;
-	// committing writes the whole block back through the settings funnel (Undo toast + reactivity).
-	const lexicon = React.useMemo(() => lexiconMap(fm), [fm]);
-	const setLexicon = (entries: [string, string][]) => settingsWrite('Lexicon', (s) => setFrontMatterBlock(s, 'lexicon', entries));
-	// The deck's `acronyms:` registry (term → { expansion, definition? }). Same reactive funnel as the
-	// lexicon; the block-object serializer preserves definitions.
-	const acronyms = React.useMemo(() => acronymEntries(fm), [fm]);
-	const setAcronyms = (entries: [string, AcronymEntry][]) => settingsWrite('Acronyms', (s) => setFrontMatterAcronyms(s, entries));
+	// The deck's TERM registry: `terms:` plus the older `acronyms:` and `lexicon:` it absorbed, as one
+	// list (2026-11-16-terms-registry.md). Committing writes the one `terms:` block and drops the two
+	// aliases, losslessly, through the settings funnel (Undo toast + reactivity).
+	const terms = React.useMemo(() => termEntries(fm), [fm]);
+	const setTerms = (entries: [string, TermEntry][]) => settingsWrite('Terms', (s) => setFrontMatterTerms(s, entries, ['acronyms', 'lexicon']));
 	// Rail OFF → `progress-rail: … off`; ON → drop the word. Either way the legacy `class: no-progress`
 	// goes, so the deck says it in one place (non-destructive to any other author classes).
 	const toggleDeckRail = () => settingsWrite(deckRail ? 'Section rail off' : 'Section rail on', (s) => writeRail(removeClassTokens(s, 'no-progress'), { show: deckRail ? 'off' : undefined }));
@@ -6992,7 +6994,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<CatalogSelect ariaLabel="Choose how slides split" className="w-full" {...autoField(slideSplit, 'headings', setSlideSplit, [{ options: [{ value: 'headings', label: 'Each ## heading', icon: optionGlyph('split', 'headings') }, { value: 'rule', label: '--- dividers only', icon: optionGlyph('split', 'rule') }] }])} />
 				</Field>
 				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE, c2}`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
-				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
+				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your deck’s terms (Speech ▸ Terms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
 				<TextRow label="Default slide class" desc="A modifier applied to every slide." help={<>Space-separated modifiers stamped on every slide — e.g. <code>safe</code>. Color belongs to <strong>Color mode</strong>, which supersedes a <code>dark</code>/<code>light</code> token here, and a component name is ignored outright. The Section rail toggle and the Content tab own their tokens in this key, so those are not shown here.</>} value={deckClass} placeholder="e.g. safe" onCommit={setDeckClass} />
 				{/* Developer — the two preview-only authoring aids. They used to be a footer
 				    disclosure hanging below the tab strip; they are facts about this deck like
@@ -7176,21 +7178,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		{
 			value: 'speech',
 			label: 'Speech',
-			keywords: 'read aloud narration voice tts audio delivery guide gesture',
+			keywords: 'read aloud narration voice tts audio delivery guide gesture terms pronounce pronunciation acronyms lexicon glossary',
 			body: () => (
 			<div>
-				<TabNote>Teach read-aloud how to say tricky words, symbols and acronyms — carried into the deck and its captions.</TabNote>
+				<TabNote>Teach read-aloud how to say tricky words, names, symbols and acronyms. The slide keeps them as written; only the voice and its captions change.</TabNote>
 				<Field label="Pace" desc="How long a slide holds before speaking." help={<>The rhythm a self-presenting deck keeps. <strong>Brisk</strong> for a demo or an audience that knows the material, <strong>Natural</strong> for boardroom delivery, <strong>Deliberate</strong> for a technical audience or one reading in a second language.</>}>
 					<CatalogSelect ariaLabel="Choose pace" className="w-full" {...autoField(pace, DEFAULT_PACE, setPace, [{ options: PACE_NAMES.map((n: string) => ({ value: n, label: cap(n), icon: optionGlyph('pace', n) })) }])} />
 				</Field>
 				<Field label="Delivery" desc="How much the Guide gestures as it speaks." find="guide gesture cursor ink focus restrained expressive somber narration" help={<>How the narrated Guide points at what it is saying. <strong>Restrained</strong> highlights each part the narration names, with no cursor — for a boardroom, or a board member reading the file alone. <strong>Expressive</strong> leads with the cursor and draws ink — for a sales room, a talk or a lesson. <strong>Somber</strong> shows no cursor and gestures once, on the slide's key point — for bad news. Saved with the deck as <code>delivery:</code>, so it plays the same wherever it is opened.</>}>
 					<CatalogSelect ariaLabel="Choose delivery" className="w-full" {...autoField(delivery, DEFAULT_DELIVERY, setDelivery, [{ options: DELIVERY_NAMES.map((n: string) => ({ value: n, label: cap(n), icon: optionGlyph('delivery', n) })) }])} />
 				</Field>
-				<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="A tricky word or symbol to say a certain way, or to silence. Overrides the built-in symbol commons.">
-					<LexiconEditor lexicon={lexicon} onChange={setLexicon} />
-				</InspGroup>
-				<InspGroup icon={<BookMarked className="size-3.5" />} label="Acronyms" desc="A term's spoken expansion (and an optional glossary definition) — e.g. EBITDA → “ee bit dah”." last>
-					<AcronymEditor acronyms={acronyms} onChange={setAcronyms} />
+				<InspGroup icon={<BookMarked className="size-3.5" />} label="Terms" desc="How a word, name, acronym or symbol is said, what it stands for, and a glossary definition. The slide keeps the word as written." last>
+					<React.Suspense fallback={null}>
+						<TermsEditor terms={terms} onChange={setTerms} lang={deckLang || undefined} />
+					</React.Suspense>
 				</InspGroup>
 			</div>
 			),

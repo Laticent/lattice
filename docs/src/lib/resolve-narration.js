@@ -4,4 +4,4 @@
 // `acronyms:`/`say:` keys identically and can never drift. This thin re-export
 // gives the docs a clean `@/lib/resolve-narration` import (the `@/lib/sanitize-slide-
 // html.js` precedent) without a deep relative path into the engine tree.
-export { acronymEntries, acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap, parseNarrationFrontMatter } from '../../../lib/core/resolve-narration.mjs';
+export { acronymEntries, acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap, parseNarrationFrontMatter, termEntries, termsSpokenMap } from '../../../lib/core/resolve-narration.mjs';

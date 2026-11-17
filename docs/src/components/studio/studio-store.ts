@@ -845,7 +845,7 @@ export type ChatProposal = {
 	label: string;
 	slide: number;
 	action: string;
-	raw: { action: string; slide: number; body: string; key?: string; value?: string | null };
+	raw: { action: string; slide: number; body: string; key?: string; value?: string | null; block?: boolean };
 	before: string;
 	after: string;
 	diff: { type: string; text: string }[];

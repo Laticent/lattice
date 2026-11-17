@@ -247,6 +247,29 @@ export async function buildFamilyFontCss(faces, text = '') {
 	return (await Promise.all([...textRules, ...iconRules, ...emoji])).join('');
 }
 
+/** A theme's own copy of a vendored face: `…/themes/fonts/<file>.woff2` (theme-fetch.ts points the sheet's `url(fonts/…)` there). */
+const THEME_FONT_PATH = /\/themes\/fonts\/[\w.-]+\.woff2$/i;
+let vendoredUrls = null;
+
+/**
+ * Is `url` a font file this module vendors (a text, icon or emoji face), or a theme's copy of one, rather than a file an
+ * author brought? For the chat's one-slide look (deck-export.js `rasterizeSlidePreview`): the slide camera may leave
+ * such a face out when the look's own sheet carries its family (lib/core/slide-camera.mjs `withoutHostFamilies`), and
+ * must keep an author's file even under a vendored family's name. Resolved against `base`, the capture frame's address.
+ * @param {string} url
+ * @param {string} [base]
+ */
+export function isVendoredFontUrl(url, base = globalThis.location?.href) {
+	try {
+		const abs = new URL(url, base);
+		if (!vendoredUrls) vendoredUrls = new Set([...FACES, ...ICON_FACES].map((f) => new URL(f.url, base).href).concat(Object.values(EMOJI_URL).map((u) => new URL(u, base).href)));
+		if (vendoredUrls.has(abs.href)) return true;
+		return abs.origin === new URL(base).origin && THEME_FONT_PATH.test(abs.pathname);
+	} catch {
+		return false;
+	}
+}
+
 // Noto Color Emoji ships as 11 unicode-range slices (lib/fonts/emoji-faces.js), the same files the CLI
 // reads from assets/fonts/. Vite bundles them as URLs; an export inlines only the slices its text needs.
 const EMOJI_URL = import.meta.glob('../../../assets/fonts/noto-color-emoji-*.woff2', { eager: true, query: '?url', import: 'default' });

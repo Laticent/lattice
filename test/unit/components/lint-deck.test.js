@@ -574,7 +574,7 @@ describe('deck linter', () => {
     assert.ok(hint, `expected a narration-acronyms suggestion, got ${JSON.stringify(out.reviewFindings)}`);
     assert.match(hint.message, /XYZ/);
     assert.doesNotMatch(hint.message, /\bROI\b|\bGTM\b/); // registered + lexicon-known are not flagged
-    assert.match(hint.fix, /acronyms:/);
+    assert.match(hint.fix, /terms:/); // the older acronyms: still works; the coach teaches the one map
   });
 
   test('the discovery pass skips format/web initialisms that read fine letter-by-letter', async () => {
