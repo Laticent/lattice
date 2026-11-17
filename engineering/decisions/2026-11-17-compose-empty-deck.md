@@ -77,7 +77,9 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   letter and undoing it created **no** new frame. That is on purpose: once shown, the grid stays mounted and is only
   hidden, because WebKit never frees a destroyed frame's document (about 11 MB each, `preview-pool.tsx`), and mounting it
   afresh on every Undo back to empty would have stranded four frames each time. The pool is not shared with the picker:
-  each `PreviewPool` owns its frames.
+  each `PreviewPool` owns its frames. The owner asked for a shared pool (2026-11-17); none exists, and a frame cannot move between hosts without
+  reloading. The owner chose to ship this grid on its own pool and build one shared pool, with a global cap, as its own
+  PR: `followups.d/3273-p1-shared-preview-pool.md`.
 - **Nothing moves (owner, 2026-11-17: "make sure there is no jank").** Two moves were measured on the real Studio and
   fixed. (1) The first build hid the slide bar with `display:none`, so the first letter brought it back above the line and
   pushed the text down under the author's caret: **94px on a phone, 54px on a desktop**, and Undo pulled it back up. The
