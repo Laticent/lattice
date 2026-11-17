@@ -4,7 +4,7 @@ priority: P3
 recorded: 2026-11-17
 area: infra
 severity: low
-swimlane: engineering/decisions/2026-11-06-flaky-tests.md
+swimlane: engineering/workflow.md
 deferred: off-path — a pre-existing gap in a workflow #3269 does not touch, and changing a workflow's filing rule is a CI-contract change the owner decides (CLAUDE.md, second filter, row 2)
 source: https://github.com/Laticent/lattice/pull/3269
 ---

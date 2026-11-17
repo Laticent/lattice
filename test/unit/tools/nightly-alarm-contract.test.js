@@ -183,6 +183,7 @@ function topLevelConjuncts(cond) {
     const ch = cond[i];
     if (ch === '(') depth++;
     else if (ch === ')') depth--;
+    else if (depth === 0 && cond.startsWith('||', i)) return null;
     else if (depth === 0 && cond.startsWith('&&', i)) {
       parts.push(cond.slice(from, i).trim());
       from = i + 2;
@@ -193,7 +194,19 @@ function topLevelConjuncts(cond) {
   return parts;
 }
 const MAIN_ONLY = "github.ref == 'refs/heads/main'";
-const bindsMainOnly = (cond) => topLevelConjuncts(norm(cond)).some((p) => p.replace(/\s+/g, ' ') === MAIN_ONLY);
+/**
+ * True only when the guard is one top-level `&&` part and nothing ORs around it. A top-level `||`
+ * anywhere unbinds it, because `&&` binds tighter: `guard && x || y` is `(guard && x) || y`, which
+ * files from a branch whenever `y` holds (the card checker's second-round mutation). An `if:` may be
+ * written inside `${{ … }}`; that wrapper is stripped first.
+ */
+function bindsMainOnly(cond) {
+  let c = norm(cond);
+  const wrapped = /^\$\{\{([\s\S]*)\}\}$/.exec(c);
+  if (wrapped) c = wrapped[1].trim();
+  const parts = topLevelConjuncts(c);
+  return !!parts && parts.some((p) => p === MAIN_ONLY);
+}
 
 /** Every SCHEDULED job that files a rolling issue. */
 function alarmJobs() {
