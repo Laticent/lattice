@@ -27,7 +27,7 @@
 // `themeImportNames` and was the third such resolver in the repo; the three had
 // already drifted (the emulator's missed a minified `@import"onyx"` that this one
 // handled). See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
-import { rewriteCssUrls } from '../../../lib/core/css-tokens.mjs';
+import { rewriteCssUrls } from '../../../lib/core/css-rules.mjs';
 import { themeChain } from '../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../lib/theme/edges.generated.mjs';
 import type { StyleLoader } from './style-loader';
