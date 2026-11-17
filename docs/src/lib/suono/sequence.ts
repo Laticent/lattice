@@ -14,6 +14,8 @@ import type { Bytes, Clip, PlayOptions, PlayResult, Sequence, SequenceOptions, S
 /** The slice of a Stage the scheduler needs — narrow, so a test injects a fake. */
 export interface SequenceStage {
 	decode(bytes: Bytes, key?: string): Promise<Clip>;
+	/** Drop one decoded clip (optional: a stage without it simply keeps its cache). Used with `decodeAhead`. */
+	forget?(key: string): void;
 	play(clip: Clip, opts?: PlayOptions): { done: Promise<PlayResult>; stop(): void; pause?(): void; resume?(): void };
 	suspend(): void;
 	resume(): void;
@@ -121,6 +123,8 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	};
 
 	const bytesCache = createBoundedCache<Bytes>(opts.cacheLimit ?? DEFAULT_CACHE_LIMIT);
+	// The decoded-audio window (SequenceOptions.decodeAhead). Null keeps the original behavior.
+	const decodeAhead = Number.isFinite(opts.decodeAhead) && (opts.decodeAhead as number) >= 0 ? Math.floor(opts.decodeAhead as number) : null;
 	const inflight = createInflight<Bytes | null>();
 
 	// GLOBAL in-flight produce count across BOTH the run scheduler AND warm. The run (playback) is the
@@ -302,11 +306,22 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 						};
 						const handle = stage.play(clip, { onStart, signal: sig });
 						activeHandle = handle;
+						// Decode the next `decodeAhead` items while this one plays, from bytes already fetched, so the next
+						// sentence starts with no decode wait. Best-effort: a miss is decoded for real when its turn comes.
+						if (decodeAhead !== null) {
+							for (let j = i + 1; j <= Math.min(items.length - 1, i + decodeAhead); j++) {
+								const k = safeKey(items[j]);
+								const b = k === null ? undefined : bytesCache.get(k);
+								if (k !== null && b) stage.decode(b, k).catch(() => {});
+							}
+						}
 						// If a pause() already landed for THIS clip before play() was called (the tap raced
 						// the scheduler), honor it now so we don't play through the pause.
 						if (pausedGate) handle.pause?.();
 						const res = await handle.done;
 						if (activeHandle === handle) activeHandle = null;
+						// Played: release its decoded PCM. Only with a window; a replay decodes again from the bytes.
+						if (decodeAhead !== null && decodeKey) stage.forget?.(decodeKey);
 						if (res && res.ok === false && res.error) setError(res.error);
 					}
 				}
@@ -358,6 +373,9 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		// creation, and it spends the ~6-per-page budget). Once a real play() has created the context,
 		// warm decodes ahead freely. Best-effort; a still-undecoded warmed clip just decodes at play.
 		if (stage.state() === 'none') return Promise.resolve();
+		// With a decode window, warm fetches bytes only: decoding everything warmed is exactly the pile the window exists
+		// to stop (a narrated deck's whole look-ahead held as PCM). The play loop decodes each item's successors instead.
+		if (decodeAhead !== null) return Promise.resolve();
 		// Returns a promise the warm producer AWAITS (before releasing its warmActive/liveProduce slot),
 		// so concurrent decode-ahead is bounded by warmConcurrency — otherwise fire-and-forget decodes
 		// stack up (warmActive tracks produces, not decodes) into an unbounded PCM-allocation pile for a

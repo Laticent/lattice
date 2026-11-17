@@ -123,6 +123,8 @@ export interface Stage {
 	 *  (include everything that changes the audio: voice, model, speed, text, …), or a stale hit
 	 *  replays the wrong clip. Omit `key` if you can't guarantee that. */
 	decode(bytes: Bytes, key?: string): Promise<Clip>;
+	/** Drop one decoded clip from the cache (its PCM is collected once nothing plays it). A replay decodes again. */
+	forget(key: string): void;
 	/** Play a decoded clip. Returns a handle; resolves nothing (fire-and-forget with callbacks). */
 	play(clip: Clip, opts?: PlayOptions): PlayHandle;
 	/** The owned WebAudio clock in ms, latency-compensated by default (`ctx.currentTime*1000 -
@@ -243,6 +245,14 @@ export interface SequenceOptions<T> {
 	concurrency?: number;
 	/** Max byte-cache entries (FIFO). Default 200. */
 	cacheLimit?: number;
+	/**
+	 * Hold decoded audio for the item playing and this many after it, and no more. Set, `warm()` fetches bytes only (it
+	 * decodes nothing), each item's successors are decoded while it plays, and an item's decoded clip is dropped once it
+	 * has played (`stage.forget`). Unset, the sequence decodes as before: `warm()` decodes everything it fetches and
+	 * nothing is released. Present narrates with 2, so a long deck holds three decoded sentences, not every one it has
+	 * read (the iPhone reload, 2026-11-17).
+	 */
+	decodeAhead?: number;
 	/** Per-item synth watchdog in ms (skip a hung item, keep going). Default 20000. */
 	produceTimeoutMs?: number;
 	/** Fired at each clip's real start with its measured span + index (→ Cadenza reader.align). */

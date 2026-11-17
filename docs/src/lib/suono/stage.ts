@@ -282,6 +282,17 @@ export function createStage(opts: StageOptions = {}): Stage {
 		ensureKeepAlive(); // warm the output route now, ahead of the first clip
 	}
 
+	/** Drop one decoded clip from the cache, so its PCM can be collected once nothing plays it. A sequence with
+	 *  `decodeAhead` calls this after each item plays: a long narrated deck then holds the clip playing and the next few,
+	 *  not every clip it has decoded (engineering/decisions/2026-07-12-suono-audio-library.md §10). Safe for a playing clip:
+	 *  its source node keeps its own reference. A replay decodes again from the bytes. */
+	function forget(key: string): void {
+		const c = decoded.get(key);
+		if (!c) return;
+		decoded.delete(key);
+		decodedBytes -= clipBytes(c);
+	}
+
 	async function decode(bytes: Bytes, key?: string): Promise<Clip> {
 		if (key) {
 			const hit = decoded.get(key);
@@ -622,6 +633,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 	const stage: Stage = {
 		unlock,
 		decode,
+		forget,
 		play,
 		clockMs,
 		latencyMs,
