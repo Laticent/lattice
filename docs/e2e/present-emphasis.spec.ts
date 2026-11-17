@@ -119,13 +119,6 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 test('an emphasized passage holds a beat on the real Present overlay', async ({ page }) => {
 	// Installed before the first load, so every timer the overlay makes is on this clock; it flows as real time
 	// until `cueOnsets` pauses it.
-	// React's scheduler posts its commits through a MessageChannel, a real task the paused clock does not hold, so a commit
-	// landed some virtual time after the frame that decided it, by however long the machine took: the measured hold read
-	// 210 ms (1 run in 40 at four workers). Without a MessageChannel React schedules with setTimeout, which IS on this
-	// clock, so each caption commits at its own frame's virtual time. Removed before the first load, for this page only.
-	await page.addInitScript(() => {
-		Reflect.deleteProperty(window, 'MessageChannel');
-	});
 	await page.clock.install();
 	const plain = await cueOnsets(page, DECK('Retention reached 118 percent'));
 	const bold = await cueOnsets(page, DECK('**Retention reached 118 percent**'));
