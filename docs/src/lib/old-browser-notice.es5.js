@@ -433,9 +433,10 @@
 		screen.setAttribute('aria-describedby', ID + '-lead');
 		screen.setAttribute('data-testid', 'old-browser');
 		var veil = el('div', 'lob-veil');
-		// The color as a literal too: an engine that drops a var() with a system-color fallback would paint the veil clear.
-		var bg = window.getComputedStyle ? getComputedStyle(document.body).backgroundColor : '';
-		if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') veil.style.backgroundColor = bg;
+		// The color as a literal too, read from --bg like the <head> check's hider. Not the body's color: on a docs page
+		// legacy Edge cannot resolve the body's own background and painted it the accent, which the veil then copied.
+		var bg = /#\w+/.exec(getComputedStyle(root).getPropertyValue('--bg'));
+		if (bg) veil.style.backgroundColor = bg[0];
 		veil.setAttribute('aria-hidden', 'true');
 		screen.appendChild(veil);
 		// The site's top bar, so the notice reads as a page of the site. Branding only: the heading says what this is, so

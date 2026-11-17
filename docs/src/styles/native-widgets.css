@@ -29,32 +29,12 @@
  * in tailwind.css — not here. */
 
 :root {
+	scrollbar-color: color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent;
 	scrollbar-width: thin;
-}
-
-/* Each declaration below sits behind @supports for its OWN property, because legacy Edge (EdgeHTML 15) mishandles a
- * var() in a property it does not know: the owner's `?lob-debug` trace read <html>'s background as exactly
- * `--accent` (rgb 122,90,16) there, which flashed the whole window mustard on every refresh of the old-browser notice
- * and would tint the margins of any page after "Continue anyway". A browser that knows the property gets the same
- * rules as before; one that doesn't never sees the var(). */
-@supports (scrollbar-color: red transparent) {
-	:root {
-		scrollbar-color: color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent;
-	}
-}
-
-/* Checkboxes, radios, range + progress, and the text caret — one line each,
- * universal support, so form controls stop rendering in OS blue. */
-@supports (accent-color: red) {
-	:root {
-		accent-color: var(--accent);
-	}
-}
-
-@supports (caret-color: red) {
-	:root {
-		caret-color: var(--accent);
-	}
+	/* Checkboxes, radios, range + progress, and the text caret — one line each,
+	 * universal support, so form controls stop rendering in OS blue. */
+	accent-color: var(--accent);
+	caret-color: var(--accent);
 }
 
 /* Mobile: the tap flash on any tappable element. Inherited, so setting it
@@ -101,8 +81,15 @@
  * tried and rejected on measurements (the `--syntax-*-ink` tier in
  * tools/build-docs-portal.js, which removed its `muted` role because the repair
  * collapsed comment-to-body separation on 26 of 36 palette-modes). */
-::selection {
-	background: color-mix(in srgb, var(--accent) 18%, transparent);
+/* Behind @supports so the build emits no plain `var(--accent)` fallback: legacy Edge (EdgeHTML 15) paints a
+ * ::selection background with a var() onto the elements themselves. The owner's `?lob-debug` search in Edge 15 found
+ * this rule: without it <html> was clear, with it <html> (and a docs page's unresolved <body>) was solid accent, which
+ * flashed the whole window mustard on every refresh of the old-browser notice. An engine without color-mix() is below
+ * the site's floor and gets that notice anyway; it keeps its own selection color. */
+@supports (color: color-mix(in srgb, red, red)) {
+	::selection {
+		background: color-mix(in srgb, var(--accent) 18%, transparent);
+	}
 }
 
 /* Placeholder text in native inputs/textareas — the palette's muted ink, not
@@ -144,7 +131,9 @@
  * instead of the UA yellow, matched to ::selection so an arrived-at passage
  * reads in-brand. It moves with that rule's alpha for the same reason and by the
  * same measurement; it also pins its own ink, so only the ground is shared. */
-::target-text {
-	background: color-mix(in srgb, var(--accent) 18%, transparent);
-	color: var(--text-heading);
+@supports (color: color-mix(in srgb, red, red)) {
+	::target-text {
+		background: color-mix(in srgb, var(--accent) 18%, transparent);
+		color: var(--text-heading);
+	}
 }
