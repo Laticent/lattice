@@ -14,7 +14,7 @@
  *                                       OpenRouter, and from a simulator that real call would reject a stand-in key.
  *   latticeNarrationReady(voiceOn)      open Present on slide 1, turn Guide on, set the voice, and say where Play is:
  *                                       the runner TAPS it, because on iOS only a real touch unlocks audio
- *   latticeNarrationStarted()           after the tap: Present is playing
+ *   latticeNarrationStarted(ms)         after the tap: Present is playing (the runner taps again if not)
  *   latticeNarrationSample()            where Present is, how much audio the page has decoded and still holds, how many
  *                                       sentences it asked to have spoken, and the mark latticeNarrationReady left (gone
  *                                       means the page reloaded under the probe)
@@ -235,9 +235,9 @@ async function latticeNarrationReady(voiceOn) {
 }
 
 /** After the runner's tap: Present is playing. */
-async function latticeNarrationStarted() {
+async function latticeNarrationStarted(ms = 15000) {
 	const h = latticeNarrationHelpers();
-	await h.until(() => h.button(/^Pause$/, h.dialog() || document), 15000, 'Present to start playing after the tap');
+	await h.until(() => h.button(/^Pause$/, h.dialog() || document), ms, 'Present to start playing after the tap');
 	return { ok: true };
 }
 

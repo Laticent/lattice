@@ -711,12 +711,21 @@ async function runPresentNarrationProbe(id) {
 			out.total = played.total;
 			// A real touch on Play, as a presenter's: iOS unlocks audio only for one (the first run's scripted click left
 			// the voice arm on slide 1 for its whole eight minutes). composeTouchTap delivers its taps the same way.
-			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-			await wd('POST', `/session/${id}/actions`, {
-				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: played.x, y: played.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
-			});
-			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-			failIf(await call('latticeNarrationStarted()'), 'Present playing after the tap on Play');
+			// Up to three taps: the second run (44000481706) tapped once, at the right point, and Present never started in
+			// either arm. A first touch on the dock may only wake the controls, so the probe taps again, as a person would,
+			// and records how many taps it took.
+			let started = null;
+			for (out.taps = 1; out.taps <= 3; out.taps++) {
+				await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+				await wd('POST', `/session/${id}/actions`, {
+					actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: played.x, y: played.y }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 }, { type: 'pointerUp', button: 0 }] }],
+				});
+				await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+				started = await call('latticeNarrationStarted(5000)');
+				if (!started?.error) break;
+			}
+			failIf(started, `Present playing after ${out.taps - 1} taps on Play`);
+			console.log(`${LABEL}: narration ${out.arm}: Present playing after ${out.taps} tap${out.taps === 1 ? '' : 's'} on Play`);
 			const t0 = Date.now();
 			let peak = 0;
 			while (Date.now() - t0 < seconds * 1000) {
