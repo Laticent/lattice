@@ -131,6 +131,50 @@ async function latticeCodecProbe(files) {
 	out.roundTrip['opus 32k @48k'] = await roundTrip('opus', 'opus', 48000, 32000);
 	out.roundTrip['opus 24k @24k'] = await roundTrip('opus', 'opus', 24000, 24000);
 	out.roundTrip['aac 64k @48k'] = await roundTrip('aac', 'mp4a.40.2', 48000, 64000);
+
+	// D. The same Opus encode INSIDE A WORKER. On the main thread an iPhone encodes at about 11x realtime, so a 5 s sentence
+	// would block Present for about 0.45 s; the streaming design encodes in a worker, which needs AudioEncoder there.
+	out.worker = await new Promise((resolve) => {
+		const src = `self.onmessage = async (e) => {
+			const { pcm, sampleRate, bitrate } = e.data;
+			if (typeof AudioEncoder !== 'function') return self.postMessage({ ok: false, error: 'no AudioEncoder in a worker' });
+			try {
+				let bytes = 0;
+				let err = null;
+				const t0 = performance.now();
+				const enc = new AudioEncoder({ output: (c) => { bytes += c.byteLength; }, error: (x) => { err = String(x && x.message || x); } });
+				enc.configure({ codec: 'opus', sampleRate, numberOfChannels: 1, bitrate });
+				for (let i = 0; i < pcm.length; i += 1024) {
+					const s = pcm.slice(i, Math.min(i + 1024, pcm.length));
+					enc.encode(new AudioData({ format: 'f32', sampleRate, numberOfFrames: s.length, numberOfChannels: 1, timestamp: Math.round(i / sampleRate * 1e6), data: s }));
+				}
+				await enc.flush();
+				enc.close();
+				const ms = performance.now() - t0;
+				self.postMessage(err ? { ok: false, error: err } : { ok: bytes > 0, bytes, encodeXRealtime: Math.round(pcm.length / sampleRate * 1000 / ms * 10) / 10 });
+			} catch (x) {
+				self.postMessage({ ok: false, error: String(x && x.message || x).slice(0, 80) });
+			}
+		};`;
+		let w;
+		const timer = setTimeout(() => resolve({ ok: false, error: 'the worker did not answer in 20 s' }), 20000);
+		try {
+			w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+		} catch (e) {
+			clearTimeout(timer);
+			return resolve({ ok: false, error: `no worker: ${String(e?.message || e).slice(0, 60)}` });
+		}
+		w.onmessage = (e) => {
+			clearTimeout(timer);
+			w.terminate();
+			resolve(e.data);
+		};
+		w.onerror = (e) => {
+			clearTimeout(timer);
+			resolve({ ok: false, error: `worker error: ${String(e?.message || e).slice(0, 60)}` });
+		};
+		w.postMessage({ pcm: pcm48, sampleRate: 48000, bitrate: 32000 });
+	});
 	return out;
 }
 

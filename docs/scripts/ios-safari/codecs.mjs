@@ -27,6 +27,11 @@ export function codecChecks(r) {
 			detail: `Ogg ${fmt(ogg)}; WebM ${fmt(webm)}`,
 		},
 		{
+			name: 'WebCodecs encodes Opus inside a worker',
+			pass: !!r.worker?.ok,
+			detail: r.worker?.ok ? `${r.worker.bytes} B, ${r.worker.encodeXRealtime}x realtime` : r.worker?.error || 'not run',
+		},
+		{
 			name: 'WebCodecs encodes speech to Opus and decodes it back',
 			pass: !!opus24.ok,
 			detail: opus24.ok ? `${opus24.kbps} kbps, ${opus24.extraMs} ms longer than the source (the decoder's pre-skip, which a player trims)` : opus24.error || 'failed',

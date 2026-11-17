@@ -909,6 +909,7 @@ async function runCodecProbe(id) {
 	console.log(`${LABEL}: WebCodecs encoder ${JSON.stringify(r.encoder)}`);
 	console.log(`${LABEL}: WebCodecs decoder ${JSON.stringify(r.decoder)}`);
 	for (const [k, v] of Object.entries(r.roundTrip)) console.log(`${LABEL}: round trip ${k}: ${v.ok ? `${v.bytes} B, ${v.kbps} kbps, ${v.extraMs} ms longer, encode ${v.encodeXRealtime}x realtime` : `NO (${v.error})`}`);
+	console.log(`${LABEL}: Opus in a worker: ${r.worker?.ok ? `${r.worker.bytes} B, ${r.worker.encodeXRealtime}x realtime` : `NO (${r.worker?.error})`}`);
 	const steps = codecChecks(r);
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ...r, width: r.width, steps };
