@@ -397,6 +397,15 @@ for a different reason — they are posters whose card fills the stage, so there
 band position that does not crush it. The generated `layout-*` skeletons are excluded
 by pattern. Everywhere else a trailing blockquote becomes the callout.
 
+**Under a chart or diagram, a long insight takes its own page.** A figure scales to fit
+its box instead of overflowing, so a long insight never clips the slide: it shrinks the
+figure. When moving the insight would let the figure draw at least a fifth larger, and the
+figure's labels fall below the legibility floor or the insight stands taller than half the
+figure's own cell, the figure keeps the slide and the insight (with any below-note) moves
+to the run's closing page. A wide, flat diagram that cannot grow keeps its insight. The figure itself never
+splits. A one-line insight stays under its figure, and `lint:deck`'s `verbose-key-insight`
+still asks for about 18 words.
+
 Don't derive the answer from that paragraph — read `authoring.blocks` in
 `dist/docs/components.json`, which is generated from the same predicate the RENDER
 uses (`rendersBeat`, `lib/core/coda.js`), and which the deck lint's

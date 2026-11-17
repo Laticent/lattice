@@ -482,3 +482,20 @@ test('a folded slide whose lede page overflows is unfolded, not given another le
   assert.deepEqual(plans[0]['1'], { sizes: [1], foldCoda: true });
   assert.deepEqual(plans[1]['1'], [1], 'unfolded, with no ledeCont');
 });
+
+// A FIGURE KEEPS THE STAGE (owner, 2026-11-17). A chart or diagram slide whose key insight crowds its figure (`insight`,
+// measureFit) asks for the insight's own page, and the fold pass never folds those beats back under the figure.
+test('a figure crowded by its insight plans the insight\'s own page, and is never folded back', async () => {
+  const plan = planFromFacts([{ slide: '1', over: true, members: null, insight: true }, { slide: '2', over: true, members: null }], {}, pack, 'greedy');
+  assert.deepEqual(plan['1'], { insightOwn: true });
+  assert.deepEqual(plan['2'], { atSeam: true }, 'a slide with no members and no crowded figure keeps the seam entry');
+  const plans = [];
+  const run = await measuredSplit({
+    facts: [{ slide: '1', over: true, members: null, insight: true }], pack, packer: 'greedy',
+    split: async (p) => { plans.push(JSON.parse(JSON.stringify(p))); return { planned: [] }; },
+    verify: async () => ({}),
+    foldable: async () => ['1'],
+  });
+  assert.deepEqual(run.plan['1'], { insightOwn: true });
+  assert.ok(plans.every((p) => !p['1'].foldCoda), 'the fold pass left it alone');
+});
