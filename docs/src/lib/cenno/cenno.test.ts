@@ -19,13 +19,18 @@ function anchorAt(b: Box): HTMLElement {
 }
 
 const restore: Array<() => void> = [];
-function stubSize(width: number, height: number): void {
+/** Card size. With `rewrap`, a card whose width is capped (`--cenno-room-w`) reports that width and a taller height, as wrapped text does. */
+function stubSize(width: number, height: number, rewrap?: (cap: number) => number): void {
 	for (const key of ['offsetWidth', 'offsetHeight'] as const) {
 		const d = Object.getOwnPropertyDescriptor(HTMLElement.prototype, key);
 		Object.defineProperty(HTMLElement.prototype, key, {
 			configurable: true,
 			get(this: HTMLElement) {
-				if (this.classList.contains('cenno')) return key === 'offsetWidth' ? width : height;
+				if (this.classList.contains('cenno')) {
+					const cap = Number.parseFloat(this.style.getPropertyValue('--cenno-room-w'));
+					if (rewrap && cap < width) return key === 'offsetWidth' ? cap : rewrap(cap);
+					return key === 'offsetWidth' ? width : height;
+				}
 				if (this.getAttribute('data-cenno-part') === 'content') return key === 'offsetWidth' ? width - 2 : height - 2;
 				return 0;
 			},
@@ -37,12 +42,14 @@ function stubSize(width: number, height: number): void {
  * Report a drawn card where a browser would: its translate, plus the containing block's origin
  * (`origin`), which a transformed ancestor moves. jsdom itself reports every rect at (0, 0).
  */
-function stubDrawn(origin = { x: 0, y: 0 }): void {
+function stubDrawn(origin = { x: 0, y: 0 }, cbScale = 1): void {
 	const d = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect');
 	HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
 		if (!this.classList.contains('cenno')) return d?.value.call(this);
-		const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(this.style.transform);
-		return rect({ x: origin.x + Number(m?.[1] ?? 0), y: origin.y + Number(m?.[2] ?? 0), width: this.offsetWidth, height: this.offsetHeight });
+		const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)(?: scale\(([\d.]+)\))?/.exec(this.style.transform);
+		const k = Number(m?.[3] ?? 1);
+		const c = cbScale;
+		return rect({ x: origin.x + c * Number(m?.[1] ?? 0), y: origin.y + c * Number(m?.[2] ?? 0), width: c * this.offsetWidth * k, height: c * this.offsetHeight * k });
 	};
 	restore.push(() => d && Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', d));
 }
@@ -148,6 +155,35 @@ describe('createCenno and open', () => {
 		card.update();
 		expect(card.hidden).toBe(false);
 		expect(card.element.hasAttribute('data-cenno-hidden')).toBe(false);
+	});
+
+	it('without the top layer, corrects for a containing block a transformed ancestor SCALED, keeping screen size', () => {
+		stubSize(200, 80);
+		stubDrawn({ x: 30, y: 10 }, 0.5);
+		stubViewport(undefined);
+		const card = createCenno().open(anchorAt({ x: 400, y: 100, width: 100, height: 20 }), 'hi', { gap: 10 });
+		const r = card.element.getBoundingClientRect();
+		// Drawn where the placement says (centered under the anchor, 10px below), at its natural 200x80.
+		expect(r.left).toBeCloseTo(350, 6);
+		expect(r.top).toBeCloseTo(130, 6);
+		expect(r.width).toBeCloseTo(200, 6);
+	});
+
+	it('a card capped in width is measured again at that width, so a taller wrap still clears its anchor', () => {
+		// 600 wide naturally; capped to the room on its left side, it wraps to 3x the height.
+		stubSize(600, 60, () => 180);
+		stubDrawn();
+		stubViewport(undefined);
+		// Room on the left: 600 - 8 = 592 (spills 8); on the right: 1024 - 648 = 376 (spills 224), so it stays left.
+		const a = { x: 600, y: 300, width: 40, height: 20 };
+		const card = createCenno().open(anchorAt(a), 'a long line', { side: 'left', gap: 8 });
+		const r = card.element.getBoundingClientRect();
+		expect(card.side).toBe('left');
+		expect(r.width).toBeCloseTo(592, 6);
+		expect(r.height).toBe(180);
+		// Centered on the anchor at its REAL height: 300 + (20 - 180) / 2 = 220.
+		expect(r.top).toBeCloseTo(220, 6);
+		expect(r.left + r.width).toBeCloseTo(a.x - 8, 6);
 	});
 
 	it('moves to a new anchor and replaces content without reopening', () => {
@@ -288,6 +324,40 @@ describe('attach — intents', () => {
 		} finally {
 			window.matchMedia = mm;
 		}
+	});
+
+	it('Escape closes a card and stops only when it came from the card or its trigger', () => {
+		const cn = createCenno();
+		const t = anchorAt({ x: 100, y: 100, width: 40, height: 20 });
+		const field = document.createElement('input');
+		document.body.append(field);
+		attach(cn, t, () => 'tip');
+		const seen: string[] = [];
+		document.addEventListener('keydown', (e) => seen.push((e.target as HTMLElement).tagName));
+		const esc = (target: Element) => target.dispatchEvent(Object.assign(new Event('keydown', { bubbles: true }), { key: 'Escape' }));
+		// From elsewhere (a host dialog's field): the tooltip closes and the host still gets its Escape.
+		t.dispatchEvent(ev('focusin'));
+		esc(field);
+		expect(cn.cards.size).toBe(0);
+		expect(seen).toEqual(['INPUT']);
+		// From the trigger: the card closes and the key stops there.
+		t.dispatchEvent(ev('focusin'));
+		esc(t);
+		expect(cn.cards.size).toBe(0);
+		expect(seen).toEqual(['INPUT']);
+	});
+
+	it('a press card opened from the keyboard takes focus; one opened by a pointer does not', () => {
+		const cn = createCenno();
+		const t = anchorAt({ x: 100, y: 100, width: 40, height: 20 });
+		attach(cn, t, () => 'menu', { intent: 'press' });
+		t.focus();
+		t.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+		expect(document.activeElement).toBe(t);
+		t.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+		t.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+		const card = [...cn.cards][0];
+		expect(document.activeElement).toBe(card.element);
 	});
 
 	it('detach closes the card and clears what it set', () => {

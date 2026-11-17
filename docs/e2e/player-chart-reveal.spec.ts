@@ -7,7 +7,8 @@ import { type Browser, chromium, expect, type Page, test } from '@playwright/tes
 // Chart detail cards in the EXPORTED HTML player's Present view
 // (engineering/decisions/2026-11-16-cenno-popover-library.md §7). The real CLI exports
 // `examples/chart-detail-reveal.md` once; every test drives that file. @crosswidth runs it in
-// Chromium at desktop and phone width, @gecko in Firefox, @webkit-tablet in WebKit.
+// Chromium at desktop and phone width, @gecko in Firefox, @webkit-tablet in WebKit at iPad landscape, and
+// @webkit-phone in WebKit as an iPhone 15 Pro (touch, phone viewport).
 //
 // Slide 3 is a funnel with four bands (marks 0-3), each with a detail; slide 4 is a map.
 // CONTROL ARMS sit beside each "nothing happened" claim: the slide-turn test first proves the arrow
@@ -15,6 +16,24 @@ import { type Browser, chromium, expect, type Page, test } from '@playwright/tes
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 let html = '';
+let hostile = '';
+
+// The checker's repro (PR #3259): an author `style` on a funnel row's META item turned a link into a
+// 9000px fixed overlay over the whole player, so a click anywhere opened the author's URL.
+const HOSTILE_DECK = `---
+theme: indaco
+---
+
+<!-- _class: funnel -->
+
+## Footer vector.
+
+- Discovery \`312\`
+  - Body line <span id="bodyx" style="position:fixed;left:0;top:0;width:9000px;height:9000px;background:red">B</span>
+  - Meta line <a id="metax" href="https://example.com" style="position:fixed;left:-3000px;top:-3000px;width:9000px;height:9000px;background:lime;display:block">M</a>
+- Qualified \`196\`
+  - Two
+`;
 
 test.beforeAll(async ({ browserName: _engine }, testInfo) => {
 	test.setTimeout(300_000);
@@ -27,6 +46,16 @@ test.beforeAll(async ({ browserName: _engine }, testInfo) => {
 		env: { ...process.env, PUPPETEER_EXECUTABLE_PATH: chromium.executablePath() },
 	});
 	expect(res.status, `the export itself succeeded — stderr: ${(res.stderr || '').slice(-800)}`).toBe(0);
+	const deck = path.join(testInfo.outputDir, 'hostile.md');
+	fs.writeFileSync(deck, HOSTILE_DECK);
+	hostile = path.join(testInfo.outputDir, 'hostile.html');
+	const res2 = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, hostile, '--player', '-q'], {
+		cwd: ROOT,
+		encoding: 'utf8',
+		timeout: 280_000,
+		env: { ...process.env, PUPPETEER_EXECUTABLE_PATH: chromium.executablePath() },
+	});
+	expect(res2.status, `the hostile export succeeded — stderr: ${(res2.stderr || '').slice(-800)}`).toBe(0);
 });
 
 const CARD = '.cenno.lattice-chart-card';
@@ -50,7 +79,7 @@ async function bandCenter(page: Page, i: number) {
 
 const cardTitle = (page: Page) => page.locator(`${CARD} [data-cenno-part=title]`);
 
-test('hovering a band opens its card next to the pointer, dims the rest, and leaving closes it @crosswidth @gecko @webkit-tablet', async ({ page }) => {
+test('hovering a band opens its card next to the pointer, dims the rest, and leaving closes it @crosswidth @gecko @webkit-tablet @webkit-phone', async ({ page }) => {
 	await toFunnel(page);
 	const p = await bandCenter(page, 1);
 	// One move from outside the chart onto the band's center: the card anchors where the pointer FIRST
@@ -95,7 +124,7 @@ test('hovering a band opens its card next to the pointer, dims the rest, and lea
 	await expect.poll(() => page.evaluate((f) => [...document.querySelectorAll(`${f} [data-mark]`)].map((m) => (m as SVGElement).style.opacity).join(','), FUNNEL)).toBe(',,,');
 });
 
-test('digits open mark n of the chart on stage and 0 closes it @crosswidth @gecko @webkit-tablet', async ({ page }) => {
+test('digits open mark n of the chart on stage and 0 closes it @crosswidth @gecko @webkit-tablet @webkit-phone', async ({ page }) => {
 	await toFunnel(page);
 	await page.keyboard.press('3');
 	await expect(cardTitle(page)).toHaveText('Procurement');
@@ -105,7 +134,7 @@ test('digits open mark n of the chart on stage and 0 closes it @crosswidth @geck
 	await expect(page.locator(CARD)).toHaveCount(0);
 });
 
-test('a focused chart takes the arrow keys and walks its marks, without turning the slide @crosswidth @gecko @webkit-tablet', async ({ page }) => {
+test('a focused chart takes the arrow keys and walks its marks, without turning the slide @crosswidth @gecko @webkit-tablet @webkit-phone', async ({ page }) => {
 	await toFunnel(page);
 	// CONTROL: unfocused, the arrow keys turn the deck in this engine.
 	const start = await slideIndex(page);
@@ -141,7 +170,7 @@ test('a focused chart takes the arrow keys and walks its marks, without turning 
 	await expect(chart).toBeFocused();
 });
 
-test('turning the slide closes an open card @crosswidth @gecko @webkit-tablet', async ({ page }) => {
+test('turning the slide closes an open card @crosswidth @gecko @webkit-tablet @webkit-phone', async ({ page }) => {
 	await toFunnel(page);
 	await page.keyboard.press('2');
 	await expect(cardTitle(page)).toHaveText('Qualified');
@@ -158,7 +187,7 @@ async function touchPage(browser: Browser) {
 	return { ctx, page };
 }
 
-test('a tap pins a card, a second tap on the same band or elsewhere closes it, and a tap never turns the slide @crosswidth @gecko @webkit-tablet', async ({ browser }) => {
+test('a tap pins a card, a second tap on the same band or elsewhere closes it, and a tap never turns the slide @crosswidth @gecko @webkit-tablet @webkit-phone', async ({ browser }) => {
 	const { ctx, page } = await touchPage(browser);
 	try {
 		const start = await slideIndex(page);
@@ -176,4 +205,29 @@ test('a tap pins a card, a second tap on the same band or elsewhere closes it, a
 	} finally {
 		await ctx.close();
 	}
+});
+
+test('author styles in a detail never escape the card: the page stays the player, not the author link @crosswidth @gecko @webkit-tablet @webkit-phone', async ({ page }) => {
+	await page.goto(`file://${hostile}`);
+	await expect(page.locator('.lp-frame.lp-active .funnel-svg [data-mark="0"]')).toBeVisible();
+	// The CONTROL: the author's styles survive the export (so this test is not passing on a sanitized file).
+	expect(fs.readFileSync(hostile, 'utf8')).toContain('position:fixed;left:-3000px');
+	await page.keyboard.press('1'); // a keyboard card takes the pointer, the worst case
+	await expect(cardTitle(page)).toHaveText('Discovery');
+	const hits = await page.evaluate(() => {
+		const at = (x: number, y: number) => {
+			const el = document.elementFromPoint(x, y);
+			return el ? el.id || el.tagName : null;
+		};
+		return [at(4, 4), at(innerWidth / 2, innerHeight - 4), at(innerWidth - 4, innerHeight / 2)];
+	});
+	for (const hit of hits) expect(hit, 'nothing the author styled covers the player').not.toMatch(/^(metax|bodyx)$/);
+	const link = await page.evaluate(() => {
+		const host = [...document.querySelectorAll('.lattice-chart-card [data-cenno-part=footer] *')].find((e) => e.shadowRoot);
+		const a = host?.shadowRoot?.querySelector('#metax') as HTMLElement | null;
+		return a ? { style: a.getAttribute('style'), position: getComputedStyle(a).position } : null;
+	});
+	expect(link, 'the meta link is drawn, inside the footer').not.toBeNull();
+	expect(link?.style).toBeNull();
+	expect(link?.position).not.toBe('fixed');
 });

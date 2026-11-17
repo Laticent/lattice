@@ -10,8 +10,9 @@
 //   focus  focus alone opens and closes it.
 //
 // Accessibility follows the mode: hover and focus cards are tooltips (`aria-describedby` on the
-// trigger); press cards are dialogs (`aria-haspopup`, `aria-expanded`, `aria-controls`). Cenno
-// never moves focus; if focus was inside a press card when it closes, it goes back to the trigger.
+// trigger); press cards are dialogs (`aria-haspopup`, `aria-expanded`, `aria-controls`). Cenno moves
+// focus only into a press card opened from the keyboard; if focus was inside a card when it closes, it
+// goes back to the trigger.
 //
 // The chart reveal does not use this: it drives `open`/`move`/`close` itself from its hit test.
 
@@ -171,9 +172,19 @@ export function attach(cenno: Cenno, trigger: Element, content: () => Content, o
 	}
 
 	// ── press ──────────────────────────────────────────────────────────────────────
-	const onClick = () => {
-		if (card?.isOpen) hide();
-		else show();
+	// A press opened from the KEYBOARD (Enter or Space make a click with `detail` 0) moves focus into the
+	// card, so a keyboard user can reach what it holds; leaving it closes it, Escape returns to the trigger.
+	// A pointer press leaves focus where it is.
+	const onClick = (e: Event) => {
+		if (card?.isOpen) {
+			hide();
+			return;
+		}
+		show();
+		if ((e as MouseEvent).detail === 0 && card) {
+			card.element.setAttribute('tabindex', '-1');
+			card.element.focus();
+		}
 	};
 	function onOutside(e: Event): void {
 		if (!card?.isOpen) return;
@@ -181,11 +192,15 @@ export function attach(cenno: Cenno, trigger: Element, content: () => Content, o
 		if (trigger.contains(t) || card.element.contains(t)) return;
 		hide();
 	}
+	// Escape closes an open card. It stops there only when the key came from this card or its trigger:
+	// a tooltip the pointer happens to rest on must not swallow the Escape that belongs to whatever holds
+	// focus (a host's dialog, say).
 	function onKey(e: Event): void {
-		if ((e as KeyboardEvent).key === 'Escape' && card?.isOpen) {
-			hide();
-			e.stopPropagation();
-		}
+		if ((e as KeyboardEvent).key !== 'Escape' || !card?.isOpen) return;
+		const from = e.target as Node | null;
+		const ours = !!from && (trigger.contains(from) || card.element.contains(from));
+		hide();
+		if (ours) e.stopPropagation();
 	}
 
 	if (intent === 'hover') {

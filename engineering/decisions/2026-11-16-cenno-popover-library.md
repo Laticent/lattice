@@ -166,9 +166,9 @@ sits above everything, fullscreen included.
   `press` (tap or click to pin; tap outside or Escape to close), `focus`, and `manual`. On a
   coarse pointer, hover falls back to press.
 - **Access.** The card gets an id and a role; the anchor gets `aria-describedby` or
-  `aria-expanded`/`aria-controls` to match. Cenno never moves focus; if focus was inside a press
-  card when it closes, it goes back to the trigger. (No focus trap is built: full dialogs are a
-  non-goal, below.)
+  `aria-expanded`/`aria-controls` to match. `open` never moves focus; a press card opened from the
+  keyboard takes focus so its contents are reachable, and if focus was inside a card when it closes,
+  it goes back to the trigger. (No focus trap is built: full dialogs are a non-goal, below.)
   Reduced motion turns off its enter and exit transitions.
 
 ### API sketch (to be finalized in the build slice)
@@ -496,8 +496,10 @@ Each test was shown to fail on a deliberate break, then 70/70 repeated and 35/35
 
 **Slice 2, the shared model and the player's Present view: built, awaiting the owner's sign-off.**
 - `lib/runtime/chart-reveal/model.mjs` now holds the Studio's chart rules; `chart-interact.js`
-  calls it with no change in behavior (its 61 vitest cases and the 114 chart component tests pass
-  unchanged).
+  calls it with one change in behavior: a label (a tap proxy) the pointer reaches BEFORE its chart is
+  bound now resolves to its mark, where it used to fall through to the near-miss search. That is a fix
+  (the label names one mark), found by the independent review. Its 61 vitest cases and the 114 chart
+  component tests pass unchanged.
 - The detail BODY renderer moved beside the model, into `detail.mjs` (`renderDeckDetail`, the Studio's `DeckHtml`
   algorithm: a shadow root with the deck's CSS, the slide's ancestor chain as empty copies, the
   slide's custom properties, author `style` attributes stripped, paint containment). One change
@@ -522,4 +524,27 @@ Each test was shown to fail on a deliberate break, then 70/70 repeated and 35/35
   (with a control arm proving the arrows otherwise turn the slide); closing on a slide turn; tap,
   re-tap and tap-away on a touch screen. Every test failed on a deliberate break, then 50/50
   repeated and 25/25 under load.
+
+**The independent review of slices 1 and 2 (maker-checker, 2026-11-16) graded the card LOW and found
+one defect that mattered, plus five smaller ones. All are fixed in this PR, each with a test that fails
+without its fix:**
+- **HARD RULE #22: the card's meta line was drawn raw.** The description went through the guards
+  (styles stripped, a shadow root, paint containment), but the meta items were copied straight into the
+  card. In a real exported player, an author `style` on a meta link covered the whole page with that
+  link. Now every copied node loses its `style` attributes in `cardFor`, and the footer is drawn through
+  `renderDeckDetail` like the body. Tests: the JSDOM player test (no author style survives, the link sits
+  in a contained shadow root) and the e2e test on an exported hostile deck in four engines (nothing the
+  author styled covers the player).
+- **Tab stops off stage.** Charts on slides shown earlier stayed focusable (and promised arrow keys) in
+  Read · Slides, where the reveal does not answer. Only the slide on stage carries Tab stops now, and our
+  own `aria-label` is removed with them.
+- **The collage lightbox.** Its digits and Escape also reached the reveal; an open `<dialog>` now owns the
+  keys and the pointer.
+- **A 2.3 MB string per hover.** The deck-CSS cache compared every `<style>`'s text on each card. A
+  MutationObserver now marks it stale only when a stylesheet changes.
+- **Cenno edge cases.** A card capped in width is measured again at that width (a taller wrap no longer
+  overlaps its anchor); the fixed fallback now corrects a SCALED containing block as well as a moved one,
+  keeping the card's screen size; Escape stops only when it came from the card or its trigger, so a
+  tooltip never swallows a host dialog's Escape; a press card opened from the keyboard takes focus, so
+  its contents are reachable.
 

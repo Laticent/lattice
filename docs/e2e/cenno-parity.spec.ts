@@ -166,6 +166,24 @@ test('under a transformed host, the fallback path corrects to the right spot @cr
 	expect(Math.abs(r.dy)).toBeLessThan(0.6);
 });
 
+test('under a SCALED host, the fallback path corrects position and keeps screen size @crosswidth @gecko @webkit-tablet', async ({ page }) => {
+	await load(page, `<div id="host" style="transform:translate(37px,-21px) scale(.5);transform-origin:0 0;position:absolute;left:50px;top:80px"></div><button id="a" style="position:absolute;left:40px;top:300px">anchor</button>`);
+	const r = await page.evaluate(() => {
+		const { createCenno } = window.Cenno;
+		const plain = createCenno().open(document.getElementById('a') as HTMLElement, 'detail text', { gap: 6, align: 'start' });
+		const want = (plain.element as HTMLElement).getBoundingClientRect();
+		plain.close();
+		const card = createCenno({ host: document.getElementById('host') as HTMLElement }).open(document.getElementById('a') as HTMLElement, 'detail text', { gap: 6, align: 'start' });
+		const b = (card.element as HTMLElement).getBoundingClientRect();
+		const a = (document.getElementById('a') as HTMLElement).getBoundingClientRect();
+		return { dx: b.left - a.left, dy: b.top - (a.bottom + 6), dw: b.width - want.width, popover: (card.element as HTMLElement).hasAttribute('popover') };
+	});
+	expect(r.popover).toBe(false);
+	expect(Math.abs(r.dx)).toBeLessThan(0.6);
+	expect(Math.abs(r.dy)).toBeLessThan(0.6);
+	expect(Math.abs(r.dw), 'same size on screen as a card in the top layer').toBeLessThan(0.6);
+});
+
 test('an anchor inside a scaled, offset iframe is measured where the reader sees it @crosswidth @gecko @webkit-tablet', async ({ page }) => {
 	await load(page, `<iframe id="f" style="position:absolute;left:120px;top:60px;width:800px;height:500px;border:4px solid;transform:scale(.5);transform-origin:0 0" srcdoc="<body style='margin:0'><div id=m style='position:absolute;left:300px;top:200px;width:100px;height:40px;background:red'></div></body>"></iframe>`);
 	await expect.poll(() => page.evaluate(() => !!(document.getElementById('f') as HTMLIFrameElement).contentDocument?.getElementById('m'))).toBe(true);

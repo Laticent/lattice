@@ -44,8 +44,14 @@ test('a deck that only NAMES the tag in prose, or has no chart detail, ships non
   assert.deepEqual(scripts(prose), ran);
 });
 
-test('the inlined reveal mounts, makes the chart one Tab stop, and a digit opens its card', async () => {
-  const html = await build(funnel);
+// The checker's repro (PR #3259): an author `style` on a META item turned a link into a 9000px fixed
+// overlay over the whole player. The export keeps the attribute; the reveal must never draw it.
+const HOSTILE = '<li>Q3 <a id="metax" href="https://example.com" style="position:fixed;left:-3000px;top:-3000px;width:9000px;height:9000px;display:block">M</a></li>';
+const hostileFunnel = funnel.replace('<li>Q3</li>', HOSTILE);
+
+/** Build a player for `slide1`, run its scripts in JSDOM, and give SVG a box (JSDOM lays nothing out). */
+async function boot(slide1) {
+  const html = await build(slide1);
   const errs = [];
   let clock;
   const dom = new JSDOM(html, {
@@ -61,23 +67,87 @@ test('the inlined reveal mounts, makes the chart one Tab stop, and a digit opens
   await clock.settle();
   const { window: w } = dom;
   const d = w.document;
-  assert.deepEqual(errs, []);
-  const svg = d.querySelector('.lp-frame.lp-active .funnel-svg');
-  // JSDOM lays nothing out, so the reveal sees a zero-width chart and leaves it alone; a real
-  // browser gives it a box. Give it one and re-run the slide hook the player calls on every turn.
+  // A real browser gives the chart a box; re-run the slide hook the player calls on every turn.
   w.SVGElement.prototype.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 60, width: 100, height: 60, toJSON() {} });
   d.querySelector('#lp-next')?.click();
   d.querySelector('#lp-prev')?.click();
   await clock.settle();
+  const key = (k) => d.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+  const card = () => d.querySelector('.cenno.lattice-chart-card');
+  /** A card part's text, read through the shadow root it is drawn in. */
+  const partText = (name) => {
+    const part = card()?.querySelector(`[data-cenno-part=${name}]`);
+    const host = part && [...part.querySelectorAll('*')].find((e) => e.shadowRoot);
+    // The copied content sits in `.lat-desc` (beside the deck's <style> where a browser cannot adopt a sheet).
+    return (host ? (host.shadowRoot.querySelector('.lat-desc')?.textContent ?? '') : (part?.textContent ?? '')).trim();
+  };
+  return { w, d, errs, key, card, partText, svg: d.querySelector('.lp-frame.lp-active .funnel-svg'), clock };
+}
+
+test('the inlined reveal mounts, makes the chart one Tab stop, and a digit opens its card', async () => {
+  const { errs, key, card, partText, svg } = await boot(hostileFunnel);
+  assert.deepEqual(errs, []);
   assert.equal(svg.getAttribute('tabindex'), '0');
   assert.equal(svg.getAttribute('aria-labelledby'), 't', 'the chart keeps its own name');
-  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: '2', bubbles: true, cancelable: true }));
-  const card = d.querySelector('.cenno.lattice-chart-card');
-  assert.ok(card, 'the card opened');
-  assert.equal(card.querySelector('[data-cenno-part=title]').textContent, 'Signups');
-  assert.equal(card.querySelector('[data-cenno-part=value]').textContent, '4,800');
-  assert.equal(card.querySelector('[data-cenno-part=footer]').textContent, 'Q3');
-  assert.equal(card.getAttribute('role'), 'status');
-  d.dispatchEvent(new w.KeyboardEvent('keydown', { key: '0', bubbles: true, cancelable: true }));
-  assert.equal(d.querySelector('.cenno.lattice-chart-card'), null, '0 closes it');
+  key('2');
+  assert.ok(card(), 'the card opened');
+  assert.equal(card().querySelector('[data-cenno-part=title]').textContent, 'Signups');
+  assert.equal(card().querySelector('[data-cenno-part=value]').textContent, '4,800');
+  assert.equal(partText('footer'), 'Q3 M');
+  assert.equal(card().getAttribute('role'), 'status');
+  key('0');
+  assert.equal(card(), null, '0 closes it');
+});
+
+test('author content in the card (description AND meta line) is drawn styleless, in a contained shadow root', async () => {
+  const { key, card } = await boot(hostileFunnel);
+  key('2');
+  const c = card();
+  // Nothing author-written sits in the card's own light DOM...
+  assert.equal(c.querySelector('#metax'), null, 'the meta link is not in the light DOM');
+  for (const name of ['body', 'footer']) {
+    const part = c.querySelector(`[data-cenno-part=${name}]`);
+    const host = [...part.querySelectorAll('*')].find((e) => e.shadowRoot);
+    assert.ok(host, `${name}: drawn in a shadow root`);
+    assert.equal(host.parentElement.style.contain, 'paint', `${name}: paint-contained`);
+    // The author's nodes are what `.lat-desc` holds; the wrappers around them carry only our own styles.
+    const authored = host.shadowRoot.querySelector('.lat-desc');
+    assert.ok(authored, `${name}: the content is inside the copied slide scope`);
+    assert.equal(authored.querySelector('[style]'), null, `${name}: no author style survives`);
+  }
+  // ...and the link itself is still there, harmless.
+  const footerHost = [...c.querySelector('[data-cenno-part=footer]').querySelectorAll('*')].find((e) => e.shadowRoot);
+  const link = footerHost.shadowRoot.querySelector('#metax');
+  assert.ok(link);
+  assert.equal(link.getAttribute('style'), null);
+});
+
+test('only the slide on stage carries Tab stops, and leaving Present clears them', async () => {
+  const { d, svg, clock } = await boot(funnel);
+  assert.equal(svg.getAttribute('tabindex'), '0');
+  d.querySelector('#lp-next').click();
+  await clock.settle();
+  assert.equal(svg.getAttribute('tabindex'), null, 'off stage: not a Tab stop');
+  assert.equal(svg.getAttribute('aria-keyshortcuts'), null);
+  d.querySelector('#lp-prev').click();
+  await clock.settle();
+  assert.equal(svg.getAttribute('tabindex'), '0', 'back on stage');
+  d.querySelector('[data-lp-btn="read-slides"]').click();
+  await clock.settle();
+  assert.equal(svg.getAttribute('tabindex'), null, 'Read · Slides: no chart promises keys it will not answer');
+});
+
+test('an open modal (the collage lightbox is one) owns the keys: a digit opens no card under it', async () => {
+  const { w, d, key, card } = await boot(funnel);
+  const dialog = d.createElement('dialog');
+  d.body.append(dialog);
+  if (typeof dialog.showModal === 'function') dialog.showModal();
+  else dialog.setAttribute('open', '');
+  key('2');
+  assert.equal(card(), null, 'no card while the modal is open');
+  dialog.close?.();
+  dialog.removeAttribute('open');
+  key('2');
+  assert.ok(card(), 'the card opens once the modal is gone');
+  void w;
 });

@@ -14,7 +14,8 @@
 //     the card once per frame. A host that moves things with a transform (a zoomed slide) calls
 //     `update()`, or opens with `watch: 'frame'`.
 //
-// Cenno never moves focus and never paints a color of its own (styles.ts).
+// Cenno never paints a color of its own (styles.ts), and `open` never moves focus (intent.ts moves it
+// into a press card the keyboard opened, so its contents are reachable).
 
 import { buildCard, type CardParts, isParts, markPart } from './card.js';
 import { type Anchor, anchorRect, pinchScale, viewBounds, visiblePart } from './measure.js';
@@ -159,14 +160,23 @@ export function createCenno(options: CennoOptions = {}): Cenno {
 			// The natural size, free of last frame's room limits.
 			el.style.removeProperty('--cenno-room-w');
 			el.style.removeProperty('--cenno-room-h');
-			const w = el.offsetWidth * s;
-			const h = el.offsetHeight * s;
+			let w = el.offsetWidth * s;
+			let h = el.offsetHeight * s;
 			// The content box scrolls, so its room is the card's room less the card's own border.
 			const borders = el.offsetHeight - box.offsetHeight;
 			const a = anchorRect(anchor, doc);
 			const bounds = viewBounds(win);
 			let p = place(a, { width: w, height: h }, bounds, opts);
-			// A card taller (or wider) than its room is capped, so place it again at the capped size.
+			// A card wider than its room is capped, and capping the width re-wraps its text, so it grows
+			// TALLER: measure it at the capped width before placing again, or a card on the top side
+			// overlaps its anchor by the height it gained.
+			if (w > p.maxWidth) {
+				el.style.setProperty('--cenno-room-w', `${p.maxWidth / s}px`);
+				w = el.offsetWidth * s;
+				h = el.offsetHeight * s;
+				p = place(a, { width: w, height: h }, bounds, opts);
+			}
+			// A card taller (or still wider) than its room is capped, so place it again at the capped size.
 			if (h > p.maxHeight || w > p.maxWidth) {
 				p = place(a, { width: Math.min(w, p.maxWidth), height: Math.min(h, p.maxHeight) }, bounds, { ...opts, side: p.side });
 			}
@@ -178,19 +188,25 @@ export function createCenno(options: CennoOptions = {}): Cenno {
 			el.style.setProperty('--cenno-room-w', `${p.maxWidth / s}px`);
 			el.style.setProperty('--cenno-room-h', `${Math.max(0, p.maxHeight / s - borders)}px`);
 			if (arrowEl && p.arrow != null) el.style.setProperty('--cenno-arrow-offset', `${p.arrow / s}px`);
-			let x = p.x;
-			let y = p.y;
-			el.style.transform = `translate(${x}px, ${y}px)${s === 1 ? '' : ` scale(${s})`}`;
+			const draw = (x: number, y: number, scale: number) => {
+				el.style.transform = `translate(${x}px, ${y}px)${scale === 1 ? '' : ` scale(${scale})`}`;
+			};
+			draw(p.x, p.y, s);
 			if (!popover) {
 				// A fixed element is positioned against its containing block, which a transformed or
-				// filtered ancestor moves. Correct once by what the browser actually drew.
+				// filtered ancestor MOVES and may SCALE. Read both off what the browser drew: the drawn
+				// left is origin + k·x, and the drawn width is k·s·offsetWidth. Then solve for the
+				// translate that lands on the placement, and the scale that keeps the card's screen size.
 				const r = el.getBoundingClientRect();
-				const dx = p.x - r.left;
-				const dy = p.y - r.top;
-				if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-					x += dx;
-					y += dy;
-					el.style.transform = `translate(${x}px, ${y}px)${s === 1 ? '' : ` scale(${s})`}`;
+				// The UNROUNDED layout width: `offsetWidth` is rounded to a whole pixel, so dividing the
+				// drawn width by it read a scale of ~1.003 for an unscaled block and moved the card a pixel
+				// or two. The card is `box-sizing: border-box`, so its computed width is the border box.
+				const layoutW = Number.parseFloat(win.getComputedStyle(el).width) || el.offsetWidth;
+				const k = layoutW ? r.width / (layoutW * s) : 1;
+				if (Math.abs(k - 1) > 0.001 || Math.abs(p.x - r.left) > 0.5 || Math.abs(p.y - r.top) > 0.5) {
+					const ox = r.left - k * p.x;
+					const oy = r.top - k * p.y;
+					draw((p.x - ox) / k, (p.y - oy) / k, s / k);
 				}
 			}
 		}

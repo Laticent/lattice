@@ -93,8 +93,10 @@ corridor and it closes.
 **Touch.** On a device whose primary pointer cannot hover (a phone), `hover` behaves as `press`:
 tap to open, tap again or elsewhere to close. A touch never opens a hover card by accident.
 
-**Focus.** Cenno never moves focus. If focus was inside a press card when it closes, it goes back
-to the trigger.
+**Focus.** `open` never moves focus. A `press` card opened from the keyboard (Enter or Space) takes
+focus, so its contents are reachable; leaving it closes it. If focus was inside a card when it
+closes, it goes back to the trigger. Escape closes an open card, and stops there only when it came
+from that card or its trigger, so a tooltip never swallows a host dialog's Escape.
 
 ## Styling: tokens, parts, anatomy
 
@@ -147,11 +149,11 @@ Every module states what it buys. There is no byte budget; a change that grows a
 |---|---|---:|---:|
 | `place.ts` | Where the card goes: flip, shift, size, arrow, hide. Pure arithmetic. | 1490 B | 0.7 KB |
 | `measure.ts` | Reads anchors (elements, points, iframes at any depth), the visual viewport and clipping ancestors. | 1799 B | 0.8 KB |
-| `cenno.ts` | Opens, moves and closes cards: top layer, fullscreen, steady size under pinch, tracking. | 4221 B | 1.9 KB |
-| `intent.ts` | Hover with a grace corridor, focus, press, Escape, outside press, the ARIA wiring. | 3371 B | 1.2 KB |
+| `cenno.ts` | Opens, moves and closes cards: top layer, fullscreen, steady size under pinch, tracking. | 4452 B | 2.0 KB |
+| `intent.ts` | Hover with a grace corridor, focus, press, Escape, outside press, the ARIA wiring. | 3530 B | 1.3 KB |
 | `card.ts` | The optional anatomy (header, body, footer) and the part names. | 805 B | 0.4 KB |
 | `styles.ts` | The one stylesheet: tokens with system-color fallbacks. | 2723 B | 0.9 KB |
-| **All of it** | One bundle of `index.ts` | **14125 B** | **5.2 KB** |
+| **All of it** | One bundle of `index.ts` | **14513 B** | **5.3 KB** |
 <!-- cenno-sizes:end -->
 
 ## Tests
