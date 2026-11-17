@@ -94,7 +94,9 @@ describe('muxOggOpus', () => {
 	it('reads no pre-skip from a description that is not an OpusHead, and refuses no packets', () => {
 		expect(preSkipFromDescription(new Uint8Array(4))).toBeNull();
 		expect(preSkipFromDescription(null)).toBeNull();
-		expect(preSkipFromDescription(opusHead({ preSkip: 3840 }).buffer)).toBe(3840);
+		const head = opusHead({ preSkip: 3840 });
+		expect(preSkipFromDescription(head)).toBe(3840); // a view
+		expect(preSkipFromDescription(head.slice().buffer as ArrayBuffer)).toBe(3840); // a plain ArrayBuffer
 		expect(() => muxOggOpus({ packets: [] })).toThrow(/no packets/);
 	});
 });
