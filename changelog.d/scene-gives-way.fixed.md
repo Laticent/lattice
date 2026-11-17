@@ -1,0 +1,1 @@
+- On a square or portrait slide, a `scene` lets its picture shrink, down to 28% of the slide, when the text under it needs the room, instead of running the text off the slide. A scene whose text fits is unchanged.

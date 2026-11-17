@@ -249,7 +249,10 @@ section.scene[data-img-composition="clean"].mirror .scene-text { padding: 8cqi 8
 section.scene[data-img-composition="clean"][data-orientation="portrait"],
 section.scene[data-img-composition="clean"][data-orientation="square"] {
   grid-template-columns: 1fr;
-  grid-template-rows: auto auto;
+  /* The card's row is the card's own height, and gives way to the text down to 28% of the
+   * slide when the text needs the room (a phone's x1.4 type ran the placard past the slide, anima-scene.md 5;
+   * fit-everywhere-model.md §25), as the stacked image card does. Where the text fits, the card is where it was. */
+  grid-template-rows: minmax(calc(var(--_sec-1cqh, 1cqh) * 28), auto) auto;
   grid-template-areas: "figure" "text";
   align-content: center;
   --scene-stack-gap: calc(var(--_sec-1cqh, 1cqh) * 5);
@@ -263,7 +266,9 @@ section.scene[data-img-composition="clean"][data-orientation="square"] {
 }
 section.scene[data-img-composition="clean"][data-orientation="portrait"] .scene-figure,
 section.scene[data-img-composition="clean"][data-orientation="square"] .scene-figure {
-  height: auto; width: 84%; max-width: 84%; max-height: 50cqh;
+  /* Height from its row, width as before: the card was never held to the poster's aspect (a 16:10 poster sat in a
+   * 907 x 464 card, the drawing letterboxed inside), so a shorter row gives a shorter card and the same drawing, smaller. */
+  height: 100%; width: 84%; max-width: 84%; max-height: 50cqh;
 }
 section.scene[data-img-composition="clean"][data-orientation="portrait"] .scene-text,
 section.scene[data-img-composition="clean"][data-orientation="square"] .scene-text {
@@ -321,7 +326,9 @@ section.scene[data-img-composition="split"].mirror .scene-text::after { right: a
 section.scene[data-img-composition="split"][data-orientation="portrait"],
 section.scene[data-img-composition="split"][data-orientation="square"] {
   grid-template-columns: 1fr;
-  grid-template-rows: calc(var(--_sec-1cqh, 1cqh) * 46) 1fr;
+  /* The band keeps 46% of the slide, and gives way to the text down to 28% when the text needs the room (scene.md 4;
+   * fit-everywhere-model.md §25), as the stacked image band does. Text that fits leaves the band at 46%. */
+  grid-template-rows: minmax(calc(var(--_sec-1cqh, 1cqh) * 28), calc(var(--_sec-1cqh, 1cqh) * 46)) minmax(min-content, 1fr);
   grid-template-areas: "figure" "text";
 }
 section.scene[data-img-composition="split"][data-orientation="portrait"] .scene-text,
