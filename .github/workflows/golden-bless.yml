@@ -77,6 +77,9 @@ jobs:
       - name: Allow ImageMagick PDF coder (for the drift montages)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       # The docs landing page's showcase WebPs are cut from gallery PDFs with `sharp`, a
       # docs dependency, and docs-build fails when they go stale (#2598). ~16 s.
       - name: Install the docs dependencies (for the showcase WebPs)

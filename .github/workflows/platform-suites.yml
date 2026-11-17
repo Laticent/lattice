@@ -156,6 +156,9 @@ jobs:
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm ci
         timeout-minutes: 10
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed, and the CLI loads them.
       - name: Build the generated bundles
         run: npm run build

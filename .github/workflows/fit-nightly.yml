@@ -88,6 +88,9 @@ jobs:
       # `npm ci` runs `prepare` (tools/prepare.js), which builds the uncommitted dist/ artifacts the
       # CLI renders with; overflow-nightly.yml relies on the same.
       - run: npm ci
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       - name: Resolve the puppeteer Chromium
         id: chrome
         run: |

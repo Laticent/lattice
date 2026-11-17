@@ -68,6 +68,9 @@ jobs:
         with:
           packages: poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
 
       # WebKit and Firefox for the npm-plugin export check (test/integration/export-nightly/). The
       # check opens real HTML exports in Chromium, WebKit and Firefox, and an engine that cannot
