@@ -7,9 +7,10 @@
  *   latticeNarrationImport(title)       hand the bytes to the Studio's own "Import deck…" input and wait for the preview
  *   latticeNarrationVoice(provider)     install the stand-in voice: a cloud voice selected, a key stored, and the
  *                                       provider's speech call answered in the page with a silent WAV as long as the
- *                                       sentence would take to say. 'gemini' (the owner's voice: Gemini 3.8 Flash TTS
- *                                       on their own key) answers JSON with the WAV base64 inside, as Gemini does;
- *                                       'openrouter' answers the WAV itself. Run AFTER boot, never before: boot validates a stored key with
+ *                                       sentence would take to say. 'openrouter-gemini' is the owner's voice, Gemini
+ *                                       3.1 Flash TTS through OpenRouter: asked for `pcm`, answered headerless PCM.
+ *                                       'openrouter' (Kokoro, answered WAV) and 'gemini' (Gemini's own API, JSON with
+ *                                       base64 WAV inside) are the other cloud paths. Run AFTER boot, never before: boot validates a stored key with
  *                                       OpenRouter, and from a simulator that real call would reject a stand-in key.
  *   latticeNarrationPlay(voiceOn)       open Present on slide 1, turn Guide on, set the voice, press Play
  *   latticeNarrationSample()            where Present is, how much audio the page has decoded and still holds, how many
@@ -108,10 +109,11 @@ function latticeNarrationBase64(buf) {
 	return btoa(bin);
 }
 
-/** The stand-in voice. `provider` 'openrouter' answers OpenRouter's speech route with WAV; 'gemini' answers Gemini's
- *  `generateContent` the way Gemini 3.8 Flash TTS does: JSON with the WAV clip base64 inside (voice-model.js). */
-function latticeNarrationVoice(provider = 'openrouter') {
-	const stats = { speech: 0, decodedMB: 0, clips: 0, liveMB: 0, sampleRate: 0 };
+/** The stand-in voice. 'openrouter-gemini' (the owner's: Gemini 3.1 Flash TTS through OpenRouter) asks OpenRouter for
+ *  `pcm` and gets headerless PCM back; 'openrouter' is Kokoro through OpenRouter, answered with WAV; 'gemini' answers
+ *  Gemini's own `generateContent`, JSON with the WAV clip base64 inside (voice-model.js). */
+function latticeNarrationVoice(provider = 'openrouter-gemini') {
+	const stats = { speech: 0, pcm: 0, decodedMB: 0, clips: 0, liveMB: 0, sampleRate: 0 };
 	window.__latticeNarration = stats;
 	const realFetch = window.fetch.bind(window);
 	const json = (body) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -134,14 +136,25 @@ function latticeNarrationVoice(provider = 'openrouter') {
 		if (!url.startsWith('https://openrouter.ai/')) return realFetch(input, init);
 		if (url.includes('/audio/speech')) {
 			stats.speech++;
-			let words = 1;
+			let body = {};
 			try {
-				words = String(JSON.parse(init?.body || '{}').input || '').split(/\s+/).filter(Boolean).length;
+				body = JSON.parse(init?.body || '{}');
 			} catch {}
 			// About 2.6 words a second, a narrator's pace (2026-07-12-narration-pace-model.md).
-			return new Response(latticeNarrationWav(words / 2.6), { status: 200, headers: { 'content-type': 'audio/wav' } });
+			const wav = latticeNarrationWav(String(body.input || '').split(/\s+/).filter(Boolean).length / 2.6);
+			// A Gemini model asks for `pcm` (voice-model.js `isPcmOnlyModel`), and OpenRouter answers headerless 16-bit PCM
+			// with its geometry in the content type, as it does for google/gemini-3.1-flash-tts-preview.
+			if (body.response_format === 'pcm') stats.pcm++;
+			if (body.response_format === 'pcm') return new Response(wav.slice(44), { status: 200, headers: { 'content-type': 'audio/pcm;rate=24000;channels=1' } });
+			return new Response(wav, { status: 200, headers: { 'content-type': 'audio/wav' } });
 		}
-		if (url.includes('/models')) return json({ data: [{ id: 'hexgrad/kokoro-82m', name: 'Kokoro', pricing: { prompt: '0.0000006', completion: '0' }, architecture: { output_modalities: ['speech'] }, supported_voices: ['af_heart'] }] });
+		if (url.includes('/models'))
+			return json({
+				data: [
+					{ id: 'hexgrad/kokoro-82m', name: 'Kokoro', pricing: { prompt: '0.0000006', completion: '0' }, architecture: { output_modalities: ['speech'] }, supported_voices: ['af_heart'] },
+					{ id: 'google/gemini-3.1-flash-tts-preview', name: 'Gemini 3.1 Flash TTS', pricing: { prompt: '0.000001', completion: '0' }, architecture: { output_modalities: ['speech'] }, supported_voices: ['Kore'] },
+				],
+			});
 		if (url.includes('/key')) return json({ data: { label: 'probe', limit: null, usage: 0 } });
 		if (url.includes('/credits')) return json({ data: { total_credits: 10, total_usage: 0 } });
 		return json({ data: {} });
@@ -165,7 +178,10 @@ function latticeNarrationVoice(provider = 'openrouter') {
 			});
 		};
 	}
-	if (provider === 'gemini') {
+	if (provider === 'openrouter-gemini') {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-probe-present-narration-0d0d');
+		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Kore' }));
+	} else if (provider === 'gemini') {
 		localStorage.setItem('lattice-db-gemini-key', 'AIzaProbePresentNarration000d0d');
 		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-tts', voice: 'Kore' }));
 	} else {
@@ -199,7 +215,7 @@ function latticeNarrationSample() {
 	const h = latticeNarrationHelpers();
 	const s = window.__latticeNarration || {};
 	const round = (n) => Math.round((n || 0) * 10) / 10;
-	return { slide: h.counter()?.[0] ?? null, speech: s.speech || 0, clips: s.clips || 0, decodedMB: round(s.decodedMB), liveMB: round(s.liveMB), sampleRate: s.sampleRate || 0, mark: window.__latticeNarrationMark || null };
+	return { slide: h.counter()?.[0] ?? null, speech: s.speech || 0, pcm: s.pcm || 0, clips: s.clips || 0, decodedMB: round(s.decodedMB), liveMB: round(s.liveMB), sampleRate: s.sampleRate || 0, mark: window.__latticeNarrationMark || null };
 }
 
 // Reached by name from source text (run.mjs's execute-script, probe.selftest.mjs's evaluate), so put on the global object.
