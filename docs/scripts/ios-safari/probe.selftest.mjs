@@ -170,7 +170,7 @@ if (process.env.PROBE === 'present-narration') {
 				await new Promise((r) => setTimeout(r, 10_000)); // flaky-ok: a sampling interval, the samples are judged on work done
 				const s = await call('latticeNarrationSample()');
 				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), ...s });
-				console.log(`  ${out.arm} +${out.samples.at(-1).t}s: slide ${s.slide}, ${s.speech} spoken (${s.pcm} as PCM), ${s.liveMB} MB audio held of ${s.decodedMB} MB decoded at ${s.sampleRate} Hz`);
+				console.log(`  ${out.arm} +${out.samples.at(-1).t}s: slide ${s.slide}, audio ${s.audio}, ${s.speech} spoken (${s.pcm} as PCM), ${s.liveMB} MB audio held of ${s.decodedMB} MB decoded at ${s.sampleRate} Hz`);
 			}
 			out.playedS = Math.round((Date.now() - t0) / 1000);
 			out.alive = out.samples.at(-1)?.mark === played.mark;

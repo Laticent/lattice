@@ -14,7 +14,9 @@
  *                                       OpenRouter, and from a simulator that real call would reject a stand-in key.
  *   latticeNarrationReady(voiceOn)      open Present on slide 1, turn Guide on, set the voice, and say where Play is:
  *                                       the runner TAPS it, because on iOS only a real touch unlocks audio
- *   latticeNarrationStarted(ms)         after the tap: Present is playing (the runner taps again if not)
+ *   latticeNarrationPlayButton()        Play itself, for a WebDriver element click (a native click Safari counts as a
+ *                                       user gesture, which is what lets Present resume its AudioContext)
+ *   latticeNarrationStarted(ms)         after the press: Present is playing (the runner tries the next way if not)
  *   latticeNarrationSample()            where Present is, how much audio the page has decoded and still holds, how many
  *                                       sentences it asked to have spoken, and the mark latticeNarrationReady left (gone
  *                                       means the page reloaded under the probe)
@@ -164,6 +166,22 @@ function latticeNarrationVoice(provider = 'openrouter-gemini') {
 	// Count every decoded clip, and how much of it is still alive (a FinalizationRegistry drops it once collected). Work,
 	// not time: the bytes a 24 kHz WAV decodes to at the context's rate are the same on any machine.
 	const reg = typeof FinalizationRegistry === 'function' ? new FinalizationRegistry((mb) => (stats.liveMB -= mb)) : null;
+	// Every AudioContext the page makes, so a sample can say whether audio is RUNNING. On iOS a context stays
+	// 'suspended' unless a real user gesture resumed it, and then narration waits forever: the first run's voice arm sat on
+	// slide 1 for eight minutes for exactly that reason (a scripted click on Play).
+	stats.contexts = [];
+	for (const name of ['AudioContext', 'webkitAudioContext']) {
+		const Orig = window[name];
+		if (!Orig || Orig.__latticeTracked) continue;
+		const Tracked = class extends Orig {
+			constructor(...a) {
+				super(...a);
+				stats.contexts.push(this);
+			}
+		};
+		Tracked.__latticeTracked = true;
+		window[name] = Tracked;
+	}
 	for (const C of [window.AudioContext, window.webkitAudioContext]) {
 		if (!C || C.prototype.__latticeCounted) continue;
 		C.prototype.__latticeCounted = true;
@@ -234,6 +252,12 @@ async function latticeNarrationReady(voiceOn) {
 	return { mark: window.__latticeNarrationMark, total: h.counter()[1], x: at.x, y: at.y };
 }
 
+/** The Play button itself, for a WebDriver element click (execute/sync returns it as an element reference). */
+function latticeNarrationPlayButton() {
+	const h = latticeNarrationHelpers();
+	return h.button(/^Play the presentation$/, h.dialog() || document) || null;
+}
+
 /** After the runner's tap: Present is playing. */
 async function latticeNarrationStarted(ms = 15000) {
 	const h = latticeNarrationHelpers();
@@ -245,8 +269,9 @@ function latticeNarrationSample() {
 	const h = latticeNarrationHelpers();
 	const s = window.__latticeNarration || {};
 	const round = (n) => Math.round((n || 0) * 10) / 10;
-	return { slide: h.counter()?.[0] ?? null, speech: s.speech || 0, pcm: s.pcm || 0, clips: s.clips || 0, decodedMB: round(s.decodedMB), liveMB: round(s.liveMB), sampleRate: s.sampleRate || 0, mark: window.__latticeNarrationMark || null };
+	const audio = (s.contexts || []).map((c) => c.state).join('/') || 'none';
+	return { slide: h.counter()?.[0] ?? null, audio, speech: s.speech || 0, pcm: s.pcm || 0, clips: s.clips || 0, decodedMB: round(s.decodedMB), liveMB: round(s.liveMB), sampleRate: s.sampleRate || 0, mark: window.__latticeNarrationMark || null };
 }
 
 // Reached by name from source text (run.mjs's execute-script, probe.selftest.mjs's evaluate), so put on the global object.
-Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationReady, latticeNarrationStarted, latticeNarrationSample });
+Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationReady, latticeNarrationPlayButton, latticeNarrationStarted, latticeNarrationSample });

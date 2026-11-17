@@ -711,21 +711,49 @@ async function runPresentNarrationProbe(id) {
 			out.total = played.total;
 			// A real touch on Play, as a presenter's: iOS unlocks audio only for one (the first run's scripted click left
 			// the voice arm on slide 1 for its whole eight minutes). composeTouchTap delivers its taps the same way.
-			// Up to three taps: the second run (44000481706) tapped once, at the right point, and Present never started in
-			// either arm. A first touch on the dock may only wake the controls, so the probe taps again, as a person would,
-			// and records how many taps it took.
-			let started = null;
-			for (out.taps = 1; out.taps <= 3; out.taps++) {
-				await wd('DELETE', `/session/${id}/actions`).catch(() => {});
-				await wd('POST', `/session/${id}/actions`, {
-					actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: played.x, y: played.y }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 }, { type: 'pointerUp', button: 0 }] }],
+			// PRESS PLAY THE WAY A PERSON DOES. Play's handler resumes Present's AudioContext (Suono `unlock()`), and iOS only
+			// allows that inside a real user gesture: a scripted click() started Present with audio suspended, so narration
+			// never began (run 43993979079); a WebDriver touch action never reached Play's click handler at all (44000481706,
+			// 44007265415). A WebDriver ELEMENT click is a native click Safari counts as a gesture. The ladder is the one the
+			// focus-sync probe uses (element click, touch tap, mouse click), and the way that worked is logged.
+			const release = () => wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			const pointer = (type, extra = []) => async () =>
+				wd('POST', `/session/${id}/actions`, {
+					actions: [{ type: 'pointer', id: type === 'touch' ? 'finger' : 'mouse', parameters: { pointerType: type }, actions: [{ type: 'pointerMove', duration: 0, x: played.x, y: played.y }, { type: 'pointerDown', button: 0 }, ...extra, { type: 'pointerUp', button: 0 }] }],
 				});
-				await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			const ways = [
+				[
+					'element click',
+					async () => {
+						const el = await wd('POST', `/session/${id}/execute/sync`, { script: `${source}\nreturn latticeNarrationPlayButton();`, args: [] });
+						const ref = el?.['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(el || {})[0];
+						if (!ref) throw new Error('no Play button to click');
+						await wd('POST', `/session/${id}/element/${ref}/click`, {});
+					},
+				],
+				['touch tap', pointer('touch', [{ type: 'pause', duration: 80 }])],
+				['mouse click', pointer('mouse', [{ type: 'pause', duration: 50 }])],
+			];
+			let started = null;
+			const tried = [];
+			for (const [name, press] of ways) {
+				await release();
+				try {
+					await press();
+				} catch (e) {
+					tried.push(`${name} threw ${String(e.message || e).slice(0, 120)}`);
+					continue;
+				}
+				await release();
 				started = await call('latticeNarrationStarted(5000)');
-				if (!started?.error) break;
+				tried.push(`${name}: ${started?.error ? 'not playing' : 'playing'}`);
+				if (!started?.error) {
+					out.pressedWith = name;
+					break;
+				}
 			}
-			failIf(started, `Present playing after ${out.taps - 1} taps on Play`);
-			console.log(`${LABEL}: narration ${out.arm}: Present playing after ${out.taps} tap${out.taps === 1 ? '' : 's'} on Play`);
+			console.log(`${LABEL}: narration ${out.arm}: pressing Play: ${tried.join('; ')}`);
+			if (!out.pressedWith) throw new Error(`Present never started: ${tried.join('; ')}`);
 			const t0 = Date.now();
 			let peak = 0;
 			while (Date.now() - t0 < seconds * 1000) {
@@ -735,7 +763,7 @@ async function runPresentNarrationProbe(id) {
 				peak = Math.max(peak, g.grew);
 				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), grewMB: g.grew, ...s });
 				out.baseMB = g.baseMB;
-				console.log(`${LABEL}: narration ${out.arm} +${out.samples.at(-1).t}s: slide ${s?.slide}, ${s?.speech} spoken (${s?.pcm} as PCM), ${s?.liveMB} MB audio held of ${s?.decodedMB} MB decoded, WebKit +${g.grew} MB above ${g.baseMB} MB${s?.mark === played.mark ? '' : ', THE PAGE RELOADED'}`);
+				console.log(`${LABEL}: narration ${out.arm} +${out.samples.at(-1).t}s: slide ${s?.slide}, audio ${s?.audio}, ${s?.speech} spoken (${s?.pcm} as PCM), ${s?.liveMB} MB audio held of ${s?.decodedMB} MB decoded, WebKit +${g.grew} MB above ${g.baseMB} MB${s?.mark === played.mark ? '' : ', THE PAGE RELOADED'}`);
 				if (s?.mark !== played.mark) break;
 			}
 			out.playedS = Math.round((Date.now() - t0) / 1000);
