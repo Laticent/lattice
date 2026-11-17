@@ -137,6 +137,9 @@ jobs:
         with:
           packages: fonts-noto-color-emoji
       - run: npm ci
+      # puppeteer's postinstall swallows a failed download and exits 0; this step fails by name instead.
+      - uses: ./.github/actions/puppeteer-chrome
+        timeout-minutes: 5 # a stalled download fails here, not at the job cap
       # `executablePath()` COMPUTES a path; it does not check the file is there. Measured: point
       # PUPPETEER_CACHE_DIR at an empty directory and it still returns a path and exits 0. That
       # matters because `detectChromeExecutable()` returns PUPPETEER_EXECUTABLE_PATH

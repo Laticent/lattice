@@ -963,3 +963,24 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   has to stay synchronous, so it does not call puppeteer's resolver at all.
 - **How to check:** `grep -rn "executablePath()" .github/ tools/ lib/` and confirm that every call is awaited or wrapped
   in `Promise.resolve`.
+
+## A rendering job fails every test with `Could not find Chrome (ver. …)` after a green `npm ci`
+
+- **Symptom:** an integration shard (or a nightly, or golden-diff) fails dozens of browser tests with `Could not find
+  Chrome (ver. 157.0.8103.50) … your cache path is incorrectly configured (which is: /home/runner/.cache/puppeteer)`,
+  and their children read "test did not finish before its parent and was cancelled". The "Cache Puppeteer browser"
+  step logged `Cache not found`, `npm ci` was green, and a re-run passes. First seen in run 43974960155, shard 4/4:
+  41 failed, 186 canceled, while shards 1-3 on the same cache miss passed.
+- **Cause:** on a cache miss, Chrome comes from puppeteer's postinstall, which catches a failed download, prints
+  `ERROR: Failed to set up chrome v… !` and exits 0. npm hides the output of a script that passes, so the log shows
+  nothing. Measured with the network cut (`unshare -n`): postinstall exits 0 and leaves empty `chrome/` folders, and
+  `npx puppeteer browsers install chrome` exits 1.
+- **Fix:** every job that restores `~/.cache/puppeteer` runs `.github/actions/puppeteer-chrome` right after the root
+  `npm ci`. That runs `puppeteer browsers install chrome` up to three times and fails the step by name when the
+  download never lands. It takes about 0.5 s when Chrome is already there, and it repairs the folders a failed
+  postinstall leaves. `test/unit/tools/puppeteer-chrome-step.test.js` fails when a job restores the cache without it.
+  Each call has `timeout-minutes: 5`, so a stalled download fails at this step too, not at the job's limit.
+- **How to check:** a red "Install Chrome for puppeteer (three tries)" step with `::error::puppeteer could not download
+  its Chrome in three tries` means the download host was unreachable from the runner, not that the code is wrong. That
+  job failed before any test ran, so re-running it is allowed (HARD RULE #33). Tests that went red with "Could not find
+  Chrome" in a job where this step passed are a different defect: find it, do not re-run them.
