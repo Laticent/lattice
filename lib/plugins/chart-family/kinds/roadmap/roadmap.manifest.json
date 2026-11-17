@@ -88,6 +88,17 @@
     "swimlane",
     "milestones"
   ],
+  "variantAxes": [
+    {
+      "label": "Layout",
+      "exclusive": true,
+      "members": [
+        "horizons",
+        "swimlane",
+        "milestones"
+      ]
+    }
+  ],
   "excludes": [
     "claim-bleed"
   ],

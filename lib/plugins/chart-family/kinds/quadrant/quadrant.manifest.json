@@ -181,6 +181,19 @@
     "magic",
     "minimal"
   ],
+  "variantAxes": [
+    {
+      "label": "Read",
+      "exclusive": true,
+      "members": [
+        "bubble",
+        "trail",
+        "cohort",
+        "threshold",
+        "magic"
+      ]
+    }
+  ],
   "variantDocs": {
     "bubble": {
       "label": "bubble",

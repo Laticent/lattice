@@ -63,6 +63,7 @@ Studio remembers which one the author picked.
 | Surface | Where | What it is for |
 |---|---|---|
 | **Editor** | toggle "Compose" / "Source" at the top of the pane (the phone bar has the same two cells, Compose first) | Write the deck as rich text in Compose, or as Markdown in Source. Both change the same deck; ⌘K "Write in Compose" / "Write in Source" switches too. |
+| **Slide bar** | above each slide in Compose | The active slide's pill, in two groups: the layout button (`cards-grid ▾`), "Add slide below", Insert and "Slide settings", then the styles of the block under the caret. One row on a wide pane; on a narrow one the styles take a second row. Undo and Redo are in the editor's edit bar (the header on a phone), with Find and replace (⌘F; on a phone, in the drawer). When the editor pane is narrow, the edit bar moves its less-used controls (Version history, Slide settings, Reshape, Fix all) into its More (⋯) menu rather than overflowing. Every other slide shows its layout button quietly on its line, so the column of slides reads as a list of layouts. The layout button opens the slide's looks and the layouts its manifest names as alternatives, each with when to use it; a pick applies at once, and one Undo takes back the whole visit. |
 | **Preview** | beside the editor | The rendered slide. Overflow shows as a ring. |
 | **Slide strip** | the row of slide thumbnails | Every slide as a thumbnail; move, duplicate, delete. |
 | **Command palette** | ⌘K / Ctrl+K | Search and run any Studio verb. |

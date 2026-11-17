@@ -127,7 +127,7 @@ export function editImage(view: EditorView, pos: number, edit: ImageEdit): boole
 export type Placement = 'left' | 'right' | 'full' | 'none';
 
 /** The class tokens of a slide's directives (the first `_class` comment), or []. */
-function slideClassTokens(directives: readonly string[]): string[] {
+export function slideClassTokens(directives: readonly string[]): string[] {
 	const d = directives.find((x) => classPayloadOf(x) !== null);
 	return d ? (classPayloadOf(d) ?? '').trim().split(/\s+/).filter(Boolean) : [];
 }
@@ -160,7 +160,7 @@ export function tokensWithPlacement(tokens: readonly string[], p: Placement): st
 }
 
 /** The slide's directives with its class set to `tokens`, or null when its class sits in a comment Compose does not rewrite. */
-function directivesWithClass(directives: readonly string[], tokens: readonly string[]): string[] | null {
+export function directivesWithClass(directives: readonly string[], tokens: readonly string[]): string[] | null {
 	const at = directives.findIndex((x) => classPayloadOf(x) !== null);
 	// A new class is written as the drawer writes one (`setClassTokens`, lib/core/meta-edit.mjs `writeMeta`: a `_class` comment on a slide
 	// with no record); a record's class is rewritten in the record, every other field kept.
@@ -170,8 +170,10 @@ function directivesWithClass(directives: readonly string[], tokens: readonly str
 		return next === directives[at] && classPayloadOf(next) !== tokens.join(' ') ? null : directives.map((x, i) => (i === at ? next : x)).filter(Boolean);
 	}
 	const line = `<!-- _class: ${tokens.join(' ')} -->`;
-	// Only a comment that holds the class alone is rewritten: a compound one carries other keys this must not touch.
-	if (!/^\s*<!--\s*_class\s*:[^>]*-->\s*$/.test(directives[at])) return null;
+	// Only a comment that holds the class alone is rewritten: a compound one carries other keys this must not touch. One line
+	// only: `[^>]` also matches a newline, so `<!-- _class: stats⏎_paginate: false -->` passed as "the class alone" and the
+	// rewrite dropped `_paginate` (found by slide-layout.test.ts; it reached picture placement too).
+	if (!/^\s*<!--\s*_class\s*:[^>\n]*-->\s*$/.test(directives[at])) return null;
 	return directives.map((x, i) => (i === at ? line : x));
 }
 

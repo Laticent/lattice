@@ -26,6 +26,16 @@
     "index",
     "spectrum"
   ],
+  "variantAxes": [
+    {
+      "label": "Ending",
+      "exclusive": true,
+      "members": [
+        "qr",
+        "index"
+      ]
+    }
+  ],
   "slots": {
     "heading": {
       "selector": "h2",

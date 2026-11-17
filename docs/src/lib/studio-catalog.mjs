@@ -65,6 +65,11 @@ export function buildStudioCatalog(root = join(process.cwd(), '..')) {
 				// host's `hosts` (its body is two panes), as components.json carries them.
 				...(c.label ? { label: c.label } : {}),
 				...(c.hosts ? { hosts: c.hosts } : {}),
+				// The layouts the manifest names as near alternatives, each with its "use when" line: Compose's
+				// layout menu offers them on a slide (LayoutMenu.tsx), so the reason to switch travels with the choice.
+				...(Array.isArray(c.related) && c.related.length
+					? { related: c.related.filter((r) => r?.name).map((r) => ({ name: String(r.name), when: String(r.when || '') })) }
+					: {}),
 				// The Lattice primer (architect-knowledge.js `layoutBlock`) reads `summary`,
 				// `slots`, `capacity` and `variantSkeletons`. `slots` needs reshaping:
 				// components.json keys it by slot name, the primer walks an array.

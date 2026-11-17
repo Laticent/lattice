@@ -114,6 +114,18 @@
     "spectrum",
     "focal"
   ],
+  "variantAxes": [
+    {
+      "label": "Style",
+      "exclusive": true,
+      "members": [
+        "constellation",
+        "dense",
+        "spectrum",
+        "focal"
+      ]
+    }
+  ],
   "variantDocs": {
     "constellation": {
       "label": "constellation",

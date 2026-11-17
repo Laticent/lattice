@@ -510,19 +510,46 @@ function segmentTone(brand: boolean | undefined, on: boolean, interactive = true
  * uses the width the tablet row (which carries Slide settings too) was measured to need, 360 px; a desktop pane
  * narrowed to 320-360 px shows the words a moment after paint (2026-11-10-compose-first.md §4).
  */
-const EDIT_MODE_WORDS = { measured: 'inline group-data-[fit=2]/editbar:hidden', shell: '[&_span]:hidden @[360px]:[&_span]:inline' } as const;
+/**
+ * THE EDIT BAR'S STEPS (`useRowFit`, `EDIT_FIT_LEVELS` of them): the row takes the lowest step whose controls fit its box, and
+ * each step moves one more set out of the row, least important first, into its More menu, so nothing ever bleeds past the
+ * pane down to its minimum width (owner, 2026-11-15). Undo and Redo never move.
+ *   1 · the issue pill shortens to its count
+ *   2 · Version history and Slide settings → More
+ *   3 · Reshape and Fix all → More
+ *   4 · the Compose / Source words drop to their icons (their names stay on the buttons and in a tooltip)
+ *   5 · Find and replace and the issue pill → More
+ * The app's row and the pre-paint shell's carry the same attributes and are measured the same way (studio.astro steps the
+ * shell's), so the two agree at every width.
+ */
+export const EDIT_FIT_LEVELS = 6;
+/** The step each control leaves the row at, as its `data-out` (styles/tailwind.css holds the rules: a control is out from
+ *  its step on). The issue pill's short label is `data-in="1"`, the More button `data-more`. */
+export const EDIT_FIT = {
+	/** Version history, Slide settings. */
+	a: '2',
+	/** Reshape, Fix all. */
+	b: '3',
+	/** The Compose / Source words. */
+	words: '4',
+	/** Find and replace, the issue pill. */
+	c: '5',
+	/** The issue pill's long label. */
+	issueLong: '1',
+} as const;
+
 
 /**
  * The pane's title AND its mode switch: `Compose · Source`, where the word `EDIT` used to sit.
  * `mode: null` is the pre-paint shell, which cannot know the stored mode at build time: it draws both
  * segments unlit and `studio.astro` lights Compose, or Source under `data-ssr-src`, keyed by `data-edit-seg`.
- * The app's header row is a `group/editbar` measured by `useRowFit`; the shell's is not.
+ * The app's header row is a `group/editbar` measured by `useRowFit`; the shell's is the same group, stepped by studio.astro.
  */
 export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick?: (mode: EditMode) => void }) {
 	return (
 		// A real `<fieldset>`, as PostureDial is: the group role is the element's own. `m-0 min-w-0` take off a
 		// fieldset's margin and intrinsic min-width (a bare reset, HARD RULE #20); the border and padding are ours.
-		<fieldset aria-label={mode === null ? undefined : 'Writing mode'} className={cn('m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal', mode === null && EDIT_MODE_WORDS.shell)}>
+		<fieldset aria-label={mode === null ? undefined : 'Writing mode'} className="m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal">
 			{EDIT_MODES.map((m) => {
 				const on = mode === m.mode;
 				const button = (
@@ -536,7 +563,7 @@ export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick
 							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1', segmentTone(m.brand, on, mode !== null), mode !== null && 'transition-colors')}
 						>
 							<m.Icon className="size-3" />
-							<span className={mode === null ? undefined : EDIT_MODE_WORDS.measured}>{m.label}</span>
+							<span data-out={EDIT_FIT.words}>{m.label}</span>
 						</button>
 				);
 				// The shell's copy is inert (`pointer-events:none`), so a tooltip there is bytes for nothing.

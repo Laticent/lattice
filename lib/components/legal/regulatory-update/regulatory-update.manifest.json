@@ -67,6 +67,18 @@
     "cards",
     "diff-bands"
   ],
+  "variantAxes": [
+    {
+      "label": "Layout",
+      "exclusive": true,
+      "members": [
+        "timeline",
+        "priority",
+        "cards",
+        "diff-bands"
+      ]
+    }
+  ],
   "slots": {
     "heading": {
       "selector": "h2",

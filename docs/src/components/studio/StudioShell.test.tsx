@@ -1055,6 +1055,21 @@ describe('StudioShell — desktop activity bar', () => {
 		}
 	});
 
+	it('every docked pane paints the one column on the same background, so a swap never changes its tint', async () => {
+		// Settings drew on `bg-background` and the tool panes on `bg-card`, so the column changed color every time the slot
+		// swapped between them (§3d of 2026-11-15-one-side-pane.md). One class for all of them, and the sheets' class.
+		const user = setup();
+		const columnBg = () => {
+			const hosts = [...document.querySelectorAll<HTMLElement>('[data-studio-pane], [data-settings-dock]:not([hidden])')];
+			const all = hosts.flatMap((h) => [h, ...h.querySelectorAll<HTMLElement>(':scope > *')]);
+			return [...new Set(all.flatMap((e) => String(e.className).match(/(?<![\w:-])bg-(?:background|card|muted)(?![\w/-])/g) ?? []))];
+		};
+		for (const rail of ['Toggle Coach', 'Toggle Chat', 'Toggle Live', 'Toggle Reader views', 'Deck scope', 'Slide settings']) {
+			await user.click(screen.getAllByRole('button', { name: rail })[0]);
+			expect(columnBg(), rail).toEqual(['bg-background']);
+		}
+	});
+
 	it('marks the pane that last held the slot on the rail, so getting back is one visible click', async () => {
 		const user = setup();
 		const recentOn = (name: string) => screen.getByRole('button', { name }).querySelector('[data-recent]') !== null;

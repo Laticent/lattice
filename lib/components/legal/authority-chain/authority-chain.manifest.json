@@ -60,6 +60,18 @@
     "pyramid",
     "bracket"
   ],
+  "variantAxes": [
+    {
+      "label": "Shape",
+      "exclusive": true,
+      "members": [
+        "branching",
+        "trail",
+        "pyramid",
+        "bracket"
+      ]
+    }
+  ],
   "slots": {
     "heading": {
       "selector": "h2",
