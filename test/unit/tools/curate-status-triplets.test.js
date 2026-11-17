@@ -103,6 +103,9 @@ test('deferred is a gray in the theme\'s own neutral', () => {
   const kDark = K0['info-mark'].replace(/^light-dark\(#[0-9A-Fa-f]{6},\s*(#[0-9A-Fa-f]{6})\)$/, '$1');
   const twin = concrete({ 'info-mark': `light-dark(#004E5C, ${kDark})` });
   assert.ok(twin.some((b) => /light muted --mute-mark sits .* from pilot/.test(b)), twin.join(' | '));
+  // And pilot clears the trio: pushed deep to clear deferred, concrete's pilot (#00343F) landed 0.053 from its done.
+  const deep = concrete({ 'info-mark': `light-dark(#00343F, ${kDark})` });
+  assert.ok(deep.some((b) => /light muted --info-mark sits .* from --pass-mark/.test(b)), deep.join(' | '));
 });
 
 test('a surface the tool cannot resolve stops it rather than being skipped', () => {

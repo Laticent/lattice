@@ -152,12 +152,18 @@ its pilot (`main` 0.082), ardesia's 0.064 and brina's 0.059. And at risk and def
 burgundy and mustard, against about 0.105 on `main`. So pilot is now picked before deferred, and deferred clears done
 0.07, at risk 0.09 and pilot 0.07 (`MUTE_APART`, all three held by the audit on light). Where the theme's tinted gray
 cannot clear all three, deferred drops to a near-neutral gray (chroma 0.012). Concrete, whose mid-gray slide leaves no
-deferred that clears every floor, picks its pilot and deferred together, farthest apart: pilot deepens to `#00343F` and
-the two sit 0.099 apart. Both intensities paint deferred with one token, so the vivid pilot is re-picked to clear it.
+deferred that clears every floor, picks its pilot and deferred together, farthest apart. Both intensities paint deferred with one token, so the vivid pilot is re-picked to clear it.
 On dark, deferred may shed its tint (to 0.006, then a pure gray) and step either way along the spread; it then sits
 0.069-0.086 from done and pilot on every theme. Ardesia, concrete and onyx stay a little under `main` on the pilot pair
 (0.070-0.073 against 0.081-0.085): a dark fill must take white ink at 4.6:1 and stand 3:1 off the slide, which leaves
 deferred little room, and a near-neutral gray beside a tinted pilot reads apart by chroma (the scorer saw no defect).
+
+A ninth scoring (light 8.5, dark 8.5) found that cure had moved concrete's problem: its pilot, deepened to `#00343F`
+to clear deferred, landed 0.053 from its near-black done (`main` 0.118), and nothing guarded pilot against the trio. So
+pilot now clears done, at risk and blocked by 0.09 (`PILOT_APART`, held by the audit on light), and where it must move
+it may step up to 30 degrees bluer inside its band, so hue rather than depth sets it apart. Concrete's pilot is now a
+deep blue (`#003559`), at least 0.097 from every status (0.149 vivid); ardesia's muted pilot, which the trio had landed
+0.083 from, is re-picked to `#00697F` (0.092). The dark residual above is unchanged.
 
 Dark etch's status bars read nearly hollow beside an etched pie. That is etch's design and predates this work: a
 mark that carries text (a status bar or a category bar) takes etch's backdrop level (14% light, 19% dark), and only a

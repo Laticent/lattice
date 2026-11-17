@@ -110,6 +110,8 @@ const WINDOW = 0.16;
 const MUTE_APART = { pass: 0.07, warn: 0.09, info: 0.07 };
 /** The near-neutral chroma deferred may drop to where the theme's tinted gray cannot clear all three. */
 const MUTE_GRAY_C = 0.012;
+/** Pilot keeps at least this from done, at risk and blocked where its candidates allow it (main's concrete held 0.118). */
+const PILOT_APART = 0.09;
 /** What one degree of at risk's step off its own hue costs, in summed lightness off target (0.05 for 15 degrees). */
 const SHIFT_COST = 0.0033;
 /** Dark deferred keeps at least this from dark done, where a lighter spread position reaches it (main sat 0.060-0.086). */
@@ -337,10 +339,10 @@ function solve(theme, facts, baseline, keep) {
       const inBand = (s, h) => { const [lo, hi] = LIGHT_BAND[s]; return Math.min(hi, Math.max(lo, h)); };
       const hueOf = (s) => (s === 'mute' ? facts.anchor.mute.h : s === 'fail' ? clampRed(facts.anchor.fail.h)
         : s === 'warn' ? inBand(s, inBand(s, facts.anchor.warn.h) + warnShift) : inBand(s, facts.anchor[s].h));
-      const cands = (s, Cv = C(s)) => {
+      const cands = (s, Cv = C(s), h = hueOf(s)) => {
         const list = [];
         for (let L = 0.2; L <= 0.96; L += 0.005) {
-          const f = ok(L, Cv, hueOf(s));
+          const f = ok(L, Cv, h);
           if (facts[face].surfaces(s, f).every((x) => cr(f, x.hex) >= FILL_MIN) && cr(text, f) >= INK_MIN) list.push([L, f]);
         }
         return list.filter(([L, f]) => Math.abs(L - TARGET[face][s]) <= WINDOW && (s !== 'fail' || theme in SPREAD_EXEMPT || (L >= LIGHT_RED.L && hexToOklch(f).C >= LIGHT_RED.C - 0.01)));
@@ -402,13 +404,19 @@ function solve(theme, facts, baseline, keep) {
         const apart = (f) => s !== 'mute' || (oklabDistance(f, best.fills.pass) >= MUTE_APART.pass && oklabDistance(f, best.fills.warn) >= MUTE_APART.warn);
         const pool = (s === 'mute' ? muteAll : cands(s)).filter(([, f]) => apart(f));
         // Where nothing clears every floor (concrete's mid-gray slide), deferred takes the fill farthest from all three.
-        // Pilot is re-picked with it there, since pilot is the one other free fill.
+        // Pilot is re-picked with it there, since pilot is the one other free fill, and it must stay clear of done, at
+        // risk and blocked as well: concrete's pilot, pushed deep to clear deferred, landed 0.053 from its near-black done.
+        // So pilot may also step up to 30 degrees bluer inside its band, where hue rather than depth sets it apart.
         if (s === 'mute' && !pool.length && muteRaw.length) {
-          const infos = cands('info').filter(offAcc('info'));
+          const [lo, hi] = LIGHT_BAND.info;
+          const h0 = hueOf('info');
+          const infos = [0, 15, 30].map((d) => Math.min(hi, Math.max(lo, h0 + d)))
+            .flatMap((h) => cands('info', C('info'), h)).filter(offAcc('info'));
           let top = null;
           for (const [, i] of infos.length ? infos : [[0, info]]) {
+            const gi = Math.min(...TRIO.map((t) => oklabDistance(i, best.fills[t])));
             for (const [, m] of muteRaw) {
-              const g = Math.min(oklabDistance(m, best.fills.pass), oklabDistance(m, best.fills.warn), oklabDistance(m, i));
+              const g = Math.min(gi, oklabDistance(m, best.fills.pass), oklabDistance(m, best.fills.warn), oklabDistance(m, i));
               if (!top || g > top.g + 1e-9) top = { g, i, m };
             }
           }
@@ -422,13 +430,19 @@ function solve(theme, facts, baseline, keep) {
       let mute = best.mute ?? one('mute');
       // Both intensities paint deferred with one token (`--mute-mark`), so the vivid face keeps the muted deferred and
       // its pilot is re-picked to clear it, the candidate nearest its target that does (else the farthest).
-      if (intensity === 'vivid') {
-        mute = out[face].muted.mute;
-        const infos = cands('info').filter(offAcc('info'));
-        const clear = infos.filter(([, i]) => oklabDistance(i, mute) >= MUTE_APART.info);
+      if (intensity === 'vivid') mute = out[face].muted.mute;
+      const pilotGap = (i) => Math.min(oklabDistance(i, mute) / MUTE_APART.info, ...TRIO.map((t) => oklabDistance(i, best.fills[t]) / PILOT_APART));
+      if (intensity === 'vivid' || pilotGap(info) < 1) {
+        const [lo, hi] = LIGHT_BAND.info;
+        const infos = [0, 15, 30].map((d, k) => [Math.min(hi, Math.max(lo, hueOf('info') + d)), k])
+          .flatMap(([h, k]) => cands('info', C('info'), h).map(([L, f]) => [L, f, k])).filter(offAcc('info'));
+        const gap = pilotGap;
+        // Pilot clears deferred (shared by both intensities) and the trio, keeping its own hue and target depth where it
+        // can. The muted pilot was picked before the trio, so it is re-picked only if the trio landed on it (ardesia).
+        const clear = infos.filter(([, i]) => gap(i) >= 1);
         info = clear.length
-          ? clear.sort((a, b) => Math.abs(a[0] - TARGET[face].info) - Math.abs(b[0] - TARGET[face].info))[0][1]
-          : infos.reduce((a, b) => (oklabDistance(b[1], mute) > oklabDistance(a[1], mute) ? b : a), [0, info])[1];
+          ? clear.sort((a, b) => a[2] - b[2] || Math.abs(a[0] - TARGET[face].info) - Math.abs(b[0] - TARGET[face].info))[0][1]
+          : infos.reduce((a, b) => (gap(b[1]) > gap(a[1]) ? b : a), [0, info])[1];
       }
       out[face][intensity] = { ...best.fills, info, mute };
     }
@@ -516,6 +530,13 @@ function audit(theme, facts, baseline, keep) {
         for (const [s, name] of [['pass', 'done'], ['warn', 'at risk'], ['info', 'pilot']]) {
           const d = fills[s] && oklabDistance(fills.mute, fills[s]);
           if (fills[s] && d < MUTE_APART[s] - 0.002) bad.push(`light ${intensity} --${tok('mute')} sits ${d.toFixed(3)} from ${name} (floor ${MUTE_APART[s]})`);
+        }
+      }
+      // Pilot stands clear of done, at risk and blocked on light (concrete's, pushed deep, once sat 0.053 from its done).
+      if (!dark && fills.info) {
+        for (const t of TRIO) {
+          const d = fills[t] && oklabDistance(fills.info, fills[t]);
+          if (fills[t] && d < PILOT_APART - 0.002) bad.push(`light ${intensity} --${tok('info')} sits ${d.toFixed(3)} from --${tok(t)} (floor ${PILOT_APART})`);
         }
       }
       // Deferred recedes: on light it is never the darkest of done, blocked and itself (the lowest priority, shouting).
@@ -606,6 +627,6 @@ function main() {
   if (o.check && failed) process.exit(1);
 }
 
-module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, SPREAD_EXEMPT, FAIL_RED, FAIL_CHROMA_CAP, MUTE_APART, KANBAN };
+module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, SPREAD_EXEMPT, FAIL_RED, FAIL_CHROMA_CAP, MUTE_APART, PILOT_APART, KANBAN };
 
 if (require.main === module) main();

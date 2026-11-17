@@ -115,8 +115,8 @@
   --fail-vivid-mark: light-dark(#9D0020, #BC3B41);
   --warn-signal-mark: light-dark(#FFBB6A, #DCA045);
   --fail-signal-mark: light-dark(#FFB4B1, #E67F7D);
-  --info-mark: light-dark(#006278, #427D8F);
-  --info-vivid-mark: light-dark(#006278, #0C7F99);
+  --info-mark: light-dark(#00697F, #427D8F);
+  --info-vivid-mark: light-dark(#00677D, #0C7F99);
   --mute-mark: light-dark(#5C6568, #6E6E6E);
   /* THE STATUS TRIPLET (engineering/decisions/2026-11-16-status-triplets.md): the text and mark ON each status
    * fill, and its border. Light: the slide's own paper, and the fill itself (it clears 4.5:1 against every surface).
@@ -130,12 +130,12 @@
   --pass-edge-mark: light-dark(#415A45, var(--pass));
   --warn-edge-mark: light-dark(#8A5600, var(--warn));
   --fail-edge-mark: light-dark(#90272D, var(--fail));
-  --info-edge-mark: light-dark(#006278, var(--info));
+  --info-edge-mark: light-dark(#00697F, var(--info));
   --mute-edge-mark: light-dark(#5C6568, var(--mute));
   --pass-vivid-edge-mark: light-dark(#395C41, var(--pass));
   --warn-vivid-edge-mark: light-dark(#8A5600, var(--warn));
   --fail-vivid-edge-mark: light-dark(#9D0020, var(--fail));
-  --info-vivid-edge-mark: light-dark(#006278, var(--info));
+  --info-vivid-edge-mark: light-dark(#00677D, var(--info));
   /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
    * (risk-matrix's critical band, a state-chart status row's chip). */
   --status-shade-mark: light-dark(#000000, #000000);
