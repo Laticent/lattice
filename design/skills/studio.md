@@ -63,6 +63,7 @@ Studio remembers which one the author picked.
 | Surface | Where | What it is for |
 |---|---|---|
 | **Editor** | toggle "Compose" / "Source" at the top of the pane (the phone bar has the same two cells, Compose first) | Write the deck as rich text in Compose, or as Markdown in Source. Both change the same deck; ⌘K "Write in Compose" / "Write in Source" switches too. |
+| **Empty deck** | Compose, while the deck has no text after its settings | No slide bar: a line to write on and a grid of four starting slides; the floating "New slide" button returns with the first slide. The default layout is named `content` everywhere, as in Source. |
 | **Slide bar** | above each slide in Compose | The active slide's pill, in two groups: the layout button (`cards-grid ▾`), "Add slide below", Insert and "Slide settings", then the styles of the block under the caret. One row on a wide pane; on a narrow one the styles take a second row. Undo and Redo are in the editor's edit bar (the header on a phone), with Find and replace (⌘F; on a phone, in the drawer). When the editor pane is narrow, the edit bar moves its less-used controls (Version history, Slide settings, Reshape, Fix all) into its More (⋯) menu rather than overflowing. Every other slide shows its layout button quietly on its line, so the column of slides reads as a list of layouts. The layout button opens the slide's looks and the layouts its manifest names as alternatives, each with when to use it; a pick applies at once, and one Undo takes back the whole visit. |
 | **Preview** | beside the editor | The rendered slide. Overflow shows as a ring. |
 | **Slide strip** | the row of slide thumbnails | Every slide as a thumbnail; move, duplicate, delete. |
@@ -144,7 +145,11 @@ opens the presenter's second window; Esc leaves.
 
 **Common jobs**
 
-1. **Start a deck**: ⌘K → "New deck", then write in Compose. Markdown pasted
+1. **Start a deck**: ⌘K → "New deck". An empty deck shows no slide in
+   Compose: one line to write on and four starting slides (`title`, `content`,
+   `cards-grid`, `big-number`), with "Browse all … layouts" for the rest. Typing
+   starts a `content` slide, and one Undo empties the deck again. Preview says
+   "No slides yet" and Present has nothing to play. Markdown pasted
    into Compose arrives as slides, layouts and formatting (⌘⇧V pastes it as
    plain text). A pasted deck's front matter (theme, size, pagination) is
    applied to the open deck, key by key; Undo takes it back. Copying

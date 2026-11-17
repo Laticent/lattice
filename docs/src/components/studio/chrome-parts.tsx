@@ -165,6 +165,8 @@ export function SlideNavigator({ counter, onPrev, onNext, mapOn, onToggleMap }: 
  * is "5 / 7", and a wide pane adds "Slide " in CSS (`content`), never as a second copy in the DOM.
  */
 export function SlideCount({ n, total }: { n: number; total: number }) {
+	// An empty deck has no slide to be on: "No slides", never "1 / 0" (2026-11-17-compose-empty-deck.md).
+	if (total < 1) return <span>No slides</span>;
 	return (
 		<>
 			<span className="sr-only">

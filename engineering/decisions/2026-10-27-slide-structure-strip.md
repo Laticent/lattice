@@ -147,7 +147,7 @@ behavior.
 **Where the affordances exist.** Only on the full view: never under a reader lens (it shows a filtered, possibly
 reordered subset, and today's `op*` functions take a view index, `curIndex`, that would hit the wrong slide), never at the
 Read stop, never in the landscape-phone view, never for a read-only Live member. Every op takes deck positions. The
-Present overview stays read-only. Empty deck: the strip shows one "+ Add your first slide" tile. One-slide deck: Move is
+Present overview stays read-only. Empty deck: the strip shows one "+ Add your first slide" tile (on a wide window it stands down while Compose shows its start grid: `2026-11-17-compose-empty-deck.md`). One-slide deck: Move is
 disabled with a reason; deleting the last slide is refused, as `deleteSlide` does today.
 
 | Action | Mouse | Touch | Keyboard (strip focused by keyboard) |

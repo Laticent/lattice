@@ -66,7 +66,7 @@ import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
 import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
 import { type PresentLens, presentationIndices, slideTitle, splitSlides, unknownComponents, usedComponents } from '../../lib/deck-lint';
-import { frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterTerms, stripFrontMatter, type TermEntry, writeFrontMatterLine } from '../../lib/front-matter';
+import { frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, isBlankDeck, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterTerms, stripFrontMatter, type TermEntry, writeFrontMatterLine } from '../../lib/front-matter';
 import { activeMode, MODES } from '../../lib/mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
@@ -99,6 +99,7 @@ import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
 import type { EditorChange, EditorHandle } from './Editor';
+import { EmptyDeckStart } from './EmptyDeckStart';
 import type { CompletionVocab } from './editor-complete';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import type { FabricateSeed } from './Fabricate';
@@ -1199,7 +1200,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Present is the heaviest thing the Studio opens (a second render surface, plus a
 	// popup window when the Stage is used) — the crumb is what tells a later
 	// crash report that the heap climb started here.
-	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); if (livePresentRef.current) setPresentByRoom(true); setPresentOpen(true); }, []);
+	// An empty deck has nothing to play: every door to Present (button, tab, palette, menu) says so instead of opening a
+	// blank slide numbered 1 (2026-11-17-compose-empty-deck.md).
+	const openPresent = React.useCallback(() => { if (isBlankDeck(sourceRef.current)) { notify('Add a slide to present.'); return; } crashCrumb('action', 'opened Present'); if (livePresentRef.current) setPresentByRoom(true); setPresentOpen(true); }, []);
 	// While someone presents to everyone, this person's own Present joins it (the way back in, §7.2).
 	const livePresentRef = React.useRef(false);
 	// Live (§7.2): a Present opened by the room follows the presenter; one this person opened does not.
@@ -5742,7 +5745,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The one add door (2026-10-27-slide-structure-strip.md §5): wherever the author works, never at Read,
 	// whose strip leads with "Edit this slide" instead. Not gated on the catalog: the gallery always has its
 	// Blank tile, so the door never opens onto nothing.
-	const newSlideShown = effectiveStop !== 'read';
+	// AN EMPTY DECK (2026-11-17-compose-empty-deck.md): Compose shows its start grid, which is then the one way to add a
+	// slide there, so the floating "New slide" doors stand down until the first slide exists. Source keeps them.
+	const deckBlank = isBlankDeck(source);
+	const startGridShown = deckBlank && editMode === 'compose';
+	const newSlideShown = effectiveStop !== 'read' && !startGridShown;
 	// What deleting block `i` takes, named for the confirm: its title and how many rendered slides go with it
 	// (2026-10-27-slide-structure-strip.md §12 item 2). `slides` and `deckIndex.units` are both full-deck.
 	const deleteName = (i: number) => deleteTargetName(slideTitle(slides[i] ?? ''), deckIndex.units[i]?.parts.length ?? 1);
@@ -5924,12 +5931,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// every slide out, where `activeFullIndex` resolves to 0 and this said 1 while the op
 		// said 0, so `revealSlide` silently returned past the end of the doc.
 		const t = insertTarget ?? { side: 'after' as const, at: hereAt, name: deleteTargetName(hereTitle(hereAt), 1) };
+		const startsDeck = isBlankDeck(sourceRef.current);
 		const r = (t.side === 'before' ? addBeforeAt : addAfterAt)(source, t.at, c.skeleton);
 		// GO TO THE SLIDE YOU JUST ADDED, caret and keyboard focus included: the next thing an
 		// author types fills in the skeleton they just chose, not the OLD slide. The door says what it did, in the door.
 		applyDeckOp(r, { grab: hasFinePointer(), label: `Insert “${c.label ?? c.name}”` });
 		setInsertTarget(null);
-		setAddedNote(`Added ${t.side} ${t.name}`);
+		setAddedNote(startsDeck ? `Added ${c.label ?? c.name} as slide 1` : `Added ${t.side} ${t.name}`);
 		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
 	};
 
@@ -6099,7 +6107,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const keeps = item.name === req.current || req.fit[item.name] === 'keeps';
 			const token = compose.applyPane(req, { cls: item.name, modifiers, skeleton: keeps ? null : item.skeleton });
 			if (!token) return;
-			const shown = item.name === 'content' ? 'text' : (item.label ?? item.name);
+			const shown = item.label ?? item.name;
 			if (keeps) notify(`The ${req.where.toLowerCase()} now holds ${shown}.`);
 			else notifyAction(`The ${req.where.toLowerCase()} now holds ${shown}, with an example in place of its text.`, { label: 'Undo', onClick: () => compose.undoPane(token) });
 		},
@@ -7640,7 +7648,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<React.Suspense fallback={<ComposeSkeleton />}>
 				{/* Held on a phone until the first slide, exactly as the Editor below: ProseMirror is the largest
 				    piece of startup the first slide does not need, and Compose is now the default (2026-11-10). */}
-				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={setLayoutReq} onFind={openFind} onView={onEditorView} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
+				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLayoutMenu={setLayoutReq} onFind={openFind} onView={onEditorView} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} emptyStart={stripEditable ? <EmptyDeckStart items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onInsertComponent} onBrowse={() => opAddSlide('after')} /> : undefined} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
@@ -7813,7 +7821,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						width: previewPaneSize
 							? `${Math.floor(Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue))}px`
 							: '100%',
-						boxShadow: landscapePhone ? 'none' : slideFrameShadow('card'),
+						boxShadow: landscapePhone || deckBlank ? 'none' : slideFrameShadow('card'),
 					}}>
 					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no
 					    measure-and-track controller). Being a normal layout child, the browser keeps
@@ -7833,6 +7841,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
 						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
 					</ErrorBoundary>
+					{/* AN EMPTY DECK previews as empty, not as a blank slide numbered 1 (2026-11-17-compose-empty-deck.md). The
+					    preview stays mounted and warm under it, so the first slide paints without a cold start. */}
+					{deckBlank && (
+						<div data-preview-empty="" className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-border bg-[var(--bg)] p-4 text-center">
+							<span className="font-serif text-[17px] font-semibold text-[var(--text-heading)]">No slides yet</span>
+							<span className="text-[13px] text-[var(--text-body)]">Your first slide shows here.</span>
+						</div>
+					)}
 				</div>
 			</div>
 			{/* THE STRIP STACK: whatever stands on the strip (the clip notice) and the strip itself, in one box. The
@@ -7890,14 +7906,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
 					</>
 				)}
-			{(!mapOn || !mapReady) && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} actions={stripActions} onAddFirst={stripEditable ? addFirstSlide : undefined} />}
+			{(!mapOn || !mapReady) && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} actions={stripActions} onAddFirst={stripEditable && !(startGridShown && !mobile) ? addFirstSlide : undefined} />}
 			{/* Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame
 			    that is destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx). */}
 			{mapEver && (
 				<div className={cn('h-[116px] min-w-0 flex-1', !mapOn && 'hidden')} hidden={!mapOn}>
 					<Frozen active={mapOn && !landscapePhone}>
 					<React.Suspense fallback={null}>
-						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation="horizontal" people={liveBySlide} classLabels={effectiveStop !== 'read'} onReady={onMapReady} actions={stripActions} onAddFirst={stripEditable ? addFirstSlide : undefined} />
+						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation="horizontal" people={liveBySlide} classLabels={effectiveStop !== 'read'} onReady={onMapReady} actions={stripActions} onAddFirst={stripEditable && !(startGridShown && !mobile) ? addFirstSlide : undefined} />
 					</React.Suspense>
 					</Frozen>
 				</div>
@@ -8715,7 +8731,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{(LivePill) => <LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />}
 					</PanelLoader>
 				)}
-				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
+				{!mobile && <Tip label={deckBlank ? 'Add a slide to present' : 'Present'}><Button size="sm" data-demo="present" onClick={openPresent} aria-disabled={deckBlank || undefined} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3 aria-disabled:opacity-55" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
@@ -9276,7 +9292,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					/>
 				</React.Suspense>
 			)}
-			{insertMounted && <SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />}
+			{insertMounted && <SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={deckBlank ? 'as slide 1' : insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />}
 			{layoutMounted && (
 				<React.Suspense fallback={null}>
 					<LayoutMenuHost

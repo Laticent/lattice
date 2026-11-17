@@ -1017,7 +1017,8 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 	await expect
 		.poll(() => deckEditorLength(page), { message: 'setEditorContent: the Delete after select-all left text behind (a late write collapsed the selection)' })
 		.toBe(0);
-	await page.keyboard.insertText(text);
+	// Nothing to insert for an empty deck: Firefox's driver rejects an empty `insertText` (NS_ERROR_FAILURE).
+	if (text) await page.keyboard.insertText(text);
 	// And prove the result: a deck that is not exactly `text` fails here, at the helper, instead of
 	// as a confusing assertion three steps later in the spec (HARD RULE #33). The poll compares a
 	// fingerprint the page computes, not the text itself: a deck with inline phone photos is 14 MB,
