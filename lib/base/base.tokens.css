@@ -1314,7 +1314,8 @@
  * fill's border (`--state-X-edge`). A theme curates them per status as `--X-on-mark` and `--X-edge-mark` (plus
  * `--X-vivid-edge-mark` for the vivid register). Their defaults (beside `--on-mark`, above) are the old pair: the one
  * shared ink `--on-mark` on every fill, and a border in the status's slide ink `--X`. A theme that sets none of them,
- * as the a11y palettes, which curate their own floors, do not, renders byte-identical. The pointers live in the same slide-level block
+ * as the a11y palettes, which curate their own floors, do not, keeps that one-ink pair. (It is not byte-identical to
+ * before: the risk matrix's bands and a slope's signal lines no longer take a dark-face dim on any palette.) The pointers live in the same slide-level block
  * as the fill, through the same private `--_state-X-*` pointer, for the same two reasons given above. */
 :root, section:not(section section) {
   --state-pass-hue: var(--_state-pass-hue, var(--pass-mark));

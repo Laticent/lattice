@@ -108,8 +108,8 @@
   --pass-vivid-mark: light-dark(#2F5D4A, #066C4D);
   --warn-vivid-mark: light-dark(#885500, #A9651B);
   --fail-vivid-mark: light-dark(#9C0012, #BB3B38);
-  --warn-signal-mark: light-dark(#FFBB69, #D0A53F);
-  --fail-signal-mark: light-dark(#FFB5AC, #E57E7F);
+  --warn-signal-mark: light-dark(#F1AD00, #D0A53F);
+  --fail-signal-mark: light-dark(#FF6F6F, #E57E7F);
   --info-mark: light-dark(#006285, #487B95);
   --info-vivid-mark: light-dark(#006083, #287DA3);
   --mute-mark: light-dark(#675E5C, #726967);

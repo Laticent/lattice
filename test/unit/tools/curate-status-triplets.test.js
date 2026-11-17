@@ -71,6 +71,8 @@ test('the dark-face audit holds a status to the chart-solid contract', () => {
     'a night ink instead of the one ink': [{ 'warn-on-mark': 'light-dark(#FFFFFF, #001D33)' }, /warn-on-mark/],
     'an edge in the fill instead of the status ink': [{ 'pass-edge-mark': V0['pass-mark'] }, /edge of --pass-mark is not its status ink/],
     'a shade that steps toward the ink': [{ 'status-shade-mark': 'light-dark(#000000, #FFFFFF)' }, /dark --status-shade-mark/],
+    // The light ink is the slide's paper, copied as a hex; one that no longer equals it is stale.
+    'a light ink that is not the paper': [{ 'pass-on-mark': V0['pass-on-mark'].replace(/^light-dark\(#[0-9A-Fa-f]{6}/, 'light-dark(#FAFAFA') }, /light --pass-on-mark is #FAFAFA, not the slide's paper/],
   };
   for (const [name, [patch, re]] of Object.entries(arms)) assert.ok(run(patch).some((b) => re.test(b)), `${name}: ${run(patch).join(' | ')}`);
 });

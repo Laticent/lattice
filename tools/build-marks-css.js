@@ -615,8 +615,11 @@ function build() {
     const stated = `.roadmap ${rm}:is(.state-shipped, .state-wip, .state-missed, .state-skipped)`;
     w(supports(rule(MOVERS, stated, [
       `--state-fill: ${tld('var(--state-color)', T.statusText, T.statusTextD, T.statusBase)}`,
-      `--state-glyph-mark: ${tv(T.ink)}`,
     ])));
+    // The glyph takes the finish ink only where the disc is a pale wash: etch. Tone paints a status at its curated fill
+    // (TONE_STATUS), so its glyph keeps the component's own curated ink (`--state-X-on-ink`), as under pigment; the
+    // heading ink there drew a near-black check on a deep fill (1.46-3.56:1, 2026-11-16 maker-checker review).
+    w(supports(rule('etch', stated, [`--state-glyph-mark: ${tv(T.ink)}`])));
   }
 
   // An SVG mark's ring is its own element beside the shape (`.chart-signal-ring`, a gantt bar's), so it cannot
@@ -1077,7 +1080,11 @@ function build() {
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
         w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       }
-      const CRITICAL = 'color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark))';
+      // Critical is blocked one designed step deeper: toward the shade on a light slide, and toward the SLIDE on a dark
+      // one. On a brand theme's dark face the two are one (near black); on an a11y palette's bright dark face the shade
+      // is white, which lifted critical onto high (1.07:1, the 2026-11-16 maker-checker review), so it steps toward the
+      // slide, as it did before the status triplets.
+      const CRITICAL = 'light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--bg)))';
       w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${CRITICAL}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A timeline's dots are hollow rings by default; pigment is the solid finish, so its dot is filled with its own ink.
       w(rule(name, '.timeline-dot', ['--timeline-dot-fill: var(--timeline-dot-ink)']));

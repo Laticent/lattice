@@ -181,6 +181,25 @@ rule). Two residuals it called minor are kept, each tried and measured: onyx's l
 from its crimson first category (`main` 0.075), and reaching 0.075 sinks it to L 0.41; concrete's light deferred is a
 cool slate where `main`'s was its warm neutral, and warming it crowds concrete's at risk until blocked sinks to L 0.30.
 
+**A maker-checker code review** (the pre-merge grade asked for one) found three defects in surfaces this PR touched, all
+fixed here:
+- **Roadmap glyphs under tone.** Raising tone's status level to the curated fill left the roadmap rule giving each disc's
+  glyph the heading ink, a near-black check on a deep fill (1.46-3.56:1). Only etch, whose disc is still a pale wash,
+  now inks its glyph that way (`tools/build-marks-css.js`, pinned in `marks-css.test.js`). `chart-finish-reach` cannot
+  see it: the glyph is a CSS mask, not a text run.
+- **Pale light signal rings.** The solver aimed each light ring near L 0.84 in the fill's own hue, which came out pastel
+  (indaco's blocked ring `#FFB5AD`, 1.68:1 off the slide against `main`'s 2.63). It now draws the ring as the chart
+  solids do, a saturated signal-band hue at the least lightness that clears 3.2:1 off both fills, keeping the one that
+  stands farthest off the slide. Blocked rings sit at 2.38-2.94 off the slide (`main` 2.27-2.66, concrete 1.90 against
+  1.34). At-risk rings sit at 1.66-1.86 (`main` 1.12-2.21): this PR lifted at risk so blocked can read red, and a ring
+  3.2:1 off a lighter fill is itself lighter.
+- **The a11y dark risk matrix.** Critical stepped toward `--status-shade-mark`, which is white on an a11y palette's
+  bright dark face, so it landed 1.07:1 from high. On the dark face it now steps toward the slide (near black on a brand
+  theme, as before; dark on an a11y palette, as on `main`). The base's comment that an a11y palette "renders
+  byte-identical" was false and now says what changed.
+The audit also checks that the light ink still equals the slide's paper, and its red-range message names burgundy's
+real bound.
+
 Dark etch's status bars read nearly hollow beside an etched pie. That is etch's design and predates this work: a
 mark that carries text (a status bar or a category bar) takes etch's backdrop level (14% light, 19% dark), and only a
 text-free mark (a pie slice) takes its body level (30%, 40%). A status chart and a category bar chart under etch match.

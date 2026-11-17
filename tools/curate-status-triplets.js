@@ -472,13 +472,25 @@ function solve(theme, facts, baseline, keep) {
 
 /** The two signal rings per face, at the opposite lightness to both intensities' fill. */
 function rings(sol, facts) {
-  const brightRing = (fills, h) => {
+  // The ring as lib/theme/chart-solids.js draws it: the classic signal hue (SIGNAL_BAND), saturated, at the LEAST
+  // lightness that clears SIGNAL off the fill, here off both intensities' fills. An earlier cut aimed near L 0.84 in
+  // the fill's own hue, which came out pastel (indaco's blocked ring #FFB5AD, 1.68:1 off the slide against main's 2.63)
+  // and all but vanished under etch and tone, whose bodies are not the pigment fill it was measured against.
+  // Among the rings that clear SIGNAL off both fills, keep the one that stands farthest off the slide: across the signal
+  // band's hues and a few chromas, each at the least lightness that clears.
+  const bg = facts.light.bg;
+  const brightRing = (fills, [lo, hi]) => {
+    const fromL = Math.max(...fills.map((f) => hexToOklch(f).L));
     let best = null;
-    for (let L = 0.6; L <= 0.97; L += 0.002) {
-      const c = ok(L, 0.17, h);
-      if (fills.some((f) => cr(c, f) < SIGNAL)) continue;
-      const d = Math.abs(L - 0.84);
-      if (!best || d < best.d) best = { d, c };
+    for (let h = lo; h <= hi; h += 2.5) {
+      for (const C of [0.24, 0.2, 0.17, 0.14]) {
+        for (let L = fromL; L <= 0.97; L += 0.002) {
+          const c = oklchToHex({ L, C, h });
+          if (!fills.every((f) => cr(c, f) >= SIGNAL)) continue;
+          if (!best || cr(c, bg) > best.g) best = { g: cr(c, bg), c };
+          break;
+        }
+      }
     }
     if (!best) throw new Error('no bright ring clears both fills');
     return best.c;
@@ -486,7 +498,7 @@ function rings(sol, facts) {
   const out = {};
   for (const s of ['warn', 'fail']) {
     const L = sol.light;
-    out[s] = [brightRing([L.muted[s], L.vivid[s]], hexToOklch(L.muted[s]).h), null];
+    out[s] = [brightRing([L.muted[s], L.vivid[s]], SIGNAL_BAND[s]).toUpperCase(), null];
   }
   return out;
 }
@@ -543,7 +555,7 @@ function audit(theme, facts, baseline, keep) {
         const h = ((hexToOklch(fills.fail).h + 180) % 360) - 180;
         const lo = dark ? FAIL_TURN_FLOOR : FAIL_RED[0];
         const hi = !dark && FAIL_HUE_EXEMPT[theme] ? FAIL_HUE_EXEMPT[theme].h : FAIL_RED[1];
-        if (h < lo - 1.5 || h > hi + 1.5) bad.push(`${face} ${intensity} --${tok('fail')} hue ${h.toFixed(0)} is outside the red range ${lo}-${FAIL_RED[1]}`);
+        if (h < lo - 1.5 || h > hi + 1.5) bad.push(`${face} ${intensity} --${tok('fail')} hue ${h.toFixed(0)} is outside the red range ${lo}-${hi}`);
         const c = hexToOklch(fills.fail).C;
         if (dark && c > FAIL_CHROMA_CAP[intensity] + 0.01) bad.push(`dark ${intensity} --${tok('fail')} chroma ${c.toFixed(3)} is louder than the cap ${FAIL_CHROMA_CAP[intensity]}`);
       }
@@ -563,6 +575,11 @@ function audit(theme, facts, baseline, keep) {
           const d = fills[t] && oklabDistance(fills.info, fills[t]);
           if (fills[t] && d < PILOT_APART - 0.002) bad.push(`light ${intensity} --${tok('info')} sits ${d.toFixed(3)} from --${tok(t)} (floor ${PILOT_APART})`);
         }
+      }
+      // The light ink is the slide's paper: a hex copy of `--bg`, so a theme that later changes its slide must re-solve.
+      if (!dark) for (const st of ['pass', 'warn', 'fail', 'info', 'mute']) {
+        const ink = pick(`${st}-on-mark`, false);
+        if (ink && bg && ink.toUpperCase() !== bg.toUpperCase()) bad.push(`light --${st}-on-mark is ${ink}, not the slide's paper ${bg}: re-solve`);
       }
       // Deferred recedes: on light it is never the darkest of done, blocked and itself (the lowest priority, shouting).
       if (!dark && fills.mute && fills.pass && fills.fail && !(theme in SPREAD_EXEMPT)) {
