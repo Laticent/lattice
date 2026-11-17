@@ -494,7 +494,7 @@ function main() {
       lines.push('');
       lines.push(artifact
         ? '↪ Flip through the full **before │ after │ overlay** montage in the **`golden-diff-changes`** artifact below.'
-        : '_(montage artifact unavailable — ImageMagick `montage`/`convert` missing on the runner.)_');
+        : `_(montage artifact unavailable: ${(montagePngs.length ? pngsToPdf.lastError : montageTriptych.lastError) || 'no slide had both a before and an after image'}.)_`);
       if (montagesOmitted) {
         lines.push('', `⚠️ **${montagesOmitted} changed slide${montagesOmitted === 1 ? '' : 's'} ${montagesOmitted === 1 ? 'has' : 'have'} no montage** — the montage cap is ${MONTAGE_CAP} and this change is past it. Every changed slide is still counted in the table above; only the pictures stop. Re-run \`node tools/golden-diff.mjs\` locally for the full set.`);
       }

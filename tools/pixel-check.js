@@ -199,17 +199,25 @@ function pixelDiff(baselinePdf, currentPdf, deck, opts = {}) {
 // zero-padding varies with page count. Returns the montage path, or null if a
 // tile is missing or ImageMagick's `montage` isn't installed. `opts.title` adds a
 // caption (deck · mood · slide N) so a reviewer flipping the bundle has context.
+// On a null return, `montageTriptych.lastError` says why (a missing tile, or ImageMagick's own
+// message). golden-diff printed "ImageMagick missing" for every failure, on runners where it was
+// installed, so the real reason was never seen (#3248).
 function montageTriptych(page, outPng, opts = {}) {
   const { oldPng, newPng, diffPng } = page;
-  if (!oldPng || !newPng || !fs.existsSync(oldPng) || !fs.existsSync(newPng)) return null;
+  if (!oldPng || !newPng || !fs.existsSync(oldPng) || !fs.existsSync(newPng)) {
+    montageTriptych.lastError = `page ${page.page}: no ${!oldPng || !fs.existsSync(oldPng) ? 'before' : 'after'} image (a page added or removed)`;
+    return null;
+  }
   const overlay = diffPng && fs.existsSync(diffPng) ? diffPng : newPng;
   const titleArgs = opts.title ? ['-title', opts.title] : [];
   const r = spawnSync(
     'montage',
     [oldPng, newPng, overlay, '-tile', '3x1', '-geometry', '+6+6', '-background', '#888', ...titleArgs, outPng],
-    { stdio: 'ignore' },
+    { stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8' },
   );
-  return r.status === 0 && fs.existsSync(outPng) ? outPng : null;
+  if (r.status === 0 && fs.existsSync(outPng)) return outPng;
+  montageTriptych.lastError = r.error ? `montage: ${r.error.code || r.error.message}` : `montage exited ${r.status}: ${String(r.stderr || '').trim().split('\n')[0]}`;
+  return null;
 }
 
 // Bundle a list of PNGs into one PDF (ImageMagick `convert`). Returns the PDF
@@ -217,8 +225,10 @@ function montageTriptych(page, outPng, opts = {}) {
 // the IM PDF-coder policy so the write is allowed — see the workflow.)
 function pngsToPdf(pngs, outPdf) {
   if (!pngs.length) return null;
-  const r = spawnSync('convert', [...pngs, outPdf], { stdio: 'ignore' });
-  return r.status === 0 && fs.existsSync(outPdf) ? outPdf : null;
+  const r = spawnSync('convert', [...pngs, outPdf], { stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8' });
+  if (r.status === 0 && fs.existsSync(outPdf)) return outPdf;
+  pngsToPdf.lastError = r.error ? `convert: ${r.error.code || r.error.message}` : `convert exited ${r.status}: ${String(r.stderr || '').trim().split('\n')[0]}`;
+  return null;
 }
 
 function diff(label, decks, opts = {}) {
