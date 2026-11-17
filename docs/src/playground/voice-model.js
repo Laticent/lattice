@@ -38,7 +38,7 @@ import { classifyProviderError } from '../lib/provider-errors.js';
 import { CURATED, curatedDefault } from '../lib/provider-registry.js';
 import { recordLatency } from './narration-latency.js';
 import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange, parallelPref } from './narration-prefs.js';
-import { getClip, putClip } from './narration-store.js';
+import { getClip, putClip, replaceClip } from './narration-store.js';
 import { isGeminiTtsModel, pickCheapestTtsModel } from './tts-cost.js';
 import { pcmToWavBuffer } from './voice-decode.js';
 import { decodeGeminiSpeechOffThread } from './voice-decode-pool.js';
@@ -1429,27 +1429,33 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
         tellSynthesized(rung.name, modelIdFor(rung.name), text);
         // Write through to the device, unawaited — a caller may be waiting to PLAY this.
         const persist = (b) => {
-          if (!narrationCacheEnabled()) return;
-          Promise.resolve(putClip(key, b)).catch(() => {
+          if (!narrationCacheEnabled()) return Promise.resolve();
+          return Promise.resolve(putClip(key, b)).catch(() => {
             /* a full or blocked store just means no persistence this time */
           });
         };
         // KEEP IT COMPRESSED (engineering/decisions/2026-11-17-narration-codec-bakeoff.md). A raw-audio voice (Gemini's PCM,
         // on-device Kokoro) answers WAV, 48 KB a second; `packForStore` turns it into Ogg Opus off the main thread. The WAV
-        // plays now, so no reader waits on the encode; when the Opus copy lands it replaces the WAV in memory (only if the
-        // cache still holds this clip) and is what the device keeps. Null keeps the WAV: a missing encoder costs bytes, never audio.
+        // plays now and is stored now, as before, so neither a reader nor a reload waits on the encode queue (one worker on
+        // an iPhone). When the Opus copy lands it replaces the WAV in memory (only if the cache still holds this clip) and on
+        // the device (only if the device still holds it: `replaceClip`, so a clear during the encode stays cleared). Null
+        // or a throw keeps the WAV: a missing encoder costs bytes, never audio.
+        const stored = persist(blob);
         if (packForStore) {
           Promise.resolve()
             .then(() => packForStore(blob))
             .then(
-              (packed) => {
-                if (!packed) return persist(blob);
+              async (packed) => {
+                if (!packed) return;
                 if (audioCache.get(key) === blob) cacheSet(key, packed);
-                persist(packed);
+                // After the WAV's own write, so the replace finds the row it is meant to replace.
+                await stored;
+                if (narrationCacheEnabled()) await replaceClip(key, packed);
               },
-              () => persist(blob),
-            );
-        } else persist(blob);
+              () => {},
+            )
+            .catch(() => {});
+        }
         return blob;
       })
       .catch(() => null)
