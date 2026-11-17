@@ -1,0 +1,1 @@
+- **Studio:** Present with a Gemini Flash voice no longer piles its narration up in the page's memory. The audio cache now holds at most 24 MB, not just 200 clips, and a Gemini clip is kept as a `Blob` the browser can store outside the page. On an iPhone the old pile, on top of a 4K deck, was enough for Safari to reload the tab.
