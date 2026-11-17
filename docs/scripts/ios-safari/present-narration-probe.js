@@ -12,9 +12,11 @@
  *                                       'openrouter' (Kokoro, answered WAV) and 'gemini' (Gemini's own API, JSON with
  *                                       base64 WAV inside) are the other cloud paths. Run AFTER boot, never before: boot validates a stored key with
  *                                       OpenRouter, and from a simulator that real call would reject a stand-in key.
- *   latticeNarrationPlay(voiceOn)       open Present on slide 1, turn Guide on, set the voice, press Play
+ *   latticeNarrationReady(voiceOn)      open Present on slide 1, turn Guide on, set the voice, and say where Play is:
+ *                                       the runner TAPS it, because on iOS only a real touch unlocks audio
+ *   latticeNarrationStarted()           after the tap: Present is playing
  *   latticeNarrationSample()            where Present is, how much audio the page has decoded and still holds, how many
- *                                       sentences it asked to have spoken, and the mark latticeNarrationPlay left (gone
+ *                                       sentences it asked to have spoken, and the mark latticeNarrationReady left (gone
  *                                       means the page reloaded under the probe)
  *
  * The owner's report (2026-11-17): Present with narration and Guide reloads the tab on an iPhone, with narration off it
@@ -191,7 +193,10 @@ function latticeNarrationVoice(provider = 'openrouter-gemini') {
 	return { ok: true, provider };
 }
 
-async function latticeNarrationPlay(voiceOn) {
+/** Open Present on slide 1, Guide on, the voice on or off, and say where Play is: the RUNNER taps it. On iOS only a
+ *  real touch unlocks audio, so a scripted `click()` left the voice arm on slide 1 for eight minutes, its audio never
+ *  started (run 43993979079). A real presenter taps Play; so does the probe. */
+async function latticeNarrationReady(voiceOn) {
 	const h = latticeNarrationHelpers();
 	window.__latticeNarrationMark = `m${Date.now()}`;
 	const present = await h.until(() => h.button(/^Present$/), 30000, 'the Present button');
@@ -206,9 +211,34 @@ async function latticeNarrationPlay(voiceOn) {
 	if (/^Voice off/.test(voice.getAttribute('aria-label')) === voiceOn) voice.click();
 	await h.until(() => h.button(voiceOn ? /^Voice on/ : /^Voice off/, d), 15000, `the voice to turn ${voiceOn ? 'on' : 'off'}`);
 	const play = await h.until(() => h.button(/^Play the presentation$/, d), 15000, 'the Play button');
-	play.click();
-	await h.until(() => h.button(/^Pause$/, d), 15000, 'Present to start playing');
-	return { mark: window.__latticeNarrationMark, total: h.counter()[1] };
+	// Where to tap, once Play holds still for five frames and is the element under its own centre (a signal, not a sleep).
+	const at = await new Promise((resolve) => {
+		let last = '';
+		let still = 0;
+		const t0 = performance.now();
+		const look = () => {
+			const r = play.getBoundingClientRect();
+			const x = Math.round(r.left + r.width / 2);
+			const y = Math.round(r.top + r.height / 2);
+			const key = `${x},${y}`;
+			still = key === last ? still + 1 : 0;
+			last = key;
+			const under = document.elementFromPoint(x, y);
+			const hit = !!under && play.contains(under);
+			if ((still >= 5 && hit) || performance.now() - t0 > 10000) resolve({ x, y, hit });
+			else requestAnimationFrame(look);
+		};
+		look();
+	});
+	if (!at.hit) throw new Error(`the Play button never held still under its own centre (${at.x},${at.y})`);
+	return { mark: window.__latticeNarrationMark, total: h.counter()[1], x: at.x, y: at.y };
+}
+
+/** After the runner's tap: Present is playing. */
+async function latticeNarrationStarted() {
+	const h = latticeNarrationHelpers();
+	await h.until(() => h.button(/^Pause$/, h.dialog() || document), 15000, 'Present to start playing after the tap');
+	return { ok: true };
 }
 
 function latticeNarrationSample() {
@@ -219,4 +249,4 @@ function latticeNarrationSample() {
 }
 
 // Reached by name from source text (run.mjs's execute-script, probe.selftest.mjs's evaluate), so put on the global object.
-Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationPlay, latticeNarrationSample });
+Object.assign(globalThis, { latticeNarrationReceive, latticeNarrationImport, latticeNarrationVoice, latticeNarrationReady, latticeNarrationStarted, latticeNarrationSample });

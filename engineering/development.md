@@ -664,8 +664,9 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `pcm` and answers headerless PCM, which the page holds as a `wavLike` ArrayBuffer rather than a `Blob`; `openrouter`
   (Kokoro, WAV) and `gemini` (Gemini's own API, JSON with base64 WAV inside) cover the other cloud paths. After boot
   because boot checks a stored key with OpenRouter, and from the simulator that real call would reject a stand-in; no key
-  is spent (HARD RULE #24). Present plays with Guide on, voice on for `NARRATION_PLAY_S` (480) and then voice off for
-  `NARRATION_SILENT_S` (180, reported only), and every 30 s the probe reads the slide, the narration audio the page has
+  is spent (HARD RULE #24). Present opens with Guide on and the probe TAPS Play with a WebDriver touch (iOS unlocks audio only for a
+  real touch: a scripted click left the first run on slide 1 for eight minutes), then plays voice on for
+  `NARRATION_PLAY_S` (360) and voice off for `NARRATION_SILENT_S` (90, reported only), and every 30 s the probe reads the slide, the narration audio the page has
   decoded and still holds (a `decodeAudioData` wrapper and a `FinalizationRegistry`: bytes, not time), and the footprint.
   It fails when the voice arm does not speak or advance, the page reloads, the held audio passes `NARRATION_AUDIO_CAP_MB`
   (40) or the footprint grows past `NARRATION_MEMORY_CAP_MB` (300). `PROBE=present-narration node

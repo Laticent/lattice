@@ -666,7 +666,8 @@ async function runPresentMemoryProbe(id) {
  * with narration and Guide on, and not with narration off (2026-11-17). present-narration.mjs builds a deck of that shape;
  * present-narration-probe.js imports it, installs a stand-in cloud voice that answers in the page (no key spent, HARD
  * RULE #24): NARRATION_VOICE=openrouter-gemini (the default, the owner's: Gemini 3.1 Flash TTS through OpenRouter,
- * headerless PCM), openrouter (Kokoro, WAV) or gemini (Gemini's own API, JSON with base64 WAV inside). Then it opens Present on slide 1 with Guide on and plays. Two arms on one fresh Studio each: voice ON for
+ * headerless PCM), openrouter (Kokoro, WAV) or gemini (Gemini's own API, JSON with base64 WAV inside). Then it opens Present on slide 1 with Guide on and TAPS Play with a
+ * WebDriver touch: iOS unlocks audio only for a real one, and a scripted click left the first run on slide 1. Two arms on one fresh Studio each: voice ON for
  * NARRATION_PLAY_S (judged), then voice OFF for NARRATION_SILENT_S (reported, so the difference is the narration's).
  * Every 30 s the probe reads where Present is, the narration audio the page has decoded and still holds, and the
  * simulator's WebKit footprint (photo-memory.mjs). The verdict is present-narration.mjs `narrationChecks`: work, not time
@@ -677,8 +678,8 @@ async function runPresentNarrationProbe(id) {
 	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
 	const CAP_MB = Number(process.env.NARRATION_MEMORY_CAP_MB || 300);
 	const AUDIO_CAP_MB = Number(process.env.NARRATION_AUDIO_CAP_MB || 40);
-	const PLAY_S = Number(process.env.NARRATION_PLAY_S || 480);
-	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 180);
+	const PLAY_S = Number(process.env.NARRATION_PLAY_S || 360);
+	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 90);
 	const SAMPLE_S = 30;
 	// The owner's voice by default: Gemini 3.1 Flash TTS through OpenRouter, where the reload happens; not with Kokoro.
 	const VOICE = process.env.NARRATION_VOICE || 'openrouter-gemini';
@@ -706,8 +707,16 @@ async function runPresentNarrationProbe(id) {
 			// A settle time, as runPresentMemoryProbe reads: memory has no "settled" event.
 			await sleep(8000);
 			const m0 = await readMB();
-			const played = failIf(await call(`latticeNarrationPlay(${voice})`), 'starting Present');
+			const played = failIf(await call(`latticeNarrationReady(${voice})`), 'opening Present');
 			out.total = played.total;
+			// A real touch on Play, as a presenter's: iOS unlocks audio only for one (the first run's scripted click left
+			// the voice arm on slide 1 for its whole eight minutes). composeTouchTap delivers its taps the same way.
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			await wd('POST', `/session/${id}/actions`, {
+				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: played.x, y: played.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+			});
+			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			failIf(await call('latticeNarrationStarted()'), 'Present playing after the tap on Play');
 			const t0 = Date.now();
 			let peak = 0;
 			while (Date.now() - t0 < seconds * 1000) {

@@ -159,8 +159,11 @@ if (process.env.PROBE === 'present-narration') {
 			await call(`latticeNarrationReceive(${JSON.stringify(b64)}, 0, 1)`);
 			Object.assign(out, await call(`latticeNarrationImport(${JSON.stringify(NARRATION_TITLE)})`));
 			await call(`latticeNarrationVoice(${JSON.stringify(process.env.NARRATION_VOICE || 'openrouter-gemini')})`);
-			const played = await call(`latticeNarrationPlay(${voice})`);
+			const played = await call(`latticeNarrationReady(${voice})`);
 			out.total = played.total;
+			// The tap a presenter makes, as run.mjs makes it with a WebDriver touch.
+			await page.touchscreen.tap(played.x, played.y);
+			await call('latticeNarrationStarted()');
 			const t0 = Date.now();
 			while (Date.now() - t0 < seconds * 1000) {
 				// A sampling interval, as run.mjs reads every 30 s: what is read is work done (slide, clips, bytes), never time.
