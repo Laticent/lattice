@@ -138,6 +138,11 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 }
 
 test('an emphasized passage holds a beat on the real Present overlay', async ({ page }) => {
+	// A FIXED AMOUNT OF WORK, SO A DEADLINE SIZED FOR A SLOW RUNNER (flaky-tests F4). Two Studio loads and about 140 steps,
+	// each a clock run and a committed read, whatever the machine; only how long they take varies. Measured on four cores:
+	// alone about 7 s, at four workers 19 to 30 s, at eight workers a median of 58 s, so the default 60 s caught a busy
+	// machine rather than a hang. Nothing here asserts on time; the deadline is only there to stop a hang.
+	test.slow();
 	// Installed before the first load, so every timer the overlay makes is on this clock; it flows as real time
 	// until `cueOnsets` pauses it.
 	await page.clock.install();
