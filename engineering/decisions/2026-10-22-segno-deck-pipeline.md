@@ -1037,6 +1037,8 @@ readers that ship.
 | engine/themes.js: `THEME_NAME_IMPORT_RE` | which theme-name `@import` resolves against the registry; css.js's `THEME_IMPORT_RE` must agree with it and theme/gate.js allows a pinned subset of it (theme-gate.test.js), so it moves with those two | 2 | yes (through the agreement) | yes |
 | packages/import-gate.js | the package gate's refusing rules (css-scan's rule ids) | 7 | yes | no |
 | core/url-scheme.js: the `url()` matcher | the scheme of each `url()` in a slide's CSS | 6 | yes | yes |
+| core/door-attr.mjs: `cssRefTargets` | every address a CSS value holds, for the code door | 2 | yes | no |
+| core/css-url.js: `firstCssUrl` | the first `url()` target in a CSS text (transformers and the browser runtime) | 6 | no | yes (runtime, exports) |
 
 ### Family B: export and print assets. P5b, every byte held to identity:check
 
@@ -1071,11 +1073,11 @@ readers that ship.
 |---|---|---|---|---|
 | core/slide-camera.mjs: `CSS_OPAQUE`, the `@font-face` walk, `FACE_KEY_PROPS` | the deck sheet's comments and strings; its font faces and their descriptors | 4 | no | yes (camera images) |
 | core/pdf-compose/read-slide.mjs: `bgUrl`, `urlOf`, the mask data URL, the `@font-face` source | computed `background-image`, `mask`, `src` values | 1 | no | yes (PDF) |
-| core/image-aspect.js `BG_URL_RUN`, image-dimensions.js, image-painting.js | a `url()` in a slide's inline style | 5, 3, 2 | no | yes |
-| core/logo-wall-pack.js; transformers/logo-marks.js | `--logo-mask:url('…')` | 2, 1 | no | yes |
-| transformers/prose-projection.mjs: `URL_REF`, the comment strip | `url(#id)` refs; comments in style text | 5 | no | yes (captions) |
+| core/image-painting.js `isBlockedHatch` | whether a picture's computed `background-image` holds a `url(` (eager on home, studio, playground) | 2 | no | yes |
+| transformers/logo-marks.js `measureMark` | a mark's `--logo-mask:url('…')` style value | 1 | no | yes |
+| transformers/prose-projection.mjs: the declaration reader's comment strip | comments in a declaration whose strings and addresses are already slots | 5 | no | yes (captions) |
 | plugins/mermaid/mermaid.draw-shim.mjs | a face rule's `src` `url()` | 0 (loaded by name) | no | yes |
-| docs/src: calco/reader.ts, card-ink-sampler.ts, photo-verdict.ts, chart-detail-layer.tsx, theme-fetch.ts `KATEX_FACE_RE`, font-embed.js, snapshot-cache.js, anima/schema.ts | computed style values, KaTeX and emoji faces, Studio-side color rules | 1–3 each | no | some (PPTX via calco) |
+| docs/src: calco/reader.ts, calco/picture.ts, card-ink-sampler.ts, photo-verdict.ts, chart-detail-layer.tsx, theme-fetch.ts `KATEX_FACE_RE`, font-embed.js, snapshot-cache.js, single-slide-render.ts (eager on home), web-image-hint.ts, anima/schema.ts, vetrina/theme.ts | computed style values, KaTeX and emoji faces, Studio-side color rules | 1–4 each | no | some (PPTX via calco) |
 
 ### Parsers already in the tree, which are not hand-written scans
 
@@ -1094,6 +1096,22 @@ style text that the runtime glues to SVG `fill` and `stroke` attribute values (l
 `referencedTextureSets`). It errs toward finding too much, and a miss is the bad side: a `url(#…)` with no pattern paints
 black. A tokenizer read of the glued text would drop every reference after an unclosed comment or string in it, so it
 would be worse than the regex, not better.
+
+**Read HTML, not CSS: these move with the plan's "Later: HTML islands" row.** Each finds a `url(…)` in raw markup,
+where a quote may be an entity (`&#39;`, `&quot;`) and the CSS sits inside an attribute value, so a CSS read first needs
+the HTML read (`scanHtml`, html-ref-reader.js) to hand it the decoded value: core/image-aspect.js `BG_URL_RUN`,
+core/image-dimensions.js `bgUrlOf`, core/logo-wall-pack.js (a mark's span HTML), core/bg-image.js (the `sample:`
+resolver over `style` attributes) and transformers/prose-projection.mjs `URL_REF` (it rewrites `url(#id)` in markup by
+the ids it knows, entity-quoted spellings included).
+
+**Reviewed and kept, also:** core/rough-ink-dom.js's two `/url\s*\(/i` tests run only where `CSS.supports` is missing
+(jsdom in the unit tests); rejecting anything url-shaped there is the conservative side of a color check, and a
+tokenizer read would accept more.
+
+**Found by the security spine's list.** `SANCTIONED_SPINE_READERS` in tools/check-ownership.js counts every hand-written
+`url(` reader in `lib/` and `docs/src`; checked against it, the first census missed door-attr.mjs, css-url.js,
+bg-image.js, rough-ink-dom.js and four docs files, now placed above. Each P5 move lowers or removes its entry there, and
+the gate fails on a stale one.
 
 **Left out, and why.** export/export-scaffold.js, core/print-sheet.mjs, theme/serialize.js, lib/forms/index.js's token
 checks, draw-frame-core.mjs, face-rule.js and face-css's builders WRITE CSS. plugins/resolve.js strips JavaScript
