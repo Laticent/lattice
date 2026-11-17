@@ -1953,6 +1953,15 @@ never turn "passed in headless" into "works on iOS."
 - **Removable when** — Radix renders a dialog's overlay and content in one portal.
 - **Commits** — the flaky-e2e touch PR of 2026-11-12.
 
+## A tap on a sheet's scrim does nothing in the sheet's first moment
+
+- **Symptom** — on a phone, open the Library from the ⋯ menu for the first time and tap the deck band at once: the sheet stays open and its back control turns from "‹ Menu" to "‹ Deck". `e2e/back-gesture.spec.ts:172` went red 3 to 6 times in 100 under four workers, on `main` and on unrelated branches alike.
+- **Cause** — Radix arms its outside-tap dismissal on a `setTimeout(0)` after a dialog mounts (`@radix-ui/react-dismissable-layer` 1.1.12). A lazy panel's real sheet replaces its loading sheet in place with the enter animation off (`PanelLoader`), so it looks open from its first frame while a tap on its scrim is not yet "outside". Under load the browser runs the tap ahead of the queued timer. The `onInteractOutside` side effect still ran (the focus moving out did that), which is why the label changed and the sheet did not close. A closing sheet still mounted beneath is NOT the cause: with a 3 s exit, the spec passed 3 of 3.
+- **Mitigation** — `ui/sheet.tsx`: a scrim pointerdown is marked, Radix clears the mark when it reports the tap through `onPointerDownOutside`, and a tap it never reported goes, once the click has dispatched, through the caller's own `onPointerDownOutside` and `onInteractOutside` as an outside event. The sheet closes through Radix's own Close only if neither prevented it, so a caller that keeps a sheet open on an outside tap needs no change. `components/ui/panel-scrim.test.tsx` holds the gap, the normal tap (closes once) and the kept-open caller.
+- **Triggered by** — a new way to mount a sheet already in place; a Radix upgrade that changes when the dismissable layer starts listening.
+- **Removable when** — Radix arms the outside-tap listener synchronously at mount.
+- **Commits** — the e2e load-reds PR of 2026-11-17 (branch `claude/e2e-flaky-roots`).
+
 ## The Playground's Explore tab shows a component gallery, or reloads the preview, instead of the deck being edited
 
 - **Symptom** — a phone reader edits, taps Explore, sees their slide, and a moment later the preview is rewritten: with the `actors` gallery, or with their own deck from the top after a blank. `e2e/playground-tab-switch.spec.ts` read a replaced document on WebKit (3 to 4 runs in 16).
