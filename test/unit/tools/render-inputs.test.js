@@ -90,7 +90,7 @@ describe('render-inputs: git query', () => {
     // INPUT_DIRS still decides what COUNTS as an input; it no longer decides what git is
     // allowed to see.
     const probe = path.join(ROOT, 'examples', `.render-inputs-probe-${process.pid}.tmp`);
-    fs.writeFileSync(probe, 'scratch\n');
+    fs.writeFileSync(probe, 'scratch\n'); // flaky-ok: the probe must be a dirty path in the real tree; it is not a .md, so no deck walker reads it
     try {
       _resetCache();
       const { paths } = changedPaths();
@@ -99,7 +99,7 @@ describe('render-inputs: git query', () => {
       assert.equal(isRenderInput(`examples/.render-inputs-probe-${process.pid}.tmp`), false,
         'and must still not count as a render input');
     } finally {
-      fs.unlinkSync(probe);
+      fs.unlinkSync(probe); // flaky-ok: removes the probe written above
       _resetCache();
     }
   });

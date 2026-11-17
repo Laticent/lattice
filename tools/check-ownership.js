@@ -9011,6 +9011,21 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //                       `performance.getEntries*()`, a key copied from one (`({ ms: m.duration })`, then `worst.ms`), or
 //                       a value that is one (`entries.map((e) => e.duration)`). An `expect`'s message argument is not read.
 //   unseeded-random F5  `Math.random()`.
+//   offset-geometry     (docs/e2e only) an element's `.offsetTop` / `.offsetLeft`. It is measured from the element's
+//                       offsetParent, and in the Playground's preview frame that is `.lattice` (its `filter` makes it one),
+//                       so the frame's 36 px of padding drops out and a slide reads a fifth of a slide too high (#3252,
+//                       #3253). Place an element at `getBoundingClientRect()` plus the scroll. `visualViewport.offsetTop` is
+//                       a different property, the visual viewport's own offset, and is not counted.
+//   clock-resume        `<page>.clock.resume()`. After it, a frame born later replays the resume plus every real millisecond
+//                       since, runs ahead of the main frame, and a later `clock.pauseAt()` throws "Cannot fast-forward to
+//                       the past" (#3250). Advance a paused clock with `clock.runFor(ms)` instead.
+//   tree-write          a test that writes, copies, renames or deletes INSIDE the repository's own `lib/` or `examples/`
+//                       (`fs.writeFileSync(path.join(ROOT, 'lib', …))`). Many tests walk those folders for every deck, so a
+//                       file another test writes and deletes shows up in one walk's listing and is gone when it is read
+//                       (#3238). Write to a `mkdtemp` folder under `os.tmpdir()`. Read from the destination argument (the
+//                       second one for a copy or a rename), and only when its base is the repository root: `ROOT`,
+//                       `REPO_ROOT`, a `path.join(__dirname, '..', …)` or `process.cwd()`. A folder built from `tmpdir` /
+//                       `mkdtemp`, or any deeper base (`ROOT/.scratch/…`), is not the tree.
 //   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
 //                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
 //                       exemption is a comment block right above the call reading `// disabled: tried …; evidence <URL, file or
@@ -9030,14 +9045,16 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 // Known limits: a timing is followed through a declaration's initializer (a name resolves to its nearest enclosing
 // declaration), not through an assignment, a `.push` or a `.map`, nor into another module; a clock compared without a
 // subtraction (`expect(performance.now()).toBeLessThan(start + 5)`) and `process.hrtime(start)` are not seen; a count
-// cannot tell one sleep swapped for another in the same file; a file not yet committed is not read; and F3, F4, F6 to F9
-// are behavior, not spelling. Those are held by review.
+// cannot tell one sleep swapped for another in the same file; a file not yet committed is not read; a tree-write follows
+// a path through a `const` (never a `let`, which may be reassigned to a temp folder) and through `path.join` /
+// `path.resolve`, so a path built in a loop (`for (const [f] of …) writeFileSync(path.join(ROOT, f))`) or in a helper is
+// not seen; and F3, F4, F6 to F9 are behavior, not spelling. Those are held by review.
 const FLAKY_TEST_BASELINE_FILE = path.join(ROOT, 'tools', 'flaky-test-baseline.json');
 const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /^docs\/e2e\/.*\.[cm]?[jt]sx?$/.test(rel);
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime|getEntries(?:ByType|ByName)?\s*\(/;
+const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime|getEntries(?:ByType|ByName)?\s*\(|offset(?:Top|Left)|\.resume\s*\(|(?:write|append|copy)File|\b(?:cpSync|cp|renameSync|rename|mkdirSync|mkdir|rmSync|rm|unlinkSync|unlink|symlinkSync|symlink|createWriteStream)\s*\(/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {
@@ -9307,6 +9324,70 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
       if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
     }
+  });
+
+  // offset-geometry, clock-resume and tree-write: traps the testing guide's gotchas name (engineering/testing.md Part 3).
+  // Each is a #32 shape, so a `// flaky-ok: <why>` on the line excuses it, through `add`.
+  const constInit = (id) => {
+    const init = resolve(id);
+    const d = init && init.parent;
+    return d && ts.isVariableDeclaration(d) && d.initializer === init && d.parent && (d.parent.flags & ts.NodeFlags.Const) ? init : null;
+  };
+  const strText = (e) => (e && (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) ? e.text : null);
+  const isPathCall = (e) => ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && /^(?:join|resolve)$/.test(e.expression.name.text) && ts.isIdentifier(e.expression.expression) && e.expression.expression.text === 'path';
+  const ROOT_NAMES = /^(?:ROOT|REPO|REPO_ROOT|repoRoot)$/;
+  // The repository root itself: a root name, `process.cwd()`, or `path.join(__dirname | import.meta…, '..', …)` with
+  // nothing but `..` / `.` after it. A deeper base (`path.join(ROOT, '.scratch')`) and anything from tmpdir/mkdtemp are not.
+  const isRepoRoot = (e, depth = 0) => {
+    if (!e || depth > 6) return false;
+    if (ts.isParenthesizedExpression(e)) return isRepoRoot(e.expression, depth + 1);
+    if (ts.isIdentifier(e)) {
+      const init = constInit(e);
+      return init ? isRepoRoot(init, depth + 1) : ROOT_NAMES.test(e.text) && !resolve(e);
+    }
+    if (/tmpdir|mkdtemp/.test(e.getText(sf))) return false;
+    if (ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && ts.isIdentifier(e.expression.expression) && e.expression.expression.text === 'process' && e.expression.name.text === 'cwd') return true;
+    if (isPathCall(e)) {
+      const [base, ...rest] = e.arguments;
+      const anchored = base && (/^(?:__dirname|import\.meta\b)/.test(base.getText(sf)) || isRepoRoot(base, depth + 1));
+      return !!anchored && rest.every((a) => { const t = strText(a); return t !== null && /^(?:\.\.?\/?)+$|^$/.test(t); });
+    }
+    return false;
+  };
+  const TREE = /^(?:\.\/)?(?:lib|examples)(?:\/|$)/;
+  const segText = (a) => { const t = strText(a); if (t !== null) return t; return ts.isIdentifier(a) ? strText(constInit(a)) : null; };
+  // Whether a path expression lands in the repository's own lib/ or examples/.
+  const intoTree = (e, depth = 0) => {
+    if (!e || depth > 6) return false;
+    if (ts.isParenthesizedExpression(e)) return intoTree(e.expression, depth + 1);
+    if (ts.isIdentifier(e)) { const init = constInit(e); return init ? intoTree(init, depth + 1) : false; }
+    const lit = strText(e);
+    if (lit !== null) return TREE.test(lit);
+    if (!isPathCall(e)) return false;
+    const [base, first] = e.arguments;
+    if (!base) return false;
+    if (isRepoRoot(base)) { const t = first ? segText(first) : null; return t !== null && TREE.test(t); }
+    return intoTree(base, depth + 1);
+  };
+  // `window.visualViewport.offsetTop`, directly or through a `const vv = window.visualViewport`, is the visual viewport's
+  // own offset, not an element's.
+  const isViewport = (e) => {
+    const strip = (x) => (ts.isNonNullExpression(x) || ts.isParenthesizedExpression(x) ? strip(x.expression) : x);
+    const x = strip(e);
+    if (ts.isPropertyAccessExpression(x) && x.name.text === 'visualViewport') return true;
+    const init = ts.isIdentifier(x) ? constInit(x) : null;
+    return !!init && isViewport(init);
+  };
+  const WRITE_ARG0 = /^(?:writeFileSync|writeFile|appendFileSync|appendFile|mkdirSync|mkdir|rmSync|rm|unlinkSync|unlink|createWriteStream)$/;
+  const WRITE_ARG1 = /^(?:copyFileSync|copyFile|cpSync|cp|renameSync|rename|symlinkSync|symlink)$/;
+  each(sf, (n) => {
+    if (inE2E && ts.isPropertyAccessExpression(n) && /^offset(?:Top|Left)$/.test(n.name.text) && !isViewport(n.expression)) add('offset-geometry', n);
+    if (!ts.isCallExpression(n)) return;
+    const e = n.expression;
+    if (ts.isPropertyAccessExpression(e) && e.name.text === 'resume' && ts.isPropertyAccessExpression(e.expression) && e.expression.name.text === 'clock') { add('clock-resume', n); return; }
+    const name = calleeName(n);
+    const dest = WRITE_ARG0.test(name) ? n.arguments[0] : WRITE_ARG1.test(name) ? n.arguments[1] : null;
+    if (dest && intoTree(dest)) add('tree-write', n);
   });
   return out;
 }
