@@ -1,13 +1,14 @@
 ---
 status: proposed
-summary: Codec bake-off for streaming narration audio, run because Present with a Gemini voice reloads an iPhone tab and the owner asked for compressed audio in browser storage instead of WAV in memory. Opus wins on every axis measured, including on a real iOS Simulator. At 24 kbps it scores PESQ 4.35 against MP3 64 kbps at 4.30, at about a third of the size and a sixteenth of today's WAV. It is BSD-licensed and royalty-free. It decodes from Ogg and WebM with 0 ms added lead-in in Chromium, Linux WebKit, Firefox and iPhone Safari 26.5, and WebCodecs encodes and decodes it in the page on all four. MP3 adds 64 ms of silence per clip on iPhone even with LAME's gapless tag. AAC is patent-encumbered and adds 48 ms. Vorbis does not decode on iPhone. FLAC is lossless but 9x Opus's size. The bitrate (24 or 32 kbps) is the owner's call.
+summary: Codec bake-off for streaming narration audio, run because Present with a Gemini voice reloads an iPhone tab and the owner asked for compressed audio in browser storage instead of WAV in memory. Opus wins on every axis measured, including on a real iOS Simulator. At 24 kbps it scores PESQ 4.35 against MP3 64 kbps at 4.30, at about a third of the size and a sixteenth of today's WAV. It is BSD-licensed and royalty-free. It decodes from Ogg and WebM with 0 ms added lead-in in Chromium, Linux WebKit, Firefox and iPhone Safari 26.5, and WebCodecs encodes and decodes it in the page on all four. MP3 adds 64 ms of silence per clip on iPhone even with LAME's gapless tag. AAC is patent-encumbered and adds 48 ms. Vorbis does not decode on iPhone. FLAC is lossless but 9x Opus's size. The owner settled the bitrate: the existing workspace Audio quality setting (48 to 128 kbps, default 64).
 ---
 
 # Narration codec bake-off: Opus
 
-**Date:** 2026-11-17 · **Status:** proposed; the owner picks the bitrate · **Scope:** the codec narration audio is stored and
+**Date:** 2026-11-17 · **Status:** proposed · **Scope:** the codec narration audio is stored and
 streamed in on the Studio's playback path (the streaming redesign that follows PR #3289). It does not change the export's
-MP3 (`lib/core/narration-encode.mjs`); a later note can revisit that.
+MP3 (`lib/core/narration-encode.mjs`) or what Present together sends: both decode a stored Ogg clip back to WAV on the page
+and compress that to MP3 as before (`docs/src/playground/stored-clip-to-wav.js`). A later note can move them to Opus.
 
 ## 1. Why a bake-off
 
@@ -99,8 +100,10 @@ value the encoder reports, so a player trims it exactly.
 MP3 is ruled out for playback on its own measurement: Safari adds 64 ms of silence per clip even when the gapless tag is
 present, which is the defect §9 of the shared-deck note reverted.
 
-**Bitrate, the owner's choice:** 24 kbps (PESQ 4.35, 172 KB/min) or 32 kbps (4.46, 228 KB/min). The listening set
-compared both against the source. 32 kbps is the safe default; 24 kbps saves a quarter of the storage.
+**Bitrate:** the bake-off offered 24 kbps (PESQ 4.35, 172 KB/min) or 32 kbps (4.46, 228 KB/min); the listening set compared
+both against the source. The owner chose neither as a fixed rate: stored narration follows the existing workspace Audio
+quality setting (`narrationBitrate()`: 48, 64, 96 or 128 kbps, default 64), the same setting the export reads. At 64 kbps
+the Opus copy is about a sixth of Gemini's WAV.
 
 ## 5. What this does not settle
 
