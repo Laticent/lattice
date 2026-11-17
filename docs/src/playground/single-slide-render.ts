@@ -25,8 +25,8 @@
 import { unclosedSectionAt } from '@laticent/markup';
 import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
+import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
-import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
 import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
@@ -56,7 +56,7 @@ import { writeSrcdoc } from '../lib/srcdoc-write.js';
 import { createThemeFetcher } from '../lib/theme-fetch';
 import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
-import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
+import { hashString, previewDiagramsAttr } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { PAGE_SCRIPT_NONCE } from '../playground/page-script-nonce.js';
@@ -1359,7 +1359,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// agent at the end of <body> the poll read `undefined`, concluded "no gate",
 			// and revealed at 117ms against a settle at ~520ms. Correctly wired, and a
 			// no-op. See lib/core/preview-font-gate.mjs.
-			'<scr' + 'ipt' + n + '>' + fontGateAgent() + '</scr' + 'ipt>' +
+			agentTag(frameAgentsUrl(runtimeUrl), 'fontgate', {}, n) +
 			// The diagram library's fetch starts with the document, not after the runtime boots.
 			// A library whose kind the page's draw host offers is drawn in the host's own sandboxed frame, so the preview frame loads none.
 			// The preload carries the nonce too: under 'strict-dynamic' a script preload without it is refused.
@@ -1382,7 +1382,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// Preview-only link guard: an external link tap (a video poster, a contact/qr
 		// URL) must not navigate — and blank — this scaled srcdoc frame on iOS. Also
 		// carries the video-playback bridge (window.__videoPlay) for the Studio.
-		s += '<scr' + 'ipt' + n + '>' + linkGuardAgent() + '</scr' + 'ipt>';
+		s += agentTag(frameAgentsUrl(runtimeUrl), 'link', {}, n);
 		s += '</body></html>';
 		return s;
 	}

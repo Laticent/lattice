@@ -31,20 +31,9 @@
 // A cross-origin stage would have forced all three to be re-implemented in
 // inline strings, which is the cost that ruled out architecture S.
 
-import {
-	createWheelGate,
-	createZoomGesture,
-	fitScale,
-	keyAction,
-	PRESENT_KEYMAP,
-	padInset,
-	stepEnter,
-	swipeAction,
-} from '../../../../../lib/core/present-transport.mjs';
-import { fontGateAgent, onFontsReady } from '../../../../../lib/core/preview-font-gate.mjs';
+import { agentTag, frameAgentsUrl } from '../../../../../lib/core/frame-agents.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
-import { applyStepAt, stepsOfSection } from '../../../../../lib/core/step-state.mjs';
 import { drawnLibraryPreload } from '../../../../../lib/plugins/drawn-library.mjs';
 import { markupHasDrawnFence } from '../../../../../lib/plugins/drawn-probe.mjs';
 import { liveMediaAttr } from '../../../lib/live-media-attr';
@@ -91,49 +80,6 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 	html = sanitizeSlideHtml(web.html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
 	const sw = width;
 	const sh = height;
-	// The fit factor is the shared transport kernel's `fitScale`/`padInset`
-	// (lib/core/present-transport.mjs) — inlined VERBATIM into the stage script (which
-	// runs in an isolated iframe and can't import), so the docs stage, the rehearsal
-	// stage, and the export player all scale by the identical maths. `pad` selects the
-	// symmetric inset: the Stage uses ×0.012 (floor 0), rehearsal ×0.04
-	// (floor 14). See P3 of 2026-07-07-html-lattice-player.md.
-	// ASSIGN to vars named EXACTLY as the call sites below use them: the production bundler
-	// RENAMES the imported `fitScale`/`padInset`, and their `.toString()` carries the renamed
-	// (or anonymous/arrow) form — so inlining the bare source left `fitScale`/`padInset`
-	// undefined at the call sites and `fit()` threw "padInset is not defined" on every call,
-	// silently never scaling the slide (the long-standing presenter CROP). The `var name =`
-	// binding restores the names regardless of how the function prints.
-	// THE SAME INPUT KERNEL THE CONSOLE RUNS, inlined by source (HARD RULE #1).
-	//
-	// The Stage drives the deck — keyboard, wheel and swipe — and the console follows. That
-	// is a reversal: the first cut of this window bound exactly one key (`f`) on the theory
-	// that "the room does not drive the deck". It was wrong for the case that actually
-	// happens, which is the presenter standing AT the machine the Stage is on.
-	//
-	// Driving it means reading a gesture, and there are two ways to do that: inline the
-	// kernel the console already uses, or hand-roll a second one inside this string. The
-	// second is how two surfaces drift — `present-transport.mjs`'s header exists because of
-	// it. So the kernel travels by `.toString()`, exactly as `fitScale` already does, and
-	// `test/unit/export/inlinable-kernels.test.js` is what keeps every one of these
-	// self-contained enough to survive the trip (no module-scope closure).
-	//
-	// `keyAction` defaults its map argument to a module-scope constant, which does NOT
-	// travel — so the map is inlined beside it and passed explicitly, which is the contract
-	// that test pins.
-	const kernel = [
-		`var fitScale=${fitScale.toString()}`,
-		`var padInset=${padInset.toString()}`,
-		`var keyAction=${keyAction.toString()}`,
-		`var swipeAction=${swipeAction.toString()}`,
-		`var createWheelGate=${createWheelGate.toString()}`,
-		`var createZoomGesture=${createZoomGesture.toString()}`,
-		`var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP)}`,
-		// The step painter (lib/core/step-state.mjs), so the Stage shows the console's step of a
-		// `_build` / `_focusSteps` slide, painted exactly as the console and the exported player paint it.
-		`var applyStepAt=${applyStepAt.toString()}`,
-		`var stepsOfSection=${stepsOfSection.toString()}`,
-		`var stepEnter=${stepEnter.toString()}`,
-	].join(';\n');
 	const padF = Number(pad.factor);
 	const padFl = Number(pad.floor || 0);
 	// Resolve the runtime URL to ABSOLUTE, and it is load-bearing on BOTH hosts. The
@@ -150,170 +96,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 			return runtimeUrl;
 		}
 	})();
-	// ISOLATION + the CROP FIX. The old fit scaled each <section> and display:none'd the
-	// rest — but the engine runtime OWNS the sections (its body observer re-applies its
-	// own transforms on them), so it wiped our per-section scale and the slide rendered at
-	// full 1280px = cropped in the frame. Fix: never touch the engine's elements. Wrap the
-	// deck in OUR OWN `#latt-film` and drive a FILMSTRIP — all sections stay put at natural
-	// size, and we scale+translate the film so exactly the current slide fills `#latt-fit`
-	// (which clips). #latt-stage/#latt-fit/#latt-film are ID selectors (1,0,0) the engine's
-	// element/:where/class rules can't clobber; #latt-stage wraps from OUTSIDE so the
-	// slide's own transforms can't trap our fixed positioning. #latt-stage fills 100dvh
-	// (tracks the iOS toolbars → visual center) and flex-centers #latt-fit. The translate
-	// uses the section's measured `offsetTop`, so any inter-section gap is handled exactly.
-	//
-	// THE BOX THE SLIDE FITS INTO IS #latt-view, NOT #latt-stage. They are the same
-	// rectangle in an iframe — the chrome row below is absent, so `#latt-view` is the
-	// whole stage — but on the projected window the caption band and the rail take real
-	// height, and fitting against the outer box would let the slide sit UNDER them. The
-	// ResizeObserver watches this same element, so a caption blooming in re-fits the
-	// slide instead of covering it.
-	const FIT =
-		'(function(){' +
-		kernel + ';' +
-		'var stage=document.getElementById("latt-view")||document.getElementById("latt-stage"),fitEl=document.getElementById("latt-fit"),film=document.getElementById("latt-film");' +
-		'function secs(){var m=document.querySelector(".lattice");return m?m.querySelectorAll(":scope>section"):[]}' +
-		'var cur=0;' +
-		'function fit(){var s=secs();if(!s.length||!stage||!fitEl||!film)return;' +
-		'var W=stage.clientWidth||window.innerWidth,H=stage.clientHeight||window.innerHeight;' +
-		'var inset=padInset(W,H,{factor:' + padF + ',floor:' + padFl + '});' +
-		'var sc=fitScale({stageW:W,stageH:H,slideW:' + sw + ',slideH:' + sh + ',insetX:inset,insetY:inset});if(!(sc>0))sc=1;' +
-		'fitEl.style.width=(sc*' + sw + ')+"px";fitEl.style.height=(sc*' + sh + ')+"px";' +
-		'var i=cur<0?0:(cur>s.length-1?s.length-1:cur);' +
-		'var top=s[i].offsetTop||i*' + sh + ';' +
-		// Hide the non-current sections (visibility, so layout/offsetTop is preserved): only the
-		// current slide paints/composites — bounds the cost on a big deck (each stage iframe would
-		// otherwise paint the WHOLE deck) and stops an adjacent slide bleeding through the rehearsal
-		// stage's rounded-corner cards. The engine writes no section styles, so this never fights it.
-		'for(var k=0;k<s.length;k++){s[k].style.visibility=k===i?"":"hidden"}' +
-		'film.style.transform="scale("+sc+") translateY("+(-top)+"px)";}' +
-		// `st` is the shown slide's step (null at rest); every other slide rests.
-		// `st` is the shown slide's step (null at rest), or the direction it was entered by ('next' / 'prev'), which
-		// resolves here against the slide's own walk; every other slide rests.
-		'function show(n,st){cur=n|0;var s=secs();for(var k=0;k<s.length;k++){var at=null;if(k===cur&&st!=null){if(st==="next"||st==="prev"||st==="jump"){var w=stepsOfSection(s[k]);at=w?stepEnter(w.kind,w.count,st):null}else at=typeof st==="number"?st:null}applyStepAt(s[k],at)}fit()}' +
-		'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)show(e.data.pv,e.data.st==null?null:e.data.st)});' +
-		'window.addEventListener("resize",fit);window.addEventListener("orientationchange",fit);' +
-		'if(window.visualViewport){try{window.visualViewport.addEventListener("resize",fit)}catch(e){}}' +
-		// Re-fit when the stage resizes, and when the film's subtree repaints (the engine may
-		// re-render the deck AFTER this inline script). childList-only, so our own style writes
-		// never re-trigger it; the timers are the backstop if neither fires.
-		'if(typeof ResizeObserver!=="undefined"){try{new ResizeObserver(fit).observe(stage)}catch(e){}}' +
-		'if(typeof MutationObserver!=="undefined"){try{new MutationObserver(fit).observe(film,{childList:true,subtree:true})}catch(e){}}' +
-		'[60,300,1200,2500].forEach(function(t){setTimeout(fit,t)});show(0);' +
-		// ── THE OPENER HANDSHAKE, and why it is gated rather than optional ──────────
-		// `window.opener` is null in an iframe (opener is a property of a TOP-LEVEL
-		// browsing context), so every line below is inert in the srcdoc hosts and this
-		// stays ONE document rather than two that drift. In the projected window it is
-		// what lets the console stop guessing: `ready` says the fit is live and the
-		// `{pv}` port is listening (the runtime script above is parser-blocking and
-		// multi-megabyte, so an index posted at open time would land on nothing), and
-		// `closed` is how a presenter closing the window by hand reaches the console —
-		// polling `win.closed` would report it up to a poll late, mid-sentence.
-		'if(window.opener){var OP=window.opener;var OR=location.origin;var TOK=' + JSON.stringify(String(token || '')) + ';' +
-		// TARGETED, and carrying the token. The opener identifies its Stage by `e.source`
-		// where it can — but a beat fired by a NAVIGATION arrives with a different source
-		// (measured), so it would drop the one message it most needs. The token is how the
-		// console recognizes its own document's goodbye.
-		'function tell(k){try{OP.postMessage({stage:k,tok:TOK},OR)}catch(e){}}' +
-		// BOTH, because neither alone is enough: `unload` is on Chrome's deprecation path
-		// and does not fire for a discarded tab, and `pagehide` is the modern beat. They
-		// are idempotent at the other end — teardown clears the handle before onLost.
-		'window.addEventListener("pagehide",function(){tell("closed")});' +
-		'window.addEventListener("unload",function(){tell("closed")});' +
-		// THE ROOM DOES NOT FOLLOW LINKS. A deck's own link survives sanitizing, and a click
-		// on the projected copy navigated this window away — which stranded the console (it
-		// went on posting the live slide index at a page it no longer owned) and handed a
-		// foreign origin `window.opener` on the origin that holds the user's API key. On the
-		// audience surface a link click is always accidental, so it is simply not a gesture.
-		//
-		// `a,area[href]` — NOT `a[href]`, which is the narrower selector this shipped with and
-		// which misses two of the three shapes that actually navigate. Measured, all three
-		// surviving `sanitizeSlideHtml`: an SVG `<a xlink:href>` holds no `href` ATTRIBUTE, so
-		// `closest('a[href]')` is false for it while `closest('a')` is true — and a real click
-		// on one navigated the window; and an `<area href>` inside a `<map>` is not an `<a>` at
-		// all, so only naming `area` catches it. (A `<meta http-equiv=refresh>` survives the
-		// sanitizer too but is inert in a `document.write`n `about:blank` document — measured —
-		// so every live vector is click-gated, which is what makes this one listener enough.)
-		'document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a,area[href]");if(a)e.preventDefault()},true);' +
-		// ── THE STAGE DRIVES ───────────────────────────────────────────────────────
-		// Keyboard, wheel and swipe move the deck, and the console follows. `nav()` does
-		// not move this window directly: it TELLS the opener, which owns `idx`, and the
-		// `{pv}` that comes back is what repaints. One writer, so the two surfaces cannot
-		// disagree about which slide is up — and a move made here survives the console
-		// re-deriving state for its own reasons.
-		'function nav(a){if(a)try{OP.postMessage({stage:"nav",act:a,tok:TOK},OR)}catch(e){}}' +
-		// `keyAction` with the map passed EXPLICITLY — its default argument is a
-		// module-scope constant that does not survive `.toString()` inlining.
-		'window.addEventListener("keydown",function(e){' +
-		'if(e.metaKey||e.ctrlKey||e.altKey)return;' +
-		// THE BAR'S OWN BUTTONS KEEP THEIR NATIVE KEYS. `PRESENT_KEYMAP` maps `' '` to `next`,
-		// and this listener is on `window` with no reading of `e.target` — so a keyboard user
-		// who tabbed to "Previous slide" and pressed Space got `preventDefault()` on the native
-		// activation and the deck went FORWARD (measured: 3/7 -> 4/7 on a Previous button, and
-		// Space on the full-screen button advanced instead of filling the screen). Space and
-		// Enter belong to the focused control; every other key still drives the deck, so the
-		// arrows keep working while a button holds focus.
-		'if(e.target&&e.target.closest&&e.target.closest("#latt-ctl")&&(e.key===" "||e.key==="Enter"))return;' +
-		'if(e.key==="f"||e.key==="F"){e.preventDefault();toggleFull();return}' +
-		'var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;e.preventDefault();nav(a);});' +
-		// A firm flick, not a reflexive scroll — the same gate, threshold and cooldown the
-		// console applies, so a trackpad means the same thing on either surface.
-		//
-		// `ctrlKey||metaKey` STANDS DOWN, and it is not optional: a trackpad PINCH reaches the
-		// page as ctrl+wheel, so a gate that does not read it scrubs the deck when the user
-		// meant to zoom. `present-transport.mjs` names this exact pair as the #1294 root cause,
-		// and shipping it again here is what the kernel exists to stop. (Measured on this
-		// document before the fix: ctrl+wheel turned the deck.) The Stage does not zoom — it is
-		// the projected copy, not a Studio surface — so standing down is the whole behavior.
-		'var gate=createWheelGate();' +
-		'window.addEventListener("wheel",function(e){if(e.ctrlKey||e.metaKey)return;' +
-		'var a=gate(e.deltaX,e.deltaY,Date.now());if(a){e.preventDefault();nav(a)}},{passive:false});' +
-		// Touch, via the shared swipe geometry — AND the shared finger-count rule.
-		//
-		// `createZoomGesture` is inlined here purely as the PINCH DETECTOR its `up()` docblock
-		// demands: "Reading it [`swipeBlocked`] is what a surface must do BEFORE calling
-		// `swipeAction`." The first cut did not, and measured on this document a pinch-out AND
-		// a pinch-in both turned the deck forward — the hand-rolled "first touch to last touch"
-		// twin the kernel was written to retire. `max:1` keeps it a counter and nothing more:
-		// the scale can never leave 1, so no zoom or pan behavior is added to the Stage, and a
-		// genuine one-finger swipe returns null from `move` without ever setting `moved`, so
-		// `swipeBlocked` stays false for exactly the gesture that should still turn the deck.
-		'var zoom=createZoomGesture({min:1,max:1});' +
-		'function pts(e){var o=[],t=e.touches||[];for(var i=0;i<t.length;i++)o.push({x:t[i].clientX,y:t[i].clientY});return o}' +
-		'var t0=null;' +
-		'window.addEventListener("touchstart",function(e){var p=pts(e);zoom.down(p);' +
-		't0=p.length===1?{x:p[0].x,y:p[0].y}:null},{passive:true});' +
-		'window.addEventListener("touchmove",function(e){zoom.move(pts(e),{w:innerWidth,h:innerHeight})},{passive:true});' +
-		'window.addEventListener("touchend",function(e){var rest=(e.touches&&e.touches.length)||0;' +
-		'var blocked=zoom.up(rest).swipeBlocked;var t=e.changedTouches&&e.changedTouches[0];' +
-		'var from=t0;if(rest===0)t0=null;' +
-		'if(blocked||!from||!t)return;' +
-		'var a=swipeAction({dx:t.clientX-from.x,dy:t.clientY-from.y});if(a)nav(a);},{passive:true});' +
-		// ── THE OVERLAY CONTROLS ───────────────────────────────────────────────────
-		// A projected screen with permanent instruments on it is the defect this whole
-		// split exists to remove, and a projected screen you cannot operate from the
-		// machine it is on is the defect the first cut shipped. The video-player idiom
-		// resolves both: hidden at rest, summoned by the pointer or a key, gone again
-		// after a beat. The room sees the deck; whoever is standing at this machine has
-		// controls within one mouse-move.
-		'var bar=document.getElementById("latt-ctl"),hideT=0;' +
-		'function poke(){if(!bar)return;bar.classList.add("on");clearTimeout(hideT);hideT=setTimeout(function(){bar.classList.remove("on")},2400)}' +
-		'window.addEventListener("mousemove",poke);window.addEventListener("keydown",poke);window.addEventListener("touchstart",poke,{passive:true});' +
-		// FULLSCREEN FROM A BUTTON, which is the reliable path: the Fullscreen API wants a
-		// user gesture in THIS document, and a click here is one. Auto-fullscreen at open
-		// time is a request the browser may decline (§7, still unverified on real
-		// hardware); this is the answer that does not depend on it.
-		'function toggleFull(){try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}catch(x){}}' +
-		'function on(id,fn){var el=document.getElementById(id);if(el)el.addEventListener("click",function(e){e.preventDefault();poke();fn()})}' +
-		'on("latt-prev",function(){nav("prev")});on("latt-next",function(){nav("next")});on("latt-full",toggleFull);' +
-		// The counter reads from the opener's `{pv}`, not from a local guess, so it cannot
-		// drift from the deck. Total comes from the film itself.
-		'function count(){var c=document.getElementById("latt-count");if(!c)return;var n=secs().length;c.textContent=(Math.min(cur+1,n||1))+" / "+(n||1)}' +
-		'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)count()});' +
-		'document.addEventListener("fullscreenchange",function(){var b=document.getElementById("latt-full");if(b)b.setAttribute("aria-pressed",document.fullscreenElement?"true":"false")});' +
-		'[80,400,1400].forEach(function(t){setTimeout(count,t)});poke();' +
-		'tell("ready");}' +
-		'})();';
+	// The fit, the transport and the opener handshake are the `stage-fit` agent (frame-agents.mjs),
+	// a same-origin file: this document inherits the console's script policy, which allows no inline script.
+	const agents = frameAgentsUrl(rt);
 	// The audience chrome's two hosts — EMPTY. Nothing in this document ever writes to
 	// them; the console portals React into them across the same-origin boundary, so the
 	// caption crawl and the rail have exactly one implementation and it is the one the
@@ -447,7 +232,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		(standalone ? STAGE_CHROME_CSS : '') + '</style>' +
 		// The font gate, in <head> — same placement rule as the other two preview
 		// builders. See lib/core/preview-font-gate.mjs.
-		'<scr' + 'ipt' + n + '>' + fontGateAgent() + '</scr' + 'ipt>' +
+		agentTag(agents, 'fontgate', {}, n) +
 		// The diagram library's fetch starts with the document, not after the runtime boots.
 		(runtimeUrl && markupHasDrawnFence(html) ? drawnLibraryPreload(runtimeUrl).replaceAll('<link rel="preload" as="script"', '<link rel="preload" as="script"' + n) : '') +
 		'</head><body>' +
@@ -473,9 +258,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// preview: under `standalone` this document is the top-level window an
 		// AUDIENCE is watching, so the shift lands on a projector. Never holds
 		// forever — see lib/core/preview-font-gate.mjs.
-		'<scr' + 'ipt' + n + '>function lattStageReveal(){requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"})}' +
-		onFontsReady('lattStageReveal') + '</scr' + 'ipt>' +
-		'<scr' + 'ipt' + n + '>' + FIT + '</scr' + 'ipt></body></html>'
+		agentTag(agents, 'stage-reveal', {}, n) +
+		agentTag(agents, 'stage-fit', { sw, sh, padf: padF, padfl: padFl, tok: String(token || '') }, n) +
+		'</body></html>'
 	);
 }
 
