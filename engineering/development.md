@@ -1338,6 +1338,34 @@ workflow, or `workflow_dispatch` with `spec: e2e/<name>.spec.ts`). It runs only 
 across every project, and files nothing on the rolling issue (only a scheduled or unfiltered
 run on `main` does).
 
+**The nightly's eight `e2e` legs are dealt by measured time, not by Playwright's `--shard`.**
+`--shard=K/N` cuts the test list into equal counts in project order, so every WebKit and Gecko
+test landed in the last legs (2026-11-16: legs 7 and 8 at 38.7 and 43.9 min against the
+45-minute step, leg 1 at 22.1). Each leg sets `E2E_SHARD=K/8` instead, and
+`playwright.config.ts` gives every project the spec files it runs in that leg
+(`docs/e2e/shard-plan.mjs`). The unit is one (project, spec file) pair. A pair with a weight in
+`docs/e2e/shard-weights.json` (seconds) is dealt longest-first by `tools/shard-tests.js`'s
+`plan()`, the balancer the unit and integration legs use, **one project at a time, into the
+legs' running totals** (`plan()`'s `seed`), lightest project first. Dealing per project keeps
+each big engine even: on the committed weights desktop, gecko, webkit-tablet and webkit-phone
+each sit within 0.1 min per leg, and a small project with one big pair (compose-default's 6-minute
+`lessons`) lands early, with the big engines' many small pairs filling around it. It matters
+because an engine's speed moves from night to night: on 2026-11-17 webkit-tablet ran about 30%
+over its weights, and one plan over all pairs had put 1.7 min of webkit-tablet in one leg and 6.4
+in another. Replays of five nights' measured seconds read 1.01-1.03x the mean, but treat that as
+optimistic: **heavy specs that share a leg slow each other** (about +55% on 2026-11-17), so a
+plan's own run measures worse than a replay predicts. A pair with no weight goes to the leg a
+hash of its name picks, so a new spec spreads out rather than piling into one leg. Every pair
+lands in exactly one leg: check with `E2E_SHARD=K/8 npx playwright test --list` for each K, whose
+union is the unsharded `--list` with no duplicates. Unset, nothing changes, so a laptop and the
+per-PR jobs run as before.
+
+**Re-bless the weights** when the legs drift past about 1.5x their mean. Download
+`studio-e2e-text-1` to `-8` from three or more recent **scheduled** runs (a dispatch can run a
+subset, and its pairs would read as cheap), unzip each into `r<run id>-<K>/`, then run
+`node scripts/e2e-shard-bless.mjs <dir>` from `docs/`. It prints each run's measured legs and the
+plan the new weights would give (test seconds over 2 workers), and `--write` rewrites the weights.
+
 **`@perf` — the preview render-path measurement** (`e2e/studio-preview-perf.spec.ts`). Reports
 raw per-render RENDER / FRAME / TOTAL for the two interactions that drive a preview render —
 slide NAVIGATION and TYPING — at 4× CPU, over both a prose deck and 40 gallery slides, because

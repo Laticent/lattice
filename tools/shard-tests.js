@@ -26,12 +26,16 @@
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 
-/** Longest-processing-time-first. Returns N arrays of file paths. Pure and deterministic. */
-function plan(files, weights, n) {
+/**
+ * Longest-processing-time-first. Returns N arrays of file paths. Pure and deterministic.
+ * `seed` (optional) is each bin's starting load, for a caller that deals several groups into the same bins
+ * one after another (docs/e2e/shard-plan.mjs deals each Playwright project into the legs' running totals).
+ */
+function plan(files, weights, n, seed = []) {
   const known = Object.values(weights).filter((w) => Number.isFinite(w)).sort((a, b) => a - b);
   const median = known.length ? known[Math.floor(known.length / 2)] : 1;
   const w = (f) => (Number.isFinite(weights[f]) ? weights[f] : median);
-  const bins = Array.from({ length: n }, () => ({ load: 0, files: [] }));
+  const bins = Array.from({ length: n }, (_, i) => ({ load: Number(seed[i]) || 0, files: [] }));
   const order = [...files].sort((a, b) => w(b) - w(a) || a.localeCompare(b));
   for (const f of order) {
     let best = bins[0];

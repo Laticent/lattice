@@ -1,4 +1,6 @@
-import { defineConfig, devices } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, devices, type Project } from '@playwright/test';
+import { shardProjects } from './e2e/shard-plan.mjs';
 
 // Playwright E2E for the Studio (route `/studio/`). Governed by
 // engineering/decisions/2026-06-28-experience-gating-playwright.md.
@@ -57,6 +59,20 @@ const tierPin = (tier: 'lite') => ({
 	origins: [{ origin: BASE_URL, localStorage: [{ name: 'lattice-device-tier-override', value: tier }] }],
 });
 const isCI = !!process.env.CI;
+// TIME-BALANCED LEGS. The nightly's eight `e2e` legs set E2E_SHARD=K/8 instead of passing `--shard`.
+// Playwright's `--shard` cuts the test list into equal COUNTS in project order, so the WebKit and Gecko
+// projects all landed in the last legs (2026-11-16: legs 7 and 8 at 38.7 and 43.9 min against the
+// 45-minute step, leg 1 at 22.1). With E2E_SHARD set, each project's testMatch becomes the spec files
+// it runs in this leg, dealt by measured seconds per (project, spec) from e2e/shard-weights.json. Every
+// pair lands in exactly one leg. Unset (a laptop, the per-PR jobs), nothing changes. e2e/shard-plan.mjs.
+const E2E_SHARD = process.env.E2E_SHARD;
+const shard = (projects: Project[]): Project[] =>
+	E2E_SHARD
+		? shardProjects(projects, E2E_SHARD, {
+				testDir: fileURLToPath(new URL('./e2e', import.meta.url)),
+				weightsFile: fileURLToPath(new URL('./e2e/shard-weights.json', import.meta.url)),
+			})
+		: projects;
 const RECORD = process.env.E2E_RECORD !== 'off';
 
 export default defineConfig({
@@ -144,7 +160,7 @@ export default defineConfig({
 	//                   project cannot stand in for (history traversal, #1226)
 	//   @webkit-tablet  real WebKit at a wide+short box — engine DIVERGENCE in layout, where
 	//                   the viewport is as load-bearing as the engine (#1227)
-	projects: [
+	projects: shard([
 		// DESKTOP. The `@webkit` half of its grepInvert reads "webkit-ONLY", not "mentions webkit".
 		// It used to be a bare `/@mobile|@webkit/`, which was right while every `@webkit-*`
 		// spec was webkit-exclusive — and silently wrong the moment one also wanted a
@@ -290,7 +306,7 @@ export default defineConfig({
 			use: { browserName: 'firefox', viewport: { width: 1440, height: 900 } },
 			grep: /@gecko/,
 		},
-	],
+	]),
 	webServer: {
 		command: 'npm run build:e2e && npm run preview:e2e',
 		url: `${BASE_URL}/studio/`,
