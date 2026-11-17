@@ -54,6 +54,22 @@ describe('first-slide', () => {
 		expect(fn).toHaveBeenCalledTimes(1); // once, and it stopped listening
 	});
 
+	it('foreground work that starts during the pause holds the work until it ends, then for a fresh pause', async () => {
+		const m = await fresh();
+		const fn = vi.fn();
+		m.afterFirstSlideAndPause(fn, 3000);
+		m.markFirstSlideShown();
+		await vi.advanceTimersByTimeAsync(1000);
+		const release = m.holdWarmUps(); // the chat's render starts
+		await vi.advanceTimersByTimeAsync(20_000);
+		expect(fn).not.toHaveBeenCalled();
+		release();
+		await vi.advanceTimersByTimeAsync(2999);
+		expect(fn).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(fn).toHaveBeenCalledTimes(1);
+	});
+
 	it('a cancel before the pause ends means the work never runs', async () => {
 		const m = await fresh();
 		const fn = vi.fn();
@@ -110,6 +126,41 @@ describe('first-slide', () => {
 			await vi.advanceTimersByTimeAsync(1500);
 			expect(done).toBe(false);
 			await vi.advanceTimersByTimeAsync(600);
+			expect(done).toBe(true);
+		});
+
+		// Foreground work holds the gate (`holdWarmUps`): the chat's render_slide overran its 15 s budget on a Full
+		// device when the font warm-up's quiet period ran out 2 s into the render.
+		it('stays shut while foreground work holds it, then waits a fresh quiet period after the release', async () => {
+			const m = await fresh();
+			const release = m.holdWarmUps();
+			let done = false;
+			void m.whenQuiet(2000).then(() => {
+				done = true;
+			});
+			await vi.advanceTimersByTimeAsync(30_000);
+			expect(done).toBe(false); // no input for 30 s, but a render still holds it
+			release();
+			await vi.advanceTimersByTimeAsync(1999);
+			expect(done).toBe(false); // the release counts as activity
+			await vi.advanceTimersByTimeAsync(1);
+			expect(done).toBe(true);
+		});
+
+		it('opens only when every hold is released, and a second release of one hold changes nothing', async () => {
+			const m = await fresh();
+			const a = m.holdWarmUps();
+			const b = m.holdWarmUps();
+			let done = false;
+			void m.whenNotHeld().then(() => {
+				done = true;
+			});
+			a();
+			a();
+			await vi.advanceTimersByTimeAsync(0);
+			expect(done).toBe(false); // b still holds it, and a's second release did not count as b's
+			b();
+			await vi.advanceTimersByTimeAsync(0);
 			expect(done).toBe(true);
 		});
 

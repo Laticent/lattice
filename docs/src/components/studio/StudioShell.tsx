@@ -108,7 +108,7 @@ import { FocusedPreview } from './FocusedPreview';
 import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
+import { afterFirstSlideAndPause, firstSlideShown, heldWarmPanels, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
@@ -121,7 +121,7 @@ import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
 import type { LatticeImport } from './lattice-file';
-import { PanelLoader, useLatch, warmPanels } from './lazy-panel';
+import { PanelLoader, useLatch, warmPanels as warmPanelsNow } from './lazy-panel';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { LESSONS } from './lessons/catalog';
@@ -188,6 +188,9 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+// The warm-up queue, held while the chat renders a draft (first-slide.ts `holdWarmUps`).
+const warmPanels = heldWarmPanels(warmPanelsNow);
 
 // The math plugin's own detectors (math.syntax.mjs), through the generated detector table, never by
 // importing the plugin's folder (tools/structure.js holds that line).
