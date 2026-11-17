@@ -1,0 +1,1 @@
+- On a phone, a three-column table such as before/after that runs past the slide's edge now takes the narrowest table layout, one value column per block under the repeated row labels, instead of losing its third column. Its rows page two or more at a time rather than one per page.

@@ -452,6 +452,49 @@ section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is
     content: "\2014"; color: var(--text-secondary);
   }
 }
+/* ── runs, three columns, forced (fit-everywhere-model.md §25): the measured switch (lib/core/table-reflow-fit.js
+ *    `forceOverflowingReflow`) marks a grid that runs past the slide's edge, and a three-column `runs` table (a label and
+ *    two values) has no two-column-block step to take, so it takes the narrowest one, one column per block: a
+ *    before/after table on a phone lost its third column (per-slide-diagram-band.md 6). Four or more columns keep their
+ *    blocks of two above. Firefox has no style queries and keeps the width rules, as every forced layout does. ── */
+@container style(--lat-reflow-force: 1) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) {
+    display: grid; grid-template-columns: minmax(0, 1fr); column-gap: var(--sp-md);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > :is(thead, tbody),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > :is(thead, tbody) {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > :is(thead, tbody) > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > :is(thead, tbody) > tr {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th) {
+    display: block; padding: var(--sp-2xs) 0; border: 0; border-bottom: 1px solid var(--border); background: none; white-space: normal; overflow-wrap: break-word; text-align: end;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > thead > tr > th,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > thead > tr > th {
+    padding: var(--sp-sm) 0 var(--sp-2xs); border-bottom: 0; background: var(--spectrum-structure) bottom / 100% 2px no-repeat; font-weight: 600; color: var(--text-heading); text-align: start;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child {
+    display: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child) {
+    display: table; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before {
+    content: attr(data-lat-row); display: table-cell; width: 60%; padding-inline-end: var(--sp-xs); text-align: start; color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-runs:where(:not(:has(> thead > tr > :nth-child(4)))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after {
+    content: "\2014"; color: var(--text-secondary);
+  }
+}
 @container (width < 20em) or style(--lat-reflow-force: 1) {
   section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held),
   section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-options:not(.lat-reflow-held) {

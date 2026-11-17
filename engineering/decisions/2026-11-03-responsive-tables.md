@@ -173,8 +173,10 @@ The fit check above then judges a forced layout as it judges every switched one.
 
 Its limits, measured and stated: the mark sits on the stage, because a container query cannot ask about one
 table, so a stage holding two narrow-layout tables is never forced (that would switch a fitting one beside a
-wide one; the wide one still clips); a `runs` table has a narrow layout only from four columns, so a
-three-column one is not marked (`per-slide-diagram-band.md` is such a table and still clips); a table in a
+wide one; the wide one still clips); a three-column `runs` table was not marked, because the runs blocks
+started at four columns, and it clipped (`per-slide-diagram-band.md`); since 2026-11-17 it is marked, and a forced
+three-column table takes the narrowest runs step, one value column per block, which this note's table already names
+for every runs table (owner: "we already defined what happens to tables"); a table in a
 pane is not reached; and Firefox has no style queries (Firefox 142), so it ignores the mark and keeps the
 width rules, and a live Firefox preview shows the clipped grid the export no longer has. On the 87 table decks
 the switch fired only where a grid ran past the slide (by 17px to 683px) and made no page worse; at story it
