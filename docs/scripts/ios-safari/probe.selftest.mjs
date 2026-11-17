@@ -158,7 +158,7 @@ if (process.env.PROBE === 'present-narration') {
 			await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
 			await call(`latticeNarrationReceive(${JSON.stringify(b64)}, 0, 1)`);
 			Object.assign(out, await call(`latticeNarrationImport(${JSON.stringify(NARRATION_TITLE)})`));
-			await call('latticeNarrationVoice()');
+			await call(`latticeNarrationVoice(${JSON.stringify(process.env.NARRATION_VOICE || 'gemini')})`);
 			const played = await call(`latticeNarrationPlay(${voice})`);
 			out.total = played.total;
 			const t0 = Date.now();

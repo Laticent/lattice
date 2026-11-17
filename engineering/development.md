@@ -658,8 +658,10 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `ios-safari-present-narration` runs it with `PROBE=present-narration`, on the iPhone alone: the owner's iPhone reloaded
   the tab when Present played a 4K deck with narration and Guide on, and not with narration off (2026-11-17).
   `present-narration.mjs` builds a 30-slide `size: 4k` deck with a `say:` on every slide (about ten minutes of narration);
-  `present-narration-probe.js` imports it, then, AFTER boot, installs a stand-in cloud voice: an OpenRouter selection, a
-  stored key, and the speech endpoint answered inside the page with silent WAV of the sentence's length. After boot
+  `present-narration-probe.js` imports it, then, AFTER boot, installs a stand-in cloud voice: a selection, a stored key, and the
+  speech call answered inside the page with silent WAV of the sentence's length. `NARRATION_VOICE=gemini` (the default:
+  the owner's reload happens with Gemini Flash TTS and not with Kokoro) answers as Gemini does, JSON with the WAV base64
+  inside; `openrouter` answers the WAV itself. After boot
   because boot checks a stored key with OpenRouter, and from the simulator that real call would reject a stand-in; no key
   is spent (HARD RULE #24). Present plays with Guide on, voice on for `NARRATION_PLAY_S` (480) and then voice off for
   `NARRATION_SILENT_S` (180, reported only), and every 30 s the probe reads the slide, the narration audio the page has

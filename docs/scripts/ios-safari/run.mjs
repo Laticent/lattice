@@ -665,7 +665,8 @@ async function runPresentMemoryProbe(id) {
  * The Present narration probe (PROBE=present-narration): the owner's iPhone reloaded the tab when Present played a 4K deck
  * with narration and Guide on, and not with narration off (2026-11-17). present-narration.mjs builds a deck of that shape;
  * present-narration-probe.js imports it, installs a stand-in cloud voice that answers in the page (no key spent, HARD
- * RULE #24), opens Present on slide 1 with Guide on and plays. Two arms on one fresh Studio each: voice ON for
+ * RULE #24): NARRATION_VOICE=gemini (the default, the owner's Gemini Flash TTS: JSON with base64 WAV inside) or
+ * openrouter (the WAV itself). Then it opens Present on slide 1 with Guide on and plays. Two arms on one fresh Studio each: voice ON for
  * NARRATION_PLAY_S (judged), then voice OFF for NARRATION_SILENT_S (reported, so the difference is the narration's).
  * Every 30 s the probe reads where Present is, the narration audio the page has decoded and still holds, and the
  * simulator's WebKit footprint (photo-memory.mjs). The verdict is present-narration.mjs `narrationChecks`: work, not time
@@ -679,6 +680,8 @@ async function runPresentNarrationProbe(id) {
 	const PLAY_S = Number(process.env.NARRATION_PLAY_S || 480);
 	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 180);
 	const SAMPLE_S = 30;
+	// Gemini by default: the owner's reload happens with Gemini Flash TTS and not with Kokoro (2026-11-17).
+	const VOICE = process.env.NARRATION_VOICE || 'gemini';
 	const deck = await buildNarrationDeck();
 	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const source = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
@@ -699,7 +702,7 @@ async function runPresentNarrationProbe(id) {
 			failIf(await call(`latticeNarrationReceive(${JSON.stringify(b64)}, 0, 1)`), 'sending the deck');
 			const imported = failIf(await call(`latticeNarrationImport(${JSON.stringify(NARRATION_TITLE)})`), 'importing the deck');
 			Object.assign(out, { importMs: imported.importMs, ua: imported.ua, width: imported.width });
-			failIf(await call('latticeNarrationVoice()'), 'installing the stand-in voice');
+			failIf(await call(`latticeNarrationVoice(${JSON.stringify(VOICE)})`), 'installing the stand-in voice');
 			// A settle time, as runPresentMemoryProbe reads: memory has no "settled" event.
 			await sleep(8000);
 			const m0 = await readMB();
@@ -729,7 +732,7 @@ async function runPresentNarrationProbe(id) {
 	const arms = [await arm(true, PLAY_S), await arm(false, SILENT_S)];
 	const steps = narrationChecks(arms, { slides: deck.slides, capMB: CAP_MB, audioCapMB: AUDIO_CAP_MB, memory: !mac });
 	const failed = steps.filter((s) => !s.pass);
-	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: arms[0].ua, width: arms[0].width, deckBytes: deck.bytes.length, arms, steps };
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: arms[0].ua, width: arms[0].width, voice: VOICE, deckBytes: deck.bytes.length, arms, steps };
 }
 
 /**

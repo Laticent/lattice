@@ -5,9 +5,11 @@
  *
  *   latticeNarrationReceive(b64, i, n)  one piece of the `.lattice` fixture (present-narration.mjs)
  *   latticeNarrationImport(title)       hand the bytes to the Studio's own "Import deck…" input and wait for the preview
- *   latticeNarrationVoice()             install the stand-in voice: a cloud voice selected, a key stored, and OpenRouter's
- *                                       speech endpoint answered in the page with a silent WAV as long as the sentence
- *                                       would take to say. Run AFTER boot, never before: boot validates a stored key with
+ *   latticeNarrationVoice(provider)     install the stand-in voice: a cloud voice selected, a key stored, and the
+ *                                       provider's speech call answered in the page with a silent WAV as long as the
+ *                                       sentence would take to say. 'gemini' (the owner's voice: Gemini 3.8 Flash TTS
+ *                                       on their own key) answers JSON with the WAV base64 inside, as Gemini does;
+ *                                       'openrouter' answers the WAV itself. Run AFTER boot, never before: boot validates a stored key with
  *                                       OpenRouter, and from a simulator that real call would reject a stand-in key.
  *   latticeNarrationPlay(voiceOn)       open Present on slide 1, turn Guide on, set the voice, press Play
  *   latticeNarrationSample()            where Present is, how much audio the page has decoded and still holds, how many
@@ -98,13 +100,37 @@ function latticeNarrationWav(seconds) {
 	return buf;
 }
 
-function latticeNarrationVoice() {
+/** Bytes to base64, in chunks so a long clip never builds one giant argument list. */
+function latticeNarrationBase64(buf) {
+	const b = new Uint8Array(buf);
+	let bin = '';
+	for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+	return btoa(bin);
+}
+
+/** The stand-in voice. `provider` 'openrouter' answers OpenRouter's speech route with WAV; 'gemini' answers Gemini's
+ *  `generateContent` the way Gemini 3.8 Flash TTS does: JSON with the WAV clip base64 inside (voice-model.js). */
+function latticeNarrationVoice(provider = 'openrouter') {
 	const stats = { speech: 0, decodedMB: 0, clips: 0, liveMB: 0, sampleRate: 0 };
 	window.__latticeNarration = stats;
 	const realFetch = window.fetch.bind(window);
 	const json = (body) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 	window.fetch = async (input, init) => {
 		const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+		if (url.startsWith('https://generativelanguage.googleapis.com/')) {
+			const bare = url.split('?')[0];
+			if (bare.endsWith(':generateContent')) {
+				stats.speech++;
+				let words = 1;
+				try {
+					words = String(JSON.parse(init?.body || '{}').contents?.[0]?.parts?.[0]?.text || '').split(/\s+/).filter(Boolean).length;
+				} catch {}
+				return json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: latticeNarrationBase64(latticeNarrationWav(words / 2.6)) } }] } }] });
+			}
+			if (bare.endsWith('/models')) return json({ models: [{ name: 'models/gemini-3.8-flash-tts' }, { name: 'models/gemini-3.8-flash-lite-tts' }] });
+			if (bare.endsWith('/voices')) return json({ voices: [{ id: 'Kore', display_name: 'Kore', gender: 'female' }] });
+			return json({});
+		}
 		if (!url.startsWith('https://openrouter.ai/')) return realFetch(input, init);
 		if (url.includes('/audio/speech')) {
 			stats.speech++;
@@ -139,9 +165,14 @@ function latticeNarrationVoice() {
 			});
 		};
 	}
-	localStorage.setItem('lattice-db-or-key', 'sk-or-v1-probe-present-narration-0d0d');
-	localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_heart' }));
-	return { ok: true };
+	if (provider === 'gemini') {
+		localStorage.setItem('lattice-db-gemini-key', 'AIzaProbePresentNarration000d0d');
+		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-tts', voice: 'Kore' }));
+	} else {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-probe-present-narration-0d0d');
+		localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, last: {}, source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_heart' }));
+	}
+	return { ok: true, provider };
 }
 
 async function latticeNarrationPlay(voiceOn) {
