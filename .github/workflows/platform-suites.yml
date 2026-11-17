@@ -138,7 +138,10 @@ jobs:
     # `docs-site` is skipped when no suite needs it; a skipped need must not skip this job, a failed one must.
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' && needs.docs-site.result != 'failure' }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # 30 per suite, 40 for office-quicklook. Its Suite step took 25.5 min on run 43970893314 (every slide ok) and setup
+    # about 4 more, so the job hit 30m04s and was canceled during teardown after the suite had passed. Raised for that
+    # suite only (coordinator call, 2026-11-17, on #3270), the pattern ci.yml uses for integration shard 4.
+    timeout-minutes: ${{ matrix.suite == 'office-quicklook' && 40 || 30 }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
