@@ -238,7 +238,7 @@ for family in $families; do
           # Relaunch Safari in the simulator first: a session that timed out (or a safaridriver that died) leaves Safari
           # paired with it, and the next session is then refused with "The Safari instance is already paired with another
           # WebDriver session" (main's nightly, 2026-11-01, #2911). A relaunch drops the pairing without a device reboot.
-          xcrun simctl terminate "$udid" com.apple.mobilesafari || true
+          bounded 10 xcrun simctl terminate "$udid" com.apple.mobilesafari || true
           sleep 2
           bounded "$LAUNCH_LIMIT" xcrun simctl launch "$udid" com.apple.mobilesafari || true
           sleep 18

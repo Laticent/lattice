@@ -101,10 +101,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * it took about 12 s on run 43776570714 and about 31 s on 43784118094. A relaunch past 60 s is logged and the retry still
  * runs; if that retry fails, run.mjs exits 3 and run.sh reboots for its second start, which pays the long first launch
  * under its own limit. A 480 s cap here would let one stuck relaunch spend 8 minutes first.
+ * `terminate` gets 10 s of its own: in jobs 134052840145 and 134181405957 it ran out the full 60 s (ETIMEDOUT) and the launch
+ * after it still started Safari and a session followed about 22 s later, so the wait bought nothing (ios-safari-font-cache).
  */
+const SIMCTL_MS = { terminate: Number(process.env.SIMCTL_TERMINATE_MS || 10000) };
 const simctl = (...args) => {
 	try {
-		execFileSync('xcrun', ['simctl', ...args], { stdio: 'inherit', timeout: 60000 });
+		execFileSync('xcrun', ['simctl', ...args], { stdio: 'inherit', timeout: SIMCTL_MS[args[0]] ?? 60000 });
 	} catch (e) {
 		console.log(`${LABEL}: xcrun simctl ${args.join(' ')} failed (${String(e.message).slice(0, 200)})`);
 	}
