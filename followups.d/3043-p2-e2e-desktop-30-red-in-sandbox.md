@@ -162,3 +162,12 @@ fixed     — 2026-11-12, branch claude/flaky-e2e-render, each at its cause, wit
               Escape on a later open could land before it; now a layout effect. 2 of 20 under load before, 20 of 20 after.
             - read-article-beacons.spec.ts:94 (load only, now :103): `server.close()` waited for the browser's keep-alive
               connections; it closes them first. 2 of 10 under load before, 10 of 10 after.
+also red  — 2026-11-17, branch claude/e2e-flaky-roots: two specs failed once each in an overloaded six-project run (all
+            projects at once on four cores), which hit its own deadline before printing either failure body, so the
+            assertion that failed is not on record:
+            - playground-state.spec.ts:207 (now :237, "the split divider restores where it was dragged"), desktop.
+            - slide-bar-studio.spec.ts:59 (the Playground border-frame case, @gecko variant), desktop.
+            Not reproduced since, on the branch and on main b93e27e: 5 and 5 runs each at 4 workers on both builds, 20
+            each at 6 workers, 10 each (the slide-bar case in both variants) under a 6x CPU throttle at 4 workers: 0 red in
+            about 140 runs. No change was made: with no failure body and no reproduction there is no cause to fix, and
+            neither test is red. A red seen again should keep its trace (--trace retain-on-failure) for the cause.
