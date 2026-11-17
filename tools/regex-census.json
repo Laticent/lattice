@@ -597,6 +597,7 @@
     "/:[ \\t]+[|>]/": "safe",
     "/:\\s*$/": "safe",
     "/:\\s+/g": "safe",
+    "/:first-(?:line|letter)/i": "safe",
     "/:lattice-container(?![\\w-])/g": "safe",
     "/:lattice-slide(?![\\w-])/g": "safe",
     "/:nth-(child|of-type)\\(\\{\\w+\\}\\)/g": "safe",

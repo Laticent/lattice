@@ -126,3 +126,22 @@ describe('ensureFontsLoaded', () => {
 		expect(loads).toEqual(["normal 700 1em 'outfit'"]);
 	});
 });
+
+// `isVendoredFontUrl`: what the slide camera may leave out of the chat's one-slide look (lib/core/slide-camera.mjs
+// `withoutHostFamilies`). A file we ship, or the theme's copy of one, yes; an author's own file, never.
+describe('isVendoredFontUrl', () => {
+	const base = 'https://lattice.test/studio/';
+	it('says yes to a bundled face, an icon face, an emoji slice and the theme copy of a face', async () => {
+		const m = await import('./font-embed.js');
+		expect(m.isVendoredFontUrl(m.FACES[0].url, base)).toBe(true);
+		expect(m.isVendoredFontUrl(new URL(m.FACES[4].url, base).href, base)).toBe(true);
+		if (m.ICON_FACES[0]) expect(m.isVendoredFontUrl(m.ICON_FACES[0].url, base)).toBe(true);
+		expect(m.isVendoredFontUrl('https://lattice.test/playground/v/abc123/themes/fonts/outfit-700.woff2', base)).toBe(true);
+	});
+	it('says no to an author file, a theme path on another origin, and an unreadable address', async () => {
+		const m = await import('./font-embed.js');
+		expect(m.isVendoredFontUrl('https://lattice.test/decks/my-outfit-black.woff2', base)).toBe(false);
+		expect(m.isVendoredFontUrl('https://fonts.example/themes/fonts/outfit-700.woff2', base)).toBe(false);
+		expect(m.isVendoredFontUrl('http://[bad', base)).toBe(false);
+	});
+});

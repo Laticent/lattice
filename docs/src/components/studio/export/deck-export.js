@@ -1180,7 +1180,7 @@ async function sectionsOf(frame, fonts, { iconShapes = false, only } = {}) {
 	// with their fonts already resolved instead of racing the lazy loader.
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
 	// markdown kernels above stay unit-testable) — same split as jspdf and Calco's writers.
-	const { buildFontEmbedCss, buildFamilyFontCss, ensureFontsLoaded, ICON_FACES } = await loadFontEmbed();
+	const { buildFontEmbedCss, buildFamilyFontCss, ensureFontsLoaded, ICON_FACES, isVendoredFontUrl } = await loadFontEmbed();
 	// ONE SLIDE'S FONTS, for a caller that shoots one section (`rasterizeSlidePreview`, the chat's `render_slide`): only
 	// the faces that slide draws, its icon faces and emoji slices, by the slide map's own rules (pool-capture.ts
 	// `facesOf` / `slideTextOf`, font-embed.js `buildFamilyFontCss`), and only those are waited for. The whole block
@@ -1194,7 +1194,9 @@ async function sectionsOf(frame, fonts, { iconShapes = false, only } = {}) {
 		const css = await buildFamilyFontCss(faces, slideTextOf(one, pseudoContentText)).catch(() => null);
 		if (css !== null) {
 			await ensureFontsLoaded(doc, css, [...faces, ...ICON_FACES.filter((f) => css.includes(f.family))]);
-			return { sections, fontEmbedCSS: css };
+			// `vendored`: which font addresses are files we ship, so the camera may leave out the page's other weights of the
+			// families this sheet carries, and never an author's own file (`rasterizeSlidePreview`, `withoutHostFamilies`).
+			return { sections, fontEmbedCSS: css, vendored: (url) => isVendoredFontUrl(url, doc.baseURI) };
 		}
 	}
 	const fontEmbedCSS = await buildFontEmbedCss(deckTextOf(doc), fonts);
@@ -1527,8 +1529,10 @@ async function studioDataUri(url) {
 	}
 	return uri;
 }
-function shootSection(section, pixelRatio, fontEmbedCSS, log, face) {
+function shootSection(section, pixelRatio, fontEmbedCSS, log, face, { hostFamilies = null } = {}) {
 	return captureSlideCanvas(section, {
+		// Only the one-slide look sets it (`rasterizeSlidePreview`): its sheet carries every face the slide draws. Exports leave it unset.
+		...(hostFamilies ? { hostFamilies } : {}),
 		scale: pixelRatio,
 		face,
 		fontCss: fontEmbedCSS,
@@ -2900,14 +2904,17 @@ export async function rasterizeSlidePreview(render, index, maxWidth = 768) {
 	const { frame, dispose } = await createCaptureFrame(render, { previewFonts: true });
 	try {
 		// `only`: the fonts this one slide draws, not the whole block (`sectionsOf`).
-		const { sections, fontEmbedCSS } = await sectionsOf(frame, undefined, { only: index });
+		const { sections, fontEmbedCSS, vendored } = await sectionsOf(frame, undefined, { only: index });
 		const section = sections[index];
 		if (!section) return { url: null, sections: sections.length };
 		const ratio = Math.min(1, maxWidth / slideGeom(section).w);
 		const url = await withCaptureFixups(
 			section,
 			async (_w, _h, pixelRatio) => {
-				const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, null, 'export');
+				// `hostFamilies`: the one-slide sheet is every face this slide draws, so the camera leaves out the page's vendored rules
+				// for those families (lib/core/slide-camera.mjs `withoutHostFamilies`): it fetched and inlined 16 of them for a title
+				// slide. Unset when `sectionsOf` fell back to the whole block.
+				const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, null, 'export', { hostFamilies: vendored ?? null });
 				return blobToDataUri(new Blob([await sharedPictureEncoder().encode(canvas, { type: 'jpeg', quality: 80 })], { type: 'image/jpeg' }));
 			},
 			ratio,

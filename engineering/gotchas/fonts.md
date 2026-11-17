@@ -205,3 +205,28 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Removable when:** Never; this is how the HTTP cache matches requests.
 - **See:** `docs/src/components/studio/studio-warm.ts`,
   `engineering/decisions/2026-09-26-studio-panel-lazy-loading.md` § Warming the fonts the first slide skipped.
+
+## A one-slide capture fetches fonts its slide never draws
+
+- **Symptom:** The chat's `render_slide` look of a title slide makes the slide camera fetch and inline 16 font files
+  (765 KB, a 2.46 MB slide SVG), though the slide draws four faces. Under load, that inlining was the longest and most
+  variable step of the look (p50 2.1 s, worst 5.9 s on `webkit-phone` at 4 workers).
+- **Cause:** The look hands the camera only the faces its slide draws (`buildFamilyFontCss`, PR #3240). The camera
+  then removes a page `@font-face` rule only when the host repeats its exact key (`withoutDuplicateFaces`: family,
+  weight, style, stretch, range), and it keeps every face of a family named anywhere in a font stack
+  (`familiesDrawnBy`). The capture frame declares each vendored face twice, once from the theme (`themes/fonts/`) and
+  once from the preview sheet (`/_astro/`). So every other weight of each drawn family stayed in the sheet, twice, and
+  was fetched and base64'd for a picture that never draws it. An export hands over the whole block, which repeats
+  every key, so it never met this.
+- **Fix:** The look passes `hostFamilies`, a test for "is this address a font file we ship"
+  (`font-embed.js` › `isVendoredFontUrl`; `lib/core/slide-camera.mjs` › `withoutHostFamilies`). The camera removes a page
+  rule whole when the host sheet carries its family and every address in the rule is vendored. It keeps a family the
+  host does not carry (KaTeX, a family only a pseudo-element rule names), an author's own `@font-face` even under a
+  vendored family's name, and, when the sheet has a `:first-line` or `:first-letter` rule, every face the by-key dedup
+  keeps: the host's faces come from the slide's elements (pool-capture.ts › `facesOf`), and those two pseudo-elements
+  can set a weight no element shows. No engine, theme or KaTeX CSS has such a rule. Exports leave the option unset
+  (`pageFontSheet`). After the fix, the same title slide inlines 4 files (Caveat, which a pseudo-element rule names)
+  and a 1.88 MB SVG.
+- **Triggered by:** Any caller that hands the camera a subset of the faces, not the whole block.
+- **See:** `docs/src/components/studio/export/deck-export.js` › `rasterizeSlidePreview`,
+  `test/unit/core/slide-camera-faces.test.js`.
