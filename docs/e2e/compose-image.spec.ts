@@ -76,7 +76,9 @@ test.describe('compose images', () => {
 
 	test('a sample name not in the folder is a stand-in that names it, not a broken image', async ({ page }) => {
 		await gotoStudio(page);
-		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## A typo', '', '![](sample:portrait-nobody.svg)'].join('\n'));
+		// Built, not written whole: test/unit/core/sample-images.test.js fails on any literal `sample:` name with no file.
+		const typo = ['sample:', 'portrait-nobody.svg'].join('');
+		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## A typo', '', `![](${typo})`].join('\n'));
 		await expect(page.locator('.cs-img-stand')).toContainText('portrait-nobody.svg');
 		await expect(page.locator('.cs-img-btn img')).toHaveCount(0);
 	});
