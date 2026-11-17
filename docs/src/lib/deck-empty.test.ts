@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { isBlankDeck } from './deck-empty';
 import { buildDeckIndex } from './deck-outline/deck-outline';
-import { isBlankDeck } from './front-matter';
 
 // The empty-deck rule (engineering/decisions/2026-11-17-compose-empty-deck.md §3): blank after the front matter. It must
 // agree with the slide index, or Compose would show the empty state while the strip shows a slide, or the reverse.

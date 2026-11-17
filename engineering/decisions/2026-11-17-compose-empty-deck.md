@@ -62,7 +62,7 @@ static image cannot show the deck's own theme, and the frames are bounded and me
 
 ## 3. What "empty" means
 
-**Nothing after the front matter but spaces and line breaks** (`isBlankDeck`, `docs/src/lib/front-matter.ts`). It is the
+**Nothing after the front matter but spaces and line breaks** (`isBlankDeck`, `docs/src/lib/deck-empty.ts`, a Studio-only module so the home page and the playground do not carry it). It is the
 rule the slide index already counts by, so Compose, the strip, Preview and the counters agree: `deck-empty.test.ts` holds
 `isBlankDeck(src)` equal to "the index has no slide" over thirteen shapes. Front matter alone is still empty. A lone `---`
 is one blank slide, as the engine renders it, and is not empty.

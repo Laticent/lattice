@@ -31,10 +31,10 @@ import { activeRegister, applicableRegisters, applyRegister, type Reg, type Slid
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { applySlideLayout, layoutBlocker, restoreSlide, type SlideLayoutChoice, slideComponent, slideFit, slideStarter } from '@/lib/compose/slide-layout';
 import { stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { isBlankDeck } from '@/lib/deck-empty';
 import { type CarriedColumn, lineOffsetIn, plainColumnOf, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { ensurePluginData } from '@/lib/ensure-plugin-data';
 import type { FindTarget } from '@/lib/find-types';
-import { isBlankDeck } from '@/lib/front-matter';
 import { notify } from '@/lib/notify';
 import { altFromAssetName } from '@/lib/photo-alt';
 import { hasFinePointer } from '@/lib/use-breakpoint';
