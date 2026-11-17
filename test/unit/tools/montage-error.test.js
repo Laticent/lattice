@@ -12,11 +12,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
-const { skipUnlessCI } = require('../../helpers/chrome');
 const { montageTriptych, pngsToPdf } = require('../../../tools/pixel-check.js');
-
-const hasMagick = spawnSync('montage', ['-version'], { stdio: 'ignore' }).status === 0;
 
 test('a page with no before image names the missing side', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'montage-err-'));
@@ -29,19 +25,28 @@ test('a page with no before image names the missing side', () => {
   }
 });
 
-test('a montage ImageMagick rejects reports ImageMagick\'s own message', { skip: skipUnlessCI(!hasMagick, 'ImageMagick') }, () => {
+// Stub `montage` and `convert` that fail the way ImageMagick does, so the test needs no ImageMagick and
+// passes or fails on pixel-check.js alone (HARD RULE #32): CI's unit job does not install it.
+test('a montage or PDF ImageMagick rejects reports ImageMagick\'s own message', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'montage-err-'));
+  const bin = path.join(dir, 'bin');
+  fs.mkdirSync(bin);
+  for (const tool of ['montage', 'convert']) {
+    fs.writeFileSync(path.join(bin, tool), `#!/bin/sh\necho "${tool}-im6.q16: improper image header" >&2\nexit 1\n`, { mode: 0o755 });
+  }
+  const savedPath = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${savedPath}`;
   try {
-    // Two files that exist but are not images: montage exits non-zero with a decode error.
     const a = path.join(dir, 'old.png');
     const b = path.join(dir, 'new.png');
-    fs.writeFileSync(a, 'not a png');
-    fs.writeFileSync(b, 'not a png');
+    fs.writeFileSync(a, 'x');
+    fs.writeFileSync(b, 'x');
     assert.equal(montageTriptych({ page: 1, oldPng: a, newPng: b }, path.join(dir, 'm.png')), null);
-    assert.match(montageTriptych.lastError, /^montage exited \d+: \S/);
+    assert.equal(montageTriptych.lastError, 'montage exited 1: montage-im6.q16: improper image header');
     assert.equal(pngsToPdf([a], path.join(dir, 'out.pdf')), null);
-    assert.match(pngsToPdf.lastError, /^convert exited \d+: \S/);
+    assert.equal(pngsToPdf.lastError, 'convert exited 1: convert-im6.q16: improper image header');
   } finally {
+    process.env.PATH = savedPath;
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
