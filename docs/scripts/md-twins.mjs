@@ -109,9 +109,38 @@ export function componentDoc(route, repo = REPO) {
 	const [, bucket, name] = m;
 	for (const dir of [`lib/components/${bucket}/${name}`, `lib/plugins/chart-family/kinds/${name}`]) {
 		const file = path.join(repo, dir, `${name}.docs.md`);
-		if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').replace(/\s*$/, '\n');
+		if (fs.existsSync(file)) return rebaseLinks(fs.readFileSync(file, 'utf8'), `${dir}/${name}.docs.md`).replace(/\s*$/, '\n');
 	}
 	return null;
+}
+
+const REPO_BLOB = 'https://github.com/Laticent/lattice/blob/main/';
+
+/**
+ * A `.docs.md` links its neighbours by repo-relative path (`../../anchor/title/title.docs.md`,
+ * `./closing.gallery.light.pdf`), which resolve in the repo and 404 on the site: the first
+ * version shipped 472 such links (found by review). Each relative link is resolved against the
+ * source file: another component's doc becomes that component's `.md` copy on the site, and
+ * anything else becomes the file on GitHub. Code (fenced and inline) is left exactly as written.
+ */
+export function rebaseLinks(md, sourcePath) {
+	const fromDir = path.posix.dirname(sourcePath);
+	const target = (href) => {
+		if (/^([a-z][a-z0-9+.-]*:|#|\/)/i.test(href)) return href; // absolute, an anchor, or site-rooted
+		const [file, anchor = ''] = href.split(/(?=#)/);
+		const repoPath = path.posix.normalize(path.posix.join(fromDir, file));
+		const doc = repoPath.match(/^lib\/components\/([^/]+)\/([^/]+)\/\2\.docs\.md$/) ?? repoPath.match(/^lib\/plugins\/chart-family\/kinds\/([^/]+)\/\1\.docs\.md$/);
+		if (doc) return doc.length === 3 ? `/components/${doc[1]}/${doc[2]}.md${anchor}` : `/components/chart/${doc[1]}.md${anchor}`;
+		return `${REPO_BLOB}${repoPath}${anchor}`;
+	};
+	// Fenced blocks are set aside whole. In the rest, ONE left-to-right scan: a code span or a
+	// link, whichever starts first, so `[`title`](…)` (code inside link text) is a link and
+	// `` `[x](./y)` `` (a link written inside code) is code.
+	const INLINE = /(`+)[^`\n]*?\1|(!?\[(?:[^\]`]|`[^`\n]*`)*\]\()([^)\s]+)((?:\s+"[^"]*")?\))/g;
+	return md
+		.split(/(^(?:`{3,}|~{3,})[^\n]*\n[\s\S]*?^(?:`{3,}|~{3,})[ \t]*$)/m)
+		.map((part, i) => (i % 2 ? part : part.replace(INLINE, (whole, _ticks, open, href, close) => (open ? `${open}${target(href)}${close}` : whole))))
+		.join('');
 }
 
 /** Convert one built page to its Markdown twin, or null when it is not a content page. */
@@ -137,9 +166,17 @@ export function pageToMarkdown(html, route = '') {
 	for (const sel of DROP) for (const node of selectAll(sel, main)) node.tagName = 'twin-drop';
 	// Drop removed elements and every comment (React's `<!-- -->` text separators among them),
 	// then space out side-by-side items.
-	const strip = (node) => {
+	// Never inside code: there, side-by-side elements are syntax-highlight tokens of ONE line
+	// (`<span>"name"</span><span>:</span>`), and a space between them changes the code. The first
+	// version spaced them and turned `"name":` into `" name " :` in 38 copies (found by review).
+	const strip = (node, inCode = false) => {
 		if (!node.children) return node;
-		const kept = node.children.filter((c) => c.type !== 'comment' && !(c.type === 'element' && c.tagName === 'twin-drop')).map(strip);
+		const code = inCode || (node.type === 'element' && (node.tagName === 'pre' || node.tagName === 'code'));
+		const kept = node.children.filter((c) => c.type !== 'comment' && !(c.type === 'element' && c.tagName === 'twin-drop')).map((c) => strip(c, code));
+		if (code) {
+			node.children = kept;
+			return node;
+		}
 		const spaced = [];
 		for (const c of kept) {
 			const prev = spaced.at(-1);
@@ -180,7 +217,8 @@ export function pageToMarkdown(html, route = '') {
 			pre(state, node) {
 				// Expressive Code: one `.ec-line` div per line, language on `data-language`.
 				const lines = selectAll('.ec-line', node);
-				const text = lines.length ? lines.map((l) => toPlainText(l)).join('\n') : toPlainText(node);
+				// An empty line's div holds a bare newline; strip it, or every blank line doubles.
+				const text = lines.length ? lines.map((l) => toPlainText(l).replace(/\n$/, '')).join('\n') : toPlainText(node);
 				const lang = node.properties?.dataLanguage ?? langFromClass(select('code', node));
 				return { type: 'code', lang: lang && lang !== 'plaintext' ? String(lang) : null, value: text.replace(/\n+$/, '') };
 			},
@@ -243,6 +281,9 @@ export function twinProblems(md) {
 	// `\<!--` is the converter escaping a `<` the page shows as text: that is text, not a leak.
 	if (/(?<!\\)<!--/.test(prose)) problems.push('an HTML comment outside code');
 	if (/<\/?(astro-island|astro-slot|script|style|svg|button)\b/i.test(prose)) problems.push('leftover interface markup outside code');
+	// A repo-relative link resolves in the repo and 404s on the site (rebaseLinks fixes them).
+	const relative = [...prose.matchAll(/\]\(((?:\.\.?\/)[^)\s]*)/g)].map(([, href]) => href);
+	if (relative.length) problems.push(`a repo-relative link: ${relative[0]}`);
 	if (md.trim().length < 200) problems.push(`only ${md.trim().length} characters`);
 	return problems;
 }

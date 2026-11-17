@@ -26,6 +26,9 @@ describe('robotsTxt', () => {
 		const txt = robotsTxt({ site: SITE, index: true });
 		expect(txt).toContain('User-agent: *\nAllow: /');
 		expect(txt).toContain('Sitemap: https://lattice.style/sitemap-index.xml');
+		// Search engines are kept off the Markdown copies; every other crawler is not.
+		expect(txt).toMatch(/User-agent: Googlebot\nUser-agent: Bingbot\nAllow: \/\nDisallow: \/\*\.md\$/);
+		expect(txt.split('User-agent: Googlebot')[0]).not.toContain('Disallow');
 	});
 	it('disallows everything on a preview deploy', () => {
 		const txt = robotsTxt({ site: SITE, index: false });

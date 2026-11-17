@@ -49,10 +49,12 @@ export function canonicalUrl(site, pathname) {
 }
 
 /**
- * robots.txt. One group for every crawler — search engines and AI crawlers alike
- * (Googlebot, Bingbot, GPTBot, ClaudeBot, PerplexityBot all honor `User-agent: *`). A
- * per-bot group that repeats the same rules adds lines and nothing else; the day a bot
- * needs a different rule is the day it gets its own group.
+ * robots.txt. Every crawler, search engines and AI crawlers alike (Googlebot, Bingbot, GPTBot,
+ * ClaudeBot, PerplexityBot all read `User-agent: *`), may fetch everything. One exception has
+ * its own group: Googlebot and Bingbot (Bing also feeds DuckDuckGo and Yahoo) are kept off the
+ * `.md` copies, which exist for agents and would otherwise sit in search results as duplicates
+ * of the pages they copy; a .md file cannot carry a canonical link or a noindex. A named group
+ * REPLACES the `*` group for that bot, so it repeats the allow.
  *
  * A preview build (`index: false`, per deploy-env.mjs) disallows everything. Today's PR
  * previews do not reach that branch — they are built in GitHub Actions without CF_PAGES —
@@ -63,7 +65,17 @@ export function robotsTxt({ site, index }) {
 	if (!index) {
 		return '# A preview deploy. The real site is https://lattice.style.\nUser-agent: *\nDisallow: /\n';
 	}
-	const lines = ['User-agent: *', 'Allow: /', ''];
+	const lines = [
+		'User-agent: *',
+		'Allow: /',
+		'',
+		'# Search engines index the pages, not their Markdown copies (which are for agents).',
+		'User-agent: Googlebot',
+		'User-agent: Bingbot',
+		'Allow: /',
+		'Disallow: /*.md$',
+		'',
+	];
 	if (site) lines.push(`Sitemap: ${new URL('/sitemap-index.xml', site).href}`, '');
 	return lines.join('\n');
 }

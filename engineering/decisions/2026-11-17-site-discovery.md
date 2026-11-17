@@ -5,8 +5,8 @@ summary: >
   pages it used to list that are not meant to be found (19 said noindex; two prototypes now do too), every standalone route carries a canonical link and an Open Graph card,
   robots.txt and a 1.6 KB llms.txt router ship from one module (docs/src/lib/discovery.mjs), and a post-build
   gate (docs/scripts/check-discovery.mjs) fails when any of them disagree. The sitemap carries each page's
-  last content commit, every content page has a Markdown copy at its own path plus `.md`, and the 78
-  pages that cannot build a preview frame carry a strict, hash-based CSP; the frame pages are stage 2.
+  last content commit, every content page has a Markdown copy at its own path plus `.md`, and the 75
+  routes whose code a strict policy cannot break carry a strict, hash-based CSP; the rest are stage 2.
   A shared link shows a social card drawn from real engine renders.
 ---
 
@@ -40,8 +40,11 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
   `og:description`, `og:url` and `twitter:card` for every route that writes its own `<head>`. It replaced the
   partial sets in `ComponentsLayout`, `CatalogLayout` and `/comparison/`, and was added to the landing page,
   `/features/`, `/studio/` and `/playground/`.
-- **`/robots.txt`** is one group for every crawler: `Allow: /` and the sitemap. Googlebot, Bingbot, GPTBot,
-  ClaudeBot and PerplexityBot all read `User-agent: *`, so a per-bot group with the same rules adds nothing.
+- **`/robots.txt`** lets every crawler fetch everything (`User-agent: *`, which Googlebot, Bingbot, GPTBot,
+  ClaudeBot and PerplexityBot all read) and names the sitemap. One named group: Googlebot and Bingbot are kept
+  off `/*.md$`, because the Markdown copies exist for agents, cannot carry a canonical link or a noindex,
+  and would otherwise sit in search results beside the pages they copy (review finding). AI crawlers can
+  still read them.
   A preview should not be indexed, because it competes with the real page. The PR previews are built in
   GitHub Actions with `CF_PAGES` unset (`2026-07-01-docs-pr-preview.md`), so their `robots.txt` is the
   production one; what keeps them out is a `/* X-Robots-Tag: noindex` rule in `docs/public/_headers`, which
@@ -62,42 +65,60 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
   the last commit to the page's main-content source (`docs/src/lib/lastmod.mjs`): a docs page's
   `.md`/`.mdx` file, a component page's component folder, a catalog page's `content/catalog`
   file, a standalone route's own `.astro` file. Shared chrome (a layout, the header, a
-  stylesheet) moves no date, which is what Google asks lastmod to track. A depth-1 checkout
+  stylesheet) moves no date, which is what Google asks lastmod to track. Review found two
+  corrections, both in: machine renders never move a date (27 of 52 component folders had last
+  been touched by the nightly golden bless, which re-commits their PDFs), and `/components/` is
+  dated by the whole catalog it renders, not by its page file. A standalone route is dated by
+  its own page file, so a `<head>` edit moves it too: there, the page and its content are one
+  file. A page with no commit yet (a new page on a local build) gets no date and a warning. A depth-1 checkout
   would date every page to its one commit, so `docs.yml` and `docs-preview.yml` now check out
   full history without file contents (`fetch-depth: 0`, `filter: blob:none`): measured 19 MB and
   about 3 to 5 s, plus 0.4 s for the one `git log` pass. Every other build is shallow and omits
   lastmod entirely. The gate holds it all-or-nothing: with history every URL must carry the
   computed date, and without it none may carry one.
 
-- **A strict Content-Security-Policy on the 78 routes that cannot build a preview frame**
-  (owner call, 2026-11-17: stage it). GitHub Pages cannot send headers, so it is a `<meta>` tag,
-  written by `docs/scripts/csp.mjs` after every other step that rewrites HTML, so its hashes are
-  of the bytes that ship. Measured before choosing that design:
+- **A strict Content-Security-Policy on 75 of the 203 routes** (owner call, 2026-11-17: stage
+  it). GitHub Pages cannot send headers, so it is a `<meta>` tag, written by
+  `docs/scripts/csp.mjs` after every other step that rewrites HTML, so its hashes are of the
+  bytes that ship. Measured before choosing that design:
   - Astro 7's own `security.csp` does not hash `is:inline` scripts (every route has three or
     more), is computed before our post-build steps rewrite the HTML, and on the landing page
     put the tag where the browser ignored the whole policy.
-  - A slide preview is a same-origin `srcdoc` frame, which inherits its parent's policy, and
-    the engine writes inline scripts into it at run time with per-deck values. Under a strict
-    policy the Playground preview rendered blank. So a page that can build a frame (its HTML
-    names the runtime, or a module it can load, statically or dynamically, contains `srcdoc`)
-    gets no policy for now: 125 of 203 routes. Moving the frame scripts into files is stage 2,
-    `followups.d/3277-p1-csp-frame-pages.md`. (The question put to the owner said "about 100"
-    frame-free pages; the measured number is 78.)
-  - The policy: scripts from our origin plus the hash of each inline script, nothing else (no
-    inline handlers, no eval); images, fonts, media and fetches from our origin plus `data:`/
-    `blob:`; no frames, no plugins; `base-uri` and `form-action` our origin. Styles allow
-    inline: Radix's dialog scroll lock injects a `<style>` carrying the visitor's measured
-    scrollbar width, which no hash can match, and blocking it lets the page scroll behind every
-    open dialog. A nonce is a public constant on a static site. What injected CSS could do is
-    read the page through selectors and leak it in a `url()`, and the image, font and fetch
-    rules close every such channel.
-  - Two things on those pages broke under the policy and are fixed at the source: the header's
-    palette-label rules were a `<style>` a script built at run time (now a static `is:inline`
-    element above the header, same paint order), and the offline page hid a missing logo with
-    an inline `onerror` (now inline SVG, so it needs no cached asset).
-  - `e2e/site-csp.spec.ts` loads every policy page and fails on any `securitypolicyviolation`,
-    and drives search (Pagefind, whose load failure the menu swallows silently), the palette
-    label and the mode toggle on Chromium at desktop and phone width, WebKit and Gecko.
+  - Three kinds of page get no policy yet, because it would break them. Stage 2 is
+    `followups.d/3277-p1-csp-frame-pages.md`.
+    - **frame (125):** a slide preview is a same-origin `srcdoc` frame, which inherits its
+      parent's policy, and the engine writes inline scripts into it at run time with per-deck
+      values. Under a strict policy the Playground preview rendered blank. A page is a frame page
+      when its HTML names the runtime, or a module it can load (statically or dynamically)
+      contains `srcdoc`.
+    - **eval (1, Calco):** HarfBuzz's Emscripten bindings build functions from strings through
+      an alias, so the PPTX export hung at "Embedding fonts…" (1 s and 3 fonts without the
+      policy). A page is an eval page when its code contains a direct `eval(`/`Function(`, or
+      loads a module on `INDIRECT_EVAL_CHUNKS`.
+    - **network (2, Cadenza and Suono):** their voice code calls OpenRouter and Google on the
+      visitor's key and imports a model runtime from esm.run. Every outside origin found in code
+      a policy page can load must be on `RUNTIME_ORIGINS` (the page is exempt) or
+      `LINK_ONLY_ORIGINS` (a string never fetched), or the build fails, so a new one is a decision.
+  - The question put to the owner said "about 100" policy pages; the measured number is 75.
+  - The policy: scripts from our origin plus the hash of each inline script, plus
+    `'wasm-unsafe-eval'` (WebAssembly compiles; JS eval stays blocked); images, fonts, media and
+    fetches from our origin plus `data:`/`blob:`; no frames, no plugins; `base-uri` and
+    `form-action` our origin. Styles allow inline: Radix's dialog scroll lock injects a `<style>`
+    carrying the visitor's measured scrollbar width, which no hash can match, and blocking it
+    lets the page scroll behind every open dialog. A nonce is a public constant on a static site.
+    What injected CSS could do is read the page through selectors and leak it in a `url()`, and
+    the image, font and fetch rules close every such channel.
+  - Two things on policy pages broke and are fixed at the source: the header's palette-label
+    rules were a `<style>` a script built at run time (now a static `is:inline` element above
+    the header, same paint order), and the offline page hid a missing logo with an inline
+    `onerror` (now inline SVG, so it needs no cached asset).
+  - Script hashes come from a parse5 parse of each page, not a pattern: CodeQL flagged the first
+    version's end-tag regex, and a hash of the wrong bytes blocks the script it should allow.
+  - `e2e/site-csp.spec.ts` loads every policy page; drives search (Pagefind, whose load failure
+    the menu swallows silently), the palette label and the mode toggle; and presses every control
+    on every library demo with a policy (60+), on Chromium, WebKit and Gecko, failing on any
+    `securitypolicyviolation`. Loading alone missed the Calco and voice breaks the first review
+    found; the press-everything test catches the Calco one when its exemption is removed.
 
 - **A Markdown copy ("twin") of every content page** (`docs/scripts/md-twins.mjs`, 177 pages):
   every page that declares itself an article (docs pages, component pages, catalog pages,
@@ -117,6 +138,14 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     interface markup in its prose (code is exempt: a deck sample is full of `<!-- _class -->`).
     A sweep of all 91 non-component copies found no "Section titled", "Copy", pagination or
     contents-list text.
+  - Review found two defects in the first version, both fixed and both now tested: a rule that
+    spaces side-by-side items (so a row of tags does not read as one word) also ran inside code,
+    where the items are one line's highlight tokens, and turned `"name":` into `" name " :` in 38
+    copies; and the component copies kept 472 repo-relative links that 404 on the site.
+    `rebaseLinks` now resolves each against its source file (another component's doc becomes its
+    `.md` copy; anything else becomes the file on GitHub), and `--check` fails a relative link
+    left in prose. The same fix went into `sync-portal.mjs`: the long-served `/components.md` had
+    about 160 dead links of the same kind.
 
 - **A social card** (`docs/public/og/lattice.png`, 1200×630 PNG, 93 KB), drawn by
   `tools/make-og-card.js` from the brand lockup, the landing page's promise and three slides

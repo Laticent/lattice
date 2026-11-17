@@ -5,7 +5,7 @@ import { expect, type Page, test } from '@playwright/test';
 
 // THE STRICT CSP HOLDS ON THE PAGES THAT CARRY IT (#3207, stage 1; docs/scripts/csp.mjs).
 //
-// csp.mjs hashes every inline script and <style> a frame-free page ships and writes a policy
+// csp.mjs hashes every inline script a policy page ships and writes a policy
 // that admits nothing else. What no build step can see is code that builds a script or a
 // style AT RUN TIME, or loads something from another origin. The browser reports each of
 // those as a `securitypolicyviolation` event, and this spec fails on any. It also drives the
@@ -50,7 +50,9 @@ async function watchViolations(page: Page) {
 
 // One page of each kind csp.mjs covers: a Starlight docs page, a standalone article, the
 // features catalog, a catalog Learn page, a library demo shell and the offline fallback.
-const REPRESENTATIVE = ['/getting-started/', '/comparison/', '/features/', '/plugins/math/learn/', '/libraries/cadenza/', '/offline/'];
+// (Not Cadenza or Suono: their code calls OpenRouter and Google on the visitor's key, so
+// csp.mjs leaves them without a policy until stage 2.)
+const REPRESENTATIVE = ['/getting-started/', '/comparison/', '/features/', '/plugins/math/learn/', '/libraries/lente/', '/offline/'];
 
 test('@smoke @crosswidth @webkit-phone @gecko a page of every kind loads under its strict CSP with no violation', async ({ page }) => {
 	const violations = await watchViolations(page);
@@ -107,9 +109,62 @@ test('@smoke @crosswidth @webkit-phone @gecko search, the palette picker and the
 	expect(await violations()).toEqual([]);
 });
 
+// LOADING IS NOT USING. The first version of this spec only loaded pages, and review found two
+// features a policy broke without a sound: Calco's PPTX export (HarfBuzz builds code from strings
+// through an alias no text search sees; the export hung at "Embedding fonts…") and the voice
+// demos' cloud calls. csp.mjs now exempts both kinds, and these two tests are the run-time guard
+// for what static analysis cannot see.
+
+// Calco is exempt (it evaluates code). This pins the feature itself, so a later change that
+// gives the page a policy, or breaks the export another way, fails here.
+test('@smoke Calco’s PowerPoint export embeds its fonts', async ({ page }) => {
+	await page.goto('/libraries/calco/');
+	await expect(page.locator(CSP_META)).toHaveCount(0);
+	await page.locator('#pptxBtn').click();
+	// The signal is Calco's own status line, written when the file is done ("… · N fonts
+	// embedded · K KB"). Rasterizing and subsetting takes a few seconds on a CI runner.
+	await expect(page.locator('#status')).toContainText(/fonts embedded/, { timeout: 60_000 });
+	const fonts = Number((await page.locator('#status').textContent())?.match(/(\d+) fonts embedded/)?.[1] ?? 0);
+	expect(fonts).toBeGreaterThan(0);
+});
+
+// Every control on every library demo that carries a policy, pressed once. A demo is a page of
+// buttons that run real library code (a wasm module, a worker, a generated file), so this is
+// where a feature the policy blocks shows up. Downloads are accepted and discarded.
+test('@crosswidth @webkit-phone @gecko every control on the library demos with a policy runs with no violation', async ({ page }) => {
+	test.setTimeout(240_000);
+	const demos = policyRoutes().filter((r) => /^\/libraries\/[^/]+\/$/.test(r));
+	expect(demos.length).toBeGreaterThan(5);
+	const violations = await watchViolations(page);
+	const found: Record<string, string[]> = {};
+	let pressed = 0;
+	for (const route of demos) {
+		await page.goto(route, { waitUntil: 'load' });
+		await page.waitForLoadState('networkidle');
+		const buttons = page.locator('main button:visible:enabled, .wrap button:visible:enabled');
+		const count = await buttons.count();
+		for (let i = 0; i < count; i++) {
+			const b = buttons.nth(i);
+			if (!(await b.isVisible()) || !(await b.isEnabled())) continue;
+			// A control can hide or disable itself once pressed; one that cannot be pressed now is
+			// skipped, not failed: the assertion is about violations, and `pressed` proves work.
+			if (await b.click({ timeout: 5_000 }).then(() => true, () => false)) pressed++;
+			await page.waitForLoadState('networkidle');
+		}
+		const v = await violations();
+		if (v.length) found[route] = [...new Set(v)];
+		await page.evaluate(() => {
+			(window as unknown as { __csp: string[] }).__csp.length = 0;
+		});
+	}
+	expect(found).toEqual({});
+	// Work done, not a vacuous pass: the demos with a policy carried 60+ controls when this landed.
+	expect(pressed).toBeGreaterThan(40);
+});
+
 test('every page that carries the CSP loads with no violation', async ({ page }) => {
 	const routes = policyRoutes();
-	// csp.mjs measured 78 frame-free routes when this landed; far fewer means the build lost them.
+	// csp.mjs gave 75 routes a policy when this landed; far fewer means the build lost them.
 	expect(routes.length).toBeGreaterThan(60);
 	const violations = await watchViolations(page);
 	const found: Record<string, string[]> = {};

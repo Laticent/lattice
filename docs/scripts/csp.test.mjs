@@ -1,7 +1,7 @@
 // Unit tests for the pure halves of scripts/csp.mjs. No build, no dist.
 
 import { describe, expect, it } from 'vitest';
-import { isFramePage, policyFor, sha256, withPolicy } from './csp.mjs';
+import { exemption, LINK_ONLY_ORIGINS, policyFor, RUNTIME_ORIGINS, sha256, withPolicy } from './csp.mjs';
 
 const page = (head, body = '') => `<!doctype html><html><head><meta charset="utf-8"><title>t</title>${head}</head><body>${body}</body></html>`;
 const scriptHashes = (html) => policyFor(html).match(/script-src ([^;]*)/)[1].split(' ').filter((t) => t.startsWith("'sha256-"));
@@ -35,7 +35,8 @@ describe('policyFor', () => {
 	it('allows nothing it was not given: no inline handlers, no eval, no other origin', () => {
 		const p = policyFor(page(''));
 		expect(p).toContain("default-src 'self'");
-		expect(p).not.toMatch(/script-src[^;]*'unsafe-(inline|eval|hashes)'/);
+		expect(p).not.toMatch(/script-src[^;]*'unsafe-(inline|hashes)'/);
+		expect(p).not.toMatch(/'unsafe-eval'/);
 		expect(p).toContain("object-src 'none'");
 		expect(p).toContain("frame-src 'none'");
 		expect(p).toContain("img-src 'self' data: blob:");
@@ -52,15 +53,49 @@ describe('withPolicy', () => {
 	});
 });
 
-describe('isFramePage', () => {
-	const builds = (graph) => (f) => graph[f] === true;
-	it('marks a page whose HTML names the preview runtime', () => {
-		expect(isFramePage(page('', '<x-island props="{runtimeUrl:1}">'), builds({}))).toBe(true);
+describe('exemption', () => {
+	// A fake module graph: each entry chunk maps to what everything it can load contains.
+	const reach = (graph) => (roots) => {
+		const origins = new Set();
+		let frame = false;
+		let evals = false;
+		for (const r of roots) {
+			frame ||= Boolean(graph[r]?.frame);
+			evals ||= Boolean(graph[r]?.evals);
+			for (const o of graph[r]?.origins ?? []) origins.add(o);
+		}
+		return { frame, evals, origins };
+	};
+	const withApp = page('<script type="module" src="/_astro/app.js"></script>');
+
+	it('exempts a page whose HTML names the preview runtime', () => {
+		expect(exemption(page('', '<x-island props="{runtimeUrl:1}">'), reach({}))).toBe('frame');
 	});
-	it('marks a page that can load a module that builds a srcdoc frame', () => {
-		expect(isFramePage(page('<script type="module" src="/_astro/app.js"></script>'), builds({ 'app.js': true }))).toBe(true);
+	it('exempts a page that can load a module that builds a srcdoc frame', () => {
+		expect(exemption(withApp, reach({ 'app.js': { frame: true } }))).toBe('frame');
 	});
-	it('leaves a page whose modules build no frame', () => {
-		expect(isFramePage(page('<script type="module" src="/_astro/app.js"></script>'), builds({ 'app.js': false }))).toBe(false);
+	it('exempts a page whose code can evaluate a string as script', () => {
+		expect(exemption(withApp, reach({ 'app.js': { evals: true } }))).toBe('eval');
+	});
+	it('exempts a page whose code calls another origin at run time', () => {
+		expect(exemption(withApp, reach({ 'app.js': { origins: ['openrouter.ai'] } }))).toBe('network');
+	});
+	it('gives a policy to a page whose code only names link-only origins', () => {
+		expect(exemption(withApp, reach({ 'app.js': { origins: ['github.com', 'react.dev'] } }))).toBeNull();
+	});
+	it('fails on an origin in neither list, so a new one is a decision', () => {
+		expect(() => exemption(withApp, reach({ 'app.js': { origins: ['tracker.example'] } }))).toThrow(/tracker\.example/);
+	});
+});
+
+describe('the policy', () => {
+	it('lets a page compile WebAssembly (Calco’s font subsetter) without allowing JS eval', () => {
+		const p = policyFor(page(''));
+		expect(p).toMatch(/script-src 'self' 'wasm-unsafe-eval'/);
+		expect(p).not.toMatch(/'unsafe-eval'/);
+	});
+	it('lists every runtime and link-only origin once, in exactly one list', () => {
+		const all = [...RUNTIME_ORIGINS, ...LINK_ONLY_ORIGINS];
+		expect(new Set(all).size).toBe(all.length);
 	});
 });

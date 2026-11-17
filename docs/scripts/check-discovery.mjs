@@ -25,7 +25,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isIndexable, LLMS_LINKS, OG_IMAGE } from '../src/lib/discovery.mjs';
-import { hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
+import { contentSources, hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
@@ -61,6 +61,7 @@ function routeOf(file) {
 }
 
 const errors = [];
+const warnings = [];
 const fail = (msg) => errors.push(msg);
 
 if (!fs.existsSync(DIST)) {
@@ -95,12 +96,14 @@ for (const file of walk(DIST)) {
 // ── 2: the sitemap is exactly the indexable routes ───────────────────────────
 const sitemapIndex = path.join(DIST, 'sitemap-index.xml');
 const listed = new Set();
+let siteOriginFromSitemap;
 const REPO_ROOT = path.join(HERE, '..', '..');
 const withHistory = hasHistory(REPO_ROOT);
 const lastmodFor = makeLastmod(REPO_ROOT);
 if (!fs.existsSync(sitemapIndex)) fail('dist/sitemap-index.xml is missing');
 else {
 	for (const [, loc] of fs.readFileSync(sitemapIndex, 'utf8').matchAll(/<loc>([^<]+)<\/loc>/g)) {
+		siteOriginFromSitemap ??= new URL(loc).origin;
 		const part = path.join(DIST, new URL(loc).pathname);
 		if (!fs.existsSync(part)) {
 			fail(`sitemap-index.xml names ${loc}, which was not built`);
@@ -112,8 +115,13 @@ else {
 			const lastmod = entry.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1];
 			if (withHistory) {
 				const want = lastmodFor(route);
-				if (!want) fail(`${route} has no content source in src/lib/lastmod.mjs contentSources — map it`);
-				else if (lastmod !== want) fail(`${route} lastmod is ${lastmod ?? 'missing'}, want ${want}`);
+				if (!contentSources(route, REPO_ROOT)) fail(`${route} has no content source in src/lib/lastmod.mjs contentSources — map it`);
+				else if (!want) {
+					// Mapped, but not committed yet (a new page on a local build): no date is the honest
+					// answer, and CI never sees this because it builds commits.
+					if (lastmod) fail(`${route} carries lastmod ${lastmod} but its source has no commit`);
+					else warnings.push(`${route}: its source has no commit yet, so the sitemap gives it no lastmod`);
+				} else if (lastmod !== want) fail(`${route} lastmod is ${lastmod ?? 'missing'}, want ${want}`);
 			} else if (lastmod) fail(`${route} carries lastmod ${lastmod} from a shallow checkout, where every date is the latest commit`);
 		}
 	}
@@ -152,10 +160,13 @@ else {
 	// Every link as the built file actually writes it: a page twin (`.md`) or a page. A twin's
 	// page must be indexable; a dead link fails.
 	const text = fs.readFileSync(llms, 'utf8');
-	const links = [...text.matchAll(/\]\(([^)]+)\)/g)].map(([, href]) => href).filter((href) => !/^https?:\/\/(?!lattice\.style)/.test(href));
+	// The site's own origin is whatever the build's sitemap says it is (lattice.style, or a
+	// preview host when SITE_URL points elsewhere), not a hard-coded name.
+	const siteOrigin = siteOriginFromSitemap ?? 'https://lattice.style';
+	const links = [...text.matchAll(/\]\(([^)]+)\)/g)].map(([, href]) => href).filter((href) => !/^https?:/.test(href) || new URL(href).origin === siteOrigin);
 	if (links.length < LLMS_MIN_LINKS) fail(`llms.txt has ${links.length} site links; expected at least ${LLMS_MIN_LINKS}`);
 	for (const href of links) {
-		const p = new URL(href, 'https://lattice.style').pathname;
+		const p = new URL(href, siteOrigin).pathname;
 		const target = p.endsWith('/') ? path.join(DIST, p, 'index.html') : path.join(DIST, p);
 		if (!fs.existsSync(target)) fail(`llms.txt links ${p}, which was not built`);
 		const page = p.endsWith('.md') ? (p === '/components.md' ? '/components/' : `${p.slice(0, -3)}/`) : p;
@@ -163,6 +174,7 @@ else {
 	}
 }
 
+for (const w of warnings) console.warn(`check-discovery: warning: ${w}`);
 if (errors.length) {
 	console.error(`check-discovery: ${errors.length} problem(s)\n  ${errors.join('\n  ')}`);
 	process.exit(1);
