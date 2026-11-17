@@ -258,6 +258,19 @@ describe('the reference diff: matching and explanations', () => {
     assert.equal(explain(entries, 'x', 'fix', 'known gap'), null);
     assert.equal(entries[0].hits, 1);
   });
+
+  test('a fix explanation can require the source text and that lint-core\'s fix did nothing', () => {
+    const entries = [{ rule: 'x', kind: 'fix', re: /./, text: /^mode[ \t]+:/m, lintCoreNoop: true, why: 'intended', hits: 0 }];
+    const src = '---\nmode : sketchh\n---\n';
+    assert.ok(explain(entries, 'x', 'fix', 'test input 1', { text: src, oldText: src }));
+    // lint-core changed the source: not the edge the entry names.
+    assert.equal(explain(entries, 'x', 'fix', 'test input 1', { text: src, oldText: src.replace('sketchh', 'sketch') }), null);
+    // a different source text.
+    assert.equal(explain(entries, 'x', 'fix', 'test input 1', { text: '---\nmode: sketchh\n---\n', oldText: '---\nmode: sketchh\n---\n' }), null);
+    // a fix entry with text and no source to read cannot explain anything.
+    assert.equal(explain(entries, 'x', 'fix', 'test input 1'), null);
+    assert.equal(entries[0].hits, 1);
+  });
 });
 
 describe('the reference diff: the reference tree', () => {

@@ -30,6 +30,9 @@
  *   { "<rule>": [ { "kind": "lint", "match": "<regex on the message>", "why": "<the reason it is intended>" },
  *                 { "kind": "fix",  "match": "<regex on the source name>", "why": "…" } ] }
  *
+ * A fix entry may add `"text"` (a regex on the source text, `m` flag) and `"lintCoreNoop": true` (lint-core's Fix all
+ * left the source unchanged); all its fields must hold for it to explain a source.
+ *
  * An entry that explains no difference is STALE and fails the run, so the file cannot quietly switch a rule off.
  *
  * `--fix` adds the fix diff: Fix all through lint-core (`applyAllFixes`) and through `fixDeck`, compared as
@@ -152,12 +155,21 @@ function loadExplained(file = EXPLAINED_FILE) {
   const raw = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
   const out = [];
   for (const [rule, list] of Object.entries(raw)) {
-    for (const e of Array.isArray(list) ? list : []) out.push({ rule, kind: e.kind, re: new RegExp(e.match), why: e.why, hits: 0 });
+    for (const e of Array.isArray(list) ? list : []) {
+      out.push({ rule, kind: e.kind, re: new RegExp(e.match), text: e.text ? new RegExp(e.text, 'm') : null, lintCoreNoop: e.lintCoreNoop === true, why: e.why, hits: 0 });
+    }
   }
   return out;
 }
-function explain(entries, rule, kind, subject) {
-  const e = entries.find((x) => x.rule === rule && x.kind === kind && x.re.test(subject));
+/**
+ * The entry that explains a difference, or null. A fix entry may also name the source TEXT it covers (`text`, a regex
+ * run with `m`) and require that lint-core's Fix all left the source unchanged (`lintCoreNoop`), so one entry can explain
+ * a kind of edge (a `key :` line lint-core reports and cannot fix) without naming each source by its recording index.
+ */
+function explain(entries, rule, kind, subject, fix = null) {
+  const e = entries.find(
+    (x) => x.rule === rule && x.kind === kind && x.re.test(subject) && (!x.text || (fix && x.text.test(fix.text))) && (!x.lintCoreNoop || (fix && fix.oldText === fix.text)),
+  );
   if (e) e.hits++;
   return e ?? null;
 }
@@ -239,7 +251,7 @@ function main() {
         fixStats.notMigrated++;
         continue;
       }
-      fixStats.held.push({ source: s.name, rules: [...rules] });
+      fixStats.held.push({ source: s.name, rules: [...rules], text: s.text, oldText });
     }
   }
 
@@ -254,7 +266,7 @@ function main() {
   }
   for (const d of fixStats.held) {
     if (!d.rules.length) failures.push(`fix: ${d.source} fixes differently and no rule's findings changed to account for it`);
-    else for (const rule of d.rules) if (!explain(explained, rule, 'fix', d.source)) failures.push(`fix: ${d.source} fixes differently (${rule}), with no fix entry in explained.json`);
+    else for (const rule of d.rules) if (!explain(explained, rule, 'fix', d.source, d)) failures.push(`fix: ${d.source} fixes differently (${rule}), with no fix entry in explained.json`);
   }
   for (const e of explained) {
     if (!migrated.has(e.rule)) failures.push(`explained.json: ${e.rule} is not a rule the ruleset defines`);
