@@ -193,7 +193,8 @@ async function studioPage(id, file, fn, { seed = true } = {}) {
 
 /**
  * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916),
- * the sheet focus probe (sheet-focus-probe.js, #3108) and the first-visit Compose probe (compose-probe.js), each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
+ * the sheet focus probe (sheet-focus-probe.js, #3108) and the first-visit Compose probe (compose-probe.js), each on a fresh page, then on
+ * the Compose page a touch tap on a paragraph and one on an empty deck's start grid (empty-deck-probe.js). One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
  * does not pay for the photo check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes
  * on a slow runner. The photo memory arms (PROBE=photo-memory, #2998) are a suite of their own for the same reason: inside this
@@ -222,15 +223,18 @@ async function runStudioProbe(id) {
 	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
 	// which never shows the keyboard or runs Safari's own tap-to-focus path.
 	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
+	// Then the empty deck, on that page: a real touch on the start grid's canvas gives Compose's empty line the caret, the
+	// "tap here to start writing" hint's promise (empty-deck-probe.js; 2026-11-17-compose-empty-deck.md).
+	const empty = compose.ok ? await shotIfFailed('empty-deck', await emptyDeckTap(id)) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
 	// The icon grid's phone path (icon-grid-probe.js, #2578): the iPhone only, where Menu → Search / commands is the way in.
 	const icons = LABEL === 'iPhone' ? await shotIfFailed('icon-grid', await iconGridProbe(id)) : { ok: true, steps: [] };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!icons.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, icons.error && `icon grid: ${icons.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok && !!empty.ok && !!icons.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`, empty.error && `empty deck tap: ${empty.error}`, icons.error && `icon grid: ${icons.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('icon grid', icons)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap), ...named('empty deck tap', empty), ...named('icon grid', icons)],
 	};
 }
 
@@ -489,6 +493,63 @@ async function runPlayerChartsProbe(id) {
 			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 		},
 	});
+}
+
+/**
+ * THE EMPTY DECK'S CANVAS TAP (empty-deck-probe.js), on the Compose page the tap above left: the page empties the deck and
+ * names a still point on the start grid's own background, WebDriver sends one touch there, and the page reads the result:
+ * the editor has the focus, a caret sits in the empty line, and the grid is still up. Then the page puts the deck back in Source, so
+ * the icon grid probe after this sees the deck it expects. The long-press precondition is composeTouchTap's (tap-guard.mjs).
+ */
+async function emptyDeckTap(id) {
+	const probe = withEditorHelper(fs.readFileSync(path.join(here, 'empty-deck-probe.js'), 'utf8'));
+	const page = (call) => wd('POST', `/session/${id}/execute/async`, { args: [], script: `${probe}\nconst done = arguments[arguments.length - 1];\n(${call}).then(done, (e) => done({ error: String(e) }));` });
+	const steps = [];
+	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+	let saved = null;
+	try {
+		const prep = await page('latticeEmptyDeckPrep()');
+		if (prep.error) return { ok: false, steps, error: `emptying the deck: ${prep.error}` };
+		saved = prep.saved;
+		step('the start grid shows on the emptied deck, with a still point on its background', prep.hit, `${prep.x},${prep.y} under ${prep.under}, still ${prep.still} frames`);
+		step('the editor does not have the focus before the tap', !prep.focusedBefore);
+		if (prep.hit) {
+			const deliver = async (n) => {
+				await wd('POST', `/session/${id}/execute/sync`, { script: tapLogInstall(), args: [] });
+				await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+				// NO HOLD between down and up, for composeTouchTap's reason: a simulator can stretch a hold into a long press.
+				await wd('POST', `/session/${id}/actions`, {
+					actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: prep.x, y: prep.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+				});
+				await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+				const seen = await page('latticeEmptyDeckRead()');
+				const hold = tapHold(seen.log);
+				console.log(`${LABEL}: empty deck tap delivery ${n}: sent ${prep.x},${prep.y}; hold ${hold ?? 'none'} ms; page saw ${summarizeTapLog(seen.log)}`);
+				return { seen, hold, selected: pressSelected(seen.log) };
+			};
+			const tries = [await deliver(1)];
+			let decision = tapVerdict({ caret: tries[0].seen.focused && tries[0].seen.inLine && tries[0].seen.caret, hold: tries[0].hold, selected: tries[0].selected, delivery: 1 });
+			if (decision === 'redeliver') {
+				await new Promise((r) => setTimeout(r, 1000));
+				tries.push(await deliver(2));
+				decision = tapVerdict({ caret: tries[1].seen.focused && tries[1].seen.inLine && tries[1].seen.caret, hold: tries[1].hold, selected: tries[1].selected, delivery: 2 });
+			}
+			const { seen } = tries.at(-1);
+			const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
+			step('a tap on the canvas gives the editor the focus', seen.focused, `active: ${seen.active}; hold ${holds}${decision === 'fail-long-press' ? ` (a long press on both deliveries; iOS reads ${LONG_PRESS_MS} ms or more as one)` : ''}`);
+			step('a caret, not a range, sits in the empty line', seen.inLine && seen.caret, `in ${seen.where}`);
+			step('the start grid stays until something is typed', seen.shown);
+			step('the software keyboard (detail only)', true, seen.vv < prep.vv - 100 ? `up: viewport ${prep.vv} to ${seen.vv}` : `not shown: viewport ${prep.vv} to ${seen.vv}`);
+		}
+	} catch (e) {
+		step('the empty deck tap ran', false, String(e.message || e).slice(0, 300));
+	}
+	// Always put the deck back, pass or fail: the probes after this one read it.
+	if (saved !== null) {
+		const back = await page(`latticeEmptyDeckRestore(${JSON.stringify(saved)})`).catch((e) => ({ error: String(e.message || e) }));
+		step('the saved deck is back in Source', back === true, back === true ? `${saved.length} characters` : back?.error);
+	}
+	return { ok: steps.length > 0 && steps.every((x) => x.pass), steps };
 }
 
 /** The photo memory suite (PROBE=photo-memory): the two arms below, on pages of their own (no docs build). */
