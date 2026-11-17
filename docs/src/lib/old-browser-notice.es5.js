@@ -316,6 +316,58 @@
 				} catch (_e) {}
 			}
 		}
+		function htmlBg() {
+			return getComputedStyle(root).backgroundColor;
+		}
+		function rulesThatMatter(list, path) {
+			var i;
+			var r;
+			var text;
+			var owner;
+			var after;
+			var base = htmlBg();
+			for (i = 0; i < list.length; i++) {
+				r = list[i];
+				text = r.cssText;
+				owner = r.parentRule || r.parentStyleSheet;
+				try {
+					owner.deleteRule(i);
+				} catch (_e) {
+					continue;
+				}
+				after = htmlBg();
+				try {
+					owner.insertRule(text, i);
+				} catch (_e) {
+					trace.push(['could not restore rule ' + path + i]);
+				}
+				if (after !== base) {
+					trace.push(['without rule ' + path + i + ' html is ' + after + ': ' + text.slice(0, 240)]);
+					if (list[i] && list[i].cssRules) rulesThatMatter(list[i].cssRules, path + i + '.');
+				}
+			}
+		}
+		function bisect() {
+			var s;
+			var sheet;
+			var off;
+			var base = htmlBg();
+			trace.push(['bisect from ' + base]);
+			for (s = 0; s < document.styleSheets.length; s++) {
+				sheet = document.styleSheets[s];
+				sheet.disabled = true;
+				off = htmlBg();
+				sheet.disabled = false;
+				if (off !== base) {
+					trace.push(['sheet ' + s + ' (' + (sheet.href || 'inline ' + (sheet.ownerNode && sheet.ownerNode.id)) + ') off: html is ' + off]);
+					try {
+						rulesThatMatter(sheet.cssRules, s + ':');
+					} catch (_e) {
+						trace.push(['cannot read sheet ' + s]);
+					}
+				}
+			}
+		}
 		function sample(label) {
 			var cs = getComputedStyle(root);
 			trace.push([label, Date.now(), colors(), '--bg ' + cs.getPropertyValue('--bg') + ' --accent ' + cs.getPropertyValue('--accent')]);
@@ -344,6 +396,11 @@
 		// Every rule this engine parsed that applies to <html> and names a background or the accent, as the engine
 		// serializes it, inside whatever @media or @supports holds it.
 		walk(document.styleSheets, '');
+		// Then find what paints it by taking things away, the hider out for the whole search: each stylesheet off in turn,
+		// then each rule of a sheet that matters deleted and put back. Everything is restored as it goes.
+		if (hider) parent.removeChild(hider);
+		bisect();
+		if (hider) parent.insertBefore(hider, next);
 		out.textContent = trace.join('\n');
 		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
 		setTimeout(function () {
