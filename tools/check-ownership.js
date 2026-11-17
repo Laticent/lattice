@@ -9019,13 +9019,17 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //   clock-resume        `<page>.clock.resume()`. After it, a frame born later replays the resume plus every real millisecond
 //                       since, runs ahead of the main frame, and a later `clock.pauseAt()` throws "Cannot fast-forward to
 //                       the past" (#3250). Advance a paused clock with `clock.runFor(ms)` instead.
-//   tree-write          a test that writes, copies, renames or deletes INSIDE the repository's own `lib/` or `examples/`
-//                       (`fs.writeFileSync(path.join(ROOT, 'lib', …))`). Many tests walk those folders for every deck, so a
-//                       file another test writes and deletes shows up in one walk's listing and is gone when it is read
-//                       (#3238). Write to a `mkdtemp` folder under `os.tmpdir()`. Read from the destination argument (the
-//                       second one for a copy or a rename), and only when its base is the repository root: `ROOT`,
-//                       `REPO_ROOT`, a `path.join(__dirname, '..', …)` or `process.cwd()`. A folder built from `tmpdir` /
-//                       `mkdtemp`, or any deeper base (`ROOT/.scratch/…`), is not the tree.
+//   tree-write          a test that writes, appends, makes a folder, copies, renames, links or deletes INSIDE the
+//                       repository's own `lib/` or `examples/` (`fs.writeFileSync(path.join(ROOT, 'lib', …))`). Many tests
+//                       walk those folders for every deck, so a file another test writes and deletes shows up in one walk's
+//                       listing and is gone when it is read (#3238). Write to a `mkdtemp` folder under `os.tmpdir()`. The
+//                       gate reads the destination argument (the second one for a copy, a rename or a link) and works out
+//                       where it lands from a known base: the repository root (`ROOT`, `REPO_ROOT`, `process.cwd()`) or the
+//                       file's own folder (`__dirname`, `import.meta.dirname`, `fileURLToPath(new URL('..', import.meta.url))`),
+//                       through `path.join` / `path.resolve` (or a bare `join` / `resolve` from `path`), a template string
+//                       or a `+`. A `..` counts against the file's real depth, so `path.join(__dirname, '..')` in
+//                       test/unit/tools/ is test/unit, not the root. A tmpdir / mkdtemp folder, a deeper base
+//                       (`ROOT/.scratch/…`) or a `let` is not a known base.
 //   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
 //                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
 //                       exemption is a comment block right above the call reading `// disabled: tried …; evidence <URL, file or
@@ -9048,7 +9052,9 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 // cannot tell one sleep swapped for another in the same file; a file not yet committed is not read; a tree-write follows
 // a path through a `const` (never a `let`, which may be reassigned to a temp folder) and through `path.join` /
 // `path.resolve`, so a path built in a loop (`for (const [f] of …) writeFileSync(path.join(ROOT, f))`) or in a helper is
-// not seen; and F3, F4, F6 to F9 are behavior, not spelling. Those are held by review.
+// not seen, and a function parameter named `ROOT` reads as the root; offset-geometry and clock-resume read a property
+// access, so `el['offsetTop']`, `const { offsetTop } = el` and `const { clock } = page; clock.resume()` are not seen;
+// and F3, F4, F6 to F9 are behavior, not spelling. Those are held by review.
 const FLAKY_TEST_BASELINE_FILE = path.join(ROOT, 'tools', 'flaky-test-baseline.json');
 const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /^docs\/e2e\/.*\.[cm]?[jt]sx?$/.test(rel);
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
@@ -9334,40 +9340,82 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
     return d && ts.isVariableDeclaration(d) && d.initializer === init && d.parent && (d.parent.flags & ts.NodeFlags.Const) ? init : null;
   };
   const strText = (e) => (e && (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) ? e.text : null);
-  const isPathCall = (e) => ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && /^(?:join|resolve)$/.test(e.expression.name.text) && ts.isIdentifier(e.expression.expression) && e.expression.expression.text === 'path';
-  const ROOT_NAMES = /^(?:ROOT|REPO|REPO_ROOT|repoRoot)$/;
-  // The repository root itself: a root name, `process.cwd()`, or `path.join(__dirname | import.meta…, '..', …)` with
-  // nothing but `..` / `.` after it. A deeper base (`path.join(ROOT, '.scratch')`) and anything from tmpdir/mkdtemp are not.
-  const isRepoRoot = (e, depth = 0) => {
-    if (!e || depth > 6) return false;
-    if (ts.isParenthesizedExpression(e)) return isRepoRoot(e.expression, depth + 1);
-    if (ts.isIdentifier(e)) {
-      const init = constInit(e);
-      return init ? isRepoRoot(init, depth + 1) : ROOT_NAMES.test(e.text) && !resolve(e);
-    }
-    if (/tmpdir|mkdtemp/.test(e.getText(sf))) return false;
-    if (ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && ts.isIdentifier(e.expression.expression) && e.expression.expression.text === 'process' && e.expression.name.text === 'cwd') return true;
-    if (isPathCall(e)) {
-      const [base, ...rest] = e.arguments;
-      const anchored = base && (/^(?:__dirname|import\.meta\b)/.test(base.getText(sf)) || isRepoRoot(base, depth + 1));
-      return !!anchored && rest.every((a) => { const t = strText(a); return t !== null && /^(?:\.\.?\/?)+$|^$/.test(t); });
-    }
-    return false;
+  // `path.join` / `path.resolve`, or a bare `join` / `resolve` when the file imports it from `path` / `node:path`.
+  const bareFromPath = /\b(?:join|resolve)\b[^;]*?(?:from\s*['"](?:node:)?path['"]|require\(\s*['"](?:node:)?path['"]\s*\))/.test(sf.text);
+  const isPathCall = (e) => {
+    if (!ts.isCallExpression(e)) return false;
+    const c = e.expression;
+    if (ts.isPropertyAccessExpression(c)) return /^(?:join|resolve)$/.test(c.name.text) && ts.isIdentifier(c.expression) && c.expression.text === 'path';
+    return bareFromPath && ts.isIdentifier(c) && /^(?:join|resolve)$/.test(c.text) && !resolve(c);
   };
-  const TREE = /^(?:\.\/)?(?:lib|examples)(?:\/|$)/;
-  const segText = (a) => { const t = strText(a); if (t !== null) return t; return ts.isIdentifier(a) ? strText(constInit(a)) : null; };
-  // Whether a path expression lands in the repository's own lib/ or examples/.
-  const intoTree = (e, depth = 0) => {
-    if (!e || depth > 6) return false;
-    if (ts.isParenthesizedExpression(e)) return intoTree(e.expression, depth + 1);
-    if (ts.isIdentifier(e)) { const init = constInit(e); return init ? intoTree(init, depth + 1) : false; }
+  const isCall = (e, obj, name) => ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && e.expression.name.text === name && (!obj || (ts.isIdentifier(e.expression.expression) && e.expression.expression.text === obj));
+  const ROOT_NAMES = /^(?:ROOT|REPO|REPO_ROOT|repoRoot)$/;
+  const here = path.posix.dirname(rel.split(path.sep).join('/'));
+  // A path expression, evaluated to a path relative to the repository root: `{ p, partial }`, where `partial` means the
+  // rest of the path is not known (a name built at run time), or null when the base is not the repository at all (a
+  // tmpdir or mkdtemp folder, a `let`, a parameter's value). The base is the root itself (a root name, `process.cwd()`)
+  // or this file's own folder (`__dirname`, `import.meta.dirname`, `fileURLToPath(new URL('..', import.meta.url))`), so
+  // `path.join(__dirname, '..')` is measured against the file's real depth, not taken as the root.
+  const evalPath = (e, depth = 0) => {
+    if (!e || depth > 8) return null;
+    if (ts.isParenthesizedExpression(e) || ts.isNonNullExpression(e) || ts.isAsExpression?.(e)) return evalPath(e.expression, depth + 1);
     const lit = strText(e);
-    if (lit !== null) return TREE.test(lit);
-    if (!isPathCall(e)) return false;
-    const [base, first] = e.arguments;
-    if (!base) return false;
-    if (isRepoRoot(base)) { const t = first ? segText(first) : null; return t !== null && TREE.test(t); }
-    return intoTree(base, depth + 1);
+    if (lit !== null) return { p: lit, partial: false };
+    if (ts.isIdentifier(e)) {
+      if (e.text === '__dirname' && !resolve(e)) return { p: here, partial: false };
+      const init = constInit(e);
+      if (init) return evalPath(init, depth + 1);
+      return ROOT_NAMES.test(e.text) && !resolve(e) ? { p: '', partial: false } : null;
+    }
+    if (ts.isPropertyAccessExpression(e) && /^import\.meta\.dirname$/.test(e.getText(sf))) return { p: here, partial: false };
+    if (isCall(e, 'process', 'cwd')) return { p: '', partial: false };
+    if (ts.isCallExpression(e) && ts.isIdentifier(e.expression) && e.expression.text === 'fileURLToPath') {
+      const u = e.arguments[0];
+      if (u && /^import\.meta\.url$/.test(u.getText(sf))) return { p: path.posix.join(here, path.posix.basename(rel)), partial: false };
+      if (u && ts.isNewExpression(u) && u.arguments?.length === 2 && /^import\.meta\.url$/.test(u.arguments[1].getText(sf))) {
+        const t = strText(u.arguments[0]);
+        return t === null ? null : { p: path.posix.join(here, t), partial: false };
+      }
+      return null;
+    }
+    if (isCall(e, 'path', 'dirname')) { const b = evalPath(e.arguments[0], depth + 1); return b && !b.partial ? { p: path.posix.dirname(b.p), partial: false } : null; }
+    const join = (base, parts) => {
+      let p = base.p;
+      for (const a of parts) {
+        const t = strText(a) ?? (ts.isIdentifier(a) ? strText(constInit(a)) : null);
+        if (t === null) return { p, partial: true };
+        p = p === '' ? t : `${p}/${t}`;
+      }
+      return { p, partial: base.partial };
+    };
+    if (isPathCall(e)) {
+      const [b, ...rest] = e.arguments;
+      const base = evalPath(b, depth + 1);
+      return base && !base.partial ? join(base, rest) : base;
+    }
+    if (ts.isTemplateExpression(e) && e.head.text === '' && e.templateSpans.length) {
+      const base = evalPath(e.templateSpans[0].expression, depth + 1);
+      if (!base || base.partial) return base;
+      const tail = e.templateSpans[0].literal.text;
+      return { p: base.p + tail, partial: e.templateSpans.length > 1 };
+    }
+    if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+      const base = evalPath(e.left, depth + 1);
+      if (!base || base.partial) return base;
+      const t = strText(e.right);
+      return t === null ? { p: base.p, partial: true } : { p: base.p + t, partial: false };
+    }
+    return null;
+  };
+  const TREE = /^(?:lib|examples)(?:\/|$)/;
+  // Whether a path expression lands in the repository's own lib/ or examples/. A partial path counts only when its known
+  // part already sits inside one of them (`path.join(ROOT, 'lib', name)`).
+  const intoTree = (e) => {
+    const r = evalPath(e);
+    if (!r) return false;
+    const norm = path.posix.normalize(r.p.replace(/\/+$/, '') || '.');
+    if (norm.startsWith('..') || norm.startsWith('/')) return false;
+    return TREE.test(norm) && (!r.partial || norm.includes('/') || /^(?:lib|examples)$/.test(norm));
   };
   // `window.visualViewport.offsetTop`, directly or through a `const vv = window.visualViewport`, is the visual viewport's
   // own offset, not an element's.
@@ -9375,10 +9423,11 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
     const strip = (x) => (ts.isNonNullExpression(x) || ts.isParenthesizedExpression(x) ? strip(x.expression) : x);
     const x = strip(e);
     if (ts.isPropertyAccessExpression(x) && x.name.text === 'visualViewport') return true;
+    if (ts.isIdentifier(x) && x.text === 'visualViewport' && !resolve(x)) return true;
     const init = ts.isIdentifier(x) ? constInit(x) : null;
     return !!init && isViewport(init);
   };
-  const WRITE_ARG0 = /^(?:writeFileSync|writeFile|appendFileSync|appendFile|mkdirSync|mkdir|rmSync|rm|unlinkSync|unlink|createWriteStream)$/;
+  const WRITE_ARG0 = /^(?:writeFileSync|writeFile|appendFileSync|appendFile|mkdirSync|mkdir|rmSync|rm|unlinkSync|unlink|createWriteStream|outputFileSync|outputFile|outputJsonSync|outputJson|writeJsonSync|writeJson)$/;
   const WRITE_ARG1 = /^(?:copyFileSync|copyFile|cpSync|cp|renameSync|rename|symlinkSync|symlink)$/;
   each(sf, (n) => {
     if (inE2E && ts.isPropertyAccessExpression(n) && /^offset(?:Top|Left)$/.test(n.name.text) && !isViewport(n.expression)) add('offset-geometry', n);

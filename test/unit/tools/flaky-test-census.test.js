@@ -273,7 +273,8 @@ const OT = `${'offset'}${'Top'}`;
 const RESUME = `await page.clock.${'res'}${'ume'}();`;
 const WRITE = `${'writeFile'}${'Sync'}`;
 const COPY = `${'copyFile'}${'Sync'}`;
-const ROOTED = `const ROOT = path.join(__dirname, '..', '..');\n`;
+// A file at test/x.test.js (flakyTestHits' default), so one `..` reaches the repository root.
+const ROOTED = `const ROOT = path.join(__dirname, '..');\n`;
 
 describe('the guide-named shapes: offset-geometry, clock-resume, tree-write', () => {
   test('offset-geometry: an element offset in docs/e2e is counted, and only there', () => {
@@ -288,6 +289,8 @@ describe('the guide-named shapes: offset-geometry, clock-resume, tree-write', ()
     assert.deepEqual(flakyTestHits(`const a = window.visualViewport.${OT};`, 'docs/e2e/a.spec.ts'), {});
     assert.deepEqual(flakyTestHits(`const b = window.visualViewport!.${OT};`, 'docs/e2e/a.spec.ts'), {});
     assert.deepEqual(flakyTestHits(`const vv = window.visualViewport;\nconst c = vv.${OT} + vv.height;`, 'docs/e2e/a.spec.ts'), {});
+    // The bare global, as code inside a page.evaluate reads it.
+    assert.deepEqual(flakyTestHits(`const d = visualViewport.${OT};`, 'docs/e2e/a.spec.ts'), {});
   });
 
   test('clock-resume: resuming a page clock is counted', () => {
@@ -308,6 +311,25 @@ describe('the guide-named shapes: offset-geometry, clock-resume, tree-write', ()
     // A ROOT imported from a helper (unresolvable in the file) is the root by name.
     assert.deepEqual(flakyTestHits(`const { ROOT } = require('../helpers/decks.js');\nfs.${WRITE}(path.join(ROOT, 'lib', 'a.js'), 'x');`), { 'tree-write': 1 });
     assert.deepEqual(flakyTestHits(`fs.${WRITE}(path.join(ROOT, 'lib', 'a.js'), 'x');`), { 'tree-write': 1 });
+  });
+
+  test('tree-write: the root reached from the file\'s own folder, a template, a concatenation, an ESM root, a bare join', () => {
+    const deep = 'test/unit/tools/a.test.js';
+    assert.deepEqual(flakyTestHits(`fs.${WRITE}(path.join(__dirname, '..', '..', '..', 'lib', 'a'), 'x');`, deep), { 'tree-write': 1 });
+    assert.deepEqual(flakyTestHits(`fs.${WRITE}(path.join(__dirname, '../../../examples/a.md'), 'x');`, deep), { 'tree-write': 1 });
+    assert.deepEqual(flakyTestHits(`${ROOTED}fs.${WRITE}(\`\${ROOT}/lib/a\`, 'x');`), { 'tree-write': 1 });
+    assert.deepEqual(flakyTestHits(`${ROOTED}fs.${WRITE}(ROOT + '/examples/a.md', 'x');`), { 'tree-write': 1 });
+    assert.deepEqual(flakyTestHits(`const ROOT = fileURLToPath(new URL('../..', import.meta.url));\nfs.${WRITE}(path.join(ROOT, 'lib', 'a'), 'x');`, 'docs/e2e/a.spec.ts'), { 'tree-write': 1 });
+    assert.deepEqual(flakyTestHits(`import { join } from 'node:path';\nconst ROOT = join(__dirname, '..');\nfs.${WRITE}(join(ROOT, 'lib', 'a'), 'x');`), { 'tree-write': 1 });
+    assert.deepEqual(flakyTestHits(`${ROOTED}fse.outputFileSync(path.join(ROOT, 'examples', 'a.md'), 'x');`), { 'tree-write': 1 });
+  });
+
+  test('not a tree-write: a `..` that stops short of the root is measured against the file\'s depth', () => {
+    // From test/unit/tools/, one `..` is test/unit, so its lib/ is not the repository's.
+    assert.deepEqual(flakyTestHits(`const UP = path.join(__dirname, '..');\nfs.${WRITE}(path.join(UP, 'lib', 'a'), 'x');`, 'test/unit/tools/a.test.js'), {});
+    assert.deepEqual(flakyTestHits(`const HERE = path.join(__dirname, '.');\nfs.${WRITE}(path.join(HERE, 'lib', 'a'), 'x');`, 'test/unit/tools/a.test.js'), {});
+    // A name joined straight onto the root is not known to land in lib/ or examples/.
+    assert.deepEqual(flakyTestHits(`${ROOTED}fs.${WRITE}(path.join(ROOT, name), 'x');`), {});
   });
 
   test('not a tree-write: a temp folder, a deeper base, a copy FROM the tree, a let that may be reassigned', () => {

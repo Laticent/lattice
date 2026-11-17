@@ -44,7 +44,7 @@ is a version of that one sentence. The question to ask of any assertion: does it
 
 ## How the rule is held
 
-**The gate counts eight shapes** (three for #32 here, three more the testing guide names below, two for #33) in every committed test file: every `*.test.*` and `*.spec.*`, and every file under
+**The gate counts nine shapes** (three for #32 here, three more the testing guide names below, three for #33) in every committed test file: every `*.test.*` and `*.spec.*`, and every file under
 `docs/e2e/` (helpers such as `studio-fixture.ts` included); fixtures aside. It **parses** each file with TypeScript, as
 `checkE2ESleeps` does, so a comment or a string never counts and a named duration does.
 
@@ -53,14 +53,14 @@ is a version of that one sentence. The question to ask of any assertion: does it
 | `fixed-sleep` | F2 | a hand-made sleep (`new Promise((r) => setTimeout(r, ANY))`, a named duration included; a `setTimeout` whose callback does more than resolve, such as a hang guard in a `Promise.race`, is not one), a call to a `sleep` / `delay` / `wait` / `pause` helper, and `waitForTimeout(…)` outside `docs/e2e` |
 | `clock-assert` | F1 | an `expect` / `assert` whose arguments hold a **timing**: one clock reading (`performance.now()`, `Date.now()`, `process.hrtime`) minus another, directly or through a variable or a function the same file built from one; or the `.duration` of a performance entry read back with `getEntries*()`, or a key the file copied from one (`({ ms: m.duration })`, then `worst.ms`), or a value that is one (`const ms = await page.evaluate(() => …[0].duration)`, `entries.map((e) => e.duration)`), added 2026-11-16 when filo-undo.spec.ts's 16 ms budget turned out to be this shape and was never counted. An `expect`'s message argument is not read: a timing printed in a failure message is not what is asserted |
 | `unseeded-random` | F5 | `Math.random()` |
-| `offset-geometry` | — | (a wrong measurement that shows under load, not an F shape; `docs/e2e` only) an element's `.offsetTop` / `.offsetLeft`, which drops the preview frame's padding; `visualViewport.offsetTop` is not counted. Added 2026-11-17 |
+| `offset-geometry` | — | (a wrong measurement that shows under load, not an F shape; `docs/e2e` only) an element's `.offsetTop` / `.offsetLeft`, which drops the preview frame's padding; the gate skips `visualViewport.offsetTop`. Added 2026-11-17 |
 | `clock-resume` | F7 | `<page>.clock.resume()`, after which a frame born later runs ahead and a later `pauseAt` throws. Added 2026-11-17 |
-| `tree-write` | F7 | a write, copy, rename or delete inside the repository's own `lib/` or `examples/`, read from the destination argument and only when its base is the repository root. Added 2026-11-17 |
+| `tree-write` | F7 | a write, append, mkdir, copy, rename, symlink or delete inside the repository's own `lib/` or `examples/`. The gate reads the destination argument and works out where it lands from the repository root or the file's own folder (`__dirname`, `import.meta`), so a `..` counts against the file's real depth. Added 2026-11-17 |
 
 **The three shapes added 2026-11-17** are the traps `engineering/testing.md` Part 3 names, each of which had already
 turned a build red: `offsetTop` (#3252, #3253), the fake clock's `resume()` (#3250) and a test writing into the tree
-(#3238). The owner approved them on 2026-11-17 (#3254's proposal b). The census of that day's tree found 11 hits after
-the parser's false positives were removed (three `visualViewport.offsetTop` reads; a `let` reassigned to a temp folder; a
+(#3238). The owner approved them on 2026-11-17 (#3254's proposal b). The census of that day's tree found 11 hits once
+the parser stopped counting its false positives (three `visualViewport.offsetTop` reads; a `let` reassigned to a temp folder; a
 base under `ROOT/.scratch`):
 - `offset-geometry`: 1, a `// flaky-ok:` (sibling list items compared only for equal tops, so the padding cancels).
 - `clock-resume`: 5, one in each of five `docs/e2e` specs, baselined. Each resumes after a fake-clock phase; moving it to
