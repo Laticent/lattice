@@ -70,6 +70,36 @@ test('@crosswidth search and lens survive reopening the picker AND a reload', as
 	expect(await page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
 });
 
+// The pick is remembered when it is MADE, not when its plan lands. The plan fetch is held open here, so the label, the
+// address and the reload all happen inside the window that, under load, used to forget the pick (:52 above went red on
+// a phone: the picker still said "actors" after the reload). Two causes, both fixed in PlaygroundApp.tsx: the pointer was
+// written only when the plan landed, and the address bar named the walk still on screen (`?c=actors`), which at boot
+// outranks the stored pointer.
+test('@crosswidth a pick is remembered before its plan has landed', async ({ page }) => {
+	await gotoPlayground(page);
+	let release = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	await page.route(/\/plans\/kpi\.json/, async (route) => {
+		await held;
+		await route.continue().catch(() => {}); // the page that asked has been reloaded by then
+	});
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await expect(page.locator('#pg-template-trigger')).toContainText('kpi');
+	expect(await page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('kpi');
+	// The address names the pick too, not the walk still on screen: at boot the address outranks the stored pointer.
+	await expect(page).toHaveURL(/[?&]c=kpi(&|$)/);
+	await expect(page).not.toHaveURL(/[?&]s=/);
+
+	await page.unrouteAll({ behavior: 'ignoreErrors' });
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	release();
+	await expect(page.locator('#pg-template-trigger')).toContainText('kpi');
+});
+
 test('@crosswidth the picker detaches honestly when the draft holds no recognized component', async ({ page }) => {
 	await gotoPlayground(page);
 	await page.locator('#pg-template-trigger').click();
