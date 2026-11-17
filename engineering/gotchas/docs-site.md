@@ -40,6 +40,27 @@ justification. The same gate also fires if a *listed* builder drops its
 that only assigns a builder's output to `.srcdoc` (no `<script>` injection of its
 own) is not a builder and needs no entry.
 
+## A slide preview is blank, or a draw frame never opens, on a page with the strict CSP
+
+**Symptom.** On a docs page that carries `<meta http-equiv="Content-Security-Policy">`, a preview
+frame stays hidden (`.lattice` never turns visible), or a function plot or a code package never
+answers. The page's own console may show nothing: Chromium and Gecko print the refusal (`Refused to
+execute inline script…`) from inside the frame and fire no `securitypolicyviolation` event there.
+
+**Cause.** A `srcdoc` frame inherits its parent's policy, and so do `data:` and `blob:` frames
+(measured in all three engines, 2026-11-17). The site's policy (`docs/scripts/csp.mjs`) allows only
+same-origin files and the hashes of the page's own inline scripts, so any script a builder writes
+INLINE into a frame is refused.
+
+**Fix.** Never write an inline script into a preview frame. A preview agent belongs in
+`lib/core/frame-agents.mjs`, staged as `lattice-frame-agents.js` beside the runtime, and a builder
+names it with `agentTag(frameAgentsUrl(runtimeUrl), '<agent>', { …data })`; a per-deck value is a
+data attribute the agent reads at run time. A SANDBOXED frame whose document has its own policy and
+hashed script loads through `loadSandboxed` (`lib/packages/sandbox-shell.mjs`), which escapes the
+inheritance. `docs/src/playground/frame-agents.test.ts` fails `buildSrcdoc` or the Stage when either
+writes an inline script; `e2e/site-csp.spec.ts` reads refusals from every frame and from the
+console, which is what covers the single-slide builder.
+
 ## `build:check` fails: "embeds a `<style>` element but does not call `sanitizeStyleText`" (HARD RULE #22)
 
 The **stylesheet** channel of the same frame. A preview builder assembles one

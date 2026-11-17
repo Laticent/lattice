@@ -12,8 +12,13 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
+// The frame's agents ride in a same-origin file (lib/core/frame-agents.mjs), named by
+// data-carrying tags. These cells read the agents' code out of the document, so `buildSrcdoc` here
+// returns the document with each tag replaced by exactly what it runs (`inlineAgents`).
 async function load() {
-	return import('../../../docs/src/playground/deck-preview.js');
+	const mod = await import('../../../docs/src/playground/deck-preview.js');
+	const { inlineAgents } = await import('../../../lib/core/frame-agents.mjs');
+	return { ...mod, raw: mod.buildSrcdoc, buildSrcdoc: (opts) => inlineAgents(mod.buildSrcdoc(opts)) };
 }
 
 const BASE = {
@@ -39,7 +44,9 @@ describe('buildSrcdoc', () => {
 		assert.match(doc, /window\.__latticeFitResume=function\(\)\{fitSuspended=false;requestAnimationFrame\(gatedFit\);setTimeout\(gatedFit,120\);\}/);
 		assert.match(doc, /lattice\.style\.visibility="visible"/);
 		// Engine wiring + the deck's geometry globals.
-		assert.match(doc, /window\.__SLIDE_W=1280;window\.__SLIDE_H=720;/);
+		// The geometry rides as data on the geometry agent's tag (frame-agents.mjs), read at run time.
+		assert.match(doc, /\(function\(D\)\{\nwindow\.__SLIDE_W=\+D\.w\|\|1280;window\.__SLIDE_H=\+D\.h\|\|720;/);
+		assert.match(doc, /"agent":"geom","w":"1280","h":"720"/);
 		assert.match(doc, /src="\/rt\.js"/);
 	});
 
@@ -299,19 +306,28 @@ describe('buildSrcdoc', () => {
 
 	test('clamps the filmstrip tail by default and can be turned off', async () => {
 		const { buildSrcdoc } = await load();
-		assert.match(buildSrcdoc({ ...BASE }), /lattice\.style\.overflow="clip"/);
-		assert.doesNotMatch(buildSrcdoc({ ...BASE, clamp: false }), /lattice\.style\.overflow="clip"/);
+		const { raw } = await load();
+		// The clip is the FIT agent's, run only when its tag carries `data-clamp="1"`.
+		assert.match(buildSrcdoc({ ...BASE }), /if\(\(C\)&&secs\.length\)[^\n]*lattice\.style\.overflow="clip"/);
+		assert.match(raw({ ...BASE }), /data-agent="fit" data-gap="\d+" data-clamp="1"/);
+		assert.doesNotMatch(raw({ ...BASE, clamp: false }), /data-clamp/);
 	});
 
 	test('the gap rides into BOTH the FIT margin and the SYNC slot pitch', async () => {
 		const { buildSrcdoc } = await load();
 		const doc = buildSrcdoc({ ...BASE, gap: 22, sync: true });
+		const { raw } = await load();
+		// ONE value on both tags: FIT and SYNC each read `data-gap` (frame-agents.mjs).
+		const tags = raw({ ...BASE, gap: 22, sync: true });
+		assert.match(tags, /data-agent="fit" data-gap="22"/);
+		assert.match(tags, /data-agent="sync" data-gap="22"/);
 		// FIT declares GAP once (marginBottom = SH*sc - SH + GAP).
-		assert.match(doc, /GAP=22;/);
+		assert.match(doc, /var G=\+D\.gap\|\|0,C=D\.clamp==="1";/);
+		assert.match(doc, /GAP=G;/);
 		assert.match(doc, /MB=\(SH\*sc-SH\+GAP\)\+"px"/);
 		assert.match(doc, /marginBottom=MB/);
 		// SYNC: slot pitch = SH*(w/SW) + GAP — must agree with FIT or the scroll drifts.
-		assert.match(doc, /SH\*\(w\/SW\)\+22/);
+		assert.match(doc, /SH\*\(w\/SW\)\+G;/);
 	});
 
 	test('opt-in knobs only emit when requested', async () => {
@@ -368,7 +384,7 @@ describe('buildSrcdoc', () => {
 		const { buildSrcdoc } = await load();
 		const doc = buildSrcdoc({ ...BASE, geom: { w: 3840, h: 2160 }, contentVisibility: true });
 		assert.match(doc, /\.lattice>section\{width:3840px;height:2160px\}/);
-		assert.match(doc, /window\.__SLIDE_W=3840;window\.__SLIDE_H=2160;/);
+		assert.match(doc, /"agent":"geom","w":"3840","h":"2160"/);
 		assert.match(doc, /contain-intrinsic-size:3840px 2160px/);
 	});
 });

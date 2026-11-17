@@ -5,14 +5,15 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SHELL_DOC, SHELL_READY } from '../../../../lib/packages/sandbox-shell.mjs';
 import { createDrawHost, type DrawJob, type DrawLibrary } from './draw-host';
 
 const ROOT = path.join(__dirname, '../../../..');
 const PLOT_LIB = fs.readFileSync(path.join(ROOT, 'lib/plugins/function-plot/vendor/function-plot.js'), 'utf8');
 const JOB: DrawJob = { kind: 'function-plot', configB64: 'e30=', configText: '{}', width: 600, height: 300, index: 0 };
 
-type Fake = { frame: unknown; posted: Array<Record<string, unknown>>; removed: boolean; reply: (data: unknown) => void };
+type Fake = { frame: unknown; posted: Array<Record<string, unknown>>; doc?: string; removed: boolean; reply: (data: unknown) => void };
 
 function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: boolean; libraries?: Record<string, DrawLibrary> } = {}) {
 	const frames: Fake[] = [];
@@ -20,20 +21,27 @@ function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: b
 		body: {
 			appendChild(el: { __fake: Fake }) {
 				const f = el.__fake;
-				// The frame says it is ready once its document is in.
-				if (opts.autoReady !== false) queueMicrotask(() => f.reply({ t: 'ready' }));
+				// The frame loads the sandbox shell, which says hello; the host then hands it the document
+				// (lib/packages/sandbox-shell.mjs), and the frame says it is ready once that is in.
+				queueMicrotask(() => f.reply({ t: SHELL_READY }));
 			},
 		},
 		createElement() {
 			const fake: Fake = { frame: null, posted: [], removed: false, reply: () => {} };
-			const contentWindow = { postMessage: (m: Record<string, unknown>) => fake.posted.push(m) };
+			const contentWindow = {
+				postMessage: (m: Record<string, unknown>) => {
+					if (m.t !== SHELL_DOC) return void fake.posted.push(m);
+					fake.doc = String(m.html);
+					if (opts.autoReady !== false) queueMicrotask(() => fake.reply({ t: 'ready' }));
+				},
+			};
 			const el = {
 				__fake: fake,
 				contentWindow,
 				dataset: {} as Record<string, string>,
 				style: {} as Record<string, string>,
 				title: '',
-				srcdoc: '',
+				src: '',
 				setAttribute() {},
 				remove() {
 					fake.removed = true;
@@ -51,6 +59,19 @@ function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: b
 
 /** Wait until frame `i` is open and has been sent `n` draws: the host's own signal, where the test used to sleep and hope. */
 const sent = (frames: Fake[], i: number, n: number) => vi.waitFor(() => expect(frames[i]?.posted.length ?? 0).toBe(n), { timeout: 10_000, interval: 1 });
+
+// The draw host runs on pages with a content policy (every docs page that previews a deck), so the rig
+// gives the page one: the frame then opens through the sandbox shell (lib/packages/sandbox-shell.mjs).
+beforeEach(() => {
+	const meta = document.createElement('meta');
+	meta.setAttribute('http-equiv', 'Content-Security-Policy');
+	meta.setAttribute('content', "script-src 'self'");
+	meta.dataset.testPolicy = '';
+	document.head.appendChild(meta);
+});
+afterEach(() => {
+	for (const m of document.querySelectorAll('meta[data-test-policy]')) m.remove();
+});
 
 const opened: Array<() => void> = [];
 afterEach(() => {
@@ -214,7 +235,9 @@ describe('the draw host', () => {
 		const first = host.draw({ kind: 'sparkline', fonts: [face] });
 		await sent(frames, 0, 1);
 		expect(frames).toHaveLength(1);
-		expect((frames[0].frame as { srcdoc: string }).srcdoc).toContain('function draw(m, env)');
+		expect(frames[0].doc).toContain('function draw(m, env)');
+		// …written through the shell beside the engine, never as a srcdoc the page's policy would govern.
+		expect((frames[0].frame as { src: string }).src).toBe('/assets/lattice-sandbox.html');
 		expect(frames[0].posted[0].fonts).toEqual([face]);
 		frames[0].reply({ t: 'result', id: 1, out: 'a' });
 		await expect(first).resolves.toBe('a');

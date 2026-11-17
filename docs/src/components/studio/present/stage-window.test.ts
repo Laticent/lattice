@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildStageDoc, createStageController } from './stage-window.js';
+import { inlineAgents } from '../../../../../lib/core/frame-agents.mjs';
+import { buildStageDoc as buildStageDocTags, createStageController } from './stage-window.js';
+
+// The Stage's agents ride in a same-origin file (frame-agents.mjs): the document names them with
+// data-carrying tags. These cells read and run the agents' code, so they see the document with each
+// tag replaced by exactly what it runs.
+// biome-ignore lint/suspicious/noExplicitAny: the wrapper passes buildStageDoc's own options through untouched.
+const buildStageDoc = (opts: any): string => inlineAgents(buildStageDocTags(opts));
 
 describe('stage-window — buildStageDoc', () => {
 	it('wraps the deck HTML into a self-contained, postMessage-driven stage', () => {

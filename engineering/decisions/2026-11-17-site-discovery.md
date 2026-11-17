@@ -128,6 +128,71 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     they happen, presses a fixed list of controls, and after each waits until the control is
     usable again and no request is in flight.
 
+- **CSP stage 2: the preview-frame pages** (`followups.d/3277-p1-csp-frame-pages.md`). 198 of 204
+  routes now carry the policy, up from 75. Measured first, in Chromium, WebKit and Gecko, with a
+  page under `script-src 'self'`:
+
+  | frame | same-origin `<script src>` | inline script | own policy kept |
+  |---|---|---|---|
+  | `srcdoc` | runs | refused | n/a |
+  | `srcdoc`, `sandbox="allow-scripts"` | runs | refused | n/a |
+  | `data:` or `blob:`, sandboxed | n/a | refused | no: it inherits too |
+  | loaded from a same-origin URL, sandboxed | n/a | runs by its own hash | yes |
+
+  A same-origin worker inherits nothing either: `new Function` ran in all three.
+  - **The preview agents are one file.** The font gate, the geometry, the fit, the link guard,
+    the Drawing-Board sync and the Stage's reveal and fit used to be written inline into each frame,
+    some with per-deck values. They now live in `lib/core/frame-agents.mjs`, which the asset sync
+    writes as `lattice-frame-agents.js` beside `lattice-runtime.js`. A builder writes
+    `<script src="…/lattice-frame-agents.js" data-agent="fit" data-gap="16">`; the file runs the
+    agent its tag names and reads the per-deck values from the tag's data. Classic `src` scripts run
+    in document order, so every ordering rule (the gate in `<head>`, dagre before the runtime) holds.
+    The three builders (`deck-preview.js`, `single-slide-render.ts`, the Stage) write no inline
+    script. `frame-agents.test.ts` parses `buildSrcdoc`'s and the Stage's documents and fails an
+    inline one; the single-slide builder's document is internal to its host, so `site-csp.spec.ts`
+    is its guard (an inline script put back there turned the component-page cell red).
+  - **The two sandboxes load through a shell.** The code-package runner and the draw host build a
+    whole document with its own strict policy and the hash of its one script, and function-plot's
+    frame needs `'unsafe-eval'`, which no page policy grants. As `srcdoc` both were refused. The frame
+    now loads `lattice-sandbox.html` (`lib/packages/sandbox-shell.mjs`) from beside the runtime; the
+    shell writes the host's document into itself with `document.open`/`write`, and that document's
+    own policy then applies on top of the shell's. Measured in all three engines: the hashed script
+    runs, an unhashed one is refused, a `fetch` is refused, a module from the named directory loads.
+    WebKit needs `*` in the shell's `script-src` for the module case. The frame keeps
+    `sandbox="allow-scripts"` and the same window, so the hosts' `e.source` checks are unchanged.
+    **The shell guards itself**, because it is a public file any site can frame. Review found the
+    first version wrote whatever document a framing page sent, so a foreign page's script ran on our
+    origin (reproduced in all three engines; with the guards the same probe writes nothing). It now
+    acts only in an opaque document (`self.origin === "null"`: sandboxed without
+    `allow-same-origin`) and only on a document sent from our own origin (`e.origin ===
+    location.origin`). **Only a page with a policy uses it**: a page without one (the Studio today)
+    writes `srcdoc` as before, because the shell is a navigation the service worker never sees (it
+    does not control an opaque-origin frame), so offline it lasts only as long as the HTTP cache.
+  - **Per-page allowances instead of exemptions.** An outside origin a page's code calls now joins
+    exactly the directive that call needs (`ORIGIN_DIRECTIVES`): the video players
+    (`www.youtube-nocookie.com`, `player.vimeo.com`, `www.instagram.com`, `www.tiktok.com`) in
+    `frame-src`, TikTok's oEmbed lookup and OpenRouter and Gemini in `connect-src`. A page whose code
+    can open the sandbox shell gets `frame-src 'self'`; every other page keeps `'none'`. Style adds
+    `blob:`: the single-slide preview shares its engine sheet as a blob URL, and WebKit checks it.
+  - **Evaluation that never runs is not counted**, each by its exact shape: the `function-bind`
+    polyfill, JSZip's `setImmediate` string callback, and CodeMirror's Pug syntax probe (inside a
+    `try`; under the policy the attribute keeps plain highlighting).
+  - **A floor.** `MIN_POLICY_PAGES` (198) fails the build when a page silently loses its policy:
+    an exemption is computed, so a new import can strip one.
+  - **What still has no policy, and why** (every build prints the list; the follow-up carries it):
+    the Studio and `/proto/chat-figures/` (the export player writes inline scripts into its capture
+    and prune frames); Calco (`woff2-encoder`'s Emscripten bindings build functions from strings;
+    the fix is the subsetter in a same-origin worker, measured to work above); Cadenza and Suono
+    (`esm.run` serves runtimes whose own requests, models and wasm from other hosts, are not yet
+    measured: `OPEN_ORIGINS`); and the landing page, held by name (`HELD_ROUTES`) because the policy
+    tag is 1,058 bytes and the page's HTML sat 0.9 KB under its route-budget ceiling, which is the
+    owner's number.
+  - **The e2e reads refusals from every frame and from the console.** With an inline script put
+    back into the single-slide preview, WebKit fired `securitypolicyviolation` in the frame;
+    Chromium and Gecko refused the script, printed the refusal and fired nothing. An event-only
+    reader stayed green over that, so `site-csp.spec.ts` also counts the browser's own refusal
+    messages.
+
 - **A Markdown copy ("twin") of every content page** (`docs/scripts/md-twins.mjs`, 177 pages):
   every page that declares itself an article (docs pages, component pages, catalog pages,
   `/comparison/`) gets `<path>.md`, linked from its `<head>` as `<link rel="alternate"

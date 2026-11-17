@@ -36,23 +36,52 @@ function policyRoutes(): string[] {
 	return out.sort();
 }
 
-/** Record every CSP violation from the first byte, then return a reader for them. */
+/**
+ * Record every CSP violation from the first byte, in EVERY frame, then return a reader for them.
+ *
+ * In every frame because a preview is a frame: a srcdoc preview inherits the page's policy, and a
+ * script it refuses is reported to the FRAME's document, never the page's. A reader that listened on
+ * the page alone passed while the Playground's preview sat blank under stage 1's trial. The report
+ * goes out through a binding, which reaches a sandboxed frame too (the draw host, the code sandbox).
+ * `clear()` forgets what was seen so far, for a test that walks many pages.
+ *
+ * AND FROM THE CONSOLE, because the event is not always fired. Measured 2026-11-17 with an inline
+ * script put back into the single-slide preview: WebKit fired `securitypolicyviolation` in the frame;
+ * Chromium and Gecko refused the script, printed the refusal, and fired nothing, so an event-only
+ * reader stayed green over a blank preview. Gecko's "Ignoring …" notices are about a source the
+ * frame's own policy names and makes moot, not a refusal, so they do not count.
+ */
+const CSP_REFUSAL = /^Refused to |Content-Security-Policy:.*\bblocked\b/;
+function watchConsoleRefusals(page: Page, seen: string[]) {
+	page.on('console', (m) => {
+		const text = m.text();
+		if (CSP_REFUSAL.test(text)) seen.push(`console: ${text.slice(0, 240)}`);
+	});
+}
 async function watchViolations(page: Page) {
+	const seen: string[] = [];
+	watchConsoleRefusals(page, seen);
+	await page.exposeBinding('__reportCsp', (src, what: string) => {
+		const where = src.frame === page.mainFrame() ? '' : ` (in frame ${src.frame.url().slice(0, 60)})`;
+		seen.push(`${what}${where}`);
+	});
 	await page.addInitScript(() => {
-		const w = window as unknown as { __csp: string[] };
-		w.__csp = [];
 		document.addEventListener('securitypolicyviolation', (e) => {
-			w.__csp.push(`${e.effectiveDirective} blocked ${e.blockedURI || 'inline'} ${e.sample ?? ''}`.trim());
+			(window as unknown as { __reportCsp: (w: string) => void }).__reportCsp(`${e.effectiveDirective} blocked ${e.blockedURI || 'inline'} ${e.sample ?? ''}`.trim());
 		});
 	});
-	return () => page.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
+	return Object.assign(() => Promise.resolve([...seen]), { clear: () => void seen.splice(0) });
 }
 
 // One page of each kind csp.mjs covers: a Starlight docs page, a standalone article, the
-// features catalog, a catalog Learn page, a library demo shell and the offline fallback.
-// (Not Cadenza or Suono: their code calls OpenRouter and Google on the visitor's key, so
-// csp.mjs leaves them without a policy until stage 2.)
-const REPRESENTATIVE = ['/getting-started/', '/comparison/', '/features/', '/plugins/math/learn/', '/libraries/lente/', '/offline/'];
+// features catalog, a catalog Learn page, a library demo shell and the offline fallback — and,
+// since stage 2, the pages that build a slide preview: a component page, the function-plot plugin
+// page (its figure draws in the draw host's sandboxed frame, which needs `'unsafe-eval'` the page
+// itself never grants) and the Playground.
+// (Not Cadenza or Suono: their voice code imports a runtime from esm.run, whose own requests no
+// scan of ours can list, so csp.mjs leaves them without a policy. Not the landing page: held back
+// by name until its route-budget ceiling is decided, csp.mjs HELD_ROUTES.)
+const REPRESENTATIVE = ['/getting-started/', '/comparison/', '/features/', '/plugins/math/learn/', '/libraries/lente/', '/offline/', '/components/chart/bar/', '/plugins/function-plot/', '/playground/'];
 
 test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a page of every kind loads under its strict CSP with no violation', async ({ page }) => {
 	const violations = await watchViolations(page);
@@ -156,6 +185,10 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko every control on the libra
 	await page.exposeBinding('__reportCsp', (_src, pageUrl: string, what: string) => {
 		seen.push({ page: new URL(pageUrl).pathname, what });
 	});
+	// The console too: Chromium and Gecko refuse some scripts without firing the event (watchViolations).
+	page.on('console', (m) => {
+		if (CSP_REFUSAL.test(m.text())) seen.push({ page: new URL(page.url()).pathname, what: `console: ${m.text().slice(0, 240)}` });
+	});
 	await page.addInitScript(() => {
 		document.addEventListener('securitypolicyviolation', (e) => {
 			(window as unknown as { __reportCsp: (u: string, w: string) => void }).__reportCsp(
@@ -210,12 +243,13 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko every control on the libra
 });
 
 test('every page that carries the CSP loads with no violation', async ({ page }) => {
-	// 75 pages, each loaded and waited to network quiet: the default 60 s is a budget for one
-	// page's worth of test, and ran out under load (4 workers).
-	test.setTimeout(300_000);
+	// About 200 pages, each loaded and waited to network quiet, most of them building a preview
+	// frame: the default 60 s is a budget for one page's worth of test.
+	test.setTimeout(900_000);
 	const routes = policyRoutes();
-	// csp.mjs gave 75 routes a policy when this landed; far fewer means the build lost them.
-	expect(routes.length).toBeGreaterThan(60);
+	// csp.mjs gave 198 routes a policy in stage 2 (75 in stage 1); far fewer means the build lost
+	// them. csp.mjs's own MIN_POLICY_PAGES floor fails the build first.
+	expect(routes.length).toBeGreaterThan(190);
 	const violations = await watchViolations(page);
 	const found: Record<string, string[]> = {};
 	for (const route of routes) {
@@ -223,9 +257,47 @@ test('every page that carries the CSP loads with no violation', async ({ page })
 		await page.waitForLoadState('networkidle');
 		const v = await violations();
 		if (v.length) found[route] = v;
-		await page.evaluate(() => {
-			(window as unknown as { __csp: string[] }).__csp.length = 0;
-		});
+		violations.clear();
 	}
 	expect(found).toEqual({});
 });
+
+// A PREVIEW UNDER THE POLICY, used and not only loaded (stage 2). Each frame inherits the page's
+// policy, so a refused agent shows as a slide that never appears: these cells wait for the thing a
+// reader sees, then for no violation in any frame.
+test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a component page’s slide preview renders under the CSP', async ({ page }) => {
+	const violations = await watchViolations(page);
+	await page.goto('/components/chart/bar/');
+	await expect(page.locator(CSP_META)).toHaveCount(1);
+	// The fit agent reveals `.lattice` once it has scaled the slide and the faces are in.
+	const frame = page.frameLocator('iframe').first();
+	await expect(frame.locator('.lattice')).toHaveCSS('visibility', 'visible');
+	await expect(frame.locator('.lattice > section').first()).toBeVisible();
+	expect(await violations()).toEqual([]);
+});
+
+test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko the function-plot figure draws in its sandbox under the CSP', async ({ page }) => {
+	const violations = await watchViolations(page);
+	await page.goto('/plugins/function-plot/');
+	await expect(page.locator(CSP_META)).toHaveCount(1);
+	// The draw host loads the sandbox shell, which writes the frame's own strict document into itself
+	// (lib/packages/sandbox-shell.mjs). The figure draws when the slide is on screen.
+	const preview = page.locator('iframe:not([data-lattice-draw-frame])').first();
+	await preview.scrollIntoViewIfNeeded();
+	const slide = page.frameLocator('iframe:not([data-lattice-draw-frame])').first();
+	await expect(slide.locator('svg.function-plot').first()).toBeVisible({ timeout: 30_000 });
+	await expect(slide.locator('.functionplot-error')).toHaveCount(0);
+	await expect(page.locator('iframe[data-lattice-draw-frame="function-plot"]')).toHaveAttribute('src', /lattice-sandbox\.html$/);
+	expect(await violations()).toEqual([]);
+});
+
+test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko the Playground preview renders under the CSP', async ({ page }) => {
+	const violations = await watchViolations(page);
+	await page.goto('/playground/');
+	await expect(page.locator(CSP_META)).toHaveCount(1);
+	const frame = page.frameLocator('iframe[title]').first();
+	await expect(frame.locator('.lattice')).toHaveCSS('visibility', 'visible', { timeout: 30_000 });
+	await expect(frame.locator('.lattice > section').first()).toBeAttached();
+	expect(await violations()).toEqual([]);
+});
+
