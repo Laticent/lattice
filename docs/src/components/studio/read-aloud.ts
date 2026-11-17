@@ -393,7 +393,10 @@ function getRealVoice(): Promise<VoiceModel | null> {
 // so this import is inert on the server and the singleton is only ever built client-side.
 let stageSingleton: Stage | null = null;
 function getStage(): Stage {
-	if (!stageSingleton) stageSingleton = createStage();
+	// A HARD CAP under the narration window below (decodeAhead): four decoded clips or 24 MiB, where Suono's defaults are 64
+	// and 256 MiB. The window releases each clip once it has played; this only stops anything that slips past it from
+	// piling up. The defaults let a long narrated Present on an iPhone hold every sentence it had decoded (2026-11-17).
+	if (!stageSingleton) stageSingleton = createStage({ decodedCacheLimit: 4, maxDecodedBytes: 24 * 1024 * 1024 });
 	return stageSingleton;
 }
 /** The stage every narration plays on: a live session taps it to send a presenter's narration on the call
@@ -952,6 +955,11 @@ export function useReadAloud(
 			audioBaseRef.current = null; // hold the highlight at holdMs until fromCue's onset arrives
 			modeRef.current = 'audio';
 			const seq = stage.sequence<string>({
+				// THE NARRATION WINDOW (engineering/decisions/2026-07-12-suono-audio-library.md §10): decoded audio for the
+				// sentence playing and the next two, each released once it has played, and warm() fetching bytes only. The
+				// byte cache keeps a dozen clips; anything older is read back from the voice model's cache or the device.
+				decodeAhead: 2,
+				cacheLimit: 12,
 				items: spoken,
 				// Pass the PINNED identity, never let synthOne re-resolve it per sentence (see effVoice above).
 				produce: async (s, { signal }) => (await voice.synthOne({ text: s, voice: effVoice, speed: effSpeed, rung: r, signal }))?.bytes ?? null,

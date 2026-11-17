@@ -57,6 +57,22 @@ describe('createStage — decode-bomb guard', () => {
 	});
 });
 
+describe('createStage — forget', () => {
+	it('drops one decoded clip, so the next decode of that key decodes again, and leaves the others cached', async () => {
+		const { decodeAudioData } = installMockAudio();
+		const stage = createStage();
+		await stage.decode(bytesOfSize(8), 'a');
+		await stage.decode(bytesOfSize(8), 'b');
+		expect(decodeAudioData).toHaveBeenCalledTimes(2);
+		stage.forget('a');
+		await stage.decode(bytesOfSize(8), 'b'); // still cached
+		expect(decodeAudioData).toHaveBeenCalledTimes(2);
+		await stage.decode(bytesOfSize(8), 'a'); // forgotten: decoded again
+		expect(decodeAudioData).toHaveBeenCalledTimes(3);
+		stage.forget('never-decoded'); // a no-op, never a throw
+	});
+});
+
 describe('createStage — decoded cache eviction', () => {
 	it('evicts by ENTRY COUNT (FIFO) — an evicted key re-decodes', async () => {
 		const { decodeAudioData } = installMockAudio();

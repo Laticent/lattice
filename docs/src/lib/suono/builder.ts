@@ -25,6 +25,7 @@ type _SequenceSetterMap = {
 	gap: 'gapMs';
 	concurrency: 'concurrency';
 	cacheLimit: 'cacheLimit';
+	decodeAhead: 'decodeAhead';
 	produceTimeout: 'produceTimeoutMs';
 	onItemStart: 'onItemStart';
 	onState: 'onState';
@@ -49,6 +50,8 @@ export interface SequenceBuilder<T> {
 	concurrency(n: number): this;
 	/** Max byte-cache entries, FIFO (default 200). */
 	cacheLimit(n: number): this;
+	/** Hold decoded audio for the item playing and `n` after it, releasing each once played (see SequenceOptions.decodeAhead). */
+	decodeAhead(n: number): this;
 	/** Per-item synth watchdog in ms (default 20000). */
 	produceTimeout(ms: number): this;
 	/** Fired at each clip's real start with its measured span + index (→ Cadenza `reader.align`). */
@@ -98,6 +101,10 @@ export function sequence<T>(stage: Stage): SequenceBuilder<T> {
 		},
 		cacheLimit(n) {
 			opts.cacheLimit = n;
+			return b;
+		},
+		decodeAhead(n) {
+			opts.decodeAhead = n;
 			return b;
 		},
 		produceTimeout(ms) {
