@@ -28,6 +28,7 @@ import { addChatPhotos, addChatVideo, discardChatVideo, MAX_CHAT_PHOTOS, photoDa
 import { THINKING } from './chat-status';
 import { chatLoaded, hydrateChat } from './chat-store';
 import { DiffCard } from './diff-card';
+import { holdWarmUps } from './first-slide';
 import { classifyMedia, LIBRARY_MEDIA_ACCEPT } from './media-import';
 import type { MediaRecord } from './media-store';
 import { refreshAssetUrls, setActiveAssetDeck } from './media-urls';
@@ -587,6 +588,10 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 			if (tok) setLiveActivity(null);
 			if (mountedRef.current) paintRef.current.request();
 		};
+		// The Studio's warm-ups wait for the whole turn (first-slide.ts `holdWarmUps`), not only for a draft render inside
+		// it: a warm-up item that starts while the model is answering is still loading when its `render_slide` runs, and
+		// on a busy phone that pushed the render past its 15 s budget. Released in the `finally` below.
+		const releaseWarmUps = holdWarmUps();
 		try {
 			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
 			// re-sent: each image is billed as input every time it travels. Only the LAST turn's go as pixels.
@@ -661,6 +666,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		} catch {
 			raiseTurnNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
 		} finally {
+			releaseWarmUps();
 			abortRef.current = null;
 			// CANCEL THE PENDING PAINT BEFORE CLEARING THE BUBBLE. The last token's frame can
 			// still be queued when `chatComplete` resolves; it would fire after the store is cleared
