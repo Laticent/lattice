@@ -65,8 +65,10 @@ export function sheetBox(side: "top" | "right" | "bottom" | "left") {
  * sheet's before the finger lifts (see `SheetContent`). A tap is exactly one pointer, down and up on a scrim, that did not
  * move past `TAP_SLOP` (read from its pointermoves) and was not held past `TAP_MAX_MS`. A second finger spoils it, a pointercancel (a scroll) ends it,
  * and every entry carries its event time, so a stale entry (a finger that lifted somewhere else) never matches a later
- * pointer that reuses its id: it is pruned at the next pointerdown. When the last scrim unmounts, the record is cleared,
- * unless another mounted in its place in the same commit (the swap a tap has to survive).
+ * pointer that reuses its id: it is pruned at the next pointerdown. When the last OPEN scrim unmounts, the record is
+ * cleared, unless another mounted in its place in the same commit (the swap a tap has to survive). Only open sheets are
+ * counted (`ScrimMounted` lives inside the portal, which holds nothing while a sheet is closed); a count of every mounted
+ * `SheetContent` never reached zero, because the site nav's sheet is always in the tree.
  */
 const scrimPointers = new Map<number, number>()
 let scrimTap: { id: number; x: number; y: number; t: number; moved: boolean } | null = null
@@ -79,7 +81,10 @@ const TAP_MAX_MS = 1000
 function scrimPointerDown(e: React.PointerEvent): void {
   for (const [id, t] of scrimPointers) if (e.timeStamp - t > TAP_MAX_MS) scrimPointers.delete(id)
   scrimPointers.set(e.pointerId, e.timeStamp)
-  scrimTap = scrimPointers.size === 1 ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, moved: false } : null
+  // The primary button only, and no ctrl-click: Radix's Dialog vetoes the rest as an outside press (a right-click on the
+  // scrim opens a context menu, it does not dismiss), so the scrim does too.
+  const primary = e.button === 0 && !e.ctrlKey
+  scrimTap = scrimPointers.size === 1 && primary ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, moved: false } : null
 }
 
 /** A pointer moving past `TAP_SLOP` from where it went down is a drag, not a tap. Read from the moves, never from the
@@ -107,6 +112,17 @@ function scrimPointerCancel(e: React.PointerEvent): void {
   scrimTap = null
 }
 
+/**
+ * A LAYER ABOVE THE SHEET OWNS THE TAP. When a modal menu or Select is open inside a sheet, Radix tells only the highest
+ * layer that disables outside pointer events about a press outside it, and marks every layer below with an inline
+ * `pointer-events: none` (@radix-ui/react-dismissable-layer). A tap on the scrim then closes the menu and must leave the
+ * sheet open, as it does without this file's scrim path (maker-checker on PR #3278: Settings' Selects, the Library's
+ * menu). So the sheet's own content reading `pointer-events: none` means the tap is not the sheet's.
+ */
+function layerAbove(content: HTMLElement | null): boolean {
+  return content?.style.pointerEvents === "none"
+}
+
 /** A scrim mounted; the returned function is its unmount. */
 function scrimMounted(): () => void {
   scrimsMounted++
@@ -118,6 +134,12 @@ function scrimMounted(): () => void {
       scrimTap = null
     })
   }
+}
+
+/** Counts an open scrim for as long as it is in the page; rendered inside the portal next to the overlay. */
+function ScrimMounted() {
+  React.useEffect(() => scrimMounted(), [])
+  return null
 }
 
 /** For tests: forget every pointer, as a fresh page would. */
@@ -176,10 +198,21 @@ function SheetContent({
   const closeRef = React.useRef<HTMLButtonElement | null>(null)
   const decided = React.useRef(false)
   type Outside = Parameters<NonNullable<typeof onPointerDownOutside>>[0]
-  React.useEffect(() => (overlay ? scrimMounted() : undefined), [overlay])
+  // One ref callback for the sheet's life, not a new one each render (React 19 detaches and reattaches a new callback, and
+  // Radix's composed refs re-run). A caller's own ref (a prop in React 19) still gets the element.
+  const callerRef = (props as { ref?: React.Ref<HTMLDivElement> }).ref
+  const setContent = React.useCallback(
+    (el: HTMLDivElement | null) => {
+      contentRef.current = el
+      if (typeof callerRef === "function") callerRef(el)
+      else if (callerRef) (callerRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+    },
+    [callerRef]
+  )
   const onScrimPointerUp = (e: React.PointerEvent) => {
     if (!scrimPointerUp(e)) return
     if (contentRef.current?.getAttribute("data-state") !== "open") return
+    if (layerAbove(contentRef.current)) return
     const outside = new CustomEvent("dismissableLayer.pointerDownOutside", { bubbles: false, cancelable: true, detail: { originalEvent: e.nativeEvent } })
     decided.current = true
     onPointerDownOutside?.(outside as unknown as Outside)
@@ -188,12 +221,14 @@ function SheetContent({
   }
   return (
     <SheetPortal>
+      {overlay && <ScrimMounted />}
       {overlay && (
         <SheetOverlay
           className={overlayClassName}
           onPointerDown={(e) => {
             decided.current = false
             scrimPointerDown(e)
+            if (layerAbove(contentRef.current)) scrimTap = null
           }}
           onPointerMove={scrimPointerMove}
           onPointerUp={onScrimPointerUp}
@@ -217,13 +252,7 @@ function SheetContent({
           className
         )}
         {...props}
-        ref={(el: HTMLDivElement | null) => {
-          contentRef.current = el
-          // A caller's own ref (a prop in React 19) still gets the element.
-          const callerRef = (props as { ref?: React.Ref<HTMLDivElement> }).ref
-          if (typeof callerRef === "function") callerRef(el)
-          else if (callerRef) (callerRef as React.MutableRefObject<HTMLDivElement | null>).current = el
-        }}
+        ref={setContent}
         onPointerDownOutside={(e) => {
           // This tap was already decided on the scrim's pointerup: Radix's later report of it changes nothing.
           if (decided.current) {

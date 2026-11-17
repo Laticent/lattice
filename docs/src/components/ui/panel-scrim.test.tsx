@@ -14,6 +14,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelNav, PanelSheet } from '@/components/ui/panel';
 import { resetScrimPointers, Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
@@ -244,6 +245,14 @@ describe('PanelSheet — a tap on the scrim', () => {
 	});
 
 	it('forgets a finger once the last scrim is gone, so a later sheet does not take its lift for a tap', async () => {
+		// A CLOSED sheet stays in the tree (the site nav's is on every page) and must not count as a scrim still there.
+		render(
+			<Sheet open={false}>
+				<SheetContent>
+					<SheetTitle>Closed</SheetTitle>
+				</SheetContent>
+			</Sheet>,
+		);
 		const first = render(
 			<Sheet open>
 				<SheetContent>
@@ -264,6 +273,66 @@ describe('PanelSheet — a tap on the scrim', () => {
 		);
 		ptr(scrim(), 'pointerup', 'touch');
 		expect(onOpenChange).not.toHaveBeenCalled();
+	});
+
+	it('leaves the sheet open when a menu is open above it: the tap closes the menu, as Radix decides', () => {
+		vi.useFakeTimers();
+		try {
+			for (const kind of ['mouse', 'touch'] as const) {
+				resetScrimPointers();
+				const onOpenChange = vi.fn();
+				const { unmount } = render(
+					<Sheet open onOpenChange={onOpenChange}>
+						<SheetContent>
+							<SheetTitle>Settings</SheetTitle>
+							<DropdownMenu open>
+								<DropdownMenuTrigger>Theme</DropdownMenuTrigger>
+								<DropdownMenuContent>
+									<DropdownMenuItem>Indaco</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</SheetContent>
+					</Sheet>,
+				);
+				vi.runOnlyPendingTimers();
+				if (kind === 'mouse') tap(scrim());
+				else touch(scrim(), { click: false });
+				vi.runOnlyPendingTimers();
+				expect(onOpenChange, kind).not.toHaveBeenCalled();
+				unmount();
+			}
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('does not close on a right-click or a ctrl-click on the scrim, in the gap either', () => {
+		vi.useFakeTimers();
+		try {
+			for (const how of ['right', 'ctrl'] as const) {
+				resetScrimPointers();
+				const onOpenChange = vi.fn();
+				const { unmount } = render(
+					<Sheet open onOpenChange={onOpenChange}>
+						<SheetContent>
+							<SheetTitle>Kept</SheetTitle>
+						</SheetContent>
+					</Sheet>,
+				);
+				const el = scrim();
+				for (const type of ['pointerdown', 'pointerup'] as const) {
+					const ev = new MouseEvent(type, { bubbles: true, cancelable: true, button: how === 'right' ? 2 : 0, ctrlKey: how === 'ctrl', clientX: 20, clientY: 20 });
+					Object.defineProperty(ev, 'pointerType', { value: 'mouse' });
+					Object.defineProperty(ev, 'pointerId', { value: 1 });
+					fireEvent(el, ev);
+				}
+				vi.runOnlyPendingTimers();
+				expect(onOpenChange, how).not.toHaveBeenCalled();
+				unmount();
+			}
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('stays open, in the gap and after it, when the caller keeps an outside tap from closing the sheet', () => {
