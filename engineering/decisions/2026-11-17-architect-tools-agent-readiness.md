@@ -136,7 +136,7 @@ recommends new edit kinds.
 
 `acronyms` entries also take an optional glossary definition (`AcronymEntry`), so the built tool
 gives each map its own value schema. `say` joins the enum only once it has a writer that emits bare
-digit keys, and once the numbering question in §8 is settled.
+digit keys, and only if the tabled `say:` map survives (§8).
 
 ```jsonc
 {
@@ -260,15 +260,26 @@ deck-wide revision would refuse the model's second call.
 - It does not change the tiers, the modes or the confirm, which 11-06 settled. 11-06 lets Auto skip
   the confirm for an act the author allowed by name; nothing here changes that.
 
-## 8. Open, for the owner
+## 8. Settled with the owner, and what was tabled (2026-11-17)
 
-- **Which numbering `say:` uses.** `deck-ops.ts` treats `say:` keys as rendered slide numbers, while
-  `narration-bake.ts` and `parseSayMap` use the authored index. Under `split: headings` these can
-  differ. The `say` value schema waits on this.
-- **Prompt-cache cost.** Tool results do not cross turns, so the result shape matters only inside a
-  turn. The cost question is the §5 status line: appended to the last user turn it leaves the cached
-  prefix alone; written into earlier messages or the system tail, it would rewrite the prefix. The
-  trace's `sent.tools` (`chat-agent.ts`) measures it.
-- **Whether tools should address slides by a stable id** rather than by position plus a heading
-  precondition. Lens membership already survives reordering (the tag moves with the slide), so this
-  is about tool addressing only.
+- **The front-matter `say:` map is tabled.** It is the only front-matter key that points at a slide
+  by number; every other per-slide fact (lens membership, `_class`) lives inside the slide. A
+  reproduction showed the bug: in a `split: headings` deck, `carrySay` counts on-screen slides while
+  the voice counts slides as written, so moving a slide can silently drop another slide's line. The
+  owner considers the map a mistake and tabled the fix until the spine below is designed:
+  `followups.d/3287-p2-front-matter-say-map-numbering.md`. Until then, chat tools write only the
+  in-slide `<!-- say: … -->`, and `set_front_matter_map` leaves `say` out of its enum (§4).
+- **Slide identity becomes its own proposal: a slide spine in Lente.** The owner proposed one owner
+  of "what are this deck's slides" (boundaries, ids, order, splitting, hidden slides, lens
+  membership, every structural edit, and views for the Studio, the CLI export and the chat). The
+  outline already keeps ids that survive edits (`docs/src/lib/deck-outline/`), and about a dozen
+  separate splitters disagree on numbering today. Its design is
+  `followups.d/3287-p1-lente-slide-spine.md`. Until it lands, the chat tools use the heading
+  precondition (§4), which needs no ids.
+- **Where the edit-outcome signal comes from and where it goes.** The model keeps no state between
+  turns, so the last leg is always text in the next request. That line goes at the end of the newest
+  user message, which leaves the cached prefix alone (the trace's `sent.tools` in `chat-agent.ts`
+  measures it). Its facts should come from the Studio's Fuoco hub (`docs/src/lib/fuoco/hub.ts`), the
+  two-way bus that already tags every update with who made it and an outline revision, once the chat
+  joins it as a named origin (11-06 §6). The hub keeps no log of who edited what today; that small
+  log is part of §6 step 3.
