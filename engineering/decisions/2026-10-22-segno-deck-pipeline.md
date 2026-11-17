@@ -969,3 +969,132 @@ quotes closing across a break, unclosed `$$` in containers, edits that change ne
 updates over 11 seeds, 0 mismatches. It also confirmed the contract holds for math as installed: `math_block` has no
 `alt`, so it never ends a paragraph, list or quote and is never tried silently.
 
+
+## P5 census (2026-11-17)
+
+P5 replaces every hand-written CSS scan in `lib/` with readers on ONE tokenizer (§Plan). This is the list of what it
+replaces, the order, and what was decided before any reader moved.
+
+**How it was found.** Three passes over committed source, vendor and generated files left out:
+- CSS syntax inside regex literals: `url(`, `@import`, `@font-face`, `/*`, `var(--`, `</style`;
+- declaration and block shapes: `[^;}]`, `{[^}]*}`, custom properties, `!important`, a brace `indexOf`;
+- character loops that test for `{`, `}` or `/*` (the pass the first two missed: it found `leading-is.js`, `layout/ai.js`
+  and `packages/plugin-css.mjs`).
+
+Each hit was read by hand and kept only if it reads CSS syntax. "Callers" counts the modules that import the file.
+**#22** means the scan decides what CSS may reach a document, or what a sanitizer removes (HARD RULE #22,
+2026-08-17-theme-css-is-a-preview-sink.md §5, §9). **Bytes** means a change in the scan can change an exported or
+rendered byte, so `npm run identity:check -- --strict` holds it.
+
+**The tokenizer** is lib/core/css-tokens.mjs: `eachCssToken(css, visit, from, to)` and `cssTokens(css, from, to)`, one
+API for a whole sheet and for an island (a stretch of a host text, offsets in the host's coordinates). Its grammar is
+`cssSheetSpec` in lib/core/css-ref-grammar.js, which shares the escape, string and `url(` rules with `cssSpec`, the
+reader behind `cssRefSpans` (#2871); `cssSpec` and its generated parser are unchanged. It stays LL(1) but for the one
+bounded `url(` attempt `cssSpec` already has. test/unit/core/css-tokens.test.js holds it to css-tree's spec tokenizer
+on 4,000 seeded inputs, token for token; the file's header lists the three places css-tree itself departs from the
+spec and from Chromium, and the three places this tokenizer departs from it on purpose.
+
+**The naive comment strip is a measured bypass.** `/\/\*[\s\S]*?\*\//g` treats comments and strings as separate
+layers, so a `/*` inside a string pairs with the next real `*/` and deletes everything between. Two measurements:
+- css-scan.js's header: `gateCss` returned zero findings for a remote `@import` and a remote `url()` placed after
+  `content: "/*"` (fixed when css-scan moved to lib/core/css-comments.mjs).
+- Measured 2026-11-17 on `main` dbc4d73a, lib/export/cli-deck-sheet.js `rootsOnBase`: a palette
+  `section::after{content:"/*"}` `@import 'indaco';` `/* note */` reads as importing no theme, so `cliThemeStore`
+  prepends a second `@import 'lattice';` to a palette whose parent already brings it.
+
+It is in 9 places in `lib/` (author-css.js, cli-deck-sheet.js, player-core.mjs ×4, slide-camera.mjs's `CSS_OPAQUE`
+variant, surfaces.js, component.contract.js); each P5 PR removes every copy in the files it touches. `tools/` and
+`test/` hold about 140 more, on theme and component CSS the repo itself writes; they are outside P5, which replaces the
+readers that ship.
+
+### Family A: decide what CSS is allowed (#22). P5c, with a checker and the browser oracles
+
+| File: symbol | Reads | Callers | #22 | Bytes |
+|---|---|---|---|---|
+| core/css-scan.js: `findCssExfil`, `findCssImports`, `IMPORT_URL_RE` | every off-device or script-bearing construct; each `@import` and its target | 3 (both gates, theme-core build) | yes | no |
+| core/css-comments.mjs: `eachCssRun`, `stripCssComments`, `maskCssComments` | the canonical comment walk (strings and unquoted `url(` aware); feeds css-scan, the theme chain and themes.js | 9 | yes (through css-scan) | yes |
+| theme/gate.js: `ENGINE_THEME_IMPORT_RE` | a theme's `@import 'name'` allowlist | 8 | yes | no |
+| layout/gate.js (`gateCss`) | component CSS scoping and refusals, through css-scan | 8 | yes | no |
+| layout/ai.js: `nextOpen` and the block walk | whether a generated component's CSS stays scoped to its class | 2 | yes | no |
+| packages/plugin-css.mjs: `scan`, `scopeSheet` | a plugin's `styles.css`, parsed and rebuilt under the plugin's root | 2 | yes | yes |
+| core/sanitize-diagram-svg.mjs: `countImports`, the `@import` strip | `@import` in a diagram's `<style>`, before `sanitizeStyleText` | 2 | yes | yes (diagram SVG) |
+| core/decl-value-safe.js | an author's declaration value; `url()` forms allowlisted | 2 | yes | yes |
+| core/web-ref-readers.js: `MERMAID_FORBIDDEN` | `@import` in Mermaid CSS | 2 | yes | no |
+| core/remote-ref.js: `cssRefSpans`, the `@import` probe | off-device refs in CSS (already on the css-ref grammar, #2871) | 21 | yes | no |
+| engine/css.js: `URL_IMPORT_RE`, `THEME_IMPORT_RE` | a remote or quoted `@import` in author or theme CSS | 7 | yes | yes |
+| packages/import-gate.js | the package gate's refusing rules (css-scan's rule ids) | 7 | yes | no |
+| core/url-scheme.js: the `url()` matcher | the scheme of each `url()` in a slide's CSS | 6 | yes | yes |
+
+### Family B: export and print assets. P5b, every byte held to identity:check
+
+| File: symbol | Reads | Callers | #22 | Bytes |
+|---|---|---|---|---|
+| export/player-core.mjs: the comment, string and `url()` mask (×2), `noComments`, the `@font-face` walk, the `url()` list | minifying, `url()` rewriting and the font faces of the player's CSS | 3 | no | yes |
+| export/player-prune.js: `@font-face` blocks (×3) | the font faces the player keeps | 5 | no | yes |
+| export/player-fonts.js: `FACE`, `DATA_URI` | the embedded woff2 faces | 3 | no | yes |
+| export/player-assets.mjs, player-images.mjs: data-URL `url()` | inlined data URLs | 1, 2 | no | yes |
+| export/katex-inline.js: `woff2Src`, the `@font-face` split | KaTeX's font faces | 3 | no | yes |
+| export/marp-bundle.js: `FONT_URL`, the emoji `@font-face` drop | font paths; one face removed | 6 | no | yes (Marp export) |
+| export/marp-vscode-stub.js, marp-bundle-math.js `STYLE_VALUE` | theme imports; a math style value | 3, 2 | no | yes |
+| export/pdf-asset-reader.js | a local sheet's `@font-face` blocks | 2 | no | yes (PDF) |
+| export/cli-deck-sheet.js: `THEME_IMPORT_RE`, the naive `COMMENT_RE` | whether a palette already imports a theme (the measured bypass above) | 2 | no | yes |
+| export/author-css.js: the naive `COMMENT_RE`, the depth walk | the author's CSS, re-wrapped (a #22 re-wrap site) | 3 | re-wrap | yes |
+| export/inline-url-media.mjs, html-player.js `BACKGROUND_IMAGE_STRING`, deck-assets.js | web `url()` refs; file `url()`; `asset:` refs | 3, 4, 3 | no | yes |
+| fonts/face-css.js: `AT_KEYWORD`, `HOP`, `URL_RE` | `@font-face` rules and their `src` URLs | 4 | no | yes |
+
+### Family C: engine and theme composition. P5a; bytes, not security
+
+| File: symbol | Reads | Callers | #22 | Bytes |
+|---|---|---|---|---|
+| engine/themes.js: `THEME_NAME_IMPORT_RE`; theme/chain.mjs: the import loop | the `@import` chain between themes | 2, 11 | no | yes |
+| core/leading-is.js: `splitSelectorList`, `leadingIsArms`, `splitLeadingTrivia`, `distributeLeadingIs` | selector lists and a leading `:is()`, for the engine's `packTheme`, pane twins and the Marp bundle | 3 | no | yes |
+| core/pane-css.js: `skipToken`, `pullComments`, `widenForPanes` | strings, `url(` and comments while twinning pane selectors | 7 | no | yes |
+| theme/contrast.js: the `light-dark()` and `var(--x)` reads | a token alias, per mode | 3 | no | no |
+| core/accessibility-textures.js: `TEXTURE_REF_RE` | texture `url(#…)` refs | 4 | no | yes |
+| components/surfaces.js; conformance/kinds/component.contract.js (both the naive strip) | selector text; component CSS | 2, 0 | no | no (tooling) |
+
+### Family D: DOM and computed-style readers, one value at a time (islands). P5a
+
+| File: symbol | Reads | Callers | #22 | Bytes |
+|---|---|---|---|---|
+| core/slide-camera.mjs: `CSS_OPAQUE`, the `@font-face` walk, `FACE_KEY_PROPS` | the deck sheet's comments and strings; its font faces and their descriptors | 4 | no | yes (camera images) |
+| core/pdf-compose/read-slide.mjs: `bgUrl`, `urlOf`, the mask data URL, the `@font-face` source | computed `background-image`, `mask`, `src` values | 1 | no | yes (PDF) |
+| core/image-aspect.js `BG_URL_RUN`, image-dimensions.js, image-painting.js | a `url()` in a slide's inline style | 5, 3, 2 | no | yes |
+| core/logo-wall-pack.js; transformers/logo-marks.js | `--logo-mask:url('…')` | 2, 1 | no | yes |
+| transformers/prose-projection.mjs: `URL_REF`, the comment strip | `url(#id)` refs; comments in style text | 5 | no | yes (captions) |
+| plugins/mermaid/mermaid.draw-shim.mjs | a face rule's `src` `url()` | 0 (loaded by name) | no | yes |
+| docs/src: calco/reader.ts, card-ink-sampler.ts, photo-verdict.ts, chart-detail-layer.tsx, theme-fetch.ts `KATEX_FACE_RE`, font-embed.js, snapshot-cache.js, anima/schema.ts | computed style values, KaTeX and emoji faces, Studio-side color rules | 1–3 each | no | some (PPTX via calco) |
+
+### Parsers already in the tree, which are not hand-written scans
+
+| File | Parser | Note |
+|---|---|---|
+| export/player-prune.js, fonts/face-css.js | `css-tree` (a dependency), loaded lazily | face-css measured the cold `require('css-tree')` at 64 ms per CLI render, and falls back when it is absent |
+| theme/parse.js | its own record parser, over `maskCssComments` | the theme round trip (`parseTheme` / `serializeTheme`) |
+| `postcss` | in package.json | no `lib/` reader found by name; tooling only |
+
+**Decided by the owner 2026-11-17: css-tree and theme/parse.js stay as the full-sheet reader until P5c lands; then
+measure the P5 reader against them (the 64 ms cold require included) and put the choice to the owner.** The later
+decision is followups.d/3042-p3-p5-css-tree-and-theme-parse.md.
+
+**Left out, and why.** export/export-scaffold.js, core/print-sheet.mjs, theme/serialize.js, lib/forms/index.js's token
+checks, draw-frame-core.mjs, face-rule.js and face-css's builders WRITE CSS. plugins/resolve.js strips JavaScript
+comments; payload-elision.js finds a `data:` opener in Markdown or HTML; code-door-core.mjs and mermaid.bake.js match
+`<style>` elements as HTML; chart-rows.js, named-span.mjs and the video plugin read JSON-like records; lint-core.js's
+probe leaves with lint-core (followups.d/3194-p1-squadra-replaces-lint-core.md).
+
+### The split
+
+About 50 readers in four families. Each move needs a seeded differential against the scan it replaces and a failing
+arm; a Family A move needs a browser oracle and a checker; a Family B move needs `identity:check --strict` at 0. One PR
+cannot hold that, so P5 ships in three, each on its own branch from `main` after the one before it merges (HARD RULE
+#17), as the coordinator approved on 2026-11-17:
+
+1. **P5a: the tokenizer, and Families C and D.** No #22 reader; bytes held by identity, and by the PDF, camera and
+   caption checks where they apply.
+2. **P5b: Family B.** Byte-identical exports (identity, captions, the Marp bundle, PDF fonts); if any byte changes,
+   STOP with dark and light renders.
+3. **P5c: Family A**, in this order: url-scheme, decl-value-safe, web-ref-readers, sanitize-diagram-svg, engine/css.js,
+   css-comments.mjs, css-scan with its two gates and the import gate, layout/ai.js, plugin-css.mjs. Each gets a seeded
+   differential, the inliner and rehost browser oracles, and one checker. No sanitizer's behavior changes; if one must,
+   REPORT first and run the trio.
