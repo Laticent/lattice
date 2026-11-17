@@ -27,6 +27,11 @@ export function codecChecks(r) {
 			detail: `Ogg ${fmt(ogg)}; WebM ${fmt(webm)}`,
 		},
 		{
+			name: `our Ogg file of WebCodecs' Opus plays back with under ${LEAD_IN_MS} ms of lead-in`,
+			pass: !!opus24.ogg?.ok && Math.abs(opus24.ogg.extraMs) < LEAD_IN_MS,
+			detail: opus24.ogg?.ok ? `${opus24.ogg.bytes} B, ${opus24.ogg.extraMs} ms longer than the source, pre-skip ${opus24.ogg.preSkip}${opus24.ogg.preSkipReported ? ' (reported by the encoder)' : ' (the default: the encoder reported none)'}` : opus24.ogg?.error || 'not run',
+		},
+		{
 			name: 'WebCodecs encodes Opus inside a worker',
 			pass: !!r.worker?.ok,
 			detail: r.worker?.ok ? `${r.worker.bytes} B, ${r.worker.encodeXRealtime}x realtime` : r.worker?.error || 'not run',

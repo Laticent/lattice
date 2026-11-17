@@ -146,7 +146,8 @@ if (process.env.PROBE === 'codec-support') {
 	// simulator: Linux WebKit decodes with GStreamer, not Apple's media stack).
 	const { chromium, firefox } = await import('@playwright/test');
 	const { codecChecks } = await import('./codecs.mjs');
-	const probe = fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8');
+	const muxer = fs.readFileSync(path.join(here, '../../../lib/core/ogg-opus.mjs'), 'utf8').replace(/^export /gm, '');
+	const probe = `${muxer}\n${fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8')}`;
 	const dir = path.join(here, 'codec-fixtures');
 	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));
 	await browser.close();
@@ -156,7 +157,7 @@ if (process.env.PROBE === 'codec-support') {
 		await page.route('https://codec.test/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>codec</title>' }));
 		await page.goto('https://codec.test/');
 		const r = await page.evaluate(`${probe}\nlatticeCodecProbe(${JSON.stringify(files)})`);
-		for (const [k, v] of Object.entries(r.roundTrip)) console.log(`  ${name} round trip ${k}: ${v.ok ? `${v.kbps} kbps, ${v.extraMs} ms longer` : `NO (${v.error})`}`);
+		for (const [k, v] of Object.entries(r.roundTrip)) console.log(`  ${name} round trip ${k}: ${v.ok ? `${v.kbps} kbps, ${v.extraMs} ms longer` : `NO (${v.error})`}${v.ogg ? `; our Ogg ${v.ogg.ok ? `${v.ogg.extraMs} ms longer, pre-skip ${v.ogg.preSkip}${v.ogg.preSkipReported ? ' reported' : ' default'}` : `NO (${v.ogg.error})`}` : ''}`);
 		const steps = codecChecks(r);
 		report(name, 'codec-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: '-', steps });
 		await b.close();
