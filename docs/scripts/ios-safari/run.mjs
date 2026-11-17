@@ -498,7 +498,7 @@ async function runPlayerChartsProbe(id) {
 /**
  * THE EMPTY DECK'S CANVAS TAP (empty-deck-probe.js), on the Compose page the tap above left: the page empties the deck and
  * names a still point on the start grid's own background, WebDriver sends one touch there, and the page reads the result:
- * the editor has the focus, a caret sits in the empty line, and the grid is still up. Then the page puts the deck back, so
+ * the editor has the focus, a caret sits in the empty line, and the grid is still up. Then the page puts the deck back in Source, so
  * the icon grid probe after this sees the deck it expects. The long-press precondition is composeTouchTap's (tap-guard.mjs).
  */
 async function emptyDeckTap(id) {
@@ -547,7 +547,7 @@ async function emptyDeckTap(id) {
 	// Always put the deck back, pass or fail: the probes after this one read it.
 	if (saved !== null) {
 		const back = await page(`latticeEmptyDeckRestore(${JSON.stringify(saved)})`).catch((e) => ({ error: String(e.message || e) }));
-		step('the saved deck is back, and the start grid stands down', back === true, back === true ? `${saved.length} characters` : back?.error);
+		step('the saved deck is back in Source', back === true, back === true ? `${saved.length} characters` : back?.error);
 	}
 	return { ok: steps.length > 0 && steps.every((x) => x.pass), steps };
 }

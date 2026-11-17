@@ -237,7 +237,7 @@ if (process.env.PROBE === 'empty-deck') {
 				step('the start grid stays until something is typed', seen.shown);
 				if (process.env.SHOTS) await page.screenshot({ path: path.join(process.env.SHOTS, `empty-deck-${label}.png`) });
 			}
-			step('the saved deck is back, and the start grid stands down', await page.evaluate((t) => globalThis.latticeEmptyDeckRestore(t), prep.saved), `${prep.saved.length} characters`);
+			step('the saved deck is back in Source', await page.evaluate((t) => globalThis.latticeEmptyDeckRestore(t), prep.saved), `${prep.saved.length} characters`);
 		} catch (e) {
 			error = String(e.message || e);
 		}

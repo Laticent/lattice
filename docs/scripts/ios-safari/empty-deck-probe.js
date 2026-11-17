@@ -13,7 +13,8 @@
  *   2. the caller taps that point;
  *   3. `latticeEmptyDeckRead()` reads what the tap did: the editor has the focus, a caret (not a range) sits in the empty
  *      line, and the grid is still there, because nothing has been typed yet;
- *   4. `latticeEmptyDeckRestore(text)` puts the saved deck back, so the probes after this one see the deck they expect.
+ *   4. `latticeEmptyDeckRestore(text)` puts the saved deck back in Source, so the probes after this one see the deck they
+ *      expect.
  *
  * Plain browser JS on purpose: WebDriver's execute-script sends source text, not a module. Needs show-editor.js ahead of it.
  */
@@ -139,21 +140,12 @@ globalThis.latticeEmptyDeckRead = async () => {
 };
 
 globalThis.latticeEmptyDeckRestore = async (text) => {
-	const { until, pm, grid, replaceSource, showCompose } = latticeEmptyDeckParts();
-	// Off the editor first, as the prep does. The tap left Compose focused, and Compose parks an outside change until it
-	// loses focus (ComposeView `pendingResyncRef`). A person's tap into Source moves the focus; on the iOS Simulator a
-	// script's `focus()` did not seem to (run 44087025343: the restored deck never reached Compose in 10 s).
+	const { replaceSource } = latticeEmptyDeckParts();
+	// Off the editor first, as the prep does, then put the text back in Source and STAY there: the icon grid probe after
+	// this one starts in Source. On the iOS Simulator a switch back to Compose kept showing the empty deck, focused, with the
+	// restored text parked (runs 44087025343 and 44092405081): followups.d/3288-p2-compose-parks-a-source-edit-on-a-phone.md.
 	document.activeElement?.blur?.();
 	getSelection()?.removeAllRanges();
 	await replaceSource(text);
-	await showCompose();
-	if (text.trim()) {
-		try {
-			await until(() => !grid(), 10000, 'the start grid to stand down on the restored deck');
-		} catch (e) {
-			const el = document.querySelector('[aria-label="Deck source"]');
-			throw new Error(`${e.message}; Compose shows ${pm()?.textContent.length ?? 'no editor'} characters, Source holds ${el ? el.textContent.length : 'no editor'}, focus on ${document.activeElement ? String(document.activeElement.className).slice(0, 40) : 'none'}`);
-		}
-	}
 	return true;
 };
