@@ -8481,12 +8481,12 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   },
   {
     file: 'lib/core/pdf-compose/read-slide.mjs',
-    reads: ['regex', 'text'],
+    reads: ['text'],
     sinks: { 'property': 1 },
     guards: 0,
     guard: 'none',
     why:
-      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text.',
+      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text. Its `url(…)` reads go through the CSS tokenizer (`cssUrls`, Segno P5a), so no regex reads an address.',
   },
   {
     file: 'lib/core/remote-ref.js',
@@ -8879,7 +8879,6 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/core/payload-elision.js', shape: 'url-reader', count: 1, why: 'NOT A FETCH DECISION: `OPENER` asks whether a `data:` URI\'s base64 opens where a URL value does (`](`, `url(`, `=`), only to decide which runs the readers may skip and put back; a run it rejects is read whole. The web-image blocker (`blockWebImages`) does not consult it and reads every character (PR #3153).' },
   { file: 'lib/authoring/lint-core.js', shape: 'url-reader', count: 1, why: 'A PREFILTER: `findWebMarkup` skips a deck that holds no tag, no `url(`, no `style:` and no Mermaid fence; everything it lets through is read with `scanHtml` and `cssRefSpans`. A miss here would skip a deck that holds no such text.' },
   { file: 'lib/authoring/lint-core.js', shape: 'attr-reader', count: 1, why: 'LINT, NOT AN ADDRESS: `author-script-defers` tells an inline `<script>` from one with a `src`; it reads no address.' },
-  { file: 'lib/core/pdf-compose/read-slide.mjs', shape: 'url-reader', count: 7, why: 'ENGINE-WRITTEN: the PDF composer reads the COMPUTED style of the rendered slide (masks, gradients, backgrounds) to draw native shapes; the render already blocked every web address before it runs.' },
   { file: 'docs/src/lib/calco/picture.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: Calco tests a computed background for the presence of a picture, to pick a tone; a presence test, never a fetch decision.' },
   { file: 'docs/src/lib/calco/reader.ts', shape: 'url-reader', count: 4, why: 'ENGINE-WRITTEN: Calco reads computed styles of the rendered slide (a picture present, an SVG data: mask) to build native shapes; the render already blocked.' },
   { file: 'docs/src/components/studio/card-ink-sampler.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture off a panel\'s own `style.backgroundImage` (the engine\'s `.lattice-bg` photo panel) to sample its tone.' },

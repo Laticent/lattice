@@ -1,2 +1,3 @@
 - The CLI's `--css` stylesheet resolves its `@import` lines the way CSS reads them: an `@import` written inside a string, or one spelled `@importx`, is no longer followed, and one written in capitals or with escapes (`@IMPORT`) now is.
 - The Studio's theme contrast meter reads a `light-dark()` token whose first value is itself a call with commas in it (`light-dark(color-mix(in srgb, #FFA69D 30%, transparent), …)`) as one value. carbone's `--fail-bg`, `--pass-bg` and `--warn-bg` were read as `color-mix(in srgb`, so their rows measured nothing.
+- The PDF writer reads a picture, mask or font address whose name holds a double quote (written `\"` in the computed style) whole; it stopped at the backslash.
