@@ -2906,7 +2906,6 @@
     "/transform|filter|perspective/": "safe",
     "/unicode-range\\s*:\\s*([^;}]+)/i": "safe",
     "/url\\(/gi": "safe",
-    "/url\\(/i": "safe",
     "/url\\([ \\t]{0,8}['\"]?fonts\\/([^)'\"\\s]{1,256})['\"]?[ \\t]{0,8}\\)/g": "safe",
     "/url\\(\\s*(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|[^)]*?)\\s*\\)/gi": "polynomial",
     "/url\\(\\s*(&quot;|&#39;|['\"]?)(data:([a-z0-9.+/-]+);base64,[A-Za-z0-9+/=]+)\\1\\s*\\)/gi": {

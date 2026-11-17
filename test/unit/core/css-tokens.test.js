@@ -204,3 +204,34 @@ test('css-tokens: a visitor may tokenize again while a walk is under way (the ta
   });
   assert.deepEqual(nested, flat);
 });
+
+test('css-tokens: cssUrls reads each url() as CSS does, with its decoded address and its raw span', () => {
+  const { cssUrls } = require('../../../lib/core/css-tokens.mjs');
+  const read = (css) => cssUrls(css).map((u) => [css.slice(u.from, u.to), u.value, u.quoted, css.slice(u.rawFrom, u.rawTo)]);
+  // A computed value's form, with an escaped quote in the address.
+  assert.deepEqual(read('url("a\\"b.png")'), [['url("a\\"b.png")', 'a"b.png', true, 'a\\"b.png']]);
+  assert.deepEqual(read("url( 'q' )"), [["url( 'q' )", 'q', true, 'q']]);
+  assert.deepEqual(read('url( a.png )'), [['url( a.png )', 'a.png', false, 'a.png']]);
+  // An escaped name is a url; one in a comment or a string is not.
+  assert.deepEqual(read('u\\72l(x) /* url(y) */ "url(z)"'), [['u\\72l(x)', 'x', false, 'x']]);
+  // A string that is not followed by `)` is still the address, as Chromium fetches it.
+  assert.deepEqual(read('url("a" x)'), [['url("a"', 'a', true, 'a']]);
+});
+
+test('css-tokens: cssCommaParts splits at top-level commas only', () => {
+  const { cssCommaParts } = require('../../../lib/core/css-tokens.mjs');
+  const parts = (css) => cssCommaParts(css).map(([a, b]) => css.slice(a, b));
+  assert.deepEqual(parts('url("a,b"), linear-gradient(red, blue)'), ['url("a,b")', ' linear-gradient(red, blue)']);
+  assert.deepEqual(parts('a /* , */ b'), ['a /* , */ b']);
+  assert.deepEqual(parts(''), ['']);
+});
+
+test('css-tokens: rewriteCssUrls changes only the addresses it is asked to, byte for byte around them', () => {
+  const { rewriteCssUrls } = require('../../../lib/core/css-tokens.mjs');
+  const css = 'a{b:url( fonts/x.woff2 ) url("fonts/y.woff2") url(keep.png)} /* url(fonts/z) */ c::after{content:"url(fonts/q)"}';
+  assert.equal(
+    rewriteCssUrls(css, (raw) => (raw.startsWith('fonts/') ? `/base/${raw}` : undefined)),
+    'a{b:url( /base/fonts/x.woff2 ) url("/base/fonts/y.woff2") url(keep.png)} /* url(fonts/z) */ c::after{content:"url(fonts/q)"}',
+  );
+  assert.equal(rewriteCssUrls(css, () => undefined), css);
+});

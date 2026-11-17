@@ -1038,6 +1038,7 @@ readers that ship.
 | packages/import-gate.js | the package gate's refusing rules (css-scan's rule ids) | 7 | yes | no |
 | core/url-scheme.js: the `url()` matcher | the scheme of each `url()` in a slide's CSS | 6 | yes | yes |
 | core/door-attr.mjs: `cssRefTargets` | every address a CSS value holds, for the code door | 2 | yes | no |
+| docs/src: anima/schema.ts `COLOR_FORBID`, vetrina/theme.ts `SINK_FN` | refuse a color value that holds `url(`, `image(`, `expression(` or a structural character | 1 each | yes | no |
 | core/css-url.js: `firstCssUrl` | the first `url()` target in a CSS text (transformers and the browser runtime) | 6 | no | yes (runtime, exports) |
 
 ### Family B: export and print assets. P5b, every byte held to identity:check
@@ -1077,7 +1078,9 @@ readers that ship.
 | transformers/logo-marks.js `measureMark` | a mark's `--logo-mask:url('…')` style value | 1 | no | yes |
 | transformers/prose-projection.mjs: the declaration reader's comment strip | comments in a declaration whose strings and addresses are already slots | 5 | no | yes (captions) |
 | plugins/mermaid/mermaid.draw-shim.mjs | a face rule's `src` `url()` | 0 (loaded by name) | no | yes |
-| docs/src: calco/reader.ts, calco/picture.ts, card-ink-sampler.ts, photo-verdict.ts, chart-detail-layer.tsx, theme-fetch.ts `KATEX_FACE_RE`, font-embed.js, snapshot-cache.js, single-slide-render.ts (eager on home), web-image-hint.ts, anima/schema.ts, vetrina/theme.ts | computed style values, KaTeX and emoji faces, Studio-side color rules | 1–4 each | no | some (PPTX via calco) |
+| docs/src: card-ink-sampler.ts, photo-verdict.ts | a spotlight panel's computed `background-image` address | 1 each | no | no |
+| docs/src: theme-fetch.ts, snapshot-cache.js (×2), single-slide-render.ts `absolutizeUrls` (eager on home) | rewrite each `url(fonts/…)` (or each relative `url()`) of a sheet the Studio stages | 1–2 each | no | no (the Studio's sheet text) |
+| docs/src: calco/reader.ts (×4), calco/picture.ts | computed `background-image`, `mask` and paint values, for the PowerPoint export | 4, 1 | no | yes (PPTX) |
 
 ### Parsers already in the tree, which are not hand-written scans
 
@@ -1102,12 +1105,16 @@ where a quote may be an entity (`&#39;`, `&quot;`) and the CSS sits inside an at
 the HTML read (`scanHtml`, html-ref-reader.js) to hand it the decoded value: core/image-aspect.js `BG_URL_RUN`,
 core/image-dimensions.js `bgUrlOf`, core/logo-wall-pack.js (a mark's span HTML), core/bg-image.js (the `sample:`
 resolver over `style` attributes) and transformers/prose-projection.mjs `URL_REF` (it rewrites `url(#id)` in markup by
-the ids it knows, entity-quoted spellings included).
+the ids it knows, entity-quoted spellings included). docs/src/components/studio/web-image-hint.ts is markup-level too: it scans a deck's Markdown and
+HTML source for a web address after any of several spellings (`![](`, `src=`, `url(`, `image-set(`, a Mermaid `img:`).
 
-**Kept until plugins can reach the tokenizer:** plugins/mermaid/mermaid.draw-shim.mjs reads a face's first `src`
-`url()` with a regex. A plugin may reach outside its folder only through `ctx`, a service or a workspace library
-(engineering/decisions/2026-10-11-codebase-structure.md; `npm run structure` refuses a direct import of lib/core), and the
-shim is handed no `ctx`. It moves when the tokenizer is offered to plugins that way.
+**Kept until the tokenizer is a workspace library.** Two readers cannot import lib/core/css-tokens.mjs where it lives
+(engineering/decisions/2026-10-11-codebase-structure.md; `npm run structure` refuses both):
+- plugins/mermaid/mermaid.draw-shim.mjs reads a face's first `src` `url()` with a regex. A plugin reaches outside its
+  folder only through `ctx`, a service or a workspace library, and the shim is handed no `ctx`.
+- docs/src/lib/calco/reader.ts and picture.ts (the `@laticent/calco` library, layer 0) read computed `url()` values for
+  the PowerPoint export; an import of lib/core (layer 1) is an upward import.
+Both move when the tokenizer is a workspace library they may import.
 
 **Reviewed and kept, also:** core/rough-ink-dom.js's two `/url\s*\(/i` tests run only where `CSS.supports` is missing
 (jsdom in the unit tests); rejecting anything url-shaped there is the conservative side of a color check, and a
@@ -1118,7 +1125,8 @@ tokenizer read would accept more.
 bg-image.js, rough-ink-dom.js and four docs files, now placed above. Each P5 move lowers or removes its entry there, and
 the gate fails on a stale one.
 
-**Left out, and why.** export/export-scaffold.js, core/print-sheet.mjs, theme/serialize.js, lib/forms/index.js's token
+**Left out, and why.** docs/src/components/chart-detail-layer.tsx and docs/src/playground/font-embed.js (named in the first
+census) read no CSS: font-embed writes `@font-face` rules and tests a URL's path. export/export-scaffold.js, core/print-sheet.mjs, theme/serialize.js, lib/forms/index.js's token
 checks, draw-frame-core.mjs, face-rule.js and face-css's builders WRITE CSS. plugins/resolve.js strips JavaScript
 comments; payload-elision.js finds a `data:` opener in Markdown or HTML; code-door-core.mjs and mermaid.bake.js match
 `<style>` elements as HTML; chart-rows.js, named-span.mjs and the video plugin read JSON-like records; lint-core.js's

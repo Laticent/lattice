@@ -27,6 +27,7 @@
 // `themeImportNames` and was the third such resolver in the repo; the three had
 // already drifted (the emulator's missed a minified `@import"onyx"` that this one
 // handled). See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
+import { rewriteCssUrls } from '../../../lib/core/css-tokens.mjs';
 import { themeChain } from '../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../lib/theme/edges.generated.mjs';
 import type { StyleLoader } from './style-loader';
@@ -107,9 +108,8 @@ export function createThemeFetcher(themeBase: string, opts: { styles?: StyleLoad
 	 */
 	function rewriteRelativeFontUrls(css: string): string {
 		const katexBase = themeBase.replace(/themes\/$/, 'katex/fonts/');
-		return css.replace(/url\((['"]?)fonts\/(KaTeX_)?/g, (_m, quote, isKatex) =>
-			'url(' + quote + (isKatex ? katexBase + 'KaTeX_' : themeBase + 'fonts/'),
-		);
+		// Each real `url(…)` read by the CSS tokenizer (Segno P5): one in a comment or a string is not rewritten.
+		return rewriteCssUrls(css, (raw) => (raw.startsWith('fonts/KaTeX_') ? katexBase + raw.slice('fonts/'.length) : raw.startsWith('fonts/') ? themeBase + raw : undefined));
 	}
 
 	// lattice.css bakes in KaTeX's OWN 20 `@font-face` rules unconditionally, and the
