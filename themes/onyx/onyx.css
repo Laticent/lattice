@@ -110,10 +110,10 @@
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
   --pass-mark: light-dark(#4D5C43, #4F5F45);
   --warn-mark: light-dark(#8A5A18, #9D6A3C);
-  --fail-mark: light-dark(#9E001A, #AE4241);
+  --fail-mark: light-dark(#940018, #AE4241);
   --pass-vivid-mark: light-dark(#475D3A, #416427);
   --warn-vivid-mark: light-dark(#8C5700, #A9651B);
-  --fail-vivid-mark: light-dark(#9E001A, #B83839);
+  --fail-vivid-mark: light-dark(#940018, #B83839);
   --warn-signal-mark: light-dark(#FFBB6B, #D4A440);
   --fail-signal-mark: light-dark(#FFB4AF, #E27C76);
   --info-mark: light-dark(#2E598F, #4B7A96);
@@ -130,12 +130,12 @@
   --mute-on-mark: light-dark(#FFFFFF, #FFFFFF);
   --pass-edge-mark: light-dark(#4D5C43, var(--pass));
   --warn-edge-mark: light-dark(#8A5A18, var(--warn));
-  --fail-edge-mark: light-dark(#9E001A, var(--fail));
+  --fail-edge-mark: light-dark(#940018, var(--fail));
   --info-edge-mark: light-dark(#2E598F, var(--info));
   --mute-edge-mark: light-dark(#5A6475, var(--mute));
   --pass-vivid-edge-mark: light-dark(#475D3A, var(--pass));
   --warn-vivid-edge-mark: light-dark(#8C5700, var(--warn));
-  --fail-vivid-edge-mark: light-dark(#9E001A, var(--fail));
+  --fail-vivid-edge-mark: light-dark(#940018, var(--fail));
   --info-vivid-edge-mark: light-dark(#1657A1, var(--info));
   /* What a mark ON a status solid steps toward: away from the status ink, which is light on both faces, so black
    * (risk-matrix's critical band, a state-chart status row's chip). */

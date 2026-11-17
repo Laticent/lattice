@@ -104,12 +104,12 @@
    * full floors. The two exceptions also wear a SIGNAL ring. Solved by tools/curate-status-triplets.js. */
   --pass-mark: light-dark(#3A5B4C, #446556);
   --warn-mark: light-dark(#855612, #9D6A3C);
-  --fail-mark: light-dark(#8E2624, #B1453F);
+  --fail-mark: light-dark(#861E1D, #B1453F);
   --pass-vivid-mark: light-dark(#2F5D4A, #066C4D);
   --warn-vivid-mark: light-dark(#885500, #A9651B);
   --fail-vivid-mark: light-dark(#9C0012, #BB3B38);
   --warn-signal-mark: light-dark(#FFBB69, #D0A53F);
-  --fail-signal-mark: light-dark(#FFB5AD, #E57E7F);
+  --fail-signal-mark: light-dark(#FFB5AC, #E57E7F);
   --info-mark: light-dark(#006285, #487B95);
   --info-vivid-mark: light-dark(#006083, #287DA3);
   --mute-mark: light-dark(#675E5C, #726967);
@@ -124,7 +124,7 @@
   --mute-on-mark: light-dark(#FCF8F5, #FFFFFF);
   --pass-edge-mark: light-dark(#3A5B4C, var(--pass));
   --warn-edge-mark: light-dark(#855612, var(--warn));
-  --fail-edge-mark: light-dark(#8E2624, var(--fail));
+  --fail-edge-mark: light-dark(#861E1D, var(--fail));
   --info-edge-mark: light-dark(#006285, var(--info));
   --mute-edge-mark: light-dark(#675E5C, var(--mute));
   --pass-vivid-edge-mark: light-dark(#2F5D4A, var(--pass));

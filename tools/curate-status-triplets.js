@@ -110,6 +110,23 @@ const WINDOW = 0.16;
 const MUTE_APART = { pass: 0.07, warn: 0.09, info: 0.07 };
 /** The near-neutral chroma deferred may drop to where the theme's tinted gray cannot clear all three. */
 const MUTE_GRAY_C = 0.012;
+/** Light blocked keeps at least this from the theme's first category (chart-cat1, also a chart's "no status"). */
+const CAT1_APART = 0.07;
+const cat1Floor = (theme) => CAT1_EXEMPT[theme]?.floor ?? CAT1_APART;
+const CAT1_EXEMPT = Object.fromEntries([['burgundy', 'a wine red (#8E293E)'], ['magnolia', 'a garnet (#813743)']].map(([t, what]) => [t, {
+  floor: 0.055,
+  why: `${t}'s first category is itself ${what}. At 0.07 blocked can only stand off it by sinking to L 0.39, the wine `
+    + 'red the scorings rejected; 0.055 holds blocked at L 0.41-0.42 and still clears main\'s distance (burgundy 0.054, '
+    + 'magnolia 0.041).' }]));
+/**
+ * A light face whose blocked takes a fixed hue just past the red range, named with its reason. Audited (the range check
+ * reads it) and stale-checked like the other exemptions.
+ */
+const FAIL_HUE_EXEMPT = {
+  burgundy: { h: 34, why: 'burgundy\'s first category is itself a wine red (#8E293E), which a chart also paints as "no status". '
+    + 'Inside 20-32 degrees no blocked that clears 4.5:1 on every surface stands more than 0.05 off it (main: 0.054), so '
+    + 'burgundy\'s blocked takes 34 degrees, a red-orange, and clears it by 0.07.' },
+};
 /** Pilot keeps at least this from done, at risk and blocked where its candidates allow it (main's concrete held 0.118). */
 const PILOT_APART = 0.09;
 /** What one degree of at risk's step off its own hue costs, in summed lightness off target (0.05 for 15 degrees). */
@@ -194,7 +211,7 @@ function themeFacts(theme, V = mergedVars(theme)) {
       const seen = new Set();
       return all.filter(([, h]) => !seen.has(h) && seen.add(h)).map(([name, h]) => ({ name, hex: h }));
     };
-    return { bg, text: get('bg', dark), accent: get('accent', dark), surfaces };
+    return { bg, text: get('bg', dark), accent: get('accent', dark), cat1: get('chart-cat1', dark), surfaces };
   };
   // The palette's strength, as tools/curate-chart-solids.js reads it: the mean chroma of its first six categories
   // against a typical palette's. A muted palette's status stays muted beside its categories, a rich one's rich.
@@ -337,7 +354,7 @@ function solve(theme, facts, baseline, keep) {
       // The theme's own hue, held inside the chart solids' status bands, as on the dark face: an at-risk anchored on a
       // gold accent reads khaki, and a blocked on a magenta reads as a category.
       const inBand = (s, h) => { const [lo, hi] = LIGHT_BAND[s]; return Math.min(hi, Math.max(lo, h)); };
-      const hueOf = (s) => (s === 'mute' ? facts.anchor.mute.h : s === 'fail' ? clampRed(facts.anchor.fail.h)
+      const hueOf = (s) => (s === 'mute' ? facts.anchor.mute.h : s === 'fail' ? (FAIL_HUE_EXEMPT[theme]?.h ?? clampRed(facts.anchor.fail.h))
         : s === 'warn' ? inBand(s, inBand(s, facts.anchor.warn.h) + warnShift) : inBand(s, facts.anchor[s].h));
       const cands = (s, Cv = C(s), h = hueOf(s)) => {
         const list = [];
@@ -385,6 +402,9 @@ function solve(theme, facts, baseline, keep) {
         const fills = { pass: p[1], warn: w[1], fail: f[1] };
         if (w[0] - f[0] < spreadFor(theme) - 1e-9) continue;
         if (!urgent(fills, bg) || !offAccent(fills, facts[face].accent, accentFloor(theme, face))) continue;
+        // Blocked stands off the first category, which a chart also paints as "no status" (a gantt bar, a milestone):
+        // burgundy's wine and onyx's crimson once took blocked's place.
+        if (facts[face].cat1 && oklabDistance(f[1], facts[face].cat1) < cat1Floor(theme) - 1e-9) continue;
         if (!separationOk(theme, intensity, face, fills, baseline, keep)) continue;
         const t = TARGET[face];
         const dev = Math.abs(p[0] - t.pass) + Math.abs(w[0] - t.warn) + Math.abs(f[0] - t.fail) + step * SHIFT_COST;
@@ -522,7 +542,8 @@ function audit(theme, facts, baseline, keep) {
       if (fills.fail) {
         const h = ((hexToOklch(fills.fail).h + 180) % 360) - 180;
         const lo = dark ? FAIL_TURN_FLOOR : FAIL_RED[0];
-        if (h < lo - 1.5 || h > FAIL_RED[1] + 1.5) bad.push(`${face} ${intensity} --${tok('fail')} hue ${h.toFixed(0)} is outside the red range ${lo}-${FAIL_RED[1]}`);
+        const hi = !dark && FAIL_HUE_EXEMPT[theme] ? FAIL_HUE_EXEMPT[theme].h : FAIL_RED[1];
+        if (h < lo - 1.5 || h > hi + 1.5) bad.push(`${face} ${intensity} --${tok('fail')} hue ${h.toFixed(0)} is outside the red range ${lo}-${FAIL_RED[1]}`);
         const c = hexToOklch(fills.fail).C;
         if (dark && c > FAIL_CHROMA_CAP[intensity] + 0.01) bad.push(`dark ${intensity} --${tok('fail')} chroma ${c.toFixed(3)} is louder than the cap ${FAIL_CHROMA_CAP[intensity]}`);
       }
@@ -531,6 +552,10 @@ function audit(theme, facts, baseline, keep) {
           const d = fills[s] && oklabDistance(fills.mute, fills[s]);
           if (fills[s] && d < MUTE_APART[s] - 0.002) bad.push(`light ${intensity} --${tok('mute')} sits ${d.toFixed(3)} from ${name} (floor ${MUTE_APART[s]})`);
         }
+      }
+      // Blocked stands off the first category, which a chart also paints as "no status" (onyx's once sat 0.048 from it).
+      if (!dark && fills.fail && facts.light.cat1 && oklabDistance(fills.fail, facts.light.cat1) < cat1Floor(theme) - 0.002) {
+        bad.push(`light ${intensity} --${tok('fail')} sits ${oklabDistance(fills.fail, facts.light.cat1).toFixed(3)} from --chart-cat1 (floor ${cat1Floor(theme)})`);
       }
       // Pilot stands clear of done, at risk and blocked on light (concrete's, pushed deep, once sat 0.053 from its done).
       if (!dark && fills.info) {
@@ -623,10 +648,26 @@ function main() {
       if (gap >= LIGHT_SPREAD) { failed++; console.log(`SPREAD_EXEMPT ${theme} is stale: its light face now spreads ${gap.toFixed(3)}, the full ${LIGHT_SPREAD}`); }
       else if (gap < spread - 0.006) { failed++; console.log(`SPREAD_EXEMPT ${theme} spreads ${gap.toFixed(3)}, below its named ${spread}`); }
     }
+    // A cat1 exemption is stale once the theme's light blocked (both intensities) clears the full floor anyway.
+    for (const theme of Object.keys(CAT1_EXEMPT)) {
+      const facts = themeFacts(theme);
+      const d = Math.min(...['fail-mark', 'fail-vivid-mark'].map((t) => oklabDistance(facts.get(t, false), facts.light.cat1)));
+      if (d >= CAT1_APART) { failed++; console.log(`CAT1_EXEMPT ${theme} is stale: its light blocked now sits ${d.toFixed(3)} from --chart-cat1, the full ${CAT1_APART}`); }
+    }
+    // A hue exemption is stale once a blocked inside the red range would clear the theme's cat1 floor: the hue is then
+    // re-solved without it and compared.
+    for (const theme of Object.keys(FAIL_HUE_EXEMPT)) {
+      const held = FAIL_HUE_EXEMPT[theme];
+      delete FAIL_HUE_EXEMPT[theme];
+      let reachable = true;
+      try { solve(theme, themeFacts(theme), baseline, o.keep); } catch { reachable = false; }
+      FAIL_HUE_EXEMPT[theme] = held;
+      if (reachable) { failed++; console.log(`FAIL_HUE_EXEMPT ${theme} is stale: a blocked inside ${FAIL_RED.join('-')} degrees now meets the contract`); }
+    }
   }
   if (o.check && failed) process.exit(1);
 }
 
-module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, SPREAD_EXEMPT, FAIL_RED, FAIL_CHROMA_CAP, MUTE_APART, PILOT_APART, KANBAN };
+module.exports = { themeFacts, solve, tokens, audit, BAND, TARGET, FILL_MIN, INK_MIN, ACCENT_MIN, ACCENT_EXEMPT, SPREAD_EXEMPT, FAIL_RED, FAIL_CHROMA_CAP, MUTE_APART, PILOT_APART, CAT1_EXEMPT, FAIL_HUE_EXEMPT, KANBAN };
 
 if (require.main === module) main();

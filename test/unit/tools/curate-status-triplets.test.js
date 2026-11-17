@@ -108,6 +108,17 @@ test('deferred is a gray in the theme\'s own neutral', () => {
   assert.ok(deep.some((b) => /light muted --info-mark sits .* from --pass-mark/.test(b)), deep.join(' | '));
 });
 
+test('blocked stands off the first category, which a chart also paints as no status', () => {
+  // Onyx's blocked once sat 0.048 from its crimson first category, and a gantt's no-status bar read as blocked.
+  const baseline = JSON.parse(fs.readFileSync(path.join(ROOT, 'test/fixtures/status-fill-cvd-baseline.json'), 'utf8'));
+  const O0 = mergedVars('onyx');
+  const run = (patch) => audit('onyx', themeFacts('onyx', { ...O0, ...patch }), baseline, 1);
+  assert.deepEqual(run({}), [], 'onyx as shipped');
+  const dark = O0['fail-mark'].replace(/^light-dark\(#[0-9A-Fa-f]{6},\s*(#[0-9A-Fa-f]{6})\)$/, '$1');
+  const bad = run({ 'fail-mark': `light-dark(#9E001A, ${dark})` });
+  assert.ok(bad.some((b) => /light muted --fail-mark sits .* from --chart-cat1/.test(b)), bad.join(' | '));
+});
+
 test('a surface the tool cannot resolve stops it rather than being skipped', () => {
   // A dropped surface would let --check pass a fill it never measured against that surface.
   const V = { ...mergedVars('onyx'), 'accent-soft': 'currentColor' };

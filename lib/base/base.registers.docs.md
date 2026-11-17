@@ -947,8 +947,8 @@ the chart beside it. Write the two words in either order.
 
 | Second word | Token | Light slide | Dark slide |
 |---|---|---|---|
-| `muted` | `marks-muted` | deep status fills under white text, each theme's own: done a quiet sage, at risk a burnt orange, blocked a crimson. **The default** (omit the word). | the same hues as mid-tones |
-| `vivid` | `marks-vivid` | every status rich under white text, done an emerald | the same, as mid-tones |
+| `muted` | `marks-muted` | deep status fills under the slide's paper, each theme's own: done a quiet sage in the theme's green, at risk an amber, blocked a red, deferred a gray in the theme's own neutral. **The default** (omit the word). | mid-tone fills in the same family as the category colors beside them, under white text |
+| `vivid` | `marks-vivid` | every status more saturated, still under the slide's paper | the same, more saturated |
 
 ```markdown
 ---
@@ -956,8 +956,9 @@ marks: pigment vivid
 ---
 ```
 
-Each theme curates both sets (`--pass-mark` … and `--pass-vivid-mark` …), and text on every
-fill clears 7:1 on a light slide and 4.5:1 on a dark one. For a reader who is colorblind,
+Each theme curates both sets (`--pass-mark` … and `--pass-vivid-mark` …). On a light slide every
+fill clears 4.5:1 against everything it sits on (the slide, a card, its own row tint), and its text
+is the slide's paper; on a dark slide text on every fill clears 4.6:1. For a reader who is colorblind,
 pick one of the `a11y-*` palettes: they keep the one set that clears every colorblind floor,
 in both intensities.
 

@@ -165,6 +165,16 @@ it may step up to 30 degrees bluer inside its band, so hue rather than depth set
 deep blue (`#003559`), at least 0.097 from every status (0.149 vivid); ardesia's muted pilot, which the trio had landed
 0.083 from, is re-picked to `#00697F` (0.092). The dark residual above is unchanged.
 
+A tenth scoring (light 8.5, dark 9) confirmed it and found blocked crowding the theme's first category, which a chart
+also paints as "no status" (a gantt bar or milestone): onyx's blocked sat 0.048 from its crimson first category (`main`
+0.075) and burgundy's 0.035 from its wine (`main` 0.054), so a no-status bar read as blocked. Light blocked now clears
+`--chart-cat1` by 0.07 (`CAT1_APART`, held by the audit). Burgundy and magnolia, whose first categories are themselves
+reds, hold 0.055 (`CAT1_EXEMPT`): at 0.07 their blocked could only sink to the rejected wine (L 0.39), and 0.055 keeps it
+at L 0.41-0.42 while still clearing `main` (0.054 and 0.041). Inside 20-32 degrees burgundy reaches only 0.05, so its
+light blocked takes 34 degrees (`FAIL_HUE_EXEMPT`), a red-orange. Both exemptions are named, audited and stale-checked.
+The author docs (`lib/base/base.registers.docs.md` § Intensity, `engineering/chart-styling.md` § Two intensities) still
+described the old light contract (white text, 7:1, an emerald done) and now describe this one.
+
 Dark etch's status bars read nearly hollow beside an etched pie. That is etch's design and predates this work: a
 mark that carries text (a status bar or a category bar) takes etch's backdrop level (14% light, 19% dark), and only a
 text-free mark (a pie slice) takes its body level (30%, 40%). A status chart and a category bar chart under etch match.

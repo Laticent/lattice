@@ -165,10 +165,10 @@ The contract, held for every palette in both modes and both intensities by
   deep ring on an `a11y-*` palette's bright dark-face fill against the fill.
 
 **Two intensities** (`marks: … muted | vivid`, `lib/core/resolve-marks.js`). Muted is `--X-mark`, the
-default: done a quiet SAGE, the exceptions carrying the color as a burnt orange and a crimson. Vivid is
+default: done a quiet SAGE, the exceptions carrying the color as an amber and a red. Vivid is
 `--X-vivid-mark`, which `base.tokens.css` swaps in under `.marks-vivid` (§ THE STATUS FILL ON THIS SLIDE):
-every status rich, done an emerald, for a deck that celebrates its wins. Both keep white text, and the rings are
-shared. The register sets every status fill on the slide, so a checklist disc, a kpi pill or a policy badge takes
+every status more saturated, for a deck that celebrates its wins. Both keep the same ink (the theme's status
+triplet: the slide's paper on a light face, white on a dark one), and the rings are shared. The register sets every status fill on the slide, so a checklist disc, a kpi pill or a policy badge takes
 the same intensity as the chart beside it (`engineering/decisions/2026-10-24-status-is-one-system.md`).
 
 **Each theme's status set is its own.** The hues are the theme's own status inks (`--pass` …), each held to its band
