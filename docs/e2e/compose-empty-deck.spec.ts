@@ -70,6 +70,8 @@ test('@crosswidth @webkit-phone @gecko typing starts a content slide, and one Un
 	await expect(start(page)).toBeHidden();
 	// The slide is real now, and its layout button names the default component by its class.
 	await expect(page.locator('.cs-slide-active .cs-sb-pill .cs-sb-layout .cs-lb-name')).toHaveText('content');
+	// …and so does the slide strip under the preview, where it is on screen (a wide window shows both panes).
+	if ((page.viewportSize()?.width ?? 1440) >= 768) await expect(page.locator('[data-strip="pills"]')).toContainText('content');
 	await page.keyboard.press('ControlOrMeta+z');
 	await expect.poll(() => deckSource(page)).toBe('');
 	await expect(start(page)).toBeVisible();
