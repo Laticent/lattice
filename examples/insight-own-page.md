@@ -9,9 +9,9 @@ size: square
 
 # A long insight moves. The figure keeps the slide.
 
-`fit · key insight under a chart or diagram`
+`fit · key insight under a diagram`
 
-A chart or diagram scales to its box. A long insight under it used to shrink the figure; now it takes the closing page.
+A diagram scales to its box. A long insight under it used to shrink the diagram, sometimes to nothing; now it takes the closing page. A chart keeps its insight until a split can redraw it.
 
 ---
 
@@ -32,22 +32,23 @@ sequenceDiagram
 
 ---
 
-<!-- _class: line -->
+<!-- _class: diagram -->
 
-## Churn fell once onboarding moved to week one.
+## A request is approved twice, then filed.
 
-- Jan
-  - Churn `4.1`
-- Feb
-  - Churn `3.9`
-- Mar
-  - Churn `2.6`
-- Apr
-  - Churn `2.2`
+```mermaid
+stateDiagram-v2
+  [*] --> Draft
+  Draft --> Review: submit
+  Review --> Draft: changes
+  Review --> Approved: sign-off
+  Approved --> Filed: archive
+  Filed --> [*]
+```
 
-> The drop starts the month the onboarding call moved from week three to week one, and it holds in every cohort since, including the enterprise accounts that used to churn at twice the base rate. It survives controlling for seat count, contract length and region, which is why the first-week call is now staffed as a retention lever rather than offered as a courtesy.
+> The second approval is the one that matters: a reviewer can bounce a draft as often as they like, but once sign-off lands the request goes straight to filing, so the review loop is the only place a change can still be made, and every team that skipped it later filed a correction instead.
 
-<!-- The labels stay legible here; the insight still stands taller than the chart's own cell, so it moves and the chart keeps the stage. -->
+<!-- A tall state diagram under a 55-word insight: on its own page it draws larger, so the insight moves. -->
 
 ---
 
@@ -63,6 +64,25 @@ sequenceDiagram
 > Two teams take four tickets in five.
 
 <!-- A one-line insight leaves the bars their room: it stays under the chart. -->
+
+---
+
+<!-- _class: line -->
+
+## Churn fell once onboarding moved to week one.
+
+- Jan
+  - Churn `4.1`
+- Feb
+  - Churn `3.9`
+- Mar
+  - Churn `2.6`
+- Apr
+  - Churn `2.2`
+
+> The drop starts the month the onboarding call moved from week three to week one, and it holds in every cohort since, so the first-week call is now staffed as a retention lever rather than offered as a courtesy.
+
+<!-- A chart keeps its insight for now: its phone drawing is laid out for the box under the insight, and no split redraws it yet, so a page of its own would hold the same-size chart. -->
 
 ---
 
@@ -84,17 +104,19 @@ flowchart LR
 
 ---
 
-<!-- _class: bar -->
+<!-- _class: diagram -->
 
-## Revenue by region, before the reorg.
+## Three services, one queue between them.
 
-- North `48`
-- South `41`
-- East `29`
-- West `22`
+```mermaid
+flowchart TB
+  A[Checkout] --> Q[(Queue)]
+  B[Billing] --> Q
+  Q --> C[Fulfilment]
+```
 
-> North and South carried the year, but the gap is narrower than it looks: East grew fastest in the second half, West's number includes a one-off contract that will not repeat, and both of the smaller regions were short of sales staff for six of the twelve months.
+> The queue is the only coupling: checkout and billing never call fulfilment directly, so either can be down for an hour and orders still ship once it recovers, which is why the incident review asked for a second consumer rather than a faster one.
 
-— Figures in millions, unaudited.
+— Figures from the March incident review.
 
 <!-- The insight and the below-note move together: the run's closing page holds both, in their authored order. -->
