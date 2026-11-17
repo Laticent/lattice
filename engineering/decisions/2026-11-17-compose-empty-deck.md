@@ -98,6 +98,18 @@ Compose reads the rule from the text it emits, so the first keystroke clears the
   It also found the grid's top could go stale when one empty deck replaced another (the measurement now reruns on
   `resetKey`), that a misspelled `sample:` name drew a broken image (it falls back to the stand-in that names it) and that
   Compose accepted a `..` in a sample name the engine refuses (it refuses it too).
+- **What the grade then held the PR to (HARD RULE #18).** A second grade read the review's three "low" items as defects
+  this PR ships in a surface it created, which #18 does not allow to wait. Each is fixed, with a unit test a mutation turns
+  red:
+  - *"Browse all 0 layouts"* while the catalog loads: the link names no count until there is one (`browseLabel`).
+  - *A saved local component named `title` or `content`* took a starting tile, since local entries come first in the
+    insert list: the grid picks from the catalog only (`startPicks`).
+  - *The empty flag followed the `source` prop*, so an outside change parked while the author typed (or held for an IME
+    composition in a live session) flipped the grid before the editor showed it, and nothing corrected it when the change
+    landed. The flag now follows the editor's own text: set at creation, on every emitted edit, in `resyncFrom` and on an
+    undo applied in place. `ComposeView.sync.test.tsx` holds the parked case; restoring the prop effect turns it red. A
+    refused live merge takes the same path (the editor shows the author's text until the held change lands through
+    `resyncFrom`), but no test drives a two-browser live session into an empty deck: that case rests on the shared path.
 - **Nothing moves (owner, 2026-11-17: "make sure there is no jank").** Two moves were measured on the real Studio and
   fixed. (1) The first build hid the slide bar with `display:none`, so the first letter brought it back above the line and
   pushed the text down under the author's caret: **94px on a phone, 54px on a desktop**, and Undo pulled it back up. The

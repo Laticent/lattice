@@ -17,8 +17,20 @@ export const START_SLIDES = ['title', 'content', 'cards-grid', 'big-number'] as 
 
 const noDetail = () => {};
 
+/** The four tiles, from the CATALOG only: a saved local component named `title` or `content` is the author's own layout,
+ *  not the starting slide this grid promises (the checker on #3273). Local entries come first in the insert list, so a
+ *  plain `find` let one shadow the catalog's. */
+export function startPicks(items: readonly PickerItem[]): PickerItem[] {
+	return START_SLIDES.map((n) => items.find((i) => i.name === n && i.bucket !== 'local')).filter((i): i is PickerItem => !!i);
+}
+
+/** The link to the whole picker. No count until the catalog has loaded: "Browse all 0 layouts" read as an empty catalog. */
+export function browseLabel(count: number): string {
+	return count > 0 ? `Browse all ${count} layouts` : 'Browse all layouts';
+}
+
 export function EmptyDeckStart({ items, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onBrowse }: { items: readonly PickerItem[]; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (item: PickerItem) => void; onBrowse: () => void }): React.ReactElement {
-	const picks = START_SLIDES.map((n) => items.find((i) => i.name === n)).filter((i): i is PickerItem => !!i);
+	const picks = startPicks(items);
 	return (
 		<section aria-labelledby="cs-empty-title" aria-describedby="cs-empty-hint" data-empty-start="" className="flex w-full max-w-[560px] cursor-auto flex-col items-center gap-3 text-center font-sans">
 			<h2 id="cs-empty-title" className="m-0 font-serif text-[22px] font-semibold text-[var(--text-heading)]">
@@ -41,7 +53,7 @@ export function EmptyDeckStart({ items, options, frontMatter, paletteOverride, e
 				</ul>
 			</PreviewPool>
 			<button type="button" onClick={onBrowse} className="min-h-11 rounded-md px-2 text-[14px] font-semibold text-[var(--accent)] underline underline-offset-4 hover:text-[var(--text-heading)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">
-				Browse all {items.length} layouts
+				{browseLabel(items.length)}
 			</button>
 		</section>
 	);

@@ -2555,8 +2555,11 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// slide (`doc → slide+`), but while the deck is blank (`isBlankDeck`) Compose draws none of its chrome: one empty line to
 	// write on, as Source shows, and the host's start grid (`emptyStart`) under it. Read from the text Compose itself emits,
 	// so the first keystroke clears it in the same frame, and from `source`, so an undo or a Source edit brings it back.
+	// THE EDITOR'S OWN TEXT decides, never the `source` prop: an outside change parked while the author types (or held for an
+	// IME composition in a live session) is not on screen yet, and a flag that followed the prop showed the empty state over
+	// text, or slide chrome over an empty line, until the next change (the checker on #3273). Set where the editor's text is
+	// established: at creation, on every emitted edit, on a resync (`resyncFrom`) and on an undo applied in place.
 	const [blank, setBlank] = React.useState(() => isBlankDeck(source));
-	React.useEffect(() => setBlank(isBlankDeck(source)), [source]);
 	// The empty line's bottom edge, reported with `blank` to the shell, which places its start grid under it. Measured, not a
 	// constant: the reserved bar's height depends on the pane's width (the pill wraps on a narrow pane) and on whether the slide
 	// is active. Re-measured when the editor is rebuilt for another deck (`resetKey`): the slide node is new, and an observer
@@ -2928,6 +2931,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				return;
 			}
 			lastEmittedRef.current = text;
+			setBlank(isBlankDeck(text));
 			pendingResyncRef.current = null;
 			liveHoldRef.current = null;
 			// New slides arrive with their pills as text: a silent pass turns them back into objects.
@@ -3346,6 +3350,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// ordering hygiene against a latent hazard, not a fixed break.
 		baselineRef.current = initBaseline(doc);
 		lastEmittedRef.current = src;
+		setBlank(isBlankDeck(src));
 		pendingResyncRef.current = null;
 		liveHoldRef.current = null;
 		// The rebuilt doc has its pills as text again: turn them back into objects (a silent pass, so
@@ -3409,6 +3414,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		try {
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
+			setBlank(isBlankDeck(source));
 			// A NEW VIEW FOLLOWS THE FOCUS; it does not announce its own caret (the Markdown editor's rule, Editor.tsx). A view built
 			// after a round trip through Source, or on a phone when the Compose pane comes back, started at the top of the deck, and
 			// its first transaction reported slide 1 as the author's move: the preview and the rail jumped there (owner, iPhone).

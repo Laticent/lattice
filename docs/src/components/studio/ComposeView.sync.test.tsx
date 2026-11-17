@@ -496,3 +496,28 @@ describe('ComposeView — keeps the author on their slide', () => {
 		expect(reports).toEqual([]);
 	});
 });
+
+// THE EMPTY FLAG FOLLOWS THE EDITOR'S TEXT, not the `source` prop (engineering/decisions/2026-11-17-compose-empty-deck.md;
+// the checker on #3273). An outside change that arrives while the author is in the editor is parked; until it lands, the
+// editor still shows the empty line, so the shell's start grid must stay, and it must go when the change lands.
+describe('ComposeView: the empty state while an outside change waits', () => {
+	it('stays blank while the change is parked, and reports the change when it lands', async () => {
+		const seen: { blank: boolean }[] = [];
+		const onEmpty = (e: { blank: boolean }) => seen.push(e);
+		const v = render(<ComposeView source="" onChange={() => {}} emptyStart onEmpty={onEmpty} />);
+		expect(seen.at(-1)?.blank).toBe(true);
+		const pm = v.container.querySelector('.ProseMirror') as HTMLElement;
+		pm.focus();
+		expect(liveView?.hasFocus()).toBe(true);
+		v.rerender(<ComposeView source={'## Hello\n\nA line.'} onChange={() => {}} emptyStart onEmpty={onEmpty} />);
+		await Promise.resolve();
+		// Parked: the editor still shows the empty line, and the flag says so.
+		expect(v.container.querySelector('h2')).toBeNull();
+		expect(seen.at(-1)?.blank).toBe(true);
+		pm.blur();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(v.container.querySelector('h2')?.textContent).toBe('Hello');
+		expect(seen.at(-1)?.blank).toBe(false);
+	});
+});
