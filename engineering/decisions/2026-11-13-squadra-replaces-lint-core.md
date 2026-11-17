@@ -358,7 +358,7 @@ Built on `claude/squadra-lint-front-matter-ktsbt9`, cut from `main` at `72bd2d9`
   that reads a register, so it carries only what those readers use.
 - **Two import-free modules, joined.** Where the block ends lives in `lib/core/front-matter-fence.mjs`
   (`frontMatterFence`, `frontMatterMatch`, `FRONT_MATTER_FENCE`); the key reader in `lib/core/front-matter-keys.mjs`
-  (`frontMatterKeys`, `topLevelKey`, `looseKey`, `BLOCK_SCALAR_HEAD`); `lib/core/front-matter-island.mjs` joins them
+  (`frontMatterKeys`, `topLevelKey`, `looseKey`; the lint-only `BLOCK_SCALAR_HEAD` moved to `lib/authoring/front-matter-scans.js`, beside lint-core, its one caller); `lib/core/front-matter-island.mjs` joins them
   for ES readers and tests. A reader that only needs the block imports the fence; the splitter, the boundary parser,
   the deck model and the plugin admission import nothing else, which is what keeps the key reader off the docs home
   page. (The resolvers and `slides.js` take the block from the fence too, but still load the key reader through

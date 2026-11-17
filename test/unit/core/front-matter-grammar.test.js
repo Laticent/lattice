@@ -163,7 +163,7 @@ test('the grammar finds the block where the engine fence did (4,000 seeded sourc
   }
 });
 
-test('the reader is linear: each line parsed once and visited once, on deep indents and a long block-scalar body', () => {
+test('the reader is linear: each line outside a block-scalar body parsed once, body lines never parsed, each line visited at most twice', () => {
   // Counted, not timed (HARD RULE #32). A header indented 200 columns, then 3,000 body lines each indented one deeper
   // than the last and each shaped like a header itself, then 20,000 key lines at every depth. A reader that read a body
   // line as a header again would scan the rest of the body from each one: about n x n / 2 visits.
@@ -172,7 +172,8 @@ test('the reader is linear: each line parsed once and visited once, on deep inde
   const before = { ...keyWork };
   const keys = frontMatterKeys(yaml);
   const lines = 23001;
-  assert.equal(keyWork.lines - before.lines, lines);
+  // The header and the 20,000 keys go through the grammar; the 3,000 body lines only have their indent measured.
+  assert.equal(keyWork.lines - before.lines, lines - 3000);
   // At most one visit by the outer loop and one by the body loop for each line.
   assert.ok(keyWork.visits - before.visits <= 2 * lines, `${keyWork.visits - before.visits} visits for ${lines} lines`);
   assert.equal(keys[0].bodyEnd, 3001);
