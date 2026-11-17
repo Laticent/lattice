@@ -338,3 +338,23 @@ describe('the patch path over every separator spelling', () => {
 		expect(narrow / checked).toBeGreaterThan(0.5);
 	});
 });
+
+describe('an edit that adds front matter to a deck that had none', () => {
+	// The guard's own case. A run that opens the deck goes through `deckFrame`, which strips front matter, so a typed
+	// `---\ntitle: y\n---` block reads as front matter there but as slide text in the split: the run's separators come back
+	// empty and the narrow resync, unchecked, dropped the leading `---\n`. The guard sees the run does not spell back the
+	// edited bytes and takes the whole-source path.
+	it('the patch path still emits exactly the edited deck', () => {
+		const src = '# A\n\na\n\n---\n\n# Z\n\nz\n';
+		const to = `---\ntitle: y\n---\n\n# B\n\n---\n\n${src}`;
+		const d = deckToDoc(src);
+		const b = initBaseline(d);
+		expect(emitDeck(d, b)).toBe(src);
+		const st = EditorState.create({ doc: d, schema: deckSchema });
+		const rp = scopedResyncPatch(st, b, emitPatch(src, to)!);
+		expect(rp, 'patch resync').not.toBeNull();
+		const sp = st.apply(rp!.tr);
+		rp!.commit(sp.doc);
+		expect(emitDeck(sp.doc, b)).toBe(to);
+	});
+});
