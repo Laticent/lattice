@@ -2,7 +2,7 @@
 status: shipped
 summary: >
   lattice.style now tells crawlers and agents the same thing its pages do. A filtered sitemap drops the 21
-  noindex pages it used to list, every standalone route carries a canonical link and an Open Graph card,
+  pages it used to list that are not meant to be found (19 said noindex; two prototypes now do too), every standalone route carries a canonical link and an Open Graph card,
   robots.txt and a 1.6 KB llms.txt router ship from one module (docs/src/lib/discovery.mjs), and a post-build
   gate (docs/scripts/check-discovery.mjs) fails when any of them disagree. A CSP meta tag, an og:image card
   and per-page Markdown twins were weighed and left out, with the reason for each.
@@ -19,7 +19,7 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
 
 | Signal | Before |
 |---|---|
-| `sitemap-index.xml` | Present (Starlight adds `@astrojs/sitemap`), 202 URLs, **21 of them pages that say `noindex`**: the 15 library demo shells, `/gift/`, the four `/proto/` routes, the two Vetrina fixtures. A sitemap that lists a noindex page sends a crawler two opposite instructions. |
+| `sitemap-index.xml` | Present (Starlight adds `@astrojs/sitemap`), 202 URLs, **19 of them pages that say `noindex`**: the 14 library demo shells, `/gift/`, two of the four `/proto/` routes, the two Vetrina fixtures. A sitemap that lists a noindex page sends a crawler two opposite instructions. The other two `/proto/` routes are throwaway prototypes that said nothing; this change marks them noindex too, so 21 URLs leave the sitemap. |
 | `<link rel="canonical">` | Only on Starlight docs pages. **Missing on every standalone route**: the landing page, `/features/`, `/comparison/`, `/studio/`, `/playground/`, all 80 component pages, every `/plugins/` and `/libraries/` page. `ComponentsLayout`, `CatalogLayout` and `/comparison/` already computed the URL, but only for `og:url`. |
 | Open Graph | Missing entirely on the landing page, `/features/`, `/studio/`, `/playground/`. |
 | `robots.txt` | None. |
@@ -40,8 +40,11 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
   `/features/`, `/studio/` and `/playground/`.
 - **`/robots.txt`** is one group for every crawler: `Allow: /` and the sitemap. Googlebot, Bingbot, GPTBot,
   ClaudeBot and PerplexityBot all read `User-agent: *`, so a per-bot group with the same rules adds nothing.
-  A Cloudflare preview build (`CF_PAGES` set) answers `Disallow: /`, because an indexed preview competes with
-  the real page.
+  A preview should not be indexed, because it competes with the real page. The PR previews are built in
+  GitHub Actions with `CF_PAGES` unset (`2026-07-01-docs-pr-preview.md`), so their `robots.txt` is the
+  production one; what keeps them out is a `/* X-Robots-Tag: noindex` rule in `docs/public/_headers`, which
+  only Cloudflare reads. `robots.txt` still answers `Disallow: /` for a build `deploy-env.mjs` calls a
+  preview, which covers a future Cloudflare-built preview.
 - **`/llms.txt`** is an 11-link router (1,629 bytes) to the pages an agent needs to write a deck, plus the
   agent kit on the `dist-kits` branch. It points at `/components.md`, the whole component reference as plain
   Markdown, which the site already built.

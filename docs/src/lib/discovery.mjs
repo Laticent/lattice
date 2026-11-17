@@ -54,9 +54,10 @@ export function canonicalUrl(site, pathname) {
  * per-bot group that repeats the same rules adds lines and nothing else; the day a bot
  * needs a different rule is the day it gets its own group.
  *
- * A preview deploy (`index: false`) disallows everything: Cloudflare's *.pages.dev
- * previews are full copies of the site, and an indexed preview competes with the real
- * page.
+ * A preview build (`index: false`, per deploy-env.mjs) disallows everything. Today's PR
+ * previews do not reach that branch — they are built in GitHub Actions without CF_PAGES —
+ * so `public/_headers` sends them `X-Robots-Tag: noindex` instead (Cloudflare reads that
+ * file; GitHub Pages, the production host, ignores it).
  */
 export function robotsTxt({ site, index }) {
 	if (!index) {

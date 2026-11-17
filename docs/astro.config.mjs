@@ -247,7 +247,8 @@ export default defineConfig({
 		// @astrojs/sitemap only when no integration of that name is present). The filter drops
 		// every page that also says `noindex`, so the site never asks a crawler to index a page
 		// it tells the same crawler not to index. The list and the check that keeps it true:
-		// src/lib/discovery.mjs, scripts/check-discovery.mjs (#3207).
+		// src/lib/discovery.mjs, scripts/check-discovery.mjs (#3207). Starlight's own copy also
+		// passes its i18n locales; the site has none. Adding locales means passing `i18n` here.
 		sitemap({ filter: (page) => isIndexable(new URL(page).pathname) }),
 		starlight({
 			title: 'Lattice',
