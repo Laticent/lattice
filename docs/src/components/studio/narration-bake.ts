@@ -36,6 +36,7 @@ import { compressClip, DEFAULT_BITRATE_KBPS, isCompressedAudio } from '@/playgro
 import { narrationBitrate, narrationCacheEnabled, parallelPref } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
 import { narrateChart, narrateChartScript } from '@/playground/read-along-core.generated.js';
+import { storedClipAsWav } from '@/playground/stored-clip-to-wav.js';
 import { isGeminiTtsModel } from '@/playground/tts-cost.js';
 import { parallelCapFor } from '@/playground/voice-engine-profile.js';
 import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
@@ -723,7 +724,10 @@ export async function bakeNarration(
 		// PLAYBACK reads, so writing the mp3 back would feed a codec-delayed clip to the live
 		// reader, which is the whole thing §9 moved compression out of the rung to avoid. Cost: a
 		// deck recorded on an uncompressed voice re-encodes each export, now in the background.
-		const packed = await packer.pack({ bytes: await blob.arrayBuffer(), type: blob.type ?? '', kbps: narrationBitrate() });
+		// The store keeps raw-audio narration as Ogg Opus (opus-encode-pool.js). The file still ships MP3 with the voice's
+		// leading silence measured from PCM, so an Ogg clip is decoded back to WAV first (stored-clip-to-wav.js).
+		const source = ((await storedClipAsWav(blob as Blob)) ?? blob) as ClipBytes;
+		const packed = await packer.pack({ bytes: await source.arrayBuffer(), type: source.type ?? '', kbps: narrationBitrate() });
 		// A dead encoder means EVERY clip ships ~6x the size the author was quoted, with neither
 		// payload threshold firing because both gate on the ESTIMATE. That is precisely the promise
 		// this module exists to keep, so it refuses instead (`packClip` asks the encoder directly
@@ -940,7 +944,8 @@ export function formatDuration(seconds: number): string {
  *  with the one other place that compresses, because the compressed bytes are sent and never stored: what it already holds (never
  *  synthesized here), as mp3 at the bake's bitrate when it is not already compressed. */
 export async function narrationClipForRoom(spoken: string): Promise<{ bytes: Uint8Array; mime: string; lead?: number } | null> {
-	const held = await narrationClipFor(spoken);
+	// The store keeps raw-audio narration as Ogg Opus; a member is sent MP3, so decode it back to WAV first.
+	const held = await storedClipAsWav((await narrationClipFor(spoken)) as Blob | null);
 	if (!held) return null;
 	const packed = (await compressClip(held as Blob, narrationBitrate()).catch(() => null)) ?? (held as Blob & { leadMs?: number });
 	// Raw WAV is about 3 KB a character: far past what a member accepts, and a dead encoder would have the

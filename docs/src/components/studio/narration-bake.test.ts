@@ -1001,6 +1001,42 @@ describe('the bake-time compressor is wired in, not merely present', () => {
 		expect(uri.length).toBeLessThan(shippedBytes(wav.size, 'audio/wav') / 2);
 	});
 
+	it('ships a clip the device keeps as Ogg Opus as mp3, with the voice\'s lead measured from its decoded PCM', async () => {
+		// The Studio keeps raw-audio narration as Ogg Opus (opus-encode-pool.js). The file still ships mp3: the clip is
+		// decoded back to WAV on the page (stored-clip-to-wav.js) and goes through the same compress as a WAV clip. Without
+		// that, the Ogg passed through untouched, with no lead offset, into a file other people open in unknown browsers.
+		const decodedWav = wavClip(2);
+		class FakeOfflineAudioContext {
+			constructor(
+				readonly channels: number,
+				readonly length: number,
+				readonly sampleRate: number,
+			) {}
+			async decodeAudioData() {
+				// 150 ms of silence, then the 2 s tone: the voice's own lead the export must keep measuring.
+				const pcm = new Int16Array(await decodedWav.arrayBuffer(), 44);
+				const lead = Math.round(this.sampleRate * 0.15);
+				const out = new Float32Array(lead + pcm.length);
+				for (let i = 0; i < pcm.length; i++) out[lead + i] = pcm[i] / 32768;
+				return { getChannelData: () => out, sampleRate: this.sampleRate };
+			}
+		}
+		vi.stubGlobal('OfflineAudioContext', FakeOfflineAudioContext);
+		try {
+			const ogg = { size: 9000, type: 'audio/ogg; codecs=opus', arrayBuffer: async () => new ArrayBuffer(9000) };
+			stored.set(keyFor(S1), ogg.size);
+			getClipOverride = () => ogg;
+			script.set(S2, [4000]);
+			const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+			const cue = bake.slides.flat().find((c) => c.audio?.startsWith('data:audio/mpeg'));
+			expect(cue, 'the Ogg clip ships as mp3').toBeTruthy();
+			expect(bake.slides.flat().some((c) => c.audio?.startsWith('data:audio/ogg')), 'no Ogg reaches the file').toBe(false);
+			expect(cue?.leadMs ?? 0, 'the 150 ms the voice waits before its first word travels as the lead').toBeGreaterThanOrEqual(140);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it('does NOT bank the compressed bytes — the store feeds PLAYBACK, which must stay uncompressed', async () => {
 		// Writing them back would make the next export cheap, and would also hand the live reader
 		// a codec-delayed clip: lamejs writes no gapless header, so every clip it produces opens
