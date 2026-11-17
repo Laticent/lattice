@@ -56,6 +56,17 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
   `robots.txt` names a sitemap that was not built, or when an `llms.txt` link is dead or the file passes
   4 KB. Its first run caught `/playground/`, which this change had missed.
 
+- **`lastmod` from git history** (owner call, 2026-11-17). Each sitemap URL carries the date of
+  the last commit to the page's main-content source (`docs/src/lib/lastmod.mjs`): a docs page's
+  `.md`/`.mdx` file, a component page's component folder, a catalog page's `content/catalog`
+  file, a standalone route's own `.astro` file. Shared chrome (a layout, the header, a
+  stylesheet) moves no date, which is what Google asks lastmod to track. A depth-1 checkout
+  would date every page to its one commit, so `docs.yml` and `docs-preview.yml` now check out
+  full history without file contents (`fetch-depth: 0`, `filter: blob:none`): measured 19 MB and
+  about 3 to 5 s, plus 0.4 s for the one `git log` pass. Every other build is shallow and omits
+  lastmod entirely. The gate holds it all-or-nothing: with history every URL must carry the
+  computed date, and without it none may carry one.
+
 ## 3. What was left out, and why
 
 - **A Content-Security-Policy `<meta>` tag.** GitHub Pages cannot send headers, so a meta tag is the only
@@ -71,8 +82,6 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
 - **Markdown twins of every docs page.** 32 of the 58 docs pages are MDX, and their raw source is component
   calls, not readable Markdown. The twin that matters to an agent, `/components.md`, already ships and is in
   `llms.txt`.
-- **`lastmod` in the sitemap.** Every page is rebuilt on every deploy, so a build-time date would claim every
-  page changed every day. Google says it ignores a `lastmod` it cannot trust.
 
 ## 4. Secrets on a public static site
 

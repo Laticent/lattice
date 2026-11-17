@@ -7,7 +7,8 @@
 //      new noindex page from shipping inside the sitemap (and an indexable page from being
 //      dropped from it).
 //   2. The sitemap lists every indexable page and nothing else: each URL resolves to a built
-//      page, and no indexable page is missing.
+//      page, and no indexable page is missing. With git history, every URL carries the
+//      lastmod src/lib/lastmod.mjs computes; on a shallow checkout, none carries one.
 //   3. Every indexable page carries exactly one <title>, description, canonical link,
 //      og:title, og:description and og:url.
 //   4. robots.txt points at a sitemap that exists, and every link in llms.txt resolves to a
@@ -23,6 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isIndexable, LLMS_LINKS } from '../src/lib/discovery.mjs';
+import { hasHistory, makeLastmod } from '../src/lib/lastmod.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(HERE, '..', 'dist');
@@ -88,6 +90,9 @@ for (const file of walk(DIST)) {
 // ── 2: the sitemap is exactly the indexable routes ───────────────────────────
 const sitemapIndex = path.join(DIST, 'sitemap-index.xml');
 const listed = new Set();
+const REPO_ROOT = path.join(HERE, '..', '..');
+const withHistory = hasHistory(REPO_ROOT);
+const lastmodFor = makeLastmod(REPO_ROOT);
 if (!fs.existsSync(sitemapIndex)) fail('dist/sitemap-index.xml is missing');
 else {
 	for (const [, loc] of fs.readFileSync(sitemapIndex, 'utf8').matchAll(/<loc>([^<]+)<\/loc>/g)) {
@@ -96,7 +101,16 @@ else {
 			fail(`sitemap-index.xml names ${loc}, which was not built`);
 			continue;
 		}
-		for (const [, url] of fs.readFileSync(part, 'utf8').matchAll(/<loc>([^<]+)<\/loc>/g)) listed.add(new URL(url).pathname);
+		for (const [, entry] of fs.readFileSync(part, 'utf8').matchAll(/<url>(.*?)<\/url>/gs)) {
+			const route = new URL(entry.match(/<loc>([^<]+)<\/loc>/)[1]).pathname;
+			listed.add(route);
+			const lastmod = entry.match(/<lastmod>([^<]+)<\/lastmod>/)?.[1];
+			if (withHistory) {
+				const want = lastmodFor(route);
+				if (!want) fail(`${route} has no content source in src/lib/lastmod.mjs contentSources — map it`);
+				else if (lastmod !== want) fail(`${route} lastmod is ${lastmod ?? 'missing'}, want ${want}`);
+			} else if (lastmod) fail(`${route} carries lastmod ${lastmod} from a shallow checkout, where every date is the latest commit`);
+		}
 	}
 	// Static files under public/ (the offline fallback) are not Astro routes, so the sitemap
 	// integration never sees them; `isIndexable` already marks them noindex above.
@@ -131,4 +145,4 @@ if (errors.length) {
 	console.error(`check-discovery: ${errors.length} problem(s)\n  ${errors.join('\n  ')}`);
 	process.exit(1);
 }
-console.log(`check-discovery: ${checked} pages, ${indexable.size} indexable, sitemap and llms.txt agree.`);
+console.log(`check-discovery: ${checked} pages, ${indexable.size} indexable, sitemap and llms.txt agree; lastmod ${withHistory ? 'on every URL' : 'omitted (shallow checkout)'}.`);
