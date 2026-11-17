@@ -67,6 +67,16 @@ also      — 2026-11-10, same PR: collage-lightbox.spec.ts:395 on gecko
             and gecko at 3), recorded nowhere before: back-gesture.spec.ts:183 (webkit-phone), switch-controls.spec.ts:97
             (webkit-tablet) and table-reflow-preview.spec.ts:71 (webkit-tablet; then 8 of 8 at 4 workers). Each failed once in its full run and passed 3 of 3 alone. Not
             compared against main; not investigated.
+fixed     — 2026-11-17, branch claude/e2e-flaky-roots, each at its cause:
+            - playground-deck-settings.spec.ts:110 (test-only): an item-aligned Radix Select grows as it scrolls, so
+              scrolling Auto into view moved the list under the pointer and the pointerup missed the option (trace: the
+              list 526 px tall as the click began, 670 px after). `chooseOption` waits for the option to hold still.
+              Old test 5 of 60 red at 6 workers, new 60 of 60.
+            - back-gesture.spec.ts:183 (now :172, webkit-phone): a product defect. A lazy panel's real sheet replaces
+              its loading sheet with no enter motion, and Radix arms its outside-tap listener only a moment after mount,
+              so a tap on the scrim in that gap did nothing. SheetContent routes such a tap through the caller's own
+              outside-tap handlers (components/ui/sheet.tsx). Real iOS Simulator: 4 of 10 deck taps left the Library open
+              without the fix (run 44008585425), 10 of 10 closed it with it (run 44004881632).
 where     — the specs named above that the "fixed" entry does not name.
 done when — each failure is reproduced under full-project load and fixed at its cause, or 10 full
             mobile-project runs on main pass and this file is deleted with that evidence.
