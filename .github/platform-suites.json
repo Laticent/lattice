@@ -249,6 +249,22 @@
       "docs_site": true
     },
     {
+      "name": "ios-safari-codec-support",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/codec-probe.js",
+        "docs/scripts/ios-safari/codecs.mjs",
+        "docs/scripts/ios-safari/codec-fixtures/**"
+      ],
+      "run": "PROBE=codec-support bash docs/scripts/ios-safari/run.sh",
+      "why": "The iOS arm of the narration codec bake-off: what real Mobile Safari, in an iPhone iOS Simulator, decodes and encodes. The streaming narration design keeps audio compressed in browser storage, so the codec must decode on an iPhone, encode in the page, and add no lead-in silence; Linux WebKit decodes with GStreamer, not Apple's media stack, so only an iOS run answers for an iPhone. On a blank page it decodes every file in codec-fixtures/ (Opus in Ogg, WebM, MP4 and CAF; AAC in MP4 and ADTS; MP3 from LAME with and without a gapless tag; FLAC; Vorbis; the 2 s WAV source) with decodeAudioData at 48 kHz and reports the added length, reads WebCodecs' AudioEncoder and AudioDecoder support, and round-trips the source through AudioEncoder and AudioDecoder (Opus at 24 and 32 kbps, AAC at 64). It fails when Opus does not decode from Ogg or WebM, adds 20 ms or more of lead-in, or does not round-trip through WebCodecs; the rest is reported (codecs.mjs). No docs build, about 8 minutes, mostly the simulator's boot.",
+      "on_pull_request": false
+    },
+    {
       "name": "ios-safari-undo-ipad",
       "os": [
         "macos-26"
