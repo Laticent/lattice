@@ -29,9 +29,9 @@ Builds on `2026-10-05-studio-chat-agent.md` (the agent loop) and
 **How this was checked.** A first draft went to an independent `checker` and a Munger `inversion`
 agent. Both found, separately, that the first draft called #1, #2 and #4 "thin wrappers" when the
 apply step cannot carry their output. The checker confirmed that with two scratch tests against the
-real functions (§3). This version folds in every confirmed finding. The note was checked against
-code only: no live model turn ran (HARD RULE #23), so §5's account of the #3208 session's mismatch
-is inferred from the code, not observed.
+real functions (§3). This version folds in every confirmed finding. §5's gap was then observed in a
+scripted-model turn through the real toolbox and history mapping (§5). No live model turn ran (HARD
+RULE #23), so how a real model behaves on that history is not observed.
 
 ## 1. What is already right
 
@@ -181,6 +181,16 @@ a long deck), so the model *could* re-read the deck to see what landed. Nothing 
 one existing signal is in compaction: older replies are tagged `[edits applied]` or `[edits
 proposed, not applied]` for the summarizer (`chat-compact.ts`). It is lossy and covers only older
 turns.
+
+**Observed in a scripted turn (2026-11-17).** A scratch test drove turn 1 through the real
+`createToolbox` and `runAgentLoop`: a scripted model inserted a divider and replied "Added a divider
+before Next steps, as slide 3." Turn 2's messages were built with the real `modelText` and the
+mapping at `ArchitectChat.tsx:594`, plus the deck appended the way `chat-agent.ts:183` appends it
+(that one line was copied into the test, not called). With the same deck, the history the model gets
+is **byte-identical** whether the author applied or discarded the card. It repeats turn 1's "as slide
+3", and it contains no outcome word (applied, discarded, declined). When the card was discarded, the
+appended deck has no divider. Its absence from the deck is the only thing that could tell the model
+the edit did not land.
 
 **Why a history replay would not fix #3208's evidence.** That session was splitting a deck: 47+
 slides fell to 35–36. Turn 4's "slide 47" could truthfully read "applied" and still be gone later,
