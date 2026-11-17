@@ -1108,13 +1108,16 @@ resolver over `style` attributes) and transformers/prose-projection.mjs `URL_REF
 the ids it knows, entity-quoted spellings included). docs/src/components/studio/web-image-hint.ts is markup-level too: it scans a deck's Markdown and
 HTML source for a web address after any of several spellings (`![](`, `src=`, `url(`, `image-set(`, a Mermaid `img:`).
 
-**Kept until the tokenizer is a workspace library.** Two readers cannot import lib/core/css-tokens.mjs where it lives
-(engineering/decisions/2026-10-11-codebase-structure.md; `npm run structure` refuses both):
+**Move in P5a′, when the tokenizer is a workspace library.** Two readers cannot import lib/core/css-tokens.mjs where it
+lives (engineering/decisions/2026-10-11-codebase-structure.md; `npm run structure` refuses both):
 - plugins/mermaid/mermaid.draw-shim.mjs reads a face's first `src` `url()` with a regex. A plugin reaches outside its
   folder only through `ctx`, a service or a workspace library, and the shim is handed no `ctx`.
 - docs/src/lib/calco/reader.ts and picture.ts (the `@laticent/calco` library, layer 0) read computed `url()` values for
   the PowerPoint export; an import of lib/core (layer 1) is an upward import.
-Both move when the tokenizer is a workspace library they may import.
+The owner decided on 2026-11-17 that they move inside P5, not as a follow-up: P5a′, its own PR between P5a and P5b, makes
+the standard-language grammars a published workspace library, `@laticent/segno-languages` (a sibling of `@laticent/segno`
+and `@laticent/segno-markdown`, one folder and one subpath export per language: `/css`, `/html`, `/front-matter`), and
+moves these readers onto it. Lattice's own authoring syntax (the flowchart row, list text) stays in lib/core.
 
 **Reviewed and kept, also:** core/rough-ink-dom.js's two `/url\s*\(/i` tests run only where `CSS.supports` is missing
 (jsdom in the unit tests); rejecting anything url-shaped there is the conservative side of a color check, and a
