@@ -46,7 +46,7 @@ export async function runPlayerCharts({ go, call, tap, players }) {
 		if (!band.hit) return done(steps, page);
 		let ms = await tap(band.x, band.y);
 		let card = await call(`latticePlayerProbe.card(true, ${JSON.stringify(band)})`);
-		step('a tap on a band pins its card', card.open && card.title === 'Discovery', `${card.open ? `"${card.title}"` : 'no card'}; ${where(card.touch)}, gesture ${ms} ms`);
+		step('a tap on a band pins its card', card.open && card.title === 'Discovery', `${card.open ? `"${card.title}"` : 'no card'}; ${where(card.touch)}, gesture ${ms} ms; events: ${card.events || 'none'}`);
 		if (card.open) {
 			step('the card is in the top layer', card.popover);
 			step('the card sits inside the visible viewport', card.inView, `card ${JSON.stringify(card.box)} in ${JSON.stringify(card.viewport)}`);
@@ -59,7 +59,7 @@ export async function runPlayerCharts({ go, call, tap, players }) {
 		const again = await call('latticePlayerProbe.bandPoint(0)');
 		ms = await tap(again.x, again.y);
 		card = await call(`latticePlayerProbe.card(false, ${JSON.stringify(again)})`);
-		step('a second tap on the band closes the card', !card.open, `${where(card.touch)}, gesture ${ms} ms`);
+		step('a second tap on the band closes the card', !card.open, `${where(card.touch)}, gesture ${ms} ms; events: ${card.events || 'none'}`);
 
 		// REOPEN, then CLOSE by tapping elsewhere on the slide.
 		const third = await call('latticePlayerProbe.bandPoint(0)');

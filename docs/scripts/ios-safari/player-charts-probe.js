@@ -40,6 +40,29 @@ async function latticePlayerToFunnel() {
 			},
 			{ capture: true, passive: true },
 		);
+		// The EVENT TRAIL around each tap, so a card that never showed names why: the pointer events the reveal
+		// listens to (their type, primary flag and point), what could close a card at once (focus leaving, a resize,
+		// the visual viewport changing), and the moments a card element was added or removed. Cleared with the touch log.
+		window.__lpEvents = [];
+		const t0 = performance.now();
+		const note = (e) => {
+			if (window.__lpEvents.length > 60) return;
+			const at = e.target?.closest?.('[data-mark]')?.getAttribute('data-mark');
+			window.__lpEvents.push(
+				[Math.round(performance.now() - t0), e.type, e.pointerType || '', e.isPrimary === false ? 'secondary' : '', 'clientX' in e ? `${Math.round(e.clientX)},${Math.round(e.clientY)}` : '', at != null ? `mark ${at}` : e.target?.tagName || '']
+					.filter(Boolean)
+					.join(' '),
+			);
+		};
+		for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'click', 'focusout']) document.addEventListener(type, note, { capture: true, passive: true });
+		window.addEventListener('resize', note, { passive: true });
+		window.visualViewport?.addEventListener('resize', () => note({ type: `vv-resize scale ${window.visualViewport.scale}` }), { passive: true });
+		new MutationObserver((records) => {
+			for (const r of records) {
+				for (const n of r.addedNodes) if (n.matches?.(LP_CARD)) note({ type: 'card added' });
+				for (const n of r.removedNodes) if (n.matches?.(LP_CARD)) note({ type: 'card removed' });
+			}
+		}).observe(document.documentElement, { childList: true, subtree: true });
 	}
 	for (let i = 0; i < 12 && !document.querySelector(`${LP_FUNNEL} [data-mark="0"]`); i++) {
 		const before = latticePlayerIndex();
@@ -74,6 +97,7 @@ async function latticePlayerPoint(find) {
 		return still >= 5 && hit;
 	}, 10000);
 	window.__lpTouchLog = [];
+	window.__lpEvents = [];
 	return out || { hit: false, still: 0, under: 'no target' };
 }
 
@@ -92,7 +116,7 @@ async function latticePlayerCard(wantOpen, finger) {
 	}, 4000);
 	const c = document.querySelector(LP_CARD);
 	const log = window.__lpTouchLog || [];
-	const state = { open: !!c, index: latticePlayerIndex(), touches: log.length, touch: log.at(-1) || null, settled: !!settled };
+	const state = { open: !!c, index: latticePlayerIndex(), touches: log.length, touch: log.at(-1) || null, events: (window.__lpEvents || []).join(' | '), settled: !!settled };
 	if (!c) return state;
 	const r = c.getBoundingClientRect();
 	const vv = window.visualViewport;
