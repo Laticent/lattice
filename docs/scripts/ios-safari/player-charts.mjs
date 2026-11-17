@@ -6,7 +6,8 @@
  * One sequence, two drivers: run.mjs taps through safaridriver in an iOS Simulator, and probe.selftest.mjs taps through
  * Playwright's touchscreen, so the sequence is proven before a macOS job runs it. A driver hands in three functions:
  *   go(url)       load a page;
- *   call(expr)    evaluate an expression over player-charts-probe.js in the page, and resolve to its value;
+ *   call(expr)    evaluate an expression over player-charts-probe.js in the page (its entry points are on
+ *                 `latticePlayerProbe`), and resolve to its value;
  *   tap(x, y)     a real touch at a CSS point of the viewport (no hold: a hold reads as a long press).
  * `players` names the two exported files: { deck, hostile }.
  *
@@ -34,17 +35,17 @@ export async function runPlayerCharts({ go, call, tap, players }) {
 	let page = {};
 	try {
 		await go(players.deck);
-		page = await call('latticePlayerToFunnel()');
+		page = await call('latticePlayerProbe.toFunnel()');
 		step('the exported player reaches its funnel slide', page.ok, page.error || `slide ${page.index + 1}`);
 		if (!page.ok) return done(steps, page);
 
 		// OPEN: a tap on band 0. The CONTROL is the touch log: it says where the tap landed, so "no card" and "the tap
 		// missed" read differently.
-		const band = await call('latticePlayerBandPoint(0)');
+		const band = await call('latticePlayerProbe.bandPoint(0)');
 		step('band 0 holds still under its tap point', band.hit, `${band.x},${band.y}, still ${band.still} frames, under ${band.under}`);
 		if (!band.hit) return done(steps, page);
 		let ms = await tap(band.x, band.y);
-		let card = await call(`latticePlayerCard(true, ${JSON.stringify(band)})`);
+		let card = await call(`latticePlayerProbe.card(true, ${JSON.stringify(band)})`);
 		step('a tap on a band pins its card', card.open && card.title === 'Discovery', `${card.open ? `"${card.title}"` : 'no card'}; ${where(card.touch)}, gesture ${ms} ms`);
 		if (card.open) {
 			step('the card is in the top layer', card.popover);
@@ -55,31 +56,31 @@ export async function runPlayerCharts({ go, call, tap, players }) {
 		step('a tap on a band never turns the slide', card.index === page.index, `slide ${page.index + 1} to ${card.index + 1}`);
 
 		// CLOSE by tapping the same band again.
-		const again = await call('latticePlayerBandPoint(0)');
+		const again = await call('latticePlayerProbe.bandPoint(0)');
 		ms = await tap(again.x, again.y);
-		card = await call(`latticePlayerCard(false, ${JSON.stringify(again)})`);
+		card = await call(`latticePlayerProbe.card(false, ${JSON.stringify(again)})`);
 		step('a second tap on the band closes the card', !card.open, `${where(card.touch)}, gesture ${ms} ms`);
 
 		// REOPEN, then CLOSE by tapping elsewhere on the slide.
-		const third = await call('latticePlayerBandPoint(0)');
+		const third = await call('latticePlayerProbe.bandPoint(0)');
 		await tap(third.x, third.y);
-		const reopened = await call(`latticePlayerCard(true, ${JSON.stringify(third)})`);
+		const reopened = await call(`latticePlayerProbe.card(true, ${JSON.stringify(third)})`);
 		step('a third tap opens it again', reopened.open, where(reopened.touch));
-		const empty = await call('latticePlayerEmptyPoint()');
+		const empty = await call('latticePlayerProbe.emptyPoint()');
 		ms = await tap(empty.x, empty.y);
-		card = await call(`latticePlayerCard(false, ${JSON.stringify(empty)})`);
+		card = await call(`latticePlayerProbe.card(false, ${JSON.stringify(empty)})`);
 		step('a tap elsewhere on the slide closes it', reopened.open && !card.open, `heading at ${empty.x},${empty.y}; ${where(card.touch)}, gesture ${ms} ms`);
 		step('no tap turned the slide', card.index === page.index, `slide ${page.index + 1} to ${card.index + 1}`);
 
 		// CONTAINMENT (HARD RULE #22): the hostile deck's detail styles must stay inside the card.
 		await go(players.hostile);
-		const hostile = await call('latticePlayerToFunnel()');
-		const hb = hostile.ok ? await call('latticePlayerBandPoint(0)') : { hit: false };
+		const hostile = await call('latticePlayerProbe.toFunnel()');
+		const hb = hostile.ok ? await call('latticePlayerProbe.bandPoint(0)') : { hit: false };
 		if (hb.hit) await tap(hb.x, hb.y);
-		const hcard = hb.hit ? await call(`latticePlayerCard(true, ${JSON.stringify(hb)})`) : { open: false };
+		const hcard = hb.hit ? await call(`latticePlayerProbe.card(true, ${JSON.stringify(hb)})`) : { open: false };
 		step('the hostile deck: a tap opens the card with the author-styled detail', hcard.open, hostile.error || where(hcard.touch));
 		if (hcard.open) {
-			const h = await call('latticePlayerHostile()');
+			const h = await call('latticePlayerProbe.hostile()');
 			step('nothing the author styled covers the player', !h.hits.some((x) => x === 'metax' || x === 'bodyx'), `corners and edges: ${h.hits.join(', ')}`);
 			step('the author-styled link is drawn inside the card, unstyled', !!h.link && h.link.style === null && h.link.position !== 'fixed', h.link ? `style ${h.link.style}, position ${h.link.position}` : 'no link in the footer');
 		}

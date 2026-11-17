@@ -2,7 +2,7 @@
  * exported HTML player, in Mobile Safari through safaridriver (run.mjs) or in Playwright's WebKit (probe.selftest.mjs).
  * The taps themselves come from outside, as a real touch: these only find where to tap and read what happened.
  * Every wait here is a signal with a deadline (a box that holds still, a card that appears), never a fixed sleep.
- * The entry functions are globals: the driver evaluates this file, then calls one of them by name. */
+ * The driver evaluates this file, then calls an entry point on `latticePlayerProbe` (the end of the file). */
 
 /* The chart card and the funnel on stage, as docs/e2e/player-chart-reveal.spec.ts names them. */
 const LP_CARD = '.cenno.lattice-chart-card';
@@ -26,7 +26,6 @@ const latticePlayerPage = (extra) => ({ ua: navigator.userAgent, width: innerWid
 
 /* Step the player to its first funnel slide with its own Next button (turning slides is not what this probe tests),
  * and record every touch from here on: where it landed and which mark it hit, so a failed tap names its point. */
-// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's evaluate
 async function latticePlayerToFunnel() {
 	const ready = await latticePlayerUntil(() => latticePlayerIndex() >= 0, 30000);
 	if (!ready) return latticePlayerPage({ ok: false, error: 'the player never showed a slide' });
@@ -78,17 +77,14 @@ async function latticePlayerPoint(find) {
 	return out || { hit: false, still: 0, under: 'no target' };
 }
 
-// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's evaluate
 const latticePlayerBandPoint = (i) => latticePlayerPoint(() => document.querySelector(`${LP_FUNNEL} [data-mark="${i}"]`));
 
 /* A point on the slide that is no chart mark and no card: the slide's heading. */
-// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's evaluate
 const latticePlayerEmptyPoint = () => latticePlayerPoint(() => document.querySelector('.lp-frame.lp-active h2'));
 
 /* The card's state once it reaches `wantOpen` (or 4 s pass): its title, whether it sits inside the visible viewport and
  * away from the finger, whether it is in the top layer and takes touches, the slide on stage, and where the last touch
  * landed. `finger` is the point that was tapped. */
-// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's evaluate
 async function latticePlayerCard(wantOpen, finger) {
 	const settled = await latticePlayerUntil(() => {
 		const c = document.querySelector(LP_CARD);
@@ -123,7 +119,6 @@ async function latticePlayerCard(wantOpen, finger) {
 }
 
 /* The checker's repro (PR #3259): author styles in a detail must stay inside the card. Run with the card open. */
-// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's evaluate
 function latticePlayerHostile() {
 	const at = (x, y) => {
 		const el = document.elementFromPoint(x, y);
@@ -134,3 +129,12 @@ function latticePlayerHostile() {
 	const a = host?.shadowRoot?.querySelector('#metax');
 	return { hits, link: a ? { style: a.getAttribute('style'), position: getComputedStyle(a).position } : null };
 }
+
+/* The entry points player-charts.mjs calls, on one global: the driver evaluates this file, then calls them by name. */
+globalThis.latticePlayerProbe = {
+	toFunnel: latticePlayerToFunnel,
+	bandPoint: latticePlayerBandPoint,
+	emptyPoint: latticePlayerEmptyPoint,
+	card: latticePlayerCard,
+	hostile: latticePlayerHostile,
+};
