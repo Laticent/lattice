@@ -36,7 +36,14 @@ Cost discipline held through the period. ${claim} and that single number moved t
 `;
 
 /** How far the drive moves the paused clock between two reads of the live cue: the unit every onset is counted in. */
-const STEP_MS = 50;
+const STEP_MS = 100;
+/**
+ * After a cue goes live, the drive leaps this far in one run before it steps again. Every cue in DECK lasts over two
+ * seconds, so no boundary falls inside a leap; one that did fails the drive rather than recording a late onset. The
+ * leaps are what keep the drive short: a 50 ms step with no leaps made about a thousand calls into the page, and on
+ * four cores at eight workers every run passed the 60 s test timeout.
+ */
+const LEAP_STEPS = 15;
 /** How far the drive runs the paused clock. */
 const RUN = 27_000;
 
@@ -106,16 +113,20 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 	// The step at which each cue first goes live, until the cue after the emphasized one has started (cue 4).
 	const out: number[] = [];
 	let last = -1;
-	let ran = 0;
-	for (let n = 1; n * STEP_MS <= RUN && out.length <= 4; n++) {
-		await page.clock.runFor(STEP_MS);
-		ran = n * STEP_MS;
+	let n = 0;
+	while (n * STEP_MS < RUN && out.length <= 4) {
+		const leap = last >= 0 && n === out[last];
+		const by = leap ? LEAP_STEPS : 1;
+		await page.clock.runFor(by * STEP_MS);
+		n += by;
 		const ci = await liveCue();
 		if (ci >= 0 && ci !== last) {
+			if (leap || ci !== last + 1) throw new Error(`cue ${ci} went live at step ${n} after cue ${last}, inside a leap or past a cue: its onset is unknown (${JSON.stringify(out)})`);
 			out[ci] = n;
 			last = ci;
 		}
 	}
+	const ran = n * STEP_MS;
 	// Time flows again for whatever the test does next (the second drive loads the Studio afresh).
 	clockMark.at = pauseAt + ran;
 	clockMark.resumedAt = Date.now();
@@ -136,7 +147,9 @@ test('an emphasized passage holds a beat on the real Present overlay', async ({ 
 	// Cue 2 carries the claim, and the hold is spent after it, so the bold drive keeps cue 2 live LONGER than the plain
 	// drive does. An order between two counts of steps on the paused clock, not a reading of milliseconds: the size of the
 	// hold (cadence.ts `EMPHASIS_HOLD_MS`) is the cadence kernel's unit test, and its speed is not this test's business.
-	expect(bold[3] - bold[2], seen).toBeGreaterThan(plain[3] - plain[2]); // flaky-ok: counts of 50 ms steps the test itself advanced on the paused clock, compared as an order; no clock is read
+	// A duration counted in steps is right to within one step either way, so "longer" means more than one step longer:
+	// the 250 ms hold is two and a half steps, and with no hold the two counts differ by at most one.
+	expect(bold[3] - bold[2] - (plain[3] - plain[2]), seen).toBeGreaterThan(1); // flaky-ok: counts of 100 ms steps the test itself advanced on the paused clock, compared as an order; no clock is read
 	// And it holds ONCE: cue 3 lasts as long in both drives (to the step), so the hold did not repeat on the cue after it.
 	expect(Math.abs(bold[4] - bold[3] - (plain[4] - plain[3])), seen).toBeLessThanOrEqual(1); // flaky-ok: counts of steps the test advanced, equal to within one step; no clock is read
 });
