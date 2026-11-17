@@ -297,6 +297,59 @@ function componentDocs() {
 }
 
 /** The hand-written skills, copied verbatim from design/skills/. */
+/**
+ * plugins/<name>.md — every author-facing plugin's doc, shipped like the component docs.
+ *
+ * Until 2026-11-17 the kit carried none of them, so an agent never learned the inline notation
+ * the plugins add: pills (`{On plan}`), icons, sparks, check marks, avatars, images, video,
+ * callouts, legends. The kit's own starter deck had its pills in a dead form for a month, and
+ * the agent that found it misread the lint fix the same way. Each doc's sibling links become
+ * flat files here; any other repo-relative link becomes the file on GitHub, so the pack's link
+ * gate holds.
+ */
+const REPO_BLOB = 'https://github.com/Laticent/lattice/blob/main/';
+function pluginDocs() {
+  const dir = path.join(ROOT, 'lib', 'plugins');
+  const out = [];
+  for (const name of readdirSync(dir).sort()) {
+    const src = path.join(dir, name, `${name}.docs.md`);
+    if (!existsSync(src)) continue;
+    const from = `lib/plugins/${name}/`;
+    const body = readFileSync(src, 'utf8').replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (whole, href) => {
+      const [file, anchor = ''] = href.split(/(?=#)/);
+      const repoPath = path.posix.normalize(path.posix.join(from, file));
+      const sibling = repoPath.match(/^lib\/plugins\/([a-z0-9-]+)\/\1\.docs\.md$/);
+      if (sibling) return `](./${sibling[1]}.md${anchor})`;
+      const comp = repoPath.match(/^lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md$/);
+      if (comp) return `](../${COMPONENTS}/${comp[1]}.md${anchor})`;
+      return `](${REPO_BLOB}${repoPath}${anchor})`;
+    });
+    const flat = body
+      // A layout's repo path, written as code, is that layout's file in the pack.
+      .replace(/`lib\/components\/[a-z0-9-]+\/<name>\/<name>\.docs\.md`/g, `\`../${COMPONENTS}/<name>.md\``)
+      .replace(/`lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md`/g, `\`../${COMPONENTS}/$1.md\``)
+      // The repo's rule index means nothing to a pack reader; keep the sentence, drop the citation.
+      .replace(/where HARD RULE #1 put them/g, 'where the shared render kernel keeps them');
+    out.push({ name, body: Buffer.from(flat, 'utf8') });
+  }
+  return out;
+}
+
+/**
+ * One plugin, in one line: the doc's first sentence, and the first line of its first example
+ * that actually shows inline notation (`{…}`, `~{…}`, `^{…}`, `!{…}`, `@name{…}`, `[x]`). A
+ * fence plugin (code, math, mermaid…) has no such line; its sentence names the fence.
+ */
+function pluginSummary(body) {
+  const text = body.replace(/^# .*\n+/, '');
+  const lead = firstSentence(text.split(/\n\n/)[0].replace(/:$/, '.'), 150);
+  const ex = text.match(/```markdown\n([\s\S]*?)\n```/);
+  const { MARKER_CLASS } = require(path.join(ROOT, 'lib', 'core', 'checks-registry.js'));
+  const notation = new RegExp(`\`[~^!@a-z]*\\{|^\\s*-\\s\\[${MARKER_CLASS}\\]`);
+  const line = ex?.[1].split('\n').find((l) => notation.test(l));
+  return { lead, example: line ? line.trim() : '' };
+}
+
 function skillDocs() {
   return readdirSync(SKILLS_DIR)
     .filter((f) => f.endsWith('.md'))
@@ -2176,10 +2229,14 @@ function starterDeck() {
     '',
     '## Four steps take us from freeze to retirement.',
     '',
-    '1. Freeze new integrations — two weeks before cutover, changes stop.',
-    '2. Rehearse the cutover — a full dry run against production data.',
-    '3. Cut over at quarter end — three days, with finance on standby.',
-    '4. Retire the old ledger — read-only for a year, then archived.',
+    '1. Freeze new integrations',
+    '   - Two weeks before cutover, changes stop.',
+    '2. Rehearse the cutover',
+    '   - A full dry run against production data.',
+    '3. Cut over at quarter end',
+    '   - Three days, with finance on standby.',
+    '4. Retire the old ledger',
+    '   - Read-only for a year, then archived.',
     '',
     '---',
     '',
@@ -2920,7 +2977,9 @@ function startDoc(files, cat) {
     if (!inBucket.length) continue;
     layoutRows.push(`**${label}**`, '');
     for (const c of inBucket) {
-      layoutRows.push(`- [\`${c.name}\`](./${COMPONENTS}/${c.name}.md): ${firstSentence(c.purpose || c.description)}${capacityNote(c)}`);
+      const variants = (c.variants || []).length ? ` Variants: ${c.variants.map((v) => `\`${v}\``).join(', ')}.` : '';
+      const words = c.density?.soft ? ` ~${c.density.soft} words per ${c.density.axis === 'item' ? 'item' : c.density.axis}.` : '';
+      layoutRows.push(`- [\`${c.name}\`](./${COMPONENTS}/${c.name}.md): ${firstSentence(c.purpose || c.description)}${capacityNote(c)}${words}${variants}`);
     }
     layoutRows.push('');
   }
@@ -2929,6 +2988,14 @@ function startDoc(files, cat) {
   if (stray.length) throw new Error(`build-agent-kit: start.md has no bucket heading for ${stray.join(', ')}. Add the bucket to BUCKET_ORDER.`);
 
   const skeletons = SOLO_LAYOUTS.flatMap((n) => [`### ${n}`, '', ...fenced(skeletonFor(cat, n)), '']);
+  const pluginRows = [];
+  for (const [rel, buf] of [...files].filter(([k]) => /^plugins\/[^/]+\.md$/.test(k)).sort()) {
+    const name = rel.slice('plugins/'.length, -3);
+    const { lead, example } = pluginSummary(buf.toString('utf8'));
+    pluginRows.push(`- [\`${name}\`](./${rel}): ${lead}`);
+    if (example) pluginRows.push(`  Example: ${example.includes('`') ? `\`\` ${example} \`\`` : `\`${example}\``}`);
+  }
+  if (!pluginRows.length) throw new Error('build-agent-kit: start.md found no plugins/*.md; pluginDocs() must run before startDoc().');
   return [
     '# Write a Lattice deck',
     '',
@@ -2974,13 +3041,21 @@ function startDoc(files, cat) {
     '',
     strip(`${AUTHORING}/modifiers.md`).replace(/^## /gm, '### '),
     '',
-    `## 6. Skeletons for the ${SOLO_LAYOUTS.length} most-used layouts`,
+    '## 6. Inline notation',
+    '',
+    'Plugins add small drawn things you write in inline code: pills, icons, word-sized charts,',
+    'check marks, portraits, pictures. **The backticks are part of the notation**: `` `{On plan}` ``',
+    'is a pill, while a bare {On plan} prints as text. Each name links to the full notation.',
+    '',
+    ...pluginRows,
+    '',
+    `## 7. Skeletons for the ${SOLO_LAYOUTS.length} most-used layouts`,
     '',
     'Copy the shape exactly: heading levels, bullet nesting and the order of lines all',
     'matter. Every other layout\'s skeleton is in its own file.',
     '',
     ...skeletons,
-    '## 7. Check and render',
+    '## 8. Check and render',
     '',
     ...fenced(
       [
@@ -2993,7 +3068,7 @@ function startDoc(files, cat) {
     'No command line? Open the file in the Lattice Studio at <https://lattice.style/studio>',
     `and export from there. More in [\`${RENDER}/lattice-render-a-deck.md\`](./${RENDER}/lattice-render-a-deck.md).`,
     '',
-    '## 8. When you need more',
+    '## 9. When you need more',
     '',
     '| To… | Read |',
     '|---|---|',
@@ -3023,7 +3098,9 @@ function startDoc(files, cat) {
  *    deck first". `skills/import.md` is exempt because importing a Marp deck is its job.
  */
 const MARP_PAGE = 'render/lattice-export-to-marp.md';
-const MARP_EXEMPT = new Set([MARP_PAGE, 'skills/import.md']);
+// skills/import.md: importing a Marp deck is its job. plugins/video.md: its "where it works"
+// list says how a video record behaves when a deck is exported to the Marp kit.
+const MARP_EXEMPT = new Set([MARP_PAGE, 'skills/import.md', 'plugins/video.md']);
 const MARP_FRAMING = [
   [/^\s*marp:\s*true\s*$/m, 'a `marp: true` front-matter line'],
   [/\bis a Marp deck\b|\bMarp deck first\b/i, 'calls a Lattice deck a Marp deck'],
@@ -3129,6 +3206,8 @@ async function buildKit() {
     );
   }
   for (const c of components) files.set(`${COMPONENTS}/${c.name}.md`, c.body);
+  const plugins = pluginDocs();
+  for (const p of plugins) files.set(`plugins/${p.name}.md`, p.body);
 
   // The skills ship VERBATIM and are byte-pinned. Their index does not:
   // the repo's own README is written for someone inside the repo, so the kit

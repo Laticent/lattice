@@ -894,6 +894,14 @@ test('agent kit structure', { skip }, async (t) => {
 		assert.match(start, /^theme: indaco$/m);
 		assert.doesNotMatch(start, /^marp:/m);
 		assert.match(start, /npx @laticent\/lattice/);
+		// Variants and plugins: an agent that reads only start.md must know both exist.
+		const withVariants = components.filter((c) => (c.variants || []).length);
+		const noVariants = withVariants.filter((c) => !new RegExp(`\\[\`${c.name}\`\\][^\n]*Variants: [^\n]*\`${c.variants[0]}\``).test(start)).map((c) => c.name);
+		assert.deepEqual(noVariants, [], 'start.md leaves a layout\'s variants off its line');
+		const plugins = fs.readdirSync(path.join(ROOT, 'lib', 'plugins')).filter((n) => fs.existsSync(path.join(ROOT, 'lib', 'plugins', n, `${n}.docs.md`)));
+		assert.ok(plugins.length >= 10, `found ${plugins.length} plugin docs`);
+		const unshipped = plugins.filter((n) => !fs.existsSync(path.join(KIT, 'plugins', `${n}.md`)) || !start.includes(`(./plugins/${n}.md)`));
+		assert.deepEqual(unshipped, [], 'a plugin doc is missing from the pack or from start.md');
 	});
 
 	/**
@@ -906,7 +914,7 @@ test('agent kit structure', { skip }, async (t) => {
 		const { execFileSync } = require('node:child_process');
 		const os = require('node:os');
 		const start = readKit('start.md');
-		const section = start.split(/^## 6\./m)[1].split(/^## 7\./m)[0];
+		const section = start.split(/^## \d+\. Skeletons/m)[1].split(/^## \d+\./m)[0];
 		const blocks = [...section.matchAll(/```\n([\s\S]*?)\n```/g)].map((m) => m[1]);
 		assert.ok(blocks.length >= 15, `start.md section 6 holds ${blocks.length} skeletons`);
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-pack-'));

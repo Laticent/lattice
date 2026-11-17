@@ -85,7 +85,8 @@ on the branch alike. The folders keep the kit's names rather than new ones (`lay
 | Layer | URL | Holds | Budget |
 |---|---|---|---|
 | Router | `/llms.txt` | What Lattice is, then the pack first, the docs copies second, the 700 KB reference last | 4 KB (existing gate) |
-| Start | `/agents/start.md` | The file shape, the deck canon, the rules, every layout in one line, the modifiers, skeletons for the 19 most-used layouts, check and render | **40,000 characters** (30,317 today, ~7.6k tokens) |
+| Start | `/agents/start.md` | The file shape, the deck canon, the rules, every layout in one line (job, capacity, words per item, variants), the modifiers, the plugins' inline notation, skeletons for the 19 most-used layouts, check and render | **40,000 characters** (36,562 today, ~9.1k tokens) |
+| Plugins | `/agents/plugins/<name>.md` | The 16 plugin docs: pills, icons, sparks, checks, avatars, image, video, callout, legend, code, math, mermaid, function-plot, anima, meta, chart-family | read when a slide uses one |
 | Small model | `/agents/paste/lattice-instructions-solo.md` | 19 layouts, self-contained, for a 4,096-token local context | 10,000 characters (existing) |
 | Layouts | `/agents/components/<name>.md` | Capacity, slots, variant rule, common mistakes, skeleton | read only for layouts the deck uses |
 | Craft | `/agents/skills/<skill>.md` | `design/skills/`: edit, restyle, chart from data, speaker notes, fix findings, and the rest | on demand |
@@ -126,7 +127,10 @@ In the kit build (`assertPack` in `tools/build-agent-kit.mjs`), so `npm run buil
 
 In `test/unit/tools/agent-kit-structure.test.js`:
 
-4. `start.md` names every layout in `components.json`.
+4. `start.md` names every layout in `components.json`, with its variants on its line, and every
+   plugin that has a doc, which the pack also carries. The owner asked whether agents would know
+   variants, budgets, modifiers and plugins: the first draft carried modifiers and budgets but
+   listed no variant names and no plugin at all.
 5. Every skeleton in `start.md` and every example deck lints with zero errors and zero warnings.
    This found the starter deck's kpi pills in the pre-2026-10 form: three warnings in the one file
    the kit tells a model to copy, and the pills rendered as plain code.

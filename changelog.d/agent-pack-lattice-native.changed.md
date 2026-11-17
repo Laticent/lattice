@@ -7,3 +7,4 @@
 - A site page's Markdown copy now links other pages' Markdown copies instead of their HTML pages.
 - The authoring guide links the agent pack and the modifier catalog. Its old link to a GitHub copy of the component reference was dead.
 - A nightly eval (`tools/agent-pack-eval.mjs`) has a model write three decks from `start.md` alone, and a small model three from the solo paste text, then lints and renders each one.
+- `start.md` lists each layout's variants and its words-per-item budget, and has an "Inline notation" section: one line and one example for each plugin (pills, icons, sparks, checks, avatars, image, video, callout, legend and the fence plugins). The pack now carries all 16 plugin docs under `plugins/`.
