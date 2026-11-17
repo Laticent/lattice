@@ -59,6 +59,29 @@ describe('flaky-test census (HARD RULE #32)', () => {
     assert.deepEqual(flakyTestHits(RATIO), { 'clock-assert': 1 });
   });
 
+  test('a timing the page measured itself: the duration of a performance entry, read back and asserted', () => {
+    const read = `const measures = await page.evaluate(() => ${'performance'}.getEntriesByType('measure').map((m) => ({ name: m.name, ms: m.${'dura'}${'tion'} })));`;
+    // The §4.3 budget's shape (filo-undo.spec.ts): a key copied from `.duration`, through a reduce, asserted a line later.
+    assert.deepEqual(flakyTestHits(`${read}\nconst worst = measures.reduce((a, b) => (b.ms > a.ms ? b : a));\n${'expect'}(worst.ms).toBeLessThan(16);`), { 'clock-assert': 1 });
+    // The duration itself, straight off the entries.
+    assert.deepEqual(flakyTestHits(`const e = ${'performance'}.getEntriesByName('x');\n${'expect'}(e[0].${'dura'}${'tion'}).toBeLessThan(16);`), { 'clock-assert': 1 });
+    // Its count, its names and a work counter in its detail are not timings.
+    assert.deepEqual(flakyTestHits(`${read}\n${'expect'}(measures.length).toBeGreaterThan(8);\n${'expect'}(new Set(measures.map((m) => m.name))).toEqual(new Set(['a']));`), {});
+    // A `.duration` that is not an entry's (a media element's) is not counted.
+    assert.deepEqual(flakyTestHits(`const v = document.querySelector('video');\n${'expect'}(v.${'dura'}${'tion'}).toBeCloseTo(1.25);`), {});
+    // A value that IS an entry's duration, read inside the page and asserted as a plain number (the checker's finding, #3266).
+    assert.deepEqual(flakyTestHits(`const ms = await page.evaluate(() => ${'performance'}.getEntriesByName('x')[0].${'dura'}${'tion'});\n${'expect'}(ms).toBeLessThan(16);`), { 'clock-assert': 1 });
+    // The durations mapped out of the entries, then reduced.
+    assert.deepEqual(flakyTestHits(`const ds = ${'performance'}.getEntriesByType('measure').map((e) => e.${'dura'}${'tion'});\n${'expect'}(Math.max(...ds)).toBeLessThan(16);`), { 'clock-assert': 1 });
+    // A timing printed in a count assertion's MESSAGE is not what the assertion checks.
+    assert.deepEqual(flakyTestHits(`${read}\nconst worst = measures.reduce((a, b) => (b.ms > a.ms ? b : a));\n${'expect'}(measures.length, \`worst \${worst.ms} ms\`).toBeGreaterThan(8);`), {});
+  });
+
+  test('the fast path reads a file whose only timing is a performance entry', () => {
+    const { root } = scratch({ 'docs/e2e/a.spec.ts': `const e = ${'performance'}.getEntriesByName('x');\n${'expect'}(e[0].${'dura'}${'tion'}).toBeLessThan(16);\n` }, {});
+    assert.deepEqual(flakyTestTree(root), { 'docs/e2e/a.spec.ts': { 'clock-assert': 1 } });
+  });
+
   test('a docs/e2e waitForTimeout is left to checkE2ESleeps, which holds it with a reason', () => {
     assert.deepEqual(flakyTestHits(SLEEP, 'docs/e2e/a.spec.ts'), {});
     assert.deepEqual(flakyTestHits(HAND_SLEEP, 'docs/e2e/a.spec.ts'), { 'fixed-sleep': 1 });
