@@ -20,7 +20,7 @@ const noDetail = () => {};
 export function EmptyDeckStart({ items, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onBrowse }: { items: readonly PickerItem[]; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (item: PickerItem) => void; onBrowse: () => void }): React.ReactElement {
 	const picks = START_SLIDES.map((n) => items.find((i) => i.name === n)).filter((i): i is PickerItem => !!i);
 	return (
-		<section aria-labelledby="cs-empty-title" aria-describedby="cs-empty-hint" data-empty-start="" className="flex w-full max-w-[560px] cursor-auto flex-col items-center gap-3 text-center">
+		<section aria-labelledby="cs-empty-title" aria-describedby="cs-empty-hint" data-empty-start="" className="flex w-full max-w-[560px] cursor-auto flex-col items-center gap-3 text-center font-sans">
 			<h2 id="cs-empty-title" className="m-0 font-serif text-[22px] font-semibold text-[var(--text-heading)]">
 				Start your deck
 			</h2>

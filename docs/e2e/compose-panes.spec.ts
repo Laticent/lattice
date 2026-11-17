@@ -46,7 +46,7 @@ test('@crosswidth each pane opens with its place, what it holds, and its title a
 	await expect(bars.nth(0)).toContainText('Left pane');
 	await expect(bars.nth(0)).toContainText('bar');
 	await expect(bars.nth(1)).toContainText('Right pane');
-	await expect(bars.nth(1)).toContainText('text');
+	await expect(bars.nth(1)).toContainText('content');
 	await expect(page.locator('h3.cs-pane-title')).toHaveCount(2);
 	await expect(page.locator('.cs-pane-marker')).toBeHidden();
 });
