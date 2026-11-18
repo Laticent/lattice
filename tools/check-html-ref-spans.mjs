@@ -45,7 +45,7 @@ const seed = argv.includes('--seed') ? Number(argv[argv.indexOf('--seed') + 1]) 
 
 // The old module with its siblings, from git.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-ref-old-'));
-for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js', 'css-ref-reader.js', 'html-ref.generated.js', 'html-ref-reader.js']) {
+for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js', 'css-tokens.mjs', 'css-ref-reader.js', 'html-ref.generated.js', 'html-ref-reader.js']) {
   try {
     fs.writeFileSync(path.join(dir, f), execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }));
   } catch {

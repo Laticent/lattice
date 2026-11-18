@@ -1,4 +1,5 @@
 import { compositionOf, effectiveCard, needsInk } from '../../../../lib/core/card-ink.mjs';
+import { cssUrls } from '../../../../lib/core/css-tokens.mjs';
 import { describe, fixLabel, inkScenes, judge, SOLID, strongestScrim, TEXT_FLOOR } from '../../../../lib/core/photo-contrast.mjs';
 import { slideRanges, splitSlides } from '../../lib/deck-lint';
 import { stripFrontMatter } from '../../lib/front-matter';
@@ -163,7 +164,7 @@ async function readLive(chunk: string, source: string, slideNumber: number, at?:
 		if (!sameSlide(headingOf(chunk), section.querySelector('h1, h2')?.textContent ?? null)) return null;
 		const panel = section.querySelector<HTMLElement>('.lattice-bg');
 		const card = section.querySelector<HTMLElement>('.image-text');
-		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
+		const url = cssUrls(panel?.style.backgroundImage ?? '')[0]?.value;
 		if (!panel || !card || !url || !photoMatches(photoRefOf(chunk, source, at), url)) return null;
 		// The preview can still be showing the OLD render of this slide right after an edit.
 		if (getClassTokens(chunk).some((c) => (CARD_CLASS.test(c) || c === 'dark' || c === 'light') && !section.classList.contains(c))) return null;

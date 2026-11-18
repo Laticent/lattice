@@ -37,6 +37,7 @@
 // See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §9.8.
 
 import { MARKS_TOKENS } from '@/lib/marks-words';
+import { rewriteCssUrls } from '../../../lib/core/css-tokens.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 
@@ -377,7 +378,7 @@ export function captureFromFrame(frame, meta) {
 		// against `/studio/` (→ 404) when the snapshot is replayed into the top
 		// document. Rewrite to the absolute served themes/ base so the replayed slide
 		// uses the real faces (same fix as the build-time front-A shell).
-		if (meta.themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${meta.themeUrlBase}fonts/`);
+		if (meta.themeUrlBase) css = rewriteCssUrls(css, (raw) => (raw.startsWith('fonts/') ? meta.themeUrlBase + raw : undefined));
 		// The stylesheet channel of the same chokepoint (#22) — see the header. Applied AFTER
 		// the font-URL rewrite so the stored string is the one the replay actually sinks.
 		css = sanitizeStyleText(css);
@@ -475,7 +476,7 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		if (!html || !css) return null;
 		// Same relative-font-URL rewrite as captureFromFrame: the replayed CSS lives in
 		// the TOP document (`/playground/`), so `url(fonts/…)` must be made absolute.
-		if (meta.themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${meta.themeUrlBase}fonts/`);
+		if (meta.themeUrlBase) css = rewriteCssUrls(css, (raw) => (raw.startsWith('fonts/') ? meta.themeUrlBase + raw : undefined));
 		// Stylesheet channel (#22), same as captureFromFrame — see the header.
 		css = sanitizeStyleText(css);
 		return { v: 2, srcHash: meta.srcHash || '', html, css, w: meta.w || 1280, h: meta.h || 720, fit, palette: meta.palette, mode: meta.mode, ts: meta.ts || 0 };

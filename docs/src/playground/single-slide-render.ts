@@ -25,6 +25,7 @@
 import { unclosedSectionAt } from '@laticent/markup';
 import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
+import { rewriteCssUrls } from '../../../lib/core/css-tokens.mjs';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
@@ -1027,13 +1028,14 @@ const SHEET_CACHE_MAX = 6;
 function absolutizeUrls(css: string): string {
 	const base = typeof document !== 'undefined' ? document.baseURI : '';
 	if (!base) return css;
-	return css.replace(/url\((\s*)(['"]?)([^'")]+)\2(\s*)\)/g, (whole, pre, quote, raw) => {
-		const value = String(raw).trim();
-		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return whole; // data:, blob:, https:, #frag
+	// Each real `url(…)`, read by the CSS tokenizer (Segno P5): one in a comment or a string is not rewritten, and an escaped
+	// address is resolved as the browser decodes it.
+	return rewriteCssUrls(css, (_raw, { value }) => {
+		if (!value || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return undefined; // data:, blob:, https:, #frag
 		try {
-			return `url(${pre}${quote}${new URL(value, base).href}${quote}${''})`;
+			return new URL(value, base).href;
 		} catch {
-			return whole;
+			return undefined;
 		}
 	});
 }

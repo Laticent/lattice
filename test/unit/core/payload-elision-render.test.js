@@ -157,7 +157,7 @@ describe('engine render: a photo payload is skipped and put back byte for byte',
 		// The engine puts payloads back in its string fields only. A stand-in in `diagnostics` (here a plugin name the
 		// front matter quotes, cut everywhere and with `standIns` emptied so the html check above it passes) must send the
 		// render to the whole text instead of returning the marker.
-		tamper = (cut, [source, opts]) => {
+		tamper = (_cut, [source, opts]) => {
 			const wide = realElide(source, { ...opts, rangesOf: undefined });
 			return wide && { ...wide, standIns: [] };
 		};
@@ -242,7 +242,7 @@ describe('decodeEntitiesMapped: the run copy gives what the character copy gave'
 			isRemoteUrl: require('../../../lib/core/media-sources.js').isRemoteRef,
 			...require('../../../lib/core/css-token-readers.js'),
 			makeCssRefSpans: require('../../../lib/core/css-ref-reader.js').makeCssRefSpans,
-			cssParser: require('../../../lib/core/css-ref.generated.js'),
+			cssParser: require('../../../lib/core/css-tokens.mjs').cssParser,
 			makeScanHtml: require('../../../lib/core/html-ref-reader.js').makeScanHtml,
 			rawTextEnd: require('../../../lib/core/html-ref-reader.js').rawTextEnd,
 			htmlParser: require('../../../lib/core/html-ref.generated.js'),

@@ -1,4 +1,5 @@
 import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
+import { cssUrls } from '../../../../lib/core/css-tokens.mjs';
 
 // The color of the photo behind a spotlight card, read from the live preview.
 //
@@ -133,7 +134,7 @@ export async function sampleBehindCard(slideNumber: number, heading: string | nu
 		if (!sameSlide(heading, section.querySelector('h1, h2')?.textContent ?? null)) return null;
 		const panel = section.querySelector<HTMLElement>('.lattice-bg');
 		const card = section.querySelector<HTMLElement>('.image-text');
-		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
+		const url = cssUrls(panel?.style.backgroundImage ?? '')[0]?.value;
 		if (!panel || !card || !url) return null;
 		if (!photoMatches(photoRef, url)) return null;
 		if (classes?.some((c) => CARD_CLASS.test(c) && !section.classList.contains(c))) return null;

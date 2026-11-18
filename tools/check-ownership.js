@@ -8484,16 +8484,16 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'The safety scanner for untrusted CSS (`findCssExfil`): its regexes FIND remote `url()`s in order to refuse them, and its one `url(${…})` is the text of the warning it prints. It writes no address anywhere.',
+      'The safety scanner for untrusted CSS (`findCssExfil`): its regexes FIND remote `url()`s in order to refuse them, and its one templated `url(…)` is the text of the warning it prints. It writes no address anywhere.',
   },
   {
     file: 'lib/core/pdf-compose/read-slide.mjs',
-    reads: ['regex', 'text'],
+    reads: ['text'],
     sinks: { 'property': 1 },
     guards: 0,
     guard: 'none',
     why:
-      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text.',
+      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text. Its `url(…)` reads go through the CSS tokenizer (`cssUrls`, Segno P5a), so no regex reads an address.',
   },
   {
     file: 'lib/core/remote-ref.js',
@@ -8556,7 +8556,7 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The `url(${next})` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
+      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The templated `url(…)` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
   },
   {
     file: 'lib/integrations/markdown-it/plugins.js',
@@ -8880,24 +8880,19 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/core/image-aspect.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture address off the `.lattice-bg` div the engine writes, to size the slide\'s picture bucket; a size, not a fetch.' },
   { file: 'lib/core/image-dimensions.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same `.lattice-bg` read as image-aspect.js, for the picture\'s dimensions.' },
   { file: 'lib/core/logo-wall-pack.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `--logo-mask:url(\'…\')` the logo-marks transformer wrote, to pack the wall.' },
-  { file: 'lib/transformers/logo-marks.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads back the `--logo-mask:url(\'…\')` it wrote.' },
   { file: 'lib/transformers/prose-projection.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: finds `url(#id)` fragment references, to follow a chart\'s own gradient ids; a fragment never fetches.' },
   { file: 'lib/components/connect/_qr-card/qr-general.transform.js', shape: 'attr-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `<a href>` markdown-it rendered from the card\'s own link, to draw it as a QR code; a link, never fetched.' },
   { file: 'lib/core/payload-elision.js', shape: 'url-reader', count: 1, why: 'NOT A FETCH DECISION: `OPENER` asks whether a `data:` URI\'s base64 opens where a URL value does (`](`, `url(`, `=`), only to decide which runs the readers may skip and put back; a run it rejects is read whole. The web-image blocker (`blockWebImages`) does not consult it and reads every character (PR #3153).' },
   { file: 'lib/authoring/lint-core.js', shape: 'url-reader', count: 1, why: 'A PREFILTER: `findWebMarkup` skips a deck that holds no tag, no `url(`, no `style:` and no Mermaid fence; everything it lets through is read with `scanHtml` and `cssRefSpans`. A miss here would skip a deck that holds no such text.' },
   { file: 'lib/authoring/lint-core.js', shape: 'attr-reader', count: 1, why: 'LINT, NOT AN ADDRESS: `author-script-defers` tells an inline `<script>` from one with a `src`; it reads no address.' },
-  { file: 'lib/core/pdf-compose/read-slide.mjs', shape: 'url-reader', count: 7, why: 'ENGINE-WRITTEN: the PDF composer reads the COMPUTED style of the rendered slide (masks, gradients, backgrounds) to draw native shapes; the render already blocked every web address before it runs.' },
   { file: 'docs/src/lib/calco/picture.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: Calco tests a computed background for the presence of a picture, to pick a tone; a presence test, never a fetch decision.' },
   { file: 'docs/src/lib/calco/reader.ts', shape: 'url-reader', count: 4, why: 'ENGINE-WRITTEN: Calco reads computed styles of the rendered slide (a picture present, an SVG data: mask) to build native shapes; the render already blocked.' },
-  { file: 'docs/src/components/studio/card-ink-sampler.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture off a panel\'s own `style.backgroundImage` (the engine\'s `.lattice-bg` photo panel) to sample its tone.' },
-  { file: 'docs/src/components/studio/photo-verdict.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same panel read as card-ink-sampler.ts, for the photo verdict.' },
   { file: 'lib/export/html-player.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: matches the `--background-image:"url(\\"file://…\\")"` marker the engine writes for a local picture, to inline it.' },
   { file: 'lib/export/player-core.mjs', shape: 'url-reader', count: 3, why: 'ENGINE-WRITTEN: two skip url() tokens while minifying the player\'s own sheet; one reads the `@font-face` urls of the player\'s own fonts.' },
   { file: 'lib/export/player-core.mjs', shape: 'attr-reader', count: 1, why: 'A REPORT, not a guard: lists the `file://` `<script src>` addresses the player export removes, for its report; a parse pass removes every script, which is the guard.' },
   { file: 'lib/plugins/mermaid/mermaid.draw-shim.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads Mermaid\'s own `@font-face` src in its own sheet.' },
   // ── Refusals that fail closed on any url() ──
   { file: 'lib/core/door-attr.mjs', shape: 'url-reader', count: 1, why: 'A SECOND WALL: the door keeps an inline style declaration only when this pattern finds no `url(` (it misses an escaped `u\\72l(`); the wall that decides is `cssRefTargets`, which reads every address with the shared reader before this runs (`doorFilterAttr`).' },
-  { file: 'lib/core/image-painting.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a placeholder hatch is told apart by holding no url(); a missed spelling only means it is not treated as the hatch.' },
   { file: 'lib/core/rough-ink-dom.js', shape: 'url-reader', count: 2, why: 'FAILS CLOSED: rough ink skips any element whose fill or background holds a url().' },
   { file: 'docs/src/lib/anima/schema.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: an animation color holding `url(` or `image(` is refused outright.' },
   { file: 'docs/src/lib/vetrina/theme.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a walkthrough theme value holding `url(`, `image(` or `expression(` is refused outright.' },
@@ -8916,13 +8911,9 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/export/player-images.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:image` urls in the player\'s own CSS, to deduplicate them.' },
   { file: 'lib/fonts/face-css.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: reads the `src` of Lattice\'s own bundled `@font-face` rules.' },
   { file: 'lib/export/deck-assets.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `asset:` names a deck references (the host\'s own map); it reads no web address.' },
-  { file: 'docs/src/lib/theme-fetch.ts', shape: 'url-reader', count: 1, why: 'OWN ASSETS: points a fetched theme\'s `fonts/` and KaTeX font urls at the site\'s own font folder.' },
-  { file: 'docs/src/playground/snapshot-cache.js', shape: 'url-reader', count: 2, why: 'OWN ASSETS: points a cached theme\'s `fonts/` urls at the site\'s own font folder.' },
-  { file: 'docs/src/playground/single-slide-render.ts', shape: 'url-reader', count: 1, why: 'OWN ASSETS: rebases relative url() targets in Lattice\'s own theme CSS onto the asset base.' },
   // ── The renderer's own sets, and readers that decide a fetch (follow-ups) ──
   { file: 'lib/core/remote-ref.js', shape: 'list-copy', count: 2, why: 'The scanner\'s own nested-document set (`NESTED_DOC`: iframe, frame, object, embed) and the three attributes a sample slide\'s `<script>` is read for (src, href, xlink:href); content-policy.js says the scanner keeps the sets its own logic needs.' },
   { file: 'lib/core/sanitize-slide-html.mjs', shape: 'list-copy', count: 1, why: 'The sanitizer\'s `blob:` allowance, `OBJECT_URL_TAGS`: which elements may keep the Studio\'s own object URL, not a list of what fetches.' },
-  { file: 'lib/core/pane-css.js', shape: 'url-reader', count: 1, why: 'KEPT (2026-11-05): reads an unquoted url() token only so the pane widening does not split it at a brace inside; it writes no address, decides no fetch, and each block it writes back goes through `sanitizeStyleText`. Moving it onto `cssRefSpans` would put the CSS parser in every route\'s engine (+5.1 KB gzip, measured) and the parser\'s first read of the 2.9 MB built sheet takes about 49 ms in Node (the spine note, "The picture camera, as built"). Its markup scan is held to the HTML reader by test/unit/core/pane-css-style-blocks.test.js.' },
   { file: 'lib/core/slide-camera.mjs', shape: 'list-copy', count: 1, why: 'A FALSE MATCH: the tuple `[el, abs, \'xlink:href\' : \'href\']` the picture export queues for each SVG image (three strings, two of them fetch attributes), not a list. The file reads CSS with `cssRefSpans` (followups.d/3024, done).' },
   { file: 'lib/export/inline-url-media.mjs', shape: 'attr-reader', count: 1, why: 'The same hint as its url-reader entry: whether a `<video poster>` in the source makes the export show its embed switch.' },
   { file: 'lib/export/inline-url-media.mjs', shape: 'url-reader', count: 1, why: 'KEPT, FAILS CLOSED (2026-11-05): a HINT over the deck SOURCE, whether the export panel shows its switch to embed web pictures. A false yes shows a switch that does nothing; a false no leaves the picture as the placeholder, which is what the export does without the switch. It decides no fetch: the embed reads with `scanHtml` and `cssRefSpans` (R4), and only for origins the author switched on.' },
@@ -9333,7 +9324,7 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       // Only the test's own context: the first parameter of the nearest function passed to test()/it()/describe().
       let f = n.parent;
       while (f && !ts.isFunctionLike(f)) f = f.parent;
-      const p0 = f && f.parameters && f.parameters[0];
+      const p0 = f?.parameters?.[0];
       const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
       if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
     }
