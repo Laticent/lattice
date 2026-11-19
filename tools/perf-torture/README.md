@@ -65,6 +65,12 @@ It adds one probe, `liveDecodedMB`: the decoded audio the page still holds after
 through a `WeakRef` to every buffer `decodeAudioData` returns. Flat means each sentence's audio is released
 once it has played; a rise means the page keeps it.
 
+`narrationguide` is the same run with Present's Guide on (the pointer, focus, ink and word read-along). The
+owner's iPhone played a 38-slide 4K narrated deck to the end on #3304 and reloaded only with Guide on
+(2026-11-19). Measured on the Studio's deck at `--k 20`: about 3.7 MB of JS heap growth, mostly compiled code,
+and flat DOM, listeners and detached nodes. Guide's cost is not in the JS heap, so read this cycle together with
+a process-memory measurement on WebKit.
+
 ## Report artifacts (`--out <dir>`)
 
 `--out <dir>` writes consumable, standard-ish artifacts (the run still prints to the console as well):

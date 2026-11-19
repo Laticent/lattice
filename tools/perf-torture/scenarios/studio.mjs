@@ -203,6 +203,7 @@ const CYCLES = {
 	async deckswitch2(page) { await DECKSWITCH(page); },
 	async readaloud(page) { await READALOUD(page); },
 	async narration(page) { await NARRATION(page); },
+	async narrationguide(page) { await NARRATION(page); },
 	async mixed(page) { await CYCLES.typing(page); await CYCLES.present(page); await CYCLES.palette(page); },
 	// ── landing surface ──
 	async landing(page) { await LANDING_CYCLE(page); },
@@ -234,6 +235,15 @@ const PREP = {
 		await clickSel(page, `${dlg} button[aria-label="Play the presentation"]`, 4000);
 		await wait(page, 1500);
 		if (!(await page.evaluate(() => window.__narrationTally.decoded))) throw new Error('narration: nothing decoded — the stand-in voice is not being used');
+	},
+	// The same run with Guide on: the owner's iPhone reload needs narration AND Guide (2026-11-19). Narration
+	// alone played a 38-slide 4K deck to the end on #3304's build.
+	async narrationguide(page) {
+		await PREP.narration(page);
+		const dlg = '[role="dialog"][aria-label="Present"]';
+		await clickSel(page, `${dlg} button[aria-label^="Guide off"]`, 4000);
+		await wait(page, 500);
+		if (!(await exists(page, `${dlg} button[aria-label^="Guide on"]`))) throw new Error('narrationguide: Guide did not turn on');
 	},
 	async landing(page) {
 		for (let y = 0; y < 8; y++) { await page.evaluate(() => window.scrollBy(0, 700)); await wait(page, 350); }
@@ -288,7 +298,7 @@ export default {
 			},
 		},
 	},
-	cycleSurface: { narration: 'narration', landing: 'landing', pgslide: 'playground', pgvariant: 'playground', pgscroll: 'playground' },
+	cycleSurface: { narration: 'narration', narrationguide: 'narration', landing: 'landing', pgslide: 'playground', pgvariant: 'playground', pgscroll: 'playground' },
 	cycles: CYCLES,
 	prep: PREP,
 	// App-specific observables layered onto the engine's universal metrics. Each returns a number;
