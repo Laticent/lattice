@@ -3,6 +3,11 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # ready_for_review is the "validate now" trigger: an agent parks a PR in draft while it
+    # iterates (`gh pr ready --undo`), pushes freely, then `gh pr ready` runs CI once on the
+    # head. Draft pushes still start a run, but every job skips (see `if:` on changes/lint/
+    # unit/ci), and a draft cannot enter the merge queue, so the vacuous `ci` is harmless.
+    types: [opened, synchronize, reopened, ready_for_review]
   # The merge queue runs CI on the PR tentatively rebased onto current main
   # (plus any PRs ahead of it). THIS aggregate `ci` check is the required gate
   # the queue waits on, so it must fire on merge_group. See
@@ -162,6 +167,7 @@ jobs:
   # test/. An engine change (lib/, themes/, dist/, …) sets BOTH, because the
   # docs build also reads the engine (loadAll + staged dist/ + themes/).
   changes:
+    if: github.event_name == 'merge_group' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -249,6 +255,7 @@ jobs:
   # PUPPETEER_SKIP_DOWNLOAD keeps `npm ci` from pulling ~150 MB of Chromium
   # that nothing here uses.
   lint:
+    if: github.event_name == 'merge_group' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -333,6 +340,7 @@ jobs:
   # merge queue since 2026-10-29), and a prose-only PR waits ~7.5 min for `ci`
   # instead of ~1 min.
   unit:
+    if: github.event_name == 'merge_group' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 20 # raised from 15 on 2026-11-03 (owner call, D2 on #2984): node 22 runs took 14m01s-14m25s on main and one PR run was canceled at 15m03s
     # SHARDED TWO WAYS (owner call, 2026-11-10). Over the 60 runs of 2026-11-10 the one node 22 job took 14.4 min at
@@ -1167,7 +1175,8 @@ jobs:
   # suite in `integration`; `studio-smoke` promotes into `needs` only after a nightly
   # green streak (#800). Adding a job here makes it merge-BLOCKING — do it deliberately.
   ci:
-    if: always()
+    # Without the draft clause the gate would run on a draft push, read changes=skipped and go red.
+    if: always() && (github.event_name == 'merge_group' || !github.event.pull_request.draft)
     needs: [changes, lint, unit, integration, docs-build, docs-test, player-webkit]
     runs-on: ubuntu-24.04
     timeout-minutes: 5

@@ -1,0 +1,2 @@
+- **CI skips draft pull requests.** `ci.yml`, `platform-suites.yml` and `docs-preview.yml` run no job while a PR is a draft; marking it ready (`gh pr ready`) runs CI once on the head. Park an open PR with `gh pr ready --undo` while iterating, so intermediate pushes no longer start runs that a newer push cancels. The merge queue still runs the full suite on every group.
+- The CI-green beacon and the golden-diff sticky comment now read every page of a PR's comments, so a PR past 100 comments no longer piles up duplicate beacons.
