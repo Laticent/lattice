@@ -264,15 +264,17 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 	);
 }
 
-/** Up to three figures side by side, label over value: two rows where a list took three. The tiles
+/** Up to three figures side by side as small cards, label over value: two rows where a list took three. The tiles
  *  share one row and wrap only when the popover is too narrow for them (`basis` is the narrowest a
  *  tile goes before it moves down). */
 function Stats({ items }: { items: ({ label: string; hint?: string; value: React.ReactNode } | null)[] }) {
 	return (
-		<dl className="m-0 flex flex-wrap gap-x-3 gap-y-2">
+		<dl className="m-0 flex flex-wrap gap-1.5">
 			{items.map((it) =>
 				it ? (
-					<div key={it.label} title={it.hint} className="flex min-w-0 flex-1 basis-[4.5rem] flex-col gap-0.5">
+					// Each figure is a small card in the chat's own card style: the change card's rounded hairline
+					// border on the page background, so the menu and the chat read as one set.
+					<div key={it.label} title={it.hint} className="flex min-w-0 flex-1 basis-[4.5rem] flex-col gap-0.5 rounded-lg border border-border bg-background px-2 py-1.5">
 						<dt className="truncate text-[10.5px] text-muted-foreground">{it.label}</dt>
 						<dd className="m-0 truncate font-semibold tabular-nums">{it.value}</dd>
 					</div>

@@ -52,13 +52,15 @@ async function mockModel(page: Page) {
 	});
 }
 
-async function askForEdits(page: Page, width: number, height: number) {
+async function askForEdits(page: Page, width: number, height: number, dark = false) {
 	await mockModel(page);
 	// Load the deck where the source editor is on screen (a phone hides it), then take the width under test.
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await expect.poll(() => persistedSource(page)).toContain('Old point 4.14');
+	// The Studio's own toggle: it does not follow the system setting, and a phone's chat sheet covers it.
+	if (dark) await page.getByRole('button', { name: 'Switch to dark mode' }).first().click();
 	await page.setViewportSize({ width, height });
 	await openChatAtWidth(page, width);
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('tighten slides 2 to 4');
@@ -133,19 +135,21 @@ test('untick every edit and Apply is disabled', async ({ page }) => {
 	await expect(card.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
 });
 
-test('the cost menu shows its figures three to a row on a phone @crosswidth', async ({ page }) => {
-	test.setTimeout(90_000);
-	await askForEdits(page, 390, 844);
-	await page.getByRole('button', { name: /^Chat metrics:/ }).click();
-	const menu = page.getByTestId('chat-metrics');
-	await expect(menu).toBeVisible();
-	// Let the open animation finish, so the shot shows the menu as it rests.
-	await menu.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
-	for (const section of ['This session', 'Cost']) {
-		const row = menu.locator('dl').filter({ hasText: section });
-		const tops = await row.locator(':scope > div').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
-		expect(tops.length).toBe(3);
-		expect(new Set(tops).size).toBe(1);
-	}
-	await page.screenshot({ path: test.info().outputPath('cost-menu-390.png') });
-});
+for (const dark of [false, true]) {
+	test(`the cost menu shows its figures three to a row on a phone${dark ? ' in dark mode' : ''} @crosswidth`, async ({ page }) => {
+		test.setTimeout(90_000);
+		await askForEdits(page, 390, 844, dark);
+		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
+		const menu = page.getByTestId('chat-metrics');
+		await expect(menu).toBeVisible();
+		// Let the open animation finish, so the shot shows the menu as it rests.
+		await menu.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
+		for (const section of ['This session', 'Cost']) {
+			const row = menu.locator('dl').filter({ hasText: section });
+			const tops = await row.locator(':scope > div').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+			expect(tops.length).toBe(3);
+			expect(new Set(tops).size).toBe(1);
+		}
+		await page.screenshot({ path: test.info().outputPath(`cost-menu-390${dark ? '-dark' : ''}.png`) });
+	});
+}

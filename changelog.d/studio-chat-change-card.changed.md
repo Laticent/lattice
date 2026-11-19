@@ -9,4 +9,5 @@
   scrolling chat.
 - **The chat's cost menu is shorter.** Spend (this session, this deck, today), Context window
   (used, window, from cache) and Last reply (cost, model calls, written) each show their
-  figures side by side, label over value, and wrap on a narrow phone.
+  figures as three small cards side by side, label over value, in the chat's own card style.
+  They wrap on a phone too narrow for three.
