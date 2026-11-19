@@ -107,5 +107,25 @@ test('in the merge queue a cancelled tier fails, without reading any PR', () => 
 });
 
 test('a path filter that did not succeed fails the gate', () => {
-  assert.equal(gate({ results: { changes: 'cancelled' }, head: NEWER }).code, 1);
+  assert.equal(gate({ results: { changes: 'failure' }, head: NEWER }).code, 1);
+  assert.equal(gate({ results: { changes: 'skipped' }, head: NEWER }).code, 1);
+});
+
+test('a path filter cancelled on the current head fails: #2524, changes queued 19 min then canceled', () => {
+  const r = gate({ results: { changes: 'cancelled', integration: 'cancelled' } });
+  assert.equal(r.code, 1);
+  assert.match(r.text, /path filter \(changes\) did not succeed/);
+});
+
+test('a whole run cancelled by a newer push passes and posts no beacon', () => {
+  // #3314: a push cancelled 033d389's run before `changes` started, and the gate went red on a SHA
+  // that was no longer the head, a false failure webhook.
+  const all = Object.fromEntries(['changes', 'lint', 'unit', 'integration', 'docs-build', 'docs-test', 'player-webkit'].map((k) => [k, 'cancelled']));
+  const r = gate({ results: all, head: NEWER });
+  assert.equal(r.code, 0);
+  assert.equal(r.superseded, true);
+});
+
+test('in the merge queue a cancelled path filter fails', () => {
+  assert.equal(gate({ results: { changes: 'cancelled' }, event: 'merge_group', head: NEWER }).code, 1);
 });

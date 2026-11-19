@@ -1243,6 +1243,16 @@ jobs:
             fi
             [ "$head" != "${{ github.event.pull_request.head.sha }}" ]
           }
+          # A newer push can cancel the whole run before `changes` gets a runner. Then nothing ran
+          # on this SHA and the newer run carries the verdict, so a superseded `cancelled` passes
+          # here as it does for a tier below. A `changes` cancelled on the CURRENT head (#2524's
+          # 19-minute queue) still fails.
+          if [ "$changes" = "cancelled" ] && [ "${{ github.event_name }}" = "pull_request" ] && superseded; then
+            echo "the whole run was cancelled by a newer push (the PR's head is now ${head}); that run carries the verdict"
+            echo "superseded=true" >> "$GITHUB_OUTPUT"
+            echo "CI gate passed."
+            exit 0
+          fi
           if [ "$changes" != "success" ]; then
             echo "::error::the path filter (changes) did not succeed (${changes}), so a skipped tier proves nothing"
             exit 1

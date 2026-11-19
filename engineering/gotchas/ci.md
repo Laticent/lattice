@@ -542,12 +542,12 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   because the suite had outgrown 25 (the numbers are in `ci.yml`'s timeout block).
 - **How to read a green `ci` you doubt:** list the run's jobs and look at `changes` first. A
   `changes` that did not succeed means every `skipped` below it is unproven.
-- **What it costs:** a PR run superseded by a push while its `changes` is still queued now
-  goes red on the old SHA. With `changes` waiting 15-19 minutes for a runner, that window is
-  real. It brings back a little of the red-webhook noise
-  `decisions/2026-06-14-drift-watch-rebase-thrash.md` removed, because the `changes` check
-  runs before the supersession check and a no-runner cancel reads `cancelled` too. It is
-  accepted because the alternative is a green check over no tests.
+- **What it cost, until #3314:** a PR run superseded by a push while its `changes` was still
+  queued went red on the old SHA, because the `changes` check ran before the supersession check
+  and a no-runner cancel reads `cancelled` too. Since #3314 a `cancelled` `changes` passes only
+  when the PR's head has moved past the run's SHA, the same proof a cancelled tier needs, so the
+  newer run on the head still has to pass. A `changes` cancelled on the current head (#2524's
+  case) and any `cancelled` in the merge queue still fail.
 - **Triggered by:** #2524 (`followups.d/2524-p1-ci-path-filter-skipped-tiers-on-rerun.md`).
 - **Removable when:** never; this documents the gate's contract.
 
@@ -592,28 +592,13 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Triggered by:** #2749.
 - **Removable when:** someone explains the delta. Then replace this entry with the cause.
 
-## The CI-green beacon says green, but unit, integration and docs-build were canceled
-
-- **Symptom:** a bot comment reads "`ci` workflow green for `<sha>` (ran: lint; cancelled: unit
-  · integration · docs-build)" and "Every other check on this commit had also concluded
-  successfully". Seen on #2749 at `1a17c46`.
-- **Cause:** you pushed again. `concurrency: cancel-in-progress` canceled that run's tiers, and
-  a PR run accepts a `cancelled` tier by design (see "The `ci` check is green on a PR whose test
-  tiers never ran"). The beacon reports the old commit's lint and nothing else.
-- **How to tell:** the list after "ran:" names fewer tiers than a full run (lint · unit ·
-  integration · docs-build), and the SHA is not the PR's current head.
-- **Fix:** ignore it and wait for the run on the head SHA. Never count it as evidence in a
-  pre-merge card.
-- **Triggered by:** two pushes close together.
-- **Removable when:** the beacon stops posting for superseded commits.
-
 ## A red check names a commit that is no longer the PR's head
 
 - **Symptom:** after you push a fix, a failure event for `ci` or `docs-build` arrives, and it is
   the same failure you just fixed.
-- **Cause:** the old run finishes, or is canceled, after your push, and GitHub delivers its
-  result late. `ci` is an aggregate: it reads red when a tier it lists failed, or when `changes`
-  was canceled.
+- **Cause:** the old run finishes after your push, and GitHub delivers its result late. `ci` is
+  an aggregate: it reads red when a tier it lists failed. (Since #3314 a run a push canceled,
+  `changes` included, passes and posts no beacon.)
 - **How to tell:** compare the event's `head_sha` with the PR's current head. In the `ci` job
   log, `changes=cancelled lint=cancelled …` is a superseded run. `docs-build=failure` with the
   other tiers `success` is a real failure, so read the `docs-build` job.
