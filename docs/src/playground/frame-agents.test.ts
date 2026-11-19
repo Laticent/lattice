@@ -1,5 +1,5 @@
 /**
- * The preview frames' agents as one same-origin file (frame-agents.mjs, followups.d/3277-p1-csp-frame-pages.md).
+ * The preview frames' agents as one same-origin file (frame-agents.mjs, engineering/decisions/2026-11-17-site-discovery.md §2).
  *
  * A preview frame inherits its page's Content-Security-Policy, which allows no inline script, so the
  * load-bearing property is the first cell: no document a preview builder writes carries an inline

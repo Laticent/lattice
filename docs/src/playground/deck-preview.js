@@ -43,7 +43,7 @@
 // SYNC scroll math (window.scrollY) and content-visibility virtualization both
 // keep measuring against the document viewport.
 
-import { agentTag, frameAgentsUrl, linkGuardAgent } from '../../../lib/core/frame-agents.mjs';
+import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import {
 	buildPrintCss,
 	fitSlideOnSheet,
@@ -67,8 +67,7 @@ import { splitSections } from './preview-virtual.js';
 
 // Re-exported so callers that already reach for it here keep working; the policy itself
 // lives in its own dependency-free module (see preview-csp.js for why).
-// `linkGuardAgent` moved to frame-agents.mjs with the other agents; re-exported so its old import path holds.
-export { linkGuardAgent, previewCspMeta, splitSections };
+export { previewCspMeta, splitSections };
 
 // NO KATEX_URL / MERMAID_URL CONSTANTS HERE — deliberately, and do not add them back.
 //
