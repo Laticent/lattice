@@ -76,7 +76,14 @@ test('every example in the universal references lints with no errors', () => {
       out = e.stdout;
     }
     const { findings } = JSON.parse(out);
-    const bad = findings.filter((f) => f.severity === 'error').map((f) => `${path.basename(f.file || '')} slide ${f.slide}: ${f.rule}`);
+    // A one-line example (`<!-- _class: title silent -->`) shows a modifier, not a slide, so it
+    // has no heading or list: #3321's `slot-contract` reports each absent required slot ("This
+    // slide has none"). Absence is the point of a fragment; a slot written in the WRONG shape is
+    // still an error here.
+    const absent = (f) => f.rule === 'slot-contract' && /has none/.test(f.message || '');
+    const bad = findings
+      .filter((f) => f.severity === 'error' && !absent(f))
+      .map((f) => `${path.basename(f.file || '')} slide ${f.slide}: ${f.rule}`);
     assert.deepEqual(bad, [], 'an example in the universal references teaches a shape the linter rejects');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
