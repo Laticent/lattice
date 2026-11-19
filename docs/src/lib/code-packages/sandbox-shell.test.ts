@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { loadSandboxed, SANDBOX_SHELL_FILE, SHELL_CSP, SHELL_DOC, SHELL_READY, sandboxShellHtml } from '../../../../lib/packages/sandbox-shell.mjs';
+import { loadSandboxed, SANDBOX_SHELL_FILE, SHELL_CSP, SHELL_DOC, SHELL_DOC_PREFIX, SHELL_READY, sandboxShellHtml } from '../../../../lib/packages/sandbox-shell.mjs';
 
 describe('the sandbox shell', () => {
 	it('is one inline script under a policy that opens nothing outward', () => {
@@ -50,7 +50,8 @@ describe('the sandbox shell', () => {
 	it('writes a document only for a sandboxed frame whose page is on the site', () => {
 		const script = new DOMParser().parseFromString(sandboxShellHtml(), 'text/html').querySelector('script')!.textContent!;
 		const SITE = 'https://lattice.style';
-		const run = (selfOrigin: string, senderOrigin: string) => {
+		const OWN = `${SHELL_DOC_PREFIX}default-src 'none'"></head><body><p>x</p></body></html>`;
+		const run = (selfOrigin: string, senderOrigin: string, html = OWN, fromParent = true) => {
 			const listeners: Array<(e: unknown) => void> = [];
 			const parent = { postMessage() {} };
 			const written: string[] = [];
@@ -59,12 +60,35 @@ describe('the sandbox shell', () => {
 			new Function('self', 'window', 'parent', 'location', 'document', 'addEventListener', 'removeEventListener', script)(
 				win, win, parent, { origin: SITE }, doc, (_t: string, f: (e: unknown) => void) => listeners.push(f), () => {},
 			);
-			for (const f of listeners) f({ source: parent, origin: senderOrigin, data: { t: SHELL_DOC, html: '<p>x</p>' } });
+			for (const f of listeners) f({ source: fromParent ? parent : {}, origin: senderOrigin, data: { t: SHELL_DOC, html } });
 			return written;
 		};
-		expect(run('null', SITE)).toEqual(['<p>x</p>']); // the site's own sandboxed frame
+		expect(run('null', SITE)).toEqual([OWN]); // the site's own sandboxed frame
 		expect(run(SITE, SITE)).toEqual([]); // framed unsandboxed, even by the site
 		expect(run('https://evil.example', 'https://evil.example')).toEqual([]); // unsandboxed on another site
 		expect(run('null', 'https://evil.example')).toEqual([]); // sandboxed, but the page is another site
+		expect(run('null', SITE, OWN, false)).toEqual([]); // the right origin, but not this frame's parent
+	});
+
+	// A document with no policy of its own would run under the shell's alone, which admits a script from
+	// any host (`script-src *`). The red team showed it reaching an outside server in all three engines,
+	// so the shell writes only a document that opens with its own policy, the shape both hosts write.
+	it('refuses a document that does not open with its own policy', () => {
+		const script = new DOMParser().parseFromString(sandboxShellHtml(), 'text/html').querySelector('script')!.textContent!;
+		const write = (html: string) => {
+			const listeners: Array<(e: unknown) => void> = [];
+			const parent = { postMessage() {} };
+			const written: string[] = [];
+			const doc = { open() {}, write: (h: string) => written.push(h), close() {} };
+			const win = { origin: 'null' };
+			new Function('self', 'window', 'parent', 'location', 'document', 'addEventListener', 'removeEventListener', script)(
+				win, win, parent, { origin: 'https://lattice.style' }, doc, (_t: string, f: (e: unknown) => void) => listeners.push(f), () => {},
+			);
+			for (const f of listeners) f({ source: parent, origin: 'https://lattice.style', data: { t: SHELL_DOC, html } });
+			return written.length;
+		};
+		expect(write('<!doctype html><html><head><meta charset="utf-8"></head><body><script>1</script>')).toBe(0);
+		expect(write(` ${SHELL_DOC_PREFIX}x">`)).toBe(0); // the policy must come FIRST, not merely appear
+		expect(write(`${SHELL_DOC_PREFIX}default-src 'none'"></head>`)).toBe(1);
 	});
 });

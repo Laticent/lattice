@@ -49,13 +49,49 @@ describe('the agents file', () => {
 
 	it('runs the one agent its tag names, with that tag’s data', () => {
 		const win: Record<string, unknown> = {};
-		const run = (dataset: Record<string, string>) => new Function('window', 'document', frameAgentsSource())(win, { currentScript: { dataset } });
+		// A stand-in DOM: the file reads the running tag through Document.prototype's own getter and
+		// accepts only a real <script>, so the test hands it both.
+		class Script {
+			constructor(readonly dataset: Record<string, string>) {}
+		}
+		const runWith = (current: unknown, own?: unknown) => {
+			class Doc {}
+			Object.defineProperty(Doc.prototype, 'currentScript', { get: () => current });
+			const doc = new Doc();
+			if (own) Object.defineProperty(doc, 'currentScript', { value: own });
+			new Function('window', 'document', 'Document', 'HTMLScriptElement', frameAgentsSource())(win, doc, Doc, Script);
+		};
+		const run = (dataset: Record<string, string>) => runWith(new Script(dataset));
 		run({ agent: 'geom', w: '1920', h: '1080', edge: '1' });
 		expect(win).toEqual({ __SLIDE_W: 1920, __SLIDE_H: 1080, __SLIDE_EDGE: 1 });
 		// An unknown name, or a tag with none, runs nothing.
 		const before = { ...win };
 		run({ agent: 'toString' });
 		run({});
+		expect(win).toEqual(before);
+	});
+
+	// Author markup shares the frame's document, and a named element shadows `document.currentScript`
+	// (`<img name="currentScript" data-agent="geom" data-w="777">`). The red team picked the agent and
+	// its data that way in all three engines; the sanitizer strips the name today, this is the second wall.
+	it('reads its own tag, never a named element that shadows document.currentScript', () => {
+		const win: Record<string, unknown> = {};
+		class Script {
+			constructor(readonly dataset: Record<string, string>) {}
+		}
+		const runWith = (current: unknown, own?: unknown) => {
+			class Doc {}
+			Object.defineProperty(Doc.prototype, 'currentScript', { get: () => current });
+			const doc = new Doc();
+			if (own) Object.defineProperty(doc, 'currentScript', { value: own });
+			new Function('window', 'document', 'Document', 'HTMLScriptElement', frameAgentsSource())(win, doc, Doc, Script);
+		};
+		const img = { tagName: 'IMG', dataset: { agent: 'geom', w: '777', edge: '1' } };
+		runWith(new Script({ agent: 'geom', w: '1280', h: '720' }), img);
+		expect(win).toEqual({ __SLIDE_W: 1280, __SLIDE_H: 720 });
+		// …and a current element that is not a <script> runs nothing at all.
+		const before = { ...win };
+		runWith(img);
 		expect(win).toEqual(before);
 	});
 

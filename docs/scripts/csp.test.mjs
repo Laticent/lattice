@@ -108,7 +108,9 @@ describe('exemption', () => {
 		// The shapes review found the first detector missed: the bundled nonce idiom, an interpolated
 		// attribute, a module script, a literal body (stage 1's own failure), and a splice that calls a
 		// function (a nonce getter: the `(` in the tag read as a regex until the second review).
-		for (const code of ['x="<script"+n+">"+js', 'x=`<script${n}>${js}`', 'x=`<script type="module">${js}`', 'x="<script>window.__SLIDE_W="+w', 'x=`<script>var W=${w}`', 'x="<script nonce=\\""+getNonce()+"\\">"+body', "x='<script nonce=\"'+n()+'\">'+js"]) {
+		for (const code of ['x="<script"+n+">"+js', 'x=`<script${n}>${js}`', 'x=`<script type="module">${js}`', 'x="<script>window.__SLIDE_W="+w', 'x=`<script>var W=${w}`', 'x="<script nonce=\\""+getNonce()+"\\">"+body', "x='<script nonce=\"'+n()+'\">'+js",
+			// …and the shapes the red team found it blind to: tag case, an empty or ecmascript type, a data-src.
+			'x=`<SCRIPT>${js}`', 'x=`<script type="">${js}`', 'x=`<script type=text/ecmascript>${js}`', 'x=`<script data-src=1>${js}`']) {
 			expect(writesInlineFrameScript(code), code).toBe(true);
 		}
 		// A module-loaded sandbox document: its import map sits between its policy and its script.
