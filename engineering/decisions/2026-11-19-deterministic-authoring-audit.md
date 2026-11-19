@@ -23,8 +23,12 @@ is in the companion folder [`2026-11-19-deterministic-authoring-audit/`](./2026-
 | `c-universals.md` | 12 universals × 80 surfaces, each rendered in Chromium and checked for presence, placement and clipping |
 | `d-modifier-inventory.md` | every class token an author can type: where it is defined, documented and linted |
 
-The probe scripts were throwaway, kept out of the tree. Everything below marked **measured** was
-run. Light mode, `indaco` theme, at HEAD `001c985`.
+The probe scripts were throwaway and are kept out of the tree: W1 and W4 below turn them into
+gated tests. Everything below marked **measured** was run. Light mode, `indaco` theme, at HEAD
+`001c985`. An independent `fact-checker` then checked the note's file:line citations and counts
+(three counts corrected) and re-rendered six findings from scratch with the real CLI: journey and
+cycle with `1.`, agenda with `-`, the contact layout dropping a speaker note, cards-grid `numbered`,
+and a checklist linting clean without its heading. All six reproduced.
 
 ## The answer in five lines
 
@@ -66,8 +70,8 @@ variant samples), linted with `lintText` and rendered with `lib/engine` `render(
 
 The worst cases an agent hits:
 
-- **`journey` with `1.`** draws no chart; the raw `{who=…}` pills print as text (34 SVG nodes
-  become 0). **`cycle` with `1.`** loses its ring. **`agenda` with `-`** renders a plain list
+- **`journey` with `1.`** draws no chart; the raw `{who=…}` pills print as text (all 8 SVGs
+  disappear). **`cycle` with `1.`** loses its ring. **`agenda` with `-`** renders a plain list
   (`agenda.styles.css` has zero `ul` selectors). Lint is silent on all three.
 - **`<!-- _class: cards-grid numbered -->`** over a `-` list gives no numbers and no warning; the
   numbers come only from `1.`.
@@ -111,7 +115,7 @@ each item's lead bold or plain, then pixel-diffing the pairs.
 |---|---|
 | Follows the rule | `content`, `list` (default) → R1; `cards-grid`, `cards-stack` → R2 |
 | R1 broken | `list takeaway` hides the numbers of `1.`; `list takeaway numbered` draws numbers for `-` too (the class decides); `list principles` and its counters work only on `1.` |
-| R2 broken | `list-steps` (all 18 variants): `-` collapses to unstyled text instead of unnumbered cards |
+| R2 broken | `list-steps` (every variant): `-` collapses to unstyled text instead of unnumbered cards |
 | R3 broken, `-` collapses | agenda, kpi, stats, list-tabular, premise |
 | R3 broken, `1.` collapses | inventory, cycle, glossary (no table), pricing, policy-recommendation, verdict-grid, logo-wall (one giant logo), big-number, journey |
 | R3 broken, numbers appear | split-panel (every variant: `1.` becomes a native list or numbered cards; `steps` reads only `ol`), compare-prose `axis` (`-` draws "0") |
@@ -143,8 +147,8 @@ structure. `list-modifier-inert` warns about the R1 breaks instead of the engine
 cards says `1.` supplies the badge.
 
 **Root causes.** (a) No shared list contract: each layout's CSS keys on `ol > li` or `ul > li`
-(8 manifest selectors are `ol`-only, ≈50 `ul`-only), and the base reset treats them differently
-(`base.elements.css:212-213`). (b) Shared kernels read one list type: `splitDetail` (36 chart
+(9 manifest selectors are `ol`-only, ≈50 `ul`-only), and the base reset treats them differently
+(`base.elements.css:212-213`). (b) Shared kernels read one list type: `splitDetail` (16 of 28 chart
 kinds), `findOuterUL`, the agenda and glossary and cycle parsers. `@laticent/markup`'s
 `parseTopLevelLis` already reads both. (c) Numbering is driven three ways: by `ol`, by a class,
 or always on but `ol`-only. (d) `<strong>` means both "the engine's label" and "the author's
