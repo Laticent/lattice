@@ -1,0 +1,38 @@
+---
+origin: 3319
+priority: P1
+recorded: 2026-11-19
+area: engine
+severity: high
+swimlane: engineering/decisions/2026-11-16-terms-registry.md
+deferred: blocked — the Gemini key in this environment hit its quota (HTTP 429) mid-investigation, so no fix could be tested on the voice that shows the defect
+source: https://github.com/Laticent/lattice/pull/3319
+---
+
+# Gemini Flash-Lite TTS says "Yearn" wrong depending on where it sits
+
+The owner hears "Yearn" misread with Gemini Flash TTS, "if a sentence or a paragraph" puts it as "Yearn.".
+Reproduced on 2026-11-19 with the Studio's own request shape (`geminiSpeechBody`, one sentence per request)
+and its default model `gemini-3.8-flash-lite-tts`, transcribed with Whisper `small.en`:
+
+| Text sent | Heard |
+|---|---|
+| This is why I love Yearn. | This is why I love yearn. |
+| Yearn. | Yern. |
+| Our pick is Yearn. It wins. | Our pick is yarn. It wins. |
+| Yearn is our pick. | Uranus arpic |
+
+why now   — this is the defect the owner reported. #3319 makes the text sent to the voice deterministic and
+            correct ("Yearn" reaches Gemini exactly as written, or as the deck's `terms:` respelling), but
+            the misreading happens inside Gemini, which reads the same text differently by position.
+            The on-device voice (Kokoro) says "yearn" correctly in every position tested.
+where     — docs/src/playground/voice-model.js (`geminiSpeechBody`: one sentence, no context, no
+            pronunciation hint); the deck's `terms:` respelling is the one lever today.
+done when — a measured way to make Gemini say a term the same in every position, chosen from: a `terms:`
+            respelling that holds across the four shapes above; sending a paragraph instead of a sentence
+            (changes the clip-equals-cue contract, so the owner decides); or a pronunciation hint Gemini
+            honors without reading it aloud. Each candidate transcribed, five runs per shape (the voice is
+            not deterministic).
+evidence  — the four WAVs sent on #3319 (`.scratch/signoff/gemini/`); the harness is a short script that
+            posts `geminiSpeechBody(text)` and transcribes the PCM with Whisper.
+verify    — the same four shapes, five runs each, heard as "yearn" every time, on the model the Studio picks.
