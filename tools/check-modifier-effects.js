@@ -94,7 +94,10 @@ function exercised(sample) {
   const lines = body.split('\n');
   const hasHeading = lines.some((l) => /^#{1,6}\s+\S/.test(l));
   const hasTable = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/m.test(body);
-  const eyebrowAboveHeading = lines.some((l, i) => /^\s*`[^`]+`\s*$/.test(l) && /^#{1,6}\s/.test(lines.slice(i + 1).find((x) => x.trim()) || ''));
+  // A chart's axis line (`` `[Wider reach, Deeper cognition]` ``, engineering/decisions/2026-09-22-chart-axis-grammar.md)
+  // is a lone code line above the heading too, but the chart consumes it: it is not an eyebrow, so it must not stand
+  // in for one, or the eyebrow surface is never exercised and reads as inert.
+  const eyebrowAboveHeading = lines.some((l, i) => /^\s*`(?!\[)[^`]+`\s*$/.test(l) && /^#{1,6}\s/.test(lines.slice(i + 1).find((x) => x.trim()) || ''));
   if (hasHeading && hasTable && eyebrowAboveHeading) return null;
   if (!hasHeading) body = `## Probe heading\n\n${body}`;
   if (!eyebrowAboveHeading) body = body.replace(/^(#{1,6}\s+\S)/m, '`PROBE · EYEBROW`\n\n$1');
