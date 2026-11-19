@@ -7,7 +7,7 @@
 import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHECKS, DECK, DECK_UNLISTED, PLUGIN } from '../../../../test/fixtures/fence-door-parity.mjs';
-import { approvalsInStamp, approvePlugin, codePackagesStamp, isPluginApproved, offeredIn, onCodePackagesStatus, pluginDigest, pluginDigests, renderWithCodePackages, revokePlugin, setPlugins, studioPlugins, unapprovedIn } from './door';
+import { approvalsInStamp, approvePlugin, codePackagesStamp, isPluginApproved, offeredIn, onCodePackagesStatus, pluginDigest, pluginDigests, renderWithCodePackages, revokePlugin, setCodePackages, setPlugins, studioPlugins, unapprovedIn } from './door';
 
 /** The shared deck's plugin blocks, every one of them drawn: no slide is shadowed (spec/LPM.md §10). */
 const DRAWN = 3;
@@ -656,7 +656,7 @@ describe('a render draws by the stamp in the CSS it paints with (#3292)', () => 
 
 	it('CSS that carries the plugin\'s sheet without this page\'s stamp (print options\' export CSS) draws by the live approval', async () => {
 		await approve();
-		// What the export CSS holds: the stamp with its nonce taken out (StudioShell `exportCodeStamp`), then the sheets.
+		// Export CSS as a file holds it: the stamp with its nonce taken out (share-export.ts `withoutStampNonce`), then the sheets.
 		const exported = codePackagesStamp().replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
 		expect(approvalsInStamp(exported)).toBeNull();
 		const html = await drawWith(`.card { color: red }\n${exported}`);
@@ -688,6 +688,31 @@ describe('a render draws by the stamp in the CSS it paints with (#3292)', () => 
 		expect(unlisted).not.toBe(PG.render(DECK_UNLISTED, 'indaco', {}).html);
 		for (const css of [`.card { color: red }\n${exported}`, '']) expect((await renderWithCodePackages<{ html: string }>(PG, DECK_UNLISTED, 'indaco', { codeApproval: css })).html).toBe(unlisted);
 		revokePlugin(PLUGIN.name);
+	});
+
+	it('a stylesheet changed on re-import, code unchanged: CSS that carries the new sheet draws the plugin', async () => {
+		await approve();
+		const nonceFree = () => codePackagesStamp().replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
+		expect(await drawWith(nonceFree())).toContain('data-lattice-plugin="gantt-plugin"');
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, css: '.bar { color: blue }' }]);
+		expect(nonceFree()).toContain('blue');
+		expect(await drawWith(nonceFree())).toContain('data-lattice-plugin="gantt-plugin"');
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a stamp that does not list the plugin at all (set before the plugins loaded) is not an "unapproved" for it', async () => {
+		// This page's stamp, listing nothing the plugins hold: the first stamp after a reload can be the packages' alone.
+		await setPlugins([]);
+		await setCodePackages([{ name: 'tally', code: 'function t(s){return s.html}\nexport { t as default };\n' }]);
+		const packagesOnly = codePackagesStamp();
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, css: '.bar { color: red }' }]);
+		await approve();
+		const html = await drawWith(packagesOnly);
+		// No "approve" card for an approved plugin; its sheet is not in this CSS, so the engine's block stands for one render.
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(html).toBe(PG.render(DECK, 'indaco', {}).html);
+		revokePlugin(PLUGIN.name);
+		await setCodePackages([]);
 	});
 
 	it('a render handed no CSS at all (an export, a scan) keeps the live approvals in charge', async () => {

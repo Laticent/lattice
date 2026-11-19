@@ -695,10 +695,12 @@ read them as comments too. Run from `claude/sandbox-probe-run` (run 37540765206)
   the CSS the render paints with, not the shell's timing: a first version that read every
   stamp-less CSS as "draw no plugin" showed the block's source in the print preview (whose export
   CSS carries the sheets but a nonce-free stamp) while the printed PDF drew it, and a second that
-  waited for the shell to report its stamp raced renders that began with older CSS. An export
-  carries the stamp without the nonce (`exportCodeStamp`, StudioShell.tsx), so the same deck
-  exports the same text after a reload; an export passes no `codeApproval` and keeps the live
-  approvals.
+  waited for the shell to report its stamp raced renders that began with older CSS. A stamp that
+  does not list a name at all (the Studio sets it from two effects, so the first stamp after a
+  reload can lack the packages' or the plugins' names) is not an "unapproved" for that name: it is
+  drawn as with no stamp (`stampEntries`). An export writes the stamp without the nonce
+  (`withoutStampNonce`, share-export.ts), so the same deck exports the same text after a reload;
+  an export passes no `codeApproval` and keeps the live approvals.
 
 **Classes: the package's own name, or what the slide carried** (`doorFilterAttr`, both doors). A
 later registry pass and the viewer's runtime act on classes they know: a package that added `video`

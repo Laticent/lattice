@@ -189,16 +189,6 @@ import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
-/**
- * The code-package stamp as an EXPORT carries it: without the per-page nonce (code-packages/door.ts `STAMP_NONCE`). An export
- * appends its extra CSS to the file as it is (share-export.ts), so the nonce would make the same deck's text differ on every
- * page load (#3292). An export never draws by the stamp (it passes no `codeApproval`), so the nonce has no job there.
- * Here and not in code-packages/entry.ts: only the Studio exports, and entry.ts sits in a chunk every route loads.
- */
-export function exportCodeStamp(stamp: string): string {
-	return stamp.replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
-}
-
 // The warm-up queue, held while the chat renders a draft (first-slide.ts `holdWarmUps`).
 const warmPanels = heldWarmPanels(warmPanelsNow);
 
@@ -1800,7 +1790,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// (code-packages/door.ts `approvalsInStamp`, #3292), so it must hear the change, or it keeps drawing the old answer.
 	React.useEffect(() => {
 		const heard = (e: StorageEvent) => {
-			if (e.key === CODE_APPROVALS_KEY) setCodeStamp(codePackagesStamp());
+			// `null`: another tab cleared this browser's storage, approvals with it.
+			if (e.key === CODE_APPROVALS_KEY || e.key === null) setCodeStamp(codePackagesStamp());
 		};
 		window.addEventListener('storage', heard);
 		return () => window.removeEventListener('storage', heard);
@@ -3156,10 +3147,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		() => [usedLocalCss, finishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined,
 		[usedLocalCss, finishExtraCss, codeStamp, assetStampText],
 	);
-	// The same, with only this browser's own finishes and the stamp without its per-page nonce: what an export carries.
+	// The same, with only this browser's own finishes: what an export carries.
 	const exportExtraCss = React.useMemo(
-		() => [usedLocalCss, ownFinishExtraCss, exportCodeStamp(codeStamp), assetStampText].filter(Boolean).join('\n\n') || undefined,
-		[usedLocalCss, ownFinishExtraCss, codeStamp, assetStampText],
+		() => (ownFinishExtraCss === finishExtraCss ? previewExtraCss : [usedLocalCss, ownFinishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined),
+		[ownFinishExtraCss, finishExtraCss, previewExtraCss, usedLocalCss, codeStamp, assetStampText],
 	);
 	// Point the registry at the open deck (its own photos join the shared ones) and take its stamp.
 	// Skipped entirely until a deck names a photo or the Library has been used, so a deck without

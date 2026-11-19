@@ -349,13 +349,24 @@ export type Renderer = { render: (source: string, theme: string, opts?: Record<s
  * the preview's caches, keyed by that CSS, from holding a drawing the key does not describe.
  */
 export function approvalsInStamp(css: string): Set<string> | null {
+	return stampEntries(css)?.approved ?? null;
+}
+
+/**
+ * The stamp of THIS page in `css`, as what it lists and which of those it records approved; null with none. A name the
+ * stamp does not list at all is not "unapproved": the Studio sets the stamp from two effects (packages, plugins), so the
+ * first stamp after a reload can lack the other's names, and such a name is drawn as with no stamp (door-run.ts).
+ */
+export type StampEntries = { approved: Set<string>; listed: Set<string> };
+export function stampEntries(css: string): StampEntries | null {
 	// Only the comment carrying this page's nonce is the stamp: any other text that looks like one is someone's CSS.
 	const head = `/* lattice code packages ${STAMP_NONCE}: `;
 	const at = css.indexOf(head);
 	if (at < 0) return null;
 	const end = css.indexOf(' */', at + head.length);
 	if (end < 0) return null;
-	return new Set(css.slice(at + head.length, end).split(' ').filter((t) => t.endsWith('+')).map((t) => t.slice(0, -1)));
+	const tokens = css.slice(at + head.length, end).split(' ').filter((t) => t.endsWith('+') || t.endsWith('-'));
+	return { approved: new Set(tokens.filter((t) => t.endsWith('+')).map((t) => t.slice(0, -1))), listed: new Set(tokens.map((t) => t.slice(0, -1))) };
 }
 
 /** The door's own flags, never the engine's: `codeStatus` (report to the notice) and `codeApproval` (the CSS to draw by). */
@@ -375,7 +386,7 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	const reporting = opts?.codeStatus === true;
 	// Read before any await: the approvals this render draws by are the ones its CSS was made with.
 	const handed = typeof opts?.codeApproval === 'string' ? opts.codeApproval : null;
-	const stamped = handed === null ? null : approvalsInStamp(handed);
+	const stamp = handed === null ? null : stampEntries(handed);
 	const engineOpts = withoutDoorFlags(opts);
 	if (!packages.size && !plugins.size) {
 		if (reporting) report({ unapproved: [], failed: [] });
@@ -384,7 +395,7 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	// Everything past this point loads only when the Library holds a code package: the kernel,
 	// the sanitizer, the runner and the shipped claim list stay out of the Studio's first load.
 	const { runWithCodePackages } = await import('./door-run');
-	return runWithCodePackages<R>(PG, source, theme, engineOpts, reporting, stamped, stamped ? null : handed);
+	return runWithCodePackages<R>(PG, source, theme, engineOpts, reporting, stamp, handed);
 }
 
 /**

@@ -15,7 +15,7 @@ import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fe
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { checkReturnData, fillReturnSlots, returnAttr, SLOT_FILL_MAX, slotFills, splitReturn } from '../../../../lib/packages/plugin-returns.mjs';
-import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, rememberAspect, rememberedAspect, report, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
+import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, rememberAspect, rememberedAspect, report, type StampEntries, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
 import { openPackageFrame, type PackageFrame } from './runner';
 
 // The palette token names every theme defines, handed to a package in its slide's facts. The theme
@@ -159,10 +159,11 @@ function remember(key: string, section: string) {
 	memo.set(key, section);
 }
 
-/** A plugin's scoped sheet as the stamp carries it (door.ts `codePackagesStamp`), kept per code and stylesheet. */
+/** A plugin's scoped sheet as the stamp carries it (door.ts `codePackagesStamp`), kept per name and stylesheet: a re-import
+ *  can change the stylesheet and keep the code, and the digest does not cover the stylesheet. */
 const sheets = new Map<string, string>();
 function sheetOf(p: StudioPlugin): string {
-	const key = `${p.name}@${p.sha256}`;
+	const key = `${p.name}\u0000${p.css}`;
 	let sheet = sheets.get(key);
 	if (sheet === undefined) {
 		if (sheets.size > 64) sheets.clear();
@@ -173,14 +174,18 @@ function sheetOf(p: StudioPlugin): string {
 }
 
 /** The door past its no-package fast path: two renders around the code-packages slot and the plugin-fence slot. */
-export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean, stamped: Set<string> | null = null, unstamped: string | null = null): Promise<R> {
+export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean, stamp: StampEntries | null = null, handed: string | null = null): Promise<R> {
 	// What this render DRAWS as approved: approved now AND in the stamp its CSS carries, when the caller gave that CSS
 	// (door.ts `approvalsInStamp`), so the markup and the plugin's sheet come from one moment. The stamp only ever
 	// narrows: code runs on a live approval, so a stale stamp cannot run a plugin whose approval was withdrawn.
 	// What it REPORTS as unapproved stays live: the notice asks for a yes not given yet, and a render that started
 	// before the yes must not bring the question back.
-	const drawsApproved = (p: StudioCodePackage) => isApproved(p) && (!stamped || stamped.has(`${p.name}@${p.sha256.slice(0, 16)}`));
-	const drawsPluginApproved = (p: StudioPlugin) => isPluginApproved(p) && (!stamped || stamped.has(`plugin/${p.name}@${p.sha256.slice(0, 16)}`));
+	// A name the stamp does not list at all (`stampEntries`) is drawn as with no stamp: by the live approval, and for a
+	// styled plugin only where the CSS carries its sheet (below).
+	const byStamp = (k: string) => !stamp || !stamp.listed.has(k) || stamp.approved.has(k);
+	const pluginKey = (p: StudioPlugin) => `plugin/${p.name}@${p.sha256.slice(0, 16)}`;
+	const drawsApproved = (p: StudioCodePackage) => isApproved(p) && byStamp(`${p.name}@${p.sha256.slice(0, 16)}`);
+	const drawsPluginApproved = (p: StudioPlugin) => isPluginApproved(p) && byStamp(pluginKey(p));
 	const packages = codePackages();
 	// A snapshot: the Library can change the set while this render awaits a sandbox.
 	const pkgs = new Map(packages);
@@ -462,21 +467,30 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		}
 		if (mine.length) attrs.set(key, mine);
 	}
-	// CSS handed with NO stamp of this page (`unstamped`) that does not carry a styled plugin's sheet: on a reload a render
-	// can begin before the Studio's stamp holds the plugins, and its drawing painted the badge's words with no fill (#3292).
-	// That render shows the block as the engine drew it instead. The plugin still ran and its result is remembered, so the
-	// next render, with the stamp, draws at once. CSS that carries the sheet under a stamp with no nonce (print options'
-	// export CSS) draws it. Judged by the CSS the render paints with, so a render begun with older CSS cannot race the shell.
-	if (unstamped !== null) {
+	// CSS that does not speak for a styled plugin (no stamp of this page, or a stamp that does not list it) and does not
+	// carry its sheet: on a reload a render can begin before the Studio's stamp holds the plugins, and its drawing painted
+	// the badge's words with no fill (#3292). That render shows the block as the engine drew it instead. The plugin still
+	// ran and its result is remembered, so the next render, with the stamp, draws at once. CSS that carries the sheet
+	// under a stamp with no nonce draws it. Judged by the CSS the render paints with, so a render begun with older CSS
+	// cannot race the shell.
+	if (handed !== null) {
+		const hidden = new Set<string>();
 		for (const c of capFences.claims) {
 			const p = offered.get(c.pkg);
-			if (!p?.css || disabled.has(p.name) || unstamped.includes(sheetOf(p))) continue;
+			if (!p?.css || disabled.has(p.name) || stamp?.listed.has(pluginKey(p)) || handed.includes(sheetOf(p))) continue;
 			const key = fenceKey(c, p.sha256);
 			// Only the plugin's own drawing (`onPage`): a placeholder (unapproved, unlisted), an inline chip or a note
 			// stands as the door drew it, as it does in the export.
 			if (!onPage.has(key)) continue;
 			sections.set(key, c.block);
 			attrs.delete(key);
+			hidden.add(c.pkg);
+		}
+		// A clash note speaks of a block this render no longer shows: the next render, which draws them, reports it.
+		if (hidden.size) {
+			const kept = failed.filter((f) => !(hidden.has(f.name) && f.why.endsWith("the first block's is kept")));
+			failed.length = 0;
+			failed.push(...kept);
 		}
 	}
 	for (const f of frames.values()) f.then((fr) => fr.close()).catch(() => {});

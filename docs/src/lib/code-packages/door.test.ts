@@ -3,7 +3,7 @@
 // on, and the render wrapper's two passes. The sandboxed frame itself is proven on the real Studio
 // (docs/e2e/code-packages.spec.ts).
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { approveCodePackage, codeDigest, codePackagesStamp, isApproved, renderWithCodePackages, revokeCodePackage, setCodePackages, unapprovedIn } from './door';
+import { approveCodePackage, codeDigest, codePackagesStamp, isApproved, renderWithCodePackages, revokeCodePackage, setCodePackages, setPlugins, unapprovedIn } from './door';
 
 const CODE = 'function t(s){return s.html}export{t as default};';
 
@@ -91,6 +91,18 @@ describe('the render wrapper', () => {
 		const now = await renderWithCodePackages<{ html: string }>(PG, 'tally', 'indaco', { codeApproval: codePackagesStamp() });
 		expect(now.html).not.toContain('its code has not been approved in this browser');
 		revokeCodePackage('tally');
+	});
+
+	it('a stamp that does not list a package at all (the first stamp after a reload, set before the packages) leaves it to the live approval (#3292)', async () => {
+		await setCodePackages([]);
+		await setPlugins([{ name: 'other', fence: 'other', code: CODE }]);
+		const pluginsOnly = codePackagesStamp();
+		await setCodePackages([{ name: 'tally', code: CODE }]);
+		approveCodePackage({ name: 'tally', sha256: await codeDigest(CODE) });
+		const out = await renderWithCodePackages<{ html: string }>(PG, 'tally', 'indaco', { codeApproval: pluginsOnly });
+		expect(out.html).not.toContain('its code has not been approved in this browser');
+		revokeCodePackage('tally');
+		await setPlugins([]);
 	});
 
 	it('the preview flag never reaches the engine', async () => {
