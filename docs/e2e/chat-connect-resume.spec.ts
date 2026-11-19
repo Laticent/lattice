@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
 
-// A MESSAGE SENT BEFORE A MODEL IS CONNECTED IS ANSWERED ONCE ONE IS (docs/src/components/studio/chat-resume.ts).
+// A MESSAGE SENT BEFORE A MODEL IS CONNECTED IS ANSWERED ONCE ONE IS (the answer-after-connect mark in docs/src/components/studio/studio-store.ts).
 // Seen by the owner on an iPhone (PR #3317): "hi" with no model connected sent them to connect one; OpenRouter's
 // sign-in reloaded the page, nothing answered the message, so they asked again and the thread read "hi", "hi".
 // Here: ask with no key, connect (a key stored, then a reload, as the sign-in's return does), reopen the chat, and
