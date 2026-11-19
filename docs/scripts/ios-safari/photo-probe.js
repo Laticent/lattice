@@ -195,17 +195,23 @@ async function latticePhotoProbe() {
 	 * Wait until the editor's lint has answered for the text it holds NOW: the editor stamps the length of the text each
 	 * pass linted on its root (`data-linted-chars`, Editor.tsx `reportLint`) for exactly this. Every editor underline,
 	 * the photo warning included, waits on that pass. In the iOS Simulator the first answer for the probe's deck came
-	 * 5 to 24 s after it was typed (a cold lint worker loading the lint core; dispatches on #3326, where the plain
-	 * lint warning on slide 2 and the photo warning on slide 1 always appeared in the same instant), so a fixed 20 s
-	 * wait for the underline ran out on an iPad (run 44526306430) and an iPhone (run 44149207107) before lint had said
-	 * anything. The deadline is the probe's cold-start hang guard, as for the first render: the signal ends the wait.
+	 * up to 14.9 s after this probe began its 20 s wait for the photo underline, about 20 s after the slide first showed
+	 * (a cold lint worker loading the lint core; traced dispatches on #3326, where the plain lint warning on slide 2
+	 * and the photo warning on slide 1 always appeared in the same instant), so that wait ran out on an iPad (run
+	 * 44526306430) and an iPhone (run 44149207107) before lint had said anything.
+	 * The length tells texts of different lengths apart only (Editor.tsx's own note): a re-run on the SAME text, as
+	 * when the preview's measured verdict changes, is not seen here, so a check that needs it waits on its effect. The deadline is the probe's cold-start hang guard, as for the first render: the signal ends the wait.
 	 */
 	const linted = async (what) => {
 		const t0 = Date.now();
 		await until(() => {
 			const view = editorView();
 			return view && view.dom.dataset.lintedChars === String(view.state.doc.length);
-		}, 150000, `the editor's lint to answer for ${what} (it last linted ${editorView()?.dom.dataset.lintedChars ?? 'nothing'} characters of ${editorView()?.state.doc.length ?? '?'})`);
+		}, 150000, `the editor's lint to answer for ${what}`).catch((e) => {
+			// Read when the wait ran out, not when it began.
+			const view = editorView();
+			throw new Error(`${e.message} (it last linted ${view?.dom.dataset.lintedChars ?? 'nothing'} characters of ${view?.state.doc.length ?? '?'})`);
+		});
 		return Date.now() - t0;
 	};
 	/** Open the editor's lint tooltip on the range on the line holding `text`, with a pointer move over it, and read it. */
@@ -264,8 +270,8 @@ async function latticePhotoProbe() {
 			// CodeMirror opens a hover tooltip only for a pointer that has RESTED: each move restarts its 300 ms check
 			// (@codemirror/view HoverPlugin.checkHover). So move again only after the last move had a full second to open
 			// one. This used to nudge on every 50 ms poll after 1.5 s, which restarted the check every time, so a first move
-			// that missed could never be followed by one that worked: on a phone, which has no lint gutter to fall back on,
-			// the wait ran out with the underline in place (webkit, iPhone shape: 2 of 120 under load).
+			// that missed could never be followed by one that worked, and when the gutter marker below did not line up with
+			// the range either, the wait ran out with the underline in place (webkit, iPhone shape: 2 of 120 under load).
 			if (!document.querySelector('.cm-tooltip-lint') && Date.now() - movedAt > 1000) hover(((Date.now() / 1000) | 0) % 2);
 			if (Date.now() - t0 > 3000 && !markerTried && !document.querySelector('.cm-tooltip-lint') && marker()) {
 				markerTried = true;
@@ -298,8 +304,7 @@ async function latticePhotoProbe() {
 		step('slide 1: the Coach flags the statement under 4.5:1', /reads at [0-3]\.\d:1 \(needs 4\.5:1\)/.test(said1), said1);
 		step('slide 1: the Coach offers the dark card ink', coachButton()?.textContent.trim() === 'Set card ink dark', coachButton()?.textContent);
 		const tip1 = await editorTooltip('![A bright harbor](data:');
-		step('slide 1: the editor lints the deck', true, `answered ${tip1.lintMs} ms after the warning was looked for`);
-		step('slide 1: the editor says what the Coach says', tip1.text.includes(said1), tip1.text);
+		step('slide 1: the editor says what the Coach says', tip1.text.includes(said1), `${tip1.text} (lint answered ${tip1.lintMs} ms after the probe looked)`);
 		step('slide 1: the editor offers the same button', tip1.button === 'Set card ink dark', tip1.button);
 
 		// 2. The Coach's button fixes it, and the preview never leaves slide 1 on the way.
@@ -322,11 +327,14 @@ async function latticePhotoProbe() {
 		seen.delete('');
 		step('slide 1: the preview never left the slide while the fix landed', seen.size === 1 && seen.has(HEADINGS[0]), [...seen].join(' | '));
 		await openSource();
-		// Read once lint has answered for the text with the fix in it (it changed length), not after a fixed sleep: on the
-		// simulator a pass can take longer than any guess, and a read before it would see the old underline.
+		// Wait for lint to answer for the text with the fix in it (its length changed), then for the underline to go: the
+		// pass on the new text can still hold the photo verdict from before the fix, and the re-run the new verdict sets
+		// off has the same length, so the stamp cannot show it. Not a fixed sleep: on the simulator a pass outlasts any guess.
+		// 20 s is the same allowance the underline had to appear: the verdict and one re-run.
 		await linted('the fixed deck');
-		const left = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'))?.querySelector('.cm-lintRange-warning');
-		step('slide 1: the editor warning clears too', !left, left ? 'still underlined' : '');
+		const underline = () => [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'))?.querySelector('.cm-lintRange-warning');
+		const cleared = await until(() => !underline(), 20000, 'the editor warning to clear').then(() => true, () => false);
+		step('slide 1: the editor warning clears too', cleared, cleared ? '' : 'still underlined after 20 s');
 
 		// 3. A thin spotlight card: the Coach and the editor tooltip agree word for word.
 		await caretTo('A dark photo.', HEADINGS[1]);
