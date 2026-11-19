@@ -33,7 +33,7 @@ function marginAt(width: number, height: number, stage: boolean): number {
 		addEventListener() {},
 		__latticeFontsReady: new Promise(() => {}),
 	};
-	const doc = { querySelector: () => lattice, readyState: 'complete', addEventListener() {} };
+	const doc = { querySelector: () => lattice, readyState: 'complete', addEventListener() {}, documentElement: { setAttribute() {} } };
 	new Function('window', 'document', 'ResizeObserver', 'requestAnimationFrame', 'setTimeout', fitSource())(win, doc, undefined, () => 0, () => 0);
 	return Number.parseFloat(sections[0].style.marginBottom);
 }

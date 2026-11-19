@@ -394,6 +394,63 @@ describe('stage-window — createStageController', () => {
 		for (const [, fn] of (win as unknown as { addEventListener: ReturnType<typeof vi.fn> }).addEventListener.mock.calls) (fn as () => void)();
 		expect(onLost).toHaveBeenCalledTimes(1);
 	});
+	// A SLOW load is not a lost one: the agents wait on any stylesheet before them, and venue Wi-Fi can pass the
+	// deadline. Its late `ready` takes the report back, once (second checker on 32ab992).
+	it('takes the unloaded report back when that deck says ready after the deadline', () => {
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		const stage = { style: { visibility: '' } };
+		Object.assign(win.document, { readyState: 'loading' });
+		Object.assign(win, { addEventListener: vi.fn() });
+		Object.assign(win.document.documentElement, { hasAttribute: () => false });
+		win.document.getElementById = vi.fn((id: string) => (id === 'latt-stage' ? (stage as unknown as HTMLElement) : null));
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const onRecovered = vi.fn();
+		createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onRecovered, onPlaced: vi.fn() }).toggle();
+		vi.advanceTimersByTime(10_000);
+		expect(onLost.mock.calls).toEqual([['unloaded']]);
+		expect(onRecovered).not.toHaveBeenCalled();
+		postFromStage({ stage: 'ready' }, win);
+		expect(onRecovered).toHaveBeenCalledTimes(1);
+		postFromStage({ stage: 'ready' }, win); // a second ready is an ordinary one
+		expect(onRecovered).toHaveBeenCalledTimes(1);
+	});
+	it('a healthy deck that says ready reports nothing to take back', () => {
+		const win = fakeWindow();
+		Object.assign(win.document, { readyState: 'complete' });
+		Object.assign(win.document.documentElement, { hasAttribute: (k: string) => k === AGENTS_MARK });
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onRecovered = vi.fn();
+		createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onRecovered, onPlaced: vi.fn() }).toggle();
+		postFromStage({ stage: 'ready' }, win);
+		expect(onRecovered).not.toHaveBeenCalled();
+	});
+	// A window closed by hand (Firefox sends no goodbye) or a document that is not ours any more, read before the
+	// liveness poll notices: the loss paths name that, not "could not load its player" (second checker on 32ab992).
+	// Driven through the `load` listener, which reaches the same check without the poll's timer racing it.
+	it('does not call a closed window or a foreign document unloaded', () => {
+		for (const shape of ['closed', 'foreign'] as const) {
+			const win = fakeWindow();
+			const stage = { style: { visibility: '' } };
+			Object.assign(win.document, { readyState: 'loading' });
+			Object.assign(win, { addEventListener: vi.fn() });
+			Object.assign(win.document.documentElement, { hasAttribute: () => false });
+			win.document.getElementById = vi.fn((id: string) => (id === 'latt-stage' ? (stage as unknown as HTMLElement) : null));
+			vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+			const onLost = vi.fn();
+			const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+			ctl.toggle();
+			if (shape === 'closed') win.closed = true;
+			else win.document.getElementById = vi.fn(() => null);
+			for (const [type, fn] of (win as unknown as { addEventListener: ReturnType<typeof vi.fn> }).addEventListener.mock.calls) if (type === 'load') (fn as () => void)();
+			expect(onLost.mock.calls.filter((c) => c[0] === 'unloaded'), shape).toEqual([]);
+			expect(stage.style.visibility, shape).toBe('');
+			win.closed = true;
+			ctl.close();
+			vi.restoreAllMocks();
+		}
+	});
 	it('writes the deck as soon as it lands when the render was still in flight at open', () => {
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);

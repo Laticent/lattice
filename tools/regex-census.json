@@ -473,6 +473,7 @@
     "/(^|-)accent(-|$)/": "safe",
     "/(^|-)on-[a-z]/": "safe",
     "/(^|;)\\s*--class:\\s*\"([^\"]*)\";?/": "safe",
+    "/(^|;)\\s*script-src\\s+([^;]*)/": "safe",
     "/(^|[ \\t])#.*$/": "polynomial",
     "/(^|[ \\t])#.*$/gm": "safe",
     "/(^|[\\s(])_(?=\\S)([^_]*?\\S)_(?=$|[\\s).,;:!?])/g": {
@@ -1205,6 +1206,7 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
     },
+    "/\\*|'unsafe-inline'|'strict-dynamic'|\\s(https?|data|blob|filesystem):\\s/": "safe",
     "/\\+/g": "safe",
     "/\\.$/": "safe",
     "/\\.((?:[A-Za-z0-9_-]|\\\\[0-9a-fA-F]{1,6}[ \\t\\n\\r\\f]?|\\\\[^\\n\\r\\f0-9a-fA-F])+)/g": "safe",
@@ -2941,6 +2943,7 @@
     "/rgba\\(\\s*0,\\s*0,\\s*0,\\s*0\\s*\\)|transparent/": "safe",
     "/rotate\\(\\s*(-?[\\d.]+)/": "safe",
     "/s$/i": "safe",
+    "/script-src-(elem|attr)/": "safe",
     "/split/i": "safe",
     "/src:url\\(\\s*(['\"]?)fonts\\/([^)'\"]+\\.woff2)\\1\\s*\\)\\s*format\\((['\"]?)woff2\\3\\)[^;}]*/g": {
       "verdict": "unknown",

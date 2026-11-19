@@ -174,6 +174,12 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     the name, and the agents file now reads the real getter and runs only for a real `<script>`. A
     code-checker pass added to the third guard: the prefix includes `default-src 'none'`, because a
     policy tag with `content=""` is an empty policy the browser ignores; all three hosts start with it.
+    A second checker (on 32ab992) found the prefix still admitted `default-src 'none'; script-src *`:
+    `default-src` covers only the directives a policy leaves out, and the shell's own `script-src *`
+    stays in force beside the written one, so the pair is only as strict as the written policy. The
+    shell now also reads the written `script-src` (`shellPolicyOk`) and refuses a wildcard,
+    `'unsafe-inline'`, `'strict-dynamic'`, a bare scheme, a `script-src-elem`/`-attr` override, or no
+    hash at all; the prefix ends at `;`, since `default-src 'none' *` is `default-src *`.
   - **A missing agents file shows the slides; it does not blank them** (added 2026-11-19, from the
     inversion lens). Inline, the fit and reveal ran whatever else failed to load; in a fetched file, a
     404 after a deploy or a refused load left `.lattice` and `#latt-stage` hidden for good. The file
@@ -182,7 +188,10 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     missing file shows them unscaled. The Stage's opener checks the mark once the document loads, and
     at a 10 s deadline because Chromium stops parsing a written document at a failed script and never
     fires `load`; without the mark it shows the deck unfitted and tells the presenter
-    (`onLost('unloaded')`). `e2e/frame-agents-missing.spec.ts` serves the file as a 404 in Chromium,
+    (`onLost('unloaded')`). A slow load can pass the deadline (the agents wait on a deck's math
+    stylesheet before them), so a `ready` from that deck afterwards takes the report back
+    (`onRecovered`); a window closed or taken over before the liveness poll notices is left to the loss
+    paths (both from the second checker on 32ab992). `e2e/frame-agents-missing.spec.ts` serves the file as a 404 in Chromium,
     WebKit and Gecko. The Stage's font gate also sits after `#latt-stage`, not in `<head>`: a `<script
     src>` there stopped the written document before the marker, so `isOpen()` read false on every open.
     **Only a page with a policy uses it**: a page without one (the Studio today)

@@ -6,6 +6,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { sandboxCsp } from '../../../../lib/core/code-door-core.mjs';
+import { drawFrameCsp, drawFrameEsmCsp } from '../../../../lib/packages/draw-frame-core.mjs';
 import { loadSandboxed, SANDBOX_SHELL_FILE, SHELL_CSP, SHELL_DOC, SHELL_DOC_PREFIX, SHELL_READY, sandboxShellHtml } from '../../../../lib/packages/sandbox-shell.mjs';
 
 describe('the sandbox shell', () => {
@@ -50,7 +52,7 @@ describe('the sandbox shell', () => {
 	it('writes a document only for a sandboxed frame whose page is on the site', () => {
 		const script = new DOMParser().parseFromString(sandboxShellHtml(), 'text/html').querySelector('script')!.textContent!;
 		const SITE = 'https://lattice.style';
-		const OWN = `${SHELL_DOC_PREFIX}"></head><body><p>x</p></body></html>`;
+		const OWN = `${SHELL_DOC_PREFIX} script-src 'sha256-x'"></head><body><p>x</p></body></html>`;
 		const run = (selfOrigin: string, senderOrigin: string, html = OWN, fromParent = true) => {
 			const listeners: Array<(e: unknown) => void> = [];
 			const parent = { postMessage() {} };
@@ -94,7 +96,17 @@ describe('the sandbox shell', () => {
 		const tag = SHELL_DOC_PREFIX.slice(0, SHELL_DOC_PREFIX.indexOf('content="') + 'content="'.length);
 		expect(write(`${tag}"><script src="https://evil.example/x.js"></script>`)).toBe(0);
 		expect(write(`${tag}script-src *">`)).toBe(0);
-		// …and every host's real document passes: its policy starts by denying everything.
-		expect(write(`${SHELL_DOC_PREFIX}; script-src 'sha256-x'"></head>`)).toBe(1);
+		expect(write(`${tag}default-src 'none' *; script-src 'sha256-x'">`)).toBe(0); // beside a source, 'none' is ignored
+		// The deny covers only what the policy leaves out, so its own script-src must be as narrow as the
+		// hosts write it (found by the code checker on 32ab992): hashes, 'unsafe-eval', one base URL.
+		for (const weak of ['', "script-src *", "script-src 'sha256-x' *", "script-src 'sha256-x' 'unsafe-inline'", "script-src 'sha256-x' 'strict-dynamic'", "script-src 'sha256-x' https:", "script-src 'sha256-x' data:", "script-src 'sha256-x'; script-src-elem *", "script-src 'self'"]) {
+			expect(write(`${SHELL_DOC_PREFIX} ${weak}"></head>`), weak).toBe(0);
+		}
+		// …and every host's real document passes (code-door-core sandboxCsp, draw-frame-core drawFrameCsp
+		// and drawFrameEsmCsp), built here by the hosts' own functions.
+		const H = 'A'.repeat(43) + '=';
+		for (const csp of [sandboxCsp(H), drawFrameCsp(H, { evalOk: true }), drawFrameEsmCsp({ bootHash: H, mapHash: H, base: 'https://lattice.style/_astro/draw/', fontBases: ['https://lattice.style/fonts/'] })]) {
+			expect(write(`<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"></head>`), csp).toBe(1);
+		}
 	});
 });

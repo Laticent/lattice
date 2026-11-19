@@ -301,7 +301,10 @@ export function writesInlineFrameScript(code) {
 		if (/^(?:<\\?\/script|`|"|')/.test(body) && !/^(?:`|"|')\s*\+/.test(body)) continue; // empty element, or the string ends
 		// Prose, not markup: a code span (\`<script>\`) inside a template literal, its backticks escaped on
 		// both sides. The engine bundle's troubleshooting table has exactly this (found by the code checker).
-		if (code.slice(m.index - 2, m.index) === '\\`' && body.startsWith('\\`')) continue;
+		// The span must END there: prose goes on with a space, a table bar or punctuation. A script body that
+		// merely starts with an escaped backtick (\`<script>\`x\`;go()</script>) is markup, and the
+		// second checker on 32ab992 showed the bare two-sided test let it through.
+		if (code.slice(m.index - 2, m.index) === '\\`' && /^\\`(?:[\s|,.:)]|\\n|$)/.test(body)) continue;
 		if (!ownPolicyBefore(code, m.index)) return true;
 	}
 	return false;
