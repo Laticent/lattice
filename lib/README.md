@@ -10,8 +10,9 @@ The big picture: **three render paths must agree** — the CLI/PDF path
 the structure below exists so shared logic lives in exactly one place.
 
 **What each folder is for: `dist/engineering/codemap.md`.** It lists every folder here with its
-layer and a one-line purpose, and it is generated from `PARTS` in `tools/structure.js`, so it
-cannot fall behind the tree the way the table that used to sit here did (21 of 31 folders).
+layer and a one-line purpose, and it is generated from `PARTS` in `tools/structure.js` and `FOLDERS` in
+`tools/build-codemap.js`, so it
+cannot fall behind the tree the way the table that used to sit here did (21 of 29 folders).
 `npm run build` writes it; `npm run codemap:check` fails on a folder with no line.
 
 The #1 gotcha repo-wide: several folders are **bundled into the browser** by

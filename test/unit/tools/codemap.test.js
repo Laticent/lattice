@@ -54,6 +54,12 @@ test('a folder that is also a code part fails: it has one home', () => {
   assert.match(found[0], /lib\/core\/ is a code part/);
 });
 
+test('a code part whose path matches no tracked file fails', () => {
+  const gone = [...parts, { part: 'lib/gone', layer: 1, match: 'lib/gone/', about: 'Was here.' }, { part: 'x', layer: 0, match: () => false, where: 'nope.js', about: 'A file.' }];
+  const found = problems(collect({ parts: gone, folders }), files, { scopes: SCOPES, folders });
+  assert.deepEqual(found.map((p) => p.split(' names ')[0]), ['part lib/gone', 'part x']);
+});
+
 test('the scope walk lists immediate child folders only', () => {
   assert.deepEqual(foldersInScope(['lib/core/a.js', 'lib/core/deep/b.js', 'README.md'], SCOPES), ['lib/', 'lib/core/']);
   assert.equal(scopeOf('lib/core/', SCOPES), 'lib/');
@@ -66,6 +72,8 @@ test('summarize: a one-line purpose from a paragraph of self-description', () =>
   assert.equal(summarize('A picture written as a record: `photo.jpg` here. Second.'), 'A picture written as a record: `photo.jpg` here.');
   // A fragment borrows the next sentence.
   assert.equal(summarize('How a deck is read. Owns the metadata fields.'), 'How a deck is read. Owns the metadata fields.');
+  // A period inside a word is not a sentence end.
+  assert.equal(summarize('Renders charts with Chart.js and v1.2 manifests on any slide. More.'), 'Renders charts with Chart.js and v1.2 manifests on any slide.');
   assert.equal(summarize(undefined), '');
 });
 

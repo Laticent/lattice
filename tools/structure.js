@@ -77,7 +77,7 @@ const PARTS = [
   { part: 'package.json', layer: 0, match: (f) => f === 'package.json', where: 'package.json', about: 'The root manifest: npm scripts, dependencies and the workspaces.' },
   // The skill index (tools/skill-index.js output), read as data by the Studio chat's guide list.
   { part: 'design/skills', layer: 0, match: (f) => f === 'design/skills/index.json', where: 'design/skills/index.json', about: 'The generated skill index the Studio chat lists its guides from.' },
-  { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f), where: 'lib/**/*.schema.json', about: 'JSON Schemas for the component, theme, finish, motion and package formats, beside the code that reads them.' },
+  { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f), where: 'lib/**/*.schema.json', about: 'JSON Schemas for the component, finish, Form (cell, frame, tile), motion and plugin formats, beside the code that reads them.' },
   { part: 'lib/core', layer: 1, match: 'lib/core/', about: 'Pure transform kernels every render path shares: slide splitting, resolvers, list and section walkers, color.' },
   { part: 'lib/theme', layer: 2, match: 'lib/theme/', about: 'Palette derivation and color math, behind the Studio Theme panel and the theme tools.' },
   { part: 'lib/tokens', layer: 2, match: 'lib/tokens/', about: 'The permanent old-to-new token rename table.' },

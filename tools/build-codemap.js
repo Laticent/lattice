@@ -6,7 +6,7 @@
  *
  * Why this exists: an agent new to the repo had a doc index (CLAUDE.md's routing table) and a
  * script index (capabilities.md) but no map of the CODE, so "where does X live?" cost a grep
- * sweep or a scout agent. The one hand-written map, lib/README.md, had drifted to 21 of 31
+ * sweep or a scout agent. The one hand-written map, lib/README.md, had drifted to 21 of 29
  * folders with nothing to notice.
  *
  * Sources of truth that can't drift:
@@ -101,7 +101,7 @@ const FOLDERS = {
   'test/lint-coverage/': 'The lint-coverage baseline.',
   'test/oracle/': 'Frozen oracles: family conformance, overflow, player contrast, split pages.',
   'test/quality/': 'The quality-assessment and structure snapshots.',
-  'test/unit/': 'The unit tier (`npm test`): fast, no child processes. Folders mirror `lib/` and `tools/`.',
+  'test/unit/': 'The unit tier (`npm test`). Folders mirror `lib/` and `tools/`.',
   'test/viz-render/': 'The chart paint guard baseline.',
   // .claude/
   '.claude/agents/': 'The agent roster: one card per agent (scout, checker, red-team, …), each pinned to Opus.',
@@ -144,7 +144,8 @@ function summarize(text, { short = 30, long = 160 } = {}) {
   const codes = [];
   const masked = String(text || '').replace(/\s+/g, ' ').trim().replace(/`+[^`]*`+/g, (m) => `\uE000${codes.push(m) - 1}\uE001`);
   const unmask = (t) => t.replace(/\uE000(\d+)\uE001/g, (_, i) => codes[Number(i)]);
-  const sentences = masked.match(/[^.!?]+(?:[.!?]+(?=\s|$)|$)/g) || [];
+  // A sentence ends at . ! or ? followed by whitespace or the end, so `Chart.js` and `v1.2` stay whole.
+  const sentences = masked.match(/[\s\S]*?[.!?]+(?=\s|$)|[\s\S]+$/g) || [];
   let out = (sentences[0] || '').trim();
   if (out.length < short && sentences[1]) out = `${out} ${sentences[1].trim()}`;
   if (unmask(out).length > long) {
@@ -214,6 +215,13 @@ function problems(rows, files, { scopes = SCOPES, folders = FOLDERS } = {}) {
   }
   for (const where of Object.keys(folders)) {
     if (!files.some((f) => f.startsWith(where))) out.push(`FOLDERS entry ${where} names a folder with no tracked files: remove it from tools/build-codemap.js`);
+  }
+  // A part whose path matches nothing would stay on the map, describing a folder that is gone.
+  // Globs (`lib/**/*.schema.json`) are skipped here; the structure gate maps their files.
+  for (const r of rows) {
+    if (r.kind !== 'part' || /[*]/.test(r.where)) continue;
+    const hit = r.where.endsWith('/') ? files.some((f) => f.startsWith(r.where)) : files.includes(r.where);
+    if (!hit) out.push(`part ${r.name} names ${r.where}, which holds no tracked file: update its PARTS entry in tools/structure.js`);
   }
   return out;
 }
