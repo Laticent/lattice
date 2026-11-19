@@ -106,8 +106,8 @@ export interface TextFrame {
 	/**
 	 * What the text is on the slide, when the page says so: the slide's `title`, the
 	 * `eyebrow` kicker above a heading, the `subtitle` below one, the running `header` and
-	 * `footer`, the page `number`, and the `meta` line (a lone inline-code paragraph that ends the
-	 * slide: a source, a basis). A writer names the box by it, and its layout offers a placeholder
+	 * `footer`, the page `number`, and the `meta` line (a lone inline-code paragraph directly in the
+	 * slide, after which the author wrote nothing: a source, a basis). A writer names the box by it, and its layout offers a placeholder
 	 * in its look, so a slide added in an office app has the slot.
 	 */
 	role?: FrameRole;

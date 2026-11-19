@@ -1062,6 +1062,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const heading = section.querySelector('h1, h2');
 	const onlyCode = (el: Element) => el.tagName === 'P' && el.children.length === 1 && el.firstElementChild?.tagName === 'CODE' && (el.textContent || '').trim() === (el.firstElementChild.textContent || '').trim();
 	const isHeading = (el: Element | null) => !!el && /^H[1-3]$/.test(el.tagName);
+	// Nothing an author wrote follows it: only the running chrome and the engine's hidden furniture (a topic's track, a
+	// marker rail). A code paragraph that ends a column, or has a list or a table after it, is content, not the meta line.
+	const endsSlide = (el: Element) => {
+		for (let n = el.nextElementSibling; n; n = n.nextElementSibling) {
+			if (n.tagName === 'HEADER' || n.tagName === 'FOOTER' || n.classList.contains('lat-pagination') || n.getAttribute('aria-hidden') === 'true') continue;
+			return false;
+		}
+		return true;
+	};
 	frames.forEach((frame, i) => {
 		if (splitFrames.has(i)) return;
 		const block = frameBlocks[i];
@@ -1071,7 +1080,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		else if (heading && block === heading) frame.role = 'title';
 		else if (onlyCode(block) && isHeading(block.nextElementSibling)) frame.role = 'eyebrow';
 		else if (onlyCode(block) && isHeading(block.previousElementSibling)) frame.role = 'subtitle';
-		else if (onlyCode(block) && !block.closest('li, td, th, figure, blockquote') && [...(block.parentElement?.children || [])].filter((c) => c.tagName === 'P').pop() === block) frame.role = 'meta';
+		else if (onlyCode(block) && block.parentElement === section && endsSlide(block)) frame.role = 'meta';
 	});
 
 	// ── SHAPES (`shapes: true`). A box whose paint an office shape can carry exactly — a solid

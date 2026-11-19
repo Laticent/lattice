@@ -169,22 +169,22 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.doesNotMatch(xml, /calco-/, 'no tag leaks into the file');
   });
 
-  test('a header and page number slides share live on the master; every slide keeps a slide-number field', async () => {
+  test('a header and page number slides share live on their layout; pale chrome stays off the white master; every slide keeps a slide-number field', async () => {
     const { text } = await open();
     const s1 = await text('ppt/slides/slide1.xml');
     assert.ok(!names(s1).includes('Header 1'), 'the header moved off the slide');
     assert.match(s1, /type="sldNum"/);
+    // The navy slides' header is pale ink: on the master's white ground it would be faint, so the navy layout draws it.
     const master = await text('ppt/slideMasters/slideMaster1.xml');
-    assert.match(master, /name="Header"/);
-    assert.match(master, /<a:t>Deck<\/a:t>/);
-    assert.match(master, /<p:ph type="sldNum" sz="quarter" idx="12"\/>/, 'the master holds the page number');
-    assert.match(master, /<p:hf sldNum="1"/);
+    assert.doesNotMatch(master, /name="Header"/, 'no pale header on the white master');
+    assert.doesNotMatch(master, /type="sldNum"/, 'nor a pale page number');
     const layout1 = await text('ppt/slideLayouts/slideLayout1.xml');
-    assert.doesNotMatch(layout1, /name="Header"/, 'the layout that shows the master draws no copy');
-    assert.doesNotMatch(layout1, /showMasterSp="0"/);
-    // Slide 3 shows a number and no header: its layout hides the master's chrome and draws its own number.
+    assert.match(layout1, /name="Header"/, 'the navy layout draws its own header');
+    assert.match(layout1, /type="sldNum"/, 'and its own page number');
+    assert.match(layout1, /<a:t>Deck<\/a:t>/);
+    assert.match(layout1, /showMasterSp="0"/);
+    // Slide 3 shows a number and no header: its layout draws its own number and no header.
     const layout2 = await text('ppt/slideLayouts/slideLayout2.xml');
-    assert.match(layout2, /showMasterSp="0"/);
     assert.match(layout2, /type="sldNum"/);
     assert.doesNotMatch(layout2, /name="Header"/);
     const s3 = await text('ppt/slides/slide3.xml');
@@ -218,6 +218,7 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.match(theme, /<a:accent\d><a:srgbClr val="E4572E"\/>/, 'a fill the deck paints with is an accent');
     assert.doesNotMatch(theme, /Calibri|4472C4/, 'nothing of Office\'s theme is left');
     const master = await text('ppt/slideMasters/slideMaster1.xml');
+    assert.match(master, /name="Header"[\s\S]*?<a:t>Deck<\/a:t>/, 'the dark header the cream slides share is drawn once, on the master');
     const titleStyle = master.match(/<p:titleStyle>[\s\S]*?<\/p:titleStyle>/)[0];
     assert.match(titleStyle, /sz="3600" b="1"/, '48px is 36pt, bold');
     assert.match(titleStyle, /<a:srgbClr val="2C3E8F"\/>[\s\S]*<a:latin typeface="\+mj-lt"\/>/);

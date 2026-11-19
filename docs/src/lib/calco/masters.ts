@@ -177,7 +177,8 @@ export function planMasters(deck: Deck): MasterPlan {
 	const layoutOf: number[] = [];
 	const members: number[][] = [];
 	slides.forEach((slide, i) => {
-		const parts: string[] = [String(slide.background ?? `own${i}`), slide.look || ''];
+		// A slide with its own opaque picture has no chrome to share: such slides share a layout per look.
+		const parts: string[] = [String(slide.background ?? 'own'), slide.look || ''];
 		for (const role of CHROME_ROLES) parts.push(`${role}:${cands[i].get(role)?.look ?? ''}`);
 		const k = parts.join('||');
 		let li = byKey.get(k);
@@ -218,7 +219,11 @@ export function planMasters(deck: Deck): MasterPlan {
 			} else layout.vary[role] = frame;
 		}
 	});
-	// THE MASTER: per role, the drawn chrome the most slides show.
+	// THE MASTER: per role, the drawn chrome the most slides show, among chrome that reads on the master's own ground
+	// (white, pptx.ts): a dark look's pale chrome would be faint in Slide Master view and on a layout a user inserts
+	// (checker, 2026-11-19: #91A7C2 on white, 2.3:1). The layouts that show it are unchanged: a layout shows the master
+	// only when its chrome IS the master's.
+	const MASTER_GROUND = '#ffffff';
 	const master: MasterPlan['master'] = { chrome: {} };
 	const masterSig = new Map<ChromeRole, string>();
 	for (const role of CHROME_ROLES) {
@@ -226,6 +231,7 @@ export function planMasters(deck: Deck): MasterPlan {
 		layouts.forEach((layout, li) => {
 			const sig = sigOf[li].get(role);
 			if (!sig) return;
+			if (contrast(leadRun(layout.chrome[role] as TextFrame).style.color, MASTER_GROUND) < 3) return;
 			const hit = count.get(sig) || { n: 0, frame: layout.chrome[role] as TextFrame };
 			hit.n += members[li].length;
 			count.set(sig, hit);

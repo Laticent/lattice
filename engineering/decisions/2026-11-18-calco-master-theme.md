@@ -59,12 +59,18 @@ page numbers, and ships a master theme, and whether that makes the editable file
 - **Chrome on the master.** The master draws the header, footer and page number the most slides show; a layout whose
   header and footer are the master's draws none of its own (its page number is its own placeholder, since a master
   placeholder never draws on a slide). Any other layout sets `showMasterSp="0"` and draws its own. Matching is to the
-  whole px with the box height left out (a figure layout sets the header line 20px, not 19px). Which look wins the
-  master changes only where a header is edited once, never what a slide shows.
+  whole px with the box height left out (a figure layout sets the header line 20px, not 19px). Only chrome that reads
+  on the master's own white ground (3:1 or more) can be the master's: a dark look's pale header there was faint in
+  Slide Master view and on a layout a user inserts (checker: #91A7C2 on white, 2.3:1). Which look wins changes where a
+  header is edited once, not what an existing slide shows.
 - **Chrome the ground cannot show stays on the slide.** Chrome whose ink is under 1.5:1 against its layout's flat
   ground sits on something the slide's own picture paints (card-tags slide 7: a white header over a split slide's dark
   half, on a white ground), and a layout paints under the picture. Measured: hoisted, that header vanished; kept, the
   slide is pixel-identical to `main`. A new slide on such a layout has no copy of it (its dark half is in the picture).
+  The test needs a flat ground: on a picture ground every chrome frame is hoisted, and the pixel A/B on five decks is
+  what guards that case.
+- **Slides with their own opaque picture** (no shared background) show nothing of a layout, so they share one layout
+  per look rather than one each.
 - **Runs say "off".** Because the inherited title and body styles can be bold, all caps or letter-spaced, every slide run
   writes `b`, `i`, `cap` and `spc` even when they are off (`b="0"`, `cap="none"`, `spc="0"`). Otherwise PowerPoint would
   draw a plain run, such as a light title or a text box, in the inherited look. The page-number field writes none, so it

@@ -135,6 +135,22 @@ describe('calco masters — planMasters', () => {
     assert.deepEqual(Object.keys(plan.layouts[plan.layoutOf[2]].chrome), ['header'], 'its layout shows the header and no number');
   });
 
+  test('slides with their own opaque picture share one layout per look; the master takes only chrome that reads on white', () => {
+    const own = planMasters(deck([slide([], { look: 'content' }), slide([], { look: 'content' }), slide([], { look: 'divider' })], []));
+    assert.equal(own.layouts.length, 2, 'one per look, not one per slide');
+    // Three navy slides with a pale header outnumber two white slides with a dark one; the master still takes the dark one.
+    const pale = (n) => frame([[{ text: 'Deck', style: style({ size: 12, color: '#91a7c2' }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
+    const plan = planMasters(
+      deck(
+        [slide([pale()], { background: 1, look: 'divider' }), slide([pale()], { background: 1, look: 'divider' }), slide([pale()], { background: 1, look: 'divider' }), slide([header()], { background: 0, look: 'content' }), slide([header()], { background: 0, look: 'content' })],
+        [{ color: '#ffffff' }, { color: '#003d66' }],
+      ),
+    );
+    assert.equal(plan.master.chrome.header.lines[0][0].style.color, '#112233', 'the dark header, though fewer slides show it');
+    assert.equal(plan.layouts[plan.layoutOf[0]].fromMaster, false, 'the navy layout draws its own pale header');
+    assert.equal(lineText(plan.layouts[plan.layoutOf[0]].chrome.header), 'Deck');
+  });
+
   test('withoutHoisted empties the hoisted frames and keeps every index', () => {
     const s = slide([header(), number(1)], { background: 0 });
     const out = withoutHoisted(s, new Set([0]));
