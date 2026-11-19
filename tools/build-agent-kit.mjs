@@ -334,7 +334,8 @@ function proseOnly(body, fn) {
 function repoUrl(repoPath) {
   const abs = path.join(ROOT, repoPath);
   if (!existsSync(abs)) throw new Error(`agent pack links ${repoPath}, which is not in the repo`);
-  return `${REPO_GITHUB}${statSync(abs).isDirectory() ? 'tree' : 'blob'}/main/${repoPath}`;
+  // No trailing slash: GitHub answers `tree/main/<folder>/` with 400 too, only the bare form works.
+  return `${REPO_GITHUB}${statSync(abs).isDirectory() ? 'tree' : 'blob'}/main/${repoPath.replace(/\/$/, '')}`;
 }
 function pluginDocs() {
   const dir = path.join(ROOT, 'lib', 'plugins');

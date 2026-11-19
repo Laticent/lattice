@@ -968,6 +968,7 @@ test('agent kit structure', { skip }, async (t) => {
 				const abs = path.join(ROOT, m[2]);
 				assert.ok(fs.existsSync(abs), `${rel} links ${m[2]}, which is not in the repo`);
 				assert.equal(m[1], fs.statSync(abs).isDirectory() ? 'tree' : 'blob', `${rel} links ${m[2]} as ${m[1]}/`);
+				assert.ok(!m[2].endsWith('/'), `${rel} links ${m[2]} with a trailing slash, which GitHub answers with 400`);
 			}
 		}
 	});
