@@ -17,7 +17,7 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading framing what the code shows. |
-| `code` | a ``` fenced block | yes | Fenced code block — language tag drives syntax highlighting. |
+| `code` | a fenced code block | yes | Fenced code block — language tag drives syntax highlighting. |
 
 ### Common mistakes
 

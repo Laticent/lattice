@@ -18,7 +18,7 @@ Use when the slide IS the equation. `$$…$$` renders as a centered display bloc
 |---|---|---|---|
 | `eyebrow` | a line of `inline code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
 | `heading` | a `## ` heading | yes | One-sentence framing of what the math establishes. |
-| `equation` | a `$$` equation or a ```math fenced block | yes | Display equation wrapped in `$$…$$` or a ```math fence (the same equation). Renders centered. |
+| `equation` | a `$$` equation or a fenced code block tagged `math` | yes | Display equation wrapped in `$$…$$` or a ```math fence (the same equation). Renders centered. |
 | `legend` | a list | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
 
 Under a variant, a slot changes shape:

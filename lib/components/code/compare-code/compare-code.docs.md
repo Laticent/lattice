@@ -17,8 +17,8 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading framing the comparison. |
-| `left` | a ``` fenced block | yes | Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it. |
-| `right` | 2 ``` fenced blocks | yes | Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it. |
+| `left` | a fenced code block | yes | Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it. |
+| `right` | the second fenced code block | yes | Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it. |
 
 ### Common mistakes
 
