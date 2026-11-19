@@ -294,6 +294,8 @@ describe('the toolbox', () => {
 		const tb = toolbox({ source: OCT });
 		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'a\nb', summary: 's' }))).toContain('one line');
 		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'x -->', summary: 's' }))).toContain('comment markers');
+		// `--!>` closes a comment in HTML parsers too (CodeQL on #3318).
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'x --!>', summary: 's' }))).toContain('comment markers');
 		expect(await tb.run('replace_text', JSON.stringify({ find: 'Derby', replace: 'Darby', summary: 's' }))).toContain('No replaceable match for "Derby"');
 		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct 10', slides: [2], summary: 's' }))).toContain('in 1 slide: slide 2');
 		expect(tb.draft).toContain('# Oct. Tenth'); // slide 1 was outside `slides`

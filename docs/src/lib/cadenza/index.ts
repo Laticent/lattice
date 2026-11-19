@@ -48,7 +48,7 @@ export { makeCursor } from './cursor.js';
 export { ENGINE_HASH } from './engine-hash.js';
 export type { LexDomain } from './lexicon.js';
 export { type HouseTerm, houseTerms, LEX_DOMAINS, lookupLexicon } from './lexicon.js';
-export { integerToWords, isEnglishLang, numberToWords, spokenWordCount, type TermUse, termHits, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens, unusualWords } from './normalize.js';
+export { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens } from './normalize.js';
 export type { Reader, ReaderOptions } from './reader.js';
 export { makeReader } from './reader.js';
 

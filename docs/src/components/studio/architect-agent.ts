@@ -810,8 +810,10 @@ export function createToolbox(opts: {
 	 * narrated, by design (narration-resolve.ts), so they are not here either.
 	 */
 	async function previewSpeech(textRaw: unknown, fromRaw: unknown, toRaw: unknown): Promise<string> {
-		const [{ termHits, toSpokenText, unusualWords }, { narrateChart, slideToSpeech }, { narrationDeck, resolveNarration }, { getSayLine }, { deckPluginsOff }, { frontMatterSayMap }, { slideSourceHidden }] = await Promise.all([
+		const [{ toSpokenText }, { termHits, unusualWords }, { narrateChart, slideToSpeech }, { narrationDeck, resolveNarration }, { getSayLine }, { deckPluginsOff }, { frontMatterSayMap }, { slideSourceHidden }] = await Promise.all([
 			import('@/lib/cadenza'),
+			// Its own lazy chunk; see the header of term-report.ts for why it is not read off the package.
+			import('@/lib/cadenza/term-report'),
 			import('@/playground/read-along-core.generated.js'),
 			import('./narration-resolve'),
 			import('./slide-say'),
@@ -920,7 +922,8 @@ export function createToolbox(opts: {
 		const rep = replaceRaw;
 		// A line break or a comment marker would change the slide's structure, not its words: a heading
 		// would end, a spoken line's comment would close early and the rest would show on the slide.
-		if (/[\r\n]/.test(rep) || /<!--|-->/.test(rep)) return refuse('The replacement must be one line with no comment markers; use edit_slides for a structural change.');
+		// `--!>` ends a comment in HTML parsers too (CodeQL), so the closer is matched with an optional `!`.
+		if (/[\r\n]/.test(rep) || /<!--|--!?>/.test(rep)) return refuse('The replacement must be one line with no comment markers; use edit_slides for a structural change.');
 		const markup = markupChange(q, rep);
 		if (markup) return refuse(`Not replaced: ${markup}. Change those slides with edit_slides instead.`);
 		const slides = deckSlides(draft);

@@ -3,7 +3,8 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 import { lookupLexicon } from './lexicon';
-import { integerToWords, isEnglishLang, numberToWords, spokenWordCount, termHits, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens, unusualWords } from './normalize';
+import { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens } from './normalize';
+import { termHits, unusualWords } from './term-report';
 
 // The locale guard (#919): Cadenza's say-as (lexicon, number-to-words, fiscal/period parser)
 // is US-English, so a non-English deck bypasses it — the display token passes through — while
@@ -851,6 +852,12 @@ describe('termHits', () => {
 		const text = "Derby's CRO";
 		const spoken = toSpokenText(text, { terms });
 		for (const h of termHits(text, { terms })) expect(spoken).toContain(h.spoken);
+	});
+	it('drops trailing sentence punctuation from the spoken side, however long the run', () => {
+		// A scan, not a `[…]+$` regex: that backtracks on a long run of `!` (CodeQL on #3318).
+		expect(termHits('Derby!!!! wins', { terms })).toEqual([{ written: 'Derby', spoken: 'Darby' }]);
+		// A token past MAX_SPOKEN_TOKEN is read verbatim (the normalizer's hostile-input guard), and the report says so.
+		expect(termHits(`Derby${'!'.repeat(5000)} wins`, { terms })).toEqual([{ written: 'Derby', spoken: 'Derby' }]);
 	});
 	it('is empty with no registry', () => {
 		expect(termHits('Derby CRO', {})).toEqual([]);
