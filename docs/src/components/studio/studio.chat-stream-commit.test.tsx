@@ -567,7 +567,7 @@ describe('Architect chat — what the author did while a reply streamed in survi
 });
 
 // ONE SEND PER PRESS. On an iPhone the Return key often fires twice (the predictive-text commit, then a real
-// Enter), and both landed before React re-rendered: the first message was sent twice, and the second turn canceled
+// Enter), and both landed before React re-rendered: the first message was sent twice, and the second turn cancelled
 // the first one's reply. Seen by the owner on iOS Safari (PR #3317).
 describe('Architect chat — one press sends one message', () => {
 	const enter = (init: KeyboardEventInit = {}) => new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...init });

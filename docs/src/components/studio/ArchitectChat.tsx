@@ -804,7 +804,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 
 	// ONE SEND PER PRESS. On an iPhone the Return key often fires twice: once to commit the predictive-text word,
 	// then as a real Enter. Both landed before React re-rendered, so both read the same state (text still there,
-	// not busy) and both sent: the thread showed the first message twice, and the second turn canceled the first
+	// not busy) and both sent: the thread showed the first message twice, and the second turn cancelled the first
 	// one's reply. The composing Enter is ignored below; this lock covers any two sends in one tick, whatever their
 	// cause, and opens again on the next render.
 	const sendLockRef = React.useRef(false);
