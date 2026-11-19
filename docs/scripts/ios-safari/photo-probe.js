@@ -219,7 +219,9 @@ async function latticePhotoProbe() {
 		await until(() => !document.querySelector('.cm-tooltip-lint'), 5000, 'the earlier tooltip to close').catch(() => null);
 		await sleep(400);
 		const box = range.getBoundingClientRect();
+		let movedAt = 0;
 		const hover = (dx) => {
+			movedAt = Date.now();
 			const at = { clientX: box.left + Math.min(8 + dx, box.width / 2), clientY: box.top + box.height / 2, bubbles: true };
 			range.dispatchEvent(new PointerEvent('pointermove', at));
 			range.dispatchEvent(new MouseEvent('mousemove', at));
@@ -235,8 +237,12 @@ async function latticePhotoProbe() {
 			});
 		let markerTried = false;
 		const tip = await until(() => {
-			// CodeMirror opens a hover tooltip only for a pointer that has rested; nudge it while waiting.
-			if (Date.now() - t0 > 1500 && !document.querySelector('.cm-tooltip-lint')) hover((Date.now() / 500) % 2);
+			// CodeMirror opens a hover tooltip only for a pointer that has RESTED: each move restarts its 300 ms check
+			// (@codemirror/view HoverPlugin.checkHover). So move again only after the last move had a full second to open
+			// one. This used to nudge on every 50 ms poll after 1.5 s, which restarted the check every time, so a first move
+			// that missed could never be followed by one that worked: on a phone, which has no lint gutter to fall back on,
+			// the wait ran out with the underline in place (webkit, iPhone shape: 2 of 120 under load).
+			if (!document.querySelector('.cm-tooltip-lint') && Date.now() - movedAt > 1000) hover(((Date.now() / 1000) | 0) % 2);
 			if (Date.now() - t0 > 3000 && !markerTried && !document.querySelector('.cm-tooltip-lint') && marker()) {
 				markerTried = true;
 				marker().dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
@@ -249,9 +255,13 @@ async function latticePhotoProbe() {
 
 	const T0 = Date.now();
 	let last = '';
+	let editorsSeen = 0;
 	const tracer = setInterval(() => {
 		const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'));
-		const st = `coach=${coachOpen()} shown=${shown()} line=${line ? (line.querySelector('.cm-lintRange-warning') ? 'warn' : 'plain') : 'none'} prevVis=${visible(document.querySelector('[aria-label="Live deck preview"]'))}`;
+		const cls = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('_class: image spotlight card-clear'));
+		const ed = document.querySelector('.cm-editor');
+		if (ed && !ed.__seen) ed.__seen = ++editorsSeen;
+		const st = `coach=${coachOpen()} shown=${shown()} line=${line ? (line.querySelector('.cm-lintRange-warning') ? 'warn' : 'plain') : 'none'} cls=${cls ? (cls.querySelector('.cm-lintRange-warning') ? 'warn' : 'plain') : 'none'} ed=${ed?.__seen ?? 0} prevVis=${visible(document.querySelector('[aria-label="Live deck preview"]'))}`;
 		if (st !== last) { (result.trace ??= []).push(`${Date.now() - T0} ${st}`); last = st; }
 	}, 30);
 	try {
