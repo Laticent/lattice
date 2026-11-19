@@ -376,20 +376,15 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	// Read before any await: the approvals this render draws by are the ones its CSS was made with.
 	const handed = typeof opts?.codeApproval === 'string' ? opts.codeApproval : null;
 	const stamped = handed === null ? null : approvalsInStamp(handed);
-	// CSS handed with NO stamp of this page carries no plugin's sheet: the render began before the Studio's stamp held
-	// the plugins (a reload, in the moment between `setPlugins` filling the door and the shell committing the stamp), so
-	// it draws as the Studio did before the door held any plugin. Drawing them by the live approval painted the badge's
-	// words with no fill on Chromium and Gecko (#3292). The next render, with the stamp, draws them.
-	const withPlugins = handed === null || stamped !== null;
 	const engineOpts = withoutDoorFlags(opts);
-	if (!packages.size && (!plugins.size || !withPlugins)) {
+	if (!packages.size && !plugins.size) {
 		if (reporting) report({ unapproved: [], failed: [] });
 		return PG.render(source, theme, engineOpts) as R;
 	}
 	// Everything past this point loads only when the Library holds a code package: the kernel,
 	// the sanitizer, the runner and the shipped claim list stay out of the Studio's first load.
 	const { runWithCodePackages } = await import('./door-run');
-	return runWithCodePackages<R>(PG, source, theme, engineOpts, reporting, stamped, withPlugins);
+	return runWithCodePackages<R>(PG, source, theme, engineOpts, reporting, stamped, stamped ? null : handed);
 }
 
 /**

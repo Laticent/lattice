@@ -557,6 +557,10 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 
 describe('a render draws by the stamp in the CSS it paints with (#3292)', () => {
 	const drawWith = async (css: string, status = false) => (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', { codeApproval: css, ...(status ? { codeStatus: true } : {}) })).html;
+	// The plugin has a stylesheet here: its sheet rides in the stamp, and a render without the stamp may lack it.
+	beforeEach(async () => {
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, css: '.bar { color: red }' }]);
+	});
 
 	it('the stamp is read from the CSS, only a "+" counts, and CSS with none gives no stamp', async () => {
 		expect(approvalsInStamp('.a { color: red }')).toBeNull();
@@ -620,6 +624,26 @@ describe('a render draws by the stamp in the CSS it paints with (#3292)', () => 
 		expect(html).toBe(PG.render(DECK, 'indaco', {}).html);
 		expect(html).not.toContain('data-reason="unapproved"');
 		expect(status.unapproved).toEqual([]);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('CSS that carries the plugin\'s sheet without this page\'s stamp (print options\' export CSS) draws by the live approval', async () => {
+		await approve();
+		// What the export CSS holds: the stamp with its nonce taken out (StudioShell `exportCodeStamp`), then the sheets.
+		const exported = codePackagesStamp().replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
+		expect(approvalsInStamp(exported)).toBeNull();
+		const html = await drawWith(`.card { color: red }\n${exported}`);
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a plugin with no stylesheet needs no sheet: CSS with no stamp draws it by the live approval', async () => {
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code }]);
+		await approve();
+		const html = await drawWith('.card { color: red }');
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(opened.length).toBeGreaterThan(0);
 		revokePlugin(PLUGIN.name);
 	});
 

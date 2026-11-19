@@ -11,7 +11,7 @@ import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, s
 import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { doorFinish, doorFinishFence, doorFinishInline } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
-import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
+import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, scopePluginCss, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { checkReturnData, fillReturnSlots, returnAttr, SLOT_FILL_MAX, slotFills, splitReturn } from '../../../../lib/packages/plugin-returns.mjs';
@@ -159,8 +159,21 @@ function remember(key: string, section: string) {
 	memo.set(key, section);
 }
 
+/** A plugin's scoped sheet as the stamp carries it (door.ts `codePackagesStamp`), kept per code and stylesheet. */
+const sheets = new Map<string, string>();
+function sheetOf(p: StudioPlugin): string {
+	const key = `${p.name}@${p.sha256}`;
+	let sheet = sheets.get(key);
+	if (sheet === undefined) {
+		if (sheets.size > 64) sheets.clear();
+		sheet = scopePluginCss(p.name, p.css as string);
+		sheets.set(key, sheet);
+	}
+	return sheet;
+}
+
 /** The door past its no-package fast path: two renders around the code-packages slot and the plugin-fence slot. */
-export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean, stamped: Set<string> | null = null, withPlugins = true): Promise<R> {
+export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean, stamped: Set<string> | null = null, unstamped: string | null = null): Promise<R> {
 	// What this render DRAWS as approved: approved now AND in the stamp its CSS carries, when the caller gave that CSS
 	// (door.ts `approvalsInStamp`), so the markup and the plugin's sheet come from one moment. The stamp only ever
 	// narrows: code runs on a live approval, so a stale stamp cannot run a plugin whose approval was withdrawn.
@@ -177,8 +190,13 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	const baseUrl = typeof engineOpts?.baseUrl === 'string' ? engineOpts.baseUrl : '';
 	// THE PLUGINS' FENCES. Which plugins run, and a note for each that does not, are the CLI door's rules
 	// (planFencePlugins): a fence name two plugins claim, a shipped plugin's, a name whose prefix overlaps another's.
-	// Without plugins (door.ts `withPlugins`: CSS with no stamp of this page), the plugins are not there for this render.
-	const installed = new Map(withPlugins ? studioPlugins() : []);
+	// CSS handed with NO stamp of this page (`unstamped`): a plugin with a stylesheet is there for this render only when
+	// that CSS carries its sheet. On a reload a render can begin before the Studio's stamp holds the plugins, and drawing
+	// one by its live approval painted the badge's words with no fill (#3292); it draws instead as the Studio did before
+	// the door held the plugin. CSS that carries the sheet without this page's stamp (print options' export CSS, whose
+	// stamp has no nonce) draws it by the live approval. Judged by the CSS the render paints with, so a render that
+	// started with older CSS cannot race the shell.
+	const installed = new Map([...studioPlugins()].filter(([, p]) => unstamped === null || !p.css || unstamped.includes(sheetOf(p))));
 	const plan = planFencePlugins(
 		[...installed.values()].map((p) => ({ name: p.name, fence: p.fence, kinds: (p.kinds ?? []).map((k) => k.name) })),
 		{ shipped: SHIPPED_FENCES, isLanguage: (n: string) => HIGHLIGHT_LANGUAGES.has(n), shippedKinds: SHIPPED_KINDS },

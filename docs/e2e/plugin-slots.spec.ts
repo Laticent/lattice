@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { pictureStill } from './barriers';
-import { expect, gotoStudio, LIVE_PREVIEW, livePreview, setEditorContent, shareExport, test, toastText } from './studio-fixture';
+import { expect, gotoStudio, LIVE_PREVIEW, livePreview, SHARE_EXPORTS, setEditorContent, shareExport, test, toastText } from './studio-fixture';
 
 // ── Host slots and a plugin's own stylesheet, in the real Studio (owner, 2026-10-20; HARD RULE #23) ──
 //
@@ -15,7 +15,7 @@ import { expect, gotoStudio, LIVE_PREVIEW, livePreview, setEditorContent, shareE
 //                 rendered from returned markdown; no `${` is left on the slide
 //   2. STYLED     the plugin's own `styles.css` reached the preview, scoped to its root: the badge has a fill, and a
 //                 heading outside the plugin's root is untouched
-//   3. SHARE → PDF the export draws the same deck through the same door and downloads a PDF
+//   3. SHARE → PDF the export draws the same deck through the same door and downloads a PDF; the print preview draws it too
 //   4. THREE WIDTHS the card fits 1440, 820 and 390 px (screenshots when LATTICE_EVIDENCE_DIR is set)
 //   5. RELOAD     with the plugin approved, no frame of the new page paints the badge's words without its fill (#3292)
 
@@ -153,6 +153,31 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		if (evidence) fs.copyFileSync(pdfPath, `${evidence}/plugin-slots-share-${browserName}.pdf`);
 		await page.keyboard.press('Escape');
 
+		// 3b. PRINT PREVIEW: its thumbnails render with the export's CSS, which carries the plugin's sheet under a stamp with no
+		// nonce, so the door draws the plugin by the live approval (door-run.ts `unstamped`, #3292). A rule that read every
+		// stamp-less CSS as "draw no plugin" showed the block's source here, while the printed PDF drew it.
+		await page.getByRole('button', { name: 'Share', exact: true }).click();
+		const sheet = page.getByRole('dialog');
+		await sheet.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
+		const printed = async () => {
+			const seen: string[] = [];
+			for (const el of await sheet.locator('iframe').elementHandles()) {
+				const s = await (await el.contentFrame())
+					?.evaluate((name) => {
+						const badge = document.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
+						if (badge) return `drawn ${getComputedStyle(badge).backgroundColor}`;
+						if (document.querySelector(`[data-lattice-plugin-off="${name}"]`)) return 'placeholder';
+						return [...document.querySelectorAll('pre code')].some((c) => /status: at-risk/.test(c.textContent ?? '')) ? 'source' : '';
+					}, NAME)
+					.catch(() => '');
+				if (s) seen.push(s);
+			}
+			return seen;
+		};
+		await expect.poll(async () => (await printed()).some((s) => s.startsWith('drawn ')), { timeout: 60_000 }).toBe(true);
+		expect(await printed(), 'the print preview draws the plugin with its fill, never its source or a placeholder').not.toContainEqual(expect.stringMatching(/^(source|placeholder)$|rgba\(0, 0, 0, 0\)/));
+		await page.keyboard.press('Escape');
+
 		// 4. THREE WIDTHS
 		for (const [width, height] of [
 			[1440, 900],
@@ -167,7 +192,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		}
 
 		// 5. RELOAD, the plugin approved in the session before: from the first frame of the new page, the badge never shows
-		// its words without its fill. A render can begin before the Studio's stamp holds the plugins (door.ts `withPlugins`).
+		// its words without its fill. A render can begin before the Studio's stamp holds the plugins (door-run.ts `unstamped`).
 		await page.setViewportSize({ width: 1440, height: 900 });
 		await page.addInitScript(installBadgeWatch, { sel: LIVE_PREVIEW, name: NAME });
 		await page.reload();

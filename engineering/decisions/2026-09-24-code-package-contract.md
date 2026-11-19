@@ -685,13 +685,19 @@ read them as comments too. Run from `claude/sandbox-probe-run` (run 37540765206)
   and the first frame painted unstyled. The stamp only narrows, so code still runs on a live yes;
   it carries a per-page nonce, so look-alike text in a Library component's CSS is not the stamp; and
   the Studio refreshes it on a `storage` event, so another tab's approval reaches this tab. CSS
-  handed with no stamp of this page draws as the Studio did before the door held any plugin
-  (`withPlugins`, 2026-11-19): on a reload, a render could begin in the moment between
-  `setPlugins` filling the door and the shell committing the stamp, and drawing the plugin by its
-  live approval painted the badge's words with no fill (a per-frame watcher saw it in 3 of 6
-  Chromium and 3 of 8 Gecko reloads). An export carries the stamp without the nonce
-  (`exportCodeStamp`, entry.ts), so the same deck exports the same text after a reload; an export
-  passes no `codeApproval` and keeps the live approvals.
+  handed with no stamp of this page draws a plugin that has a stylesheet only when that CSS
+  carries the plugin's sheet (door-run.ts `unstamped`, 2026-11-19); otherwise the plugin is not
+  there for that render, which draws as the Studio did before the door held it. On a reload a
+  render could begin in the moment between `setPlugins` filling the door and the shell committing
+  the stamp, and drawing the plugin by its live approval painted the badge's words with no fill (a
+  per-frame watcher saw it in 8 of 20 Chromium and 7 of 20 Gecko reloads on `main`). The rule reads
+  the CSS the render paints with, not the shell's timing: a first version that read every
+  stamp-less CSS as "draw no plugin" showed the block's source in the print preview (whose export
+  CSS carries the sheets but a nonce-free stamp) while the printed PDF drew it, and a second that
+  waited for the shell to report its stamp raced renders that began with older CSS. An export
+  carries the stamp without the nonce (`exportCodeStamp`, StudioShell.tsx), so the same deck
+  exports the same text after a reload; an export passes no `codeApproval` and keeps the live
+  approvals.
 
 **Classes: the package's own name, or what the slide carried** (`doorFilterAttr`, both doors). A
 later registry pass and the viewer's runtime act on classes they know: a package that added `video`
