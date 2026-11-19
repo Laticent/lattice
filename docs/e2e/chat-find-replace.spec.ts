@@ -21,9 +21,14 @@ const say = (t: string) => [
 	{ id: 'g', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: USAGE },
 ];
 
-test('the chat finds a title and replaces it on one card the author applies', async ({ page }) => {
+for (const [w, h] of [
+	[1440, 900],
+	[820, 1180],
+	[390, 844],
+] as const) {
+test(`the chat finds a title and replaces it on one card the author applies at ${w}px`, async ({ page }) => {
 	test.setTimeout(90_000);
-	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.setViewportSize({ width: w, height: h });
 	await page.addInitScript(() => {
 		try {
 			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
@@ -55,7 +60,7 @@ test('the chat finds a title and replaces it on one card the author applies', as
 		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
 	});
 	await gotoStudio(page);
-	await openChatAtWidth(page, 1440);
+	await openChatAtWidth(page, w);
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('add "today" to the first title');
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
 	const apply = page.getByRole('button', { name: /^Apply/ });
@@ -67,7 +72,8 @@ test('the chat finds a title and replaces it on one card the author applies', as
 	expect(found).toContain('[slide 1] heading:');
 	// replace_text ran too: its result reached the model, or the turn settled on its summary.
 	expect(requests.length).toBeGreaterThanOrEqual(2);
-	await page.screenshot({ path: test.info().outputPath('chat-find-replace-card.png') });
+	await page.screenshot({ path: test.info().outputPath(`chat-find-replace-card-${w}.png`) });
 	await apply.click();
 	await expect.poll(() => page.evaluate((t) => Object.values(localStorage).some((v) => typeof v === 'string' && v.includes(`${t} today`)), title)).toBe(true);
 });
+}
