@@ -21,4 +21,6 @@ done when — every printed value on every ramp step measures at least 4.5:1 aga
 evidence  — the screenshot heatmap-dark.png sent on #3319 (deck: 3 rows x 3 cols, indaco, `--player --narrate
             --player-mode dark`). A quick script measurement was unreliable (it paired the wrong text with
             each cell), so no ratio is recorded here: measure first with the repo's own contrast tooling.
+            Pre-existing, measured: the same deck's dark player rendered on main (cfc838e) and on #3319 is
+            pixel-identical on that slide (0 of 1,024,000 pixels differ at 1280x800).
 verify    — render the same deck on main and on the fix, dark and light, and read the ratio per cell.
