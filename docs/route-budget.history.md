@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-19 — the owner raised one ceiling by hand, for PR 3319: studio lintCoreGz to 164.4 KB
+
+Owner OK 2026-11-19 (PR 3319, "Raise ceiling ~1 KB", then "+1 KB by hand" over the tool's `--raise --ceiling`, which would have set the ceiling 10% above a new soft target: 179.5 KB, +16 KB). PR 3319 adds one lint rule, `terms-entry-ignored`, which warns when a `terms:` line is skipped, so a deck term is never silently left unsaid. The Studio ships lint-core for its live lint, so the rule lands in `esm/lint.js`; the `terms:` reader it calls is already in a chunk the engine loads.
+
+Measured with fresh full docs builds: `main` at 3dd439ff is 163.2 KB, 0.2 KB under the 163.4 KB ceiling, and `main` merged with PR 3319 at 18a7a3d6 is 163.7 KB (it was 163.9 KB before 18a7a3d6 cut the rule's messages and guess lists). A chunk-by-chunk comparison puts all of the growth in `esm/lint.js`. The ceiling rises 167366 -> 168390 (+1,024 B), which leaves about 0.7 KB of room after PR 3319. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 168390 |
+
 ### 2026-11-17 — the owner raised two ceilings by hand, for PRs 3294, 3256 and 3278: home eagerJsGz to 320.5 KB, studio eagerJsGz to 621.7 KB
 
 Owner OK 2026-11-17, relayed by the Segno coordinator session; one raise sized for three open Segno PRs, after repeated small raises were outgrown by other merges.
