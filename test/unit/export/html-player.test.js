@@ -311,8 +311,13 @@ test('themeDualMode keeps the @supports light-dark() feature probe and flattens 
 	const { base, darkBlock } = themeDualMode(`${guard}{.n{fill:light-dark(#fff,#000)}} :root{--a:light-dark(#111,#eee)}`);
 	assert.ok(base.includes(guard), base);
 	assert.match(darkBlock, /@supports \(color:color\(from light-dark\(red,red\) xyz-d65 x y z\)\)\{/, darkBlock.slice(0, 400));
+	// A COMMENT that mentions @supports protects nothing: `[^{]*` ran past the comment, a `;` and a `}`
+	// and shielded a real declaration, which then shipped as light-dark() with no dark arm (#3312 review).
+	const commented = themeDualMode(':root{/* uses @supports */ --x: light-dark(#111,#eee)} .a{color:red}');
+	assert.doesNotMatch(commented.base, /light-dark\(/, commented.base);
+	assert.match(commented.darkBlock, /--x:#eee/);
 	// Everywhere else, no light-dark() survives.
-	const strip = (css) => css.replace(/@supports[^{]*\{/g, '');
+	const strip = (css) => css.replace(/@supports[^{};]*\{/g, '');
 	assert.doesNotMatch(strip(base), /light-dark\(/, base);
 	assert.doesNotMatch(strip(darkBlock), /light-dark\(/, darkBlock.slice(0, 400));
 });

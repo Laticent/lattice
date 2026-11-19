@@ -965,7 +965,7 @@
     "/@import\\s*[\"']([\\w-]+)[\"']\\s*;/g": "safe",
     "/@import\\s*['\"]?([A-Za-z0-9_-]+)['\"]?\\s*;?/g": "safe",
     "/@size\\s+([A-Za-z0-9:_-]+)\\s+(\\S+)\\s+(\\S+)/g": "safe",
-    "/@supports[^{]*\\{/g": "polynomial",
+    "/@supports[^{};]*\\{/g": "polynomial",
     "/@theme\\s+([A-Za-z0-9_-]+)/": "safe",
     "/Cannot find (?:package|module) '((?:@[^/']+\\/)?[^/']+)/": "safe",
     "/Extension=\"lattice\"/i": "safe",
