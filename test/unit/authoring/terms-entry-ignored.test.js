@@ -58,7 +58,7 @@ describe('terms-entry-ignored', () => {
     assert.match(findings('terms:\n  CRO: { meaning: chief revenue officer }')[0].fix, /`expansion:`/);
   });
   test('an unknown field with no likely meaning lists the three', () => {
-    assert.match(findings('terms:\n  Yearn: { colour: blue }')[0].message, /`pronounce`.*`expansion`.*`definition`/);
+    assert.match(findings('terms:\n  Yearn: { colour: blue }')[0].fix, /`pronounce`.*`expansion`.*`definition`/);
   });
   test('a list item, an empty entry and a stray line are each reported', () => {
     assert.match(findings('terms:\n  - Yearn: yurn')[0].message, /map, not a list/);
