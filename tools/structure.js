@@ -57,14 +57,17 @@ const LIBRARIES = fs.readdirSync(path.join(ROOT, 'docs', 'src', 'lib'), { withFi
  * Every part, bottom layer first. `match` is a path prefix (or a function); the first match wins.
  * `about` is the part's one-line purpose and `where` its paths when `match` is a function: both feed
  * the code map (tools/build-codemap.js, dist/engineering/codemap.md), whose --check fails on a part
- * with no `about`. A plugin's and a workspace library's purpose come from their own manifests.
+ * with no `about`, or a function `match` with no `where`. A plugin's and a workspace library's
+ * purpose come from their own manifests. Write an `about` as what the folder is FOR, never a list of
+ * what it holds: the check sees that a line exists, not that it is true, so a list goes stale
+ * silently the day a file is added.
  * Layers: 0 leaves and libraries · 1 core · 2 contracts over core · 3 the catalog · 4 adapters and
  * plugins · 5 the engine · 6 what uses the engine · 10+ the docs site · 20 tools.
  */
 const PARTS = [
   ...LIBRARIES.map((name) => ({ part: `@laticent/${name}`, layer: 0, library: true, match: `docs/src/lib/${name}/` })),
   { part: 'lib/adaptive', layer: 0, match: 'lib/adaptive/', about: 'The four box families (structural breakpoints) a component reflows across.' },
-  { part: 'lib/fonts', layer: 0, match: 'lib/fonts/', about: 'The manifest of self-hosted text fonts every render path loads.' },
+  { part: 'lib/fonts', layer: 0, match: 'lib/fonts/', about: 'Self-hosted fonts: the text, emoji and icon font faces every render path loads, and the subsetter that cuts a color font down to the glyphs a deck uses.' },
   { part: 'lib/finishes', layer: 0, match: 'lib/finishes/', about: 'Finish packages (layered, palette-blind backdrops) and the generator that turns a recipe into finish CSS.' },
   { part: 'lib/exemplars', layer: 0, match: 'lib/exemplars/', about: 'Trims a worked example deck to a tier: short, standard or full.' },
   { part: 'lib/typography', layer: 0, match: 'lib/typography/', about: 'The `--fs-*` type scale: the coefficient sets and the math that sizes them.' },
@@ -77,10 +80,10 @@ const PARTS = [
   { part: 'package.json', layer: 0, match: (f) => f === 'package.json', where: 'package.json', about: 'The root manifest: npm scripts, dependencies and the workspaces.' },
   // The skill index (tools/skill-index.js output), read as data by the Studio chat's guide list.
   { part: 'design/skills', layer: 0, match: (f) => f === 'design/skills/index.json', where: 'design/skills/index.json', about: 'The generated skill index the Studio chat lists its guides from.' },
-  { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f), where: 'lib/**/*.schema.json', about: 'JSON Schemas for the component, finish, Form (cell, frame, tile), motion and plugin formats, beside the code that reads them.' },
+  { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f), where: 'lib/**/*.schema.json', about: 'The JSON Schemas for the engine\'s data formats, each kept beside the code that reads it.' },
   { part: 'lib/core', layer: 1, match: 'lib/core/', about: 'Pure transform kernels every render path shares: slide splitting, resolvers, list and section walkers, color.' },
   { part: 'lib/theme', layer: 2, match: 'lib/theme/', about: 'Palette derivation and color math, behind the Studio Theme panel and the theme tools.' },
-  { part: 'lib/tokens', layer: 2, match: 'lib/tokens/', about: 'The permanent old-to-new token rename table.' },
+  { part: 'lib/tokens', layer: 2, match: 'lib/tokens/', about: 'Token names: the permanent old-to-new rename table, and the contrast floor each token name implies.' },
   { part: 'lib/integrations', layer: 2, match: 'lib/integrations/', about: 'Config, CSS and docs for the libraries Lattice embeds: markdown-it, KaTeX, Mermaid, highlight.js.' },
   { part: 'lib/components', layer: 3, match: 'lib/components/', about: 'The component catalog: one folder per `_class:` layout, grouped in buckets. Pick one with `dist/docs/components.pick.md`.' },
   { part: 'lib/forms', layer: 3, match: 'lib/forms/', about: 'The Form model (Frame + Cell + Tile), one folder per noun.' },
@@ -93,10 +96,10 @@ const PARTS = [
   { part: (f) => `lib/plugins/${f.split('/')[2]}`, layer: 4, plugin: true, match: 'lib/plugins/' },
   { part: 'lib/engine', layer: 5, match: 'lib/engine/', about: 'The owned Markdown-to-slides engine: the canonical render path.' },
   { part: 'lib/authoring', layer: 6, match: 'lib/authoring/', about: 'Deck lint, review and scorecard cores. Pure, shared by the CLI, `validate()` and the browser; every lint rule runs through `lint-core.js`.' },
-  { part: 'lib/cli', layer: 6, match: 'lib/cli/', about: 'CLI commands over packages: add, gate and render one, run a code package with consent, migrate deck metadata.' },
+  { part: 'lib/cli', layer: 6, match: 'lib/cli/', about: 'The commands behind `lattice.js` that work on packages and deck metadata, and its option parsing and shell completion.' },
   { part: 'lib/concepts', layer: 6, match: 'lib/concepts/', about: 'The design-vocabulary graph, checked against the live catalogs.' },
   { part: 'lib/diagnostics', layer: 6, match: 'lib/diagnostics/', about: 'Does a slide rendered alone match the same slide rendered inside its deck? The pure core both surfaces share.' },
-  { part: 'lib/export', layer: 6, match: 'lib/export/', about: 'The export pipeline: PDF assets, PPTX and office writers, the HTML player, video, and export-to-Marp.' },
+  { part: 'lib/export', layer: 6, match: 'lib/export/', about: 'The export pipeline: every format a deck leaves Lattice in, and the assets each one embeds.' },
   { part: 'lib/playground', layer: 6, match: 'lib/playground/', about: 'The browser entry: renders a deck client-side through the owned engine.' },
   { part: 'lib/runtime', layer: 6, match: 'lib/runtime/', about: 'The VS Code preview runtime, built to `dist/lattice-runtime.js`.' },
   { part: 'lattice.js', layer: 7, match: (f) => f === 'lattice.js', where: 'lattice.js', about: 'The `lattice` command: render, export, check and share a deck.' },

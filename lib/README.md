@@ -12,8 +12,9 @@ the structure below exists so shared logic lives in exactly one place.
 **What each folder is for: `dist/engineering/codemap.md`.** It lists every folder here with its
 layer and a one-line purpose, and it is generated from `PARTS` in `tools/structure.js` and `FOLDERS` in
 `tools/build-codemap.js`, so it
-cannot fall behind the tree the way the table that used to sit here did (21 of 29 folders).
-`npm run build` writes it; `npm run codemap:check` fails on a folder with no line.
+cannot leave a folder out the way the table that used to sit here did (21 of 29 folders).
+`npm run build` writes it; `npm run codemap:check` fails on a folder here with no line. It
+checks that each line exists, not that it is still true.
 
 The #1 gotcha repo-wide: several folders are **bundled into the browser** by
 `tools/build-*-core.js` — anything reachable from those entries must be pure

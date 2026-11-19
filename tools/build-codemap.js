@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * Generate dist/engineering/codemap.md — the map of what lives where: every top-level folder,
- * every folder under lib/, docs/, docs/src/, test/ and .claude/, every code part with its layer,
- * every plugin and every workspace library, each with one line on what it is for.
+ * every folder directly inside lib/, docs/, docs/src/, docs/src/lib/, test/, tools/ and .claude/,
+ * every code part with its layer, every plugin and every workspace library, each with one line on
+ * what it is for.
  *
  * Why this exists: an agent new to the repo had a doc index (CLAUDE.md's routing table) and a
  * script index (capabilities.md) but no map of the CODE, so "where does X live?" cost a grep
@@ -30,8 +31,16 @@
  *              FOLDERS entry. Reads no output.
  *   --silent   Suppress the success log line (implied by --check).
  *
- * Write never fails: it renders a TODO for a missing purpose, because it runs inside
- * `npm install`.
+ * Write never fails on a source problem: it warns and renders a TODO for a missing purpose (and
+ * leaves out a part it cannot place), because it runs inside `npm install`.
+ *
+ * What --check covers: the IMMEDIATE child folders of each scope in SCOPES. A new folder deeper
+ * down (lib/core/x/, tools/lib/x/) is described by its parent's line and is not checked. It checks
+ * that a line EXISTS, not that it is still true, so an `about` says what a folder is FOR, never
+ * a list of what it holds: a list goes stale the day a file is added, and nothing notices.
+ *
+ * --check refuses to run outside a git checkout (a "Download ZIP" copy): coverage needs the
+ * tracked file list, and a check that silently skipped it would read as a pass.
  */
 
 const fs = require('node:fs');
@@ -48,7 +57,9 @@ const SCOPES = [
   { dir: 'lib/', title: '`lib/` — the engine' },
   { dir: 'docs/', title: '`docs/` — the docs site package' },
   { dir: 'docs/src/', title: '`docs/src/` — the docs site source' },
+  { dir: 'docs/src/lib/', title: '`docs/src/lib/` — site libraries that do not publish on their own' },
   { dir: 'test/', title: '`test/` — tests, fixtures and baselines' },
+  { dir: 'tools/', title: '`tools/` — build steps, gates and maintenance scripts' },
   { dir: '.claude/', title: '`.claude/` — agent roster, hooks, skills, workflows' },
 ];
 
@@ -91,21 +102,44 @@ const FOLDERS = {
   'docs/src/': 'The site source. Every folder is listed below.',
   // docs/src/
   'docs/src/test/': 'Shared helpers and stubs for the site unit tests.',
+  // docs/src/lib/ folders that are not workspace libraries (those are listed from their package.json)
+  'docs/src/lib/anima/': 'Anima, the motion library: compiles a scene spec into the moves an animated slide plays.',
+  'docs/src/lib/code-packages/': 'The code-package door: how the Studio runs a code package a deck uses, sandboxed and only with consent.',
+  'docs/src/lib/compose/': "Compose, the Studio's rich-text editor: the whole deck as one editable document, and the commands that edit it.",
+  'docs/src/lib/deck-outline/': 'The deck as an outline, so the Markdown and Compose editors keep the same place in it.',
+  'docs/src/lib/vetrina-exemplars/': 'Exemplar walkthroughs and a stress battery that prove the Vetrina library on a host other than the Studio.',
+  'docs/src/lib/vetrina-narration/': 'The seam that lets a Vetrina walkthrough narrate with Cadenza timing, with no audio needed.',
+  // tools/
+  'tools/dom-bakeoff/': 'A measured bake-off of HTML parsers against the DOM contract the engine uses.',
+  'tools/frame-lab/': 'Renders every component gallery in a frame you can narrow, to see whether it reflows well.',
+  'tools/icon-font/': 'The Python step that turns the curated icon drawings into the Lattice Icons font (`npm run icons:font`).',
+  'tools/intent-bakeoff/': 'Measures the component intent ranker the site ships against its alternatives.',
+  'tools/kit-branch/': 'Files the publish-kits workflow copies to the root of the `dist-kits` branch, kept here so they are reviewed on `main`.',
+  'tools/lastra-corpus/': 'Generates the lastra image decoder\'s test pictures and their expected results, and benchmarks its speed.',
+  'tools/lib/': 'Shared modules the scripts in `tools/` import, so no script reimplements another.',
+  'tools/office-conformance/': 'The Open XML SDK checker that validates exported Office files against the official schemas.',
+  'tools/parser-bakeoff/': 'A measured bake-off of inline-notation parsers against the shipped kernel as the control.',
+  'tools/perf-torture/': 'A reusable profiler that repeats one user action in a browser and reports memory that leaks.',
+  'tools/recheck/': 'The pinned regex complexity checker behind `tools/regex-census.js`, kept out of the root install.',
+  'tools/script-docs/': 'One description per npm script, the source of `dist/engineering/capabilities.md`.',
+  'tools/segno-legacy/': 'Frozen copies of the inline-code kernels from before Segno phase 2, kept as the bake-off baseline.',
+  'tools/spike-card-slack/': 'A spike, not production tooling: the measurement behind the card-stack vertical alignment decision.',
+  'tools/squadra/': 'Corpora and reference data the Squadra lint diffs run on, so every run reads the same cases.',
   // test/
   'test/benchmark/': 'The render benchmark and its committed baseline (`npm run bench`, HARD RULE #19).',
   'test/conformance/': 'Fixtures, corpora and the debt list for the conformance contracts.',
   'test/fit/': 'The fit-harness baseline: clip, unreadable and lost counts per component.',
   'test/fixtures/': 'Decks, images and data the tests read.',
-  'test/helpers/': 'Shared test helpers: Chrome launch, deck loading, chart color, work counting.',
+  'test/helpers/': 'Shared test helpers: the setup and measuring code more than one test file needs.',
   'test/integration/': 'The render tier: cross-renderer parity, page counts, the baseline gallery.',
   'test/lint-coverage/': 'The lint-coverage baseline.',
-  'test/oracle/': 'Frozen oracles: family conformance, overflow, player contrast, split pages.',
+  'test/oracle/': 'Frozen oracles: recorded expected results that tests compare a fresh run against.',
   'test/quality/': 'The quality-assessment and structure snapshots.',
   'test/unit/': 'The unit tier (`npm test`). Folders mirror `lib/` and `tools/`.',
   'test/viz-render/': 'The chart paint guard baseline.',
   // .claude/
   '.claude/agents/': 'The agent roster: one card per agent (scout, checker, red-team, …), each pinned to Opus.',
-  '.claude/hooks/': 'Session hooks: sandbox setup at start, the rebase check at stop, wait warnings.',
+  '.claude/hooks/': 'Claude Code hooks: sandbox setup at session start, warnings that run before a tool call, and the rebase check at stop.',
   '.claude/skills/': 'Project skills an agent loads by name.',
   '.claude/workflows/': 'Named multi-agent workflows, such as design-competition.',
 };
@@ -143,9 +177,11 @@ function summarize(text, { short = 30, long = 160 } = {}) {
   // punctuation a sentence or clause split keys on.
   const codes = [];
   const masked = String(text || '').replace(/\s+/g, ' ').trim().replace(/`+[^`]*`+/g, (m) => `\uE000${codes.push(m) - 1}\uE001`);
-  const unmask = (t) => t.replace(/\uE000(\d+)\uE001/g, (_, i) => codes[Number(i)]);
+  // An abbreviation's period is not a sentence end: "for every slide, e.g. bar and line" stays whole.
+  const abbrev = masked.replace(/\b(e\.g|i\.e|cf|vs|approx)\.(?=\s)/gi, (m) => m.replace(/\./g, '\uE002'));
+  const unmask = (t) => t.replace(/\uE000(\d+)\uE001/g, (_, i) => codes[Number(i)]).replace(/\uE002/g, '.');
   // A sentence ends at . ! or ? followed by whitespace or the end, so `Chart.js` and `v1.2` stay whole.
-  const sentences = masked.match(/[\s\S]*?[.!?]+(?=\s|$)|[\s\S]+$/g) || [];
+  const sentences = abbrev.match(/[\s\S]*?[.!?]+(?=\s|$)|[\s\S]+$/g) || [];
   let out = (sentences[0] || '').trim();
   if (out.length < short && sentences[1]) out = `${out} ${sentences[1].trim()}`;
   if (unmask(out).length > long) {
@@ -184,11 +220,60 @@ function collect({ root = ROOT, parts = require('./structure.js').PARTS, folders
       }
       continue;
     }
+    const name = typeof p.part === 'string' ? p.part : '?';
+    // A part that matches by function has no path to show unless it names one in `where`. Record
+    // it as a problem row rather than rendering the function's source as a path.
+    if (!p.where && typeof p.match !== 'string') {
+      rows.push({ kind: 'part', name, where: null, layer: p.layer, about: p.about || '', noWhere: true });
+      continue;
+    }
     const wheres = p.where ? [].concat(p.where) : [p.match];
-    for (const where of wheres) rows.push({ kind: 'part', name: typeof p.part === 'string' ? p.part : '?', where, layer: p.layer, about: p.about || '' });
+    for (const where of wheres) rows.push({ kind: 'part', name, where, layer: p.layer, about: p.about || '' });
   }
-  for (const [where, about] of Object.entries(folders)) rows.push({ kind: 'folder', where, about });
+  // A folder inside a code part (tools/lib/ inside `tools`) shows that part's layer: the longest
+  // prefix match wins. A folder no part matches (CSS-only, docs, tests) keeps a blank layer.
+  const layerOf = (where) => {
+    let best = null;
+    for (const p of parts) {
+      if (typeof p.match === 'string' && where.startsWith(p.match) && (!best || p.match.length > best.match.length)) best = p;
+    }
+    return best?.layer;
+  };
+  for (const [where, about] of Object.entries(folders)) rows.push({ kind: 'folder', where, layer: layerOf(where), about });
   return rows;
+}
+
+/**
+ * Why a purpose line cannot be shown as written in a table cell, or null. cell() doubles every
+ * backslash, which is right for a plain one (`a\b`) but wrong in two places: inside a code span,
+ * where a backslash is literal, and before punctuation, where the author wrote a Markdown escape
+ * (`\*`) and doubling it turns the markup back on. Code spans are paired the way Markdown pairs
+ * them: a run of N backticks closes at the next run of exactly N.
+ */
+function unrenderable(text) {
+  const s = String(text || '');
+  const spans = [];
+  const runs = [...s.matchAll(/`+/g)];
+  for (let i = 0; i < runs.length; i++) {
+    const close = runs.findIndex((r, j) => j > i && r[0].length === runs[i][0].length);
+    if (close < 0) continue;
+    spans.push([runs[i].index + runs[i][0].length, runs[close].index]);
+    i = close;
+  }
+  const inSpan = (at) => spans.some(([a, b]) => at >= a && at < b);
+  for (const m of s.matchAll(/\\/g)) {
+    if (inSpan(m.index)) return 'a backslash inside a code span';
+    if (/[!-/:-@[-`{-~]/.test(s[m.index + 1] || '')) return `a Markdown escape (\\${s[m.index + 1]})`;
+  }
+  return null;
+}
+
+/** Where a row's purpose line is written, for a message that says where to fix it. */
+function sourceOf(r) {
+  if (r.kind === 'part') return `the \`about\` on part ${r.name} in tools/structure.js`;
+  if (r.kind === 'plugin') return `the manifest \`description\` of ${r.name}`;
+  if (r.kind === 'library') return `the package.json \`description\` of ${r.name}`;
+  return `its FOLDERS entry in tools/build-codemap.js`;
 }
 
 /**
@@ -197,6 +282,14 @@ function collect({ root = ROOT, parts = require('./structure.js').PARTS, folders
  */
 function problems(rows, files, { scopes = SCOPES, folders = FOLDERS } = {}) {
   const out = [];
+  for (const r of rows) {
+    if (r.noWhere) out.push(`part ${r.name} matches by function and has no \`where\`: add its path(s) as \`where\` on its PARTS entry in tools/structure.js`);
+  }
+  rows = rows.filter((r) => !r.noWhere);
+  for (const r of rows) {
+    const why = unrenderable(r.about);
+    if (why) out.push(`${r.where}: its purpose line has ${why}, which the map cannot show as written: reword ${sourceOf(r)}`);
+  }
   for (const r of rows) {
     if (r.about) continue;
     if (r.kind === 'part') out.push(`part ${r.name} (${r.where}) has no \`about\` line: add one to its PARTS entry in tools/structure.js`);
@@ -228,12 +321,17 @@ function problems(rows, files, { scopes = SCOPES, folders = FOLDERS } = {}) {
 
 // ── render ─────────────────────────────────────────────────────────────────
 
-// A table cell: escape the backslash first, or a `\|` in the text would become `\\|`, an escaped
-// backslash followed by a bare pipe that ends the cell early.
+// A table cell: escape the backslash first, then the pipe, so a `\|` in the text cannot become `\\|`
+// (an escaped backslash, then a bare pipe that ends the cell early). Inside a code span a backslash
+// is literal, and before punctuation it is a Markdown escape: doubling either changes what shows,
+// so --check refuses both (see unrenderable()) and they never reach this.
 const cell = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 // Plain paths, not links: the reader is mostly an agent reading the raw text, and a link
 // writes every path twice (measured: 25 KB with links, the table below without).
 const link = (where) => `\`${where}\``;
+// Code-unit order, not localeCompare: the row order must not depend on the machine's locale
+// (Lithuanian ICU moved `lib/typography/` two rows).
+const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 function fileCount(files, where) {
   if (!files || /[*]/.test(where)) return '';
@@ -255,14 +353,27 @@ function scopeOf(where, scopes = SCOPES) {
 }
 
 function render(rows, files, root = ROOT) {
+  rows = rows.filter((r) => typeof r.where === 'string');
   const table = (list) => {
     const lines = ['| Path | Layer | Files | What it is for |', '|---|---|---|---|'];
+    // One part with several `where` paths in the same section is one row, not N copies of its line.
+    const merged = [];
     for (const r of list) {
-      lines.push(`| ${link(r.where)} | ${r.layer ?? ''} | ${fileCount(files, r.where)} | ${cell(r.about || '**TODO**')}${readme(root, r.where)} |`);
+      const prev = merged.find((m) => m.kind === 'part' && r.kind === 'part' && m.name === r.name && m.about === r.about);
+      if (prev) prev.wheres.push(r.where);
+      else merged.push({ ...r, wheres: [r.where] });
+    }
+    for (const r of merged) {
+      const counts = r.wheres.map((w) => fileCount(files, w));
+      const total = counts.every((c) => c !== '') ? String(counts.reduce((n, c) => n + Number(c), 0)) : '';
+      // One path: (README) after the purpose, as before. Several: after each path that has one.
+      const paths = r.wheres.map((w) => cell(link(w)) + (r.wheres.length > 1 ? readme(root, w) : '')).join(', ');
+      const readmes = r.wheres.length === 1 ? readme(root, r.where) : '';
+      lines.push(`| ${paths} | ${r.layer ?? ''} | ${total} | ${cell(r.about || '**TODO**')}${readmes} |`);
     }
     return lines.join('\n');
   };
-  const byPath = (a, b) => a.where.localeCompare(b.where);
+  const byPath = (a, b) => byCodeUnit(a.where, b.where);
   const plain = rows.filter((r) => r.kind === 'part' || r.kind === 'folder');
   const out = [
     '# Code map',
@@ -270,13 +381,15 @@ function render(rows, files, root = ROOT) {
     '<!-- GENERATED by tools/build-codemap.js. Do not edit: change the source it names. -->',
     '',
     'What lives where. One line per folder, code part, plugin and workspace library. Find the row,',
-    'then open it. (README) marks a folder with its own README. **Layer** is the part\'s layer in',
-    '`tools/structure.js`: a part imports only parts on its own layer or below, and a blank means the',
-    'folder holds no code the import graph sees. **Files** counts tracked files.',
+    'then open it. (README) marks a folder with its own README. **Layer** is the layer, in',
+    '`tools/structure.js`, of the code part whose path covers the row: a part imports only parts on its',
+    'own layer or below. A blank means no part covers the folder. **Files** counts tracked files.',
     '',
     'Where the purposes come from: `PARTS` in `tools/structure.js` (code parts), each plugin\'s',
     'manifest, each workspace library\'s `package.json`, and `FOLDERS` in `tools/build-codemap.js`',
-    '(everything else). `build:check` fails on a folder with no line.',
+    '(everything else). `build:check` fails when a folder directly inside one of the sections below has',
+    'no line. It does not check that a line is still true, and folders deeper down are covered by',
+    'their parent\'s line. To find a file or a symbol, grep: this map stops at folders.',
     '',
     'Other maps: docs by topic, the routing table in `CLAUDE.md`; scripts and tools,',
     '`dist/engineering/capabilities.md`; components, `dist/docs/components.pick.md`; how a deck flows',
