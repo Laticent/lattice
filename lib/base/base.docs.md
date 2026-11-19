@@ -1121,8 +1121,8 @@ break.
 <!-- _class: title silent -->
 ```
 
-Equivalent to `no-pagination` plus `no-progress`, `<!-- _header: "" -->` and
-`<!-- _footer: "" -->`, in one token.
+Equivalent to `no-header no-footer no-pagination no-progress`, in one
+token (`SILENCED_NAMES` in `lib/core/switches.mjs`).
 
 ### `sketch`
 

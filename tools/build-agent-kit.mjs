@@ -987,7 +987,7 @@ function modifiersDoc() {
     mood: 'Flip a single slide to the dark companion palette. Deck-wide dark is a theme choice, not this.',
     decoration: 'Ambient art on the canvas. One per slide at most — two read as clutter, and none is the right answer on a dense slide.',
     typography: 'Scale the slide’s type up, or control the auto-period on headings. `scale-*` buys emphasis on a SPARSE slide; on a full one it just overflows.',
-    chrome: 'Turn the running header, footer, page number or section rail off for one slide. `silent` bundles the first three — it is what bookends use.',
+    chrome: 'Turn the running header, footer, page number or section rail off for one slide. `silent` turns off all four in one token — it is what bookends use.',
     note: 'Act on a trailing sentence: keep it as body copy, or mark the slide’s callout as an alarm (the warning triangle is drawn, so a caveat needs no typed glyph).',
     social: 'Crop-safe framing for a slide destined to be screenshotted.',
     table: 'Table treatment switches: drop the zebra, spread rows into leftover height, or decode the six state markers (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`) in cells into status discs.',
