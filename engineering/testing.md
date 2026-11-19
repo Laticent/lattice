@@ -203,6 +203,18 @@ Every new test, and every test whose assertion or wait changed, carries three th
 
 A rename or a selector-only edit owes only the failing arm.
 
+**From CI, when you cannot run the suite locally.** Dispatch `studio-e2e-nightly.yml` on your branch
+with `spec`, and `repeat` and `workers` for the two runs:
+
+```bash
+gh workflow run studio-e2e-nightly.yml --ref <branch> -f spec=e2e/<name>.spec.ts -f repeat=10
+gh workflow run studio-e2e-nightly.yml --ref <branch> -f spec=e2e/<name>.spec.ts -f repeat=5 -f workers=4
+```
+
+The second waits for the first: the workflow keeps one pending run per branch. Each runs the test on
+every project its tags reach. `repeat` (1 to 20) and `workers` (1 to 8) need a `spec`; the step
+refuses anything else before Playwright starts.
+
 A failing arm must go red on the old code and green on the new. If the race is too rare to hit by
 load, inject the stall directly, as #3250 did with a temporary 2.5 s wait. List any arm that stayed
 green on both in the PR body, so nobody repeats it.
