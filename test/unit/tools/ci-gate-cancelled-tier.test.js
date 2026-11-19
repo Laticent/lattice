@@ -120,7 +120,8 @@ test('a path filter cancelled on the current head fails: #2524, changes queued 1
 
 test('a whole run cancelled by a newer push passes and posts no beacon', () => {
   // #3314: a push cancelled 033d389's run before `changes` started, and the gate went red on a SHA
-  // that was no longer the head, a false failure webhook.
+  // that was no longer the head, a false failure webhook. The tier-cancelled half of this path ran
+  // live on #3314 as run 44462579450 (gate passed, beacon skipped).
   const all = Object.fromEntries(['changes', 'lint', 'unit', 'integration', 'docs-build', 'docs-test', 'player-webkit'].map((k) => [k, 'cancelled']));
   const r = gate({ results: all, head: NEWER });
   assert.equal(r.code, 0);
