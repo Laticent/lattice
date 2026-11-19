@@ -1098,10 +1098,11 @@ function build() {
         w(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: var(--state-${st}-on-ink)`]));
       }
       w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${CRITICAL}`]));
-      // Where relative color is missing (Chrome < 119, Safari < 18, Firefox < 128: the HTML player in an old browser),
-      // the @supports pick below does not apply. The number takes `--risk-critical-on-ink`: the fail ink by default
-      // (base.tokens.css), and on an a11y palette the ink that clears its critical band on both faces, because its one
-      // curated ink sits at 2.97-4.42:1 on the dark band.
+      // Where relative color is missing (Safari 17.5-17.x, Firefox 120-127; an older engine only where light-dark() is
+      // flattened first, as the HTML player does),
+      // the @supports pick below does not apply. The number takes `--risk-critical-on-ink` (base.tokens.css, declared per
+      // slide so it follows print's ink): the fail ink, and on an a11y palette's dark band black, because its one curated
+      // ink sits at 2.97-4.42:1 there.
       w(rule(name, '.risk-key-number[data-band="critical"]', ['fill: var(--risk-critical-on-ink)']));
       // On the dark face critical steps toward the slide, so on an a11y palette's bright fill it is darker than the fill
       // its curated near-black ink was chosen for (4.42:1 on a11y-protanopia); its number picks its own ink there.

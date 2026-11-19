@@ -1,2 +1,2 @@
 - The risk matrix's critical band is the darkest band again on the dark face of the achromatopsia, deuteranopia and tritanopia palettes. Since the per-theme status colors it had landed between low and medium there, so a palette that shows severity only by lightness read critical as the second-mildest band.
-- On the a11y palettes, the risk matrix's critical key number now clears 4.5:1 in browsers without relative color (Chrome before 119, Safari before 18, Firefox before 128), where it had fallen to 2.97-4.42:1 on the dark face.
+- On the a11y palettes, the risk matrix's critical key number now clears 4.5:1 in browsers without relative color (Safari 17.5 to 17.x, Firefox 120 to 127), where it had fallen to 2.97-4.42:1 on the dark face.

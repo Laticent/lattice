@@ -244,9 +244,11 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   faces, 1.66-1.83:1 below the next band and at least 3.6:1 off the slide. Found after merge by a whole-slide review of
   the a11y dark faces; held by `marks-css.test.js` (critical is the darkest band on every a11y dark face).
   Where relative color is missing, the critical key number cannot pick its own ink, so it reads
-  `--risk-critical-on-ink` (base.tokens.css defaults it to the fail ink). a11y-base declares it once for every a11y
-  palette: the curated ink on the light band, black on the dark one, which clears 4.75-5.33:1 there (the one curated
-  ink sat at 2.97-4.42:1). Deuteranopia and tritanopia keep 68% rather than 60% so their band stays light enough
+  `--risk-critical-on-ink`, declared per slide beside `--state-fail-on-ink` so it follows print's ink: the fail ink on
+  the light band, and on the dark one the palette's `--risk-critical-step-ink` if it names one. a11y-base names black
+  for every a11y palette, which clears 4.75-5.33:1 there (the one curated ink sat at 2.97-4.42:1). The surface is Safari
+  17.5-17.x and Firefox 120-127; an older Chrome lacks light-dark() too, so it reaches this rule only through the HTML
+  player's flattening. Deuteranopia and tritanopia keep 68% rather than 60% so their band stays light enough
   for black.
   Its one curated ink sat at 2.97-4.42:1 on the dark band. `lib/core/resolve-token-expr.js` now reads a color-mix stop
   whose percentage is a var(), so offline checks resolve the new rule instead of passing it through.

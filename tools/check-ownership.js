@@ -4881,6 +4881,17 @@ function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefa
  * contract the read needs. `--cat-N-ink`'s did not — that is the whole lesson.
  */
 const SANCTIONED_FALLBACK_READS = [
+  {
+    token: 'risk-critical-step-ink',
+    fallback: 'fail-on-mark',
+    why:
+      'the risk matrix critical key number, read only where relative color is missing (Safari 17.5-17.x, Firefox ' +
+      '120-127). The step ink is OPTIONAL by design: a palette names one only when its one curated ink does not clear ' +
+      'its darker dark-face critical band (the a11y palettes name black). Without one the read lands on --fail-on-mark, ' +
+      'the fail ink, which is the same text-on-the-fail-fill contract and the exact ink main painted this number with, ' +
+      'so a palette that does not name one keeps its behavior. Held by marks-css.test.js (4.5:1 on both faces of every ' +
+      'a11y palette).',
+  },
   ...Array.from({ length: 12 }, (_, i) => ({
     token: `cat-${i + 1}-texture`,
     fallback: `cat-${i + 1}-fill`,
