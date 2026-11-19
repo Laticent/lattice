@@ -24,6 +24,9 @@ where     — 1. a gotcha: engineering/gotchas/ has no voice or TTS topic yet; a
                studio-playground.md) with the symptom, the cause and the one lever today (a `terms:`
                respelling, tested on that voice), and list it in dist/engineering/gotchas.md's index.
             2. the warning: docs/src/components/studio/TtsSettings.tsx (the `gemini` engine) and
+               — scoped by measurement: the direct Gemini Flash-Lite model misreads by position; Gemini 3.1
+               Flash TTS through OpenRouter did not (24/24 correct), so the warning names the model, not the
+               provider —
                GeminiVoicePanel.tsx; a short, plain note shown when Gemini is selected, reusing the shared
                settings chrome (HARD RULE #15), checked at 1440/820/390.
             3. the audit: every model in docs/src/lib/models.config.json `voiceFeatured` and `voiceValue`
