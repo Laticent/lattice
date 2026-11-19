@@ -36,7 +36,7 @@ import { compressClip, DEFAULT_BITRATE_KBPS, isCompressedAudio } from '@/playgro
 import { narrationBitrate, narrationCacheEnabled, parallelPref } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
 import { narrateChart, narrateChartScript } from '@/playground/read-along-core.generated.js';
-import { storedClipAsWav } from '@/playground/stored-clip-to-wav.js';
+import { isStoredOgg, storedClipAsWav } from '@/playground/stored-clip-to-wav.js';
 import { isGeminiTtsModel } from '@/playground/tts-cost.js';
 import { parallelCapFor } from '@/playground/voice-engine-profile.js';
 import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
@@ -727,6 +727,10 @@ export async function bakeNarration(
 		// The store keeps raw-audio narration as Ogg Opus (opus-encode-pool.js). The file still ships MP3 with the voice's
 		// leading silence measured from PCM, so an Ogg clip is decoded back to WAV first (stored-clip-to-wav.js).
 		const source = ((await storedClipAsWav(blob as Blob)) ?? blob) as ClipBytes;
+		// A stored Ogg this page could not decode would otherwise pass through the packer untouched (it reads as already
+		// compressed) and ship as Ogg, with no measured lead, in a file other people open in unknown browsers. Refuse with a
+		// reason instead: the worker's rejection names it, and nothing is re-synthesized or billed behind the author's back.
+		if (isStoredOgg(source.type)) throw new Error('A narration clip saved on this device could not be decoded for the export. Clear the narration audio for this deck and export again.');
 		const packed = await packer.pack({ bytes: await source.arrayBuffer(), type: source.type ?? '', kbps: narrationBitrate() });
 		// A dead encoder means EVERY clip ships ~6x the size the author was quoted, with neither
 		// payload threshold firing because both gate on the ESTIMATE. That is precisely the promise
