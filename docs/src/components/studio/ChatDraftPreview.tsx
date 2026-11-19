@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { frontMatterBlock } from '../../lib/front-matter';
 import DeckPreview from '../DeckPreview';
-import type { ChatDraft } from './change-card';
+import type { ChatDraft } from './change-card-types';
 import { hasDrawnFence } from './slide-thumb';
 
 // PREVIEW FOR REAL (engineering/decisions/2026-11-19-chat-card-apply-undo.md §4). The chat's change card asks the

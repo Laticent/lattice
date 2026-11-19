@@ -827,6 +827,10 @@ export function saveCheckpointDurably(deckId: string, source: string, label: str
 	return appendCheckpoint(deckId, cp);
 }
 
+/** The chat change card's mark for "this card never saves a History entry of its own" (change-card-types.ts
+ *  `NO_ENTRY`). Here, in a module the Studio's first load already holds, so the shell reads it for free. */
+export const CHAT_CARD_NO_ENTRY = 'none';
+
 /**
  * Save a checkpoint like `saveCheckpoint`, and return its id with the list, so a caller can relabel it later.
  * The id is null when nothing was saved (the deck already matched the newest checkpoint).

@@ -1,4 +1,4 @@
-import { Check, Eye, RotateCcw, TriangleAlert, Undo2 } from 'lucide-react';
+import { Check, Eye, RotateCcw, TriangleAlert } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { applyTarget, type RowState, rowName, undoTarget } from './change-card';
@@ -41,6 +41,18 @@ export type ChangeCardProps = {
 	rowNote?: { row: number; text: string } | null;
 	disabled?: boolean;
 };
+
+// The undo arrow is drawn here (lucide's undo-2 paths) rather than imported: the Studio header imports lucide's
+// undo-2 in the first load, and a second importer in this lazy card split it into a chunk of its own that the first
+// load then fetched (+500 bytes gzipped, measured against main).
+function Undo2({ className }: { className?: string }) {
+	return (
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+			<path d="M9 14 4 9l5-5" />
+			<path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+		</svg>
+	);
+}
 
 const place = (e: ChatProposal) => (e.action === 'frontmatter' ? -1 : e.action === 'insert' ? (e.raw.slide === Number.MAX_SAFE_INTEGER ? 1e9 : e.raw.slide + 0.5) : e.raw.slide);
 
