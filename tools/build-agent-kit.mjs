@@ -61,6 +61,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -307,7 +308,28 @@ function componentDocs() {
  * flat files here; any other repo-relative link becomes the file on GitHub, so the pack's link
  * gate holds.
  */
-const REPO_BLOB = 'https://github.com/Laticent/lattice/blob/main/';
+const REPO_GITHUB = 'https://github.com/Laticent/lattice/';
+const SITE = 'https://lattice.style';
+/**
+ * A repo path's page on GitHub: `blob/` for a file, `tree/` for a folder. GitHub answers
+ * `blob/main/<folder>/` with HTTP 400, so a folder link written as `blob/` is a dead link an
+ * agent follows (it shipped in start.md's anima line). A path that is not in the tree fails
+ * the build: the pack must never point at a file that does not exist.
+ */
+function proseOnly(body, fn) {
+  // Rewrite links in prose only. A link inside a code fence or a code span is an EXAMPLE an
+  // author copies (`![](marcus.jpg)` in the avatars doc is the author's own photo, next to
+  // their deck), so it must reach the pack byte for byte.
+  return body
+    .split(/(^```[^\n]*\n[\s\S]*?^```[ \t]*$|`[^`\n]+`)/m)
+    .map((part, i) => (i % 2 ? part : fn(part)))
+    .join('');
+}
+function repoUrl(repoPath) {
+  const abs = path.join(ROOT, repoPath);
+  if (!existsSync(abs)) throw new Error(`agent pack links ${repoPath}, which is not in the repo`);
+  return `${REPO_GITHUB}${statSync(abs).isDirectory() ? 'tree' : 'blob'}/main/${repoPath}`;
+}
 function pluginDocs() {
   const dir = path.join(ROOT, 'lib', 'plugins');
   const out = [];
@@ -315,15 +337,15 @@ function pluginDocs() {
     const src = path.join(dir, name, `${name}.docs.md`);
     if (!existsSync(src)) continue;
     const from = `lib/plugins/${name}/`;
-    const body = readFileSync(src, 'utf8').replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_whole, href) => {
+    const body = proseOnly(readFileSync(src, 'utf8'), (prose) => prose.replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_whole, href) => {
       const [file, anchor = ''] = href.split(/(?=#)/);
       const repoPath = path.posix.normalize(path.posix.join(from, file));
       const sibling = repoPath.match(/^lib\/plugins\/([a-z0-9-]+)\/\1\.docs\.md$/);
       if (sibling) return `](./${sibling[1]}.md${anchor})`;
       const comp = repoPath.match(/^lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md$/);
       if (comp) return `](../${COMPONENTS}/${comp[1]}.md${anchor})`;
-      return `](${REPO_BLOB}${repoPath}${anchor})`;
-    });
+      return `](${repoUrl(repoPath)}${anchor})`;
+    }));
     const flat = body
       // A layout's repo path, written as code, is that layout's file in the pack.
       .replace(/`lib\/components\/[a-z0-9-]+\/<name>\/<name>\.docs\.md`/g, `\`../${COMPONENTS}/<name>.md\``)
@@ -347,9 +369,11 @@ function pluginDocs() {
  */
 function universalDocs() {
   const flatten = (body, from) =>
-    body
-      .replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_whole, href) => {
+    proseOnly(body, (prose) => prose.replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_whole, href) => {
         const [file, anchor = ''] = href.split(/(?=#)/);
+        // A site path (`/reference/switches/`) is a docs page: the pack lives on that site,
+        // so it becomes the page's Markdown copy there.
+        if (file.startsWith('/')) return `](${SITE}${file.replace(/\/$/, '')}.md${anchor})`;
         const repoPath = path.posix.normalize(path.posix.join(from, file));
         if (repoPath === 'lib/base/base.docs.md') return `](./universal.md${anchor})`;
         if (repoPath === 'lib/base/base.registers.docs.md') return `](./registers.md${anchor})`;
@@ -357,8 +381,8 @@ function universalDocs() {
         if (comp) return `](../${COMPONENTS}/${comp[1]}.md${anchor})`;
         const plug = repoPath.match(/^lib\/plugins\/([a-z0-9-]+)\/\1\.docs\.md$/);
         if (plug) return `](../plugins/${plug[1]}.md${anchor})`;
-        return `](${REPO_BLOB}${repoPath}${anchor})`;
-      })
+        return `](${repoUrl(repoPath)}${anchor})`;
+      }))
       .replace(/`lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md`/g, `\`../${COMPONENTS}/$1.md\``)
       .replace(/lib\/components\/(?:<bucket>\/)?<name>\/<name>\.docs\.md/g, `../${COMPONENTS}/<name>.md`)
       .replace(/ \(HARD RULE #\d+[^)]*\)/g, '')

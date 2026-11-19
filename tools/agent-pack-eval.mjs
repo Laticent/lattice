@@ -71,7 +71,11 @@ const BRIEFS = [
 ];
 
 function priceNote() {
-  return 'about 6 completions with an 8k-token prompt: roughly USD 0.20 to 0.40 a run at sonnet-class prices';
+  // Measured 2026-11-19 from OpenRouter's public /api/v1/models prices: start.md is ~43.7 KB
+  // (~11k tokens), sonnet-5.5 is USD 2 / 10 per million in / out, gpt-4o-mini 0.15 / 0.60.
+  // Three start-arm calls at ~11k in and 2.5k to 6k out cost USD 0.14 to 0.25; the small arm
+  // adds about one cent. The tool prints OpenRouter's own figure after a real run.
+  return 'about 6 completions, the start arm over an ~11k-token prompt: roughly USD 0.15 to 0.26 a run';
 }
 
 function deckFrom(reply) {
@@ -115,7 +119,10 @@ function judge(deckPath, pdfPath) {
   const render = spawnSync(process.execPath, [path.join(ROOT, 'dist', 'lattice.js'), deckPath, pdfPath], { encoding: 'utf8' });
   const renderOut = `${render.stdout}\n${render.stderr}`;
   const classes = [...deck.matchAll(/<!--\s*_class:\s*([a-z0-9-]+)/g)].map((m) => m[1]);
-  const slides = classes.length;
+  // The renderer's own count: a slide with no `_class` still counts, and a `_class` quoted in a
+  // code fence does not. The `_class` count is the fallback when the render failed.
+  const rendered = renderOut.match(/(\d+) slides? →/);
+  const slides = rendered ? Number(rendered[1]) : classes.length;
   const problems = [];
   const errs = findings.filter((f) => f.severity === 'error' || f.severity === 'warning');
   for (const f of errs) problems.push(`slide ${f.slide}: ${f.severity} ${f.rule}`);

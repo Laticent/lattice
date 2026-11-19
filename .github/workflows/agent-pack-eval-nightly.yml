@@ -9,7 +9,7 @@ name: Agent pack eval nightly
 # Spends OUR OpenRouter key (HARD RULE #24), so it is nightly + dispatch only, never on the PR
 # path, and sanctioned in tools/check-ownership.js (SANCTIONED_OPENROUTER_WORKFLOWS). It FAILS
 # when the secret is unset rather than skipping green (#1931). Cost: six completions over an
-# ~8k-token prompt, about USD 0.20 to 0.40 a night; the tool prints the real figure.
+# ~11k-token prompt, about USD 0.15 to 0.26 a night (measured 2026-11-19); the tool prints the real figure.
 
 on:
   schedule:

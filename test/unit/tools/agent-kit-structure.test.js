@@ -951,4 +951,24 @@ test('agent kit structure', { skip }, async (t) => {
 			fs.rmSync(dir, { recursive: true, force: true });
 		}
 	});
+
+	/**
+	 * The pack's flattened docs keep their code examples byte for byte, and every GitHub link
+	 * they gain resolves. Until 2026-11-19 the link flattener rewrote links inside code too:
+	 * `![](asset:team-offsite)` shipped as a GitHub URL, the avatars example's `![](marcus.jpg)`
+	 * pointed at a file that never existed, and folder links went out as `blob/` URLs, which
+	 * GitHub answers with 400.
+	 */
+	await t.test('flattened docs keep code examples verbatim and link only real repo paths', () => {
+		assert.match(readKit('authoring/universal.md'), /`!\[\]\(asset:team-offsite\)`/);
+		assert.match(readKit('plugins/avatars.md'), /^ {2}- !\[\]\(marcus\.jpg\)$/m);
+		const files = ['start.md', 'authoring/universal.md', 'authoring/registers.md', ...fs.readdirSync(path.join(KIT, 'plugins')).map((f) => `plugins/${f}`)];
+		for (const rel of files) {
+			for (const m of readKit(rel).matchAll(/https:\/\/github\.com\/Laticent\/lattice\/(blob|tree)\/main\/([^)#\s]+)/g)) {
+				const abs = path.join(ROOT, m[2]);
+				assert.ok(fs.existsSync(abs), `${rel} links ${m[2]}, which is not in the repo`);
+				assert.equal(m[1], fs.statSync(abs).isDirectory() ? 'tree' : 'blob', `${rel} links ${m[2]} as ${m[1]}/`);
+			}
+		}
+	});
 });
