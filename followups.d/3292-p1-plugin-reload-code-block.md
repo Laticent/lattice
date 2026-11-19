@@ -13,18 +13,18 @@ source: https://github.com/Laticent/lattice/pull/3292
 
 ```text
   P1 · [no ticket] the Studio's first preview after a reload draws a plugin's fence as code
-       why now   — #3292 removed the unstyled frame on reload (a render that began before the stamp
-                   held the plugins now draws as the Studio did before the door held them). The
-                   moment BEFORE the door loads was already there on main: the engine's own render
-                   draws the fence as a code block until the door chunk arrives. Measured with a
-                   parent-page per-frame watcher from the reloaded page's first frame, 4 workers:
-                     main (merge base): code block median 0 / 5 / 0 frames (Chromium / WebKit / Gecko),
-                                        p90 5 / 14 / 0, plus the unstyled badge in 8/20 and 7/20 runs
-                     #3292:             code block median 3 / 6 / 0, p90 7 / 11 / 2, unstyled 0/120
-                   Wrong-look frames per reload (code block + unstyled), mean: main 2.1 / 6.5 / 0.4,
-                   #3292 3.0 / 5.9 / 0.7, within run-to-run noise.
+       why now   — #3292 removed the unstyled frame on reload: a render that began before the stamp
+                   held the plugins shows the block as the engine drew it (door-run.ts `unstamped`).
+                   The moment BEFORE the door loads was already on main: the engine draws the fence
+                   as a code block until the door chunk arrives. Per-frame watcher from the reloaded
+                   page's first frame, 20 reloads per engine, 4 workers (Chromium / WebKit / Gecko):
+                     main (merge base): unstyled badge in 8 / 0 / 7 runs; frames showing the source
+                                        or no fill per reload, mean 2.1 / 6.5 / 0.4 (sd 1.8 / 5.5 / 0.6)
+                     #3292 (e388dbb):   unstyled in 0 / 0 / 0 runs; source frames per reload,
+                                        mean 1.9 / 5.4 / 0.6 (sd 2.1 / 4.0 / 0.6)
+                   So #3292 leaves the code-block moment where main had it; this item is that moment.
        where     — StudioShell.tsx (`setPlugins(...).then(setCodeStamp)` on load); code-packages/entry.ts
-                   (the eager fast path renders without the door); door.ts `withPlugins`.
+                   (the eager fast path renders without the door); door-run.ts `unstamped`.
        done when — after a reload with a plugin approved, no frame shows the fence source or the
                    unstyled block: the first frame with the block is the styled one, on Chromium,
                    WebKit and Gecko.
