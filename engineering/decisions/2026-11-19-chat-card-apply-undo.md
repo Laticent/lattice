@@ -18,9 +18,14 @@ builds nothing in the Studio.
 |---|---|
 | Method | **Prototype first, then a UI/UX expert review**, then decide. Not built in the Studio until then |
 | Seeing a change | **A preview button** that shows the proposed deck in the Studio's preview, rendered for real, before anything is applied |
-| Undo after the deck moved on | **Decided after the prototype** (§5) |
 | History checkpoints | The owner asked whether a card's actions should **accumulate into one saved version**, with pros, cons and the best experience (§6) |
 | Where it lands | **This PR (#3317), this note first** |
+| Card model (after the review) | **Live rows, no tick boxes.** Each slide is its own collapsible card with Apply, Discard and Undo; the proposal is one collapsible deck card. Replaces #3317's tick-box picker |
+| Whole-card actions | **At the bottom right** of the deck card: Apply all (then Apply remaining N), Discard all, and Undo all once nothing waits |
+| Undo after the deck moved on | **By content, decided before the click** (§5, §8) |
+| History | **One entry per card, label kept current**: "Before AI edit · 10:42 · “Make slides 2 and 3…” (2 of 3 applied)" (§6) |
+| Tell the AI | **Yes**: the next message carries one line per card saying which slides were applied, discarded or undone |
+| Look | **The shared collapsible card** (`collapsible-card.tsx`), the same one the chat's cost menu uses |
 
 ## 1. What exists today
 
