@@ -23,14 +23,14 @@ runtime=$(xcrun simctl list runtimes --json | jq -r '[.runtimes[] | select(.plat
 echo "runtime: $runtime" | tee -a "$OUT/env.txt"
 if [ -z "$runtime" ]; then
   echo 'no iOS 17 runtime: trying to download iOS 17.5' | tee -a "$OUT/env.txt"
-  timeout 1200 xcodebuild -downloadPlatform iOS -buildVersion 17.5 >> "$OUT/env.txt" 2>&1 || true
+  xcodebuild -downloadPlatform iOS -buildVersion 17.5 >> "$OUT/env.txt" 2>&1 || true
   runtime=$(xcrun simctl list runtimes --json | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable and (.version | startswith("17.")))] | last | .identifier // empty')
 fi
 [ -z "$runtime" ] && { echo 'still no iOS 17 runtime' | tee -a "$OUT/env.txt"; exit 0; }
 dtype=$(xcrun simctl list devicetypes --json | jq -r '[.devicetypes[] | select(.name | test("^iPad Pro .*13|^iPad Pro .*12.9"))] | last | .identifier // empty')
 [ -z "$dtype" ] && dtype=com.apple.CoreSimulator.SimDeviceType.iPad-Air-5th-generation
 udid=$(xcrun simctl create s17probe "$dtype" "$runtime") || exit 0
-xcrun simctl boot "$udid"; timeout 600 xcrun simctl bootstatus "$udid" -b
+xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b
 echo "device: $dtype $udid" | tee -a "$OUT/env.txt"
 xcrun simctl status_bar "$udid" override --time 9:41 || true
 shot() { # name url appearance
