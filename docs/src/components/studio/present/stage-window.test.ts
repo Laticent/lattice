@@ -35,6 +35,21 @@ describe('stage-window — buildStageDoc', () => {
 		// A script the sanitizer missed would carry no nonce: the deck's markup never sees it.
 		expect(buildStageDoc({ html: '<i>x</i>', width: 1, height: 1, bg: '#000', css: '', runtimeUrl: '/r.js' })).toContain(`'nonce-${nonce}'`);
 	});
+	// The controller writes this document with `document.write`, which stops at a `<script src>`
+	// until the file loads, and `toggle()` asks `isOpen()` (is `#latt-stage` there?) the moment the
+	// write returns. A file-loaded tag ahead of the marker made every Stage open also raise
+	// "Allow pop-ups…" in Chromium and WebKit (stage-window.spec.ts, the hand-close cell).
+	it('parses #latt-stage before any script it has to fetch, so isOpen() holds the moment it is written', () => {
+		const html = '<pre><code class="language-mermaid">flowchart LR</code></pre><div data-sc-model="{}"></div>';
+		for (const standalone of [false, true]) {
+			const doc = buildStageDocTags({ html, width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js', dagreUrl: '/dagre.js', standalone });
+			const marker = doc.indexOf('id="latt-stage"');
+			expect(marker, 'the marker is written').toBeGreaterThan(0);
+			const fetched = [...doc.matchAll(/<script\b[^>]*\bsrc=/gi)].map((m) => m.index ?? -1);
+			expect(fetched.length, 'the agents, dagre and the runtime are all file-loaded').toBeGreaterThanOrEqual(5);
+			expect(Math.min(...fetched), `standalone=${standalone}`).toBeGreaterThan(marker);
+		}
+	});
 	it('omits the katex tag when not supplied, and never writes a Mermaid tag', () => {
 		// A deck with no diagram must not pull a multi-hundred-KB script into the room's window —
 		// and now no deck does from here: the Mermaid plugin's library is loaded by the runtime's

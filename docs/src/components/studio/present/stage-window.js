@@ -230,13 +230,18 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// no deck uses, so putting them last costs the deck nothing and removes the whole
 		// class of "a theme quietly restyled the room's captions".
 		(standalone ? STAGE_CHROME_CSS : '') + '</style>' +
-		// The font gate, in <head> — same placement rule as the other two preview
-		// builders. See lib/core/preview-font-gate.mjs.
-		agentTag(agents, 'fontgate', {}, n) +
 		// The diagram library's fetch starts with the document, not after the runtime boots.
 		(runtimeUrl && markupHasDrawnFence(html) ? drawnLibraryPreload(runtimeUrl).replaceAll('<link rel="preload" as="script"', '<link rel="preload" as="script"' + n) : '') +
 		'</head><body>' +
 		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div>' + controls + '</div>' + chrome + '</div>' +
+		// The font gate goes AFTER `#latt-stage`, unlike the srcdoc builders, which put it in <head>.
+		// The controller writes this document with `document.write`, which stops at a `<script src>`
+		// until the file loads. `toggle()` asks `isOpen()` the moment the write returns, and
+		// `isOpen()` looks for `#latt-stage`. With the gate in <head> the marker was not parsed yet,
+		// so every Stage that opened also raised "Allow pop-ups…" and dropped `stageWanted`. Placed
+		// here it still runs before the runtime and the reveal (classic scripts run in order), and
+		// nothing outside this window polls its flag. See lib/core/preview-font-gate.mjs.
+		agentTag(agents, 'fontgate', {}, n) +
 		// No diagram library tag: the runtime's plugin host loads Mermaid's (the plugin's
 		// payload) from beside `runtimeUrl` when the stage holds a fence.
 		// The dagre layout engine, for a stage carrying a drawn graph chart. Gated on the
