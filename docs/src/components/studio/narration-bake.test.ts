@@ -1037,6 +1037,34 @@ describe('the bake-time compressor is wired in, not merely present', () => {
 		}
 	});
 
+	it('refuses, never ships Ogg, when a clip the device keeps as Ogg Opus cannot be decoded back to WAV', async () => {
+		// The packer reads Ogg as already compressed and would pass it through: a file of Ogg with no lead offset. The bake
+		// refuses with a reason instead.
+		class BrokenOfflineAudioContext {
+			async decodeAudioData() {
+				throw new Error('EncodingError');
+			}
+		}
+		vi.stubGlobal('OfflineAudioContext', BrokenOfflineAudioContext);
+		try {
+			const ogg = { size: 9000, type: 'audio/ogg; codecs=opus', arrayBuffer: async () => new ArrayBuffer(9000) };
+			stored.set(keyFor(S1), ogg.size);
+			getClipOverride = () => ogg;
+			script.set(S2, [4000]);
+			const err = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true }).then(
+				() => null,
+				(e) => e,
+			);
+			expect(err, 'the bake refuses rather than shipping a file').toBeInstanceOf(BakeIncompleteError);
+			expect(
+				err.failures.some((f: { reason: string }) => /could not be decoded/.test(f.reason)),
+				'the refusal names the undecodable clip',
+			).toBe(true);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it('does NOT bank the compressed bytes — the store feeds PLAYBACK, which must stay uncompressed', async () => {
 		// Writing them back would make the next export cheap, and would also hand the live reader
 		// a codec-delayed clip: lamejs writes no gapless header, so every clip it produces opens
