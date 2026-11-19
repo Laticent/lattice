@@ -6,6 +6,15 @@ PDFs from Markdown. It is the engine layer of the **Laticent** org. The
 **in this repository** — it is not built yet, and there is no separate desktop
 repo. Older notes that say otherwise are corrected in place.
 
+**We DEVELOP Lattice here; we never CONSUME it.** Every session works from this
+repo's source: install (`npm ci`, or the session-start hook) and `npm run build`
+before any measurement, test, render or audit, and read results only from the
+build you just made — never from a published package, a CDN copy, a prebuilt
+`dist/` from elsewhere, or stubbed dependencies. **This stays true after Lattice
+is published:** the npm package is an OUTPUT of this repo, never an input to
+work on it. If the install or the build cannot run, **stop and say so before
+doing anything else**; a number taken without the real build is not reported.
+
 **The visual contract is `lattice.css`.** Layouts are palette-blind: every
 color goes through `var(--token)`. Themes (`themes/indaco/indaco.css`,
 `themes/cuoio/cuoio.css`, …) supply the tokens.
