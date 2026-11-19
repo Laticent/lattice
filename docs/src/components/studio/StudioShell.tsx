@@ -84,6 +84,7 @@ import type { ComposeHandle, EmptyState, LayoutRequest, PaneRequest } from './Co
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
+import type { ChatApplyOpts, ChatDraft } from './change-card-types';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
 import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_FIT, EDIT_FIT_LEVELS, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
@@ -161,6 +162,11 @@ import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, set
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { deckCaption, sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
+
+// The chat's draft preview, loaded on first use: it is a second renderer, and only an author previewing an AI
+// change needs it (the Studio's eager bundle is budgeted, docs/route-budget.json).
+const ChatDraftPreview = React.lazy(() => import('./ChatDraftPreview').then((m) => ({ default: m.ChatDraftPreview })));
+
 import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -171,7 +177,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasAnswerAfterConnect, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, CHAT_CARD_NO_ENTRY as NO_ENTRY, onSourceWriteError, type Posture, relabelCheckpoint, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveCheckpointWithId, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -4187,9 +4193,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	React.useEffect(() => () => { for (const t of Object.values(fixTimersRef.current)) clearInterval(t); }, []);
 	// On return from the OpenRouter OAuth redirect (?code=), finish the exchange.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: once, on load, which is when the sign-in returns; setActiveAssistant is stable.
 	React.useEffect(() => {
 		resumePendingAuth().then((r) => {
-			if (r?.status === 'connected') notify('OpenRouter connected — the Architect can now edit your deck.');
+			if (r?.status === 'connected') {
+				notify('OpenRouter connected — the Architect can now edit your deck.');
+				// A message was waiting for this connection: reopen the chat, which answers it (the answer-after-connect mark in studio-store.ts).
+				if (hasAnswerAfterConnect(deckIdRef.current)) setActiveAssistant('chat');
+			}
 			// A failed return used to say nothing, so Connect looked like it did nothing.
 			else if (r?.status === 'failed')
 				notifyAction(r.note, {
@@ -6207,16 +6218,53 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		noteAiEdit(cur, next);
 		return true;
 	};
-	const applyChatEdit = (next: string) => {
+	// The chat's change card applies and undoes one slide at a time. Its card keeps ONE History entry: the first
+	// action saves the deck as it was before the card, and later ones only relabel that entry, so a busy card never
+	// pushes the author's own versions out of the 25 slots (engineering/decisions/2026-11-19-chat-card-apply-undo.md §6).
+	// Returns that entry's id for the card to keep. Each action is still its own undo step (⌘Z), named by `step`.
+	const applyChatEdit = (next: string, opts?: ChatApplyOpts): string | null => {
 		const cur = sourceRef.current;
-		setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI chat edit', Date.now()));
-		setSource(next, { label: 'AI chat edit', origin: 'ai' });
+		let entry: string | null = opts?.checkpoint ?? null;
+		// NO_ENTRY: this card must never save an entry of its own (Auto saved one before it applied, or the card's
+		// first save was skipped), because a later save would hold a deck the AI already changed under "Before AI edit".
+		if (entry === NO_ENTRY) {
+			/* the undo step below is the way back; History already holds the right entry */
+		} else if (entry && loadCheckpoints(deck.id).some((c) => c.id === entry) && opts) setCheckpoints(relabelCheckpoint(deck.id, entry, opts.label));
+		else if (!entry) {
+			const saved = saveCheckpointWithId(deck.id, cur, opts?.label ?? 'Before AI chat edit', Date.now());
+			setCheckpoints(saved.list);
+			// Skipped (the deck already matched the newest entry): that entry IS the way back, and no later action
+			// of this card may save one.
+			entry = saved.id ?? NO_ENTRY;
+		}
+		// An entry that fell out of the 25 is not replaced: the deck it held is gone, and a new one would not be it.
+		setSource(next, { label: opts?.step ?? 'AI chat edit', origin: 'ai' });
 		noteAiEdit(cur, next);
-		goToChunk(0, { after: next });
-		// The AI edit jumps the preview to the top — reveal a collapsed preview so
+		goToChunk(Math.max(0, (opts?.slide ?? 1) - 1), { after: next });
+		// The AI edit jumps the preview to the changed slide — reveal a collapsed preview so
 		// the applied change is never rendered into a hidden pane (no-op when open).
 		splitApiRef.current.expand('b');
+		return entry;
 	};
+	// The chat's draft preview (ChatDraftPreview): a proposed deck shown, not applied. The chat clears it whenever
+	// the deck changes; a deck switch clears it here.
+	const [chatDraft, setChatDraft] = React.useState<ChatDraft | null>(null);
+	const chatDraftRef = React.useRef(chatDraft);
+	chatDraftRef.current = chatDraft;
+	// Tell the card, so its preview buttons read true. Read from a ref, not inside the state update, which React
+	// may run twice.
+	const closeChatDraft = React.useCallback(() => {
+		const d = chatDraftRef.current;
+		setChatDraft(null);
+		d?.onClosed?.();
+	}, []);
+	// A preview into a collapsed pane would show nothing: reveal it first, as an applied edit does.
+	const showChatDraft = React.useCallback((d: ChatDraft | null) => {
+		if (d) splitApiRef.current.expand('b');
+		setChatDraft(d);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a deck switch is the trigger.
+	React.useEffect(() => setChatDraft(null), [deck.id]);
 
 	// The photo finding is measured, not linted, and "Fix all" cannot draft it, so it rides alongside the lint top six
 	// instead of competing with them for a slot: the count the panel shows and the set "Fix all" drafts stay one set.
@@ -6627,7 +6675,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const chatBodyWith = (costSlot?: HTMLElement | null) => (
 		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); drillPane('chat', 'library'); }} />}
+			{(ArchitectChat) => <ArchitectChat costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onPreview={showChatDraft} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); drillPane('chat', 'library'); }} />}
 		</PanelLoader>
 	);
 
@@ -7841,7 +7889,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    NOT as React props, whose synthetic touch/wheel listeners are passive and
 			    so cannot preventDefault the browser's own page zoom. The card's aspect
 			    ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className={cn('flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
+			<div ref={previewHolderRef} className={cn('relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
+				{chatDraft && !mobile && (
+					<React.Suspense fallback={null}>
+						<ChatDraftPreview
+							draft={chatDraft}
+							current={source}
+							variant="pane"
+							onClose={closeChatDraft}
+							render={{ options, paletteOverride: preview.paletteOverride, extraTheme: preview.extraTheme, modeOverride: preview.modeOverride, extraCss: previewExtraCss, webOrigins: webAllowed }}
+							frameStyle={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}`, width: previewPaneSize ? `${Math.floor(Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue))}px` : '100%' }}
+						/>
+					</React.Suspense>
+				)}
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -9383,6 +9443,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{welcomeMode && (
 				<React.Suspense fallback={null}>
 					<WelcomeCard mode={welcomeMode} onClose={closeWelcome} onStart={startWelcomeTour} onTest={testWelcomeSound} onLessons={openLessonsAfterTour} end={endCard} onNext={startNextTour} />
+				</React.Suspense>
+			)}
+			{chatDraft && mobile && (
+				<React.Suspense fallback={null}>
+					<ChatDraftPreview draft={chatDraft} current={source} variant="sheet" onClose={closeChatDraft} frameStyle={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }} render={{ options, paletteOverride: preview.paletteOverride, extraTheme: preview.extraTheme, modeOverride: preview.modeOverride, extraCss: previewExtraCss, webOrigins: webAllowed }} />
 				</React.Suspense>
 			)}
 			<Toaster />
