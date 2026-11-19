@@ -31,7 +31,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
-import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
+import { CODE_APPROVALS_KEY, codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
@@ -188,6 +188,12 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+/** A `storage` event that can change this browser's code approvals: the approvals key, or `null`, which is another tab
+ *  clearing this browser's storage, approvals with it (#3292). */
+export function approvalsMayHaveChanged(key: string | null): boolean {
+	return key === CODE_APPROVALS_KEY || key === null;
+}
 
 // The warm-up queue, held while the chat renders a draft (first-slide.ts `holdWarmUps`).
 const warmPanels = heldWarmPanels(warmPanelsNow);
@@ -1786,6 +1792,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [localPlugins]);
 	const removePlugin = React.useCallback((id: string) => { deleteStudioPlugin(id).then(() => refreshComponents()); }, [refreshComponents]);
 	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);
+	// An approval given or withdrawn in another tab of this browser: the stamp decides what this tab's previews draw
+	// (code-packages/door.ts `approvalsInStamp`, #3292), so it must hear the change, or it keeps drawing the old answer.
+	React.useEffect(() => {
+		const heard = (e: StorageEvent) => {
+			if (approvalsMayHaveChanged(e.key)) setCodeStamp(codePackagesStamp());
+		};
+		window.addEventListener('storage', heard);
+		return () => window.removeEventListener('storage', heard);
+	}, []);
 	// LIBRARY PHOTOS (`asset:<name>`): the registry holds a name → object-URL map for the shared
 	// assets plus this deck's own (media-urls.ts). Its stamp joins the preview's extra CSS, which
 	// every preview and export cache keys on, so adding, deleting or re-scoping a photo re-renders

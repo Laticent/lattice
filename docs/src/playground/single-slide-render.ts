@@ -1938,7 +1938,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, stablePaneSheet: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, codeApproval: extraCss || '', stablePaneSheet: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
@@ -2032,7 +2032,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// what this surface did before deck context existed. One extra engine call on
 						// an uncommon deck shape, and only for as long as the deck stays that shape.
 						const alonePlugins = PG.pluginAdmission?.(markdown) ?? undefined;
-						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, ...(alonePlugins ? { pluginDefaults: alonePlugins } : {}) });
+						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, codeApproval: extraCss || '', ...(alonePlugins ? { pluginDefaults: alonePlugins } : {}) });
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 						// Swap only the HTML: theme CSS and `@size` geometry are identical (same theme,
 						// same front matter), and keeping the first render's `stats` keeps the perf
