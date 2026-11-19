@@ -109,6 +109,17 @@ function weightEndingIn(spans: readonly EmphasisSpan[], from: number, to: number
   return max;
 }
 
+/** The registry keys that are several words with a period inside one of them: the only keys a sentence
+ *  split can cut in two. Read from all three registries, as the matcher reads them. */
+function dottedPhraseKeys(opts: BuildOptions): string[] {
+  const out: string[] = [];
+  for (const map of [opts.terms, opts.acronyms, opts.lexicon]) {
+    if (!map) continue;
+    for (const key of map.keys()) if (/\.\s/.test(key.trim())) out.push(key);
+  }
+  return out;
+}
+
 export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack {
   const pace = opts.pace ?? 'moderate';
   const rateScale = opts.rateScale ?? 1;
@@ -118,7 +129,9 @@ export function buildTrack(text: string, opts: BuildOptions = {}): CaptionTrack 
   // the audio clips), plus which sentences END a paragraph (a blank line follows). A paragraph beat
   // is the deeper `PARAGRAPH_PAUSE_MS` gap; the speech projection emits blank lines between a slide's
   // structural blocks, and an author's multi-paragraph note carries them natively.
-  const { sentences, paragraphEnd } = splitParagraphs(source);
+  // A deck's multi-word term with a period inside (`"Oct. Tenth"`, `"St. Louis"`) is never split into
+  // two cues: the author declared it one thing, and a phrase cut across cues can never match.
+  const { sentences, paragraphEnd } = splitParagraphs(source, dottedPhraseKeys(opts));
 
   const cues: Cue[] = [];
   let clock = 0;

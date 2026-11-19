@@ -153,7 +153,7 @@ function abbrevKey(left: string): string {
  * Is the break between `left` and `right` an ABBREVIATION's period rather than a
  * sentence end? Only a period is ever ambiguous — `!` and `?` and `…` always close.
  */
-function isAbbreviationBreak(left: string, right: string): boolean {
+export function isAbbreviationBreak(left: string, right: string): boolean {
   const l = left.trim();
   if (!new RegExp(`\\.[${CLOSERS}]*$`).test(l)) return false;
   const key = abbrevKey(l);
@@ -161,6 +161,8 @@ function isAbbreviationBreak(left: string, right: string): boolean {
   if (ABBREV_ALWAYS.has(key)) return true;
   const r = right.trim();
   if (ABBREV_BEFORE_DIGIT.has(key)) return /^\d/.test(r);
+  // `approx.` qualifies the amount after it, and the amount is usually a number: "approx. 40 sites".
+  if (key === 'approx') return /^[a-z\d]/.test(r);
   if (ABBREV_BEFORE_MONEY.has(key)) return /^(?:\p{Sc}|[a-z])/u.test(r);
   if (ABBREV_BEFORE_LOWER.has(key) || INITIALISM.test(key)) return /^[a-z]/.test(r);
   return false;
@@ -172,8 +174,9 @@ function isAbbreviationBreak(left: string, right: string): boolean {
  * abbreviation. `splitSentences` folds such a break back, and `splitParagraphs` must
  * consult the SAME predicate or the two disagree on a paragraph that ends this way.
  */
-function isSpuriousBreak(left: string, right: string): boolean {
+function isSpuriousBreak(left: string, right: string, joins?: readonly string[]): boolean {
   const r = right.trim();
+  if (joins?.length && insideJoin(left, r, joins)) return true;
   if (CONTINUATION_START.test(r)) return true;
   // A run of exactly TWO periods is a RANGE separator, not a terminator: `gantt` spells
   // a span `2026 Q1 .. 2026 Q4`, and nine shipped decks use it. It broke there on `main`
@@ -192,13 +195,38 @@ function isSpuriousBreak(left: string, right: string): boolean {
 }
 
 /**
+ * Does the break between `left` and `right` fall INSIDE one of `joins` — a deck-declared multi-word
+ * term whose own word ends in a period (`"Oct. Tenth"`, `"St. Louis"`)? The author declared that run
+ * of words as one thing, so no structural rule may cut it: the term is matched after the split, and
+ * a phrase split across two cues can never match. Words compare case-insensitively, and the last word
+ * of `right`'s side may carry trailing punctuation (`Tenth.`). Exact words only, never a guess.
+ */
+function insideJoin(left: string, right: string, joins: readonly string[]): boolean {
+  const lw = left.trim().split(' ');
+  const rw = right.split(' ');
+  const same = (a: string | undefined, b: string) => a !== undefined && a.toLowerCase() === b.toLowerCase();
+  for (const key of joins) {
+    const kw = key.trim().split(/\s+/);
+    for (let k = 0; k < kw.length - 1; k++) {
+      if (!kw[k].endsWith('.')) continue;
+      const head = kw.slice(0, k + 1);
+      const tail = kw.slice(k + 1);
+      if (!head.every((w, n) => same(lw[lw.length - head.length + n], w))) continue;
+      const last = tail.length - 1;
+      if (tail.every((w, n) => (n === last ? same(rw[n]?.replace(/[.,!?;:…]+$/, ''), w) : same(rw[n], w)))) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Split text into sentences. Whitespace is collapsed first so a sentence never
  * carries stray newlines. Splits on whitespace that FOLLOWS a sentence terminator
  * (a lookbehind) and its optional closing quote, leaving decimals/version
  * numbers/currency intact; a trailing fragment with no terminator is its own
  * sentence. A break `isSpuriousBreak` rejects is then folded back.
  */
-export function splitSentences(text: string): string[] {
+export function splitSentences(text: string, joins?: readonly string[]): string[] {
   const s = String(text ?? '').replace(/\s+/g, ' ').trim();
   if (!s) return [];
   const parts = s
@@ -210,7 +238,7 @@ export function splitSentences(text: string): string[] {
     const prev = out.length ? out[out.length - 1] : null;
     // Compare against the ACCUMULATED sentence, not the raw fragment, so a run of
     // abbreviations ("Cal. Civ. Code …") folds all the way back into one cue.
-    if (prev !== null && isSpuriousBreak(prev, part)) out[out.length - 1] = `${prev} ${part}`;
+    if (prev !== null && isSpuriousBreak(prev, part, joins)) out[out.length - 1] = `${prev} ${part}`;
     else out.push(part);
   }
   return out;
@@ -230,7 +258,7 @@ export function splitSentences(text: string): string[] {
  * real sentence split); a blank line mid-sentence (a terminator-less block, or a hand-wrapped note)
  * MERGES across the break, matching what `splitSentences` does after it collapses the whitespace.
  */
-export function splitParagraphs(text: string): { sentences: string[]; paragraphEnd: Set<number> } {
+export function splitParagraphs(text: string, joins?: readonly string[]): { sentences: string[]; paragraphEnd: Set<number> } {
   // Split on a blank line: a newline run with only spaces/tabs between (collapses 3+ blank lines to
   // one boundary; `\r?\n` so a CRLF-authored note breaks too). Anything without a blank line stays
   // one chunk → identical to today's single split.
@@ -241,7 +269,7 @@ export function splitParagraphs(text: string): { sentences: string[]; paragraphE
   for (let i = 0; i < chunks.length; i++) {
     const merged = carry ? `${carry} ${chunks[i]}` : chunks[i];
     carry = '';
-    const sents = splitSentences(merged);
+    const sents = splitSentences(merged, joins);
     if (!sents.length) continue;
     const isLast = i === chunks.length - 1;
     // Ends "clean" iff the chunk's last non-space char is a terminator (plus an optional closing
@@ -251,7 +279,7 @@ export function splitParagraphs(text: string): { sentences: string[]; paragraphE
     // `trimEnd()` (linear) strips trailing whitespace; a `/[ \t\r\n]+$/` replace would retry at
     // every position (polynomial on a long whitespace run — a ReDoS on untrusted deck text).
     const tail = merged.trimEnd();
-    const endsClean = ENDS_TERMINATED.test(tail) && !isSpuriousBreak(tail, chunks[i + 1] ?? '');
+    const endsClean = ENDS_TERMINATED.test(tail) && !isSpuriousBreak(tail, chunks[i + 1] ?? '', joins);
     if (!isLast && !endsClean) {
       // Tail has no terminator → it fuses with the next chunk's first sentence under the collapse.
       // Emit all but the last, carry the last forward, and DON'T mark a paragraph beat here.

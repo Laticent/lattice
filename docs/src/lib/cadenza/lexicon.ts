@@ -73,6 +73,13 @@ const BASE: Record<string, string> = {
   // whole-token PAUSE rule in normalize.ts. Keeping single-glyph copies here would be a dead,
   // contradicting duplicate.
   '§§': 'sections',
+  // DOTTED abbreviations with ONE meaning in any deck. The period is part of the key, so the whole
+  // token matches before the terminator peel. Left out because each has two readings a deck really
+  // writes: `Dr.` (Doctor · Drive), `St.` (Saint · Street), `No.` (number · the word), `Fig.` (figure ·
+  // the fruit), `est.` (estimated · established), `Inc.`/`Ltd.` (said several ways). A deck that means
+  // one declares it in `terms:`. Capital letters joined by dots (`U.S.`, `D.C.`) are spelled by a rule
+  // in normalize.ts, not listed here.
+  'e.g.': 'for example', 'i.e.': 'that is', 'etc.': 'et cetera', 'vs.': 'versus', 'approx.': 'approximately',
 };
 
 // ── BASE_CASED — EXACT-CASE keys, always on (letters that also spell a word) ──
@@ -114,6 +121,12 @@ const BASE_CASED: Record<string, string> = {
   // beside a date — `contextualMonth` in normalize.ts owns them.
   Feb: 'February', Apr: 'April', Jul: 'July', Aug: 'August', Sep: 'September',
   Sept: 'September', Oct: 'October', Nov: 'November', Dec: 'December',
+  // Clock and degree abbreviations, exact case (a bare `PM` is also "product manager"; only the
+  // dotted forms are the clock), and the courtesy titles, exact case so an all-caps `MS.` (a product,
+  // a disease) never reads "miz".
+  'a.m.': 'A M', 'p.m.': 'P M', 'A.M.': 'A M', 'P.M.': 'P M',
+  'Ph.D.': 'P H D', PhD: 'P H D',
+  'Mr.': 'mister', 'Mrs.': 'missus', 'Ms.': 'miz', 'Prof.': 'professor',
   // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
   // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
   // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom
@@ -200,7 +213,8 @@ const HOUSE_EXPANSIONS: Record<string, string> = {
 const HOUSE_DISPLAY: Record<string, string> = { saas: 'SaaS', capex: 'CapEx', opex: 'OpEx' };
 
 // Entries in the tables that are not terms an author defines: quarters, durations, months, glyphs.
-const NOT_A_TERM = /^(?:q[1-4]|mos?|§§|Feb|Apr|Jul|Aug|Sept?|Oct|Nov|Dec)$/;
+// A key with a period in it is an abbreviation (`e.g.`, `a.m.`, `Mr.`), not a term an author defines.
+const NOT_A_TERM = /^(?:q[1-4]|mos?|§§|Feb|Apr|Jul|Aug|Sept?|Oct|Nov|Dec|PhD|.*\..*)$/;
 
 /**
  * Every always-on built-in term as WRITTEN on a slide → what the voice SAYS (BASE + BASE_CASED, the

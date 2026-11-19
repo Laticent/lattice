@@ -12,7 +12,7 @@
 // plain numbers, a small abbreviation set).
 
 import { CONTEXT_MONTHS, houseSpokenMap, type LexDomain, lookupLexicon } from './lexicon.js';
-import { splitWords } from './segment.js';
+import { isAbbreviationBreak, splitWords } from './segment.js';
 import { type LexiconMap, resolveSymbols, SEPARATOR_GLYPHS } from './symbols.js';
 import { compoundParts, lookupTerm, type PhraseSlot, phraseCover, type TermHit, type TermIndex, type TermMap, termIndex } from './terms.js';
 
@@ -361,10 +361,21 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // terminator ("Kubernetes.", "R&D.") still matches its key. Runs BEFORE the symbol commons so the
   // whole-key override beats a glyph embedded in that key. Re-attach the softened punctuation; a
   // silenced token drops it too.
-  const coreHit = lookupTerm(terms, core);
+  // A key that ENDS in its own period (`"U.S."`) still matches when another mark follows it (`U.S.,`):
+  // the peel took the key's period with the comma.
+  const plainHit = lookupTerm(terms, core);
+  const dotHit = plainHit ? undefined : punct.startsWith('.') ? lookupTerm(terms, `${core}.`) : undefined;
+  const coreHit = plainHit ?? dotHit;
   if (coreHit) {
     const spoken = spokenTerm(coreHit, opts);
-    return spoken ? spoken + spokenPunct : '';
+    // A key that took its own period keeps only the marks after it (`U.S.,` → "…," not "….,").
+    return spoken ? spoken + (dotHit ? spokenPunct.slice(1) : spokenPunct) : '';
+  }
+  // CAPITAL LETTERS JOINED BY PERIODS — `U.S.`, `U.N.`, `D.C.` — are spelled, one letter at a time.
+  // A rule, not a list: the shape has one reading. The token's final period is the initialism's own,
+  // so it is not voiced as a stop either.
+  if (english && /^[A-Z](?:\.[A-Z])+$/.test(core) && punct.startsWith('.')) {
+    return core.split('.').join(' ') + punct.slice(1).replace(/[:;]/g, ',');
   }
   // A BUILT-IN term with an ending (`APIs` → "application programming interfaces", `CEO’s`). The
   // whole-token case already matched through `lookupLexicon` above; only the ending is new here.
@@ -812,7 +823,22 @@ export function spokenAt(words: readonly string[], i: number, opts: SpokenOpts =
   const spoken = contextualMonth(words[i], words[i - 1], words[i + 1], opts)
     ?? afterNumber(words[i], words[i - 1], words[i - 2], opts)
     ?? toSpoken(words[i], opts);
-  return dedupeDirection(words[i - 1], spoken);
+  return dedupeDirection(words[i - 1], abbreviationDot(words, i, spoken));
+}
+
+/**
+ * An ABBREVIATION's period is not a full stop, so it is not spoken as one. `Oct. 10` reads "October
+ * ten", not "October. ten": the voice treats a spoken period as the end of a sentence and pauses.
+ * Whether the period is the abbreviation's is decided by the SAME predicate the sentence splitter
+ * uses (segment.ts `isAbbreviationBreak`), so a dot that does not split the cue is never voiced as a
+ * stop, and one that does split it still is. Only the spoken form changes; the caption keeps the dot.
+ */
+function abbreviationDot(words: readonly string[], i: number, spoken: string): string {
+  const next = words[i + 1];
+  // Only a word WE replaced loses its period (`Oct.` → "October"). One we pass through as written
+  // (`Dr.`) keeps it, so the voice's own front end still sees the abbreviation.
+  if (next === undefined || !words[i].endsWith('.') || !spoken.endsWith('.') || spoken === words[i]) return spoken;
+  return isAbbreviationBreak(words[i], next) ? spoken.slice(0, -1) : spoken;
 }
 
 // The phrase cover of a sentence, computed once per word array (a caller asks for each index in turn).
