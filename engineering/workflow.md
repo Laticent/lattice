@@ -1047,8 +1047,10 @@ are ESCAPED into visible text, and a rule whose selector LEADS with
 few cheap workflows still run on a draft push: `pr-closing-keywords.yml`, and the path-filtered
 `apt-cache-warm.yml` and `apt-mirror-probe.yml`.) Those three heavy workflows'
 `pull_request` trigger lists `opened`, `synchronize`, `reopened` and `ready_for_review`, and each
-entry job carries `if: github.event_name == 'merge_group' || !github.event.pull_request.draft`.
-So the agent, not the push, decides when CI runs:
+entry job skips a draft: in `ci.yml`, `changes`, `lint`, `unit` and the `ci` gate carry
+`github.event_name == 'merge_group' || !github.event.pull_request.draft`; `platform-suites.yml`'s
+`plan` carries `github.event_name != 'pull_request' || !github.event.pull_request.draft`; and
+`docs-preview.yml`'s `preview` adds `&& !github.event.pull_request.draft` to its fork check. So the agent, not the push, decides when CI runs:
 
 ```console
 $ gh pr ready --undo <PR>   # park: pushes from here on run no job

@@ -1,0 +1,1 @@
+- The CI-green beacon and the golden-diff sticky comment now read every page of a PR's comments, so a PR past 100 comments no longer piles up duplicate beacons.
