@@ -166,7 +166,13 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     origin (reproduced in all three engines; with the guards the same probe writes nothing). It now
     acts only in an opaque document (`self.origin === "null"`: sandboxed without
     `allow-same-origin`) and only on a document sent from our own origin (`e.origin ===
-    location.origin`). **Only a page with a policy uses it**: a page without one (the Studio today)
+    location.origin`). A red-team pass (2026-11-19) added a third: the shell writes only a document that
+    OPENS with its own policy (`SHELL_DOC_PREFIX`), because one without would run under the shell's
+    policy alone, which admits a script from any host; that reached an outside server in all three
+    engines, though neither host writes such a document. The same pass found that author markup could
+    shadow `document.currentScript` with a named element and pick an agent's data; the sanitizer strips
+    the name, and the agents file now reads the real getter and runs only for a real `<script>`.
+    **Only a page with a policy uses it**: a page without one (the Studio today)
     writes `srcdoc` as before, because the shell is a navigation the service worker never sees (it
     does not control an opaque-origin frame), so offline it lasts only as long as the HTTP cache.
   - **Per-page allowances instead of exemptions.** An outside origin a page's code calls now joins

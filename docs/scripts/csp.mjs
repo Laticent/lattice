@@ -224,18 +224,19 @@ const ORIGIN_RE = /https:\/\/([a-z0-9.-]+\.[a-z]{2,})/g;
 // would pass here and fail in the browser, where the e2e reads it.
 // What this cannot see is a script made with `createElement('script')` and given text at run time;
 // e2e/site-csp.spec.ts, which reads refusals out of every frame, is the guard for that shape.
-const SCRIPT_OPEN = /<script(?=[\s>"'`$+])/g;
+const SCRIPT_OPEN = /<script(?=[\s>"'`$+])/gi; // HTML tag names are case-blind (`<SCRIPT>` runs)
 // The document the script sits in opens with its own policy: the last `<!doctype html` before it is
 // followed by a CSP meta. (A module-loaded draw frame puts its import map between the two.)
 const OWN_POLICY = /http-equiv=\\?["']?Content-Security-Policy/;
 function ownPolicyBefore(code, at) {
 	const pre = code.slice(Math.max(0, at - 2000), at);
-	const doc = pre.lastIndexOf('<!doctype html');
+	const doc = pre.toLowerCase().lastIndexOf('<!doctype html');
 	return doc !== -1 && OWN_POLICY.test(pre.slice(doc));
 }
 // Any `type` but a script type is a data block the browser never runs, an interpolated one included:
 // every builder that writes `type="${…}"` writes a data envelope (lattice-doc.js, data-block.js).
-const NOT_RUN_TYPE = /\btype=(?!\\?["']?(?:module\b|text\/javascript|application\/javascript))/i;
+// An EMPTY type runs as JavaScript, and so do the ecmascript types, so neither is a data block.
+const NOT_RUN_TYPE = /\btype=(?!\\?["']?(?:module\b|(?:text|application)\/(?:java|ecma)script\b)|\\?["']\\?["'])/i;
 // Markup in a string starts the string, follows a tag or a line, or is spliced in; prose that names
 // `<script>` follows a space ("no <script>, no <style>" in a model prompt, a lint message).
 const MARKUP_BEFORE = /(?:[`"'>+]|\\n|\n)\s*$/;
@@ -261,7 +262,7 @@ export function writesInlineFrameScript(code) {
 			.replace(/(["'`])\s*\+[^"'`]*?\+\s*\1/g, '')
 			.replace(/\\["'`/]/g, '');
 		if (/[[\\(]/.test(bare)) continue;
-		if (/\bsrc=/.test(tag) || NOT_RUN_TYPE.test(tag)) continue;
+		if (/(?<![-\w])src=/i.test(tag) || NOT_RUN_TYPE.test(tag)) continue; // `data-src=` is not a source
 		const body = code.slice(i + 1, i + 12);
 		if (/^(?:<\\?\/script|`|"|')/.test(body) && !/^(?:`|"|')\s*\+/.test(body)) continue; // empty element, or the string ends
 		if (!ownPolicyBefore(code, m.index)) return true;
