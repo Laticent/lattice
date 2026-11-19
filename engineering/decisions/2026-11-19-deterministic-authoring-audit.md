@@ -322,6 +322,53 @@ behind the one before it only where it reads that one's output.
 - Measure the result: a fixed set of authoring prompts, run before and after, scored by
   `slot-contract` findings and rendered drops. "Deterministic" is a number, not a feeling.
 
+## Keeping it from drifting again
+
+**Asked (2026-11-19):** "How do we also ensure there isn't future drift?"
+
+Every drift in this audit has one of three causes. Each workstream above removes its cause by
+construction, and leaves no rule that depends on someone remembering it.
+
+| How it drifted | Example from the audit | What closes it |
+|---|---|---|
+| **A fact lived in prose** that nothing executes | `selector`, `required`, "always use `1.`", "ten layouts claim the blockquote" | **D1.** Every fact is a field with an enum or a structured shape, never free text. Counts in docs are generated or not stated |
+| **A gate checked one direction** | `checkVariantDeclaration` catches implemented-but-undeclared variants; nothing catches declared-but-inert ones (`numbered`, `banner-tag`) | **D2.** Every manifest↔code check runs both ways and fails on a stale entry |
+| **A check ran once, or on demand** | the 2026-06-15 manifest audit; `check:modifier-effects` | **D3.** The audit's probes become tests in tiers that already run on every PR |
+
+The mechanisms, each tied to a workstream:
+
+- **D1 — One source, everything else generated** (W1, W5, W6). Each component manifest and the
+  base manifest are the only hand-written contract. The lint rules, `MODIFIER_GROUPS`, the
+  reference half of `base.docs.md`, `<name>.docs.md`, `components.pick.md`, the contract card and
+  the Studio canon are all generated from them. A generated file cannot drift, and `build:check`
+  already fails when one is stale. Retiring the duplicate registries (`UNIVERSAL_GROUPS`, the
+  scattered token lists) removes the copies that drifted.
+- **D2 — The schema refuses vagueness** (W1, W2, W4). `selector` becomes a structured shape, so
+  a prose selector cannot pass. `lists` is required on any component that reads a list.
+  `universals` defaults to supported, and an opt-out needs a reason string. A new component
+  cannot ship without answering each question, because the schema asks it.
+- **D3 — The contract is executed both ways, on every PR** (W1, W4). These are added to existing
+  test tiers, with no new CI job:
+  - **Manifest → code:** every manifest sample satisfies its own slot contract.
+  - **Code → manifest:** a conformance test walks every manifest found on disk (no roster to
+    forget). For each component × universal × list marker it renders the slide and asserts that
+    the rendered state equals the declared one. A declared variant with no rendered effect fails
+    too.
+- **D4 — The no-silent-change invariant** (W1). This one property catches drift nobody
+  anticipated. For every component, the build mutates its sample: swap `1.`/`-`, delete each
+  required slot, demote `##` to `#`, add bold to each lead, append each universal. **Each
+  mutation must either render identically or produce a lint finding.** A mutation that changes
+  the render while lint stays silent is exactly the failure this audit found 66 times, and from
+  then on it fails the build. That is the operational meaning of "lint-clean means correct".
+- **D5 — The agent eval as a ratchet** (W6). The fixed prompt set from W6 is scored by
+  `slot-contract` findings and rendered drops. Its score is committed as a baseline that may only
+  improve (the `flaky-test-baseline.json` pattern). Running it spends model budget, so it can
+  only run nightly or on dispatch, never per PR (HARD RULE #24's posture). **Adding that workflow
+  is a CI-contract change, so it comes back to the owner with measured cost before it is built.**
+
+What this does not cover: taste. A layout can honor its contract and still look wrong. That stays
+with the visual review path (Quality Bar, `engineering/visual-review.md`).
+
 ## Settled with the owner (2026-11-19)
 
 | Question | Answer |
