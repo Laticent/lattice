@@ -195,7 +195,7 @@ async function latticePhotoProbe() {
 	 * Wait until the editor's lint has answered for the text it holds NOW: the editor stamps the length of the text each
 	 * pass linted on its root (`data-linted-chars`, Editor.tsx `reportLint`) for exactly this. Every editor underline,
 	 * the photo warning included, waits on that pass. In the iOS Simulator the first answer for the probe's deck came
-	 * 5 to 24 s after it was typed (a cold lint worker loading the lint core; dispatches on #<this PR>, where the plain
+	 * 5 to 24 s after it was typed (a cold lint worker loading the lint core; dispatches on #3326, where the plain
 	 * lint warning on slide 2 and the photo warning on slide 1 always appeared in the same instant), so a fixed 20 s
 	 * wait for the underline ran out on an iPad (run 44526306430) and an iPhone (run 44149207107) before lint had said
 	 * anything. The deadline is the probe's cold-start hang guard, as for the first render: the signal ends the wait.
