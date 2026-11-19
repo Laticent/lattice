@@ -138,14 +138,15 @@ test('Chat: a word change across the deck is one replace, staged for Apply', asy
 	await input.fill('Change the word "program" to "initiative" everywhere in the deck. Change nothing else.');
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
 
-	const apply = page.getByRole('button', { name: 'Apply', exact: true });
+	// Two slides change, so the card's whole-card button reads "Apply all" (one slide: "Apply").
+	const apply = page.getByRole('button', { name: /^Apply( all)?$/ });
 	await expect(apply).toBeVisible({ timeout: 120_000 });
 	expect(await persistedSource(page)).toContain('program');
 	// The replace tool's own activity line (architect-agent.ts `replaceText`'s note).
 	await expect(page.getByText(/replaced "program/i).first()).toBeAttached();
 
 	await apply.click();
-	await expect(toastText(page)).toContainText('Edit applied');
+	await expect(toastText(page)).toContainText(/Edit applied|Applied \d+ edits/);
 	await expect.poll(() => persistedSource(page)).not.toMatch(/\bprogram\b/i);
 	const after = await persistedSource(page);
 	expect(after).toContain('referral initiative');
