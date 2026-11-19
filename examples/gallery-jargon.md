@@ -779,8 +779,8 @@ The pilot team measured what the pilot team built.
 
 ---
 
-<!-- _class: kpi target -->
-<!-- _footer: "KPIs against targets · kpi target" -->
+<!-- _class: kpi -->
+<!-- _footer: "KPIs against targets · kpi" -->
 
 ## Where we are against quarter targets
 

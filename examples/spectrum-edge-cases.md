@@ -159,9 +159,16 @@ Each pair starts as a last carved to one foot.
 
 <!-- _class: premise -->
 
-`Premise · centered statement`
+## The claim holds the left, its rows the right.
 
-## One sentence, centered, never nudged.
+The spectrum rail runs above both, and neither column nudges it.
+
+1. Claim
+   - One sentence on the left.
+2. Rows
+   - Parallel evidence on the right.
+3. Rail
+   - The spectrum runs above both.
 
 ---
 

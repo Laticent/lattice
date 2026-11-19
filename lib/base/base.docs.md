@@ -955,10 +955,15 @@ the table and the rule are `lib/core/switches.mjs`. The old spellings
 (`callout-off`, `spectrum-on`, `row-label`, `finish-none`, …) were retired outright,
 and `lint:deck` rewrites each one.
 
-## Universal variants
+## Common modifiers
 
-Opt-in via `_class:`. Compose with any layout. The full set is defined
-in `lib/components/index.js` as `MODIFIER_GROUPS`; this section documents the common ones.
+Opt-in via `_class:`. Compose with any layout. This section explains the common
+ones. The full set is declared in `lib/base/base.manifest.json` and listed, group
+by group, in the generated [base modifier reference](./base.modifiers.docs.md),
+which also gives the one-line test for each kind of word: a **modifier** is in a
+group of that manifest; a **variant** is in one component's own `variants`; a few
+words such as `mirror` and `numbered` are both, accepted on any slide but acting
+only on the components that list them (the `aliases` group).
 
 ### `dark`
 

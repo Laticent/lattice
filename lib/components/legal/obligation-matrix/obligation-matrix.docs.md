@@ -14,12 +14,12 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing what the matrix compares. |
-| `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x]/[-]/[!]/[?]/[ ]/[/]) in cells. |
-| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the marker key: `[{[x], In force}, {[/], Not subject}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing above the grid. |
-| `legend` | `p` | no | Optional trailing paragraph — what to take from the matrix, or a caveat about the placements. It no longer has to explain the markers: the key under the grid names them, derived from the ones the cells actually carry. |
+| `heading` | a `## ` heading | yes | Slide heading framing what the matrix compares. |
+| `matrix` | a table | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x]/[-]/[!]/[?]/[ ]/[/]) in cells. |
+| `key` | a line of `inline code` | no | OPTIONAL label set renaming the marker key: `[{[x], In force}, {[/], Not subject}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing above the grid. |
+| `legend` | a paragraph | no | Optional trailing paragraph — what to take from the matrix, or a caveat about the placements. It no longer has to explain the markers: the key under the grid names them, derived from the ones the cells actually carry. |
 
 ### Variant decision rule
 
@@ -165,7 +165,7 @@ Each lane stripe signals that the row is its own regime, not a rank.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

@@ -32,18 +32,18 @@ Every role keeps its hierarchy in the tall frame, because the portrait scale is 
 
 ## Quarter in four numbers.
 
-- Revenue
-  - `{$48.2M}`
-  - up 23% YoY
-- Net retention
-  - `{118%}`
-  - `{expanding}`
-- Gross margin
-  - `{71%}`
-  - `{+4pt}`
-- Pipeline
-  - `{$210M}`
-  - `{3.1x cover}`
+1. Revenue
+   - `{$48.2M}`
+   - up 23% YoY
+2. Net retention
+   - `{118%}`
+   - `{expanding}`
+3. Gross margin
+   - `{71%}`
+   - `{+4pt}`
+4. Pipeline
+   - `{$210M}`
+   - `{3.1x cover}`
 
 ---
 

@@ -58,16 +58,19 @@
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": false,
       "description": "Optional heading — the so-what of the scene, not 'Animation'."
     },
     "scene": {
       "selector": ".scene-figure svg, svg",
+      "match": [{ "kind": "html", "tag": "svg" },{ "kind": "fence" }],
       "required": true,
       "description": "The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image)."
     },
     "body": {
       "selector": "p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "Optional caption — one line on what the motion reveals that a still can't."
     }

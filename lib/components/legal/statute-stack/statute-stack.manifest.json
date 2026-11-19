@@ -73,6 +73,17 @@
   "excludes": [
     "claim-bleed"
   ],
+  "variantSlots": {
+    "lane": {
+      "rows": {
+        "selector": "table",
+        "match": {
+          "kind": "table"
+        },
+        "description": "One table row per jurisdiction, in one column."
+      }
+    }
+  },
   "variants": [
     "hierarchy",
     "bands",
@@ -94,11 +105,13 @@
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing what the three rows compare."
     },
     "rows": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per jurisdiction. Lead with the jurisdiction label as a plain text first line; nested ul items carry the citation (inline code), obligation summary, and status (inline code)."
     }

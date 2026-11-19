@@ -44,16 +44,19 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing the comparison."
     },
     "left": {
       "selector": "p:has(> code:only-child):first-of-type + pre",
+      "match": { "kind": "fence", "nth": 1 },
       "required": true,
       "description": "Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it."
     },
     "right": {
       "selector": "p:has(> code:only-child):nth-of-type(2) + pre",
+      "match": { "kind": "fence", "nth": 2 },
       "required": true,
       "description": "Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it."
     }

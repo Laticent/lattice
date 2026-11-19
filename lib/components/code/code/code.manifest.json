@@ -31,11 +31,13 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing what the code shows."
     },
     "code": {
       "selector": "pre > code",
+      "match": { "kind": "fence" },
       "required": true,
       "description": "Fenced code block — language tag drives syntax highlighting."
     }

@@ -34,16 +34,16 @@ Print mode renders the whole deck ink-on-white — grayscale plus textures, so n
 
 `Impact · pilot`
 
-# The figures read the same in gray.
+## The figures read the same in gray.
 
-- 73%
-  - faster close
-- 4.2×
-  - signal recall
-- $1.2M
-  - prevented losses
-- −18d
-  - avg cycle time
+1. 73%
+   - faster close
+2. 4.2×
+   - signal recall
+3. $1.2M
+   - prevented losses
+4. −18d
+   - avg cycle time
 
 ---
 
@@ -51,7 +51,7 @@ Print mode renders the whole deck ink-on-white — grayscale plus textures, so n
 
 `What survives grayscale`
 
-# Distinction without hue.
+## Distinction without hue.
 
 - Borders
   - every fill gets a defined ink rule, so adjacent cards never merge

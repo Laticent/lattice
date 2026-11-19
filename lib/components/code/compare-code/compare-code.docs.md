@@ -14,11 +14,11 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the comparison. |
-| `left` | `p:has(> code:only-child):first-of-type + pre` | yes | Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it. |
-| `right` | `p:has(> code:only-child):nth-of-type(2) + pre` | yes | Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it. |
+| `title` | a `## ` heading | yes | Slide heading framing the comparison. |
+| `left` | a fenced code block | yes | Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it. |
+| `right` | the second fenced code block | yes | Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it. |
 
 ### Common mistakes
 
@@ -81,7 +81,7 @@ function after() {
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 On this layout, modifiers that style the **heading** have no effect: measured by `npm run check:modifier-effects` (`lib/core/modifier-effects.generated.json`).
 

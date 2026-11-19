@@ -14,11 +14,11 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. Capped at `--measure-bookend-heading` (16em ≈ 33 characters), mirroring title; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`. |
-| `eyebrow` | `p > code` | no | Optional category label. |
-| `subtitle` | `p` | no | Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure. |
+| `heading` | a `# ` heading or a `## ` heading | yes | Closing line — takeaway, thank-you, or call to action. Capped at `--measure-bookend-heading` (16em ≈ 33 characters), mirroring title; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`. |
+| `eyebrow` | a line of `inline code` | no | Optional category label. |
+| `subtitle` | a paragraph | no | Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure. |
 
 ### Variant decision rule
 
@@ -119,7 +119,7 @@ Mirrors title's generated gradient bar — the deck's color story, one last time
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

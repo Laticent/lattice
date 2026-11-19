@@ -16,11 +16,12 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the mood scale's two POLES: `[{1, Friction}, {5, Flow}]`, one inline-code span alone in its paragraph, outside the journey list. Only `1` and `5` are keyable — the steps between them show their number, which is the scale itself. The defaults `Pain` and `Delight` are declared in this manifest's `labelSet`; naming one pole leaves the other on its default. The rename reaches the key's accessible name too, so a screen reader and the slide cannot disagree. |
-| `heading` | `h1, h2` | yes | Slide heading naming the journey or process. |
-| `sections` | `ul > li` | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries one step record, `{who=actor, mood=N, volume=N}`: `who` the actor (a second actor is a second record, `{who=sales}`), `mood` 1-5, optional `volume` (used by .weighted). |
+| `key` | a line of `inline code` | no | OPTIONAL label set renaming the mood scale's two POLES: `[{1, Friction}, {5, Flow}]`, one inline-code span alone in its paragraph, outside the journey list. Only `1` and `5` are keyable — the steps between them show their number, which is the scale itself. The defaults `Pain` and `Delight` are declared in this manifest's `labelSet`; naming one pole leaves the other on its default. The rename reaches the key's accessible name too, so a screen reader and the slide cannot disagree. |
+| `heading` | a `# ` heading or a `## ` heading | yes | Slide heading naming the journey or process. |
+| `sections` | a `-` list | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries one step record, `{who=actor, mood=N, volume=N}`: `who` the actor (a second actor is a second record, `{who=sales}`), `mood` 1-5, optional `volume` (used by .weighted). |
+| `steps` | a `-` list nested 1 level under an item | no | The steps of a stage, one nested `-` item each, with its `{who=…, mood=…}` pills. |
 
 ### Variant decision rule
 
@@ -166,7 +167,7 @@ Stage size carries weight.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

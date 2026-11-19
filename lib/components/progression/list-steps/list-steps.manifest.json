@@ -106,11 +106,13 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading naming the process."
     },
     "steps": {
       "selector": "ol > li",
+      "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": true,
       "description": "Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list."
     }

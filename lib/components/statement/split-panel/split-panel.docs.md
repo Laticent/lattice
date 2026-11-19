@@ -16,12 +16,19 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `eyebrow` | `p:first-of-type > code` | no | Optional inline-code label above the feature (the phase number under `steps`, the unit under `metric`). |
-| `heading` | `h2` | yes | The featured element in the left panel — a heading by default; a hero number under `metric`; the phase name under `steps`. (Under `pullquote`, use a blockquote instead — see the variant.) |
-| `lede` | `p` | no | One-sentence framing paragraph under the feature. |
-| `points` | `ul > li` | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. "You know you're here when"); the other two render as the paired proof cards. |
+| `eyebrow` | a line of `inline code` | no | Optional inline-code label above the feature (the phase number under `steps`, the unit under `metric`). |
+| `heading` | a `## ` heading | yes | The featured element in the left panel — a heading by default; a hero number under `metric`; the phase name under `steps`. (Under `pullquote`, use a blockquote instead — see the variant.) |
+| `lede` | a paragraph | no | One-sentence framing paragraph under the feature. |
+| `points` | a `-` list | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. "You know you're here when"); the other two render as the paired proof cards. |
+
+Under a variant, a slot changes shape:
+
+- `pullquote`: `heading` is optional.
+- `pullquote`: `quote` is written as a `>` blockquote and is required.
+- `steps`: `points` is written as a `1.` list.
+- `watermark`: `points` is written as a list.
 
 ### Variant decision rule
 
@@ -386,7 +393,7 @@ Override: pins this slide to the theme's categorical slot #8 — the claim panel
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 On this layout, modifiers that style the **eyebrow** and **heading** have no effect: measured by `npm run check:modifier-effects` (`lib/core/modifier-effects.generated.json`).
 

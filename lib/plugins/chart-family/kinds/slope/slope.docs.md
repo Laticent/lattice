@@ -16,13 +16,13 @@ Use when the claim is that the ORDER changed between two points — market share
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name the change, not the chart ('Two suppliers swapped places on unit cost', not 'Slope chart'). |
-| `entities` | `ul > li` | yes | One li per entity, and the entity's own name is the lead text. It carries NO value of its own — the values live in the nested sublist, so a slope is always authored two levels deep. |
-| `points` | `li > ul > li` | yes | Two nested items per entity: lead text = the point's name, trailing inline-code = its value — `2024 \`31%\``. The point NAMES become the two column headers, so every entity must name its points the same way; name them differently and the chart falls back to reading them positionally. Commas, currency and magnitude suffixes are tolerated (`$1.2M` is 1 200 000). A third point renders as a third column, but past two, `line` is the better component. |
-| `emphasis` | `li > code` | no | An optional status pill on the ENTITY's own lead — `- Northwind \`fail\`` — from the chart family's status vocabulary (`on-track` `done` `live` `at-risk` `warn` `blocked` `fail` `pilot` `decision` `deferred`). Mark one or two and every unmarked line recedes, so the author names the story rather than the chart guessing it. This is the emphasis register to use whenever UP IS BAD. |
-| `detail` | `li > ul > li` | no | A nested item with NO numeric pill is per-mark detail, not a data point. It drives the Present-mode reveal popover and folds into the slide's speaker note (`Atlas 12 to 19: Won the Rhodes contract`); the printed chart is byte-identical with or without it. |
+| `title` | a `## ` heading | yes | Slide heading — name the change, not the chart ('Two suppliers swapped places on unit cost', not 'Slope chart'). |
+| `entities` | a list | yes | One li per entity, and the entity's own name is the lead text. It carries NO value of its own — the values live in the nested sublist, so a slope is always authored two levels deep. |
+| `points` | a list nested 1 level under an item | yes | Two nested items per entity: lead text = the point's name, trailing inline-code = its value — `2024 \`31%\``. The point NAMES become the two column headers, so every entity must name its points the same way; name them differently and the chart falls back to reading them positionally. Commas, currency and magnitude suffixes are tolerated (`$1.2M` is 1 200 000). A third point renders as a third column, but past two, `line` is the better component. |
+| `emphasis` | a list | no | An optional status pill on the ENTITY's own lead — `- Northwind \`fail\`` — from the chart family's status vocabulary (`on-track` `done` `live` `at-risk` `warn` `blocked` `fail` `pilot` `decision` `deferred`). Mark one or two and every unmarked line recedes, so the author names the story rather than the chart guessing it. This is the emphasis register to use whenever UP IS BAD. |
+| `detail` | a list nested 1 level under an item | no | A nested item with NO numeric pill is per-mark detail, not a data point. It drives the Present-mode reveal popover and folds into the slide's speaker note (`Atlas 12 to 19: Won the Rhodes contract`); the printed chart is byte-identical with or without it. |
 
 ### Variant decision rule
 
@@ -132,7 +132,7 @@ Colors each line by direction — rising reads pass, falling reads fail. Opt-in,
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

@@ -46,7 +46,7 @@ competing signatures. This slide is **WIP** in that same seal.
 
 <!-- _class: cards-grid draft stamp-notch -->
 
-# Override one slide's shape
+## Override one slide's shape
 
 - Same marker, different shape
   - Still **Draft**, but wearing `stamp-notch` — a top hairline band — not the deck seal.

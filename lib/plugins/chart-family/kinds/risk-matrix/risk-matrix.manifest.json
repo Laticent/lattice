@@ -68,16 +68,19 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — name what is in the red and what is being done ('Cyber and hurricane risk sit in the red; both have a plan'), not 'Risk matrix'."
     },
     "risks": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per risk: its name, then a point record `{likelihood, impact}`, each a whole number from 1 to 5 — `Cyber outage \\`{4, 5}\\``. An optional second record is where mitigation takes it: `\\`{4, 5}\\` \\`{2, 4}\\``. Risks are numbered in the order written; the key lists them worst first."
     },
     "detail": {
       "selector": "li > ul",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "Optional nested sublist under a risk: the owner, the mitigation, the date. It opens on hover or tap in Present, and folds into the speaker note in the PDF."
     }

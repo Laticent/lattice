@@ -33,16 +33,19 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": false,
       "description": "Optional framing heading; the person's name is the visual hero, drawn from the `name` field."
     },
     "fields": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Sharmarke Aden `name``. Keys: name (required), title|role, org|company, email, phone|tel|voice, mobile|cell, office|work, url|web|site. Phone keys are separate lines, each typed in the vCard, and the ledger lists every line in the order you wrote it. Optional keys: `caption` (CTA under the QR) and `qr` (what the code carries: `vcard`, `tel` or `url`)."
     },
     "caption": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": false,
       "description": "Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to add me `caption` ``."
     }

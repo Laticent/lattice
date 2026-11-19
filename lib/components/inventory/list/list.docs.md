@@ -18,10 +18,10 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li, ol > li` | yes | List items. Keep each under ~12 words. |
+| `title` | a `## ` heading | yes | Slide heading. |
+| `items` | a list | yes | List items. Keep each under ~12 words. |
 
 ### Variant decision rule
 
@@ -176,7 +176,7 @@ Dots replace the counters.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

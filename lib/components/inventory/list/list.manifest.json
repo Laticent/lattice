@@ -100,11 +100,13 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading."
     },
     "items": {
       "selector": "ul > li, ol > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "List items. Keep each under ~12 words."
     }
