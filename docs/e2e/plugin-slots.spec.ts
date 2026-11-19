@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { pictureStill } from './barriers';
-import { expect, gotoStudio, livePreview, setEditorContent, shareExport, test, toastText } from './studio-fixture';
+import { expect, gotoStudio, LIVE_PREVIEW, livePreview, setEditorContent, shareExport, test, toastText } from './studio-fixture';
 
 // ── Host slots and a plugin's own stylesheet, in the real Studio (owner, 2026-10-20; HARD RULE #23) ──
 //
@@ -61,6 +61,40 @@ title: Q3 launch readiness
 \`\`\`
 `;
 
+type BadgeWatch = { __badgeWatch: { bare: string[]; filled: number; done: boolean } };
+
+/**
+ * Watch every painted frame from before Approve (#3292): a `requestAnimationFrame` loop in the Studio page reads the live
+ * preview frame (a same-origin srcdoc, so the parent can read it on every engine; an init script does not reach it in
+ * Chromium) and records each frame where the badge shows its text with no fill. It stops after 60 filled frames in a row.
+ * Before the fix this saw the bare frame in 2 of 40 Chromium runs and 3 of 40 WebKit runs under 4 workers; with it, 0 of 120.
+ */
+async function watchBadgeFrames(page: Parameters<typeof gotoStudio>[0]) {
+	await page.evaluate(
+		({ sel, name }) => {
+			const w = { bare: [] as string[], filled: 0, done: false };
+			(window as unknown as BadgeWatch).__badgeWatch = w;
+			let frame = 0;
+			const tick = () => {
+				frame++;
+				for (const f of document.querySelectorAll<HTMLIFrameElement>(sel)) {
+					const badge = f.contentDocument?.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
+					if (!badge || badge.textContent?.trim() !== 'at-risk' || !badge.getClientRects().length) continue;
+					const fill = f.contentWindow?.getComputedStyle(badge).backgroundColor ?? '';
+					if (/^rgba\(0, 0, 0, 0\)$|^transparent$/.test(fill)) {
+						w.bare.push(`frame ${frame}: ${fill}`);
+						w.filled = 0;
+					} else w.filled++;
+				}
+				if (w.filled >= 60) w.done = true;
+				else requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		},
+		{ sel: LIVE_PREVIEW, name: NAME },
+	);
+}
+
 // All three engines, as plugin-fence.spec.ts runs them: `@gecko` runs on the desktop (Chromium) project and the gecko one;
 // the `@webkit-tablet` twin runs on WebKit (the desktop project skips a title naming @webkit).
 for (const tag of [' @gecko', ' @webkit-tablet']) {
@@ -75,6 +109,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		const notice = page.locator('[data-slot="code-packages"]');
 		await setEditorContent(page, DECK);
 		await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
+		await watchBadgeFrames(page);
 		await notice.getByRole('button', { name: `Approve the code of ${NAME}` }).click();
 
 		const root = preview.locator(`[data-lattice-plugin="${NAME}"]`);
@@ -87,11 +122,15 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await expect(preview.locator(`section[data-returned-${NAME}--status="at-risk"]`)).toHaveCount(1);
 
 		// 2. STYLED, and scoped: the badge has a fill from the plugin's sheet; a heading outside the root is not touched by it.
-		// Read once, on purpose: the badge's text and the plugin's sheet come from the same render (code-packages/door.ts
-		// `approvalsInStamp`, #3292), so the first frame with the text has the fill. A transparent read here is that
-		// promise broken, which CI caught once before the fix (run 44098310773), not a race to wait out.
+		// Never polled, on purpose: the badge's text and the plugin's sheet come from the same render (code-packages/door.ts
+		// `approvalsInStamp`, #3292), so the first frame with the text has the fill. A transparent read, here or on any frame
+		// `watchBadgeFrames` saw, is that promise broken, which CI caught once before the fix (run 44098310773), not a race to wait out.
 		const fill = await root.locator('.lp-status-card-badge').evaluate((el) => getComputedStyle(el).backgroundColor);
 		expect(fill, 'the badge carries the plugin stylesheet fill').not.toMatch(/^rgba\(0, 0, 0, 0\)$|^transparent$/);
+		// And every frame before this read: the watcher saw the badge's text on 60 frames in a row with its fill, and never without it.
+		await expect.poll(() => page.evaluate(() => (window as unknown as BadgeWatch).__badgeWatch.done), { timeout: 30_000 }).toBe(true);
+		const watch = await page.evaluate(() => (window as unknown as BadgeWatch).__badgeWatch);
+		expect(watch.bare, 'no frame painted the badge text without the plugin fill').toEqual([]);
 		const bordered = await root.locator('.lp-status-card-card').evaluate((el) => getComputedStyle(el).borderTopWidth);
 		expect(bordered).toBe('1px');
 		const heading = await preview.locator('h2').first().evaluate((el) => getComputedStyle(el).borderTopWidth);
