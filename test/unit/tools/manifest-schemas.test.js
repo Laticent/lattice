@@ -176,7 +176,7 @@ test('BITES: an unregistered manifest family, and a `$schema` pointing at the wr
   try {
     // A minimal but REAL root: the small families copied whole, components stubbed
     // with one genuine manifest so every family is non-empty.
-    for (const d of ['themes', 'lib/forms', 'lib/finishes', 'lib/motion', 'lib/plugins']) fs.cpSync(path.join(ROOT, d), path.join(tmp, d), { recursive: true });
+    for (const d of ['themes', 'lib/forms', 'lib/finishes', 'lib/motion', 'lib/plugins', 'lib/use-cases']) fs.cpSync(path.join(ROOT, d), path.join(tmp, d), { recursive: true });
     fs.mkdirSync(path.join(tmp, 'lib/base'), { recursive: true });
     for (const f of ['base.manifest.json', 'base.manifest.schema.json']) fs.copyFileSync(path.join(ROOT, 'lib/base', f), path.join(tmp, 'lib/base', f));
     fs.mkdirSync(path.join(tmp, 'lib/components/anchor/title'), { recursive: true });

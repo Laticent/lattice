@@ -1,0 +1,29 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "check_deck",
+	"title": "Check the deck",
+	"describe": {
+		"chat": "Run Lattice's linter and review over the draft, and Mermaid's parser over its diagrams. Returns the errors and warnings with slide numbers, and slides over the word budget."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {}
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "read",
+	"legacy": true,
+	"chat": {
+		"position": 110,
+		"activity": "Checking the deck…"
+	}
+}

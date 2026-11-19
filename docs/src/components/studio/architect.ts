@@ -1814,6 +1814,7 @@ export function chatAgentDeps(): import('./chat-agent').ChatAgentDeps {
 	return {
 		applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel, AUTHORING_RULES, layoutBlock, getFrontMatter, innerFrontMatter, writeFrontMatterLine, frontMatterBlockText, setFrontMatterTerms,
 		adjustSpend, recordSpend, deckCanon: loadedAuthoring().deckCanon, deckProfiles: loadedAuthoring().deckProfiles,
+		inlineDirective: (text: string) => !!(loadedAuthoring().inlineCodeDispatches(text, null) || loadedAuthoring().inlineCodeDiagnose(text, null)),
 		applyEditsChecked, CHAT_MAX_TOKENS, cloudBudgetBlock, estimateUsd, estTokens, FACT_GUARD, TRUNCATION_NOTE, withStudioVoice,
 		groundMessages, refDocsTokens, FINISHES, BUILTIN_PALETTES, deckOutputLang,
 	};

@@ -101,3 +101,177 @@ test(`HELD PROFILE: removeProfile outlasts a file held open on ${process.platfor
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
+
+// REAPED: the host's `reap()` leaves no browser and no profile behind (followups.d/3276-p4). Two arms, both through the
+// real code sandbox and the state file the worker writes:
+//   KILLED WORKER  the fixture worker (test/fixtures/code-door-reap-worker.js) launches the sandbox the way
+//                  lib/packages/code-door-worker.js does, opens a page and says `ready`; the test SIGKILLs it, as the
+//                  host's spawnSync timeout does, then reaps. On windows-2025 the worker's job object already ends the
+//                  browser (0 of 9 processes left), so there `reap()` finds only a stale pid, which it must not kill.
+//   LIVE BROWSER   the browser is still running when `reap()` reads the state file, so on Windows `reap()` itself must
+//                  end it, helpers included. (#3310's failing arm ran main's kill by pid through both arms on
+//                  windows-2025 and macos-26, run 44445163876: nothing was left either, since Chromium ends its own
+//                  helpers once the main process dies. These arms pin that outcome, whichever mechanism delivers it.)
+// Each arm asserts that the profile folder is gone and that no process names it on its command line. It prints how
+// many processes named the profile before, and the `lattice-code-sandbox-*` listing of the temp folder. The suite's
+// `node --test` runs its files in parallel, so a folder in that listing can be another file's browser still running.
+const reapHarness = () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { execFileSync } = require('node:child_process');
+  /** The pids whose command line names `name` (Chromium copies `--user-data-dir` to its helpers). */
+  const processesUsing = (name) => {
+    if (process.platform === 'win32') {
+      const ps = `Get-CimInstance Win32_Process -Filter "CommandLine LIKE '%${name}%'" | Where-Object { $_.ProcessId -ne $PID } | ForEach-Object { $_.ProcessId }`;
+      return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 60000 }).split(/\s+/).filter(Boolean).map(Number);
+    }
+    return execFileSync('ps', ['-A', '-o', 'pid=,stat=,args='], { encoding: 'utf8', timeout: 10000 })
+      .split('\n')
+      .map((l) => l.trim().match(/^(\d+)\s+(\S+)\s+(.*)$/))
+      .filter((m) => m && !m[2].startsWith('Z') && m[3].includes(name))
+      .map((m) => Number(m[1]));
+  };
+  // A killed process can still be listed for a moment while the kernel tears it down (F3, read once too early). So
+  // await the state, then assert: read the list again until it is empty or the reads run out. Each read is a whole
+  // `ps` or PowerShell run; no sleep sits between them.
+  const processesLeft = (name, reads = process.platform === 'win32' ? 20 : 200) => {
+    let left = processesUsing(name);
+    for (let i = 1; i < reads && left.length; i++) left = processesUsing(name);
+    return left;
+  };
+  const sandboxFolders = () => fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith('lattice-code-sandbox-'));
+  return { fs, os, path, processesUsing, processesLeft, sandboxFolders };
+};
+
+/** Reap `scratch`, whose state file names `dir`, and assert that nothing of the browser is left. */
+const reapAndCheck = (t, scratch, dir, before) => {
+  const { fs, os, path, processesUsing, processesLeft, sandboxFolders } = reapHarness();
+  const { reap } = require('../../../lib/cli/code-door.js');
+  const ended = reap(scratch);
+  // Which path ended the browser. On Windows it must be the sweep by profile name: a pass by the pid fallback, or by
+  // Chromium's own cleanup, would look the same in the process list below (#3310's grader).
+  t.diagnostic(`reap ended the browser by: ${JSON.stringify(ended)}`);
+  assert.deepEqual(ended, [process.platform === 'win32' ? 'sweep' : 'group'], 'reap did not end the browser the way this platform should');
+  // What reap itself ended, before any helper has had time to exit on its own.
+  t.diagnostic(`processes naming the profile at the first read after reap: ${processesUsing(path.basename(dir)).length}`);
+  t.diagnostic(`lattice-code-sandbox-* in ${os.tmpdir()} after reap: ${JSON.stringify(sandboxFolders())}`);
+  assert.equal(fs.existsSync(dir), false, `reap left the profile ${dir} behind`);
+  assert.deepEqual(processesLeft(path.basename(dir)), [], `a browser process still names the profile after reap (of ${before} before)`);
+  assert.equal(fs.existsSync(scratch), false, 'reap left its scratch folder behind');
+};
+
+/**
+ * Start the fixture worker, wait for its `ready`, and read the profile it launched. Every arm drives the browser
+ * through this separate process, so no puppeteer connection lives in the test process: one to a browser `reap()` has
+ * killed can keep the file's process from exiting.
+ */
+const startWorker = async () => {
+  const { fs, os, path, processesUsing } = reapHarness();
+  const { spawn } = require('node:child_process');
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-door-'));
+  const state = path.join(scratch, 'state.json');
+  const worker = spawn(process.execPath, [path.join(__dirname, '../../fixtures/code-door-reap-worker.js'), state], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const exited = new Promise((resolve) => worker.once('exit', resolve));
+  const stop = async () => {
+    if (worker.exitCode === null && worker.signalCode === null) worker.kill('SIGKILL');
+    await exited;
+  };
+  try {
+    // The signal, not a duration: go on once the worker says its page is open.
+    await new Promise((resolve, reject) => {
+      let out = '';
+      worker.stdout.on('data', (d) => {
+        out += d;
+        if (out.includes('ready')) resolve();
+        else if (out.includes('fatal')) reject(new Error(`the worker could not launch the sandbox: ${out.trim()}`));
+      });
+      worker.once('exit', (code) => reject(new Error(`the worker exited (${code}) before it was ready`)));
+    });
+  } catch (e) {
+    await stop();
+    fs.rmSync(scratch, { recursive: true, force: true });
+    throw e;
+  }
+  const { dir } = JSON.parse(fs.readFileSync(state, 'utf8')).at(-1);
+  const before = processesUsing(path.basename(dir)).length;
+  const cleanup = async () => {
+    await stop();
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    fs.rmSync(scratch, { recursive: true, force: true });
+  };
+  return { worker, stop, cleanup, scratch, dir, before };
+};
+
+test(`REAPED, KILLED WORKER: a worker killed mid-render leaves no browser or profile on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+  const { os, path, processesUsing, sandboxFolders } = reapHarness();
+  t.diagnostic(`lattice-code-sandbox-* in ${os.tmpdir()} before this test: ${JSON.stringify(sandboxFolders())}`);
+  const w = await startWorker();
+  try {
+    assert.ok(w.before >= 2, `a browser with helpers should name its profile on 2 or more command lines, and ${w.before} did`);
+    await w.stop();
+    t.diagnostic(`processes naming the profile before the kill: ${w.before}; after the worker died, before reap: ${processesUsing(path.basename(w.dir)).length}`);
+    reapAndCheck(t, w.scratch, w.dir, w.before);
+  } finally {
+    await w.cleanup();
+  }
+});
+
+test(`REAPED, LIVE BROWSER: reap ends a running browser and all its helpers on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+  const w = await startWorker();
+  try {
+    assert.ok(w.before >= 2, `a browser with helpers should name its profile on 2 or more command lines, and ${w.before} did`);
+    t.diagnostic(`processes naming the profile before reap, browser running: ${w.before}`);
+    // The worker is still alive, so the browser is too: `reap()` itself must end it.
+    reapAndCheck(t, w.scratch, w.dir, w.before);
+  } finally {
+    await w.cleanup();
+  }
+});
+
+// REAPED, STALE PID: on Windows `reap()` never kills by the pid in the state file. When the worker is killed, its job
+// object has usually ended the browser already (the KILLED WORKER arm reads 0 processes left), so that pid may now
+// belong to another program. Here an unrelated live process sits in the state file under the browser's pid, beside a
+// profile folder no process names. On Windows the sweep finds nothing and the bystander must still answer a ping;
+// main's reap before #3310 killed it (the failing arm in #3310's body). Off Windows the browser leads its own process
+// group and outlives the worker, so its pid is not stale there; `reap()` kills by pid as before, and this arm checks
+// only that it still does. Alive or dead is read from the process itself: it answers `pong`, or its pipe closes.
+test(`REAPED, STALE PID: reap kills no process by a stale pid on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+  const { fs, os, path } = reapHarness();
+  const { spawn } = require('node:child_process');
+  const { reap } = require('../../../lib/cli/code-door.js');
+  const bystander = spawn(process.execPath, ['-e', "process.stdin.on('data', () => process.stdout.write('pong\\n'))"], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const exited = new Promise((resolve) => bystander.once('exit', () => resolve('exited')));
+  // A ping to a process that is gone fails with EPIPE; the answer then comes from its `exit`, not from the write.
+  bystander.stdin.on('error', () => {});
+  /** `pong` if the process answers, `exited` if it is gone: whichever the process itself says first. */
+  const ping = () =>
+    Promise.race([
+      exited,
+      new Promise((resolve) => {
+        bystander.stdout.once('data', () => resolve('pong'));
+        bystander.stdin.write('ping\n');
+      }),
+    ]);
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-door-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-sandbox-'));
+  try {
+    assert.equal(await ping(), 'pong', 'the bystander did not answer before the reap');
+    fs.writeFileSync(path.join(scratch, 'state.json'), JSON.stringify([{ pid: bystander.pid, dir }]));
+    const ended = reap(scratch);
+    t.diagnostic(`reap ended the "browser" by: ${JSON.stringify(ended)}`);
+    if (process.platform === 'win32') {
+      assert.deepEqual(ended, ['sweep']);
+      assert.equal(await ping(), 'pong', 'reap killed a process by a stale pid');
+    } else {
+      assert.deepEqual(ended, ['group']);
+      assert.equal(await exited, 'exited', 'off Windows reap still kills the pid it was handed');
+    }
+    assert.equal(fs.existsSync(dir), false, 'reap left the profile folder');
+  } finally {
+    if (bystander.exitCode === null && bystander.signalCode === null) bystander.kill('SIGKILL');
+    await exited;
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+});

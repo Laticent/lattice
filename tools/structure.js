@@ -98,6 +98,7 @@ const PARTS = [
   { part: 'lib/authoring', layer: 6, match: 'lib/authoring/', about: 'Deck lint, review and scorecard cores. Pure, shared by the CLI, `validate()` and the browser; every lint rule runs through `lint-core.js`.' },
   { part: 'lib/cli', layer: 6, match: 'lib/cli/', about: 'The commands behind `lattice.js` that work on packages and deck metadata, and its option parsing and shell completion.' },
   { part: 'lib/concepts', layer: 6, match: 'lib/concepts/', about: 'The design-vocabulary graph, checked against the live catalogs.' },
+  { part: 'lib/use-cases', layer: 6, match: 'lib/use-cases/', about: 'The actions a host offers (the Studio chat first): one manifest per action, and the dispatcher that gates and runs it.' },
   { part: 'lib/diagnostics', layer: 6, match: 'lib/diagnostics/', about: 'Does a slide rendered alone match the same slide rendered inside its deck? The pure core both surfaces share.' },
   { part: 'lib/export', layer: 6, match: 'lib/export/', about: 'The export pipeline: every format a deck leaves Lattice in, and the assets each one embeds.' },
   { part: 'lib/playground', layer: 6, match: 'lib/playground/', about: 'The browser entry: renders a deck client-side through the owned engine.' },

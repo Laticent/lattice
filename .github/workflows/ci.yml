@@ -3,6 +3,11 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # ready_for_review is the "validate now" trigger: an agent parks a PR in draft while it
+    # iterates (`gh pr ready --undo`), pushes freely, then `gh pr ready` runs CI once on the
+    # head. Draft pushes still start a run, but every job skips (see `if:` on changes/lint/
+    # unit/ci), and a draft cannot enter the merge queue, so the vacuous `ci` is harmless.
+    types: [opened, synchronize, reopened, ready_for_review]
   # The merge queue runs CI on the PR tentatively rebased onto current main
   # (plus any PRs ahead of it). THIS aggregate `ci` check is the required gate
   # the queue waits on, so it must fire on merge_group. See
@@ -18,9 +23,15 @@ on:
 
 # Cancel superseded runs on the same ref — rapid pushes to a PR no longer
 # pile up full pipelines.
+#
+# EXCEPT a `ready_for_review` run. Marking a PR ready again with no new push (draft -> ready to
+# re-run CI) would otherwise cancel a run on the SAME head, and the Verify gate fails a tier
+# cancelled on the current head (exception 3 below): a red check and a failure webhook for
+# nothing. A ready run therefore queues behind the in-flight run instead of cancelling it. A
+# push after it still cancels as before.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event.action != 'ready_for_review' }}
 
 # Least privilege for every job's GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions,
 # #1958). Without this block each job got the repo default. `pull-requests: read` is for
@@ -162,6 +173,7 @@ jobs:
   # test/. An engine change (lib/, themes/, dist/, …) sets BOTH, because the
   # docs build also reads the engine (loadAll + staged dist/ + themes/).
   changes:
+    if: github.event_name == 'merge_group' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -249,6 +261,7 @@ jobs:
   # PUPPETEER_SKIP_DOWNLOAD keeps `npm ci` from pulling ~150 MB of Chromium
   # that nothing here uses.
   lint:
+    if: github.event_name == 'merge_group' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -333,6 +346,7 @@ jobs:
   # merge queue since 2026-10-29), and a prose-only PR waits ~7.5 min for `ci`
   # instead of ~1 min.
   unit:
+    if: github.event_name == 'merge_group' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 20 # raised from 15 on 2026-11-03 (owner call, D2 on #2984): node 22 runs took 14m01s-14m25s on main and one PR run was canceled at 15m03s
     # SHARDED TWO WAYS (owner call, 2026-11-10). Over the 60 runs of 2026-11-10 the one node 22 job took 14.4 min at
@@ -795,7 +809,9 @@ jobs:
             const dir = '.scratch/golden-diff';
             const report = JSON.parse(fs.readFileSync(`${dir}/report.json`, 'utf8'));
             const marker = '<!-- golden-diff -->';
-            const { data: comments } = await github.rest.issues.listComments({
+            // Every page, not the first 100: listComments returns the OLDEST comments first, so on a
+            // long PR the sticky would sit past page 1 and a second one would be posted beside it.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               ...context.repo, issue_number: context.issue.number, per_page: 100,
             });
             const existing = comments.find((c) => c.body && c.body.includes(marker));
@@ -1165,7 +1181,8 @@ jobs:
   # suite in `integration`; `studio-smoke` promotes into `needs` only after a nightly
   # green streak (#800). Adding a job here makes it merge-BLOCKING — do it deliberately.
   ci:
-    if: always()
+    # Without the draft clause the gate would run on a draft push, read changes=skipped and go red.
+    if: always() && (github.event_name == 'merge_group' || !github.event.pull_request.draft)
     needs: [changes, lint, unit, integration, docs-build, docs-test, player-webkit]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -1173,6 +1190,7 @@ jobs:
       pull-requests: write # post the CI-green beacon comment that wakes a subscribed session
     steps:
       - name: Verify gate
+        id: gate
         env:
           GH_TOKEN: ${{ github.token }} # read the PR's head, to tell a superseded run from a timeout
         run: |
@@ -1190,7 +1208,7 @@ jobs:
           # train (see engineering/decisions/2026-06-14-drift-watch-rebase-thrash.md).
           # Only a real failure stops the gate on a PR run.
           #
-          # TWO EXCEPTIONS (followups.d/2524-p1-*, engineering/gotchas/ci.md):
+          # THREE EXCEPTIONS (followups.d/2524-p1-*, engineering/gotchas/ci.md):
           #
           # 1. `changes` must SUCCEED. Every test tier `needs: changes`, so when
           #    `changes` does not succeed, unit, integration and docs-build all read
@@ -1198,6 +1216,10 @@ jobs:
           #    no runner, sat queued 19 min and was canceled, and a diff touching lib/
           #    and tools/ went green on lint alone. A `skipped` tier is a pass only
           #    when the path filter decided to skip it, so the filter has to have run.
+          #    The one exit is a `changes` CANCELLED by a newer push (exception 3's proof:
+          #    the PR's head moved past this run's SHA), where nothing ran on this SHA and
+          #    the run on the head carries the verdict. If the PR was parked as a draft,
+          #    that verdict waits for the next ready run; the head is never green on this.
           #
           # 2. On merge_group a `cancelled` tier FAILS. Supersession, the only reason
           #    `cancelled` passes, cannot happen there: each queue group runs on its
@@ -1225,6 +1247,16 @@ jobs:
             fi
             [ "$head" != "${{ github.event.pull_request.head.sha }}" ]
           }
+          # A newer push can cancel the whole run before `changes` gets a runner. Then nothing ran
+          # on this SHA and the newer run carries the verdict, so a superseded `cancelled` passes
+          # here as it does for a tier below. A `changes` cancelled on the CURRENT head (#2524's
+          # 19-minute queue) still fails.
+          if [ "$changes" = "cancelled" ] && [ "${{ github.event_name }}" = "pull_request" ] && superseded; then
+            echo "the whole run was cancelled by a newer push (the PR's head is now ${head}); that run carries the verdict"
+            echo "superseded=true" >> "$GITHUB_OUTPUT"
+            echo "CI gate passed."
+            exit 0
+          fi
           if [ "$changes" != "success" ]; then
             echo "::error::the path filter (changes) did not succeed (${changes}), so a skipped tier proves nothing"
             exit 1
@@ -1241,6 +1273,7 @@ jobs:
                 fi
                 if superseded; then
                   echo "tier ${tier%%=*} was cancelled by a newer push (the PR's head is now ${head}); that run carries the verdict"
+                  echo "superseded=true" >> "$GITHUB_OUTPUT"
                 else
                   echo "::error::tier ${tier%%=*} was cancelled on the PR's current head (a timeout or a hand cancel, not a newer push), so its remaining tests never ran"
                   exit 1
@@ -1284,7 +1317,14 @@ jobs:
         # issue_comment is forwarded as a wake event; an in-place edit is not, so an
         # update would leave the session asleep. The delete keeps the thread to one
         # beacon. continue-on-error so a fork PR's read-only token can never red the gate.
-        if: success() && github.event_name == 'pull_request'
+        #
+        # NO BEACON FROM A SUPERSEDED RUN. When a newer push cancelled this run's tiers, the gate
+        # passes (the newer run carries the verdict), but a "✅ ci workflow green" for a SHA that is
+        # no longer the head is a false green, and it is the newest wake event on the PR. Before
+        # draft parking the superseding run posted its own beacon over it; a draft run posts none,
+        # so the stale one would stand. Observed on #3314: "green" for 8aa411c with lint, unit,
+        # integration, docs-build and docs-test all cancelled.
+        if: success() && github.event_name == 'pull_request' && steps.gate.outputs.superseded != 'true'
         continue-on-error: true
         uses: actions/github-script@v7
         env:
@@ -1417,7 +1457,9 @@ jobs:
             );
             const body = lines.join('\n');
 
-            const { data: comments } = await github.rest.issues.listComments({
+            // Every page, not the first 100: listComments returns the OLDEST comments first, so past
+            // 100 comments the prior beacon sits beyond page 1, escapes the delete, and beacons pile up.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               ...context.repo, issue_number: context.issue.number, per_page: 100,
             });
             for (const c of comments) {

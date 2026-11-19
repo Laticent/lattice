@@ -359,6 +359,7 @@
     "test:runtime": "node --test --test-reporter=dot 'test/unit/runtime/*.test.js'",
     "test:diagnostics": "node --test --test-reporter=dot 'test/unit/diagnostics/*.test.js'",
     "test:tools": "node --test --test-reporter=dot 'test/unit/tools/*.test.js'",
+    "test:use-cases": "node --test --test-reporter=dot 'test/unit/use-cases/*.test.js'",
     "test:adaptive": "node --test --test-reporter=dot 'test/unit/adaptive/*.test.js'",
     "test:concepts": "node --test --test-reporter=dot 'test/unit/concepts/*.test.js'",
     "test:exemplars": "node --test --test-reporter=dot 'test/unit/exemplars/*.test.js'",

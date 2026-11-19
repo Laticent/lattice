@@ -1,0 +1,41 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "read_guide",
+	"title": "Read a guide",
+	"describe": {
+		"chat": "Read a Lattice authoring guide. Topics: {{guides|join}}. Long guides return a section list; call again with `section`."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"topic": {
+				"type": "string",
+				"enum": "{{=guides}}"
+			},
+			"section": {
+				"type": "string",
+				"description": "Optional: a section heading (or part of one)."
+			}
+		},
+		"required": [
+			"topic"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "read",
+	"legacy": true,
+	"chat": {
+		"position": 30,
+		"activity": "Reading a guide…"
+	}
+}

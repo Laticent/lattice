@@ -1,0 +1,53 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "caption_asset",
+	"title": "Caption Library photos",
+	"describe": {
+		"chat": "Save a one-line description of each photo you just looked at (under 20 words, plain, what is in the picture: subject, setting, light, any visible text). It is stored with the photo and read as text from now on."
+	},
+	"tier": "draft",
+	"effects": [
+		"library"
+	],
+	"destructive": true,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"captions": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string"
+						},
+						"caption": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"name",
+						"caption"
+					]
+				}
+			}
+		},
+		"required": [
+			"captions"
+		]
+	},
+	"requires": [
+		"library"
+	],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "library",
+	"legacy": true,
+	"chat": {
+		"position": 190,
+		"activity": "Saving photo captions…"
+	}
+}

@@ -1,0 +1,40 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "set_theme",
+	"title": "Set the theme",
+	"describe": {
+		"chat": "Change the deck's theme (its palette) on the draft. Same as setting the `theme:` front-matter key."
+	},
+	"tier": "draft",
+	"effects": [
+		"deck.frontmatter"
+	],
+	"destructive": true,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"name": {
+				"type": "string",
+				"enum": ["{{...themes}}"]
+			},
+			"summary": {
+				"type": "string"
+			}
+		},
+		"required": [
+			"name"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "look",
+	"legacy": true,
+	"chat": {
+		"position": 120,
+		"activity": "Changing the theme…"
+	}
+}

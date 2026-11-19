@@ -1,0 +1,71 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "set_terms",
+	"title": "Set how terms are spoken",
+	"describe": {
+		"chat": "Stage changes to how the deck’s words are spoken (the `terms:` front matter; it also absorbs `acronyms:` and `lexicon:`). Each `set` entry adds or replaces one term: `pronounce` is how the voice says it (empty string silences it), `expansion` what it stands for, `definition` a glossary line. One entry also covers the plural, possessive, hyphenated and title-case forms, so never add those separately. The slides keep the word as written. Call preview_speech first to hear how a line reads now."
+	},
+	"tier": "draft",
+	"effects": [
+		"deck.frontmatter"
+	],
+	"destructive": true,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"set": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"properties": {
+						"term": {
+							"type": "string"
+						},
+						"pronounce": {
+							"type": [
+								"string",
+								"null"
+							],
+							"description": "How to say it; \"\" silences the term; null clears it so the voice says the expansion."
+						},
+						"expansion": {
+							"type": "string"
+						},
+						"definition": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"term"
+					]
+				}
+			},
+			"remove": {
+				"type": "array",
+				"items": {
+					"type": "string"
+				},
+				"description": "Terms to delete."
+			},
+			"summary": {
+				"type": "string",
+				"description": "One or two sentences to the author: what you changed and why."
+			}
+		},
+		"required": [
+			"summary"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "narration",
+	"legacy": true,
+	"chat": {
+		"position": 70,
+		"activity": "Changing how terms are spoken…"
+	}
+}

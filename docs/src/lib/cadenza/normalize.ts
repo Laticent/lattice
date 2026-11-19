@@ -892,7 +892,7 @@ function peelWrappers(raw: string): string {
 /** Trim leading/trailing non-alphanumerics via linear index scans — NOT a `[^…]+$`-anchored
  *  regex, whose `+`-quantifier backtracks polynomially on a run of many non-alphanumerics
  *  (a static-analyzer ReDoS flag). Both scans are single-pass and unambiguous. */
-function edgeTrim(raw: string): string {
+export function edgeTrim(raw: string): string {
   let a = 0;
   let b = raw.length;
   while (a < b && !isAlphaNum(raw[a])) a++;
@@ -960,3 +960,4 @@ export function unmatchedAcronyms(text: string, opts: SpokenOpts = {}): string[]
   }
   return out;
 }
+

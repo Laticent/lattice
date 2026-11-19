@@ -12665,6 +12665,108 @@ function declaredModel(frontmatter) {
   return value || null; // a bare `model:` with no value declares nothing
 }
 
+/**
+ * The chat's tools that predate use-case manifests (engineering/decisions/2026-11-17-use-case-layer.md
+ * §3.5, §10.1). Legacy means two things, both temporary: the tool's handler still lives in the chat's
+ * `createToolbox` rather than a pure `<id>.kernel.mjs`, and its schema keeps the shape it had when it
+ * moved with no model-visible change (unbounded strings, undescribed properties). A tool leaves this list
+ * only when it has a kernel AND its schema meets the rules below; tightening a schema is a model-visible
+ * change and waits for #3208 item 34's replay of real sessions. The list only shrinks: a new use case
+ * meets the rules, and a stale entry fails.
+ */
+const SANCTIONED_LEGACY_USE_CASES = Object.freeze([
+  'caption_asset', 'chart_from_data', 'check_deck', 'create_deck', 'edit_slides', 'find_text', 'list_assets',
+  'preview_speech', 'read_component', 'read_front_matter', 'read_guide', 'read_slides', 'render_slide',
+  'replace_text', 'set_finish', 'set_front_matter', 'set_terms', 'set_theme', 'view_asset',
+]);
+
+/** The longest `describe` text a new use case may carry: the "when not to use it" fits; an essay does not. */
+const USE_CASE_DESCRIBE_MAX = 1200;
+/** A property description is sent to the model on every request: a line, not a page. */
+const USE_CASE_PROPERTY_DESCRIPTION_MAX = 300;
+/** A bound that bounds nothing (`maxLength: 1e12`) is not a bound. */
+const USE_CASE_BOUND_MAX = { maxLength: 100000, maxItems: 1000, maxProperties: 1000 };
+/**
+ * The JSON Schema a new use case's input may use. Small on purpose: every keyword here is one the gate
+ * below can see through. `allOf`, `oneOf`, `not`, `$ref`, `patternProperties` and `prefixItems` can hide
+ * an unbounded value from it, so they are refused rather than half-checked.
+ */
+const USE_CASE_INPUT_KEYWORDS = new Set(['type', 'description', 'enum', 'const', 'default', 'properties', 'required', 'additionalProperties', 'items', 'minItems', 'maxItems', 'uniqueItems', 'minLength', 'maxLength', 'pattern', 'format', 'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'minProperties', 'maxProperties', 'propertyNames', 'anyOf']);
+
+/**
+ * The rules a use-case manifest's SHAPE cannot state (the schema is checked by checkManifestSchemas):
+ * every input compiles as JSON Schema; the legacy list is closed and current; and every other use case
+ * ships a pure kernel beside its manifest and an input a model can call from the schema alone, bounded
+ * and described at every depth (use-case-layer.md §2, §3.2, §3.5).
+ */
+function checkUseCaseManifests(errors, { root = ROOT, legacy = SANCTIONED_LEGACY_USE_CASES } = {}) {
+  const dir = path.join(root, 'lib', 'use-cases');
+  if (!fs.existsSync(dir)) return;
+  const { compileInputSchema } = require('./manifest-schemas.js');
+  const { sampleValue } = require('./build-use-cases.js');
+  const seen = new Map();
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue;
+    const file = path.join(dir, ent.name, `${ent.name}.use-case.json`);
+    if (!fs.existsSync(file)) continue;
+    const rel = relPosix(root, file);
+    let m;
+    try {
+      m = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch (e) {
+      errors.push(`${rel}: not valid JSON (${e.message}).`);
+      continue;
+    }
+    seen.set(m.id, m);
+    // Every input, legacy or not, is real JSON Schema: a typo (`"strng"`, `requried`) would otherwise go
+    // into every chat request, and some providers refuse a request whose tool schema does not compile.
+    const invalid = m.input ? compileInputSchema(sampleValue(m.input)) : 'missing';
+    if (invalid) errors.push(`${rel}: input is not valid JSON Schema (${invalid}).`);
+    if (m.legacy) {
+      if (!legacy.includes(m.id)) errors.push(`${rel}: \`legacy: true\` is only for the chat tools that predate manifests (SANCTIONED_LEGACY_USE_CASES, closed). A new use case meets the rules below instead.`);
+      continue;
+    }
+    // A new use case is a manifest PLUS a pure kernel (§2, §5.1), not a handler in a host's closure.
+    if (!fs.existsSync(path.join(dir, ent.name, `${ent.name}.kernel.mjs`))) errors.push(`${rel}: a new use case ships its kernel beside it, ${ent.name}/${ent.name}.kernel.mjs (use-case-layer.md §5.1); a handler inside a host is legacy only.`);
+    for (const [host, text] of Object.entries(m.describe || {})) {
+      if (typeof text === 'string' && text.length > USE_CASE_DESCRIBE_MAX) errors.push(`${rel}: describe.${host} is ${text.length} characters; keep it to ${USE_CASE_DESCRIBE_MAX}, with when to use it and when not.`);
+    }
+    walkUseCaseInput(m.input, 'input', rel, errors);
+  }
+  for (const id of legacy) {
+    const m = seen.get(id);
+    if (!m) errors.push(`SANCTIONED_LEGACY_USE_CASES names "${id}", which has no manifest: remove the stale entry.`);
+    else if (!m.legacy) errors.push(`SANCTIONED_LEGACY_USE_CASES names "${id}", whose manifest is no longer legacy: remove the stale entry.`);
+  }
+}
+
+/** Every keyword known, every value typed, every object closed or bounded, every string, array and map
+ *  bounded, every property described in a line, at every depth. */
+function walkUseCaseInput(schema, where, rel, errors) {
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return;
+  for (const k of Object.keys(schema)) if (!USE_CASE_INPUT_KEYWORDS.has(k)) errors.push(`${rel}: ${where} uses \`${k}\`, outside the keywords a use case's input may use (USE_CASE_INPUT_KEYWORDS).`);
+  const types = [].concat(schema.type || []);
+  if (!types.length && !schema.enum && !('const' in schema) && !schema.anyOf) errors.push(`${rel}: ${where} has no type.`);
+  for (const [k, max] of Object.entries(USE_CASE_BOUND_MAX)) if (typeof schema[k] === 'number' && schema[k] > max) errors.push(`${rel}: ${where}.${k} is ${schema[k]}; a bound over ${max} bounds nothing.`);
+  if (types.includes('string') && !schema.enum && !('const' in schema) && schema.maxLength === undefined) errors.push(`${rel}: ${where} is a string with no maxLength.`);
+  if (types.includes('array') && schema.maxItems === undefined) errors.push(`${rel}: ${where} is an array with no maxItems.`);
+  if (types.includes('object')) {
+    const ap = schema.additionalProperties;
+    if (ap && typeof ap === 'object') {
+      if (schema.maxProperties === undefined) errors.push(`${rel}: ${where} is a map with no maxProperties.`);
+    } else if (ap !== false) errors.push(`${rel}: ${where} needs \`additionalProperties: false\` (or a bounded map), so a misspelled argument is refused, not ignored.`);
+  }
+  for (const [k, sub] of Object.entries(schema.properties || {})) {
+    const d = sub && typeof sub === 'object' ? sub.description : undefined;
+    if (typeof d !== 'string' || !d.trim()) errors.push(`${rel}: ${where}.properties.${k} has no description.`);
+    else if (d.length > USE_CASE_PROPERTY_DESCRIPTION_MAX) errors.push(`${rel}: ${where}.properties.${k}'s description is ${d.length} characters; keep it to ${USE_CASE_PROPERTY_DESCRIPTION_MAX}.`);
+    walkUseCaseInput(sub, `${where}.${k}`, rel, errors);
+  }
+  if (schema.items) walkUseCaseInput(schema.items, `${where}[]`, rel, errors);
+  if (schema.additionalProperties && typeof schema.additionalProperties === 'object') walkUseCaseInput(schema.additionalProperties, `${where}{}`, rel, errors);
+  for (const branch of schema.anyOf || []) walkUseCaseInput({ ...branch, description: branch.description ?? 'branch' }, where, rel, errors);
+}
+
 // `dirs` is injectable so the tests can drive the REAL function over fixture trees
 // and assert its actual errors. The previous tests asserted against a re-implementation
 // of this logic, which meant deleting the gate's call site left the suite green —
@@ -15750,6 +15852,7 @@ function run() {
   checkCatContrast(errors);
   checkSkillFreshness(errors);
   checkAgentModelPinning(errors);
+  checkUseCaseManifests(errors);
   checkProviderAttributeWriters(errors);
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
@@ -16079,6 +16182,8 @@ module.exports = {
   checkSkillFreshness,
   skillFreshnessAssertions,
   checkAgentModelPinning,
+  checkUseCaseManifests,
+  SANCTIONED_LEGACY_USE_CASES,
   checkProviderAttributeWriters,
   providerAttributeProblems,
   SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS,

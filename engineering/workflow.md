@@ -1041,6 +1041,61 @@ extension) or the runtime `<script>` tags
 are ESCAPED into visible text, and a rule whose selector LEADS with
 `:is(section…)` is dead in any Marp render — see the same doc's two entries.
 
+## Iterating on an open PR — park it as a draft, then mark it ready
+
+`ci.yml`, `platform-suites.yml` and `docs-preview.yml` skip every job while a PR is a draft. (A
+few cheap workflows still run on a draft push: `pr-closing-keywords.yml`, and the path-filtered
+`apt-cache-warm.yml` and `apt-mirror-probe.yml`.) Those three heavy workflows'
+`pull_request` trigger lists `opened`, `synchronize`, `reopened` and `ready_for_review`, and each
+entry job skips a draft: in `ci.yml`, `changes`, `lint`, `unit` and the `ci` gate carry
+`github.event_name == 'merge_group' || !github.event.pull_request.draft`; `platform-suites.yml`'s
+`plan` carries `github.event_name != 'pull_request' || !github.event.pull_request.draft`; and
+`docs-preview.yml`'s `preview` adds `&& !github.event.pull_request.draft` to its fork check. So the agent, not the push, decides when CI runs:
+
+```console
+$ gh pr ready --undo <PR>   # park: pushes from here on run no job
+$ git push                  # as many times as the fix takes; run the local gates yourself
+$ gh pr ready <PR>          # one ready_for_review event = one CI run on the head
+```
+
+**In a cloud Claude session `gh pr ready` fails**: it calls GitHub's GraphQL API, which those
+sessions cannot reach. Use the REST routes the session proxy provides, which raise the same events:
+
+```console
+$ gh api -X POST repos/Laticent/lattice/pulls/<PR>/ccr/convert_to_draft   # park
+$ gh api -X POST repos/Laticent/lattice/pulls/<PR>/ccr/ready_for_review   # run CI
+```
+
+**Why.** In the 419 PR runs from 2026-11-15T22:50Z to 2026-11-19T01:18Z, 179 (43%) were canceled
+by a newer push, after about 51 runner-minutes each in a sample of 35: roughly 9,000 runner-minutes,
+about 31% of PR CI time, that produced no verdict. Jobs with no `needs` waited a median 6.5 minutes
+and a p90 21 minutes for a runner in merge-queue runs, so PR runs compete with the queue.
+
+**What still holds.**
+
+- **Open a PR ready, never as a draft.** The open runs CI once, and that run is wanted.
+- **A draft's `ci` check reads `skipped`, and GitHub counts skipped as passing.** That is safe for
+  `main` only because a draft cannot enter the merge queue, and the queue reruns the whole suite on
+  its `merge_group` run regardless. It is NOT safe as a signal: a parked head already carries a
+  completed, "passing" `ci` check that ran no test, and right after `ready_for_review` it can stay
+  the newest one until the new run's `ci` job starts. **Ask to merge, queue, or post a pre-merge
+  card only when the PR is ready and the head's `ci` check concluded `success`** in a run started
+  while it was ready. `skipped` does not count. The DEFAULT OPERATING MODE rows "a PR is open" and
+  "the PR is green" mean a ready PR; a parked draft is mid-iteration, and a continuation brief
+  says which state it left the PR in.
+- **To re-run CI with no new push, re-run the workflow**, or mark the PR draft and then ready.
+  `ci.yml` lets a `ready_for_review` run queue behind an in-flight run on the same head rather
+  than cancel it, because the gate fails a tier canceled on the current head. So re-marking a PR
+  ready while its run is still going costs a second full run once the first ends: wait for the
+  first.
+- **Never park a PR that is in the merge queue.** Converting it to a draft removes it from the queue.
+- **Forgetting `--undo` costs what it cost before**: every push runs CI. Nothing reaches `main`
+  unchecked either way.
+- **Dependabot is unaffected.** It never opens drafts, so its PRs run CI on open, and
+  `dependabot-auto-merge.yml` still sees a `ci` result.
+- **CodeQL's default setup is not gated.** GitHub runs it on every PR push, and no workflow here
+  controls it.
+
 ## Keeping an open PR mergeable while it waits
 
 A PR is not "done and parked" the moment CI goes green — it sits open while you
