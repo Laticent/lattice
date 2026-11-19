@@ -13,6 +13,7 @@
 // `architect.ts` (`chatComplete`) is the wiring.
 
 import { FIND_MAX_CHARS, type FindOptions, findInSlide, literalMatcher, markupChange, matchSnippet, replaceInSlide } from '@/lib/deck-find';
+import { deckPluginsOff } from '@/lib/plugin-admission';
 // The splicer, the authoring rules and the front-matter readers are BOUND, not imported
 // (`bindKernel`). This module loads lazily, and those three are startup modules: a static
 // import from here lists their chunks — and every chunk THEY need, i.e. the whole Studio —
@@ -20,10 +21,12 @@ import { FIND_MAX_CHARS, type FindOptions, findInSlide, literalMatcher, markupCh
 // budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
 import skillIndex from '../../../../design/skills/index.json';
 import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
-import { frontMatterLang, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
+import { frontMatterLang, frontMatterSayMap, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
 import { type ChatAction, type ChatMode, CREATE_DECK_MAX_CHARS, DEFAULT_CHAT_MODE, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, TOOL_TIERS, toolAllowed, visibleTitle } from './chat-actions';
 import { buildChartSlide } from './chat-chart';
+import { getSayLine } from './slide-say';
 
 type Edits = typeof import('@/components/studio/ai/architect-edits.js');
 type Knowledge = typeof import('@/lib/architect-knowledge.js');
@@ -810,16 +813,16 @@ export function createToolbox(opts: {
 	 * narrated, by design (narration-resolve.ts), so they are not here either.
 	 */
 	async function previewSpeech(textRaw: unknown, fromRaw: unknown, toRaw: unknown): Promise<string> {
-		const [{ toSpokenText }, { termHits, unusualWords }, { narrateChart, slideToSpeech }, { narrationDeck, resolveNarration }, { getSayLine }, { deckPluginsOff }, { frontMatterSayMap }, { slideSourceHidden }] = await Promise.all([
+		// Only the HEAVY modules load on demand: the narration core is a 1 MB bundle. The small helpers below
+		// are imported statically at the top. A dynamic import() of a module that already sits in an
+		// eager chunk makes the bundler ship that module's whole export table up front (the route budget
+		// measured +601 gzip bytes from slice-equivalence-core alone, #3318).
+		const [{ toSpokenText }, { termHits, unusualWords }, { narrateChart, slideToSpeech }, { narrationDeck, resolveNarration }] = await Promise.all([
 			import('@/lib/cadenza'),
 			// Its own lazy chunk; see the header of term-report.ts for why it is not read off the package.
 			import('@/lib/cadenza/term-report'),
 			import('@/playground/read-along-core.generated.js'),
 			import('./narration-resolve'),
-			import('./slide-say'),
-			import('@/lib/plugin-admission'),
-			import('@/lib/resolve-narration'),
-			import('../../../../lib/diagnostics/slice-equivalence-core.mjs'),
 		]);
 		const speak = { terms: termsSpokenMap(draft), lang: frontMatterLang(draft) ?? undefined };
 		const report = (text: string): string[] => {
