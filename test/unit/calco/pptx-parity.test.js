@@ -12,7 +12,8 @@
  * again; a deliberate change to what the writer says edits the snapshot by hand, and the diff is the review.
  *
  * EDITED for the master and theme (engineering/decisions/2026-11-18-calco-master-theme.md): the reader now records the
- * slide master and each layout's `showMaster`, so every deck gained `master` and `showMaster`. In `rich`, the running
+ * slide master (its ground, an explicit white, and its shapes) and each layout's `showMaster`, so every deck gained
+ * `master` and `showMaster`. In `rich`, the running
  * header and footer moved off the layouts onto the master as plain shapes (a layout shows them or, with other chrome or
  * none, hides them); each layout gained a body or subtitle placeholder and a title placeholder that takes its look from
  * the master instead of black Calibri with Office's 0.1 in inset; the page number became each layout's placeholder; and
@@ -74,6 +75,19 @@ function normalize(record) {
   const out = JSON.parse(JSON.stringify(record));
   // A layout's page-number field is a stand-in a slide never shows: pptxgenjs wrote "1002", Calco writes "‹#›".
   for (const slide of out.slides) for (const o of slide.layout.objects) if (o.ph === 'sldNum') for (const p of o.text.paras) for (const r of p.runs) delete r.t;
+  // Calco states caps and letter-spacing even when off (`cap="none"`, `spc="0"`) so a run never inherits the master's title
+  // look; pptxgenjs left them out under a master that set neither, which reads the same. pptx.test.js pins the explicit form.
+  const quiet = (objects) => {
+    for (const o of objects) for (const p of o.text?.paras || []) for (const r of p.runs) {
+      if (r.cap === 'none') delete r.cap;
+      if (r.spc === 0) delete r.spc;
+    }
+  };
+  if (out.master) quiet(out.master.objects);
+  for (const slide of out.slides) {
+    quiet(slide.objects);
+    quiet(slide.layout.objects);
+  }
   return out;
 }
 

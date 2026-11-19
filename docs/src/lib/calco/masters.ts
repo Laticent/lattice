@@ -212,11 +212,12 @@ export function planMasters(deck: Deck): MasterPlan {
 	// Names. A look with no running chrome that opens or closes the deck is its title look.
 	const last = slides.length - 1;
 	let content = 0;
+	let titles = 0;
 	layouts.forEach((layout, li) => {
 		const ends = layoutOf[0] === li || layoutOf[last] === li;
 		if (ends && !Object.keys(layout.chrome).length) {
 			layout.kind = 'title';
-			layout.name = layouts.slice(0, li).some((l) => l.kind === 'title') ? `Title ${li + 1}` : 'Title';
+			layout.name = ++titles === 1 ? 'Title' : `Title ${titles}`;
 		} else layout.name = ++content === 1 ? 'Content' : `Content ${content}`;
 	});
 	return { layouts, layoutOf, hoisted, master };

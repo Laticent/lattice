@@ -408,14 +408,17 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		const sz = clamp(points(s.size) * 100, 100, 400000);
 		const fillColor = s.alpha < 1 && s.flatColor ? s.flatColor : s.color;
 		const fillAlpha = s.alpha < 1 && !s.flatColor ? s.alpha : 1;
+		// Weight, slant, caps and letter-spacing are always written, "off" included: the master's and layouts' text styles
+		// carry the deck's title and body look (bold, all caps, letter-spaced), and a run that left them out would inherit
+		// them in PowerPoint (engineering/decisions/2026-11-18-calco-master-theme.md §3).
 		let a = ` lang="${langOf(s)}" sz="${sz}"`;
-		if (bold) a += ' b="1"';
-		if (italic) a += ' i="1"';
+		a += bold ? ' b="1"' : ' b="0"';
+		a += italic ? ' i="1"' : ' i="0"';
 		if (!end) {
 			if (s.underline) a += ' u="sng"';
 			if (s.strike) a += ' strike="sngStrike"';
-			if (s.smallCaps) a += ' cap="small"';
-			if (fin(s.letterSpacing)) a += ` spc="${clamp(points(s.letterSpacing) * 100, -400000, 400000)}"`;
+			a += s.smallCaps ? ' cap="small"' : ' cap="none"';
+			a += ` spc="${fin(s.letterSpacing) ? clamp(points(s.letterSpacing) * 100, -400000, 400000) : 0}"`;
 		}
 		// Kerned at every size, as the browser kerns: letter-spaced text and 9pt labels too (measured in Chromium). `kern` is
 		// the smallest size kerning applies at, in hundredths of a point, so 1pt; not 0, which the spec reads as "every
@@ -596,7 +599,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		// of its own and follows it.
 		const lst = `<a:lstStyle><a:lvl1pPr algn="${algn}">${runProps(lead.style, 'a:defRPr')}</a:lvl1pPr></a:lstStyle>`;
 		// A layout's field shows PowerPoint's own stand-in for "this slide's number"; a slide's shows its digits.
-		const body = `<a:fld id="${SLIDENUM_FIELD}" type="slidenum"><a:rPr lang="${deckLang}" b="0"/><a:t>${xmlText(digits ?? '‹#›')}</a:t></a:fld>`;
+		const body = `<a:fld id="${SLIDENUM_FIELD}" type="slidenum"><a:rPr lang="${deckLang}"/><a:t>${xmlText(digits ?? '‹#›')}</a:t></a:fld>`;
 		return (
 			`<p:sp><p:nvSpPr>${cNvPr(id, `Slide Number Placeholder ${id - 1}`)}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="12"/></p:nvPr></p:nvSpPr>` +
 			`<p:spPr>${xfrm(box.x, box.y, box.w, box.h)}${rectGeom}</p:spPr>` +
@@ -720,9 +723,11 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	const bodyStyle = levels((l) => ` marL="${(l - 1) * 457200}" indent="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"`, bodyRPr, `${bodyLn}<a:spcBef><a:spcPts val="600"/></a:spcBef><a:buNone/>`);
 	// Other text (a new text box) in the body's face and ink.
 	const otherStyle = levels(levelAttrs, bodyRPr);
+	// The master's ground is white, as Office's `bg1` was before the deck had a theme: a slide with no background of its own
+	// shows it, and `lt1` (the deck's main ground, by role) may be dark, which would repaint that slide.
 	part(
 		'ppt/slideMasters/slideMaster1.xml',
-		`${DECL}<p:sldMaster ${NS}><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>${TREE_ROOT}${masterTree}</p:spTree></p:cSld>` +
+		`${DECL}<p:sldMaster ${NS}><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>${TREE_ROOT}${masterTree}</p:spTree></p:cSld>` +
 			`<p:clrMap ${CLR_MAP}/><p:sldLayoutIdLst>${layoutIds.map((rid, i) => `<p:sldLayoutId id="${2147483649 + i}" r:id="${rid}"/>`).join('')}</p:sldLayoutIdLst>` +
 			`<p:hf sldNum="${masterNumber ? 1 : 0}" hdr="0" ftr="0" dt="0"/><p:txStyles><p:titleStyle>${titleStyle}</p:titleStyle><p:bodyStyle>${bodyStyle}</p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="${deckLang}"/></a:defPPr>${otherStyle}</p:otherStyle></p:txStyles></p:sldMaster>`,
 		`${CT}.slideMaster+xml`,

@@ -7,9 +7,9 @@
  * - **Title**: the style most title text is drawn in (the slide titles outside cards), weighted by characters.
  * - **Body**: the style most other text is drawn in, weighted by characters; chrome (header, footer, number), eyebrows
  *   and subtitles do not count.
- * - **Colors** (OOXML's twelve): `dk1`/`lt1` are the body ink and the ground most slides sit on (for a dark deck, the
- *   ground is `dk1` and the ink `lt1`, as the slots name lightness, not role); `dk2`/`lt2` the next dark and light
- *   ones (the title ink, a second ground); the six accents are the most used saturated colors the deck paints with,
+ * - **Colors** (OOXML's twelve): `dk1`/`lt1` are the body ink and the ground most slides sit on, by ROLE whatever their
+ *   lightness, because the master's color map draws text in `dk1` and the ground in `lt1` (a dark deck's `dk1` is light,
+ *   as `OFFICE_PALETTE` has it); `dk2`/`lt2` are the title ink and a second ground; the six accents are the most used saturated colors the deck paints with,
  *   text, fills, strokes and gradient stops, each at least a visible step from the others. A deck with fewer than six
  *   fills the rest with tints and shades of the ones it has.
  *
@@ -115,20 +115,23 @@ export function readTheme(deck: Deck): DeckTheme {
 		if (bg?.color && parseHex(bg.color)) grounds.set(toHex(parseHex(bg.color) as RGB), (grounds.get(toHex(parseHex(bg.color) as RGB)) || 0) + 1);
 	});
 	const byUse = (m: Map<string, number>) => [...m].sort((a, b) => b[1] - a[1]).map(([c]) => c);
-	const lights = byUse(grounds).filter((c) => luminance(c) >= 0.5);
-	const darks = byUse(grounds).filter((c) => luminance(c) < 0.5);
+	const groundsByUse = byUse(grounds);
 
 	const ink = text?.style.color && parseHex(text.style.color) ? toHex(parseHex(text.style.color) as RGB) : undefined;
 	const titleInk = title?.style.color && parseHex(title.style.color) ? toHex(parseHex(title.style.color) as RGB) : undefined;
 	const colors = { ...OFFICE };
-	const dark = [ink, titleInk, ...darks].filter((c): c is string => !!c && luminance(c) < 0.5);
-	const light = [...lights, ink, titleInk].filter((c): c is string => !!c && luminance(c) >= 0.5);
-	if (dark[0]) colors.dk1 = dark[0];
-	if (light[0]) colors.lt1 = light[0];
-	const dk2 = dark.find((c) => c !== colors.dk1);
-	colors.dk2 = dk2 ?? blendHex(colors.dk1, colors.lt1, 0.25);
-	const lt2 = light.find((c) => c !== colors.lt1);
-	colors.lt2 = lt2 ?? blendHex(colors.lt1, colors.dk1, 0.08);
+	// By role, as the color map reads them: text 1 is `dk1`, background 1 is `lt1`. A side the deck does not show takes
+	// black or white, whichever reads on the other.
+	const ground = groundsByUse[0];
+	const text1 = ink ?? titleInk;
+	const opposite = (c: string) => (luminance(c) < 0.5 ? '#ffffff' : '#000000');
+	if (text1) colors.dk1 = text1;
+	else if (ground) colors.dk1 = opposite(ground);
+	if (ground) colors.lt1 = ground;
+	else if (text1) colors.lt1 = opposite(text1);
+	colors.dk2 = titleInk && titleInk !== colors.dk1 ? titleInk : blendHex(colors.dk1, colors.lt1, 0.25);
+	const ground2 = groundsByUse.find((c) => c !== colors.lt1);
+	colors.lt2 = ground2 ?? blendHex(colors.lt1, colors.dk1, 0.08);
 
 	// Accents: the saturated colors the deck paints with, by use.
 	const paint = new Map<string, number>();

@@ -77,10 +77,11 @@ slide's picture.
 ## Theme
 
 The `.pptx` carries the deck's theme, not Office's (`readTheme`, theme.ts): the theme fonts are the faces the deck's titles and
-body are drawn in; the twelve theme colors are the body ink and ground (`dk1`/`lt1`), the heading ink and a second ground
-(`dk2`/`lt2`), and six accents, the saturated colors the deck paints with most. The master's text styles and each layout's
+body are drawn in; the twelve theme colors are the body ink and ground (`dk1`/`lt1`, by role whatever their lightness, as the master's color
+map reads them), the heading ink and a second ground (`dk2`/`lt2`), and six accents, the saturated colors the deck paints with most. The master's text styles and each layout's
 title and body (or subtitle) placeholders are in the deck's own type, so a slide or text box added in PowerPoint looks like the
-deck. Existing text keeps its explicit colors and faces: a theme switch could not recolor the slides' pictures.
+deck. Existing text keeps its explicit colors and faces: a theme switch could not recolor the slides' pictures. Every run also
+states its weight, slant, caps and letter-spacing when they are off, so it never inherits a bold or all-caps master style.
 
 A host that knows its palette passes it: `captureOfficeSlides(host, n, { palette: { dk1: 'var(--text-body)', accent1:
 'var(--accent)', … } })` resolves each CSS color on every slide under its color scheme (`resolvePalette`) and returns the

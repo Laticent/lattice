@@ -5,6 +5,9 @@
    6858000
   ],
   "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
    "objects": [
     {
      "kind": "sp",
@@ -1356,6 +1359,9 @@
    6858000
   ],
   "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
    "objects": []
   },
   "title": "deck",
@@ -1442,6 +1448,9 @@
    12191695
   ],
   "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
    "objects": []
   },
   "title": "Portrait",
@@ -1514,6 +1523,9 @@
    6858000
   ],
   "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
    "objects": []
   },
   "title": "deck",
@@ -1652,6 +1664,9 @@
    6858000
   ],
   "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
    "objects": []
   },
   "title": "deck",
@@ -1848,6 +1863,9 @@
    6858000
   ],
   "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
    "objects": []
   },
   "title": "Pictures & <notes>",
@@ -1926,6 +1944,9 @@
    12191695
   ],
   "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
    "objects": []
   },
   "title": "Square",

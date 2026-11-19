@@ -29,6 +29,11 @@ page numbers, and ships a master theme, and whether that makes the editable file
   `OFFICE_PALETTE` (`lib/core/office-export-policy.js`): `dk1` text-body, `lt1` bg, `dk2` text-heading, `lt2` bg-alt,
   `accent1` accent, `accent2–6` cat-1–5-mark (the chart series colors), resolved on every slide under its color scheme
   (`resolvePalette`), most-common value per slot. A dark deck gets its light text as `dk1`, because `tx1` maps to `dk1`.
+  Without a palette `readTheme` fills the slots by the same roles (body ink in `dk1`, the main ground in `lt1`, the title
+  ink in `dk2`), whatever their lightness; an earlier draft sorted them by lightness and put a dark ground in `dk1`.
+  The slide master's own ground stays an explicit white, as Office's `bg1` was before: a slide with no background of
+  its own shows it, and a dark `lt1` would repaint that slide (measured: the parity decks' slide with no ground turned
+  navy until this was pinned).
 - **Text styles.** The master's title, body and other styles are the deck's title and body (size, weight, ink, line pitch,
   letter-spacing, caps), on the theme faces (`+mj-lt`, `+mn-lt`). Existing runs keep their explicit colors and faces: a
   theme switch cannot recolor the slides' pictures, so binding text to theme colors would let them disagree.
@@ -42,6 +47,10 @@ page numbers, and ships a master theme, and whether that makes the editable file
   its own (its page number is its own placeholder, since a master placeholder never draws on a slide). A layout with
   another header or footer, or none, sets `showMasterSp="0"` and draws its own. Matching is to the whole px with the box
   height left out (a figure layout sets the header line 20px, not 19px).
+- **Runs say "off".** Because the inherited title and body styles can be bold, all caps or letter-spaced, every slide run
+  writes `b`, `i`, `cap` and `spc` even when they are off (`b="0"`, `cap="none"`, `spc="0"`). Otherwise PowerPoint would
+  draw a plain run, such as a light title or a text box, in the inherited look. The page-number field writes none, so it
+  follows its placeholder's list style.
 - **The page number** keeps its whole look in the placeholder's list style (letter-spacing, opacity and caps included),
   so only a highlighted number is refused.
 
@@ -66,7 +75,8 @@ page numbers, and ships a master theme, and whether that makes the editable file
 - **PowerPoint, Keynote, Google Slides**: whether "New Slide" on "Content" gives the deck's title and body, the header and
   footer, and a page number (the layout's `hf sldNum="1"` asks for one). This is the point of the change and it is
   UNVERIFIED; it joins `followups.d/3220-p1-native-pptx-real-readers.md`.
-- **`test/unit/calco/pptx-parity.test.js`** reads back the layouts and their placeholders against a frozen snapshot, and
-  could not run here (jsdom not installable). Layout names, placeholders and the master's shapes changed on purpose; the
-  snapshot needs its hand edit, as that test's header says.
+- **Inheritance is not read back.** `test/helpers/pptx-readback.js` now records the slide master and each layout's
+  `showMaster`, and the parity snapshot was updated for the intended changes (its header lists them). It does not resolve
+  inherited text styles, though: a placeholder's list style, such as the page number's look, is not compared. `pptx.test.js`
+  pins the explicit run attributes and the number's list style instead.
 - **Native charts and Mermaid** stay pictures; this change does not touch them.

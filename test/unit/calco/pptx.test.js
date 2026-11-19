@@ -226,6 +226,33 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.match(layouts[1], /<p:ph idx="1"\/>/, 'a content layout has a body placeholder');
   });
 
+  test('a run states weight, slant, caps and spacing even when off, so it never inherits the master\'s title look', async () => {
+    // The deck's title style is bold, uppercase and letter-spaced, so the master and layouts carry b="1" cap="all" spc;
+    // slide 3's plain title must say b="0" i="0" cap="none" spc="0" or PowerPoint draws it in the inherited look.
+    const loud = (t) => frame([[{ text: t, style: style({ family: 'Outfit', weight: 700, size: 48, transform: 'uppercase', letterSpacing: 2 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+    const quiet = frame([[{ text: 'Quiet', style: style({ family: 'Outfit', weight: 400, size: 40 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+    const d = { width: 1280, height: 720, backgrounds: [{ color: '#ffffff' }], slides: [loud('The opening loud title'), loud('A second loud title here'), quiet].map((f) => ({ image: ONE_PX_PNG, background: 0, frames: [f] })) };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const master = await zip.file('ppt/slideMasters/slideMaster1.xml').async('string');
+    assert.match(master.match(/<p:titleStyle>[\s\S]*?<\/p:titleStyle>/)[0], /b="1"[^>]*cap="all"[^>]*spc="/, 'the inherited title look is loud');
+    const s3 = await zip.file('ppt/slides/slide3.xml').async('string');
+    const rPr = s3.split('<a:r>').find((r) => r.includes('<a:t>Quiet</a:t>')).match(/<a:rPr [^>]*>/)[0];
+    for (const attr of ['b="0"', 'i="0"', 'cap="none"', 'spc="0"']) assert.ok(rPr.includes(attr), `${attr} in ${rPr}`);
+  });
+
+  test('a dark deck with no host palette puts its light ink in dk1 and its dark ground in lt1, as the color map reads them', async () => {
+    const ttl = frame([[{ text: 'Title', style: style({ family: 'Outfit', weight: 700, size: 48, color: '#f0f0f0' }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+    const txt = frame([[{ text: 'Body text on the dark ground', style: style({ family: 'Outfit', size: 24, color: '#d0d4d8' }) }]], { x: 64, y: 200, w: 900, h: 30 });
+    const d = { width: 1280, height: 720, backgrounds: [{ color: '#101418' }], slides: [0, 1].map(() => ({ image: ONE_PX_PNG, background: 0, frames: [ttl, txt] })) };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const theme = await zip.file('ppt/theme/theme1.xml').async('string');
+    assert.match(theme, /<a:dk1><a:srgbClr val="D0D4D8"\/><\/a:dk1>/, 'text 1 is the body ink, light as it is');
+    assert.match(theme, /<a:lt1><a:srgbClr val="101418"\/><\/a:lt1>/, 'background 1 is the ground, dark as it is');
+    assert.match(theme, /<a:dk2><a:srgbClr val="F0F0F0"\/><\/a:dk2>/, 'text 2 is the title ink');
+    const master = await zip.file('ppt/slideMasters/slideMaster1.xml').async('string');
+    assert.match(master, /<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"\/>/, 'the master stays white, so a slide with no ground of its own is not repainted dark');
+  });
+
   test('a page number that is not the slide position stays text, so a split run keeps its printed number', async () => {
     const d = deck();
     d.slides[2].frames[1] = frame([[{ text: '2.2', style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
