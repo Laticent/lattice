@@ -98,7 +98,8 @@ test('a table cell renders exactly the text it was given, in one cell', () => {
     'a | b',
     'a \\| b', // one backslash, then a pipe
     'a \\\\| b', // two backslashes, then a pipe
-    'a\\*b', // a backslash before punctuation, in prose
+    'a\\b', // a plain backslash, in prose
+    'two `a` x\\y `b` spans', // a backslash BETWEEN two code spans is prose
     'code `c|d` here', // a pipe in a code span
     'plain \\ and `k|` mix',
   ]) {
@@ -106,14 +107,23 @@ test('a table cell renders exactly the text it was given, in one cell', () => {
   }
 });
 
-test('a purpose line with a backslash inside a code span fails: the map cannot show it as written', () => {
-  const bad = { ...folders, 'lib/shared/': 'Matches `a\\b` paths.' };
-  const found = problems(collect({ parts, folders: bad }), files, { scopes: SCOPES, folders: bad });
-  assert.equal(found.length, 1);
-  assert.match(found[0], /lib\/shared\/ has a backslash inside a code span/);
-  // A backslash in prose is fine: the cell escapes it.
-  const prose = { ...folders, 'lib/shared/': 'Splits on \\ in paths.' };
-  assert.deepEqual(problems(collect({ parts, folders: prose }), files, { scopes: SCOPES, folders: prose }), []);
+test('a purpose line the map cannot show as written fails, and says where to fix it', () => {
+  const check = (about) => {
+    const f = { ...folders, 'lib/shared/': about };
+    return problems(collect({ parts, folders: f }), files, { scopes: SCOPES, folders: f });
+  };
+  // A backslash inside a code span, single or double backticks.
+  assert.match(check('Matches `a\\b` paths.')[0], /^lib\/shared\/: .*a backslash inside a code span.*FOLDERS entry/);
+  assert.match(check('Matches ``a\\b`` paths.')[0], /a backslash inside a code span/);
+  // A Markdown escape in prose: doubling it would turn the markup back on.
+  assert.match(check('star \\*not\\* here.')[0], /a Markdown escape \(\\\*\)/);
+  assert.match(check('escaped \\`lit\\` b.')[0], /a Markdown escape/);
+  // These render as written, so they pass: a plain backslash, and one BETWEEN two code spans.
+  assert.deepEqual(check('Splits on \\ in paths.'), []);
+  assert.deepEqual(check('two `a` x\\y `b` spans.'), []);
+  // A part's message names the file to fix: tools/structure.js.
+  const partRows = collect({ parts: [{ ...parts[0], about: 'Uses `a\\b`.' }], folders: {} });
+  assert.match(problems(partRows, null, { scopes: SCOPES, folders: {} })[0], /the `about` on part lib\/core in tools\/structure\.js/);
 });
 
 test('a part that matches by function with no `where` fails, and the write path does not crash', () => {
@@ -133,11 +143,32 @@ test('one part with several paths in a section renders as one row', () => {
   assert.ok(md.includes('| `lib/a/`, `lib/b/` | 16 | 3 | Pages. |'), md);
 });
 
+test('a merged row marks each path that has a README', () => {
+  const fs2 = require('node:fs');
+  const os = require('node:os');
+  const root = fs2.mkdtempSync(path.join(os.tmpdir(), 'codemap-'));
+  try {
+    fs2.mkdirSync(path.join(root, 'lib', 'a'), { recursive: true });
+    fs2.writeFileSync(path.join(root, 'lib', 'a', 'README.md'), '# a\n');
+    const multi = [{ part: 'p', layer: 1, match: () => false, where: ['lib/a/', 'lib/b/'], about: 'Two.' }];
+    const md = render(collect({ parts: multi, folders: {} }), ['lib/a/x', 'lib/b/y'], root);
+    assert.ok(md.includes('| `lib/a/` (README), `lib/b/` | 1 | 2 | Two. |'), md);
+  } finally {
+    fs2.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('a folder inside a code part shows that part\'s layer; one outside every part stays blank', () => {
   const rows = collect({ parts, folders: { ...folders, 'lib/core/deep/': 'Inside lib/core.' } });
   const layer = (where) => rows.find((r) => r.where === where).layer;
   assert.equal(layer('lib/core/deep/'), 1);
   assert.equal(layer('lib/shared/'), undefined);
+  // Nested parts: the longest prefix wins, whichever order the parts come in.
+  const nested = [{ part: 'lib', layer: 0, match: 'lib/', about: 'All.' }, ...parts];
+  for (const order of [nested, [...nested].reverse()]) {
+    const r = collect({ parts: order, folders: { 'lib/core/deep/': 'Deep.' } }).find((x) => x.where === 'lib/core/deep/');
+    assert.equal(r.layer, 1);
+  }
 });
 
 test('row order does not depend on the locale', () => {
@@ -163,6 +194,13 @@ test('the live map has a row for every plugin manifest and every workspace libra
   const libraries = PARTS.filter((p) => p.library).map((p) => p.match);
   assert.ok(libraries.length > 0);
   assert.deepEqual(rows.filter((r) => r.kind === 'library').map((r) => r.where).sort(), libraries.sort());
+});
+
+test('the live map lists each workspace library once, under its own section only', () => {
+  const md = render(collect(), null);
+  const section = md.split('\n## ').find((s) => s.startsWith('`docs/src/lib/`'));
+  assert.ok(section, 'no docs/src/lib/ section');
+  for (const p of PARTS.filter((x) => x.library)) assert.ok(!section.includes(`\`${p.match}\``), `${p.match} is in the docs/src/lib/ section`);
 });
 
 test('the live tree passes --check', () => {
