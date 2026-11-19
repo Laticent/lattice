@@ -1559,6 +1559,10 @@ const FRONT_MATTER = ['---', 'theme: indaco', 'paginate: true', '---'];
  * What IS a fact about the code: all 18 entries of the reviewer's RUBRIC are
  * `suggestion`, so the taste half is separable and deferrable to the checker.
  */
+/** The shared chart status words (lib/core/chart-status.js): the only pills a timeline row colors. */
+function chartStatus() {
+  return require(path.join(ROOT, 'lib', 'core', 'chart-status.js')).CHART_STATUS;
+}
 function PROFILE_NAMES() {
   return require(path.join(ROOT, 'lib', 'authoring', 'deck-profiles.js')).PROFILE_NAMES;
 }
@@ -3191,9 +3195,19 @@ function startDoc(files, cat) {
     // with no syntax, and it wrote `{Off plan}` on a kpi row the layout colors as on plan.
     '- Speaker notes: a plain HTML comment on the slide, `<!-- Pause here for questions. -->`.',
     '  `<!-- say: … -->` holds the exact words to speak. Notes never show on the slide.',
-    '- A `kpi` status pill takes its color from the row and the variant, never from its words.',
-    '  Use status words only (`` `{On plan}` ``, `` `{At risk}` ``, `` `{Breaching}` ``); for one metric off',
-    '  plan, use `kpi attention`, which flags the lead tile in the warning color.',
+    // The first real-model run (2026-11-19) then put `{Breaching}` on a row `kpi attention` draws
+    // green with a check: the rule named no rows. These rows are kpi.styles.css's nth-child hooks,
+    // pinned by test/unit/tools/agent-kit-structure.test.js.
+    '- A `kpi` row\'s first pill takes its color from the row\'s POSITION, never its words:',
+    '  plain `kpi` draws every row green with a check (on plan); `kpi attention` draws row 1 in',
+    '  the warning color; `kpi ops` rows 1 and 3; `kpi compliance` row 3. Put an off-plan metric',
+    '  on a warning row, or leave its pill off and say the miss in the context line. A second',
+    '  pill on a row is a neutral tag.',
+    // Verified by render 2026-11-19: both draw a `##` above the hero, and lint takes it.
+    '- `big-number` and `quote` take an optional `## ` claim above the number or the quotation;',
+    '  their skeletons omit it. Write one, so the headings-only read keeps the beat.',
+    `- A \`timeline-list\` status pill is one of ${chartStatus().length} words: ${chartStatus().map((w) => `\`${w}\``).join(' ')}.`,
+    '  Any other word draws in the info color.',
     '',
     '## 4. Parts any slide can carry',
     '',

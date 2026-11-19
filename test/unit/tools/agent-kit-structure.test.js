@@ -986,9 +986,21 @@ test('agent kit structure', { skip }, async (t) => {
 		assert.match(skel, /^<!-- _class: title -->$/m, 'title skeleton defers to its manifest chrome');
 		assert.match(skel, /^<!-- _class: closing -->$/m, 'closing skeleton defers to its manifest chrome');
 		assert.match(start, /Speaker notes: a plain HTML comment/);
-		assert.match(start, /`kpi` status pill takes its color from the row/);
+		assert.match(start, /`kpi` row.s first pill takes its color from the row.s POSITION/);
 		assert.doesNotMatch(skel, /`\{(Board|Audit|Investor)\}`/, 'kpi skeleton carries no decorative pills');
 		for (const chart of ['bar', 'piechart']) assert.match(skel, new RegExp(`^### ${chart}$`, 'm'), `a ${chart} skeleton`);
+		// Which kpi rows draw the warning color is kpi.styles.css's nth-child hooks. The first
+		// real-model run put `{Breaching}` on a row `kpi attention` draws green with a check.
+		const css = fs.readFileSync(path.join(ROOT, 'lib', 'components', 'evidence', 'kpi', 'kpi.styles.css'), 'utf8');
+		const warnRows = (variant) =>
+			[...css.matchAll(/((?:section\.kpi\.[a-z]+ > \.cell-stage > ol > li:nth-child\(\d\),?\s*)+)\{[^}]*--lat-pill-bg: var\(--state-warn-hue\)/g)]
+				.flatMap((m) => [...m[1].matchAll(new RegExp(`kpi\\.${variant} > \\.cell-stage > ol > li:nth-child\\((\\d)\\)`, 'g'))].map((r) => Number(r[1])))
+				.sort();
+		assert.deepEqual(warnRows('attention'), [1]);
+		assert.deepEqual(warnRows('ops'), [1, 3]);
+		assert.deepEqual(warnRows('compliance'), [3]);
+		assert.match(start, /`kpi attention` draws row 1 in\s+the warning color; `kpi ops` rows 1 and 3; `kpi compliance` row 3/);
+		assert.match(start, /`big-number` and `quote` take an optional `## ` claim/);
 		assert.match(start, /^- `profile:` \(`general` · `teaching` · `mission`\)/m, 'the profile key the canon names');
 		const solo = readKit('paste/lattice-instructions-solo.md');
 		assert.match(solo, /A row on `agenda`, `kpi`.*always has a body/, 'the solo ledger rule names its layouts');

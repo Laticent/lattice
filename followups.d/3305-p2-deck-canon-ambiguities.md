@@ -30,9 +30,8 @@ where     — `lib/authoring/deck-canon.js` (quoted in start.md §2 and in the S
                 The owner leans to the manifest (2026-11-19); the skeletons follow it, the
                 canon and the samples still say `silent`.
             Layout manifests and start.md §4:
-              - `big-number` and `quote` skeletons carry no `##`; say whether one is allowed.
               - Heading periods: skeletons type them, while `with-period`/`no-period` suggest the
-                engine adds one.
-              - `timeline-list`'s trailing `` `decision` `` / `` `live` `` spans are unexplained.
+                engine adds one. `lib/base/base.docs.md` §with-period itself does not say which
+                layouts default to no period, so the answer starts there.
 done when — Each item above is either settled in the canon or the manifest, or answered in
             start.md, and a fresh stand-in run (or the nightly eval) no longer reports it.
