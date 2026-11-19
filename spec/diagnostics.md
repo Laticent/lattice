@@ -129,6 +129,7 @@ distinct, stable ID.
 | `split-bodyless-item` | error | ✓ | A right-panel item with no nested body on a split layout — the title won't lift to bold. |
 | `slot-contract` | error | — | A slide that misses its layout's slot contract (the component manifest's `slots[*].match`): a required slot is missing, the heading is written at the wrong level (`#` where the layout reads `##`), or a list uses a marker the layout does not read (`agenda` with `-`, `journey` with `1.`). The slide renders without the part the layout is built on. |
 | `variant-inert` | warning | — | A variant that does nothing as written (the manifest's `variantKinds`): a `source` variant written as a class (`cards-grid numbered`; the numbers come from a `1.` list), or a `requires` variant without the variant it acts beside. |
+| `foreign-variant` | warning | — | A word that is another layout's variant, written on a layout that does not declare it (`kpi gallery`). It renders as if the word were absent. |
 | `split-missing-headline` | warning | — | An h2-anchored split slide (`split-panel`/`split-compare`) with no `## ` headline — the left panel renders empty. |
 | `split-statement-missing-quote` | warning | — | A `split-panel pullquote` with no `> ` blockquote — the pull-quote (the variant's point) renders empty. |
 | `split-compare-option-count` | warning | — | `split-compare` without exactly two top-level options — the layout assumes a two-up and highlights the 2nd as preferred. |

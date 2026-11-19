@@ -549,6 +549,9 @@ function slotRow(slot) {
 }
 const slotCounts = (slot) => slot === null || slot.required === true || strictMarker(slot.match);
 function buildSlotContract() {
+  const { UNIVERSAL_MODIFIER_TOKENS, FAMILY_MODIFIER_TOKENS } = require('../lib/components');
+  const BASE_WORDS = new Set(UNIVERSAL_MODIFIER_TOKENS);
+  const FAMILY_WORDS = new Set(FAMILY_MODIFIER_TOKENS);
   const table = {};
   for (const m of loadAll()) {
     if (!m.slots) continue;
@@ -558,6 +561,12 @@ function buildSlotContract() {
       entry.variantSlots = Object.fromEntries(Object.entries(m.variantSlots).map(([v, over]) => [v, Object.fromEntries(Object.entries(over).map(([k, s]) => [k, slotRow(s)]))]));
     }
     if (m.variantKinds) entry.variantKinds = m.variantKinds;
+    // This component's own variants beyond the base groups. lint's `foreign-variant` reads it, so
+    // `kpi gallery` (another layout's variant) is named instead of passing because SOME component
+    // declares it. Family modifiers stay out: `checks-*` and `heat` act on any slide that carries
+    // a state mark, so they are nobody's to own.
+    const own = (m.variants || []).filter((t) => !BASE_WORDS.has(t) && !FAMILY_WORDS.has(t));
+    if (own.length) entry.variants = own;
     table[m.name] = entry;
   }
   const source =

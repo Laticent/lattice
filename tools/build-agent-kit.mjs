@@ -203,6 +203,12 @@ function relocate(text) {
         /\[design\/design-system\.md §6\.5\]\([^)]*\)/g,
         `[the universal modifier catalog](../${AUTHORING}/modifiers.md)`,
       )
+      // The guides now link the generated base reference (lib/base/base.modifiers.docs.md), which
+      // the kit does not copy; its catalog is the kit's own modifiers.md.
+      .replace(
+        /\[the base modifier reference\]\([^)]*base\.modifiers\.docs\.md\)/g,
+        `[the universal modifier catalog](../${AUTHORING}/modifiers.md)`,
+      )
       // `components.pick.md` is generated for repo users and routes readers to a
       // path a kit consumer does not have.
       .replace(/`lib\/components\/<bucket>\/<name>\/<name>\.docs\.md`/g, '`./<name>.md`')

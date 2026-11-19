@@ -1014,8 +1014,8 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: kpi target -->
-<!-- _footer: "New layout — kpi · kpi target" -->
+<!-- _class: kpi -->
+<!-- _footer: "New layout — kpi" -->
 
 ## Where we are against the targets we set ourselves.
 

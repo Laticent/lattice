@@ -448,6 +448,43 @@ behind the one before it only where it reads that one's output.
   the three, so each component's contract card (W6) lists every front-matter key that changes it.
   Nobody hand-maintains that list, so it cannot drift.
 
+**Shipped (W5, first slice, 2026-11-19).** What landed:
+
+- `lib/base/base.manifest.json` (schema beside it, swept by `tools/manifest-schemas.js` as the
+  `base` family) declares every modifier group: its order, label, summary, surface, axes and
+  literal words. Where an engine resolver owns a word list, the manifest names it by `source`,
+  so no list lives in two places. `lib/components/index.js` builds `MODIFIER_GROUPS` from it;
+  `BASE_MODIFIERS`, `FRAME_MODIFIERS` and `ANIMATION_MODIFIERS` are read back from their groups.
+  Every pre-existing group came out with the same words in the same order (diffed before and after, by the maker and again by the checker).
+- The 34 stray words are in it: three modes, seven switches, 16 treatments, eight `tint-at-*`.
+  So are the seven bare placement spellings (`top-left`, …) that treatments.js accepts and
+  lint used to flag (contradiction 7), and two universal words the per-component check below
+  surfaced: `bleed` (the placed picture) and `watermark` (the section ghost on any slide).
+- It declares the taxonomy (component, variant, modifier, switch, register, universal content,
+  engine class), each with its one-line test, and every `DECK_SETTINGS` register and axis with
+  the groups it stamps, or why it stamps none. A test holds both directions: every switch,
+  mode, tint, mark and placement the engine owns is in a group, and every register is declared
+  once against `DECK_SETTINGS`.
+- `lib/base/base.modifiers.docs.md` is generated from it by `tools/build-component-docs.js`,
+  with every group and every register (the eight registers missing from the registers doc
+  included). `base.docs.md`'s "Universal variants" section is now "Common modifiers" and links
+  it; `design-system.md` §6.5 points at it instead of a hand-kept table; every component guide
+  links it as the catalog.
+- **Lint closes the open prefixes.** `no-`, `with-`, `at-`, `tone-`, `fill-`, `checks-`,
+  `treatment-`, `tint-`, `mark-` no longer wave a word through; only `finish-*` stays open,
+  because a saved finish can have any name. The eight typo probes are `unknown-class` now, and
+  `lint:deck:all` stayed clean.
+- **Lint checks variants per component** (`foreign-variant`, a warning): `kpi gallery` names
+  `gallery` as image's, scene's and video's. Family modifiers (`checks-*`, `heat`) are exempt:
+  they act on any slide with a state mark. On the repo it found the retired phantom `kpi
+  target` still written in two decks, and those were fixed.
+
+**Not in this slice**, recorded in `followups.d/` (each is large): `DECK_SETTINGS` and the
+registers reference generated from the manifest, rather than checked against it; retiring
+`UNIVERSAL_GROUPS`, which still feeds `effectiveVariants()` and the agent kit's core set;
+moving `list-modifier-inert` onto `variantKinds`; and the CLAUDE.md HARD RULE #6 wording
+("base modifiers"), which is the owner's to change.
+
 ### W6 — One contract card per component, for agents
 
 - Generate, per component, the **whole** contract an agent needs in one place: slot shapes,
@@ -517,10 +554,10 @@ named job of one workstream, which fixes it in full before it merges (HARD RULE 
 | `base.docs.md` and `design-system.md` call `UNIVERSAL_GROUPS` (62) the full set; `design-system.md` says 51 and gives stale per-group counts | **This PR**: both name `MODIFIER_GROUPS` as the full registry (`design-system.md` keeps that `effectiveVariants()` adds the `UNIVERSAL_GROUPS` subset); every count in that table removed |
 | `silent` documented without the section rail it also hides | **This PR** |
 | `sketch` documented as a finish; it is a `mode:` token | **This PR** |
-| `light`, `mirror`, `numbered` filed under "Universal variants" while the code calls them base modifiers or aliases; the four overlapping terms | **W5**: the taxonomy and the generated modifier reference replace the section |
+| `light`, `mirror`, `numbered` filed under "Universal variants" while the code calls them base modifiers or aliases; the four overlapping terms | **W5** (shipped: the taxonomy and the generated modifier reference replace the section) |
 | CLAUDE.md HARD RULE #6 says "base modifiers", a term `base.docs.md` never uses | **W5**, and the CLAUDE.md wording goes to the owner (a canonical-doc change is the owner's) |
-| 20 tokens an author cannot learn; 8 registers with no section; `spark:`/`callout:` outside `DECK_SETTINGS` | **W5** (base manifest + generated reference) |
-| Bare placement words the engine paints and lint calls `unknown-class`; typos that lint clean through an open prefix; cross-component variants that lint clean | **W5** (lint reads the base manifest; prefixes closed; variants per component) |
+| 20 tokens an author cannot learn; 8 registers with no section; `spark:`/`callout:` outside `DECK_SETTINGS` | **W5** (the tokens and the eight registers are in the generated reference; `spark:`/`callout:` and generating `DECK_SETTINGS` are in `followups.d/`) |
+| Bare placement words the engine paints and lint calls `unknown-class`; typos that lint clean through an open prefix; cross-component variants that lint clean | **W5** (shipped) |
 | Required slots, heading level and list type unenforced; prose selectors; samples that fail their own contract; `numbered` phantom; `quote` styling every paragraph as attribution | **W1** (shipped; ignored extra structure moved to W4, see W1 above) |
 | `1.`/`-` and nested swaps change or break 30+ components | **W2** |
 | Bold as structure in 12+ components | **W3** |

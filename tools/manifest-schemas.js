@@ -129,6 +129,15 @@ const FAMILIES = Object.freeze([
     ext: '.manifest.json',
   },
   {
+    family: 'base',
+    schema: 'lib/base/base.manifest.schema.json',
+    dir: 'lib/base',
+    ext: '.manifest.json',
+    // One file, not a folder per member: lib/base/base.manifest.json holds the modifier groups
+    // and the registers (engineering/decisions/2026-11-19-deterministic-authoring-audit.md W5).
+    files: ['lib/base/base.manifest.json'],
+  },
+  {
     family: 'plugin',
     schema: 'lib/plugins/plugin.schema.json',
     dir: 'lib/plugins',
@@ -235,7 +244,9 @@ function listFamilyManifests(fam, root = ROOT) {
       .map((d) => d.name);
 
   // <dir>/<name>/<name><ext>, or <dir>/<bucket>/<name>/<name><ext> when nested.
-  const leaves = fam.nested
+  const leaves = fam.files
+    ? [...fam.files]
+    : fam.nested
     ? subdirs(base).flatMap((b) =>
         subdirs(path.join(base, b)).flatMap((d) => [
           `${fam.dir}/${b}/${d}/${d}${fam.ext}`,
