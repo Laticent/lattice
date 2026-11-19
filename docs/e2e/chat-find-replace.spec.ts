@@ -1,4 +1,3 @@
-import { withCaseOf } from '../src/lib/deck-find-pattern';
 import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
 
 // FIND AND REPLACE FROM THE CHAT, ON THE REAL SURFACE (#3208 items 6 and 25).
@@ -79,10 +78,13 @@ test(`the chat finds a title and replaces it on one card the author applies at $
 });
 }
 
-// PRESERVE-CASE AND A PATTERN, ON THE REAL SURFACE (#3208 item 6). A pattern runs only in a module Worker
-// (deck-find-pattern.ts); where none starts, replace_text refuses ("not available"), and a Worker that never
-// answers is ended ("was stopped"). So "Replaced 1 match" in the tool result is the Worker answering in the page.
-test('the chat replaces by pattern with preserve_case, through the page’s Worker', async ({ page }) => {
+// A PATTERN, ON THE REAL SURFACE (#3208 item 6). A pattern runs only in a module Worker (deck-find-pattern.ts):
+// with no Worker, replace_text refuses ("not available"); one that never loads or answers is ended ("could not
+// start", "was stopped"). The title is searched as a pattern that captures it, `(Title)`, which as literal words
+// would match nothing, and `$1` writes it back. So the applied `Title today` is the page's Worker answering and
+// the groups expanding. preserve_case is proven by the unit tests, not here: a title in Title Case would come back
+// unchanged either way, so this run could not tell.
+test('the chat replaces by pattern, through the page’s Worker', async ({ page }) => {
 	test.setTimeout(90_000);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.addInitScript(() => {
@@ -110,7 +112,7 @@ test('the chat replaces by pattern with preserve_case, through the page’s Work
 			title = JSON.parse(/\[1\] "[^"\n]*" — ("(?:[^"\\]|\\.)+")/.exec(brief)?.[1] ?? '""');
 			// The title as a pattern, captured as group 1, and `$1` in the replacement.
 			const pattern = `(${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`;
-			frames = toolCall('replace_text', { find: pattern, replace: '$1 today', regex: true, preserve_case: true, slides: [1], summary: 'Added "today" to the title.' });
+			frames = toolCall('replace_text', { find: pattern, replace: '$1 today', regex: true, slides: [1], summary: 'Added "today" to the title.' });
 		} else frames = say('Added "today" to the title.');
 		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
 	});
@@ -127,6 +129,5 @@ test('the chat replaces by pattern with preserve_case, through the page’s Work
 	if (result) expect(result).toContain('Replaced 1 match in 1 slide');
 	await page.screenshot({ path: test.info().outputPath('chat-pattern-replace-card.png') });
 	await apply.click();
-	const expected = withCaseOf(title, `${title} today`);
-	await expect.poll(() => page.evaluate((t) => Object.values(localStorage).some((v) => typeof v === 'string' && v.includes(t)), expected)).toBe(true);
+	await expect.poll(() => page.evaluate((t) => Object.values(localStorage).some((v) => typeof v === 'string' && v.includes(`${t} today`)), title)).toBe(true);
 });

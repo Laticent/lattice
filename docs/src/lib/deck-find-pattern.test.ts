@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { findInSlide, replaceInSlide, searchTexts } from './deck-find';
-import { compilePattern, expandReplacement, type PatternJob, type PatternWorker, patternFlags, patternSource, runPattern, withCaseOf, workerPatternRunner } from './deck-find-pattern';
+import { compilePattern, expandReplacement, PATTERN_READY, type PatternJob, type PatternWorker, patternFlags, patternSource, runPattern, withCaseOf, workerPatternRunner } from './deck-find-pattern';
 
 // A pattern never runs in the kernel. These tests stand in for the Worker with `runPattern` called in the
 // test's own thread (it is the function the Worker calls), so the kernel sees exactly what it would see.
@@ -39,6 +39,7 @@ describe('expandReplacement: a pattern’s groups', () => {
 	it('fills named groups, and an unknown name stays as typed', () => {
 		const n = { index: 0, text: 'Oct 10', groups: ['Oct', '10'], named: { mon: 'Oct', day: '10' } };
 		expect(expandReplacement('$<day> $<mon>', n)).toBe('10 Oct');
+		// Deliberately unlike String.prototype.replace (which writes nothing): a misspelled name shows in the diff.
 		expect(expandReplacement('$<year>', n)).toBe('$<year>');
 	});
 });
@@ -112,58 +113,75 @@ describe('the kernel with a pattern', () => {
 	});
 });
 
-describe('workerPatternRunner: the timeout', () => {
-	// A worker that never answers: the stand-in for `(a+)+$` backtracking. The runner must end it and refuse.
-	const silent = () => {
+describe('workerPatternRunner: two clocks, one answer, the Worker always ended', () => {
+	// A stand-in Worker. `ready` posts PATTERN_READY the way the real one does once its script has loaded;
+	// a job it is sent is answered only when the test says so (or never: the stand-in for `(a+)+$`).
+	const fake = (o: { ready?: boolean; answer?: boolean; throwOnPost?: boolean } = {}) => {
 		const w: PatternWorker & { ended: boolean; got: PatternJob | null } = {
 			onmessage: null,
 			onerror: null,
 			ended: false,
 			got: null,
 			postMessage(job) {
+				if (o.throwOnPost) throw new Error('DataCloneError');
 				w.got = job;
+				if (o.answer) queueMicrotask(() => w.onmessage?.({ data: runPattern(job) }));
 			},
 			terminate() {
 				w.ended = true;
 			},
 		};
+		if (o.ready !== false) queueMicrotask(() => w.onmessage?.({ data: PATTERN_READY }));
+		return w;
+	};
+	const JOB: PatternJob = { source: '(a+)+$', flags: 'gu', texts: ['aaaa!'] };
+	// The most recent stand-in a runner spawned, so a test can look at it after the run.
+	let w = fake();
+	const spawning = (o: Parameters<typeof fake>[0] = {}) => () => {
+		w = fake(o);
 		return w;
 	};
 
-	it('ends a worker that misses the deadline and reports a timeout', async () => {
-		// Fake timers: the deadline is the product's behavior, and the test waits on it as a signal, not a sleep.
-		vi.useFakeTimers();
-		let w = silent();
-		const run = workerPatternRunner(() => {
-			w = silent();
-			return w;
-		}, 2000);
-		const pending = run({ source: '(a+)+$', flags: 'gu', texts: ['aaaa!'] });
+	// Fake timers: the deadlines are the product's behavior, so the test advances them as signals, never sleeps.
+	beforeEach(() => vi.useFakeTimers());
+	afterEach(() => vi.useRealTimers());
+
+	it('starts the search clock only when the Worker is ready, then ends it at the deadline', async () => {
+		const pending = workerPatternRunner(spawning(), 2000, 15_000)(JOB);
 		await vi.advanceTimersByTimeAsync(1999);
+		expect(w.got?.source).toBe('(a+)+$');
 		expect(w.ended).toBe(false);
 		await vi.advanceTimersByTimeAsync(1);
-		const r = await pending;
-		vi.useRealTimers();
-		expect(r).toMatchObject({ ok: false, reason: 'timeout' });
-		expect(w.got?.source).toBe('(a+)+$');
+		expect(await pending).toMatchObject({ ok: false, reason: 'timeout' });
 		expect(w.ended).toBe(true);
 	});
 
-	it('ends the worker after an answer, and reads an error event as a failure', async () => {
-		let w = silent();
-		const run = workerPatternRunner(() => {
-			w = silent();
-			queueMicrotask(() => w.onmessage?.({ data: runPattern(w.got as PatternJob) }));
-			return w;
-		}, 1000);
-		const ok = await run({ source: 'a', flags: 'gu', texts: ['banana'] });
+	it('a slow start is its own refusal, never a slow pattern, and the job is never sent', async () => {
+		const pending = workerPatternRunner(spawning({ ready: false }), 2000, 15_000)(JOB);
+		await vi.advanceTimersByTimeAsync(14_999);
+		expect(w.ended).toBe(false);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(await pending).toMatchObject({ ok: false, reason: 'no-start' });
+		expect(w.got).toBeNull();
+		expect(w.ended).toBe(true);
+	});
+
+	it('ends the Worker after an answer, and reads an error event as a failure', async () => {
+		const ok = await workerPatternRunner(spawning({ answer: true }), 1000)({ source: 'a', flags: 'gu', texts: ['banana'] });
 		expect(ok.ok && ok.matches[0].length).toBe(3);
 		expect(w.ended).toBe(true);
 		const failing = workerPatternRunner(() => {
-			w = silent();
+			w = fake({ ready: false });
 			queueMicrotask(() => w.onerror?.({ message: 'boom' }));
 			return w;
 		}, 1000);
-		expect(await failing({ source: 'a', flags: 'gu', texts: [] })).toMatchObject({ ok: false, reason: 'failed', message: 'boom' });
+		expect(await failing(JOB)).toMatchObject({ ok: false, reason: 'no-start', message: 'boom' });
+		expect(w.ended).toBe(true);
+	});
+
+	it('resolves (never rejects) when the job cannot be sent, and ends the Worker at once', async () => {
+		const r = await workerPatternRunner(spawning({ throwOnPost: true }), 1000)(JOB);
+		expect(r).toMatchObject({ ok: false, reason: 'failed' });
+		expect(w.ended).toBe(true);
 	});
 });

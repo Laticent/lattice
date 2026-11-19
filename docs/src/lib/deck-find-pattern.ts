@@ -26,9 +26,17 @@ export interface RawMatch {
 	readonly named?: Readonly<Record<string, string | undefined>>;
 }
 
-/** How long a pattern may run over the whole deck before its Worker is ended. A deck is a few thousand lines;
- *  a sane pattern finishes in milliseconds, and this also covers starting the Worker. */
+/** How long a pattern may run over the deck before its Worker is ended. A deck is a few thousand lines; a sane
+ *  pattern finishes in milliseconds. The clock starts when the Worker says it is READY, so a slow network or a
+ *  busy machine loading the Worker's script never reads as a slow pattern. */
 export const PATTERN_TIMEOUT_MS = 2000;
+
+/** How long the Worker may take to load and say it is ready. Its own budget and its own refusal: a cold load is
+ *  not the model's fault, and telling it to simplify a harmless pattern would send it the wrong way. */
+export const PATTERN_STARTUP_MS = 15_000;
+
+/** What the Worker posts once its module has loaded, before it is sent a job. */
+export const PATTERN_READY = 'deck-find-pattern:ready';
 
 /** The most matches one search returns. A pattern like `.` matches every character; past this it is not a
  *  find, and the answer would not fit the model's context anyway. */
@@ -40,7 +48,7 @@ export interface PatternJob {
 	readonly texts: readonly string[];
 }
 
-export type PatternResult = { ok: true; matches: RawMatch[][] } | { ok: false; reason: 'timeout' | 'too-many' | 'failed'; message: string };
+export type PatternResult = { ok: true; matches: RawMatch[][] } | { ok: false; reason: 'timeout' | 'too-many' | 'failed' | 'no-start'; message: string };
 
 /** The regular-expression source a find runs: the pattern itself, or the literal words escaped, wrapped for
  *  whole-word matching. `\p{M}`: a combining accent belongs to its word, so whole-word `cafe` does not match
@@ -102,19 +110,23 @@ export interface PatternWorker {
 
 export type PatternRunner = (job: PatternJob) => Promise<PatternResult>;
 
-/** Run each job in a FRESH Worker and end it when it answers, fails or misses the deadline. A fresh one per
- *  job because ending a Worker is the only way to stop a pattern, and a find is one call per turn at most. */
-export function workerPatternRunner(spawn: () => PatternWorker, timeoutMs = PATTERN_TIMEOUT_MS): PatternRunner {
+/** Run each job in a FRESH Worker and end it when it answers, fails or misses a deadline. A fresh one per job
+ *  because ending a Worker is the only way to stop a pattern, and a find is one call per turn at most. Two
+ *  clocks: `startupMs` until the Worker posts PATTERN_READY, then `timeoutMs` for the search itself. The
+ *  promise always resolves, exactly once, and the Worker is always ended. */
+export function workerPatternRunner(spawn: () => PatternWorker, timeoutMs = PATTERN_TIMEOUT_MS, startupMs = PATTERN_STARTUP_MS): PatternRunner {
 	return (job) =>
 		new Promise<PatternResult>((resolve) => {
 			let worker: PatternWorker;
 			try {
 				worker = spawn();
 			} catch (e) {
-				resolve({ ok: false, reason: 'failed', message: `the pattern worker did not start (${(e as Error)?.message ?? e})` });
+				resolve({ ok: false, reason: 'no-start', message: `the pattern worker did not start (${(e as Error)?.message ?? e})` });
 				return;
 			}
 			let settled = false;
+			let started = false;
+			let timer: ReturnType<typeof setTimeout> | undefined;
 			const finish = (r: PatternResult) => {
 				if (settled) return;
 				settled = true;
@@ -122,19 +134,31 @@ export function workerPatternRunner(spawn: () => PatternWorker, timeoutMs = PATT
 				worker.terminate();
 				resolve(r);
 			};
-			const timer = setTimeout(() => finish({ ok: false, reason: 'timeout', message: `no answer in ${timeoutMs} ms` }), timeoutMs);
+			timer = setTimeout(() => finish({ ok: false, reason: 'no-start', message: `the pattern worker did not start in ${startupMs / 1000} s` }), startupMs);
 			worker.onmessage = (e) => {
+				if (!started && e.data === PATTERN_READY) {
+					started = true;
+					clearTimeout(timer);
+					timer = setTimeout(() => finish({ ok: false, reason: 'timeout', message: `no answer in ${timeoutMs} ms` }), timeoutMs);
+					try {
+						worker.postMessage(job);
+					} catch (err) {
+						finish({ ok: false, reason: 'failed', message: `the job could not be sent to the pattern worker (${(err as Error)?.message ?? err})` });
+					}
+					return;
+				}
 				const r = e.data as PatternResult | null;
-				finish(r && typeof r === 'object' && 'ok' in r ? r : { ok: false, reason: 'failed', message: 'the pattern worker sent something unreadable' });
+				finish(started && r && typeof r === 'object' && 'ok' in r ? r : { ok: false, reason: 'failed', message: 'the pattern worker sent something unreadable' });
 			};
-			worker.onerror = (e) => finish({ ok: false, reason: 'failed', message: e?.message || 'the pattern worker failed' });
+			worker.onerror = (e) => finish({ ok: false, reason: started ? 'failed' : 'no-start', message: e?.message || 'the pattern worker failed' });
 			worker.onmessageerror = () => finish({ ok: false, reason: 'failed', message: 'the pattern worker sent something unreadable' });
-			worker.postMessage(job);
 		});
 }
 
-/** `$&`, `$1`…`$99`, `$<name>` and `$$` in a replacement, as String.prototype.replace reads them. A `$` that
- *  names no group stays as typed. (`` $` `` and `$'` are not offered: a match's surroundings are the slide's,
+/** `$&`, `$1`…`$99`, `$<name>` and `$$` in a replacement, as String.prototype.replace reads them, with one
+ *  deliberate difference: `$<name>` for a group the pattern does not have stays as typed (replace writes
+ *  nothing), so a misspelled name shows up in the diff instead of silently deleting words. Any other `$` that
+ *  names no group stays as typed too. (`` $` `` and `$'` are not offered: a match's surroundings are the slide's,
  *  and copying them in is a structural edit, not a word change.) */
 export function expandReplacement(template: string, m: RawMatch): string {
 	return template.replace(/\$(?:(\$)|(&)|<([^>]*)>|(\d{1,2}))/g, (all, dollar, amp, name, num) => {

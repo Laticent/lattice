@@ -735,8 +735,13 @@ export function createToolbox(opts: {
 		if (q.length > FIND_MAX_CHARS) return { refusal: `Find text is limited to ${FIND_MAX_CHARS} characters; search for a shorter phrase.` };
 		if (/[\r\n]/.test(q)) return { refusal: 'Find text is one line; search for each line on its own.' };
 		if (o.regex) {
-			const re = compilePattern(q, o);
-			if (!(re instanceof RegExp)) return { refusal: `The pattern does not compile (${re.error}). Fix it, or send literal words without regex.` };
+			// Compiled bare first, so the error quotes the model's own pattern rather than the whole-word wrapper.
+			const re = compilePattern(q, { ...o, wholeWord: false });
+			if (!(re instanceof RegExp)) {
+				// The `u` flag (needed for \p{…} and astral text) refuses escapes like `\-` or `\:` outside a class.
+				const hint = /escape/i.test(re.error) ? ' Patterns run in Unicode mode: escape only characters that are special, so write - or : without a backslash.' : '';
+				return { refusal: `The pattern does not compile (${re.error}).${hint} Fix it, or send literal words without regex.` };
+			}
 		}
 		return q;
 	}
@@ -752,6 +757,7 @@ export function createToolbox(opts: {
 		const r = await runner({ source: patternSource(q, o), flags: patternFlags(o), texts });
 		if (!r.ok) {
 			if (r.reason === 'timeout') return { refusal: `The pattern ran past ${PATTERN_TIMEOUT_MS / 1000} s on this deck and was stopped. Use a simpler pattern (no nested repeats like (a+)+), or literal words.` };
+			if (r.reason === 'no-start') return { refusal: `Pattern search could not start in this session (${r.message}); the pattern itself was never run. Try again, or search for literal words.` };
 			if (r.reason === 'too-many') return { refusal: `The pattern matches more than ${PATTERN_MAX_MATCHES} places; make it more specific.` };
 			return { refusal: `The pattern search failed (${r.message}); try again with literal words.` };
 		}
@@ -809,11 +815,12 @@ export function createToolbox(opts: {
 		// (What a pattern's group carries in is checked per match, in the kernel.)
 		if (/[\r\n]/.test(rep) || /<!--|--!?>/.test(rep)) return refuse('The replacement must be one line with no comment markers; use edit_slides for a structural change.');
 		const slides = deckSlides(draft);
-		const o = await withMatches(q, o0, slides);
-		if ('refusal' in o) return refuse(o.refusal);
 		// An empty list means every slide, as a missing one does; a number outside the deck is reported.
 		const asked = Array.isArray(slidesRaw) ? slidesRaw.map(Number) : [];
 		const only = asked.length ? new Set(asked.filter((n) => Number.isInteger(n) && n >= 1 && n <= slides.length)) : null;
+		// A pattern is run over the slides in scope only, so its match cap and deadline are about what it will change.
+		const o = await withMatches(q, o0, only ? slides.filter((_, i) => only.has(i + 1)) : slides);
+		if ('refusal' in o) return refuse(o.refusal);
 		const outside = asked.filter((n) => !(Number.isInteger(n) && n >= 1 && n <= slides.length));
 		const done: string[] = [];
 		const left: string[] = [];

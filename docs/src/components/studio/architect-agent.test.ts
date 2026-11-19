@@ -357,12 +357,38 @@ describe('the toolbox', () => {
 		expect(jobs).toHaveLength(2);
 	});
 
+	it('a replace limited to some slides sends only those slides to the Worker', async () => {
+		const jobs: PatternJob[] = [];
+		const tb = toolbox({
+			source: OCT,
+			patterns: async (job) => {
+				jobs.push(job);
+				return runPattern(job);
+			},
+		});
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct\\. (Tenth)', replace: 'October $1', regex: true, slides: [2], summary: 's' }));
+		expect(out).toContain('Replaced 2 matches in 1 slide: slide 2');
+		expect(jobs[0].texts.some((t) => t.includes('# Oct. Tenth') && !t.includes('After'))).toBe(false); // slide 1's title
+		expect(tb.draft).toContain('# Oct. Tenth\n'); // slide 1 untouched
+	});
+
+	it('a compile error quotes the model’s pattern, not the whole-word wrapper, and explains Unicode-mode escapes', async () => {
+		const out = await toolbox({ source: OCT, patterns: inThread }).run('find_text', JSON.stringify({ text: 'Q\\d\\-2026', regex: true, whole_word: true }));
+		expect(out).toContain('The pattern does not compile');
+		expect(out).toContain('Unicode mode');
+		expect(out).not.toContain('\\p{L}');
+	});
+
 	it('a pattern that does not compile, runs too long, or has no Worker is refused, and the deck is untouched', async () => {
 		const bad = toolbox({ source: OCT, patterns: inThread });
 		expect(await bad.run('replace_text', JSON.stringify({ find: '(Oct', replace: 'x', regex: true, summary: 's' }))).toContain('The pattern does not compile');
 		const slow = toolbox({ source: OCT, patterns: async () => ({ ok: false, reason: 'timeout', message: 'no answer' }) });
 		expect(await slow.run('replace_text', JSON.stringify({ find: '(a+)+$', replace: 'x', regex: true, summary: 's' }))).toContain('was stopped');
 		expect(slow.draft).toBe(OCT);
+		const cold = toolbox({ source: OCT, patterns: async () => ({ ok: false, reason: 'no-start', message: 'the pattern worker did not start in 15 s' }) });
+		const coldOut = await cold.run('find_text', JSON.stringify({ text: 'Q\\d', regex: true }));
+		expect(coldOut).toContain('could not start');
+		expect(coldOut).not.toContain('simpler pattern'); // a cold load is not the pattern's fault
 		const none = toolbox({ source: OCT, patterns: null });
 		expect(await none.run('find_text', JSON.stringify({ text: 'Oct', regex: true }))).toContain('Pattern search is not available');
 		// A literal find never needs the runner.
