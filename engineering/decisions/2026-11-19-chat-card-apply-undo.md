@@ -141,7 +141,37 @@ if authors ask for milestones.
 It must answer: which card model the author reads correctly at first glance; whether preview belongs
 on every row or only the header; and which undo behavior to keep.
 
-## 8. What this note does not do
+## 8. The UI/UX review (2026-11-19)
+
+One reviewer, briefed with the owner's goals and the prototype but not with this note's
+recommendations, drove the prototype at 1440, 820 and 390px and with the keyboard. Its
+recommendation, and what it would change:
+
+- **Card: A's live rows plus C's per-row Undo, and no checkboxes.** Every row carries Apply, Discard
+  and (once applied) Undo; the header carries "Apply remaining N" and "Undo all". Ticking first
+  creates an in-between state (ticked, not applied), and unticking a row then pressing Apply discards
+  it without the word "discard" ever appearing. **This reverses the checkbox picker #3317 ships.**
+- **Rows fold to one line** for long proposals (`Slide 4 · "Pipeline" → "Pipeline up 18%"`), with the
+  diff behind a chevron; the header shows progress ("4 of 10 applied"). No inner scroll box.
+- **Preview** from every row and from the header; the band names its scope ("Previewing slide 2 · not
+  applied"), offers a **Before/After** toggle, and leaves on Esc. On a phone: a full-screen sheet,
+  swipe between changed slides, a sticky bottom bar with 44px targets.
+- **Undo by content, decided before the click.** The card can tell whether a slide still reads what
+  the AI wrote, so a row the author has edited since shows "You've edited this slide since" and no
+  Undo, instead of a live button that then refuses. States: Applied (Undo) · Edited since · Undone
+  (Apply again). "Newest only" was rejected: one keystroke sends the author to a whole-deck restore.
+- **History: one entry per card, label kept current**, reworded so it does not read as if the copy
+  contains the changes: "Before AI edit · 10:42 · 'Make slides 2 and 3 lead with…' (2 of 3 applied)".
+- **Defects found:** raw Markdown in the diff (a word-level diff of the slide text, with "Show source"
+  for power users); focus lost after Apply; no live region for results; 24 to 28px touch targets;
+  Discard as a bare X beside Apply; stale header labels after a partial apply; 10px monospace row
+  titles; heavy icon borders; the prototype's card not themed in dark mode.
+- **Not asked, but material:** mark rows stale before the click; per-row outcomes for a partial bulk
+  apply; keyboard verbs (J/K, Enter, Backspace, Space, Esc); **tell the AI which rows were applied,
+  discarded or undone**, or it proposes the same edit again; name rows by slide title, since inserts
+  renumber.
+
+## 9. What this note does not do
 
 - It does not build per-slide undo, preview or the checkpoint change in the Studio.
 - It does not give slides stable ids; content matching stands in until the slide spine lands.
