@@ -844,8 +844,9 @@ function modifiersDoc() {
   return [
     '# Universal modifiers',
     '',
-    'The core class tokens that work on every layout. Compose them on the same comment,',
-    'space-separated, after the layout name:',
+    'The core class tokens no layout has to declare. Nearly every layout honors them (the poster',
+    'layouts `contact`, `wifi`, `gift-card` and `video` do not render several). Compose them on',
+    'the same comment, space-separated, after the layout name:',
     '',
     '```',
     '<!-- _class: cards-grid dark tone-warn insight-the-ask -->',
