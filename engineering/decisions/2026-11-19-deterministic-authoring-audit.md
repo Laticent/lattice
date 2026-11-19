@@ -50,9 +50,14 @@ findings subtracted.
 | Placement words lint calls `unknown-class` | 7 | 7 | exact |
 | Typos that lint clean through a prefix | 8 probed | 8 of 8 | `zzbogus` control is flagged; the 9-of-11 open-prefix count in Finding 4 is a count of prefixes, not probes |
 | Registers missing from the registers doc | 8 | 8 | exact |
+| `@video` / `bleed` drops | 4 / 4 | 4 / 4 | exact: contact, gift-card, wifi, video |
+| `@video` / `bleed` overflow | 36 / 3 | 38 / 4 | video adds 2 clipped inside a box; bleed adds `columns` |
+| Picture drops | 4 (`@image`) | 4 (Markdown `![…](…)`) | exact; the re-derivation used Markdown's picture, which is full size, so its overflow (75) is not comparable to `@image`'s 36 |
+| `@legend` as literal code / key only in the chart / dropped | 54 / 22 / 4 | 54 / 22 / 4 | exact |
+| `_focus` tags nothing | 18 | 18 | exact, the same 18 components |
 
-Not re-derived: `@image`/`@video`/`@legend`/`bleed`/`_focus` columns of the Finding 3 table, the
-≈35 undocumented tokens (an estimate) and the 8 docs-vs-code contradictions (a judgment).
+Not re-derived: the ≈35 undocumented tokens (an estimate) and the 8 docs-vs-code contradictions (a
+judgment).
 
 ## The answer in five lines
 
@@ -191,10 +196,10 @@ checking that the text is present, placed and unclipped.
 | Eyebrow | 74 | — | 1 | 1 + 3 overflow |
 | Subtitle | 66 | — | 3 | 5 overflow, 4 reuse the slot undeclared |
 | Pill / state mark in heading | 77 / 78 | — | 1 / 1 | 1 overflow |
-| `@image` / `@video` | 40 / 40 | — | 4 / 4 | 36 overflow (honest capacity, flagged) |
+| `@image` / `@video` | 40 / 40 | — | 4 / 4 | 36 / 38 overflow (honest capacity, flagged) |
 | Speaker notes | 76 | — | **4** | — |
 | `_focus` | 62 | — | 18 tag nothing | — |
-| `bleed` | 73 | — | 4 | 3 overflow |
+| `bleed` | 72 | — | 4 | 4 overflow |
 
 - **The four posters** (contact, wifi, gift-card, video) rebuild the slide from the authored list
   and drop nearly every universal. `contact` drops the heading itself, along with the eyebrow,
