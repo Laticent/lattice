@@ -99,12 +99,21 @@ test('a table cell renders exactly the text it was given, in one cell', () => {
     'a \\| b', // one backslash, then a pipe
     'a \\\\| b', // two backslashes, then a pipe
     'a\\*b', // a backslash before punctuation, in prose
-    'Matches `a\\b` paths', // a backslash in a code span
-    'code `c\\|d` here', // an escaped pipe in a code span
-    'plain \\ and `k|\\` mix',
+    'code `c|d` here', // a pipe in a code span
+    'plain \\ and `k|` mix',
   ]) {
     assert.deepEqual(shown(text), { cells: 2, text }, JSON.stringify(text));
   }
+});
+
+test('a purpose line with a backslash inside a code span fails: the map cannot show it as written', () => {
+  const bad = { ...folders, 'lib/shared/': 'Matches `a\\b` paths.' };
+  const found = problems(collect({ parts, folders: bad }), files, { scopes: SCOPES, folders: bad });
+  assert.equal(found.length, 1);
+  assert.match(found[0], /lib\/shared\/ has a backslash inside a code span/);
+  // A backslash in prose is fine: the cell escapes it.
+  const prose = { ...folders, 'lib/shared/': 'Splits on \\ in paths.' };
+  assert.deepEqual(problems(collect({ parts, folders: prose }), files, { scopes: SCOPES, folders: prose }), []);
 });
 
 test('a part that matches by function with no `where` fails, and the write path does not crash', () => {
@@ -124,6 +133,13 @@ test('one part with several paths in a section renders as one row', () => {
   assert.ok(md.includes('| `lib/a/`, `lib/b/` | 16 | 3 | Pages. |'), md);
 });
 
+test('a folder inside a code part shows that part\'s layer; one outside every part stays blank', () => {
+  const rows = collect({ parts, folders: { ...folders, 'lib/core/deep/': 'Inside lib/core.' } });
+  const layer = (where) => rows.find((r) => r.where === where).layer;
+  assert.equal(layer('lib/core/deep/'), 1);
+  assert.equal(layer('lib/shared/'), undefined);
+});
+
 test('row order does not depend on the locale', () => {
   const rows = collect({ parts: [], folders: { 'lib/aa/': 'A.', 'lib/typography/': 'T.', 'lib/z/': 'Z.', 'lib/B/': 'B.' } });
   const order = render(rows, null).split('\n').filter((l) => l.startsWith('| `')).map((l) => l.split('`')[1]);
@@ -132,8 +148,8 @@ test('row order does not depend on the locale', () => {
 
 // The live map's REACH. Every fixture above uses its own scopes and no plugin or library, so these
 // pin what the real gate covers: dropping a scope or a manifest branch must go red here.
-test('the live gate covers the six scopes it documents', () => {
-  assert.deepEqual(LIVE_SCOPES.map((s) => s.dir), ['', 'lib/', 'docs/', 'docs/src/', 'test/', '.claude/']);
+test('the live gate covers the eight scopes it documents', () => {
+  assert.deepEqual(LIVE_SCOPES.map((s) => s.dir), ['', 'lib/', 'docs/', 'docs/src/', 'docs/src/lib/', 'test/', 'tools/', '.claude/']);
 });
 
 test('the live map has a row for every plugin manifest and every workspace library', () => {

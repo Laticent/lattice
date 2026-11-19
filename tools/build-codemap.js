@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * Generate dist/engineering/codemap.md — the map of what lives where: every top-level folder,
- * every folder under lib/, docs/, docs/src/, test/ and .claude/, every code part with its layer,
- * every plugin and every workspace library, each with one line on what it is for.
+ * every folder directly inside lib/, docs/, docs/src/, docs/src/lib/, test/, tools/ and .claude/,
+ * every code part with its layer, every plugin and every workspace library, each with one line on
+ * what it is for.
  *
  * Why this exists: an agent new to the repo had a doc index (CLAUDE.md's routing table) and a
  * script index (capabilities.md) but no map of the CODE, so "where does X live?" cost a grep
@@ -34,7 +35,7 @@
  * leaves out a part it cannot place), because it runs inside `npm install`.
  *
  * What --check covers: the IMMEDIATE child folders of each scope in SCOPES. A new folder deeper
- * down (lib/core/x/, tools/x/) is described by its parent's line and is not checked. It checks
+ * down (lib/core/x/, tools/lib/x/) is described by its parent's line and is not checked. It checks
  * that a line EXISTS, not that it is still true, so an `about` says what a folder is FOR, never
  * a list of what it holds: a list goes stale the day a file is added, and nothing notices.
  *
@@ -56,7 +57,9 @@ const SCOPES = [
   { dir: 'lib/', title: '`lib/` — the engine' },
   { dir: 'docs/', title: '`docs/` — the docs site package' },
   { dir: 'docs/src/', title: '`docs/src/` — the docs site source' },
+  { dir: 'docs/src/lib/', title: '`docs/src/lib/` — site libraries that do not publish on their own' },
   { dir: 'test/', title: '`test/` — tests, fixtures and baselines' },
+  { dir: 'tools/', title: '`tools/` — build steps, gates and maintenance scripts' },
   { dir: '.claude/', title: '`.claude/` — agent roster, hooks, skills, workflows' },
 ];
 
@@ -99,6 +102,29 @@ const FOLDERS = {
   'docs/src/': 'The site source. Every folder is listed below.',
   // docs/src/
   'docs/src/test/': 'Shared helpers and stubs for the site unit tests.',
+  // docs/src/lib/ folders that are not workspace libraries (those are listed from their package.json)
+  'docs/src/lib/anima/': 'Anima, the motion library: compiles a scene spec into the moves an animated slide plays.',
+  'docs/src/lib/code-packages/': 'The code-package door: how the Studio runs a code package a deck uses, sandboxed and only with consent.',
+  'docs/src/lib/compose/': "Compose, the Studio's rich-text editor: the whole deck as one editable document, and the commands that edit it.",
+  'docs/src/lib/deck-outline/': 'The deck as an outline, so the Markdown and Compose editors keep the same place in it.',
+  'docs/src/lib/vetrina-exemplars/': 'Exemplar walkthroughs and a stress battery that prove the Vetrina library on a host other than the Studio.',
+  'docs/src/lib/vetrina-narration/': 'The seam that lets a Vetrina walkthrough narrate with Cadenza timing, with no audio needed.',
+  // tools/
+  'tools/dom-bakeoff/': 'A measured bake-off of HTML parsers against the DOM contract the engine uses.',
+  'tools/frame-lab/': 'Renders every component gallery in a frame you can narrow, to see whether it reflows well.',
+  'tools/icon-font/': 'The Python step that turns the curated icon drawings into the Lattice Icons font (`npm run icons:font`).',
+  'tools/intent-bakeoff/': 'Measures the component intent ranker the site ships against its alternatives.',
+  'tools/kit-branch/': 'Files the publish-kits workflow copies to the root of the `dist-kits` branch, kept here so they are reviewed on `main`.',
+  'tools/lastra-corpus/': 'Generates the lastra image decoder\'s test pictures and their expected results, and benchmarks its speed.',
+  'tools/lib/': 'Shared modules the scripts in `tools/` import, so no script reimplements another.',
+  'tools/office-conformance/': 'The Open XML SDK checker that validates exported Office files against the official schemas.',
+  'tools/parser-bakeoff/': 'A measured bake-off of inline-notation parsers against the shipped kernel as the control.',
+  'tools/perf-torture/': 'A reusable profiler that repeats one user action in a browser and reports memory that leaks.',
+  'tools/recheck/': 'The pinned regex complexity checker behind `tools/regex-census.js`, kept out of the root install.',
+  'tools/script-docs/': 'One description per npm script, the source of `dist/engineering/capabilities.md`.',
+  'tools/segno-legacy/': 'Frozen copies of the inline-code kernels from before Segno phase 2, kept as the bake-off baseline.',
+  'tools/spike-card-slack/': 'A spike, not production tooling: the measurement behind the card-stack vertical alignment decision.',
+  'tools/squadra/': 'Corpora and reference data the Squadra lint diffs run on, so every run reads the same cases.',
   // test/
   'test/benchmark/': 'The render benchmark and its committed baseline (`npm run bench`, HARD RULE #19).',
   'test/conformance/': 'Fixtures, corpora and the debt list for the conformance contracts.',
@@ -204,9 +230,21 @@ function collect({ root = ROOT, parts = require('./structure.js').PARTS, folders
     const wheres = p.where ? [].concat(p.where) : [p.match];
     for (const where of wheres) rows.push({ kind: 'part', name, where, layer: p.layer, about: p.about || '' });
   }
-  for (const [where, about] of Object.entries(folders)) rows.push({ kind: 'folder', where, about });
+  // A folder inside a code part (tools/lib/ inside `tools`) shows that part's layer: the longest
+  // prefix match wins. A folder no part matches (CSS-only, docs, tests) keeps a blank layer.
+  const layerOf = (where) => {
+    let best = null;
+    for (const p of parts) {
+      if (typeof p.match === 'string' && where.startsWith(p.match) && (!best || p.match.length > best.match.length)) best = p;
+    }
+    return best?.layer;
+  };
+  for (const [where, about] of Object.entries(folders)) rows.push({ kind: 'folder', where, layer: layerOf(where), about });
   return rows;
 }
+
+/** A backslash inside a code span: the one text a table cell cannot render as written. */
+const CODE_SPAN_BACKSLASH = /`[^`]*\\[^`]*`/;
 
 /**
  * Everything --check fails on. `files` is the tracked file list (null skips the coverage and
@@ -218,6 +256,9 @@ function problems(rows, files, { scopes = SCOPES, folders = FOLDERS } = {}) {
     if (r.noWhere) out.push(`part ${r.name} matches by function and has no \`where\`: add its path(s) as \`where\` on its PARTS entry in tools/structure.js`);
   }
   rows = rows.filter((r) => !r.noWhere);
+  for (const r of rows) {
+    if (CODE_SPAN_BACKSLASH.test(r.about || '')) out.push(`${r.where} has a backslash inside a code span in its purpose line, which the map cannot show as written: reword it`);
+  }
   for (const r of rows) {
     if (r.about) continue;
     if (r.kind === 'part') out.push(`part ${r.name} (${r.where}) has no \`about\` line: add one to its PARTS entry in tools/structure.js`);
@@ -249,17 +290,11 @@ function problems(rows, files, { scopes = SCOPES, folders = FOLDERS } = {}) {
 
 // ── render ─────────────────────────────────────────────────────────────────
 
-// A table cell. Every pipe is escaped, and every backslash is escaped too, so a `\|` in the text
-// cannot become `\\|` (an escaped backslash, then a bare pipe that ends the cell early). The one
-// exception is inside a code span, where a backslash is literal and doubling it would show `a\\b`:
-// there it is left alone. The table pass strips only the one backslash that escapes each pipe,
-// before any inline parsing, so `a\|b` in code still comes out as written (checked with markdown-it).
-const cell = (s) =>
-  String(s)
-    .split(/(`+[^`]*`+)/)
-    .map((part, i) => (i % 2 ? part : part.replace(/\\/g, '\\\\')))
-    .join('')
-    .replace(/\|/g, '\\|');
+// A table cell: escape the backslash first, then the pipe, so a `\|` in the text cannot become `\\|`
+// (an escaped backslash, then a bare pipe that ends the cell early). Inside a code span a backslash
+// is literal, so doubling one there would show `a\\b`: --check refuses a purpose line with a
+// backslash inside a code span (see CODE_SPAN_BACKSLASH), so that case never reaches this.
+const cell = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 // Plain paths, not links: the reader is mostly an agent reading the raw text, and a link
 // writes every path twice (measured: 25 KB with links, the table below without).
 const link = (where) => `\`${where}\``;
