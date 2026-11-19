@@ -1,0 +1,29 @@
+# Throwaway probe for PR #3312, on branch claude/safari17-probe-3312 only. It never merges: the branch is deleted
+# once the run's screenshots are read. It opens the risk matrix's picked inks in real Mobile Safari 17 (an iOS 17
+# Simulator on macos-14) and uploads screenshots. Evidence only: the script always exits 0.
+name: safari17-probe
+on:
+  push:
+    branches: [claude/safari17-probe-3312]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: macos-14
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        timeout-minutes: 10
+      - run: npm run build
+      - run: bash safari17-probe/run.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safari17-probe
+          path: platform-suite-artifacts/
+          retention-days: 7
