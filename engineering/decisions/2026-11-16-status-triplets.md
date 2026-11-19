@@ -322,3 +322,9 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
 - On achromatopsia's LIGHT face the risk bands do not climb in order: medium (0.098) is lighter than low (0.039), and
   high (0.011) and critical (0.006) sit 1.09:1 apart. That predates this note and is the palette's light status ramp.
   `followups.d/3232-p4-achromatopsia-light-risk-ramp.md`.
+- Fixed in #3312, found while signing off its exports: onyx's curated status inks (`--pass-on-mark:
+  light-dark(#FFFFFF, #FFFFFF)` and the rest) reached the a11y palettes, which extend onyx, in the HTML player only.
+  a11y-base overrides them with `var(--on-mark)`, the one a11y ink, but `themeDualMode` in lib/export/player-core.mjs
+  picked one entry per token from `light-dark()` declarations alone, so the override was invisible to it. It now lets a
+  later plain `:root` declaration replace an earlier pair. Measured over every palette: the five a11y palettes change,
+  and the 14 brand themes' player output is byte-identical.

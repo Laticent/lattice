@@ -287,6 +287,21 @@ test('hoistRuleLightDark routes a real-property pair through a private token, in
 	assert.equal(hoistRuleLightDark('.card{--x:light-dark(#eee,#111)}').darkBlock, '');
 });
 
+test('themeDualMode lets a later plain :root declaration override an earlier pair, as the cascade does', () => {
+	// onyx curates `--pass-on-mark: light-dark(#FFFFFF, #FFFFFF)`; a11y-base, which extends it,
+	// re-declares `--pass-on-mark: var(--on-mark)` with the one a11y ink. A pair-only scan kept
+	// onyx's white on the dark scope, where the browser shows #1A1A1A (#3312).
+	const css = ':root{--on-mark:light-dark(#FFFFFF,#1A1A1A);--pass-on-mark:light-dark(#FFFFFF,#FFFFFF)}'
+		+ ':root{--pass-on-mark:var(--on-mark)}';
+	const { darkBlock } = themeDualMode(css);
+	assert.match(darkBlock, /--on-mark:#1A1A1A/);
+	assert.match(darkBlock, /--pass-on-mark:var\(--on-mark\)/, darkBlock.slice(0, 300));
+	assert.doesNotMatch(darkBlock, /--pass-on-mark:#FFFFFF/);
+	// A later declaration that is NOT at :root does not override a root pair.
+	const scoped = themeDualMode(':root{--x:light-dark(#111,#eee)}.card{--x:red}').darkBlock;
+	assert.match(scoped, /--x:#eee/);
+});
+
 test('hoistRuleLightDark flattens light-dark() in an at-rule condition it re-emits', () => {
 	// The picked-ink guard tests a relative color over `light-dark(red, red)` so WebKit 17.x falls
 	// back (#3312). The dark block re-emits each rule inside its own @supports, so the condition
