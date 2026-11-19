@@ -328,3 +328,9 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
   picked one entry per token from `light-dark()` declarations alone, so the override was invisible to it. It now lets a
   later plain `:root` declaration replace an earlier pair. Measured over every palette: the five a11y palettes change,
   and the 14 brand themes' player output is byte-identical.
+- Fixed in #3312 too: Chromium 119-122 crash the renderer on a relative color over a `color-mix()` origin (in
+  Chromium 121 even `CSS.supports` on that shape takes the page down), which every picked ink is. The player first
+  flattened the guard's `light-dark(red, red)` probe to `red`, which handed those engines the crash, so an a11y player
+  (and any dark risk-matrix slide) hung. `themeDualMode` now keeps `light-dark(` inside @supports preludes as a feature
+  probe and flattens every declaration as before; the player's contract test counts light-dark() outside @supports
+  preludes. Chromium 121 now paints every slide of both demo decks, light and dark, matching Chromium 153.

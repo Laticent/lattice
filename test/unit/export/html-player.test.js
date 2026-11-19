@@ -302,15 +302,19 @@ test('themeDualMode lets a later plain :root declaration override an earlier pai
 	assert.match(scoped, /--x:#eee/);
 });
 
-test('hoistRuleLightDark flattens light-dark() in an at-rule condition it re-emits', () => {
-	// The picked-ink guard tests a relative color over `light-dark(red, red)` so WebKit 17.x falls
-	// back (#3312). The dark block re-emits each rule inside its own @supports, so the condition
-	// must be flattened there too, or the player ships the light-dark() it promises not to.
+test('themeDualMode keeps the @supports light-dark() feature probe and flattens every declaration', () => {
+	// The picked-ink guard tests a relative color over `light-dark(red, red)`. In the player that is a
+	// feature probe: an engine without light-dark() reads it as false and takes the plain ink. Chromium
+	// 119-122 have relative color but no light-dark() and crash on a relative color over color-mix(),
+	// so flattening the probe to `red` handed them the crash (#3312).
 	const guard = '@supports (color:color(from light-dark(red,red) xyz-d65 x y z))';
-	const { darkBlock } = hoistRuleLightDark(`${guard}{.n{fill:light-dark(#fff,#000)}}`);
-	assert.ok(darkBlock.length > 0, 'the rule has a dark arm');
-	assert.doesNotMatch(darkBlock, /light-dark\(/, darkBlock);
-	assert.match(darkBlock, /@supports \(color:color\(from red xyz-d65 x y z\)\)\{/);
+	const { base, darkBlock } = themeDualMode(`${guard}{.n{fill:light-dark(#fff,#000)}} :root{--a:light-dark(#111,#eee)}`);
+	assert.ok(base.includes(guard), base);
+	assert.match(darkBlock, /@supports \(color:color\(from light-dark\(red,red\) xyz-d65 x y z\)\)\{/, darkBlock.slice(0, 400));
+	// Everywhere else, no light-dark() survives.
+	const strip = (css) => css.replace(/@supports[^{]*\{/g, '');
+	assert.doesNotMatch(strip(base), /light-dark\(/, base);
+	assert.doesNotMatch(strip(darkBlock), /light-dark\(/, darkBlock.slice(0, 400));
 });
 
 test('hoistRuleLightDark keeps a declaration\'s !important OUTSIDE the var() fallback', () => {
