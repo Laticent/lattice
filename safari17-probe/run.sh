@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Scratch probe for PR #3312: open the exported risk-matrix pages in real Mobile Safari 17 (an iOS 17 Simulator on
-# macos-14) and screenshot them. Evidence only: it always exits 0, so a dispatched run never files an alert.
+# macos-15) and screenshot them. Evidence only: it always exits 0, so a dispatched run never files an alert.
 set -x
 OUT="$PWD/platform-suite-artifacts"; mkdir -p "$OUT"
 P=safari17-probe
