@@ -189,6 +189,12 @@ import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
+/** A `storage` event that can change this browser's code approvals: the approvals key, or `null`, which is another tab
+ *  clearing this browser's storage, approvals with it (#3292). */
+export function approvalsMayHaveChanged(key: string | null): boolean {
+	return key === CODE_APPROVALS_KEY || key === null;
+}
+
 // The warm-up queue, held while the chat renders a draft (first-slide.ts `holdWarmUps`).
 const warmPanels = heldWarmPanels(warmPanelsNow);
 
@@ -1790,8 +1796,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// (code-packages/door.ts `approvalsInStamp`, #3292), so it must hear the change, or it keeps drawing the old answer.
 	React.useEffect(() => {
 		const heard = (e: StorageEvent) => {
-			// `null`: another tab cleared this browser's storage, approvals with it.
-			if (e.key === CODE_APPROVALS_KEY || e.key === null) setCodeStamp(codePackagesStamp());
+			if (approvalsMayHaveChanged(e.key)) setCodeStamp(codePackagesStamp());
 		};
 		window.addEventListener('storage', heard);
 		return () => window.removeEventListener('storage', heard);

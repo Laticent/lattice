@@ -544,6 +544,26 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 		expect(opened.map((o) => o.ran)).toEqual([DRAWN]);
 	});
 
+	it('a clash note is not reported for blocks the stamp-less render shows as the engine drew them (#3292)', async () => {
+		const TWO = '---\nplugins: [gantt-plugin]\n---\n\n## Two blocks\n\n```gantt\nA\n```\n\n```gantt\nB\n```\n';
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: RETURNS, css: '.bar { color: red }' }]);
+		await approvePlugin({ name: PLUGIN.name, sha256: await pluginDigest(code, PLUGIN.fence, [], fields) });
+		renderer = (f) => `${RETURN_ENVELOPE}${JSON.stringify({ html: '<p>drawn</p>', data: { status: f.body.includes('A') ? 'ok' : 'late' } })}`;
+		const clashes = async (opts: Record<string, unknown>) => {
+			let status: { failed?: { name: string; why: string }[] } = {};
+			const off = onCodePackagesStatus((s) => {
+				status = s;
+			});
+			await renderWithCodePackages<{ html: string }>(PG, TWO, 'indaco', { codeStatus: true, ...opts });
+			off();
+			return (status.failed ?? []).filter((f) => /the first block's is kept/.test(f.why));
+		};
+		// Drawn (no CSS handed, or CSS with the stamp): the two blocks clash, and the strip says so.
+		expect(await clashes({})).toHaveLength(1);
+		// CSS with no stamp and no sheet: neither block is drawn in this render, so nothing is "kept" to speak of.
+		expect(await clashes({ codeApproval: '' })).toEqual([]);
+	});
+
 	it('host slots: the past-the-limit note stands under stamp-less CSS too, as in the export (#3292)', async () => {
 		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: RETURNS, css: '.bar { color: red }' }]);
 		await approvePlugin({ name: PLUGIN.name, sha256: await pluginDigest(code, PLUGIN.fence, [], fields) });

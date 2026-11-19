@@ -2,8 +2,9 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CODE_APPROVALS_KEY } from '@/lib/code-packages/entry';
 import { loadFabricate, loadStudioPanels, waitForPanels } from '@/test/panels';
-import StudioShell from './StudioShell';
+import StudioShell, { approvalsMayHaveChanged } from './StudioShell';
 import { TOURS } from './tours';
 
 // The Studio's panels load on first open; load them up front so no test races a shell. Fabricate too
@@ -2011,5 +2012,14 @@ describe('StudioShell — preview rect persistence', () => {
 		landscape = false; // the viewport has rotated; React has not re-rendered yet
 		fireDeparture(evt);
 		expect(localStorage.getItem(RECT_KEY), 'a rect measured in the lagging cinema layout was kept').toBeNull();
+	});
+});
+
+describe('the code approvals another tab can change (#3292)', () => {
+	it('refreshes the stamp on the approvals key and on a cleared storage, and on nothing else', () => {
+		expect(approvalsMayHaveChanged(CODE_APPROVALS_KEY)).toBe(true);
+		// `localStorage.clear()` in another tab: the event's key is null, and the approvals went with it.
+		expect(approvalsMayHaveChanged(null)).toBe(true);
+		expect(approvalsMayHaveChanged('lattice-studio-settings')).toBe(false);
 	});
 });
