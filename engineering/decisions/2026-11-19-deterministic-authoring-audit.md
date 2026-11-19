@@ -102,7 +102,7 @@ variant samples), linted with `lintText` and rendered with `lib/engine` `render(
 | Sample uses structure no slot declares | 26 (≈16 are the shared eyebrow/subtitle `p`; ≈10 component-specific) |
 | Selector that is not valid CSS | 3, all `state-chart` (prose in the selector field) |
 | Selector that cannot match the rendered DOM | 2 (`content`, `quote`) |
-| Declared variant that does nothing | 4 manifests: `numbered` on cards-grid and cards-stack has no CSS; `banner-tag` on decision and compare-prose is a retired alias the linter rejects |
+| Declared variant that does nothing, or under an old name | `numbered` on cards-grid and cards-stack has no CSS. `banner-tag` on decision and compare-prose works (pixel-identical to `tag-band`), but it is the shared card-tag placement under its old name, which lint's `tag-alias` suggests replacing |
 
 The worst cases an agent hits:
 
@@ -306,7 +306,7 @@ should work the same way.
 An agent authors from what it reads: `components.pick.md`, the component's `.docs.md`, the
 manifest, `base.docs.md`, a skill. Each of the four findings gives that agent a contract that is
 **incomplete** (the shared half lives elsewhere), **ambiguous** (`1.`, `**`, "universal" mean
-different things per layout) or **false** (`numbered`, `required`, `banner-tag`, the lens skill's
+different things per layout) or **false** (`numbered`, `required`, the lens skill's
 `h1`). Then the one tool that could correct it, `lint:deck`, passes the slide, because it does not
 read the contract either. An agent in a write → lint → fix loop converges on "lint-clean", and
 lint-clean is not "correct". **Determinism needs one contract, executed by the engine and the
@@ -421,7 +421,7 @@ construction, and leaves no rule that depends on someone remembering it.
 | How it drifted | Example from the audit | What closes it |
 |---|---|---|
 | **A fact lived in prose** that nothing executes | `selector`, `required`, "always use `1.`", "ten layouts claim the blockquote" | **D1.** Every fact is a field with an enum or a structured shape, never free text. Counts in docs are generated or not stated |
-| **A gate checked one direction** | `checkVariantDeclaration` catches implemented-but-undeclared variants; nothing catches declared-but-inert ones (`numbered`, `banner-tag`) | **D2.** Every manifest↔code check runs both ways and fails on a stale entry |
+| **A gate checked one direction** | `checkVariantDeclaration` catches implemented-but-undeclared variants; nothing catches declared-but-inert ones (`numbered`) | **D2.** Every manifest↔code check runs both ways and fails on a stale entry |
 | **A check ran once, or on demand** | the 2026-06-15 manifest audit; `check:modifier-effects` | **D3.** The audit's probes become tests in tiers that already run on every PR |
 
 The mechanisms, each tied to a workstream:
@@ -466,19 +466,21 @@ named job of one workstream, which fixes it in full before it merges (HARD RULE 
 | Finding | Fixed |
 |---|---|
 | `design/skills/lens.md` teaches a `kpi` slide with `#` and a layout that does not exist (`appendix-detail`) | **This PR** |
-| `base.docs.md` teaches the retired `decision banner-tag` (renders pixel-identical to `tag-band`) | **This PR** |
+| `base.docs.md`, the decision and compare-prose manifests, their generated guides and their galleries teach `banner-tag`, the old name of `tag-band` | **This PR**: all renamed to `tag-band` (pixel-identical; the two gallery footers change one word). `banner-tag` moves to the registry's `aliases` group, so it keeps working on every tagged layout instead of being known only as two components' variant |
 | `base.docs.md` says "Ten" layouts claim the blockquote (11; `gift-card` was missing) and "fourteen" chart layouts claim the trailing paragraph | **This PR**: the doc names examples and points at `coda.claims` instead of a count |
-| `base.docs.md` and `design-system.md` call `UNIVERSAL_GROUPS` (62) the full set; `design-system.md` says 51 | **This PR**: both point at `MODIFIER_GROUPS`, counts removed |
+| `base.docs.md` and `design-system.md` call `UNIVERSAL_GROUPS` (62) the full set; `design-system.md` says 51 and gives stale per-group counts | **This PR**: both name `MODIFIER_GROUPS` as the full registry (`design-system.md` keeps that `effectiveVariants()` adds the `UNIVERSAL_GROUPS` subset); every count in that table removed |
 | `silent` documented without the section rail it also hides | **This PR** |
 | `sketch` documented as a finish; it is a `mode:` token | **This PR** |
 | `light`, `mirror`, `numbered` filed under "Universal variants" while the code calls them base modifiers or aliases; the four overlapping terms | **W5**: the taxonomy and the generated modifier reference replace the section |
 | CLAUDE.md HARD RULE #6 says "base modifiers", a term `base.docs.md` never uses | **W5**, and the CLAUDE.md wording goes to the owner (a canonical-doc change is the owner's) |
 | 20 tokens an author cannot learn; 8 registers with no section; `spark:`/`callout:` outside `DECK_SETTINGS` | **W5** (base manifest + generated reference) |
 | Bare placement words the engine paints and lint calls `unknown-class`; typos that lint clean through an open prefix; cross-component variants that lint clean | **W5** (lint reads the base manifest; prefixes closed; variants per component) |
-| Required slots, heading level and list type unenforced; prose selectors; samples that fail their own contract; `numbered` phantom; `banner-tag` still declared in the decision and compare-prose manifests; `quote` styling every paragraph as attribution | **W1** |
+| Required slots, heading level and list type unenforced; prose selectors; samples that fail their own contract; `numbered` phantom; `quote` styling every paragraph as attribution | **W1** |
 | `1.`/`-` and nested swaps change or break 30+ components | **W2** |
 | Bold as structure in 12+ components | **W3** |
 | Posters drop speaker notes, eyebrow, subtitle, figures; 11 components overflow on a coda; `premise` eyebrow/subtitle; `_focus` silent on 18; pane hosts misplace the below-note; `block-unsupported` ignores an authored blockquote | **W4** |
+| `@legend` shows as literal code on 54 surfaces, is key-only on 22 chart readers and drops on 4 posters | **W4** (the `legend` entry of the `universals` block; lint reads it) |
+| Four layouts reuse the subtitle position undeclared (redline, citation-card, regulatory-update as a citation; compare-code as a column label) | **W1** (a per-component slot the manifest declares) and **W4** (the `subtitle` entry says `claimed`) |
 | `components.pick.md` contradicts itself on its length; `AGENTS.md` overstates what `lint:deck` catches | **This PR** |
 
 ## Settled with the owner (2026-11-19)
