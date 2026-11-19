@@ -48,7 +48,7 @@ findings subtracted.
 | Eyebrow / subtitle overflow | 3 / 4 | 3 / 5 | subtitle adds `premise`, which the first run filed as broken |
 | Author tokens outside `MODIFIER_GROUPS` | 37 | **34** | 3 mode + 7 switch + 16 tint/mark + 8 `tint-at-*`; corrected below |
 | Placement words lint calls `unknown-class` | 7 | 7 | exact |
-| Typos that lint clean through a prefix | 8 probed | 8 of 8 | `zzbogus` control is flagged |
+| Typos that lint clean through a prefix | 8 probed | 8 of 8 | `zzbogus` control is flagged; the 9-of-11 open-prefix count in Finding 4 is a count of prefixes, not probes |
 | Registers missing from the registers doc | 8 | 8 | exact |
 
 Not re-derived: `@image`/`@video`/`@legend`/`bleed`/`_focus` columns of the Finding 3 table, the
@@ -61,9 +61,9 @@ Not re-derived: `@image`/`@video`/`@legend`/`bleed`/`_focus` columns of the Find
    warning. `lint:deck --strict` exits 0 on a slide with its required heading deleted for 66 of
    68 heading-bearing components.
 2. **List markers and bold mean something different in each layout.** Only `content`, default
-   `list`, `cards-grid` and `cards-stack` follow the owner's rule. About 22 components change,
-   usually break, when `1.` and `-` swap; 13 chart kinds and 11 other components change on a nested swap; bold is
-   structural in at least 12.
+   `list`, `cards-grid` and `cards-stack` follow the owner's rule. 17 more components change,
+   usually break, when `1.` and `-` swap (about 22 counting variant slides); 13 chart kinds and
+   11 other components change on a nested swap; bold is structural in at least 12.
 3. **Only the coda has a support declaration.** Four poster layouts (contact, wifi, gift-card,
    video) drop eyebrow, subtitle, figures and **speaker notes** with no declaration and no lint
    finding.
@@ -186,10 +186,10 @@ checking that the text is present, placed and unclipped.
 
 | Universal | Supported | Declared opt-out | Silent drop | Broken |
 |---|---|---|---|---|
-| Coda (`> …`) | 60 | 11 | 0 | 9 overflow |
-| Below-note | 30 | 41 | 1 | 2 + 5 overflow |
+| Coda (`> …`) | 58 | 11 | 0 | 11 overflow |
+| Below-note | 31 | 41 | 1 | 7 overflow |
 | Eyebrow | 74 | — | 1 | 1 + 3 overflow |
-| Subtitle | 66 | — | 3 | 1 + 4 overflow, 4 reuse the slot undeclared |
+| Subtitle | 66 | — | 3 | 5 overflow, 4 reuse the slot undeclared |
 | Pill / state mark in heading | 77 / 78 | — | 1 / 1 | 1 overflow |
 | `@image` / `@video` | 40 / 40 | — | 4 / 4 | 36 overflow (honest capacity, flagged) |
 | Speaker notes | 76 | — | **4** | — |
@@ -200,7 +200,7 @@ checking that the text is present, placed and unclipped.
   and drop nearly every universal. `contact` drops the heading itself, along with the eyebrow,
   subtitle, pills, figures, `bleed` and **speaker notes**. The notes are missing from the HTML
   (`aside.lattice-notes` is never written), so the presenter view loses them.
-- **Overflow is flagged by the engine but not by lint.** Nine components with no coda claim clip
+- **Overflow is flagged by the engine but not by lint.** Eleven components with no coda claim clip
   their own sample once a Key Insight is added (kpi shows its fourth tile under the panel).
 - **`premise`** puts an eyebrow in a third flex column as a raw code chip, and a subtitle collapses
   its list to zero width.
