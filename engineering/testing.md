@@ -211,7 +211,8 @@ gh workflow run studio-e2e-nightly.yml --ref <branch> -f spec=e2e/<name>.spec.ts
 gh workflow run studio-e2e-nightly.yml --ref <branch> -f spec=e2e/<name>.spec.ts -f repeat=5 -f workers=4
 ```
 
-The second waits for the first: the workflow keeps one pending run per branch. Each runs the test on
+Send the second once the first has started: the workflow keeps one pending run per branch, so a
+dispatch made while another is still pending replaces it. Each runs the test on
 every project its tags reach. `repeat` (1 to 20) and `workers` (1 to 8) need a `spec`; the step
 refuses anything else before Playwright starts.
 
