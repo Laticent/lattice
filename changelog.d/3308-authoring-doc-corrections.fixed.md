@@ -1,0 +1,1 @@
+- The authoring docs no longer teach wrong forms: the `lens` skill's `kpi` example uses a `##` heading and a real layout, `decision banner-tag` is written as `decision tag-band`, `silent` lists the section rail it also hides, `sketch` is described as a mode, and the universal-modifier docs point at the full registry (`MODIFIER_GROUPS`) instead of a 62-token subset.

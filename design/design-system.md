@@ -439,10 +439,10 @@ state-bearing layouts, "canvas" for charts); some are strictly per-layout
 ("watermark" for split-panel, "four" for cards-grid). The manifest model
 recognizes four tiers:
 
-**Tier 1 — Universal (51 variants).** Apply to every component. Added
+**Tier 1 — Universal.** Apply to every component. Added
 automatically by `effectiveVariants()`; manifests must NOT list them. The
-canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Eleven
-categories:
+canonical source is `MODIFIER_GROUPS` in `lib/components/index.js`; the table
+below shows the core groups, not the full set. The categories:
 
 | Category | Variants |
 |---|---|
