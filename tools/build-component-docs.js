@@ -40,6 +40,7 @@ const { componentDir: libComponentDir, loadAll, manifestBucket } = require('../l
 const { MARKER_CLASS } = require('../lib/core/checks-registry');
 const { axisNoun } = require('../lib/authoring/lint-core');
 const { resolveAnatomy } = require('./anatomy-catalog');
+const MODIFIER_EFFECTS = require('../lib/core/modifier-effects.generated.json');
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -469,7 +470,15 @@ function emitDocsVariants(m, lines) {
   }
   lines.push('## Universal modifiers');
   lines.push('');
-  lines.push(`This component accepts all universal variants (\`dark\`, \`compact\`, \`accent\`, state markers, treatments). See [design/design-system.md §6.5](${linkFrom(m, path.join(ROOT, 'design', 'design-system.md'))}#65-universal-variants--three-tiers) for the catalog.`);
+  // What the universal modifiers DO here comes from the measured record (tools/check-modifier-effects.js), not a
+  // blanket "accepts all": a poster that rebuilds its slide has no heading or eyebrow for a heading modifier to act on.
+  const inert = MODIFIER_EFFECTS.components[m.name]?.inert || [];
+  const catalog = `[design/design-system.md §6.5](${linkFrom(m, path.join(ROOT, 'design', 'design-system.md'))}#65-universal-variants--four-tiers)`;
+  lines.push(`Universal modifiers (\`dark\`, \`compact\`, \`accent\`, state markers, treatments) compose onto this component's class. See ${catalog} for the catalog.`);
+  if (inert.length) {
+    lines.push('');
+    lines.push(`On this layout, modifiers that style the ${inert.map((s) => `**${s}**`).join(', ').replace(/, ([^,]*)$/, ' and $1')} have no effect: measured by \`npm run check:modifier-effects\` (\`lib/core/modifier-effects.generated.json\`).`);
+  }
   lines.push('');
 }
 
