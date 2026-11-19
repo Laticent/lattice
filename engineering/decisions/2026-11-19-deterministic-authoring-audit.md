@@ -10,7 +10,7 @@ named four suspects: (1) component manifests say one thing and the code does ano
 still signals a header in places, and `1.` vs `-` means different things in different layouts;
 (3) "universal" concepts such as the coda are not universal, and the manifests do not say where
 they are not; (4) universals and modifiers are hard to tell apart, and the base manifest may not
-document them all. The goal: **near-deterministic authoring.** One way to write each thing, and
+document them all; (5, asked later) front-matter keys that change a component are undocumented. The goal: **near-deterministic authoring.** One way to write each thing, and
 the engine and the linter agree with the docs about it.
 
 This note records the audit and proposes the fix. It builds nothing. The per-component evidence
@@ -28,7 +28,9 @@ gated tests. Everything below marked **measured** was run. Light mode, `indaco` 
 `001c985`. An independent `fact-checker` then checked the note's file:line citations and counts
 (three counts corrected) and re-rendered six findings from scratch with the real CLI: journey and
 cycle with `1.`, agenda with `-`, the contact layout dropping a speaker note, cards-grid `numbered`,
-and a checklist linting clean without its heading. All six reproduced.
+and a checklist linting clean without its heading. All six reproduced. The five render findings were
+run again in dark mode on `cuoio` and reproduced the same way; the lint finding does not depend on
+theme or mode.
 **Not reproduced:** the sweep tallies come from one run of those uncommitted scripts and were
 not re-run by the fact-check. They are 66/68 and 64/68 (Finding 1), the 22 / 13 / 12 component
 counts (Finding 2), the whole Finding 3 table except the coda's 11 opt-outs, and Finding 4's
@@ -229,6 +231,45 @@ The words, as the code uses them:
 | switch | a `no-X`/`with-X` pair | 7 switch tokens missing from `MODIFIER_GROUPS`; `silent` documented with one fewer effect than it has |
 | finish | backdrop presets | also used for `sketch` (a `mode:` token), the spectrum bar, media finishes, `logo-finish:` |
 
+## Finding 5 — front-matter keys that change how components look and behave
+
+**Asked (2026-11-19):** "We don't document front matter keys that have direct impact on components'
+look and behavior. Should they be documented in the base manifest too? Which keys affect behavior
+and look?"
+
+**Measured** from `DECK_SETTINGS` (`lib/core/deck-settings.js`, 101 rows, each with a `kind` and a
+`group`), cross-checked against `base.registers.docs.md` and `base.docs.md`.
+
+**The keys that change a slide's look or behavior.** A *register* stamps class words on every
+slide, and an *axis* register stamps one word per axis:
+
+| Group | Keys | What they reach |
+|---|---|---|
+| Look | `theme` `preset` `color-mode` `mode` `finish` `finish-override` `backdrop` `typography` `size` `venue` `fit` `claim` | every slide |
+| Card-shaped components | `cards` (spare height in a card row), `tag` (card tags), `lift` (elevation), `corners`, `image-card` | cards-grid, cards-stack, list-steps, the image card, … |
+| Component-specific | `agenda` (agenda), `marks` (how charts spend color), `split` (divider slides), `glossary`, `inline-code` (pills and marks) | the named component or family |
+| Accent | `spectrum` `spectrum-edge` `spectrum-card` `spectrum-card-edge` `spectrum-trim` `rule` `eyebrow` `headline` `stamp` `tone` | the heading, the eyebrow, card edges, state markers |
+| Chrome | `header` `footer` `paginate` `meta` `logo` `logo-finish` `progress-rail` | the slide frame |
+| Motion and speech | `motion` `motion-style` `motion-speed` `player-motion`, `pace` `delivery` | the player and the narrated guide |
+| Declared by plugins | `spark` `callout` `icon` and the image, video and avatar registers | the plugin's inline objects, on any slide |
+
+**What is wrong.**
+
+- **Three registries, not one.** Engine registers live in `DECK_SETTINGS`. Plugin registers live in
+  each plugin's manifest (`contributes.registers`, built by `lib/core/register-factory.js`), and
+  `spark:` and `callout:` are documented as registers but absent from `DECK_SETTINGS`. Axis words
+  live in `lib/core/axis-registers.js`.
+- **Undocumented.** `size`, `glossary`, `color-mode` (outside `base.docs.md`), the four motion keys,
+  `pace` and `code` have no section in `base.registers.docs.md`.
+- **No component says which keys change it.** `cards-grid`'s manifest has a `cards` field for its
+  row behavior, but nothing ties that field to the `cards:` register, and no manifest lists the
+  registers it responds to. An agent cannot learn from a component's contract that `tag:`,
+  `lift:` or `corners:` will restyle it.
+
+**The precedent is already in the tree.** Plugins declare their registers as data in their
+manifests, and `register-factory.js` builds them with no host code. The engine's own registers
+should work the same way.
+
 ## Why agents fail — the pattern across all four
 
 An agent authors from what it reads: `components.pick.md`, the component's `.docs.md`, the
@@ -320,6 +361,15 @@ behind the one before it only where it reads that one's output.
 - Generate the reference half of `base.docs.md` from the manifest (as component docs already are),
   retire `UNIVERSAL_GROUPS` and the term "universal variant", and fix the 8 contradictions.
 - Lint checks variants **per component** and closes the open prefixes against the manifest.
+- **Registers move into the base manifest too** (Finding 5). Each engine register is declared
+  there as data, the way plugins already declare theirs (`contributes.registers`): its key, its
+  words, its default, the class words it stamps, and the **surface** those classes act on.
+  `DECK_SETTINGS` and the front-matter reference page are generated from the base manifest plus
+  the plugin manifests, so a register cannot exist in one and not the other.
+- **A component's register list is derived, not declared.** A register stamps a modifier group, a
+  modifier group acts on a surface, and a component declares the surfaces it has. The build joins
+  the three, so each component's contract card (W6) lists every front-matter key that changes it.
+  Nobody hand-maintains that list, so it cannot drift.
 
 ### W6 — One contract card per component, for agents
 
