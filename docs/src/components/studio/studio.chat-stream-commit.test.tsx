@@ -741,6 +741,22 @@ describe('Architect chat — a message sent before a model is connected is answe
 		expect(chatSpy).toHaveBeenCalledTimes(4);
 	});
 
+	it('answers a message whose failing turn was still in flight when the author connected', async () => {
+		const user = userEvent.setup();
+		let fail: (v: unknown) => void = () => {};
+		chatSpy.mockImplementationOnce(() => new Promise((resolve) => (fail = resolve)) as never);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await sendOnce(user, 'hi');
+		// The author connects before the no-model turn has come back.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await act(async () => {
+			fail({ status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } });
+		});
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy, 'the message stayed waiting with a model connected').toHaveBeenCalledTimes(2);
+	});
+
 	it('keeps one waiting mark per deck', () => {
 		markAnswerAfterConnect('deck-1');
 		markAnswerAfterConnect('deck-2');

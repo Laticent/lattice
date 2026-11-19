@@ -607,6 +607,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		const sendMode = mode;
 		const sendSource = source;
 		const sendAiReady = aiReady;
+		const sendConnect = connectRef.current;
 		// The reply joins the thread as it is NOW, not as it was at Send: Apply and Discard stay usable while a
 		// reply streams in (Send clears Undo compaction, and compaction waits), and each saves at once, so the store
 		// holds what the author did meanwhile.
@@ -700,7 +701,8 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 					markAnswerAfterConnect(sendDeckId);
 					// Hold this deck until the NEXT moment a model becomes available: a model the Studio already calls ready
 					// answered "offline", so answering again on the current one would only fail again (and loop).
-					resumeHeldRef.current.add(sendDeckId);
+					// Unless a model became available WHILE this turn was in flight: then that is the next moment, already.
+					if (connectRef.current === sendConnect) resumeHeldRef.current.add(sendDeckId);
 				}
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
@@ -849,7 +851,11 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 	// cannot answer is never retried in a loop. Held per deck, so answering one deck never strands another.
 	const resumeHeldRef = React.useRef(new Set<string>());
 	const wasAiReadyRef = React.useRef(aiReady);
-	if (aiReady && !wasAiReadyRef.current) resumeHeldRef.current.clear();
+	const connectRef = React.useRef(0); // counts the moments a model became available, for a turn in flight across one
+	if (aiReady && !wasAiReadyRef.current) {
+		resumeHeldRef.current.clear();
+		connectRef.current++;
+	}
 	wasAiReadyRef.current = aiReady;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: a model becoming ready (or the thread loading) is the trigger; `run` reads the rest when it runs.
 	React.useEffect(() => {
