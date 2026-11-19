@@ -8,6 +8,8 @@
  *
  * Usage:
  *   npm run card -- card.yml          # print the fenced card
+ *   npm run card -- --base main card.yml   # pre-merge: diff the GROWTH section against another ref
+ *   npm run card -- --no-growth card.yml   # pre-merge: leave the GROWTH section out
  *   npm run card -- --check card.yml  # validate only
  *   cat card.yml | npm run card -- -  # read YAML from stdin
  *
@@ -29,7 +31,10 @@ function usage(message) {
 
 const args = process.argv.slice(2);
 const check = args.includes('--check');
-const files = args.filter((a) => a !== '--check');
+const noGrowth = args.includes('--no-growth');
+const baseAt = args.indexOf('--base');
+const growthBase = baseAt === -1 ? 'origin/main' : args[baseAt + 1];
+const files = args.filter((a, i) => !['--check', '--no-growth', '--base'].includes(a) && !(baseAt !== -1 && i === baseAt + 1));
 if (files.length !== 1) usage('give exactly one card file (or - for stdin)');
 
 let source;
@@ -74,6 +79,17 @@ if (cut.length) {
   process.exit(1);
 }
 const card = doc.toJS();
+
+// The pre-merge card's GROWTH section comes from git, never from the YAML (owner's D3, 2026-11-19):
+// what this branch adds and removes against the base, by kind. tools/pr-growth.js.
+if (card && card.card === 'pre-merge' && !noGrowth && !check) {
+  try {
+    card.growth = require('./pr-growth').growth({ base: growthBase });
+  } catch (err) {
+    console.error(`card: could not read growth from git against ${growthBase} (${err.message.split('\n')[0]}); pass --base <ref> or --no-growth`);
+    process.exit(1);
+  }
+}
 
 const result = renderCard(card);
 if (!result.ok) {

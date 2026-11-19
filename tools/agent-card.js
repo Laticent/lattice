@@ -16,6 +16,7 @@
  */
 
 const Ajv = require('ajv');
+const { growthLines } = require('./pr-growth');
 
 const WIDTH = 38;
 const MAX_FIELD_LINES = 2;
@@ -65,6 +66,12 @@ const SCHEMAS = {
         required: ['if_wrong', 'revert', 'left_behind'],
         additionalProperties: false,
         properties: { if_wrong: str, revert: str, left_behind: str },
+      },
+      // Filled by `npm run card` from git (tools/pr-growth.js), never typed by hand.
+      growth: {
+        type: 'object',
+        required: ['base', 'rows'],
+        properties: { base: { type: 'string' }, rows: { type: 'array' } },
       },
     },
   },
@@ -393,6 +400,10 @@ function renderPreMerge(d, page) {
   page.field('if wrong', d.risk.if_wrong, 'risk.if_wrong');
   page.field('revert', d.risk.revert, 'risk.revert');
   page.field('left behind', d.risk.left_behind, 'risk.left_behind');
+  if (d.growth) {
+    page.section(`GROWTH — vs ${String(d.growth.base).replace(/^origin\//, '')}, from git`);
+    for (const line of growthLines(d.growth)) page.raw(line, 'growth');
+  }
 }
 
 function renderStandup(d, page) {

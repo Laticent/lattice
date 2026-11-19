@@ -2215,6 +2215,19 @@ is `none`. Each one needs `deferred: large|blocked|off-path — <why>` (`followu
 windows the PR touched, is fixed in the PR, not filed (#18). The checker reads this row
 too: a `large` that is really an afternoon's work lowers the grade.
 
+### Growth — what the PR adds, read from git
+
+`npm run card` adds a GROWTH section to every pre-merge card. You never type it: `tools/pr-growth.js`
+reads it from git, for HEAD against its merge base with `origin/main` (`--base <ref>` picks another
+base, `--no-growth` leaves it out). Each row is lines added, lines removed and files touched, for one
+kind: `docs`, `decks`, `code`, `comments`, `style`, `tests`, `config` and `generated`. A kind with
+no change is left out. The `code`, `style` and `tests` rows count non-comment lines, and the
+`comments` row counts the comment lines across all three, so no line is counted twice and the total
+equals `git diff --numstat`. A real parser finds the comments: TypeScript for JS and TS, the
+engine's CSS comment reader for CSS. A `//` inside a string is not a comment. A typical PR takes
+about 50 ms. It replaced a CI size budget (owner's D3, 2026-11-19): the owner reads the numbers at
+the merge gate instead of a gate enforcing a number.
+
 Template:
 
 ```
@@ -2269,6 +2282,9 @@ RISK
   left behind
     <followups.d/ items this PR
     adds, or "none">
+
+GROWTH — vs main, from git
+  <filled in by npm run card>
 ```
 
 ## ❓ Decision card — what is waiting on the owner, in plain words
