@@ -7,9 +7,8 @@ PDFs from Markdown. It is the engine layer of the **Laticent** org. The
 repo. Older notes that say otherwise are corrected in place.
 
 **We DEVELOP Lattice here; we never CONSUME it** — true after it is published too.
-Install and `npm run build` from this repo before any measurement, test, render or
-audit, and use only that build: never a published package, CDN copy, foreign
-`dist/` or stubbed dependencies. If install or build fails, **stop and say so
+Measure, test, render and audit only on this repo's own install and `npm run build`:
+never a published package, CDN copy, foreign `dist/` or a stub for a missing package. If install or build fails, **stop and say so
 first**; report no numbers.
 
 **The visual contract is `lattice.css`.** Layouts are palette-blind: every
