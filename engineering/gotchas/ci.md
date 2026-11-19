@@ -600,8 +600,9 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   an aggregate: it reads red when a tier it lists failed. (Since #3314 a run a push canceled,
   `changes` included, passes and posts no beacon.)
 - **How to tell:** compare the event's `head_sha` with the PR's current head. In the `ci` job
-  log, `changes=cancelled lint=cancelled …` is a superseded run. `docs-build=failure` with the
-  other tiers `success` is a real failure, so read the `docs-build` job.
+  log, `changes=cancelled lint=cancelled …` is a superseded run, and since #3314 its gate prints
+  "the whole run was cancelled by a newer push" and passes. `docs-build=failure` with the other
+  tiers `success` is a real failure, so read the `docs-build` job.
 - **Fix:** act only on the run for the current head. Seen on #2749 (`5f3d824` after `1108d53`,
   `6384c73` after `8b05bcb`).
 - **Triggered by:** pushing while a run is in flight.
