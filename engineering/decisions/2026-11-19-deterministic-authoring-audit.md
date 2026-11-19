@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: Audit of why agents author decks wrongly — slot contracts nothing executes, list and bold markers that mean something different per layout, universals that silently drop, and four overlapping modifier registries — plus a six-workstream plan to make authoring deterministic.
 ---
 
@@ -321,6 +321,17 @@ behind the one before it only where it reads that one's output.
   (`2026-07-19-authoring-canon-unification-plan.md`).
 - Measure the result: a fixed set of authoring prompts, run before and after, scored by
   `slot-contract` findings and rendered drops. "Deterministic" is a number, not a feeling.
+
+## Settled with the owner (2026-11-19)
+
+| Question | Answer |
+|---|---|
+| 1. Numbered-by-nature layouts | **Split by shape.** `list-steps` and `split-panel steps` follow R2 (`-` = unnumbered cards); `agenda`, `list-tabular`, `stats`, `kpi`, `premise` follow R3 (always numbered, marker irrelevant) |
+| 2. Bold migration | **Hard break plus a codemod** for the repo's decks. No transition release: bold stops carrying structure in the W3 release, which leads its changelog with `**Breaking:**` |
+| 3. Base manifest form | **JSON `lib/base/base.manifest.json`** with a schema; it generates `MODIFIER_GROUPS` and the reference half of `base.docs.md` |
+| 4–6. Universals, strictness, order | **The recommendations below, as written.** Order: W1 → W5 → W2 → W3 → W4 → W6 |
+
+The options as they were put follow, for the record.
 
 ## Decisions for the owner
 
