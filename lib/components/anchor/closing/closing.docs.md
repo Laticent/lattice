@@ -48,7 +48,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 ## Authoring
 
 ```markdown
-<!-- _class: closing -->
+<!-- _class: closing silent -->
 
 ## Closing takeaway or call to action
 

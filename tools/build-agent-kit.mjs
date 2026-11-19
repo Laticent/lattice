@@ -3038,6 +3038,8 @@ function rootReadme(files, layoutCount, components) {
  * budget is START_MAX; the build fails past it.
  */
 const START_MAX = 48000;
+/** Chart skeletons start.md adds after the solo layouts: the commonest two, a part of a whole and a ranking. */
+const START_CHART_SKELETONS = ['bar', 'piechart'];
 
 function firstSentence(text, max = 110) {
   const t = String(text || '').replace(/\s+/g, ' ').trim();
@@ -3109,7 +3111,9 @@ function startDoc(files, cat) {
   const stray = comps.filter((c) => !listed.has(c.bucket)).map((c) => c.name);
   if (stray.length) throw new Error(`build-agent-kit: start.md has no bucket heading for ${stray.join(', ')}. Add the bucket to BUCKET_ORDER.`);
 
-  const skeletons = SOLO_LAYOUTS.flatMap((n) => [`### ${n}`, '', ...fenced(skeletonFor(cat, n)), '']);
+  // Plus two charts: the solo list has none, and a data deck needs one. Without these a
+  // model guessed a nested-list shape for a pie (the stand-in eval, 2026-11-19).
+  const skeletons = [...SOLO_LAYOUTS, ...START_CHART_SKELETONS].flatMap((n) => [`### ${n}`, '', ...fenced(skeletonFor(cat, n)), '']);
   const uni = universalRows(files);
   const pluginRows = [];
   for (const [rel, buf] of [...files].filter(([k]) => /^plugins\/[^/]+\.md$/.test(k)).sort()) {
@@ -3152,6 +3156,14 @@ function startDoc(files, cat) {
     strip(`${AUTHORING}/rules.md`)
       .replace(/^These are the half[\s\S]*?\n\n/, '')
       .replace(/^> Where a rule says[\s\S]*?\n\n/m, ''),
+    // Gaps a model writing from this file alone hit on 2026-11-19 (the no-spend stand-in eval,
+    // engineering/decisions/2026-11-17-agent-pack.md §4.5): it was told to use speaker notes
+    // with no syntax, and it wrote `{Off plan}` on a kpi row the layout colors as on plan.
+    '- Speaker notes: a plain HTML comment on the slide, `<!-- Open with the Antwerp number. -->`.',
+    '  `<!-- say: … -->` holds the exact words to speak. Notes never show on the slide.',
+    '- A `kpi` status pill takes its color from the row and the variant, never from its words.',
+    '  Use status words only (`On plan`, `At risk`, `Breaching`); for one metric that is off',
+    '  plan, use `kpi attention`, which flags the lead tile in the warning color.',
     '',
     '## 4. Parts any slide can carry',
     '',
@@ -3189,7 +3201,7 @@ function startDoc(files, cat) {
     '',
     ...pluginRows,
     '',
-    `## 8. Skeletons for the ${SOLO_LAYOUTS.length} most-used layouts`,
+    `## 8. Skeletons for the ${SOLO_LAYOUTS.length} most-used layouts and ${START_CHART_SKELETONS.length} charts`,
     '',
     'Copy the shape exactly: heading levels, bullet nesting and the order of lines all',
     'matter. Every other layout\'s skeleton is in its own file.',

@@ -42,7 +42,7 @@ First slide of every deck. Sets the topic and the visual tone. Drops the running
 ## Authoring
 
 ```markdown
-<!-- _class: title -->
+<!-- _class: title silent -->
 
 # Deck title goes here
 
