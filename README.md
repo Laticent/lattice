@@ -402,6 +402,9 @@ lattice/
 └── tools/                # build, lint, render, and audit scripts
 ```
 
+- **What lives where** → `dist/engineering/codemap.md` (generated from `tools/structure.js`
+  by `npm install`; not committed): every folder, code part, plugin and workspace library, one
+  line each.
 - **Which doc covers what** → the "Read the canonical doc before working in its
   area" table in [`CLAUDE.md`](CLAUDE.md).
 - **Every script/tool that exists** → `dist/engineering/capabilities.md`

@@ -444,9 +444,11 @@ imports only its own folder, the workspace libraries and the plugins it `require
 else imports a plugin's folder. chart-family is the one exception, and it is listed: its kinds'
 remaining engine imports, each listed in `tools/structure.sanctioned.json`, can only fall.
 
-`tools/structure.js` holds the map (`PARTS`) and reports each part's size, coupling and cohesion;
+`tools/structure.js` holds the map (`PARTS`), with each part's one-line `about`, and reports each part's size, coupling and cohesion;
 `build:check` fails on a part loop, an upward import or a plugin-boundary break
-(`tools/check-structure.js`). A new top-level folder goes into `PARTS` on its layer. The layers,
+(`tools/check-structure.js`). A new top-level folder goes into `PARTS` on its layer, with an
+`about`: `tools/build-codemap.js` renders the parts, plus the folders that hold no code, into
+`dist/engineering/codemap.md`, and its `--check` fails on a part or folder with no line. The layers,
 what moved to make them hold, and what is still worth splitting:
 `engineering/decisions/2026-10-11-codebase-structure.md`.
 
