@@ -247,8 +247,15 @@ const inkOn = (cell) => {
  * guard, apply the body and drop the ink (checker finding). Checked in the real engines:
  * Chromium 131, Firefox 142 and WebKit 26 pass it and pick white on rgb(205 60 63); Chrome 118
  * predates relative color and fails it.
+ *
+ * The origin is a light-dark() pair because every real origin resolves to one (the status and fill
+ * tokens are light-dark() pairs). WebKit 17.x (Safari 17.5-17.6) parses relative color and
+ * light-dark() but drops a relative color whose origin holds light-dark(): CSS.supports() says
+ * false for it, and on a page the ink computed to black, 1.0:1 on the light critical band
+ * (#3312). Guarding with that origin sends WebKit 17.x to the plain rules' curated inks; Chromium
+ * 153, Firefox 142 and WebKit 26 pass the guard, so nothing changes there.
  */
-const SUPPORTS = `@supports (color: ${inkOn('red')})`;
+const SUPPORTS = `@supports (color: ${inkOn('light-dark(red, red)')})`;
 const supports = (css) => `${SUPPORTS} {\n${css}\n}`;
 
 const edge = (k) => (k === 1 ? 'var(--chart-edge)' : `calc(var(--chart-edge) * ${k})`);

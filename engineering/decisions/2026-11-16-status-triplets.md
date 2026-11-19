@@ -248,7 +248,12 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   the light band, and on the dark one the palette's `--risk-critical-step-ink` if it names one. a11y-base names black
   for every a11y palette, which clears 4.75-5.33:1 there (the one curated ink sat at 2.97-4.42:1). The surface is Safari
   17.5-17.x and Firefox 120-127; an older Chrome lacks light-dark() too, so it reaches this rule only through the HTML
-  player's flattening. Deuteranopia and tritanopia keep 68% rather than 60% so their band stays light enough
+  player's flattening. Safari 17.x reaches it because the relative-color guard (`SUPPORTS` in
+  tools/build-marks-css.js, and tower's copy) now tests a light-dark() origin: WebKit 17.4 parsed the old guard but
+  dropped a relative color over a light-dark() token and painted the ink black (1.0:1 on the light critical band,
+  measured in Playwright 1.44's WebKit 17.4). Firefox 121 and WebKit 17.4 now render every critical key number at
+  4.82-18.76:1; Chromium 153, Firefox 142 and WebKit 26 still pass the guard and are unchanged. Deuteranopia and
+  tritanopia keep 68% rather than 60% so their band stays light enough
   for black.
   Its one curated ink sat at 2.97-4.42:1 on the dark band. `lib/core/resolve-token-expr.js` now reads a color-mix stop
   whose percentage is a var(), so offline checks resolve the new rule instead of passing it through.

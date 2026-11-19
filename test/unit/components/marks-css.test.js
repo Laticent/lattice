@@ -261,7 +261,7 @@ describe('marks.generated.css', () => {
     assert.ok(Math.min(...TONE_D) >= 29, 'the dark ladder keeps its floor');
     assert.equal(t['--finish-base'], 'var(--bg)', 'unguarded, the light base is the canvas');
     assert.equal(t['--finish-base-d'], 'var(--bg)');
-    assert.match(css, /@supports \(color: color\(from red[^{]*\{\nsection\.marks-tone,\nfigure\.marks-tone,\n:is\(section, figure\)\.marks-tone \.chart-frame \{\n {2}--finish-base: oklab\(from var\(--chart-cat-1-hue\) /);
+    assert.match(css, /@supports \(color: color\(from light-dark\(red, red\)[^{]*\{\nsection\.marks-tone,\nfigure\.marks-tone,\n:is\(section, figure\)\.marks-tone \.chart-frame \{\n {2}--finish-base: oklab\(from var\(--chart-cat-1-hue\) /);
     assert.doesNotMatch(css, /--cat-1-fill/, 'the tone base comes from the tone hue, never the palette slot fill');
   });
 
@@ -374,7 +374,7 @@ describe('marks.generated.css', () => {
     const blocks = css.match(/@supports[^{]*\{[\s\S]*?\n\}\n\}/g) || [];
     // The guard tests the ink's own expression, channel math included, so an engine that parsed
     // relative color but not a clamp on a channel cannot pass it and then drop the ink.
-    for (const b of blocks) assert.ok(b.startsWith('@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1))'), b.slice(0, 100));
+    for (const b of blocks) assert.ok(b.startsWith('@supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1))'), b.slice(0, 100));
     assert.equal(blocks.filter((b) => b.includes('.heatmap-value')).length, 5, 'one per step, shared by etch and tone; pigment is the member\'s own span and emits none');
     const outside = css.replace(/@supports[\s\S]*?\n\}\n\}/g, '');
     assert.doesNotMatch(outside, /(?:oklch|color)\(from/, 'every relative color is behind the guard');
@@ -459,7 +459,7 @@ describe('marks.generated.css', () => {
     // lightness (1.003:1 on rgb(210 40 70)). Measured over a 52-per-channel sRGB grid, the luminance
     // switch is never worse than 4.58:1 (the measurement is recorded beside `inkOn` in the generator).
     assert.doesNotMatch(css, /oklch\(from/, 'no OKLCH-lightness ink is left');
-    assert.match(css, /color\(from [^)]*xyz-d65 calc\(0\.95047 \* clamp\(0, \(0\.1791 - y\) \* 1000000, 1\)\)/);
+    assert.match(css, /color\(from [^;{}]*? xyz-d65 calc\(0\.95047 \* clamp\(0, \(0\.1791 - y\) \* 1000000, 1\)\)/);
   });
 
   // Pigment is the DEFAULT and carries a ramp's own span, so it changes nothing about a heatmap: no cell
