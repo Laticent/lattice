@@ -249,11 +249,17 @@ function problems(rows, files, { scopes = SCOPES, folders = FOLDERS } = {}) {
 
 // ── render ─────────────────────────────────────────────────────────────────
 
-// A table cell: escape every pipe, and double only a backslash that directly precedes one, or a
-// `\|` in the text would become `\\|`, an escaped backslash followed by a bare pipe that ends the
-// cell early. Other backslashes stay single: inside a code span they are literal, so doubling
-// them shows `a\\b` to every reader.
-const cell = (s) => String(s).replace(/\\(?=\|)/g, '\\\\').replace(/\|/g, '\\|');
+// A table cell. Every pipe is escaped, and every backslash is escaped too, so a `\|` in the text
+// cannot become `\\|` (an escaped backslash, then a bare pipe that ends the cell early). The one
+// exception is inside a code span, where a backslash is literal and doubling it would show `a\\b`:
+// there it is left alone. The table pass strips only the one backslash that escapes each pipe,
+// before any inline parsing, so `a\|b` in code still comes out as written (checked with markdown-it).
+const cell = (s) =>
+  String(s)
+    .split(/(`+[^`]*`+)/)
+    .map((part, i) => (i % 2 ? part : part.replace(/\\/g, '\\\\')))
+    .join('')
+    .replace(/\|/g, '\\|');
 // Plain paths, not links: the reader is mostly an agent reading the raw text, and a link
 // writes every path twice (measured: 25 KB with links, the table below without).
 const link = (where) => `\`${where}\``;

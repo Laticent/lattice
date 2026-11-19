@@ -86,15 +86,25 @@ test('summarize: a one-line purpose from a paragraph of self-description', () =>
   assert.equal(summarize(undefined), '');
 });
 
-test('a table cell escapes the backslash before the pipe', () => {
-  assert.equal(cell('a | b'), 'a \\| b');
-  // Unescaped first, `\|` would become `\\|`: an escaped backslash, then a bare pipe that splits the row.
-  assert.equal(cell('a \\| b'), 'a \\\\\\| b');
-});
-
-test('a table cell leaves a backslash that does not precede a pipe alone', () => {
-  // Inside a code span a backslash is literal, so doubling it would show `a\\b`.
-  assert.equal(cell('Matches `a\\b` paths'), 'Matches `a\\b` paths');
+test('a table cell renders exactly the text it was given, in one cell', () => {
+  // Rendered, not string-compared: a GFM table splits on pipes before inline parsing, and a code
+  // span shows backslashes literally, so the only honest check is the rendered cell.
+  const md = require('markdown-it')();
+  const shown = (text) => {
+    const tds = md.render(`| h | v |\n|---|---|\n| p | ${cell(text)} |\n`).match(/<td>[\s\S]*?<\/td>/g) || [];
+    return { cells: tds.length, text: (tds[1] || '').replace(/<\/?code>/g, '`').replace(/<\/?td>/g, '') };
+  };
+  for (const text of [
+    'a | b',
+    'a \\| b', // one backslash, then a pipe
+    'a \\\\| b', // two backslashes, then a pipe
+    'a\\*b', // a backslash before punctuation, in prose
+    'Matches `a\\b` paths', // a backslash in a code span
+    'code `c\\|d` here', // an escaped pipe in a code span
+    'plain \\ and `k|\\` mix',
+  ]) {
+    assert.deepEqual(shown(text), { cells: 2, text }, JSON.stringify(text));
+  }
 });
 
 test('a part that matches by function with no `where` fails, and the write path does not crash', () => {
