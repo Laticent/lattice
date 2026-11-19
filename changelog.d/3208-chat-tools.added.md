@@ -1,11 +1,13 @@
 - **The Studio assistant can find and replace across a deck.** Ask it to change "Oct. Tenth" to
   "October Tenth" and it searches every slide at once (`find_text`), then stages the change
   (`replace_text`) on one review card with a row per slide, instead of reading slides one by one and
-  rewriting each in full. It replaces words in headings, eyebrows, body text, quotes, alt text, spoken
-  lines, speaker notes and descriptions. It never touches link or image targets, URLs, layout
-  directives, code, math, HTML or the front matter, and it leaves a slide alone when the new words
-  would change its structure: a note turned into a directive, a new heading or table cell, a comment
-  closed early. It tells you what it left alone.
+  rewriting each in full. It works the way a word processor does: the words change and their
+  formatting stays, so a bold word stays bold. Characters Markdown would read as formatting are
+  escaped for you, so replacing "five" with "$5" shows $5, not a math formula, and searching for "$5"
+  finds it again. It replaces words in headings, eyebrows, body text, quotes, alt text, spoken lines,
+  speaker notes and descriptions, and never touches link or image targets, URLs, layout directives,
+  code blocks, math, HTML or the front matter. It tells you what it left alone, such as a phrase that
+  runs across bold and plain text.
 - **Fixed: a word change across two identical slides no longer shows as a slide insert and delete** on
   the assistant's review card. When the deck keeps its slide count, the card now lists a plain change
   for each slide that changed.

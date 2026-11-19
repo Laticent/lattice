@@ -12,7 +12,7 @@
 // — is injected, so a test drives the whole loop with a scripted model and no network.
 // `architect.ts` (`chatComplete`) is the wiring.
 
-import { FIND_MAX_CHARS, type FindOptions, findInSlide, literalMatcher, markupChange, matchSnippet, replaceInSlide } from '@/lib/deck-find';
+import { FIND_MAX_CHARS, type FindOptions, findInSlide, literalMatcher, matchSnippet, replaceInSlide } from '@/lib/deck-find';
 import { deckPluginsOff } from '@/lib/plugin-admission';
 // The splicer, the authoring rules and the front-matter readers are BOUND, not imported
 // (`bindKernel`). This module loads lazily, and those three are startup modules: a static
@@ -33,7 +33,10 @@ type Knowledge = typeof import('@/lib/architect-knowledge.js');
 type FM = typeof import('../../lib/front-matter');
 export type KernelDeps = Pick<Edits, 'applyEditChecked' | 'diffLines' | 'sliceSlide' | 'slideCount' | 'splitTopLevel'> &
 	Pick<Knowledge, 'AUTHORING_RULES' | 'layoutBlock'> &
-	Pick<FM, 'getFrontMatter' | 'innerFrontMatter' | 'writeFrontMatterLine' | 'frontMatterBlockText' | 'setFrontMatterTerms'>;
+	Pick<FM, 'getFrontMatter' | 'innerFrontMatter' | 'writeFrontMatterLine' | 'frontMatterBlockText' | 'setFrontMatterTerms'> & {
+		/** Does this backtick span's text render as Lattice syntax (a pill, an icon…)? The engine's own reader, from authoring-core. */
+		inlineDirective?: (text: string) => boolean;
+	};
 let applyEditChecked: Edits['applyEditChecked'];
 let diffLines: Edits['diffLines'];
 let sliceSlide: Edits['sliceSlide'];
@@ -46,9 +49,11 @@ let innerFrontMatter: FM['innerFrontMatter'];
 let writeFrontMatterLine: FM['writeFrontMatterLine'];
 let frontMatterBlockText: FM['frontMatterBlockText'];
 let setFrontMatterTerms: FM['setFrontMatterTerms'];
+let inlineDirective: ((text: string) => boolean) | undefined;
 /** Supply the kernel's runtime dependencies. Called once, before any other export is used. */
 export function bindKernel(d: KernelDeps): void {
 	({ applyEditChecked, diffLines, sliceSlide, slideCount, splitTopLevel, AUTHORING_RULES, layoutBlock, getFrontMatter, innerFrontMatter, writeFrontMatterLine, frontMatterBlockText, setFrontMatterTerms } = d);
+	inlineDirective = d.inlineDirective;
 }
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
@@ -435,7 +440,7 @@ export const AGENT_TOOLS = [
 		function: {
 			name: 'find_text',
 			description:
-				'Find words across the draft without reading every slide. Returns each match with its slide, the field it is in (heading, eyebrow, body, quote, alt text, spoken line, note, description, code, math, html, record) and the words around it, plus matches in the front matter, listed apart. Literal text, not a pattern. Use it before replace_text, and instead of read_slides when you are looking for a term.',
+				'Find words across the draft without reading every slide. Returns each match with its slide, the field it is in (heading, eyebrow, body, quote, alt text, spoken line, note, description, code, math, html, record) and the words around it, plus matches in the front matter, listed apart. Search for the words a reader sees: `$5` finds an escaped `\\$5`, and `Oct` is found inside bold or a link. Literal text, not a pattern. Use it before replace_text, and instead of read_slides when you are looking for a term.',
 			parameters: {
 				type: 'object',
 				properties: {
@@ -452,7 +457,7 @@ export const AGENT_TOOLS = [
 		function: {
 			name: 'replace_text',
 			description:
-				'Stage a find-and-replace across the draft: every match in headings, eyebrows, body, quotes, alt text, spoken lines, notes and descriptions. It never touches link or image targets, URLs, directives, code, math, HTML, `{…}` records or the front matter, and it leaves a slide unchanged when the replacement would change its structure (a heading, list, table cell, emphasis or comment); it reports what it left alone (for terms in the front matter use set_terms). Literal text, not a pattern; with case_sensitive false the replacement is written exactly as given. For a word or phrase change use this, not edit_slides: you send only the words, and the author reviews one card. The result includes the checker\u2019s verdict on the draft.',
+				'Stage a find-and-replace across the draft: every match in headings, eyebrows, body, quotes, alt text, spoken lines, notes and descriptions. It works the way a word processor does: the words change and their formatting stays (replace `Oct` in **Oct** and it stays bold). Write the replacement as plain words; characters Markdown would read as markup (`$`, `*`, `[`…) are escaped for you, so `$5` shows as $5. It never touches link or image targets, URLs, directives, code blocks, math, HTML, `{…}` records or the front matter; a match that crosses formatting (`**Oct.** Tenth`) is left alone; it reports what it left alone (for terms in the front matter use set_terms). Literal text, not a pattern; with case_sensitive false the replacement is written exactly as given. For a word or phrase change use this, not edit_slides: you send only the words, and the author reviews one card. The result includes the checker\u2019s verdict on the draft.',
 			parameters: {
 				type: 'object',
 				properties: {
@@ -517,7 +522,7 @@ export type EditVerdict = { refused: boolean; checked: boolean; errors: number; 
  *  the agent changed, and a short activity log for the transcript. */
 /** The two find options, from a tool call's snake_case arguments. */
 function findOpts(args: Record<string, unknown>): FindOptions {
-	return { caseSensitive: args.case_sensitive === true, wholeWord: args.whole_word === true };
+	return { caseSensitive: args.case_sensitive === true, wholeWord: args.whole_word === true, inlineDirective };
 }
 
 export function createToolbox(opts: {
@@ -906,7 +911,7 @@ export function createToolbox(opts: {
 			for (const m of findInSlide(s, q, o)) {
 				count++;
 				touched.add(i + 1);
-				if (lines.length < FIND_TEXT_MAX_LISTED) lines.push(`[slide ${i + 1}] ${m.field}${m.replaceable ? '' : ' (replace_text leaves this alone)'}: ${JSON.stringify(matchSnippet(s, m.start, m.end))}`);
+				if (lines.length < FIND_TEXT_MAX_LISTED) lines.push(`[slide ${i + 1}] ${m.field}${m.replaceable ? '' : ` (replace_text leaves this alone${m.reason ? `: ${m.reason}` : ''})`}: ${JSON.stringify(matchSnippet(s, m.start, m.end))}`);
 			}
 		});
 		const fm = frontMatterHits(q, o);
@@ -927,8 +932,6 @@ export function createToolbox(opts: {
 		// would end, a spoken line's comment would close early and the rest would show on the slide.
 		// `--!>` ends a comment in HTML parsers too (CodeQL), so the closer is matched with an optional `!`.
 		if (/[\r\n]/.test(rep) || /<!--|--!?>/.test(rep)) return refuse('The replacement must be one line with no comment markers; use edit_slides for a structural change.');
-		const markup = markupChange(q, rep);
-		if (markup) return refuse(`Not replaced: ${markup}. Change those slides with edit_slides instead.`);
 		const slides = deckSlides(draft);
 		// An empty list means every slide, as a missing one does; a number outside the deck is reported.
 		const asked = Array.isArray(slidesRaw) ? slidesRaw.map(Number) : [];
@@ -948,7 +951,7 @@ export function createToolbox(opts: {
 				left.push(`slide ${n}: ${r.blocked}; change it with edit_slides`);
 				continue;
 			}
-			if (r.skipped.length) left.push(`${r.skipped.length} in ${[...new Set(r.skipped.map((m) => m.field))].join(', ')} on slide ${n}`);
+			if (r.skipped.length) left.push(`${r.skipped.length} in ${[...new Set(r.skipped.map((m) => m.reason ?? m.field))].join(', ')} on slide ${n}`);
 			if (!r.replaced.length) continue;
 			if (r.text === slides[n - 1]) {
 				unchanged += r.replaced.length;

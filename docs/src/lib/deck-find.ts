@@ -28,14 +28,20 @@
 
 import { comments, fenceRanges, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isRecordBody, isSayBody } from './slide-directives';
 
-export type FindField = 'heading' | 'eyebrow' | 'body' | 'quote' | 'alt text' | 'spoken line' | 'note' | 'description' | 'code' | 'math' | 'html' | 'record';
+export type FindField = 'heading' | 'eyebrow' | 'body' | 'quote' | 'alt text' | 'spoken line' | 'note' | 'description' | 'code' | 'math' | 'html' | 'record' | 'inline syntax';
 
 export interface FindOptions {
 	/** Match case exactly. Default false. */
 	caseSensitive?: boolean;
 	/** Match whole words only: a letter, mark, digit or underscore may not touch either end. Default false. */
 	wholeWord?: boolean;
+	/** Does a backtick span's text render as Lattice syntax (a pill `{BETA}`, an icon `^{bucket}`, a spark…)?
+	 *  The Studio passes the engine's own reader (lib/core/inline-code-directives.js). Without it, a span
+	 *  that opens with one of `{ ^ ~ ! @` counts as syntax: never written into, the safe side. */
+	inlineDirective?: (text: string) => boolean;
 }
+
+const directiveSpan = (opts: FindOptions) => opts.inlineDirective ?? ((t: string) => /^[{^~!@]/.test(t.trim()));
 
 export interface SlideMatch {
 	readonly field: FindField;
@@ -43,6 +49,8 @@ export interface SlideMatch {
 	readonly end: number;
 	/** False inside code, math, HTML, a `{…}` record: places a literal replace could corrupt. */
 	readonly replaceable: boolean;
+	/** Why a match in replaceable text is left alone anyway, e.g. it crosses formatting. */
+	readonly reason?: string;
 }
 
 interface Segment {
@@ -194,22 +202,49 @@ function lineKinds(lines: readonly string[]): Array<FindField | 'skip' | null> {
 
 // ── Segments ────────────────────────────────────────────────────────────────
 
+/** How a replacement is written into a segment: `md` escapes what Markdown would read as markup, `raw`
+ *  writes it as typed (code spans, spoken lines, notes: a backslash would show or be read aloud). */
+type WriteMode = 'md' | 'raw';
+
+interface ModedSegment extends Segment {
+	readonly mode: WriteMode | null;
+	/** A code span: a backtick in the replacement would end it. */
+	readonly span?: boolean;
+}
+
+const seg = (field: FindField, start: number, end: number, mode: WriteMode | null, span = false): ModedSegment => ({ field, start, end, replaceable: mode !== null, mode, span });
+
+/** Inline code spans in one line (CommonMark: a backtick run closed by the next run of the same length). */
+function codeSpans(line: string): Array<[number, number, number]> {
+	const out: Array<[number, number, number]> = [];
+	const runs = [...line.matchAll(/(?<!\\)`+/g)].map((m) => ({ at: m.index, n: m[0].length }));
+	for (let i = 0; i < runs.length; i++) {
+		const j = runs.findIndex((r, k) => k > i && r.n === runs[i].n);
+		if (j < 0) continue;
+		out.push([runs[i].at, runs[j].at + runs[j].n, runs[i].n]); // [start, end, fence length]
+		i = j;
+	}
+	return out;
+}
+
 /** Cut a slide into labeled segments, in source order. */
-export function slideSegments(slide: string): Segment[] {
+function modedSegments(slide: string, opts: FindOptions = {}): ModedSegment[] {
+	const isDirective = directiveSpan(opts);
 	const text = String(slide ?? '');
-	const blocked: Array<{ start: number; end: number; seg?: Segment }> = [];
-	for (const [start, end] of fenceRanges(text)) blocked.push({ start, end, seg: { field: 'code', start, end, replaceable: false } });
+	const blocked: Array<{ start: number; end: number; seg?: ModedSegment }> = [];
+	for (const [start, end] of fenceRanges(text)) blocked.push({ start, end, seg: seg('code', start, end, null) });
 	for (const c of liveComments(text)) {
 		const kind = commentKind(c.body);
-		let seg: Segment | undefined;
-		if (kind === 'record') seg = { field: 'record', start: c.bodyStart, end: c.bodyStart + c.body.length, replaceable: false };
-		else if (kind === 'say') seg = { field: 'spoken line', ...labeledBody(c.body, c.bodyStart), replaceable: true };
-		else if (kind === 'describe') seg = { field: 'description', ...labeledBody(c.body, c.bodyStart), replaceable: true };
-		else if (kind === 'note') seg = { field: 'note', ...labeledBody(c.body, c.bodyStart), replaceable: true };
-		blocked.push({ start: c.start, end: c.end, seg }); // a directive or pane marker: blocked, never searched
+		let sg: ModedSegment | undefined;
+		if (kind === 'record') sg = seg('record', c.bodyStart, c.bodyStart + c.body.length, null);
+		else if (kind === 'say' || kind === 'describe' || kind === 'note') {
+			const b = labeledBody(c.body, c.bodyStart);
+			sg = seg(kind === 'say' ? 'spoken line' : kind === 'describe' ? 'description' : 'note', b.start, b.end, 'raw');
+		}
+		blocked.push({ start: c.start, end: c.end, seg: sg }); // a directive or pane marker: blocked, never searched
 	}
 	blocked.sort((a, b) => a.start - b.start);
-	const out: Segment[] = [];
+	const out: ModedSegment[] = [];
 	for (const b of blocked) if (b.seg && b.seg.end > b.seg.start) out.push(b.seg);
 
 	const lines = text.split('\n');
@@ -227,33 +262,38 @@ export function slideSegments(slide: string): Segment[] {
 		}
 		const block = kinds[li];
 		if (block) {
-			for (const [a, z] of pieces) if (line.slice(a - ls, z - ls).trim()) out.push({ field: block as FindField, start: a, end: z, replaceable: false });
+			for (const [a, z] of pieces) if (line.slice(a - ls, z - ls).trim()) out.push(seg(block as FindField, a, z, null));
 			return;
 		}
 		const field = lineField(line); // from the WHOLE line, so `## H <!-- note --> Oct` is still a heading
-		const holes = protectedRanges(line).map(([a, z]) => ({ a: ls + a, z: ls + z, keep: false }));
-		for (const [a, z] of inlineMath(line)) holes.push({ a: ls + a, z: ls + z, keep: true });
+		// Holes: never searched (targets, tags, URLs, footnote labels); math, found but kept; a code span's
+		// fences dropped and its inside written raw.
+		const holes: Array<{ a: number; z: number; as?: ModedSegment }> = protectedRanges(line).map(([a, z]) => ({ a: ls + a, z: ls + z }));
+		for (const [a, z] of inlineMath(line)) holes.push({ a: ls + a, z: ls + z, as: seg('math', ls + a, ls + z, null) });
+		// A span Lattice reads as syntax (a pill, an icon…) is found but never written into: its words are
+		// arguments, and a change can turn it into code or into another kind (the checker on #3318).
+		for (const [a, z, n] of codeSpans(line)) holes.push({ a: ls + a, z: ls + z, as: isDirective(line.slice(a + n, z - n)) ? seg('inline syntax', ls + a + n, ls + z - n, null) : seg(field, ls + a + n, ls + z - n, 'raw', true) });
 		holes.sort((x, y) => x.a - y.a);
 		for (const [a, z] of pieces) {
 			let cursor = a;
 			for (const h of holes) {
 				if (h.z <= cursor || h.a >= z) continue;
-				if (h.a > cursor) out.push({ field, start: cursor, end: h.a, replaceable: true });
-				if (h.keep) out.push({ field: 'math', start: Math.max(h.a, a), end: Math.min(h.z, z), replaceable: false });
+				if (h.a > cursor) out.push(seg(field, cursor, h.a, 'md'));
+				if (h.as && h.as.end > h.as.start && h.as.start >= a && h.as.end <= z) out.push(h.as);
 				cursor = Math.max(cursor, h.z);
 			}
-			if (z > cursor) out.push({ field, start: cursor, end: z, replaceable: true });
+			if (z > cursor) out.push(seg(field, cursor, z, 'md'));
 		}
 	});
 
 	// `![alt](…)`: the alt is its own field. Split the segment that holds it.
 	const alts = [...text.matchAll(/!\[([^\]\n]*)\]\(/g)].map((m) => ({ start: m.index + 2, end: m.index + 2 + m[1].length }));
-	const split: Segment[] = [];
+	const split: ModedSegment[] = [];
 	for (const s of out) {
-		let parts: Segment[] = [s];
+		let parts: ModedSegment[] = [s];
 		for (const a of alts) {
 			parts = parts.flatMap((p) => {
-				if (!p.replaceable || a.end <= p.start || a.start >= p.end) return [p];
+				if (p.mode !== 'md' || a.end <= p.start || a.start >= p.end) return [p];
 				const lo = Math.max(a.start, p.start);
 				const hi = Math.min(a.end, p.end);
 				return [{ ...p, end: lo }, { ...p, field: 'alt text' as FindField, start: lo, end: hi }, { ...p, start: hi }].filter((x) => x.end > x.start);
@@ -264,15 +304,166 @@ export function slideSegments(slide: string): Segment[] {
 	return split.sort((a, b) => a.start - b.start);
 }
 
-// ── The structure check ─────────────────────────────────────────────────────
+/** The slide's segments, labeled by field, in source order. */
+export function slideSegments(slide: string, opts: FindOptions = {}): Segment[] {
+	return modedSegments(slide, opts).map(({ field, start, end, replaceable }) => ({ field, start, end, replaceable }));
+}
 
-// Characters that build Markdown or HTML structure inside a line. A replace that changes how many of
-// them a line holds (outside comments) has changed more than words.
-const STRUCTURAL = ['|', '*', '`', '$', '<', '>', '[', ']', '~', '_', '!', '\\', '#'];
+// ── What a reader sees: escapes resolved, formatting markers skipped ────────
+
+const ASCII_PUNCT = /[!-/:-@[-`{-~]/;
+const isWordChar = (c: string | undefined) => !!c && /[\p{L}\p{N}]/u.test(c);
+
+/** Line starts (offsets) of the slide's tables: a block of `|` lines with a delimiter row in it. Only there is
+ *  `|` a cell separator; elsewhere it is text. */
+function tableLines(text: string): Set<number> {
+	const out = new Set<number>();
+	const lines = text.split('\n');
+	const starts: number[] = [];
+	let at = 0;
+	for (const l of lines) {
+		starts.push(at);
+		at += l.length + 1;
+	}
+	const DELIM = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)+\|?\s*$/;
+	for (let i = 0; i < lines.length; i++) {
+		if (!lines[i].includes('|')) continue;
+		let j = i;
+		while (j < lines.length && lines[j].includes('|')) j++;
+		if (lines.slice(i, j).some((l) => DELIM.test(l))) for (let k = i; k < j; k++) out.add(starts[k]);
+		i = j;
+	}
+	return out;
+}
+
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+const isSpace = (c: string | undefined) => c === undefined || /\s/.test(c);
+const isPunct = (c: string | undefined) => !!c && /[\p{P}\p{S}]/u.test(c);
+
+/** Emphasis runs that can actually open or close (CommonMark's flanking rules), and have a partner of the
+ *  same character in the segment; a lone or space-wrapped `*` or `_` (`2 * 3`, `5*3`, `*nix`) is text. */
+function emphasisMarkers(src: string): Set<number> {
+	const runs: Array<{ at: number; len: number; ch: string }> = [];
+	for (let i = 0; i < src.length; i++) {
+		const ch = src[i];
+		if ((ch !== '*' && ch !== '_' && ch !== '~') || src[i - 1] === '\\') continue;
+		let n = 1;
+		while (src[i + n] === ch) n++;
+		const prev = src[i - 1];
+		const next = src[i + n];
+		const left = !isSpace(next) && (!isPunct(next) || isSpace(prev) || isPunct(prev));
+		const right = !isSpace(prev) && (!isPunct(prev) || isSpace(next) || isPunct(next));
+		// `_` inside a word is text (`file_name`); `~` counts only as a `~~` strikethrough run.
+		const usable = ch === '_' ? (left && (!right || isPunct(prev))) || (right && (!left || isPunct(next))) : ch === '~' ? n >= 2 && (left || right) : left || right;
+		if (usable) runs.push({ at: i, len: n, ch });
+		i += n - 1;
+	}
+	const out = new Set<number>();
+	for (const ch of ['*', '_', '~']) {
+		const mine = runs.filter((r) => r.ch === ch);
+		if (mine.length < 2) continue;
+		for (const r of mine) for (let k = 0; k < r.len; k++) out.add(r.at + k);
+	}
+	return out;
+}
+
+/**
+ * A Markdown segment as a reader sees it. `\$` reads `$` and `&amp;` reads `&`; an emphasis or strikethrough
+ * marker, a link's `[`, a table's `|` are formatting, not text, so they are left out, and `gap[k]`
+ * records that one stood just before visible character k. A search runs on `text` and maps back through
+ * `src`/`end`: so `$5` finds `\$5`, `Oct` is found inside `**Oct**`, and a match never quietly swallows a
+ * marker.
+ */
+function readerView(src: string, after = '', table = false): { text: string; src: number[]; end: number[]; escaped: boolean[]; gap: boolean[] } {
+	const text: string[] = [];
+	const at: number[] = [];
+	const end: number[] = [];
+	const escaped: boolean[] = [];
+	const gap: boolean[] = [];
+	let pending = false;
+	const linkOpen = new Set<number>();
+	// A link's `]( … )` target is cut out of the segment, so look for it in the rest of the line too.
+	for (const m of (src + after).matchAll(/(?<!\\)\[(?=[^\]\n]*\]\()/g)) if (m.index < src.length) linkOpen.add(m.index);
+	const emphasis = emphasisMarkers(src);
+	const push = (ch: string, from: number, to: number, esc: boolean) => {
+		text.push(ch);
+		at.push(from);
+		end.push(to);
+		escaped.push(esc);
+		gap.push(pending);
+		pending = false;
+	};
+	for (let i = 0; i < src.length; i++) {
+		const ch = src[i];
+		if (ch === '\\' && ASCII_PUNCT.test(src[i + 1] ?? '')) {
+			push(src[i + 1], i + 1, i + 2, true);
+			i++;
+			continue;
+		}
+		if (ch === '&') {
+			const m = /^&(?:(amp|lt|gt|quot|apos|nbsp)|#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6}));/.exec(src.slice(i));
+			if (m) {
+				const cp = m[2] ? Number(m[2]) : m[3] ? Number.parseInt(m[3], 16) : -1;
+				push(m[1] ? ENTITIES[m[1]] : String.fromCodePoint(cp > 0 && cp <= 0x10ffff ? cp : 0xfffd), i, i + m[0].length, false);
+				i += m[0].length - 1;
+				continue;
+			}
+		}
+		const marker = emphasis.has(i) || (table && ch === '|') || (ch === '[' && linkOpen.has(i)) || (ch === '!' && linkOpen.has(i + 1));
+		if (marker) {
+			pending = true;
+			continue;
+		}
+		push(ch, i, i + 1, false);
+	}
+	return { text: text.join(''), src: at, end, escaped, gap };
+}
+
+// ── Writing a replacement ───────────────────────────────────────────────────
+
+/**
+ * A replacement as Markdown that reads as the same words: a backslash before each character Markdown
+ * would take as markup where it lands. Always: `\ ` * [ ] < $ | ~`. In context: `_` unless it sits inside
+ * a word (`file_name` is text), `!` before a `[`, `&` that starts an entity, and a line-opening `#`, `>`,
+ * `-`, `+`, `=` or `1.` (a heading, quote, list or underline). Checked against the engine itself
+ * (deck-find.engine.test.ts): `\$5` renders `$5`, `\[draft\]` renders `[draft]`.
+ */
+export function escapeMarkdown(rep: string, before = '', after = '', atLineStart = false): string {
+	let out = '';
+	for (let i = 0; i < rep.length; i++) {
+		const ch = rep[i];
+		const prev = i === 0 ? before.slice(-1) : rep[i - 1];
+		const next = i === rep.length - 1 ? after[0] : rep[i + 1];
+		const rest = rep.slice(i) + after;
+		if ('\\`*[]<$|~'.includes(ch) || (ch === '_' && !(isWordChar(prev) && isWordChar(next))) || (ch === '!' && next === '[') || (ch === '&' && /^&#?\w+;/.test(rest))) out += `\\${ch}`;
+		else out += ch;
+	}
+	if (atLineStart) {
+		const m = /^(\d{1,9})([.)])(?=\s|$)/.exec(out);
+		if (m) out = `${m[1]}\\${m[2]}${out.slice(m[0].length)}`;
+		else if (/^(?:#{1,6}(?=\s|$)|>|[-+](?=\s|$)|=+\s*$|-+\s*$)/.test(out)) out = `\\${out}`;
+	}
+	return out;
+}
+
+// ── The structure check (the backstop) ──────────────────────────────────────
+
 const LEADING = /^\s{0,3}(#{1,6}(?=\s|$)|>+|[-*+](?=\s)|\d{1,9}[.)](?=\s)|`{3,}|~{3,}|\[[^\]]*\]:|=+\s*$|-+\s*$|\|)/;
 
+/** How much ACTIVE markup a line holds, read by the same rules as `readerView`: emphasis runs that can open
+ *  or close, `|` only in a table, a `[` that opens a link, real code spans and math, tag-like `<`, and
+ *  comment markers. An escaped character is text, so the escaper and this check agree on what is markup;
+ *  a `*` in `2 * 3` is text, and changing it to `\*` changes nothing. */
+function activeCounts(line: string, table: boolean): string {
+	const bare = line.replace(/\\[!-/:-@[-`{-~]/g, 'x');
+	const n = (re: RegExp) => (bare.match(re) ?? []).length;
+	const emph = [...emphasisMarkers(bare)];
+	const count = (ch: string) => emph.filter((i) => bare[i] === ch).length;
+	return [table ? n(/\|/g) : 0, count('*'), count('_'), count('~'), codeSpans(bare).length, inlineMath(bare).length, n(/<[A-Za-z/!]/g), n(/\[(?=[^\]\n]*\]\()/g), n(/!\[/g), n(/-->|--!>|<!--/g)].join(',');
+}
+
 /** A slide's structure, as a string to compare: every comment's kind and its body's dash runs, the fence
- *  count, and per line (comments cut out) the leading marker and the count of each structural character. */
+ *  count, and per line (comments cut out) the leading markers, indent, hard break and active markup. */
 export function slideStructure(slide: string): string {
 	const text = String(slide ?? '');
 	const cs = liveComments(text);
@@ -285,7 +476,11 @@ export function slideStructure(slide: string): string {
 		at = c.end;
 	}
 	outside += text.slice(at);
+	const tables = tableLines(outside);
+	let lineAt = 0;
 	for (const line of outside.split('\n')) {
+		const table = tables.has(lineAt);
+		lineAt += line.length + 1;
 		// Every leading marker (`- 1. x` is two), the indent before the text, and a hard break at the end.
 		const markers: string[] = [];
 		let rest = line;
@@ -294,68 +489,95 @@ export function slideStructure(slide: string): string {
 			rest = rest.slice(m[0].length);
 		}
 		const indent = /^[ \t]*/.exec(line)?.[0].replace(/\t/g, '    ').length ?? 0;
-		const hardBreak = / {2,}$|\\$/.test(line) ? 'br' : '';
-		parts.push(`${indent}:${markers.join(' ')}:${hardBreak}|${STRUCTURAL.map((ch) => line.split(ch).length - 1).join(',')}`);
+		const hardBreak = / {2,}$|(?<!\\)\\$/.test(line) ? 'br' : '';
+		// A code span's inside is literal text, so only its fences count.
+		let literal = line;
+		for (const [a, z, n] of codeSpans(line).reverse()) literal = literal.slice(0, a + n) + 'x'.repeat(z - a - 2 * n) + literal.slice(z - n);
+		parts.push(`${indent}:${markers.join(' ')}:${hardBreak}|${activeCounts(literal, table)}`);
 	}
 	return parts.join('\n');
 }
 
-/** The find text and the replacement reduced to their structural characters, with each run of anything
- *  else as one `x`: `*b*` → `*x*`, `b**` → `x**`, `[Oct` → `[x`. */
-function skeleton(s: string): string {
-	let out = '';
-	for (const ch of s) out += STRUCTURAL.includes(ch) ? ch : out.endsWith('x') ? '' : 'x';
-	return out;
+// ── Find and replace ────────────────────────────────────────────────────────
+
+interface Hit extends SlideMatch {
+	/** What the replacement is written as here; empty when the match is not replaceable. */
+	readonly mode: WriteMode | null;
+	readonly span: boolean;
 }
 
-/**
- * Why a find → replace pair would change markup rather than words, or null. When either side holds a
- * structural character, both must have the same skeleton: `*b*` → `*c*` is a word change inside the
- * emphasis, `*b*` → `b**` moves it and `five` → `$5` adds a `$` Markdown may read as math. Counting
- * characters on the slide cannot see a marker MOVE; this can. It refuses some harmless prose (`$5`,
- * `file_name`), and the model then uses edit_slides, which shows the whole slide on the card.
- */
-export function markupChange(find: string, replacement: string): string | null {
-	const has = (s: string) => [...s].some((ch) => STRUCTURAL.includes(ch));
-	if (!has(find) && !has(replacement)) return null;
-	if (skeleton(find) === skeleton(replacement)) return null;
-	const added = [...new Set([...replacement].filter((ch) => STRUCTURAL.includes(ch)))];
-	const which = added.length ? added.map((c) => `\`${c}\``).join(' ') : 'the markup around the words';
-	return `the replacement changes ${which}, which Markdown reads as structure, not words`;
-}
-
-/** Every match of a literal query in one slide, labeled by field. */
-export function findInSlide(slide: string, query: string, opts: FindOptions = {}): SlideMatch[] {
+function hits(slide: string, query: string, opts: FindOptions): Hit[] {
 	const re = literalMatcher(query, opts);
 	if (!re) return [];
 	const text = String(slide ?? '');
-	const out: SlideMatch[] = [];
-	for (const s of slideSegments(text)) {
+	const out: Hit[] = [];
+	for (const s of modedSegments(text, opts)) {
 		const part = text.slice(s.start, s.end);
-		for (const m of part.matchAll(re)) out.push({ field: s.field, start: s.start + m.index, end: s.start + m.index + m[0].length, replaceable: s.replaceable });
+		if (s.mode !== 'md') {
+			for (const m of part.matchAll(re)) out.push({ field: s.field, start: s.start + m.index, end: s.start + m.index + m[0].length, replaceable: s.replaceable, mode: s.mode, span: !!s.span });
+			continue;
+		}
+		const nl = text.indexOf('\n', s.end);
+		const ls = text.lastIndexOf('\n', s.start - 1) + 1;
+		const v = readerView(part, text.slice(s.end, nl < 0 ? text.length : nl), tableLines(text).has(ls));
+		for (const m of v.text.matchAll(re)) {
+			const ps = m.index;
+			const pe = ps + m[0].length;
+			if (pe === ps) continue;
+			// A match that spans a formatting marker (`**Oct.** Tenth`) is found but left alone: replacing it
+			// would drop or move the marker.
+			const crosses = v.gap.slice(ps + 1, pe).some(Boolean);
+			const start = s.start + v.src[ps] - (v.escaped[ps] ? 1 : 0);
+			const end = s.start + v.end[pe - 1];
+			out.push({ field: s.field, start, end, replaceable: !crosses, mode: crosses ? null : 'md', span: false, ...(crosses ? { reason: 'crosses formatting' } : {}) });
+		}
 	}
 	return out;
 }
 
+/** Every match of a literal query in one slide, labeled by field. The query is what a reader sees: an
+ *  escaped `\$` matches `$`, and formatting markers are skipped. */
+export function findInSlide(slide: string, query: string, opts: FindOptions = {}): SlideMatch[] {
+	return hits(slide, query, opts).map(({ field, start, end, replaceable, reason }) => ({ field, start, end, replaceable, ...(reason ? { reason } : {}) }));
+}
+
 /**
- * Replace every REPLACEABLE match in one slide. Matches that are not replaceable come back in `skipped`.
- * When the result's structure differs from the slide's (the structure check above), nothing is replaced:
- * `text` is the slide unchanged and `blocked` says why.
+ * Replace every REPLACEABLE match in one slide, the traditional way: the reader's words change and the
+ * formatting around them stays. In Markdown text the replacement is escaped (`escapeMarkdown`), so
+ * `five` → `$5` writes `\$5`; in a code span, a spoken line or a note it is written as typed. Matches
+ * that are not replaceable come back in `skipped`. What escaping cannot express is refused, and so is
+ * any slide whose structure still moved (the backstop): `text` is then the slide unchanged and `blocked`
+ * says why.
  */
 export function replaceInSlide(slide: string, query: string, replacement: string, opts: FindOptions = {}): { text: string; replaced: SlideMatch[]; skipped: SlideMatch[]; blocked?: string } {
 	const text = String(slide ?? '');
-	const all = findInSlide(text, query, opts);
+	const all = hits(text, query, opts);
+	const strip = ({ field, start, end, replaceable, reason }: Hit): SlideMatch => ({ field, start, end, replaceable, ...(reason ? { reason } : {}) });
 	const replaced = all.filter((m) => m.replaceable);
-	const skipped = all.filter((m) => !m.replaceable);
-	if (!replaced.length) return { text, replaced, skipped };
-	const markup = markupChange(query, replacement);
-	if (markup) return { text, replaced: [], skipped: all, blocked: markup };
+	const skipped = all.filter((m) => !m.replaceable).map(strip);
+	if (!replaced.length) return { text, replaced: [], skipped };
+	const refuse = (why: string) => ({ text, replaced: [], skipped: all.map(strip), blocked: why });
+	if (replaced.some((m) => m.span && replacement.includes('`'))) return refuse('a backtick would end the code span the words are in');
+	if (replaced.some((m) => m.mode === 'raw' && !m.span && /--/.test(replacement))) return refuse('`--` would end the comment that holds the spoken line or note');
 	let out = text;
-	for (const m of [...replaced].reverse()) out = out.slice(0, m.start) + replacement + out.slice(m.end);
-	if (slideStructure(out) !== slideStructure(text)) {
-		return { text, replaced: [], skipped: all, blocked: 'the replacement would change the slide’s structure (a comment, a heading, a list, a table cell, emphasis or code), not just its words' };
+	for (const m of [...replaced].reverse()) {
+		const lineStart = out.lastIndexOf('\n', m.start - 1) + 1;
+		// A line start, or right after a list or quote marker: a `5.` or `#` there would open a new block.
+		const atLineStart = /^\s*(?:(?:[-*+]|\d{1,9}[.)]|>)\s+)*$/.test(out.slice(lineStart, m.start));
+		const written = m.mode === 'md' ? escapeMarkdown(replacement, out.slice(lineStart, m.start), out.slice(m.end), atLineStart) : replacement;
+		out = out.slice(0, m.start) + written + out.slice(m.end);
 	}
-	return { text: out, replaced, skipped };
+	// A code span the replacement turns into Lattice syntax (`npm x` → `^{bucket}` would draw an icon).
+	const syntaxSpans = (t: string) => {
+		const isDirective = directiveSpan(opts);
+		return t.split('\n').flatMap((line) => codeSpans(line).filter(([a, z, n]) => isDirective(line.slice(a + n, z - n)))).length;
+	};
+	if (syntaxSpans(out) !== syntaxSpans(text)) return refuse('the new words would turn a code span into Lattice syntax (a pill, an icon…)');
+	if (slideStructure(out) !== slideStructure(text)) {
+		const ws = /^\s|\s$/.test(replacement) ? ' (leading or trailing spaces can start a code block or a line break)' : '';
+		return refuse(`the new words would still change the slide’s structure${ws}`);
+	}
+	return { text: out, replaced: replaced.map(strip), skipped };
 }
 
 /** A view of a match with some context either side, kept to the match's own line, the match marked «like this». */

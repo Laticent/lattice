@@ -306,7 +306,7 @@ describe('the toolbox', () => {
 		const tb = toolbox({ source: ['---', 'theme: indaco', '---', '', '## A', '', 'TBD here', '', '---', '', '## B', '', '<!-- TBD -->'].join('\n') });
 		const out = await tb.run('replace_text', JSON.stringify({ find: 'TBD', replace: 'hide', summary: 's' }));
 		expect(out).toContain('Replaced 1 match in 1 slide: slide 1 (1: body).');
-		expect(out).toContain('slide 2: the replacement would change the slide’s structure');
+		expect(out).toContain('slide 2: the new words would still change the slide’s structure');
 		expect(tb.draft).toContain('<!-- TBD -->');
 		expect(tb.verdict?.refused).toBe(true);
 	});
@@ -346,12 +346,28 @@ describe('the toolbox', () => {
 		expect(autoHold({ via: 'agent', clean: true, aborted: false, deckChanged: false, live: false, edits: rows, slideCount: 3 })).toBe('it deletes slides');
 	});
 
-	it('replace_text refuses a pair that changes markup, once, naming the character', async () => {
+	// The owner on #3318: escape, do not refuse. `$10` is written so the slide shows $10, not math.
+	it('replace_text escapes markup characters in the replacement instead of refusing', async () => {
 		const tb = toolbox({ source: OCT });
 		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: '$10', summary: 's' }));
-		expect(out).toMatch(/^Not replaced: the replacement changes `\$`/);
-		expect(tb.verdict?.refused).toBe(true);
-		expect(tb.draft).toBe(OCT);
+		expect(out).toContain('Replaced 3 matches in 2 slides');
+		expect(tb.draft).toContain('# \\$10');
+		expect(tb.draft).toContain('<!-- say: $10 was the day. -->'); // a spoken line is written as typed
+		expect(tb.verdict?.refused).toBe(false);
+	});
+
+	// The checker's round 3: a pill is Lattice syntax in backticks. The chat's real path asks the engine's own
+	// reader (authoring-core's inlineCodeDispatches), not the kernel's fallback.
+	it('replace_text leaves a pill alone, by the engine\u2019s own reader, and still edits a KPI value', async () => {
+		const src = ['---', 'theme: indaco', '---', '', '## Status', '', 'Shipped `{BETA, tag}` with `$4.2M` tag revenue'].join('\n');
+		const tb = toolbox({ source: src });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'tag', replace: 'label', summary: 's' }));
+		expect(out).toContain('Replaced 1 match in 1 slide');
+		expect(out).toContain('1 in inline syntax on slide 1');
+		expect(tb.draft).toContain('`{BETA, tag}`');
+		expect(tb.draft).toContain('label revenue');
+		const kpi = await toolbox({ source: src }).run('replace_text', JSON.stringify({ find: '$4.2M', replace: '$4.5M', summary: 's' }));
+		expect(kpi).toContain('Replaced 1 match');
 	});
 
 	it('Talk mode may search but not replace', async () => {
