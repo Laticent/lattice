@@ -802,17 +802,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		setUndoCompact(null);
 	};
 
-	// ONE SEND PER PRESS. On an iPhone the Return key often fires twice: once to commit the predictive-text word,
-	// then as a real Enter. Both landed before React re-rendered, so both read the same state (text still there,
-	// not busy) and both sent: the thread showed the first message twice, and the second turn cancelled the first
-	// one's reply. The composing Enter is ignored below; this lock covers any two sends in one tick, whatever their
-	// cause, and opens again on the next render.
-	const sendLockRef = React.useRef(false);
-	React.useEffect(() => {
-		sendLockRef.current = false;
-	});
 	const send = () => {
-		if (sendLockRef.current) return;
 		const text = input.trim();
 		if (compacting) return;
 		// A photo alone is a message: the model is told what was attached either way.
@@ -825,7 +815,6 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		setPendingPhotos([]);
 		setPendingVideos([]);
 		saveChatDraft(sendDeckId, '');
-		sendLockRef.current = true;
 		const history: ChatMessage[] = [...messages, { role: 'user', content: text || (videos.length ? 'Here is a short video.' : photos.length === 1 ? 'Here is a photo.' : 'Here are some photos.'), ...(photos.length ? { photos } : {}), ...(videos.length ? { videos } : {}) }];
 		saveChat(sendDeckId, history);
 		if (deckIdRef.current === sendDeckId) setMessages(history);
@@ -1253,8 +1242,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 							void addPhotos(imgs);
 						}}
 						onKeyDown={(e) => {
-							// An Enter that only commits a predictive-text or IME word is not a send (iOS fires it, then a real Enter).
-							if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+							if (e.key === 'Enter' && !e.shiftKey) {
 								e.preventDefault();
 								send();
 							}
