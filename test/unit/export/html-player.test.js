@@ -316,6 +316,12 @@ test('themeDualMode keeps the @supports light-dark() feature probe and flattens 
 	const commented = themeDualMode(':root{/* uses @supports */ --x: light-dark(#111,#eee)} .a{color:red}');
 	assert.doesNotMatch(commented.base, /light-dark\(/, commented.base);
 	assert.match(commented.darkBlock, /--x:#eee/);
+	// A `/*` inside a string is not a comment: the probe swap runs on masked text, so it neither cuts
+	// the string nor the rules between it and a later real comment.
+	const stringy = themeDualMode(`.q{content:"/*"} ${guard}{.n{fill:light-dark(#fff,#000)}} /* note */ :root{--y:light-dark(#111,#eee)}`);
+	assert.match(stringy.base, /content:"\/\*"/, stringy.base);
+	assert.ok(stringy.base.includes(guard), stringy.base);
+	assert.match(stringy.darkBlock, /--y:#eee/);
 	// Everywhere else, no light-dark() survives.
 	const strip = (css) => css.replace(/@supports[^{};]*\{/g, '');
 	assert.doesNotMatch(strip(base), /light-dark\(/, base);
