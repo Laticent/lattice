@@ -128,7 +128,8 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     they happen, presses a fixed list of controls, and after each waits until the control is
     usable again and no request is in flight.
 
-- **CSP stage 2: the preview-frame pages** (`followups.d/3277-p1-csp-frame-pages.md`). 198 of 204
+- **CSP stage 2: the preview-frame pages** (stage 1's `followups.d/3277-p1-csp-frame-pages.md`; what is left is
+  `followups.d/3277-p1-csp-remaining-pages.md`). 198 of 204
   routes now carry the policy, up from 75. Measured first, in Chromium, WebKit and Gecko, with a
   page under `script-src 'self'`:
 
@@ -185,7 +186,8 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     the fix is the subsetter in a same-origin worker, measured to work above); Cadenza and Suono
     (`esm.run` serves runtimes whose own requests, models and wasm from other hosts, are not yet
     measured: `OPEN_ORIGINS`); and the landing page, held by name (`HELD_ROUTES`) because the policy
-    tag is 1,058 bytes and the page's HTML sat 0.9 KB under its route-budget ceiling, which is the
+    tag is about 1,050 bytes and the page's HTML sits 52 bytes under its 121,924-byte `htmlRaw` hard
+    ceiling (measured 2026-11-19), so the policy would put it about 1.0 KB past. The ceiling is the
     owner's number.
   - **The e2e reads refusals from every frame and from the console.** With an inline script put
     back into the single-slide preview, WebKit fired `securitypolicyviolation` in the frame;

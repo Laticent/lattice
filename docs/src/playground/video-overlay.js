@@ -384,7 +384,7 @@ export function tapVideoAt(frame, clientX, clientY) {
 
 /**
  * Install the playback bridge on a preview iframe's window. Its link guard
- * (deck-preview.js `linkGuardAgent`) calls `window.__videoPlay(poster)` on a
+ * (lib/core/frame-agents.mjs `linkGuardAgent`, the `data-agent="link"` tag) calls `window.__videoPlay(poster)` on a
  * `.video-poster` tap. Call after each srcdoc rewrite / load. Safe to call repeatedly.
  * @param {Window|null|undefined} win
  */

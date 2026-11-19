@@ -159,12 +159,12 @@ export const LINK_ONLY_ORIGINS = Object.freeze([
 	'lattice.style', // our own production origin, in links
 	'stuk.github.io', // JSZip's license link
 	'evil.example', // a Vetrina fixture asserting that a hostile url() is rejected
-	'placeholder.invalid', // deck-preview.js: the base a relative URL is parsed against, never fetched
+	'placeholder.invalid', // lib/core/subresource-csp.mjs: the base a relative URL is parsed against, never fetched
 	// The video plugin's WATCH and oEmbed templates: links a reader opens, and lookups only the CLI makes.
 	'www.youtube.com',
 	'youtu.be',
 	'vimeo.com',
-	// Data-source provenance (`sourceUrl`, docs/src/lib/data-sources): where a bundled map came from.
+	// Data-source provenance (`sourceUrl`, lib/plugins/chart-family/kinds/map/map.basemap*.json): where a bundled map came from.
 	'raw.githubusercontent.com',
 	'cdn.jsdelivr.net',
 	// The old-browser guide's "how to update your browser" links (one per browser and store).
@@ -202,9 +202,9 @@ export const LINK_ONLY_ORIGINS = Object.freeze([
 //     violation when someone edits Pug in the code editor; nothing else changes.
 const TOLERATED_EVALS = [
 	/Function\(\s*["'`]return this["'`]\s*\)/g,
-	/Function\(\s*["'`]binder["'`]/g,
+	/Function\(\s*["'`]binder["'`]\s*,\s*["'`]return function \(["'`]\s*\+\s*[\w$]+\.join\(\s*["'`],["'`]\s*\)\s*\+\s*["'`]\)\{ return binder\.apply\(this,\s*arguments\); \}["'`]\s*\)/g,
 	/typeof (\w+)\s*!==?\s*["'`]function["'`]\s*&&\s*\(\1\s*=\s*(?:new )?Function\(\s*(?:""|''|``)\s*\+\s*\1\s*\)\)/g,
-	/try\s*\{\s*return\s+Function\(\s*(?:""|''|``)\s*,\s*["'`]var x /g,
+	/try\s*\{\s*return\s+Function\(\s*(?:""|''|``)\s*,\s*["'`]var x ["'`]\s*\+\s*[\w$]+\.attrValue\b/g,
 ];
 const DIRECT_EVAL = /new Function\(|[^.\w$]Function\(|[^.\w$]eval\(/;
 export const evaluatesCode = (code) => DIRECT_EVAL.test(TOLERATED_EVALS.reduce((c, re) => c.replace(re, ''), code));
@@ -254,7 +254,13 @@ export function writesInlineFrameScript(code) {
 		}
 		if (i >= stop) continue; // not a tag (a regex, prose, a cut-off string)
 		const tag = code.slice(m.index, i + 1);
-		if (/[[\\(]/.test(tag.replace(/\$\{[^}]*\}/g, '').replace(/\\\//g, ''))) continue; // a pattern, not markup
+		// A pattern, not markup: a `[`, `(` or `\` left once the interpolations (`${…}`, a `"+call()+"` splice),
+		// escaped quotes and escaped slashes are taken out. A splice may call a function (a nonce getter).
+		const bare = tag
+			.replace(/\$\{[^}]*\}/g, '')
+			.replace(/(["'`])\s*\+[^"'`]*?\+\s*\1/g, '')
+			.replace(/\\["'`/]/g, '');
+		if (/[[\\(]/.test(bare)) continue;
 		if (/\bsrc=/.test(tag) || NOT_RUN_TYPE.test(tag)) continue;
 		const body = code.slice(i + 1, i + 12);
 		if (/^(?:<\\?\/script|`|"|')/.test(body) && !/^(?:`|"|')\s*\+/.test(body)) continue; // empty element, or the string ends
@@ -341,8 +347,9 @@ function pages(dist) {
  * not get a policy anyway, or that no longer exists, fails the build, so the list cannot rot.
  */
 export const HELD_ROUTES = Object.freeze({
-	// The policy tag is about 1.06 KB (ten script hashes and the video players' frame origins), and
-	// the landing page's HTML sat 0.9 KB under its route-budget ceiling (docs/scripts/check-route-budget.mjs).
+	// The policy tag is about 1.05 KB (ten script hashes and the video players' frame origins), and
+	// the landing page's HTML sits 52 B under its 121,924 B htmlRaw hard ceiling (measured 2026-11-19,
+	// docs/scripts/check-route-budget.mjs), so the policy would put it about 1.0 KB past.
 	// Raising a ceiling is the owner's call, put to them with this change; until then the page
 	// keeps no policy rather than a trimmed one.
 	'index.html': 'route budget: the policy would put the landing page 1.0 KB past its htmlRaw ceiling',

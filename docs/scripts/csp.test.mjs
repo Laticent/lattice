@@ -89,21 +89,26 @@ describe('exemption', () => {
 	});
 	it('ignores the never-run and caught evaluations, each by its exact shape, and nothing near them', () => {
 		// function-bind's polyfill, JSZip's setImmediate string callback, CodeMirror's Pug syntax probe.
-		expect(evaluatesCode('r=Function(`binder`,`return function (`+o.join(`,`)+`){}`)(i)')).toBe(false);
+		expect(evaluatesCode('r=Function(`binder`,`return function (`+o.join(`,`)+`){ return binder.apply(this,arguments); }`)(i)')).toBe(false);
 		expect(evaluatesCode('u.setImmediate=function(e){typeof e!=`function`&&(e=Function(``+e));}')).toBe(false);
 		expect(evaluatesCode('if(x)try{return Function(``,`var x `+r.attrValue),r.a=1}catch(e){}')).toBe(false);
 		// The same names doing real evaluation still count.
 		expect(evaluatesCode('r=Function(`binder`)+Function(src)')).toBe(true);
 		expect(evaluatesCode('typeof e!=`function`&&(e=Function(``+f))')).toBe(true);
 		expect(evaluatesCode('try{return Function(``,body)}catch(e){}')).toBe(true);
+		// A PREFIX of a tolerated shape is not the shape: the tolerance reads the whole call (found by review).
+		expect(evaluatesCode('r=Function(`binder`,userText)(i)')).toBe(true);
+		expect(evaluatesCode('r=Function(`binder`,`return function (`+o.join(`,`)+`){`+body+`}`)(i)')).toBe(true);
+		expect(evaluatesCode('try{return Function(``,`var x `+anyCode)}catch(e){}')).toBe(true);
 	});
 	it('counts a document with an interpolated inline script, and not a sandbox document that opens with its own policy', () => {
 		expect(writesInlineFrameScript('a=`<main></main>\n<script>${js}<\\/script>`')).toBe(true);
 		expect(writesInlineFrameScript('a="<script>"+fit()+"</script>"')).toBe(true);
 		expect(writesInlineFrameScript('a=`<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${p}"></head><body><script>${s}<\\/script>`')).toBe(false);
 		// The shapes review found the first detector missed: the bundled nonce idiom, an interpolated
-		// attribute, a module script, and a literal body (stage 1's own failure).
-		for (const code of ['x="<script"+n+">"+js', 'x=`<script${n}>${js}`', 'x=`<script type="module">${js}`', 'x="<script>window.__SLIDE_W="+w', 'x=`<script>var W=${w}`']) {
+		// attribute, a module script, a literal body (stage 1's own failure), and a splice that calls a
+		// function (a nonce getter: the `(` in the tag read as a regex until the second review).
+		for (const code of ['x="<script"+n+">"+js', 'x=`<script${n}>${js}`', 'x=`<script type="module">${js}`', 'x="<script>window.__SLIDE_W="+w', 'x=`<script>var W=${w}`', 'x="<script nonce=\\""+getNonce()+"\\">"+body', "x='<script nonce=\"'+n()+'\">'+js"]) {
 			expect(writesInlineFrameScript(code), code).toBe(true);
 		}
 		// A module-loaded sandbox document: its import map sits between its policy and its script.
