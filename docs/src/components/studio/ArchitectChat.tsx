@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { slideCount as deckSlideCount, sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { readCachingEnabled } from '@/components/studio/ai/spend.js';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,7 @@ import type { MediaRecord } from './media-store';
 import { refreshAssetUrls, setActiveAssetDeck } from './media-urls';
 import { CHAT_COMPOSER_BAR, CHAT_COMPOSER_STACK, CHAT_COMPOSER_TEXT, ChatEmptyCard } from './panel-shells';
 import { PreviewPool } from './preview-pool';
+import { appliedBadge, appliedToast, applyLabel, cardMaxHeight, cardScrollTarget } from './proposal-pick';
 import { REF_DOC_ACCEPT } from './reference-doc';
 import { useReferenceDoc } from './reference-doc-ui';
 import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, loadChat, loadChatDraft, loadChatMode, type StoredChatMode, saveChat, saveChatDraft, saveChatMode } from './studio-store';
@@ -452,10 +454,68 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		const el = scrollRef.current;
 		if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
 	};
+	// The newest change card, while it is the last thing in the thread (ArchitectChat's card section below).
+	const lastCardRef = React.useRef<HTMLDivElement>(null);
 	const followLive = React.useCallback(() => {
 		const el = scrollRef.current;
+		// A card that just arrived owns the scroll: the live reply's last growth lands AFTER the slide to the card
+		// (a ResizeObserver fires after the frame that started the slide), and pinning to the bottom here undid it.
+		if (lastCardRef.current?.dataset.arriving !== undefined) return;
 		if (el && stickRef.current) el.scrollTo?.({ top: el.scrollHeight });
 	}, []);
+	// THE CHANGE CARD TAKES THE ROOM. A reply's card grows to the transcript's height less two lines, and
+	// when one arrives the transcript slides to it, leaving the last two lines of the REPLY'S TEXT in view
+	// so the author keeps their place (proposal-pick.ts holds the math). Anything between that text and the
+	// card (the "what it read and changed" line) stays in view too, so it is measured, not assumed.
+	const [cardMax, setCardMax] = React.useState(0);
+	const above = React.useCallback(() => {
+		const card = lastCardRef.current;
+		const prose = card?.parentElement?.querySelector<HTMLElement>('[data-chat-prose]') ?? scrollRef.current?.querySelector<HTMLElement>('[data-chat-prose]');
+		const lh = prose ? Number.parseFloat(getComputedStyle(prose).lineHeight) : Number.NaN;
+		const lineHeight = Number.isFinite(lh) && lh > 0 ? lh : 20;
+		const gap = card && prose ? Math.max(CARD_GAP, card.getBoundingClientRect().top - textBottom(prose)) : CARD_GAP;
+		// What the transcript holds below the card (its padding, the share row, the live-status slot). Measured,
+		// because a guess here leaves the scroll short of the card and clips the top line of the reply.
+		const el = scrollRef.current;
+		const after = card && el ? el.scrollHeight - (card.getBoundingClientRect().bottom - el.getBoundingClientRect().top + el.scrollTop) : CARD_PAD;
+		return { lineHeight, gap, padding: Math.max(CARD_PAD, Math.ceil(after)) };
+	}, []);
+	const fitCard = React.useCallback(() => {
+		const el = scrollRef.current;
+		if (el) setCardMax(el.clientHeight ? cardMaxHeight({ clientHeight: el.clientHeight, ...above() }) : 0);
+	}, [above]);
+	React.useLayoutEffect(() => {
+		const el = scrollRef.current;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		fitCard();
+		const ro = new ResizeObserver(fitCard);
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, [fitCard]);
+	// Where the transcript settles after a turn ends or the thread changes: on a card that just arrived,
+	// else at the newest text. Both effects below call this, so the later one cannot undo the earlier.
+	const settleScroll = React.useCallback(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+		stickRef.current = true;
+		const card = lastCardRef.current;
+		if (!card || card.dataset.arriving === undefined) {
+			el.scrollTo?.({ top: el.scrollHeight });
+			return;
+		}
+		// Size the card first, then measure on the next frame, once it has re-rendered at that size: measured
+		// in the same tick, the scroll was computed against the taller card and stopped short.
+		fitCard();
+		requestAnimationFrame(() => {
+			const now = lastCardRef.current;
+			if (!now || now.dataset.arriving === undefined) return;
+			const cardTop = now.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
+			const { lineHeight, gap } = above();
+			const top = cardScrollTarget({ cardTop, lineHeight, gap, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight });
+			const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+			el.scrollTo?.({ top, behavior: reduce ? 'auto' : 'smooth' });
+		});
+	}, [above, fitCard]);
 	React.useEffect(() => {
 		mountedRef.current = true;
 		return () => {
@@ -518,13 +578,11 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 	React.useEffect(() => {
 		const owner = ownerRef.current.get(messages);
 		if (ready && messages !== loadedRef.current && (owner === undefined || owner === deckId)) void saveChat(deckId, messages);
-		stickRef.current = true;
-		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
-	}, [deckId, messages, ready]);
+		settleScroll();
+	}, [deckId, messages, ready, settleScroll]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: a turn starting or ending is the intentional scroll trigger.
 	React.useEffect(() => {
-		stickRef.current = true;
-		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
+		settleScroll();
 	}, [streamingDeck]);
 	React.useEffect(() => {
 		saveChatDraft(deckIdRef.current, input);
@@ -916,13 +974,17 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		void run(messages.slice(0, end), deckId);
 	};
 
-	const applyProposal = (idx: number) => {
+	const applyProposal = (idx: number, picked?: number[]) => {
 		if (compacting || !ready) return;
 		const m = messages[idx];
 		if (!m?.proposed?.length) return;
+		// The author's pick (ProposalReview): the edits they kept, in order. Absent means all of them.
+		const keep = picked ? m.proposed.filter((_, k) => picked.includes(k)) : m.proposed;
+		if (!keep.length) return;
+		const skipped = m.proposed.length - keep.length;
 		// Re-apply against the CURRENT deck (not a stale snapshot) — edits to OTHER slides
 		// are preserved; a same-slide edit is replaced (flagged stale in the review).
-		const outcome = applyProposedEditsChecked(source, m.proposed);
+		const outcome = applyProposedEditsChecked(source, keep);
 		// NOTHING LANDED. This used to paint the green "Applied" tick, toast "Edit applied",
 		// and burn a History checkpoint over an untouched deck — the author's only clue that
 		// their edit hadn't happened was looking at the slide. Say so, and leave the proposal
@@ -932,15 +994,13 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 			return;
 		}
 		onApply(outcome.source);
-		setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, applied: true, appliedCount: outcome.applied, refused: outcome.refusals.length || undefined } : x)));
+		setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, applied: true, appliedCount: outcome.applied, refused: outcome.refusals.length || undefined, skipped: skipped || undefined } : x)));
 		// A PARTIAL run is reported as partial — "applied" over a run where half the blocks
-		// were refused is the same false claim, just smaller.
-		if (outcome.refusals.length) {
-			raiseNotice(deckId, 'error', outcome.refusals[0]);
-			// BLOCKS on both sides of the "of" — `slides` is a different unit and summing them
-			// produced counts describing nothing that existed (checker).
-			notify(`Applied ${outcome.applied} of ${outcome.applied + outcome.refusals.length} edits — restore from History to undo.`);
-		} else notify('Edit applied — restore from History to undo.');
+		// were refused is the same false claim, just smaller. BLOCKS on both sides of the "of":
+		// `slides` is a different unit and summing them produced counts describing nothing that
+		// existed (checker). What the author left out is said apart from what the deck refused.
+		if (outcome.refusals.length) raiseNotice(deckId, 'error', outcome.refusals[0]);
+		notify(appliedToast({ applied: outcome.applied, refused: outcome.refusals.length, skipped }));
 	};
 	const discardProposal = (idx: number) => !compacting && ready && setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
 	// THE CONFIRM FOR AN ACT. Only this press creates the deck; the model queued it and cannot press
@@ -1026,13 +1086,17 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 							<div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
 								<Sparkles className="size-3 text-[var(--accent)]" /> Architect
 							</div>
-							<div className="text-[12.5px] leading-relaxed text-foreground">
+							<div data-chat-prose className="text-[12.5px] leading-relaxed text-foreground">
 								<AssistantBody text={m.content} streaming={false} />
 							</div>
 							<ChatActivityRow activity={m.activity} hasTrace={!!m.trace} onOpen={() => setTraceIdx(i)} />
 							{isDrawableAction(m.action) ? <ActionConfirm action={m.action} disabled={busy || compacting || !onCreateDeck} onAnswer={(yes) => answerAction(i, yes)} /> : null}
 							{m.autoHeld && m.proposed?.length && !m.applied ? <div className="text-[11px] text-muted-foreground">Auto left this for you to apply: {m.autoHeld}.</div> : null}
-							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
+							{m.proposed?.length && !m.applied ? (
+								<div ref={i === messages.length - 1 ? lastCardRef : undefined} data-arriving={loadedRef.current?.includes(m) ? undefined : ''}>
+									<ProposalReview edits={m.proposed} liveSource={source} onApply={(picked) => applyProposal(i, picked)} onDiscard={() => discardProposal(i)} maxHeight={cardMax || undefined} arriving={!loadedRef.current?.includes(m)} />
+								</div>
+							) : null}
 							{m.autoApplied && m.proposed?.length ? (
 								<details className="text-[11px]">
 									<summary className="cursor-pointer text-muted-foreground">What Auto changed</summary>
@@ -1042,7 +1106,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">
 									<Check className="size-3" />
-									{m.refused ? `Applied ${m.appliedCount} of ${(m.appliedCount ?? 0) + m.refused}` : 'Applied'}
+									{appliedBadge({ applied: m.appliedCount ?? 0, refused: m.refused, skipped: m.skipped })}
 								</span>
 							)}
 							{/* Live: a turn reaches the session only when its owner shares it (§5.3). */}
@@ -1247,57 +1311,108 @@ function isStale(source: string, e: ChatProposal): boolean {
 	return sliceSlide(source, e.slide).trim() !== e.before.trim();
 }
 
-function ProposalReview({ edits, liveSource, onApply, onDiscard, applied = false }: { edits: ChatProposal[]; liveSource: string; onApply?: () => void; onDiscard?: () => void; /** Already applied (Auto): a read-only record, no stale warnings, no buttons. */ applied?: boolean }) {
+/** The bottom of the last line of TEXT in `el`, not of its box: a reply's last paragraph carries spacing below
+ *  it, and counting that as a line left only one and a half lines in view. */
+function textBottom(el: HTMLElement): number {
+	const range = document.createRange?.();
+	if (!range) return el.getBoundingClientRect().bottom;
+	range.selectNodeContents(el);
+	const rects = Array.from(range.getClientRects?.() ?? []).filter((r) => r.height > 0);
+	return rects.length ? Math.max(...rects.map((r) => r.bottom)) : el.getBoundingClientRect().bottom;
+}
+
+// The change card's spacing in the transcript: the least room between the reply's text and the card
+// (the message column's gap-1.5 plus the card's mt-1), and the transcript's py-3 below it.
+const CARD_GAP = 10;
+const CARD_PAD = 12;
+
+function ProposalReview({ edits, liveSource, onApply, onDiscard, applied = false, maxHeight, arriving = false }: { edits: ChatProposal[]; liveSource: string; /** Apply the edits at these indices. */ onApply?: (picked: number[]) => void; onDiscard?: () => void; /** Already applied (Auto): a read-only record, no stale warnings, no buttons. */ applied?: boolean; /** The tallest the card may grow; its diffs scroll inside it. Unset: natural height. */ maxHeight?: number; /** The card just arrived in this visit: it slides in rather than appearing. */ arriving?: boolean }) {
+	// WHICH EDITS THE AUTHOR KEEPS. All of them by default, so the one-press Apply is unchanged; untick
+	// a slide to leave it out. The pick is per EDIT (a slide, an insert, a front-matter key), never per
+	// line: an edit replaces a whole slide, and mixing some of its lines with the old ones can leave a
+	// slide whose structure neither side wrote. Edits address the deck as it was when proposed and
+	// apply highest-slide-first (applyEditsChecked), so any subset applies as cleanly as the whole set.
+	const [picked, setPicked] = React.useState<boolean[]>(() => edits.map(() => true));
+	// A new proposal (a new `edits` array) starts with every edit picked again.
+	React.useEffect(() => setPicked(edits.map(() => true)), [edits]);
+	const pickId = React.useId();
+	const pickedIdx = picked.flatMap((on, i) => (on ? [i] : []));
+	const all = pickedIdx.length === edits.length;
+	const none = pickedIdx.length === 0;
+	const kept = applied ? edits : edits.filter((_, i) => picked[i]);
 	// Front-matter writes carry slide 0 — they are deck settings, not a slide to count.
 	const slides = new Set(edits.filter((e) => e.action !== 'frontmatter').map((e) => e.slide));
-	const stale = applied ? [] : edits.filter((e) => isStale(liveSource, e));
+	const stale = applied ? [] : kept.filter((e) => isStale(liveSource, e));
 	const staleSlides = stale.filter((e) => e.action !== 'frontmatter').map((e) => e.slide);
 	const staleKeys = stale.filter((e) => e.action === 'frontmatter').map((e) => e.raw.key);
+	const choosable = !applied && edits.length > 1;
 	return (
-		<div className="mt-1 overflow-hidden rounded-lg border border-border bg-background">
-			<div className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-1.5">
-				<span className="text-[11px] font-semibold text-foreground">
-					{edits.length} edit{edits.length > 1 ? 's' : ''}
-					{slides.size ? ` · ${slides.size} slide${slides.size > 1 ? 's' : ''}` : ''}
+		<div
+			data-proposal-card
+			style={maxHeight ? { maxHeight } : undefined}
+			className={cn('mt-1 flex flex-col overflow-hidden rounded-lg border border-border bg-background', arriving && 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-6 motion-safe:duration-300 motion-safe:ease-out')}
+		>
+			<div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-2.5 py-1.5">
+				<span className="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-foreground">
+					{choosable && <Checkbox aria-label={all ? 'Leave out every edit' : 'Include every edit'} checked={all ? true : none ? false : 'indeterminate'} onCheckedChange={() => setPicked(edits.map(() => !all))} className="size-3.5" />}
+					<span className="truncate">
+						{edits.length} edit{edits.length > 1 ? 's' : ''}
+						{slides.size ? ` · ${slides.size} slide${slides.size > 1 ? 's' : ''}` : ''}
+					</span>
 				</span>
-				<span className="text-[10px] text-muted-foreground">{applied ? 'applied in Auto — undo from History' : 'nothing changes until you Apply'}</span>
+				<span className="shrink-0 text-[10px] text-muted-foreground">{applied ? 'applied in Auto — undo from History' : choosable ? 'untick what you don’t want' : 'nothing changes until you Apply'}</span>
 			</div>
-			<div className="max-h-[220px] overflow-y-auto">
+			{/* ONE scroll region for every diff. It used to be a 220px box of 180px boxes inside the
+			    scrolling transcript: three nested scrollers, so a wheel or a swipe moved whichever one
+			    happened to be under the pointer. */}
+			<div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
 				{edits.map((e, i) => {
 					const fig = e.action !== 'insert' && e.action !== 'frontmatter' ? figureChange(e.before, e.after) : null;
+					const on = applied || picked[i];
 					return (
 						// biome-ignore lint/suspicious/noArrayIndexKey: static proposal list.
 						<div key={i} className="border-b border-border last:border-b-0">
-							<div className="px-2.5 pt-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{e.label}</div>
-							<DiffCard rows={e.diff as DiffRow[]} />
-							{fig && (
-								<div className="flex items-start gap-1.5 px-2.5 pb-1.5 text-[10px] text-[var(--warn,#9a6a00)]">
-									<TriangleAlert className="mt-0.5 size-3 shrink-0" />
-									<span>Changes a figure — verify{fig.removed.length && fig.added.length ? `: ${fig.removed.join(', ')} → ${fig.added.join(', ')}` : fig.added.length ? ` (adds ${fig.added.join(', ')})` : ` (removes ${fig.removed.join(', ')})`}</span>
+							{choosable ? (
+								<div className="flex items-center gap-2 px-2.5 pt-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+									<Checkbox id={`${pickId}-${i}`} aria-label={`Include ${e.label}`} checked={on} onCheckedChange={(v) => setPicked((cur) => cur.map((x, k) => (k === i ? v === true : x)))} className="size-3.5" />
+									<label htmlFor={`${pickId}-${i}`} className={cn('cursor-pointer', !on && 'line-through')}>
+										{e.label}
+									</label>
 								</div>
+							) : (
+								<div className="px-2.5 pt-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{e.label}</div>
 							)}
+							<div className={cn('transition-opacity motion-reduce:transition-none', !on && 'opacity-40')}>
+								<DiffCard rows={e.diff as DiffRow[]} bounded={false} />
+								{fig && (
+									<div className="flex items-start gap-1.5 px-2.5 pb-1.5 text-[10px] text-[var(--warn,#9a6a00)]">
+										<TriangleAlert className="mt-0.5 size-3 shrink-0" />
+										<span>Changes a figure — verify{fig.removed.length && fig.added.length ? `: ${fig.removed.join(', ')} → ${fig.added.join(', ')}` : fig.added.length ? ` (adds ${fig.added.join(', ')})` : ` (removes ${fig.removed.join(', ')})`}</span>
+									</div>
+								)}
+							</div>
 						</div>
 					);
 				})}
 			</div>
 			{staleSlides.length > 0 && (
-				<div className="flex items-start gap-1.5 border-t border-border px-2.5 py-1.5 text-[10.5px] text-[var(--warn,#9a6a00)]">
+				<div className="flex shrink-0 items-start gap-1.5 border-t border-border px-2.5 py-1.5 text-[10.5px] text-[var(--warn,#9a6a00)]">
 					<TriangleAlert className="mt-0.5 size-3 shrink-0" />
 					<span>Slide {staleSlides.join(', ')} changed since this was proposed — Apply will replace your current version.</span>
 				</div>
 			)}
 			{staleKeys.length > 0 && (
-				<div className="flex items-start gap-1.5 border-t border-border px-2.5 py-1.5 text-[10.5px] text-[var(--warn,#9a6a00)]">
+				<div className="flex shrink-0 items-start gap-1.5 border-t border-border px-2.5 py-1.5 text-[10.5px] text-[var(--warn,#9a6a00)]">
 					<TriangleAlert className="mt-0.5 size-3 shrink-0" />
 					<span>
 						{staleKeys.map((k) => `${k}:`).join(', ')} changed since this was proposed — Apply will overwrite it.
 					</span>
 				</div>
 			)}
-			{!applied && <div className="flex items-center gap-1.5 border-t border-border px-2.5 py-1.5">
-				<button type="button" onClick={onApply} className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground">
+			{!applied && <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-2.5 py-1.5">
+				<button type="button" disabled={none} onClick={() => onApply?.(pickedIdx)} className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
 					<Check className="size-3" />
-					Apply
+					{applyLabel(pickedIdx.length, edits.length)}
 				</button>
 				<button type="button" onClick={onDiscard} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground">
 					<X className="size-3" />

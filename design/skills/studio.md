@@ -164,7 +164,8 @@ opens the presenter's second window; Esc leaves.
 4. **Ask the chat**: open Chat and say what you want. The chat has three
    modes on its composer bar: **Talk** (reads and answers, changes nothing),
    **Review** (the default: edits arrive as one diff card per turn and wait
-   for Apply) and **Auto** (for this visit only: a clean edit applies at once,
+   for Apply; each slide in the card has its own checkbox, so the author can
+   untick an edit and Apply the rest) and **Auto** (for this visit only: a clean edit applies at once,
    undo from History; an edit that deletes slides or rewrites most of the deck
    still waits for Apply). From Review, one press of the mode button reaches
    Talk and two reach Auto.

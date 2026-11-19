@@ -170,46 +170,42 @@ function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { s
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-[min(92vw,20rem)] p-3 text-[12px]" data-testid="chat-metrics">
 				<div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Spend</div>
-				<Row label="This session">
-					<span className={cn('font-semibold', over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>
-						{usd(spend.session)}
-						{spend.cap > 0 ? ` of $${spend.cap.toFixed(2)}` : ''}
-					</span>
-				</Row>
-				{spend.cap > 0 && <Bar value={spend.session / spend.cap} tone={over ? 'over' : warn ? 'warn' : 'ok'} />}
-				{deckId && (
-					<Row label="This deck" hint={`last ${ledger.keepDays} days`}>
-						<span className="font-semibold">{usd(ledger.deck)}</span>
-					</Row>
+				<Stats
+					items={[
+						{ label: 'This session', value: <span className={cn(over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>{usd(spend.session)}</span> },
+						deckId ? { label: 'This deck', hint: `last ${ledger.keepDays} days`, value: usd(ledger.deck) } : null,
+						{ label: 'Today', hint: 'every deck', value: usd(ledger.today) },
+					]}
+				/>
+				{spend.cap > 0 && (
+					<div className="pt-1.5">
+						<Bar value={spend.session / spend.cap} tone={over ? 'over' : warn ? 'warn' : 'ok'} />
+						<div className="text-[10.5px] text-muted-foreground">{usd(spend.session)} of your ${spend.cap.toFixed(2)} session cap</div>
+					</div>
 				)}
-				<Row label="Today" hint="every deck">
-					<span className="font-semibold">{usd(ledger.today)}</span>
-				</Row>
 				<div className="mt-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Context window</div>
 				{last ? (
 					<>
-						<Row label="Used">
-							<span className={cn('font-semibold', levelColor(ctxLevel))}>
-								{last.estimated ? '≈ ' : ''}
-								{fmtTok(last.prompt)}
-								{last.window ? ` of ${fmtTok(last.window)}` : ''}
-								{pct != null ? ` · ${pct}%` : ''}
-							</span>
-						</Row>
-						{fill != null && <Bar value={fill} tone={ctxLevel} />}
-						<Row label="Read from cache" hint="billed at a fraction of normal input">
-							<span className="font-semibold">{cachedPct == null ? '—' : `${cachedPct}%`}</span>
-						</Row>
+						<Stats
+							items={[
+								{ label: 'Used', hint: last.window ? `${fmtTok(last.prompt)} of ${fmtTok(last.window)} tokens` : undefined, value: <span className={levelColor(ctxLevel)}>{last.estimated ? '≈ ' : ''}{fmtTok(last.prompt)}{pct != null ? ` · ${pct}%` : ''}</span> },
+								{ label: 'Window', value: last.window ? fmtTok(last.window) : '—' },
+								{ label: 'From cache', hint: 'billed at a fraction of normal input', value: cachedPct == null ? '—' : `${cachedPct}%` },
+							]}
+						/>
+						{fill != null && (
+							<div className="pt-1.5">
+								<Bar value={fill} tone={ctxLevel} />
+							</div>
+						)}
 						<div className="mt-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last reply</div>
-						<Row label="Cost">
-							<span className="font-semibold">{usd(last.cost)}</span>
-						</Row>
-						<Row label="Model calls">
-							<span className="font-semibold">{last.rounds}</span>
-						</Row>
-						<Row label="Written">
-							<span className="font-semibold">{fmtTok(last.completion)} tokens{last.reasoning ? ` (${fmtTok(last.reasoning)} thinking)` : ''}</span>
-						</Row>
+						<Stats
+							items={[
+								{ label: 'Cost', value: usd(last.cost) },
+								{ label: 'Model calls', value: last.rounds },
+								{ label: 'Written', hint: last.reasoning ? `${fmtTok(last.reasoning)} of them thinking` : undefined, value: `${fmtTok(last.completion)} tokens` },
+							]}
+						/>
 					</>
 				) : (
 					<p className="text-muted-foreground">Send a message and the window fills in here.</p>
@@ -265,6 +261,24 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 			<span className="text-muted-foreground">{label}</span>
 			{children}
 		</div>
+	);
+}
+
+/** Up to three figures side by side, label over value: two rows where a list took three. The tiles
+ *  share one row and wrap only when the popover is too narrow for them (`basis` is the narrowest a
+ *  tile goes before it moves down). */
+function Stats({ items }: { items: ({ label: string; hint?: string; value: React.ReactNode } | null)[] }) {
+	return (
+		<dl className="m-0 flex flex-wrap gap-x-3 gap-y-2">
+			{items.map((it) =>
+				it ? (
+					<div key={it.label} title={it.hint} className="flex min-w-0 flex-1 basis-[4.5rem] flex-col gap-0.5">
+						<dt className="truncate text-[10.5px] text-muted-foreground">{it.label}</dt>
+						<dd className="m-0 truncate font-semibold tabular-nums">{it.value}</dd>
+					</div>
+				) : null,
+			)}
+		</dl>
 	);
 }
 

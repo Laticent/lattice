@@ -32,13 +32,15 @@ function collapseContext(rows: DiffRow[], context = 2): (DiffRow | { type: 'gap'
 
 // A compact line diff (real LCS from the engine — not a set-difference), context
 // collapsed. Exported + reused by the Coach's per-finding fix, which passes before/after;
-// the chat passes precomputed `rows` (the per-slide diff).
-export function DiffCard({ before, after, rows, onApply, onDiscard }: { before?: string; after?: string; rows?: DiffRow[]; onApply?: () => void; onDiscard?: () => void }) {
+// the chat passes precomputed `rows` (the per-slide diff). `bounded={false}` drops the diff's own
+// 180px scroll box: the chat's change card scrolls all its diffs in ONE region, because a scroll box
+// per slide inside a scrolling card inside the scrolling transcript was three nested scrollers.
+export function DiffCard({ before, after, rows, onApply, onDiscard, bounded = true }: { before?: string; after?: string; rows?: DiffRow[]; onApply?: () => void; onDiscard?: () => void; bounded?: boolean }) {
 	const diff = React.useMemo<DiffRow[]>(() => rows ?? (diffLines(before ?? '', after ?? '') as DiffRow[]), [before, after, rows]);
 	const display = React.useMemo(() => collapseContext(diff), [diff]);
 	return (
 		<div className="overflow-hidden bg-background">
-			<div className="max-h-[180px] overflow-auto px-2.5 py-1.5 font-mono text-[10.5px] leading-relaxed">
+			<div className={cn('px-2.5 py-1.5 font-mono text-[10.5px] leading-relaxed', bounded ? 'max-h-[180px] overflow-auto' : null)}>
 				{display.map((r, i) =>
 					r.type === 'gap' ? (
 						// biome-ignore lint/suspicious/noArrayIndexKey: static diff snapshot.

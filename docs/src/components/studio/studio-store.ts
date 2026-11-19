@@ -933,6 +933,9 @@ export type ChatMessage = {
 	 *  run, so the badge can say "Applied 2 of 3" instead of a flat "Applied". */
 	appliedCount?: number;
 	refused?: number;
+	/** How many edits the author unticked before Apply (the change card's per-edit pick). Set only
+	 *  when some were left out, so the badge can say "skipped 1". */
+	skipped?: number;
 	/** Assistant turn only: what the chat agent read, changed and checked to produce it
 	 *  ("read about the kpi layout", "checked the deck") — shown under the reply as one sentence (chat-activity.ts) so the author can see the
 	 *  answer was grounded, not guessed. Never sent back to the model. */
