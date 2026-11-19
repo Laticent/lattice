@@ -11,6 +11,7 @@ import { expect, gotoStudio, LIVE_PREVIEW, livePreview, SHARE_EXPORTS, setEditor
 // slots and returns the values for them. Imported through the REAL Library, listed in a deck, approved from the
 // notice above the preview and run in the real sandbox frame:
 //
+//   0. UNAPPROVED the print preview shows the placeholder the PDF prints, not the block's source
 //   1. FILLED     the badge holds the returned word, the title the returned text, the detail a table the host
 //                 rendered from returned markdown; no `${` is left on the slide
 //   2. STYLED     the plugin's own `styles.css` reached the preview, scoped to its root: the badge has a fill, and a
@@ -101,6 +102,23 @@ async function expectNoBareFrame(page: Parameters<typeof gotoStudio>[0], when: s
 	expect(watch.bare, `no frame painted the badge text without the plugin fill ${when}`).toEqual([]);
 }
 
+/** What each print-preview thumbnail in the Share sheet shows for the plugin's block: `drawn <fill>`, `placeholder` or `source`. */
+async function printPreview(sheet: import('@playwright/test').Locator): Promise<string[]> {
+	const seen: string[] = [];
+	for (const el of await sheet.locator('iframe').elementHandles()) {
+		const s = await (await el.contentFrame())
+			?.evaluate((name) => {
+				const badge = document.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
+				if (badge) return `drawn ${getComputedStyle(badge).backgroundColor}`;
+				if (document.querySelector(`[data-lattice-plugin-off="${name}"]`)) return 'placeholder';
+				return [...document.querySelectorAll('pre code')].some((c) => /status: at-risk/.test(c.textContent ?? '')) ? 'source' : '';
+			}, NAME)
+			.catch(() => '');
+		if (s) seen.push(s);
+	}
+	return seen;
+}
+
 // All three engines, as plugin-fence.spec.ts runs them: `@gecko` runs on the desktop (Chromium) project and the gecko one;
 // the `@webkit-tablet` twin runs on WebKit (the desktop project skips a title naming @webkit).
 for (const tag of [' @gecko', ' @webkit-tablet']) {
@@ -115,6 +133,14 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		const notice = page.locator('[data-slot="code-packages"]');
 		await setEditorContent(page, DECK);
 		await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
+		// 0. NOT YET APPROVED, the print preview shows the placeholder the PDF prints, never the block's source (#3292).
+		await page.getByRole('button', { name: 'Share', exact: true }).click();
+		const unapprovedSheet = page.getByRole('dialog');
+		await unapprovedSheet.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
+		await expect.poll(async () => (await printPreview(unapprovedSheet)).includes('placeholder'), { timeout: 60_000 }).toBe(true);
+		expect(await printPreview(unapprovedSheet), 'the print preview of an unapproved plugin shows its placeholder only').not.toContainEqual(expect.stringMatching(/^(source|drawn )/));
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog')).toHaveCount(0);
 		await page.evaluate(installBadgeWatch, { sel: LIVE_PREVIEW, name: NAME });
 		await notice.getByRole('button', { name: `Approve the code of ${NAME}` }).click();
 
@@ -159,23 +185,8 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await page.getByRole('button', { name: 'Share', exact: true }).click();
 		const sheet = page.getByRole('dialog');
 		await sheet.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
-		const printed = async () => {
-			const seen: string[] = [];
-			for (const el of await sheet.locator('iframe').elementHandles()) {
-				const s = await (await el.contentFrame())
-					?.evaluate((name) => {
-						const badge = document.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
-						if (badge) return `drawn ${getComputedStyle(badge).backgroundColor}`;
-						if (document.querySelector(`[data-lattice-plugin-off="${name}"]`)) return 'placeholder';
-						return [...document.querySelectorAll('pre code')].some((c) => /status: at-risk/.test(c.textContent ?? '')) ? 'source' : '';
-					}, NAME)
-					.catch(() => '');
-				if (s) seen.push(s);
-			}
-			return seen;
-		};
-		await expect.poll(async () => (await printed()).some((s) => s.startsWith('drawn ')), { timeout: 60_000 }).toBe(true);
-		expect(await printed(), 'the print preview draws the plugin with its fill, never its source or a placeholder').not.toContainEqual(expect.stringMatching(/^(source|placeholder)$|rgba\(0, 0, 0, 0\)/));
+		await expect.poll(async () => (await printPreview(sheet)).some((s) => s.startsWith('drawn ')), { timeout: 60_000 }).toBe(true);
+		expect(await printPreview(sheet), 'the print preview draws the plugin with its fill, never its source or a placeholder').not.toContainEqual(expect.stringMatching(/^(source|placeholder)$|rgba\(0, 0, 0, 0\)/));
 		await page.keyboard.press('Escape');
 
 		// 4. THREE WIDTHS

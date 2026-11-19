@@ -468,8 +468,11 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	if (unstamped !== null) {
 		for (const c of capFences.claims) {
 			const p = offered.get(c.pkg);
-			if (!p?.css || unstamped.includes(sheetOf(p))) continue;
+			if (!p?.css || disabled.has(p.name) || unstamped.includes(sheetOf(p))) continue;
 			const key = fenceKey(c, p.sha256);
+			// Only the plugin's own drawing (`onPage`): a placeholder (unapproved, unlisted), an inline chip or a note
+			// stands as the door drew it, as it does in the export.
+			if (!onPage.has(key)) continue;
 			sections.set(key, c.block);
 			attrs.delete(key);
 		}

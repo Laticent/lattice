@@ -654,6 +654,20 @@ describe('a render draws by the stamp in the CSS it paints with (#3292)', () => 
 		revokePlugin(PLUGIN.name);
 	});
 
+	it('an unapproved or unlisted styled plugin keeps its placeholder under stamp-less CSS, as the export draws it', async () => {
+		// Unapproved: its sheet never rides in the stamp, so stamp-less CSS never carries it; the placeholder still stands.
+		const exported = codePackagesStamp().replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
+		const asExported = (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', {})).html;
+		expect(asExported).toContain('data-reason="unapproved"');
+		for (const css of [`.card { color: red }\n${exported}`, '']) expect(await drawWith(css)).toBe(asExported);
+		// Unlisted: an approved plugin the deck's `plugins:` does not list draws the door's placeholder, here too.
+		await approve();
+		const unlisted = (await renderWithCodePackages<{ html: string }>(PG, DECK_UNLISTED, 'indaco', {})).html;
+		expect(unlisted).not.toBe(PG.render(DECK_UNLISTED, 'indaco', {}).html);
+		for (const css of [`.card { color: red }\n${exported}`, '']) expect((await renderWithCodePackages<{ html: string }>(PG, DECK_UNLISTED, 'indaco', { codeApproval: css })).html).toBe(unlisted);
+		revokePlugin(PLUGIN.name);
+	});
+
 	it('a render handed no CSS at all (an export, a scan) keeps the live approvals in charge', async () => {
 		await approve();
 		const html = (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', {})).html;
