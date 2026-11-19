@@ -27,8 +27,6 @@ where     — `lib/authoring/deck-canon.js` (quoted in start.md §2 and in the S
               - `big-number` and `quote` skeletons carry no `##`; say whether one is allowed.
               - Heading periods: skeletons type them, while `with-period`/`no-period` suggest the
                 engine adds one.
-              - `profile: teaching` is named in §2 and missing from §4's front-matter list.
               - `timeline-list`'s trailing `` `decision` `` / `` `live` `` spans are unexplained.
-              - The solo paste's rules name "statement" and "ledger" layouts without listing them.
 done when — Each item above is either settled in the canon or the manifest, or answered in
             start.md, and a fresh stand-in run (or the nightly eval) no longer reports it.

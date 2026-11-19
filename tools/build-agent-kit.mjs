@@ -1559,17 +1559,35 @@ const FRONT_MATTER = ['---', 'theme: indaco', 'paginate: true', '---'];
  * What IS a fact about the code: all 18 entries of the reviewer's RUBRIC are
  * `suggestion`, so the taste half is separable and deferrable to the checker.
  */
-const ESSENTIALS = [
+function PROFILE_NAMES() {
+  return require(path.join(ROOT, 'lib', 'authoring', 'deck-profiles.js')).PROFILE_NAMES;
+}
+/**
+ * lint-core's ledger/split and statement layouts as code lists, limited to `only` when given:
+ * the solo text names just its 19, the full-catalog texts name every one.
+ */
+function listShapes(only) {
+  const ls = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
+  const solo = { has: (n) => !only || only.includes(n) };
+  const fmt = (names) => names.map((n) => `\`${n}\``).join(', ');
+  const ledger = [...ls.LEDGER_OL_LAYOUTS, ...ls.SPLIT_SLOT_LAYOUTS].filter((n) => solo.has(n));
+  // A rule about a layout the reader cannot use is noise: it drops while no statement layout is solo.
+  return { ledger: fmt(ledger), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
+}
+const essentials = (only) => [
   'Every slide starts with `<!-- _class: NAME -->` and NAME is a real layout.',
   'Slides are separated by a line containing only `---`, with a blank line each side.',
   'Card layouts nest: `- Title` on one line, then `  - body` indented two spaces. Never `- **Title.** body`.',
   'Under a numbered `1.` row, indent the nested line **three** spaces, not two.',
-  'A ledger or split row always has a body under its title — never a bare title.',
-  'A statement layout\'s `1.` rows carry no `**bold**` lead-in.',
+  // Name the layouts: "a ledger row" and "a statement layout" meant nothing to a small model
+  // (the stand-in eval, 2026-11-19). The sets are lint-core's own, from lib/core/list-shapes.js.
+  `A row on ${listShapes(only).ledger} always has a body under its title — never a bare title.`,
+  listShapes(only).statement && `On ${listShapes(only).statement}, \`1.\` rows carry no \`**bold**\` lead-in.`,
   'Every `<!-- -->` comment is closed.',
   'The title slide is `# H1`, then a backtick `eyebrow` line, then a plain subtitle — in that order.',
   'Colors and emphasis come from the layouts and modifiers. Never write a hex code.',
-];
+].filter(Boolean);
+const ESSENTIALS = essentials();
 
 /** The two taste rules worth prompt budget: both change the SHAPE of the draft. */
 const TASTE_KEPT = [
@@ -1708,8 +1726,8 @@ function instructionsSolo(cat) {
     '',
     '## The rules',
     '',
-    ...ESSENTIALS.map((r, i) => `${i + 1}. ${r}`),
-    ...TASTE_KEPT.map((r, i) => `${ESSENTIALS.length + i + 1}. ${r}`),
+    ...essentials(SOLO_LAYOUTS).map((r, i) => `${i + 1}. ${r}`),
+    ...TASTE_KEPT.map((r, i) => `${essentials(SOLO_LAYOUTS).length + i + 1}. ${r}`),
     '',
     '## Check before you finish',
     '',
@@ -3188,6 +3206,9 @@ function startDoc(files, cat) {
     '**Deck-wide settings (front matter).** Each key sets one thing for the whole deck:',
     '',
     ...uni.registers,
+    // Not a register (lib/base/base.registers.docs.md does not list it), so it is added here:
+    // §2's canon names `profile: teaching` and a model had no way to learn its key.
+    `- \`profile:\` (\`${PROFILE_NAMES().join('` · `')}\`): the genre the checker judges the deck against; \`teaching\` allows denser slides`,
     '',
     `## 5. All ${comps.length} layouts`,
     '',

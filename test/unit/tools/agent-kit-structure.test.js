@@ -988,5 +988,9 @@ test('agent kit structure', { skip }, async (t) => {
 		assert.match(start, /`kpi` status pill takes its color from the row/);
 		assert.doesNotMatch(skel, /`\{(Board|Audit|Investor)\}`/, 'kpi skeleton carries no decorative pills');
 		for (const chart of ['bar', 'piechart']) assert.match(skel, new RegExp(`^### ${chart}$`, 'm'), `a ${chart} skeleton`);
+		assert.match(start, /^- `profile:` \(`general` · `teaching` · `mission`\)/m, 'the profile key the canon names');
+		const solo = readKit('paste/lattice-instructions-solo.md');
+		assert.match(solo, /A row on `agenda`, `kpi`.*always has a body/, 'the solo ledger rule names its layouts');
+		assert.doesNotMatch(solo, /statement layout|ledger or split row/, 'no rule names a class of layout it never lists');
 	});
 });
