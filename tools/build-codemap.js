@@ -30,8 +30,16 @@
  *              FOLDERS entry. Reads no output.
  *   --silent   Suppress the success log line (implied by --check).
  *
- * Write never fails: it renders a TODO for a missing purpose, because it runs inside
- * `npm install`.
+ * Write never fails on a source problem: it warns and renders a TODO for a missing purpose (and
+ * leaves out a part it cannot place), because it runs inside `npm install`.
+ *
+ * What --check covers: the IMMEDIATE child folders of each scope in SCOPES. A new folder deeper
+ * down (lib/core/x/, tools/x/) is described by its parent's line and is not checked. It checks
+ * that a line EXISTS, not that it is still true, so an `about` says what a folder is FOR, never
+ * a list of what it holds: a list goes stale the day a file is added, and nothing notices.
+ *
+ * --check refuses to run outside a git checkout (a "Download ZIP" copy): coverage needs the
+ * tracked file list, and a check that silently skipped it would read as a pass.
  */
 
 const fs = require('node:fs');
@@ -96,16 +104,16 @@ const FOLDERS = {
   'test/conformance/': 'Fixtures, corpora and the debt list for the conformance contracts.',
   'test/fit/': 'The fit-harness baseline: clip, unreadable and lost counts per component.',
   'test/fixtures/': 'Decks, images and data the tests read.',
-  'test/helpers/': 'Shared test helpers: Chrome launch, deck loading, chart color, work counting.',
+  'test/helpers/': 'Shared test helpers: the setup and measuring code more than one test file needs.',
   'test/integration/': 'The render tier: cross-renderer parity, page counts, the baseline gallery.',
   'test/lint-coverage/': 'The lint-coverage baseline.',
-  'test/oracle/': 'Frozen oracles: family conformance, overflow, player contrast, split pages.',
+  'test/oracle/': 'Frozen oracles: recorded expected results that tests compare a fresh run against.',
   'test/quality/': 'The quality-assessment and structure snapshots.',
   'test/unit/': 'The unit tier (`npm test`). Folders mirror `lib/` and `tools/`.',
   'test/viz-render/': 'The chart paint guard baseline.',
   // .claude/
   '.claude/agents/': 'The agent roster: one card per agent (scout, checker, red-team, …), each pinned to Opus.',
-  '.claude/hooks/': 'Session hooks: sandbox setup at start, the rebase check at stop, wait warnings.',
+  '.claude/hooks/': 'Claude Code hooks: sandbox setup at session start, warnings that run before a tool call, and the rebase check at stop.',
   '.claude/skills/': 'Project skills an agent loads by name.',
   '.claude/workflows/': 'Named multi-agent workflows, such as design-competition.',
 };
@@ -143,9 +151,11 @@ function summarize(text, { short = 30, long = 160 } = {}) {
   // punctuation a sentence or clause split keys on.
   const codes = [];
   const masked = String(text || '').replace(/\s+/g, ' ').trim().replace(/`+[^`]*`+/g, (m) => `\uE000${codes.push(m) - 1}\uE001`);
-  const unmask = (t) => t.replace(/\uE000(\d+)\uE001/g, (_, i) => codes[Number(i)]);
+  // An abbreviation's period is not a sentence end: "for every slide, e.g. bar and line" stays whole.
+  const abbrev = masked.replace(/\b(e\.g|i\.e|cf|vs|approx)\.(?=\s)/gi, (m) => m.replace(/\./g, '\uE002'));
+  const unmask = (t) => t.replace(/\uE000(\d+)\uE001/g, (_, i) => codes[Number(i)]).replace(/\uE002/g, '.');
   // A sentence ends at . ! or ? followed by whitespace or the end, so `Chart.js` and `v1.2` stay whole.
-  const sentences = masked.match(/[\s\S]*?[.!?]+(?=\s|$)|[\s\S]+$/g) || [];
+  const sentences = abbrev.match(/[\s\S]*?[.!?]+(?=\s|$)|[\s\S]+$/g) || [];
   let out = (sentences[0] || '').trim();
   if (out.length < short && sentences[1]) out = `${out} ${sentences[1].trim()}`;
   if (unmask(out).length > long) {
@@ -184,8 +194,15 @@ function collect({ root = ROOT, parts = require('./structure.js').PARTS, folders
       }
       continue;
     }
+    const name = typeof p.part === 'string' ? p.part : '?';
+    // A part that matches by function has no path to show unless it names one in `where`. Record
+    // it as a problem row rather than rendering the function's source as a path.
+    if (!p.where && typeof p.match !== 'string') {
+      rows.push({ kind: 'part', name, where: null, layer: p.layer, about: p.about || '', noWhere: true });
+      continue;
+    }
     const wheres = p.where ? [].concat(p.where) : [p.match];
-    for (const where of wheres) rows.push({ kind: 'part', name: typeof p.part === 'string' ? p.part : '?', where, layer: p.layer, about: p.about || '' });
+    for (const where of wheres) rows.push({ kind: 'part', name, where, layer: p.layer, about: p.about || '' });
   }
   for (const [where, about] of Object.entries(folders)) rows.push({ kind: 'folder', where, about });
   return rows;
@@ -197,6 +214,10 @@ function collect({ root = ROOT, parts = require('./structure.js').PARTS, folders
  */
 function problems(rows, files, { scopes = SCOPES, folders = FOLDERS } = {}) {
   const out = [];
+  for (const r of rows) {
+    if (r.noWhere) out.push(`part ${r.name} matches by function and has no \`where\`: add its path(s) as \`where\` on its PARTS entry in tools/structure.js`);
+  }
+  rows = rows.filter((r) => !r.noWhere);
   for (const r of rows) {
     if (r.about) continue;
     if (r.kind === 'part') out.push(`part ${r.name} (${r.where}) has no \`about\` line: add one to its PARTS entry in tools/structure.js`);
@@ -228,12 +249,17 @@ function problems(rows, files, { scopes = SCOPES, folders = FOLDERS } = {}) {
 
 // ── render ─────────────────────────────────────────────────────────────────
 
-// A table cell: escape the backslash first, or a `\|` in the text would become `\\|`, an escaped
-// backslash followed by a bare pipe that ends the cell early.
-const cell = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+// A table cell: escape every pipe, and double only a backslash that directly precedes one, or a
+// `\|` in the text would become `\\|`, an escaped backslash followed by a bare pipe that ends the
+// cell early. Other backslashes stay single: inside a code span they are literal, so doubling
+// them shows `a\\b` to every reader.
+const cell = (s) => String(s).replace(/\\(?=\|)/g, '\\\\').replace(/\|/g, '\\|');
 // Plain paths, not links: the reader is mostly an agent reading the raw text, and a link
 // writes every path twice (measured: 25 KB with links, the table below without).
 const link = (where) => `\`${where}\``;
+// Code-unit order, not localeCompare: the row order must not depend on the machine's locale
+// (Lithuanian ICU moved `lib/typography/` two rows).
+const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 function fileCount(files, where) {
   if (!files || /[*]/.test(where)) return '';
@@ -255,14 +281,26 @@ function scopeOf(where, scopes = SCOPES) {
 }
 
 function render(rows, files, root = ROOT) {
+  rows = rows.filter((r) => typeof r.where === 'string');
   const table = (list) => {
     const lines = ['| Path | Layer | Files | What it is for |', '|---|---|---|---|'];
+    // One part with several `where` paths in the same section is one row, not N copies of its line.
+    const merged = [];
     for (const r of list) {
-      lines.push(`| ${link(r.where)} | ${r.layer ?? ''} | ${fileCount(files, r.where)} | ${cell(r.about || '**TODO**')}${readme(root, r.where)} |`);
+      const prev = merged.find((m) => m.kind === 'part' && r.kind === 'part' && m.name === r.name && m.about === r.about);
+      if (prev) prev.wheres.push(r.where);
+      else merged.push({ ...r, wheres: [r.where] });
+    }
+    for (const r of merged) {
+      const counts = r.wheres.map((w) => fileCount(files, w));
+      const total = counts.every((c) => c !== '') ? String(counts.reduce((n, c) => n + Number(c), 0)) : '';
+      const paths = r.wheres.map((w) => cell(link(w))).join(', ');
+      const readmes = r.wheres.length === 1 ? readme(root, r.where) : '';
+      lines.push(`| ${paths} | ${r.layer ?? ''} | ${total} | ${cell(r.about || '**TODO**')}${readmes} |`);
     }
     return lines.join('\n');
   };
-  const byPath = (a, b) => a.where.localeCompare(b.where);
+  const byPath = (a, b) => byCodeUnit(a.where, b.where);
   const plain = rows.filter((r) => r.kind === 'part' || r.kind === 'folder');
   const out = [
     '# Code map',
@@ -276,7 +314,9 @@ function render(rows, files, root = ROOT) {
     '',
     'Where the purposes come from: `PARTS` in `tools/structure.js` (code parts), each plugin\'s',
     'manifest, each workspace library\'s `package.json`, and `FOLDERS` in `tools/build-codemap.js`',
-    '(everything else). `build:check` fails on a folder with no line.',
+    '(everything else). `build:check` fails when a folder directly inside one of the sections below has',
+    'no line. It does not check that a line is still true, and folders deeper down are covered by',
+    'their parent\'s line. To find a file or a symbol, grep: this map stops at folders.',
     '',
     'Other maps: docs by topic, the routing table in `CLAUDE.md`; scripts and tools,',
     '`dist/engineering/capabilities.md`; components, `dist/docs/components.pick.md`; how a deck flows',

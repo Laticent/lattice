@@ -7,7 +7,13 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { collect, problems, render, foldersInScope, scopeOf, summarize, cell } = require('../../../tools/build-codemap.js');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const { collect, problems, render, foldersInScope, scopeOf, summarize, cell, SCOPES: LIVE_SCOPES } = require('../../../tools/build-codemap.js');
+const { PARTS } = require('../../../tools/structure.js');
+
+const ROOT = path.resolve(__dirname, '../../..');
 
 const SCOPES = [{ dir: '', title: 'Top' }, { dir: 'lib/', title: 'lib' }];
 const parts = [
@@ -74,6 +80,9 @@ test('summarize: a one-line purpose from a paragraph of self-description', () =>
   assert.equal(summarize('How a deck is read. Owns the metadata fields.'), 'How a deck is read. Owns the metadata fields.');
   // A period inside a word is not a sentence end.
   assert.equal(summarize('Renders charts with Chart.js and v1.2 manifests on any slide. More.'), 'Renders charts with Chart.js and v1.2 manifests on any slide.');
+  // An abbreviation's period is not a sentence end.
+  assert.equal(summarize('Renders every bar for the deck, e.g. stacked bars. Also legends.'), 'Renders every bar for the deck, e.g. stacked bars.');
+  assert.equal(summarize('Compares one thing to another, i.e. a vs. b in a table. Second.'), 'Compares one thing to another, i.e. a vs. b in a table.');
   assert.equal(summarize(undefined), '');
 });
 
@@ -81,6 +90,53 @@ test('a table cell escapes the backslash before the pipe', () => {
   assert.equal(cell('a | b'), 'a \\| b');
   // Unescaped first, `\|` would become `\\|`: an escaped backslash, then a bare pipe that splits the row.
   assert.equal(cell('a \\| b'), 'a \\\\\\| b');
+});
+
+test('a table cell leaves a backslash that does not precede a pipe alone', () => {
+  // Inside a code span a backslash is literal, so doubling it would show `a\\b`.
+  assert.equal(cell('Matches `a\\b` paths'), 'Matches `a\\b` paths');
+});
+
+test('a part that matches by function with no `where` fails, and the write path does not crash', () => {
+  const bad = [...parts, { part: 'lib/fn', layer: 1, match: (f) => /^lib\/fn\/.*/.test(f), about: 'New.' }];
+  const rows = collect({ parts: bad, folders });
+  const found = problems(rows, [...files, 'lib/fn/a.js'], { scopes: SCOPES, folders });
+  assert.ok(found.some((p) => /part lib\/fn matches by function and has no `where`/.test(p)), found.join('\n'));
+  // Without git (files null) the write path still renders, and never prints a function as a path.
+  const md = render(rows, null);
+  assert.ok(!md.includes('=>'), 'a function source leaked into the map');
+});
+
+test('one part with several paths in a section renders as one row', () => {
+  const multi = [{ part: 'site/pages', layer: 16, match: () => false, where: ['lib/a/', 'lib/b/'], about: 'Pages.' }];
+  const md = render(collect({ parts: multi, folders: {} }), ['lib/a/x', 'lib/b/y', 'lib/b/z']);
+  assert.equal(md.split('\n').filter((l) => l.includes('Pages.')).length, 1);
+  assert.ok(md.includes('| `lib/a/`, `lib/b/` | 16 | 3 | Pages. |'), md);
+});
+
+test('row order does not depend on the locale', () => {
+  const rows = collect({ parts: [], folders: { 'lib/aa/': 'A.', 'lib/typography/': 'T.', 'lib/z/': 'Z.', 'lib/B/': 'B.' } });
+  const order = render(rows, null).split('\n').filter((l) => l.startsWith('| `')).map((l) => l.split('`')[1]);
+  assert.deepEqual(order, ['lib/B/', 'lib/aa/', 'lib/typography/', 'lib/z/']);
+});
+
+// The live map's REACH. Every fixture above uses its own scopes and no plugin or library, so these
+// pin what the real gate covers: dropping a scope or a manifest branch must go red here.
+test('the live gate covers the six scopes it documents', () => {
+  assert.deepEqual(LIVE_SCOPES.map((s) => s.dir), ['', 'lib/', 'docs/', 'docs/src/', 'test/', '.claude/']);
+});
+
+test('the live map has a row for every plugin manifest and every workspace library', () => {
+  const rows = collect();
+  const pluginDir = path.join(ROOT, 'lib', 'plugins');
+  const plugins = fs.readdirSync(pluginDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && fs.existsSync(path.join(pluginDir, d.name, `${d.name}.manifest.json`)))
+    .map((d) => `lib/plugins/${d.name}/`);
+  assert.ok(plugins.length > 0);
+  assert.deepEqual(rows.filter((r) => r.kind === 'plugin').map((r) => r.where).sort(), plugins.sort());
+  const libraries = PARTS.filter((p) => p.library).map((p) => p.match);
+  assert.ok(libraries.length > 0);
+  assert.deepEqual(rows.filter((r) => r.kind === 'library').map((r) => r.where).sort(), libraries.sort());
 });
 
 test('the live tree passes --check', () => {
