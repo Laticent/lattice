@@ -18,10 +18,8 @@ async function rendered(slide: string): Promise<{ text: string; tags: string }> 
 	const stage = (/<div class="cell-stage">([\s\S]*?)<\/div><div class="cell-footer">/.exec(html)?.[1] ?? html).replace(/<span data-esc>([\s\S]*?)<\/span>/g, '$1');
 	const text = stage
 		.replace(/<[^>]+>/g, ' ')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&amp;/g, '&')
-		.replace(/&quot;/g, '"')
+		// One pass, so `&amp;quot;` decodes once, to `&quot;` (CodeQL: double unescaping).
+		.replace(/&(lt|gt|amp|quot);/g, (_, e: string) => ({ lt: '<', gt: '>', amp: '&', quot: '"' })[e] ?? _)
 		.replace(/\s+/g, ' ')
 		.trim();
 	const tags = (stage.match(/<\/?[a-z][a-z0-9-]*/gi) ?? []).join(' ');
