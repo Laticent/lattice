@@ -16,12 +16,12 @@ Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name the movement, not the chart ('We ended the year 2.2M below plan'). |
-| `steps` | `ul > li` | yes | One li per bar, in walk order. Lead text = label, trailing inline-code = the value. THE SIGN IS THE SYNTAX: a value written with an explicit `+` or `-` is a signed step and floats from the running total; a value written bare is a level and anchors to zero. The first and last items are levels whatever their sign, so a walk that closes in the red still anchors. A magnitude suffix scales (`1.4M` is 1 400 000) and the authored currency or unit is carried onto the axis. |
-| `marker` | `li > code:last-child` | no | An optional SECOND inline-code pill that overrides the sign rule for one bar — `total` (also `subtotal`, `sum`, `level`) anchors it to zero, `step` (also `delta`, `change`) floats it. The marker may come before or after the value, in any case. Needed only for the two shapes the sign cannot express: a walk that opens or closes on a step, and a mid-walk subtotal the author wants stated as a level. Follows the family's two-pill convention (see `progress`). |
-| `detail` | `li > ul` | no | Optional nested sublist under a step. Drives two surfaces from one source, via the shared chart-family mark-detail substrate: the Present/Practice reveal popover on the bar, and the slide's speaker note in the static PDF. It renders NOWHERE on the chart face — a walk with detail bullets is pixel-identical to one without. |
+| `title` | a `## ` heading | yes | Slide heading — name the movement, not the chart ('We ended the year 2.2M below plan'). |
+| `steps` | a list | yes | One li per bar, in walk order. Lead text = label, trailing inline-code = the value. THE SIGN IS THE SYNTAX: a value written with an explicit `+` or `-` is a signed step and floats from the running total; a value written bare is a level and anchors to zero. The first and last items are levels whatever their sign, so a walk that closes in the red still anchors. A magnitude suffix scales (`1.4M` is 1 400 000) and the authored currency or unit is carried onto the axis. |
+| `marker` | a list | no | An optional SECOND inline-code pill that overrides the sign rule for one bar — `total` (also `subtotal`, `sum`, `level`) anchors it to zero, `step` (also `delta`, `change`) floats it. The marker may come before or after the value, in any case. Needed only for the two shapes the sign cannot express: a walk that opens or closes on a step, and a mid-walk subtotal the author wants stated as a level. Follows the family's two-pill convention (see `progress`). |
+| `detail` | a `-` list nested 1 level under an item | no | Optional nested sublist under a step. Drives two surfaces from one source, via the shared chart-family mark-detail substrate: the Present/Practice reveal popover on the bar, and the slide's speaker note in the static PDF. It renders NOWHERE on the chart face — a walk with detail bullets is pixel-identical to one without. |
 
 ### Common mistakes
 
@@ -126,7 +126,7 @@ For walks where a rise is bad news: a rise wears the fail hue.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

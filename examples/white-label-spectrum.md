@@ -51,7 +51,7 @@ deck) that wants nothing at the top. The rest of this deck keeps the solid accen
 
 <!-- _class: cards-grid -->
 
-# Three values, one register
+## Three values, one register
 
 - `on`
   - The Lattice rainbow — the default. Omit the key entirely.

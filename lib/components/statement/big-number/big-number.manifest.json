@@ -32,16 +32,19 @@
   "slots": {
     "eyebrow": {
       "selector": "p > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional label above the number."
     },
     "number": {
       "selector": "ul > li:first-child",
+      "match": { "kind": "list", "depth": 1, "marker": "bullet" },
       "required": true,
       "description": "First list item: the giant number."
     },
     "caption": {
       "selector": "ul > li:first-child > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "One-line caption below the number (nested bullet)."
     }

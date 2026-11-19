@@ -75,16 +75,19 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — say what the structure means for the client ('A $50M retention saves $3.7M'), not 'Program structure'."
     },
     "layers": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per layer: the layer name, then a trailing inline-code size in the market's notation — `Layer 2 \\`$70M xs $90M\\`` (limit, then `xs`, `x/s` or `excess of`, then attachment). A size with no `xs` is the retention, the band from zero to that figure. Any order: the chart sorts by attachment, lowest at the bottom."
     },
     "shares": {
       "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "bullet" },
       "required": false,
       "description": "Optional nested bullets under a layer, one per reinsurer: `Acme Re \\`30%\\``. Each reinsurer keeps one color across every layer. Shares that add up to less than 100% leave the rest as an `Open` segment; a layer with no shares is drawn plain."
     }

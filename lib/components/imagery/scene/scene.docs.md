@@ -14,11 +14,11 @@ Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a sli
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | no | Optional heading — the so-what of the scene, not 'Animation'. |
-| `scene` | `.scene-figure svg, svg` | yes | The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image). |
-| `body` | `p` | no | Optional caption — one line on what the motion reveals that a still can't. |
+| `heading` | a `## ` heading | no | Optional heading — the so-what of the scene, not 'Animation'. |
+| `scene` | an inline `<svg>` or a fenced code block | yes | The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image). |
+| `body` | a paragraph | no | Optional caption — one line on what the motion reveals that a still can't. |
 
 ### Variant decision rule
 
@@ -179,7 +179,7 @@ Scene anchors from the left; the text leads from the right.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

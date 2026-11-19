@@ -14,11 +14,11 @@ Use to make one metric land. The number should be the headline — supporting te
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `eyebrow` | `p > code` | no | Optional label above the number. |
-| `number` | `ul > li:first-child` | yes | First list item: the giant number. |
-| `caption` | `ul > li:first-child > ul > li` | no | One-line caption below the number (nested bullet). |
+| `eyebrow` | a line of `inline code` | no | Optional label above the number. |
+| `number` | a `-` list | yes | First list item: the giant number. |
+| `caption` | a list nested 1 level under an item | no | One-line caption below the number (nested bullet). |
 
 ### Common mistakes
 
@@ -67,7 +67,7 @@ Use to make one metric land. The number should be the headline — supporting te
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

@@ -82,16 +82,19 @@
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing the period or theme of the changes."
     },
     "scope": {
       "selector": "p:first-of-type > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional inline-code scope label (e.g. 'Federal · State · International')."
     },
     "items": {
       "selector": "ol > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "Ordered list of changes. Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code)."
     }

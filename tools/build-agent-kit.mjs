@@ -203,6 +203,12 @@ function relocate(text) {
         /\[design\/design-system\.md §6\.5\]\([^)]*\)/g,
         `[the universal modifier catalog](../${AUTHORING}/modifiers.md)`,
       )
+      // The guides now link the generated base reference (lib/base/base.modifiers.docs.md), which
+      // the kit does not copy; its catalog is the kit's own modifiers.md.
+      .replace(
+        /\[the base modifier reference\]\([^)]*base\.modifiers\.docs\.md\)/g,
+        `[the universal modifier catalog](../${AUTHORING}/modifiers.md)`,
+      )
       // `components.pick.md` is generated for repo users and routes readers to a
       // path a kit consumer does not have.
       .replace(/`lib\/components\/<bucket>\/<name>\/<name>\.docs\.md`/g, '`./<name>.md`')
@@ -352,6 +358,9 @@ function reviewBundle() {
         // cannot be bundled — but the VALUES are static, and lintTextWith only
         // wants `{ names, modifiers }`.
         `const UNIVERSALS = ${JSON.stringify(universalModifierNames())};`,
+        '// The packed slot contract (lib/authoring/slot-contract.generated.js): lint-core reads it from the',
+        '// vocabulary, so without it the `slot-contract`, `variant-inert` and `foreign-variant` rules are off.',
+        `const SLOT_CONTRACT = ${JSON.stringify(require(path.join(ROOT, 'lib', 'authoring', 'slot-contract.generated.js')))};`,
         '',
         '// The catalog lives beside this file in the kit. Without it neither half',
         '// can do its job: the reviewer loses per-element word budgets, and the',
@@ -368,6 +377,7 @@ function reviewBundle() {
         '      vocab: {',
         '        names: new Set(all.map((c) => c.name)),',
         '        modifiers: new Set([...UNIVERSALS, ...all.flatMap((c) => c.variants || [])]),',
+        '        slotContract: SLOT_CONTRACT,',
         '      },',
         '      found: byName.size,',
         '    };',

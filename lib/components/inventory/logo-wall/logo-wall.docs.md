@@ -14,12 +14,12 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Trusted by`. |
-| `title` | `h2` | no | Optional headline above the wall. A claim earns its place (‘400+ teams run board prep on Lattice’); a bare label (‘Customers’) does not. |
-| `logos` | `ul > li` | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. To try the layout before you have the marks, use Lattice's sample logos: `![Acme](sample:logo-acme.svg)` (the full set is in `lib/samples/README.md`). |
-| `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a `{…}` token in backticks (`{Series B}`) is the pill. Either or both, per mark. |
+| `eyebrow` | a line of `inline code` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Trusted by`. |
+| `title` | a `## ` heading | no | Optional headline above the wall. A claim earns its place (‘400+ teams run board prep on Lattice’); a bare label (‘Customers’) does not. |
+| `logos` | a `-` list | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. To try the layout before you have the marks, use Lattice's sample logos: `![Acme](sample:logo-acme.svg)` (the full set is in `lib/samples/README.md`). |
+| `caption` | a list nested 1 level under an item | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a `{…}` token in backticks (`{Series B}`) is the pill. Either or both, per mark. |
 
 ### Variant decision rule
 
@@ -133,7 +133,7 @@ Six columns for the long roster.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

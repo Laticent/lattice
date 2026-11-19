@@ -99,21 +99,25 @@
   "slots": {
     "eyebrow": {
       "selector": "p:first-child > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional kicker above the title (lifts into the masthead band under Form)."
     },
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading."
     },
     "items": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "bullet" },
       "required": true,
       "description": "Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description."
     },
     "insight": {
       "selector": "blockquote",
+      "match": { "kind": "blockquote" },
       "required": false,
       "description": "Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial)."
     }

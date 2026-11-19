@@ -52,21 +52,25 @@
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading naming the amendment or change."
     },
     "citation": {
       "selector": "p:first-of-type > code",
+      "match": { "kind": "code-line" },
       "required": true,
       "description": "Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)')."
     },
     "redline": {
       "selector": "blockquote",
+      "match": { "kind": "blockquote" },
       "required": true,
       "description": "The amended language. Use `<del>old text</del>` and `<ins>new text</ins>` inline."
     },
     "implications": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": false,
       "description": "Optional explanation. Use **Why this matters** for the operational read."
     }

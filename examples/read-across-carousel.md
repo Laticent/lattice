@@ -89,24 +89,24 @@ The most configurable component. Six dimensions:
 
 ## The six signal dimensions, what they measure, and how they score
 
-- Confidence
-  - Independent corroborating sources
-  - 1–5, enterprise counts as one
-- Recency
-  - Time-decay on a configurable half-life
-  - Two-week default surprises everyone
-- Strategic Relevance
-  - Owner-scored against the roadmap
-  - 1–5, and a 5 is whoever presents
-- Source Diversity
-  - Rewards breadth of corroboration
-  - Counts newsletters as sources
-- Volatility
-  - Penalizes signals that swing
-  - Also penalizes the early-warning ones
-- Owner Bias
-  - The correction nobody applies
-  - Scored by the owner it corrects
+1. Confidence
+   - Independent corroborating sources
+   - 1–5, enterprise counts as one
+2. Recency
+   - Time-decay on a configurable half-life
+   - Two-week default surprises everyone
+3. Strategic Relevance
+   - Owner-scored against the roadmap
+   - 1–5, and a 5 is whoever presents
+4. Source Diversity
+   - Rewards breadth of corroboration
+   - Counts newsletters as sources
+5. Volatility
+   - Penalizes signals that swing
+   - Also penalizes the early-warning ones
+6. Owner Bias
+   - The correction nobody applies
+   - Scored by the owner it corrects
 
 ---
 

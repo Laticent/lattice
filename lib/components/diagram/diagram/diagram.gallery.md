@@ -439,7 +439,7 @@ timeline
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: content -->
 
 `15 · ZenUML`
 

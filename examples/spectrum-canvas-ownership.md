@@ -42,6 +42,8 @@ The shorthand clears every background longhand at once — which is how you remo
 
 `Decision · How to fix it`
 
+## Two ways to fix it.
+
 - Lower the specificity
   - The rule stops out-specifying the frame, but it also stops beating everything else it was written to beat.
 - Say only what you mean

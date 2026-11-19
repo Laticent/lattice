@@ -18,13 +18,13 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `eyebrow` | `p:first-of-type > code` | no | Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`). |
-| `recommendation` | `h2` | yes | The recommendation as a complete declarative sentence — the action you want taken, not a topic label. |
-| `impact` | `p` | no | One-sentence framing of the problem or stakes the recommendation addresses. |
-| `rationale` | `ul > li` | yes | Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in a citation chip, written `{FTC 2025}` in inline code. |
-| `ask` | `blockquote` | no | The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar. |
+| `eyebrow` | a line of `inline code` | no | Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`). |
+| `recommendation` | a `## ` heading | yes | The recommendation as a complete declarative sentence — the action you want taken, not a topic label. |
+| `impact` | a paragraph | no | One-sentence framing of the problem or stakes the recommendation addresses. |
+| `rationale` | a `-` list | yes | Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in a citation chip, written `{FTC 2025}` in inline code. |
+| `ask` | a `>` blockquote | no | The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar. |
 
 ### Variant decision rule
 
@@ -158,7 +158,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

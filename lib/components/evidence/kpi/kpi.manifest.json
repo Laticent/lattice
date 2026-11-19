@@ -96,16 +96,19 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading naming the KPI group."
     },
     "eyebrow": {
       "selector": "p > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional inline-code eyebrow above the heading, set in the eyebrow voice: the heading face's italic, as written (e.g. `Financial · Q4 2026`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation)."
     },
     "kpis": {
       "selector": "ol > li",
+      "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": true,
       "description": "One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. The value still renders big with no nested bullets, but the tile has no metric-name label under it — always nest at least one."
     }

@@ -16,16 +16,16 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading: name the takeaway, not the diagram. |
-| `eyebrow` | `p > code` | no | Optional eyebrow naming the system or domain. |
-| `shapes` | `ul > li` | yes | One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`box` `square` `pill` `diamond` `circle` `cylinder` `io` `doc`), a color `c1`…`c8`, one channel `fill=cN` / `border=cN` / `text=cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. One word stands alone; several go in one record, in any order: `\{#kyc, diamond, c2}`. An icon from the icons plugin draws beside the name: `icon=gateway` (before the name, or above it when the chart is pinned `tb`); add `icon-only` to draw the icon alone, and the name stays as what a screen reader says and the hover title. A group draws no icon. |
-| `groups` | `li > ul` | no | A sub-list of shapes makes its parent item a GROUP, drawn as a tinted background behind its members, like a Mermaid subgraph. `cN` on a group tints it. Groups nest. A line can start or end at a group. |
-| `connections` | `li` | no | An arrow in a row connects shapes: `A -> B`, `A => B` (the heavy main path), `A -- B` (no head), `A <-> B`, `A <- B`. A label sits inside the arrow: `-ships via->`. A row may start with the arrow (`- => B`), meaning "from the item this row sits under", or name its source (`- A => B`). `&` fans out: `A -> B & C`. A trailing span after the target styles the line: `dashed` `dotted` `open` `dot` `cross` `loose` `cN`, several in one record (`\{dotted, cross}`). |
-| `detail` | `li > blockquote` | no | A `>` blockquote under a shape is its HIDDEN DETAIL, the house style both graph charts share: the slide never shows it. It appears when the shape is hovered or tapped in Present, Practice and Preview (the shape carries `data-mark`, the text rides an inert `<template class="chart-detail">`), and it is folded into the slide's speaker note. A PDF does not show it: text the page must carry belongs in a caption. |
-| `key` | `p > code` | no | The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{"=>", Happy path}, {dotted, Later}]` ``. It only renames; it never hides or adds an entry. |
-| `caption` | `p > em` | no | An italic paragraph below becomes the chart caption. |
+| `title` | a `## ` heading | yes | Slide heading: name the takeaway, not the diagram. |
+| `eyebrow` | a line of `inline code` | no | Optional eyebrow naming the system or domain. |
+| `shapes` | a list | yes | One item per shape, in any order. The shape's name is its displayed text; other rows refer to it by that name, ignoring case. A trailing inline-code span styles it: an outline (`box` `square` `pill` `diamond` `circle` `cylinder` `io` `doc`), a color `c1`…`c8`, one channel `fill=cN` / `border=cN` / `text=cN`, a status word (`done`, `fail`, …) or an id `#kyc` to refer to it by. One word stands alone; several go in one record, in any order: `\{#kyc, diamond, c2}`. An icon from the icons plugin draws beside the name: `icon=gateway` (before the name, or above it when the chart is pinned `tb`); add `icon-only` to draw the icon alone, and the name stays as what a screen reader says and the hover title. A group draws no icon. |
+| `groups` | a list nested 1 level under an item | no | A sub-list of shapes makes its parent item a GROUP, drawn as a tinted background behind its members, like a Mermaid subgraph. `cN` on a group tints it. Groups nest. A line can start or end at a group. |
+| `connections` | a list | no | An arrow in a row connects shapes: `A -> B`, `A => B` (the heavy main path), `A -- B` (no head), `A <-> B`, `A <- B`. A label sits inside the arrow: `-ships via->`. A row may start with the arrow (`- => B`), meaning "from the item this row sits under", or name its source (`- A => B`). `&` fans out: `A -> B & C`. A trailing span after the target styles the line: `dashed` `dotted` `open` `dot` `cross` `loose` `cN`, several in one record (`\{dotted, cross}`). |
+| `detail` | a `>` blockquote inside an item | no | A `>` blockquote under a shape is its HIDDEN DETAIL, the house style both graph charts share: the slide never shows it. It appears when the shape is hovered or tapped in Present, Practice and Preview (the shape carries `data-mark`, the text rides an inert `<template class="chart-detail">`), and it is folded into the slide's speaker note. A PDF does not show it: text the page must carry belongs in a caption. |
+| `key` | a line of `inline code` | no | The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{"=>", Happy path}, {dotted, Later}]` ``. It only renames; it never hides or adds an entry. |
+| `caption` | a paragraph | no | An italic paragraph below becomes the chart caption. |
 
 ### Variant decision rule
 
@@ -154,7 +154,7 @@ Shapes may leave their written order when that draws a cleaner chart.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

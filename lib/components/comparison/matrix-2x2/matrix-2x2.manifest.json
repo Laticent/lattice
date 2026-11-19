@@ -65,11 +65,13 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading naming the framework."
     },
     "axes": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets."
     }

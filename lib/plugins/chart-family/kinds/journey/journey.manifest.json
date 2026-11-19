@@ -162,18 +162,31 @@
   "slots": {
     "key": {
       "selector": "p > code:only-child",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "OPTIONAL label set renaming the mood scale's two POLES: `[{1, Friction}, {5, Flow}]`, one inline-code span alone in its paragraph, outside the journey list. Only `1` and `5` are keyable — the steps between them show their number, which is the scale itself. The defaults `Pain` and `Delight` are declared in this manifest's `labelSet`; naming one pole leaves the other on its default. The rename reaches the key's accessible name too, so a screen reader and the slide cannot disagree."
     },
     "heading": {
       "selector": "h1, h2",
+      "match": { "kind": "heading", "level": [1,2] },
       "required": true,
       "description": "Slide heading naming the journey or process."
     },
     "sections": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "bullet" },
       "required": true,
       "description": "Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries one step record, `{who=actor, mood=N, volume=N}`: `who` the actor (a second actor is a second record, `{who=sales}`), `mood` 1-5, optional `volume` (used by .weighted)."
+    },
+    "steps": {
+      "selector": "ul > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "bullet"
+      },
+      "required": false,
+      "description": "The steps of a stage, one nested `-` item each, with its `{who=…, mood=…}` pills."
     }
   },
   "skeleton": "<!-- _class: journey -->\n\n## Walking through my Tuesday morning.\n\n- Wake up\n  - Hit snooze `{who=me, mood=2}`\n  - Make coffee `{who=me, mood=4}`\n- Commute\n  - Subway `{who=me, mood=1}`\n  - Walk `{who=me, mood=5}`\n- Work\n  - Standup `{who=team, mood=3}`\n  - Deep work `{who=me, mood=5}`\n",

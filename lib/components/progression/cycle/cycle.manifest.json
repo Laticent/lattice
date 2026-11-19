@@ -36,9 +36,9 @@
   "description": "A closed loop of 3-6 stages that returns to its start — for a process with no beginning or end, where the last stage feeds the first.",
   "purpose": "Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring phase. A linear process with a real start and finish is list-steps; a cycle's whole point is the return.",
   "slots": {
-    "title": { "selector": "h2", "required": true, "description": "Slide heading naming the cycle." },
-    "eyebrow": { "selector": "p > code", "required": false, "description": "Optional label above the heading." },
-    "stages": { "selector": "ul > li", "required": true, "description": "Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first." }
+    "title": { "selector": "h2", "match": { "kind": "heading", "level": 2 }, "required": true, "description": "Slide heading naming the cycle." },
+    "eyebrow": { "selector": "p > code", "match": { "kind": "code-line" }, "required": false, "description": "Optional label above the heading." },
+    "stages": { "selector": "ul > li", "match": { "kind": "list", "depth": 1, "marker": "bullet" }, "required": true, "description": "Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first." }
   },
   "skeleton": "<!-- _class: cycle -->\n\n## The heading names the loop.\n\n- First stage\n  - One clause saying what happens here.\n- Second stage\n  - One clause saying what happens here.\n- Third stage\n  - One clause saying what happens here.\n- Fourth stage\n  - One clause saying what happens here.\n",
   "sample": "<!-- _class: cycle -->\n\n`The water cycle`\n\n## Nothing is spent — only moved.\n\n- Evaporation\n  - The sun lifts water from ocean and leaf into vapor.\n- Condensation\n  - Vapor cools into cloud, a reservoir held aloft.\n- Precipitation\n  - Rain and snow return the water to the ground.\n- Collection\n  - Rivers gather it back to the sea, and it begins again.\n",

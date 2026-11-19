@@ -14,11 +14,11 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | no | Optional framing heading; the person's name is the visual hero, drawn from the `name` field. |
-| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Sharmarke Aden `name``. Keys: name (required), title\|role, org\|company, email, phone\|tel\|voice, mobile\|cell, office\|work, url\|web\|site. Phone keys are separate lines, each typed in the vCard, and the ledger lists every line in the order you wrote it. Optional keys: `caption` (CTA under the QR) and `qr` (what the code carries: `vcard`, `tel` or `url`). |
-| `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to add me `caption` ``. |
+| `title` | a `## ` heading | no | Optional framing heading; the person's name is the visual hero, drawn from the `name` field. |
+| `fields` | a list | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Sharmarke Aden `name``. Keys: name (required), title\|role, org\|company, email, phone\|tel\|voice, mobile\|cell, office\|work, url\|web\|site. Phone keys are separate lines, each typed in the vCard, and the ledger lists every line in the order you wrote it. Optional keys: `caption` (CTA under the QR) and `qr` (what the code carries: `vcard`, `tel` or `url`). |
+| `caption` | a list | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to add me `caption` ``. |
 
 ### Common mistakes
 
@@ -54,7 +54,7 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 On this layout, modifiers that style the **eyebrow**, **heading** and **table** have no effect: measured by `npm run check:modifier-effects` (`lib/core/modifier-effects.generated.json`).
 

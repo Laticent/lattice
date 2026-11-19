@@ -89,7 +89,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 
 ---
 
-<!-- _class: quote -->
+<!-- _class: content -->
 
 ## Restyle, don't rearrange.
 

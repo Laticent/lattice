@@ -18,10 +18,10 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the process. |
-| `steps` | `ol > li` | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
+| `title` | a `## ` heading | yes | Slide heading naming the process. |
+| `steps` | a `1.` list | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
 
 ### Variant decision rule
 
@@ -308,7 +308,7 @@ Centered, editorial: pill badges, serif titles, no connectors.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

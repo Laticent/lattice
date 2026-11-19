@@ -18,10 +18,12 @@ Use when the items want vertical reading order — sequential exploration rather
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `cards` | `ul > li` | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional pill on the title line, written `{status}` in inline code, is right-anchored. |
+| `title` | a `## ` heading | yes | Slide heading. |
+| `cards` | a list | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional pill on the title line, written `{status}` in inline code, is right-anchored. |
+
+- `numbered` is not a class: Write the cards as a `1.` list; the corner numbers come from it, and the class adds nothing.
 
 ### Variant decision rule
 
@@ -116,7 +118,7 @@ Corner numbers make rank explicit.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

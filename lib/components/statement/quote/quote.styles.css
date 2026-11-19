@@ -2,7 +2,8 @@
  *
  * Authoring DOM:
  *   section > blockquote > p   the quotation
- *   section > p                attribution line below
+ *   blockquote + p             the attribution: the ONE paragraph right after the quote.
+ *                              A later paragraph is body text, not a second credit.
  *
  * See lib/components/quote/quote.manifest.json for the component contract.
  */
@@ -23,7 +24,7 @@ section.quote blockquote::after  { content:'\201D'; font-family:var(--font-displ
 section.quote blockquote p { font-family:var(--font-display); font-size:var(--fs-message); font-style:italic; color:var(--text-heading); line-height:var(--lh-snug); margin:0; text-align:center; }
 /* The credit in tracked capitals: in the body sans at meta size it matched the chart labels
  * and the footer's case, and capitals are the axis that sets it apart (type-hierarchy-study §8, §10). */
-section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-meta); line-height:var(--lh-snug); letter-spacing:0.1em; text-transform:uppercase; color:var(--text-secondary); text-align:center; }
+section.quote > .cell-stage > blockquote + p { padding-top:var(--sp-xl); font-size:var(--fs-meta); line-height:var(--lh-snug); letter-spacing:0.1em; text-transform:uppercase; color:var(--text-secondary); text-align:center; }
 
 /* ── bare — no card, no quotation-mark glyphs: a plain display-scale
  * statement (a hook / cold-open line), not a sourced quotation. Keeps the
@@ -43,7 +44,7 @@ section.quote.bare blockquote p {
   font-size: var(--fs-emphasis);
   line-height: var(--lh-snug);
 }
-section.quote.bare > .cell-stage > p {
+section.quote.bare > .cell-stage > blockquote + p {
   padding-top: var(--sp-xl);
   font-size: var(--fs-meta);
   letter-spacing: 0.1em;
@@ -55,6 +56,6 @@ section.quote.bare > .cell-stage > p {
    * floor rather than an exemption from it. --text-secondary is still right here. */
   color: var(--text-secondary);
 }
-section.quote.bare > .cell-stage > p em { font-style: normal; }
+section.quote.bare > .cell-stage > blockquote + p em { font-style: normal; }
 
 
