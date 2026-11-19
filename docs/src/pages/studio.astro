@@ -195,11 +195,17 @@ try {
 	const v = buildVocab(loadAll());
 	lintVocab = {
 		names: [...v.names],
-		modifiers: [...v.modifiers],
+		// Both word lists ship as ONE space-joined string each (StudioIsland splits them back,
+		// lint-vocab-names.ts): as arrays, Astro wraps each of ~700 words in ~17 bytes of
+		// escaped quotes, which this route's HTML budget (docs/route-budget.json) cannot carry.
+		// `modifiers` ships only what `universalModifiers` does not already hold.
+		modifiersPacked: [...v.modifiers].filter((t) => !new Set(v.universalModifiers || []).has(t)).join(' '),
 		// The cross-component modifier tokens (`dark`, `light`, `numbered`, tone/stamp/
 		// spectrum styles, …) valid on ANY slide — drives the editor's `_class:` /
 		// `class:` modifier completion (never a hand-kept list).
-		universalModifiers: [...(v.universalModifiers || [])],
+		universalModifiersPacked: [...(v.universalModifiers || [])].join(' '),
+		// The slot contract, one packed string (lib/authoring/slot-contract.generated.js).
+		slotContract: v.slotContract,
 		mapRegions: Object.fromEntries(Object.entries(v.mapRegions || {}).map(([k, mv]) => [k, { valid: [...mv.valid], names: mv.names }])),
 		// EVERY register value list (`guardsNames`, `cardsNames`, `claimNames`, the spectrum
 		// family, …), not a hand-picked few: the editor completes front-matter values from
@@ -222,6 +228,9 @@ try {
 		pluginRegisters: v.pluginRegisters || [],
 	};
 } catch (e) {
+	// Same observable degradation as the blocks above, and said out loud: without the vocab the
+	// Studio's inline lint and completion run empty, which a silent null hid once already.
+	console.warn('[studio] lintVocab: could not build the lint vocabulary — the inline lint and completion run without it', e && e.message);
 	lintVocab = null;
 }
 

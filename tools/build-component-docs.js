@@ -34,7 +34,7 @@
  *   2  --only target not found
  */
 
-const { describeMatch } = require('../lib/authoring/slot-contract');
+const { describeMatch } = require('../lib/authoring/slot-contract-pack');
 const fs = require('node:fs');
 const path = require('node:path');
 const { componentDir: libComponentDir, loadAll, manifestBucket } = require('../lib/components');

@@ -89,6 +89,8 @@ const { buildVocab } = require(join(repoRoot, 'lib/authoring', 'lint.js'));
 const _vocab = buildVocab(manifests);
 const lintVocab = {
 	names: [..._vocab.names],
+	// The slot contract, one packed string (lib/authoring/slot-contract.generated.js).
+	slotContract: _vocab.slotContract,
 	modifiers: [..._vocab.modifiers],
 	universalModifiers: [..._vocab.universalModifiers],
 	modifierGroups: _vocab.modifierGroups || [],

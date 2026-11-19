@@ -364,8 +364,15 @@ behind the one before it only where it reads that one's output.
   are already reported by the older `list-modifier-inert` rule, and declaring them too doubled
   the warning. W5 moves that rule onto the declaration. `alias-of` has no instance left (`banner-tag` moved to
   the registry's `aliases` group in #3308), so the kind is not added.
-- `slot-contract` (error) lands in `lint-core` (Squadra has not ported slide rules yet), compiled
-  into `lib/authoring/slot-contract.generated.js` by `tools/build-stage-catalog.js`. A second
+- `slot-contract` (error) lands in `lint-core` (Squadra has not ported slide rules yet). The
+  contract reaches it as DATA, not code: `tools/build-stage-catalog.js` packs every manifest's
+  slots into one string of short codes (`l1b!`, `f:mermaid#2`), with the wording of every
+  message in the same string (`lib/authoring/slot-contract-pack.js`). `lint.js` puts the string
+  in the lint vocabulary as `slotContract`, and the Studio page inlines it in the vocabulary it
+  already ships. The studio route's lint bundle (`lintCoreGz`) was 2.5 KB from its ceiling; as a
+  module the table and its object model cost 5 KB, and as data the bundle pays only for the
+  reader (163.1 KB of 163.4). The Studio page paid for the string by shipping its two modifier
+  word lists as packed strings instead of arrays (248.7 KB → 234.0 KB of 247.5). A second
   rule, `variant-inert` (warning), covers `variantKinds`. Raw HTML counts as the element it
   names (`<h2>`, `<img>`, `<blockquote>`).
 - **Ignored extra structure is not reported yet.** Which blocks a layout ignores depends on the

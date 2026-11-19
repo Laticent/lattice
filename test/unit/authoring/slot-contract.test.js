@@ -11,8 +11,9 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { loadAll } = require('../../../lib/components');
 const { lintText, buildVocab } = require('../../../lib/authoring/lint');
-const { slideShape, matches, slotProblems } = require('../../../lib/authoring/slot-contract');
-const SLOT_CONTRACT = require('../../../lib/authoring/slot-contract.generated.js');
+const { slideShape, slotProblems, unpackContract } = require('../../../lib/authoring/slot-contract');
+const { matches, slotText } = require('../../../lib/authoring/slot-contract-pack');
+const SLOT_CONTRACT = unpackContract(require('../../../lib/authoring/slot-contract.generated.js'));
 const { boundaryParser } = require('../../../lib/core/boundary-parser');
 
 const vocab = buildVocab();
@@ -32,7 +33,7 @@ function samplesOf(m) {
 
 describe('every manifest sample satisfies its own slot contract', () => {
   test('the table covers every manifest with slots', () => {
-    assert.deepEqual(Object.keys(SLOT_CONTRACT).sort(), manifests.map((m) => m.name).sort());
+    assert.deepEqual(Object.keys(SLOT_CONTRACT).filter((k) => k !== '~').sort(), manifests.map((m) => m.name).sort());
   });
   for (const m of manifests) {
     test(m.name, () => {
@@ -200,14 +201,30 @@ describe('the reader reads Markdown as markdown-it does', () => {
   test('a list inside a blockquote is not the slide list', () => {
     assert.ok(!matches({ kind: 'list', depth: 1, marker: 'any' }, shape('## H\n\n> - quoted\n')));
   });
-  test('a variant override replaces the base slot, and null drops it', () => {
-    const contract = {
-      slots: { heading: { match: { kind: 'heading', level: 2 }, required: true }, rows: { match: { kind: 'list', depth: 1, marker: 'bullet' }, required: true } },
-      variantSlots: { lane: { rows: { match: { kind: 'table' } } }, bare: { heading: null } },
-    };
+  test('a variant override replaces the base slot, and `-` drops it', () => {
+    const entry = unpackContract('x|heading=h2! rows=l1b!||lane:rows=t bare:heading=-').x;
     const table = shape('## H\n\n| a | b |\n|---|---|\n| 1 | 2 |\n');
-    assert.deepEqual(slotProblems('x', contract, ['x', 'lane'], table).map((p) => p.slot), []);
-    assert.deepEqual(slotProblems('x', contract, ['x'], table).map((p) => p.slot), ['rows']);
-    assert.deepEqual(slotProblems('x', contract, ['x', 'lane', 'bare'], shape('| a | b |\n|---|---|\n| 1 | 2 |\n')).map((p) => p.slot), []);
+    assert.deepEqual(slotProblems('x', entry, ['x', 'lane'], table).map((p) => p.slot), []);
+    assert.deepEqual(slotProblems('x', entry, ['x'], table).map((p) => p.slot), ['rows']);
+    assert.deepEqual(slotProblems('x', entry, ['x', 'lane', 'bare'], shape('| a | b |\n|---|---|\n| 1 | 2 |\n')).map((p) => p.slot), []);
   });
+});
+
+describe('the packed contract round-trips every manifest', () => {
+  // The vocabulary carries the contract as one string (tools/build-stage-catalog.js packContract);
+  // what unpacks must be what the manifests say, slot by slot, so the packing can lose nothing.
+  const strictList = (m) => !Array.isArray(m) && m?.kind === 'list' && m.marker !== 'any';
+  for (const m of manifests) {
+    test(m.name, () => {
+      const got = SLOT_CONTRACT[m.name];
+      for (const [name, slot] of Object.entries(m.slots)) {
+        if (!slot.required && !strictList(slot.match)) continue;
+        assert.equal(got.slots[name], slotText(slot), `${m.name}.${name}`);
+      }
+      for (const [v, over] of Object.entries(m.variantSlots || {})) {
+        for (const [name, slot] of Object.entries(over)) assert.equal(got.over[v][name], slotText(slot), `${m.name} ${v}.${name}`);
+      }
+      assert.deepEqual(Object.keys(got.kinds), Object.keys(m.variantKinds || {}), `${m.name} variantKinds`);
+    });
+  }
 });
