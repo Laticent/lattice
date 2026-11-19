@@ -55,6 +55,11 @@ findings subtracted.
 | `@image` drops / overflow | 4 / 36 | 4 / 38 | drops exact; overflow matches `@video`'s 38. Markdown's picture (`![…](…)`, full size) also drops on the same 4 and overflows 75 |
 | `@legend` as literal code / key only in the chart / dropped | 54 / 22 / 4 | 54 / 22 / 4 | exact |
 | `_focus` tags nothing | 18 | 18 | exact, the same 18 components |
+| Annotation (`_italic_` trailer) drops / overflow | not probed | 4 / 5 | drops on the same 4 posters; overflows journey, kpi, logo-wall, obligation-matrix, regulatory-update |
+| Inline spark in the heading drops / overflow | not probed | 0 of 76 / 1 | lands on every slide with a `##`; overflows team-profile |
+| `_build` accepted | not probed | 80 of 80 | stamped on every slide; its stepping runs in the live player, which this probe does not drive |
+| Speaker note in the PowerPoint export (poster) | not probed | dropped | a `contact` deck exports no notes slide; a control `content` deck keeps its note |
+| Deck header and footer shown (Chromium, computed visibility) | not probed | 75 of 80 | hidden on the three bookends, whose samples carry `silent`, and on `image` and `scene`, whose CSS hides both (`image.styles.css:69-70`, `scene.styles.css:48-49`) with no manifest declaration |
 
 The two items that were not counts were then settled exactly. **Undocumented tokens:** of 377
 author-typable tokens, 20 cannot be learned from any author-facing doc, literally or as a documented
@@ -204,14 +209,14 @@ checking that the text is present, placed and unclipped.
 | Subtitle | 66 | — | 3 | 5 overflow, 4 reuse the slot undeclared |
 | Pill / state mark in heading | 77 / 78 | — | 1 / 1 | 1 overflow |
 | `@image` / `@video` | 40 / 40 | — | 4 / 4 | 38 / 38 overflow (honest capacity, flagged) |
-| Speaker notes | 76 | — | **4** | — |
+| Speaker notes | 76 | — | **4** (HTML and PowerPoint) | — |
 | `_focus` | 62 | — | 18 tag nothing | — |
 | `bleed` | 72 | — | 4 | 4 overflow |
 
 - **The four posters** (contact, wifi, gift-card, video) rebuild the slide from the authored list
   and drop nearly every universal. `contact` drops the heading itself, along with the eyebrow,
   subtitle, pills, figures, `bleed` and **speaker notes**. The notes are missing from the HTML
-  (`aside.lattice-notes` is never written), so the presenter view loses them.
+  (`aside.lattice-notes` is never written), so the presenter view loses them, and so does the PowerPoint export (measured: a `contact` deck exports with no notes slide; a control `content` deck keeps its note).
 - **Overflow is flagged by the engine but not by lint.** Eleven components with no coda claim clip
   their own sample once a Key Insight is added (kpi shows its fourth tile under the panel).
 - **`premise`** puts an eyebrow in a third flex column as a raw code chip, and a subtitle collapses
@@ -481,6 +486,7 @@ named job of one workstream, which fixes it in full before it merges (HARD RULE 
 | Posters drop speaker notes, eyebrow, subtitle, figures; 11 components overflow on a coda; `premise` eyebrow/subtitle; `_focus` silent on 18; pane hosts misplace the below-note; `block-unsupported` ignores an authored blockquote | **W4** |
 | `@legend` shows as literal code on 54 surfaces, is key-only on 22 chart readers and drops on 4 posters | **W4** (the `legend` entry of the `universals` block; lint reads it) |
 | Four layouts reuse the subtitle position undeclared (redline, citation-card, regulatory-update as a citation; compare-code as a column label) | **W1** (a per-component slot the manifest declares) and **W4** (the `subtitle` entry says `claimed`) |
+| `image` and `scene` hide the deck header and footer in their own CSS; the manifest `chrome` field has no `footer` key to declare it, and `image`'s anatomy diagram draws both | **W4**: chrome is a declared universal (the schema gains `footer`), the declaration replaces the CSS, and the anatomy is generated from it |
 | `components.pick.md` contradicts itself on its length; `AGENTS.md` overstates what `lint:deck` catches | **This PR** |
 
 ## Settled with the owner (2026-11-19)
