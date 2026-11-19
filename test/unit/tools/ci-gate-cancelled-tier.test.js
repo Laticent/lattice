@@ -40,9 +40,13 @@ function gate({ results = {}, event = 'pull_request', head = RUN_SHA }) {
   const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'ci-gate-'));
   // The stub answers only the call the gate makes: the PR's head SHA.
   fs.writeFileSync(path.join(bin, 'gh'), head === null ? '#!/bin/sh\nexit 1\n' : `#!/bin/sh\necho ${head}\n`, { mode: 0o755 });
-  const out = spawnSync('bash', ['-e', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
+  // The gate writes step outputs here; the beacon reads `superseded` to stay silent on a stale run.
+  const outputs = path.join(bin, 'github-output');
+  fs.writeFileSync(outputs, '');
+  const out = spawnSync('bash', ['-e', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_OUTPUT: outputs } });
+  const written = fs.readFileSync(outputs, 'utf8');
   fs.rmSync(bin, { recursive: true, force: true });
-  return { code: out.status, text: out.stdout + out.stderr };
+  return { code: out.status, text: out.stdout + out.stderr, superseded: /^superseded=true$/m.test(written) };
 }
 
 test('a full green run passes', () => {
@@ -70,6 +74,24 @@ test('a tier cancelled because a newer push superseded the run still passes', ()
   const r = gate({ results: { integration: 'cancelled', unit: 'cancelled' }, head: NEWER });
   assert.equal(r.code, 0);
   assert.match(r.text, /cancelled by a newer push/);
+  assert.equal(r.superseded, true, 'the gate must tell the beacon this run was superseded');
+});
+
+test('a full green run is not marked superseded, so its beacon posts', () => {
+  assert.equal(gate({}).superseded, false);
+});
+
+test('the CI-green beacon stays silent on a superseded run', () => {
+  // A superseded run's gate passes, but a "green" beacon for a SHA that is no longer the head is a
+  // false green, and with draft parking no newer beacon replaces it (#3314, 8aa411c).
+  const beacon = ci.jobs.ci.steps.find((s) => s.name === 'CI-green beacon');
+  assert.equal(step.id, 'gate');
+  assert.match(beacon.if, /steps\.gate\.outputs\.superseded != 'true'/);
+});
+
+test('a ready_for_review run does not cancel an in-flight run on the same head', () => {
+  // The gate fails a tier canceled on the current head, so re-readying with no push would paint ci red.
+  assert.match(String(ci.concurrency['cancel-in-progress']), /github\.event\.action != 'ready_for_review'/);
 });
 
 test('when the PR cannot be read, a cancelled tier fails closed', () => {
