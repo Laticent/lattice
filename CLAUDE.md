@@ -6,14 +6,11 @@ PDFs from Markdown. It is the engine layer of the **Laticent** org. The
 **in this repository** — it is not built yet, and there is no separate desktop
 repo. Older notes that say otherwise are corrected in place.
 
-**We DEVELOP Lattice here; we never CONSUME it.** Every session works from this
-repo's source: install (`npm ci`, or the session-start hook) and `npm run build`
-before any measurement, test, render or audit, and read results only from the
-build you just made — never from a published package, a CDN copy, a prebuilt
-`dist/` from elsewhere, or stubbed dependencies. **This stays true after Lattice
-is published:** the npm package is an OUTPUT of this repo, never an input to
-work on it. If the install or the build cannot run, **stop and say so before
-doing anything else**; a number taken without the real build is not reported.
+**We DEVELOP Lattice here; we never CONSUME it** — true after it is published too.
+Install and `npm run build` from this repo before any measurement, test, render or
+audit, and use only that build: never a published package, CDN copy, foreign
+`dist/` or stubbed dependencies. If install or build fails, **stop and say so
+first**; report no numbers.
 
 **The visual contract is `lattice.css`.** Layouts are palette-blind: every
 color goes through `var(--token)`. Themes (`themes/indaco/indaco.css`,
@@ -248,13 +245,6 @@ always runs:** one `checker` per merge ask sets the pre-merge card's level
 needs no OK of its own. **It is not a rung of the ladder:** it grades the card, it
 does not review the code, so routine work still self-reviews and the card's
 "Independent eyes" axis still asks whether the tier the work earned ran. See `engineering/visual-review.md`.
-
-**Every agent runs on Opus** (HARD RULE #27) — the ladder decides *whether* an
-agent runs, and there is no second question about what it runs on.
-
-**"The trio" on its own means the adversarial trio. The additive trio
-(`seam-census` · `blast-radius` · `contradictions`) must be named in full. When a
-request is ambiguous, ask — the two do opposite work.**
 
 **Maker-checker is the middle rung of the verification ladder** (HARD RULE #25):
 routine work self-reviews with the gates; blast radius gets maker-checker;
