@@ -1358,7 +1358,7 @@ its rail and label the slide ink (`--pass` …), and its row the theme's `--pass
 
 | Variant | Disc treatment |
 |---|---|
-| *(default)* | the deck's status fill, its mark in the one ink, a hairline rim in the status ink (the row's rail color); at risk and blocked wear the signal ring. The same mark a gantt bar draws. |
+| *(default)* | the deck's status fill, its mark in the status's own ink (`--X-on-mark`), a hairline rim in the status's edge (`--X-edge-mark`; the slide ink on a theme that curates no triplet); at risk and blocked wear the signal ring. The same mark a gantt bar draws. |
 | `checks-ringed` | the same, with a heavier 1.6px rim taken halfway to black. |
 | `checks-knockout` | the same as the default; kept so a deck that names it can reset an inherited variant. |
 | `checks-bold` | larger disc + heavier marks, the hairline ink rim kept. Reads across a room. |

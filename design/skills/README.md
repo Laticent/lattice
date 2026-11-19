@@ -44,7 +44,7 @@ skill. The others are authorable end-to-end from the file.
 | [`finish`](./finish.md) | Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content. | 3.8k |
 | [`lens`](./lens.md) | Use when defining a reader lens (Lente): an approved subset of a deck's slides, projected for another audience without editing it. | 4.7k |
 | [`speaker-notes`](./speaker-notes.md) | Use when writing speaker notes, say: lines, review comments or captions, or when reviewing a deck against the notes rubric. | 5.6k |
-| [`theme`](./theme.md) | Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes. | 5.8k |
+| [`theme`](./theme.md) | Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes. | 5.9k |
 
 ### Work on a deck you already have
 

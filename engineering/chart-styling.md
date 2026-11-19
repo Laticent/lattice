@@ -119,9 +119,16 @@ Every chart concept has **one flat solid**, curated per theme: a category is `--
 (seed `--chart-catN`), a status `--state-X-hue` (seed the base status FILL `--X-mark`), and a mark with
 neither `--chart-neutral-hue` (seed `--chart-neutral-mark`).
 
-**One ink.** Every chart fill, a category, the neutral or a status, is DEEP enough to carry white text
-(`--chart-on-mark`, which is `--on-mark` on every one: one token, declared once on the frame and never re-pointed). At most two charts share a slide, and two text colors side by side read as two
-systems, so the ink never changes with the kind. This replaced a scheme where a status was a BRIGHT fill under
+**One ink for categories; a curated ink per status.** Every CATEGORY fill and the neutral is DEEP enough to carry
+white text (`--chart-on-mark`, which is `--on-mark`: one token, declared once on the frame and never re-pointed). At
+most two charts share a slide, and two text colors side by side read as two systems, so a category's ink never changes
+with the kind. A STATUS fill wears its theme's STATUS TRIPLET instead (engineering/decisions/2026-11-16-status-
+triplets.md): the fill, the ink on it (`--X-on-mark`, read as `--status-on-ink` per member) and its edge
+(`--X-edge-mark`). On the light face a brand theme's status fills are deep under its paper, each clearing 4.5:1
+against every surface it sits on (slide, card, hero tile, its row tint, a kanban card), so it reads at the back of a lit
+hall (`npm run check:glance`). On the dark face a status is a chart solid like the categories beside it, under the one
+ink and edged in its status ink, so a status chart and a category chart read as one design language; a theme that
+curates no triplet keeps the one ink on both faces. This replaced a scheme where a status was a BRIGHT fill under
 near-black text ("text color carries the kind"); it kept the meanings apart, but a status chart beside a category
 chart wore two inks, and on a light slide the bright fills were the quietest marks on it.
 
@@ -146,8 +153,11 @@ brand green bar and a "done" bar can look alike. Two things separate them:
 The contract, held for every palette in both modes and both intensities by
 `test/unit/palette/chart-solids.test.js` and `chart-one-ink.test.js`:
 
-- white clears **7:1** on every light-face solid and **4.5:1** on every dark-face one, where a fill is the lightest
-  tone of its hue white still clears (4.6:1 by construction), so it stands off the dark slide;
+- white clears **7:1** on every light-face CATEGORY solid and **4.5:1** on every dark-face one, where a fill is the
+  lightest tone of its hue white still clears (4.6:1 by construction), so it stands off the dark slide;
+- a brand theme's light-face STATUS solid wears its triplet instead: its ink is the slide's paper at **4.5:1**, and the
+  fill clears **4.5:1** against every surface it sits on (slide, card, hero tile, its row tint, a kanban card);
+  `tools/curate-status-triplets.js --check` holds it;
 - every solid clears **3:1** against the slide (WCAG 1.4.11) by itself;
 - a status LINE or status TEXT (a slope, a waterfall step, a kanban header: `--state-X-ink`) paints the theme's
   status ink `--pass` … `--mute`, the color that status is in every other component, so a deck has one color per
@@ -158,10 +168,10 @@ The contract, held for every palette in both modes and both intensities by
   deep ring on an `a11y-*` palette's bright dark-face fill against the fill.
 
 **Two intensities** (`marks: … muted | vivid`, `lib/core/resolve-marks.js`). Muted is `--X-mark`, the
-default: done a quiet SAGE, the exceptions carrying the color as a burnt orange and a crimson. Vivid is
+default: done a quiet SAGE, the exceptions carrying the color as an amber and a red. Vivid is
 `--X-vivid-mark`, which `base.tokens.css` swaps in under `.marks-vivid` (§ THE STATUS FILL ON THIS SLIDE):
-every status rich, done an emerald, for a deck that celebrates its wins. Both keep white text, and the rings are
-shared. The register sets every status fill on the slide, so a checklist disc, a kpi pill or a policy badge takes
+every status more saturated, for a deck that celebrates its wins. Both keep the same ink (the theme's status
+triplet: the slide's paper on a light face, white on a dark one), and the rings are shared. The register sets every status fill on the slide, so a checklist disc, a kpi pill or a policy badge takes
 the same intensity as the chart beside it (`engineering/decisions/2026-10-24-status-is-one-system.md`).
 
 **Each theme's status set is its own.** The hues are the theme's own status inks (`--pass` …), each held to its band

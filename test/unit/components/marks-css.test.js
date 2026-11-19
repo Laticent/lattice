@@ -124,7 +124,18 @@ describe('marks.generated.css', () => {
   // A ROADMAP is a status chart, so its filled status discs take the finish's one status level, like a gantt bar
   // (#2908's P2 follow-up: they stayed solid under etch and tone). The discs are pseudo-elements, so the finish sets the
   // member's disc channel on the cell and key item; pigment's level is the solid, so it emits nothing.
-  test('a roadmap status disc takes the one status level under etch and tone', () => {
+  // Critical steps toward the shade on a light slide and toward the slide on a dark one: an a11y palette's dark shade is
+  // white, which lifted critical onto high (1.07:1, the 2026-11-16 maker-checker review).
+  test('a dark risk-matrix critical band steps toward the slide, not the shade', () => {
+    const rules = [...css.matchAll(/risk-cell\[data-band="critical"\][^{]*\{([^}]*)\}/g)].map((m) => m[1]).filter((b) => /fill:/.test(b));
+    assert.ok(rules.length >= 1, 'a critical band fill');
+    for (const body of rules) {
+      if (!/--fail-vivid-mark\) 82%/.test(body)) continue;
+      assert.match(body, /light-dark\(color-mix\(in oklab, var\(--fail-vivid-mark\) 82%, var\(--status-shade-mark\)\), color-mix\(in oklab, var\(--fail-vivid-mark\) 82%, var\(--bg\)\)\)/);
+    }
+  });
+
+  test('a roadmap status disc takes the one status level under etch and tone; only etch inks its glyph', () => {
     const at = css.indexOf('section:is(.marks-etch, .marks-tone) :where(.roadmap :is(td.cell-state');
     assert.ok(at >= 0, 'one etch+tone rule for the roadmap discs');
     const head = css.slice(at, css.indexOf('{', at));
@@ -134,7 +145,14 @@ describe('marks.generated.css', () => {
     assert.match(head, /\.roadmap-legend-item/, 'the key follows its discs');
     const body = css.slice(at, css.indexOf('}', at));
     assert.match(body, /--state-fill: light-dark\(color-mix\(in oklab, var\(--state-color\) var\(--finish-status-text\), var\(--finish-status-base\)\)/);
-    assert.match(body, /--state-glyph-mark: var\(--finish-ink\)/);
+    assert.doesNotMatch(body, /--state-glyph-mark/, 'the glyph ink is not set for tone: its disc is the curated fill');
+    // Only etch's disc is a pale wash, so only etch gives its glyph the finish ink. Under tone the disc is the curated
+    // fill (TONE_STATUS), and a heading-ink glyph on it read 1.46-3.56:1 (the 2026-11-16 maker-checker review).
+    const glyph = [...css.matchAll(/section([^{]*):where\(\.roadmap :is\(td\.cell-state[^{]*\{([^}]*)\}/g)]
+      .filter(([, , decls]) => /--state-glyph-mark/.test(decls));
+    assert.equal(glyph.length, 1, 'one glyph-ink rule for the roadmap discs');
+    assert.match(glyph[0][1], /^\.marks-etch /, 'etch alone');
+    assert.match(glyph[0][2], /--state-glyph-mark: var\(--finish-ink\)/);
     assert.doesNotMatch(css, /marks-pigment[^{]*state-shipped/, 'pigment leaves the solid disc alone');
     const member = fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds/roadmap/roadmap.styles.css'), 'utf8');
     assert.equal((member.match(/background-color:var\(--state-fill, var\(--state-color/g) || []).length, 3, 'all three disc recipes read --state-fill');
