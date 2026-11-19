@@ -134,7 +134,7 @@ seen the options first. Born from a session that labeled 60 issues
    fragment (HARD RULE #10 — **not** `CHANGELOG.md` `## Unreleased`). Never
    return a behavior change with stale docs.
 7. **Open the PR when review-ready, then drive it green — then ASK to merge.**
-   Use `.github/pull_request_template.md`. Open it ready; park it as a draft to iterate.
+   Use `.github/pull_request_template.md`. Open ready; iterate as a draft, then mark ready.
    Once open, subscribe and drive CI green / address review — never ask
    "should I watch?". When green + review-ready, **stop and ask me for merge
    authorization** — a human approves every merge, and prior authorization does
