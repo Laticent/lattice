@@ -5,7 +5,7 @@ recorded: 2026-11-19
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-17-use-case-layer.md §5, §10
-deferred: blocked — two owner calls come first: the interim DeckModel adapter and op set that edit kernels return before the slide spine exists (§10 step 0b; the spine itself is followups.d/3287-p1-lente-slide-spine.md, deferred large), and whether a tool may leave SANCTIONED_LEGACY_USE_CASES before #3208 item 34's session replay, since tightening its schema changes what the model sees
+deferred: large — 19 handlers, each owing a golden and a differential run; the READ tools could move now (option B), but the EDIT tools are also blocked on two owner calls: the interim DeckModel adapter and op set that edit kernels return before the slide spine exists (§10 step 0b; the spine itself is followups.d/3287-p1-lente-slide-spine.md, deferred large), and whether a tool may leave SANCTIONED_LEGACY_USE_CASES before #3208 item 34's session replay, since tightening its schema changes what the model sees
 source: https://github.com/Laticent/lattice/issues/3208
 ---
 
