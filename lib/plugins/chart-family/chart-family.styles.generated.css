@@ -815,7 +815,7 @@ figure.marks-pigment :where(.risk-cell[data-band="high"]) {
 }
 section.marks-pigment :where(.risk-cell[data-band="critical"]),
 figure.marks-pigment :where(.risk-cell[data-band="critical"]) {
-  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
@@ -849,7 +849,7 @@ figure.marks-pigment :where(.risk-key-number[data-band="high"]) {
 }
 section.marks-pigment :where(.risk-key-marker[data-band="critical"]),
 figure.marks-pigment :where(.risk-key-marker[data-band="critical"]) {
-  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))) !important;
 }
 section.marks-pigment :where(.risk-key-number[data-band="critical"]),
 figure.marks-pigment :where(.risk-key-number[data-band="critical"]) {
@@ -858,7 +858,7 @@ figure.marks-pigment :where(.risk-key-number[data-band="critical"]) {
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-pigment :where(.risk-key-number[data-band="critical"]),
 figure.marks-pigment :where(.risk-key-number[data-band="critical"]) {
-  fill: light-dark(var(--state-fail-on-ink), color(from color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(var(--state-fail-on-ink), color(from color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 section.marks-pigment :where(.slope-svg.slope-signal .slope-line[data-dir="up"]),

@@ -1083,8 +1083,12 @@ function build() {
       // Critical is blocked one designed step deeper: toward the shade on a light slide, and toward the SLIDE on a dark
       // one. On a brand theme's dark face the two are one (near black); on an a11y palette's bright dark face the shade
       // is white, which lifted critical onto high (1.07:1, the 2026-11-16 maker-checker review), so it steps toward the
-      // slide, as it did before the status triplets.
-      const CRITICAL = 'light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--bg)))';
+      // slide, as it did before the status triplets. How far it steps on the dark face is `--risk-critical-keep`
+      // (the share of the fail fill kept, 82% by default). An a11y palette whose dark-face bands are so bright that 18%
+      // only lands critical between low and medium (achromatopsia: low 0.39, critical 0.49, medium 0.59 luminance) keeps
+      // less, so critical is the DARKEST band there, as it is on every light face and in print.
+      const CRITICAL_DARK = 'color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))';
+      const CRITICAL = `light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), ${CRITICAL_DARK})`;
       w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${CRITICAL}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A timeline's dots are hollow rings by default; pigment is the solid finish, so its dot is filled with its own ink.
       w(rule(name, '.timeline-dot', ['--timeline-dot-fill: var(--timeline-dot-ink)']));
@@ -1097,7 +1101,7 @@ function build() {
       w(rule(name, '.risk-key-number[data-band="critical"]', ['fill: var(--state-fail-on-ink)']));
       // On the dark face critical steps toward the slide, so on an a11y palette's bright fill it is darker than the fill
       // its curated near-black ink was chosen for (4.42:1 on a11y-protanopia); its number picks its own ink there.
-      w(supports(rule(name, '.risk-key-number[data-band="critical"]', [`fill: light-dark(var(--state-fail-on-ink), ${inkOn('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--bg))')})`])));
+      w(supports(rule(name, '.risk-key-number[data-band="critical"]', [`fill: light-dark(var(--state-fail-on-ink), ${inkOn(CRITICAL_DARK)})`])));
       // A slope's signal lines wear the curated status fill, not its text ink (which is neon on a dark slide): the same
       // solid a risk cell takes, unmodified on both faces.
       w(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]', ['stroke: var(--state-pass-hue)']));

@@ -131,7 +131,30 @@ describe('marks.generated.css', () => {
     assert.ok(rules.length >= 1, 'a critical band fill');
     for (const body of rules) {
       if (!/--fail-vivid-mark\) 82%/.test(body)) continue;
-      assert.match(body, /light-dark\(color-mix\(in oklab, var\(--fail-vivid-mark\) 82%, var\(--status-shade-mark\)\), color-mix\(in oklab, var\(--fail-vivid-mark\) 82%, var\(--bg\)\)\)/);
+      assert.match(body, /light-dark\(color-mix\(in oklab, var\(--fail-vivid-mark\) 82%, var\(--status-shade-mark\)\), color-mix\(in oklab, var\(--fail-vivid-mark\) var\(--risk-critical-keep, 82%\), var\(--bg\)\)\)/);
+    }
+  });
+
+  // On an a11y palette's dark face the bands are bright, so the default 18% step landed critical between low and medium
+  // (achromatopsia 0.49 against low 0.39 and medium 0.59, after #3232). A palette whose bands need it keeps less of the
+  // fail fill (`--risk-critical-keep`), so critical is the DARKEST band, as on every light face and in print.
+  test('on every a11y palette\'s dark face the risk matrix\'s critical band is the darkest band', () => {
+    const { mergedVars } = require('../../../tools/composed-contrast.js');
+    const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
+    const { relativeLuminance: lum, hexToRgb } = require('../../../lib/core/color.js');
+    const relativeLuminance = (h) => lum(hexToRgb(h));
+    const palettes = fs.readdirSync(path.join(__dirname, '../../../themes')).filter((t) => t.startsWith('a11y-'));
+    assert.ok(palettes.length >= 5, 'the a11y palettes');
+    for (const theme of palettes) {
+      const V = mergedVars(theme);
+      const hex = (expr) => String(resolveTokenExpr(expr, V, true)).trim();
+      const keep = String(V['risk-critical-keep'] || '82%').trim();
+      const critical = hex(`color-mix(in oklab, ${hex('var(--fail-vivid-mark)')} ${keep}, ${hex('var(--bg)')})`);
+      const Y = { critical: relativeLuminance(critical) };
+      for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) Y[band] = relativeLuminance(hex(`var(--${st}-mark)`));
+      const next = Math.min(Y.low, Y.medium, Y.high);
+      const step = (next + 0.05) / (Y.critical + 0.05);
+      assert.ok(step >= 1.5, `${theme} dark: critical (${critical}, ${Y.critical.toFixed(3)}) sits ${step.toFixed(2)}:1 below the darkest other band (${next.toFixed(3)}); it must be the darkest band by at least 1.5:1`);
     }
   });
 

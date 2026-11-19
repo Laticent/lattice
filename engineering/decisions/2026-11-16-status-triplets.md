@@ -237,6 +237,12 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   bands, the risk key and a slope chart's signal lines 28-42% toward the slide on the dark face, because the one shared
   set of vivid fills was "a fire-engine block" there. The bands, key and lines now wear `--state-X-hue` on both faces;
   critical keeps its one designed step (82% fail toward `--status-shade-mark`, as risk-matrix.styles.css has it).
+  On the dark face it steps toward the slide instead and keeps `--risk-critical-keep` of the fail fill (82% by
+  default). Three a11y palettes set 60%: achromatopsia, deuteranopia and tritanopia have dark-face bands so bright that
+  82% landed critical between low and medium (achromatopsia: low 0.389, critical 0.488, medium 0.594 luminance; on
+  `main` before this note it sat above medium at 0.255). At 60% critical is the darkest band on all five a11y dark
+  faces, 1.66-2.41:1 below the next band and at least 3.6:1 off the slide. Found after merge by a whole-slide review of
+  the a11y dark faces; held by `marks-css.test.js` (critical is the darkest band on every a11y dark face).
   Washes stay washes: kanban cards, journey moods, bullet bands and state-chart groups are tints by design.
 
 - **Tone's one status level** (`tools/build-marks-css.js` `TONE_STATUS`). Under tone a status kept its own hue at the
@@ -296,3 +302,9 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
 
 - The Studio's theme generator (`lib/theme/derive.js`) still derives the one-ink pair, so a generated theme keeps the
   one ink on both faces: correct and readable, but not the light-face triplet. `followups.d/3232-p2-derive-status-triplets.md`.
+- Carbone's first category is green, so an unstatused mark reads close to on-track (light 0.075, dark 0.053 OKLab from
+  the pass fill). Not caused here, and light improved from 0.029; the fix is a brand call.
+  `followups.d/3232-p3-carbone-first-category-reads-on-track.md`.
+- On achromatopsia's LIGHT face the risk bands do not climb in order: medium (0.098) is lighter than low (0.039), and
+  high (0.011) and critical (0.006) sit 1.09:1 apart. That predates this note and is the palette's light status ramp.
+  `followups.d/3232-p4-achromatopsia-light-risk-ramp.md`.

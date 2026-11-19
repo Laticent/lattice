@@ -1,0 +1,1 @@
+- The risk matrix's critical band is the darkest band again on the dark face of the achromatopsia, deuteranopia and tritanopia palettes. Since the per-theme status colors it had landed between low and medium there, so a palette that shows severity only by lightness read critical as the second-mildest band.
