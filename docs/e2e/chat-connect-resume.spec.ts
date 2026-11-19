@@ -45,6 +45,8 @@ for (const [w, h] of [
 		// before the turn had finished, and the waiting message was never marked: a race in the test, not the Studio.)
 		await expect(page.getByText(/Connect a model in Workspace|Choose a chat model in Workspace/).first()).toBeVisible({ timeout: 30_000 });
 		expect(calls()).toBe(0);
+		// The waiting message says it waits, so it does not look stuck (the owner asked again when it did).
+		await expect(page.getByText(/Waiting for a model/)).toBeVisible();
 		// They connect: a key is stored, and the page comes back (OpenRouter's sign-in returns with a reload).
 		await page.evaluate(() => {
 			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');

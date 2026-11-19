@@ -26,4 +26,5 @@
 - **Fixed: a message sent before a model is connected is now answered once one is.** Asking the chat with no
   model sends you to connect one; your message used to sit unanswered after you came back (OpenRouter's sign-in
   reloads the page), so you had to ask again. Now the chat answers it as soon as a model is ready, and the Studio
-  reopens the chat after a successful OpenRouter sign-in.
+  reopens the chat after a successful OpenRouter sign-in. While it waits, the message says so, and asking
+  again with the same words answers it instead of adding a second copy.

@@ -38,7 +38,7 @@ import { PreviewPool } from './preview-pool';
 import { cardMaxHeight, cardScrollTarget } from './proposal-pick';
 import { REF_DOC_ACCEPT } from './reference-doc';
 import { useReferenceDoc } from './reference-doc-ui';
-import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, loadChat, loadChatDraft, loadChatMode, markAnswerAfterConnect, type StoredChatMode, saveChat, saveChatDraft, saveChatMode, takeAnswerAfterConnect } from './studio-store';
+import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, hasAnswerAfterConnect, loadChat, loadChatDraft, loadChatMode, markAnswerAfterConnect, type StoredChatMode, saveChat, saveChatDraft, saveChatMode, takeAnswerAfterConnect } from './studio-store';
 
 // The Architect chat (Converse) — a real conversational thread. Replies STREAM in
 // token-by-token (rAF-coalesced), render as on-brand Markdown (prose sanitized with
@@ -823,7 +823,13 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		setPendingPhotos([]);
 		setPendingVideos([]);
 		saveChatDraft(sendDeckId, '');
-		const history: ChatMessage[] = [...messages, { role: 'user', content: text || (videos.length ? 'Here is a short video.' : photos.length === 1 ? 'Here is a photo.' : 'Here are some photos.'), ...(photos.length ? { photos } : {}), ...(videos.length ? { videos } : {}) }];
+		// The author is asking now: a message left waiting for a connection is answered by this turn, not by another.
+		takeAnswerAfterConnect(sendDeckId);
+		// The same words again while the last message still waits for an answer (it looked stuck while the model
+		// connected) answer THAT message: a second identical bubble said the author had asked twice.
+		const last = messages.at(-1);
+		const again = !!text && !photos.length && !videos.length && last?.role === 'user' && last.content.trim() === text && !last.photos?.length && !last.videos?.length;
+		const history: ChatMessage[] = again ? messages : [...messages, { role: 'user', content: text || (videos.length ? 'Here is a short video.' : photos.length === 1 ? 'Here is a photo.' : 'Here are some photos.'), ...(photos.length ? { photos } : {}), ...(videos.length ? { videos } : {}) }];
 		saveChat(sendDeckId, history);
 		if (deckIdRef.current === sendDeckId) setMessages(history);
 		void run(history, sendDeckId);
@@ -1159,6 +1165,12 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 							<div className="flex max-w-[92%] flex-col items-end gap-1.5">
 								{m.photos?.length || m.videos?.length ? <MessagePhotos photos={m.photos ?? []} videos={m.videos} deckId={deckId} /> : null}
 								<div className="whitespace-pre-wrap rounded-2xl bg-primary px-3 py-2 text-[12.5px] leading-relaxed text-primary-foreground">{m.content}</div>
+								{/* The last message waits for a model: say so, so it does not look stuck (it was asked again, twice). */}
+								{i === messages.length - 1 && !busy && hasAnswerAfterConnect(deckId) ? (
+									<span data-chat-waiting className="text-[11px] text-muted-foreground">
+										{aiReady ? 'Connected. Answering this now…' : 'Waiting for a model. I’ll answer this once one is connected.'}
+									</span>
+								) : null}
 							</div>
 						</div>
 					) : (

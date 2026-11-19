@@ -619,6 +619,32 @@ describe('Architect chat — a message sent before a model is connected is answe
 		expect(sessionStorage.getItem('lattice-chat-answer-after-connect')).toBeNull();
 	});
 
+	it('says the message is waiting, and the same words again answer it instead of adding a second bubble', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(screen.getByText(/Waiting for a model/), 'the waiting message looked stuck').toBeTruthy();
+		// The author asks again with the same words (the owner did, on an iPhone).
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(loadChat('deck-1').filter((m) => m.role === 'user').map((m) => m.content)).toEqual(['hi']);
+		expect(chatSpy).toHaveBeenCalledTimes(2);
+		expect(sessionStorage.getItem('lattice-chat-answer-after-connect'), 'a manual send left the automatic answer armed').toBeNull();
+	});
+
+	it('still adds a different message after a waiting one', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		await sendOnce(user, 'tighten slide two');
+		await flushFrames();
+		expect(loadChat('deck-1').filter((m) => m.role === 'user').map((m) => m.content)).toEqual(['hi', 'tighten slide two']);
+	});
+
 	it('does not answer behind the author when the thread has moved on', async () => {
 		sessionStorage.setItem('lattice-chat-answer-after-connect', 'deck-1');
 		saveChat('deck-1', [
