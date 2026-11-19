@@ -52,7 +52,7 @@ findings subtracted.
 | Registers missing from the registers doc | 8 | 8 | exact |
 | `@video` / `bleed` drops | 4 / 4 | 4 / 4 | exact: contact, gift-card, wifi, video |
 | `@video` / `bleed` overflow | 36 / 3 | 38 / 4 | video adds 2 clipped inside a box; bleed adds `columns` |
-| Picture drops | 4 (`@image`) | 4 (Markdown `![…](…)`) | exact; the re-derivation used Markdown's picture, which is full size, so its overflow (75) is not comparable to `@image`'s 36 |
+| `@image` drops / overflow | 4 / 36 | 4 / 38 | drops exact; overflow matches `@video`'s 38. Markdown's picture (`![…](…)`, full size) also drops on the same 4 and overflows 75 |
 | `@legend` as literal code / key only in the chart / dropped | 54 / 22 / 4 | 54 / 22 / 4 | exact |
 | `_focus` tags nothing | 18 | 18 | exact, the same 18 components |
 
@@ -196,7 +196,7 @@ checking that the text is present, placed and unclipped.
 | Eyebrow | 74 | — | 1 | 1 + 3 overflow |
 | Subtitle | 66 | — | 3 | 5 overflow, 4 reuse the slot undeclared |
 | Pill / state mark in heading | 77 / 78 | — | 1 / 1 | 1 overflow |
-| `@image` / `@video` | 40 / 40 | — | 4 / 4 | 36 / 38 overflow (honest capacity, flagged) |
+| `@image` / `@video` | 40 / 40 | — | 4 / 4 | 38 / 38 overflow (honest capacity, flagged) |
 | Speaker notes | 76 | — | **4** | — |
 | `_focus` | 62 | — | 18 tag nothing | — |
 | `bleed` | 72 | — | 4 | 4 overflow |
