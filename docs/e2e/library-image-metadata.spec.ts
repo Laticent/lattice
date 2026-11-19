@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, livePreview, setEditorContent, shareExport, test, toastText } from './studio-fixture';
+import { CHROME, expect, gotoStudio, livePreview, setEditorContent, shareExport, test } from './studio-fixture';
 
 // The Library's photo detail dialog, driven on the real Studio: open a card, edit description, credit,
 // date and name, and prove the record, the reopened dialog and the fit of the dialog at 1440 / 820 / 390.
@@ -188,11 +188,14 @@ test('@smoke a deck that writes the OLD name still paints after a rename, and a 
 	// A new upload named like the old name is renamed, not refused: the old name is held.
 	await addPhoto(page, 'Probe Old.png');
 	await expect(page.locator('[data-media-card="probe-old-2"]')).toBeVisible();
-	// Read the toaster, not the text node: a strict getByText found TWO toasts holding this sentence in CI (nightly run
-	// 44105740693, gecko) while the screenshot showed one, so one was on its way out. lib/notify.ts can hold a closing pill
-	// and a fresh copy of its message for a cross-fade (its trap 3); a local probe saw one at a time in 20 of 20 runs. What
-	// this step proves is that the person is told, which the toaster's text says however many copies are fading.
-	await expect(toastText(page)).toContainText(/“probe-old” was taken/);
+	// Read the LIVE toast, not every text node: a strict getByText found TWO toasts holding this sentence in CI (nightly run
+	// 44105740693, gecko) while the screenshot showed one. lib/notify.ts re-raises a message that landed on a closing pill
+	// (its trap 3), so for a moment the closing copy (`data-removed="true"`, fading out) and the fresh one are both in the
+	// DOM. Leaving out the closing copy keeps the check to the pill the person can read, so it cannot pass on a copy that
+	// is already on its way out, and exactly one live copy means a doubled notice would still fail.
+	const renamedNotice = page.locator('[data-sonner-toast]:not([data-removed="true"])', { hasText: /“probe-old” was taken/ });
+	await expect(renamedNotice).toHaveCount(1);
+	await expect(renamedNotice).toBeVisible();
 });
 
 test('@smoke a photo\'s description is its alt text: in the preview, live when edited, never over an author\'s own, and in the exported page @crosswidth @webkit-tablet @gecko', async ({ page }) => {
