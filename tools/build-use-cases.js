@@ -18,8 +18,6 @@
  *
  * Usage: node tools/build-use-cases.js [--check]   (--check: fail if the generated file is stale)
  */
-'use strict';
-
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -59,6 +57,11 @@ function readManifests() {
 	return out.sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 
+/** What the chat host can give a use case (manifest `requires`); a need outside this is never offered. */
+const CHAT_CAPS = ['render', 'images', 'library'];
+
+const isList = (name) => CHAT_VARS[name].endsWith('[]');
+
 const varRef = (name, where) => {
 	if (!Object.hasOwn(CHAT_VARS, name)) throw new Error(`${where}: unknown placeholder "${name}" (known: ${Object.keys(CHAT_VARS).join(', ')})`);
 	return `v.${name}`;
@@ -66,6 +69,8 @@ const varRef = (name, where) => {
 
 /** A string as TypeScript: a plain literal, or a template literal when it holds placeholders. */
 function emitString(s, where) {
+	// A template literal turns CR and CRLF into LF, so a placeholder would change bytes no one wrote.
+	if (s.includes('\r')) throw new Error(`${where}: a carriage return in ${JSON.stringify(s.slice(0, 60))}; manifests use LF only`);
 	const whole = /^\{\{=([A-Za-z_]\w*)\}\}$/.exec(s);
 	if (whole) return varRef(whole[1], where);
 	if (!s.includes('{{')) return JSON.stringify(s);
@@ -73,7 +78,10 @@ function emitString(s, where) {
 	let at = 0;
 	for (const m of s.matchAll(/\{\{([A-Za-z_]\w*)(\|join)?\}\}/g)) {
 		out += s.slice(at, m.index).replace(/[\\`]/g, '\\$&').replace(/\$\{/g, '\\${');
-		out += `\${${varRef(m[1], where)}${m[2] ? ".join(', ')" : ''}}`;
+		const ref = varRef(m[1], where);
+		// A list as text is `{{name|join}}`: bare, a template literal would print it as "a,b".
+		if (isList(m[1]) !== !!m[2]) throw new Error(`${where}: "{{${m[1]}${m[2] || ''}}}" — ${isList(m[1]) ? 'a list inside text needs |join' : '|join is only for a list'}`);
+		out += `\${${ref}${m[2] ? ".join(', ')" : ''}}`;
 		at = m.index + m[0].length;
 	}
 	out += s.slice(at).replace(/[\\`]/g, '\\$&').replace(/\$\{/g, '\\${');
@@ -88,6 +96,7 @@ function emit(value, where) {
 		return `[${value
 			.map((x, i) => {
 				const spread = typeof x === 'string' && /^\{\{\.\.\.([A-Za-z_]\w*)\}\}$/.exec(x);
+				if (spread && !isList(spread[1])) throw new Error(`${where}[${i}]: "{{...${spread[1]}}}" spreads a value that is not a list`);
 				return spread ? `...${varRef(spread[1], where)}` : emit(x, `${where}[${i}]`);
 			})
 			.join(', ')}]`;
@@ -105,6 +114,8 @@ function generate() {
 	for (const m of chat) {
 		const p = m.chat?.position;
 		if (!Number.isInteger(p)) throw new Error(`${m.id}: a chat-hosted use case needs an integer chat.position`);
+		const cannot = m.requires.filter((r) => !CHAT_CAPS.includes(r));
+		if (cannot.length) throw new Error(`${m.id}: the chat cannot provide ${cannot.join(', ')}, so it would never be offered there`);
 		if (positions.has(p)) throw new Error(`${m.id}: chat.position ${p} is also ${positions.get(p)}'s`);
 		positions.set(p, m.id);
 	}
@@ -189,5 +200,21 @@ function main() {
 	console.log(check ? 'use-cases OK — the chat tool files match the manifests.' : `[build-use-cases] ${path.relative(ROOT, OUT)}, ${path.relative(ROOT, OUT_TIERS)}`);
 }
 
+/**
+ * A manifest value with every whole-value and spread placeholder replaced by a sample of its type
+ * (1 for a number, ["x"] for a list), so the result can be compiled as JSON Schema. Placeholders inside
+ * text stay as they are: they are only text.
+ */
+function sampleValue(value) {
+	if (typeof value === 'string') {
+		const whole = /^\{\{=([A-Za-z_]\w*)\}\}$/.exec(value);
+		if (whole && Object.hasOwn(CHAT_VARS, whole[1])) return isList(whole[1]) ? ['x'] : 1;
+		return value;
+	}
+	if (Array.isArray(value)) return value.map((x) => (typeof x === 'string' && /^\{\{\.\.\.[A-Za-z_]\w*\}\}$/.test(x) ? 'x' : sampleValue(x)));
+	if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, x]) => [k, sampleValue(x)]));
+	return value;
+}
+
 if (require.main === module) main();
-module.exports = { generate, readManifests, emitString, CHAT_VARS };
+module.exports = { generate, readManifests, emitString, sampleValue, CHAT_VARS, CHAT_CAPS };

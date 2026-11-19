@@ -196,9 +196,9 @@ or a browser that evicts storage loses them. "Backup & restore" downloads
 `lattice-workspace.zip`: the Studio's store, a readable `decks/<slug>.md` for
 every deck, the Library, and reference docs. It leaves out the OpenRouter key.
 
-**What the chat can do** (`AGENT_TOOLS` in
-`docs/src/components/studio/architect-agent.ts`; which tools each mode allows is
-`TOOL_TIERS` in `chat-actions.ts` — Talk gets only the reads):
+**What the chat can do** (one manifest per tool in `lib/use-cases/<id>/`, compiled
+into `docs/src/components/studio/chat-tools.generated.ts`; which tools each mode
+allows is each manifest's `tier` — Talk gets only the reads):
 
 | Tool | Does |
 |---|---|

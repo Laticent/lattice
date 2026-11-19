@@ -1058,6 +1058,8 @@ export function createToolbox(opts: {
 
 	return {
 		run,
+		/** The tool ids this toolbox can run, for the test that holds them to the chat's manifests. */
+		handledTools: Object.keys(handlers) as readonly string[],
 		activity,
 		get draft() {
 			return draft;
