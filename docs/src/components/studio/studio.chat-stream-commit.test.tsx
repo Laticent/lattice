@@ -565,3 +565,45 @@ describe('Architect chat — what the author did while a reply streamed in survi
 		expect(screen.getByRole('button', { name: 'Bring back: Slide 1' })).toBeTruthy();
 	});
 });
+
+// ANSWER THE WAITING MESSAGE AFTER CONNECTING (chat-resume.ts). Seen by the owner on an iPhone: "hi" with no model
+// connected sent them to connect one; after signing in nothing answered the message, so they asked again and the
+// thread read "hi", "hi". Now the waiting message is answered once a model is ready, and only once.
+describe('Architect chat — a message sent before a model is connected is answered once one is', () => {
+	beforeEach(() => sessionStorage.clear());
+
+	it('answers the waiting message when the model becomes ready, once, without a second bubble', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		chatSpy.mockResolvedValueOnce({ status: 'offline' } as never);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} onConnect={onConnect} />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(onConnect, 'the author was not sent to connect a model').toHaveBeenCalled();
+		expect(chatSpy).toHaveBeenCalledTimes(1);
+		// The author connects (a key in Workspace, or the sign-in's return): the model is ready.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady onConnect={onConnect} />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy, 'the waiting message was not answered').toHaveBeenCalledTimes(2);
+		const turns = chatSpy.mock.calls[1][0] as { role: string; content: string }[];
+		expect(turns.filter((t) => t.role === 'user').map((t) => t.content)).toEqual(['hi']);
+		expect(loadChat('deck-1').filter((m) => m.role === 'user')).toHaveLength(1);
+		// Answered once: another render does not ask again.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady onConnect={onConnect} />);
+		await flushFrames();
+		expect(chatSpy).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not answer behind the author when the thread has moved on', async () => {
+		sessionStorage.setItem('lattice-chat-answer-after-connect', 'deck-1');
+		saveChat('deck-1', [
+			{ role: 'user', content: 'hi' },
+			{ role: 'assistant', content: 'Hello.' },
+		]);
+		render(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await flushFrames();
+		expect(chatSpy).not.toHaveBeenCalled();
+		expect(sessionStorage.getItem('lattice-chat-answer-after-connect'), 'a stale mark stayed armed').toBeNull();
+	});
+});

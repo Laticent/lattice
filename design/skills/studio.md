@@ -167,7 +167,8 @@ opens the presenter's second window; Esc leaves.
    Apply; each slide in the card has its own Apply, Discard, Preview and,
    once applied, Undo, and Apply all sits at the card's bottom right) and **Auto** (for this visit only: a clean edit applies at once,
    undo from History; an edit that deletes slides or rewrites most of the deck
-   still waits for Apply). From Review, one press of the mode button reaches
+   still waits for Apply). A message sent before a model is connected waits, and the chat
+   answers it once one is. From Review, one press of the mode button reaches
    Talk and two reach Auto.
 5. **Change the look**: the Deck panel, or ask the chat. See `restyle-deck.md`.
 6. **Present**: ⌘K → "Present".

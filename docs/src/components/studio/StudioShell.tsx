@@ -85,6 +85,7 @@ import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import type { ChatApplyOpts, ChatDraft } from './change-card-types';
+import { hasAnswerAfterConnect } from './chat-resume';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
 import { ActivityRail, type AssistantPaneId, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_FIT, EDIT_FIT_LEVELS, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, isAssistantPane, isSettingsPane, PANE_NAME, PANE_RAIL_LABEL, PostureDial, type SettingsPaneId, SlideCount, SlideNavigator, type StudioPaneId } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
@@ -4178,9 +4179,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	React.useEffect(() => () => { for (const t of Object.values(fixTimersRef.current)) clearInterval(t); }, []);
 	// On return from the OpenRouter OAuth redirect (?code=), finish the exchange.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: once, on load, which is when the sign-in returns; setActiveAssistant is stable.
 	React.useEffect(() => {
 		resumePendingAuth().then((r) => {
-			if (r?.status === 'connected') notify('OpenRouter connected — the Architect can now edit your deck.');
+			if (r?.status === 'connected') {
+				notify('OpenRouter connected — the Architect can now edit your deck.');
+				// A message was waiting for this connection: reopen the chat, which answers it (chat-resume.ts).
+				if (hasAnswerAfterConnect(deckIdRef.current)) setActiveAssistant('chat');
+			}
 			// A failed return used to say nothing, so Connect looked like it did nothing.
 			else if (r?.status === 'failed')
 				notifyAction(r.note, {

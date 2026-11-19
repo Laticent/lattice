@@ -23,3 +23,7 @@
   ("27% used", "268K of 1M tokens"), and This session shows what you have spent (with a bar toward your cap
   when you set one). A chevron opens each card's breakdown in place. Compact conversation keeps its button
   in view.
+- **Fixed: a message sent before a model is connected is now answered once one is.** Asking the chat with no
+  model sends you to connect one; your message used to sit unanswered after you came back (OpenRouter's sign-in
+  reloads the page), so you had to ask again. Now the chat answers it as soon as a model is ready, and the Studio
+  reopens the chat after a successful OpenRouter sign-in.

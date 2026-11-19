@@ -27,6 +27,7 @@ import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { photoNote, videoNote, videoRefusal } from './chat-photo-parts';
 import { addChatPhotos, addChatVideo, discardChatVideo, MAX_CHAT_PHOTOS, photoDataUrl, videoDataUrl } from './chat-photos';
+import { markAnswerAfterConnect, takeAnswerAfterConnect } from './chat-resume';
 import { THINKING } from './chat-status';
 import { chatLoaded, hydrateChat } from './chat-store';
 import { holdWarmUps } from './first-slide';
@@ -606,6 +607,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		// The mode this turn was SENT in: switching mid-turn changes the next turn, not this one.
 		const sendMode = mode;
 		const sendSource = source;
+		const sendAiReady = aiReady;
 		// The reply joins the thread as it is NOW, not as it was at Send: Apply and Discard stay usable while a
 		// reply streams in (Send clears Undo compaction, and compaction waits), and each saves at once, so the store
 		// holds what the author did meanwhile.
@@ -689,6 +691,10 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, onReasoning, signal: controller.signal, mode: sendMode, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', offlineNotice(out.readiness));
+				// No model was connected when the author asked: their message waits, and is answered as soon as one is
+				// (chat-resume.ts). A connected model that is only warming up is not marked: its notice says so, and
+				// answering later on its own would spend a turn the author did not ask for again.
+				if (!sendAiReady) markAnswerAfterConnect(sendDeckId);
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
 				// to come back; popping the Workspace sheet happens NOW, over whatever they are
@@ -820,6 +826,24 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		if (deckIdRef.current === sendDeckId) setMessages(history);
 		void run(history, sendDeckId);
 	};
+
+	// ANSWER THE WAITING MESSAGE once a model is ready (chat-resume.ts): after a key typed in Workspace, or after the
+	// OpenRouter sign-in's reload. Only when this deck's thread still ends on that unanswered author message, so a
+	// thread the author has since moved on from is never answered behind their back. And only at a MOMENT a model
+	// becomes available (the chat opening, or `aiReady` turning true), once: a model the Studio calls ready can still
+	// answer "offline" (warming up), and retrying whenever the turn ended would loop on it.
+	const resumeArmedRef = React.useRef(true);
+	const wasAiReadyRef = React.useRef(aiReady);
+	if (aiReady && !wasAiReadyRef.current) resumeArmedRef.current = true;
+	wasAiReadyRef.current = aiReady;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a model becoming ready (or the thread loading) is the trigger; `run` reads the rest when it runs.
+	React.useEffect(() => {
+		if (!ready || !aiReady || busy || compacting || !resumeArmedRef.current) return;
+		resumeArmedRef.current = false;
+		if (!takeAnswerAfterConnect(deckId)) return;
+		if (messages.at(-1)?.role !== 'user') return;
+		void run(messages, deckId);
+	}, [ready, aiReady, busy, compacting, deckId]);
 
 	/**
 	 * Can this conversation take photos and clips right now? Cloud tier only (the on-device tiers cannot see), and a model
