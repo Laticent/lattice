@@ -202,6 +202,20 @@ const HOUSE_DISPLAY: Record<string, string> = { saas: 'SaaS', capex: 'CapEx', op
 // Entries in the tables that are not terms an author defines: quarters, durations, months, glyphs.
 const NOT_A_TERM = /^(?:q[1-4]|mos?|§§|Feb|Apr|Jul|Aug|Sept?|Oct|Nov|Dec)$/;
 
+/**
+ * Every always-on built-in term as WRITTEN on a slide → what the voice SAYS (BASE + BASE_CASED, the
+ * same rows `houseTerms` lists). normalize.ts builds a terms.ts index from it, so a built-in term gets
+ * the same endings and compounds an author's `terms:` entry gets (`APIs`, `CEO’s`, `KPI-driven`) from
+ * the ONE matcher, rather than a second copy of its rules. Exact whole-token matches still go through
+ * `lookupLexicon`, which is also case-insensitive for BASE; this map only adds what that lookup cannot.
+ */
+export function houseSpokenMap(): ReadonlyMap<string, string> {
+  const out = new Map<string, string>();
+  for (const [key, spoken] of Object.entries(BASE)) if (!NOT_A_TERM.test(key)) out.set(HOUSE_DISPLAY[key] ?? key.toUpperCase(), spoken);
+  for (const [key, spoken] of Object.entries(BASE_CASED)) if (!NOT_A_TERM.test(key)) out.set(key, spoken);
+  return out;
+}
+
 /** One built-in term: how it is written, what it stands for, and how it is said when that differs. */
 export interface HouseTerm {
   readonly term: string;

@@ -11,7 +11,7 @@
 // dependency-free English expansion covering the boardroom cases (money, percent,
 // plain numbers, a small abbreviation set).
 
-import { CONTEXT_MONTHS, type LexDomain, lookupLexicon } from './lexicon.js';
+import { CONTEXT_MONTHS, houseSpokenMap, type LexDomain, lookupLexicon } from './lexicon.js';
 import { splitWords } from './segment.js';
 import { type LexiconMap, resolveSymbols, SEPARATOR_GLYPHS } from './symbols.js';
 import { compoundParts, lookupTerm, type PhraseSlot, phraseCover, type TermHit, type TermIndex, type TermMap, termIndex } from './terms.js';
@@ -272,11 +272,29 @@ function spokenLexiconValue(value: string, opts: SpokenOpts): string {
  *  ending the written token carried (`CROs` → "chief revenue officers"). A silenced term stays silent. */
 function spokenTerm(hit: TermHit, opts: SpokenOpts): string {
   const spoken = spokenLexiconValue(hit.value, opts);
-  return spoken ? spoken + hit.ending : '';
+  return spoken ? withEnding(spoken, hit.ending) : '';
+}
+
+/**
+ * A spoken term plus the ending its written token carried, without doubling a plural the spoken form
+ * already has. `OKR` is "objectives and key results", so `OKRs` must not read "…resultss". One fixed
+ * rule, not a stemmer: a plain `s` after a word ending in `ss` is `es` ("businesses"), after any other
+ * `s` it is nothing, and otherwise it is added as written. Possessives are added as written.
+ */
+export function withEnding(spoken: string, ending: string): string {
+  if (ending !== 's') return spoken + ending;
+  if (/ss$/i.test(spoken)) return `${spoken}es`;
+  return /s$/i.test(spoken) ? spoken : spoken + ending;
 }
 
 /** The caller's registries as one index (terms.ts), or null when the deck declares none. */
 const indexOf = (opts: SpokenOpts): TermIndex | null => termIndex(opts);
+
+/** The BUILT-IN terms as a terms.ts index, built once: the endings and compounds of a built-in term
+ *  (`APIs`, `CEO’s`, `KPI-driven`) match by the same rules as an author's. English decks only, like
+ *  the lexicon it is built from. */
+let houseIndex: TermIndex | null | undefined;
+const houseIdx = (): TermIndex | null => (houseIndex === undefined ? (houseIndex = termIndex({ terms: houseSpokenMap() })) : houseIndex);
 
 export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   const tok = String(display ?? '').trim();
@@ -348,6 +366,12 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
     const spoken = spokenTerm(coreHit, opts);
     return spoken ? spoken + spokenPunct : '';
   }
+  // A BUILT-IN term with an ending (`APIs` → "application programming interfaces", `CEO’s`). The
+  // whole-token case already matched through `lookupLexicon` above; only the ending is new here.
+  if (english) {
+    const houseHit = lookupTerm(houseIdx(), core);
+    if (houseHit?.ending) return withEnding(spokenLexiconValue(houseHit.value, opts), houseHit.ending) + spokenPunct;
+  }
 
   // BRACKETING punctuation is VISUAL — the display word keeps it, the voice does not say it.
   // Peel it and re-run the whole pipeline on the value inside, so `($4.2M)` normalizes exactly
@@ -371,7 +395,7 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // each part on its own. A hyphen becomes a space; a slash stays, because it means "or", "per" or "to"
   // depending on the deck (2026-09-21-token-passthrough-coaching.md). A compound with no term in it is
   // untouched, so `under-13` and `24/7` read exactly as before.
-  const compound = compoundParts(terms, core);
+  const compound = compoundParts(terms, core) ?? (english ? compoundParts(houseIdx(), core) : null);
   if (compound) {
     let out = toSpoken(compound.parts[0], opts);
     compound.seps.forEach((sep, n) => {
@@ -783,7 +807,7 @@ export function spokenAt(words: readonly string[], i: number, opts: SpokenOpts =
   if (slot) {
     if (slot.value === null) return '';
     const said = spokenLexiconValue(slot.value, opts);
-    return said ? said + slot.ending + slot.punct.replace(/[:;]/g, ',') : ''; // a silenced phrase drops its punctuation too
+    return said ? withEnding(said, slot.ending) + slot.punct.replace(/[:;]/g, ',') : ''; // a silenced phrase drops its punctuation too
   }
   const spoken = contextualMonth(words[i], words[i - 1], words[i + 1], opts)
     ?? afterNumber(words[i], words[i - 1], words[i - 2], opts)

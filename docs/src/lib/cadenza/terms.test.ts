@@ -113,3 +113,40 @@ describe('term registry: precedence and aliases', () => {
 		expect(unmatchedAcronyms('CRO, EBITDA and the QZX')).toEqual(['CRO', 'QZX']); // EBITDA is built in
 	});
 });
+
+// The BUILT-IN terms (lexicon.ts) take the same endings and compounds as an author's, through the same
+// matcher. Before, only the exact token matched: `API` expanded and `APIs`, `CEO’s`, `KPI-driven` read raw.
+describe('built-in terms: endings and compounds', () => {
+	const plain = (text: string) => toSpokenText(text);
+	it('a plural or possessive of a built-in term says the term', () => {
+		expect(plain('Two APIs ship.')).toBe('Two application programming interfaces ship.');
+		expect(plain('the CEO’s plan')).toBe("the chief executive officer's plan");
+		expect(plain('EMEA’s teams')).toBe("E M E A's teams");
+	});
+	it('a hyphen compound with a built-in term says each part', () => {
+		expect(plain('a KPI-driven plan')).toBe('a key performance indicator driven plan');
+		expect(plain('API-first.')).toBe('application programming interface first.');
+	});
+	it('leaves a compound with no term, a range and a date as they read', () => {
+		expect(plain('under-13 users, 24/7, FY24-FY26, Q1-Q2')).toBe('under-13 users, 24/7, FY24-FY26, Q1-Q2');
+	});
+	it('an author entry still wins over the built-in one', () => {
+		expect(toSpokenText('Two APIs', { terms: new Map([['API', 'A P I']]) })).toBe('Two A P Is');
+	});
+	it('a non-English deck gets no built-in ending either', () => {
+		expect(toSpokenText('Zwei APIs', { lang: 'de' })).toBe('Zwei APIs');
+	});
+});
+
+// A plural ending never doubles a plural the spoken form already has (`withEnding`).
+describe('term endings: one plural, never two', () => {
+	it('adds nothing after a spoken form that ends in s', () => {
+		expect(toSpokenText('Set OKRs now.')).toBe('Set objectives and key results now.');
+		expect(toSpokenText('FAQs')).toBe('frequently asked questions');
+		expect(toSpokenText('CROs', { terms: new Map([['CRO', 'chief revenue officers']]) })).toBe('chief revenue officers');
+	});
+	it('adds es after ss, and s otherwise', () => {
+		expect(toSpokenText('B2Bs win')).toBe('business to businesses win');
+		expect(say('CROs met')).toBe('chief revenue officers met');
+	});
+});
