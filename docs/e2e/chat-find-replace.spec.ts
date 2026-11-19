@@ -1,3 +1,4 @@
+import { withCaseOf } from '../src/lib/deck-find-pattern';
 import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
 
 // FIND AND REPLACE FROM THE CHAT, ON THE REAL SURFACE (#3208 items 6 and 25).
@@ -77,3 +78,55 @@ test(`the chat finds a title and replaces it on one card the author applies at $
 	await expect.poll(() => page.evaluate((t) => Object.values(localStorage).some((v) => typeof v === 'string' && v.includes(`${t} today`)), title)).toBe(true);
 });
 }
+
+// PRESERVE-CASE AND A PATTERN, ON THE REAL SURFACE (#3208 item 6). A pattern runs only in a module Worker
+// (deck-find-pattern.ts); where none starts, replace_text refuses ("not available"), and a Worker that never
+// answers is ended ("was stopped"). So "Replaced 1 match" in the tool result is the Worker answering in the page.
+test('the chat replaces by pattern with preserve_case, through the page’s Worker', async ({ page }) => {
+	test.setTimeout(90_000);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.addInitScript(() => {
+		try {
+			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+			localStorage.setItem('lattice-db-or-model', 'test/model');
+			localStorage.setItem('lattice-db-dedup', 'off');
+		} catch {
+			/* storage unavailable: the spec fails loudly on the missing control */
+		}
+	});
+	const requests: Msg[][] = [];
+	let title = '';
+	await page.route('https://openrouter.ai/**', async (route) => {
+		const url = route.request().url();
+		if (!url.includes('/chat/completions')) {
+			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(url.includes('/models') ? { data: MODELS } : { data: [] }) });
+			return;
+		}
+		const body = JSON.parse(route.request().postData() || '{}') as { messages: Msg[] };
+		requests.push(body.messages);
+		let frames: unknown[];
+		if (requests.length === 1) {
+			const brief = body.messages.map((m) => text(m.content)).join('\n');
+			title = JSON.parse(/\[1\] "[^"\n]*" — ("(?:[^"\\]|\\.)+")/.exec(brief)?.[1] ?? '""');
+			// The title as a pattern, captured as group 1, and `$1` in the replacement.
+			const pattern = `(${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`;
+			frames = toolCall('replace_text', { find: pattern, replace: '$1 today', regex: true, preserve_case: true, slides: [1], summary: 'Added "today" to the title.' });
+		} else frames = say('Added "today" to the title.');
+		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
+	});
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('add "today" to the first title');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	const apply = page.getByRole('button', { name: /^Apply/ });
+	await expect(apply).toBeVisible({ timeout: 30_000 });
+	expect(title).not.toBe('');
+	// A replace that settles its turn ends on its summary, so the result may not reach a second request; the card
+	// is the proof it ran. When a second request did go out, its tool message must be the Worker's answer.
+	const result = text(requests[1]?.find((m) => m.role === 'tool')?.content);
+	if (result) expect(result).toContain('Replaced 1 match in 1 slide');
+	await page.screenshot({ path: test.info().outputPath('chat-pattern-replace-card.png') });
+	await apply.click();
+	const expected = withCaseOf(title, `${title} today`);
+	await expect.poll(() => page.evaluate((t) => Object.values(localStorage).some((v) => typeof v === 'string' && v.includes(t)), expected)).toBe(true);
+});

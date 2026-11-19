@@ -5,6 +5,7 @@ import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps, loadArchitectAuthoring } from './architect';
 import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
 import { checkerNote, finalizeAgent, init as initChatAgent } from './chat-agent';
+import { type PatternJob, type PatternRunner, runPattern } from '../../lib/deck-find-pattern';
 import { FRONT_MATTER_KEYS } from './editor-complete';
 
 beforeAll(async () => {
@@ -318,6 +319,54 @@ describe('the toolbox', () => {
 		const out2 = await toolbox({ source: OCT }).run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct 10', slides: [2, 9], summary: 's' }));
 		expect(out2).toContain('slide 9 (the draft has 3)');
 		expect(await toolbox({ source: OCT }).run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct. Tenth', case_sensitive: true, summary: 's' }))).toContain('nothing would change');
+	});
+
+	// PRESERVE-CASE AND PATTERNS (#3208 item 6; owner's call 2026-11-19). The Worker is stood in for by
+	// `runPattern` in this thread: it is the function the Worker runs, so the toolbox sees what it would see.
+	const inThread: PatternRunner = async (job) => runPattern(job);
+	const EYEBROWS = ['---', 'theme: indaco', '---', '', '<!-- _class: content -->', '`OCT LAUNCH`', '', '## Oct launch', '', 'We shipped in oct. See [Oct](https://x.test/oct).'].join('\n');
+
+	it('replace_text with preserve_case writes each match in its own case, and only when asked', async () => {
+		const tb = toolbox({ source: EYEBROWS });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'oct', replace: 'October', whole_word: true, preserve_case: true, summary: 's' }));
+		expect(out).toContain('Replaced 4 matches in 1 slide');
+		expect(tb.draft).toContain('`OCTOBER LAUNCH`');
+		expect(tb.draft).toContain('## October launch');
+		expect(tb.draft).toContain('We shipped in october. See [October](https://x.test/oct).');
+		const plain = toolbox({ source: EYEBROWS });
+		await plain.run('replace_text', JSON.stringify({ find: 'oct', replace: 'October', whole_word: true, summary: 's' }));
+		expect(plain.draft).toContain('`October LAUNCH`');
+	});
+
+	it('find_text and replace_text run a pattern through the runner, never on the main thread', async () => {
+		const jobs: PatternJob[] = [];
+		const runner: PatternRunner = async (job) => {
+			jobs.push(job);
+			return runPattern(job);
+		};
+		const tb = toolbox({ source: OCT, patterns: runner });
+		const found = await tb.run('find_text', JSON.stringify({ text: 'Oct\\. (Tenth|10)', regex: true }));
+		expect(found).toContain('Pattern "Oct\\\\. (Tenth|10)": 4 matches in 3 slides, and 1 front-matter line.');
+		expect(jobs).toHaveLength(1);
+		expect(jobs[0].source).toBe('Oct\\. (Tenth|10)');
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct\\. (Tenth)', replace: 'October $1', regex: true, summary: 's' }));
+		expect(out).toContain('Replaced 3 matches in 2 slides');
+		expect(tb.draft).toContain('<!-- say: October Tenth was the day. -->');
+		expect(tb.draft).toContain('(https://x.test/oct.-tenth)');
+		expect(tb.draft).toContain('title: Oct. Tenth review');
+		expect(jobs).toHaveLength(2);
+	});
+
+	it('a pattern that does not compile, runs too long, or has no Worker is refused, and the deck is untouched', async () => {
+		const bad = toolbox({ source: OCT, patterns: inThread });
+		expect(await bad.run('replace_text', JSON.stringify({ find: '(Oct', replace: 'x', regex: true, summary: 's' }))).toContain('The pattern does not compile');
+		const slow = toolbox({ source: OCT, patterns: async () => ({ ok: false, reason: 'timeout', message: 'no answer' }) });
+		expect(await slow.run('replace_text', JSON.stringify({ find: '(a+)+$', replace: 'x', regex: true, summary: 's' }))).toContain('was stopped');
+		expect(slow.draft).toBe(OCT);
+		const none = toolbox({ source: OCT, patterns: null });
+		expect(await none.run('find_text', JSON.stringify({ text: 'Oct', regex: true }))).toContain('Pattern search is not available');
+		// A literal find never needs the runner.
+		expect(await none.run('find_text', JSON.stringify({ text: 'Oct. Tenth' }))).toContain('"Oct. Tenth": 4 matches');
 	});
 
 	// The checker on #3208: with twin slides the LCS anchored on the wrong one, and a word change read on the card
