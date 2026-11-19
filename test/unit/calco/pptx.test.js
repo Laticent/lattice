@@ -221,8 +221,11 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.match(master, /name="Header"[\s\S]*?<a:t>Deck<\/a:t>/, 'the dark header the cream slides share is drawn once, on the master');
     const titleStyle = master.match(/<p:titleStyle>[\s\S]*?<\/p:titleStyle>/)[0];
     assert.match(titleStyle, /sz="3600" b="1"/, '48px is 36pt, bold');
-    assert.match(titleStyle, /<a:srgbClr val="2C3E8F"\/>[\s\S]*<a:latin typeface="\+mj-lt"\/>/);
-    assert.match(master.match(/<p:bodyStyle>[\s\S]*?<\/p:bodyStyle>/)[0], /sz="1800"[^>]*>[\s\S]*?val="1B2A4A"[\s\S]*?\+mn-lt/);
+    // The master's styles take the theme's text colors, so a layout's color map decides the ink of anything typed on it;
+    // the theme's dk2 is the title ink, so a light layout still types it in that ink.
+    assert.match(titleStyle, /<a:schemeClr val="tx2"\/>[\s\S]*<a:latin typeface="\+mj-lt"\/>/);
+    assert.match(theme, /<a:dk2><a:srgbClr val="2C3E8F"\/><\/a:dk2>/, 'dark 2 is the title ink');
+    assert.match(master.match(/<p:bodyStyle>[\s\S]*?<\/p:bodyStyle>/)[0], /sz="1800"[^>]*>[\s\S]*?<a:schemeClr val="tx1"\/>[\s\S]*?\+mn-lt/, 'body text in the theme\'s text 1, the body ink');
     const layouts = await Promise.all([1, 2].map((i) => text(`ppt/slideLayouts/slideLayout${i}.xml`)));
     assert.match(layouts[0], /<p:sldLayout [^>]*type="title"[^>]*showMasterSp="0"[^>]*><p:cSld name="Title">/);
     assert.match(layouts[0], /<p:ph type="subTitle" idx="1"/);
@@ -245,17 +248,19 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     for (const attr of ['b="0"', 'i="0"', 'cap="none"', 'spc="0"']) assert.ok(rPr.includes(attr), `${attr} in ${rPr}`);
   });
 
-  test('a dark deck with no host palette puts its light ink in dk1 and its dark ground in lt1, as the color map reads them', async () => {
+  test('a dark deck is written the Office way: the dark pair in dk1/dk2, a color map that reads text from the light pair, a dark master', async () => {
     const ttl = frame([[{ text: 'Title', style: style({ family: 'Outfit', weight: 700, size: 48, color: '#f0f0f0' }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
     const txt = frame([[{ text: 'Body text on the dark ground', style: style({ family: 'Outfit', size: 24, color: '#d0d4d8' }) }]], { x: 64, y: 200, w: 900, h: 30 });
     const d = { width: 1280, height: 720, backgrounds: [{ color: '#101418' }], slides: [0, 1].map(() => ({ image: ONE_PX_PNG, background: 0, frames: [ttl, txt] })) };
     const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
     const theme = await zip.file('ppt/theme/theme1.xml').async('string');
-    assert.match(theme, /<a:dk1><a:srgbClr val="D0D4D8"\/><\/a:dk1>/, 'text 1 is the body ink, light as it is');
-    assert.match(theme, /<a:lt1><a:srgbClr val="101418"\/><\/a:lt1>/, 'background 1 is the ground, dark as it is');
-    assert.match(theme, /<a:dk2><a:srgbClr val="F0F0F0"\/><\/a:dk2>/, 'text 2 is the title ink');
+    // Office's built-in shape, table and chart styles assume dk is dark (red team and inversion, 2026-11-19).
+    assert.match(theme, /<a:dk1><a:srgbClr val="101418"\/><\/a:dk1>/, 'dark 1 is the ground');
+    assert.match(theme, /<a:lt1><a:srgbClr val="D0D4D8"\/><\/a:lt1>/, 'light 1 is the body ink');
+    assert.match(theme, /<a:lt2><a:srgbClr val="F0F0F0"\/><\/a:lt2>/, 'light 2 is the title ink');
     const master = await zip.file('ppt/slideMasters/slideMaster1.xml').async('string');
-    assert.match(master, /<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"\/>/, 'the master stays white, so a slide with no ground of its own is not repainted dark');
+    assert.match(master, /<p:clrMap bg1="dk1" tx1="lt1" bg2="dk2" tx2="lt2"/, 'text reads from the light pair');
+    assert.match(master, /<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="101418"\/>/, 'the master is the deck\'s dark ground, so Slide Master view reads');
   });
 
   test('a title look with no subtitle frame styles its subtitle placeholder from the lead line, else the title ink, never empty', async () => {
@@ -333,6 +338,40 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.doesNotMatch(topicL, /<a:lstStyle\/>/, 'no slot is left to inherit the master\'s light-slide ink');
     for (const n of [2, 3]) assert.match(await zip.file(`ppt/slides/slide${n}.xml`).async('string'), /name="Header \d"/, 'each topic slide keeps its own header text');
     assert.match(named('Divider'), /<p:sldLayout [^>]*type="secHead"/, 'a divider is a section header');
+  });
+
+  test('every slot reads on its layout: a dark layout maps text to the light pair; a chip label is no body look; a layout with no title still gets a readable one', async () => {
+    // The red team, 2026-11-19: white body text on white (a tag chip taken as the body), dark titles on navy (no title
+    // frame, so an empty style), and a text box on a navy layout in the light look's dark ink.
+    const f = (text, over = {}, at = {}) => frame([[{ text, style: style({ family: 'Outfit', size: 22, ...over }) }]], { x: 64, y: 200, w: 600, h: 30, ...at });
+    const chip = f('TAG', { size: 11, weight: 700, color: '#ffffff', transform: 'uppercase' }, { y: 150, w: 60, h: 16 });
+    const d = {
+      width: 1280,
+      height: 720,
+      backgrounds: [{ color: '#ffffff' }, { color: '#001d33' }],
+      slides: [
+        // White content: its first plain frame is a chip's white label; the body text comes after it.
+        { image: ONE_PX_PNG, background: 0, look: 'content', frames: [f('Light', { size: 36, color: '#0a1628' }, { role: 'title', y: 80, h: 50 }), chip, f('Body line', { color: '#1e3a5f' })], shapes: [{ kind: 'box', x: 60, y: 146, w: 70, h: 24, radii: [4, 4, 4, 4], fill: { color: '#006fa8', alpha: 1 }, text: 1 }] },
+        { image: ONE_PX_PNG, background: 0, look: 'content', frames: [f('Again', { size: 36, color: '#0a1628' }, { role: 'title', y: 80, h: 50 }), f('More body', { color: '#1e3a5f' })] },
+        // Navy split slide with no title frame at all.
+        { image: ONE_PX_PNG, background: 1, look: 'split', frames: [f('Only a line', { color: '#e8eef5' })] },
+      ],
+    };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const layouts = await Promise.all([1, 2].map((i) => zip.file(`ppt/slideLayouts/slideLayout${i}.xml`).async('string')));
+    const light = layouts.find((x) => x.includes('name="Content"'));
+    const navy = layouts.find((x) => x.includes('name="Split"'));
+    const sp = (x, nm) => x.slice(x.indexOf(`name="${nm} Placeholder"`), x.indexOf('</p:sp>', x.indexOf(`name="${nm} Placeholder"`)));
+    assert.match(sp(light, 'Content'), /1E3A5F/, 'the body takes the body text, not the chip label');
+    assert.doesNotMatch(sp(light, 'Content'), /FFFFFF/);
+    assert.match(light, /<a:masterClrMapping\/>/, 'a light layout in a light deck keeps the master\'s map');
+    assert.match(navy, /<a:overrideClrMapping bg1="dk1" tx1="lt1"/, 'a navy layout in a light deck maps text to the light pair');
+    const t = sp(navy, 'Title');
+    assert.doesNotMatch(t, /<a:lstStyle\/>/, 'a layout with no title frame still styles its title');
+    const ink = t.match(/<a:defRPr[^>]*><a:solidFill><a:srgbClr val="(\w+)"/)[1];
+    assert.ok(['FFFFFF', 'E8EEF5'].includes(ink), `a title that reads on navy, got ${ink}`);
+    const theme = await zip.file('ppt/theme/theme1.xml').async('string');
+    assert.match(theme, /<a:lt1><a:srgbClr val="FFFFFF"\/><\/a:lt1>/, 'light 1, what a text box on the navy layout types in, is white');
   });
 
   test('a page number that is not the slide position stays text, so a split run keeps its printed number', async () => {

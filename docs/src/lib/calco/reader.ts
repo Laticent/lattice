@@ -53,8 +53,10 @@ export interface ReadResult {
 	kept?: Array<{ kind: string; x: number; y: number; w: number; h: number }>;
 	/** With `logo`: the slide's deck logo (`img.deck-logo`), left out of the pictures so the caller can shoot it alone. Absent when the slide shows none. */
 	logo?: { x: number; y: number; w: number; h: number; alt?: string };
-	/** The slide's look: Lattice's `data-frame` ("standard" reads as "content"), else the section's first class. */
+	/** The slide's look: Lattice's `data-frame` ("standard" reads as "content"); absent on a page that does not say. */
 	look?: string;
+	/** The slide's ground: the section's own background color, when it is opaque (`#rrggbb`). What a layout's new text must read on. */
+	ground?: string;
 	/** What lifted shapes only approximate, one entry per shape and kind: `stacked-shadow` (two outer shadows drawn as one) or `backdrop-blur` (a frosted fill drawn as its translucent color). */
 	approximated: string[];
 }
@@ -3135,9 +3137,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	}
 	putScrollBack();
 	if (!hidden) earlyHost.__calcoRestore = undefined;
+	// The look is the page's own word for the slide; a CSS class is not one (Marp's `invert`, `lead`), so a page without
+	// `data-frame` has none and the writers name its layouts as before.
 	const frameAttr = section.getAttribute('data-frame') || '';
-	const look = (frameAttr === 'standard' ? 'content' : frameAttr) || String(section.className || '').trim().split(/\s+/)[0] || undefined;
-	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(look ? { look } : {}), ...(logoFound ? { logo: logoFound } : {}), ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
+	const look = (frameAttr === 'standard' ? 'content' : frameAttr) || undefined;
+	const groundColor = parseColor(win.getComputedStyle(section).backgroundColor);
+	const ground = groundColor && groundColor.a >= 0.99 ? hex(groundColor) : undefined;
+	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(look ? { look } : {}), ...(ground ? { ground } : {}), ...(logoFound ? { logo: logoFound } : {}), ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */

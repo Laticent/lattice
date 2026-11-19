@@ -260,6 +260,11 @@ export interface Slide {
 	 * "closing"): slides of one look on one ground share a layout, named after it.
 	 */
 	look?: string;
+	/**
+	 * The slide's ground, `#rrggbb` (the section's own background color): what text added on its layout must read on.
+	 * It differs from the background picture's colors where the slide paints a panel of its own (a split slide).
+	 */
+	ground?: string;
 }
 
 /** A whole deck, ready to write. */

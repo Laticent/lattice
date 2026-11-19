@@ -151,6 +151,14 @@ describe('calco masters — planMasters', () => {
     assert.equal(lineText(plan.layouts[plan.layoutOf[0]].chrome.header), 'Deck');
   });
 
+  test('chrome one of the slide\'s own shapes overlaps stays on the slide: a layout is drawn under the slide\'s shapes', () => {
+    // seven-steps slide 15: a full-height panel over the header (red team, 2026-11-19).
+    const panel = { kind: 'box', x: 0, y: 0, w: 640, h: 720, radii: [0, 0, 0, 0], fill: { color: '#003d66', alpha: 1 } };
+    const plan = planMasters(deck([slide([header()], { background: 0, shapes: [panel] }), slide([header()], { background: 0 })]));
+    assert.equal(plan.hoisted[0].size, 0, 'under the panel: stays');
+    assert.equal(plan.hoisted[1].size, 1);
+  });
+
   test('withoutHoisted empties the hoisted frames and keeps every index', () => {
     const s = slide([header(), number(1)], { background: 0 });
     const out = withoutHoisted(s, new Set([0]));

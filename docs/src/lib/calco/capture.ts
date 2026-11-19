@@ -556,7 +556,7 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 						const whole = await host.run<ReturnType<typeof readSlide>>(i, readSlide, { hide: true, shapes: true, sprites: false, logo: true });
 						const image = new Uint8Array(await shootWhole(i));
 						await addLogo(i, whole);
-						return { image, frames: whole.frames, shapes: whole.shapes, approximated: whole.approximated, look: whole.look };
+						return { image, frames: whole.frames, shapes: whole.shapes, approximated: whole.approximated, look: whole.look, ground: whole.ground };
 					} finally {
 						await host.run(i, restoreSlide);
 					}
@@ -619,7 +619,7 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 						const bad = await host.run<number>(i, splitError, { bg: toBase64(known.bg), fg: toBase64(fg), full: toBase64(full), tol: 16 });
 						if (bad > SPLIT_BAD_SHARE) {
 							await addLogo(i, read);
-							return { image: new Uint8Array(full), frames: read.frames, shapes: read.shapes, approximated: read.approximated, look: read.look };
+							return { image: new Uint8Array(full), frames: read.frames, shapes: read.shapes, approximated: read.approximated, look: read.look, ground: read.ground };
 						}
 					}
 					let index: number;
@@ -637,7 +637,7 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 						index = imageIndexes[known.slot] as number;
 					}
 					await addLogo(i, read);
-					return { image: withSprites ? undefined : new Uint8Array(fg), frames: read.frames, shapes: read.shapes, background: index, approximated: read.approximated, look: read.look };
+					return { image: withSprites ? undefined : new Uint8Array(fg), frames: read.frames, shapes: read.shapes, background: index, approximated: read.approximated, look: read.look, ground: read.ground };
 				} finally {
 					await host.run(i, restoreSlide);
 				}

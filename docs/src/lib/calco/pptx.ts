@@ -50,7 +50,7 @@ import { isPosition, type MasterPlan, planMasters, withoutHoisted } from './mast
 import { imageExt } from './picture.js';
 import { canEmbedAsEot, type FaceSlot, fontClass, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
-import { type ColorSlot, readTheme } from './theme.js';
+import { type ColorSlot, luminance, readTheme } from './theme.js';
 import type { Background, Deck, EmbeddedFont, FrameRole, JSZipClass, Paint, Shape, Slide, TextFrame, TextRun, TextStyle } from './types.js';
 
 export const PPTX_MIMETYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
@@ -295,6 +295,15 @@ const levelAttrs = (l: number) => ` marL="${(l - 1) * 457200}" algn="l" defTabSz
 /** An empty shape tree's root: id 1, at the origin. */
 const TREE_ROOT = '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>';
 const CLR_MAP = 'bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"';
+/** The color map of a dark look, as Office's own dark themes write it: text is the light pair, background the dark. */
+const CLR_MAP_DARK = 'bg1="dk1" tx1="lt1" bg2="dk2" tx2="lt2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"';
+/** WCAG contrast ratio of two `#rrggbb` colors. */
+const contrastOf = (a: string, b: string) => {
+	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+	return (hi + 0.05) / (lo + 0.05);
+};
+/** A ground dark enough that white reads better on it than black. */
+const isDark = (ground: string) => luminance(ground) < 0.179;
 
 /** One drawn object on a slide, before groups are wrapped: its XML, its frame in EMU, and whether it is custom geometry. */
 interface Member {
@@ -538,6 +547,19 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 
 	// THE THEME, read off what the deck draws (theme.ts): what an office app offers for new content.
 	const theme = readTheme(deck);
+	// A dark deck (its text lighter than its ground) is written the Office way: the theme's dk1/dk2 are the dark pair
+	// and lt1/lt2 the light one, and the master's color map reads text from the light pair. Built-in shape, table and
+	// chart styles assume dk is dark (red team and inversion, 2026-11-19).
+	const deckDark = luminance(theme.colors.dk1) > luminance(theme.colors.lt1);
+	/** Text that does not read on a layout's ground (under 3:1) takes the first fallback that does, else white or black. */
+	const readable = (frame: TextFrame | undefined, ground: string | undefined, ...fallbacks: Array<string | undefined>): TextFrame | undefined => {
+		if (!frame || !ground) return frame;
+		const lead = dominantStyle(frame.lines.find((l) => l.length) || frame.lines[0]);
+		const ink = lead.alpha < 1 && lead.flatColor ? lead.flatColor : lead.color;
+		if (contrastOf(ink, ground) >= 3) return frame;
+		const pick = [...fallbacks, '#ffffff', '#000000'].find((c): c is string => !!c && contrastOf(c, ground) >= 4.5) ?? (isDark(ground) ? '#ffffff' : '#000000');
+		return { ...frame, lines: frame.lines.map((line) => line.map((r) => ({ ...r, style: { ...r.style, color: pick, alpha: 1, flatColor: undefined } }))) };
+	};
 	/** The family a style's runs name, and whether they flag bold or italic (as `runProps` decides). */
 	const faceRef = (st: TextStyle) => {
 		const hit = embedded.byKey.get(faceKey(st.family, st.weight, st.italic));
@@ -549,8 +571,8 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	 * A text style's default run: size, weight, slant, spacing, color and the theme face (`+mj` heading, `+mn` body) when it
 	 * is the theme's, else the face by name.
 	 */
-	const defRPr = (st: TextStyle | undefined, font: 'mj' | 'mn', fallbackPt: number) => {
-		if (!st) return `<a:defRPr sz="${fallbackPt * 100}" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+${font}-lt"/><a:ea typeface="+${font}-ea"/><a:cs typeface="+${font}-cs"/></a:defRPr>`;
+	const defRPr = (st: TextStyle | undefined, font: 'mj' | 'mn', fallbackPt: number, scheme?: 'tx1' | 'tx2') => {
+		if (!st) return `<a:defRPr sz="${fallbackPt * 100}" kern="1200"><a:solidFill><a:schemeClr val="${scheme ?? 'tx1'}"/></a:solidFill><a:latin typeface="+${font}-lt"/><a:ea typeface="+${font}-ea"/><a:cs typeface="+${font}-cs"/></a:defRPr>`;
 		const ref = faceRef(st);
 		const themed = ref.name === (font === 'mj' ? majorFace : minorFace);
 		const fam = themed ? `+${font}-lt` : xmlAttr(ref.name);
@@ -558,7 +580,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		const spc = fin(st.letterSpacing) ? ` spc="${clamp(points(st.letterSpacing) * 100, -400000, 400000)}"` : '';
 		const cap = st.transform === 'uppercase' ? ' cap="all"' : st.smallCaps ? ' cap="small"' : '';
 		return (
-			`<a:defRPr sz="${sz}" b="${ref.bold ? 1 : 0}" i="${ref.italic ? 1 : 0}"${cap}${spc} kern="100"><a:solidFill>${color(st.alpha < 1 && st.flatColor ? st.flatColor : st.color, st.alpha < 1 && !st.flatColor ? st.alpha : 1)}</a:solidFill>` +
+			`<a:defRPr sz="${sz}" b="${ref.bold ? 1 : 0}" i="${ref.italic ? 1 : 0}"${cap}${spc} kern="100"><a:solidFill>${scheme ? `<a:schemeClr val="${scheme}"/>` : color(st.alpha < 1 && st.flatColor ? st.flatColor : st.color, st.alpha < 1 && !st.flatColor ? st.alpha : 1)}</a:solidFill>` +
 			`<a:latin typeface="${fam}"${themed ? '' : latinAttrs(st)}/><a:ea typeface="${themed ? `+${font}-ea` : fam}"/><a:cs typeface="${themed ? `+${font}-cs` : fam}"/></a:defRPr>`
 		);
 	};
@@ -628,11 +650,14 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		}
 		return undefined;
 	};
+	/** A slide's frames that are a shape's own label (a tag chip, a pill): never a layout's body or lead look. */
+	const labelsOf = (slide: Slide) => new Set((slide.shapes || []).map((sh) => sh.text).filter((t): t is number => t !== undefined));
 	/** The first plain paragraph (no role, outside cards) below the title on a layout's slides: a title look's lead line. */
 	const firstLead = (li: number, title: { y: number; h: number }) => {
 		for (let i = 0; i < deck.slides.length; i++) {
 			if (plan.layoutOf[i] !== li) continue;
-			const f = deck.slides[i].frames.find((fr) => !fr.role && fr.group === undefined && fr.lines.length && textOf(fr).box.y >= title.y + title.h / 2);
+			const labels = labelsOf(deck.slides[i]);
+			const f = deck.slides[i].frames.find((fr, fi) => !fr.role && fr.group === undefined && !labels.has(fi) && fr.lines.length && textOf(fr).box.y >= title.y + title.h / 2);
 			if (f) return f;
 		}
 		return undefined;
@@ -641,7 +666,8 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	const firstPlain = (li: number) => {
 		for (let i = 0; i < deck.slides.length; i++) {
 			if (plan.layoutOf[i] !== li) continue;
-			const f = deck.slides[i].frames.find((fr) => !fr.role && fr.group === undefined && fr.lines.length);
+			const labels = labelsOf(deck.slides[i]);
+			const f = deck.slides[i].frames.find((fr, fi) => !fr.role && fr.group === undefined && !labels.has(fi) && fr.lines.length);
 			if (f) return f;
 		}
 		return undefined;
@@ -653,8 +679,9 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	const quieter = (frame: TextFrame | undefined, scale = 0.4): TextFrame | undefined =>
 		frame && { ...frame, lines: frame.lines.map((line) => line.map((r) => ({ ...r, style: { ...r.style, weight: 400, size: r.style.size * scale } }))) };
 	/** A text placeholder (`type="body"`, its own idx) where and as a role is drawn: eyebrow, meta, or a header or footer whose text varies. */
-	const textPh = (id: number, name: string, idx: number, frame: TextFrame, prompt: string) => {
+	const textPh = (id: number, name: string, idx: number, frame: TextFrame, prompt: string, ground?: string, ink?: string) => {
 		const { box } = textOf(frame);
+		frame = readable(frame, ground, ink) as TextFrame;
 		return (
 			`<p:sp><p:nvSpPr>${cNvPr(id, `${name} Placeholder`)}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" sz="quarter" idx="${idx}" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
 			`<p:spPr>${xfrm(box.x, box.y, box.w, Math.max(box.h, 16))}${rectGeom}</p:spPr>` +
@@ -693,8 +720,14 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		let tree = '';
 		if (useLayouts) {
 			// The title placeholder sits where the first slide on this layout put its title, in that title's look.
-			const titleFrame = firstFrame('title', li);
-			const tb = titleBox(titleFrame);
+			// Every slot's look is its own role's on this layout, else the deck's, and reads on this layout's ground (3:1 or
+			// more), else takes an ink that does: never an empty style, which inherits the master's (red team, 2026-11-19:
+			// white body text on white, dark titles on navy).
+			const ground = layout.ground;
+			const ownTitle = firstFrame('title', li);
+			const titleFrame = readable(ownTitle ?? theme.title?.frame, ground) as TextFrame | undefined;
+			const titleInk = titleFrame && dominantStyle(titleFrame.lines.find((l) => l.length) || titleFrame.lines[0]).color;
+			const tb = titleBox(ownTitle);
 			tree +=
 				`<p:sp><p:nvSpPr>${cNvPr(id++, 'Title Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
 				`<p:spPr>${xfrm(tb.x, tb.y, tb.w, tb.h)}${rectGeom}</p:spPr>` +
@@ -704,7 +737,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 				// under the title (a lead line); else the title's own ink at a subtitle's size. Never an empty style: that
 				// inherits the master's body ink, dark text on a dark title look (owner, Google Slides, 2026-11-19).
 				const sub = firstFrame('subtitle', li) ?? firstLead(li, tb);
-				const look = sub ?? quieter(titleFrame);
+				const look = readable(sub ?? quieter(titleFrame), ground, titleInk);
 				const sb = sub ? textOf(sub).box : { x: tb.x, y: tb.y + tb.h + 16, w: tb.w, h: H * 0.08 };
 				tree +=
 					`<p:sp><p:nvSpPr>${cNvPr(id++, 'Subtitle Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="subTitle" idx="1" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
@@ -714,7 +747,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 				const bb = bodyBox(li, tb);
 				// The body in the look of this layout's own body text, else its title's ink at body size: never an empty style,
 				// which inherits the master's ink (dark on a dark content look).
-				const bodyLook = firstPlain(li) ?? quieter(titleFrame, 0.5);
+				const bodyLook = readable(firstPlain(li) ?? theme.body?.frame ?? quieter(titleFrame, 0.5), ground, titleInk);
 				tree +=
 					`<p:sp><p:nvSpPr>${cNvPr(id++, 'Content Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph idx="1"/></p:nvPr></p:nvSpPr>` +
 					`<p:spPr>${xfrm(bb.x, bb.y, bb.w, bb.h)}${rectGeom}</p:spPr>` +
@@ -722,12 +755,22 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 			}
 			// The rest of the look its slides show, each in its own place and ink: the eyebrow and the meta line (a source,
 			// a basis), and a header or footer whose text differs from slide to slide, as text placeholders.
-			const eyebrow = firstFrame('eyebrow', li);
-			if (eyebrow) tree += textPh(id++, 'Eyebrow', 13, eyebrow, 'Eyebrow');
-			const meta = firstFrame('meta', li);
-			if (meta) tree += textPh(id++, 'Meta', 14, meta, 'Source');
-			if (layout.vary.header) tree += textPh(id++, 'Header', 15, layout.vary.header, 'Header');
-			if (layout.vary.footer) tree += textPh(id++, 'Footer', 16, layout.vary.footer, 'Footer');
+			// A slot taken from another slide of the layout than its title can land on the title placeholder: left out then.
+			// Compared where the text is (the frames' own boxes), not the placeholders' padded ones, which an eyebrow just
+			// above its title always touches.
+			const clear = (f: TextFrame | undefined) => {
+				if (!f || !ownTitle) return f;
+				const t = ownTitle;
+				const ix = Math.min(f.x + f.w, t.x + t.w) - Math.max(f.x, t.x);
+				const iy = Math.min(f.y + f.h, t.y + t.h) - Math.max(f.y, t.y);
+				return ix > 0 && iy > 0 && ix * iy > Math.min(f.w * f.h, t.w * t.h) / 3 ? undefined : f;
+			};
+			const eyebrow = clear(firstFrame('eyebrow', li));
+			if (eyebrow) tree += textPh(id++, 'Eyebrow', 13, eyebrow, 'Eyebrow', ground, titleInk);
+			const meta = clear(firstFrame('meta', li));
+			if (meta) tree += textPh(id++, 'Meta', 14, meta, 'Source', ground, titleInk);
+			if (layout.vary.header) tree += textPh(id++, 'Header', 15, layout.vary.header, 'Header', ground, titleInk);
+			if (layout.vary.footer) tree += textPh(id++, 'Footer', 16, layout.vary.footer, 'Footer', ground, titleInk);
 			if (!layout.fromMaster) for (const role of ['header', 'footer'] as const) if (layout.chrome[role]) tree += chromeSp(id++, role, layout.chrome[role] as TextFrame);
 			if (layout.chrome.number) {
 				numberOf.set(li, { frame: layout.chrome.number });
@@ -740,7 +783,9 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		const xml =
 			`${DECL}<p:sldLayout ${NS} preserve="1"${type}${hide}><p:cSld name="${xmlAttr(useLayouts ? layout.name : 'Blank')}">${background(rels, layout.paint)}<p:spTree>${TREE_ROOT}${tree}</p:spTree></p:cSld>` +
 			// What PowerPoint's Header & Footer dialog and a new slide on this layout read: a page number when the layout has one.
-			`<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${useLayouts ? `<p:hf sldNum="${layout.chrome.number ? 1 : 0}" hdr="0" ftr="0" dt="0"/>` : ''}</p:sldLayout>`;
+			// A layout whose ground is the other way from the deck's (a navy divider in a light deck) maps text to the
+			// other pair, so a text box, table or chart added on it reads.
+			`<p:clrMapOvr>${layout.ground && isDark(layout.ground) !== deckDark ? `<a:overrideClrMapping ${isDark(layout.ground) ? CLR_MAP_DARK : CLR_MAP}/>` : '<a:masterClrMapping/>'}</p:clrMapOvr>${useLayouts ? `<p:hf sldNum="${layout.chrome.number ? 1 : 0}" hdr="0" ftr="0" dt="0"/>` : ''}</p:sldLayout>`;
 		part(`ppt/slideLayouts/slideLayout${li + 1}.xml`, xml, `${CT}.slideLayout+xml`);
 		part(`ppt/slideLayouts/_rels/slideLayout${li + 1}.xml.rels`, rels.xml());
 		layoutIds.push(masterRels.add(`${REL}/slideLayout`, `../slideLayouts/slideLayout${li + 1}.xml`));
@@ -763,9 +808,11 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		for (const role of ['header', 'footer'] as const) if (plan.master.chrome[role]) masterTree += chromeSp(mid++, role, plan.master.chrome[role] as TextFrame);
 		if (masterNumber) masterTree += numberSp(mid++, masterNumber, null);
 	}
-	const titleStyle = `<a:lvl1pPr algn="${algnOf(theme.title?.frame)}" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">${lnSpcOf(theme.title?.frame) || ''}<a:spcBef><a:spcPct val="0"/></a:spcBef><a:buNone/>${defRPr(theme.title?.style, 'mj', 44)}</a:lvl1pPr>`;
+	const titleStyle = `<a:lvl1pPr algn="${algnOf(theme.title?.frame)}" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">${lnSpcOf(theme.title?.frame) || ''}<a:spcBef><a:spcPct val="0"/></a:spcBef><a:buNone/>${defRPr(theme.title?.style, 'mj', 44, 'tx2')}</a:lvl1pPr>`;
 	// Body text in the deck's type at every level; no bullets (the deck's paragraphs carry none), indented by level.
-	const bodyRPr = defRPr(theme.body?.style, 'mn', 18);
+	// The master's styles take the theme's text colors (tx1, tx2), so a layout's color map decides the ink of anything
+	// typed on it: light on a dark look, dark on a light one.
+	const bodyRPr = defRPr(theme.body?.style, 'mn', 18, 'tx1');
 	const bodyLn = lnSpcOf(theme.body?.frame);
 	const bodyStyle = levels((l) => ` marL="${(l - 1) * 457200}" indent="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"`, bodyRPr, `${bodyLn}<a:spcBef><a:spcPts val="600"/></a:spcBef><a:buNone/>`);
 	// Other text (a new text box) in the body's face and ink.
@@ -774,13 +821,15 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	// shows it, and `lt1` (the deck's main ground, by role) may be dark, which would repaint that slide.
 	part(
 		'ppt/slideMasters/slideMaster1.xml',
-		`${DECL}<p:sldMaster ${NS}><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>${TREE_ROOT}${masterTree}</p:spTree></p:cSld>` +
-			`<p:clrMap ${CLR_MAP}/><p:sldLayoutIdLst>${layoutIds.map((rid, i) => `<p:sldLayoutId id="${2147483649 + i}" r:id="${rid}"/>`).join('')}</p:sldLayoutIdLst>` +
+		`${DECL}<p:sldMaster ${NS}><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="${deckDark ? hexOf(theme.colors.lt1) : 'FFFFFF'}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>${TREE_ROOT}${masterTree}</p:spTree></p:cSld>` +
+			`<p:clrMap ${deckDark ? CLR_MAP_DARK : CLR_MAP}/><p:sldLayoutIdLst>${layoutIds.map((rid, i) => `<p:sldLayoutId id="${2147483649 + i}" r:id="${rid}"/>`).join('')}</p:sldLayoutIdLst>` +
 			`<p:hf sldNum="${masterNumber ? 1 : 0}" hdr="0" ftr="0" dt="0"/><p:txStyles><p:titleStyle>${titleStyle}</p:titleStyle><p:bodyStyle>${bodyStyle}</p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="${deckLang}"/></a:defPPr>${otherStyle}</p:otherStyle></p:txStyles></p:sldMaster>`,
 		`${CT}.slideMaster+xml`,
 	);
 	part('ppt/slideMasters/_rels/slideMaster1.xml.rels', masterRels.xml());
-	const themeColors = Object.fromEntries(Object.entries(theme.colors).map(([k, v]) => [k, hexOf(v)])) as Record<ColorSlot, string>;
+	const roleColors = Object.fromEntries(Object.entries(theme.colors).map(([k, v]) => [k, hexOf(v)])) as Record<ColorSlot, string>;
+	// Written the Office way: dk1/dk2 the dark pair, lt1/lt2 the light one (a dark deck's text is the light pair).
+	const themeColors = deckDark ? { ...roleColors, dk1: roleColors.lt1, lt1: roleColors.dk1, dk2: roleColors.lt2, lt2: roleColors.dk2 } : roleColors;
 	part('ppt/theme/theme1.xml', themeXml(deck.title ? `${xmlSafe(deck.title).slice(0, 60)}` : 'Deck Theme', { colors: themeColors, major: majorFace, minor: minorFace }), 'application/vnd.openxmlformats-officedocument.theme+xml');
 
 	// THE SLIDES.

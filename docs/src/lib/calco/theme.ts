@@ -7,9 +7,9 @@
  * - **Title**: the style most title text is drawn in (the slide titles outside cards), weighted by characters.
  * - **Body**: the style most other text is drawn in, weighted by characters; chrome (header, footer, number), eyebrows
  *   and subtitles do not count.
- * - **Colors** (OOXML's twelve): `dk1`/`lt1` are the body ink and the ground most slides sit on, by ROLE whatever their
- *   lightness, because the master's color map draws text in `dk1` and the ground in `lt1` (a dark deck's `dk1` is light,
- *   as `OFFICE_PALETTE` has it); `dk2`/`lt2` are the title ink and a second ground; the six accents are the most used saturated colors the deck paints with,
+ * - **Colors** (OOXML's twelve), by ROLE here: `dk1`/`lt1` are the body ink and the ground most slides sit on, `dk2`/`lt2`
+ *   the title ink and a second ground, whatever their lightness (a dark deck's `dk1` is light, as `OFFICE_PALETTE` has
+ *   it). The writer orders them the Office way (pptx.ts: dark pair in `dk1`/`dk2`, a dark color map); the six accents are the most used saturated colors the deck paints with,
  *   text, fills, strokes and gradient stops, each at least a visible step from the others. A deck with fewer than six
  *   fills the rest with tints and shades of the ones it has.
  *

@@ -51,6 +51,8 @@ export interface Layout {
 	background?: number;
 	/** Resolved background, for a writer's convenience. */
 	paint?: Background;
+	/** The color new text on this layout reads on: the background's flat color, else its first slide's ground. */
+	ground?: string;
 	/** The chrome drawn on the layout, taken from the first slide that carries it. */
 	chrome: Partial<Record<ChromeRole, TextFrame>>;
 	/** Header or footer whose text differs between the layout's slides: a placeholder in this look; the slides keep theirs. */
@@ -135,6 +137,9 @@ function candidates(slide: Slide, position: number, ground?: string): Map<Chrome
 		if (!role || !(CHROME_ROLES as readonly string[]).includes(role)) return;
 		if (frame.group !== undefined || bound.has(index) || !single(frame)) return;
 		if (ground && contrast(leadRun(frame).style.color, ground) < 1.5) return;
+		// The slide's own shapes are drawn over its layout: chrome one of them overlaps would be covered there
+		// (seven-steps slide 15: a full-height panel over the header; red team, 2026-11-19).
+		if ((slide.shapes || []).some((sh) => sh.x < frame.x + frame.w && frame.x < sh.x + sh.w && sh.y < frame.y + frame.h && frame.y < sh.y + sh.h)) return;
 		// A page number is a field only when it IS the slide's position: a split run prints "2.2", and
 		// numbering resumes after it, so the office app's own count would disagree with the page.
 		if (role === 'number' && !isPosition(frame, position)) return;
@@ -170,7 +175,9 @@ const titleCase = (look: string) => look.charAt(0).toUpperCase() + look.slice(1)
 /** Plan the layouts of a deck. */
 export function planMasters(deck: Deck): MasterPlan {
 	const slides = deck.slides;
-	const cands = slides.map((sl, i) => (sl.background === undefined ? new Map() : candidates(sl, i + 1, deck.backgrounds?.[sl.background]?.color)));
+	// The ground chrome must read on: the background's flat color, else the slide's own ground (a picture background).
+	const groundOf = (sl: Slide) => (sl.background === undefined ? undefined : deck.backgrounds?.[sl.background]?.color) ?? sl.ground;
+	const cands = slides.map((sl, i) => (sl.background === undefined ? new Map() : candidates(sl, i + 1, groundOf(sl))));
 	// LAYOUTS, by look: background, kind of slide, and per chrome role where and how it is drawn (not what it says).
 	const layouts: Layout[] = [];
 	const byKey = new Map<string, number>();
@@ -191,6 +198,7 @@ export function planMasters(deck: Deck): MasterPlan {
 					fromMaster: false,
 					background: slide.background,
 					paint: slide.background === undefined ? undefined : deck.backgrounds?.[slide.background],
+					ground: groundOf(slide),
 					chrome: {},
 					vary: {},
 				}) - 1;

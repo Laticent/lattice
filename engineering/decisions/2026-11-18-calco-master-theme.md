@@ -28,12 +28,16 @@ page numbers, and ships a master theme, and whether that makes the editable file
   characters (minor). Colors: the host's palette when it passes one, else read off the slides. Lattice passes
   `OFFICE_PALETTE` (`lib/core/office-export-policy.js`): `dk1` text-body, `lt1` bg, `dk2` text-heading, `lt2` bg-alt,
   `accent1` accent, `accent2–6` cat-1–5-mark (the chart series colors), resolved on every slide under its color scheme
-  (`resolvePalette`), most-common value per slot. A dark deck gets its light text as `dk1`, because `tx1` maps to `dk1`.
-  Without a palette `readTheme` fills the slots by the same roles (body ink in `dk1`, the main ground in `lt1`, the title
-  ink in `dk2`), whatever their lightness; an earlier draft sorted them by lightness and put a dark ground in `dk1`.
-  The slide master's own ground stays an explicit white, as Office's `bg1` was before: a slide with no background of
-  its own shows it, and a dark `lt1` would repaint that slide (measured: the parity decks' slide with no ground turned
-  navy until this was pinned).
+  (`resolvePalette`), most-common value per slot. Without a palette `readTheme` fills the slots by the same roles (body
+  ink, main ground, title ink, second ground).
+- **Colors the Office way** (red team and inversion, 2026-11-19). The writer orders the theme as Office does, `dk1`/`dk2`
+  the dark pair and `lt1`/`lt2` the light one, because Office's built-in shape, table and chart styles assume `dk` is
+  dark. A dark deck's master reads text from the light pair (`<p:clrMap bg1="dk1" tx1="lt1" bg2="dk2" tx2="lt2">`, as
+  Office's dark themes write it) and has the deck's dark ground; a light deck's master is white, as Office's `bg1` was (a
+  slide with no background of its own shows it). A layout whose ground is the other way from the deck's (luminance
+  under 0.179, where white reads better than black) overrides the map. The master's text styles take `tx1`/`tx2`, so a
+  text box, table or chart added on a navy divider in a light deck is light: before this, its text was the light
+  look's dark ink, 1.0:1 on navy (the red team's measurement, nine layouts in two decks).
 - **Text styles.** The master's title, body and other styles are the deck's title and body (size, weight, ink, line pitch,
   letter-spacing, caps), on the theme faces (`+mj-lt`, `+mn-lt`). Existing runs keep their explicit colors and faces: a
   theme switch cannot recolor the slides' pictures, so binding text to theme colors would let them disagree.
@@ -56,21 +60,31 @@ page numbers, and ships a master theme, and whether that makes the editable file
   light divider). A divider is `type="secHead"`, other title-like looks `type="title"`, the rest `type="obj"`. With no
   look (another host), "Title" for a chrome-less look that opens or closes the deck, else "Content". The `.odp` master
   pages carry the same names as `style:display-name`.
-- **Chrome on the master.** The master draws the header, footer and page number the most slides show; a layout whose
+- **Chrome on the master, and what "edited in one place" means.** The master draws the header, footer and page number
+  the most slides show; a layout whose
   header and footer are the master's draws none of its own (its page number is its own placeholder, since a master
   placeholder never draws on a slide). Any other layout sets `showMasterSp="0"` and draws its own. Matching is to the
   whole px with the box height left out (a figure layout sets the header line 20px, not 19px). Only chrome that reads
   on the master's own white ground (3:1 or more) can be the master's: a dark look's pale header there was faint in
   Slide Master view and on a layout a user inserts (checker: #91A7C2 on white, 2.3:1). Which look wins changes where a
-  header is edited once, not what an existing slide shows.
+  header is edited once, not what an existing slide shows. So a footer is edited once for the slides that share the
+  master's look, and once more on each dark look that carries its own copy (the anchor deck: the master, plus Title,
+  Divider, Topic and Closing). The header and footer are text boxes (`userDrawn`), not `ftr` placeholders, so the Header
+  & Footer dialog neither edits nor hides them; only the page number is the dialog's.
 - **Chrome the ground cannot show stays on the slide.** Chrome whose ink is under 1.5:1 against its layout's flat
   ground sits on something the slide's own picture paints (card-tags slide 7: a white header over a split slide's dark
   half, on a white ground), and a layout paints under the picture. Measured: hoisted, that header vanished; kept, the
   slide is pixel-identical to `main`. A new slide on such a layout has no copy of it (its dark half is in the picture).
-  The test needs a flat ground: on a picture ground every chrome frame is hoisted, and the pixel A/B on five decks is
-  what guards that case.
+  On a picture ground the test reads the slide's own ground (`Slide.ground`, the section's background color). Chrome
+  any of the slide's own shapes overlaps stays on the slide too: a slide's shapes are drawn over its layout (seven-steps
+  slide 15: a full-height panel covered the hoisted header; red team, 2026-11-19).
 - **Slides with their own opaque picture** (no shared background) show nothing of a layout, so they share one layout
   per look rather than one each.
+- **Every slot reads on its layout.** A slot takes its own role's frame on the layout, skipping a shape's label (a tag
+  chip's white caps were taken as card-tags' body), else the deck's title or body look, and its ink must reach 3:1 on the
+  layout's ground or it takes the layout's title ink, else white or black. An eyebrow or meta slot that would cover the
+  title is left out. Measured: every placeholder and a free text box on 51 layouts of ten decks reach 3:1 (the red
+  team's six failing decks among them); the same scan finds nine failing layouts in the exports before this.
 - **Runs say "off".** Because the inherited title and body styles can be bold, all caps or letter-spaced, every slide run
   writes `b`, `i`, `cap` and `spc` even when they are off (`b="0"`, `cap="none"`, `spc="0"`). Otherwise PowerPoint would
   draw a plain run, such as a light title or a text box, in the inherited look. The page-number field writes none, so it
@@ -98,9 +112,17 @@ page numbers, and ships a master theme, and whether that makes the editable file
 
 - **PowerPoint and Keynote**: whether "New Slide" on each layout gives the deck's type, chrome and a page number. This
   is the point of the change and it is UNVERIFIED; it joins `followups.d/3220-p1-native-pptx-real-readers.md`. Google
-  Slides is verified for Title and Content only; the anchor layouts (Divider, Topic, Closing) are not yet seen there.
+  Slides: the owner added slides on Title and Content (venue-chrome) and on the anchor layouts (the anchor decks, light
+  and dark), 2026-11-19, before the Office-way color change.
 - **Inheritance is not read back.** `test/helpers/pptx-readback.js` now records the slide master and each layout's
   `showMaster`, and the parity snapshot was updated for the intended changes (its header lists them). It does not resolve
   inherited text styles, though: a placeholder's list style, such as the page number's look, is not compared. `pptx.test.js`
   pins the explicit run attributes and the number's list style instead.
+- **Editing verbs on existing slides**: Change Layout and Reset Slide in PowerPoint are untested. An existing slide's
+  runs keep explicit colors and faces and its chrome is where the plan put it, so moving a slide to another layout can
+  show a hoisted header twice or not at all, and a navy slide moved to "Content" keeps its light runs on white.
+- **A theme switch** in PowerPoint replaces the master and layouts, taking the layout backgrounds and the hoisted chrome
+  with it; the slides' explicit runs stay. That was already true of the backgrounds on `main`.
+- **The `.odp`** gets the per-look master pages, their names and chrome, but no theme or text styles: a new Impress slide
+  is still in Impress's default type.
 - **Native charts and Mermaid** stay pictures; this change does not touch them.

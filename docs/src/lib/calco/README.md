@@ -91,10 +91,13 @@ keeps its own opaque picture and its own chrome, because a layout paints under t
 ## Theme
 
 The `.pptx` carries the deck's theme, not Office's (`readTheme`, theme.ts): the theme fonts are the faces the deck's titles and
-body are drawn in; the twelve theme colors are the body ink and ground (`dk1`/`lt1`, by role whatever their lightness, as the master's color
-map reads them), the heading ink and a second ground (`dk2`/`lt2`), and six accents, the saturated colors the deck paints with most. The master's text styles and each layout's
-title and body (or subtitle) placeholders are in the deck's own type, so a slide or text box added in PowerPoint looks like the
-deck. Existing text keeps its explicit colors and faces: a theme switch could not recolor the slides' pictures. Every run also
+body are drawn in; the twelve theme colors are the body ink and ground, the heading ink and a second ground, and six accents,
+the saturated colors the deck paints with most. They are written the Office way: `dk1`/`dk2` the dark pair and `lt1`/`lt2` the
+light one, so a dark deck's text is `lt1`, and its master's color map reads text from the light pair (`bg1="dk1" tx1="lt1"`),
+as Office's own dark themes do; a layout whose ground is the other way from the deck's (a navy divider in a light deck)
+overrides the map. The master's text styles take the theme's text colors (`tx1`, `tx2`), so a text box, table or chart
+added on any layout reads on it. Each layout's placeholders are in its own type and ink, checked to read on its ground
+(3:1 or more, else recolored), so a slide added in PowerPoint looks like the deck. Existing text keeps its explicit colors and faces: a theme switch could not recolor the slides' pictures. Every run also
 states its weight, slant, caps and letter-spacing when they are off, so it never inherits a bold or all-caps master style.
 
 A host that knows its palette passes it: `captureOfficeSlides(host, n, { palette: { dk1: 'var(--text-body)', accent1:
