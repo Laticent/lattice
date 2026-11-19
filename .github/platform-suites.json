@@ -1,358 +1,384 @@
 {
-  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-26, windows-2025). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `on_pull_request`: false runs the suite nightly and on dispatch only, never on a pull request (the iOS Simulator suites, 2026-10-29: 49 PR jobs and about 820 macOS minutes in the 100 PR runs from 2026-10-28T10:50Z to 2026-10-29T02:25Z, 27 of them not green, gating nothing). `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. `docs_site`: true when the suite serves the built docs site; the workflow's `docs-site` job builds it once on Linux and the suite's job downloads it. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
-  "suites": [
-    {
-      "name": "export-confine",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "lib/core/file-confine.js",
-        "lib/plugins/host-page-worker.js",
-        "lib/export/html-player.js",
-        "lib/export/player-core.mjs",
-        "test/integration/export/confine-cli.test.js",
-        "test/unit/core/file-confine.test.js",
-        "test/unit/export/html-player-inline-file-urls.test.js",
-        "test/unit/export/bake-helper.js",
-        "lattice.js",
-        "lib/export/video.mjs",
-        "test/unit/export/cli-file-urls.test.js",
-        "lib/plugins/mermaid/shared/render-worker.js",
-        "test/integration/export/mermaid-worker-confine.test.js"
-      ],
-      "run": "node --test test/integration/export/confine-cli.test.js test/unit/core/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
-      "why": "A render reads a local file only by REAL path inside the deck folder (media note §4.11). macOS reaches /tmp and $TMPDIR through symlinks (/private/tmp, /private/var), the case a real-path check gets wrong first; Linux cannot show it. The Mermaid worker's own page applies the same check. Windows runs as export-confine-windows."
-    },
-    {
-      "name": "export-confine-windows",
-      "os": [
-        "windows-2025"
-      ],
-      "paths": [
-        "lib/core/file-confine.js",
-        "lib/plugins/host-page-worker.js",
-        "lib/export/html-player.js",
-        "lib/export/player-core.mjs",
-        "test/integration/export/confine-cli.test.js",
-        "test/unit/core/file-confine.test.js",
-        "test/unit/export/html-player-inline-file-urls.test.js",
-        "test/unit/export/bake-helper.js",
-        "lattice.js",
-        "lib/export/video.mjs",
-        "test/unit/export/cli-file-urls.test.js",
-        "lib/plugins/mermaid/shared/render-worker.js",
-        "test/integration/export/mermaid-worker-confine.test.js"
-      ],
-      "run": "node --test test/integration/export/confine-cli.test.js test/unit/core/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
-      "why": "The same CLI confinement checks as export-confine, on Windows: the CLI names its output page with pathToFileURL (file:///C:/…), and file-confine must turn that back into a path on the same drive and refuse a host-qualified (UNC) address. It uses the full `npm run build` (build-windows proves that build passes there). Symlink creation may need a privilege the runner lacks; if so those tests fail with EPERM and the run shows it."
-    },
-    {
-      "name": "wait-for-macos",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "tools/wait-for.sh",
-        ".claude/hooks/warn-unbounded-wait.sh",
-        "test/unit/tools/wait-for.test.js",
-        "test/unit/tools/warn-unbounded-wait.test.js"
-      ],
-      "run": "for t in timeout gtimeout flock perl; do command -v $t || echo \"no $t\"; done; brew install coreutils && node --test test/unit/tools/wait-for.test.js test/unit/tools/warn-unbounded-wait.test.js",
-      "why": "tools/wait-for.sh takes its lock with flock(1) or, where that is missing, perl's flock builtin, and needs GNU timeout (gtimeout on macOS). macOS ships neither flock(1) nor timeout, so the perl path and the exit-69 'missing dependency' path are the ones a Mac takes; Linux tests drive them only by pinning WAIT_FOR_LOCK_IMPL and a controlled PATH (engineering/development.md § Waiting for a slow job: 'macOS itself remains UNVERIFIED'). The first two runs (jobs 117883739691, 117885882571) showed a stock macOS runner has perl but no timeout, gtimeout or flock; the tests failed because their lock probe called flock(1), not because wait-for.sh did (its own run-mode test passed). The probe now falls back to perl, `isLive` to `ps` (no /proc), and the entry installs coreutils first (the supported state)."
-    },
-    {
-      "name": "build-windows",
-      "os": [
-        "windows-2025"
-      ],
-      "paths": [
-        "tools/check-ownership.js",
-        "tools/build.js",
-        "tools/prepare.js",
-        "lefthook.yml",
-        "tools/check-lint-coverage.js"
-      ],
-      "run": "node tools/check-ownership.js && node -e \"require('fs').accessSync('dist/docs/components.pick.md')\"",
-      "why": "`npm run build` runs tools/check-ownership.js first, and on Windows every gate that compared a backslash path with a forward-slash allowlist reported its sanctions stale and aborted the build (platform-suites run 39197530212, job 117883739719), so no CLI suite could use the full build there; the path, Biome-launch, command-length and report-path fixes in tools/check-ownership.js and tools/check-lint-coverage.js removed that. The suite's own build step IS the check (the default `npm run build`); `run` then re-runs the ownership gate and confirms the generated artifacts exist."
-    },
-    {
-      "name": "os-sandbox-measure",
-      "os": [
-        "macos-26",
-        "windows-2025"
-      ],
-      "paths": [
-        "lib/core/os-sandbox.js",
-        "lib/plugins/host-page-worker.js",
-        "lib/core/code-sandbox.js",
-        "lib/cli/code-door.js",
-        "lib/packages/code-door-worker.js",
-        "lib/packages/npm-plugin-admission.js",
-        "test/integration/export/os-sandbox-measure.test.js",
-        "test/integration/export/npm-plugin-admission.test.js"
-      ],
-      "run": "node --test test/integration/export/os-sandbox-measure.test.js test/integration/export/npm-plugin-admission.test.js",
-      "why": "The code door reads the OS sandbox layer before it runs a stranger's code, and an npm plugin runs only where it reads `on` (threat-model note §6 decisions 7 and 13). macOS (sandbox_check) and Windows (chrome://sandbox) are read differently from Linux, and only a real runner of each starts Chromium's sandbox to be read. The npm admission test then runs the real door there: an npm plugin draws exactly when the measured layer admits it."
-    },
-    {
-      "name": "ios-safari-studio-ipad",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/studio-probe.js",
-        "docs/scripts/ios-safari/panes-probe.js",
-        "docs/scripts/ios-safari/show-editor.js",
-        "docs/scripts/ios-safari/seed-settings.js",
-        "docs/src/playground/single-slide-render.ts",
-        "lib/core/pane-css.js",
-        "docs/src/lib/sanitize-slide-html.js",
-        "lib/core/sanitize-slide-html.mjs",
-        "lib/core/inline-run.js",
-        "lib/transformers/inline-run.js"
-      ],
-      "run": "DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
-      "why": "Real Mobile Safari, in an iPad iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job: the iPad and the iPhone back to back took 21 to 27 of the job's 30 minutes on main and were canceled at 30 on slower runners with every check passed (runs 43278314890, 43285290891; flaky shape F4), most of it two simulator boots in series, so each device now has the whole limit, as the undo suites do.",
-      "on_pull_request": false,
-      "docs_site": true
-    },
-    {
-      "name": "ios-safari-studio-iphone",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/studio-probe.js",
-        "docs/scripts/ios-safari/panes-probe.js",
-        "docs/scripts/ios-safari/icon-grid-probe.js",
-        "docs/src/components/studio/IconGrid.tsx",
-        "docs/scripts/ios-safari/show-editor.js",
-        "docs/scripts/ios-safari/seed-settings.js",
-        "docs/src/playground/single-slide-render.ts",
-        "lib/core/pane-css.js",
-        "docs/src/lib/sanitize-slide-html.js",
-        "lib/core/sanitize-slide-html.mjs",
-        "lib/core/inline-run.js",
-        "lib/transformers/inline-run.js"
-      ],
-      "run": "DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
-      "why": "Real Mobile Safari, in an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires; and opens the icon grid through Menu → Search / commands, inserting from the source pane and copying from the preview with a real touch tap (#2578). Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job: the iPad and the iPhone back to back took 21 to 27 of the job's 30 minutes on main and were canceled at 30 on slower runners with every check passed (runs 43278314890, 43285290891; flaky shape F4), most of it two simulator boots in series, so each device now has the whole limit, as the undo suites do.",
-      "on_pull_request": false,
-      "docs_site": true
-    },
-    {
-      "name": "ios-safari-font-cache",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/font-cache-probe.js",
-        "docs/scripts/ios-safari/font-cache-server.mjs",
-        "docs/scripts/ios-safari/show-editor.js",
-        "docs/scripts/ios-safari/seed-settings.js",
-        "docs/scripts/lib/modeled-host.mjs",
-        "docs/src/components/studio/studio-warm.ts",
-        "docs/src/lib/theme-fetch.ts"
-      ],
-      "run": "PROBE=font-cache bash docs/scripts/ios-safari/run.sh",
-      "why": "Whether real Mobile Safari, in an iPad and an iPhone iOS Simulator, reads the Studio's warmed fonts from its HTTP cache (studio-warm.ts fetches 31 faces, about 2.7 MB, after the first slide; #3087). The server counts what reaches it: after the warm-up, an edit that adds an emoji, a code block and `finish: sketch` must send no font request; a control arm, on its own origin and identical except that the font files are sent `no-store`, must send some, so the probe can see a miss. Chromium, Firefox and Linux WebKit were checked on Linux; Safari was not, and a miss there downloads those 2.7 MB twice on every iPhone visit. The service worker is kept out, as it was for those engines: its Cache Storage path is a separate question.",
-      "on_pull_request": false,
-      "docs_site": true
-    },
-    {
-      "name": "ios-safari-photo-memory",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/photo-memory.mjs",
-        "docs/src/lib/preview-image-scale.ts",
-        "lib/core/remote-ref.js"
-      ],
-      "run": "PROBE=photo-memory bash docs/scripts/ios-safari/run.sh",
-      "why": "Measures what ten 12MP photos cost real Mobile Safari, in an iPad and an iPhone iOS Simulator, shown by their own addresses and through the Studio's preview-sized copies (docs/src/lib/preview-image-scale.ts, #2998): the physical footprint of the simulator's WebKit processes, read on the Mac with vmmap. It fails when the originals cost under 60 MB (the reader is not reading Safari) or the copies cost more than 60% of them; CI has read 86 to 117 MB against 17 to 34 MB. It was part of ios-safari-studio until it took that job to 27.6 of its 30 minutes. A simulator has no memory limit, so it shows the cost, not the tab reload.",
-      "on_pull_request": false
-    },
-    {
-      "name": "ios-safari-present-memory",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/present-memory.mjs",
-        "docs/scripts/ios-safari/present-memory-probe.js",
-        "docs/scripts/ios-safari/photo-memory.mjs",
-        "docs/scripts/ios-safari/seed-settings.js",
-        "docs/src/components/studio/PresentOverlay.tsx",
-        "docs/src/components/studio/present/stage-window.js",
-        "docs/src/components/studio/studio-stage.ts",
-        "lib/engine/deferred-urls.js"
-      ],
-      "run": "PROBE=present-memory PRESENT_BASELINE_URL=https://lattice.style bash docs/scripts/ios-safari/run.sh",
-      "why": "What Present costs real Mobile Safari, in an iPhone iOS Simulator, on a deck of eighteen phone photos imported through \"Import deck…\" (present-memory.mjs, 24 MB; the owner's deck was 33 MB of data: text and reloaded the tab on an iPhone before #3148). It opens Present, steps six slides, times each until the next slide shows and its photo decodes, and reads the simulator's WebKit footprint with vmmap before and after. It fails when a step's photo does not decode, the page reloads, or Present adds more than PRESENT_MEMORY_CAP_MB (300; the first run read 795 MB on main and 124 MB after #3148). Times are reported, never judged (HARD RULE #32). The production site runs as a second arm that is reported, not judged, and time-boxed: the before until #3148 deployed, the live site after. A simulator has no memory limit, so it shows the cost, not the reload.",
-      "on_pull_request": false,
-      "docs_site": true
-    },
-    {
-      "name": "ios-safari-undo-ipad",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/*",
-        "docs/src/lib/filo/*",
-        "docs/src/components/studio/studio-filo-persist.ts",
-        "docs/src/components/studio/filo-narrow.worker.ts",
-        "docs/src/components/studio/StudioShell.tsx",
-        "docs/src/components/studio/StudioChromeSkeleton.tsx",
-        "docs/src/components/studio/undo-doorbell.ts"
-      ],
-      "run": "PROBE=undo DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
-      "why": "Filo's undo in real Safari, on one device per job: Mobile Safari in an iPad iOS Simulator. One job ran all three devices back to back and took 25.4 of its 30 minutes, passing only on a fast runner (flaky shape F4); a device is about 3 minutes of probe plus its simulator's boot, so each now has the whole limit. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
-      "docs_site": true
-    },
-    {
-      "name": "ios-safari-undo-iphone",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/*",
-        "docs/src/lib/filo/*",
-        "docs/src/components/studio/studio-filo-persist.ts",
-        "docs/src/components/studio/filo-narrow.worker.ts",
-        "docs/src/components/studio/StudioShell.tsx",
-        "docs/src/components/studio/StudioChromeSkeleton.tsx",
-        "docs/src/components/studio/undo-doorbell.ts"
-      ],
-      "run": "PROBE=undo DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
-      "why": "Filo's undo in real Safari, on one device per job: Mobile Safari in an iPhone iOS Simulator. One job ran all three devices back to back and took 25.4 of its 30 minutes, passing only on a fast runner (flaky shape F4); a device is about 3 minutes of probe plus its simulator's boot, so each now has the whole limit. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
-      "docs_site": true
-    },
-    {
-      "name": "ios-safari-undo-mac",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/*",
-        "docs/src/lib/filo/*",
-        "docs/src/components/studio/studio-filo-persist.ts",
-        "docs/src/components/studio/filo-narrow.worker.ts",
-        "docs/src/components/studio/StudioShell.tsx",
-        "docs/src/components/studio/StudioChromeSkeleton.tsx",
-        "docs/src/components/studio/undo-doorbell.ts"
-      ],
-      "run": "PROBE=undo DEVICES=Mac bash docs/scripts/ios-safari/run.sh",
-      "why": "Filo's undo in real Safari, on one device per job: the Mac's own Safari, where a real ⌘Z key also undoes. One job ran all three devices back to back and took 25.4 of its 30 minutes, passing only on a fast runner (flaky shape F4); a device is about 3 minutes of probe plus its simulator's boot, so each now has the whole limit. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
-      "docs_site": true
-    },
-    {
-      "name": "ios-safari-chat-storage",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/chat-storage-probe.js",
-        "docs/scripts/ios-safari/seed-settings.js",
-        "docs/src/components/studio/chat-store.ts",
-        "docs/src/components/studio/local-quota.ts",
-        "docs/src/components/studio/storage-notices.ts"
-      ],
-      "run": "PROBE=chat-storage bash docs/scripts/ios-safari/run.sh",
-      "on_pull_request": false,
-      "docs_site": true,
-      "why": "Studio chats in real Mobile Safari, in an iPad and an iPhone iOS Simulator (#3138, engineering/decisions/2026-11-11-studio-storage-pointer-records.md §11): threads an earlier build left in localStorage move to IndexedDB across a real reload, whole, including a deck never opened, and the localStorage allowance is what local-quota.ts assumes for WebKit (about 5.24 M Latin-1 characters, half once a value is non-Latin-1), which the fill warning's arithmetic rests on. Playwright's WebKit on Linux is not iOS Safari. Nightly and on dispatch only (on_pull_request false, the owner's call on #3138): no per-PR macOS job. The probe is proved first by `PROBE=chat-storage node docs/scripts/ios-safari/probe.selftest.mjs` on WebKit, and fails against a build without the migration."
-    },
-    {
-      "name": "ios-safari-photo",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/photo-probe.js",
-        "docs/scripts/ios-safari/show-editor.js",
-        "docs/scripts/ios-safari/seed-settings.js",
-        "docs/src/components/studio/coach/photo-contrast-watch.ts",
-        "docs/src/components/studio/photo-verdict.ts",
-        "docs/src/components/studio/photo-ink-read.ts",
-        "docs/src/components/studio/thin-card-fix.ts",
-        "docs/src/components/studio/card-ink-sampler.ts",
-        "lib/core/photo-contrast.mjs",
-        "lib/core/card-ink-policy.mjs",
-        "lib/core/card-ink.mjs"
-      ],
-      "run": "PROBE=photo bash docs/scripts/ios-safari/run.sh",
-      "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, checks the Studio's photo verdict (#2942): the Coach's photo finding and the editor's warning agree word for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide. It was part of ios-safari-studio until that one job ran out of its 30 minutes on a slow runner (#2961); as its own suite it runs when the photo code changes, not when the sanitizer does. A simulator runs on the Mac's hardware, so it is not a physical device.",
-      "on_pull_request": false,
-      "docs_site": true
-    },
-    {
-      "name": "ios-safari-jpeg",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/src/lib/lastra/jpeg.ts",
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/jpeg-probe.js"
-      ],
-      "run": "PROBE=jpeg bash docs/scripts/ios-safari/run.sh",
-      "why": "Every export JPEG goes through the shared encoder (docs/src/lib/lastra/jpeg.ts, `@laticent/lastra`) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (iPad and iPhone iOS Simulators): its bytes must equal Node's and its luma stay above 38 dB; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's.",
-      "on_pull_request": false
-    },
-    {
-      "name": "ios-safari-focus-sync",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/focus-sync-probe.js",
-        "docs/scripts/ios-safari/focus-sync-deck.mjs",
-        "docs/src/lib/playground-sync.ts"
-      ],
-      "run": "PROBE=focus-sync bash docs/scripts/ios-safari/run.sh",
-      "why": "A click on a line in the Playground editor must center its slide in the preview and leave the editor where it is. The sync once judged its own preview scroll by time since the write, so a busy page delivered the event after the 120 ms echo window and the editor jumped 136 px (followup 2937-p2). Linux WebKit showed it only under CPU load and is not iOS Safari. This taps the editor 40 times in real Mobile Safari on an iPad Pro iOS Simulator, with the page kept busy on purpose, and fails if any tap moves the editor 2 px or more. The same probe fails 39 of 40 taps on the old code in Playwright's WebKit, so it can fail. A simulator runs on the Mac's CPU, so it is not a physical device. The iPhone is not run: a phone is never wide enough for the two-pane layout.",
-      "on_pull_request": false,
-      "docs_site": true
-    },
-    {
-      "name": "office-quicklook",
-      "os": [
-        "macos-26"
-      ],
-      "paths": [
-        "tools/office-quicklook.mjs",
-        "docs/src/lib/calco/pptx.ts",
-        "docs/src/lib/calco/reader.ts",
-        "docs/src/lib/calco/layout.ts",
-        "lib/export/office-export.js",
-        "lib/core/office-icons.js",
-        "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/office-capture.mjs",
-        "docs/scripts/ios-safari/QLProbe.swift"
-      ],
-      "on_pull_request": false,
-      "run": "node tools/office-quicklook.mjs --custgeom-only examples/inline-icons.md test/integration/baseline-decks/gallery.md && PROBE=office bash docs/scripts/ios-safari/run.sh",
-      "why": "iPhone Preview opens a .pptx with Apple's own Office importer, which draws it unlike PowerPoint, LibreOffice or Google Slides (it ignores embedded fonts, and collapsed every icon shape inside a group to a speck). macOS Quick Look uses the same importer; Linux has nothing that does. Renders each slide to a PNG under platform-suite-artifacts/office-quicklook/, as exported and as rewritten variants, so the comparison is seen without a phone."
-    }
-  ]
+	"$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-26, windows-2025). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `on_pull_request`: false runs the suite nightly and on dispatch only, never on a pull request (the iOS Simulator suites, 2026-10-29: 49 PR jobs and about 820 macOS minutes in the 100 PR runs from 2026-10-28T10:50Z to 2026-10-29T02:25Z, 27 of them not green, gating nothing). `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. `docs_site`: true when the suite serves the built docs site; the workflow's `docs-site` job builds it once on Linux and the suite's job downloads it. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
+	"suites": [
+		{
+			"name": "export-confine",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"lib/core/file-confine.js",
+				"lib/plugins/host-page-worker.js",
+				"lib/export/html-player.js",
+				"lib/export/player-core.mjs",
+				"test/integration/export/confine-cli.test.js",
+				"test/unit/core/file-confine.test.js",
+				"test/unit/export/html-player-inline-file-urls.test.js",
+				"test/unit/export/bake-helper.js",
+				"lattice.js",
+				"lib/export/video.mjs",
+				"test/unit/export/cli-file-urls.test.js",
+				"lib/plugins/mermaid/shared/render-worker.js",
+				"test/integration/export/mermaid-worker-confine.test.js"
+			],
+			"run": "node --test test/integration/export/confine-cli.test.js test/unit/core/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
+			"why": "A render reads a local file only by REAL path inside the deck folder (media note §4.11). macOS reaches /tmp and $TMPDIR through symlinks (/private/tmp, /private/var), the case a real-path check gets wrong first; Linux cannot show it. The Mermaid worker's own page applies the same check. Windows runs as export-confine-windows."
+		},
+		{
+			"name": "export-confine-windows",
+			"os": [
+				"windows-2025"
+			],
+			"paths": [
+				"lib/core/file-confine.js",
+				"lib/plugins/host-page-worker.js",
+				"lib/export/html-player.js",
+				"lib/export/player-core.mjs",
+				"test/integration/export/confine-cli.test.js",
+				"test/unit/core/file-confine.test.js",
+				"test/unit/export/html-player-inline-file-urls.test.js",
+				"test/unit/export/bake-helper.js",
+				"lattice.js",
+				"lib/export/video.mjs",
+				"test/unit/export/cli-file-urls.test.js",
+				"lib/plugins/mermaid/shared/render-worker.js",
+				"test/integration/export/mermaid-worker-confine.test.js"
+			],
+			"run": "node --test test/integration/export/confine-cli.test.js test/unit/core/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
+			"why": "The same CLI confinement checks as export-confine, on Windows: the CLI names its output page with pathToFileURL (file:///C:/…), and file-confine must turn that back into a path on the same drive and refuse a host-qualified (UNC) address. It uses the full `npm run build` (build-windows proves that build passes there). Symlink creation may need a privilege the runner lacks; if so those tests fail with EPERM and the run shows it."
+		},
+		{
+			"name": "wait-for-macos",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"tools/wait-for.sh",
+				".claude/hooks/warn-unbounded-wait.sh",
+				"test/unit/tools/wait-for.test.js",
+				"test/unit/tools/warn-unbounded-wait.test.js"
+			],
+			"run": "for t in timeout gtimeout flock perl; do command -v $t || echo \"no $t\"; done; brew install coreutils && node --test test/unit/tools/wait-for.test.js test/unit/tools/warn-unbounded-wait.test.js",
+			"why": "tools/wait-for.sh takes its lock with flock(1) or, where that is missing, perl's flock builtin, and needs GNU timeout (gtimeout on macOS). macOS ships neither flock(1) nor timeout, so the perl path and the exit-69 'missing dependency' path are the ones a Mac takes; Linux tests drive them only by pinning WAIT_FOR_LOCK_IMPL and a controlled PATH (engineering/development.md § Waiting for a slow job: 'macOS itself remains UNVERIFIED'). The first two runs (jobs 117883739691, 117885882571) showed a stock macOS runner has perl but no timeout, gtimeout or flock; the tests failed because their lock probe called flock(1), not because wait-for.sh did (its own run-mode test passed). The probe now falls back to perl, `isLive` to `ps` (no /proc), and the entry installs coreutils first (the supported state)."
+		},
+		{
+			"name": "build-windows",
+			"os": [
+				"windows-2025"
+			],
+			"paths": [
+				"tools/check-ownership.js",
+				"tools/build.js",
+				"tools/prepare.js",
+				"lefthook.yml",
+				"tools/check-lint-coverage.js"
+			],
+			"run": "node tools/check-ownership.js && node -e \"require('fs').accessSync('dist/docs/components.pick.md')\"",
+			"why": "`npm run build` runs tools/check-ownership.js first, and on Windows every gate that compared a backslash path with a forward-slash allowlist reported its sanctions stale and aborted the build (platform-suites run 39197530212, job 117883739719), so no CLI suite could use the full build there; the path, Biome-launch, command-length and report-path fixes in tools/check-ownership.js and tools/check-lint-coverage.js removed that. The suite's own build step IS the check (the default `npm run build`); `run` then re-runs the ownership gate and confirms the generated artifacts exist."
+		},
+		{
+			"name": "os-sandbox-measure",
+			"os": [
+				"macos-26",
+				"windows-2025"
+			],
+			"paths": [
+				"lib/core/os-sandbox.js",
+				"lib/plugins/host-page-worker.js",
+				"lib/core/code-sandbox.js",
+				"lib/cli/code-door.js",
+				"lib/packages/code-door-worker.js",
+				"lib/packages/npm-plugin-admission.js",
+				"test/integration/export/os-sandbox-measure.test.js",
+				"test/integration/export/npm-plugin-admission.test.js"
+			],
+			"run": "node --test test/integration/export/os-sandbox-measure.test.js test/integration/export/npm-plugin-admission.test.js",
+			"why": "The code door reads the OS sandbox layer before it runs a stranger's code, and an npm plugin runs only where it reads `on` (threat-model note §6 decisions 7 and 13). macOS (sandbox_check) and Windows (chrome://sandbox) are read differently from Linux, and only a real runner of each starts Chromium's sandbox to be read. The npm admission test then runs the real door there: an npm plugin draws exactly when the measured layer admits it."
+		},
+		{
+			"name": "ios-safari-studio-ipad",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/run.mjs",
+				"docs/scripts/ios-safari/studio-probe.js",
+				"docs/scripts/ios-safari/panes-probe.js",
+				"docs/scripts/ios-safari/show-editor.js",
+				"docs/scripts/ios-safari/seed-settings.js",
+				"docs/src/playground/single-slide-render.ts",
+				"lib/core/pane-css.js",
+				"docs/src/lib/sanitize-slide-html.js",
+				"lib/core/sanitize-slide-html.mjs",
+				"lib/core/inline-run.js",
+				"lib/transformers/inline-run.js"
+			],
+			"run": "DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+			"why": "Real Mobile Safari, in an iPad iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job: the iPad and the iPhone back to back took 21 to 27 of the job's 30 minutes on main and were canceled at 30 on slower runners with every check passed (runs 43278314890, 43285290891; flaky shape F4), most of it two simulator boots in series, so each device now has the whole limit, as the undo suites do.",
+			"on_pull_request": false,
+			"docs_site": true
+		},
+		{
+			"name": "ios-safari-studio-iphone",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/run.mjs",
+				"docs/scripts/ios-safari/studio-probe.js",
+				"docs/scripts/ios-safari/panes-probe.js",
+				"docs/scripts/ios-safari/icon-grid-probe.js",
+				"docs/src/components/studio/IconGrid.tsx",
+				"docs/scripts/ios-safari/show-editor.js",
+				"docs/scripts/ios-safari/seed-settings.js",
+				"docs/src/playground/single-slide-render.ts",
+				"lib/core/pane-css.js",
+				"docs/src/lib/sanitize-slide-html.js",
+				"lib/core/sanitize-slide-html.mjs",
+				"lib/core/inline-run.js",
+				"lib/transformers/inline-run.js"
+			],
+			"run": "DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+			"why": "Real Mobile Safari, in an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires; and opens the icon grid through Menu → Search / commands, inserting from the source pane and copying from the preview with a real touch tap (#2578). Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job: the iPad and the iPhone back to back took 21 to 27 of the job's 30 minutes on main and were canceled at 30 on slower runners with every check passed (runs 43278314890, 43285290891; flaky shape F4), most of it two simulator boots in series, so each device now has the whole limit, as the undo suites do.",
+			"on_pull_request": false,
+			"docs_site": true
+		},
+		{
+			"name": "ios-safari-font-cache",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/run.mjs",
+				"docs/scripts/ios-safari/font-cache-probe.js",
+				"docs/scripts/ios-safari/font-cache-server.mjs",
+				"docs/scripts/ios-safari/show-editor.js",
+				"docs/scripts/ios-safari/seed-settings.js",
+				"docs/scripts/lib/modeled-host.mjs",
+				"docs/src/components/studio/studio-warm.ts",
+				"docs/src/lib/theme-fetch.ts"
+			],
+			"run": "PROBE=font-cache bash docs/scripts/ios-safari/run.sh",
+			"why": "Whether real Mobile Safari, in an iPad and an iPhone iOS Simulator, reads the Studio's warmed fonts from its HTTP cache (studio-warm.ts fetches 31 faces, about 2.7 MB, after the first slide; #3087). The server counts what reaches it: after the warm-up, an edit that adds an emoji, a code block and `finish: sketch` must send no font request; a control arm, on its own origin and identical except that the font files are sent `no-store`, must send some, so the probe can see a miss. Chromium, Firefox and Linux WebKit were checked on Linux; Safari was not, and a miss there downloads those 2.7 MB twice on every iPhone visit. The service worker is kept out, as it was for those engines: its Cache Storage path is a separate question.",
+			"on_pull_request": false,
+			"docs_site": true
+		},
+		{
+			"name": "ios-safari-photo-memory",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/run.mjs",
+				"docs/scripts/ios-safari/photo-memory.mjs",
+				"docs/src/lib/preview-image-scale.ts",
+				"lib/core/remote-ref.js"
+			],
+			"run": "PROBE=photo-memory bash docs/scripts/ios-safari/run.sh",
+			"why": "Measures what ten 12MP photos cost real Mobile Safari, in an iPad and an iPhone iOS Simulator, shown by their own addresses and through the Studio's preview-sized copies (docs/src/lib/preview-image-scale.ts, #2998): the physical footprint of the simulator's WebKit processes, read on the Mac with vmmap. It fails when the originals cost under 60 MB (the reader is not reading Safari) or the copies cost more than 60% of them; CI has read 86 to 117 MB against 17 to 34 MB. It was part of ios-safari-studio until it took that job to 27.6 of its 30 minutes. A simulator has no memory limit, so it shows the cost, not the tab reload.",
+			"on_pull_request": false
+		},
+		{
+			"name": "ios-safari-present-memory",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/run.mjs",
+				"docs/scripts/ios-safari/present-memory.mjs",
+				"docs/scripts/ios-safari/present-memory-probe.js",
+				"docs/scripts/ios-safari/photo-memory.mjs",
+				"docs/scripts/ios-safari/seed-settings.js",
+				"docs/src/components/studio/PresentOverlay.tsx",
+				"docs/src/components/studio/present/stage-window.js",
+				"docs/src/components/studio/studio-stage.ts",
+				"lib/engine/deferred-urls.js"
+			],
+			"run": "PROBE=present-memory PRESENT_BASELINE_URL=https://lattice.style bash docs/scripts/ios-safari/run.sh",
+			"why": "What Present costs real Mobile Safari, in an iPhone iOS Simulator, on a deck of eighteen phone photos imported through \"Import deck…\" (present-memory.mjs, 24 MB; the owner's deck was 33 MB of data: text and reloaded the tab on an iPhone before #3148). It opens Present, steps six slides, times each until the next slide shows and its photo decodes, and reads the simulator's WebKit footprint with vmmap before and after. It fails when a step's photo does not decode, the page reloads, or Present adds more than PRESENT_MEMORY_CAP_MB (300; the first run read 795 MB on main and 124 MB after #3148). Times are reported, never judged (HARD RULE #32). The production site runs as a second arm that is reported, not judged, and time-boxed: the before until #3148 deployed, the live site after. A simulator has no memory limit, so it shows the cost, not the reload.",
+			"on_pull_request": false,
+			"docs_site": true
+		},
+		{
+			"name": "ios-safari-undo-ipad",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/*",
+				"docs/src/lib/filo/*",
+				"docs/src/components/studio/studio-filo-persist.ts",
+				"docs/src/components/studio/filo-narrow.worker.ts",
+				"docs/src/components/studio/StudioShell.tsx",
+				"docs/src/components/studio/StudioChromeSkeleton.tsx",
+				"docs/src/components/studio/undo-doorbell.ts"
+			],
+			"run": "PROBE=undo DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+			"why": "Filo's undo in real Safari, on one device per job: Mobile Safari in an iPad iOS Simulator. One job ran all three devices back to back and took 25.4 of its 30 minutes, passing only on a fast runner (flaky shape F4); a device is about 3 minutes of probe plus its simulator's boot, so each now has the whole limit. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
+			"docs_site": true
+		},
+		{
+			"name": "ios-safari-undo-iphone",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/*",
+				"docs/src/lib/filo/*",
+				"docs/src/components/studio/studio-filo-persist.ts",
+				"docs/src/components/studio/filo-narrow.worker.ts",
+				"docs/src/components/studio/StudioShell.tsx",
+				"docs/src/components/studio/StudioChromeSkeleton.tsx",
+				"docs/src/components/studio/undo-doorbell.ts"
+			],
+			"run": "PROBE=undo DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+			"why": "Filo's undo in real Safari, on one device per job: Mobile Safari in an iPhone iOS Simulator. One job ran all three devices back to back and took 25.4 of its 30 minutes, passing only on a fast runner (flaky shape F4); a device is about 3 minutes of probe plus its simulator's boot, so each now has the whole limit. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
+			"docs_site": true
+		},
+		{
+			"name": "ios-safari-undo-mac",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/*",
+				"docs/src/lib/filo/*",
+				"docs/src/components/studio/studio-filo-persist.ts",
+				"docs/src/components/studio/filo-narrow.worker.ts",
+				"docs/src/components/studio/StudioShell.tsx",
+				"docs/src/components/studio/StudioChromeSkeleton.tsx",
+				"docs/src/components/studio/undo-doorbell.ts"
+			],
+			"run": "PROBE=undo DEVICES=Mac bash docs/scripts/ios-safari/run.sh",
+			"why": "Filo's undo in real Safari, on one device per job: the Mac's own Safari, where a real ⌘Z key also undoes. One job ran all three devices back to back and took 25.4 of its 30 minutes, passing only on a fast runner (flaky shape F4); a device is about 3 minutes of probe plus its simulator's boot, so each now has the whole limit. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
+			"docs_site": true
+		},
+		{
+			"name": "ios-safari-chat-storage",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/run.mjs",
+				"docs/scripts/ios-safari/chat-storage-probe.js",
+				"docs/scripts/ios-safari/seed-settings.js",
+				"docs/src/components/studio/chat-store.ts",
+				"docs/src/components/studio/local-quota.ts",
+				"docs/src/components/studio/storage-notices.ts"
+			],
+			"run": "PROBE=chat-storage bash docs/scripts/ios-safari/run.sh",
+			"on_pull_request": false,
+			"docs_site": true,
+			"why": "Studio chats in real Mobile Safari, in an iPad and an iPhone iOS Simulator (#3138, engineering/decisions/2026-11-11-studio-storage-pointer-records.md §11): threads an earlier build left in localStorage move to IndexedDB across a real reload, whole, including a deck never opened, and the localStorage allowance is what local-quota.ts assumes for WebKit (about 5.24 M Latin-1 characters, half once a value is non-Latin-1), which the fill warning's arithmetic rests on. Playwright's WebKit on Linux is not iOS Safari. Nightly and on dispatch only (on_pull_request false, the owner's call on #3138): no per-PR macOS job. The probe is proved first by `PROBE=chat-storage node docs/scripts/ios-safari/probe.selftest.mjs` on WebKit, and fails against a build without the migration."
+		},
+		{
+			"name": "ios-safari-photo",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/run.mjs",
+				"docs/scripts/ios-safari/photo-probe.js",
+				"docs/scripts/ios-safari/show-editor.js",
+				"docs/scripts/ios-safari/seed-settings.js",
+				"docs/src/components/studio/coach/photo-contrast-watch.ts",
+				"docs/src/components/studio/photo-verdict.ts",
+				"docs/src/components/studio/photo-ink-read.ts",
+				"docs/src/components/studio/thin-card-fix.ts",
+				"docs/src/components/studio/card-ink-sampler.ts",
+				"lib/core/photo-contrast.mjs",
+				"lib/core/card-ink-policy.mjs",
+				"lib/core/card-ink.mjs"
+			],
+			"run": "PROBE=photo bash docs/scripts/ios-safari/run.sh",
+			"why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, checks the Studio's photo verdict (#2942): the Coach's photo finding and the editor's warning agree word for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide. It was part of ios-safari-studio until that one job ran out of its 30 minutes on a slow runner (#2961); as its own suite it runs when the photo code changes, not when the sanitizer does. A simulator runs on the Mac's hardware, so it is not a physical device.",
+			"on_pull_request": false,
+			"docs_site": true
+		},
+		{
+			"name": "ios-safari-jpeg",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/src/lib/lastra/jpeg.ts",
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/run.mjs",
+				"docs/scripts/ios-safari/jpeg-probe.js"
+			],
+			"run": "PROBE=jpeg bash docs/scripts/ios-safari/run.sh",
+			"why": "Every export JPEG goes through the shared encoder (docs/src/lib/lastra/jpeg.ts, `@laticent/lastra`) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (iPad and iPhone iOS Simulators): its bytes must equal Node's and its luma stay above 38 dB; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's.",
+			"on_pull_request": false
+		},
+		{
+			"name": "ios-safari-focus-sync",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/run.mjs",
+				"docs/scripts/ios-safari/focus-sync-probe.js",
+				"docs/scripts/ios-safari/focus-sync-deck.mjs",
+				"docs/src/lib/playground-sync.ts"
+			],
+			"run": "PROBE=focus-sync bash docs/scripts/ios-safari/run.sh",
+			"why": "A click on a line in the Playground editor must center its slide in the preview and leave the editor where it is. The sync once judged its own preview scroll by time since the write, so a busy page delivered the event after the 120 ms echo window and the editor jumped 136 px (followup 2937-p2). Linux WebKit showed it only under CPU load and is not iOS Safari. This taps the editor 40 times in real Mobile Safari on an iPad Pro iOS Simulator, with the page kept busy on purpose, and fails if any tap moves the editor 2 px or more. The same probe fails 39 of 40 taps on the old code in Playwright's WebKit, so it can fail. A simulator runs on the Mac's CPU, so it is not a physical device. The iPhone is not run: a phone is never wide enough for the two-pane layout.",
+			"on_pull_request": false,
+			"docs_site": true
+		},
+		{
+			"name": "office-quicklook",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"tools/office-quicklook.mjs",
+				"docs/src/lib/calco/pptx.ts",
+				"docs/src/lib/calco/reader.ts",
+				"docs/src/lib/calco/layout.ts",
+				"lib/export/office-export.js",
+				"lib/core/office-icons.js",
+				"docs/scripts/ios-safari/run.sh",
+				"docs/scripts/ios-safari/office-capture.mjs",
+				"docs/scripts/ios-safari/QLProbe.swift"
+			],
+			"on_pull_request": false,
+			"run": "node tools/office-quicklook.mjs --custgeom-only examples/inline-icons.md test/integration/baseline-decks/gallery.md && PROBE=office bash docs/scripts/ios-safari/run.sh",
+			"why": "iPhone Preview opens a .pptx with Apple's own Office importer, which draws it unlike PowerPoint, LibreOffice or Google Slides (it ignores embedded fonts, and collapsed every icon shape inside a group to a speck). macOS Quick Look uses the same importer; Linux has nothing that does. Renders each slide to a PNG under platform-suite-artifacts/office-quicklook/, as exported and as rewritten variants, so the comparison is seen without a phone."
+		},
+		{
+			"name": "ios-safari-plugin-ipad",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/plugin-probe.js"
+			],
+			"run": "PROBE=plugin DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+			"why": "THROWAWAY (#3292): approve a plugin in real Mobile Safari and watch every frame for the badge text without its fill. Not for main.",
+			"on_pull_request": false,
+			"docs_site": true
+		},
+		{
+			"name": "ios-safari-plugin-iphone",
+			"os": [
+				"macos-26"
+			],
+			"paths": [
+				"docs/scripts/ios-safari/plugin-probe.js"
+			],
+			"run": "PROBE=plugin DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+			"why": "THROWAWAY (#3292): approve a plugin in real Mobile Safari and watch every frame for the badge text without its fill. Not for main.",
+			"on_pull_request": false,
+			"docs_site": true
+		}
+	]
 }

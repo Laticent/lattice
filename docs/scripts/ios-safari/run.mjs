@@ -154,7 +154,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'plugin' ? await runPluginProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -534,6 +534,22 @@ async function runPhotoMemory(id) {
 	];
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, arms, steps };
+}
+/** The plugin approve probe (PROBE=plugin, #3292): import the demo plugin, approve it, and watch every frame (plugin-probe.js). */
+async function runPluginProbe(id) {
+	const { default: JSZip } = await import('jszip');
+	const demo = path.join(here, '../../../lib/packages/_demo-host-slots/status-card');
+	const zip = new JSZip();
+	for (const f of fs.readdirSync(demo)) zip.file(`status-card/${f}`, fs.readFileSync(path.join(demo, f)));
+	const b64 = (await zip.generateAsync({ type: 'nodebuffer' })).toString('base64');
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+	await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+	const probe = withEditorHelper(fs.readFileSync(path.join(here, 'plugin-probe.js'), 'utf8'));
+	return wd('POST', `/session/${id}/execute/async`, {
+		script: `${probe}\nconst done = arguments[arguments.length - 1];\nlatticePluginProbe(arguments[0]).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+		args: [b64],
+	});
 }
 async function runPhotoProbe(id) {
 	return studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
