@@ -698,9 +698,9 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 				const mustConnect = out.readiness ? ['needs-key', 'unset', 'unavailable', 'off', 'retired'].includes(out.readiness.state) : !sendAiReady;
 				if (mustConnect) {
 					markAnswerAfterConnect(sendDeckId);
-					// Wait for the NEXT moment a model becomes available: a model the Studio already calls ready answered
-					// "offline", so answering again on the current one would only fail again (and loop).
-					resumeArmedRef.current = false;
+					// Hold this deck until the NEXT moment a model becomes available: a model the Studio already calls ready
+					// answered "offline", so answering again on the current one would only fail again (and loop).
+					resumeHeldRef.current.add(sendDeckId);
 				}
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
@@ -843,20 +843,18 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 	// ANSWER THE WAITING MESSAGE once a model is ready (the answer-after-connect mark in studio-store.ts): after a key
 	// typed in Workspace, or after the OpenRouter sign-in's reload. Only when this deck's thread still ends on that
 	// unanswered author message, so a thread the author has since moved on from is never answered behind their back.
-	// ARMED at a MOMENT a model becomes available (the chat opening, or `aiReady` turning true), and spent only when a
-	// waiting message is actually answered: a deck with nothing waiting leaves it armed, so the author can connect on
-	// one deck and still have another deck's message answered when they open it. A turn that comes back "offline"
-	// disarms it (above), so a model the Studio calls ready but that cannot answer is never retried in a loop.
-	const resumeArmedRef = React.useRef(true);
+	// Each deck's mark is answered once (taking it clears it), whichever deck the author connected on and in any
+	// order they visit them. A deck whose turn came back "offline" is HELD (above) until the next MOMENT a model
+	// becomes available (the chat opening, or `aiReady` turning true), so a model the Studio calls ready but that
+	// cannot answer is never retried in a loop. Held per deck, so answering one deck never strands another.
+	const resumeHeldRef = React.useRef(new Set<string>());
 	const wasAiReadyRef = React.useRef(aiReady);
-	if (aiReady && !wasAiReadyRef.current) resumeArmedRef.current = true;
+	if (aiReady && !wasAiReadyRef.current) resumeHeldRef.current.clear();
 	wasAiReadyRef.current = aiReady;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: a model becoming ready (or the thread loading) is the trigger; `run` reads the rest when it runs.
 	React.useEffect(() => {
-		if (!ready || !aiReady || busy || compacting || !resumeArmedRef.current) return;
-		if (!hasAnswerAfterConnect(deckId)) return;
-		resumeArmedRef.current = false;
-		takeAnswerAfterConnect(deckId);
+		if (!ready || !aiReady || busy || compacting || resumeHeldRef.current.has(deckId)) return;
+		if (!takeAnswerAfterConnect(deckId)) return;
 		if (messages.at(-1)?.role !== 'user') return;
 		void run(messages, deckId);
 	}, [ready, aiReady, busy, compacting, deckId]);

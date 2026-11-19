@@ -713,6 +713,34 @@ describe('Architect chat — a message sent before a model is connected is answe
 		expect(chatSpy).toHaveBeenCalledTimes(1);
 	});
 
+	// A second review found the fix above stranded a SECOND waiting deck: answering one spent the trigger for all.
+	it('answers every waiting deck after one connection, each once', async () => {
+		const user = userEvent.setup();
+		const offline = { status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } } as never;
+		chatSpy.mockResolvedValueOnce(offline).mockResolvedValueOnce(offline);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		rerender(<ArchitectChat {...props} deckId="deck-2" aiReady={false} />);
+		await flushFrames();
+		await sendOnce(user, 'hello');
+		await flushFrames();
+		// The author connects while on the second deck: it is answered.
+		rerender(<ArchitectChat {...props} deckId="deck-2" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy).toHaveBeenCalledTimes(3);
+		// Back on the first deck, its message is answered too, and neither is answered twice.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy, 'the second waiting deck was stranded').toHaveBeenCalledTimes(4);
+		rerender(<ArchitectChat {...props} deckId="deck-2" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy).toHaveBeenCalledTimes(4);
+	});
+
 	it('keeps one waiting mark per deck', () => {
 		markAnswerAfterConnect('deck-1');
 		markAnswerAfterConnect('deck-2');
