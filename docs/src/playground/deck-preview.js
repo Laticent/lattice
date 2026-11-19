@@ -43,7 +43,7 @@
 // SYNC scroll math (window.scrollY) and content-visibility virtualization both
 // keep measuring against the document viewport.
 
-import { agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
+import { AGENTS_MARK, agentTag, frameAgentsUrl } from '../../../lib/core/frame-agents.mjs';
 import {
 	buildPrintCss,
 	fitSlideOnSheet,
@@ -197,7 +197,10 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		bar +
 		// Hidden until the FIT agent scales the 1280px sections to the container
 		// width (it flips this to visible). Prevents the full-size first-paint flash.
-		'.lattice{visibility:hidden;}' +
+		// Only under the agents file's mark: its first tag is in <head> and blocks the
+		// parser, so the mark is set before anything paints, and a file that never ran
+		// shows the slides unscaled rather than a blank pane (frame-agents.mjs AGENTS_MARK).
+		'html[' + AGENTS_MARK + '] .lattice{visibility:hidden;}' +
 		// Pins each slide to its intrinsic `@size` box BEFORE FIT scales it. Without
 		// it, `section{container-type:size}` collapses and cqi/cqh layouts render
 		// tiny + jitter. See frame-css.js + engineering/gotchas.md.

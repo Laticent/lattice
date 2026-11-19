@@ -131,10 +131,23 @@ export function policyFor(html, allow = {}, own = selfOrigins()) {
 	].join('; ');
 }
 
+/**
+ * The site origins a written policy names beside `'self'`, read back from its `img-src` (which holds
+ * exactly `'self'`, those origins, then `data:`). `--check` uses them to tell a page built for other
+ * origins (an e2e build's `--self-origin`, a pull-request build's preview project) from a page a later
+ * step rewrote; both differ from this run's policy, and only the second is a broken page.
+ * @param {string} meta the page's `<meta http-equiv="Content-Security-Policy">` tag
+ * @returns {string[] | null} null when the policy has no such `img-src`
+ */
+export function ownOriginsIn(meta) {
+	const m = /img-src 'self'((?: [^ ;']+)*?) data:/.exec(meta);
+	return m ? m[1].trim().split(' ').filter(Boolean) : null;
+}
+
 /** Insert the policy right after <meta charset> (which must stay within the first 1024 bytes). */
-export function withPolicy(html, allow = {}) {
+export function withPolicy(html, allow = {}, own = selfOrigins()) {
 	const clean = html.replace(META_RE, '');
-	const meta = `<meta http-equiv="Content-Security-Policy" content="${policyFor(clean, allow)}">`;
+	const meta = `<meta http-equiv="Content-Security-Policy" content="${policyFor(clean, allow, own)}">`;
 	const charset = clean.match(/<meta charset="?utf-8"?\s*\/?>/i);
 	if (!charset) throw new Error('no <meta charset> to anchor the policy after');
 	const at = charset.index + charset[0].length;
@@ -286,6 +299,9 @@ export function writesInlineFrameScript(code) {
 		if (/(?<![-\w])src=/i.test(tag) || NOT_RUN_TYPE.test(tag)) continue; // `data-src=` is not a source
 		const body = code.slice(i + 1, i + 12);
 		if (/^(?:<\\?\/script|`|"|')/.test(body) && !/^(?:`|"|')\s*\+/.test(body)) continue; // empty element, or the string ends
+		// Prose, not markup: a code span (\`<script>\`) inside a template literal, its backticks escaped on
+		// both sides. The engine bundle's troubleshooting table has exactly this (found by the code checker).
+		if (code.slice(m.index - 2, m.index) === '\\`' && body.startsWith('\\`')) continue;
 		if (!ownPolicyBefore(code, m.index)) return true;
 	}
 	return false;
@@ -425,7 +441,14 @@ function main() {
 			errors.push(`${rel}: ${metas.length} CSP meta tags (want 1)`);
 			continue;
 		}
-		if (withPolicy(html, allow) !== html) errors.push(`${rel}: CSP hashes do not match the page's inline scripts (a step rewrote it after csp.mjs?)`);
+		if (withPolicy(html, allow) !== html) {
+			const theirs = ownOriginsIn(metas[0]);
+			errors.push(
+				theirs && withPolicy(html, allow, theirs) === html
+					? `${rel}: the policy was written for other site origins (${theirs.join(' ')}, this run names ${selfOrigins().join(' ')}); check with the --self-origin the build used`
+					: `${rel}: CSP hashes do not match the page's inline scripts (a step rewrote it after csp.mjs?)`,
+			);
+		}
 	}
 	for (const key of Object.keys(HELD_ROUTES)) if (!held.has(key)) errors.push(`${key}: HELD_ROUTES names a page the build did not produce; remove the entry`);
 	// A FLOOR, so a page that silently loses its policy fails the build instead of printing one line

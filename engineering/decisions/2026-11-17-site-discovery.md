@@ -171,7 +171,20 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     policy alone, which admits a script from any host; that reached an outside server in all three
     engines, though neither host writes such a document. The same pass found that author markup could
     shadow `document.currentScript` with a named element and pick an agent's data; the sanitizer strips
-    the name, and the agents file now reads the real getter and runs only for a real `<script>`.
+    the name, and the agents file now reads the real getter and runs only for a real `<script>`. A
+    code-checker pass added to the third guard: the prefix includes `default-src 'none'`, because a
+    policy tag with `content=""` is an empty policy the browser ignores; all three hosts start with it.
+  - **A missing agents file shows the slides; it does not blank them** (added 2026-11-19, from the
+    inversion lens). Inline, the fit and reveal ran whatever else failed to load; in a fetched file, a
+    404 after a deploy or a refused load left `.lattice` and `#latt-stage` hidden for good. The file
+    now marks `<html data-latt-agents>` when it runs. The filmstrip hides its slides only under that
+    mark (its first agent tag is in `<head>` and blocks the parser, so nothing paints first), so a
+    missing file shows them unscaled. The Stage's opener checks the mark once the document loads, and
+    at a 10 s deadline because Chromium stops parsing a written document at a failed script and never
+    fires `load`; without the mark it shows the deck unfitted and tells the presenter
+    (`onLost('unloaded')`). `e2e/frame-agents-missing.spec.ts` serves the file as a 404 in Chromium,
+    WebKit and Gecko. The Stage's font gate also sits after `#latt-stage`, not in `<head>`: a `<script
+    src>` there stopped the written document before the marker, so `isOpen()` read false on every open.
     **Only a page with a policy uses it**: a page without one (the Studio today)
     writes `srcdoc` as before, because the shell is a navigation the service worker never sees (it
     does not control an opaque-origin frame), so offline it lasts only as long as the HTTP cache.

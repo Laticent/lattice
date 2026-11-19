@@ -31,7 +31,7 @@
 // A cross-origin stage would have forced all three to be re-implemented in
 // inline strings, which is the cost that ruled out architecture S.
 
-import { agentTag, frameAgentsUrl } from '../../../../../lib/core/frame-agents.mjs';
+import { AGENTS_MARK, agentTag, frameAgentsUrl } from '../../../../../lib/core/frame-agents.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { drawnLibraryPreload } from '../../../../../lib/plugins/drawn-library.mjs';
@@ -368,7 +368,9 @@ function stageToken() {
  *     from the destructuring and every un-defaulted key becomes REQUIRED. Adding
  *     this one without a default broke twelve existing call sites at
  *     `astro check` time while `vitest` — which does not typecheck — stayed green.
- *   • onLost(reason) → the Stage stopped carrying the deck and NOBODY MEANT IT.
+ *   • onLost(reason) → the Stage stopped carrying the deck and NOBODY MEANT IT. `unloaded` is the
+ *     third reason: the deck document loaded without its agents file, so it cannot fit or follow
+ *     (`watchAgents`).
  *     Separate from `onChange(null)` because the two need opposite treatment:
  *     the console reverting to plain Present is the visible fact, and whether
  *     the ROOM still has the deck is the one a presenter mid-sentence needs
@@ -455,6 +457,9 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	// cold engine is seconds — and a blank white window on a projector reads as a
 	// crash. Deliberately not the chrome stylesheet: it is three lines of inline CSS
 	// so it cannot itself be waiting on anything.
+	/** How long a written deck document has to show the agents file's mark (`watchAgents`). */
+	const AGENTS_DEADLINE_MS = 10_000;
+	let agentsTimer = 0;
 	const HOLDING =
 		'<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Stage</title>' +
 		'<style>html,body{margin:0;height:100%;background:#15110D;color:#B6A488;' +
@@ -627,6 +632,44 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		}, CLOSED_STEP_MS);
 	}
 
+	/**
+	 * Did the agents file run in the deck document? It is fetched, so a 404 after a deploy or a refused
+	 * load leaves `#latt-stage` hidden and no `ready` ever arrives: a blank projector and a console that
+	 * says nothing. Once the document has loaded (every script ran or failed), a document without the
+	 * file's mark (frame-agents.mjs AGENTS_MARK) is shown as it is, unfitted, and the presenter is told.
+	 * The DEADLINE is the other half, not a backstop: Chromium stops parsing a written document at a
+	 * failed blocking script and never fires `load` (measured with a 404, desktop Chromium), so there
+	 * the deadline is the only answer. The agents file is small and its first tag precedes the runtime.
+	 * @param {Window} win @param {string} doc
+	 */
+	function watchAgents(win, doc) {
+		let answered = false;
+		window.clearTimeout(agentsTimer); // a rewrite's own deadline replaces the last one
+		agentsTimer = 0;
+		const look = () => {
+			if (answered || win !== stageWin || written !== doc) return; // answered, replaced or gone
+			answered = true;
+			window.clearTimeout(agentsTimer);
+			agentsTimer = 0;
+			let d;
+			try {
+				d = win.document;
+				if (d.documentElement.hasAttribute(AGENTS_MARK)) return;
+				const st = d.getElementById('latt-stage');
+				if (st) st.style.visibility = 'visible';
+			} catch {
+				return; // not ours any more; the loss paths answer that
+			}
+			onLost?.('unloaded');
+		};
+		try {
+			if (win.document.readyState === 'complete') look();
+			else win.addEventListener('load', look, { once: true });
+		} catch {
+			// A window we cannot read or listen on is the loss paths' case, not this one.
+		}
+		if (!answered) agentsTimer = window.setTimeout(look, AGENTS_DEADLINE_MS);
+	}
 	function paint(doc) {
 		if (!reachable()) return;
 		// A REWRITE MAKES THE CONSOLE LET GO FIRST. `document.open()` detaches the
@@ -644,7 +687,10 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			// throwing write: `written === doc` made `write(doc)` a no-op forever after,
 			// so the room kept whatever was on screen and nothing could replace it.
 			written = doc;
-			if (doc !== HOLDING) settleDeckWaiters(true);
+			if (doc !== HOLDING) {
+				settleDeckWaiters(true);
+				watchAgents(stageWin, doc);
+			}
 		} catch {
 			written = '';
 			// Not a rewrite in flight any more: nothing will say `ready`, so the console must
@@ -735,6 +781,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	function teardown() {
 		ready = false;
 		written = '';
+		window.clearTimeout(agentsTimer); // the agents deadline belongs to the document let go of
+		agentsTimer = 0;
 		settleDeckWaiters(false);
 		ownSeq += 1;
 		// A goodbye still awaited belongs to a window already let go of; whatever comes next supersedes it.

@@ -12,6 +12,10 @@
   preview's own runtime and fonts once the site's offline service worker was in control, so every
   page after the first rendered its previews in a fallback font. The policy now names the site's
   own addresses beside `'self'`, which Firefox honors.
+- **A preview whose script file fails to load still shows its slides.** The preview scripts now
+  arrive as a file, and a page left open across a deploy can ask for one that is gone. The
+  Playground preview then shows the slides unscaled instead of nothing, and the Stage shows the
+  deck and tells the presenter to reload, instead of a blank projector.
 - **Six pages still carry no policy, each named by every build:** the Studio and one prototype
   (the export player writes inline scripts into its capture frames), Calco (its font subsetter
   builds code from strings), Cadenza and Suono (their voice code imports a runtime whose own
