@@ -11,7 +11,7 @@ equivalent is split across these registries (all real, all read by lint and/or t
 
 | Registry | File:line | What it holds | Read by |
 |---|---|---|---|
-| `MODIFIER_GROUPS` | lib/components/index.js:537 | THE de-facto base manifest: 41 groups, 343 tokens, each with surface/axes/offer | lint (`UNIVERSAL_MODIFIER_TOKENS`, :599, via lib/authoring/lint.js:157), Studio completion, `excludes` |
+| `MODIFIER_GROUPS` | lib/components/index.js:537 | THE de-facto base manifest: 43 groups, 343 tokens, each with surface/axes/offer | lint (`UNIVERSAL_MODIFIER_TOKENS`, :599, via lib/authoring/lint.js:157), Studio completion, `excludes` |
 | `UNIVERSAL_GROUPS` / `UNIVERSAL_VARIANTS` | lib/components/index.js:283 / :372 | Legacy 11-group, 62-entry subset (two entries are two-word strings `tint-corner at-tl`, `tint-edge at-right`) | `effectiveVariants()` (:766), manifest validator, components.json `universalVariants` |
 | `SEMI_UNIVERSAL_VARIANTS` | lib/components/index.js:382 | `compact` `accent` `claim-bleed` | effectiveVariants, `excludes` |
 | `EXCLUSIVE_AXES` | lib/components/index.js:409 | tone/insight/scale/period/claim | `conflicting-variants` lint, Studio drawer |

@@ -194,7 +194,7 @@ assumption, with no catalog for lint to read.
 
 ## Finding 4 — universals vs modifiers
 
-The machine-readable base manifest is `MODIFIER_GROUPS` (`lib/components/index.js:537`): 41
+The machine-readable base manifest is `MODIFIER_GROUPS` (`lib/components/index.js:537`): 43
 groups, 343 tokens, each with the surface it acts on and its exclusions. The linter and the
 Studio's `_class:` completion both read it. Nothing calls it the base manifest, and the docs point
 elsewhere.
