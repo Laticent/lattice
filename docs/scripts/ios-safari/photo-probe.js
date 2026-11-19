@@ -189,6 +189,25 @@ async function latticePhotoProbe() {
 		}
 		throw new Error(`the preview did not follow the caret to "${heading}" (it shows "${shown()}")`);
 	};
+	/** The Source editor's view, through the handle EditorView.findFromDOM uses (docs/e2e/markdown-stress.spec.ts). */
+	const editorView = () => document.querySelector('[aria-label="Deck source"]')?.cmTile?.root?.view ?? document.querySelector('.cm-content')?.cmTile?.root?.view;
+	/**
+	 * Wait until the editor's lint has answered for the text it holds NOW: the editor stamps the length of the text each
+	 * pass linted on its root (`data-linted-chars`, Editor.tsx `reportLint`) for exactly this. Every editor underline,
+	 * the photo warning included, waits on that pass. In the iOS Simulator the first answer for the probe's deck came
+	 * 5 to 24 s after it was typed (a cold lint worker loading the lint core; dispatches on #<this PR>, where the plain
+	 * lint warning on slide 2 and the photo warning on slide 1 always appeared in the same instant), so a fixed 20 s
+	 * wait for the underline ran out on an iPad (run 44526306430) and an iPhone (run 44149207107) before lint had said
+	 * anything. The deadline is the probe's cold-start hang guard, as for the first render: the signal ends the wait.
+	 */
+	const linted = async (what) => {
+		const t0 = Date.now();
+		await until(() => {
+			const view = editorView();
+			return view && view.dom.dataset.lintedChars === String(view.state.doc.length);
+		}, 150000, `the editor's lint to answer for ${what} (it last linted ${editorView()?.dom.dataset.lintedChars ?? 'nothing'} characters of ${editorView()?.state.doc.length ?? '?'})`);
+		return Date.now() - t0;
+	};
 	/** Open the editor's lint tooltip on the range on the line holding `text`, with a pointer move over it, and read it. */
 	const editorTooltip = async (text) => {
 		await openSource();
@@ -198,19 +217,19 @@ async function latticePhotoProbe() {
 		// underline were not in the page at all, so the wait ran out with the warning present. The editor's own document
 		// says where the text is; its scroll effect puts the line's start at the top of the view.
 		await until(() => {
-			// The view, through the handle EditorView.findFromDOM uses (docs/e2e/markdown-stress.spec.ts).
-			const view = document.querySelector('[aria-label="Deck source"]')?.cmTile?.root?.view ?? document.querySelector('.cm-content')?.cmTile?.root?.view;
+			const view = editorView();
 			const at = view ? view.state.doc.toString().indexOf(text) : -1;
 			if (at < 0) return null;
 			view.dispatch({ effects: view.constructor.scrollIntoView(at, { y: 'start' }) });
 			return true;
 		}, 10000, `the editor's document to hold "${text}"`);
-		const tw = Date.now();
+		const lintMs = await linted('the deck');
+		// Lint has answered for this text; the photo warning also needs the preview's measured verdict, which the Coach
+		// has already shown, and the one re-run of lint it sets off. 20 s is that, not the lint worker's cold start.
 		const range = await until(() => {
 			const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes(text));
 			return line?.querySelector('.cm-lintRange-warning');
 		}, 20000, `an editor warning on the line "${text}"`);
-		(result.trace ??= []).push(`${text.slice(0,12)} warn after ${Date.now() - tw} ms`);
 		range.scrollIntoView({ block: 'center' });
 		await sleep(200);
 		// Close whatever tooltip an earlier read left open: the pointer leaves the editor, and CodeMirror needs a moment.
@@ -255,20 +274,9 @@ async function latticePhotoProbe() {
 			const t = document.querySelector('.cm-tooltip-lint');
 			return t && !/Checking the photo/.test(t.textContent) && t.querySelector('.cm-diagnosticAction') ? t : null;
 		}, 20000, 'the editor tooltip with its fix');
-		return { text: tip.textContent, button: tip.querySelector('.cm-diagnosticAction')?.textContent?.trim() };
+		return { text: tip.textContent, button: tip.querySelector('.cm-diagnosticAction')?.textContent?.trim(), lintMs };
 	};
 
-	const T0 = Date.now();
-	let last = '';
-	let editorsSeen = 0;
-	const tracer = setInterval(() => {
-		const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'));
-		const cls = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('_class: image spotlight card-clear'));
-		const ed = document.querySelector('.cm-editor');
-		if (ed && !ed.__seen) ed.__seen = ++editorsSeen;
-		const st = `coach=${coachOpen()} shown=${shown()} line=${line ? (line.querySelector('.cm-lintRange-warning') ? 'warn' : 'plain') : 'none'} cls=${cls ? (cls.querySelector('.cm-lintRange-warning') ? 'warn' : 'plain') : 'none'} ed=${ed?.__seen ?? 0} prevVis=${visible(document.querySelector('[aria-label="Live deck preview"]'))}`;
-		if (st !== last) { (result.trace ??= []).push(`${Date.now() - T0} ${st}`); last = st; }
-	}, 30);
 	try {
 		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
 		// editor only when its pane is shown, which openSource does (#2911).
@@ -290,6 +298,7 @@ async function latticePhotoProbe() {
 		step('slide 1: the Coach flags the statement under 4.5:1', /reads at [0-3]\.\d:1 \(needs 4\.5:1\)/.test(said1), said1);
 		step('slide 1: the Coach offers the dark card ink', coachButton()?.textContent.trim() === 'Set card ink dark', coachButton()?.textContent);
 		const tip1 = await editorTooltip('![A bright harbor](data:');
+		step('slide 1: the editor lints the deck', true, `answered ${tip1.lintMs} ms after the warning was looked for`);
 		step('slide 1: the editor says what the Coach says', tip1.text.includes(said1), tip1.text);
 		step('slide 1: the editor offers the same button', tip1.button === 'Set card ink dark', tip1.button);
 
@@ -313,7 +322,9 @@ async function latticePhotoProbe() {
 		seen.delete('');
 		step('slide 1: the preview never left the slide while the fix landed', seen.size === 1 && seen.has(HEADINGS[0]), [...seen].join(' | '));
 		await openSource();
-		await sleep(1500);
+		// Read once lint has answered for the text with the fix in it (it changed length), not after a fixed sleep: on the
+		// simulator a pass can take longer than any guess, and a read before it would see the old underline.
+		await linted('the fixed deck');
 		const left = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'))?.querySelector('.cm-lintRange-warning');
 		step('slide 1: the editor warning clears too', !left, left ? 'still underlined' : '');
 
@@ -338,7 +349,6 @@ async function latticePhotoProbe() {
 		step('slide 3: the finding for the slide left behind is gone', true, `${Math.max(0, Math.round(gone - moved))} ms after the preview moved`);
 
 		result.ok = true;
-		clearInterval(tracer);
 	} catch (e) {
 		result.error = String(e?.message ?? e);
 	}
