@@ -72,14 +72,18 @@ export const sha256 = (text) => `'sha256-${createHash('sha256').update(text, 'ut
 // the frame's own same-origin runtime, agents file and theme fonts, and the preview fell back to the
 // default serif. Chromium and WebKit were clean. Naming the origin explicitly is what Gecko matches
 // (0 refusals against 5 on the same page; measured 2026-11-19, engineering/gotchas/docs-site.md).
-// Production is lattice.style; every PR preview is a subdomain of our one Cloudflare Pages project.
-// `--self-origin=<origin>` (repeatable) adds the origin a local build is served from: `build:e2e`
-// names http://localhost:4321, so the e2e runs the policy as a deploy does.
+// Production names lattice.style alone. A PR build (GitHub sets GITHUB_HEAD_REF only on a
+// pull_request run: docs-preview.yml deploys one, docs.yml's production deploy runs on push) also
+// names our Cloudflare Pages project, where every preview is a subdomain, so production never
+// trusts a script from a preview branch. `--self-origin=<origin>` (repeatable) adds the origin a
+// local build is served from: `build:e2e` names http://localhost:4321, so the e2e runs the policy as
+// a deploy does.
 const SELF_ORIGIN_RE = /^https?:\/\/(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::\d{1,5})?$/;
-export function selfOrigins(argv = process.argv) {
+export const PREVIEW_ORIGIN = 'https://*.lattice-docs-5ji.pages.dev';
+export function selfOrigins(argv = process.argv, env = process.env) {
 	const extra = argv.filter((a) => a.startsWith('--self-origin=')).map((a) => a.slice('--self-origin='.length));
 	for (const o of extra) if (!SELF_ORIGIN_RE.test(o)) throw new Error(`--self-origin: "${o}" is not a scheme://host[:port] origin`);
-	return [...new Set(['https://lattice.style', 'https://*.lattice-docs-5ji.pages.dev', ...extra])];
+	return [...new Set(['https://lattice.style', ...(env.GITHUB_HEAD_REF ? [PREVIEW_ORIGIN] : []), ...extra])];
 }
 
 /**
