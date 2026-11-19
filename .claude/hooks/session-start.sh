@@ -69,7 +69,23 @@ quiet_try() {
 #    container-state caching after the first run; the lockfile pins versions.
 #    Its `prepare` step also runs `lefthook install`, wiring the git hooks so
 #    the pre-commit / pre-push gates are actually active in this session.
-quiet npm install --no-audit --no-fund
+#    If it fails, nothing after it can work: CLAUDE.md says we develop Lattice from this
+#    repo's own build and never from anything else, so the session must stop and tell the
+#    owner first. Print that in plain words above the step's own output, and stop the hook.
+if ! quiet npm install --no-audit --no-fund; then
+  echo ""
+  echo "LATTICE CANNOT BE BUILT IN THIS SESSION: 'npm install' failed (its output is above)."
+  echo "CLAUDE.md: we develop Lattice here and never consume it. Say this to the owner FIRST,"
+  echo "before any other work, and report no measurement, test or render from this session."
+  # Ask DNS directly: npm reports an unreachable registry several ways (ENOTFOUND in its
+  # debug log, "Exit handler never called" on screen), so its own output is no test.
+  if ! getent hosts registry.npmjs.org >/dev/null 2>&1; then
+    echo "Cause: this environment cannot reach registry.npmjs.org (package installs are off)."
+    echo "Fix: the owner turns package installs on in the environment's network settings, then"
+    echo "starts a new session; a running session may not pick the change up."
+  fi
+  exit 1
+fi
 
 # 1b. The generated bundles. dist/ and the docs-site bundles are BUILT, not
 #     committed (.gitignore, 2026-08-17), so a fresh container has neither. Almost
