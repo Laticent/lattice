@@ -5,7 +5,7 @@ recorded: 2026-11-19
 area: website
 severity: high
 swimlane: engineering/decisions/2026-11-17-architect-tools-agent-readiness.md §5, §8
-deferred: blocked — the outcome it reports is the change card's, and PR 3317 (per-edit apply, plus the per-slide card model in 2026-11-19-chat-card-apply-undo.md) is changing what that outcome is; build on whichever card model lands
+deferred: blocked — the outcome it reports is the change card's, and PR 3317 (per-edit apply, plus the per-slide card model in 2026-11-19-chat-card-apply-undo.md) is changing what that outcome is; build on whichever card model lands. Still open on 2026-11-19 (checked from PR 3324); 3317 already adds "the newest message says what the author did with earlier cards", so once it merges, measure what is left of this item against its done-when before building
 source: https://github.com/Laticent/lattice/issues/3208
 ---
 
