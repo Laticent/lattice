@@ -273,6 +273,16 @@ export interface Deck {
 	company?: string;
 	/** Fonts to embed (ODP). A writer embeds only the faces some run uses. */
 	fonts?: EmbeddedFont[];
+	/**
+	 * The host's own palette, when it knows it: wins over what Calco reads off the slides (theme.ts), slot by slot.
+	 * Leave it out and the theme is read from what the deck draws.
+	 */
+	theme?: DeckThemeHint;
+}
+
+/** A host's palette for the file's theme: `#rrggbb` per OOXML color slot (`dk1`, `lt1`, `dk2`, `lt2`, `accent1`–`accent6`, `hlink`, `folHlink`). */
+export interface DeckThemeHint {
+	colors?: Partial<Record<'dk1' | 'lt1' | 'dk2' | 'lt2' | 'accent1' | 'accent2' | 'accent3' | 'accent4' | 'accent5' | 'accent6' | 'hlink' | 'folHlink', string>>;
 }
 
 /** A static TrueType/OpenType face, ready to embed. */

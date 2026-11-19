@@ -35,7 +35,10 @@
  *
  * ROLES: a slide's title is the slide's title placeholder, drawn where the browser drew it, so Outline view and
  * a screen reader find it; a page number that is the slide's position is a `slidenum` field, so it follows the
- * slide when slides move. Running chrome two slides share lives on their layout (masters.ts).
+ * slide when slides move. Running chrome two slides share lives on the master, or on their layout (masters.ts).
+ *
+ * THE THEME is the deck's (theme.ts): its colors and its heading and body faces, the master's text styles in its type, and
+ * layouts named for what they are with title and body placeholders in that type, so new content looks like the deck.
  *
  * XML is assembled from escaped values only (`xmlAttr`, `xmlText`): every value goes through `xmlSafe`, which strips
  * the characters XML 1.0 forbids, and is then escaped. Page text never names a tag or an attribute.
@@ -47,6 +50,7 @@ import { isPosition, type MasterPlan, planMasters, withoutHoisted } from './mast
 import { imageExt } from './picture.js';
 import { canEmbedAsEot, type FaceSlot, fontClass, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
+import { type ColorSlot, readTheme } from './theme.js';
 import type { Background, Deck, EmbeddedFont, FrameRole, JSZipClass, Paint, Shape, Slide, TextFrame, TextRun, TextStyle } from './types.js';
 
 export const PPTX_MIMETYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
@@ -241,19 +245,37 @@ class Rels {
 	}
 }
 
-/** The theme every master gets a copy of: Office's colors and fonts, and the three entries each style list must hold. */
-function themeXml(name: string): string {
+/** A theme's colors and faces. Leave them out for Office's own (the notes master's theme). */
+interface ThemeSpec {
+	/** Six hex digits per slot, upper case. */
+	colors?: Record<ColorSlot, string>;
+	/** The heading and body faces, as runs name them. */
+	major?: string;
+	minor?: string;
+}
+
+/**
+ * A theme part: its colors and fonts (the deck's for the slide master, theme.ts; Office's for the notes master), and
+ * the three entries each style list must hold.
+ */
+function themeXml(name: string, spec: ThemeSpec = {}): string {
 	const clr = (tag: string, rgb: string) => `<a:${tag}><a:srgbClr val="${rgb}"/></a:${tag}>`;
 	const fill = '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>';
 	const line = (w: number) => `<a:ln w="${w}" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln>`;
 	const effect = '<a:effectStyle><a:effectLst/></a:effectStyle>';
+	const c = spec.colors;
+	const scheme = c
+		? `<a:clrScheme name="${xmlAttr(name)}">${clr('dk1', c.dk1)}${clr('lt1', c.lt1)}${clr('dk2', c.dk2)}${clr('lt2', c.lt2)}${clr('accent1', c.accent1)}${clr('accent2', c.accent2)}` +
+			`${clr('accent3', c.accent3)}${clr('accent4', c.accent4)}${clr('accent5', c.accent5)}${clr('accent6', c.accent6)}${clr('hlink', c.hlink)}${clr('folHlink', c.folHlink)}</a:clrScheme>`
+		: `<a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>` +
+			`${clr('dk2', '44546A')}${clr('lt2', 'E7E6E6')}${clr('accent1', '4472C4')}${clr('accent2', 'ED7D31')}${clr('accent3', 'A5A5A5')}` +
+			`${clr('accent4', 'FFC000')}${clr('accent5', '5B9BD5')}${clr('accent6', '70AD47')}${clr('hlink', '0563C1')}${clr('folHlink', '954F72')}</a:clrScheme>`;
+	const major = xmlAttr(spec.major || 'Calibri Light');
+	const minor = xmlAttr(spec.minor || 'Calibri');
 	return (
-		`${DECL}<a:theme xmlns:a="${NS_A}" name="${xmlAttr(name)}"><a:themeElements>` +
-		`<a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>` +
-		`${clr('dk2', '44546A')}${clr('lt2', 'E7E6E6')}${clr('accent1', '4472C4')}${clr('accent2', 'ED7D31')}${clr('accent3', 'A5A5A5')}` +
-		`${clr('accent4', 'FFC000')}${clr('accent5', '5B9BD5')}${clr('accent6', '70AD47')}${clr('hlink', '0563C1')}${clr('folHlink', '954F72')}</a:clrScheme>` +
-		`<a:fontScheme name="Office"><a:majorFont><a:latin typeface="Calibri Light"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>` +
-		`<a:minorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>` +
+		`${DECL}<a:theme xmlns:a="${NS_A}" name="${xmlAttr(name)}"><a:themeElements>${scheme}` +
+		`<a:fontScheme name="${xmlAttr(spec.major ? name : 'Office')}"><a:majorFont><a:latin typeface="${major}"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>` +
+		`<a:minorFont><a:latin typeface="${minor}"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>` +
 		`<a:fmtScheme name="Office"><a:fillStyleLst>${fill}${fill}${fill}</a:fillStyleLst>` +
 		`<a:lnStyleLst>${line(6350)}${line(12700)}${line(19050)}</a:lnStyleLst>` +
 		`<a:effectStyleLst>${effect}${effect}${effect}</a:effectStyleLst>` +
@@ -263,9 +285,9 @@ function themeXml(name: string): string {
 }
 
 /** Nine list levels, as PowerPoint's own text styles carry them: `marL` steps of half an inch. */
-function levels(attrs: (lvl: number) => string, rPr = '<a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr>'): string {
+function levels(attrs: (lvl: number) => string, rPr = '<a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr>', pre = ''): string {
 	let out = '';
-	for (let l = 1; l <= 9; l++) out += `<a:lvl${l}pPr${attrs(l)}>${rPr}</a:lvl${l}pPr>`;
+	for (let l = 1; l <= 9; l++) out += `<a:lvl${l}pPr${attrs(l)}>${pre}${rPr}</a:lvl${l}pPr>`;
 	return out;
 }
 const levelAttrs = (l: number) => ` marL="${(l - 1) * 457200}" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"`;
@@ -511,11 +533,57 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		`<p:blipFill><a:blip r:embed="${rid}">${opts.svgRid ? `<a:extLst><a:ext uri="${SVG_EXT}"><asvg:svgBlip xmlns:asvg="${NS_ASVG}" r:embed="${opts.svgRid}"/></a:ext></a:extLst>` : ''}</a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
 		`<p:spPr>${opts.full ? fullFrame : xfrm(x, y, w, h)}${rectGeom}</p:spPr></p:pic>`;
 
-	// LAYOUTS. Slides that share a background and running chrome share a layout (masters.ts): the layout holds the
-	// background, the title placeholder and the header, footer and page number that repeat, and the slide holds what
-	// is its own. A deck with no roles and no shared background has one blank layout.
+	// THE THEME, read off what the deck draws (theme.ts): what an office app offers for new content.
+	const theme = readTheme(deck);
+	/** The family a style's runs name, and whether they flag bold or italic (as `runProps` decides). */
+	const faceRef = (st: TextStyle) => {
+		const hit = embedded.byKey.get(faceKey(st.family, st.weight, st.italic));
+		return hit ? { name: hit.name, bold: hit.bold, italic: hit.italic } : { name: safeFamily(st.family), bold: st.weight >= 600, italic: st.italic };
+	};
+	const majorFace = theme.title ? faceRef(theme.title.style).name : undefined;
+	const minorFace = theme.body ? faceRef(theme.body.style).name : majorFace;
+	/**
+	 * A text style's default run: size, weight, slant, spacing, color and the theme face (`+mj` heading, `+mn` body) when it
+	 * is the theme's, else the face by name.
+	 */
+	const defRPr = (st: TextStyle | undefined, font: 'mj' | 'mn', fallbackPt: number) => {
+		if (!st) return `<a:defRPr sz="${fallbackPt * 100}" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+${font}-lt"/><a:ea typeface="+${font}-ea"/><a:cs typeface="+${font}-cs"/></a:defRPr>`;
+		const ref = faceRef(st);
+		const themed = ref.name === (font === 'mj' ? majorFace : minorFace);
+		const fam = themed ? `+${font}-lt` : xmlAttr(ref.name);
+		const sz = clamp(points(st.size) * 100, 100, 400000);
+		const spc = fin(st.letterSpacing) ? ` spc="${clamp(points(st.letterSpacing) * 100, -400000, 400000)}"` : '';
+		const cap = st.transform === 'uppercase' ? ' cap="all"' : st.smallCaps ? ' cap="small"' : '';
+		return (
+			`<a:defRPr sz="${sz}" b="${ref.bold ? 1 : 0}" i="${ref.italic ? 1 : 0}"${cap}${spc} kern="100"><a:solidFill>${color(st.alpha < 1 && st.flatColor ? st.flatColor : st.color, st.alpha < 1 && !st.flatColor ? st.alpha : 1)}</a:solidFill>` +
+			`<a:latin typeface="${fam}"${themed ? '' : latinAttrs(st)}/><a:ea typeface="${themed ? `+${font}-ea` : fam}"/><a:cs typeface="${themed ? `+${font}-cs` : fam}"/></a:defRPr>`
+		);
+	};
+	/** A frame's line pitch as a paragraph's `a:lnSpc`, as its text boxes state it. */
+	const lnSpcOf = (frame: TextFrame | undefined) => {
+		if (!frame) return '';
+		const lead = dominantStyle(frame.lines.find((l) => l.length) || frame.lines[0]);
+		const pct = clamp(spacingMultiple(frame, metricsFor(lead, fonts, metricsCache), lead.size) * 100000, 0, 13200000);
+		return `<a:lnSpc><a:spcPct val="${pct}"/></a:lnSpc>`;
+	};
+	const algnOf = (frame: TextFrame | undefined) => (frame ? { left: 'l', center: 'ctr', right: 'r' }[frame.align] || 'l' : 'l');
+	/** A list style's first level in a frame's look: what a placeholder's new text is typed in. */
+	const lvl1 = (frame: TextFrame | undefined, font: 'mj' | 'mn') => {
+		if (!frame) return '<a:lstStyle/>';
+		const lead = dominantStyle(frame.lines.find((l) => l.length) || frame.lines[0]);
+		return `<a:lstStyle><a:lvl1pPr marL="0" indent="0" algn="${algnOf(frame)}">${lnSpcOf(frame)}<a:buNone/>${defRPr(lead, font, 18)}</a:lvl1pPr></a:lstStyle>`;
+	};
+	const PH_BODY = '<a:bodyPr vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" rtlCol="0" anchor="t"><a:normAutofit/></a:bodyPr>';
+
+	// LAYOUTS. Slides that share a background and running chrome share a layout (masters.ts). The running chrome most
+	// slides show (header, footer, page number) is drawn once, on the master; a layout that shows exactly that draws
+	// none of its own, and one that shows other chrome, or none, hides the master's and draws its own. Each layout has
+	// the title placeholder and a body (or, on a title look, subtitle) placeholder in the deck's own type, so a slide
+	// added in PowerPoint looks like the deck. A deck with no roles and no shared background has one blank layout.
 	const useLayouts = !!deck.backgrounds?.length || deck.slides.some((sl) => sl.frames.some((f) => f.role));
-	const plan: MasterPlan = useLayouts ? planMasters(deck) : { layouts: [{ chrome: {} }], layoutOf: deck.slides.map(() => 0), hoisted: deck.slides.map(() => new Set<number>()) };
+	const plan: MasterPlan = useLayouts
+		? planMasters(deck)
+		: { layouts: [{ kind: 'content', name: 'Blank', fromMaster: false, chrome: {} }], layoutOf: deck.slides.map(() => 0), hoisted: deck.slides.map(() => new Set<number>()), master: { chrome: {} } };
 	const masterRels = new Rels();
 	const layoutIds: string[] = [];
 	/** The page number's placeholder and its look, per layout that carries one: each of its slides draws one too. */
@@ -524,15 +592,21 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		const { box } = textOf(frame);
 		const lead = frame.lines[0].find((r) => !r.style.emoji) ?? frame.lines[0][0];
 		const algn = { left: 'l', center: 'ctr', right: 'r' }[frame.align] || 'l';
-		const lst = `<a:lstStyle><a:lvl1pPr algn="${algn}">${runProps(lead.style, 'a:defRPr', true)}</a:lvl1pPr></a:lstStyle>`;
-		// A layout's field shows PowerPoint's own stand-in for "this slide's number"; a slide's shows its digits. The
-		// look lives in the list style, so the field run carries none of its own and follows it.
+		// The whole look (letter-spacing, opacity and caps too) lives in the list style, so the field run carries none
+		// of its own and follows it.
+		const lst = `<a:lstStyle><a:lvl1pPr algn="${algn}">${runProps(lead.style, 'a:defRPr')}</a:lvl1pPr></a:lstStyle>`;
+		// A layout's field shows PowerPoint's own stand-in for "this slide's number"; a slide's shows its digits.
 		const body = `<a:fld id="${SLIDENUM_FIELD}" type="slidenum"><a:rPr lang="${deckLang}" b="0"/><a:t>${xmlText(digits ?? '‹#›')}</a:t></a:fld>`;
 		return (
 			`<p:sp><p:nvSpPr>${cNvPr(id, `Slide Number Placeholder ${id - 1}`)}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="12"/></p:nvPr></p:nvSpPr>` +
 			`<p:spPr>${xfrm(box.x, box.y, box.w, box.h)}${rectGeom}</p:spPr>` +
 			`<p:txBody><a:bodyPr lIns="0" tIns="0" rIns="0" bIns="0"/>${lst}<a:p><a:pPr algn="${algn}"/>${body}<a:endParaRPr lang="${deckLang}"/></a:p></p:txBody></p:sp>`
 		);
+	};
+	/** A header or footer drawn on a layout or the master: text, not a placeholder (a slide has no header placeholder). */
+	const chromeSp = (id: number, role: 'header' | 'footer', frame: TextFrame) => {
+		const { box, paras } = textOf(frame);
+		return `<p:sp><p:nvSpPr>${cNvPr(id, ROLE_NAMES[role])}<p:cNvSpPr txBox="1"/><p:nvPr userDrawn="1"/></p:nvSpPr><p:spPr>${xfrm(box.x, box.y, box.w, box.h)}${rectGeom}<a:noFill/>${NO_LINE}</p:spPr>${txBody(paras)}</p:sp>`;
 	};
 	const background = (rels: Rels, paint: Background | undefined): string => {
 		if (paint?.color) return `<p:bg><p:bgPr><a:solidFill>${color(paint.color)}</a:solidFill><a:effectLst/></p:bgPr></p:bg>`;
@@ -542,34 +616,79 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		}
 		return '';
 	};
+	/** The first frame of a role, outside cards, on the slides of a layout (or of the deck). */
+	const firstFrame = (role: FrameRole, li?: number) => {
+		for (let i = 0; i < deck.slides.length; i++) {
+			if (li !== undefined && plan.layoutOf[i] !== li) continue;
+			const f = deck.slides[i].frames.find((fr) => fr.role === role && fr.group === undefined && fr.lines.length);
+			if (f) return f;
+		}
+		return undefined;
+	};
+	const titleBox = (frame: TextFrame | undefined) => (frame ? textOf(frame).box : { x: W * 0.05, y: H * 0.08, w: W * 0.9, h: H * 0.14 });
+	/** Where a layout's body goes: under its title, over its footer, across what its first slide draws. */
+	const bodyBox = (li: number, title: { x: number; y: number; w: number; h: number }) => {
+		const first = deck.slides.findIndex((_s, i) => plan.layoutOf[i] === li);
+		const chrome = plan.layouts[li].chrome;
+		const floor = Math.min(...(['footer', 'number'] as const).map((r) => (chrome[r] ? textOf(chrome[r] as TextFrame).box.y : H)), H * 0.92) - 16;
+		const top = title.y + title.h + 24;
+		let x0 = title.x;
+		let x1 = title.x + title.w;
+		if (first >= 0) {
+			const slide = deck.slides[first];
+			const boxes = [
+				...slide.frames.filter((f) => !f.role && f.lines.length).map((f) => textOf(f).box),
+				...(slide.shapes || []).map((sh) => ({ x: sh.x, y: sh.y, w: sh.w, h: sh.h })),
+			].filter((b) => b.y + b.h > top && b.y < floor && b.w > 0);
+			if (boxes.length) {
+				x0 = Math.min(x0, ...boxes.map((b) => b.x));
+				x1 = Math.max(x1, ...boxes.map((b) => b.x + b.w));
+			}
+		}
+		x0 = Math.max(0, x0);
+		x1 = Math.min(W, Math.max(x1, x0 + W * 0.3));
+		return { x: x0, y: top, w: x1 - x0, h: Math.max(H * 0.1, floor - top) };
+	};
+	const masterNumber = plan.master.chrome.number;
 	plan.layouts.forEach((layout, li) => {
 		const rels = new Rels();
 		rels.add(`${REL}/slideMaster`, '../slideMasters/slideMaster1.xml');
 		let id = 2;
 		let tree = '';
 		if (useLayouts) {
-			// The title placeholder sits where the first slide on this layout put its title.
-			const first = deck.slides.findIndex((sl, i) => plan.layoutOf[i] === li && sl.frames.some((f) => f.role === 'title' && f.group === undefined));
-			const titleFrame = first < 0 ? null : (deck.slides[first].frames.find((f) => f.role === 'title' && f.group === undefined) as TextFrame);
-			const tb = titleFrame ? textOf(titleFrame).box : { x: W * 0.05, y: H * 0.08, w: W * 0.9, h: H * 0.14 };
+			// The title placeholder sits where the first slide on this layout put its title, in that title's look.
+			const titleFrame = firstFrame('title', li);
+			const tb = titleBox(titleFrame);
 			tree +=
 				`<p:sp><p:nvSpPr>${cNvPr(id++, 'Title Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
 				`<p:spPr>${xfrm(tb.x, tb.y, tb.w, tb.h)}${rectGeom}</p:spPr>` +
-				`<p:txBody><a:bodyPr wrap="square" rtlCol="0"/><a:lstStyle/><a:p><a:r><a:rPr lang="${deckLang}" dirty="0"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:rPr><a:t>Title</a:t></a:r><a:endParaRPr lang="${deckLang}" dirty="0"/></a:p></p:txBody></p:sp>`;
-			for (const role of ['header', 'footer'] as const) {
-				const frame = layout.chrome[role];
-				if (!frame) continue;
-				const { box, paras } = textOf(frame);
-				tree += `<p:sp><p:nvSpPr>${cNvPr(id++, ROLE_NAMES[role])}<p:cNvSpPr txBox="1"/><p:nvPr userDrawn="1"/></p:nvSpPr><p:spPr>${xfrm(box.x, box.y, box.w, box.h)}${rectGeom}<a:noFill/>${NO_LINE}</p:spPr>${txBody(paras)}</p:sp>`;
+				`<p:txBody>${PH_BODY}${lvl1(titleFrame, 'mj')}<a:p><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>Title</a:t></a:r><a:endParaRPr lang="${deckLang}" dirty="0"/></a:p></p:txBody></p:sp>`;
+			if (layout.kind === 'title') {
+				// A title look's second line: the subtitle, where and as the deck drew one.
+				const sub = firstFrame('subtitle', li);
+				const sb = sub ? textOf(sub).box : { x: tb.x, y: tb.y + tb.h + 16, w: tb.w, h: H * 0.08 };
+				tree +=
+					`<p:sp><p:nvSpPr>${cNvPr(id++, 'Subtitle Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="subTitle" idx="1" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
+					`<p:spPr>${xfrm(sb.x, sb.y, sb.w, Math.max(sb.h, 24))}${rectGeom}</p:spPr>` +
+					`<p:txBody>${PH_BODY}${lvl1(sub, 'mn')}<a:p><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>Subtitle</a:t></a:r><a:endParaRPr lang="${deckLang}" dirty="0"/></a:p></p:txBody></p:sp>`;
+			} else {
+				const bb = bodyBox(li, tb);
+				tree +=
+					`<p:sp><p:nvSpPr>${cNvPr(id++, 'Content Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph idx="1"/></p:nvPr></p:nvSpPr>` +
+					`<p:spPr>${xfrm(bb.x, bb.y, bb.w, bb.h)}${rectGeom}</p:spPr>` +
+					`<p:txBody>${PH_BODY}<a:lstStyle/><a:p><a:pPr lvl="0"/><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>Text</a:t></a:r></a:p></p:txBody></p:sp>`;
 			}
+			if (!layout.fromMaster) for (const role of ['header', 'footer'] as const) if (layout.chrome[role]) tree += chromeSp(id++, role, layout.chrome[role] as TextFrame);
 			if (layout.chrome.number) {
 				numberOf.set(li, { frame: layout.chrome.number });
 				tree += numberSp(id++, layout.chrome.number, null);
 			}
 		}
-		const name = useLayouts ? `Layout ${li + 1}` : 'Blank';
+		const type = !useLayouts ? ' type="blank"' : layout.kind === 'title' ? ' type="title"' : ' type="obj"';
+		// A layout that does not show the master's chrome hides it (the master holds nothing else).
+		const hide = useLayouts && !layout.fromMaster ? ' showMasterSp="0"' : '';
 		const xml =
-			`${DECL}<p:sldLayout ${NS} preserve="1"${useLayouts ? '' : ' type="blank"'}><p:cSld name="${xmlAttr(name)}">${background(rels, layout.paint)}<p:spTree>${TREE_ROOT}${tree}</p:spTree></p:cSld>` +
+			`${DECL}<p:sldLayout ${NS} preserve="1"${type}${hide}><p:cSld name="${xmlAttr(useLayouts ? layout.name : 'Blank')}">${background(rels, layout.paint)}<p:spTree>${TREE_ROOT}${tree}</p:spTree></p:cSld>` +
 			// What PowerPoint's Header & Footer dialog and a new slide on this layout read: a page number when the layout has one.
 			`<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${useLayouts ? `<p:hf sldNum="${layout.chrome.number ? 1 : 0}" hdr="0" ftr="0" dt="0"/>` : ''}</p:sldLayout>`;
 		part(`ppt/slideLayouts/slideLayout${li + 1}.xml`, xml, `${CT}.slideLayout+xml`);
@@ -577,19 +696,40 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		layoutIds.push(masterRels.add(`${REL}/slideLayout`, `../slideLayouts/slideLayout${li + 1}.xml`));
 	});
 
-	// THE SLIDE MASTER: no placeholders of its own (each layout carries what it draws), PowerPoint's text styles.
+	// THE SLIDE MASTER: the title and body placeholders every layout inherits, the running chrome most slides show,
+	// and text styles in the deck's own type (theme.ts), so a new slide, a new text box and the theme fonts are the deck's.
 	masterRels.add(`${REL}/theme`, '../theme/theme1.xml');
-	const titleStyle = `<a:lvl1pPr algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="0"/></a:spcBef><a:buNone/><a:defRPr sz="4400" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mj-lt"/><a:ea typeface="+mj-ea"/><a:cs typeface="+mj-cs"/></a:defRPr></a:lvl1pPr>`;
-	const bodyStyle = levels((l) => ` marL="${(l - 1) * 457200}" indent="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"`);
+	let masterTree = '';
+	let mid = 2;
+	if (useLayouts) {
+		const tb = titleBox(theme.title?.frame);
+		masterTree +=
+			`<p:sp><p:nvSpPr>${cNvPr(mid++, 'Title Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>` +
+			`<p:spPr>${xfrm(tb.x, tb.y, tb.w, tb.h)}${rectGeom}</p:spPr><p:txBody>${PH_BODY}<a:lstStyle/><a:p><a:r><a:rPr lang="${deckLang}"/><a:t>Title</a:t></a:r></a:p></p:txBody></p:sp>`;
+		const by = tb.y + tb.h + 24;
+		masterTree +=
+			`<p:sp><p:nvSpPr>${cNvPr(mid++, 'Text Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>` +
+			`<p:spPr>${xfrm(tb.x, by, tb.w, Math.max(H * 0.1, H * 0.88 - by))}${rectGeom}</p:spPr><p:txBody>${PH_BODY}<a:lstStyle/><a:p><a:pPr lvl="0"/><a:r><a:rPr lang="${deckLang}"/><a:t>Text</a:t></a:r></a:p></p:txBody></p:sp>`;
+		for (const role of ['header', 'footer'] as const) if (plan.master.chrome[role]) masterTree += chromeSp(mid++, role, plan.master.chrome[role] as TextFrame);
+		if (masterNumber) masterTree += numberSp(mid++, masterNumber, null);
+	}
+	const titleStyle = `<a:lvl1pPr algn="${algnOf(theme.title?.frame)}" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">${lnSpcOf(theme.title?.frame) || ''}<a:spcBef><a:spcPct val="0"/></a:spcBef><a:buNone/>${defRPr(theme.title?.style, 'mj', 44)}</a:lvl1pPr>`;
+	// Body text in the deck's type at every level; no bullets (the deck's paragraphs carry none), indented by level.
+	const bodyRPr = defRPr(theme.body?.style, 'mn', 18);
+	const bodyLn = lnSpcOf(theme.body?.frame);
+	const bodyStyle = levels((l) => ` marL="${(l - 1) * 457200}" indent="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"`, bodyRPr, `${bodyLn}<a:spcBef><a:spcPts val="600"/></a:spcBef><a:buNone/>`);
+	// Other text (a new text box) in the body's face and ink.
+	const otherStyle = levels(levelAttrs, bodyRPr);
 	part(
 		'ppt/slideMasters/slideMaster1.xml',
-		`${DECL}<p:sldMaster ${NS}><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>${TREE_ROOT}</p:spTree></p:cSld>` +
+		`${DECL}<p:sldMaster ${NS}><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>${TREE_ROOT}${masterTree}</p:spTree></p:cSld>` +
 			`<p:clrMap ${CLR_MAP}/><p:sldLayoutIdLst>${layoutIds.map((rid, i) => `<p:sldLayoutId id="${2147483649 + i}" r:id="${rid}"/>`).join('')}</p:sldLayoutIdLst>` +
-			`<p:hf sldNum="0" hdr="0" ftr="0" dt="0"/><p:txStyles><p:titleStyle>${titleStyle}</p:titleStyle><p:bodyStyle>${bodyStyle}</p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="${deckLang}"/></a:defPPr>${levels(levelAttrs)}</p:otherStyle></p:txStyles></p:sldMaster>`,
+			`<p:hf sldNum="${masterNumber ? 1 : 0}" hdr="0" ftr="0" dt="0"/><p:txStyles><p:titleStyle>${titleStyle}</p:titleStyle><p:bodyStyle>${bodyStyle}</p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="${deckLang}"/></a:defPPr>${otherStyle}</p:otherStyle></p:txStyles></p:sldMaster>`,
 		`${CT}.slideMaster+xml`,
 	);
 	part('ppt/slideMasters/_rels/slideMaster1.xml.rels', masterRels.xml());
-	part('ppt/theme/theme1.xml', themeXml('Office Theme'), 'application/vnd.openxmlformats-officedocument.theme+xml');
+	const themeColors = Object.fromEntries(Object.entries(theme.colors).map(([k, v]) => [k, hexOf(v)])) as Record<ColorSlot, string>;
+	part('ppt/theme/theme1.xml', themeXml(deck.title ? `${xmlSafe(deck.title).slice(0, 60)}` : 'Deck Theme', { colors: themeColors, major: majorFace, minor: minorFace }), 'application/vnd.openxmlformats-officedocument.theme+xml');
 
 	// THE SLIDES.
 	const lockPicture = useLayouts;

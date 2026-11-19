@@ -150,7 +150,7 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     const { zip, text } = await open();
     const layouts = Object.keys(zip.files).filter((n) => /^ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(n));
     const withBg = [];
-    for (const n of layouts) if (/<p:cSld name="Layout \d+"/.test(await text(n))) withBg.push(await text(n));
+    for (const n of layouts) if (/<p:cSld name="[^"]+"/.test(await text(n))) withBg.push(await text(n));
     assert.ok(withBg.every((x) => /<p:bg>/.test(x)));
     assert.equal(withBg.length, 2, 'one per background, none per slide');
     assert.ok(withBg.some((x) => /<a:srgbClr val="003D66"\/>/.test(x)), 'a flat color is a solid fill');
@@ -168,17 +168,62 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.doesNotMatch(xml, /calco-/, 'no tag leaks into the file');
   });
 
-  test('a header and page number two slides share live on the layout; a lone page number is a slide-number field', async () => {
+  test('a header and page number slides share live on the master; every slide keeps a slide-number field', async () => {
     const { text } = await open();
     const s1 = await text('ppt/slides/slide1.xml');
-    assert.ok(!names(s1).includes('Header 1'), 'the header moved to the layout');
+    assert.ok(!names(s1).includes('Header 1'), 'the header moved off the slide');
     assert.match(s1, /type="sldNum"/);
-    const layout = (await text('ppt/slideLayouts/slideLayout1.xml')) + (await text('ppt/slideLayouts/slideLayout2.xml'));
-    assert.match(layout, /name="Header"/);
-    assert.match(layout, /<a:t>Deck<\/a:t>/);
+    const master = await text('ppt/slideMasters/slideMaster1.xml');
+    assert.match(master, /name="Header"/);
+    assert.match(master, /<a:t>Deck<\/a:t>/);
+    assert.match(master, /<p:ph type="sldNum" sz="quarter" idx="12"\/>/, 'the master holds the page number');
+    assert.match(master, /<p:hf sldNum="1"/);
+    const layout1 = await text('ppt/slideLayouts/slideLayout1.xml');
+    assert.doesNotMatch(layout1, /name="Header"/, 'the layout that shows the master draws no copy');
+    assert.doesNotMatch(layout1, /showMasterSp="0"/);
+    // Slide 3 shows a number and no header: its layout hides the master's chrome and draws its own number.
+    const layout2 = await text('ppt/slideLayouts/slideLayout2.xml');
+    assert.match(layout2, /showMasterSp="0"/);
+    assert.match(layout2, /type="sldNum"/);
+    assert.doesNotMatch(layout2, /name="Header"/);
     const s3 = await text('ppt/slides/slide3.xml');
-    assert.match(s3, /<a:fld [^>]*type="slidenum">/, 'unshared number is still a field');
-    assert.ok(names(s3).includes('Slide number 3'));
+    assert.match(s3, /<a:fld [^>]*type="slidenum">/, 'its number is still a field');
+  });
+
+  test('the theme, the master\'s text styles and the layouts\' placeholders are the deck\'s own type and colors', async () => {
+    const body = (t, y) => frame([[{ text: t, style: style({ family: 'Outfit', size: 24, color: '#1b2a4a' }) }]], { x: 64, y, w: 900, h: 30 });
+    const ttl = (t) => frame([[{ text: t, style: style({ family: 'Playfair Display', weight: 700, size: 48, color: '#2c3e8f' }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+    const card = { kind: 'box', x: 64, y: 300, w: 300, h: 120, radii: [0, 0, 0, 0], fill: { color: '#e4572e', alpha: 1 } };
+    const d = {
+      width: 1280,
+      height: 720,
+      backgrounds: [{ color: '#003d66' }, { color: '#f7f4ee' }],
+      slides: [
+        { image: ONE_PX_PNG, background: 0, frames: [frame([[{ text: 'Opening', style: style({ family: 'Playfair Display', weight: 700, size: 64, color: '#ffffff' }) }]], { role: 'title', x: 64, y: 300, w: 900, h: 80 }), frame([[{ text: 'A subtitle', style: style({ size: 20, color: '#dddddd' }) }]], { role: 'subtitle', x: 64, y: 400, w: 900, h: 26 })] },
+        { image: ONE_PX_PNG, background: 1, frames: [ttl('Two'), body('The body text of the deck', 200), header('Deck'), num(2)], shapes: [card] },
+        { image: ONE_PX_PNG, background: 1, frames: [ttl('Three'), body('More body text here', 200), header('Deck'), num(3)], shapes: [card] },
+      ],
+    };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const text = (n) => zip.file(n).async('string');
+    const theme = await text('ppt/theme/theme1.xml');
+    assert.match(theme, /<a:majorFont><a:latin typeface="Playfair Display"\/>/);
+    assert.match(theme, /<a:minorFont><a:latin typeface="Outfit"\/>/);
+    assert.match(theme, /<a:dk1><a:srgbClr val="1B2A4A"\/><\/a:dk1>/, 'dark 1 is the body ink');
+    assert.match(theme, /<a:lt1><a:srgbClr val="F7F4EE"\/><\/a:lt1>/, 'light 1 is the ground most slides sit on');
+    assert.match(theme, /<a:accent\d><a:srgbClr val="E4572E"\/>/, 'a fill the deck paints with is an accent');
+    assert.doesNotMatch(theme, /Calibri|4472C4/, 'nothing of Office\'s theme is left');
+    const master = await text('ppt/slideMasters/slideMaster1.xml');
+    const titleStyle = master.match(/<p:titleStyle>[\s\S]*?<\/p:titleStyle>/)[0];
+    assert.match(titleStyle, /sz="3600" b="1"/, '48px is 36pt, bold');
+    assert.match(titleStyle, /<a:srgbClr val="2C3E8F"\/>[\s\S]*<a:latin typeface="\+mj-lt"\/>/);
+    assert.match(master.match(/<p:bodyStyle>[\s\S]*?<\/p:bodyStyle>/)[0], /sz="1800"[^>]*>[\s\S]*?val="1B2A4A"[\s\S]*?\+mn-lt/);
+    const layouts = await Promise.all([1, 2].map((i) => text(`ppt/slideLayouts/slideLayout${i}.xml`)));
+    assert.match(layouts[0], /<p:sldLayout [^>]*type="title"[^>]*showMasterSp="0"[^>]*><p:cSld name="Title">/);
+    assert.match(layouts[0], /<p:ph type="subTitle" idx="1"/);
+    assert.match(layouts[0], /val="FFFFFF"/, 'the title look\'s placeholder is in its own white title');
+    assert.match(layouts[1], /<p:sldLayout [^>]*type="obj"[^>]*><p:cSld name="Content">/);
+    assert.match(layouts[1], /<p:ph idx="1"\/>/, 'a content layout has a body placeholder');
   });
 
   test('a page number that is not the slide position stays text, so a split run keeps its printed number', async () => {

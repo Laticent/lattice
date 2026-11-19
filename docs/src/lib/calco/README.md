@@ -68,9 +68,24 @@ transparent foreground.
 With backgrounds or roles, the writers use one master page (`.odp`) or layout (`.pptx`) per
 distinct background plus the chrome its slides share: a title is a title placeholder, a page
 number a slide-number field (when it equals the slide's position), and a header, footer or page number that two or more slides
-share on a background is drawn once on the layout (`planMasters`). A slide with no shared
-background keeps its own opaque picture and its own chrome, because a layout paints under the
-slide's picture. The slide's foreground picture, when there is one, is locked against moving and
+of the deck share, on any backgrounds, is hoisted (`planMasters`). In the `.pptx` the chrome most slides show is drawn once on
+the slide master; a layout whose header and footer are the master's shows them, and a layout with other chrome, or none (the
+title look), hides them and draws its own. Layouts are named by what they are for ("Title", "Content", "Content 2"). A slide with
+no background in `deck.backgrounds` keeps its own opaque picture and its own chrome, because a layout paints under the
+slide's picture.
+
+## Theme
+
+The `.pptx` carries the deck's theme, not Office's (`readTheme`, theme.ts): the theme fonts are the faces the deck's titles and
+body are drawn in; the twelve theme colors are the body ink and ground (`dk1`/`lt1`), the heading ink and a second ground
+(`dk2`/`lt2`), and six accents, the saturated colors the deck paints with most. The master's text styles and each layout's
+title and body (or subtitle) placeholders are in the deck's own type, so a slide or text box added in PowerPoint looks like the
+deck. Existing text keeps its explicit colors and faces: a theme switch could not recolor the slides' pictures.
+
+A host that knows its palette passes it: `captureOfficeSlides(host, n, { palette: { dk1: 'var(--text-body)', accent1:
+'var(--accent)', … } })` resolves each CSS color on every slide under its color scheme (`resolvePalette`) and returns the
+colors most slides give as `theme`; put it in `deck.theme`, and it wins over what Calco reads, slot by slot. Lattice's palette is
+`OFFICE_PALETTE` in `lib/core/office-export-policy.js`. The slide's foreground picture, when there is one, is locked against moving and
 resizing; pictures of single objects are not, so a photo can be replaced or moved.
 
 ## Fonts

@@ -16,7 +16,7 @@
  */
 
 import { readSlide, restoreSlide, restoreSplit, splitKey, splitSlide } from './reader.js';
-import type { Background, Shape, Slide, TextFrame } from './types.js';
+import type { Background, DeckThemeHint, Shape, Slide, TextFrame } from './types.js';
 
 interface Box {
 	x: number;
@@ -483,6 +483,12 @@ export interface CaptureOptions {
 	pictures?: CropEncoding;
 	/** A slide fell back to a simpler capture; say why. */
 	onWarn?(message: string): void;
+	/**
+	 * The host's palette as CSS colors per OOXML theme slot (`{ dk1: 'var(--text-body)', accent1: 'var(--accent)' }`): each is
+	 * resolved on every slide (`resolvePalette`), and the value most slides give is the file's theme color for that slot
+	 * (`Deck.theme`). Absent: the writers read the theme off what the slides draw (theme.ts).
+	 */
+	palette?: Partial<Record<string, string>>;
 }
 
 export interface CapturedSlide extends Slide {
@@ -493,7 +499,7 @@ export interface CapturedSlide extends Slide {
  * Capture every slide in editable mode: each is READ (its text becomes frames) and photographed
  * twice, then handed back with its background index, ready for `writeOdp` / `writePptx`.
  */
-export async function captureOfficeSlides(host: CaptureHost, count: number, options: CaptureOptions = {}): Promise<{ slides: CapturedSlide[]; backgrounds: Background[] }> {
+export async function captureOfficeSlides(host: CaptureHost, count: number, options: CaptureOptions = {}): Promise<{ slides: CapturedSlide[]; backgrounds: Background[]; theme?: DeckThemeHint }> {
 	// Refuse a bad `pictures` shape before any slide is touched, not when the first crop is reached.
 	const rules = cropRules(options.pictures);
 	const slides: CapturedSlide[] = [];
@@ -638,5 +644,52 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 			}),
 		);
 	}
-	return { slides, backgrounds };
+	const theme = options.palette && Object.keys(options.palette).length ? await readPalette(host, count, options.palette) : undefined;
+	return theme ? { slides, backgrounds, theme } : { slides, backgrounds };
+}
+
+/** Resolve the host's palette on every slide; per slot, the color most slides give. */
+async function readPalette(host: CaptureHost, count: number, palette: Partial<Record<string, string>>): Promise<DeckThemeHint | undefined> {
+	const tally = new Map<string, Map<string, number>>();
+	for (let i = 0; i < count; i++) {
+		const got = (await host.run<Record<string, string> | null>(i, resolvePalette, palette)) || {};
+		for (const [slot, color] of Object.entries(got)) {
+			const m = tally.get(slot) || new Map<string, number>();
+			m.set(color, (m.get(color) || 0) + 1);
+			tally.set(slot, m);
+		}
+	}
+	const colors: Record<string, string> = {};
+	for (const [slot, m] of tally) colors[slot] = [...m].sort((a, b) => b[1] - a[1])[0][0];
+	return Object.keys(colors).length ? { colors: colors as NonNullable<DeckThemeHint['colors']> } : undefined;
+}
+
+/**
+ * In the page: each palette entry (a CSS color, `var()` and `light-dark()` included) as the `#rrggbb` it computes to on
+ * this slide, under the slide's own color scheme. An entry that does not resolve (an unset custom property) or is not
+ * opaque is left out. Self-contained: a headless browser receives it as source.
+ */
+export function resolvePalette(section: HTMLElement, palette: Record<string, string>): Record<string, string> {
+	const doc = section.ownerDocument;
+	const win = doc.defaultView as Window & typeof globalThis;
+	const out: Record<string, string> = {};
+	// A sentinel the probe inherits: an entry that fails at computed-value time falls back to it.
+	const wrap = doc.createElement('span');
+	wrap.style.cssText = 'position:absolute;visibility:hidden;color:rgb(1, 2, 3)';
+	const probe = doc.createElement('span');
+	wrap.appendChild(probe);
+	section.appendChild(wrap);
+	try {
+		for (const [slot, css] of Object.entries(palette || {})) {
+			probe.style.color = '';
+			probe.style.setProperty('color', String(css));
+			if (!probe.style.color) continue;
+			const m = win.getComputedStyle(probe).color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
+			if (!m || m[0] === 'rgb(1, 2, 3)' || (m[4] !== undefined && Number(m[4]) < 1)) continue;
+			out[slot] = `#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`;
+		}
+	} finally {
+		wrap.remove();
+	}
+	return out;
 }

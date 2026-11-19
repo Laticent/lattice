@@ -345,7 +345,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 							return f ? frameXml(f, ROLE_NAMES[role], false, role === 'number' ? Number(f.lines[0][0].text) : undefined) : '';
 						})
 						.join('');
-					return `<style:master-page style:name="${masterName(li)}" style:page-layout-name="PM1" draw:style-name="Mdp${li + 2}">${chrome}</style:master-page>`;
+					return `<style:master-page style:name="${masterName(li)}" style:display-name="${xmlEscape(layout.name)}" style:page-layout-name="PM1" draw:style-name="Mdp${li + 2}">${chrome}</style:master-page>`;
 				})
 				.join('')
 		: '<style:master-page style:name="Default" style:page-layout-name="PM1" draw:style-name="Mdp1"/>';

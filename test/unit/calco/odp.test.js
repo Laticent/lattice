@@ -213,7 +213,9 @@ describe('calco odp — layouts, roles and the locked picture', () => {
     assert.match(styles, /<text:page-number text:select-page="current">/);
     assert.match(styles, /draw:name="Header"/);
     assert.doesNotMatch(content, /draw:name="Header 1"/, 'the header is not repeated on the slide');
-    assert.match(content, /<text:page-number text:select-page="current">3<\/text:page-number>/, 'an unshared number is still a field');
+    assert.doesNotMatch(content, /draw:name="Slide number 3"/, 'a number every slide shows is on the master pages, slide 3\'s included');
+    assert.equal((styles.match(/<text:page-number text:select-page="current">/g) || []).length, 2, 'both master pages draw the number');
+    assert.match(styles, /style:display-name="Content"/, 'master pages carry their layout\'s name');
   });
 
   test('a title is a presentation title object, and the content picture is protected', async () => {
