@@ -238,11 +238,18 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   set of vivid fills was "a fire-engine block" there. The bands, key and lines now wear `--state-X-hue` on both faces;
   critical keeps its one designed step (82% fail toward `--status-shade-mark`, as risk-matrix.styles.css has it).
   On the dark face it steps toward the slide instead and keeps `--risk-critical-keep` of the fail fill (82% by
-  default). Three a11y palettes set 60%: achromatopsia, deuteranopia and tritanopia have dark-face bands so bright that
-  82% landed critical between low and medium (achromatopsia: low 0.389, critical 0.488, medium 0.594 luminance; on
+  default). Three a11y palettes keep less: achromatopsia 60%, deuteranopia and tritanopia 68%. Their dark-face bands are
+  so bright that 82% landed critical between low and medium (achromatopsia: low 0.389, critical 0.488, medium 0.594 luminance; on
   `main` before this note it sat above medium at 0.255). At 60% critical is the darkest band on all five a11y dark
-  faces, 1.66-2.41:1 below the next band and at least 3.6:1 off the slide. Found after merge by a whole-slide review of
+  faces, 1.66-1.83:1 below the next band and at least 3.6:1 off the slide. Found after merge by a whole-slide review of
   the a11y dark faces; held by `marks-css.test.js` (critical is the darkest band on every a11y dark face).
+  Where relative color is missing, the critical key number cannot pick its own ink, so it reads
+  `--risk-critical-on-ink` (base.tokens.css defaults it to the fail ink). a11y-base declares it once for every a11y
+  palette: the curated ink on the light band, black on the dark one, which clears 4.75-5.33:1 there (the one curated
+  ink sat at 2.97-4.42:1). Deuteranopia and tritanopia keep 68% rather than 60% so their band stays light enough
+  for black.
+  Its one curated ink sat at 2.97-4.42:1 on the dark band. `lib/core/resolve-token-expr.js` now reads a color-mix stop
+  whose percentage is a var(), so offline checks resolve the new rule instead of passing it through.
   Washes stay washes: kanban cards, journey moods, bullet bands and state-chart groups are tints by design.
 
 - **Tone's one status level** (`tools/build-marks-css.js` `TONE_STATUS`). Under tone a status kept its own hue at the

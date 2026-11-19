@@ -1086,7 +1086,7 @@ function build() {
       // slide, as it did before the status triplets. How far it steps on the dark face is `--risk-critical-keep`
       // (the share of the fail fill kept, 82% by default). An a11y palette whose dark-face bands are so bright that 18%
       // only lands critical between low and medium (achromatopsia: low 0.39, critical 0.49, medium 0.59 luminance) keeps
-      // less, so critical is the DARKEST band there, as it is on every light face and in print.
+      // less, so critical is the DARKEST band there, last in the order as it is on the light face and in print.
       const CRITICAL_DARK = 'color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))';
       const CRITICAL = `light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), ${CRITICAL_DARK})`;
       w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${CRITICAL}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
@@ -1098,7 +1098,11 @@ function build() {
         w(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: var(--state-${st}-on-ink)`]));
       }
       w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${CRITICAL}`]));
-      w(rule(name, '.risk-key-number[data-band="critical"]', ['fill: var(--state-fail-on-ink)']));
+      // Where relative color is missing (Chrome < 119, Safari < 18, Firefox < 128: the HTML player in an old browser),
+      // the @supports pick below does not apply. The number takes `--risk-critical-on-ink`: the fail ink by default
+      // (base.tokens.css), and on an a11y palette the ink that clears its critical band on both faces, because its one
+      // curated ink sits at 2.97-4.42:1 on the dark band.
+      w(rule(name, '.risk-key-number[data-band="critical"]', ['fill: var(--risk-critical-on-ink)']));
       // On the dark face critical steps toward the slide, so on an a11y palette's bright fill it is darker than the fill
       // its curated near-black ink was chosen for (4.42:1 on a11y-protanopia); its number picks its own ink there.
       w(supports(rule(name, '.risk-key-number[data-band="critical"]', [`fill: light-dark(var(--state-fail-on-ink), ${inkOn(CRITICAL_DARK)})`])));

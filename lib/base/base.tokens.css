@@ -695,6 +695,10 @@
    * palettes) steps toward white. */
   --on-mark-shade: #000000;
   --status-shade-mark: var(--on-mark-shade);
+  /* The risk matrix's critical key number where relative color is missing, so the @supports ink pick does not apply.
+   * It defaults to the fail ink; an a11y palette, whose one curated ink does not clear its darker dark-face critical
+   * band, names its own. */
+  --risk-critical-on-ink: var(--fail-on-mark);
 
   /* ── Panel edge mark ──────────────────────────────────────────────────
    * The color of the top-edge rule the split frames paint over their featured

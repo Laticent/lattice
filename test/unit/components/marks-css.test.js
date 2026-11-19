@@ -137,7 +137,16 @@ describe('marks.generated.css', () => {
 
   // On an a11y palette's dark face the bands are bright, so the default 18% step landed critical between low and medium
   // (achromatopsia 0.49 against low 0.39 and medium 0.59, after #3232). A palette whose bands need it keeps less of the
-  // fail fill (`--risk-critical-keep`), so critical is the DARKEST band, as on every light face and in print.
+  // fail fill (`--risk-critical-keep`), so critical is the DARKEST band, last in the order as on the light face and in print.
+  // The critical band's fill and its key number's fallback ink, read from the GENERATED rules so a change to either
+  // reaches these tests: the light-dark() pair the cells paint, and the ink a browser without relative color uses.
+  const criticalRule = (sel) => {
+    const m = css.match(new RegExp(`:where\\(\\.${sel}\\[data-band="critical"\\]\\)\\s*\\{\\s*fill:\\s*([^;]+?)\\s*!important;`));
+    assert.ok(m, `a generated ${sel} critical fill`);
+    return m[1];
+  };
+  const CRITICAL_FILL = criticalRule('risk-cell');
+
   test('on every a11y palette\'s dark face the risk matrix\'s critical band is the darkest band', () => {
     const { mergedVars } = require('../../../tools/composed-contrast.js');
     const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
@@ -148,13 +157,33 @@ describe('marks.generated.css', () => {
     for (const theme of palettes) {
       const V = mergedVars(theme);
       const hex = (expr) => String(resolveTokenExpr(expr, V, true)).trim();
-      const keep = String(V['risk-critical-keep'] || '82%').trim();
-      const critical = hex(`color-mix(in oklab, ${hex('var(--fail-vivid-mark)')} ${keep}, ${hex('var(--bg)')})`);
+      const critical = hex(CRITICAL_FILL);
       const Y = { critical: relativeLuminance(critical) };
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) Y[band] = relativeLuminance(hex(`var(--${st}-mark)`));
       const next = Math.min(Y.low, Y.medium, Y.high);
       const step = (next + 0.05) / (Y.critical + 0.05);
       assert.ok(step >= 1.5, `${theme} dark: critical (${critical}, ${Y.critical.toFixed(3)}) sits ${step.toFixed(2)}:1 below the darkest other band (${next.toFixed(3)}); it must be the darkest band by at least 1.5:1`);
+    }
+  });
+
+  // Where relative color is missing the @supports ink pick does not apply, so the plain rule's ink must clear the
+  // critical band by itself: the one curated a11y ink sat at 2.97-4.42:1 on the dark band (#3312's review).
+  test('the risk matrix\'s critical key number clears 4.5:1 without relative color, on both faces of every a11y palette', () => {
+    const { mergedVars } = require('../../../tools/composed-contrast.js');
+    const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
+    const { contrastRatio } = require('../../../lib/core/color.js');
+    const ink = criticalRule('risk-key-number');
+    assert.equal(ink, 'var(--risk-critical-on-ink)', 'the plain rule reads the critical ink token');
+    const palettes = fs.readdirSync(path.join(__dirname, '../../../themes')).filter((t) => t.startsWith('a11y-'));
+    for (const theme of palettes) {
+      const V = mergedVars(theme);
+      for (const dark of [false, true]) {
+        const hex = (expr) => String(resolveTokenExpr(expr, V, dark)).trim();
+        const fill = hex(CRITICAL_FILL);
+        const text = hex(ink);
+        const ratio = contrastRatio(fill, text);
+        assert.ok(ratio >= 4.5, `${theme} ${dark ? 'dark' : 'light'}: the critical key number ${text} on ${fill} is ${ratio.toFixed(2)}:1, under 4.5:1`);
+      }
     }
   });
 
