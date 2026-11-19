@@ -595,6 +595,30 @@ describe('Architect chat — a message sent before a model is connected is answe
 		expect(chatSpy).toHaveBeenCalledTimes(2);
 	});
 
+	it('marks the message by the model’s reason, even while the Studio still reads ready (the key check had not settled)', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(sessionStorage.getItem('lattice-chat-answer-after-connect'), 'a needs-key turn was not marked').toBe('deck-1');
+		// The author connects; the Studio's readiness flips off, then on.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not mark a model that is only warming up', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'warming', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		render(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(sessionStorage.getItem('lattice-chat-answer-after-connect')).toBeNull();
+	});
+
 	it('does not answer behind the author when the thread has moved on', async () => {
 		sessionStorage.setItem('lattice-chat-answer-after-connect', 'deck-1');
 		saveChat('deck-1', [

@@ -40,7 +40,10 @@ for (const [w, h] of [
 		// No model: the author asks anyway, and is sent to connect one.
 		await page.getByRole('textbox', { name: 'Message the Architect' }).fill('hi');
 		await page.getByRole('button', { name: 'Send', exact: true }).click();
-		await expect(page.getByRole('dialog').filter({ hasText: /OpenRouter|API key|model/i }).first()).toBeVisible({ timeout: 30_000 });
+		// Wait for the turn to END, on its own visible signal: the chat's notice naming what to connect. (Waiting for "a
+		// dialog that mentions a model" matched the phone's chat sheet itself, so the test stored the key and reloaded
+		// before the turn had finished, and the waiting message was never marked: a race in the test, not the Studio.)
+		await expect(page.getByText(/Connect a model in Workspace|Choose a chat model in Workspace/).first()).toBeVisible({ timeout: 30_000 });
 		expect(calls()).toBe(0);
 		// They connect: a key is stored, and the page comes back (OpenRouter's sign-in returns with a reload).
 		await page.evaluate(() => {

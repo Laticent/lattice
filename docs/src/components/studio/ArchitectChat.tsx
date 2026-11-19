@@ -691,10 +691,13 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, onReasoning, signal: controller.signal, mode: sendMode, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', offlineNotice(out.readiness));
-				// No model was connected when the author asked: their message waits, and is answered as soon as one is
-				// (chat-resume.ts). A connected model that is only warming up is not marked: its notice says so, and
+				// The author has to connect a model (no key, none chosen, not loaded): their message waits, and is answered
+				// as soon as one is (chat-resume.ts). A model only warming up is not marked: its notice says so, and
 				// answering later on its own would spend a turn the author did not ask for again.
-				if (!sendAiReady) markAnswerAfterConnect(sendDeckId);
+				// Decided by the model's own reason, not by `aiReady` at send, which can still read true for a moment
+				// before the key check settles (a race that left the message unmarked and unanswered).
+				const mustConnect = out.readiness ? ['needs-key', 'unset', 'unavailable', 'off', 'retired'].includes(out.readiness.state) : !sendAiReady;
+				if (mustConnect) markAnswerAfterConnect(sendDeckId);
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
 				// to come back; popping the Workspace sheet happens NOW, over whatever they are
