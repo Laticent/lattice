@@ -1,27 +1,6 @@
-// The chat's change card: which of a reply's proposed edits the author keeps, what the buttons and
-// the badge say about that choice, and where the transcript scrolls when the card arrives.
-// Pure, so the wording and the scroll math are tested without a browser (proposal-pick.test.ts).
-
-/** The Apply button's label. "Apply" when every edit is picked (the one-press flow, unchanged),
- *  "Apply 2 of 3" when the author left some out, and plain "Apply" again at zero, where the
- *  button is disabled. */
-export function applyLabel(picked: number, total: number): string {
-	return picked > 0 && picked < total ? `Apply ${picked} of ${total}` : 'Apply';
-}
-
-/** The record left after Apply. `applied` and `refused` count edits the deck took or turned
- *  away; `skipped` counts edits the author unticked. */
-export function appliedBadge({ applied, refused = 0, skipped = 0 }: { applied: number; refused?: number; skipped?: number }): string {
-	const head = refused ? `Applied ${applied} of ${applied + refused}` : 'Applied';
-	return skipped ? `${head} · skipped ${skipped}` : head;
-}
-
-/** The toast after Apply. Says what landed, what the deck refused and what the author left out. */
-export function appliedToast({ applied, refused = 0, skipped = 0 }: { applied: number; refused?: number; skipped?: number }): string {
-	const parts = [refused ? `Applied ${applied} of ${applied + refused} edits` : applied > 1 || skipped ? `Applied ${applied} edit${applied > 1 ? 's' : ''}` : 'Edit applied'];
-	if (skipped) parts.push(`left ${skipped} out`);
-	return `${parts.join(', ')} — restore from History to undo.`;
-}
+// Where the chat's transcript scrolls when a change card arrives, and how tall the card may grow.
+// Pure, so the scroll math is tested without a browser (proposal-pick.test.ts). The card's own
+// logic (apply, discard and undo per slide) is change-card.ts.
 
 /** How many lines of the text above the card stay in view when the card arrives. */
 export const CARD_CONTEXT_LINES = 2;

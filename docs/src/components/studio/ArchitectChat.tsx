@@ -1,16 +1,16 @@
 import DOMPurify from 'dompurify';
-import { ArrowUp, Check, Eye, FilePlus2, Lock, MessageCircle, RotateCcw, Share2, Sparkles, Square, TriangleAlert, Unlock, X, Zap } from 'lucide-react';
+import { ArrowUp, Check, Eye, FilePlus2, Lock, MessageCircle, RotateCcw, Share2, Sparkles, Square, TriangleAlert, Unlock, Zap } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { slideCount as deckSlideCount, sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { slideCount as deckSlideCount } from '@/components/studio/ai/architect-edits.js';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { readCachingEnabled } from '@/components/studio/ai/spend.js';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
-import { frontMatterBlock, frontMatterBlockText, getFrontMatter } from '../../lib/front-matter';
-import { applyProposedEditsChecked, type ChatGrounding, type ChatReadiness, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
+import { frontMatterBlock } from '../../lib/front-matter';
+import { applyProposedEditsChecked, type ChatGrounding, type ChatReadiness, type ChatTurn, chatComplete, listStudioModels, useArchitectStatus } from './architect';
+import { ChangeCard } from './ChangeCard';
 import { ChatActivityRow } from './ChatActivityRow';
 import { ChatAttach } from './ChatAttach';
 import { ChatCodeBlock } from './ChatCodeBlock';
@@ -19,6 +19,7 @@ import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigu
 import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { ChatTraceDialog } from './ChatTraceDialog';
+import { applyRows, applyTarget, type ChatApplyOpts, type ChatDraft, cardHistoryLabel, landingSlide, NO_ENTRY, type RowState, reconcile, rowName, rowStates, toldLine, undoRows } from './change-card';
 import { autoHold } from './chat-actions';
 import { thoughtTail } from './chat-activity';
 import { applyCompaction, modelText, splitForCompaction, transcript } from './chat-compact';
@@ -28,14 +29,13 @@ import { photoNote, videoNote, videoRefusal } from './chat-photo-parts';
 import { addChatPhotos, addChatVideo, discardChatVideo, MAX_CHAT_PHOTOS, photoDataUrl, videoDataUrl } from './chat-photos';
 import { THINKING } from './chat-status';
 import { chatLoaded, hydrateChat } from './chat-store';
-import { DiffCard } from './diff-card';
 import { holdWarmUps } from './first-slide';
 import { classifyMedia, LIBRARY_MEDIA_ACCEPT } from './media-import';
 import type { MediaRecord } from './media-store';
 import { refreshAssetUrls, setActiveAssetDeck } from './media-urls';
 import { CHAT_COMPOSER_BAR, CHAT_COMPOSER_STACK, CHAT_COMPOSER_TEXT, ChatEmptyCard } from './panel-shells';
 import { PreviewPool } from './preview-pool';
-import { appliedBadge, appliedToast, applyLabel, cardMaxHeight, cardScrollTarget } from './proposal-pick';
+import { cardMaxHeight, cardScrollTarget } from './proposal-pick';
 import { REF_DOC_ACCEPT } from './reference-doc';
 import { useReferenceDoc } from './reference-doc-ui';
 import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, loadChat, loadChatDraft, loadChatMode, type StoredChatMode, saveChat, saveChatDraft, saveChatMode } from './studio-store';
@@ -319,7 +319,7 @@ export function __clearPendingNotices() {
 	publishNotices();
 }
 
-export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, onApply, onAutoApply, liveSession, onCreateDeck, onConnect, onManageDocs, onBusyChange, onShareTurn }: { costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; /** Auto's apply: saves the History checkpoint FIRST and resolves false (applying nothing) when it cannot, or when the deck moved meanwhile. Absent → Auto behaves as Review. */ onAutoApply?: (next: string) => Promise<boolean>; /** A live session is open: Auto behaves as Review, so no AI edit reaches the room without a press. */ liveSession?: boolean; /** Create and open a deck the author confirmed from a chat card; returns its id, or null when it was not created. */ onCreateDeck?: (title: string, markdown: string) => string | null; onConnect: () => void; onManageDocs?: () => void; /** Live: whether a turn is in flight, so the room can see "asking the AI" (never what is asked). */ onBusyChange?: (busy: boolean) => void; /** Live: share one finished turn with the session as a card. Absent outside a session. */ onShareTurn?: ((turn: { ask: string; answer: string }) => void) | null }) {
+export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, onApply, onPreview, onAutoApply, liveSession, onCreateDeck, onConnect, onManageDocs, onBusyChange, onShareTurn }: { costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; /** Apply an AI edit. `opts` carries the History label for the card's one entry and the undo step's label; returns that entry's id, so the card relabels it next time instead of adding another. */ onApply: (next: string, opts?: ChatApplyOpts) => unknown; /** Show a proposed deck in the Studio's preview without applying it; null closes it. Absent: the card offers no preview. */ onPreview?: (draft: ChatDraft | null) => void; /** Auto's apply: saves the History checkpoint FIRST and resolves false (applying nothing) when it cannot, or when the deck moved meanwhile. Absent → Auto behaves as Review. */ onAutoApply?: (next: string) => Promise<boolean>; /** A live session is open: Auto behaves as Review, so no AI edit reaches the room without a press. */ liveSession?: boolean; /** Create and open a deck the author confirmed from a chat card; returns its id, or null when it was not created. */ onCreateDeck?: (title: string, markdown: string) => string | null; onConnect: () => void; onManageDocs?: () => void; /** Live: whether a turn is in flight, so the room can see "asking the AI" (never what is asked). */ onBusyChange?: (busy: boolean) => void; /** Live: share one finished turn with the session as a card. Absent outside a session. */ onShareTurn?: ((turn: { ask: string; answer: string }) => void) | null }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	// The deck whose stored thread `messages` was loaded from (chat-store.ts reads IndexedDB after the
 	// first render). Until it is this deck, nothing is saved and nothing is sent: the thread on screen
@@ -654,7 +654,13 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 			// An EARLIER turn's photos are named in its text (the model can refer to asset:<name>) but not
 			// re-sent: each image is billed as input every time it travels. Only the LAST turn's go as pixels.
 			const lastIdx = history.length - 1;
-			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: modelText({ ...m, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.content }) }));
+			// A past reply that proposed edits carries what the author did with them (applied, discarded, undone), so the
+			// model does not propose a discarded edit again (decision note §10).
+			// What the author did with each earlier card rides the NEWEST author message, not the replies it describes:
+			// rewriting an earlier turn on every card action would change the cached prompt from that turn on.
+			const told = history.flatMap((m) => (m.role === 'assistant' && m.proposed?.length ? [toldLine(m.proposed, reconcile(sourceRef.current, m.proposed, rowStates(m)), !!m.autoApplied)] : [])).filter(Boolean);
+			const toldNote = told.length ? `\n\n(What happened to the edits you proposed earlier, oldest first: ${told.join(' ')})` : '';
+			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: modelText({ ...m, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.role === 'user' && i === lastIdx && toldNote ? `${m.content}${toldNote}` : m.content }) }));
 			const sentVideos = history[lastIdx]?.role === 'user' ? (history[lastIdx].videos ?? []) : [];
 			const clips = (await Promise.all(sentVideos.map(async (v) => ({ name: v.name, dataUrl: await videoDataUrl(v.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);
 			if (clips.length < sentVideos.length) notify('That video is no longer in the Library, so the model did not see it.');
@@ -974,35 +980,83 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		void run(messages.slice(0, end), deckId);
 	};
 
-	const applyProposal = (idx: number, picked?: number[]) => {
+	// THE CHANGE CARD'S ROWS (ChangeCard.tsx, change-card.ts). Every action re-judges its rows against the deck as it
+	// is NOW, finding each slide by its text, so a row applies (or undoes) only while its slide reads as the card
+	// expects. One History entry per card: the first action saves it, later ones relabel it (decision note §6).
+	const [rowNote, setRowNote] = React.useState<{ msg: number; row: number; text: string } | null>(null);
+	// Every action reads the thread and the deck NOW (through refs), never as they were when a button or a preview was
+	// drawn: Apply pressed in a preview opened before a Discard must not bring the discarded row back. And every action
+	// starts from the states the DECK has (`reconcile`), so a ⌘Z the card did not see cannot leave a row lying.
+	const runRows = (idx: number, rows: number[], undo: boolean) => {
 		if (compacting || !ready) return;
-		const m = messages[idx];
+		const m = messagesRef.current[idx];
 		if (!m?.proposed?.length) return;
-		// The author's pick (ProposalReview): the edits they kept, in order. Absent means all of them.
-		const keep = picked ? m.proposed.filter((_, k) => picked.includes(k)) : m.proposed;
-		if (!keep.length) return;
-		const skipped = m.proposed.length - keep.length;
-		// Re-apply against the CURRENT deck (not a stale snapshot) — edits to OTHER slides
-		// are preserved; a same-slide edit is replaced (flagged stale in the review).
-		const outcome = applyProposedEditsChecked(source, keep);
-		// NOTHING LANDED. This used to paint the green "Applied" tick, toast "Edit applied",
-		// and burn a History checkpoint over an untouched deck — the author's only clue that
-		// their edit hadn't happened was looking at the slide. Say so, and leave the proposal
-		// standing so they can Discard it deliberately.
-		if (!outcome.applied) {
-			raiseNotice(deckId, 'error', outcome.refusals[0] || "That edit couldn't be applied to this deck.");
+		const edits = m.proposed;
+		const src = sourceRef.current;
+		const states = reconcile(src, edits, rowStates(m));
+		const ok = rows.filter((k) => (undo ? states[k] === 'applied' : states[k] === 'waiting' || states[k] === 'undone'));
+		if (!ok.length) return;
+		const out = (undo ? undoRows : applyRows)(src, edits, states, ok);
+		const lead = (k: number) => rowName(edits[k]).lead;
+		const refusal = out.refused.length ? out.reasons[out.refused[0]] : null;
+		setRowNote(refusal ? { msg: idx, row: out.refused[0], text: refusal } : null);
+		// Nothing landed: the refusal is said ON THE ROW it concerns (the card shows it outside the fold), once.
+		if (!out.done.length) return;
+		const next: RowState[] = states.map((s, k) => (out.done.includes(k) ? (undo ? 'undone' : 'applied') : s));
+		const at = m.cardAt ?? Date.now();
+		const prev = messagesRef.current[idx - 1];
+		const ask = prev?.role === 'user' ? prev.content : '';
+		const names = out.done.map(lead);
+		const step = `${undo ? 'Undo AI edit' : 'AI chat edit'}: ${names.length > 2 ? `${names.length} changes` : names.join(', ')}`;
+		// Show where the change landed, found in the new deck by its text.
+		const shown = [...out.done].sort((a, b) => edits[a].raw.slide - edits[b].raw.slide)[0];
+		const slide = (undo ? landingSlide(out.source, { ...edits[shown], after: edits[shown].before, action: edits[shown].action === 'insert' ? 'delete' : edits[shown].action === 'delete' ? 'insert' : edits[shown].action }) : landingSlide(out.source, edits[shown])) ?? undefined;
+		// Auto saved its own History entry before it applied, so its card never saves another (NO_ENTRY).
+		const checkpoint = m.cardCheckpoint ?? (m.autoApplied ? NO_ENTRY : undefined);
+		const cp = onApply(out.source, { label: cardHistoryLabel(ask, new Date(at), next), step, checkpoint, slide });
+		setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, rows: next, applied: next.includes('applied') || undefined, cardAt: at, cardCheckpoint: typeof cp === 'string' ? cp : x.cardCheckpoint } : x)));
+		const n = out.done.length;
+		notify(undo ? `Undid ${n === 1 ? names[0] : `${n} changes`} — press ⌘Z to redo.` : `${n === 1 ? 'Edit applied' : `Applied ${n} edits`} — undo any of it from the card.`);
+	};
+	const setRows = (idx: number, rows: number[], state: RowState) => {
+		if (compacting || !ready) return;
+		setMessages((cur) => cur.map((x, i) => (i === idx && x.proposed ? { ...x, rows: reconcile(sourceRef.current, x.proposed, rowStates(x)).map((s, k) => (rows.includes(k) ? state : s)) } : x)));
+		// A discarded row leaves an open preview of it, which would otherwise still offer to apply it.
+		if (state === 'discarded' && previewingRef.current?.msg === idx && previewingRef.current.rows.some((k) => rows.includes(k))) {
+			setPreviewing(null);
+			onPreview?.(null);
+		}
+	};
+	// PREVIEW FOR REAL (decision note §4): the Studio's preview shows these rows applied, writing nothing. Any change
+	// to the deck closes it, because the preview would otherwise show a draft of a deck that no longer exists.
+	const [previewing, setPreviewing] = React.useState<{ msg: number; rows: number[] } | null>(null);
+	const previewingRef = React.useRef(previewing);
+	previewingRef.current = previewing;
+	const previewRows = (idx: number, rows: number[] | null) => {
+		const m = messagesRef.current[idx];
+		if (!rows || !m?.proposed?.length || !onPreview) {
+			setPreviewing(null);
+			onPreview?.(null);
 			return;
 		}
-		onApply(outcome.source);
-		setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, applied: true, appliedCount: outcome.applied, refused: outcome.refusals.length || undefined, skipped: skipped || undefined } : x)));
-		// A PARTIAL run is reported as partial — "applied" over a run where half the blocks
-		// were refused is the same false claim, just smaller. BLOCKS on both sides of the "of":
-		// `slides` is a different unit and summing them produced counts describing nothing that
-		// existed (checker). What the author left out is said apart from what the deck refused.
-		if (outcome.refusals.length) raiseNotice(deckId, 'error', outcome.refusals[0]);
-		notify(appliedToast({ applied: outcome.applied, refused: outcome.refusals.length, skipped }));
+		const edits = m.proposed;
+		const src = sourceRef.current;
+		const states = reconcile(src, edits, rowStates(m));
+		const draft = applyRows(src, edits, states, rows);
+		if (!draft.done.length) return;
+		// The slide to show: where the first previewed row lands in the draft (an insert shows its new slide).
+		const k = [...draft.done].sort((a, b) => edits[a].raw.slide - edits[b].raw.slide)[0];
+		const target = applyTarget(src, edits, states, k);
+		const slide = landingSlide(draft.source, edits[k]) ?? (target ? Math.max(1, target.slide) : 1);
+		setPreviewing({ msg: idx, rows: draft.done });
+		onPreview({ source: draft.source, slide, beforeSlide: edits[k].action === 'insert' || !target ? null : target.slide, title: draft.done.length === 1 ? rowName(edits[k]).lead.toLowerCase() : `${draft.done.length} changes`, count: draft.done.length, apply: () => runRows(idx, draft.done, false), onClosed: () => setPreviewing(null) });
 	};
-	const discardProposal = (idx: number) => !compacting && ready && setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a changed deck or a switch of deck is the trigger.
+	React.useEffect(() => {
+		setPreviewing(null);
+		onPreview?.(null);
+	}, [source, deckId]);
+	React.useEffect(() => () => onPreview?.(null), [onPreview]);
 	// THE CONFIRM FOR AN ACT. Only this press creates the deck; the model queued it and cannot press
 	// it. The conversation follows the author to the new deck: it is saved under the new deck's id
 	// before the shell switches, so the next turn continues the same thread there.
@@ -1091,24 +1145,32 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 							</div>
 							<ChatActivityRow activity={m.activity} hasTrace={!!m.trace} onOpen={() => setTraceIdx(i)} />
 							{isDrawableAction(m.action) ? <ActionConfirm action={m.action} disabled={busy || compacting || !onCreateDeck} onAnswer={(yes) => answerAction(i, yes)} /> : null}
-							{m.autoHeld && m.proposed?.length && !m.applied ? <div className="text-[11px] text-muted-foreground">Auto left this for you to apply: {m.autoHeld}.</div> : null}
-							{m.proposed?.length && !m.applied ? (
-								<div ref={i === messages.length - 1 ? lastCardRef : undefined} data-arriving={loadedRef.current?.includes(m) ? undefined : ''}>
-									<ProposalReview edits={m.proposed} liveSource={source} onApply={(picked) => applyProposal(i, picked)} onDiscard={() => discardProposal(i)} maxHeight={cardMax || undefined} arriving={!loadedRef.current?.includes(m)} />
-								</div>
+							{m.proposed?.length ? (
+								(() => {
+									const states = reconcile(source, m.proposed, rowStates(m));
+									const live = states.includes('waiting') && i === messages.length - 1;
+									return (
+										<div ref={i === messages.length - 1 ? lastCardRef : undefined} data-arriving={live && !loadedRef.current?.includes(m) ? '' : undefined} className={cn(live && !loadedRef.current?.includes(m) && 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-6 motion-safe:duration-300 motion-safe:ease-out')}>
+											<ChangeCard
+												edits={m.proposed}
+												states={states}
+												source={source}
+												kind={m.autoApplied ? 'auto' : 'review'}
+												note={m.autoHeld && states.includes('waiting') ? `Auto left this for you to apply: ${m.autoHeld}.` : undefined}
+												onApply={(rows) => runRows(i, rows, false)}
+												onUndo={(rows) => runRows(i, rows, true)}
+												onDiscard={(rows) => setRows(i, rows, 'discarded')}
+												onRestore={(row) => setRows(i, [row], 'waiting')}
+												onPreview={onPreview ? (rows) => previewRows(i, rows) : undefined}
+												previewing={previewing?.msg === i ? previewing.rows : null}
+												listMax={cardMax ? Math.max(160, cardMax - 120) : undefined}
+												rowNote={rowNote?.msg === i ? rowNote : null}
+												disabled={compacting || !ready}
+											/>
+										</div>
+									);
+								})()
 							) : null}
-							{m.autoApplied && m.proposed?.length ? (
-								<details className="text-[11px]">
-									<summary className="cursor-pointer text-muted-foreground">What Auto changed</summary>
-									<ProposalReview edits={m.proposed} liveSource={source} applied />
-								</details>
-							) : null}
-							{m.applied && (
-								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">
-									<Check className="size-3" />
-									{appliedBadge({ applied: m.appliedCount ?? 0, refused: m.refused, skipped: m.skipped })}
-								</span>
-							)}
 							{/* Live: a turn reaches the session only when its owner shares it (§5.3). */}
 							{onShareTurn && m.content.trim() && messages[i - 1]?.role === 'user' ? (
 								sharedTurns.has(turnKey(messages[i - 1].content, m.content)) ? (
@@ -1240,77 +1302,6 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 	);
 }
 
-// Numeric provenance — Munger's content-truth point. A rewrite that changes a figure is
-// the highest-risk edit in a numbers deck, so surface it explicitly for review regardless
-// of the "facts locked" mode. A money/metric token: optional SIGN, optional currency,
-// grouped-thousands OR a plain number, optional decimal, optional magnitude (K/M/B/T; `bn` `Bn` `BN` land on the `b` and read as B),
-// optional percent. The leading `[-−+]?` is load-bearing — without it a loss↔profit flip
-// (`-5%` → `5%`) tokenizes identically and the change is invisible (trio: the highest-risk
-// numeric edit). NOT `[\d,]*` — that swallowed list commas ("10, 20" → "10,").
-const NUM_RE = /[-−+]?[$€£]?\d{1,3}(?:,\d{3})+(?:\.\d+)?[KkMmBbT]?%?|[-−+]?[$€£]?\d+(?:\.\d+)?[KkMmBbT]?%?/g;
-function numericTokens(s: string): string[] {
-	return (String(s).match(NUM_RE) || []).filter((x) => /\d/.test(x));
-}
-// Normalize a token to a comparable numeric VALUE: apply sign, strip currency/commas,
-// fold magnitude (K/M/B/T) and percent (÷100). So a pure REFORMAT of the same value
-// (`4,200`↔`4200`, `$4.2M`↔`$4,200,000`) compares EQUAL and does not flag — only a real
-// value change (or a sign flip) does. NaN for an unparseable token (compared as literal).
-function tokenValue(tok: string): number {
-	let t = tok.replace(/[$€£,\s]/g, '');
-	let sign = 1;
-	if (/^[-−]/.test(t)) { sign = -1; t = t.slice(1); } else if (t.startsWith('+')) t = t.slice(1);
-	let pct = false;
-	if (t.endsWith('%')) { pct = true; t = t.slice(0, -1); }
-	let mult = 1;
-	const mag = /[KkMmBbT]$/.exec(t);
-	if (mag) { mult = mag[0] === 'T' ? 1e12 : { k: 1e3, m: 1e6, b: 1e9 }[mag[0].toLowerCase() as 'k' | 'm' | 'b']; t = t.slice(0, -1); }
-	const n = Number(t);
-	if (!Number.isFinite(n)) return Number.NaN;
-	return (sign * n * mult) / (pct ? 100 : 1);
-}
-// KNOWN LIMITS (documented, not bugs): compares as a MULTISET, so a value TRANSPOSITION
-// between two labeled figures ("$5M/$3M" → "$3M/$5M") is not flagged; and `\d` is ASCII,
-// so non-Latin numerals (Arabic-Indic / full-width) aren't tokenized. The full textual
-// diff above the chip still shows every change — this cue is an advisory highlight, not a gate.
-export function figureChange(before: string, after: string): { removed: string[]; added: string[] } | null {
-	// Bucket display tokens by normalized value-key, so a reformat matches but a real change
-	// (or a sign flip) leaves an unmatched token on each side.
-	const bucket = (toks: string[]) => {
-		const m = new Map<string, string[]>();
-		for (const t of toks) {
-			const v = tokenValue(t);
-			const k = Number.isFinite(v) ? `v:${v}` : `s:${t}`;
-			(m.get(k) ?? m.set(k, []).get(k))?.push(t);
-		}
-		return m;
-	};
-	const b = bucket(numericTokens(before));
-	const a = bucket(numericTokens(after));
-	const removed: string[] = [];
-	const added: string[] = [];
-	for (const [k, toks] of b) for (let i = a.get(k)?.length ?? 0; i < toks.length; i++) removed.push(toks[i]);
-	for (const [k, toks] of a) for (let i = b.get(k)?.length ?? 0; i < toks.length; i++) added.push(toks[i]);
-	return removed.length || added.length ? { removed, added } : null;
-}
-
-// A grouped, per-slide review of proposed edits. Nothing changes until Apply; each edit
-// re-applies against the CURRENT deck, and a slide that changed since the proposal is
-// flagged so the author knows Apply will replace their current slide content.
-// Whether the deck moved under a proposal since it was made: the target slide no longer
-// reads as it did, or a front-matter key no longer holds the value the diff started from.
-// Mirrors `isProposedEditStale` in architect.ts, kept here so the card has no runtime
-// dependency on the model layer.
-function isStale(source: string, e: ChatProposal): boolean {
-	if (e.action === 'insert') return false;
-	if (e.action === 'frontmatter' && e.raw.block) return frontMatterBlockText(source, e.raw.key ?? '') !== e.before;
-	if (e.action === 'frontmatter') {
-		const key = e.raw.key ?? '';
-		const cur = getFrontMatter(source, key);
-		return (cur === undefined ? '' : `${key}: ${cur}`) !== e.before;
-	}
-	return sliceSlide(source, e.slide).trim() !== e.before.trim();
-}
-
 /** The bottom of the last line of TEXT in `el`, not of its box: a reply's last paragraph carries spacing below
  *  it, and counting that as a line left only one and a half lines in view. */
 function textBottom(el: HTMLElement): number {
@@ -1325,104 +1316,6 @@ function textBottom(el: HTMLElement): number {
 // (the message column's gap-1.5 plus the card's mt-1), and the transcript's py-3 below it.
 const CARD_GAP = 10;
 const CARD_PAD = 12;
-
-function ProposalReview({ edits, liveSource, onApply, onDiscard, applied = false, maxHeight, arriving = false }: { edits: ChatProposal[]; liveSource: string; /** Apply the edits at these indices. */ onApply?: (picked: number[]) => void; onDiscard?: () => void; /** Already applied (Auto): a read-only record, no stale warnings, no buttons. */ applied?: boolean; /** The tallest the card may grow; its diffs scroll inside it. Unset: natural height. */ maxHeight?: number; /** The card just arrived in this visit: it slides in rather than appearing. */ arriving?: boolean }) {
-	// WHICH EDITS THE AUTHOR KEEPS. All of them by default, so the one-press Apply is unchanged; untick
-	// a slide to leave it out. The pick is per EDIT (a slide, an insert, a front-matter key), never per
-	// line: an edit replaces a whole slide, and mixing some of its lines with the old ones can leave a
-	// slide whose structure neither side wrote. Edits address the deck as it was when proposed and
-	// apply highest-slide-first (applyEditsChecked), so any subset applies as cleanly as the whole set.
-	const [picked, setPicked] = React.useState<boolean[]>(() => edits.map(() => true));
-	// A new proposal (a new `edits` array) starts with every edit picked again.
-	React.useEffect(() => setPicked(edits.map(() => true)), [edits]);
-	const pickId = React.useId();
-	const pickedIdx = picked.flatMap((on, i) => (on ? [i] : []));
-	const all = pickedIdx.length === edits.length;
-	const none = pickedIdx.length === 0;
-	const kept = applied ? edits : edits.filter((_, i) => picked[i]);
-	// Front-matter writes carry slide 0 — they are deck settings, not a slide to count.
-	const slides = new Set(edits.filter((e) => e.action !== 'frontmatter').map((e) => e.slide));
-	const stale = applied ? [] : kept.filter((e) => isStale(liveSource, e));
-	const staleSlides = stale.filter((e) => e.action !== 'frontmatter').map((e) => e.slide);
-	const staleKeys = stale.filter((e) => e.action === 'frontmatter').map((e) => e.raw.key);
-	const choosable = !applied && edits.length > 1;
-	return (
-		<div
-			data-proposal-card
-			style={maxHeight ? { maxHeight } : undefined}
-			className={cn('mt-1 flex flex-col overflow-hidden rounded-lg border border-border bg-background', arriving && 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-6 motion-safe:duration-300 motion-safe:ease-out')}
-		>
-			<div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-2.5 py-1.5">
-				<span className="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-foreground">
-					{choosable && <Checkbox aria-label={all ? 'Leave out every edit' : 'Include every edit'} checked={all ? true : none ? false : 'indeterminate'} onCheckedChange={() => setPicked(edits.map(() => !all))} className="size-3.5" />}
-					<span className="truncate">
-						{edits.length} edit{edits.length > 1 ? 's' : ''}
-						{slides.size ? ` · ${slides.size} slide${slides.size > 1 ? 's' : ''}` : ''}
-					</span>
-				</span>
-				<span className="shrink-0 text-[10px] text-muted-foreground">{applied ? 'applied in Auto — undo from History' : choosable ? 'untick what you don’t want' : 'nothing changes until you Apply'}</span>
-			</div>
-			{/* ONE scroll region for every diff. It used to be a 220px box of 180px boxes inside the
-			    scrolling transcript: three nested scrollers, so a wheel or a swipe moved whichever one
-			    happened to be under the pointer. */}
-			<div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
-				{edits.map((e, i) => {
-					const fig = e.action !== 'insert' && e.action !== 'frontmatter' ? figureChange(e.before, e.after) : null;
-					const on = applied || picked[i];
-					return (
-						// biome-ignore lint/suspicious/noArrayIndexKey: static proposal list.
-						<div key={i} className="border-b border-border last:border-b-0">
-							{choosable ? (
-								<div className="flex items-center gap-2 px-2.5 pt-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-									<Checkbox id={`${pickId}-${i}`} aria-label={`Include ${e.label}`} checked={on} onCheckedChange={(v) => setPicked((cur) => cur.map((x, k) => (k === i ? v === true : x)))} className="size-3.5" />
-									<label htmlFor={`${pickId}-${i}`} className={cn('cursor-pointer', !on && 'line-through')}>
-										{e.label}
-									</label>
-								</div>
-							) : (
-								<div className="px-2.5 pt-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{e.label}</div>
-							)}
-							<div className={cn('transition-opacity motion-reduce:transition-none', !on && 'opacity-40')}>
-								<DiffCard rows={e.diff as DiffRow[]} bounded={false} />
-								{fig && (
-									<div className="flex items-start gap-1.5 px-2.5 pb-1.5 text-[10px] text-[var(--warn,#9a6a00)]">
-										<TriangleAlert className="mt-0.5 size-3 shrink-0" />
-										<span>Changes a figure — verify{fig.removed.length && fig.added.length ? `: ${fig.removed.join(', ')} → ${fig.added.join(', ')}` : fig.added.length ? ` (adds ${fig.added.join(', ')})` : ` (removes ${fig.removed.join(', ')})`}</span>
-									</div>
-								)}
-							</div>
-						</div>
-					);
-				})}
-			</div>
-			{staleSlides.length > 0 && (
-				<div className="flex shrink-0 items-start gap-1.5 border-t border-border px-2.5 py-1.5 text-[10.5px] text-[var(--warn,#9a6a00)]">
-					<TriangleAlert className="mt-0.5 size-3 shrink-0" />
-					<span>Slide {staleSlides.join(', ')} changed since this was proposed — Apply will replace your current version.</span>
-				</div>
-			)}
-			{staleKeys.length > 0 && (
-				<div className="flex shrink-0 items-start gap-1.5 border-t border-border px-2.5 py-1.5 text-[10.5px] text-[var(--warn,#9a6a00)]">
-					<TriangleAlert className="mt-0.5 size-3 shrink-0" />
-					<span>
-						{staleKeys.map((k) => `${k}:`).join(', ')} changed since this was proposed — Apply will overwrite it.
-					</span>
-				</div>
-			)}
-			{!applied && <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-2.5 py-1.5">
-				<button type="button" disabled={none} onClick={() => onApply?.(pickedIdx)} className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
-					<Check className="size-3" />
-					{applyLabel(pickedIdx.length, edits.length)}
-				</button>
-				<button type="button" onClick={onDiscard} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground">
-					<X className="size-3" />
-					Discard
-				</button>
-			</div>}
-		</div>
-	);
-}
-
 
 // ── The chat mode button and the act confirm ─────────────────────────────────
 

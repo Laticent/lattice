@@ -1,36 +1,7 @@
-// The change card's wording and scroll math (proposal-pick.ts).
+// The change card's scroll math (proposal-pick.ts).
 
 import { describe, expect, it } from 'vitest';
-import { appliedBadge, appliedToast, applyLabel, cardMaxHeight, cardScrollTarget } from './proposal-pick';
-
-describe('applyLabel', () => {
-	it('reads plain "Apply" when every edit is picked, so the one-press flow is unchanged', () => {
-		expect(applyLabel(3, 3)).toBe('Apply');
-		expect(applyLabel(1, 1)).toBe('Apply');
-	});
-	it('names the subset when the author left edits out', () => {
-		expect(applyLabel(2, 3)).toBe('Apply 2 of 3');
-	});
-	it('reads "Apply" at zero (the button is disabled there)', () => {
-		expect(applyLabel(0, 3)).toBe('Apply');
-	});
-});
-
-describe('appliedBadge and appliedToast', () => {
-	it('say a full run plainly', () => {
-		expect(appliedBadge({ applied: 3 })).toBe('Applied');
-		expect(appliedToast({ applied: 1 })).toBe('Edit applied — restore from History to undo.');
-		expect(appliedToast({ applied: 3 })).toBe('Applied 3 edits — restore from History to undo.');
-	});
-	it('report what the author left out', () => {
-		expect(appliedBadge({ applied: 2, skipped: 1 })).toBe('Applied · skipped 1');
-		expect(appliedToast({ applied: 1, skipped: 2 })).toBe('Applied 1 edit, left 2 out — restore from History to undo.');
-	});
-	it('keep refusals separate from skips', () => {
-		expect(appliedBadge({ applied: 1, refused: 1, skipped: 1 })).toBe('Applied 1 of 2 · skipped 1');
-		expect(appliedToast({ applied: 1, refused: 1 })).toBe('Applied 1 of 2 edits — restore from History to undo.');
-	});
-});
+import { cardMaxHeight, cardScrollTarget } from './proposal-pick';
 
 describe('cardScrollTarget', () => {
 	const base = { lineHeight: 20, gap: 6, scrollHeight: 2000, clientHeight: 600 };

@@ -827,6 +827,28 @@ export function saveCheckpointDurably(deckId: string, source: string, label: str
 	return appendCheckpoint(deckId, cp);
 }
 
+/**
+ * Save a checkpoint like `saveCheckpoint`, and return its id with the list, so a caller can relabel it later.
+ * The id is null when nothing was saved (the deck already matched the newest checkpoint).
+ */
+export function saveCheckpointWithId(deckId: string, source: string, label: string, ts: number): { list: Checkpoint[]; id: string | null } {
+	const list = saveCheckpoint(deckId, source, label, ts);
+	return { list, id: list[0]?.source === source && list[0].label === label && list[0].ts === ts ? list[0].id : null };
+}
+
+/**
+ * Rename one checkpoint in place, keeping its source, time and place in the list: the chat's change card keeps ONE
+ * History entry per card and updates its label as rows are applied and undone
+ * (engineering/decisions/2026-11-19-chat-card-apply-undo.md §6). Returns the updated list; unchanged when the id is gone.
+ */
+export function relabelCheckpoint(deckId: string, id: string, label: string): Checkpoint[] {
+	const list = loadCheckpoints(deckId);
+	if (!list.some((c) => c.id === id && c.label !== label)) return list;
+	const next = list.map((c) => (c.id === id ? { ...c, label } : c));
+	void replaceCheckpoints(deckId, next);
+	return next;
+}
+
 /** Rewrite every checkpoint's source of one deck through `fn`, leaving ids, times and labels alone. For a
  *  restore that renamed a photo: a checkpoint that still named the old name would bring back the wrong picture. */
 export function mapCheckpointSources(deckId: string, fn: (source: string) => string): Promise<boolean> {
@@ -851,6 +873,8 @@ export type ChatProposal = {
 	before: string;
 	after: string;
 	diff: { type: string; text: string }[];
+	/** Insert: the slide it goes after; delete: the slide before it (by text). Absent on older threads. */
+	anchor?: string;
 };
 
 /** A photo attached to a user turn — a REFERENCE to a Library asset, never the bytes. The picture
@@ -933,9 +957,15 @@ export type ChatMessage = {
 	 *  run, so the badge can say "Applied 2 of 3" instead of a flat "Applied". */
 	appliedCount?: number;
 	refused?: number;
-	/** How many edits the author unticked before Apply (the change card's per-edit pick). Set only
-	 *  when some were left out, so the badge can say "skipped 1". */
-	skipped?: number;
+	/** Assistant turn only: each proposed edit's state on the change card (change-card.ts `RowState`: waiting,
+	 *  applied, discarded, undone), index-aligned with `proposed`. Absent on threads from before per-row apply,
+	 *  which read as all applied when `applied` is set (`rowStates`). */
+	rows?: ('waiting' | 'applied' | 'discarded' | 'undone')[];
+	/** Assistant turn only: the id of the card's ONE History entry, so later actions relabel it instead of adding
+	 *  more (engineering/decisions/2026-11-19-chat-card-apply-undo.md §6). */
+	cardCheckpoint?: string;
+	/** Assistant turn only: when the card first changed the deck (ms), for that History entry's label. */
+	cardAt?: number;
 	/** Assistant turn only: what the chat agent read, changed and checked to produce it
 	 *  ("read about the kpi layout", "checked the deck") — shown under the reply as one sentence (chat-activity.ts) so the author can see the
 	 *  answer was grounded, not guessed. Never sent back to the model. */

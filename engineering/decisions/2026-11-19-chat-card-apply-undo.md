@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: How the Studio chat's change card lets the author see, apply, discard and take back an AI edit one slide at a time or all at once, on top of Filo (the Studio's one undo history) and Version history; a prototype at /proto/change-card/ tests the card models and a "preview for real" button before anything is built.
+status: in-progress
+summary: How the Studio chat's change card lets the author see, apply, discard and take back an AI edit one slide at a time or all at once, on top of Filo (the Studio's one undo history) and Version history. Prototyped, reviewed by a UI/UX pass, chosen by the owner and built in PR #3317: live rows with no tick boxes, undo by content, one History entry per card, a preview in the Studio's own pane.
 ---
 
 # Apply, discard and undo in the chat's change card
@@ -146,6 +146,9 @@ if authors ask for milestones.
 It must answer: which card model the author reads correctly at first glance; whether preview belongs
 on every row or only the header; and which undo behavior to keep.
 
+The prototype answered those (§8) and was deleted once the card was built (§10): git history keeps it
+(`5b69cb2`, `fa9eceb`).
+
 ## 8. The UI/UX review (2026-11-19)
 
 One reviewer, briefed with the owner's goals and the prototype but not with this note's
@@ -178,7 +181,23 @@ recommendation, and what it would change:
 
 ## 9. What this note does not do
 
-- It does not build per-slide undo, preview or the checkpoint change in the Studio.
 - It does not give slides stable ids; content matching stands in until the slide spine lands.
-- It does not change Filo. Every option above writes through the shell's setters as an ordinary
-  step.
+- It does not change Filo. Every action writes through the shell's setters as an ordinary step.
+
+## 10. As built (PR #3317)
+
+| Piece | Where | What it does |
+|---|---|---|
+| The logic | `docs/src/components/studio/change-card.ts` | `applyRows` / `undoRows` act on one row or many, each retargeted by its slide's TEXT (`applyTarget`, `undoTarget`), the number only breaking a tie; a deck setting is read and written by key. A row refuses, with the reason, when its slide or key no longer reads as the card expects. Also `rowStates`, `rowName`, `cardHistoryLabel`, `toldLine` |
+| The card | `ChangeCard.tsx` | The deck card and one card per slide, both the shared `collapsible-card.tsx`. Rows read in deck order. Per row: Apply · Discard · Preview, then Undo, Apply again, Bring back; "Changed since proposed" and "Applied · you've edited it since" are decided before the click. Footer at the bottom right: Show source · Preview all · Discard all · Apply all / Apply remaining N · Undo all. A changed figure is flagged on its row (`figure-change.ts`, moved out of the chat panel) |
+| The diff | `change-diff.tsx` | Plain words (Markdown markers dropped, changed words marked, a rewritten line shown whole); Show source for the Markdown |
+| History | `StudioShell.tsx` `applyChatEdit`; `studio-store.ts` `saveCheckpointWithId`, `relabelCheckpoint` | The card's first action saves "Before AI edit · HH:MM · “ask” (n of m applied)"; later actions relabel that entry. The message keeps its id (`cardCheckpoint`) and the time (`cardAt`), so the link survives a reload. Each action is its own undo step, named ("AI chat edit: Slide 2", "Undo AI edit: Slide 2") |
+| Preview | `ChatDraftPreview.tsx`, lazy in `StudioShell.tsx` | Over the preview pane on a desktop or tablet; a full-screen sheet on a phone, which stops its pointer and focus events at its edge (the chat's own modal sheet otherwise dismissed itself on a tap in the preview) and takes Esc first. Before/After, Esc, B. Any change to the deck closes it |
+| Tell the AI | `ArchitectChat.tsx` (the turn builder) | A past reply's text carries `[The author applied slide 2; discarded slide 3; …]` |
+| Auto | the same card, kind `auto` | "What Auto changed", rows folded, each with Undo |
+
+Tests: `change-card.test.ts` (out-of-order apply, undo after typing, insert and delete round trips, a deck
+setting changed since), `studio.chat-stream-commit.test.tsx` (a refusal speaks on its row; what the author
+did mid-reply survives), `docs/e2e/chat-change-card.spec.ts` (layout at three widths, apply in any order,
+undo by content, one History entry, discard and Bring back, the line told to the AI, preview on a desktop
+and as the phone sheet).

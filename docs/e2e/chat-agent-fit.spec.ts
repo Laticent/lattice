@@ -79,7 +79,7 @@ test('an overfull draft slide comes back flagged from a real render, and holds t
 
 	// The review card still offers the change; the author decides.
 	await page.screenshot({ path: test.info().outputPath('chat-agent-fit-card.png') });
-	await page.getByRole('button', { name: /^Apply/ }).first().click();
+	await page.getByRole('button', { name: /^Apply( all)?$/ }).click();
 	// The same slide in the live preview, after Apply: the overflow the checker named.
 	await page.getByRole('button', { name: 'Slide 2 — content' }).click();
 	await expect(livePreview(page).getByText('Everything we did this quarter')).toBeVisible({ timeout: 30_000 });

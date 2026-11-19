@@ -125,7 +125,8 @@ test('Chat: an instructed edit arrives as a diff and Apply lands it in the sourc
 	await apply.click();
 	await expect(toastText(page)).toContainText('Edit applied');
 	await expect.poll(() => persistedSource(page)).toContain('ATLAS ROADMAP');
-	await expect.poll(() => checkpointLabels(page)).toContain('Before AI chat edit');
+	// The card's one History entry: "Before AI edit · HH:MM · “ask” (n of m applied)".
+	await expect.poll(() => checkpointLabels(page)).toContainEqual(expect.stringMatching(/^Before AI edit · /));
 });
 
 // #3208 / PR 3318: a word change across the deck goes through find_text / replace_text, not a rewrite of

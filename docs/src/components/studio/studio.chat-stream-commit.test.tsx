@@ -1,5 +1,6 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __clearPendingNotices, ArchitectChat } from './ArchitectChat';
 import { loadChat, saveChat } from './studio-store';
@@ -467,7 +468,7 @@ describe('Architect chat — a parked notice reaches a reader already on screen 
 // without a real sequence, and Apply goes through the ungated `raiseNotice`.
 describe('Architect chat — a refused Apply speaks on a deck that has had no turn (#1813, B1)', () => {
 	const REFUSAL = "Slide 9 doesn't exist — the deck has 1 slide.";
-	const PROPOSAL = [{ label: 'Slide 9', slide: 9, action: 'replace', raw: { action: 'replace', slide: 9, body: '# nine' }, before: '# old', after: '# nine', diff: [{ type: 'add', text: '# nine' }] }];
+	const PROPOSAL = [{ label: 'Slide 1', slide: 1, action: 'replace', raw: { action: 'replace', slide: 1, body: '# nine' }, before: '# One', after: '# nine', diff: [{ type: 'add', text: '# nine' }] }];
 
 	it('shows the refusal with no send first — the reload-and-Apply path', async () => {
 		const user = userEvent.setup();
@@ -480,7 +481,7 @@ describe('Architect chat — a refused Apply speaks on a deck that has had no tu
 		render(<ArchitectChat {...props} deckId="deck-1" />);
 
 		await user.click(screen.getByRole('button', { name: 'Apply' }));
-		expect(screen.getByText(REFUSAL), 'the refusal was discarded — the author clicked Apply and nothing happened, silently').toBeTruthy();
+		expect(screen.getAllByText(REFUSAL).length, 'the refusal was discarded — the author clicked Apply and nothing happened, silently').toBeGreaterThan(0);
 	});
 
 	it('still shows it after a send, so the fix is not just the sequence happening to match', async () => {
@@ -499,7 +500,17 @@ describe('Architect chat — a refused Apply speaks on a deck that has had no tu
 		cleanup();
 		render(<ArchitectChat {...props} deckId="deck-1" />);
 		await user.click(screen.getByRole('button', { name: 'Apply' }));
-		expect(screen.getByText(REFUSAL)).toBeTruthy();
+		expect(screen.getAllByText(REFUSAL).length).toBeGreaterThan(0);
+	});
+
+	it('says so before the click when the slide no longer reads as proposed, and offers no Apply', () => {
+		saveChat('deck-1', [
+			{ role: 'user', content: 'tighten slide one' },
+			{ role: 'assistant', content: 'Here is a diff.', proposed: [{ ...PROPOSAL[0], before: '# An older slide one' }] },
+		]);
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText('Changed since proposed')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Apply' }), 'an Apply that can only refuse was offered').toBeNull();
 	});
 });
 
@@ -518,17 +529,25 @@ describe('Architect chat — what the author did while a reply streamed in survi
 	it('an edit applied mid-reply stays applied after the reply lands', async () => {
 		const user = userEvent.setup();
 		seed();
-		render(<ArchitectChat {...props} deckId="deck-1" />);
+		// The card reads the deck to know what is applied, so this host applies the edit as the Studio does.
+		applySpy.mockReturnValueOnce({ source: '# One, tighter\n', applied: 1, refusals: [] });
+		function Host() {
+			const [src, setSrc] = React.useState(props.source);
+			return <ArchitectChat {...props} deckId="deck-1" source={src} onApply={(next: string) => setSrc(next)} />;
+		}
+		render(<Host />);
 		const turn = deferredTurn(REPLY);
 		await sendOnce(user, 'and slide two?');
 		await user.click(screen.getByRole('button', { name: 'Apply' }));
-		expect(screen.getByText('Applied')).toBeTruthy();
+		expect(screen.getByText('1 of 1 applied')).toBeTruthy();
 		await turn.release();
 		await flushFrames();
 		expect(screen.getByText(REPLY)).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Apply' }), 'the reply put the applied edit back to unapplied').toBeNull();
 		const stored = loadChat('deck-1');
 		expect(stored.find((m) => m.content === 'Here is a diff.')?.applied).toBe(true);
+		expect(stored.find((m) => m.content === 'Here is a diff.')?.rows).toEqual(['applied']);
+		expect(screen.getByText('1 of 1 applied'), 'the reply put the applied edit back to unapplied').toBeTruthy();
 		expect(stored.at(-1)?.content).toBe(REPLY);
 	});
 
@@ -538,10 +557,11 @@ describe('Architect chat — what the author did while a reply streamed in survi
 		render(<ArchitectChat {...props} deckId="deck-1" />);
 		const turn = deferredTurn(REPLY);
 		await sendOnce(user, 'and slide two?');
-		await user.click(screen.getByRole('button', { name: 'Discard' }));
+		await user.click(screen.getByRole('button', { name: 'Discard: Slide 1' }));
 		await turn.release();
 		await flushFrames();
 		expect(screen.queryByRole('button', { name: 'Apply' }), 'the reply brought the discarded edit back').toBeNull();
-		expect(loadChat('deck-1').find((m) => m.content === 'Here is a diff.')?.proposed).toBeUndefined();
+		expect(loadChat('deck-1').find((m) => m.content === 'Here is a diff.')?.rows, 'the reply brought the discarded edit back').toEqual(['discarded']);
+		expect(screen.getByRole('button', { name: 'Bring back: Slide 1' })).toBeTruthy();
 	});
 });
