@@ -646,7 +646,7 @@ describe('Architect chat — a message sent before a model is connected is answe
 	});
 
 	it('does not answer behind the author when the thread has moved on', async () => {
-		sessionStorage.setItem('lattice-chat-answer-after-connect', 'deck-1');
+		markAnswerAfterConnect('deck-1');
 		saveChat('deck-1', [
 			{ role: 'user', content: 'hi' },
 			{ role: 'assistant', content: 'Hello.' },
@@ -717,8 +717,8 @@ describe('Architect chat — a message sent before a model is connected is answe
 		markAnswerAfterConnect('deck-1');
 		markAnswerAfterConnect('deck-2');
 		expect(hasAnswerAfterConnect('deck-1') && hasAnswerAfterConnect('deck-2'), 'marking one deck dropped the other').toBe(true);
-		// The one-deck form an earlier build wrote still reads.
-		sessionStorage.setItem('lattice-chat-answer-after-connect', 'deck-3');
-		expect(hasAnswerAfterConnect('deck-3')).toBe(true);
+		// A slot that does not parse reads as nothing waiting, never as an error.
+		sessionStorage.setItem('lattice-chat-answer-after-connect', 'not json');
+		expect(hasAnswerAfterConnect('deck-1')).toBe(false);
 	});
 });

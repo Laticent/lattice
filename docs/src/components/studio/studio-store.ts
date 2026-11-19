@@ -840,9 +840,7 @@ const ANSWER_AFTER_CONNECT_KEY = 'lattice-chat-answer-after-connect';
 function waitingDecks(): string[] {
 	try {
 		const raw = sessionStorage.getItem(ANSWER_AFTER_CONNECT_KEY);
-		if (!raw) return [];
-		if (!raw.startsWith('[')) return [raw]; // the one-deck form an earlier build wrote
-		const list: unknown = JSON.parse(raw);
+		const list: unknown = raw ? JSON.parse(raw) : [];
 		return Array.isArray(list) ? list.filter((d): d is string => typeof d === 'string') : [];
 	} catch {
 		return [];
