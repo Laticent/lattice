@@ -316,14 +316,20 @@ const SITE = 'https://lattice.style';
  * agent follows (it shipped in start.md's anima line). A path that is not in the tree fails
  * the build: the pack must never point at a file that does not exist.
  */
+/**
+ * Every code region of a Markdown text: a fence closes only on its own run of backticks or
+ * tildes (a ```` fence holds ``` lines), and a code span only on its own run of backticks.
+ * Unanchored or unmatched forms paired the inline "```mermaid" mentions in start.md's rules with
+ * a skeleton fence 190 lines later, and the link gate below went blind to every link between.
+ */
+const CODE_REGIONS = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$|(`+)[^`\n]*?\2/gm;
 function proseOnly(body, fn) {
   // Rewrite links in prose only. A link inside a code fence or a code span is an EXAMPLE an
   // author copies (`![](marcus.jpg)` in the avatars doc is the author's own photo, next to
   // their deck), so it must reach the pack byte for byte.
-  return body
-    .split(/(^```[^\n]*\n[\s\S]*?^```[ \t]*$|`[^`\n]+`)/m)
-    .map((part, i) => (i % 2 ? part : fn(part)))
-    .join('');
+  const kept = [];
+  const masked = body.replace(CODE_REGIONS, (code) => `\uE000${kept.push(code) - 1}\uE000`);
+  return fn(masked).replace(/\uE000(\d+)\uE000/g, (_m, i) => kept[Number(i)]);
 }
 function repoUrl(repoPath) {
   const abs = path.join(ROOT, repoPath);
@@ -373,7 +379,12 @@ function universalDocs() {
         const [file, anchor = ''] = href.split(/(?=#)/);
         // A site path (`/reference/switches/`) is a docs page: the pack lives on that site,
         // so it becomes the page's Markdown copy there.
-        if (file.startsWith('/')) return `](${SITE}${file.replace(/\/$/, '')}.md${anchor})`;
+        if (file.startsWith('/')) {
+          const page = file.replace(/^\/|\/$/g, '');
+          const src = ['md', 'mdx'].map((x) => path.join(ROOT, 'docs', 'src', 'content', 'docs', `${page}.${x}`));
+          if (!page || !src.some(existsSync)) throw new Error(`agent pack links site path ${file}, which has no Markdown copy`);
+          return `](${SITE}/${page}.md${anchor})`;
+        }
         const repoPath = path.posix.normalize(path.posix.join(from, file));
         if (repoPath === 'lib/base/base.docs.md') return `](./universal.md${anchor})`;
         if (repoPath === 'lib/base/base.registers.docs.md') return `](./registers.md${anchor})`;
@@ -3159,10 +3170,10 @@ function startDoc(files, cat) {
     // Gaps a model writing from this file alone hit on 2026-11-19 (the no-spend stand-in eval,
     // engineering/decisions/2026-11-17-agent-pack.md §4.5): it was told to use speaker notes
     // with no syntax, and it wrote `{Off plan}` on a kpi row the layout colors as on plan.
-    '- Speaker notes: a plain HTML comment on the slide, `<!-- Open with the Antwerp number. -->`.',
+    '- Speaker notes: a plain HTML comment on the slide, `<!-- Pause here for questions. -->`.',
     '  `<!-- say: … -->` holds the exact words to speak. Notes never show on the slide.',
     '- A `kpi` status pill takes its color from the row and the variant, never from its words.',
-    '  Use status words only (`On plan`, `At risk`, `Breaching`); for one metric that is off',
+    '  Use status words only (`` `{On plan}` ``, `` `{At risk}` ``, `` `{Breaching}` ``); for one metric off',
     '  plan, use `kpi attention`, which flags the lead tile in the warning color.',
     '',
     '## 4. Parts any slide can carry',
@@ -3273,7 +3284,7 @@ const MARP_FRAMING = [
 
 function assertPack(files) {
   const problems = [];
-  const prose = (t) => t.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '').replace(/`[^`\n]*`/g, '');
+  const prose = (t) => t.replace(CODE_REGIONS, '');
   for (const [rel, buf] of files) {
     if (!rel.endsWith('.md')) continue;
     const text = buf.toString('utf8');

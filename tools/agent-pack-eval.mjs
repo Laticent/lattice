@@ -78,10 +78,41 @@ function priceNote() {
   return 'about 6 completions, the start arm over an ~11k-token prompt: roughly USD 0.15 to 0.26 a run';
 }
 
-function deckFrom(reply) {
-  const fenced = reply.match(/```(?:markdown|md)?\n([\s\S]*?)\n```/);
-  const body = (fenced ? fenced[1] : reply).trim();
-  return `${body}\n`;
+/**
+ * The deck in a model's reply. A reply that starts with front matter is the deck. Otherwise the
+ * deck is the first ```markdown (or ```md, or bare) fence, taken to the LAST line that closes
+ * it with the same backtick run: a lazy match stopped at the deck's own first code or mermaid
+ * fence and judged half a deck.
+ */
+export function deckFrom(reply) {
+  // A model reply is external input: strip a BOM and fold CRLF and lone CR before `^---` is tested.
+  const text = String(reply).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  if (/^---\n/.test(text.trimStart())) return `${text.trim()}\n`;
+  const lines = text.split('\n');
+  // Walk fences in pairs, so a ```yaml block's closing line is never read as the deck's opening.
+  let open = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const f = lines[i].match(/^(`{3,})([\w-]*)[ \t]*$/);
+    if (!f) continue;
+    if (['', 'markdown', 'md'].includes(f[2])) {
+      open = i;
+      break;
+    }
+    const end = lines.findIndex((l, j) => j > i && l.trim() === f[1]);
+    if (end === -1) break;
+    i = end;
+  }
+  if (open === -1) return `${text.trim()}\n`;
+  const ticks = lines[open].match(/^`+/)[0];
+  let close = -1;
+  for (let i = lines.length - 1; i > open; i--) {
+    if (lines[i].trim() === ticks) {
+      close = i;
+      break;
+    }
+  }
+  const body = lines.slice(open + 1, close === -1 ? lines.length : close).join('\n');
+  return `${body.trim()}\n`;
 }
 
 async function complete(model, system, user) {
@@ -101,6 +132,8 @@ async function complete(model, system, user) {
   });
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const j = await res.json();
+  // A reply cut off at max_tokens is a truncated deck: say so rather than judge half of it.
+  if (j.choices?.[0]?.finish_reason === 'length') throw new Error(`reply hit max_tokens (${j.usage?.completion_tokens ?? '?'} tokens)`);
   return { text: j.choices?.[0]?.message?.content ?? '', cost: Number(j.usage?.cost ?? 0) };
 }
 
@@ -128,6 +161,7 @@ function judge(deckPath, pdfPath) {
   for (const f of errs) problems.push(`slide ${f.slide}: ${f.severity} ${f.rule}`);
   if (render.status !== 0 || !existsSync(pdfPath)) problems.push(`render failed: ${renderOut.trim().split('\n').slice(-2).join(' ')}`);
   if (/OVERFLOW/.test(renderOut)) problems.push('render reports overflow');
+  if (/CONTENT CLIPPED/.test(renderOut)) problems.push('render reports clipped content');
   if (slides < 6 || slides > 16) problems.push(`${slides} slides (want 6 to 16)`);
   if (new Set(classes).size < 4) problems.push(`only ${new Set(classes).size} different layouts`);
   if (/^marp:\s*true/m.test(deck)) problems.push('carries marp: true');
@@ -190,18 +224,21 @@ async function main() {
   return failed ? 1 : 0;
 }
 
-if (process.argv.includes('--judge')) {
+// Run only as a script: a test imports deckFrom without spending anything.
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain && process.argv.includes('--judge')) {
   // Judge one deck already on disk, with no model call: how the gate itself is tested.
   const deck = path.resolve(arg('--judge'));
   console.log(JSON.stringify(judge(deck, deck.replace(/\.md$/, '.pdf')), null, 2));
   process.exit(0);
 }
 
-main().then(
-  (code) => process.exit(code),
-  (e) => {
-    console.error(e);
-    process.exit(1);
-  },
-);
-
+if (isMain) {
+  main().then(
+    (code) => process.exit(code),
+    (e) => {
+      console.error(e);
+      process.exit(1);
+    },
+  );
+}

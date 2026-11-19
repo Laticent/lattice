@@ -7174,6 +7174,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'not listed here: arm 4 flags a second implementation, never a caller of the first.',
   },
   {
+    file: 'tools/agent-pack-eval.mjs',
+    why: 'deckFrom() — a model reply is external input and models emit CRLF; it tests `^---` to '
+       + 'decide whether the reply IS the deck, so a BOM or CR would send a whole deck through the '
+       + 'fence search instead. The nightly agent-pack eval judges what this returns.',
+  },
+  {
     file: 'docs/src/components/studio/ai/architect-edits.js',
     why: 'parseEdits — a model reply is external input and models emit CRLF. Carries the pattern '
        + 'inline rather than importing the helper: this is plain JS loaded directly by '

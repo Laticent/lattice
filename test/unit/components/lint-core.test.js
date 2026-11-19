@@ -328,6 +328,17 @@ describe('lint-core: lintTextWith rules', () => {
     assert.equal(ruleFor(`${FM}<!-- _class: list -->\n\n## H\n\n1. Hold — wait a beat\n`, 'list-steps-inline-body'), undefined);
   });
 
+  // The maker-checker review of #3305 (2026-11-19) drove each of these through the rule.
+  test('rule 2c — speaker notes, code spans, mixed case and a shallow indent', () => {
+    const steps = (body) => `${FM}<!-- _class: list-steps -->\n\n## H\n\n${body}`;
+    assert.equal(ruleFor(steps('1. Open\n   - Wide.\n\n<!--\n1. Open — then pause.\n-->\n'), 'list-steps-inline-body'), undefined, 'a note is not a step');
+    const span = ruleFor(steps('1. Run `a — b` — then wait.\n'), 'list-steps-inline-body');
+    assert.match(core.applyFix(steps('1. Run `a — b` — then wait.\n'), span), /^1\. Run `a — b`\n {3}- Then wait\.$/m, 'splits after the code span');
+    const ios = steps('1. Ship — iOS first.\n');
+    assert.match(core.applyFix(ios, ruleFor(ios, 'list-steps-inline-body')), /^ {3}- iOS first\.$/m, 'mixed case kept');
+    assert.ok(ruleFor(steps('1. Freeze — window\n  - two weeks.\n'), 'list-steps-inline-body'), 'two spaces under `1. ` is not nested');
+  });
+
   test('rule 3 — bold in an ordered statement (principles) is an error', () => {
     const f = ruleFor(`${FM}<!-- _class: principles -->\n\n1. a **bold** span\n`, 'statement-ol-bold');
     assert.ok(f);
