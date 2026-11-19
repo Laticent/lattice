@@ -3118,8 +3118,16 @@ function startDoc(files, cat) {
   const strip = (rel) => {
     const raw = files.get(rel);
     if (!raw) throw new Error(`build-agent-kit: start.md needs ${rel}, which is not built yet.`);
-    return raw
-      .toString('utf8')
+    // start.md sits at the kit root, so a relative link in a section copied from a subfolder
+    // (authoring/modifiers.md's `../reference/components.json`) is re-based to the root.
+    const dir = path.posix.dirname(rel);
+    const rebased = proseOnly(raw.toString('utf8'), (prose) =>
+      prose.replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_m, href) => {
+        const [file, anchor = ''] = href.split(/(?=#)/);
+        return `](./${path.posix.normalize(path.posix.join(dir, file))}${anchor})`;
+      }),
+    );
+    return rebased
       .replace(/^# .*\n+/, '')
       .replace(/\n---\n+(Source|_Generated)[\s\S]*$/, '\n')
       .trim();
