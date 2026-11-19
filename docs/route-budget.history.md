@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-19 — the owner raised one ceiling by hand, for PR 3305: studio lintCoreGz to 164.9 KB
+
+Owner OK 2026-11-19, in PR 3305's session: raise studio's lint-core ceiling by 0.5 KB in its own PR, rather than ship PR 3305 without its `list-steps-inline-body` warning. It stacks on the 1 KB raise for PR 3319 below, which is sized for that PR alone.
+
+Measured by CI's route-budget check: `main` after PR 3321 (`slot-contract`) is 163.2 KB, and PR 3305 at e89fb0b2c was 163.6 KB. PR 3305's new rule (a `list-steps` step written `1. Title — body` renders the whole sentence as the bold title; the warning and its autofix) costs 397 gzipped bytes over `main` after slimming (shorter strings, and an indexOf loop instead of a line-by-line comment tracker), measured with `esbuild --bundle --minify` and `gzip -9` on `lib/authoring/lint-core.js`. The ceiling rises 168390 -> 168902 (+512 B), which leaves PR 3319's 1 KB intact and about 0.1 KB more after PR 3305. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 168902 |
+
 ### 2026-11-19 — the owner raised one ceiling by hand, for PR 3319: studio lintCoreGz to 164.4 KB
 
 Owner OK 2026-11-19 (PR 3319, "Raise ceiling ~1 KB", then "+1 KB by hand" over the tool's `--raise --ceiling`, which would have set the ceiling 10% above a new soft target: 179.5 KB, +16 KB). PR 3319 adds one lint rule, `terms-entry-ignored`, which warns when a `terms:` line is skipped, so a deck term is never silently left unsaid. The Studio ships lint-core for its live lint, so the rule lands in `esm/lint.js`; the `terms:` reader it calls is already in a chunk the engine loads.
