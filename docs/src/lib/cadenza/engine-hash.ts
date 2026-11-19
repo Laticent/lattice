@@ -3,4 +3,4 @@
 // whenever a file `buildTrack` is computed from does; test/unit/tools/timing-engine-hash.test.js
 // fails when this file is stale.
 
-export const ENGINE_HASH = 'sha256:cccadc9e49fb3aba6cf184e6fcbd2e5d944999b64fbc6d88e85207b4d4614cd2';
+export const ENGINE_HASH = 'sha256:7789f161406a837cc835c8001c5fcbccc6582924d17018209249d829424ef3ec';

@@ -44,7 +44,7 @@ inference was tried and removed after it made 40 of the 46 decks it fired on wor
 
 - **One meaning across all five segments → always on**, exact case, in `lexicon.ts` `BASE_CASED`: GPA, AUC,
   CRM, QBR, VP, RFP, OIG, GIS, WCAG.
-- **Two or more meanings in any segment → never expanded.** `lexicon.ts` `AMBIGUOUS_TERMS` lists each with the
+- **Two or more meanings in any segment → never expanded.** `lib/authoring/ambiguous-terms.js` lists each (beside the linter, so it never ships to the browser) with the
   readings we know (ERP: enterprise resource planning or event-related potential; CFR: Code of Federal
   Regulations or case fatality rate; EDI, MTTR, JV, CNA, BMI, BI, CI, CS, AP, AF, AA, TA, PO, CAC, LTV, and the
   older CRO, CMO, IP, AR, PM, US, IT). `lint:deck` reports one it finds unregistered as

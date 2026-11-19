@@ -188,7 +188,8 @@ async function main(argv) {
   let unspokenTokens = null;
   if (doDiscover) {
     ({ termsSpokenMap } = await import('../lib/core/resolve-narration.mjs'));
-    ({ unmatchedAcronyms, unspokenTokens, AMBIGUOUS_TERMS } = require('@laticent/cadenza'));
+    ({ unmatchedAcronyms, unspokenTokens } = require('@laticent/cadenza'));
+    ({ AMBIGUOUS_TERMS } = require('../lib/authoring/ambiguous-terms'));
   }
 
   const report = [];

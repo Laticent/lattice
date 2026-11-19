@@ -939,8 +939,10 @@ describe('termFieldCompletion', () => {
 	const at = (src: string) => {
 		const lines = src.split('\n');
 		const n = lines.findIndex((l) => l.includes('|')) + 1;
-		const before = lines[n - 1].slice(0, lines[n - 1].indexOf('|'));
-		lines[n - 1] = lines[n - 1].replace('|', '');
+		// The cursor marker is the line's one `|`: cut it out by position, so nothing else on the line moves.
+		const col = lines[n - 1].indexOf('|');
+		const before = lines[n - 1].slice(0, col);
+		lines[n - 1] = before + lines[n - 1].slice(col + 1);
 		return termFieldCompletion((k) => lines[k - 1], n, before);
 	};
 	it('offers the three fields on a child line under a term', () => {

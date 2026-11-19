@@ -1,7 +1,8 @@
 // The term matcher (terms.ts) through the public speech calls. Each case is a form a deck really
 // writes that used to read as typed. engineering/decisions/2026-11-16-terms-registry.md §4.
 import { describe, expect, it } from 'vitest';
-import { AMBIGUOUS_TERMS, houseTerms } from './lexicon';
+import { AMBIGUOUS_TERMS } from '../../../../lib/authoring/ambiguous-terms.js';
+import { houseTerms } from './lexicon';
 import { toSpokenText, unmatchedAcronyms } from './normalize';
 import { buildTrack } from './track';
 

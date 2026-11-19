@@ -47,7 +47,7 @@ export type { Active, Cursor } from './cursor.js';
 export { makeCursor } from './cursor.js';
 export { ENGINE_HASH } from './engine-hash.js';
 export type { LexDomain } from './lexicon.js';
-export { AMBIGUOUS_TERMS, type HouseTerm, houseTerms, LEX_DOMAINS, lookupLexicon } from './lexicon.js';
+export { type HouseTerm, houseTerms, LEX_DOMAINS, lookupLexicon } from './lexicon.js';
 export { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens } from './normalize.js';
 export type { Reader, ReaderOptions } from './reader.js';
 export { makeReader } from './reader.js';

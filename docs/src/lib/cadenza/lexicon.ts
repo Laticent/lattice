@@ -130,7 +130,7 @@ const BASE_CASED: Record<string, string> = {
   // From the exemplar census (engineering/decisions/2026-11-19-segment-acronyms.md): the acronyms the
   // five audience segments write that have ONE meaning across all five. Exact case, as the rest of
   // this tier: the lower-case run is never one of these. Each was checked against the other four
-  // segments; a token with a second reading in any of them is in AMBIGUOUS_TERMS below instead.
+  // segments; a token with a second reading in any of them is in lib/authoring/ambiguous-terms.js instead.
   GPA: 'grade point average', AUC: 'area under the curve', // academic
   CRM: 'customer relationship management', QBR: 'quarterly business review', VP: 'vice president', // corporate
   RFP: 'request for proposal', OIG: 'Office of Inspector General', GIS: 'geographic information system', // government-public
@@ -219,42 +219,6 @@ export function housePlural(spoken: string): string | null {
   if (!PLURAL_BY_S.has(spoken)) return null;
   return /s$/.test(spoken) ? spoken : `${spoken}s`; // `objectives and key results` is plural already
 }
-
-/**
- * Acronyms the exemplar segments write that have MORE THAN ONE reading across them, with the readings
- * we know of. They are never expanded: a wrong expansion is worse than none, and the deck's own
- * `terms:` entry is the only thing that can say which one it means. `lint:deck` names these readings
- * when it finds one unregistered, so the author picks rather than guesses. Data, not a rule: adding
- * an entry changes only what the suggestion offers.
- */
-export const AMBIGUOUS_TERMS: Readonly<Record<string, readonly string[]>> = {
-  AP: ['accounts payable', 'Advanced Placement', 'Associated Press'],
-  AF: ['atrial fibrillation', 'Air Force'],
-  AA: ['the W C A G A A level', 'Alcoholics Anonymous', 'associate of arts'],
-  TA: ['teaching assistant', 'technical assistance', 'target audience'],
-  PO: ['purchase order', 'product owner', 'post office'],
-  CS: ['customer success', 'computer science'],
-  CI: ['continuous integration', 'confidence interval'],
-  CAC: ['customer acquisition cost', 'Common Access Card'],
-  LTV: ['lifetime value', 'loan to value'],
-  ERP: ['enterprise resource planning', 'event-related potential'],
-  EDI: ['electronic data interchange', 'equity, diversity and inclusion'],
-  CFR: ['Code of Federal Regulations', 'case fatality rate'],
-  MTTR: ['mean time to recovery', 'mean time to repair', 'mean time to resolve'],
-  JV: ['joint venture', 'junior varsity'],
-  // One meaning, but used as its own plural after a number ("250 FTE"), so no one spoken form is right
-  // in both places: "two hundred fifty full-time equivalent" is wrong English. The deck says which.
-  FTE: ['full-time equivalent', 'full-time equivalents'],
-  CNA: ['certified nursing assistant', 'Center for Naval Analyses'],
-  BMI: ['body mass index', 'Broadcast Music, Incorporated'],
-  CRO: ['chief revenue officer', 'contract research organization', 'conversion rate optimization'],
-  CMO: ['chief marketing officer', 'contract manufacturing organization'],
-  IP: ['intellectual property', 'internet protocol'],
-  AR: ['accounts receivable', 'augmented reality'],
-  PM: ['product manager', 'project manager', 'afternoon'],
-  US: ['the United States', 'us'],
-  IT: ['information technology', 'it'],
-};
 
 /** The set of domain pack names, for validation / docs. */
 export const LEX_DOMAINS: readonly LexDomain[] = ['legal', 'finance'];
