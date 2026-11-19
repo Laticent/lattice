@@ -795,7 +795,9 @@ jobs:
             const dir = '.scratch/golden-diff';
             const report = JSON.parse(fs.readFileSync(`${dir}/report.json`, 'utf8'));
             const marker = '<!-- golden-diff -->';
-            const { data: comments } = await github.rest.issues.listComments({
+            // Every page, not the first 100: listComments returns the OLDEST comments first, so on a
+            // long PR the sticky would sit past page 1 and a second one would be posted beside it.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               ...context.repo, issue_number: context.issue.number, per_page: 100,
             });
             const existing = comments.find((c) => c.body && c.body.includes(marker));
@@ -1417,7 +1419,9 @@ jobs:
             );
             const body = lines.join('\n');
 
-            const { data: comments } = await github.rest.issues.listComments({
+            // Every page, not the first 100: listComments returns the OLDEST comments first, so past
+            // 100 comments the prior beacon sits beyond page 1, escapes the delete, and beacons pile up.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               ...context.repo, issue_number: context.issue.number, per_page: 100,
             });
             for (const c of comments) {
