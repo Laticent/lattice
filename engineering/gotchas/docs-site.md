@@ -76,8 +76,8 @@ refused (measured 2026-11-19: 5 refusals on a component page after one earlier p
 worker blocked, 0 with the origin named).
 
 **Fix.** Name the site's origins beside `'self'` in every directive that has it: `csp.mjs`
-`selfOrigins()` (lattice.style and the Cloudflare preview project, plus `--self-origin=` for a local
-build, which `build:e2e` passes). Any cell that checks a preview under the policy should also run with
+`selfOrigins()` (lattice.style; on a pull-request build the Cloudflare preview project too; plus
+`--self-origin=` for a local build, which `build:e2e` passes). Any cell that checks a preview under the policy should also run with
 `test.use({ serviceWorkers: 'allow' })`, after one navigation: `site-csp.spec.ts` "under the service
 worker" is the guard, and it is red without the named origins.
 

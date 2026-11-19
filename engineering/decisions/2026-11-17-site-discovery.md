@@ -190,8 +190,10 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     `'self'` wrongly for anything the worker answered, refused the frame's runtime, agents file and
     fonts, and the preview fell back to the default serif. Naming `https://lattice.style` and
     `https://*.lattice-docs-5ji.pages.dev` explicitly is what Gecko matches (5 refusals to 0 on the
-    same page). The wildcard covers only our own Cloudflare Pages project. A local build adds its
-    origin with `--self-origin=` (`build:e2e`). The tag grew by about 410 bytes;
+    same page). Production names lattice.style alone; only a pull-request build (`GITHUB_HEAD_REF`
+    set, which is what docs-preview.yml deploys) adds the wildcard, so a production page never trusts
+    a script served from a preview branch. A local build adds its origin with `--self-origin=`
+    (`build:e2e`). The tag grew by about 410 bytes;
     `getting-started`, the tightest budgeted policy page, keeps about 1 KB under its ceiling.
   - **A floor.** `MIN_POLICY_PAGES` (198) fails the build when a page silently loses its policy:
     an exemption is computed, so a new import can strip one.
