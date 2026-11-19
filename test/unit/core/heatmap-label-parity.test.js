@@ -46,3 +46,8 @@ test('a lone star is not dropped from what is said, so a label is never read as 
   assert.match(narrateChartScript(md).text, /2\*3 grid/);
   assert.doesNotMatch(narrateChartScript(md).text, /\b23 grid/);
 });
+
+test('the heading decodes an entity as the slide shows it, outside a code span only', () => {
+  const md = '<!-- _class: heatmap -->\n\n## AT&amp;T lags; `&amp;` stays.\n\n| | Q1 | Q2 |\n| --- | --: | --: |\n| A | 1 | 2 |\n| B | 3 | 4 |\n';
+  assert.match(narrateChartScript(md).text, /AT&T lags; &amp; stays\./);
+});

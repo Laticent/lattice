@@ -528,6 +528,7 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: back-reference"
     },
+    "/(`[^`]*`)/": "safe",
     "/(`{3,}|~{3,})/": "safe",
     "/(caption|say)\\s*:/i": "safe",
     "/(deck-logo-tint-\\d+)(?=[\"')])/g": {
