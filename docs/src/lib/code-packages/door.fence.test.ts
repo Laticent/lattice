@@ -16,6 +16,13 @@ const require = createRequire(import.meta.url);
 const trust = require('../../../../lib/packages/trust.js') as { pluginDigest: (code: string, fence: string) => string; pluginDigests: (code: string, fence: string) => string[] };
 const engine = require('../../../../lib/engine') as { createEngine: () => { render: (s: string, t: string, o?: Record<string, unknown>) => { html: string } } };
 
+// The host's slot fill, real unless a test sets `fill.overflow` to reach the past-the-limit branch without a 2M-character value.
+const fill = vi.hoisted(() => ({ overflow: false }));
+vi.mock('../../../../lib/packages/plugin-returns.mjs', async (importOriginal) => {
+	const real = (await importOriginal()) as { fillReturnSlots: (...a: unknown[]) => unknown };
+	return { ...real, fillReturnSlots: (...a: unknown[]) => (fill.overflow ? null : real.fillReturnSlots(...a)) };
+});
+
 // The frame the door opens: runs the renderer text in this realm. The real frame's walls are the browser's.
 const opened: { code: string; fence: boolean; ran: number; closed: boolean }[] = [];
 let renderer: ((f: { body: string; id: string }) => string) | null = null;
@@ -535,6 +542,21 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 			expect(html).toContain('late: a &lt; b &amp; c ${nope}');
 		}
 		expect(opened.map((o) => o.ran)).toEqual([DRAWN]);
+	});
+
+	it('host slots: the past-the-limit note stands under stamp-less CSS too, as in the export (#3292)', async () => {
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: RETURNS, css: '.bar { color: red }' }]);
+		await approvePlugin({ name: PLUGIN.name, sha256: await pluginDigest(code, PLUGIN.fence, [], fields) });
+		renderer = () => `${RETURN_ENVELOPE}${JSON.stringify({ html: '<p>${note}</p>', data: { status: 'ok', note: 'x' } })}`;
+		fill.overflow = true;
+		try {
+			const exported = (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', {})).html;
+			expect(exported).toContain('when the host filled its slots');
+			// CSS with no stamp and no sheet: the override must not put the bare block where the door wrote its note.
+			expect((await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', { codeApproval: '' })).html).toBe(exported);
+		} finally {
+			fill.overflow = false;
+		}
 	});
 
 	it('host slots: a disabled plugin and a failed block keep what they had; no value reaches a note', async () => {

@@ -440,6 +440,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 				const why = `the values it returned grew its drawing past the ${SLOT_FILL_MAX.toLocaleString('en-US')}-character limit when the host filled its slots`;
 				failed.push({ name: c.pkg, slide: c.slide + 1, why });
 				sections.set(key, kindOf ? c.block : withFenceNote(c.block, c.pkg, why));
+				// A note now, not the plugin's drawing: the stamp-less override below leaves it standing (#3292).
+				onPage.delete(key);
 				continue;
 			}
 			sections.set(key, filled);
