@@ -1,11 +1,11 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import skillIndex from '../../../../design/skills/index.json';
+import { type PatternJob, type PatternRunner, runPattern } from '../../lib/deck-find-pattern';
 import { getFrontMatter } from '../../lib/front-matter';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps, loadArchitectAuthoring } from './architect';
 import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
 import { checkerNote, finalizeAgent, init as initChatAgent } from './chat-agent';
-import { type PatternJob, type PatternRunner, runPattern } from '../../lib/deck-find-pattern';
 import { FRONT_MATTER_KEYS } from './editor-complete';
 
 beforeAll(async () => {
