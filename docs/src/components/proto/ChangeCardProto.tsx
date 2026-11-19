@@ -107,10 +107,12 @@ const placeOf = (slides: string[], e: Edit) => {
 };
 
 // ── A plain-words diff: the slide's text without its Markdown, changed words marked ──────────────────
+// Display text only, never a sanitizer: it drops whole directive lines (`<!-- _class: … -->`) rather than
+// cutting `<!--…-->` out with a regex, which can leave a `<!--` behind (CodeQL js/incomplete-multi-character-sanitization).
 const plain = (md: string) =>
 	md
-		.replace(/<!--[\s\S]*?-->/g, '')
 		.split('\n')
+		.filter((l) => !l.trimStart().startsWith('<!--'))
 		.map((l) => l.replace(/^#{1,6}\s+/, '').replace(/^\s*[-*]\s+/, '• ').replace(/`/g, ''))
 		.filter((l) => l.trim())
 		.join('\n');
