@@ -368,8 +368,14 @@ engine-namespaced attribute it was not handed), and `video`'s poster link `href`
 render, across every pass (`--strip-notes` renders twice; a section already drawn is not run
 again), checked before each package's page opens and before each slide. The host kills the worker
 30 s past that; the worker writes one result per line, so a kill keeps every slide that finished,
-and the host kills any browser it left behind (it runs as `nobody`, in its own process group) and
-removes its profile.
+and the host kills any browser it left behind and removes its profile. Off Windows the browser runs
+in its own process group (as `nobody` when the host is root), so one kill reaches its helpers.
+Windows has no process groups, so the host stops every process whose command line names the profile
+folder (`killBrowserTree` in `lib/cli/code-door.js`; Chromium hands `--user-data-dir` to each
+helper), so no helper is left to hold a file and make the removal fail with EBUSY (#3276). It does
+not kill by pid there: the killed worker's job object usually ends the browser first (windows-2025
+measured 0 of 9 processes left, #3310), and Windows may reuse a freed pid. (Chromium also ends its
+own helpers on Windows once the main process dies, measured in #3310; the sweep does not rely on it.)
 
 **Never blank, never silent.** A slide whose package failed keeps the engine's section with a
 visible note naming the package and the reason. Every line from a stranger reaches the terminal as

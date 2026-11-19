@@ -626,3 +626,71 @@ describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
   });
 
 });
+
+// REAP ON WINDOWS (followups.d/3276-p4). The integration half, a real browser reaped on each platform (a worker killed
+// mid-render, and a browser still running), is `REAPED` in test/integration/export/os-sandbox-measure.test.js.
+describe('killBrowserTree: the whole browser, on every platform', () => {
+  const { killBrowserTree } = require('../../../lib/cli/code-door.js');
+  const DIR = path.join(os.tmpdir(), 'lattice-code-sandbox-Ab12Cd');
+  const record = (platform, dir, result = { status: 0 }) => {
+    const ran = [];
+    const killed = [];
+    const how = killBrowserTree(4242, dir, {
+      platform,
+      run: (cmd, args) => {
+        ran.push([path.basename(cmd), ...args]);
+        return result;
+      },
+      kill: (p, s) => killed.push([p, s]),
+    });
+    return { ran, killed, how };
+  };
+
+  test('on Windows, every process naming the profile is stopped, and the pid, which may be stale, is not killed', () => {
+    const { ran, killed, how } = record('win32', DIR);
+    assert.equal(how, 'sweep');
+    assert.equal(ran.length, 1);
+    assert.equal(ran[0][0], 'powershell.exe');
+    assert.match(ran[0].at(-1), /CommandLine LIKE '%lattice-code-sandbox-Ab12Cd%'/);
+    assert.match(ran[0].at(-1), /Stop-Process -Id \$_\.ProcessId -Force/);
+    assert.deepEqual(killed, []);
+  });
+
+  test('on Windows, a sweep that cannot run falls back to the pid, and no `-pid`, which throws there', () => {
+    for (const result of [{ status: 1 }, { error: new Error('ENOENT') }, { status: null }]) {
+      const { killed, how } = record('win32', DIR, result);
+      assert.deepEqual(killed, [[4242, 'SIGKILL']], JSON.stringify(result));
+      assert.equal(how, 'pid', JSON.stringify(result));
+    }
+  });
+
+  test('on Windows, a folder name that is not one mkdtemp made never reaches PowerShell', () => {
+    for (const dir of [null, path.join(os.tmpdir(), "lattice-code-sandbox-a'; Remove-Item x -Recurse #"), path.join(os.tmpdir(), 'lattice-code-sandbox-%'), path.join(os.tmpdir(), 'other-Ab12Cd')]) {
+      const { ran, killed } = record('win32', dir);
+      assert.deepEqual(ran, [], String(dir));
+      assert.deepEqual(killed, [[4242, 'SIGKILL']], String(dir));
+    }
+  });
+
+  test('elsewhere, the process group and then the process, and nothing is spawned', () => {
+    for (const platform of ['linux', 'darwin']) {
+      const { ran, killed, how } = record(platform, DIR);
+      assert.equal(how, 'group', platform);
+      assert.deepEqual(ran, [], platform);
+      assert.deepEqual(killed, [[-4242, 'SIGKILL'], [4242, 'SIGKILL']], platform);
+    }
+  });
+
+  test('a kill that throws (the process is already gone) does not stop the next one', () => {
+    const killed = [];
+    killBrowserTree(4242, DIR, {
+      platform: 'linux',
+      run: () => ({ status: 0 }),
+      kill: (p) => {
+        killed.push(p);
+        throw Object.assign(new Error('gone'), { code: 'ESRCH' });
+      },
+    });
+    assert.deepEqual(killed, [-4242, 4242]);
+  });
+});
