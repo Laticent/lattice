@@ -1,0 +1,42 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "create_deck",
+	"title": "Create a deck",
+	"describe": {
+		"chat": "Create a NEW deck from complete Lattice Markdown (front matter, then slides separated by ---), for when the author asks for a new deck rather than a change to this one. It does not happen yet: the author sees the title and outline and confirms. Call it once per turn, after drafting the whole deck; then tell the author it is ready for them to confirm. The open deck is not changed."
+	},
+	"tier": "act",
+	"effects": [
+		"workspace"
+	],
+	"destructive": false,
+	"idempotent": false,
+	"confirm": "act",
+	"input": {
+		"type": "object",
+		"properties": {
+			"title": {
+				"type": "string",
+				"description": "The deck's title, under {{CREATE_DECK_TITLE_MAX}} characters."
+			},
+			"markdown": {
+				"type": "string",
+				"description": "The whole deck in Lattice Markdown."
+			}
+		},
+		"required": [
+			"title",
+			"markdown"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "deck",
+	"legacy": true,
+	"chat": {
+		"position": 160,
+		"activity": "Drafting a new deck…"
+	}
+}

@@ -370,6 +370,19 @@ describe('the toolbox', () => {
 		expect(kpi).toContain('Replaced 1 match');
 	});
 
+	// The dispatcher marks a deck edit that never ran as refused, so the turn cannot end "settled" on it:
+	// refused by the mode, or sent arguments that do not parse (use-case-layer.md §6.1).
+	it('a deck edit refused by the mode or by bad arguments leaves the turn refused', async () => {
+		const talk = toolbox({ source: OCT, mode: 'talk' });
+		await talk.run('replace_text', JSON.stringify({ find: 'Oct', replace: 'Nov', summary: 's' }));
+		expect(talk.verdict?.refused).toBe(true);
+		const review = toolbox({ source: OCT });
+		await review.run('edit_slides', JSON.stringify({ edits: [{ action: 'replace', slide: 1, body: '# Hi' }], summary: 's' }));
+		expect(review.verdict?.refused).toBe(false);
+		expect(await review.run('edit_slides', '{not json')).toContain('were not valid JSON');
+		expect(review.verdict?.refused).toBe(true);
+	});
+
 	it('Talk mode may search but not replace', async () => {
 		const tb = toolbox({ source: OCT, mode: 'talk' });
 		expect(await tb.run('find_text', JSON.stringify({ text: 'Tenth' }))).toContain('matches');

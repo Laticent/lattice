@@ -23,9 +23,11 @@ import skillIndex from '../../../../design/skills/index.json';
 import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
 import { frontMatterLang, frontMatterSayMap, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
+import { dispatch } from '../../../../lib/use-cases/dispatch.mjs';
 import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
-import { type ChatAction, type ChatMode, CREATE_DECK_MAX_CHARS, DEFAULT_CHAT_MODE, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, TOOL_TIERS, toolAllowed, visibleTitle } from './chat-actions';
-import { buildChartSlide } from './chat-chart';
+import { type ChatAction, type ChatMode, CREATE_DECK_MAX_CHARS, CREATE_DECK_TITLE_MAX, DEFAULT_CHAT_MODE, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, toolAllowed, toolsForMode, visibleTitle } from './chat-actions';
+import { buildChartSlide, CHART_KINDS } from './chat-chart';
+import { type ChatToolVars, chatToolCatalog, DECK_EDIT_TOOLS, USE_CASES } from './chat-tools.generated';
 import { getSayLine } from './slide-say';
 
 type Edits = typeof import('@/components/studio/ai/architect-edits.js');
@@ -329,191 +331,33 @@ export function deckForTurn(source: string): string {
 }
 
 // ── Tools ───────────────────────────────────────────────────────────────────
+//
+// Every tool is a use case: a manifest in lib/use-cases/<id>/<id>.use-case.json, compiled by
+// tools/build-use-cases.js into chat-tools.generated.ts (definitions, labels, the catalog the dispatcher
+// reads) and chat-tool-tiers.generated.ts (the tiers). The handlers stay in createToolbox below, under
+// the use-case gate's legacy list, until each becomes a pure kernel
+// (engineering/decisions/2026-11-17-use-case-layer.md §10).
 
-export const AGENT_TOOLS = [
-	{
-		type: 'function',
-		function: {
-			name: 'read_component',
-			description: 'Read one Lattice component (layout): its authoring skeleton, slot contracts, word budget, variant decision rule, when to use it and its anti-patterns. The variant examples and the rest are listed by section; call again with `section` for one.',
-			parameters: {
-				type: 'object',
-				properties: { name: { type: 'string', description: 'The component name, e.g. kpi, cards-grid.' }, section: { type: 'string', description: 'Optional: one section of the doc, e.g. Variants, Anatomy.' } },
-				required: ['name'],
-			},
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'read_front_matter',
-			description: 'Read how a front-matter key works: its values, defaults and what it changes.',
-			parameters: { type: 'object', properties: { key: { type: 'string', description: 'The key, e.g. finish, mode, theme, venue.' } }, required: ['key'] },
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'read_guide',
-			description: `Read a Lattice authoring guide. Topics: ${Object.keys(GUIDE_TOPICS).join(', ')}. Long guides return a section list; call again with \`section\`.`,
-			parameters: {
-				type: 'object',
-				properties: { topic: { type: 'string', enum: Object.keys(GUIDE_TOPICS) }, section: { type: 'string', description: 'Optional: a section heading (or part of one).' } },
-				required: ['topic'],
-			},
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'read_slides',
-			description: 'Read the exact Markdown of slides from the current draft (including your edits this turn).',
-			parameters: { type: 'object', properties: { from: { type: 'integer', minimum: 1 }, to: { type: 'integer', minimum: 1 } }, required: ['from'] },
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'edit_slides',
-			description:
-				'Stage slide edits on the draft. replace: `body` is the WHOLE new slide (its `<!-- _class -->` line through its last line), exactly one slide. insert: new slide(s) after slide `slide` (0 = before the first); separate several with a line containing only `---`. delete: removes slide `slide`. Edits apply in order; numbers refer to the draft as it stands. The result includes the checker\u2019s verdict on the draft.',
-			parameters: {
-				type: 'object',
-				properties: {
-					edits: {
-						type: 'array',
-						items: {
-							type: 'object',
-							properties: { action: { type: 'string', enum: ['replace', 'insert', 'delete'] }, slide: { type: 'integer', minimum: 0 }, body: { type: 'string' } },
-							required: ['action', 'slide'],
-						},
-					},
-					summary: { type: 'string', description: 'One or two sentences to the author: what you changed and why. If the checker finds no errors this is your whole answer for the turn.' },
-				},
-				required: ['edits', 'summary'],
-			},
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'set_front_matter',
-			description: 'Stage a front-matter change on the draft: set a scalar key, or remove it with value null. Read the key first. The result includes the checker\u2019s verdict on the draft.',
-			parameters: { type: 'object', properties: { key: { type: 'string' }, value: { type: ['string', 'null'] }, summary: { type: 'string', description: 'One or two sentences to the author: what you changed and why. If the checker finds no errors this is your whole answer for the turn.' } }, required: ['key', 'value', 'summary'] },
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'set_terms',
-			description:
-				'Stage changes to how the deck\u2019s words are spoken (the `terms:` front matter; it also absorbs `acronyms:` and `lexicon:`). Each `set` entry adds or replaces one term: `pronounce` is how the voice says it (empty string silences it), `expansion` what it stands for, `definition` a glossary line. One entry also covers the plural, possessive, hyphenated and title-case forms, so never add those separately. The slides keep the word as written. Call preview_speech first to hear how a line reads now.',
-			parameters: {
-				type: 'object',
-				properties: {
-					set: {
-						type: 'array',
-						items: {
-							type: 'object',
-							properties: { term: { type: 'string' }, pronounce: { type: ['string', 'null'], description: 'How to say it; "" silences the term; null clears it so the voice says the expansion.' }, expansion: { type: 'string' }, definition: { type: 'string' } },
-							required: ['term'],
-						},
-					},
-					remove: { type: 'array', items: { type: 'string' }, description: 'Terms to delete.' },
-					summary: { type: 'string', description: 'One or two sentences to the author: what you changed and why.' },
-				},
-				required: ['summary'],
-			},
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'preview_speech',
-			description:
-				`Show what the voice will say aloud, before you guess a pronunciation. For slides (\`from\`, optional \`to\`, up to ${PREVIEW_SPEECH_MAX_SLIDES} at a time) it reads each slide the way Present and the export do: its spoken line (say:) first, then a front-matter say: entry, then chart narration, then the slide text. It names which one it read, lists each deck term that fired as written → as spoken (a possessive or plural is listed on its own), and lists words no term covers that a voice may stumble on (all-caps runs, a dot inside a word, odd capitals; names from other languages are not detected). Speaker notes are never read aloud. Or pass \`text\` to hear any words, for example a term before you add it with set_terms.`,
-			parameters: { type: 'object', properties: { from: { type: 'integer', minimum: 1, description: 'First slide, 1-based.' }, to: { type: 'integer', minimum: 1, description: 'Last slide; defaults to from.' }, text: { type: 'string', description: 'Any words to hear instead of slides.' } } },
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'find_text',
-			description:
-				'Find words across the draft without reading every slide. Returns each match with its slide, the field it is in (heading, eyebrow, body, quote, alt text, spoken line, note, description, code, math, html, record) and the words around it, plus matches in the front matter, listed apart. Search for the words a reader sees: `$5` finds an escaped `\\$5`, and `Oct` is found inside bold or a link. Literal text, not a pattern. Use it before replace_text, and instead of read_slides when you are looking for a term.',
-			parameters: {
-				type: 'object',
-				properties: {
-					text: { type: 'string', description: `The words to find, up to ${FIND_MAX_CHARS} characters.` },
-					case_sensitive: { type: 'boolean', description: 'Match case exactly. Default false.' },
-					whole_word: { type: 'boolean', description: 'Match whole words only. Default false.' },
-				},
-				required: ['text'],
-			},
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'replace_text',
-			description:
-				'Stage a find-and-replace across the draft: every match in headings, eyebrows, body, quotes, alt text, spoken lines, notes and descriptions. It works the way a word processor does: the words change and their formatting stays (replace `Oct` in **Oct** and it stays bold). Write the replacement as plain words; characters Markdown would read as markup (`$`, `*`, `[`…) are escaped for you, so `$5` shows as $5. It never touches link or image targets, URLs, directives, code blocks, math, HTML, `{…}` records or the front matter; a match that crosses formatting (`**Oct.** Tenth`) is left alone; it reports what it left alone (for terms in the front matter use set_terms). Literal text, not a pattern; with case_sensitive false the replacement is written exactly as given. For a word or phrase change use this, not edit_slides: you send only the words, and the author reviews one card. The result includes the checker\u2019s verdict on the draft.',
-			parameters: {
-				type: 'object',
-				properties: {
-					find: { type: 'string', description: `The words to replace, up to ${FIND_MAX_CHARS} characters.` },
-					replace: { type: 'string', description: 'What to write instead. One line; may be empty to delete the words.' },
-					case_sensitive: { type: 'boolean', description: 'Match case exactly. Default false.' },
-					whole_word: { type: 'boolean', description: 'Match whole words only. Default false.' },
-					slides: { type: 'array', items: { type: 'integer', minimum: 1 }, description: 'Only these slides. Default: every slide.' },
-					summary: { type: 'string', description: 'One or two sentences to the author: what you changed and why. If the checker finds no errors this is your whole answer for the turn.' },
-				},
-				required: ['find', 'replace', 'summary'],
-			},
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'check_deck',
-			description: "Run Lattice's linter and review over the draft, and Mermaid's parser over its diagrams. Returns the errors and warnings with slide numbers, and slides over the word budget.",
-			parameters: { type: 'object', properties: {} },
-		},
-	},
-] as const;
+/** The tools that change the deck on the draft: a refused or failed one leaves the turn unsettled. */
+export const EDIT_TOOLS: ReadonlySet<string> = new Set(DECK_EDIT_TOOLS);
 
-/** The Library tools. Sent only when the Library holds something, so a deck without photos
- *  keeps the byte-stable tool prefix it always had (the prompt cache key). */
-export const ASSET_TOOLS = [
-	{
-		type: 'function',
-		function: {
-			name: 'list_assets',
-			description: 'Search the Library photos and videos the author added. The prompt lists the newest; use this to find others by name, caption, shape (portrait, landscape, square, panorama) or kind. Returns name, shape, pixel size, scope and caption.',
-			parameters: { type: 'object', properties: { query: { type: 'string', description: 'Words to match against name, caption and shape.' }, kind: { type: 'string', enum: ['image', 'video', 'all'] }, limit: { type: 'integer', minimum: 1, maximum: 100 } } },
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'view_asset',
-			description: `Look at up to ${MAX_VIEWS_PER_TURN} Library photos you need to choose by what they show. A photo that already has a caption comes back as its caption, not as a picture. Pictures arrive in the next message; then call caption_asset for each so you never look at it again. Do not look at photos you can pick by name and shape.`,
-			parameters: { type: 'object', properties: { names: { type: 'array', items: { type: 'string' }, maxItems: MAX_VIEWS_PER_TURN }, again: { type: 'boolean', description: 'Look at a captioned photo anyway, for example to correct its caption.' } }, required: ['names'] },
-		},
-	},
-	{
-		type: 'function',
-		function: {
-			name: 'caption_asset',
-			description: 'Save a one-line description of each photo you just looked at (under 20 words, plain, what is in the picture: subject, setting, light, any visible text). It is stored with the photo and read as text from now on.',
-			parameters: { type: 'object', properties: { captions: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, caption: { type: 'string' } }, required: ['name', 'caption'] } } }, required: ['captions'] },
-		},
-	},
-] as const;
+/** The runtime values the manifests name as placeholders: the Studio's own lists and limits. */
+export function chatToolVars(themes: readonly string[], finishes: readonly string[]): ChatToolVars {
+	return { guides: Object.keys(GUIDE_TOPICS), themes, finishes, chartKinds: CHART_KINDS, FIND_MAX_CHARS, MAX_VIEWS_PER_TURN, PREVIEW_SPEECH_MAX_SLIDES, RENDER_SLIDE_MAX_PER_TURN, CREATE_DECK_TITLE_MAX };
+}
 
-const READ_TOOLS = new Set(['read_component', 'read_front_matter', 'read_guide', 'read_slides', 'find_text', 'preview_speech', 'list_assets', 'view_asset', 'caption_asset']);
-/** The tools that change the draft — and run the checker on it before they return. */
-export const EDIT_TOOLS = new Set(['edit_slides', 'replace_text', 'set_front_matter', 'set_terms', 'set_theme', 'set_finish', 'chart_from_data']);
+/**
+ * The tool definitions one chat request carries, in the order the model sees them: the mode's tiers
+ * only. The ORDER and the BYTES are the cached prompt prefix, so this is the one place the list is
+ * assembled (the request in chat-agent.ts and its cost estimate both read it), and
+ * chat-tools.golden.test.ts holds every combination byte for byte.
+ */
+export function chatOfferedTools(o: { mode: ChatMode; themes: readonly string[]; finishes: readonly string[]; seesPictures: boolean; hasLibrary: boolean }) {
+	// render_slide needs a renderer and a model that takes pictures; the Library tools need a Library.
+	const has: Record<string, boolean> = { render: o.seesPictures, images: o.seesPictures, library: o.hasLibrary };
+	const offered = chatToolCatalog(chatToolVars(o.themes, o.finishes)).filter((e) => e.requires.every((r) => has[r]));
+	return toolsForMode(o.mode, offered.map((e) => e.tool));
+}
 
 /** What the checker said about the draft after the most recent edit call. */
 export type EditVerdict = { refused: boolean; checked: boolean; errors: number; warnings: string[] };
@@ -1154,82 +998,68 @@ export function createToolbox(opts: {
 		return `Slide ${n} as rendered is in the next message.`;
 	}
 
+	// THE CHAT AS A USE-CASE HOST (lib/use-cases/dispatch.mjs). The dispatcher gates, parses and, for a
+	// deck edit, resets the verdict and runs the check; the handlers below are the calls the old switch
+	// made, kept here under the use-case gate's legacy list until each becomes a pure kernel.
+	const look = (key: 'theme' | 'finish', nameRaw: unknown) => {
+		const bad = setLook(key, nameRaw);
+		// An unknown name changed nothing, so its refusal carries no check (as before the dispatcher).
+		if (bad != null) return { text: bad, check: false as const };
+		const name = String(nameRaw ?? '').trim();
+		return writeKey(key, name === 'none' ? null : name);
+	};
+	type Args = Record<string, unknown>;
+	const handlers: Record<string, (a: Args) => string | { text: string; check: false } | Promise<string>> = {
+		read_component: (a) => readComponent(a.name, a.section),
+		read_front_matter: (a) => readFrontMatter(a.key),
+		read_guide: (a) => readGuide(a.topic, a.section),
+		read_slides: (a) => readSlides(a.from, a.to),
+		list_assets: (a) => listAssets(a),
+		view_asset: (a) => viewAsset(a.names, a.again),
+		caption_asset: (a) => captionAsset(a.captions),
+		edit_slides: (a) => editSlides(a.edits),
+		find_text: (a) => findText(a.text, findOpts(a)),
+		replace_text: (a) => replaceText(a.find, a.replace, findOpts(a), a.slides),
+		set_front_matter: (a) => writeKey(a.key, a.value),
+		set_terms: (a) => setTerms(a.set, a.remove),
+		// `slide` was the parameter's name before ranges; a model that still sends it gets that one slide.
+		preview_speech: (a) => previewSpeech(a.text, a.from ?? a.slide, a.to),
+		check_deck: () => checkDeck(),
+		create_deck: (a) => createDeck(a.title, a.markdown),
+		set_theme: (a) => look('theme', a.name),
+		set_finish: (a) => look('finish', a.name),
+		chart_from_data: (a) => chartFromData(a),
+		render_slide: (a) => renderSlide(a.slide),
+	};
+	const chatHost = {
+		id: 'chat',
+		catalog: USE_CASES,
+		allowed: (id: string) => toolAllowed(mode, id),
+		handlers,
+		deckEdit: {
+			begin: () => {
+				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
+			},
+			refuse: () => {
+				verdict = { refused: true, checked: false, errors: 0, warnings: [] };
+			},
+			check: withCheck,
+		},
+	};
+
 	async function run(name: string, argsJson: string): Promise<string> {
-		// THE HOST GATE. The request already left out what this mode forbids; this refuses it again
-		// here, so a model that calls a tool it was never offered still changes nothing.
-		if (!toolAllowed(mode, name)) {
-			if (EDIT_TOOLS.has(name)) verdict = { refused: true, checked: false, errors: 0, warnings: [] };
-			return Object.hasOwn(TOOL_TIERS, name) ? `${name} is not available in this chat mode. Tell the author what you would change; they can switch the chat to Review or Auto to have you make it.` : `There is no tool called ${name}.`;
-		}
-		let args: Record<string, unknown> = {};
-		try {
-			args = argsJson ? JSON.parse(argsJson) : {};
-		} catch {
-			// An edit whose arguments did not parse changed nothing, and must not inherit the
-			// previous edit's clean verdict — the turn would end with this edit silently dropped.
-			if (EDIT_TOOLS.has(name)) verdict = { refused: true, checked: false, errors: 0, warnings: [] };
-			return `The arguments for ${name} were not valid JSON — send them again.`;
-		}
-		switch (name) {
-			case 'read_component':
-				return readComponent(args.name, args.section);
-			case 'read_front_matter':
-				return readFrontMatter(args.key);
-			case 'read_guide':
-				return readGuide(args.topic, args.section);
-			case 'read_slides':
-				return readSlides(args.from, args.to);
-			case 'list_assets':
-				return listAssets(args);
-			case 'view_asset':
-				return viewAsset(args.names, args.again);
-			case 'caption_asset':
-				return captionAsset(args.captions);
-			// An edit carries its own check. Checking used to be a separate call the model made
-			// after every edit — one more round that re-sent the whole conversation. The verdict
-			// now rides back with the edit, so the common turn is read → edit → answer.
-			case 'edit_slides':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(editSlides(args.edits));
-			case 'find_text':
-				return findText(args.text, findOpts(args));
-			case 'replace_text':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(replaceText(args.find, args.replace, findOpts(args), args.slides));
-			case 'set_front_matter':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(writeKey(args.key, args.value));
-			case 'set_terms':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(setTerms(args.set, args.remove));
-			case 'preview_speech':
-				// `slide` was the parameter's name before ranges; a model that still sends it gets that one slide.
-				return previewSpeech(args.text, args.from ?? args.slide, args.to);
-			case 'check_deck':
-				return checkDeck();
-			case 'create_deck':
-				return createDeck(args.title, args.markdown);
-			case 'set_theme':
-			case 'set_finish': {
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				const key = name === 'set_theme' ? 'theme' : 'finish';
-				const bad = setLook(key, args.name);
-				if (bad != null) return bad;
-				const look = String(args.name ?? '').trim();
-				return withCheck(writeKey(key, look === 'none' ? null : look));
-			}
-			case 'chart_from_data':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(chartFromData(args));
-			case 'render_slide':
-				return renderSlide(args.slide);
-			default:
-				return `There is no tool called ${name}.`;
-		}
+		const out = await dispatch(chatHost, name, argsJson);
+		if (out.ok) return out.text;
+		// The chat's words for the dispatcher's codes, unchanged from before it existed.
+		if (out.code === 'NOT_OFFERED') return `${name} is not available in this chat mode. Tell the author what you would change; they can switch the chat to Review or Auto to have you make it.`;
+		if (out.code === 'BAD_ARGS') return `The arguments for ${name} were not valid JSON — send them again.`;
+		return `There is no tool called ${name}.`;
 	}
 
 	return {
 		run,
+		/** The tool ids this toolbox can run, for the test that holds them to the chat's manifests. */
+		handledTools: Object.keys(handlers) as readonly string[],
 		activity,
 		get draft() {
 			return draft;
@@ -1238,7 +1068,6 @@ export function createToolbox(opts: {
 		proposal(): AgentRawEdit[] {
 			return proposalFromDraft(original, draft, fmTouched, blockTouched, { inPlace: !movedSlides });
 		},
-		isRead: (name: string) => READ_TOOLS.has(name),
 		/** The act this turn queued for the author to confirm, if any. */
 		get action(): ChatAction | null {
 			return queuedAction;

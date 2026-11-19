@@ -4,10 +4,10 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { chatAgentDeps, loadArchitectAuthoring } from './architect';
-import { AGENT_TOOLS, type AgentLibrary, ASSET_TOOLS, createToolbox, imageTurn } from './architect-agent';
-import { autoHold, CREATE_DECK_MAX_CHARS, CREATE_DECK_TOOL, makeLookTools, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, RENDER_TOOL, TOOL_TIERS, toolAllowed, toolsForMode, visibleTitle } from './chat-actions';
+import { type AgentLibrary, chatOfferedTools, createToolbox, imageTurn } from './architect-agent';
+import { autoHold, CREATE_DECK_MAX_CHARS, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, TOOL_TIERS, toolAllowed, toolsForMode, visibleTitle } from './chat-actions';
 import { finalizeAgent, init as initChatAgent } from './chat-agent';
-import { buildChartSlide, CHART_TOOL } from './chat-chart';
+import { buildChartSlide } from './chat-chart';
 
 beforeAll(async () => {
 	await loadArchitectAuthoring();
@@ -18,7 +18,8 @@ const DECK = '---\ntheme: indaco\n---\n\n# Opening\n\n---\n\n## Second\n\nBody.\
 const NEW_DECK = '---\ntheme: cuoio\n---\n\n# A new story\n\n---\n\n## The second point\n\nWords.\n';
 const library: AgentLibrary = { componentDoc: async () => null, guide: async () => null, registersDoc: async () => null, universalsDoc: async () => null };
 const box = (mode: 'talk' | 'review' | 'auto', check?: Parameters<typeof createToolbox>[0]['check']) => createToolbox({ source: DECK, catalog: [], frontMatterKeys: [], library, mode, check });
-const ALL = [...AGENT_TOOLS, ...makeLookTools(['indaco'], ['grain']), CHART_TOOL, RENDER_TOOL, CREATE_DECK_TOOL, ...ASSET_TOOLS];
+// Every tool, as the auto mode offers them with pictures and a Library (the tier filter is what the tests below check).
+const ALL = chatOfferedTools({ mode: 'auto', themes: ['indaco'], finishes: ['grain'], seesPictures: true, hasLibrary: true });
 
 describe('every tool has a tier, and each mode sends only its tiers', () => {
 	it('tiers every tool the Studio defines; an untiered tool would be refused everywhere', () => {

@@ -1,0 +1,45 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "find_text",
+	"title": "Find words in the deck",
+	"describe": {
+		"chat": "Find words across the draft without reading every slide. Returns each match with its slide, the field it is in (heading, eyebrow, body, quote, alt text, spoken line, note, description, code, math, html, record) and the words around it, plus matches in the front matter, listed apart. Search for the words a reader sees: `$5` finds an escaped `\\$5`, and `Oct` is found inside bold or a link. Literal text, not a pattern. Use it before replace_text, and instead of read_slides when you are looking for a term."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"text": {
+				"type": "string",
+				"description": "The words to find, up to {{FIND_MAX_CHARS}} characters."
+			},
+			"case_sensitive": {
+				"type": "boolean",
+				"description": "Match case exactly. Default false."
+			},
+			"whole_word": {
+				"type": "boolean",
+				"description": "Match whole words only. Default false."
+			}
+		},
+		"required": [
+			"text"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "read",
+	"legacy": true,
+	"chat": {
+		"position": 90,
+		"activity": "Searching the deck…"
+	}
+}

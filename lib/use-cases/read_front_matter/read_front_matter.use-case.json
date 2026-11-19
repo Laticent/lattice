@@ -1,0 +1,37 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "read_front_matter",
+	"title": "Read a front-matter key",
+	"describe": {
+		"chat": "Read how a front-matter key works: its values, defaults and what it changes."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"key": {
+				"type": "string",
+				"description": "The key, e.g. finish, mode, theme, venue."
+			}
+		},
+		"required": [
+			"key"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "read",
+	"legacy": true,
+	"chat": {
+		"position": 20,
+		"activity": "Reading a front-matter key…"
+	}
+}
