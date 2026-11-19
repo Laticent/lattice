@@ -31,7 +31,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
-import { CODE_APPROVALS_KEY, codePackagesStamp, exportCodeStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
+import { CODE_APPROVALS_KEY, codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
@@ -188,6 +188,16 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+/**
+ * The code-package stamp as an EXPORT carries it: without the per-page nonce (code-packages/door.ts `STAMP_NONCE`). An export
+ * appends its extra CSS to the file as it is (share-export.ts), so the nonce would make the same deck's text differ on every
+ * page load (#3292). An export never draws by the stamp (it passes no `codeApproval`), so the nonce has no job there.
+ * Here and not in code-packages/entry.ts: only the Studio exports, and entry.ts sits in a chunk every route loads.
+ */
+export function exportCodeStamp(stamp: string): string {
+	return stamp.replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
+}
 
 // The warm-up queue, held while the chat renders a draft (first-slide.ts `holdWarmUps`).
 const warmPanels = heldWarmPanels(warmPanelsNow);

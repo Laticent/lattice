@@ -1,8 +1,7 @@
 // The door's front step (entry.ts): with no code package it loads nothing and renders exactly as the
 // engine does; the first package loads the door, and the door takes over the render.
 import { describe, expect, it, vi } from 'vitest';
-import { approvalsInStamp } from './door';
-import { codePackagesStamp, exportCodeStamp, renderWithCodePackages, setCodePackages } from './entry';
+import { codePackagesStamp, renderWithCodePackages, setCodePackages } from './entry';
 
 const code = 'function t(s){return s.html}\nexport { t as default };\n';
 
@@ -48,27 +47,5 @@ describe('the code-package door loads on the first package', () => {
 		const second = fresh.setCodePackages([]);
 		await Promise.all([first, second]);
 		expect(fresh.codePackagesStamp()).toBe('');
-	});
-});
-
-describe('the stamp an export carries (#3292)', () => {
-	it('drops the per-page nonce, so the same deck exports the same bytes after a reload', async () => {
-		await setCodePackages([{ name: 'acme', code }]);
-		const stamp = codePackagesStamp();
-		const nonce = /^\/\* lattice code packages ([0-9a-z]+): /.exec(stamp)?.[1];
-		expect(nonce).toBeTruthy();
-		const exported = exportCodeStamp(stamp);
-		expect(exported).toMatch(/^\/\* lattice code packages: acme@[0-9a-f]{16}- \*\/$/);
-		expect(exported).not.toContain(nonce as string);
-		// Another page load's stamp: the same packages under a different nonce export the same text.
-		expect(exportCodeStamp(stamp.replace(nonce as string, 'zz9'))).toBe(exported);
-		// And an exported stamp is never read as this page's stamp, so it cannot narrow a later preview.
-		expect(approvalsInStamp(exported)).toBeNull();
-		await setCodePackages([]);
-	});
-
-	it('leaves CSS with no stamp as it is', () => {
-		expect(exportCodeStamp('')).toBe('');
-		expect(exportCodeStamp('.a { color: red }')).toBe('.a { color: red }');
 	});
 });

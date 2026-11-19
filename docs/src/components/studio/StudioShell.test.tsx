@@ -2,8 +2,10 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { approvalsInStamp } from '@/lib/code-packages/door';
+import { codePackagesStamp, setCodePackages } from '@/lib/code-packages/entry';
 import { loadFabricate, loadStudioPanels, waitForPanels } from '@/test/panels';
-import StudioShell from './StudioShell';
+import StudioShell, { exportCodeStamp } from './StudioShell';
 import { TOURS } from './tours';
 
 // The Studio's panels load on first open; load them up front so no test races a shell. Fabricate too
@@ -2011,5 +2013,27 @@ describe('StudioShell — preview rect persistence', () => {
 		landscape = false; // the viewport has rotated; React has not re-rendered yet
 		fireDeparture(evt);
 		expect(localStorage.getItem(RECT_KEY), 'a rect measured in the lagging cinema layout was kept').toBeNull();
+	});
+});
+
+describe('the stamp an export carries (#3292)', () => {
+	it('drops the per-page nonce, so the same deck exports the same bytes after a reload', async () => {
+		await setCodePackages([{ name: 'acme', code: 'function t(s){return s.html}\nexport { t as default };\n' }]);
+		const stamp = codePackagesStamp();
+		const nonce = /^\/\* lattice code packages ([0-9a-z]+): /.exec(stamp)?.[1];
+		expect(nonce).toBeTruthy();
+		const exported = exportCodeStamp(stamp);
+		expect(exported).toMatch(/^\/\* lattice code packages: acme@[0-9a-f]{16}- \*\/$/);
+		expect(exported).not.toContain(nonce as string);
+		// Another page load's stamp: the same packages under a different nonce export the same text.
+		expect(exportCodeStamp(stamp.replace(nonce as string, 'zz9'))).toBe(exported);
+		// And an exported stamp is never read as this page's stamp, so it cannot narrow a later preview.
+		expect(approvalsInStamp(exported)).toBeNull();
+		await setCodePackages([]);
+	});
+
+	it('leaves CSS with no stamp as it is', () => {
+		expect(exportCodeStamp('')).toBe('');
+		expect(exportCodeStamp('.a { color: red }')).toBe('.a { color: red }');
 	});
 });

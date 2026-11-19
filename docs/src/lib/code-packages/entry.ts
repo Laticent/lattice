@@ -60,15 +60,6 @@ export function codePackagesStamp(): string {
 	return door ? door.codePackagesStamp() : '';
 }
 
-/**
- * The stamp as an EXPORT carries it: without the per-page nonce (door.ts `STAMP_NONCE`). An export appends its extra CSS to
- * the exported file verbatim (share-export.ts), so the nonce would make the same deck's bytes differ on every page load
- * (#3292). An export never draws by the stamp (it passes no `codeApproval`), so the nonce has no job there.
- */
-export function exportCodeStamp(stamp: string): string {
-	return stamp.replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
-}
-
 /** door.ts `renderWithCodePackages`; before the door loads, the engine's render without the door's flags. */
 export async function renderWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, opts: Record<string, unknown> | undefined): Promise<R> {
 	if (door) return door.renderWithCodePackages<R>(PG, source, theme, opts);
