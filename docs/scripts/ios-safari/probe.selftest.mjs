@@ -30,7 +30,8 @@ const PROBES = [
 	{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
 	{ file: 'sheet-focus-probe.js', fn: 'latticeSheetFocusProbe' },
 	// A first visit: nothing stored, so the Studio opens in Compose (run.mjs passes `seed: false` for it too).
-	{ file: 'compose-probe.js', fn: 'latticeComposeProbe', fresh: true },
+	// It asks its runner for a real tap at the stop that focuses the editor (#3291): `tapRunner` below answers.
+	{ file: 'compose-probe.js', fn: 'latticeComposeProbe', fresh: true, taps: true },
 ].map((p) => ({ ...p, source: withEditorHelper(fs.readFileSync(path.join(here, p.file), 'utf8')) }));
 const BASE = process.env.STUDIO_URL || 'http://localhost:4321';
 const SEED = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');
@@ -268,6 +269,52 @@ if (process.env.PROBE === 'undo') {
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
+/**
+ * Run a probe that asks for real taps, as run.mjs `composeProbePage` does over WebDriver: start it, and answer each
+ * `__latticeTapRequest` with a touchscreen tap (a page with touch) or a mouse click, judged as run.mjs judges it: a caret,
+ * in the block under the tap point, with the editor focused. Playwright's taps have no hold to stretch, so there is no
+ * long-press guard here.
+ */
+async function tapRunner(page, fn, touch) {
+	await page.evaluate((name) => {
+		window.__latticeTapBridge = true;
+		window.__composeResult = null;
+		globalThis[name]().then(
+			(r) => {
+				window.__composeResult = r;
+			},
+			(e) => {
+				window.__composeResult = { ok: false, error: String(e), steps: [] };
+			},
+		);
+	}, fn);
+	for (;;) {
+		const handle = await page.waitForFunction(() => window.__composeResult || (window.__latticeTapRequest && !window.__latticeTapRequest.taken && window.__latticeTapRequest), null, { timeout: 360_000 });
+		const next = await handle.jsonValue();
+		if (next && 'ok' in next && 'steps' in next) return next;
+		await page.evaluate(() => {
+			window.__latticeTapRequest.taken = true;
+		});
+		if (touch) await page.touchscreen.tap(next.x, next.y);
+		else await page.mouse.click(next.x, next.y);
+		const seen = await page
+			.waitForFunction(
+				({ x, y }) => {
+					const block = document.elementFromPoint(x, y)?.closest('h1, h2, h3, h4, h5, h6, p, li');
+					const sel = getSelection();
+					return !!(block && sel?.isCollapsed && block.contains(sel.anchorNode) && document.activeElement?.closest('.ProseMirror'));
+				},
+				{ x: next.x, y: next.y },
+				{ timeout: 4000 },
+			)
+			.then(
+				() => true,
+				() => false,
+			);
+		const verdict = { ok: seen, detail: `${touch ? 'touchscreen tap' : 'mouse click'} at ${next.x},${next.y}${seen ? '' : '; no caret in the block, or the editor not focused'}` };
+		await page.evaluate((v) => window.__latticeTapDone(v), verdict);
+	}
+}
 for (const { label, options } of shapes) {
 	for (const probe of PROBES) {
 		const context = await browser.newContext(options);
@@ -275,7 +322,7 @@ for (const { label, options } of shapes) {
 		if (!probe.fresh) await page.addInitScript(SEED);
 		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
 		await page.addScriptTag({ content: probe.source });
-		const result = await page.evaluate((fn) => globalThis[fn](), probe.fn);
+		const result = probe.taps ? await tapRunner(page, probe.fn, !!options.hasTouch) : await page.evaluate((fn) => globalThis[fn](), probe.fn);
 		console.log(`${label} ${probe.file}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px`);
 		for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
 		if (!result.ok) failed++;

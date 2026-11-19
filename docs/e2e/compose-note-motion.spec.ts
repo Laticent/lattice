@@ -265,7 +265,11 @@ test.describe('notes and motion in Compose', () => {
 		await page.locator('.cs-slide', { hasText: 'Body two.' }).getByRole('button', { name: 'Delete slide' }).click();
 		await page.getByRole('button', { name: 'Confirm delete slide' }).click();
 		await expect.poll(() => savedDeck(page)).toContain('<!-- old note EDITED -->');
-		expect(await savedDeck(page)).not.toContain('## Two');
+		// The note's words and the deletion reach the saved deck in two writes, so wait for the second one too. A single read
+		// right after the first found slide Two still saved in 4 of 30 runs at 4 workers, and the deletion landed within half a
+		// second each time (2026-11-17; 1 in 15 on the code before the Compose caret fixes, whose timing made it likelier).
+		await expect.poll(() => savedDeck(page)).not.toContain('## Two');
+		expect(await savedDeck(page)).toContain('<!-- old note EDITED -->');
 	});
 
 	test('@crosswidth @gecko @webkit-tablet Remove on a folded slide never sends the next keys into its hidden text', async ({ page }) => {
