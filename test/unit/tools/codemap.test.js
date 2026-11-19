@@ -7,7 +7,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { collect, problems, render, foldersInScope, scopeOf, summarize } = require('../../../tools/build-codemap.js');
+const { collect, problems, render, foldersInScope, scopeOf, summarize, cell } = require('../../../tools/build-codemap.js');
 
 const SCOPES = [{ dir: '', title: 'Top' }, { dir: 'lib/', title: 'lib' }];
 const parts = [
@@ -75,6 +75,12 @@ test('summarize: a one-line purpose from a paragraph of self-description', () =>
   // A period inside a word is not a sentence end.
   assert.equal(summarize('Renders charts with Chart.js and v1.2 manifests on any slide. More.'), 'Renders charts with Chart.js and v1.2 manifests on any slide.');
   assert.equal(summarize(undefined), '');
+});
+
+test('a table cell escapes the backslash before the pipe', () => {
+  assert.equal(cell('a | b'), 'a \\| b');
+  // Unescaped first, `\|` would become `\\|`: an escaped backslash, then a bare pipe that splits the row.
+  assert.equal(cell('a \\| b'), 'a \\\\\\| b');
 });
 
 test('the live tree passes --check', () => {

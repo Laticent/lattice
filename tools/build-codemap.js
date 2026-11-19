@@ -228,7 +228,9 @@ function problems(rows, files, { scopes = SCOPES, folders = FOLDERS } = {}) {
 
 // ── render ─────────────────────────────────────────────────────────────────
 
-const cell = (s) => String(s).replace(/\|/g, '\\|');
+// A table cell: escape the backslash first, or a `\|` in the text would become `\\|`, an escaped
+// backslash followed by a bare pipe that ends the cell early.
+const cell = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 // Plain paths, not links: the reader is mostly an agent reading the raw text, and a link
 // writes every path twice (measured: 25 KB with links, the table below without).
 const link = (where) => `\`${where}\``;
@@ -323,4 +325,4 @@ function main(argv = process.argv.slice(2)) {
 
 if (require.main === module) process.exit(main());
 
-module.exports = { FOLDERS, SCOPES, collect, problems, render, foldersInScope, scopeOf, summarize, main };
+module.exports = { FOLDERS, SCOPES, collect, problems, render, foldersInScope, scopeOf, summarize, cell, main };
