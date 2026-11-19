@@ -41,9 +41,10 @@ function gate({ results = {}, event = 'pull_request', head = RUN_SHA }) {
   // The stub answers only the call the gate makes: the PR's head SHA.
   fs.writeFileSync(path.join(bin, 'gh'), head === null ? '#!/bin/sh\nexit 1\n' : `#!/bin/sh\necho ${head}\n`, { mode: 0o755 });
   // The gate writes step outputs here; the beacon reads `superseded` to stay silent on a stale run.
+  // GitHub runs a `run:` step as `bash --noprofile --norc -eo pipefail {0}`; the spawn below matches.
   const outputs = path.join(bin, 'github-output');
   fs.writeFileSync(outputs, '');
-  const out = spawnSync('bash', ['-e', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_OUTPUT: outputs } });
+  const out = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_OUTPUT: outputs } });
   const written = fs.readFileSync(outputs, 'utf8');
   fs.rmSync(bin, { recursive: true, force: true });
   return { code: out.status, text: out.stdout + out.stderr, superseded: /^superseded=true$/m.test(written) };

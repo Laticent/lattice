@@ -1085,7 +1085,9 @@ and a p90 21 minutes for a runner in merge-queue runs, so PR runs compete with t
   says which state it left the PR in.
 - **To re-run CI with no new push, re-run the workflow**, or mark the PR draft and then ready.
   `ci.yml` lets a `ready_for_review` run queue behind an in-flight run on the same head rather
-  than cancel it, because the gate fails a tier canceled on the current head.
+  than cancel it, because the gate fails a tier canceled on the current head. So re-marking a PR
+  ready while its run is still going costs a second full run once the first ends: wait for the
+  first.
 - **Never park a PR that is in the merge queue.** Converting it to a draft removes it from the queue.
 - **Forgetting `--undo` costs what it cost before**: every push runs CI. Nothing reaches `main`
   unchecked either way.
