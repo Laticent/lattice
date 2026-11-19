@@ -3,7 +3,7 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 import { lookupLexicon } from './lexicon';
-import { integerToWords, isEnglishLang, numberToWords, spokenWordCount, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens } from './normalize';
+import { integerToWords, isEnglishLang, numberToWords, spokenWordCount, termHits, toSpoken, toSpokenText, unmatchedAcronyms, unspokenTokens, unusualWords } from './normalize';
 
 // The locale guard (#919): Cadenza's say-as (lexicon, number-to-words, fiscal/period parser)
 // is US-English, so a non-English deck bypasses it — the display token passes through — while
@@ -827,5 +827,42 @@ describe('a European amount is said as the number it shows', () => {
 		expect(toSpokenText('Mio is a name.')).toBe('Mio is a name.');
 		expect(toSpokenText('the € sign')).not.toContain('euros');
 		expect(toSpokenText('the Mio. prefix')).toBe('the Mio. prefix');
+	});
+});
+
+// #3208 item 3: the Studio chat's preview_speech reports which terms fired and which odd words nothing covers.
+describe('termHits', () => {
+	const terms = new Map([
+		['Derby', 'Darby'],
+		['Twinkima G', 'Twinkee mah Gee'],
+		['CRO', 'C R O'],
+	]);
+	it('lists each written form once, with what the voice says, a possessive or plural on its own', () => {
+		const text = "The Derby and the Derby's stands, two Derbys, Twinkima G's line, the CRO-led plan.";
+		expect(termHits(text, { terms })).toEqual([
+			{ written: 'Derby', spoken: 'Darby' },
+			{ written: "Derby's", spoken: "Darby's" },
+			{ written: 'Derbys', spoken: 'Darbys' },
+			{ written: "Twinkima G's", spoken: "Twinkee mah Gee's" },
+			{ written: 'CRO-led', spoken: 'C R O led' },
+		]);
+	});
+	it('agrees with toSpokenText on every hit', () => {
+		const text = "Derby's CRO";
+		const spoken = toSpokenText(text, { terms });
+		for (const h of termHits(text, { terms })) expect(spoken).toContain(h.spoken);
+	});
+	it('is empty with no registry', () => {
+		expect(termHits('Derby CRO', {})).toEqual([]);
+	});
+});
+
+describe('unusualWords', () => {
+	it('adds dotted and odd-capital words to the acronym and value-shape finds', () => {
+		expect(unusualWords('Ilcea.K met the CRO at McKinsey, ID-4471, plain words.')).toEqual(['CRO', 'ID-4471', 'Ilcea.K', 'McKinsey']);
+	});
+	it('drops a word a term or the built-in dictionary covers', () => {
+		const terms = new Map([['Ilcea.K', 'ill chay ah kay']]);
+		expect(unusualWords('Ilcea.K said e.g. hello in the U.S. at 9 a.m.', { terms })).toEqual([]);
 	});
 });

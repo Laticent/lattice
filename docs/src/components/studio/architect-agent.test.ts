@@ -191,9 +191,55 @@ describe('the toolbox', () => {
 
 	it('preview_speech reads a slide with the draft terms', async () => {
 		const tb = toolbox({ source: DECK.replace('theme: indaco\n', 'theme: indaco\nterms:\n  Revenue: rev a new\n') });
-		const out = await tb.run('preview_speech', JSON.stringify({ slide: 2 }));
-		expect(out).toMatch(/^Spoken as: .*rev a new grew/);
+		const out = await tb.run('preview_speech', JSON.stringify({ from: 2 }));
+		expect(out).toContain('[slide 2] Read from the slide text (approximate');
+		expect(out).toMatch(/Spoken as: .*rev a new grew/);
 		expect(out).toContain('four point two million dollars');
+		expect(out).toContain('"Revenue" → "rev a new"');
+		// The parameter's old name still previews that one slide.
+		expect(await tb.run('preview_speech', JSON.stringify({ slide: 2 }))).toContain('[slide 2]');
+	});
+
+	// #3208 item 3: the preview reads what the VOICE reads. It used to strip every comment, so a slide
+	// with a spoken line previewed its on-screen text, words the voice never says.
+	it('preview_speech reads the spoken line, lists each term form that fired, and flags uncovered words', async () => {
+		const src = [
+			'---',
+			'terms:',
+			'  Twinkima.G: Twinkee mah Gee',
+			'  Derby: Darby',
+			'---',
+			'',
+			'<!-- _class: content -->',
+			'## Oct. Tenth at the Derby',
+			'',
+			"- Twinkima.G's line launched",
+			'',
+			"<!-- say: On October tenth, Twinkima.G's line launched at the Derby, then Ilcea.K joined. -->",
+			'<!-- note: a reminder for the presenter -->',
+		].join('\n');
+		const out = await toolbox({ source: src }).run('preview_speech', JSON.stringify({ from: 1 }));
+		expect(out).toContain('[slide 1] Read from its spoken line (say:).');
+		expect(out).toContain("Spoken as: On October tenth, Twinkee mah Gee's line launched at the Darby");
+		expect(out).not.toContain('Oct.'); // the on-screen title is not what the voice says
+		expect(out).not.toContain('reminder'); // nor is the note
+		expect(out).toContain(`"Twinkima.G's" → "Twinkee mah Gee's"`);
+		expect(out).toContain('"Derby" → "Darby"');
+		expect(out).toContain('"Ilcea.K"');
+		expect(out).toContain('Speaker notes are never read aloud.');
+	});
+
+	it('preview_speech skips hidden slides, caps the range, and still previews free text', async () => {
+		const many = ['---', 'theme: indaco', '---', ...Array.from({ length: 14 }, (_, i) => `\n## Slide ${i + 1}\n\n---`), '\n<!-- hide -->\n## Secret'].join('\n');
+		const tb = toolbox({ source: many });
+		const out = await tb.run('preview_speech', JSON.stringify({ from: 1, to: 15 }));
+		expect(out).toContain('[slide 10]');
+		expect(out).not.toContain('[slide 11]');
+		expect(out).toContain('call again from 11');
+		const hidden = deckSlides(many).length;
+		expect(await tb.run('preview_speech', JSON.stringify({ from: hidden }))).toContain(`[slide ${hidden}] Hidden`);
+		expect(await tb.run('preview_speech', JSON.stringify({ text: 'Our CRO joined' }))).toMatch(/Spoken as: Our CRO joined[\s\S]*"CRO"/);
+		expect(await tb.run('preview_speech', JSON.stringify({}))).toContain('Pass `from`');
 	});
 
 	it('checks the DRAFT with the host checker, errors first, and flags slides over budget', async () => {

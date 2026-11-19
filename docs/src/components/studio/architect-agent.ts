@@ -100,6 +100,9 @@ export const INLINE_DECK_CHARS = 24000;
 const DOC_CAP = 12000;
 const SECTION_CAP = 16000;
 const SLIDES_CAP = 20000;
+// preview_speech: slides per call, and characters of spoken text per slide.
+export const PREVIEW_SPEECH_MAX_SLIDES = 10;
+const PREVIEW_SPEECH_CHARS = 1500;
 const FINDINGS_CAP = 20;
 
 // ── Small helpers ───────────────────────────────────────────────────────────
@@ -415,8 +418,9 @@ export const AGENT_TOOLS = [
 		type: 'function',
 		function: {
 			name: 'preview_speech',
-			description: 'Show how text will be spoken aloud in this deck: numbers, symbols and the deck\u2019s terms as the voice will say them. Pass a slide number to read that slide, or any text (for example a word you are about to add a term for).',
-			parameters: { type: 'object', properties: { text: { type: 'string' }, slide: { type: 'integer', minimum: 1 } } },
+			description:
+				`Show what the voice will say aloud, before you guess a pronunciation. For slides (\`from\`, optional \`to\`, up to ${PREVIEW_SPEECH_MAX_SLIDES} at a time) it reads each slide the way Present and the export do: its spoken line (say:) first, then a front-matter say: entry, then chart narration, then the slide text. It names which one it read, lists each deck term that fired as written → as spoken (a possessive or plural is listed on its own), and lists words no term covers that a voice may stumble on (all-caps runs, a dot inside a word, odd capitals; names from other languages are not detected). Speaker notes are never read aloud. Or pass \`text\` to hear any words, for example a term before you add it with set_terms.`,
+			parameters: { type: 'object', properties: { from: { type: 'integer', minimum: 1, description: 'First slide, 1-based.' }, to: { type: 'integer', minimum: 1, description: 'Last slide; defaults to from.' }, text: { type: 'string', description: 'Any words to hear instead of slides.' } } },
 		},
 	},
 	{
@@ -745,15 +749,74 @@ export function createToolbox(opts: {
 		return skipped.length || missing.length ? refuse(parts.join(' ')) : parts.join(' ');
 	}
 
-	/** `preview_speech`: the spoken form of a slide's text or of given text, with the draft's terms. */
-	async function previewSpeech(textRaw: unknown, slideRaw: unknown): Promise<string> {
-		const n = Number(slideRaw);
-		const text = Number.isInteger(n) && n > 0 ? (sliceSlide(draft, n) as string) || '' : String(textRaw ?? '');
-		if (!text.trim()) return Number.isInteger(n) && n > 0 ? `There is no slide ${n}.` : 'Pass `text` or `slide`.';
-		const { toSpokenText } = await import('@/lib/cadenza');
-		const plain = text.replace(/<!--[\s\S]*?-->/g, ' ').replace(/[#*_`>|]/g, ' ');
-		const spoken = toSpokenText(plain, { terms: termsSpokenMap(draft), lang: frontMatterLang(draft) ?? undefined });
-		return `Spoken as: ${spoken.slice(0, 2000)}${spoken.length > 2000 ? ' …' : ''}`;
+	/**
+	 * `preview_speech`: what the voice says for some slides of the draft, or for given text. A slide is
+	 * resolved through the SAME ladder Present and the export bake use (`resolveNarration`): the inline
+	 * `say:` line, the front-matter `say:` entry, chart narration, then the slide's text. It used to
+	 * strip every comment and read the on-screen text, so on a slide with a spoken line it previewed
+	 * words the voice never says (#3208 item 3). Each slide names the rung that won; the slide-text rung
+	 * is labeled approximate, because the export reads the RENDERED slide (a projection this tool has no
+	 * render for) and the Markdown flatten can differ from it in small ways. Speaker notes are never
+	 * narrated, by design (narration-resolve.ts), so they are not here either.
+	 */
+	async function previewSpeech(textRaw: unknown, fromRaw: unknown, toRaw: unknown): Promise<string> {
+		const [{ termHits, toSpokenText, unusualWords }, { narrateChart, slideToSpeech }, { narrationDeck, resolveNarration }, { getSayLine }, { deckPluginsOff }, { frontMatterSayMap }, { slideSourceHidden }] = await Promise.all([
+			import('@/lib/cadenza'),
+			import('@/playground/read-along-core.generated.js'),
+			import('./narration-resolve'),
+			import('./slide-say'),
+			import('@/lib/plugin-admission'),
+			import('@/lib/resolve-narration'),
+			import('../../../../lib/diagnostics/slice-equivalence-core.mjs'),
+		]);
+		const speak = { terms: termsSpokenMap(draft), lang: frontMatterLang(draft) ?? undefined };
+		const report = (text: string): string[] => {
+			const lines = [`Spoken as: ${cap(toSpokenText(text, speak), PREVIEW_SPEECH_CHARS, 'preview fewer slides')}`];
+			const hits = termHits(text, speak);
+			if (hits.length) lines.push(`Terms used: ${hits.map((h) => `${JSON.stringify(h.written)} → ${JSON.stringify(h.spoken)}`).join('; ')}.`);
+			const odd = unusualWords(text, speak);
+			if (odd.length) lines.push(`No term covers these, and a voice may stumble on them: ${odd.map((w) => JSON.stringify(w)).join(', ')}.`);
+			return lines;
+		};
+		const from = Number(fromRaw);
+		if (!(Number.isInteger(from) && from > 0)) {
+			const text = String(textRaw ?? '');
+			if (!text.trim()) return 'Pass `from` (and optionally `to`) for slides, or `text`.';
+			return report(text).join('\n');
+		}
+		const slides = deckSlides(draft);
+		if (from > slides.length) return `The draft has ${slides.length} slide${slides.length === 1 ? '' : 's'}.`;
+		const to = Math.min(slides.length, Math.max(from, Number(toRaw) || from), from + PREVIEW_SPEECH_MAX_SLIDES - 1);
+		const fmSay = frontMatterSayMap(draft);
+		const chartDeck = narrationDeck(draft, deckPluginsOff(draft));
+		const out: string[] = [];
+		for (let n = from; n <= to; n++) {
+			const md = slides[n - 1];
+			if (slideSourceHidden(md)) {
+				out.push(`[slide ${n}] Hidden — not read aloud.`);
+				continue;
+			}
+			let chart: string | null = null;
+			try {
+				chart = narrateChart(md, chartDeck);
+			} catch {
+				chart = null; // the bake's rule: a chart that fails to narrate falls through to the slide text
+			}
+			const say = getSayLine(md);
+			const fm = fmSay.get(n);
+			const fallback = slideToSpeech(md);
+			const text = resolveNarration({ say, fmSay: fm, chart, projected: null, fallback });
+			// The rung that won, tested the way resolveNarration tests it (trimmed, non-empty).
+			const from_ = say?.trim() ? 'its spoken line (say:)' : fm?.trim() ? 'the front-matter say: entry' : chart?.trim() ? 'chart narration' : 'the slide text (approximate: the export reads the rendered slide)';
+			if (!text.trim()) {
+				out.push(`[slide ${n}] Silent: nothing on it is read aloud.`);
+				continue;
+			}
+			out.push(`[slide ${n}] Read from ${from_}.`, ...report(text));
+		}
+		if (to < (Number(toRaw) || from)) out.push(`Previewed slides ${from}–${to}; call again from ${to + 1} for the rest.`);
+		out.push('Speaker notes are never read aloud.');
+		return out.join('\n');
 	}
 
 	/** `scoped`: the check that rides an edit's result. It lists only what is on the slides the
@@ -980,7 +1043,8 @@ export function createToolbox(opts: {
 				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
 				return withCheck(setTerms(args.set, args.remove));
 			case 'preview_speech':
-				return previewSpeech(args.text, args.slide);
+				// `slide` was the parameter's name before ranges; a model that still sends it gets that one slide.
+				return previewSpeech(args.text, args.from ?? args.slide, args.to);
 			case 'check_deck':
 				return checkDeck();
 			case 'create_deck':

@@ -204,7 +204,9 @@ every deck, the Library, and reference docs. It leaves out the OpenRouter key.
 |---|---|
 | `read_slides` | Reads the exact Markdown of slides in the open deck |
 | `edit_slides` | Stages `replace`, `insert` or `delete` on whole slides |
-| `set_front_matter` | Stages setting or removing one front-matter key |
+| `set_front_matter` | Stages setting or removing one single-line front-matter key |
+| `set_terms` | Stages adding, changing or removing deck terms (`terms:`, which absorbs `acronyms:` and `lexicon:`): how a word is spoken, what it stands for |
+| `preview_speech` | Shows what the voice says for up to 10 slides, read the way Present and the export read them (spoken line first, then the slide text, labeled approximate); lists the terms that fired and the odd words nothing covers |
 | `check_deck` | Runs the linter, the review and Mermaid's parser on the draft |
 | `read_component` | Reads one component's contract and skeleton |
 | `read_front_matter` | Reads how one front-matter key works |

@@ -960,3 +960,67 @@ export function unmatchedAcronyms(text: string, opts: SpokenOpts = {}): string[]
   }
   return out;
 }
+
+/** One registry term as the voice meets it in a text: the word(s) as written, and what is said. */
+export interface TermUse {
+  readonly written: string;
+  readonly spoken: string;
+}
+
+/**
+ * The deck's TERMS that fire in `text` — each written form once, in first-seen order, with what the
+ * voice says for it. The spoken side comes from `spokenAt`, the function `toSpokenText` reads every
+ * word through, so this report cannot disagree with the voice. A possessive or plural is its own
+ * written form (`Derby's` beside `Derby`) because it is said differently. A multi-word key is
+ * reported as the whole phrase. Pure. Built for the Studio chat's `preview_speech` (#3208 item 3).
+ */
+export function termHits(text: string, opts: SpokenOpts = {}): TermUse[] {
+  const idx = indexOf(opts);
+  if (!idx) return [];
+  const words = splitWords(text);
+  const cover = idx.phrases.size ? phraseCover(idx, words) : [];
+  const seen = new Set<string>();
+  const out: TermUse[] = [];
+  for (let i = 0; i < words.length; i++) {
+    const slot = cover[i];
+    if (slot?.value === null) continue; // a later word of a phrase already reported
+    let written: string;
+    if (slot) {
+      let n = 1;
+      while (cover[i + n]?.value === null) n++;
+      written = words.slice(i, i + n).map(edgeTrim).join(' ');
+    } else {
+      const tok = edgeTrim(words[i]);
+      if (!lookupTerm(idx, words[i].trim()) && !lookupTerm(idx, tok) && !compoundParts(idx, tok)) continue;
+      written = tok || words[i].trim();
+    }
+    if (!written || seen.has(written)) continue;
+    seen.add(written);
+    out.push({ written, spoken: spokenAt(words, i, opts).replace(/[,.;:!?]+$/, '') });
+  }
+  return out;
+}
+
+// A dot between two letters (`Twinkima.G`, `St.Louis`), or a capital after a lower-case letter
+// (`McKinsey`, `iPhone`). Neither is wrong, but a voice reads both unpredictably.
+const UNUSUAL_SHAPES: RegExp[] = [/\p{L}\.\p{L}/u, /\p{Ll}\p{Lu}/u];
+// Single letters joined by dots (`e.g`, `i.e`, `U.S`, `a.m`, edge-trimmed): voices read these well.
+const DOTTED_INITIALS = /^\p{L}(?:\.\p{L})+$/u;
+
+/**
+ * The words in `text` a voice is likely to stumble on and that NOTHING expands: the all-caps runs
+ * `unmatchedAcronyms` finds, the value shapes `unspokenTokens` finds, and words with a dot inside or a
+ * capital after a lower-case letter. On demand only — the deck lint keeps its narrower
+ * `unspokenTokens`, because a lint that cries wolf gets switched off
+ * (2026-09-21-token-passthrough-coaching.md); a preview the author asked for can afford the wider net.
+ * Names from other languages look like any other word and are not found. Pure.
+ */
+export function unusualWords(text: string, opts: SpokenOpts = {}): string[] {
+  const out = new Set<string>([...unmatchedAcronyms(text, opts), ...unspokenTokens(text, opts)]);
+  for (const raw of splitWords(text)) {
+    const tok = edgeTrim(raw);
+    if (out.has(tok) || DOTTED_INITIALS.test(tok) || !UNUSUAL_SHAPES.some((re) => re.test(tok))) continue;
+    if (toSpoken(tok, opts) === tok) out.add(tok); // passthrough ⇒ expanded by nothing
+  }
+  return [...out];
+}
