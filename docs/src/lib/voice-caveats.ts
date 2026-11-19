@@ -22,7 +22,7 @@ export const VOICE_CAVEATS: readonly VoiceCaveat[] = [
 		// Yearn. It wins." as "yarn"; "Yearn is our pick." garbled. Gemini 3.1 Flash TTS via OpenRouter read the same
 		// four sentences right 24 of 24 times.
 		model: /flash-lite(?:-preview)?-tts/,
-		note: 'Flash-Lite can say a word differently depending on where it falls in a sentence: a name it reads right in one line can come out wrong in the next. If a term sounds wrong, Gemini Flash TTS (through OpenRouter) or the on-device voice read it the same way every time.',
+		note: 'Flash-Lite can say a word differently depending on where it falls in a sentence: a name it reads right in one line can come out wrong in the next. If a term sounds wrong, switch to Gemini Flash TTS (through OpenRouter) or the on-device voice, which read it the same way every time.',
 		evidence: 'followups.d/3319-p1-gemini-tts-misreads-yearn-by-position.md',
 	},
 ];

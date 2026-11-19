@@ -5,7 +5,7 @@ recorded: 2026-11-19
 area: engine
 severity: high
 swimlane: engineering/decisions/2026-11-16-terms-registry.md
-deferred: blocked — the Gemini key in this environment hit its quota (HTTP 429) mid-investigation, so no fix could be tested on the voice that shows the defect
+deferred: blocked — the only route to Flash-Lite TTS is the direct Gemini API (OpenRouter does not serve it), and that key is on the free tier, 10 requests a day, exhausted (HTTP 429), so no respelling could be tested on the voice that shows the defect; the Studio warns when it is chosen (#3319)
 source: https://github.com/Laticent/lattice/pull/3319
 ---
 
