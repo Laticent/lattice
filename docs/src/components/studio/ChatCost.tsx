@@ -1,6 +1,7 @@
 import { ChevronDown, Cloud, Cpu, KeyRound, Settings2 } from 'lucide-react';
 import * as React from 'react';
 import { readLedger } from '@/components/studio/ai/spend.js';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { modelDisplayName, nameFromId } from '@/lib/model-name';
@@ -169,85 +170,97 @@ function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { s
 				</button>
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-[min(92vw,20rem)] p-3 text-[12px]" data-testid="chat-metrics">
-				<div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Spend</div>
-				<Stats
-					items={[
-						{ label: 'This session', value: <span className={cn(over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>{usd(spend.session)}</span> },
-						deckId ? { label: 'This deck', hint: `last ${ledger.keepDays} days`, value: usd(ledger.deck) } : null,
-						{ label: 'Today', hint: 'every deck', value: usd(ledger.today) },
-					]}
-				/>
-				{spend.cap > 0 && (
-					<div className="pt-1.5">
-						<Bar value={spend.session / spend.cap} tone={over ? 'over' : warn ? 'warn' : 'ok'} />
-						<div className="text-[10.5px] text-muted-foreground">{usd(spend.session)} of your ${spend.cap.toFixed(2)} session cap</div>
-					</div>
-				)}
-				<div className="mt-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Context window</div>
-				{last ? (
-					<>
-						<Stats
-							items={[
-								{ label: 'Used', hint: last.window ? `${fmtTok(last.prompt)} of ${fmtTok(last.window)} tokens` : undefined, value: <span className={levelColor(ctxLevel)}>{last.estimated ? '≈ ' : ''}{fmtTok(last.prompt)}{pct != null ? ` · ${pct}%` : ''}</span> },
-								{ label: 'Window', value: last.window ? fmtTok(last.window) : '—' },
-								{ label: 'From cache', hint: 'billed at a fraction of normal input', value: cachedPct == null ? '—' : `${cachedPct}%` },
-							]}
-						/>
-						{fill != null && (
-							<div className="pt-1.5">
-								<Bar value={fill} tone={ctxLevel} />
-							</div>
-						)}
-						<div className="mt-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last reply</div>
-						<Stats
-							items={[
-								{ label: 'Cost', value: usd(last.cost) },
-								{ label: 'Model calls', value: last.rounds },
-								{ label: 'Written', hint: last.reasoning ? `${fmtTok(last.reasoning)} of them thinking` : undefined, value: `${fmtTok(last.completion)} tokens` },
-							]}
-						/>
-					</>
-				) : (
-					<p className="text-muted-foreground">Send a message and the window fills in here.</p>
-				)}
-				{compact && (
-					<>
-						<div className="mt-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Conversation</div>
-						{plan ? (
+				{/* ONE CARD PER QUESTION, details behind a chevron. Each card answers its question at a glance — a
+				    headline figure, a bar where there is a limit to measure against, one line under it — and keeps
+				    the breakdown folded away. This replaced a grid of nine small figure cards, which made every
+				    number equally loud and the one that matters (how full is the window?) hard to find. */}
+				<Section title="Context">
+					<UsageCard
+						title="Context window"
+						figure={pct != null ? <span className={levelColor(ctxLevel)}>{pct}% used</span> : last ? `${last.estimated ? '≈ ' : ''}${fmtTok(last.prompt)} tokens` : null}
+						bar={{ value: fill ?? 0, tone: ctxLevel }}
+						sub={last ? (last.window ? `${last.estimated ? '≈ ' : ''}${fmtTok(last.prompt)} of ${fmtTok(last.window)} tokens` : `${last.estimated ? '≈ ' : ''}${fmtTok(last.prompt)} tokens sent`) : 'Send a message and the window fills in here.'}
+					>
+						{last ? (
 							<>
-								{suggest && <p className="mb-1.5 rounded-md bg-[var(--accent-soft)] px-2 py-1.5 leading-snug">This conversation is getting long. Compacting would shrink what is re-sent every turn.</p>}
-								<Row label="Would compact" hint="the older messages become a short briefing; the latest six stay word for word">
-									<span className="font-semibold">{plan.messages} messages</span>
+								<Row label="Read from cache" hint="billed at a fraction of normal input">
+									<span className="font-semibold tabular-nums">{cachedPct == null ? '—' : `${cachedPct}%`}</span>
 								</Row>
-								<Row label="Saves about" hint="estimated from text length">
-									<span className="font-semibold">{fmtTok(plan.saved)} tokens a turn</span>
-								</Row>
-								<Row label="Costs once" hint="one model call to write the briefing">
-									<span className="font-semibold">{plan.cost == null ? '—' : `≈ ${usd(plan.cost)}`}</span>
+								<Row label="Last reply wrote" hint={last.reasoning ? `${fmtTok(last.reasoning)} of them thinking` : undefined}>
+									<span className="font-semibold tabular-nums">{fmtTok(last.completion)} tokens</span>
 								</Row>
 							</>
-						) : (
-							<p className="text-muted-foreground">Too short to compact. It becomes useful once a thread has a dozen or so messages.</p>
+						) : null}
+					</UsageCard>
+				</Section>
+				<Section title="Spend">
+					<UsageCard
+						title="This session"
+						figure={<span className={cn(over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>{usd(spend.session)}</span>}
+						bar={spend.cap > 0 ? { value: spend.session / spend.cap, tone: over ? 'over' : warn ? 'warn' : 'ok' } : undefined}
+						sub={spend.cap > 0 ? `of your $${spend.cap.toFixed(2)} cap` : `Today ${usd(ledger.today)} across every deck`}
+					>
+						{deckId && (
+							<Row label="This deck" hint={`last ${ledger.keepDays} days`}>
+								<span className="font-semibold tabular-nums">{usd(ledger.deck)}</span>
+							</Row>
 						)}
-						<div className="mt-2 flex gap-2">
-							<button
-								type="button"
-								disabled={!plan || compact.busy}
-								onClick={() => {
-									compact.run();
-									setOpen(false);
-								}}
-								className="rounded-md border border-border px-2 py-1 font-medium hover:border-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
-							>
-								{compact.busy ? 'Working…' : 'Compact conversation'}
-							</button>
-							{compact.undo && (
-								<button type="button" onClick={compact.undo} className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:text-foreground">
-									Undo
-								</button>
-							)}
-						</div>
-					</>
+						<Row label="Today" hint="every deck">
+							<span className="font-semibold tabular-nums">{usd(ledger.today)}</span>
+						</Row>
+						{last && (
+							<>
+								<Row label="Last reply">
+									<span className="font-semibold tabular-nums">{usd(last.cost)}</span>
+								</Row>
+								<Row label="Model calls" hint="rounds the last reply took">
+									<span className="font-semibold tabular-nums">{last.rounds}</span>
+								</Row>
+							</>
+						)}
+					</UsageCard>
+				</Section>
+				{compact && (
+					<Section title="Conversation">
+						<UsageCard
+							title="Compact conversation"
+							tone={suggest ? 'suggest' : undefined}
+							figure={plan ? `${plan.messages} messages` : null}
+							sub={suggest ? 'Getting long: compacting shrinks what is re-sent every turn.' : plan ? 'The older messages become a short briefing.' : 'Useful once a thread has a dozen or so messages.'}
+							action={
+								<div className="flex gap-2 pt-2">
+									<button
+										type="button"
+										disabled={!plan || compact.busy}
+										onClick={() => {
+											compact.run();
+											setOpen(false);
+										}}
+										className="rounded-md border border-border px-2 py-1 font-medium hover:border-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
+									>
+										{compact.busy ? 'Working…' : 'Compact'}
+									</button>
+									{compact.undo && (
+										<button type="button" onClick={compact.undo} className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:text-foreground">
+											Undo
+										</button>
+									)}
+								</div>
+							}
+						>
+							{plan ? (
+								<>
+									<Row label="Saves about" hint="estimated from text length">
+										<span className="font-semibold tabular-nums">{fmtTok(plan.saved)} tokens a turn</span>
+									</Row>
+									<Row label="Costs once" hint="one model call to write the briefing">
+										<span className="font-semibold tabular-nums">{plan.cost == null ? '—' : `≈ ${usd(plan.cost)}`}</span>
+									</Row>
+									<p className="pt-1 text-[10.5px] leading-snug text-muted-foreground">The latest six messages stay word for word.</p>
+								</>
+							) : null}
+						</UsageCard>
+					</Section>
 				)}
 				<p className="mt-3 text-[10.5px] leading-snug text-muted-foreground">Figures come from the usage OpenRouter reports with each reply. Reading them costs nothing.</p>
 			</PopoverContent>
@@ -264,29 +277,58 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 	);
 }
 
-/** Up to three figures side by side as small cards, label over value: two rows where a list took three. The tiles
- *  share one row and wrap only when the popover is too narrow for them (`basis` is the narrowest a
- *  tile goes before it moves down). */
-function Stats({ items }: { items: ({ label: string; hint?: string; value: React.ReactNode } | null)[] }) {
+/** A labeled group in the metrics menu, quiet so the cards carry the weight. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+	// The section is named for assistive tech; its visible label is a plain paragraph, because the site
+	// draws every <h3> in its serif display face, which outranks a utility class.
 	return (
-		<dl className="m-0 flex flex-wrap gap-1.5">
-			{items.map((it) =>
-				it ? (
-					// Each figure is a small card in the chat's own card style: the change card's rounded hairline
-					// border on the page background, so the menu and the chat read as one set.
-					<div key={it.label} title={it.hint} className="flex min-w-0 flex-1 basis-[4.5rem] flex-col gap-0.5 rounded-lg border border-border bg-background px-2 py-1.5">
-						<dt className="truncate text-[10.5px] text-muted-foreground">{it.label}</dt>
-						<dd className="m-0 truncate font-semibold tabular-nums">{it.value}</dd>
-					</div>
-				) : null,
+		<section aria-label={title} className="flex flex-col gap-1.5 pb-3 last:pb-0">
+			<p className="m-0 px-0.5 text-[11px] font-medium text-muted-foreground">{title}</p>
+			{children}
+		</section>
+	);
+}
+
+/**
+ * One question, answered at a glance: a title, a headline figure, an optional bar (only where there is a
+ * limit to measure against), and one line under it. `children` is the breakdown, folded behind a chevron
+ * (the shared Collapsible); with no breakdown there is no chevron. `action` stays visible below the card's
+ * body. Drawn in the chat's own card style, the change card's rounded hairline border on the page.
+ */
+function UsageCard({ title, figure, bar, sub, action, tone, children }: { title: string; figure?: React.ReactNode; bar?: { value: number; tone: string }; sub: React.ReactNode; action?: React.ReactNode; tone?: 'suggest'; children?: React.ReactNode }) {
+	const [open, setOpen] = React.useState(false);
+	const folds = React.Children.toArray(children).some(Boolean);
+	const head = (
+		<>
+			<span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-foreground">{title}</span>
+			{figure != null && <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">{figure}</span>}
+			{folds && <ChevronDown className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none', open && 'rotate-180')} aria-hidden />}
+		</>
+	);
+	return (
+		<Collapsible open={open} onOpenChange={setOpen} className={cn('rounded-lg border bg-background px-2.5 py-2', tone === 'suggest' ? 'border-[var(--accent)]' : 'border-border')}>
+			{folds ? (
+				<CollapsibleTrigger className="flex w-full items-center gap-2 text-left" aria-label={`${title}: ${open ? 'hide' : 'show'} details`}>
+					{head}
+				</CollapsibleTrigger>
+			) : (
+				<div className="flex items-center gap-2">{head}</div>
 			)}
-		</dl>
+			{bar && <Bar value={bar.value} tone={bar.tone} />}
+			<div className={cn('text-[11px] leading-snug text-muted-foreground', !bar && 'pt-0.5')}>{sub}</div>
+			{folds && (
+				<CollapsibleContent className="data-[state=open]:motion-safe:animate-in data-[state=open]:motion-safe:fade-in">
+					<div className="mt-2 border-t border-border pt-1.5">{children}</div>
+				</CollapsibleContent>
+			)}
+			{action}
+		</Collapsible>
 	);
 }
 
 function Bar({ value, tone }: { value: number; tone: string }) {
 	return (
-		<span className="my-1 block h-[5px] overflow-hidden rounded-full bg-border" aria-hidden>
+		<span className="my-1.5 block h-[5px] overflow-hidden rounded-full bg-[var(--accent-soft)]" aria-hidden>
 			<span className={cn('block h-full rounded-full', levelBar(tone))} style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
 		</span>
 	);

@@ -136,7 +136,7 @@ test('untick every edit and Apply is disabled', async ({ page }) => {
 });
 
 for (const dark of [false, true]) {
-	test(`the cost menu shows its figures three to a row on a phone${dark ? ' in dark mode' : ''} @crosswidth`, async ({ page }) => {
+	test(`the cost menu answers each question in one card, details behind a chevron${dark ? ', in dark mode' : ''} @crosswidth`, async ({ page }) => {
 		test.setTimeout(90_000);
 		await askForEdits(page, 390, 844, dark);
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
@@ -144,12 +144,18 @@ for (const dark of [false, true]) {
 		await expect(menu).toBeVisible();
 		// Let the open animation finish, so the shot shows the menu as it rests.
 		await menu.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
-		for (const section of ['This session', 'Cost']) {
-			const row = menu.locator('dl').filter({ hasText: section });
-			const tops = await row.locator(':scope > div').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
-			expect(tops.length).toBe(3);
-			expect(new Set(tops).size).toBe(1);
-		}
+		// Folded: the headline figure and the line under it, no breakdown.
+		await expect(menu.getByText(/^\d+% used$/)).toBeVisible();
+		await expect(menu.getByText(/ of 100K tokens$/)).toBeVisible();
+		await expect(menu.getByText('Read from cache')).toHaveCount(0);
 		await page.screenshot({ path: test.info().outputPath(`cost-menu-390${dark ? '-dark' : ''}.png`) });
+		// The chevron opens the breakdown in place.
+		await menu.getByRole('button', { name: 'Context window: show details' }).click();
+		await expect(menu.getByText('Read from cache')).toBeVisible();
+		await expect(menu.getByRole('button', { name: 'Context window: hide details' })).toBeVisible();
+		await menu.getByRole('button', { name: 'This session: show details' }).click();
+		await expect(menu.getByText('Model calls')).toBeVisible();
+		await menu.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
+		await page.screenshot({ path: test.info().outputPath(`cost-menu-390-open${dark ? '-dark' : ''}.png`) });
 	});
 }

@@ -7,7 +7,8 @@
   view. Its diffs scroll in one region with the header and the Apply bar always visible. Before,
   each slide's diff was its own 180px scroll box inside a 220px scroll box, inside the
   scrolling chat.
-- **The chat's cost menu is shorter.** Spend (this session, this deck, today), Context window
-  (used, window, from cache) and Last reply (cost, model calls, written) each show their
-  figures as three small cards side by side, label over value, in the chat's own card style.
-  They wrap on a phone too narrow for three.
+- **The chat's cost menu answers each question in one card.** Context window shows how full it
+  is as a bar ("27% used", "268K of 1M tokens"), and This session shows what you have spent (with
+  a bar toward your cap when you set one). A chevron opens each card's breakdown in place: cache
+  share and tokens written, or this deck, today, the last reply and its model calls. Compact
+  conversation keeps its button in view, with its numbers behind the chevron.
