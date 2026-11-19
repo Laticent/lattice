@@ -190,13 +190,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	const baseUrl = typeof engineOpts?.baseUrl === 'string' ? engineOpts.baseUrl : '';
 	// THE PLUGINS' FENCES. Which plugins run, and a note for each that does not, are the CLI door's rules
 	// (planFencePlugins): a fence name two plugins claim, a shipped plugin's, a name whose prefix overlaps another's.
-	// CSS handed with NO stamp of this page (`unstamped`): a plugin with a stylesheet is there for this render only when
-	// that CSS carries its sheet. On a reload a render can begin before the Studio's stamp holds the plugins, and drawing
-	// one by its live approval painted the badge's words with no fill (#3292); it draws instead as the Studio did before
-	// the door held the plugin. CSS that carries the sheet without this page's stamp (print options' export CSS, whose
-	// stamp has no nonce) draws it by the live approval. Judged by the CSS the render paints with, so a render that
-	// started with older CSS cannot race the shell.
-	const installed = new Map([...studioPlugins()].filter(([, p]) => unstamped === null || !p.css || unstamped.includes(sheetOf(p))));
+	const installed = new Map(studioPlugins());
 	const plan = planFencePlugins(
 		[...installed.values()].map((p) => ({ name: p.name, fence: p.fence, kinds: (p.kinds ?? []).map((k) => k.name) })),
 		{ shipped: SHIPPED_FENCES, isLanguage: (n: string) => HIGHLIGHT_LANGUAGES.has(n), shippedKinds: SHIPPED_KINDS },
@@ -465,6 +459,20 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			}
 		}
 		if (mine.length) attrs.set(key, mine);
+	}
+	// CSS handed with NO stamp of this page (`unstamped`) that does not carry a styled plugin's sheet: on a reload a render
+	// can begin before the Studio's stamp holds the plugins, and its drawing painted the badge's words with no fill (#3292).
+	// That render shows the block as the engine drew it instead. The plugin still ran and its result is remembered, so the
+	// next render, with the stamp, draws at once. CSS that carries the sheet under a stamp with no nonce (print options'
+	// export CSS) draws it. Judged by the CSS the render paints with, so a render begun with older CSS cannot race the shell.
+	if (unstamped !== null) {
+		for (const c of capFences.claims) {
+			const p = offered.get(c.pkg);
+			if (!p?.css || unstamped.includes(sheetOf(p))) continue;
+			const key = fenceKey(c, p.sha256);
+			sections.set(key, c.block);
+			attrs.delete(key);
+		}
 	}
 	for (const f of frames.values()) f.then((fr) => fr.close()).catch(() => {});
 	if (reporting) report({ unapproved: [...unapproved.values()], failed, ...(unlisted.size ? { offered: [...unlisted].map((n) => offered.get(n) as StudioPlugin) } : {}), ...(notes.length ? { notes } : {}) });

@@ -686,8 +686,9 @@ read them as comments too. Run from `claude/sandbox-probe-run` (run 37540765206)
   it carries a per-page nonce, so look-alike text in a Library component's CSS is not the stamp; and
   the Studio refreshes it on a `storage` event, so another tab's approval reaches this tab. CSS
   handed with no stamp of this page draws a plugin that has a stylesheet only when that CSS
-  carries the plugin's sheet (door-run.ts `unstamped`, 2026-11-19); otherwise the plugin is not
-  there for that render, which draws as the Studio did before the door held it. On a reload a
+  carries the plugin's sheet (door-run.ts `unstamped`, 2026-11-19); otherwise that render shows
+  the block as the engine drew it, while the plugin still runs and its result is remembered, so
+  the next render, with the stamp, draws at once. On a reload a
   render could begin in the moment between `setPlugins` filling the door and the shell committing
   the stamp, and drawing the plugin by its live approval painted the badge's words with no fill (a
   per-frame watcher saw it in 8 of 20 Chromium and 7 of 20 Gecko reloads on `main`). The rule reads

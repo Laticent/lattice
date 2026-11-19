@@ -610,7 +610,7 @@ describe('a render draws by the stamp in the CSS it paints with (#3292)', () => 
 		expect(html).toContain('data-reason="unapproved"');
 	});
 
-	it('CSS with no stamp of this page draws as before the door held the plugin: nothing runs, nothing asks', async () => {
+	it('CSS with no stamp of this page and no sheet for the plugin shows its block as the engine drew it, and nothing asks', async () => {
 		await approve();
 		let status: { unapproved: { name: string }[] } = { unapproved: [{ name: 'unset' }] };
 		const off = onCodePackagesStatus((s) => {
@@ -619,11 +619,16 @@ describe('a render draws by the stamp in the CSS it paints with (#3292)', () => 
 		// A reload: the render began with the shell's CSS from before its stamp held the plugins (#3292).
 		const html = await drawWith('.card { color: red }', true);
 		off();
-		expect(opened).toEqual([]);
-		// The engine's own render of the deck, as with no plugin installed: no unstyled block, and no "approve" card.
+		// The engine's own block, as with no plugin installed: no drawing without its colors, and no "approve" card.
 		expect(html).toBe(PG.render(DECK, 'indaco', {}).html);
 		expect(html).not.toContain('data-reason="unapproved"');
 		expect(status.unapproved).toEqual([]);
+		// The plugin ran, and its result is remembered: the render with the stamp draws without running it again.
+		const ran = opened.reduce((n, o) => n + o.ran, 0);
+		expect(ran).toBeGreaterThan(0);
+		const stamped = await drawWith(codePackagesStamp());
+		expect(stamped).toContain('data-lattice-plugin="gantt-plugin"');
+		expect(opened.reduce((n, o) => n + o.ran, 0)).toBe(ran);
 		revokePlugin(PLUGIN.name);
 	});
 
@@ -633,6 +638,7 @@ describe('a render draws by the stamp in the CSS it paints with (#3292)', () => 
 		const exported = codePackagesStamp().replace(/^\/\* lattice code packages [0-9a-z]+: /, '/* lattice code packages: ');
 		expect(approvalsInStamp(exported)).toBeNull();
 		const html = await drawWith(`.card { color: red }\n${exported}`);
+		expect(html).toContain('data-lattice-plugin="gantt-plugin"');
 		expect(html).not.toContain('data-reason="unapproved"');
 		expect(opened.length).toBeGreaterThan(0);
 		revokePlugin(PLUGIN.name);
@@ -642,6 +648,7 @@ describe('a render draws by the stamp in the CSS it paints with (#3292)', () => 
 		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code }]);
 		await approve();
 		const html = await drawWith('.card { color: red }');
+		expect(html).toContain('data-lattice-plugin="gantt-plugin"');
 		expect(html).not.toContain('data-reason="unapproved"');
 		expect(opened.length).toBeGreaterThan(0);
 		revokePlugin(PLUGIN.name);
