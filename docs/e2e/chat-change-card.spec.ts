@@ -62,6 +62,14 @@ async function mockModel(page: Page): Promise<Body[]> {
 	return bodies;
 }
 
+/** The preview frame shows its slide: revealed by the engine (opacity 1, set once the slide has painted and been
+ *  scaled) and holding `text`. Holding the text alone passed while the frame was still a blank box. */
+async function expectShown(frame: Locator, text: string) {
+	await expect.poll(async () => frame.evaluate((f: HTMLIFrameElement) => `${f.style.opacity}|${f.contentDocument?.body?.innerText ?? ''}`), { timeout: 30_000 }).toMatch(new RegExp(`^1\\|[\\s\\S]*${text}`));
+	// Let the compositor put that paint on screen before a screenshot for a human reads it.
+	await frame.screenshot();
+}
+
 async function send(page: Page, message: string) {
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill(message);
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
@@ -211,12 +219,12 @@ test('preview shows the change rendered in the Studio, applies nothing, and leav
 	const draft = page.locator('[data-chat-draft]');
 	await expect(draft).toBeVisible();
 	await expect(draft.getByText('Previewing slide 2 · not applied')).toBeVisible();
-	await expect.poll(async () => draft.locator('iframe').evaluate((f: HTMLIFrameElement) => f.contentDocument?.body?.innerText ?? ''), { timeout: 30_000 }).toContain('Revenue grew');
+	await expectShown(draft.locator('iframe'), 'Revenue grew');
 	expect(await persistedSource(page)).toBe(before);
 	await page.screenshot({ path: test.info().outputPath('preview-1440.png') });
 	// Before shows the slide as it is now.
 	await draft.getByRole('button', { name: 'Before' }).click();
-	await expect.poll(async () => draft.locator('iframe').evaluate((f: HTMLIFrameElement) => f.contentDocument?.body?.innerText ?? ''), { timeout: 30_000 }).toContain('Old point 2.1');
+	await expectShown(draft.locator('iframe'), 'Old point 2.1');
 	await page.keyboard.press('Escape');
 	await expect(draft).toHaveCount(0);
 	// Apply from the preview lands that row.
@@ -236,7 +244,7 @@ test('on a phone the preview is a full-screen sheet with Apply in thumb reach @c
 	await expect(apply).toBeInViewport();
 	const box = await apply.boundingBox();
 	expect(box && box.y > 844 / 2).toBe(true);
-	await expect.poll(async () => sheet.locator('iframe').evaluate((f: HTMLIFrameElement) => f.contentDocument?.body?.innerText ?? ''), { timeout: 30_000 }).toContain('Revenue grew');
+	await expectShown(sheet.locator('iframe'), 'Revenue grew');
 	await page.screenshot({ path: test.info().outputPath('preview-390.png') });
 	await sheet.getByRole('button', { name: 'Close preview' }).click();
 	await expect(sheet).toHaveCount(0);
