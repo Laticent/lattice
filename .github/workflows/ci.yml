@@ -23,9 +23,15 @@ on:
 
 # Cancel superseded runs on the same ref — rapid pushes to a PR no longer
 # pile up full pipelines.
+#
+# EXCEPT a `ready_for_review` run. Marking a PR ready again with no new push (draft -> ready to
+# re-run CI) would otherwise cancel a run on the SAME head, and the Verify gate fails a tier
+# cancelled on the current head (exception 3 below): a red check and a failure webhook for
+# nothing. A ready run therefore queues behind the in-flight run instead of cancelling it. A
+# push after it still cancels as before.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event.action != 'ready_for_review' }}
 
 # Least privilege for every job's GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions,
 # #1958). Without this block each job got the repo default. `pull-requests: read` is for
@@ -1184,6 +1190,7 @@ jobs:
       pull-requests: write # post the CI-green beacon comment that wakes a subscribed session
     steps:
       - name: Verify gate
+        id: gate
         env:
           GH_TOKEN: ${{ github.token }} # read the PR's head, to tell a superseded run from a timeout
         run: |
@@ -1252,6 +1259,7 @@ jobs:
                 fi
                 if superseded; then
                   echo "tier ${tier%%=*} was cancelled by a newer push (the PR's head is now ${head}); that run carries the verdict"
+                  echo "superseded=true" >> "$GITHUB_OUTPUT"
                 else
                   echo "::error::tier ${tier%%=*} was cancelled on the PR's current head (a timeout or a hand cancel, not a newer push), so its remaining tests never ran"
                   exit 1
@@ -1295,7 +1303,14 @@ jobs:
         # issue_comment is forwarded as a wake event; an in-place edit is not, so an
         # update would leave the session asleep. The delete keeps the thread to one
         # beacon. continue-on-error so a fork PR's read-only token can never red the gate.
-        if: success() && github.event_name == 'pull_request'
+        #
+        # NO BEACON FROM A SUPERSEDED RUN. When a newer push cancelled this run's tiers, the gate
+        # passes (the newer run carries the verdict), but a "✅ ci workflow green" for a SHA that is
+        # no longer the head is a false green, and it is the newest wake event on the PR. Before
+        # draft parking the superseding run posted its own beacon over it; a draft run posts none,
+        # so the stale one would stand. Observed on #3314: "green" for 8aa411c with lint, unit,
+        # integration, docs-build and docs-test all cancelled.
+        if: success() && github.event_name == 'pull_request' && steps.gate.outputs.superseded != 'true'
         continue-on-error: true
         uses: actions/github-script@v7
         env:
