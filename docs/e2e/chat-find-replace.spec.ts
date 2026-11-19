@@ -85,7 +85,7 @@ test(`the chat finds a title and replaces it on one card the author applies at $
 // the groups expanding. preserve_case has its own pair of tests below.
 // Tagged for Gecko and WebKit too (@crosswidth keeps its Chromium desktop and mobile runs): whether a module Worker loads and answers is an engine question (module
 // Workers reached Firefox and Safari late), so Chromium alone cannot certify it.
-test('the chat replaces by pattern, through the page’s Worker @crosswidth @gecko @webkit-phone', async ({ page }) => {
+test('the chat replaces by pattern, through the page’s Worker @crosswidth @gecko @webkit-phone @webkit-tablet', async ({ page }) => {
 	test.setTimeout(90_000);
 	// The project's own viewport (a phone on webkit-phone); the chat opens at its width.
 	const w = page.viewportSize()?.width ?? 1440;
@@ -139,7 +139,7 @@ test('the chat replaces by pattern, through the page’s Worker @crosswidth @gec
 // its case (`Lattice` → `Renamed`); without it the word is written exactly as given (`renamed`). The same call
 // either way, so the two arms can only differ by the flag.
 for (const preserve of [true, false])
-	test(`replace_text ${preserve ? 'keeps' : 'does not keep'} the title's case with preserve_case ${preserve} @crosswidth @gecko @webkit-phone`, async ({ page }) => {
+	test(`replace_text ${preserve ? 'keeps' : 'does not keep'} the title's case with preserve_case ${preserve} @crosswidth @gecko @webkit-phone @webkit-tablet`, async ({ page }) => {
 		test.setTimeout(90_000);
 		const w = page.viewportSize()?.width ?? 1440;
 		await page.addInitScript(() => {
