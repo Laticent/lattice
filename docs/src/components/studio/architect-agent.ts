@@ -23,10 +23,11 @@ import skillIndex from '../../../../design/skills/index.json';
 import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
 import { frontMatterLang, frontMatterSayMap, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
+import { dispatch } from '../../../../lib/use-cases/dispatch.mjs';
 import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
-import { type ChatAction, type ChatMode, CREATE_DECK_MAX_CHARS, CREATE_DECK_TITLE_MAX, DEFAULT_CHAT_MODE, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, TOOL_TIERS, toolAllowed, toolsForMode, visibleTitle } from './chat-actions';
+import { type ChatAction, type ChatMode, CREATE_DECK_MAX_CHARS, CREATE_DECK_TITLE_MAX, DEFAULT_CHAT_MODE, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, toolAllowed, toolsForMode, visibleTitle } from './chat-actions';
 import { buildChartSlide, CHART_KINDS } from './chat-chart';
-import { type ChatToolVars, chatToolCatalog, DECK_EDIT_TOOLS } from './chat-tools.generated';
+import { type ChatToolVars, chatToolCatalog, DECK_EDIT_TOOLS, USE_CASES } from './chat-tools.generated';
 import { getSayLine } from './slide-say';
 
 type Edits = typeof import('@/components/studio/ai/architect-edits.js');
@@ -997,78 +998,62 @@ export function createToolbox(opts: {
 		return `Slide ${n} as rendered is in the next message.`;
 	}
 
+	// THE CHAT AS A USE-CASE HOST (lib/use-cases/dispatch.mjs). The dispatcher gates, parses and, for a
+	// deck edit, resets the verdict and runs the check; the handlers below are the calls the old switch
+	// made, kept here under the use-case gate's legacy list until each becomes a pure kernel.
+	const look = (key: 'theme' | 'finish', nameRaw: unknown) => {
+		const bad = setLook(key, nameRaw);
+		// An unknown name changed nothing, so its refusal carries no check (as before the dispatcher).
+		if (bad != null) return { text: bad, check: false as const };
+		const name = String(nameRaw ?? '').trim();
+		return writeKey(key, name === 'none' ? null : name);
+	};
+	type Args = Record<string, unknown>;
+	const handlers: Record<string, (a: Args) => string | { text: string; check: false } | Promise<string>> = {
+		read_component: (a) => readComponent(a.name, a.section),
+		read_front_matter: (a) => readFrontMatter(a.key),
+		read_guide: (a) => readGuide(a.topic, a.section),
+		read_slides: (a) => readSlides(a.from, a.to),
+		list_assets: (a) => listAssets(a),
+		view_asset: (a) => viewAsset(a.names, a.again),
+		caption_asset: (a) => captionAsset(a.captions),
+		edit_slides: (a) => editSlides(a.edits),
+		find_text: (a) => findText(a.text, findOpts(a)),
+		replace_text: (a) => replaceText(a.find, a.replace, findOpts(a), a.slides),
+		set_front_matter: (a) => writeKey(a.key, a.value),
+		set_terms: (a) => setTerms(a.set, a.remove),
+		// `slide` was the parameter's name before ranges; a model that still sends it gets that one slide.
+		preview_speech: (a) => previewSpeech(a.text, a.from ?? a.slide, a.to),
+		check_deck: () => checkDeck(),
+		create_deck: (a) => createDeck(a.title, a.markdown),
+		set_theme: (a) => look('theme', a.name),
+		set_finish: (a) => look('finish', a.name),
+		chart_from_data: (a) => chartFromData(a),
+		render_slide: (a) => renderSlide(a.slide),
+	};
+	const chatHost = {
+		id: 'chat',
+		catalog: USE_CASES,
+		allowed: (id: string) => toolAllowed(mode, id),
+		handlers,
+		deckEdit: {
+			begin: () => {
+				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
+			},
+			refuse: () => {
+				verdict = { refused: true, checked: false, errors: 0, warnings: [] };
+			},
+			check: withCheck,
+		},
+	};
+
 	async function run(name: string, argsJson: string): Promise<string> {
-		// THE HOST GATE. The request already left out what this mode forbids; this refuses it again
-		// here, so a model that calls a tool it was never offered still changes nothing.
-		if (!toolAllowed(mode, name)) {
-			if (EDIT_TOOLS.has(name)) verdict = { refused: true, checked: false, errors: 0, warnings: [] };
-			return Object.hasOwn(TOOL_TIERS, name) ? `${name} is not available in this chat mode. Tell the author what you would change; they can switch the chat to Review or Auto to have you make it.` : `There is no tool called ${name}.`;
-		}
-		let args: Record<string, unknown> = {};
-		try {
-			args = argsJson ? JSON.parse(argsJson) : {};
-		} catch {
-			// An edit whose arguments did not parse changed nothing, and must not inherit the
-			// previous edit's clean verdict — the turn would end with this edit silently dropped.
-			if (EDIT_TOOLS.has(name)) verdict = { refused: true, checked: false, errors: 0, warnings: [] };
-			return `The arguments for ${name} were not valid JSON — send them again.`;
-		}
-		switch (name) {
-			case 'read_component':
-				return readComponent(args.name, args.section);
-			case 'read_front_matter':
-				return readFrontMatter(args.key);
-			case 'read_guide':
-				return readGuide(args.topic, args.section);
-			case 'read_slides':
-				return readSlides(args.from, args.to);
-			case 'list_assets':
-				return listAssets(args);
-			case 'view_asset':
-				return viewAsset(args.names, args.again);
-			case 'caption_asset':
-				return captionAsset(args.captions);
-			// An edit carries its own check. Checking used to be a separate call the model made
-			// after every edit — one more round that re-sent the whole conversation. The verdict
-			// now rides back with the edit, so the common turn is read → edit → answer.
-			case 'edit_slides':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(editSlides(args.edits));
-			case 'find_text':
-				return findText(args.text, findOpts(args));
-			case 'replace_text':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(replaceText(args.find, args.replace, findOpts(args), args.slides));
-			case 'set_front_matter':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(writeKey(args.key, args.value));
-			case 'set_terms':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(setTerms(args.set, args.remove));
-			case 'preview_speech':
-				// `slide` was the parameter's name before ranges; a model that still sends it gets that one slide.
-				return previewSpeech(args.text, args.from ?? args.slide, args.to);
-			case 'check_deck':
-				return checkDeck();
-			case 'create_deck':
-				return createDeck(args.title, args.markdown);
-			case 'set_theme':
-			case 'set_finish': {
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				const key = name === 'set_theme' ? 'theme' : 'finish';
-				const bad = setLook(key, args.name);
-				if (bad != null) return bad;
-				const look = String(args.name ?? '').trim();
-				return withCheck(writeKey(key, look === 'none' ? null : look));
-			}
-			case 'chart_from_data':
-				verdict = { refused: false, checked: false, errors: 0, warnings: [] };
-				return withCheck(chartFromData(args));
-			case 'render_slide':
-				return renderSlide(args.slide);
-			default:
-				return `There is no tool called ${name}.`;
-		}
+		const out = await dispatch(chatHost, name, argsJson);
+		if (out.ok) return out.text;
+		// The chat's words for the dispatcher's codes, unchanged from before it existed.
+		if (out.code === 'NOT_OFFERED') return `${name} is not available in this chat mode. Tell the author what you would change; they can switch the chat to Review or Auto to have you make it.`;
+		if (out.code === 'BAD_ARGS') return `The arguments for ${name} were not valid JSON — send them again.`;
+		return `There is no tool called ${name}.`;
 	}
 
 	return {
