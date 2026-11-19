@@ -913,11 +913,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// someone else's page is sitting on the projector showing the room the wrong
 			// thing, and the presenter should know to look at it; a window that vanished has
 			// left the projector blank. Both are re-opened with `S`.
-			onLost: (reason: 'navigated' | 'gone') =>
+			onLost: (reason: 'navigated' | 'gone' | 'unloaded') =>
 				notifyRef.current(
 					reason === 'navigated'
 						? 'The Stage left the deck — that window is showing the room something else. Press S to put the deck back on it.'
-						: 'Stage disconnected — press S to put the deck back on your second screen.',
+						: reason === 'unloaded'
+							? 'The Stage could not load its player, so it shows the first slide and cannot follow you. Reload the Studio, then press S.'
+							: 'Stage disconnected — press S to put the deck back on your second screen.',
 				),
 			// DETECT to decide whether to OFFER; VERIFY the outcome to decide whether it
 			// WORKED (§7). A popup has no transient activation of its own, so its

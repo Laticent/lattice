@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { AGENT_NAMES, agentTag, FRAME_AGENTS_FILE, frameAgentsSource, frameAgentsUrl, inlineAgents } from '../../../lib/core/frame-agents.mjs';
+import { AGENT_NAMES, AGENTS_MARK, agentTag, FRAME_AGENTS_FILE, frameAgentsSource, frameAgentsUrl, inlineAgents } from '../../../lib/core/frame-agents.mjs';
 import { buildStageDoc } from '../components/studio/present/stage-window.js';
 import { buildSrcdoc } from './deck-preview.js';
 
@@ -29,6 +29,10 @@ describe('the preview documents run no inline script', () => {
 			expect(inlineScripts(doc), JSON.stringify(opts)).toEqual([]);
 			// …and it names the agents file beside the runtime, so it is not passing by running nothing.
 			expect(doc).toContain('src="/p/v/1/lattice-frame-agents.js" data-agent="fit"');
+				// The slides are hidden only under the agents file's mark, so a file that never ran
+				// shows them rather than a blank pane; no unconditional hide is left.
+				expect(doc).toContain(`html[${AGENTS_MARK}] .lattice{visibility:hidden;}`);
+				expect(doc).not.toMatch(/(^|[;}])\.lattice\{visibility:hidden/);
 		}
 	});
 	it('the Stage, in the iframe and as the projected window', () => {
@@ -55,15 +59,20 @@ describe('the agents file', () => {
 			constructor(readonly dataset: Record<string, string>) {}
 		}
 		const runWith = (current: unknown, own?: unknown) => {
-			class Doc {}
+			class Doc {
+				documentElement = { setAttribute: (k: string) => marks.push(k) };
+			}
 			Object.defineProperty(Doc.prototype, 'currentScript', { get: () => current });
 			const doc = new Doc();
 			if (own) Object.defineProperty(doc, 'currentScript', { value: own });
 			new Function('window', 'document', 'Document', 'HTMLScriptElement', frameAgentsSource())(win, doc, Doc, Script);
 		};
+		const marks: string[] = [];
 		const run = (dataset: Record<string, string>) => runWith(new Script(dataset));
 		run({ agent: 'geom', w: '1920', h: '1080', edge: '1' });
 		expect(win).toEqual({ __SLIDE_W: 1920, __SLIDE_H: 1080, __SLIDE_EDGE: 1 });
+		// …and marks <html>, which is what lets a host hide its slides only when this file runs.
+		expect(marks).toEqual([AGENTS_MARK]);
 		// An unknown name, or a tag with none, runs nothing.
 		const before = { ...win };
 		run({ agent: 'toString' });
@@ -80,19 +89,25 @@ describe('the agents file', () => {
 			constructor(readonly dataset: Record<string, string>) {}
 		}
 		const runWith = (current: unknown, own?: unknown) => {
-			class Doc {}
+			class Doc {
+				documentElement = { setAttribute: (k: string) => marks.push(k) };
+			}
 			Object.defineProperty(Doc.prototype, 'currentScript', { get: () => current });
 			const doc = new Doc();
 			if (own) Object.defineProperty(doc, 'currentScript', { value: own });
 			new Function('window', 'document', 'Document', 'HTMLScriptElement', frameAgentsSource())(win, doc, Doc, Script);
 		};
+		const marks: string[] = [];
 		const img = { tagName: 'IMG', dataset: { agent: 'geom', w: '777', edge: '1' } };
 		runWith(new Script({ agent: 'geom', w: '1280', h: '720' }), img);
 		expect(win).toEqual({ __SLIDE_W: 1280, __SLIDE_H: 720 });
 		// …and a current element that is not a <script> runs nothing at all.
 		const before = { ...win };
+		marks.length = 0;
 		runWith(img);
 		expect(win).toEqual(before);
+		// …and does not mark <html>: a page that hides its slides on the mark must still show them.
+		expect(marks).toEqual([]);
 	});
 
 	it('sits beside the runtime, whatever the runtime URL carries after its path', () => {

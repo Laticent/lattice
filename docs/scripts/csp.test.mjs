@@ -1,7 +1,7 @@
 // Unit tests for the pure halves of scripts/csp.mjs. No build, no dist.
 
 import { describe, expect, it } from 'vitest';
-import { classify, evaluatesCode, exemption, LINK_ONLY_ORIGINS, OPEN_ORIGINS, ORIGIN_DIRECTIVES, PREVIEW_ORIGIN, policyFor, RUNTIME_ORIGINS, selfOrigins, sha256, withPolicy, writesInlineFrameScript } from './csp.mjs';
+import { classify, evaluatesCode, exemption, LINK_ONLY_ORIGINS, OPEN_ORIGINS, ORIGIN_DIRECTIVES, ownOriginsIn, PREVIEW_ORIGIN, policyFor, RUNTIME_ORIGINS, selfOrigins, sha256, withPolicy, writesInlineFrameScript } from './csp.mjs';
 
 // The site's own origins, which every 'self' directive names beside it, as this run's environment builds them.
 const OWN = selfOrigins([]).join(' '); // as this run's environment builds it (a PR run in CI adds the preview project)
@@ -61,6 +61,23 @@ describe('policyFor', () => {
 		expect(selfOrigins([], {})).toEqual(['https://lattice.style']);
 		expect(selfOrigins([], { GITHUB_HEAD_REF: 'claude/x' })).toEqual(['https://lattice.style', PREVIEW_ORIGIN]);
 		expect(selfOrigins([], { GITHUB_HEAD_REF: '' })).toEqual(['https://lattice.style']);
+	});
+	// --check rebuilds the policy with this run's origins; a page built with --self-origin (build:e2e)
+	// differs only there, and reading the page's own origins back is what tells that from a rewrite.
+	it('does not count a `<script>` code span inside a template literal as a frame script', () => {
+		expect(writesInlineFrameScript('const doc=`| HTML tags like \\`<script>\\` printed |`')).toBe(false);
+		// …while a real inline frame script in a template literal still counts.
+		expect(writesInlineFrameScript('f.srcdoc=`<html><body><script>go()</script></body></html>`')).toBe(true);
+	});
+	it('reads back the site origins a written policy names, so --check can tell them from a rewrite', () => {
+		const page = '<!doctype html><html><head><meta charset="utf-8"><script>1</script></head><body></body></html>';
+		const own = ['https://lattice.style', 'http://localhost:4321'];
+		const written = withPolicy(page, {}, own);
+		const meta = written.match(/<meta http-equiv="Content-Security-Policy"[^>]*>/)?.[0] ?? '';
+		expect(ownOriginsIn(meta)).toEqual(own);
+		expect(withPolicy(written, {}, ['https://lattice.style'])).not.toBe(written);
+		expect(withPolicy(written, {}, ownOriginsIn(meta) ?? [])).toBe(written);
+		expect(ownOriginsIn('<meta content="default-src \'self\'">')).toBeNull();
 	});
 	it('takes a local origin from --self-origin, and refuses anything that is not an origin', () => {
 		expect(selfOrigins(['node', 'csp.mjs', '--self-origin=http://localhost:4321'], {})).toEqual(['https://lattice.style', 'http://localhost:4321']);

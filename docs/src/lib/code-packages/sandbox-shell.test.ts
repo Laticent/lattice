@@ -50,7 +50,7 @@ describe('the sandbox shell', () => {
 	it('writes a document only for a sandboxed frame whose page is on the site', () => {
 		const script = new DOMParser().parseFromString(sandboxShellHtml(), 'text/html').querySelector('script')!.textContent!;
 		const SITE = 'https://lattice.style';
-		const OWN = `${SHELL_DOC_PREFIX}default-src 'none'"></head><body><p>x</p></body></html>`;
+		const OWN = `${SHELL_DOC_PREFIX}"></head><body><p>x</p></body></html>`;
 		const run = (selfOrigin: string, senderOrigin: string, html = OWN, fromParent = true) => {
 			const listeners: Array<(e: unknown) => void> = [];
 			const parent = { postMessage() {} };
@@ -89,6 +89,12 @@ describe('the sandbox shell', () => {
 		};
 		expect(write('<!doctype html><html><head><meta charset="utf-8"></head><body><script>1</script>')).toBe(0);
 		expect(write(` ${SHELL_DOC_PREFIX}x">`)).toBe(0); // the policy must come FIRST, not merely appear
-		expect(write(`${SHELL_DOC_PREFIX}default-src 'none'"></head>`)).toBe(1);
+		// An EMPTY policy is a tag that proves nothing: the browser ignores it and the document would run
+		// under the shell's `script-src *` (found by the code checker), so the prefix includes the deny.
+		const tag = SHELL_DOC_PREFIX.slice(0, SHELL_DOC_PREFIX.indexOf('content="') + 'content="'.length);
+		expect(write(`${tag}"><script src="https://evil.example/x.js"></script>`)).toBe(0);
+		expect(write(`${tag}script-src *">`)).toBe(0);
+		// …and every host's real document passes: its policy starts by denying everything.
+		expect(write(`${SHELL_DOC_PREFIX}; script-src 'sha256-x'"></head>`)).toBe(1);
 	});
 });

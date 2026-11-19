@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { inlineAgents } from '../../../../../lib/core/frame-agents.mjs';
+import { AGENTS_MARK, inlineAgents } from '../../../../../lib/core/frame-agents.mjs';
 import { buildStageDoc as buildStageDocTags, createStageController } from './stage-window.js';
 
 // The Stage's agents ride in a same-origin file (frame-agents.mjs): the document names them with
@@ -353,6 +353,47 @@ describe('stage-window — createStageController', () => {
 		expect(ctl.isOpen()).toBe(false);
 	});
 
+	// The agents file is fetched. One that never ran (a 404 after a deploy, a refused load) left a hidden
+	// #latt-stage and no `ready`: a blank projector and a silent console (found by the inversion lens).
+	it('shows a deck document that loaded without its agents file, and says so once', () => {
+		for (const ran of [false, true]) {
+			const win = fakeWindow();
+			const stage = { style: { visibility: '' } };
+			const marked = { has: ran };
+			Object.assign(win.document, { readyState: 'complete' });
+			Object.assign(win.document.documentElement, { hasAttribute: (k: string) => k === AGENTS_MARK && marked.has });
+			win.document.getElementById = vi.fn((id: string) => (id === 'latt-stage' ? (stage as unknown as HTMLElement) : null));
+			vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+			const onLost = vi.fn();
+			const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+			ctl.toggle();
+			expect(onLost.mock.calls, `ran=${ran}`).toEqual(ran ? [] : [['unloaded']]);
+			expect(stage.style.visibility, `ran=${ran}`).toBe(ran ? '' : 'visible');
+			ctl.close();
+			vi.restoreAllMocks();
+		}
+	});
+	// Chromium stops parsing a written document at a failed blocking script and never fires `load`, so
+	// the deadline is the only answer there. Fake timers: the cell asserts on the order, not the clock.
+	it('answers a deck document that never finishes loading at the deadline, and only once', () => {
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		const stage = { style: { visibility: '' } };
+		Object.assign(win.document, { readyState: 'loading' });
+		Object.assign(win, { addEventListener: vi.fn() });
+		Object.assign(win.document.documentElement, { hasAttribute: () => false });
+		win.document.getElementById = vi.fn((id: string) => (id === 'latt-stage' ? (stage as unknown as HTMLElement) : null));
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() }).toggle();
+		expect(onLost).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(10_000);
+		expect(onLost.mock.calls).toEqual([['unloaded']]);
+		expect(stage.style.visibility).toBe('visible');
+		// …and a `load` that arrives after the deadline does not say it twice.
+		for (const [, fn] of (win as unknown as { addEventListener: ReturnType<typeof vi.fn> }).addEventListener.mock.calls) (fn as () => void)();
+		expect(onLost).toHaveBeenCalledTimes(1);
+	});
 	it('writes the deck as soon as it lands when the render was still in flight at open', () => {
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
