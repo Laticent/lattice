@@ -60,6 +60,7 @@ findings subtracted.
 | `_build` accepted | not probed | 80 of 80 | stamped on every slide; its stepping runs in the live player, which this probe does not drive |
 | Speaker note in the PowerPoint export (poster) | not probed | dropped | a `contact` deck exports no notes slide; a control `content` deck keeps its note |
 | Deck header and footer shown (Chromium, computed visibility) | not probed | 75 of 80 | hidden on the three bookends, whose samples carry `silent`, and on `image` and `scene`, whose CSS hides both (`image.styles.css:69-70`, `scene.styles.css:48-49`) with no manifest declaration |
+| Deck logo painted (`logo:`; Chromium, computed style) | not probed | 80 of 80 | |
 
 The two items that were not counts were then settled exactly. **Undocumented tokens:** of 377
 author-typable tokens, 20 cannot be learned from any author-facing doc, literally or as a documented
