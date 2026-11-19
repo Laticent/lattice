@@ -29,6 +29,10 @@ gated tests. Everything below marked **measured** was run. Light mode, `indaco` 
 (three counts corrected) and re-rendered six findings from scratch with the real CLI: journey and
 cycle with `1.`, agenda with `-`, the contact layout dropping a speaker note, cards-grid `numbered`,
 and a checklist linting clean without its heading. All six reproduced.
+**Not reproduced:** the sweep tallies come from one run of those uncommitted scripts and were
+not re-run by the fact-check. They are 66/68 and 64/68 (Finding 1), the 22 / 13 / 12 component
+counts (Finding 2), the whole Finding 3 table except the coda's 11 opt-outs, and Finding 4's
+37 / ≈35 / 8 / 7 / 8. Read them as single-run measurements.
 
 ## The answer in five lines
 
