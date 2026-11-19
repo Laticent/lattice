@@ -61,6 +61,26 @@ inheritance. `docs/src/playground/frame-agents.test.ts` fails `buildSrcdoc` or t
 writes an inline script; `e2e/site-csp.spec.ts` reads refusals from every frame and from the
 console, which is what covers the single-slide builder.
 
+## Firefox only: a preview falls back to the default serif on the SECOND page a visitor opens
+
+**Symptom.** In Firefox, a slide preview on a docs page with the strict CSP renders in the default
+serif, unfitted, on any page after the first one opened in that tab; a reload of the first page is
+fine. The console shows `The page's settings blocked a script … lattice-runtime.js` and
+`… blocked the loading of a resource (font-src) … woff2`, both same-origin files. Chromium and WebKit
+are clean, and the e2e stays green unless the cell lets the service worker run.
+
+**Cause.** The service worker (`public/sw.js`) controls a page only from the navigation after it
+activates, and a `srcdoc` preview inherits the page's policy. Gecko matches that inherited `'self'`
+wrongly for a subresource the worker answers, so the frame's own runtime, agents file and fonts are
+refused (measured 2026-11-19: 5 refusals on a component page after one earlier page, 0 with the
+worker blocked, 0 with the origin named).
+
+**Fix.** Name the site's origins beside `'self'` in every directive that has it: `csp.mjs`
+`selfOrigins()` (lattice.style and the Cloudflare preview project, plus `--self-origin=` for a local
+build, which `build:e2e` passes). Any cell that checks a preview under the policy should also run with
+`test.use({ serviceWorkers: 'allow' })`, after one navigation: `site-csp.spec.ts` "under the service
+worker" is the guard, and it is red without the named origins.
+
 ## `build:check` fails: "embeds a `<style>` element but does not call `sanitizeStyleText`" (HARD RULE #22)
 
 The **stylesheet** channel of the same frame. A preview builder assembles one

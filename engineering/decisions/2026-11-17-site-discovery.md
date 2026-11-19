@@ -184,6 +184,15 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
   - **Evaluation that never runs is not counted**, each by its exact shape: the `function-bind`
     polyfill, JSZip's `setImmediate` string callback, and CodeMirror's Pug syntax probe (inside a
     `try`; under the policy the attribute keeps plain highlighting).
+  - **The site's own origins sit beside `'self'`** (`selfOrigins`, added 2026-11-19). Every e2e
+    cell above ran with the service worker blocked, which hid a Gecko defect: once `public/sw.js`
+    controls a page (from a visitor's second page on), Firefox matched a srcdoc preview's inherited
+    `'self'` wrongly for anything the worker answered, refused the frame's runtime, agents file and
+    fonts, and the preview fell back to the default serif. Naming `https://lattice.style` and
+    `https://*.lattice-docs-5ji.pages.dev` explicitly is what Gecko matches (5 refusals to 0 on the
+    same page). The wildcard covers only our own Cloudflare Pages project. A local build adds its
+    origin with `--self-origin=` (`build:e2e`). The tag grew by about 410 bytes;
+    `getting-started`, the tightest budgeted policy page, keeps about 1 KB under its ceiling.
   - **A floor.** `MIN_POLICY_PAGES` (198) fails the build when a page silently loses its policy:
     an exemption is computed, so a new import can strip one.
   - **What still has no policy, and why** (every build prints the list; the follow-up carries it):
@@ -192,8 +201,8 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     the fix is the subsetter in a same-origin worker, measured to work above); Cadenza and Suono
     (`esm.run` serves runtimes whose own requests, models and wasm from other hosts, are not yet
     measured: `OPEN_ORIGINS`); and the landing page, held by name (`HELD_ROUTES`) because the policy
-    tag is about 1,050 bytes and the page's HTML sits 52 bytes under its 121,924-byte `htmlRaw` hard
-    ceiling (measured 2026-11-19), so the policy would put it about 1.0 KB past. The ceiling is the
+    tag is about 1,460 bytes and the page's HTML sits 52 bytes under its 121,924-byte `htmlRaw` hard
+    ceiling (measured 2026-11-19), so the policy would put it about 1.4 KB past. The ceiling is the
     owner's number.
   - **The e2e reads refusals from every frame and from the console.** With an inline script put
     back into the single-slide preview, WebKit fired `securitypolicyviolation` in the frame;

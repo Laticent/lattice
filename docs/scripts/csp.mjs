@@ -66,13 +66,29 @@ const isDataBlock = (type) => /^application\/(?:ld\+)?json$/i.test(String(type ?
 
 export const sha256 = (text) => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
 
+// THE SITE'S OWN ORIGINS, NAMED BESIDE 'self'. A srcdoc preview inherits this policy, and Gecko then
+// matches 'self' wrongly for a subresource the service worker (public/sw.js) answers: on any page
+// after the first one a visitor opens (the worker controls a page only from then on), Firefox refused
+// the frame's own same-origin runtime, agents file and theme fonts, and the preview fell back to the
+// default serif. Chromium and WebKit were clean. Naming the origin explicitly is what Gecko matches
+// (0 refusals against 5 on the same page; measured 2026-11-19, engineering/gotchas/docs-site.md).
+// Production is lattice.style; every PR preview is a subdomain of our one Cloudflare Pages project.
+// `--self-origin=<origin>` (repeatable) adds the origin a local build is served from: `build:e2e`
+// names http://localhost:4321, so the e2e runs the policy as a deploy does.
+const SELF_ORIGIN_RE = /^https?:\/\/(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::\d{1,5})?$/;
+export function selfOrigins(argv = process.argv) {
+	const extra = argv.filter((a) => a.startsWith('--self-origin=')).map((a) => a.slice('--self-origin='.length));
+	for (const o of extra) if (!SELF_ORIGIN_RE.test(o)) throw new Error(`--self-origin: "${o}" is not a scheme://host[:port] origin`);
+	return [...new Set(['https://lattice.style', 'https://*.lattice-docs-5ji.pages.dev', ...extra])];
+}
+
 /**
  * The policy for one page, from the final bytes of its inline scripts, plus the outside origins its
  * code calls (`allow`, from `classify`): each joins exactly the directives named for it.
  * @param {string} html
  * @param {Record<string, string[]>} [allow]
  */
-export function policyFor(html, allow = {}) {
+export function policyFor(html, allow = {}, own = selfOrigins()) {
 	// Parse the page the way the browser does (parse5, via hast) and hash each inline script's
 	// text exactly as the parser hands it over. Pattern-matching the markup got this wrong twice
 	// (an HTML comment that says `<style>` swallowed a real element; an end tag such as
@@ -84,6 +100,7 @@ export function policyFor(html, allow = {}) {
 		scripts.add(sha256(el.children.map((c) => (c.type === 'text' ? c.value : '')).join('')));
 	}
 	const plus = (d) => (allow[d]?.length ? ` ${allow[d].join(' ')}` : '');
+	const self = `'self' ${own.join(' ')}`;
 	return [
 		"default-src 'self'",
 		// 'report-sample' puts the first 40 characters of a blocked script in the violation
@@ -92,16 +109,16 @@ export function policyFor(html, allow = {}) {
 		// 'wasm-unsafe-eval' lets a page compile WebAssembly and nothing else (it is not JS eval).
 		// A wasm library on a policy page (the first one found was Calco's HarfBuzz font subsetter,
 		// which Chromium refused to compile; WebKit and Gecko did not enforce it) needs it.
-		`script-src 'self' 'wasm-unsafe-eval' 'report-sample' ${[...scripts].sort().join(' ')}${plus('script-src')}`,
+		`script-src ${self} 'wasm-unsafe-eval' 'report-sample' ${[...scripts].sort().join(' ')}${plus('script-src')}`,
 		// `blob:`: the single-slide preview shares one engine sheet across its frames as a blob URL
 		// (single-slide-render.ts `sharedSheetHref`), and WebKit checks a srcdoc frame's <link> against
 		// the inherited policy. A blob is a same-document payload; it reaches no network.
-		"style-src 'self' 'unsafe-inline' blob:",
-		"img-src 'self' data: blob:",
-		"font-src 'self' data:",
-		"media-src 'self' data: blob:",
-		`connect-src 'self'${plus('connect-src')}`,
-		"worker-src 'self' blob:",
+		`style-src ${self} 'unsafe-inline' blob:`,
+		`img-src ${self} data: blob:`,
+		`font-src ${self} data:`,
+		`media-src ${self} data: blob:`,
+		`connect-src ${self}${plus('connect-src')}`,
+		`worker-src ${self} blob:`,
 		"manifest-src 'self'",
 		allow['frame-src']?.length ? `frame-src${plus('frame-src')}` : "frame-src 'none'",
 		"object-src 'none'",
@@ -348,12 +365,12 @@ function pages(dist) {
  * not get a policy anyway, or that no longer exists, fails the build, so the list cannot rot.
  */
 export const HELD_ROUTES = Object.freeze({
-	// The policy tag is about 1.05 KB (ten script hashes and the video players' frame origins), and
-	// the landing page's HTML sits 52 B under its 121,924 B htmlRaw hard ceiling (measured 2026-11-19,
-	// docs/scripts/check-route-budget.mjs), so the policy would put it about 1.0 KB past.
+	// The policy tag is about 1.46 KB (ten script hashes, the video players' frame origins and the site's
+	// own origins), and the landing page's HTML sits 52 B under its 121,924 B htmlRaw hard ceiling
+	// (measured 2026-11-19, docs/scripts/check-route-budget.mjs), so the policy would put it 1.4 KB past.
 	// Raising a ceiling is the owner's call, put to them with this change; until then the page
 	// keeps no policy rather than a trimmed one.
-	'index.html': 'route budget: the policy would put the landing page 1.0 KB past its htmlRaw ceiling',
+	'index.html': 'route budget: the policy would put the landing page 1.4 KB past its htmlRaw ceiling',
 });
 
 /** The fewest pages that must carry the policy (see the check in `main`). */

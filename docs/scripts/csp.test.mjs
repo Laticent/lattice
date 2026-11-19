@@ -1,7 +1,10 @@
 // Unit tests for the pure halves of scripts/csp.mjs. No build, no dist.
 
 import { describe, expect, it } from 'vitest';
-import { classify, evaluatesCode, exemption, LINK_ONLY_ORIGINS, OPEN_ORIGINS, ORIGIN_DIRECTIVES, policyFor, RUNTIME_ORIGINS, sha256, withPolicy, writesInlineFrameScript } from './csp.mjs';
+import { classify, evaluatesCode, exemption, LINK_ONLY_ORIGINS, OPEN_ORIGINS, ORIGIN_DIRECTIVES, policyFor, RUNTIME_ORIGINS, selfOrigins, sha256, withPolicy, writesInlineFrameScript } from './csp.mjs';
+
+// The site's own origins, which every 'self' directive names beside it (selfOrigins, without a local one).
+const OWN = selfOrigins([]).join(' ');
 
 const page = (head, body = '') => `<!doctype html><html><head><meta charset="utf-8"><title>t</title>${head}</head><body>${body}</body></html>`;
 const scriptHashes = (html) => policyFor(html).match(/script-src ([^;]*)/)[1].split(' ').filter((t) => t.startsWith("'sha256-"));
@@ -39,8 +42,26 @@ describe('policyFor', () => {
 		expect(p).not.toMatch(/'unsafe-eval'/);
 		expect(p).toContain("object-src 'none'");
 		expect(p).toContain("frame-src 'none'");
-		expect(p).toContain("img-src 'self' data: blob:");
-		expect(p).toContain("connect-src 'self'");
+		expect(p).toContain(`img-src 'self' ${OWN} data: blob:`);
+		expect(p).toContain(`connect-src 'self' ${OWN}`);
+		expect(p).not.toMatch(/https?:\/\/(?!lattice\.style|\*\.lattice-docs-5ji\.pages\.dev)/);
+	});
+
+	// Gecko matches an inherited 'self' wrongly for a subresource the service worker answers to a srcdoc
+	// preview, so every directive that names 'self' names the site's origins beside it.
+	it('names the site’s own origins beside every \'self\' that a preview frame loads through', () => {
+		const p = policyFor(page(''));
+		for (const d of ['script-src', 'style-src', 'img-src', 'font-src', 'media-src', 'connect-src', 'worker-src']) {
+			expect(p, d).toMatch(new RegExp(`${d} 'self' https://lattice\\.style https://\\*\\.lattice-docs-5ji\\.pages\\.dev[ ;]|${d} 'self' https://lattice\\.style https://\\*\\.lattice-docs-5ji\\.pages\\.dev$`));
+		}
+		expect(p).toContain("default-src 'self';");
+		expect(p).toContain("base-uri 'self';");
+	});
+	it('takes a local origin from --self-origin, and refuses anything that is not an origin', () => {
+		expect(selfOrigins(['node', 'csp.mjs', '--self-origin=http://localhost:4321'])).toEqual(['https://lattice.style', 'https://*.lattice-docs-5ji.pages.dev', 'http://localhost:4321']);
+		for (const bad of ["http://x; script-src 'unsafe-inline'", 'javascript:1', 'https://a.example/path', "'unsafe-eval'"]) {
+			expect(() => selfOrigins([`--self-origin=${bad}`]), bad).toThrow(/not a scheme/);
+		}
 	});
 });
 
@@ -129,7 +150,7 @@ describe('exemption', () => {
 		expect(exempt).toBeNull();
 		expect(allow).toEqual({ 'frame-src': ['https://www.tiktok.com'], 'connect-src': ['https://openrouter.ai', 'https://www.tiktok.com'] });
 		const p = policyFor(page(''), allow);
-		expect(p).toContain("connect-src 'self' https://openrouter.ai https://www.tiktok.com");
+		expect(p).toContain(`connect-src 'self' ${OWN} https://openrouter.ai https://www.tiktok.com`);
 		expect(p).toContain('frame-src https://www.tiktok.com');
 		expect(p).not.toContain("frame-src 'none'");
 		expect(p).not.toContain('github.com');
@@ -152,7 +173,7 @@ describe('exemption', () => {
 describe('the policy', () => {
 	it('lets a page compile WebAssembly (Calco’s font subsetter) without allowing JS eval', () => {
 		const p = policyFor(page(''));
-		expect(p).toMatch(/script-src 'self' 'wasm-unsafe-eval'/);
+		expect(p).toContain(`script-src 'self' ${OWN} 'wasm-unsafe-eval'`);
 		expect(p).not.toMatch(/'unsafe-eval'/);
 	});
 	it('lists every runtime and link-only origin once, in exactly one list', () => {

@@ -8,6 +8,10 @@
   same-origin shell, so a page's policy no longer refuses them. Measured on Chromium, WebKit and
   Gecko: every policy page loads with no violation, and the previews, a function plot drawn in its
   sandbox, and the library demos all work under it.
+- **Firefox previews keep their fonts and fit from the second page on.** Firefox refused a
+  preview's own runtime and fonts once the site's offline service worker was in control, so every
+  page after the first rendered its previews in a fallback font. The policy now names the site's
+  own addresses beside `'self'`, which Firefox honors.
 - **Six pages still carry no policy, each named by every build:** the Studio and one prototype
   (the export player writes inline scripts into its capture frames), Calco (its font subsetter
   builds code from strings), Cadenza and Suono (their voice code imports a runtime whose own

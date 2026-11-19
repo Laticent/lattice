@@ -28,9 +28,9 @@ why now   — stage 2 put the strict policy on 198 of 204 routes: every preview 
             navigation the service worker never sees (it does not control an opaque-origin frame), so
             a code package or draw frame opens offline only while the HTTP cache holds the shell.
             Pages without a policy keep srcdoc and are unaffected (sandbox-shell.mjs).
-            HELD (/): the policy tag is about 1,050 bytes and the landing page's HTML sits 52 bytes
+            HELD (/): the policy tag is about 1,460 bytes and the landing page's HTML sits 52 bytes
             under its 121,924-byte htmlRaw hard ceiling (2026-11-19), so the policy would put it
-            about 1.0 KB past; raising it is the owner's call (HELD_ROUTES).
+            about 1.4 KB past; raising it is the owner's call (HELD_ROUTES).
 where     — docs/src/components/studio/export/deck-export.js and
             docs/src/components/studio/player-prune-browser.ts (frame);
             lib/core/pdf-compose/font-subset.mjs and docs/src/components/studio/export/calco-font-host.js
