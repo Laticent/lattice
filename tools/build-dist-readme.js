@@ -80,6 +80,7 @@ const GROUPS = [
     prefix: 'engineering/',
     purpose:
       'The contributor indexes — `capabilities.md` (every npm script, tool and framework), '
+      + '`codemap.md` (what lives where: every folder, code part, plugin and workspace library), '
       + '`decisions.md` (one row per decision note) and `gotchas.md` (one row per gotcha). Each is '
       + 'generated from one-file-per-item sources and never committed, so two PRs that each add an '
       + 'item never touch the same file (engineering/decisions/2026-10-09-generated-indexes-uncommitted.md).',

@@ -166,3 +166,6 @@ code-sandbox-report-*.md
 
 # Platform-suite evidence (screenshots, renders); CI uploads it, and a local run leaves it here.
 platform-suite-artifacts/
+
+# Playwright run output when the suite is started from the repo root (docs/ ignores its own copy).
+/test-results/

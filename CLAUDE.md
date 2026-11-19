@@ -722,7 +722,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | **Writing, fixing or investigating a test (any tier)** — the missions, the practice, the gotchas; and, for a test that waits, times, randomizes or reaches out, the nine flaky shapes and their fixes (HARD RULE #32) | `engineering/testing.md` (section by section), then `engineering/decisions/2026-11-06-flaky-tests.md` for the flaky shapes |
 | **Waiting on a slow job** — a build, the integration tier, a push — one waiter per job, always bounded | `engineering/development.md` §Waiting for a slow job. Never hand-roll `until …; do sleep N; done` in a background call: it has no deadline and no identity, and a late fire re-sends the whole conversation at full price. Use `tools/wait-for.sh` |
 | Something behaving strangely (symptom index) | `dist/engineering/gotchas.md` (generated on install, not committed) lists SYMPTOMS — skim it, open the ONE `engineering/gotchas/<topic>.md` it names. Searching by API / property / selector / token instead? **`grep -rn <term> engineering/gotchas/`** — the bodies live there, not in the index. Never read either top-to-bottom |
-| Engine internals, where transform kernels live | `engineering/architecture.md` |
+| Where X lives · engine internals | `dist/engineering/codemap.md` · `engineering/architecture.md` |
 | Where we stand vs Marp (independence scorecard) | `engineering/marp-independence.md` |
 | The CSS cascade / `@layer` (declared-but-inert; the trap) | `engineering/cascade.md` |
 | **Layering a slide** — which z-plane a thing lives on, and the local 0–9 band | `design/forms.md` §5.2 + `lib/base/base.tokens.css` § depth axis |

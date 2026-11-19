@@ -55,73 +55,82 @@ const LIBRARIES = fs.readdirSync(path.join(ROOT, 'docs', 'src', 'lib'), { withFi
 
 /**
  * Every part, bottom layer first. `match` is a path prefix (or a function); the first match wins.
+ * `about` is the part's one-line purpose and `where` its paths when `match` is a function: both feed
+ * the code map (tools/build-codemap.js, dist/engineering/codemap.md), whose --check fails on a part
+ * with no `about`. A plugin's and a workspace library's purpose come from their own manifests.
  * Layers: 0 leaves and libraries · 1 core · 2 contracts over core · 3 the catalog · 4 adapters and
  * plugins · 5 the engine · 6 what uses the engine · 10+ the docs site · 20 tools.
  */
 const PARTS = [
   ...LIBRARIES.map((name) => ({ part: `@laticent/${name}`, layer: 0, library: true, match: `docs/src/lib/${name}/` })),
-  { part: 'lib/adaptive', layer: 0, match: 'lib/adaptive/' },
-  { part: 'lib/fonts', layer: 0, match: 'lib/fonts/' },
-  { part: 'lib/finishes', layer: 0, match: 'lib/finishes/' },
-  { part: 'lib/exemplars', layer: 0, match: 'lib/exemplars/' },
-  { part: 'lib/typography', layer: 0, match: 'lib/typography/' },
-  { part: 'lib/motion', layer: 0, match: 'lib/motion/' },
+  { part: 'lib/adaptive', layer: 0, match: 'lib/adaptive/', about: 'The four box families (structural breakpoints) a component reflows across.' },
+  { part: 'lib/fonts', layer: 0, match: 'lib/fonts/', about: 'The manifest of self-hosted text fonts every render path loads.' },
+  { part: 'lib/finishes', layer: 0, match: 'lib/finishes/', about: 'Finish packages (layered, palette-blind backdrops) and the generator that turns a recipe into finish CSS.' },
+  { part: 'lib/exemplars', layer: 0, match: 'lib/exemplars/', about: 'Trims a worked example deck to a tier: short, standard or full.' },
+  { part: 'lib/typography', layer: 0, match: 'lib/typography/', about: 'The `--fs-*` type scale: the coefficient sets and the math that sizes them.' },
+  { part: 'lib/motion', layer: 0, match: 'lib/motion/', about: 'Motion packages: the Anima scenes (art, poster, scene spec) an animated slide plays.' },
   // A JSON Schema is a contract both sides read (the component, theme, plugin and package
   // formats), and imports nothing: its own part, at the bottom, wherever its folder is.
   // The treatment vocabulary (`tint-*`, `mark-*`) as data: pure, require-free, read by the linter.
-  { part: 'lib/base', layer: 0, match: 'lib/base/' },
+  { part: 'lib/base', layer: 0, match: 'lib/base/', about: 'The CSS every component inherits: tokens, element defaults, universal modifiers, the finish compositor, and the treatment vocabulary as data.' },
   // The root manifest, read as data (a build stamps its version into the player core).
-  { part: 'package.json', layer: 0, match: (f) => f === 'package.json' },
+  { part: 'package.json', layer: 0, match: (f) => f === 'package.json', where: 'package.json', about: 'The root manifest: npm scripts, dependencies and the workspaces.' },
   // The skill index (tools/skill-index.js output), read as data by the Studio chat's guide list.
-  { part: 'design/skills', layer: 0, match: (f) => f === 'design/skills/index.json' },
-  { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f) },
-  { part: 'lib/core', layer: 1, match: 'lib/core/' },
-  { part: 'lib/theme', layer: 2, match: 'lib/theme/' },
-  { part: 'lib/tokens', layer: 2, match: 'lib/tokens/' },
-  { part: 'lib/integrations', layer: 2, match: 'lib/integrations/' },
-  { part: 'lib/components', layer: 3, match: 'lib/components/' },
-  { part: 'lib/forms', layer: 3, match: 'lib/forms/' },
-  { part: 'lib/layout', layer: 3, match: 'lib/layout/' },
+  { part: 'design/skills', layer: 0, match: (f) => f === 'design/skills/index.json', where: 'design/skills/index.json', about: 'The generated skill index the Studio chat lists its guides from.' },
+  { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f), where: 'lib/**/*.schema.json', about: 'JSON Schemas for the component, theme, finish, motion and package formats, beside the code that reads them.' },
+  { part: 'lib/core', layer: 1, match: 'lib/core/', about: 'Pure transform kernels every render path shares: slide splitting, resolvers, list and section walkers, color.' },
+  { part: 'lib/theme', layer: 2, match: 'lib/theme/', about: 'Palette derivation and color math, behind the Studio Theme panel and the theme tools.' },
+  { part: 'lib/tokens', layer: 2, match: 'lib/tokens/', about: 'The permanent old-to-new token rename table.' },
+  { part: 'lib/integrations', layer: 2, match: 'lib/integrations/', about: 'Config, CSS and docs for the libraries Lattice embeds: markdown-it, KaTeX, Mermaid, highlight.js.' },
+  { part: 'lib/components', layer: 3, match: 'lib/components/', about: 'The component catalog: one folder per `_class:` layout, grouped in buckets. Pick one with `dist/docs/components.pick.md`.' },
+  { part: 'lib/forms', layer: 3, match: 'lib/forms/', about: 'The Form model (Frame + Cell + Tile), one folder per noun.' },
+  { part: 'lib/layout', layer: 3, match: 'lib/layout/', about: 'The deterministic gates and scaffolds a proposed layout must pass in the Studio.' },
   // The package FORMAT: how a component, theme, finish or plugin folder is read, written and
   // stored. The commands that act on packages (add, gate, render) are lib/cli.
-  { part: 'lib/packages', layer: 3, match: 'lib/packages/' },
-  { part: 'lib/transformers', layer: 4, match: 'lib/transformers/' },
-  { part: 'lib/plugins', layer: 4, match: (f) => /^lib\/plugins\/[^/]+$/.test(f) },
+  { part: 'lib/packages', layer: 3, match: 'lib/packages/', about: 'The package format: how a theme, component, finish, motion or plugin folder is read, written and indexed.' },
+  { part: 'lib/transformers', layer: 4, match: 'lib/transformers/', about: 'The ordered transformer list every render path runs over rendered HTML.' },
+  { part: 'lib/plugins', layer: 4, match: (f) => /^lib\/plugins\/[^/]+$/.test(f), where: 'lib/plugins/', about: 'The plugin host: resolves, orders and installs plugins, and holds the generated registries. Each plugin is its own folder, listed under Plugins.' },
   { part: (f) => `lib/plugins/${f.split('/')[2]}`, layer: 4, plugin: true, match: 'lib/plugins/' },
-  { part: 'lib/engine', layer: 5, match: 'lib/engine/' },
-  { part: 'lib/authoring', layer: 6, match: 'lib/authoring/' },
-  { part: 'lib/cli', layer: 6, match: 'lib/cli/' },
-  { part: 'lib/concepts', layer: 6, match: 'lib/concepts/' },
-  { part: 'lib/diagnostics', layer: 6, match: 'lib/diagnostics/' },
-  { part: 'lib/export', layer: 6, match: 'lib/export/' },
-  { part: 'lib/playground', layer: 6, match: 'lib/playground/' },
-  { part: 'lib/runtime', layer: 6, match: 'lib/runtime/' },
-  { part: 'lattice.js', layer: 7, match: (f) => f === 'lattice.js' },
+  { part: 'lib/engine', layer: 5, match: 'lib/engine/', about: 'The owned Markdown-to-slides engine: the canonical render path.' },
+  { part: 'lib/authoring', layer: 6, match: 'lib/authoring/', about: 'Deck lint, review and scorecard cores. Pure, shared by the CLI, `validate()` and the browser; every lint rule runs through `lint-core.js`.' },
+  { part: 'lib/cli', layer: 6, match: 'lib/cli/', about: 'CLI commands over packages: add, gate and render one, run a code package with consent, migrate deck metadata.' },
+  { part: 'lib/concepts', layer: 6, match: 'lib/concepts/', about: 'The design-vocabulary graph, checked against the live catalogs.' },
+  { part: 'lib/diagnostics', layer: 6, match: 'lib/diagnostics/', about: 'Does a slide rendered alone match the same slide rendered inside its deck? The pure core both surfaces share.' },
+  { part: 'lib/export', layer: 6, match: 'lib/export/', about: 'The export pipeline: PDF assets, PPTX and office writers, the HTML player, video, and export-to-Marp.' },
+  { part: 'lib/playground', layer: 6, match: 'lib/playground/', about: 'The browser entry: renders a deck client-side through the owned engine.' },
+  { part: 'lib/runtime', layer: 6, match: 'lib/runtime/', about: 'The VS Code preview runtime, built to `dist/lattice-runtime.js`.' },
+  { part: 'lattice.js', layer: 7, match: (f) => f === 'lattice.js', where: 'lattice.js', about: 'The `lattice` command: render, export, check and share a deck.' },
   // The Marp kit's VS Code extension and its packager (kit/vscode): reads the catalog to list the layouts,
   // and is read only by tools/build-marp-kit.js. Not in the npm package: the extension loads `vscode`.
-  { part: 'kit/vscode', layer: 7, match: 'kit/vscode/' },
+  { part: 'kit/vscode', layer: 7, match: 'kit/vscode/', about: "The Marp kit's VS Code extension and its packager." },
   // The docs site. The bundles in docs/src/playground/*.generated.* are lib/ compiled for the
   // browser: built, never scanned, and the site's way into the engine.
-  { part: 'site/bundles', layer: 9, match: (f) => /^docs\/src\/playground\/.*\.generated\./.test(f) },
-  { part: 'site/styles', layer: 10, match: 'docs/src/styles/' },
-  { part: 'site/lib', layer: 10, match: 'docs/src/lib/' },
-  { part: 'site/ui', layer: 11, match: 'docs/src/components/ui/' },
-  { part: 'site/playground', layer: 12, match: 'docs/src/playground/' },
-  { part: 'site/components', layer: 13, match: 'docs/src/components/' },
-  { part: 'site/studio', layer: 14, match: 'docs/src/components/studio/' },
+  { part: 'site/bundles', layer: 9, match: (f) => /^docs\/src\/playground\/.*\.generated\./.test(f), where: 'docs/src/playground/*.generated.*', about: "`lib/` compiled for the browser: the site's only way into the engine. Built, not committed." },
+  { part: 'site/styles', layer: 10, match: 'docs/src/styles/', about: 'Docs-site CSS, including the token bridge that maps shadcn onto the Lattice themes.' },
+  { part: 'site/lib', layer: 10, match: 'docs/src/lib/', about: 'Site logic shared by pages and islands. The `@laticent/*` folders in it are workspace libraries, listed under Workspace libraries.' },
+  { part: 'site/ui', layer: 11, match: 'docs/src/components/ui/', about: "shadcn primitives plus house additions such as the pane splitter. Extend these; don't fork a widget." },
+  { part: 'site/playground', layer: 12, match: 'docs/src/playground/', about: 'The browser render and editing layer the Playground and Studio share: deck render and preview, the editor, completion, data sources, preview-frame hosts.' },
+  { part: 'site/components', layer: 13, match: 'docs/src/components/', about: 'Site components: the header, sidebar, catalog, landing page, diagnostics and the rest.' },
+  { part: 'site/studio', layer: 14, match: 'docs/src/components/studio/', about: 'Lattice Studio, the deck editor.' },
   // The Craft lab is a page-sized tool built on Studio pieces (the code field), so it sits above.
-  { part: 'site/craft', layer: 15, match: 'docs/src/components/craft/' },
+  { part: 'site/craft', layer: 15, match: 'docs/src/components/craft/', about: 'The Craft lab, a page-sized tool built on Studio pieces.' },
   // So is the Playground's UI (its deck setup reuses the Studio's catalogs, pickers and slide pool),
   // and the prototype bake-offs, which stage Studio pieces side by side. Nothing below imports them.
-  { part: 'site/playground-ui', layer: 15, match: 'docs/src/components/playground/' },
-  { part: 'site/proto', layer: 15, match: 'docs/src/components/proto/' },
+  { part: 'site/playground-ui', layer: 15, match: 'docs/src/components/playground/', about: "The Playground's UI." },
+  { part: 'site/proto', layer: 15, match: 'docs/src/components/proto/', about: 'Prototype bake-offs that stage Studio pieces side by side.' },
   // Pages, layouts, content collections and the site's build plugins; a NEW folder under docs/src/
   // matches nothing, so it fails until it is placed on a layer here.
-  { part: 'site/pages', layer: 16, match: (f) => /^docs\/src\/(?:pages|layouts|content|plugins)\/|^docs\/src\/[^/]+$/.test(f) },
+  {
+    part: 'site/pages',
+    layer: 16,
+    match: (f) => /^docs\/src\/(?:pages|layouts|content|plugins)\/|^docs\/src\/[^/]+$/.test(f),
+    where: ['docs/src/pages/', 'docs/src/layouts/', 'docs/src/content/', 'docs/src/plugins/'],
+    about: "The site's pages, page layouts, content collections and build plugins.",
+  },
   // The conformance contracts: a harness over the engine that reads tools/ (the component-docs and
   // schema builders) and is run only by tools/. Each side imports the other, so it is part of tools.
-  { part: 'tools', layer: 20, match: 'lib/conformance/' },
-  { part: 'tools', layer: 20, match: 'tools/' },
+  { part: 'tools', layer: 20, match: 'lib/conformance/', about: 'The conformance contracts, one per kind, found by listing the folder and run by `tools/`.' },
+  { part: 'tools', layer: 20, match: 'tools/', about: 'Build, check, lint, render and audit scripts. Search `dist/engineering/capabilities.md` before writing a new one.' },
 ];
 // site/studio must win over site/components: order by specificity, not by layer.
 const MATCH_ORDER = [...PARTS].sort((a, b) => specificity(b) - specificity(a));
