@@ -84,9 +84,12 @@ test(`the chat finds a title and replaces it on one card the author applies at $
 // would match nothing, and `$1` writes it back. So the applied `Title today` is the page's Worker answering and
 // the groups expanding. preserve_case is proven by the unit tests, not here: a title in Title Case would come back
 // unchanged either way, so this run could not tell.
-test('the chat replaces by pattern, through the page’s Worker', async ({ page }) => {
+// Tagged for Gecko and WebKit too (@crosswidth keeps its Chromium desktop and mobile runs): whether a module Worker loads and answers is an engine question (module
+// Workers reached Firefox and Safari late), so Chromium alone cannot certify it.
+test('the chat replaces by pattern, through the page’s Worker @crosswidth @gecko @webkit-phone', async ({ page }) => {
 	test.setTimeout(90_000);
-	await page.setViewportSize({ width: 1440, height: 900 });
+	// The project's own viewport (a phone on webkit-phone); the chat opens at its width.
+	const w = page.viewportSize()?.width ?? 1440;
 	await page.addInitScript(() => {
 		try {
 			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
@@ -117,7 +120,7 @@ test('the chat replaces by pattern, through the page’s Worker', async ({ page 
 		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
 	});
 	await gotoStudio(page);
-	await openChatAtWidth(page, 1440);
+	await openChatAtWidth(page, w);
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('add "today" to the first title');
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
 	const apply = page.getByRole('button', { name: /^Apply/ });
