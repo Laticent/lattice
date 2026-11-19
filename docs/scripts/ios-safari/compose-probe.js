@@ -159,7 +159,7 @@ async function latticeComposeProbe() {
 				// The chip count proves the caret moved: a heading offers one style, an eyebrow line three, a list item none.
 				if (now && now === last) return `${now} (${slide.querySelectorAll(':scope > .cs-slide-bar .cs-fmt-btn').length} chips)`;
 				last = now;
-				if (Date.now() - t0 > 10000) throw new Error(`the toolbar never settled at ${what} (last ${now})`);
+				if (Date.now() - t0 > 10000) throw new Error(`the toolbar never settled at ${what} (last ${now}; ${caretState(el, slide)})`);
 			}
 		};
 		const slides = () => [...pm().querySelectorAll(':scope > .cs-slide')];

@@ -14,7 +14,7 @@ why now   — Compose now works around it (`docs/src/lib/compose/pointer-focus-c
             prosemirror-view itself and hits every editor built on it. The workaround leans on the internal's 20 ms
             delay; `pointer-focus-caret.test.ts` fails if an upgrade changes it. An upstream fix would let us delete
             the workaround.
-where     — prosemirror-view 1.42.8, `dist/index.js` line 3934, `handlers.focus`; and `selectionToDOM`, line 2300,
+where     — prosemirror-view 1.42.8, `dist/index.js` line 3934, `handlers.focus`; and `selectionToDOM`, line 2299,
             whose guard against writing during a held mouse button applies on Chrome only (`if (!force && chrome &&
             mouseDown)`, line 2307).
 done when — the owner has decided whether to file it; if yes, the issue below is filed and linked here, and this file
