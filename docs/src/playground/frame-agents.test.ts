@@ -122,6 +122,8 @@ describe('agentTag', () => {
 		expect(tag).toBe('<script nonce="n" src="/v/a&quot;b.js" data-agent="stage-fit" data-sw="1280" data-tok="&quot;&gt;&lt;x&gt;" data-edge="1"></script>');
 		// …and the value an agent reads back is the one it was given.
 		expect(inlineAgents(agentTag(`/v/${FRAME_AGENTS_FILE}`, 'stage-fit', { tok: '"><x>' }))).toContain('"tok":"\\"><x>"');
+		// The inlined form sets the file's mark as well, so a test of "hidden until fit" runs what a frame runs.
+		expect(inlineAgents(agentTag(`/v/${FRAME_AGENTS_FILE}`, 'fit'))).toContain(`setAttribute("${AGENTS_MARK}","")`);
 	});
 	it('refuses an agent it does not know, and a data key that is not a plain word', () => {
 		expect(() => agentTag('/a.js', 'evil')).toThrow(/unknown agent/);

@@ -371,6 +371,8 @@ function stageToken() {
  *   • onLost(reason) → the Stage stopped carrying the deck and NOBODY MEANT IT. `unloaded` is the
  *     third reason: the deck document loaded without its agents file, so it cannot fit or follow
  *     (`watchAgents`).
+ *   • onRecovered() → a deck reported `unloaded` sent `ready` after all (a slow load past the deadline),
+ *     so the presenter can take back the advice to reload. Optional.
  *     Separate from `onChange(null)` because the two need opposite treatment:
  *     the console reverting to plain Present is the visible fact, and whether
  *     the ROOM still has the deck is the one a presenter mid-sentence needs
@@ -405,7 +407,7 @@ function stageToken() {
  * gesture (popup-blocker-safe). The manager owns its own `message` listener
  * lifecycle and trusts only its held handle (`e.source`).
  */
-export function createStageController({ getDoc, getIndex, getStep = /** @type {(() => number|null|'next'|'prev'|'jump') | null} */ (null), onChange, onLost, onPlaced, onNav = /** @type {((action: string) => void) | null} */ (null) }) {
+export function createStageController({ getDoc, getIndex, getStep = /** @type {(() => number|null|'next'|'prev'|'jump') | null} */ (null), onChange, onLost, onRecovered = /** @type {(() => void) | null} */ (null), onPlaced, onNav = /** @type {((action: string) => void) | null} */ (null) }) {
 	let stageWin = null;
 	/** Has THIS document announced itself? Reset on every (re)write, because a
 	 *  rewrite replaces the listener that answered last time. */
@@ -460,6 +462,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	/** How long a written deck document has to show the agents file's mark (`watchAgents`). */
 	const AGENTS_DEADLINE_MS = 10_000;
 	let agentsTimer = 0;
+	/** The document `unloaded` was reported for, until its `ready` proves the report early (onRecovered). */
+	let unloadedDoc = '';
 	const HOLDING =
 		'<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Stage</title>' +
 		'<style>html,body{margin:0;height:100%;background:#15110D;color:#B6A488;' +
@@ -646,20 +650,27 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		let answered = false;
 		window.clearTimeout(agentsTimer); // a rewrite's own deadline replaces the last one
 		agentsTimer = 0;
+		unloadedDoc = '';
 		const look = () => {
 			if (answered || win !== stageWin || written !== doc) return; // answered, replaced or gone
 			answered = true;
 			window.clearTimeout(agentsTimer);
 			agentsTimer = 0;
-			let d;
 			try {
-				d = win.document;
+				// A window closed by hand, or taken over, before the liveness poll noticed: that is the loss
+				// paths' to announce ('gone', 'navigated'), not a player that failed to load.
+				if (win.closed) return;
+				const d = win.document;
 				if (d.documentElement.hasAttribute(AGENTS_MARK)) return;
 				const st = d.getElementById('latt-stage');
-				if (st) st.style.visibility = 'visible';
+				if (!st) return; // not the document we wrote
+				st.style.visibility = 'visible';
 			} catch {
 				return; // not ours any more; the loss paths answer that
 			}
+			// A SLOW load can still arrive: the agents wait on a stylesheet before them (a deck's math), and
+			// venue Wi-Fi can take longer than the deadline. The `ready` handler takes the report back if so.
+			unloadedDoc = doc;
 			onLost?.('unloaded');
 		};
 		try {
@@ -747,6 +758,11 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			ready = true;
 			show(getIndex?.() ?? 0, getStep?.() ?? null);
 			onChange?.(stageWin);
+			// The player loaded after the deadline reported it lost: say so, so the presenter does not reload.
+			if (unloadedDoc && unloadedDoc === written) {
+				unloadedDoc = '';
+				onRecovered?.();
+			}
 		} else if (d.stage === 'nav') {
 			// THE STAGE DRIVES. A gesture made on the projected window arrives here as an
 			// ACTION ('next' | 'prev' | 'first' | 'last'), never as an index — the console
@@ -783,6 +799,7 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		written = '';
 		window.clearTimeout(agentsTimer); // the agents deadline belongs to the document let go of
 		agentsTimer = 0;
+		unloadedDoc = '';
 		settleDeckWaiters(false);
 		ownSeq += 1;
 		// A goodbye still awaited belongs to a window already let go of; whatever comes next supersedes it.

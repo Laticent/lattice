@@ -68,6 +68,9 @@ describe('policyFor', () => {
 		expect(writesInlineFrameScript('const doc=`| HTML tags like \\`<script>\\` printed |`')).toBe(false);
 		// …while a real inline frame script in a template literal still counts.
 		expect(writesInlineFrameScript('f.srcdoc=`<html><body><script>go()</script></body></html>`')).toBe(true);
+		// A script BODY that starts with an escaped backtick is markup, not a code span (second checker, 32ab992).
+		expect(writesInlineFrameScript('f.srcdoc=`<html><body>\\`<script>\\`x\\`;go()</script></body></html>`')).toBe(true);
+		expect(writesInlineFrameScript('const t=`use a \\`<script>\\` tag.`')).toBe(false);
 	});
 	it('reads back the site origins a written policy names, so --check can tell them from a rewrite', () => {
 		const page = '<!doctype html><html><head><meta charset="utf-8"><script>1</script></head><body></body></html>';
