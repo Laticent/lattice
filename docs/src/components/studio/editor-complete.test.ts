@@ -11,7 +11,7 @@ import { playgroundCompletionSources } from '@/playground/complete.js';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
 import lintCore from '../../../../lib/authoring/lint-core.js';
-import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, frontMatterKeysSet, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
+import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, frontMatterKeysSet, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, termFieldCompletion, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -931,5 +931,33 @@ describe('makeAssetCompletion: sample art', () => {
 		const none = makeAssetCompletion(() => []);
 		const got = await none(new CompletionContext(EditorState.create({ doc: '![a](' }), 5, false));
 		expect(got).toBeNull();
+	});
+});
+
+// The FIELDS of a `terms:` entry complete where they go, and nowhere else.
+describe('termFieldCompletion', () => {
+	const at = (src: string) => {
+		const lines = src.split('\n');
+		const n = lines.findIndex((l) => l.includes('|')) + 1;
+		const before = lines[n - 1].slice(0, lines[n - 1].indexOf('|'));
+		lines[n - 1] = lines[n - 1].replace('|', '');
+		return termFieldCompletion((k) => lines[k - 1], n, before);
+	};
+	it('offers the three fields on a child line under a term', () => {
+		expect(at('---\nterms:\n  EBITDA:\n    pro|\n---')?.options.map((o) => o.label)).toEqual(['pronounce', 'expansion', 'definition']);
+		expect(at('---\nterms:\n  EBITDA:\n    pro|\n---')?.typed).toBe('pro');
+	});
+	it('leaves out a field the entry already has', () => {
+		expect(at('---\nterms:\n  EBITDA:\n    pronounce: ee bit dah\n    |\n---')?.options.map((o) => o.label)).toEqual(['expansion', 'definition']);
+	});
+	it('offers them inside a { } after the brace or a comma, not after a field colon', () => {
+		expect(at('---\nterms:\n  CRO: { |\n---')?.options.map((o) => o.label)).toEqual(['pronounce', 'expansion', 'definition']);
+		expect(at('---\nterms:\n  CRO: { expansion: chief revenue officer, d|\n---')?.options.map((o) => o.label)).toEqual(['pronounce', 'definition']);
+		expect(at('---\nterms:\n  CRO: { expansion: ch|\n---')).toBeNull();
+	});
+	it('stays closed on a term line, under another key, and outside the block', () => {
+		expect(at('---\nterms:\n  Derb|\n---')).toBeNull();
+		expect(at('---\nsay:\n  1:\n    pro|\n---')).toBeNull();
+		expect(at('---\ntheme: indaco\n|\n---')).toBeNull();
 	});
 });

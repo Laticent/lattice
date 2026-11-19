@@ -118,6 +118,71 @@ function inFrontMatter(doc: string, pos: number): boolean {
 	return pos <= close;
 }
 
+/**
+ * The three fields a `terms:` entry can carry (engineering/decisions/2026-11-16-terms-registry.md §3),
+ * in the order an author fills them. Any other name is ignored by the reader and warned by
+ * `terms-entry-ignored`, so these are the only names offered.
+ */
+const TERM_FIELDS: readonly { label: string; info: string }[] = [
+	{ label: 'pronounce', info: 'How the voice says it: `ee bit dah`. An empty value "" silences the term.' },
+	{ label: 'expansion', info: 'What it stands for: `earnings before interest, taxes…`. Spoken when there is no `pronounce`.' },
+	{ label: 'definition', info: 'The glossary line. Never spoken.' },
+];
+
+/**
+ * Is the cursor where a `terms:` entry's FIELD goes? Two places: an indented child line under an entry
+ * (`  EBITDA:` then `    pro|`), or inside the entry's `{ … }` after `{` or a comma (`CRO: { exp|`).
+ * Returns the word typed so far and the fields not yet written on that entry, or null. Pure: it reads
+ * lines by number, as the rest of this file does, so it is tested without an editor.
+ */
+export function termFieldCompletion(lineText: (n: number) => string, lineNumber: number, before: string): { typed: string; options: { label: string; info: string }[] } | null {
+	// Find the root line above (indent 0); it must be the `terms:` header, as a block.
+	let root = -1;
+	for (let n = lineNumber; n >= 1; n--) {
+		const t = lineText(n);
+		if (/^---[ \t]*$/.test(t)) return null; // the front matter's opening line: no root key above
+		if (t.trim() && !/^\s/.test(t)) {
+			root = n;
+			break;
+		}
+	}
+	if (root < 0 || root === lineNumber || !/^terms[ \t]*:[ \t]*$/.test(lineText(root))) return null;
+	const indentOf = (t: string) => (t.match(/^[ \t]*/) as RegExpMatchArray)[0].length;
+	let entryIndent = -1;
+	for (let n = root + 1; n <= lineNumber; n++) {
+		const t = lineText(n);
+		if (t.trim()) {
+			entryIndent = indentOf(t);
+			break;
+		}
+	}
+	const indent = indentOf(before);
+	let written: string[];
+	let typed: string;
+	const flow = before.match(/:[ \t]*\{([^}]*)$/);
+	if (indent <= entryIndent && flow) {
+		const tail = flow[1].match(/(?:^|,)[ \t]*([\w-]*)$/);
+		if (!tail) return null; // after a field's colon: that is a value, not a field
+		typed = tail[1];
+		written = [...flow[1].matchAll(/(?:^|,)[ \t]*([\w-]+)[ \t]*:/g)].map((m) => m[1]);
+	} else if (indent > entryIndent && /^[ \t]*[\w-]*$/.test(before)) {
+		typed = before.trim();
+		// The entry this child belongs to: the nearest line above at the entry indent; its other children.
+		let head = lineNumber - 1;
+		while (head > root && indentOf(lineText(head)) !== entryIndent) head--;
+		written = [];
+		for (let n = head + 1; n < lineNumber + 40; n++) {
+			if (n === lineNumber) continue;
+			const t = lineText(n);
+			if (t === undefined || (t.trim() && indentOf(t) <= entryIndent) || /^---/.test(t)) break;
+			const m = t.match(/^[ \t]*([\w-]+)[ \t]*:/);
+			if (m) written.push(m[1]);
+		}
+	} else return null;
+	const options = TERM_FIELDS.filter((f) => !written.includes(f.label));
+	return options.length ? { typed, options } : null;
+}
+
 /** What a hover over a front-matter KEY shows: the row's description, its values and its default. */
 export type FrontMatterHover = { key: string; from: number; to: number; info: string; values: string[] | null; default: string };
 
@@ -366,6 +431,21 @@ export function makeStudioCompletion(
 			const options = recordOptions(rec, components, classVocab, { ...classExtra, slideText });
 			if (!options.length) return null;
 			return { from: line.from + rec.from, options: options as Completion[], validFor: /^[\w-]*$/ };
+		}
+
+		// 1a2. A FIELD of a `terms:` entry — `pronounce`, `expansion`, `definition` — on a child line under
+		// the term or inside its `{ … }`. The reader ignores any other name, so these are the only three.
+		if (inFrontMatter(context.state.doc.toString(), context.pos)) {
+			const doc = context.state.doc;
+			const field = termFieldCompletion((n: number) => (n >= 1 && n <= doc.lines ? doc.line(n).text : (undefined as unknown as string)), line.number, before);
+			if (field) {
+				if (!field.typed && !context.explicit && !/[{,][ \t]*$/.test(before) && before.trim()) return null;
+				return {
+					from: context.pos - field.typed.length,
+					options: field.options.map((f) => ({ label: f.label, type: 'property', info: f.info, apply: applyKey(f.label, false) })),
+					validFor: /^[\w-]*$/,
+				};
+			}
 		}
 
 		// 1b. The deck-wide `class:` front-matter VALUE — the same modifier vocabulary
