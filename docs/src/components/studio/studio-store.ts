@@ -827,6 +827,44 @@ export function saveCheckpointDurably(deckId: string, source: string, label: str
 	return appendCheckpoint(deckId, cp);
 }
 
+// ANSWER THE WAITING MESSAGE AFTER CONNECTING (engineering/decisions/2026-11-19-chat-card-apply-undo.md, PR #3317).
+// An author who asks the chat with no model connected is sent to connect one. OpenRouter's sign-in reloads the page,
+// and the message used to sit unanswered after it; now the chat marks the deck that is waiting and answers it once a
+// model is ready, and the Studio reopens the chat after the sign-in. sessionStorage, because the mark must survive the
+// sign-in's round trip and nothing longer: yesterday's mark must not fire a paid turn by itself. Here, in a module the
+// Studio's first load already holds, because the shell reads it on load: a module of its own, shared by the shell and
+// the lazy chat, became a chunk the first load fetched (+573 bytes gzipped).
+const ANSWER_AFTER_CONNECT_KEY = 'lattice-chat-answer-after-connect';
+
+/** Remember that `deckId`'s last message is waiting for a model. */
+export function markAnswerAfterConnect(deckId: string): void {
+	try {
+		sessionStorage.setItem(ANSWER_AFTER_CONNECT_KEY, deckId);
+	} catch {
+		/* storage unavailable: the author asks again */
+	}
+}
+
+/** Whether `deckId` has a message waiting for a model. */
+export function hasAnswerAfterConnect(deckId: string): boolean {
+	try {
+		return sessionStorage.getItem(ANSWER_AFTER_CONNECT_KEY) === deckId;
+	} catch {
+		return false;
+	}
+}
+
+/** Take (read and clear) the mark for `deckId`: true at most once per mark, so the waiting message is answered once. */
+export function takeAnswerAfterConnect(deckId: string): boolean {
+	try {
+		if (sessionStorage.getItem(ANSWER_AFTER_CONNECT_KEY) !== deckId) return false;
+		sessionStorage.removeItem(ANSWER_AFTER_CONNECT_KEY);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 /** The chat change card's mark for "this card never saves a History entry of its own" (change-card-types.ts
  *  `NO_ENTRY`). Here, in a module the Studio's first load already holds, so the shell reads it for free. */
 export const CHAT_CARD_NO_ENTRY = 'none';

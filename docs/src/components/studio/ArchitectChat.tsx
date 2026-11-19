@@ -27,7 +27,6 @@ import { isFigureLang } from './chat-figures';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { photoNote, videoNote, videoRefusal } from './chat-photo-parts';
 import { addChatPhotos, addChatVideo, discardChatVideo, MAX_CHAT_PHOTOS, photoDataUrl, videoDataUrl } from './chat-photos';
-import { markAnswerAfterConnect, takeAnswerAfterConnect } from './chat-resume';
 import { THINKING } from './chat-status';
 import { chatLoaded, hydrateChat } from './chat-store';
 import { holdWarmUps } from './first-slide';
@@ -39,7 +38,7 @@ import { PreviewPool } from './preview-pool';
 import { cardMaxHeight, cardScrollTarget } from './proposal-pick';
 import { REF_DOC_ACCEPT } from './reference-doc';
 import { useReferenceDoc } from './reference-doc-ui';
-import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, loadChat, loadChatDraft, loadChatMode, type StoredChatMode, saveChat, saveChatDraft, saveChatMode } from './studio-store';
+import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, loadChat, loadChatDraft, loadChatMode, markAnswerAfterConnect, type StoredChatMode, saveChat, saveChatDraft, saveChatMode, takeAnswerAfterConnect } from './studio-store';
 
 // The Architect chat (Converse) — a real conversational thread. Replies STREAM in
 // token-by-token (rAF-coalesced), render as on-brand Markdown (prose sanitized with
