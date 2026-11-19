@@ -551,6 +551,11 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	// and lt1/lt2 the light one, and the master's color map reads text from the light pair. Built-in shape, table and
 	// chart styles assume dk is dark (red team and inversion, 2026-11-19).
 	const deckDark = luminance(theme.colors.dk1) > luminance(theme.colors.lt1);
+	// Under the master's map a layout's text is the deck's text color; under the other map, the deck's ground color. A
+	// layout takes whichever reads better on its own ground: one comparison, no lightness threshold, so a mid-tone ground
+	// (a #3a7bd5 deck with white text) keeps the master's map (checker on bbd647a, 2026-11-19: a threshold here and a
+	// different test for the deck mapped every layout's text onto its own ground).
+	const flipsMap = (ground: string) => contrastOf(theme.colors.lt1, ground) > contrastOf(theme.colors.dk1, ground);
 	/** Text that does not read on a layout's ground (under 3:1) takes the first fallback that does, else white or black. */
 	const readable = (frame: TextFrame | undefined, ground: string | undefined, ...fallbacks: Array<string | undefined>): TextFrame | undefined => {
 		if (!frame || !ground) return frame;
@@ -725,7 +730,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 			// white body text on white, dark titles on navy).
 			const ground = layout.ground;
 			const ownTitle = firstFrame('title', li);
-			const titleFrame = readable(ownTitle ?? theme.title?.frame, ground) as TextFrame | undefined;
+			const titleFrame = readable(ownTitle ?? theme.title?.frame, ground, theme.title?.style.color, theme.body?.style.color, theme.colors.dk1, theme.colors.lt1) as TextFrame | undefined;
 			const titleInk = titleFrame && dominantStyle(titleFrame.lines.find((l) => l.length) || titleFrame.lines[0]).color;
 			const tb = titleBox(ownTitle);
 			tree +=
@@ -737,7 +742,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 				// under the title (a lead line); else the title's own ink at a subtitle's size. Never an empty style: that
 				// inherits the master's body ink, dark text on a dark title look (owner, Google Slides, 2026-11-19).
 				const sub = firstFrame('subtitle', li) ?? firstLead(li, tb);
-				const look = readable(sub ?? quieter(titleFrame), ground, titleInk);
+				const look = readable(sub ?? quieter(titleFrame), ground, titleInk, theme.colors.dk1, theme.colors.lt1);
 				const sb = sub ? textOf(sub).box : { x: tb.x, y: tb.y + tb.h + 16, w: tb.w, h: H * 0.08 };
 				tree +=
 					`<p:sp><p:nvSpPr>${cNvPr(id++, 'Subtitle Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="subTitle" idx="1" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
@@ -747,7 +752,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 				const bb = bodyBox(li, tb);
 				// The body in the look of this layout's own body text, else its title's ink at body size: never an empty style,
 				// which inherits the master's ink (dark on a dark content look).
-				const bodyLook = readable(firstPlain(li) ?? theme.body?.frame ?? quieter(titleFrame, 0.5), ground, titleInk);
+				const bodyLook = readable(firstPlain(li) ?? theme.body?.frame ?? quieter(titleFrame, 0.5), ground, titleInk, theme.colors.dk1, theme.colors.lt1);
 				tree +=
 					`<p:sp><p:nvSpPr>${cNvPr(id++, 'Content Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph idx="1"/></p:nvPr></p:nvSpPr>` +
 					`<p:spPr>${xfrm(bb.x, bb.y, bb.w, bb.h)}${rectGeom}</p:spPr>` +
@@ -785,7 +790,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 			// What PowerPoint's Header & Footer dialog and a new slide on this layout read: a page number when the layout has one.
 			// A layout whose ground is the other way from the deck's (a navy divider in a light deck) maps text to the
 			// other pair, so a text box, table or chart added on it reads.
-			`<p:clrMapOvr>${layout.ground && isDark(layout.ground) !== deckDark ? `<a:overrideClrMapping ${isDark(layout.ground) ? CLR_MAP_DARK : CLR_MAP}/>` : '<a:masterClrMapping/>'}</p:clrMapOvr>${useLayouts ? `<p:hf sldNum="${layout.chrome.number ? 1 : 0}" hdr="0" ftr="0" dt="0"/>` : ''}</p:sldLayout>`;
+			`<p:clrMapOvr>${layout.ground && flipsMap(layout.ground) ? `<a:overrideClrMapping ${deckDark ? CLR_MAP : CLR_MAP_DARK}/>` : '<a:masterClrMapping/>'}</p:clrMapOvr>${useLayouts ? `<p:hf sldNum="${layout.chrome.number ? 1 : 0}" hdr="0" ftr="0" dt="0"/>` : ''}</p:sldLayout>`;
 		part(`ppt/slideLayouts/slideLayout${li + 1}.xml`, xml, `${CT}.slideLayout+xml`);
 		part(`ppt/slideLayouts/_rels/slideLayout${li + 1}.xml.rels`, rels.xml());
 		layoutIds.push(masterRels.add(`${REL}/slideLayout`, `../slideLayouts/slideLayout${li + 1}.xml`));

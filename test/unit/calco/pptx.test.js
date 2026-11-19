@@ -374,6 +374,29 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.match(theme, /<a:lt1><a:srgbClr val="FFFFFF"\/><\/a:lt1>/, 'light 1, what a text box on the navy layout types in, is white');
   });
 
+  test('a mid-tone ground keeps the master\'s map, so new text is the deck\'s text color, not the ground\'s', async () => {
+    // Checker on bbd647a, 2026-11-19: a lightness threshold for layouts and another test for the deck disagreed on a
+    // mid-tone ground and mapped every layout's text onto its own ground (#3A7BD5 on #3A7BD5).
+    for (const [ground, ink] of [['#3a7bd5', '#ffffff'], ['#6a6a6a', '#000000']]) {
+      const f = (text, over = {}, at = {}) => frame([[{ text, style: style({ family: 'Outfit', size: 22, color: ink, ...over }) }]], { x: 64, y: 200, w: 600, h: 30, ...at });
+      const d = {
+        width: 1280,
+        height: 720,
+        backgrounds: [{ color: ground }],
+        slides: [0, 1].map((n) => ({ image: ONE_PX_PNG, background: 0, look: 'content', frames: [f(`Title ${n}`, { size: 36 }, { role: 'title', y: 80, h: 50 }), f('Body line')] })),
+      };
+      const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+      const layout = await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string');
+      const master = await zip.file('ppt/slideMasters/slideMaster1.xml').async('string');
+      const theme = await zip.file('ppt/theme/theme1.xml').async('string');
+      assert.match(layout, /<a:masterClrMapping\/>/, `${ground}: the deck's own look keeps the master's map`);
+      // What a new text box types in: tx1 through the master's map.
+      const tx1 = master.match(/<p:clrMap [^>]*tx1="(\w+)"/)[1];
+      const typed = theme.match(new RegExp(`<a:${tx1}><a:srgbClr val="(\\w+)"`))[1];
+      assert.equal(`#${typed.toLowerCase()}`, ink, `${ground}: a new text box is the deck's text color`);
+    }
+  });
+
   test('a page number that is not the slide position stays text, so a split run keeps its printed number', async () => {
     const d = deck();
     d.slides[2].frames[1] = frame([[{ text: '2.2', style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });

@@ -30,12 +30,19 @@ page numbers, and ships a master theme, and whether that makes the editable file
   `accent1` accent, `accent2–6` cat-1–5-mark (the chart series colors), resolved on every slide under its color scheme
   (`resolvePalette`), most-common value per slot. Without a palette `readTheme` fills the slots by the same roles (body
   ink, main ground, title ink, second ground).
+  "Most slides" counts every slide: an anchor-heavy deck whose dark divider, topic and closing slides outnumber its
+  content slides (the test anchor deck, 7 of 9) gets the dark look's colors as its theme, a dark master, and a light
+  content layout that maps text back to the dark pair.
 - **Colors the Office way** (red team and inversion, 2026-11-19). The writer orders the theme as Office does, `dk1`/`dk2`
   the dark pair and `lt1`/`lt2` the light one, because Office's built-in shape, table and chart styles assume `dk` is
   dark. A dark deck's master reads text from the light pair (`<p:clrMap bg1="dk1" tx1="lt1" bg2="dk2" tx2="lt2">`, as
   Office's dark themes write it) and has the deck's dark ground; a light deck's master is white, as Office's `bg1` was (a
-  slide with no background of its own shows it). A layout whose ground is the other way from the deck's (luminance
-  under 0.179, where white reads better than black) overrides the map. The master's text styles take `tx1`/`tx2`, so a
+  slide with no background of its own shows it). Under the master's map a layout's text is the deck's text color, under the other
+  map the deck's ground color; a layout takes the map whose text reads better on its own ground (`flipsMap`). One
+  comparison and no lightness threshold: a first version decided the deck by "text lighter than ground" and each layout
+  by "ground luminance under 0.179", and on a mid-tone ground (#3a7bd5 with white text, #6a6a6a with black) the two
+  disagreed and mapped every layout's text onto its own ground (checker on bbd647a). A dark deck's notes pages print
+  light, since the notes master keeps Office's own theme and map. The master's text styles take `tx1`/`tx2`, so a
   text box, table or chart added on a navy divider in a light deck is light: before this, its text was the light
   look's dark ink, 1.0:1 on navy (the red team's measurement, nine layouts in two decks).
 - **Text styles.** The master's title, body and other styles are the deck's title and body (size, weight, ink, line pitch,
