@@ -565,3 +565,42 @@ describe('Architect chat — what the author did while a reply streamed in survi
 		expect(screen.getByRole('button', { name: 'Bring back: Slide 1' })).toBeTruthy();
 	});
 });
+
+// ONE SEND PER PRESS. On an iPhone the Return key often fires twice (the predictive-text commit, then a real
+// Enter), and both landed before React re-rendered: the first message was sent twice, and the second turn cancelled
+// the first one's reply. Seen by the owner on iOS Safari (PR #3317).
+describe('Architect chat — one press sends one message', () => {
+	const enter = (init: KeyboardEventInit = {}) => new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...init });
+	const userTurns = () => loadChat('deck-1').filter((m) => m.role === 'user').length;
+
+	it('two Enters in one tick send once', async () => {
+		const user = userEvent.setup();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const box = screen.getByLabelText('Message the Architect');
+		await user.type(box, 'hi');
+		await act(async () => {
+			box.dispatchEvent(enter());
+			box.dispatchEvent(enter());
+		});
+		await flushFrames();
+		expect(userTurns()).toBe(1);
+		expect(chatSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it('an Enter that only commits a predictive-text word does not send; the real Enter after it does, once', async () => {
+		const user = userEvent.setup();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const box = screen.getByLabelText('Message the Architect');
+		await user.type(box, 'hi');
+		await act(async () => {
+			box.dispatchEvent(enter({ isComposing: true }));
+		});
+		expect(userTurns()).toBe(0);
+		await act(async () => {
+			box.dispatchEvent(enter());
+		});
+		await flushFrames();
+		expect(userTurns()).toBe(1);
+		expect(chatSpy).toHaveBeenCalledTimes(1);
+	});
+});

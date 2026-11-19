@@ -23,3 +23,6 @@
   ("27% used", "268K of 1M tokens"), and This session shows what you have spent (with a bar toward your cap
   when you set one). A chevron opens each card's breakdown in place. Compact conversation keeps its button
   in view.
+- **Fixed: the chat's first message could be sent twice on an iPhone.** The Return key fires once to commit the
+  predictive-text word and again as Enter; both sent, the message showed twice and the second turn cancelled the
+  first one's reply. An Enter that only commits a word no longer sends, and two sends in one instant count once.
