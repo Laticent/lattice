@@ -5,7 +5,7 @@ recorded: 2026-11-19
 area: evidence
 severity: medium
 swimlane: engineering/decisions/2026-11-17-agent-pack.md §4.5
-deferred: off-path — the clipping is the kpi layout's fit in the engine and lint:deck's fit coverage, both on main before this PR; this PR only teaches the limits in start.md
+deferred: large — making kpi fit what its manifest allows, or making the manifest's capacity and `surfaces` plus a lint:deck fit rule say what fits, is a cross-variant layout and lint job across five variants; this PR teaches the measured limits in start.md so no author is steered into the clipping form
 ---
 
 # lint:deck passes kpi slides that the export clips
