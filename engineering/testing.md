@@ -358,6 +358,36 @@ start while the editor was scrolled to its tail, and the warning it waited for w
 **Do instead.** Find text through the editor's own document (the `cmTile` view handle) and dispatch
 the editor's `scrollIntoView` for the line before waiting on it (#3213).
 
+## An editor underline waited for before lint has answered
+
+**Trap.** Every CodeMirror underline in the Source editor comes from a lint pass, and the pass runs
+in a worker that can take far longer than any fixed wait. A test that gives an underline N seconds
+from some unrelated moment races the worker, not the product.
+
+**Example.** The iOS photo probe gave the photo warning 20 s from the moment it scrolled to the
+line. In the iOS Simulator the editor's first lint answer for the probe's deck came 5 to 24 s after
+the deck was typed (a cold lint worker loading the lint core). Lint-only warnings arrived in the
+same instant as the photo warning, so lint was the slow step. Two runs in about 300 (an iPad and an
+iPhone) ran out before lint had answered.
+
+**Do instead.** Wait until the editor's root has `data-linted-chars` equal to the length of the
+text it now holds (`Editor.tsx` `reportLint` stamps it for this). Then give the underline its own
+short wait. Size the lint wait as a hang guard, not as a guess at speed.
+
+## A hover at the middle of a wrapped range opens nothing
+
+**Trap.** CodeMirror opens a hover tooltip only for a pointer over a character that has rested
+for 300 ms (`HoverPlugin.startHover` and `checkHover`). The middle of a wrapped range's bounding box
+can fall in the gap between two rows, where CodeMirror finds no character, and a move every poll
+keeps restarting the 300 ms.
+
+**Example.** At phone width the photo probe hovered the middle of a class comment that wrapped onto
+two rows. Only the lint gutter's marker rescued it, and the probe failed 2 of 120 runs under load
+when that missed too.
+
+**Do instead.** Point at the middle of the range's first row (`range.getClientRects()[0]`), and
+move again only after the last move had a full second to open a tooltip.
+
 ## A test-set selection reaches ProseMirror late
 
 **Trap.** ProseMirror learns of a DOM selection only from the browser's queued `selectionchange`
