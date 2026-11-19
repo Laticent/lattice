@@ -71,20 +71,26 @@ quiet_try() {
 #    the pre-commit / pre-push gates are actually active in this session.
 #    If it fails, nothing after it can work: CLAUDE.md says we develop Lattice from this
 #    repo's own build and never from anything else, so the session must stop and tell the
-#    owner first. Print that in plain words above the step's own output, and stop the hook.
+#    owner first. Print that in plain words below the step's own output and end the hook
+#    with exit 0: a SessionStart hook's stdout reaches the session's context only on exit 0
+#    (the header above relies on the same rule), and on exit 1 the session would start
+#    without ever seeing why. The banner is copied to stderr for a human watching the start.
 if ! quiet npm install --no-audit --no-fund; then
-  echo ""
-  echo "LATTICE CANNOT BE BUILT IN THIS SESSION: 'npm install' failed (its output is above)."
-  echo "CLAUDE.md: we develop Lattice here and never consume it. Say this to the owner FIRST,"
-  echo "before any other work, and report no measurement, test or render from this session."
-  # Ask DNS directly: npm reports an unreachable registry several ways (ENOTFOUND in its
-  # debug log, "Exit handler never called" on screen), so its own output is no test.
-  if ! getent hosts registry.npmjs.org >/dev/null 2>&1; then
-    echo "Cause: this environment cannot reach registry.npmjs.org (package installs are off)."
-    echo "Fix: the owner turns package installs on in the environment's network settings, then"
-    echo "starts a new session; a running session may not pick the change up."
+  banner="LATTICE CANNOT BE BUILT IN THIS SESSION: 'npm install' failed (its output is above).
+CLAUDE.md: we develop Lattice here and never consume it. Say this to the owner FIRST,
+before any other work, and report no measurement, test or render from this session."
+  # Ask DNS directly, bounded: npm reports an unreachable registry several ways
+  # (ENOTFOUND in its debug log, "Exit handler never called" on screen), so its own output
+  # is no test. "Likely": a failed lookup does not prove it is why npm failed.
+  if ! timeout 5 getent hosts registry.npmjs.org >/dev/null 2>&1; then
+    banner="$banner
+Likely cause: this environment cannot reach registry.npmjs.org (package installs are off).
+Fix: the owner turns package installs on in the environment's network settings, then
+starts a new session; a running session may not pick the change up."
   fi
-  exit 1
+  printf '\n%s\n' "$banner"
+  printf '\n%s\n' "$banner" >&2
+  exit 0
 fi
 
 # 1b. The generated bundles. dist/ and the docs-site bundles are BUILT, not
