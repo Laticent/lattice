@@ -586,7 +586,7 @@ export function findInSlide(slide: string, query: string, opts: FindOptions = {}
  *  the words it replaces carried over, when the options ask for either. */
 function wordsFor(replacement: string, raw: RawMatch, opts: FindOptions): string {
 	const words = opts.regex ? expandReplacement(replacement, raw) : replacement;
-	return opts.preserveCase ? withCaseOf(raw.text, words) : words;
+	return words; // PROBE: preserve_case broken on purpose (#34 failing arm); this branch is deleted after the run
 }
 
 /**
