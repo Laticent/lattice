@@ -11,6 +11,13 @@
  * picture decks), with this same reader. pptxgenjs left the tree in the same change, so it cannot be recorded
  * again; a deliberate change to what the writer says edits the snapshot by hand, and the diff is the review.
  *
+ * EDITED for the master and theme (engineering/decisions/2026-11-18-calco-master-theme.md): the reader now records the
+ * slide master and each layout's `showMaster`, so every deck gained `master` and `showMaster`. In `rich`, the running
+ * header and footer moved off the layouts onto the master as plain shapes (a layout shows them or, with other chrome or
+ * none, hides them); each layout gained a body or subtitle placeholder and a title placeholder that takes its look from
+ * the master instead of black Calibri with Office's 0.1 in inset; the page number became each layout's placeholder; and
+ * slide 3's number became a `sldNum` placeholder that inherits its layout's style. Nothing else in the snapshot moved.
+ *
  * WHAT IS COMPARED is what the reader reads (its header lists it); autofit, `lang`, the `ea`/`cs` faces, the master's
  * text styles, the theme and a picture's crop are not, so they can drift without a diff (the design note's §What shipped).
  *
@@ -127,6 +134,8 @@ describe('calco pptx — parity with the pptxgenjs writer', () => {
     assert.ok(seen((o) => o.text?.paras.some((p) => p.runs.some((r) => r.field === 'slidenum'))), 'a page-number field');
     assert.ok(seen((o) => o.text?.paras.some((p) => p.runs.some((r) => r.cap === 'small'))), 'small caps');
     assert.ok(SNAPSHOT.fonts.fonts.length, 'embedded fonts');
+    assert.ok(SNAPSHOT.rich.master.objects.some((o) => !o.ph && o.name === 'Header'), 'a running header on the master');
+    assert.ok(SNAPSHOT.rich.slides.some((s) => s.layout.showMaster) && SNAPSHOT.rich.slides.some((s) => !s.layout.showMaster), 'a layout that shows the master and one that hides it');
   });
 
   test('ARM THAT FAILS: a writer that drops a note, an alt text, a run style or a group is caught', async () => {
@@ -143,6 +152,8 @@ describe('calco pptx — parity with the pptxgenjs writer', () => {
       for (const o of r.slides[0].objects) delete o.group;
     }).length, 'an ungrouped card');
     assert.ok(broken((r) => (r.slides[0].objects[1].box[0] += 1000)).length, 'a frame off by a tenth of a pixel');
+    assert.ok(broken((r) => (r.master.objects = r.master.objects.filter((o) => o.name !== 'Header'))).length, 'a header lost from the master');
+    assert.ok(broken((r) => (r.slides[2].layout.showMaster = true)).length, 'a layout that stops hiding the master');
     assert.deepEqual(broken(() => {}), [], 'and an unchanged record passes');
   });
 });

@@ -1,5 +1,5 @@
 ---
-status: built
+status: shipped
 summary: The editable .pptx carries the deck's own theme (colors from the theme tokens, heading and body faces), its master's text styles and every layout's title and body placeholders are in the deck's type, and the running header, footer and page number are drawn once on the master. Existing slides render pixel-identical in LibreOffice; PowerPoint, Keynote and Google Slides are UNVERIFIED.
 ---
 

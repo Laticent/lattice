@@ -15,8 +15,6 @@ export type { PlacedBox } from './layout.js';
 export { applyTransform, dominantStyle, placeFrame, spacingMultiple } from './layout.js';
 export type { ChromeRole, Layout, LayoutKind, MasterPlan } from './masters.js';
 export { CHROME_ROLES, planMasters, withoutHoisted } from './masters.js';
-export type { ColorSlot, DeckTheme } from './theme.js';
-export { COLOR_SLOTS, luminance, readTheme } from './theme.js';
 export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp.js';
 export { imageExt, imageMime, isContinuousTone } from './picture.js';
 export type { EmbeddingPlan } from './pptx.js';
@@ -26,4 +24,6 @@ export { readSlide, restoreSlide, restoreSplit, splitKey, splitSlide } from './r
 export { canEmbedAsEot, familyNameOf, renameFace, toEot } from './sfnt.js';
 export type { Drawn, DrawnGroup, Insets, PathCmd, ShapeGeometry } from './shapes.js';
 export { drawOrder, labelInsets, shapeGeometry } from './shapes.js';
+export type { ColorSlot, DeckTheme } from './theme.js';
+export { COLOR_SLOTS, luminance, readTheme } from './theme.js';
 export type * from './types.js';
