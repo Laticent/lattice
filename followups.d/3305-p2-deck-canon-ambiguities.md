@@ -23,6 +23,12 @@ where     — `lib/authoring/deck-canon.js` (quoted in start.md §2 and in the S
                 15–30 slides.
               - "aim ~70 words of body" against the `content` skeleton's "under forty words".
               - "a human beat (a quote)": say to skip it when the brief has no quote, never invent one.
+              - "both the title and the closing carry `silent`" (also in
+                `docs/src/lib/architect-knowledge.js` and the title/closing samples) against
+                each manifest's `chrome` field, which already drops the header and page number
+                and keeps the footer on purpose. `silent` also drops the footer and the rail.
+                The owner leans to the manifest (2026-11-19); the skeletons follow it, the
+                canon and the samples still say `silent`.
             Layout manifests and start.md §4:
               - `big-number` and `quote` skeletons carry no `##`; say whether one is allowed.
               - Heading periods: skeletons type them, while `with-period`/`no-period` suggest the

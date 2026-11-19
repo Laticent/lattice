@@ -175,7 +175,7 @@
     "scope": "markdown",
     "prefix": "lattice-closing",
     "body": [
-      "<!-- _class: closing silent -->",
+      "<!-- _class: closing -->",
       "",
       "## Closing takeaway or call to action",
       "",
@@ -1344,7 +1344,7 @@
     "scope": "markdown",
     "prefix": "lattice-title",
     "body": [
-      "<!-- _class: title silent -->",
+      "<!-- _class: title -->",
       "",
       "# Deck title goes here",
       "",

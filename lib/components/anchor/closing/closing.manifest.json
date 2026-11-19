@@ -56,7 +56,7 @@
       "description": "Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure."
     }
   },
-  "skeleton": "<!-- _class: closing silent -->\n\n## Closing takeaway or call to action\n\n`Optional eyebrow`\n",
+  "skeleton": "<!-- _class: closing -->\n\n## Closing takeaway or call to action\n\n`Optional eyebrow`\n",
   "anatomyBlock": "closing-bookend",
   "sample": "<!-- _class: closing silent -->\n\n## The closing mirrors the title — dark canvas, one last claim.\n\n`anchor · closing`\n",
   "whenToUse": [

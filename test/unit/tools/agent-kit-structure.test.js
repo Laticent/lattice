@@ -975,15 +975,16 @@ test('agent kit structure', { skip }, async (t) => {
 
 	/**
 	 * What a model writing from start.md alone needed and did not find (the no-spend stand-in
-	 * eval, 2026-11-19): the bookend skeletons it copies verbatim must carry the `silent` the
-	 * canon asks for, speaker notes need their syntax, a kpi pill's color comes from the row,
+	 * eval, 2026-11-19): speaker notes need their syntax, a kpi pill's color comes from the row,
 	 * and a data deck needs a chart skeleton.
 	 */
 	await t.test('start.md teaches what a model writing from it alone needs', () => {
 		const start = readKit('start.md');
 		const skel = start.split(/^## \d+\. Skeletons/m)[1].split(/^## \d+\./m)[0];
-		assert.match(skel, /^<!-- _class: title silent -->$/m, 'title skeleton carries silent');
-		assert.match(skel, /^<!-- _class: closing silent -->$/m, 'closing skeleton carries silent');
+		// The bookend skeletons carry no `silent`: each manifest's `chrome` field already drops the
+		// header and page number and keeps the footer on purpose (the deck's standing note).
+		assert.match(skel, /^<!-- _class: title -->$/m, 'title skeleton defers to its manifest chrome');
+		assert.match(skel, /^<!-- _class: closing -->$/m, 'closing skeleton defers to its manifest chrome');
 		assert.match(start, /Speaker notes: a plain HTML comment/);
 		assert.match(start, /`kpi` status pill takes its color from the row/);
 		assert.doesNotMatch(skel, /`\{(Board|Audit|Investor)\}`/, 'kpi skeleton carries no decorative pills');
