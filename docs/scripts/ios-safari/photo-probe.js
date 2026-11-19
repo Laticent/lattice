@@ -219,10 +219,15 @@ async function latticePhotoProbe() {
 		await until(() => !document.querySelector('.cm-tooltip-lint'), 5000, 'the earlier tooltip to close').catch(() => null);
 		await sleep(400);
 		const box = range.getBoundingClientRect();
+		// Point at the range's FIRST ROW, not the middle of its box. A range that wraps (the spotlight's class comment on a
+		// phone, the photo's data: line everywhere) has a box whose middle can fall in the gap between two rows, and
+		// CodeMirror opens no hover tooltip for a pointer above the character it maps to (HoverPlugin.startHover). The probe
+		// then leaned on the lint gutter's marker, and when that missed too the wait ran out with the underline in place.
+		const row = [...range.getClientRects()].find((r) => r.width > 0 && r.height > 0) ?? box;
 		let movedAt = 0;
 		const hover = (dx) => {
 			movedAt = Date.now();
-			const at = { clientX: box.left + Math.min(8 + dx, box.width / 2), clientY: box.top + box.height / 2, bubbles: true };
+			const at = { clientX: row.left + Math.min(8 + dx, row.width / 2), clientY: row.top + row.height / 2, bubbles: true };
 			range.dispatchEvent(new PointerEvent('pointermove', at));
 			range.dispatchEvent(new MouseEvent('mousemove', at));
 		};
