@@ -410,7 +410,8 @@ Emitted by `tools/lint-deck.js` itself (`--discover`), not by `lint-core`, becau
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. |
+| `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. A plural is reported as its singular (`IRBs` as `IRB`), the key one entry covers. |
+| `narration-acronym-ambiguous` | suggestion | — | An all-caps token with more than one known meaning (`AP`: accounts payable, Advanced Placement, Associated Press). The built-in dictionary never expands one; the message names the meanings, and the deck's `terms:` entry says which it means. |
 | `narration-passthrough` | suggestion | — | Slash, ratio and identifier tokens that narration will read as glyphs. |
 
 ### 3.11 Slide metadata comments

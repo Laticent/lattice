@@ -16,7 +16,7 @@ const engine = require('../../../lib/engine');
 const { narrateChartScript } = require('../../../lib/core/chart-narration.js');
 
 const ROWS = ['**EMEA**', '_Derby_', '`API`', '[Acme](https://example.com)', 'R&D', 'AT&amp;T', 'AT&#38;T', '5* hotels', '2*3 grid',
-  '~approx', 'a\\*b', 'snake_case_row', '__init__ hook', 'x < y', 'C# team', '🚀 Launch', 'A \\| B', 'Zürich', '"Core" plan', 'a *b* c'];
+  '~approx', 'a\\*b', 'snake_case_row', '__init__ hook', 'x < y', 'C# team', '&euro;5 tier', 'Caf&eacute;', '&#x27;quoted&#x27;', '🚀 Launch', 'A \\| B', 'Zürich', '"Core" plan', 'a *b* c'];
 
 test('every cell the heatmap narrator names is a cell the chart draws, label for label', () => {
   const { window } = new JSDOM('');

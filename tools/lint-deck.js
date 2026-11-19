@@ -188,7 +188,7 @@ async function main(argv) {
   let unspokenTokens = null;
   if (doDiscover) {
     ({ termsSpokenMap } = await import('../lib/core/resolve-narration.mjs'));
-    ({ unmatchedAcronyms, unspokenTokens } = require('@laticent/cadenza'));
+    ({ unmatchedAcronyms, unspokenTokens, AMBIGUOUS_TERMS } = require('@laticent/cadenza'));
   }
 
   const report = [];
@@ -286,8 +286,22 @@ async function main(argv) {
       for (const s of reviewText(source, { bucketOf, densityOf })) suggestions.push({ file, ...s });
     }
     if (doDiscover) {
-      const unknown = unmatchedAcronyms(narrationText(source), { terms: termsSpokenMap(source) })
+      let unknown = unmatchedAcronyms(narrationText(source), { terms: termsSpokenMap(source) })
         .filter((t) => !COMMON_INITIALISMS.has(t)); // format/web initialisms read fine letter-by-letter
+      // A token with more than one known reading is NEVER expanded by the built-in dictionary; the
+      // deck must say which one it means. Name the readings, so the author picks instead of guessing.
+      for (const t of unknown.filter((u) => Object.hasOwn(AMBIGUOUS_TERMS, u))) {
+        const readings = AMBIGUOUS_TERMS[t];
+        suggestions.push({
+          file,
+          slide: 0,
+          rule: 'narration-acronym-ambiguous',
+          severity: 'suggestion',
+          message: `\`${t}\` has more than one meaning (${readings.join('; ')}), so it is read letter by letter until the deck says which.`,
+          fix: `Add the one you mean to the deck's terms: front matter, e.g.\nterms:\n  ${t}: { expansion: ${readings[0]} }`,
+        });
+      }
+      unknown = unknown.filter((u) => !Object.hasOwn(AMBIGUOUS_TERMS, u));
       if (unknown.length) {
         suggestions.push({
           file,

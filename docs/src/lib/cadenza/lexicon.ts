@@ -127,6 +127,14 @@ const BASE_CASED: Record<string, string> = {
   'a.m.': 'A M', 'p.m.': 'P M', 'A.M.': 'A M', 'P.M.': 'P M',
   'Ph.D.': 'P H D', PhD: 'P H D',
   'Mr.': 'mister', 'Mrs.': 'missus', 'Ms.': 'miz', 'Prof.': 'professor',
+  // From the exemplar census (engineering/decisions/2026-11-19-segment-acronyms.md): the acronyms the
+  // five audience segments write that have ONE meaning across all five. Exact case, as the rest of
+  // this tier: the lower-case run is never one of these. Each was checked against the other four
+  // segments; a token with a second reading in any of them is in AMBIGUOUS_TERMS below instead.
+  GPA: 'grade point average', AUC: 'area under the curve', // academic
+  CRM: 'customer relationship management', QBR: 'quarterly business review', VP: 'vice president', // corporate
+  RFP: 'request for proposal', OIG: 'Office of Inspector General', GIS: 'geographic information system', // government-public
+  WCAG: 'Web Content Accessibility Guidelines',
   // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
   // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
   // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom
@@ -183,6 +191,70 @@ export function lookupLexicon(token: string, domains: readonly LexDomain[] = [])
 /** The short months that are also a name or a word ("Jan", "Mar", "Jun"). They expand only
  *  beside a date or another month — see `contextualMonth` in normalize.ts. */
 export const CONTEXT_MONTHS: Readonly<Record<string, string>> = { Jan: 'January', Mar: 'March', Jun: 'June' };
+
+/**
+ * The plural of a built-in expansion where adding `s` to its last word is wrong English: an RFP is a
+ * "request for proposal", and two are "requests for proposal", not "request for proposals". Keyed by
+ * the SPOKEN singular, the form the endings path holds. A data edit per entry, never a rule.
+ */
+const HOUSE_PLURALS: Readonly<Record<string, string>> = {
+  'request for proposal': 'requests for proposal',
+  'Office of Inspector General': 'Offices of Inspector General',
+};
+
+// The built-in expansions whose plural IS the last word plus `s`, checked one by one. Only these, and
+// the stated plurals above, take a plural: `AUCs` is "areas under the curve", not "area under the
+// curves", and `UIs` would be voiced "you is". Any other built-in term with an `s` reads as written.
+const PLURAL_BY_S = new Set([
+  'application programming interface', 'software development kit', 'key performance indicator', 'objectives and key results',
+  'chief executive officer', 'chief financial officer', 'chief technology officer', 'chief operating officer',
+  'service level agreement', 'service level objective', 'non-disclosure agreement', 'frequently asked questions',
+  'daily active users', 'monthly active users', 'skew', 'quarterly business review', 'vice president',
+  'grade point average', 'geographic information system', 'key performance indicator',
+]);
+
+/** The plural of a built-in term's spoken form, or null when it takes none (the token reads as written). */
+export function housePlural(spoken: string): string | null {
+  if (Object.hasOwn(HOUSE_PLURALS, spoken)) return HOUSE_PLURALS[spoken];
+  if (!PLURAL_BY_S.has(spoken)) return null;
+  return /s$/.test(spoken) ? spoken : `${spoken}s`; // `objectives and key results` is plural already
+}
+
+/**
+ * Acronyms the exemplar segments write that have MORE THAN ONE reading across them, with the readings
+ * we know of. They are never expanded: a wrong expansion is worse than none, and the deck's own
+ * `terms:` entry is the only thing that can say which one it means. `lint:deck` names these readings
+ * when it finds one unregistered, so the author picks rather than guesses. Data, not a rule: adding
+ * an entry changes only what the suggestion offers.
+ */
+export const AMBIGUOUS_TERMS: Readonly<Record<string, readonly string[]>> = {
+  AP: ['accounts payable', 'Advanced Placement', 'Associated Press'],
+  AF: ['atrial fibrillation', 'Air Force'],
+  AA: ['the W C A G A A level', 'Alcoholics Anonymous', 'associate of arts'],
+  TA: ['teaching assistant', 'technical assistance', 'target audience'],
+  PO: ['purchase order', 'product owner', 'post office'],
+  CS: ['customer success', 'computer science'],
+  CI: ['continuous integration', 'confidence interval'],
+  CAC: ['customer acquisition cost', 'Common Access Card'],
+  LTV: ['lifetime value', 'loan to value'],
+  ERP: ['enterprise resource planning', 'event-related potential'],
+  EDI: ['electronic data interchange', 'equity, diversity and inclusion'],
+  CFR: ['Code of Federal Regulations', 'case fatality rate'],
+  MTTR: ['mean time to recovery', 'mean time to repair', 'mean time to resolve'],
+  JV: ['joint venture', 'junior varsity'],
+  // One meaning, but used as its own plural after a number ("250 FTE"), so no one spoken form is right
+  // in both places: "two hundred fifty full-time equivalent" is wrong English. The deck says which.
+  FTE: ['full-time equivalent', 'full-time equivalents'],
+  CNA: ['certified nursing assistant', 'Center for Naval Analyses'],
+  BMI: ['body mass index', 'Broadcast Music, Incorporated'],
+  CRO: ['chief revenue officer', 'contract research organization', 'conversion rate optimization'],
+  CMO: ['chief marketing officer', 'contract manufacturing organization'],
+  IP: ['intellectual property', 'internet protocol'],
+  AR: ['accounts receivable', 'augmented reality'],
+  PM: ['product manager', 'project manager', 'afternoon'],
+  US: ['the United States', 'us'],
+  IT: ['information technology', 'it'],
+};
 
 /** The set of domain pack names, for validation / docs. */
 export const LEX_DOMAINS: readonly LexDomain[] = ['legal', 'finance'];

@@ -174,9 +174,9 @@ export function isAbbreviationBreak(left: string, right: string): boolean {
  * abbreviation. `splitSentences` folds such a break back, and `splitParagraphs` must
  * consult the SAME predicate or the two disagree on a paragraph that ends this way.
  */
-function isSpuriousBreak(left: string, right: string, joins?: readonly string[]): boolean {
+function isSpuriousBreak(left: string, right: string, joins?: Joins): boolean {
   const r = right.trim();
-  if (joins?.length && insideJoin(left, r, joins)) return true;
+  if (joins?.keys.length && insideJoin(left, r, joins)) return true;
   if (CONTINUATION_START.test(r)) return true;
   // A run of exactly TWO periods is a RANGE separator, not a terminator: `gantt` spells
   // a span `2026 Q1 .. 2026 Q4`, and nine shipped decks use it. It broke there on `main`
@@ -198,14 +198,15 @@ function isSpuriousBreak(left: string, right: string, joins?: readonly string[])
  * Does the break between `left` and `right` fall INSIDE one of `joins` — a deck-declared multi-word
  * term whose own word ends in a period (`"Oct. Tenth"`, `"St. Louis"`)? The author declared that run
  * of words as one thing, so no structural rule may cut it: the term is matched after the split, and
- * a phrase split across two cues can never match. Words compare case-insensitively, and the last word
+ * a phrase split across two cues can never match. Words compare by the matcher's own case rule (terms.ts
+ * `wordMatches`), so the splitter keeps together exactly what the matcher will match; the last word
  * of `right`'s side may carry trailing punctuation (`Tenth.`). Exact words only, never a guess.
  */
-function insideJoin(left: string, right: string, joins: readonly string[]): boolean {
+function insideJoin(left: string, right: string, joins: Joins): boolean {
   const lw = left.trim().split(' ');
   const rw = right.split(' ');
-  const same = (a: string | undefined, b: string) => a !== undefined && a.toLowerCase() === b.toLowerCase();
-  for (const key of joins) {
+  const same = (a: string | undefined, b: string) => a !== undefined && joins.matches(b, a);
+  for (const key of joins.keys) {
     const kw = key.trim().split(/\s+/);
     for (let k = 0; k < kw.length - 1; k++) {
       if (!kw[k].endsWith('.')) continue;
@@ -226,7 +227,16 @@ function insideJoin(left: string, right: string, joins: readonly string[]): bool
  * numbers/currency intact; a trailing fragment with no terminator is its own
  * sentence. A break `isSpuriousBreak` rejects is then folded back.
  */
-export function splitSentences(text: string, joins?: readonly string[]): string[] {
+/**
+ * Deck-declared phrases a sentence break may not cut (`insideJoin`): the keys, and the matcher's own
+ * word-case rule (terms.ts `wordMatches`), handed in so this module stays import-free.
+ */
+export interface Joins {
+  readonly keys: readonly string[];
+  readonly matches: (key: string, word: string) => boolean;
+}
+
+export function splitSentences(text: string, joins?: Joins): string[] {
   const s = String(text ?? '').replace(/\s+/g, ' ').trim();
   if (!s) return [];
   const parts = s
@@ -258,7 +268,7 @@ export function splitSentences(text: string, joins?: readonly string[]): string[
  * real sentence split); a blank line mid-sentence (a terminator-less block, or a hand-wrapped note)
  * MERGES across the break, matching what `splitSentences` does after it collapses the whitespace.
  */
-export function splitParagraphs(text: string, joins?: readonly string[]): { sentences: string[]; paragraphEnd: Set<number> } {
+export function splitParagraphs(text: string, joins?: Joins): { sentences: string[]; paragraphEnd: Set<number> } {
   // Split on a blank line: a newline run with only spaces/tabs between (collapses 3+ blank lines to
   // one boundary; `\r?\n` so a CRLF-authored note breaks too). Anything without a blank line stays
   // one chunk → identical to today's single split.

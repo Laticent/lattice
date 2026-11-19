@@ -3,6 +3,7 @@
 // and the sentence split ran before terms matched, so `"Oct. Tenth": October Tenth` could never apply.
 import { describe, expect, it } from 'vitest';
 import { splitSentences } from './segment';
+import { wordMatches } from './terms';
 import { buildTrack } from './track';
 
 const said = (text: string, terms?: Map<string, string>) =>
@@ -28,7 +29,7 @@ describe('dotted abbreviations with one meaning', () => {
 		expect(said('approx. 40 sites')).toEqual(['approximately forty sites']);
 	});
 	it('spells capitals joined by periods, and the degree', () => {
-		expect(said('Made in the U.S., then D.C.')).toEqual(['Made in the U S, then D C']);
+		expect(said('Made in the U.S., then D.C.')).toEqual(['Made in the U S, then D C.']);
 		expect(said('She holds a Ph.D. now, a PhD.')).toEqual(['She holds a P H D now, a P H D.']);
 	});
 	it('reads a courtesy title only in its own case', () => {
@@ -37,6 +38,14 @@ describe('dotted abbreviations with one meaning', () => {
 	});
 	it('a term keyed with its own period matches before a comma', () => {
 		expect(said('the U.S., two.', new Map([['U.S.', 'you ess']]))).toEqual(['the you ess, two.']);
+	});
+});
+
+describe('a replaced abbreviation ends its sentence where the splitter does', () => {
+	it('keeps the full stop where the sentence ends on it, and drops it where it goes on', () => {
+		expect(said('We moved to the U.S. Then more.')).toEqual(['We moved to the U S.', 'Then more.']);
+		expect(said('Meet at 9 a.m.')).toEqual(['Meet at nine A M.']);
+		expect(said('At 10 a.m., we met.')).toEqual(['At ten A M, we met.']);
 	});
 });
 
@@ -50,6 +59,9 @@ describe('a declared phrase with a period is one cue', () => {
 		expect(said('Launch is Oct. Tenth. Then we scale.')).toEqual(['Launch is October.', 'Tenth.', 'Then we scale.']);
 	});
 	it('the splitter joins only the exact declared words', () => {
-		expect(splitSentences('Oct. Tenth. Oct. Eleventh.', ['Oct. Tenth'])).toEqual(['Oct. Tenth.', 'Oct.', 'Eleventh.']);
+		const joins = { keys: ['Oct. Tenth'], matches: wordMatches };
+		expect(splitSentences('Oct. Tenth. Oct. Eleventh.', joins)).toEqual(['Oct. Tenth.', 'Oct.', 'Eleventh.']);
+		// The matcher's case rule, not a looser one: a Capitalized key does not join the lower-case word.
+		expect(splitSentences('We said no. One more thing.', { keys: ['No. One'], matches: wordMatches })).toEqual(['We said no.', 'One more thing.']);
 	});
 });

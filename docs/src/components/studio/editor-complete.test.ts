@@ -11,7 +11,7 @@ import { playgroundCompletionSources } from '@/playground/complete.js';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
 import lintCore from '../../../../lib/authoring/lint-core.js';
-import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, frontMatterKeysSet, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, termFieldCompletion, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
+import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, frontMatterKeysSet, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, positionCompletionInfo, registerValueLists, studioCompletionSources, termFieldCompletion, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -955,9 +955,37 @@ describe('termFieldCompletion', () => {
 		expect(at('---\nterms:\n  CRO: { expansion: chief revenue officer, d|\n---')?.options.map((o) => o.label)).toEqual(['pronounce', 'definition']);
 		expect(at('---\nterms:\n  CRO: { expansion: ch|\n---')).toBeNull();
 	});
+	it('reads a header comment, skips comment lines, and offers nothing under a term that has a value', () => {
+		expect(at('---\nterms: # names\n  # the CFO deck\n  EBITDA:\n    |\n---')?.options.map((o) => o.label)).toEqual(['pronounce', 'expansion', 'definition']);
+		expect(at('---\nterms:\n  Yearn: yurn\n    |\n---')).toBeNull();
+	});
 	it('stays closed on a term line, under another key, and outside the block', () => {
 		expect(at('---\nterms:\n  Derb|\n---')).toBeNull();
 		expect(at('---\nsay:\n  1:\n    pro|\n---')).toBeNull();
 		expect(at('---\ntheme: indaco\n|\n---')).toBeNull();
+	});
+});
+
+// The help text beside a completion list never covers an option. On a narrow screen CodeMirror's own
+// placement hung it under the SELECTED option, over the options below it.
+describe('positionCompletionInfo', () => {
+	const view = { textDirection: 0 };
+	const tooltip = { offsetWidth: 250, offsetHeight: 60 };
+	const list = { left: 74, right: 324, top: 234, bottom: 294 };
+	const option = { left: 74, right: 324, top: 234, bottom: 254 }; // the first of three options
+	it('on a narrow screen, goes under the whole list, not under the selected option', () => {
+		const out = positionCompletionInfo(view, list, option, { left: 0, right: 300, top: 0, bottom: 40 }, { left: 0, right: 390, top: 0, bottom: 844 }, tooltip);
+		expect(out.class).toBe('cm-completionInfo-right-narrow');
+		expect(out.style).toMatch(/^top: 60px;/); // the list's full height, past its last option
+		expect(out.style).toMatch(/max-width: 278px$/); // stays 8px clear of the screen edge
+	});
+	it('goes above the list when there is no room below', () => {
+		const low = { left: 74, right: 324, top: 780, bottom: 840 };
+		expect(positionCompletionInfo(view, low, { ...low, bottom: 800 }, { left: 0, right: 300, top: 0, bottom: 40 }, { left: 0, right: 390, top: 0, bottom: 844 }, tooltip).style).toMatch(/^bottom: 60px;/);
+	});
+	it('on a wide screen, sits beside the list level with the selected option, as before', () => {
+		const out = positionCompletionInfo(view, list, option, { left: 0, right: 300, top: 0, bottom: 40 }, { left: 0, right: 1440, top: 0, bottom: 900 }, tooltip);
+		expect(out.class).toBe('cm-completionInfo-right');
+		expect(out.style).toMatch(/^top: 0px;/);
 	});
 });

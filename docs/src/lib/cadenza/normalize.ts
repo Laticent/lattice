@@ -11,7 +11,7 @@
 // dependency-free English expansion covering the boardroom cases (money, percent,
 // plain numbers, a small abbreviation set).
 
-import { CONTEXT_MONTHS, houseSpokenMap, type LexDomain, lookupLexicon } from './lexicon.js';
+import { CONTEXT_MONTHS, housePlural, houseSpokenMap, type LexDomain, lookupLexicon } from './lexicon.js';
 import { isAbbreviationBreak, splitWords } from './segment.js';
 import { type LexiconMap, resolveSymbols, SEPARATOR_GLYPHS } from './symbols.js';
 import { compoundParts, lookupTerm, type PhraseSlot, phraseCover, type TermHit, type TermIndex, type TermMap, termIndex } from './terms.js';
@@ -375,13 +375,25 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // A rule, not a list: the shape has one reading. The token's final period is the initialism's own,
   // so it is not voiced as a stop either.
   if (english && /^[A-Z](?:\.[A-Z])+$/.test(core) && punct.startsWith('.')) {
-    return core.split('.').join(' ') + punct.slice(1).replace(/[:;]/g, ',');
+    // The token's final period is the initialism's own; `spokenAt` puts a full stop back where the
+    // sentence really ends there (`abbreviationDot`).
+    return core.split('.').join(' ') + spokenPunct.slice(1);
+  }
+  // A DOTTED dictionary key with another mark after it (`a.m.,`, `e.g.,`): the peel took the key's own
+  // period with the comma, so try the key whole and keep only the marks after it.
+  if (english && punct.startsWith('.') && punct.length > 1) {
+    const dotted = lookupLexicon(`${core}.`, domains);
+    if (dotted !== null) return dotted + spokenPunct.slice(1);
   }
   // A BUILT-IN term with an ending (`APIs` → "application programming interfaces", `CEO’s`). The
   // whole-token case already matched through `lookupLexicon` above; only the ending is new here.
   if (english) {
     const houseHit = lookupTerm(houseIdx(), core);
-    if (houseHit?.ending) return withEnding(spokenLexiconValue(houseHit.value, opts), houseHit.ending) + spokenPunct;
+    // A plural only where the built-in list states it (`housePlural`); a possessive always.
+    if (houseHit?.ending === 's') {
+      const plural = housePlural(houseHit.value);
+      if (plural) return plural + spokenPunct;
+    } else if (houseHit?.ending) return withEnding(spokenLexiconValue(houseHit.value, opts), houseHit.ending) + spokenPunct;
   }
 
   // BRACKETING punctuation is VISUAL — the display word keeps it, the voice does not say it.
@@ -406,7 +418,10 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   // each part on its own. A hyphen becomes a space; a slash stays, because it means "or", "per" or "to"
   // depending on the deck (2026-09-21-token-passthrough-coaching.md). A compound with no term in it is
   // untouched, so `under-13` and `24/7` read exactly as before.
-  const compound = compoundParts(terms, core) ?? (english ? compoundParts(houseIdx(), core) : null);
+  // A built-in compound needs every part to be a word of two or more letters: `KPI-driven` splits, and
+  // `SaaS-y` (a suffix, not a word) reads as written.
+  const houseCompound = english ? compoundParts(houseIdx(), core) : null;
+  const compound = compoundParts(terms, core) ?? (houseCompound && houseCompound.parts.every((p) => p.length >= 2) ? houseCompound : null);
   if (compound) {
     let out = toSpoken(compound.parts[0], opts);
     compound.seps.forEach((sep, n) => {
@@ -827,18 +842,20 @@ export function spokenAt(words: readonly string[], i: number, opts: SpokenOpts =
 }
 
 /**
- * An ABBREVIATION's period is not a full stop, so it is not spoken as one. `Oct. 10` reads "October
- * ten", not "October. ten": the voice treats a spoken period as the end of a sentence and pauses.
- * Whether the period is the abbreviation's is decided by the SAME predicate the sentence splitter
- * uses (segment.ts `isAbbreviationBreak`), so a dot that does not split the cue is never voiced as a
- * stop, and one that does split it still is. Only the spoken form changes; the caption keeps the dot.
+ * A replaced abbreviation's spoken form ends in a FULL STOP exactly where the sentence splitter ends a
+ * sentence, and nowhere else. `Oct. 10` reads "October ten", not "October. ten" (the voice pauses at a
+ * spoken period), and "…at 9 a.m." still ends its sentence ("A M."). Both directions come from the SAME
+ * predicate the splitter uses (segment.ts `isAbbreviationBreak`), so speech and cues cannot disagree.
+ * Only a word WE replaced is touched (`Oct.` → "October"); one passed through as written (`Dr.`) keeps
+ * its period, so the voice's own front end still sees the abbreviation. The caption keeps the dot.
  */
 function abbreviationDot(words: readonly string[], i: number, spoken: string): string {
+  const word = words[i];
+  if (!word.endsWith('.') || spoken === word || !spoken) return spoken;
   const next = words[i + 1];
-  // Only a word WE replaced loses its period (`Oct.` → "October"). One we pass through as written
-  // (`Dr.`) keeps it, so the voice's own front end still sees the abbreviation.
-  if (next === undefined || !words[i].endsWith('.') || !spoken.endsWith('.') || spoken === words[i]) return spoken;
-  return isAbbreviationBreak(words[i], next) ? spoken.slice(0, -1) : spoken;
+  const continues = next !== undefined && isAbbreviationBreak(word, next);
+  if (continues) return spoken.endsWith('.') ? spoken.slice(0, -1) : spoken;
+  return spoken.endsWith('.') || /[!?…]$/.test(spoken) ? spoken : `${spoken}.`;
 }
 
 // The phrase cover of a sentence, computed once per word array (a caller asks for each index in turn).
@@ -1003,7 +1020,10 @@ export function unmatchedAcronyms(text: string, opts: SpokenOpts = {}): string[]
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of splitWords(text)) {
-    const tok = edgeTrim(raw); // `**ROI**`, `(API)` → `ROI`/`API` (linear, ReDoS-safe)
+    const trimmed = edgeTrim(raw); // `**ROI**`, `(API)` → `ROI`/`API` (linear, ReDoS-safe)
+    // A plural reports its singular (`IRBs` → `IRB`): that is the key an author registers, and one
+    // `terms:` entry then covers both forms (terms.ts rule 3).
+    const tok = /^[A-Z]{2,}s$/.test(trimmed) ? trimmed.slice(0, -1) : trimmed;
     if (!/^[A-Z]{2,}$/.test(tok) || seen.has(tok)) continue; // multi-letter all-caps, once each
     seen.add(tok);
     if (toSpoken(tok, opts) === tok) out.push(tok); // passthrough ⇒ expanded by nothing
