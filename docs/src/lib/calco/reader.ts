@@ -53,6 +53,8 @@ export interface ReadResult {
 	kept?: Array<{ kind: string; x: number; y: number; w: number; h: number }>;
 	/** With `logo`: the slide's deck logo (`img.deck-logo`), left out of the pictures so the caller can shoot it alone. Absent when the slide shows none. */
 	logo?: { x: number; y: number; w: number; h: number; alt?: string };
+	/** The slide's look: Lattice's `data-frame` ("standard" reads as "content"), else the section's first class. */
+	look?: string;
 	/** What lifted shapes only approximate, one entry per shape and kind: `stacked-shadow` (two outer shadows drawn as one) or `backdrop-blur` (a frosted fill drawn as its translucent color). */
 	approximated: string[];
 }
@@ -1069,6 +1071,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		else if (heading && block === heading) frame.role = 'title';
 		else if (onlyCode(block) && isHeading(block.nextElementSibling)) frame.role = 'eyebrow';
 		else if (onlyCode(block) && isHeading(block.previousElementSibling)) frame.role = 'subtitle';
+		else if (onlyCode(block) && !block.closest('li, td, th, figure, blockquote') && [...(block.parentElement?.children || [])].filter((c) => c.tagName === 'P').pop() === block) frame.role = 'meta';
 	});
 
 	// ── SHAPES (`shapes: true`). A box whose paint an office shape can carry exactly — a solid
@@ -3123,7 +3126,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	}
 	putScrollBack();
 	if (!hidden) earlyHost.__calcoRestore = undefined;
-	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(logoFound ? { logo: logoFound } : {}), ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
+	const frameAttr = section.getAttribute('data-frame') || '';
+	const look = (frameAttr === 'standard' ? 'content' : frameAttr) || String(section.className || '').trim().split(/\s+/)[0] || undefined;
+	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(look ? { look } : {}), ...(logoFound ? { logo: logoFound } : {}), ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */

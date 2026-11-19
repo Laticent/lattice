@@ -37,16 +37,34 @@ page numbers, and ships a master theme, and whether that makes the editable file
 - **Text styles.** The master's title, body and other styles are the deck's title and body (size, weight, ink, line pitch,
   letter-spacing, caps), on the theme faces (`+mj-lt`, `+mn-lt`). Existing runs keep their explicit colors and faces: a
   theme switch cannot recolor the slides' pictures, so binding text to theme colors would let them disagree.
-- **Placeholders.** The master has a title and a body placeholder. Each layout has a title placeholder in its first
-  title's look (a white title on the dark opening slide), and a body placeholder over the area its first slide draws, or
-  a subtitle placeholder on the title look.
-- **Names.** A look with no running chrome that opens or closes the deck is "Title" (`type="title"`); the others are
-  "Content", "Content 2", … (`type="obj"`). The `.odp` master pages carry the same names as `style:display-name`.
-- **Chrome on the master** (`masters.ts`). Chrome is counted over the whole deck, not per background. The master draws
-  the header, footer and page number most slides show; a layout whose header and footer are the master's draws none of
-  its own (its page number is its own placeholder, since a master placeholder never draws on a slide). A layout with
-  another header or footer, or none, sets `showMasterSp="0"` and draws its own. Matching is to the whole px with the box
-  height left out (a figure layout sets the header line 20px, not 19px).
+- **Every layout carries the whole look of its slides** (`masters.ts`; owner, 2026-11-19: "dark slides can have more
+  content than title and subtitles. They can have header, footer, pagination, meta, eyebrow", for every anchor slide:
+  title, divider, topic, closing). Slides share a layout when they sit on the same background, are the same look
+  (`Slide.look`, Lattice's `data-frame`) and draw each chrome role in the same place and style, whatever its text says.
+  Within a layout, chrome with the same text on every slide is drawn once on the layout, a layout of one slide included;
+  chrome whose text varies stays on each slide and the layout offers a placeholder in its look (`Layout.vary`), so
+  per-section headers do not make a layout per slide. This replaced "hoist only what two slides share", which left a
+  one-off look's chrome (a dark topic-fact slide's header and footer) on the slide, so a slide added on it had none.
+- **Placeholders.** The master has a title and a body placeholder. Each layout has a placeholder, in that layout's own
+  type and ink, for every role its slides show: the title; a body, or on a look whose slides hold a heading and at most
+  one plain line under it a subtitle (on a lead line, where and as the deck drew it); the eyebrow (`idx` 13); the meta
+  line, a source or basis (`idx` 14, the new `meta` role); a header or footer whose text varies (`idx` 15, 16). A slot
+  whose role no slide on the layout shows takes the layout's title ink at a quieter size, never an empty style: an empty
+  style inherits the master's light-slide ink, which was dark text on a dark look (owner, Google Slides: the venue-chrome
+  title look's subtitle prompt).
+- **Names.** The look's: "Title", "Content", "Divider", "Topic", "Closing", numbered when one repeats ("Divider 2" for a
+  light divider). A divider is `type="secHead"`, other title-like looks `type="title"`, the rest `type="obj"`. With no
+  look (another host), "Title" for a chrome-less look that opens or closes the deck, else "Content". The `.odp` master
+  pages carry the same names as `style:display-name`.
+- **Chrome on the master.** The master draws the header, footer and page number the most slides show; a layout whose
+  header and footer are the master's draws none of its own (its page number is its own placeholder, since a master
+  placeholder never draws on a slide). Any other layout sets `showMasterSp="0"` and draws its own. Matching is to the
+  whole px with the box height left out (a figure layout sets the header line 20px, not 19px). Which look wins the
+  master changes only where a header is edited once, never what a slide shows.
+- **Chrome the ground cannot show stays on the slide.** Chrome whose ink is under 1.5:1 against its layout's flat
+  ground sits on something the slide's own picture paints (card-tags slide 7: a white header over a split slide's dark
+  half, on a white ground), and a layout paints under the picture. Measured: hoisted, that header vanished; kept, the
+  slide is pixel-identical to `main`. A new slide on such a layout has no copy of it (its dark half is in the picture).
 - **Runs say "off".** Because the inherited title and body styles can be bold, all caps or letter-spaced, every slide run
   writes `b`, `i`, `cap` and `spc` even when they are off (`b="0"`, `cap="none"`, `spc="0"`). Otherwise PowerPoint would
   draw a plain run, such as a light title or a text box, in the inherited look. The page-number field writes none, so it
@@ -56,25 +74,25 @@ page numbers, and ships a master theme, and whether that makes the editable file
 
 ## 3. Measured
 
-- **Schema**: every master, layout, slide, presentation and notes-master part of the four decks validates against
-  ISO/IEC 29500 `pml.xsd` (system `xmllint`; `xmllint-wasm` was not installable), the theme against `dml-main.xsd`; no
-  shape id repeats on the master or a layout.
-- **No visual change**: each slide of the four decks rendered by LibreOffice 24.2 before and after, `.pptx` and `.odp`:
-  0.00% of pixels differ on every slide.
-- **Chrome**: venue-chrome and chart-finishes keep no header on any slide. card-tags slides 7 and 9 and mermaid-12 slides 5
-  and 6 keep theirs, because those headers really differ (a white header on a dark split slide, Shantell Sans on a sketch
-  slide, a muted ink on a figure slide).
-- **New slide in LibreOffice** (UNO, the Content master page): the header, footer and rule carry over, and the body is the
-  deck's (Outfit 24pt, heading ink, was Calibri 18pt black). The title is still 18pt: LibreOffice does that for
-  PowerPoint's own default template too (python-pptx's template, measured the same way), so it is LibreOffice's
-  behavior, not the file's. LibreOffice does not add a page number to a new slide.
+- **Schema**: every master, layout, slide, presentation and theme part of the four decks and an anchor deck (title,
+  content, divider, topic, topic fact, numbered divider, light divider, closing, in light mode with header, footer and
+  page numbers) validates against ISO/IEC 29500 `pml.xsd` / `dml-main.xsd` (system `xmllint`): 81 parts.
+- **No visual change**: every slide of those five decks rendered by LibreOffice 24.2 from `main`'s CLI and this
+  branch's, `.pptx` (41 slides) and `.odp` (24 slides of three of them): 0 pixels differ.
+- **New slides on every layout** (UNO, the anchor deck): Title and Closing navy with their light footer, Content white
+  with header and footer, Divider and Topic navy with their own header and footer, the light divider white. Each slot
+  is in its layout's ink (read from the file; empty placeholders do not draw in a PDF). LibreOffice adds no page number
+  to a new slide, with PowerPoint's own template too.
+- **Google Slides** (owner, iPhone, 2026-11-19): Add slide lists "Title" and "Content"; a new Title slide has the white
+  Playfair title on navy, a new Content slide the Playfair title, the Outfit body, header, footer and a live page number.
+  The owner's first test, black Arial and no number, was `main`'s export (its layouts are "Layout 1/2", title only).
 - **Dark theme** (accent-on-accent): `dk1` #BFB8A8 on `lt1` #0F0E0C, accents from the dark scheme.
 
 ## 4. Not verified
 
-- **PowerPoint, Keynote, Google Slides**: whether "New Slide" on "Content" gives the deck's title and body, the header and
-  footer, and a page number (the layout's `hf sldNum="1"` asks for one). This is the point of the change and it is
-  UNVERIFIED; it joins `followups.d/3220-p1-native-pptx-real-readers.md`.
+- **PowerPoint and Keynote**: whether "New Slide" on each layout gives the deck's type, chrome and a page number. This
+  is the point of the change and it is UNVERIFIED; it joins `followups.d/3220-p1-native-pptx-real-readers.md`. Google
+  Slides is verified for Title and Content only; the anchor layouts (Divider, Topic, Closing) are not yet seen there.
 - **Inheritance is not read back.** `test/helpers/pptx-readback.js` now records the slide master and each layout's
   `showMaster`, and the parity snapshot was updated for the intended changes (its header lists them). It does not resolve
   inherited text styles, though: a placeholder's list style, such as the page number's look, is not compared. `pptx.test.js`

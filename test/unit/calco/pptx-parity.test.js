@@ -13,11 +13,16 @@
  *
  * EDITED for the master and theme (engineering/decisions/2026-11-18-calco-master-theme.md): the reader now records the
  * slide master (its ground, an explicit white, and its shapes) and each layout's `showMaster`, so every deck gained
- * `master` and `showMaster`. In `rich`, the running
- * header and footer moved off the layouts onto the master as plain shapes (a layout shows them or, with other chrome or
- * none, hides them); each layout gained a body or subtitle placeholder and a title placeholder that takes its look from
- * the master instead of black Calibri with Office's 0.1 in inset; the page number became each layout's placeholder; and
- * slide 3's number became a `sldNum` placeholder that inherits its layout's style. Nothing else in the snapshot moved.
+ * `master` and `showMaster`. In `rich`:
+ * - each layout gained the placeholders of its look: a title placeholder in its own title's look (instead of black
+ *   Calibri with Office's 0.1 in inset), and a body placeholder, or on a title look (a heading and at most one line) a
+ *   subtitle, which on slide 4 sits on its lead paragraph and takes its look;
+ * - the master holds title, body and page-number placeholders, and slide 3's layout carries the number (slide 3's own
+ *   number is a `sldNum` placeholder that inherits its layout's style);
+ * - slides 1 and 2 keep their header, footer and number as text, as pptxgenjs wrote them except that the number is
+ *   text, not a placeholder: that chrome is dark ink (#112233) on a navy ground, under 1.5:1, which can only show over
+ *   something the slide's own picture paints, and a layout paints under the picture (masters.ts `candidates`).
+ * Nothing else in the snapshot moved.
  *
  * WHAT IS COMPARED is what the reader reads (its header lists it); autofit, `lang`, the `ea`/`cs` faces, the master's
  * text styles, the theme and a picture's crop are not, so they can drift without a diff (the design note's §What shipped).
@@ -148,7 +153,8 @@ describe('calco pptx — parity with the pptxgenjs writer', () => {
     assert.ok(seen((o) => o.text?.paras.some((p) => p.runs.some((r) => r.field === 'slidenum'))), 'a page-number field');
     assert.ok(seen((o) => o.text?.paras.some((p) => p.runs.some((r) => r.cap === 'small'))), 'small caps');
     assert.ok(SNAPSHOT.fonts.fonts.length, 'embedded fonts');
-    assert.ok(SNAPSHOT.rich.master.objects.some((o) => !o.ph && o.name === 'Header'), 'a running header on the master');
+    // rich's header is dark ink on navy, so it stays on its slides; a header on the master is pptx.test.js's to cover.
+    assert.ok(SNAPSHOT.rich.master.objects.some((o) => o.ph === 'sldNum'), 'a page-number placeholder on the master');
     assert.ok(SNAPSHOT.rich.slides.some((s) => s.layout.showMaster) && SNAPSHOT.rich.slides.some((s) => !s.layout.showMaster), 'a layout that shows the master and one that hides it');
   });
 
@@ -166,8 +172,8 @@ describe('calco pptx — parity with the pptxgenjs writer', () => {
       for (const o of r.slides[0].objects) delete o.group;
     }).length, 'an ungrouped card');
     assert.ok(broken((r) => (r.slides[0].objects[1].box[0] += 1000)).length, 'a frame off by a tenth of a pixel');
-    assert.ok(broken((r) => (r.master.objects = r.master.objects.filter((o) => o.name !== 'Header'))).length, 'a header lost from the master');
-    assert.ok(broken((r) => (r.slides[2].layout.showMaster = true)).length, 'a layout that stops hiding the master');
+    assert.ok(broken((r) => (r.master.objects = r.master.objects.filter((o) => o.ph !== 'sldNum'))).length, 'a page number lost from the master');
+    assert.ok(broken((r) => (r.slides[3].layout.showMaster = true)).length, 'a layout that stops hiding the master');
     assert.deepEqual(broken(() => {}), [], 'and an unchanged record passes');
   });
 });

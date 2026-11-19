@@ -23,11 +23,40 @@ describe('calco masters — planMasters', () => {
     assert.deepEqual(Object.keys(plan.layouts[0].chrome).sort(), ['header', 'number']);
   });
 
-  test('a header that differs in text stays on its slide; one slide alone keeps its chrome', () => {
+  test('a header whose text differs in one look stays on its slides and is a placeholder in that look; one slide alone hoists its chrome', () => {
+    // Per-section headers share one layout (grouped by look, not text) instead of a layout per slide.
     const plan = planMasters(deck([slide([header('A')], { background: 0 }), slide([header('B')], { background: 0 })]));
-    assert.equal(plan.hoisted[0].size + plan.hoisted[1].size, 0);
+    assert.equal(plan.layouts.length, 1, 'one look, one layout');
+    assert.equal(plan.hoisted[0].size + plan.hoisted[1].size, 0, 'each slide keeps its own text');
+    assert.equal(lineText(plan.layouts[0].vary.header), 'A', 'the layout offers a header placeholder in that look');
+    assert.equal(plan.layouts[0].chrome.header, undefined);
+    // A one-off look (a dark divider in a light deck) carries its own chrome, so a slide added on it has it too.
     const lone = planMasters(deck([slide([header()], { background: 0 })]));
-    assert.equal(lone.hoisted[0].size, 0);
+    assert.equal(lone.hoisted[0].size, 1);
+  });
+
+  test('every layout is named after its look and carries that look\'s chrome; chrome that does not show on its ground stays on the slide', () => {
+    const dark = (over = {}) => header('Deck · Part', { ...over });
+    const lightInk = (text) => frame([[{ text, style: style({ size: 12, color: '#ffffff' }) }]], { role: 'footer', x: 30, y: 690, w: 400, h: 20 });
+    const plan = planMasters(
+      deck(
+        [
+          slide([lightInk('Acme')], { background: 1, look: 'title' }),
+          slide([dark(), number(2)], { background: 0, look: 'content' }),
+          slide([dark(), number(3)], { background: 0, look: 'content' }),
+          slide([lightInk('Acme')], { background: 1, look: 'divider' }),
+          // White ink on a white ground: it sits on something the slide's own picture paints, so it is not the layout's.
+          slide([lightInk('Acme')], { background: 0, look: 'divider' }),
+          slide([lightInk('Acme')], { background: 1, look: 'closing' }),
+        ],
+        [{ color: '#ffffff' }, { color: '#003d66' }],
+      ),
+    );
+    assert.deepEqual(plan.layouts.map((l) => [l.name, l.kind]), [['Title', 'title'], ['Content', 'content'], ['Divider', 'title'], ['Divider 2', 'title'], ['Closing', 'title']]);
+    assert.equal(lineText(plan.layouts[2].chrome.footer), 'Acme', 'the dark divider carries its own light footer');
+    assert.equal(plan.hoisted[3].size, 1);
+    assert.equal(plan.hoisted[4].size, 0, 'white on white stays on the slide');
+    assert.deepEqual(plan.layouts[3].chrome, {});
   });
 
   test('slides split into layouts by background and by the chrome they carry', () => {

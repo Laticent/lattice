@@ -126,8 +126,9 @@ describe('calco pptx — escaping', () => {
 
 
 describe('calco pptx — layouts, roles and the locked picture', () => {
-  const header = (text) => frame([[{ text, style: style({ size: 12 }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
-  const num = (n) => frame([[{ text: String(n), style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+  // Chrome on the navy ground is light, as a real dark slide's is (dark ink there would sit on something the picture paints).
+  const header = (text) => frame([[{ text, style: style({ size: 12, color: '#e0e6ee' }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
+  const num = (n) => frame([[{ text: String(n), style: style({ size: 12, color: '#e0e6ee' }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
   const title = (text) => frame([[{ text, style: style({ size: 40 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
   const deck = () => ({
     width: 1280,
@@ -191,6 +192,9 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
   });
 
   test('the theme, the master\'s text styles and the layouts\' placeholders are the deck\'s own type and colors', async () => {
+    // This deck's content ground is cream, so its running chrome is dark ink.
+    const header = (text) => frame([[{ text, style: style({ size: 12 }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
+    const num = (n) => frame([[{ text: String(n), style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
     const body = (t, y) => frame([[{ text: t, style: style({ family: 'Outfit', size: 24, color: '#1b2a4a' }) }]], { x: 64, y, w: 900, h: 30 });
     const ttl = (t) => frame([[{ text: t, style: style({ family: 'Playfair Display', weight: 700, size: 48, color: '#2c3e8f' }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
     const card = { kind: 'box', x: 64, y: 300, w: 300, h: 120, radii: [0, 0, 0, 0], fill: { color: '#e4572e', alpha: 1 } };
@@ -251,6 +255,83 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.match(theme, /<a:dk2><a:srgbClr val="F0F0F0"\/><\/a:dk2>/, 'text 2 is the title ink');
     const master = await zip.file('ppt/slideMasters/slideMaster1.xml').async('string');
     assert.match(master, /<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"\/>/, 'the master stays white, so a slide with no ground of its own is not repainted dark');
+  });
+
+  test('a title look with no subtitle frame styles its subtitle placeholder from the lead line, else the title ink, never empty', async () => {
+    // An empty list style inherits the master's body ink: dark on a dark title look (owner, Google Slides, 2026-11-19).
+    const deckWith = (openingFrames) => ({
+      width: 1280,
+      height: 720,
+      backgrounds: [{ color: '#003d66' }, { color: '#ffffff' }],
+      slides: [
+        { image: ONE_PX_PNG, background: 0, frames: openingFrames },
+        { image: ONE_PX_PNG, background: 1, frames: [frame([[{ text: 'Body title', style: style({ family: 'Outfit', weight: 700, size: 40, color: '#0a1628' }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 50 })] },
+      ],
+    });
+    const heading = frame([[{ text: 'The opening', style: style({ family: 'Outfit', weight: 700, size: 64, color: '#ffffff' }) }]], { role: 'title', x: 64, y: 260, w: 1152, h: 80, align: 'center' });
+    const eyebrow = frame([[{ text: 'kicker', style: style({ size: 18, color: '#aabbcc' }) }]], { role: 'eyebrow', x: 64, y: 200, w: 1152, h: 24, align: 'center' });
+    const lead = frame([[{ text: 'A lead line under the title', style: style({ family: 'Outfit', weight: 300, size: 28, color: '#c2d0da' }) }]], { x: 64, y: 380, w: 1152, h: 36, align: 'center' });
+    const subStyle = async (d) => {
+      const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+      const layout = await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string');
+      const sp = layout.slice(layout.indexOf('Subtitle Placeholder'));
+      return sp.slice(0, sp.indexOf('</a:lstStyle>') + 14);
+    };
+    const withLead = await subStyle(deckWith([eyebrow, heading, lead]));
+    assert.match(withLead, /algn="ctr"/, 'centered, as the lead is');
+    assert.match(withLead, /<a:srgbClr val="C2D0DA"\/>/, 'in the lead line\'s light ink, not the master body\'s dark one');
+    const titleOnly = await subStyle(deckWith([heading]));
+    assert.match(titleOnly, /<a:srgbClr val="FFFFFF"\/>/, 'with no lead, in the title\'s own ink');
+    assert.match(titleOnly, /b="0"/, 'at a subtitle\'s weight');
+    assert.doesNotMatch(titleOnly, /<a:lstStyle\/>/);
+  });
+
+  test('a dark look in a light deck carries its whole look: eyebrow, meta, a varying header and its body, each in its own ink', async () => {
+    // The owner, 2026-11-19: anchor slides (divider, topic, closing) are dark in a light deck and show more than a title.
+    const t = (text, over = {}, at = {}) => frame([[{ text, style: style({ family: 'Outfit', size: 14, ...over }) }]], { x: 64, y: 40, w: 600, h: 20, ...at });
+    const light = (o = {}) => ({ color: '#e8eef5', ...o });
+    const topic = (section, n) => ({
+      image: ONE_PX_PNG,
+      background: 1,
+      look: 'topic',
+      frames: [
+        t(section, light(), { role: 'header', y: 20 }),
+        t('Section 01', light({ italic: true }), { role: 'eyebrow', y: 70 }),
+        t(`Topic ${n}`, { family: 'Playfair Display', weight: 700, size: 40, color: '#ffffff' }, { role: 'title', y: 110, h: 50 }),
+        t('A claim about the topic, in the body ink.', light({ size: 22 }), { y: 180, h: 30 }),
+        t('Cohorts Q1-Q3', light({ size: 12 }), { role: 'meta', y: 640 }),
+      ],
+    });
+    const d = {
+      width: 1280,
+      height: 720,
+      backgrounds: [{ color: '#ffffff' }, { color: '#003d66' }],
+      slides: [
+        { image: ONE_PX_PNG, background: 0, look: 'content', frames: [t('Light content', { size: 36, color: '#0a1628' }, { role: 'title', y: 100, h: 50 }), t('Body line', { size: 22, color: '#1e3a5f' }, { y: 200, h: 30 })] },
+        topic('Unit economics', 1),
+        topic('Go to market', 2),
+        { image: ONE_PX_PNG, background: 1, look: 'divider', frames: [t('Section 02', light(), { role: 'eyebrow', y: 300 }), t('Divider', { size: 48, color: '#ffffff' }, { role: 'title', y: 340, h: 60 })] },
+      ],
+    };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const layouts = await Promise.all([1, 2, 3].map((i) => zip.file(`ppt/slideLayouts/slideLayout${i}.xml`).async('string')));
+    const named = (n) => layouts.find((x) => x.includes(`<p:cSld name="${n}">`));
+    const topicL = named('Topic');
+    assert.ok(topicL, 'the two topic slides share one layout, named after their look, though their headers differ');
+    const ph = (x, nm) => {
+      const i = x.indexOf(`name="${nm} Placeholder"`);
+      assert.ok(i >= 0, `${nm} placeholder`);
+      return x.slice(i, x.indexOf('</p:sp>', i));
+    };
+    assert.match(ph(topicL, 'Eyebrow'), /idx="13"[\s\S]*E8EEF5/, 'an eyebrow slot in its light ink');
+    assert.match(ph(topicL, 'Meta'), /idx="14"[\s\S]*E8EEF5/, 'a meta slot');
+    assert.match(ph(topicL, 'Header'), /idx="15"[\s\S]*E8EEF5/, 'the header varies between its slides: a slot, not text');
+    assert.match(ph(topicL, 'Title'), /FFFFFF/);
+    // A heading with one claim under it is a title look: its second slot is a subtitle, in the claim's own ink.
+    assert.match(ph(topicL, 'Subtitle'), /E8EEF5/, 'the claim slot in the look\'s own ink, not the master\'s dark one');
+    assert.doesNotMatch(topicL, /<a:lstStyle\/>/, 'no slot is left to inherit the master\'s light-slide ink');
+    for (const n of [2, 3]) assert.match(await zip.file(`ppt/slides/slide${n}.xml`).async('string'), /name="Header \d"/, 'each topic slide keeps its own header text');
+    assert.match(named('Divider'), /<p:sldLayout [^>]*type="secHead"/, 'a divider is a section header');
   });
 
   test('a page number that is not the slide position stays text, so a split run keeps its printed number', async () => {

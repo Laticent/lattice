@@ -106,14 +106,15 @@ export interface TextFrame {
 	/**
 	 * What the text is on the slide, when the page says so: the slide's `title`, the
 	 * `eyebrow` kicker above a heading, the `subtitle` below one, the running `header` and
-	 * `footer`, and the page `number`. A writer names the box by it, and where the format has
-	 * a placeholder for it (title, footer, slide number) writes one.
+	 * `footer`, the page `number`, and the `meta` line (a lone inline-code paragraph that ends the
+	 * slide: a source, a basis). A writer names the box by it, and its layout offers a placeholder
+	 * in its look, so a slide added in an office app has the slot.
 	 */
 	role?: FrameRole;
 }
 
 /** What a text frame is on the slide (see `TextFrame.role`). */
-export type FrameRole = 'title' | 'eyebrow' | 'subtitle' | 'header' | 'footer' | 'number';
+export type FrameRole = 'title' | 'eyebrow' | 'subtitle' | 'header' | 'footer' | 'number' | 'meta';
 
 /** A color with its opacity. */
 export interface Paint {
@@ -254,6 +255,11 @@ export interface Slide {
 	notes?: string | null;
 	/** Alt text for the slide picture. */
 	description?: string | null;
+	/**
+	 * What kind of slide this is, when the page says so (`readSlide`'s `look`: "title", "content", "divider", "topic",
+	 * "closing"): slides of one look on one ground share a layout, named after it.
+	 */
+	look?: string;
 }
 
 /** A whole deck, ready to write. */

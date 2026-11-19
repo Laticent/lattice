@@ -80,7 +80,7 @@ const NS_ASVG = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main';
 /** The id of a `slidenum` field, as PowerPoint writes one (any GUID will do; this one is stable). */
 const SLIDENUM_FIELD = '{B6F15528-21DE-4FAA-801E-634DDDAF4B2B}';
 /** What a role is called in the file, so a reader finds it in the selection pane. */
-const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebrow', subtitle: 'Subtitle', header: 'Header', footer: 'Footer', number: 'Slide number' };
+const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebrow', subtitle: 'Subtitle', header: 'Header', footer: 'Footer', number: 'Slide number', meta: 'Meta' };
 
 /** Text with the characters XML 1.0 forbids removed. Escape it (`xmlText`, `xmlAttr`) before it goes into a part. */
 export function xmlSafe(text: string | null | undefined): string {
@@ -586,7 +586,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	const useLayouts = !!deck.backgrounds?.length || deck.slides.some((sl) => sl.frames.some((f) => f.role));
 	const plan: MasterPlan = useLayouts
 		? planMasters(deck)
-		: { layouts: [{ kind: 'content', name: 'Blank', fromMaster: false, chrome: {} }], layoutOf: deck.slides.map(() => 0), hoisted: deck.slides.map(() => new Set<number>()), master: { chrome: {} } };
+		: { layouts: [{ kind: 'content', name: 'Blank', fromMaster: false, chrome: {}, vary: {} }], layoutOf: deck.slides.map(() => 0), hoisted: deck.slides.map(() => new Set<number>()), master: { chrome: {} } };
 	const masterRels = new Rels();
 	const layoutIds: string[] = [];
 	/** The page number's placeholder and its look, per layout that carries one: each of its slides draws one too. */
@@ -628,6 +628,39 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		}
 		return undefined;
 	};
+	/** The first plain paragraph (no role, outside cards) below the title on a layout's slides: a title look's lead line. */
+	const firstLead = (li: number, title: { y: number; h: number }) => {
+		for (let i = 0; i < deck.slides.length; i++) {
+			if (plan.layoutOf[i] !== li) continue;
+			const f = deck.slides[i].frames.find((fr) => !fr.role && fr.group === undefined && fr.lines.length && textOf(fr).box.y >= title.y + title.h / 2);
+			if (f) return f;
+		}
+		return undefined;
+	};
+	/** The first plain paragraph (no role, outside cards) on a layout's slides: what its body text looks like. */
+	const firstPlain = (li: number) => {
+		for (let i = 0; i < deck.slides.length; i++) {
+			if (plan.layoutOf[i] !== li) continue;
+			const f = deck.slides[i].frames.find((fr) => !fr.role && fr.group === undefined && fr.lines.length);
+			if (f) return f;
+		}
+		return undefined;
+	};
+	/**
+	 * A title frame's look at a quieter role's weight and size: its ink, regular, `scale` of its size. The fallback for a
+	 * slot the layout's slides do not show, so it is in THIS layout's ink (light on a dark look), never the master's.
+	 */
+	const quieter = (frame: TextFrame | undefined, scale = 0.4): TextFrame | undefined =>
+		frame && { ...frame, lines: frame.lines.map((line) => line.map((r) => ({ ...r, style: { ...r.style, weight: 400, size: r.style.size * scale } }))) };
+	/** A text placeholder (`type="body"`, its own idx) where and as a role is drawn: eyebrow, meta, or a header or footer whose text varies. */
+	const textPh = (id: number, name: string, idx: number, frame: TextFrame, prompt: string) => {
+		const { box } = textOf(frame);
+		return (
+			`<p:sp><p:nvSpPr>${cNvPr(id, `${name} Placeholder`)}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" sz="quarter" idx="${idx}" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
+			`<p:spPr>${xfrm(box.x, box.y, box.w, Math.max(box.h, 16))}${rectGeom}</p:spPr>` +
+			`<p:txBody>${PH_BODY}${lvl1(frame, 'mn')}<a:p><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>${xmlText(prompt)}</a:t></a:r><a:endParaRPr lang="${deckLang}" dirty="0"/></a:p></p:txBody></p:sp>`
+		);
+	};
 	const titleBox = (frame: TextFrame | undefined) => (frame ? textOf(frame).box : { x: W * 0.05, y: H * 0.08, w: W * 0.9, h: H * 0.14 });
 	/** Where a layout's body goes: under its title, over its footer, across what its first slide draws. */
 	const bodyBox = (li: number, title: { x: number; y: number; w: number; h: number }) => {
@@ -667,27 +700,41 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 				`<p:spPr>${xfrm(tb.x, tb.y, tb.w, tb.h)}${rectGeom}</p:spPr>` +
 				`<p:txBody>${PH_BODY}${lvl1(titleFrame, 'mj')}<a:p><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>Title</a:t></a:r><a:endParaRPr lang="${deckLang}" dirty="0"/></a:p></p:txBody></p:sp>`;
 			if (layout.kind === 'title') {
-				// A title look's second line: the subtitle, where and as the deck drew one.
-				const sub = firstFrame('subtitle', li);
+				// A title look's second line: the subtitle, where and as the deck drew one; else the first plain paragraph
+				// under the title (a lead line); else the title's own ink at a subtitle's size. Never an empty style: that
+				// inherits the master's body ink, dark text on a dark title look (owner, Google Slides, 2026-11-19).
+				const sub = firstFrame('subtitle', li) ?? firstLead(li, tb);
+				const look = sub ?? quieter(titleFrame);
 				const sb = sub ? textOf(sub).box : { x: tb.x, y: tb.y + tb.h + 16, w: tb.w, h: H * 0.08 };
 				tree +=
 					`<p:sp><p:nvSpPr>${cNvPr(id++, 'Subtitle Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="subTitle" idx="1" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
 					`<p:spPr>${xfrm(sb.x, sb.y, sb.w, Math.max(sb.h, 24))}${rectGeom}</p:spPr>` +
-					`<p:txBody>${PH_BODY}${lvl1(sub, 'mn')}<a:p><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>Subtitle</a:t></a:r><a:endParaRPr lang="${deckLang}" dirty="0"/></a:p></p:txBody></p:sp>`;
+					`<p:txBody>${PH_BODY}${lvl1(look, 'mn')}<a:p><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>Subtitle</a:t></a:r><a:endParaRPr lang="${deckLang}" dirty="0"/></a:p></p:txBody></p:sp>`;
 			} else {
 				const bb = bodyBox(li, tb);
+				// The body in the look of this layout's own body text, else its title's ink at body size: never an empty style,
+				// which inherits the master's ink (dark on a dark content look).
+				const bodyLook = firstPlain(li) ?? quieter(titleFrame, 0.5);
 				tree +=
 					`<p:sp><p:nvSpPr>${cNvPr(id++, 'Content Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph idx="1"/></p:nvPr></p:nvSpPr>` +
 					`<p:spPr>${xfrm(bb.x, bb.y, bb.w, bb.h)}${rectGeom}</p:spPr>` +
-					`<p:txBody>${PH_BODY}<a:lstStyle/><a:p><a:pPr lvl="0"/><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>Text</a:t></a:r></a:p></p:txBody></p:sp>`;
+					`<p:txBody>${PH_BODY}${lvl1(bodyLook, 'mn')}<a:p><a:pPr lvl="0"/><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>Text</a:t></a:r></a:p></p:txBody></p:sp>`;
 			}
+			// The rest of the look its slides show, each in its own place and ink: the eyebrow and the meta line (a source,
+			// a basis), and a header or footer whose text differs from slide to slide, as text placeholders.
+			const eyebrow = firstFrame('eyebrow', li);
+			if (eyebrow) tree += textPh(id++, 'Eyebrow', 13, eyebrow, 'Eyebrow');
+			const meta = firstFrame('meta', li);
+			if (meta) tree += textPh(id++, 'Meta', 14, meta, 'Source');
+			if (layout.vary.header) tree += textPh(id++, 'Header', 15, layout.vary.header, 'Header');
+			if (layout.vary.footer) tree += textPh(id++, 'Footer', 16, layout.vary.footer, 'Footer');
 			if (!layout.fromMaster) for (const role of ['header', 'footer'] as const) if (layout.chrome[role]) tree += chromeSp(id++, role, layout.chrome[role] as TextFrame);
 			if (layout.chrome.number) {
 				numberOf.set(li, { frame: layout.chrome.number });
 				tree += numberSp(id++, layout.chrome.number, null);
 			}
 		}
-		const type = !useLayouts ? ' type="blank"' : layout.kind === 'title' ? ' type="title"' : ' type="obj"';
+		const type = !useLayouts ? ' type="blank"' : layout.look === 'divider' ? ' type="secHead"' : layout.kind === 'title' ? ' type="title"' : ' type="obj"';
 		// A layout that does not show the master's chrome hides it (the master holds nothing else).
 		const hide = useLayouts && !layout.fromMaster ? ' showMasterSp="0"' : '';
 		const xml =

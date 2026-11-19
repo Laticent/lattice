@@ -30,7 +30,7 @@ const LONGEST_EDGE_CM = 33.867;
 const PT_PER_CM = 72 / 2.54;
 const NO_DIRS = Object.freeze({ createFolders: false });
 /** What a role is called in the file, so a reader finds it in the Navigator. */
-const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebrow', subtitle: 'Subtitle', header: 'Header', footer: 'Footer', number: 'Slide number' };
+const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebrow', subtitle: 'Subtitle', header: 'Header', footer: 'Footer', number: 'Slide number', meta: 'Meta' };
 
 const NS = [
 	'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"',

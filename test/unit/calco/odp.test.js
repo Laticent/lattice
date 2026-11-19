@@ -178,8 +178,9 @@ describe('calco odp — editable text', () => {
 });
 
 describe('calco odp — layouts, roles and the locked picture', () => {
-  const header = (text) => frame([[{ text, style: style({ size: 12 }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
-  const num = (n) => frame([[{ text: String(n), style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+  // Chrome on the navy ground is light, as a real dark slide's is (dark ink there would sit on something the picture paints).
+  const header = (text) => frame([[{ text, style: style({ size: 12, color: '#e0e6ee' }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
+  const num = (n) => frame([[{ text: String(n), style: style({ size: 12, color: '#e0e6ee' }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
   const title = (text) => frame([[{ text, style: style({ size: 40 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
   const deck = () => ({
     width: 1280,
