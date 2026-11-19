@@ -439,24 +439,24 @@ state-bearing layouts, "canvas" for charts); some are strictly per-layout
 ("watermark" for split-panel, "four" for cards-grid). The manifest model
 recognizes four tiers:
 
-**Tier 1 — Universal.** Apply to every component. Added
-automatically by `effectiveVariants()`; manifests must NOT list them. The
-canonical source is `MODIFIER_GROUPS` in `lib/components/index.js`; the table
-below shows the core groups, not the full set. The categories:
+**Tier 1 — Universal.** Apply to every component. `effectiveVariants()` adds
+the `UNIVERSAL_GROUPS` subset automatically; manifests must NOT list them. The
+full registry of modifiers is `MODIFIER_GROUPS` in `lib/components/index.js`;
+the table below shows the core groups, not the full set. The categories:
 
 | Category | Variants |
 |---|---|
-| Mood (1) | `dark` |
-| Decoration (6) | `no-treatment`, `tint-corner at-tl`, `mark-orbit`, `tint-vignette`, `tint-edge at-right`, `mark-threads` |
-| Typography (5) | `with-period`, `no-period`, `scale-l`, `scale-xl`, `scale-2xl` |
-| Chrome (5) | `silent`, `no-header`, `no-footer`, `no-pagination`, `no-progress` |
-| Social (1) | `safe` |
-| State (8) | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
-| Tone (4) | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
-| Insight (11) | `insight-key`, `insight-recommendation`, `insight-takeaway`, `insight-verdict`, `insight-so-what`, `insight-bottom-line`, `insight-the-ask`, `insight-our-view`, `insight-implication`, `insight-next-step`, `insight-why` |
-| Claim (3) | `claim-quiet`, `claim-hero`, `claim-framed` (the last is the no-op per-slide opt-out marker) |
-| Note (2) | `no-note`, `note-warn` |
-| Table (3) | `table-plain`, `table-fill`, `state-cells` |
+| Mood | `dark` |
+| Decoration | `no-treatment`, `tint-corner at-tl`, `mark-orbit`, `tint-vignette`, `tint-edge at-right`, `mark-threads` |
+| Typography | `with-period`, `no-period`, `scale-l`, `scale-xl`, `scale-2xl` |
+| Chrome | `silent`, `no-header`, `no-footer`, `no-pagination`, `no-progress` |
+| Social | `safe` |
+| State | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
+| Tone | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
+| Insight | `insight-key`, `insight-recommendation`, `insight-takeaway`, `insight-verdict`, `insight-so-what`, `insight-bottom-line`, `insight-the-ask`, `insight-our-view`, `insight-implication`, `insight-next-step`, `insight-why` |
+| Claim | `claim-quiet`, `claim-hero`, `claim-framed` (the last is the no-op per-slide opt-out marker) |
+| Note | `no-note`, `note-warn` |
+| Table | `table-plain`, `table-fill`, `state-cells` |
 
 The State variants are the team-collaboration vocabulary — visible
 markers for slides that are in-progress, confidential, or otherwise
