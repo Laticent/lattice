@@ -691,12 +691,17 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', offlineNotice(out.readiness));
 				// The author has to connect a model (no key, none chosen, not loaded): their message waits, and is answered
-				// as soon as one is (chat-resume.ts). A model only warming up is not marked: its notice says so, and
+				// as soon as one is (the answer-after-connect mark in studio-store.ts). A model only warming up is not marked: its notice says so, and
 				// answering later on its own would spend a turn the author did not ask for again.
 				// Decided by the model's own reason, not by `aiReady` at send, which can still read true for a moment
 				// before the key check settles (a race that left the message unmarked and unanswered).
 				const mustConnect = out.readiness ? ['needs-key', 'unset', 'unavailable', 'off', 'retired'].includes(out.readiness.state) : !sendAiReady;
-				if (mustConnect) markAnswerAfterConnect(sendDeckId);
+				if (mustConnect) {
+					markAnswerAfterConnect(sendDeckId);
+					// Wait for the NEXT moment a model becomes available: a model the Studio already calls ready answered
+					// "offline", so answering again on the current one would only fail again (and loop).
+					resumeArmedRef.current = false;
+				}
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
 				// to come back; popping the Workspace sheet happens NOW, over whatever they are
@@ -835,11 +840,13 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		void run(history, sendDeckId);
 	};
 
-	// ANSWER THE WAITING MESSAGE once a model is ready (chat-resume.ts): after a key typed in Workspace, or after the
-	// OpenRouter sign-in's reload. Only when this deck's thread still ends on that unanswered author message, so a
-	// thread the author has since moved on from is never answered behind their back. And only at a MOMENT a model
-	// becomes available (the chat opening, or `aiReady` turning true), once: a model the Studio calls ready can still
-	// answer "offline" (warming up), and retrying whenever the turn ended would loop on it.
+	// ANSWER THE WAITING MESSAGE once a model is ready (the answer-after-connect mark in studio-store.ts): after a key
+	// typed in Workspace, or after the OpenRouter sign-in's reload. Only when this deck's thread still ends on that
+	// unanswered author message, so a thread the author has since moved on from is never answered behind their back.
+	// ARMED at a MOMENT a model becomes available (the chat opening, or `aiReady` turning true), and spent only when a
+	// waiting message is actually answered: a deck with nothing waiting leaves it armed, so the author can connect on
+	// one deck and still have another deck's message answered when they open it. A turn that comes back "offline"
+	// disarms it (above), so a model the Studio calls ready but that cannot answer is never retried in a loop.
 	const resumeArmedRef = React.useRef(true);
 	const wasAiReadyRef = React.useRef(aiReady);
 	if (aiReady && !wasAiReadyRef.current) resumeArmedRef.current = true;
@@ -847,8 +854,9 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 	// biome-ignore lint/correctness/useExhaustiveDependencies: a model becoming ready (or the thread loading) is the trigger; `run` reads the rest when it runs.
 	React.useEffect(() => {
 		if (!ready || !aiReady || busy || compacting || !resumeArmedRef.current) return;
+		if (!hasAnswerAfterConnect(deckId)) return;
 		resumeArmedRef.current = false;
-		if (!takeAnswerAfterConnect(deckId)) return;
+		takeAnswerAfterConnect(deckId);
 		if (messages.at(-1)?.role !== 'user') return;
 		void run(messages, deckId);
 	}, [ready, aiReady, busy, compacting, deckId]);
@@ -1009,6 +1017,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 		let end = messages.length;
 		while (end > 0 && messages[end - 1].role === 'assistant') end--;
 		if (!end) return;
+		takeAnswerAfterConnect(deckId); // the author asked again, so the automatic answer must not also run
 		void run(messages.slice(0, end), deckId);
 	};
 
@@ -1168,7 +1177,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 								{/* The last message waits for a model: say so, so it does not look stuck (it was asked again, twice). */}
 								{i === messages.length - 1 && !busy && hasAnswerAfterConnect(deckId) ? (
 									<span data-chat-waiting className="text-[11px] text-muted-foreground">
-										{aiReady ? 'Connected. Answering this now…' : 'Waiting for a model. I’ll answer this once one is connected.'}
+										Waiting for a model. I’ll answer this once one is connected.
 									</span>
 								) : null}
 							</div>

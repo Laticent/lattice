@@ -4183,7 +4183,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		resumePendingAuth().then((r) => {
 			if (r?.status === 'connected') {
 				notify('OpenRouter connected — the Architect can now edit your deck.');
-				// A message was waiting for this connection: reopen the chat, which answers it (chat-resume.ts).
+				// A message was waiting for this connection: reopen the chat, which answers it (the answer-after-connect mark in studio-store.ts).
 				if (hasAnswerAfterConnect(deckIdRef.current)) setActiveAssistant('chat');
 			}
 			// A failed return used to say nothing, so Connect looked like it did nothing.

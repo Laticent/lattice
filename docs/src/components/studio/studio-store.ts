@@ -836,33 +836,45 @@ export function saveCheckpointDurably(deckId: string, source: string, label: str
 // the lazy chat, became a chunk the first load fetched (+573 bytes gzipped).
 const ANSWER_AFTER_CONNECT_KEY = 'lattice-chat-answer-after-connect';
 
-/** Remember that `deckId`'s last message is waiting for a model. */
-export function markAnswerAfterConnect(deckId: string): void {
+/** The decks whose last message waits for a model. One entry per deck, so marking one deck never drops another's. */
+function waitingDecks(): string[] {
 	try {
-		sessionStorage.setItem(ANSWER_AFTER_CONNECT_KEY, deckId);
+		const raw = sessionStorage.getItem(ANSWER_AFTER_CONNECT_KEY);
+		if (!raw) return [];
+		if (!raw.startsWith('[')) return [raw]; // the one-deck form an earlier build wrote
+		const list: unknown = JSON.parse(raw);
+		return Array.isArray(list) ? list.filter((d): d is string => typeof d === 'string') : [];
+	} catch {
+		return [];
+	}
+}
+
+function storeWaitingDecks(decks: string[]): void {
+	try {
+		if (decks.length) sessionStorage.setItem(ANSWER_AFTER_CONNECT_KEY, JSON.stringify(decks));
+		else sessionStorage.removeItem(ANSWER_AFTER_CONNECT_KEY);
 	} catch {
 		/* storage unavailable: the author asks again */
 	}
 }
 
+/** Remember that `deckId`'s last message is waiting for a model. */
+export function markAnswerAfterConnect(deckId: string): void {
+	const decks = waitingDecks();
+	if (!decks.includes(deckId)) storeWaitingDecks([...decks, deckId]);
+}
+
 /** Whether `deckId` has a message waiting for a model. */
 export function hasAnswerAfterConnect(deckId: string): boolean {
-	try {
-		return sessionStorage.getItem(ANSWER_AFTER_CONNECT_KEY) === deckId;
-	} catch {
-		return false;
-	}
+	return waitingDecks().includes(deckId);
 }
 
 /** Take (read and clear) the mark for `deckId`: true at most once per mark, so the waiting message is answered once. */
 export function takeAnswerAfterConnect(deckId: string): boolean {
-	try {
-		if (sessionStorage.getItem(ANSWER_AFTER_CONNECT_KEY) !== deckId) return false;
-		sessionStorage.removeItem(ANSWER_AFTER_CONNECT_KEY);
-		return true;
-	} catch {
-		return false;
-	}
+	const decks = waitingDecks();
+	if (!decks.includes(deckId)) return false;
+	storeWaitingDecks(decks.filter((d) => d !== deckId));
+	return true;
 }
 
 /** The chat change card's mark for "this card never saves a History entry of its own" (change-card-types.ts
