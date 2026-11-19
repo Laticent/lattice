@@ -1,7 +1,6 @@
 import { ChevronDown, Cloud, Cpu, KeyRound, Settings2 } from 'lucide-react';
 import * as React from 'react';
 import { readLedger } from '@/components/studio/ai/spend.js';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { modelDisplayName, nameFromId } from '@/lib/model-name';
@@ -11,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { agentTurnUsd, architectModel, architectSpend, type ChatGrounding, type CloudProvider, setStudioTier, useArchitectStatus } from './architect';
 import { approxTokens, modelText, SUMMARY_MAX_TOKENS, shouldSuggestCompaction, splitForCompaction } from './chat-compact';
 import { num } from './chat-trace';
+import { type BarTone, CollapsibleCard } from './collapsible-card';
 import { ModelList, useModelCatalog } from './ModelPicker';
 import { assetChoices, onAssetUrlsChanged } from './media-urls';
 import { type ReferenceDoc, refDocsTokens } from './reference-doc';
@@ -123,7 +123,6 @@ export function contextFill(last: ChatUsage | null): number | null {
 
 const level = (f: number | null) => (f == null ? 'ok' : f >= 0.9 ? 'over' : f >= 0.7 ? 'warn' : 'ok');
 const levelColor = (l: string) => (l === 'over' ? 'text-[var(--fail,#b3261e)]' : l === 'warn' ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground');
-const levelBar = (l: string) => (l === 'over' ? 'bg-[var(--fail,#b3261e)]' : l === 'warn' ? 'bg-[var(--warn,#9a6a00)]' : 'bg-primary');
 
 /** The session figure and the dropdown behind it. */
 function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { spend: Spend; deckId?: string; last: ChatUsage | null; usd: (n: number) => string; messages?: ChatMessage[]; price: { promptPerM: number | null; completionPerM: number | null } | null; compact?: CompactControls }) {
@@ -175,10 +174,10 @@ function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { s
 				    the breakdown folded away. This replaced a grid of nine small figure cards, which made every
 				    number equally loud and the one that matters (how full is the window?) hard to find. */}
 				<Section title="Context">
-					<UsageCard
+					<CollapsibleCard
 						title="Context window"
 						figure={pct != null ? <span className={levelColor(ctxLevel)}>{pct}% used</span> : last ? `${last.estimated ? '≈ ' : ''}${fmtTok(last.prompt)} tokens` : null}
-						bar={{ value: fill ?? 0, tone: ctxLevel }}
+						bar={{ value: fill ?? 0, tone: ctxLevel as BarTone }}
 						sub={last ? (last.window ? `${last.estimated ? '≈ ' : ''}${fmtTok(last.prompt)} of ${fmtTok(last.window)} tokens` : `${last.estimated ? '≈ ' : ''}${fmtTok(last.prompt)} tokens sent`) : 'Send a message and the window fills in here.'}
 					>
 						{last ? (
@@ -191,10 +190,10 @@ function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { s
 								</Row>
 							</>
 						) : null}
-					</UsageCard>
+					</CollapsibleCard>
 				</Section>
 				<Section title="Spend">
-					<UsageCard
+					<CollapsibleCard
 						title="This session"
 						figure={<span className={cn(over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>{usd(spend.session)}</span>}
 						bar={spend.cap > 0 ? { value: spend.session / spend.cap, tone: over ? 'over' : warn ? 'warn' : 'ok' } : undefined}
@@ -218,13 +217,13 @@ function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { s
 								</Row>
 							</>
 						)}
-					</UsageCard>
+					</CollapsibleCard>
 				</Section>
 				{compact && (
 					<Section title="Conversation">
-						<UsageCard
+						<CollapsibleCard
 							title="Compact conversation"
-							tone={suggest ? 'suggest' : undefined}
+							tone={suggest ? 'attention' : undefined}
 							figure={plan ? `${plan.messages} messages` : null}
 							sub={suggest ? 'Getting long: compacting shrinks what is re-sent every turn.' : plan ? 'The older messages become a short briefing.' : 'Useful once a thread has a dozen or so messages.'}
 							action={
@@ -259,7 +258,7 @@ function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { s
 									<p className="pt-1 text-[10.5px] leading-snug text-muted-foreground">The latest six messages stay word for word.</p>
 								</>
 							) : null}
-						</UsageCard>
+						</CollapsibleCard>
 					</Section>
 				)}
 				<p className="mt-3 text-[10.5px] leading-snug text-muted-foreground">Figures come from the usage OpenRouter reports with each reply. Reading them costs nothing.</p>
@@ -286,51 +285,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 			<p className="m-0 px-0.5 text-[11px] font-medium text-muted-foreground">{title}</p>
 			{children}
 		</section>
-	);
-}
-
-/**
- * One question, answered at a glance: a title, a headline figure, an optional bar (only where there is a
- * limit to measure against), and one line under it. `children` is the breakdown, folded behind a chevron
- * (the shared Collapsible); with no breakdown there is no chevron. `action` stays visible below the card's
- * body. Drawn in the chat's own card style, the change card's rounded hairline border on the page.
- */
-function UsageCard({ title, figure, bar, sub, action, tone, children }: { title: string; figure?: React.ReactNode; bar?: { value: number; tone: string }; sub: React.ReactNode; action?: React.ReactNode; tone?: 'suggest'; children?: React.ReactNode }) {
-	const [open, setOpen] = React.useState(false);
-	const folds = React.Children.toArray(children).some(Boolean);
-	const head = (
-		<>
-			<span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-foreground">{title}</span>
-			{figure != null && <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">{figure}</span>}
-			{folds && <ChevronDown className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none', open && 'rotate-180')} aria-hidden />}
-		</>
-	);
-	return (
-		<Collapsible open={open} onOpenChange={setOpen} className={cn('rounded-lg border bg-background px-2.5 py-2', tone === 'suggest' ? 'border-[var(--accent)]' : 'border-border')}>
-			{folds ? (
-				<CollapsibleTrigger className="flex w-full items-center gap-2 text-left" aria-label={`${title}: ${open ? 'hide' : 'show'} details`}>
-					{head}
-				</CollapsibleTrigger>
-			) : (
-				<div className="flex items-center gap-2">{head}</div>
-			)}
-			{bar && <Bar value={bar.value} tone={bar.tone} />}
-			<div className={cn('text-[11px] leading-snug text-muted-foreground', !bar && 'pt-0.5')}>{sub}</div>
-			{folds && (
-				<CollapsibleContent className="data-[state=open]:motion-safe:animate-in data-[state=open]:motion-safe:fade-in">
-					<div className="mt-2 border-t border-border pt-1.5">{children}</div>
-				</CollapsibleContent>
-			)}
-			{action}
-		</Collapsible>
-	);
-}
-
-function Bar({ value, tone }: { value: number; tone: string }) {
-	return (
-		<span className="my-1.5 block h-[5px] overflow-hidden rounded-full bg-[var(--accent-soft)]" aria-hidden>
-			<span className={cn('block h-full rounded-full', levelBar(tone))} style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
-		</span>
 	);
 }
 
