@@ -1043,7 +1043,9 @@ are ESCAPED into visible text, and a rule whose selector LEADS with
 
 ## Iterating on an open PR — park it as a draft, then mark it ready
 
-`ci.yml`, `platform-suites.yml` and `docs-preview.yml` skip every job while a PR is a draft. Their
+`ci.yml`, `platform-suites.yml` and `docs-preview.yml` skip every job while a PR is a draft. (A
+few cheap workflows still run on a draft push: `pr-closing-keywords.yml`, and the path-filtered
+`apt-cache-warm.yml` and `apt-mirror-probe.yml`.) Those three heavy workflows'
 `pull_request` trigger lists `opened`, `synchronize`, `reopened` and `ready_for_review`, and each
 entry job carries `if: github.event_name == 'merge_group' || !github.event.pull_request.draft`.
 So the agent, not the push, decides when CI runs:
@@ -1070,10 +1072,18 @@ and a p90 21 minutes for a runner in merge-queue runs, so PR runs compete with t
 **What still holds.**
 
 - **Open a PR ready, never as a draft.** The open runs CI once, and that run is wanted.
-- **A draft's `ci` check reads `skipped`, and GitHub counts skipped as passing.** That is safe only
-  because a draft cannot enter the merge queue, and the queue reruns the whole suite on its
-  `merge_group` run regardless. Never ask to merge, queue, or post a pre-merge card while the PR is
-  a draft or its head has no completed `ci` run.
+- **A draft's `ci` check reads `skipped`, and GitHub counts skipped as passing.** That is safe for
+  `main` only because a draft cannot enter the merge queue, and the queue reruns the whole suite on
+  its `merge_group` run regardless. It is NOT safe as a signal: a parked head already carries a
+  completed, "passing" `ci` check that ran no test, and right after `ready_for_review` it can stay
+  the newest one until the new run's `ci` job starts. **Ask to merge, queue, or post a pre-merge
+  card only when the PR is ready and the head's `ci` check concluded `success`** in a run started
+  while it was ready. `skipped` does not count. The DEFAULT OPERATING MODE rows "a PR is open" and
+  "the PR is green" mean a ready PR; a parked draft is mid-iteration, and a continuation brief
+  says which state it left the PR in.
+- **To re-run CI with no new push, re-run the workflow**, or mark the PR draft and then ready.
+  `ci.yml` lets a `ready_for_review` run queue behind an in-flight run on the same head rather
+  than cancel it, because the gate fails a tier canceled on the current head.
 - **Never park a PR that is in the merge queue.** Converting it to a draft removes it from the queue.
 - **Forgetting `--undo` costs what it cost before**: every push runs CI. Nothing reaches `main`
   unchecked either way.

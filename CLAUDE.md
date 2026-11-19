@@ -134,16 +134,8 @@ seen the options first. Born from a session that labeled 60 issues
    fragment (HARD RULE #10 — **not** `CHANGELOG.md` `## Unreleased`). Never
    return a behavior change with stale docs.
 7. **Open the PR when review-ready, then drive it green — then ASK to merge.**
-   Use `.github/pull_request_template.md`. Open it ready, never as a draft (the
-   open runs CI once, and that run is wanted). **To iterate on an open PR, park
-   it first:** `gh pr ready --undo <PR>`, push as many commits as the fix takes
-   (CI skips every job on a draft), run the local checks, then `gh pr ready <PR>`
-   — that one `ready_for_review` event is the CI run. A cloud session cannot call
-   `gh pr ready` (it uses GraphQL, which is blocked there): use
-   `gh api -X POST repos/{owner}/{repo}/pulls/<PR>/ccr/convert_to_draft` and
-   `…/ccr/ready_for_review` instead. Never ask to merge, queue,
-   or post a pre-merge card while the PR is a draft or its head has no completed
-   `ci` run. Once open, subscribe and drive CI green / address review — never ask
+   Use `.github/pull_request_template.md`. Open ready; park as a draft to iterate
+   (`workflow.md` §Iterating on an open PR). Once open, subscribe and drive CI green / address review — never ask
    "should I watch?". When green + review-ready, **stop and ask me for merge
    authorization** — a human approves every merge, and prior authorization does
    **not** carry forward. On my go-ahead, **squash-merge** by default. Full
