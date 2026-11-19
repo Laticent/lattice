@@ -5,7 +5,7 @@ recorded: 2026-11-19
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-11-19-bundle-legibility-and-slimming.md §3 Phase 3
-deferred: large — a cross-component refactor with its own decision note and owner sign-off (D5)
+deferred: large — a cross-component refactor with its own decision note; D5 (2026-11-19) says no uniform look, every current look stays as token values
 source: https://github.com/Laticent/lattice/pull/3313
 ---
 

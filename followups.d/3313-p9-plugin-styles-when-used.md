@@ -5,7 +5,7 @@ recorded: 2026-11-19
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-11-19-bundle-legibility-and-slimming.md §3 Phase 6
-deferred: blocked — a plugin-contract change waiting on the owner (D6)
+deferred: blocked — the owner said yes (D6, 2026-11-19); waits on step 6.0 and the real usage audit (3313-p3)
 source: https://github.com/Laticent/lattice/pull/3313
 ---
 

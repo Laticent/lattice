@@ -93,7 +93,7 @@ Precedent: `2026-09-27-card-tag-register.md` (one tag recipe, drift removed) and
 |---|---|---|---|
 | 3.1 | Decision note for the card contract: a marker the transformers set on a card element, `base.card.css` with a zero-specificity `:where()` surface recipe bundled before components, tokens `--card-fill`, `--card-radius`, `--card-pad`, `--card-lift`; components keep their own slots and semantics; G5 holds | adversarial trio (HARD RULE #25) | owner approves the contract |
 | 3.2 | Wave 1: migrate the components whose card already equals the majority (`--bg-alt`, `--radius-md`, `--elevation-card`) | computed-style gate, light/dark/print, all palettes | 0 differing elements |
-| 3.3 | Wave 2: the drifted components; each drift becomes a token override (no visual change) or is normalized (visual change, owner sign-off with renders attached) | computed-style gate + owner sign-off | every card surface comes from `base.card.css` |
+| 3.3 | Wave 2: the drifted components; each component's current look becomes its own token values on the shared contract (D5: no normalization, no visual change) | computed-style gate | every card surface comes from `base.card.css`, and a new look needs only new token values |
 
 ### Phase 4 — Selector boilerplate (spike, then decide)
 
@@ -156,16 +156,16 @@ that cites it; the evidence is in PR #3313's body.
   the plugin's own test" is a second definition of used that disagrees with the first. 6.0 settles which one is right
   before the contract changes.
 
-## 4. Owner decisions (one round)
+## 4. Owner decisions (2026-11-19)
 
-| # | Decision | Recommendation | Default if silent |
+| # | Question | Owner's answer | What it means for the plan |
 |---|---|---|---|
-| D1 | Run `npm run quality:check` (knip + jscpd, on demand today) in CI (adds a job: CI contract) | Yes, report-only first | not added |
-| D2 | `fact-check-core.js`: keep for the proposed feature or delete | Delete; it is in git history if the feature returns | keep |
-| D3 | Size budget on `lattice-min.css`, `lattice-runtime-min.js` and a typical deck's loader bytes (CI contract) | Yes, from the Phase 0 report, warn-only for a month | not added |
-| D4 | Go on the Phase 4 spike | Yes, it is one file and fully gated | no spike |
-| D5 | Card normalization in Phase 3.3 (visual change) | Normalize to the majority; keep overrides only where a component's design needs them | token overrides, no visual change |
-| D6 | Plugin contract gains `styles: { when: "used" }` (Phase 6.1, a canonical contract) | Yes; start with chart-family, mermaid, math and function-plot, the heaviest | contract unchanged, Phase 6 parked |
+| D1 | Detect unused code continuously | **Pre-push hook, after the findings are sorted.** | First sort today's knip findings (20 files, 16 packages on 2026-11-19; many are files loaded indirectly, which knip cannot see): teach `knip.json` about them, delete what is truly dead, re-bless `test/quality/baseline.json`. Then add a lefthook pre-push job that fails only when unused files, exports or packages grow. Measured cost: knip 6.7 s against a pre-push of about 73 s (lint 9.0 s, `lint:deck:all` 3.9 s, `build:check` 60.1 s). |
+| D2 | `lib/authoring/fact-check-core.js` | **Open: investigate first.** | Built 2026-06-16 (#389 design, #395 code) as the deterministic first half of a deck fact-check feature (`2026-06-16-deck-fact-checking.md`, proposed). The AI verdict layer and its Drawing Board panel were never built, and the Drawing Board has since been removed. No issue or followup tracks it. Keep it with an issue that names the Studio as its home, or delete it: a product call. |
+| D3 | Size budget in CI | **Replaced: growth metrics on the pre-merge card.** | No CI budget. `npm run card` reports what a PR adds and removes, from git, by kind: docs, code, comments, CSS, tests. Cheap (git numstat plus a comment count on changed files), fast and exact. |
+| D4 | Phase 4 nesting spike | **Yes: try it and measure it against the alternatives.** | 4.1 runs with G6 and reports, for flat (today) vs nested vs any other candidate: source bytes and repetition, shipped bytes minified and gzipped, build time, specificity changes and the computed-style diff on every deck. 4.2 waits on those numbers. |
+| D5 | Card surfaces (Phase 3) | **No uniform look.** | Every card look that ships today stays available. Phase 3 builds one extensible card contract: shared slots and tokens, with each component's current look expressed as its own token values, so a new look is a new set of values rather than a new hand-built card. 3.3 never normalizes; zero visual change unless a deck asks for one. |
+| D6 | Plugin styles load when used | **Yes (option A).** | Phase 6 goes ahead, step 6.0 first (G7): if the start-up floor already defers a plugin's module, that plugin becomes a data edit, not a contract change. |
 
 ## 5. Not doing
 
