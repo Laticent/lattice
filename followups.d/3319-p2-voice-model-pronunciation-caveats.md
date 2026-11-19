@@ -11,6 +11,10 @@ source: https://github.com/Laticent/lattice/pull/3319
 
 # Say which voices misread words, document it, and warn when one is picked
 
+Shipped in #3319 itself (the Flash-Lite slice): the gotcha (engineering/gotchas/studio-playground.md, "A voice says a
+deck term wrong in one sentence and right in the next") and the warning (docs/src/lib/voice-caveats.ts, shown under
+the Voice model card, AiModelSections.tsx VoiceModelSection). What remains is the audit of the other curated voices, which adds rows to voice-caveats.ts.
+
 The owner asked, on #3319: document Gemini's position-dependent misreading as a gotcha, warn authors when they
 select Gemini in the Studio's workspace settings, and look for the same class of problem in the other value and
 curated voice models. Companion to `3319-p1-gemini-tts-misreads-yearn-by-position.md`, which holds the reproduction
