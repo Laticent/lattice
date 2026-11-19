@@ -292,6 +292,14 @@ describe('preview font gate — the injection order at every call site', () => {
 			revealer: "agentTag(agents, 'stage-reveal'",
 			agent: 'stage-reveal',
 			what: 'the Stage window, which under `standalone` an audience watches',
+			// NOT <head>, and the one exception. The opener writes this document with `document.write`,
+			// which stops at a `<script src>` until the file loads, then asks `isOpen()` (is `#latt-stage`
+			// there?) the moment the write returns. A gate in <head> hid the marker, so every Stage that
+			// opened also said "Allow pop-ups…" (stage-window.spec.ts, the hand-close cell). The Stage
+			// reveals itself from inside the document and nothing outside it polls the flag, so the
+			// <head> reason below does not apply; the gate still precedes the runtime and the revealer.
+			after: 'id="latt-stage"',
+			before: "' src=\"' + rt + '\"",
 		},
 		{
 			file: 'docs/src/playground/single-slide-render.ts',
@@ -319,6 +327,18 @@ describe('preview font gate — the injection order at every call site', () => {
 			}
 		});
 
+		if (site.after) {
+			it(`${site.file} emits the gate after ${site.after} and before the runtime`, () => {
+				const src = fs.readFileSync(path.join(ROOT, site.file), 'utf8');
+				const gate = src.indexOf(GATE);
+				const marker = src.indexOf(site.after);
+				const runtime = src.indexOf(site.before);
+				assert.ok(marker !== -1 && runtime !== -1, `${site.file} no longer writes ${site.after} or its runtime tag — the document shape changed`);
+				assert.ok(marker < gate, `${site.file} emits the fontgate tag before ${site.after}, so isOpen() reads false while the file loads`);
+				assert.ok(gate < runtime, `${site.file} emits the fontgate tag after the runtime`);
+			});
+			continue;
+		}
 		it(`${site.file} emits the gate into <head>`, () => {
 			// Placement is the contract, not a preference. The agent publishes its flag
 			// synchronously and defers its measurement to DOMContentLoaded precisely so
