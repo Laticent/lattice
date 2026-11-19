@@ -205,10 +205,12 @@ async function latticePhotoProbe() {
 			view.dispatch({ effects: view.constructor.scrollIntoView(at, { y: 'start' }) });
 			return true;
 		}, 10000, `the editor's document to hold "${text}"`);
+		const tw = Date.now();
 		const range = await until(() => {
 			const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes(text));
 			return line?.querySelector('.cm-lintRange-warning');
 		}, 20000, `an editor warning on the line "${text}"`);
+		(result.trace ??= []).push(`${text.slice(0,12)} warn after ${Date.now() - tw} ms`);
 		range.scrollIntoView({ block: 'center' });
 		await sleep(200);
 		// Close whatever tooltip an earlier read left open: the pointer leaves the editor, and CodeMirror needs a moment.
@@ -245,6 +247,13 @@ async function latticePhotoProbe() {
 		return { text: tip.textContent, button: tip.querySelector('.cm-diagnosticAction')?.textContent?.trim() };
 	};
 
+	const T0 = Date.now();
+	let last = '';
+	const tracer = setInterval(() => {
+		const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'));
+		const st = `coach=${coachOpen()} shown=${shown()} line=${line ? (line.querySelector('.cm-lintRange-warning') ? 'warn' : 'plain') : 'none'} prevVis=${visible(document.querySelector('[aria-label="Live deck preview"]'))}`;
+		if (st !== last) { (result.trace ??= []).push(`${Date.now() - T0} ${st}`); last = st; }
+	}, 30);
 	try {
 		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
 		// editor only when its pane is shown, which openSource does (#2911).
@@ -314,6 +323,7 @@ async function latticePhotoProbe() {
 		step('slide 3: the finding for the slide left behind is gone', true, `${Math.max(0, Math.round(gone - moved))} ms after the preview moved`);
 
 		result.ok = true;
+		clearInterval(tracer);
 	} catch (e) {
 		result.error = String(e?.message ?? e);
 	}
