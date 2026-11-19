@@ -1,4 +1,3 @@
-import { Check, ChevronLeft, ChevronRight, Eye, History, MessageSquare, RotateCcw, Sparkles, TriangleAlert, Undo2, X } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
@@ -19,6 +18,44 @@ import { CollapsibleCard } from '../studio/collapsible-card';
 //
 // Route: /proto/change-card/?mode=light|dark&rows=3|8
 // Delete this file and src/pages/proto/change-card.astro to revert; nothing else imports them.
+
+
+// The prototype draws its icons inline rather than importing lucide-react: an extra importer of shared icon
+// modules made the bundler split them into new chunks that every route then loads (+0.4 to 0.7KB gzipped
+// of eager JS on all five budgeted routes, measured against main). Same paths as lucide's.
+const PATHS: Record<string, string[]> = {
+	Check: ['M20 6 9 17l-5-5'],
+	ChevronLeft: ['m15 18-6-6 6-6'],
+	ChevronRight: ['m9 18 6-6-6-6'],
+	Eye: ['M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0', 'M12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6'],
+	History: ['M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8', 'M3 3v5h5', 'M12 7v5l4 2'],
+	MessageSquare: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
+	RotateCcw: ['M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8', 'M3 3v5h5'],
+	Sparkles: ['M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z'],
+	TriangleAlert: ['m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3', 'M12 9v4', 'M12 17h.01'],
+	Undo2: ['M9 14 4 9l5-5', 'M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11'],
+	X: ['M18 6 6 18', 'm6 6 12 12'],
+};
+const icon =
+	(name: keyof typeof PATHS) =>
+	({ className }: { className?: string }) => (
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+			{PATHS[name].map((d) => (
+				<path key={d} d={d} />
+			))}
+		</svg>
+	);
+const Check = icon('Check');
+const ChevronLeft = icon('ChevronLeft');
+const ChevronRight = icon('ChevronRight');
+const Eye = icon('Eye');
+const History = icon('History');
+const MessageSquare = icon('MessageSquare');
+const RotateCcw = icon('RotateCcw');
+const Sparkles = icon('Sparkles');
+const TriangleAlert = icon('TriangleAlert');
+const Undo2 = icon('Undo2');
+const X = icon('X');
 
 type RowState = 'waiting' | 'applied' | 'discarded' | 'undone';
 type Edit = { kind: 'replace' | 'insert'; before: string; after: string; anchor?: string };

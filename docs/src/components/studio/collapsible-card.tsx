@@ -1,4 +1,3 @@
-import { ChevronDown } from 'lucide-react';
 import * as React from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
@@ -8,6 +7,17 @@ import { cn } from '@/lib/utils';
 // change card both draw with it, so the two read as one set; a third surface extends this, never forks it
 // (HARD RULE #15). Drawn in the chat's own card style: a rounded hairline border on the page background.
 // Built on the shared shadcn Collapsible, which supplies the trigger's aria-expanded and the keyboard.
+
+// The chevron is drawn here (lucide's chevron-down path) rather than imported: the card is imported from
+// more than one place, and lucide's module then splits into a chunk of its own that every route loads
+// (+136 bytes gzipped of eager JS on all five budgeted routes, measured against main).
+function Chevron({ className }: { className?: string }) {
+	return (
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+			<path d="m6 9 6 6 6-6" />
+		</svg>
+	);
+}
 
 export type BarTone = 'ok' | 'warn' | 'over';
 const barFill = (t: BarTone) => (t === 'over' ? 'bg-[var(--fail,#b3261e)]' : t === 'warn' ? 'bg-[var(--warn,#9a6a00)]' : 'bg-primary');
@@ -60,7 +70,7 @@ export function CollapsibleCard({ title, label, figure, bar, sub, action, tone, 
 		<>
 			<span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-foreground">{title}</span>
 			{figure != null && <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">{figure}</span>}
-			{folds && <ChevronDown className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none', open && 'rotate-180')} aria-hidden />}
+			{folds && <Chevron className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none', open && 'rotate-180')} />}
 		</>
 	);
 	return (
