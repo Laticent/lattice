@@ -12,7 +12,7 @@ source: https://github.com/Laticent/lattice/pull/3313
 # Spike: author base.table-reflow.css with nesting, flattened by esbuild
 
 why now   — selectors are about half the CSS, much of it repeated boilerplate (data-family clauses, the figure arm, the reflow guard). esbuild already lowers nesting for target chrome91.
-where     — lib/base/base.table-reflow.css; the CSS build lowers it so every shipped file stays flat for Marp.
+where     — lib/base/base.table-reflow.css; the CSS build lowers it so every shipped file stays flat for Marp. Precondition: guard G6 in the plan note §3 (Guards from the adversarial review).
 done when — 0 differing elements on every deck, marp-cli and VS Code preview renders of the reflow examples match, and the source-size and specificity findings are written into the plan note.
 evidence  — gate summary and the measured delta.
 verify    — tier 1 checker, because lowering a nested selector list can change specificity.
