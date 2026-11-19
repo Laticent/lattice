@@ -46,6 +46,20 @@ done when — FRAME: the player's runtime is a same-origin file in the capture a
             OFFLINE: the shell is reachable offline (precached where a navigation can use it, or the
             sandbox no longer needs a navigation).
             Then csp.mjs exempts nothing and MIN_POLICY_PAGES is 204.
+known     — four limits the stage-2 review lenses found (PR #3307), each for the stage that
+limits      meets it:
+            STUDIO IMAGES: a static policy fixes img-src when the page loads, and a preview frame
+            inherits it, so a deck's per-deck web-image consent cannot widen it later. The FRAME
+            stage must carry the consented hosts some other way (the frame's own policy, or the
+            shell) before /studio/ gets a policy, or a consented web image stays blocked.
+            FIREFOX ORIGINS: Gecko does not match a service worker's 'self' (csp.mjs selfOrigins), so
+            the policy names its origins. A build names the canonical site, the PR-preview wildcard
+            when GITHUB_HEAD_REF is set, and --self-origin; any other host the same build is served
+            from (another alias, a local port) loads no fonts in Firefox until it is named.
+            RUNNER DEADLINE: the code-package runner's ready deadline now includes the shell's
+            network load, so a slow first load can spend part of it.
+            SHELL PATH: the code-package runner's shell is driven by unit tests and by direct probes
+            in all three engines, not by an e2e test through the Studio's package consent.
 evidence  — `node docs/scripts/csp.mjs --check` prints the six and their reasons; the stage-2
             measurements are in the decision note §2.
 verify    — `npm run build`, then `npx playwright test e2e/site-csp.spec.ts` on the six projects
