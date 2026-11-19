@@ -1,7 +1,9 @@
-studio: +133
+studio: +180
 The chat's speech preview reads four small helpers (whether a slide is hidden, its spoken line, the
 deck's front-matter say: map and its plugin off-list) that already live in the Studio's startup code;
-the eager `architect` chunk now exports them to the lazy chat chunk. The new tools themselves,
+the eager `architect` chunk now exports them to the lazy chat chunk. 47 more bytes are the one line in
+`chatAgentDeps` that hands the chat the engine's own reader for Lattice syntax in backticks (pills,
+icons), so find and replace never writes into one. The new tools themselves,
 find_text, replace_text and the term reports, all load lazily with the chat.
 Given back first: +601 on the Studio and +598 on the home page, which came from reaching those helpers
 through dynamic import() (a module already in an eager chunk then ships its whole export table up
