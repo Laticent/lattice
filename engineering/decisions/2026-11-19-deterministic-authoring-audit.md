@@ -56,8 +56,15 @@ findings subtracted.
 | `@legend` as literal code / key only in the chart / dropped | 54 / 22 / 4 | 54 / 22 / 4 | exact |
 | `_focus` tags nothing | 18 | 18 | exact, the same 18 components |
 
-Not re-derived: the ≈35 undocumented tokens (an estimate) and the 8 docs-vs-code contradictions (a
-judgment).
+The two items that were not counts were then settled exactly. **Undocumented tokens:** of 377
+author-typable tokens, 20 cannot be learned from any author-facing doc, literally or as a documented
+pattern or register word. Ten are documented nowhere (`motion-auto` `motion-build` `motion-fast`
+`motion-normal` `motion-rise` `motion-slow` `motion-together`, `fill-anchor` `fill-center`
+`fill-optical`). Ten appear only in the contributor doc `engineering/treatments.md` (`tint-ambient`
+`tint-duotone` `tint-frame` `tint-ground` `tint-horizon`, `mark-brackets` `mark-micro` `mark-pills`
+`mark-slashes` `mark-ticks`). The first run's ≈35 counted pattern-documented families (`tone-rail`,
+`tag-end`, `progress-rail-*`, `agenda-*`) whose words their register sections do list. **The 8
+contradictions** were each checked against the code; the owner table below says where each is fixed.
 
 ## The answer in five lines
 
@@ -237,7 +244,7 @@ elsewhere.
 |---|---|
 | Registries that each hold part of the vocabulary | 11 (`MODIFIER_GROUPS`, `UNIVERSAL_GROUPS`, `SEMI_UNIVERSAL_VARIANTS`, `EXCLUSIVE_AXES`, `BASE_MODIFIERS`/`FRAME_`/`ANIMATION_MODIFIERS`, `FAMILY_MODIFIERS`, `MODE_TOKENS`, `SWITCHES`, `TINTS`/`MARKS`, `MODIFIER_PREFIXES`, `COLOR_MODE_TOKENS`) |
 | Author-facing tokens outside `MODIFIER_GROUPS` | 34 (3 mode, 7 switch, 16 tint/mark, 8 `tint-at-*` spellings) |
-| Tokens undocumented in any base or reference doc | ≈35 (the motion group, `fill-*`, `footer-inset`, the `tbd`/`redacted`/`archived`/`revised` stamps, `tone-rail`/`tone-glow`, `tag-center`/`tag-end`, most `progress-rail-*` and `agenda-*`) |
+| Tokens an author cannot learn from any author-facing doc | 20: 10 documented nowhere (7 `motion-*`, 3 `fill-*`), 10 only in `engineering/treatments.md` (5 tints, 5 marks) |
 | Docs-vs-code contradictions | 8 |
 | Tokens the engine paints that lint calls `unknown-class` | 7 (bare treatment placements: `top`, `bottom-right`, …) |
 | Typos that lint clean through an open prefix | 9 of 11 prefixes (`no-heaer`, `with-finsh`, `tone-blah`, `fill-xyz` all pass) |
@@ -450,6 +457,29 @@ The mechanisms, each tied to a workstream:
 
 What this does not cover: taste. A layout can honor its contract and still look wrong. That stays
 with the visual review path (Quality Bar, `engineering/visual-review.md`).
+
+## Every finding has an owner
+
+Nothing in this audit is left to a follow-up file. Each defect is either fixed in this PR or is the
+named job of one workstream, which fixes it in full before it merges (HARD RULE #18).
+
+| Finding | Fixed |
+|---|---|
+| `design/skills/lens.md` teaches a `kpi` slide with `#` and a layout that does not exist (`appendix-detail`) | **This PR** |
+| `base.docs.md` teaches the retired `decision banner-tag` (renders pixel-identical to `tag-band`) | **This PR** |
+| `base.docs.md` says "Ten" layouts claim the blockquote (11; `gift-card` was missing) and "fourteen" chart layouts claim the trailing paragraph | **This PR**: the doc names examples and points at `coda.claims` instead of a count |
+| `base.docs.md` and `design-system.md` call `UNIVERSAL_GROUPS` (62) the full set; `design-system.md` says 51 | **This PR**: both point at `MODIFIER_GROUPS`, counts removed |
+| `silent` documented without the section rail it also hides | **This PR** |
+| `sketch` documented as a finish; it is a `mode:` token | **This PR** |
+| `light`, `mirror`, `numbered` filed under "Universal variants" while the code calls them base modifiers or aliases; the four overlapping terms | **W5**: the taxonomy and the generated modifier reference replace the section |
+| CLAUDE.md HARD RULE #6 says "base modifiers", a term `base.docs.md` never uses | **W5**, and the CLAUDE.md wording goes to the owner (a canonical-doc change is the owner's) |
+| 20 tokens an author cannot learn; 8 registers with no section; `spark:`/`callout:` outside `DECK_SETTINGS` | **W5** (base manifest + generated reference) |
+| Bare placement words the engine paints and lint calls `unknown-class`; typos that lint clean through an open prefix; cross-component variants that lint clean | **W5** (lint reads the base manifest; prefixes closed; variants per component) |
+| Required slots, heading level and list type unenforced; prose selectors; samples that fail their own contract; `numbered` phantom; `banner-tag` still declared in the decision and compare-prose manifests; `quote` styling every paragraph as attribution | **W1** |
+| `1.`/`-` and nested swaps change or break 30+ components | **W2** |
+| Bold as structure in 12+ components | **W3** |
+| Posters drop speaker notes, eyebrow, subtitle, figures; 11 components overflow on a coda; `premise` eyebrow/subtitle; `_focus` silent on 18; pane hosts misplace the below-note; `block-unsupported` ignores an authored blockquote | **W4** |
+| `components.pick.md` contradicts itself on its length; `AGENTS.md` overstates what `lint:deck` catches | **This PR** |
 
 ## Settled with the owner (2026-11-19)
 
