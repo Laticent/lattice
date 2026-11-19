@@ -53,3 +53,51 @@ test(`CONTROL: on ${process.platform}, a browser started without the sandbox rea
     await browser.close();
   }
 });
+
+// HELD PROFILE: the profile removal survives a file Windows still holds (#3276). On Windows, Chromium's helper
+// processes can hold `Default/Cache/Cache_Data/sqldb0` for a moment after the browser exits, and a single
+// `fs.rmSync` threw EBUSY (platform-suites run 44011046237). Here a PowerShell child opens that file with no sharing,
+// the way Chromium's cache does, says `locked`, and holds it until the test writes `go`; it then lets go 1.5 s later.
+// While it holds the file, a bare `rmSync` must fail, which proves the lock is real; that check does not race the
+// clock, because the holder waits for `go`. `removeProfile` then runs while the file is still held and must outlast
+// the 1.5 s inside its ~5.5 s retry budget. Only Windows can hold a file against deletion, so elsewhere this checks
+// only that the folder goes.
+test(`HELD PROFILE: removeProfile outlasts a file held open on ${process.platform}`, { timeout: TIMEOUT }, async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { spawn } = require('node:child_process');
+  const { removeProfile } = require('../../../lib/core/os-sandbox.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-sandbox-'));
+  const file = path.join(dir, 'Default', 'Cache', 'Cache_Data', 'sqldb0');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, 'cache');
+  if (process.platform !== 'win32') {
+    removeProfile(dir);
+    assert.equal(fs.existsSync(dir), false);
+    return;
+  }
+  const script = `$f = [System.IO.File]::Open($env:HELD, 'Open', 'ReadWrite', 'None'); [Console]::Out.WriteLine('locked'); [Console]::Out.Flush(); [void][Console]::In.ReadLine(); Start-Sleep -Milliseconds 1500; $f.Close()`;
+  const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { env: { ...process.env, HELD: file }, stdio: ['pipe', 'pipe', 'inherit'] });
+  const exited = new Promise((resolve) => holder.once('exit', resolve));
+  // The signal, not a duration: go on once the child says it holds the file.
+  await new Promise((resolve, reject) => {
+    let out = '';
+    holder.stdout.on('data', (d) => {
+      out += d;
+      if (out.includes('locked')) resolve();
+    });
+    holder.once('exit', (code) => reject(new Error(`the holder exited (${code}) before it locked the file`)));
+  });
+  try {
+    assert.throws(() => fs.rmSync(dir, { recursive: true, force: true }), (e) => ['EBUSY', 'EPERM'].includes(e.code), 'a bare rmSync removed a folder whose file is held: the lock is not real, so this test proves nothing');
+    // `go` must reach the holder before removeProfile blocks the event loop, so wait for the write to flush.
+    await new Promise((resolve) => holder.stdin.write('go\n', resolve));
+    removeProfile(dir);
+    assert.equal(fs.existsSync(dir), false, 'removeProfile left the folder behind');
+  } finally {
+    holder.stdin.end();
+    await exited;
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
