@@ -31,10 +31,28 @@ cycle with `1.`, agenda with `-`, the contact layout dropping a speaker note, ca
 and a checklist linting clean without its heading. All six reproduced. The five render findings were
 run again in dark mode on `cuoio` and reproduced the same way; the lint finding does not depend on
 theme or mode.
-**Not reproduced:** the sweep tallies come from one run of those uncommitted scripts and were
-not re-run by the fact-check. They are 66/68 and 64/68 (Finding 1), the 22 / 13 / 12 component
-counts (Finding 2), the whole Finding 3 table except the coda's 11 opt-outs, and Finding 4's
-37 / ≈35 / 8 / 7 / 8. Read them as single-run measurements.
+**Sweep tallies, re-derived (2026-11-19).** The tallies were then re-derived with new scripts
+written from scratch, not the originals: one slide per manifest sample (80), rendered with the real
+CLI and pixel-diffed (`dist/lattice.js`), or linted with `lintText` with the unmutated sample's
+findings subtracted.
+
+| Tally | First run | Re-derived | Note |
+|---|---|---|---|
+| `##` deleted / demoted to `#` / heading-only, lint silent | 66, 66, 64 of 68 | 66, 66, 64 of 68 | exact |
+| Components that change on a top-level `1.`/`-` swap | about 22 | 20 on default samples (17 outside R1/R2) | all 16 default-variant names from the first run, plus `columns`; the first run also counted variants (`list takeaway`, `compare-prose axis`, `math`) |
+| Chart kinds that break on a nested swap | 13 | 13 | 12 shared; `journey` in, `bullet` out (its sample has no nested list). 11 non-chart components also change on a nested swap (pricing, kpi, stats, premise, list-steps, list-tabular, …), which the first run did not report |
+| Components where a bold lead changes the layout | at least 12 (mostly from code) | 6 rendered on samples, bold weight neutralized: citation-card, decision, statute-stack, math, word-cloud, kanban | the rest of the 12 rest on the code citations, which the fact-check confirmed; their samples do not use the inline bold form |
+| Coda S / O / overflow | 60 / 11 / 9 | 58 / 11 / 11 | the same 9 plus gantt and journey (clipped inside a box) |
+| Below-note S / O / drop / overflow | 30 / 41 / 1 / 7 | 31 / 41 / 1 (`video`) / 7 | |
+| Speaker notes dropped | 4 | 4 | exact: contact, gift-card, wifi, video |
+| Eyebrow / subtitle overflow | 3 / 4 | 3 / 5 | subtitle adds `premise`, which the first run filed as broken |
+| Author tokens outside `MODIFIER_GROUPS` | 37 | **34** | 3 mode + 7 switch + 16 tint/mark + 8 `tint-at-*`; corrected below |
+| Placement words lint calls `unknown-class` | 7 | 7 | exact |
+| Typos that lint clean through a prefix | 8 probed | 8 of 8 | `zzbogus` control is flagged |
+| Registers missing from the registers doc | 8 | 8 | exact |
+
+Not re-derived: `@image`/`@video`/`@legend`/`bleed`/`_focus` columns of the Finding 3 table, the
+≈35 undocumented tokens (an estimate) and the 8 docs-vs-code contradictions (a judgment).
 
 ## The answer in five lines
 
@@ -44,7 +62,7 @@ counts (Finding 2), the whole Finding 3 table except the coda's 11 opt-outs, and
    68 heading-bearing components.
 2. **List markers and bold mean something different in each layout.** Only `content`, default
    `list`, `cards-grid` and `cards-stack` follow the owner's rule. About 22 components change,
-   usually break, when `1.` and `-` swap; 13 chart kinds break on a nested swap; bold is
+   usually break, when `1.` and `-` swap; 13 chart kinds and 11 other components change on a nested swap; bold is
    structural in at least 12.
 3. **Only the coda has a support declaration.** Four poster layouts (contact, wifi, gift-card,
    video) drop eyebrow, subtitle, figures and **speaker notes** with no declaration and no lint
@@ -126,6 +144,7 @@ each item's lead bold or plain, then pixel-diffing the pairs.
 | R3 broken, `1.` collapses | inventory, cycle, glossary (no table), pricing, policy-recommendation, verdict-grid, logo-wall (one giant logo), big-number, journey |
 | R3 broken, numbers appear | split-panel (every variant: `1.` becomes a native list or numbered cards; `steps` reads only `ol`), compare-prose `axis` (`-` draws "0") |
 | R3 broken on a nested swap | ep-curve, funnel, gantt, hub-spoke, map, piechart, quadrant, radar, scatter, timeline-list, tower, waterfall, bullet |
+| R3 broken on a nested swap, non-chart (found by the re-derivation) | pricing, big-number, premise, list-steps, logo-wall, list-tabular, verdict-grid, policy-recommendation, stats, glossary, kpi |
 
 **Bold is structural (R4) in at least 12 components:**
 
@@ -212,7 +231,7 @@ elsewhere.
 | Measure | Count |
 |---|---|
 | Registries that each hold part of the vocabulary | 11 (`MODIFIER_GROUPS`, `UNIVERSAL_GROUPS`, `SEMI_UNIVERSAL_VARIANTS`, `EXCLUSIVE_AXES`, `BASE_MODIFIERS`/`FRAME_`/`ANIMATION_MODIFIERS`, `FAMILY_MODIFIERS`, `MODE_TOKENS`, `SWITCHES`, `TINTS`/`MARKS`, `MODIFIER_PREFIXES`, `COLOR_MODE_TOKENS`) |
-| Author-facing tokens outside `MODIFIER_GROUPS` | 37 (3 mode, 7 switch, 16 tint/mark, 8 `tint-at-*` spellings, …) |
+| Author-facing tokens outside `MODIFIER_GROUPS` | 34 (3 mode, 7 switch, 16 tint/mark, 8 `tint-at-*` spellings) |
 | Tokens undocumented in any base or reference doc | ≈35 (the motion group, `fill-*`, `footer-inset`, the `tbd`/`redacted`/`archived`/`revised` stamps, `tone-rail`/`tone-glow`, `tag-center`/`tag-end`, most `progress-rail-*` and `agenda-*`) |
 | Docs-vs-code contradictions | 8 |
 | Tokens the engine paints that lint calls `unknown-class` | 7 (bare treatment placements: `top`, `bottom-right`, …) |
@@ -344,7 +363,7 @@ behind the one before it only where it reads that one's output.
 
 ### W5 — One base manifest
 
-- Promote `MODIFIER_GROUPS` to a declared base manifest (see decision 3) and fold in the 37 missing
+- Promote `MODIFIER_GROUPS` to a declared base manifest (see decision 3) and fold in the 34 missing
   tokens: modes, switches, treatments.
 - Adopt one taxonomy, each kind with a one-line test an agent can apply:
 
