@@ -116,7 +116,7 @@
       "description": "Use when defining a reader lens (Lente): an approved subset of a deck's slides, projected for another audience without editing it.",
       "kind": "make",
       "studio": true,
-      "tokens": 4725
+      "tokens": 4723
     },
     {
       "name": "math",

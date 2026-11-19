@@ -57,7 +57,7 @@
     "chosen",
     "decision",
     "vertical",
-    "banner-tag",
+    "tag-band",
     "rejected",
     "axis"
   ],
@@ -194,10 +194,10 @@
       "summary": "Stacks the panes for longer cases.",
       "sample": "<!-- _class: compare-prose vertical -->\n\n## vertical stacks the panes for longer cases.\n\n- The top option\n  - Stacking buys full slide width, so a case may run toward its ceiling without the columns pinching.\n- The bottom option\n  - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.\n"
     },
-    "banner-tag": {
-      "label": "banner-tag",
+    "tag-band": {
+      "label": "tag-band",
       "summary": "Corner tags become banners.",
-      "sample": "<!-- _class: compare-prose banner-tag -->\n\n## banner-tag fills the corner tags at banner weight.\n\n- OPTION A\n  - The tag takes the accent fill and full contrast.\n- OPTION B\n  - Use for short, loud labels — verdicts, camps, teams.\n"
+      "sample": "<!-- _class: compare-prose tag-band -->\n\n## tag-band fills the corner tags at banner weight.\n\n- OPTION A\n  - The tag takes the accent fill and full contrast.\n- OPTION B\n  - Use for short, loud labels — verdicts, camps, teams.\n"
     },
     "rejected": {
       "label": "Rejected",
@@ -245,8 +245,8 @@
       "useWhen": "Either case needs more room than the two-column width can hold — stacks the panes top/bottom instead of side by side."
     },
     {
-      "variant": "banner-tag",
-      "useWhen": "The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag. `banner-tag` is the `tag-band` placement under its older name; `tag-band` (or `tag: band` deck-wide) works on every tagged layout."
+      "variant": "tag-band",
+      "useWhen": "The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag. `tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `tag: band` deck-wide, works on every tagged layout."
     },
     {
       "variant": "rejected",

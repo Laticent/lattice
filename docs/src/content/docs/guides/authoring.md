@@ -61,7 +61,7 @@ The fastest way to choose is the **[component reference](/components/)**:
 an interactive catalog of every component with its slots, variants, when to
 reach for it, and when not to — and you can preview the whole thing in
 any Lattice palette. The same content is also available as a single
-[Markdown document](https://github.com/Laticent/lattice/blob/main/dist/docs/components.md).
+[Markdown document](/components.md).
 
 ## Swappable renderings (variants)
 
@@ -101,11 +101,13 @@ every deck.
 
 ## Modifiers
 
-Any component accepts universal modifiers appended to the class —
-`dark`, `light`, `numbered`, `scale-xl`, and treatments such as `tint-corner`.
+Nearly every component accepts universal modifiers appended to the class —
+`dark`, `light`, `scale-xl`, and treatments such as `tint-corner`.
 For example `<!-- _class: cards-grid dark -->` renders the grid on the
-dark canvas. The catalog of modifiers lives in the design system
-reference in the repository.
+dark canvas. The poster layouts (`contact`, `wifi`, `gift-card`, `video`)
+do not render several of them. The catalog of the core modifiers is
+[`authoring/modifiers.md`](https://github.com/Laticent/lattice/blob/dist-kits/agent/authoring/modifiers.md)
+in the agent kit, and each component's page lists its own variants.
 
 ## The `split:` key — your outline divides the slides
 

@@ -121,13 +121,16 @@ incrementally; when absent, fall back to the narrative `whenToUse` /
 edit deck.md  →  npm run lint:deck -- deck.md  →  fix  →  render
 ```
 
-- **`npm run lint:deck -- <file.md>`** — fast, no-render check for the
-  markdown footguns the docs warn about. Run it on every draft and fix all
-  errors before rendering. Rules: card-style slides forbid the inline
+- **`npm run lint:deck -- <file.md>`** — fast, no-render check for many of
+  the markdown footguns the docs warn about. Run it on every draft and fix all
+  errors before rendering. Rules include: card-style slides forbid the inline
   `- **Title.** body` shape (use the nested `- Title` / `  - body` shape);
-  ordered-list "statement" components forbid `**bold**` inside items; class
-  typos are flagged. `--json` gives machine-readable output; `--strict`
-  fails on warnings too.
+  ordered-list "statement" components forbid `**bold**` inside items; unknown
+  class words are flagged. `--json` gives machine-readable output; `--strict`
+  fails on warnings too. **A clean lint is not a correct slide:** it does not
+  yet check a slide against its component's slots (a missing `##` heading, `#`
+  in place of `##`, or `-` where the layout reads `1.` all lint clean), so
+  follow the component's `.docs.md` for those.
 - **Render** (needs a Chromium; set `CHROME_PATH` in the cloud sandbox —
   see `engineering/gotchas.md`):
 

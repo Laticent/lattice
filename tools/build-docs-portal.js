@@ -1382,8 +1382,8 @@ contract, and \`components.json\` says which components go in a pane and at what
 
 **A zero-hit \`grep\` means read the ${rows.length} rows, not that no component fits.** Rows carry
 names, tags and a one-line purpose — not the full \`whenToUse\` prose — so a search for
-\`swot\`, \`screenshot\` or \`bullet\` can miss a component that handles it. The whole table
-is ~60 lines; skimming it is the fallback.
+\`swot\`, \`screenshot\` or \`bullet\` can miss a component that handles it. Skimming the
+whole table is the fallback.
 
 **Every \`purpose\` here is the FIRST SENTENCE of the manifest’s.** Manifest prose is
 written head-first ("Use for X…") and tail-last ("…for Y, use \`Z\` instead"), so the

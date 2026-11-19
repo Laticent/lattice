@@ -366,10 +366,10 @@ audience should remember from a card-grid slide.
 
 **Supported layouts: almost all of them — this block is OPT-OUT.** A layout renders
 the callout unless it declares `coda: { claims: ["blockquote"] }` in its manifest.
-Ten do: `quote` (the quotation itself), `math` (a display equation),
+These do: `quote` (the quotation itself), `math` (a display equation),
 `citation-card`, `redline`, `inventory`, `policy-recommendation` and `split-panel`
 (its `pullquote` variant) all use the element for their own anatomy; `split-compare`
-paints the same `--insight-label` on its verdict card. `contact` and `wifi` claim it
+paints the same `--insight-label` on its verdict card. `contact`, `wifi` and `gift-card` claim it
 for a different reason — they are posters whose card fills the stage, so there is no
 band position that does not crush it. The generated `layout-*` skeletons are excluded
 by pattern. Everywhere else a trailing blockquote becomes the callout.
@@ -410,9 +410,10 @@ and after the 2026-09-01 audit every surviving claim is one the layout's own ana
 really uses: the bookend lede (`title`, `closing`, `divider`), `quote`'s attribution,
 `stats`' italic lede, `image` and `split-panel`'s body regions, `split-compare`'s
 verdict, `math`'s equation grid, the two QR posters (`contact`, `wifi` — a 527px card
-in a 524px stage; there is no band position that does not crush it), and the fourteen
-chart-frame layouts that turn a final paragraph into `.chart-caption` (twelve as the
-caption proper, `matrix-grid` and `state-chart` as their swatch `legend`).
+in a 524px stage; there is no band position that does not crush it), and every
+chart-frame layout, which turns a final paragraph into `.chart-caption` (`matrix-grid` and
+`state-chart` into their swatch `legend`). Each claim is in that component's manifest
+(`coda.claims`), which is the list to trust; this paragraph names examples.
 Everything else promotes, **including `content`**, which means any slide that names no
 component at all, since that is what an un-classed slide resolves to (#1292).
 
@@ -676,11 +677,11 @@ Authors don't carry presentational markup.
   as siblings (kpi.trajectory = top accent, decision = bottom accent).
 - Composes with `compare-prose` modifiers `chosen` / `decision` — the
   corner tag inherits the modifier's editorial signal.
-- **`banner-tag` modifier** flips each card from a flush-corner tag
+- **`tag-band` modifier** (formerly `banner-tag`) flips each card from a flush-corner tag
   into a full-width header strip:
 
   ```markdown
-  <!-- _class: decision banner-tag -->
+  <!-- _class: decision tag-band -->
   ```
 
   The card becomes a vertical column-flex: tag fits its content height
@@ -957,7 +958,7 @@ and `lint:deck` rewrites each one.
 ## Universal variants
 
 Opt-in via `_class:`. Compose with any layout. The full set is defined
-in `lib/components/index.js` as `UNIVERSAL_GROUPS`.
+in `lib/components/index.js` as `MODIFIER_GROUPS`; this section documents the common ones.
 
 ### `dark`
 
@@ -1102,7 +1103,7 @@ numbered` keeps both the index and its page number.
 
 ### `silent`
 
-Suppresses header, footer, and pagination on a single slide. Use on
+Suppresses header, footer, pagination and the section rail on a single slide. Use on
 bookend slides (`title`, `divider`, `closing`) where the dark canvas
 should read uninterrupted, or to omit chrome from a single section
 break.
@@ -1111,12 +1112,12 @@ break.
 <!-- _class: title silent -->
 ```
 
-Equivalent to `no-pagination` plus `<!-- _header: "" -->` and
+Equivalent to `no-pagination` plus `no-progress`, `<!-- _header: "" -->` and
 `<!-- _footer: "" -->`, in one token.
 
 ### `sketch`
 
-The hand-drawn **finish** — a deck-wide skin that swaps Lattice into a
+The hand-drawn **mode** (`mode: sketch` in front matter, or the `sketch` class on one slide) — a deck-wide skin that swaps Lattice into a
 hand-drawn register: felt-tip headings (`--sketch-font-display`, Caveat),
 a legible hand-sans for prose (`--sketch-font-body`, Shantell Sans), and
 the card surface of
