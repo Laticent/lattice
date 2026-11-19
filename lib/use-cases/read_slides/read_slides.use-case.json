@@ -1,0 +1,41 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "read_slides",
+	"title": "Read slides",
+	"describe": {
+		"chat": "Read the exact Markdown of slides from the current draft (including your edits this turn)."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"from": {
+				"type": "integer",
+				"minimum": 1
+			},
+			"to": {
+				"type": "integer",
+				"minimum": 1
+			}
+		},
+		"required": [
+			"from"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "read",
+	"legacy": true,
+	"chat": {
+		"position": 40,
+		"activity": "Reading slides…"
+	}
+}

@@ -157,6 +157,10 @@ const STEPS = [
   // The palette picker's groups + swatches, baked from themes/*.manifest.json — the
   // docs bundle can't fs-load 32 manifests at runtime.
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
+  // The Studio chat's tool catalog, compiled from lib/use-cases/*/*.use-case.json (one manifest per
+  // tool). Committed: architect-agent.ts and chat-actions.ts import it as ordinary modules.
+  // engineering/decisions/2026-11-17-use-case-layer.md §3.4.
+  { label: 'use-case catalog (studio chat tools)', script: 'build-use-cases.js' },
   // The one index of every shipped package (lib/packages/), walked through the package
   // spine. Committed, like the catalogs around it: later phases import it as a module.
   { label: 'package index (lib/packages)', script: 'build-packages-index.js' },

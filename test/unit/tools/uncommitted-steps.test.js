@@ -144,6 +144,7 @@ const EXPECTED_UNCOMMITTED = new Set([
 const EXPECTED_PR_OWNED = new Set([
   'build-stage-catalog.js', // lib/forms/cell/masthead
   'build-theme-catalog.js', // lib/theme/edges.generated.mjs AND the palette catalog
+  'build-use-cases.js', // chat-tools.generated.ts + chat-tool-tiers.generated.ts, compiled from lib/use-cases manifests
   // Re-measured 2026-10-07: its whole write set is lib/packages/packages.generated.json,
   // lib/finishes/presets.generated.js, lib/motion/scenes.generated.js,
   // lib/base/base.finish.css and lib/packages/reserved-classes.generated.js, all tracked —

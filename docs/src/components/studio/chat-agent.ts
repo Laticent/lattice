@@ -503,34 +503,10 @@ const CACHE_WRITE_1H_RATE = 2;
 /** What a cached prompt-prefix read costs, as a fraction of base input (architect.ts). */
 const CACHE_READ_RATE = 0.1;
 
-/** What the transcript says while a tool call is still ARRIVING — only the edit tools differ
- *  from the running label, because their arguments are the slow part. */
-export const TOOL_DRAFTING: Record<string, string> = {
-	edit_slides: 'Drafting the edit…',
-};
+// The status labels come from each tool's use-case manifest (chat.activity / chat.drafting).
+export { TOOL_ACTIVITY, TOOL_DRAFTING } from './chat-tools.generated';
 
-/** What the transcript says while a tool runs. */
-export const TOOL_ACTIVITY: Record<string, string> = {
-	read_component: 'Reading a component…',
-	read_front_matter: 'Reading a front-matter key…',
-	read_guide: 'Reading a guide…',
-	read_slides: 'Reading slides…',
-	find_text: 'Searching the deck…',
-	edit_slides: 'Editing the draft…',
-	replace_text: 'Replacing words…',
-	set_front_matter: 'Setting front matter…',
-	set_terms: 'Changing how terms are spoken…',
-	preview_speech: 'Listening to the slides…',
-	check_deck: 'Checking the deck…',
-	list_assets: 'Searching the Library…',
-	view_asset: 'Looking at photos…',
-	caption_asset: 'Saving photo captions…',
-	set_theme: 'Changing the theme…',
-	set_finish: 'Changing the finish…',
-	chart_from_data: 'Building a chart…',
-	render_slide: 'Looking at the slide…',
-	create_deck: 'Drafting a new deck…',
-};
+import { TOOL_ACTIVITY, TOOL_DRAFTING } from './chat-tools.generated';
 
 /** Fold an agent turn into the ChatResult the panel already renders: the prose, and the
  *  staged draft as one review card of per-slide edits against the ORIGINAL deck. */

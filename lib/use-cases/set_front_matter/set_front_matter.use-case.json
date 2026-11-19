@@ -1,0 +1,48 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "set_front_matter",
+	"title": "Set a front-matter key",
+	"describe": {
+		"chat": "Stage a front-matter change on the draft: set a scalar key, or remove it with value null. Read the key first. The result includes the checker’s verdict on the draft."
+	},
+	"tier": "draft",
+	"effects": [
+		"deck.frontmatter"
+	],
+	"destructive": true,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"key": {
+				"type": "string"
+			},
+			"value": {
+				"type": [
+					"string",
+					"null"
+				]
+			},
+			"summary": {
+				"type": "string",
+				"description": "One or two sentences to the author: what you changed and why. If the checker finds no errors this is your whole answer for the turn."
+			}
+		},
+		"required": [
+			"key",
+			"value",
+			"summary"
+		]
+	},
+	"requires": [],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "deck",
+	"legacy": true,
+	"chat": {
+		"position": 60,
+		"activity": "Setting front matter…"
+	}
+}

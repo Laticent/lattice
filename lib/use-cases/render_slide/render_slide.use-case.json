@@ -1,0 +1,40 @@
+{
+	"$schema": "../use-case.schema.json",
+	"id": "render_slide",
+	"title": "Look at a slide",
+	"describe": {
+		"chat": "Look at one slide of the draft, rendered the way export draws it. The picture arrives in the next message. Use it to judge a layout you are unsure of, not on every slide; at most {{RENDER_SLIDE_MAX_PER_TURN}} per turn."
+	},
+	"tier": "read",
+	"effects": [
+		"none"
+	],
+	"destructive": false,
+	"idempotent": true,
+	"confirm": "never",
+	"input": {
+		"type": "object",
+		"properties": {
+			"slide": {
+				"type": "integer",
+				"description": "The slide number, 1-based."
+			}
+		},
+		"required": [
+			"slide"
+		]
+	},
+	"requires": [
+		"render",
+		"images"
+	],
+	"hosts": [
+		"chat"
+	],
+	"toolset": "look",
+	"legacy": true,
+	"chat": {
+		"position": 150,
+		"activity": "Looking at the slide…"
+	}
+}

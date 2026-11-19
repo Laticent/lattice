@@ -19,29 +19,10 @@ export type ChatMode = 'talk' | 'review' | 'auto';
 export const CHAT_MODES: readonly ChatMode[] = ['talk', 'review', 'auto'];
 export const DEFAULT_CHAT_MODE: ChatMode = 'review';
 
-export const TOOL_TIERS: Readonly<Record<string, ToolTier>> = {
-	read_component: 'read',
-	read_front_matter: 'read',
-	read_guide: 'read',
-	read_slides: 'read',
-	find_text: 'read',
-	check_deck: 'read',
-	list_assets: 'read',
-	view_asset: 'read',
-	// It writes a caption onto a Library photo, outside the draft. It is metadata the author can
-	// edit, not deck content, so it is not an act; but Talk is reads only, so it is not a read.
-	caption_asset: 'draft',
-	edit_slides: 'draft',
-	replace_text: 'draft',
-	set_front_matter: 'draft',
-	set_terms: 'draft',
-	preview_speech: 'read',
-	set_theme: 'draft',
-	set_finish: 'draft',
-	chart_from_data: 'draft',
-	render_slide: 'read',
-	create_deck: 'act',
-};
+// The tier of every chat tool, generated from its use-case manifest (lib/use-cases/*/*.use-case.json).
+export { TOOL_TIERS } from './chat-tool-tiers.generated';
+
+import { TOOL_TIERS } from './chat-tool-tiers.generated';
 
 const MODE_TIERS: Readonly<Record<ChatMode, ReadonlySet<ToolTier>>> = {
 	talk: new Set<ToolTier>(['read']),
@@ -94,22 +75,6 @@ export type ChatAction = {
 export const CREATE_DECK_MAX_CHARS = 60_000;
 export const CREATE_DECK_TITLE_MAX = 80;
 
-export const CREATE_DECK_TOOL = {
-	type: 'function',
-	function: {
-		name: 'create_deck',
-		description:
-			'Create a NEW deck from complete Lattice Markdown (front matter, then slides separated by ---), for when the author asks for a new deck rather than a change to this one. It does not happen yet: the author sees the title and outline and confirms. Call it once per turn, after drafting the whole deck; then tell the author it is ready for them to confirm. The open deck is not changed.',
-		parameters: {
-			type: 'object',
-			properties: {
-				title: { type: 'string', description: `The deck's title, under ${CREATE_DECK_TITLE_MAX} characters.` },
-				markdown: { type: 'string', description: 'The whole deck in Lattice Markdown.' },
-			},
-			required: ['title', 'markdown'],
-		},
-	},
-} as const;
 
 /** A title as the author will see it: no format characters (zero-width, right-to-left overrides),
  *  one space between words. Empty when nothing visible is left. */
@@ -149,34 +114,5 @@ export function autoHold(o: { via?: 'agent' | 'oneshot'; clean?: boolean; aborte
 
 // ── Look and chart tools (draft), and the slide render (read) ───────────────
 
-/** set_theme / set_finish, with the names the Studio ships as an enum, so the model cannot invent one. */
-export function makeLookTools(themes: readonly string[], finishes: readonly string[]) {
-	return [
-		{
-			type: 'function',
-			function: {
-				name: 'set_theme',
-				description: 'Change the deck\'s theme (its palette) on the draft. Same as setting the `theme:` front-matter key.',
-				parameters: { type: 'object', properties: { name: { type: 'string', enum: [...themes] }, summary: { type: 'string' } }, required: ['name'] },
-			},
-		},
-		{
-			type: 'function',
-			function: {
-				name: 'set_finish',
-				description: 'Change the deck\'s finish (the backdrop behind every slide) on the draft; "none" removes it. Same as setting `finish:`. read_guide finish first if unsure.',
-				parameters: { type: 'object', properties: { name: { type: 'string', enum: ['none', ...finishes] }, summary: { type: 'string' } }, required: ['name'] },
-			},
-		},
-	] as const;
-}
 
 export const RENDER_SLIDE_MAX_PER_TURN = 3;
-export const RENDER_TOOL = {
-	type: 'function',
-	function: {
-		name: 'render_slide',
-		description: `Look at one slide of the draft, rendered the way export draws it. The picture arrives in the next message. Use it to judge a layout you are unsure of, not on every slide; at most ${RENDER_SLIDE_MAX_PER_TURN} per turn.`,
-		parameters: { type: 'object', properties: { slide: { type: 'integer', description: 'The slide number, 1-based.' } }, required: ['slide'] },
-	},
-} as const;
