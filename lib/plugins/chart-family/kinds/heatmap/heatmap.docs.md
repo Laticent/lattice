@@ -16,11 +16,11 @@ Use when the question is 'where does this concentrate', not 'how do these compar
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name what the grid shows ('Retention decays fastest in month two'), not the chart type. |
-| `eyebrow` | `p > code:only-child` | no | Optional kicker above the title — the dataset and its period. |
-| `rows` | `table > tbody > tr` | yes | One table row per ROW of the matrix, leading with its label. The header row names the columns; a blank cell is a crossing nobody measured. |
+| `title` | a `## ` heading | yes | Slide heading — name what the grid shows ('Retention decays fastest in month two'), not the chart type. |
+| `eyebrow` | a line of `inline code` | no | Optional kicker above the title — the dataset and its period. |
+| `rows` | a table | yes | One table row per ROW of the matrix, leading with its label. The header row names the columns; a blank cell is a crossing nobody measured. |
 
 ### Common mistakes
 

@@ -14,10 +14,10 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `quotation` | `blockquote > p` | yes | The quoted text. |
-| `attribution` | `section > p:last-child` | no | Attribution line below the quote. |
+| `quotation` | a `>` blockquote | yes | The quoted text. |
+| `attribution` | a paragraph | no | Attribution line below the quote. |
 
 ### Common mistakes
 

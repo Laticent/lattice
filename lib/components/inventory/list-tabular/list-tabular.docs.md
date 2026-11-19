@@ -16,10 +16,10 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `rows` | `ol > li` | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
+| `title` | a `## ` heading | yes | Slide heading. |
+| `rows` | a `1.` list | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
 
 ### Variant decision rule
 

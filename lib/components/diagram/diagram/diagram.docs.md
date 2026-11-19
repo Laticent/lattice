@@ -16,11 +16,11 @@ Use for relational or topological visuals — flowcharts, sequence diagrams, sta
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the diagram shows. |
-| `subtitle` | `p > code` | no | Optional eyebrow caption. |
-| `mermaid` | `[data-lattice-figure], svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
+| `title` | a `## ` heading | yes | Slide heading framing what the diagram shows. |
+| `subtitle` | a line of `inline code` | no | Optional eyebrow caption. |
+| `mermaid` | a ```mermaid fenced block | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
 
 ### Common mistakes
 

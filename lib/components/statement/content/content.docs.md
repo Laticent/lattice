@@ -16,10 +16,10 @@ The catch-all for explanatory content that doesn't fit a more structured layout.
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Slide heading. |
-| `body` | `section > p, section > ul` | yes | Paragraphs or a short bullet list under the heading. Keep under ~40 words — an editorial target for a slide you chose this layout for, not a limit the engine enforces; a slide that merely fell back to `content` is bound by the overflow oracle, not by this. |
+| `heading` | a `## ` heading | yes | Slide heading. |
+| `body` | a paragraph or a list | no | Paragraphs or a short bullet list under the heading. Keep under ~40 words — an editorial target for a slide you chose this layout for, not a limit the engine enforces; a slide that merely fell back to `content` is bound by the overflow oracle, not by this. |
 
 ### Common mistakes
 

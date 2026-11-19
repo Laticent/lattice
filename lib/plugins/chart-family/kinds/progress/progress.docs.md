@@ -16,12 +16,12 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the progress view. |
-| `eyebrow` | `p > code` | no | Optional eyebrow caption above the heading. |
-| `subtitle` | `p` | no | Optional plain subtitle after the heading. |
-| `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note, and so does the `note=` field of the row written as one record: `- Adoption `{68%, at-risk, note="Q4 slip"}`` (the record's note first, then the nested bullets). |
+| `title` | a `## ` heading | yes | Slide heading framing the progress view. |
+| `eyebrow` | a line of `inline code` | no | Optional eyebrow caption above the heading. |
+| `subtitle` | a paragraph | no | Optional plain subtitle after the heading. |
+| `rows` | a list | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note, and so does the `note=` field of the row written as one record: `- Adoption `{68%, at-risk, note="Q4 slip"}`` (the record's note first, then the nested bullets). |
 
 ### Common mistakes
 

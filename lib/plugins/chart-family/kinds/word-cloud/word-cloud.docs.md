@@ -16,10 +16,10 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the cloud. |
-| `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size and the loudest ink the variant has. |
+| `title` | a `## ` heading | yes | Slide heading framing the cloud. |
+| `words` | a list | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size and the loudest ink the variant has. |
 
 ### Variant decision rule
 

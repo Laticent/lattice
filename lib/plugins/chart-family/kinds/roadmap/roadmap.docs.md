@@ -18,11 +18,11 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the plan. |
-| `rows` | `table` | yes | A markdown table. The header row lists the phases (each may carry a date pill, written `{Q2 2026}` in inline code); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[!]/[?]/[ ]/[/] then the deliverable. |
-| `key` | `p > code:only-child` | no | OPTIONAL label set renaming the status key: `[{[x], Enacted}, {[-], In committee}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing as an eyebrow, and a one-code paragraph that is not a label set is left alone. |
+| `title` | a `## ` heading | yes | Slide heading naming the plan. |
+| `rows` | a table | yes | A markdown table. The header row lists the phases (each may carry a date pill, written `{Q2 2026}` in inline code); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[!]/[?]/[ ]/[/] then the deliverable. |
+| `key` | a line of `inline code` | no | OPTIONAL label set renaming the status key: `[{[x], Enacted}, {[-], In committee}]`, one inline-code span alone in its paragraph. The key is the MARKER you already type in a cell (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`), brackets included — a bare space key collapses to empty and would drop its row. Naming a subset is the normal case; the rest keep the default words declared in this manifest's `labelSet`. The paragraph is consumed so it names the key rather than also printing as an eyebrow, and a one-code paragraph that is not a label set is left alone. |
 
 ### Variant decision rule
 

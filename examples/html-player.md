@@ -57,7 +57,7 @@ So the exported file is both. It opens in **Present** mode for the room, reflows
 
 ---
 
-<!-- _class: quote -->
+<!-- _class: content -->
 
 ## "Give me the one file that is my deck."
 

@@ -16,12 +16,12 @@ Use when the question is how a quantity is spread: annual losses, claim sizes, d
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — say what the shape shows ('Most years stay under $10M; one in thirty tops $100M'), not 'Loss histogram'. |
-| `axes` | `p > code` | no | Optional axis line, as ONE bracketed list in its own paragraph ABOVE the heading: x first, then y — `[{Annual loss, $1M..$250M, log}, {Share of years}]`. The x member is `{name, min..max, log}`: the domain is optional and derives from the bands, and `log` draws a log scale, which needs every band edge above zero. The y member is only a name; a histogram prints its values on the bars, not on a value axis. The paragraph is consumed and painted on the axes. Same idiom as `scatter` and `quadrant`. |
-| `bands` | `ul > li` | yes | One li per band, in order along the axis: a range pill and a value pill, in either order — `` `$1M..$10M` `55%` ``. `..` is the only range delimiter. Optional lead text names the band (`Attritional `$0..$5M` `61%``); without it the band is named by its range. Bands should join end to end: a gap draws as empty space and an overlap draws two bars over the same stretch, and `lint:deck` names both. |
-| `detail` | `li > ul` | no | Optional nested sublist under a band. It opens on hover or tap in Present, and folds into the speaker note in the PDF. |
+| `title` | a `## ` heading | yes | Slide heading — say what the shape shows ('Most years stay under $10M; one in thirty tops $100M'), not 'Loss histogram'. |
+| `axes` | a line of `inline code` | no | Optional axis line, as ONE bracketed list in its own paragraph ABOVE the heading: x first, then y — `[{Annual loss, $1M..$250M, log}, {Share of years}]`. The x member is `{name, min..max, log}`: the domain is optional and derives from the bands, and `log` draws a log scale, which needs every band edge above zero. The y member is only a name; a histogram prints its values on the bars, not on a value axis. The paragraph is consumed and painted on the axes. Same idiom as `scatter` and `quadrant`. |
+| `bands` | a list | yes | One li per band, in order along the axis: a range pill and a value pill, in either order — `` `$1M..$10M` `55%` ``. `..` is the only range delimiter. Optional lead text names the band (`Attritional `$0..$5M` `61%``); without it the band is named by its range. Bands should join end to end: a gap draws as empty space and an overlap draws two bars over the same stretch, and `lint:deck` names both. |
+| `detail` | a list nested 1 level under an item | no | Optional nested sublist under a band. It opens on hover or tap in Present, and folds into the speaker note in the PDF. |
 
 ### Common mistakes
 

@@ -96,12 +96,12 @@ this slide opts in with its own `Q3`; by default a finish paints no glyph at all
 
 ## Strata — bands, a dot-matrix, a corner tick.
 
-- Wash
-  - Soft horizontal bands with a bold accent hairline pinned to the top edge.
-- Texture
-  - A fine 26px dot-matrix, even and faint across the slide.
-- Mark
-  - A corner registration tick in the top-right.
+1. Wash
+   - Soft horizontal bands with a bold accent hairline pinned to the top edge.
+2. Texture
+   - A fine 26px dot-matrix, even and faint across the slide.
+3. Mark
+   - A corner registration tick in the top-right.
 
 ---
 
@@ -140,13 +140,13 @@ air, set per-slide with `_class: finish finish-nimbus`.
 
 ## Loom — a woven lattice, a movable glow.
 
-- Texture
-  - A new `lattice` cross-hatch — two diagonal weaves at ±45° — on-brand for the
+1. Texture
+   - A new `lattice` cross-hatch — two diagonal weaves at ±45° — on-brand for the
     product, with the weave pitch tunable by scale.
-- Wash
-  - A corner glow, here moved to the top-left to show the placement axis at work.
-- Tunable
-  - Move the glow, change the weave scale, and the whole surface re-tailors.
+2. Wash
+   - A corner glow, here moved to the top-left to show the placement axis at work.
+3. Tunable
+   - Move the glow, change the weave scale, and the whole surface re-tailors.
 
 ---
 

@@ -18,10 +18,10 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Slide heading naming the rule whose chain is being walked. |
-| `tiers` | `ol > li` | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
+| `heading` | a `## ` heading | yes | Slide heading naming the rule whose chain is being walked. |
+| `tiers` | a list | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
 
 ### Variant decision rule
 

@@ -58,6 +58,31 @@
   ],
   "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. Rendered equations with persona-appropriate surround. Lattice typesets with KaTeX and marp-core with MathJax; the layouts style both, so you author identically either way.",
   "purpose": "Use when the slide IS the equation. `$$…$$` renders as a centered display block and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).",
+  "variantSlots": {
+    "derivation": {
+      "equation": {
+        "selector": "table",
+        "match": [
+          {
+            "kind": "table"
+          },
+          {
+            "kind": "math"
+          }
+        ],
+        "description": "The derivation: a table with one row per step and its justification, or one `$$` block per step."
+      }
+    },
+    "theorem": {
+      "equation": {
+        "selector": "blockquote",
+        "match": {
+          "kind": "blockquote"
+        },
+        "description": "The statement, proof or definition: one `>` blockquote each, led by its label (`**Theorem.**`)."
+      }
+    }
+  },
   "variants": [
     "feature",
     "derivation",
@@ -92,21 +117,25 @@
   "slots": {
     "eyebrow": {
       "selector": "p:first-child > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation)."
     },
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "One-sentence framing of what the math establishes."
     },
     "equation": {
       "selector": "p",
+      "match": [{ "kind": "math" }, { "kind": "fence", "lang": "math" }],
       "required": true,
       "description": "Display equation wrapped in `$$…$$` or a ```math fence (the same equation). Renders centered."
     },
     "legend": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": false,
       "description": "'where:' legend. Each li introduces an `$x$` symbol followed by its definition."
     }

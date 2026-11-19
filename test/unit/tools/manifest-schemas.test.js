@@ -326,14 +326,14 @@ test('BITES: a typo inside a SLOT — 61 manifests set slots.*.required', () => 
   );
 });
 
-test('the slots subschema is closed, and all 180 slots use only its three keys', () => {
+test('the slots subschema is closed, and every slot uses only its four keys', () => {
   const slot = read('lib/components/manifest.schema.json').properties.slots.additionalProperties;
   assert.equal(slot.additionalProperties, false, 'slots.<name> must reject undeclared keys');
   const used = new Set();
   for (const f of listFamilyManifests(family('component'))) {
     for (const s of Object.values(read(f).slots ?? {})) for (const k of Object.keys(s)) used.add(k);
   }
-  assert.deepEqual([...used].sort(), ['description', 'required', 'selector']);
+  assert.deepEqual([...used].sort(), ['description', 'match', 'required', 'selector']);
 });
 
 test('the sweep skips dot-directories and parked `_` directories', () => {

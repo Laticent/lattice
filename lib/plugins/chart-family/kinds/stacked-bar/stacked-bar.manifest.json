@@ -76,21 +76,25 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — name what the decomposition shows (‘Services is carrying the growth’), not the chart type."
     },
     "categories": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per category, in the order they should read left to right (or top to bottom under `row`). Lead text is the category label. Optionally a trailing inline-code value — the authored TOTAL, printed instead of the computed sum when the two agree."
     },
     "parts": {
       "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": true,
       "description": "The nested sublist under each category: one li per part, lead text = the series name, trailing inline-code = its value (`Product \\`2.4\\``). Series order is taken from the FIRST category that names each one and is then held identical in every bar. A part a category does not name is simply absent from that bar, and a part valued zero draws nothing; nothing is inferred."
     },
     "detail": {
       "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": false,
       "description": "A nested item whose trailing inline-code pill is NOT a number is per-category detail, not a part — the chart-family mark-detail payload. It drives the Present-mode reveal on the whole bar and folds into the slide's speaker note; it paints nothing, so a chart with detail is pixel-identical to one without."
     }

@@ -18,11 +18,11 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the cycle. |
-| `eyebrow` | `p > code` | no | Optional label above the heading. |
-| `stages` | `ul > li` | yes | Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first. |
+| `title` | a `## ` heading | yes | Slide heading naming the cycle. |
+| `eyebrow` | a line of `inline code` | no | Optional label above the heading. |
+| `stages` | a `-` list | yes | Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first. |
 
 ### Common mistakes
 

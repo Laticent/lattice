@@ -47,26 +47,31 @@
   "slots": {
     "eyebrow": {
       "selector": "p:first-of-type > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`)."
     },
     "recommendation": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "The recommendation as a complete declarative sentence — the action you want taken, not a topic label."
     },
     "impact": {
       "selector": "p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "One-sentence framing of the problem or stakes the recommendation addresses."
     },
     "rationale": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "bullet" },
       "required": true,
       "description": "Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in a citation chip, written `{FTC 2025}` in inline code."
     },
     "ask": {
       "selector": "blockquote",
+      "match": { "kind": "blockquote" },
       "required": false,
       "description": "The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar."
     }

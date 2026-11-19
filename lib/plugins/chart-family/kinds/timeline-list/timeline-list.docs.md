@@ -18,10 +18,11 @@ Use for milestone history or annotated timelines. Each event sits on a left-to-r
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the timeline. |
-| `events` | `ol > li` | yes | Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. |
+| `title` | a `## ` heading | yes | Slide heading framing the timeline. |
+| `events` | a list | yes | Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. |
+| `body` | a `-` list nested 1 level under an item | no | One nested `-` line under an event: what changed there. |
 
 ### Common mistakes
 

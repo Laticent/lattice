@@ -14,10 +14,10 @@ Use when two components make one point together: a chart and what it means, befo
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | The slide's title, above both panes. It makes the point; the panes support it. |
-| `pane` | `lat-pane` | yes | Two panes. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
+| `heading` | a `## ` heading | yes | The slide's title, above both panes. It makes the point; the panes support it. |
+| `pane` | two panes | yes | Two panes. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
 
 ### Common mistakes
 

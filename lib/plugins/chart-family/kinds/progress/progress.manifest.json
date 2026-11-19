@@ -57,21 +57,25 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing the progress view."
     },
     "eyebrow": {
       "selector": "p > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional eyebrow caption above the heading."
     },
     "subtitle": {
       "selector": "p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "Optional plain subtitle after the heading."
     },
     "rows": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note, and so does the `note=` field of the row written as one record: `- Adoption `{68%, at-risk, note=\"Q4 slip\"}`` (the record's note first, then the nested bullets)."
     }

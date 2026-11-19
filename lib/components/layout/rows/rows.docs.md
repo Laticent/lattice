@@ -14,10 +14,10 @@ Use when two wide components make one point together: progress over the table be
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | The slide's title, above both panes. It makes the point; the panes support it. |
-| `pane` | `lat-pane` | yes | Two panes, top then bottom. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
+| `heading` | a `## ` heading | yes | The slide's title, above both panes. It makes the point; the panes support it. |
+| `pane` | two panes | yes | Two panes, top then bottom. Each opens with `<!-- _pane: component -->` (optional; default `content`) and an optional `### title`, a short label naming what the pane holds. |
 
 ### Common mistakes
 

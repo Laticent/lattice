@@ -18,11 +18,13 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `cards` | `ul > li` | yes | Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule). |
-| `insight` | `blockquote` | no | Optional key-insight panel above the cards. |
+| `title` | a `## ` heading | yes | Slide heading. |
+| `cards` | a list | yes | Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule). |
+| `insight` | a `>` blockquote | no | Optional key-insight panel above the cards. |
+
+- `numbered` is not a class: Write the cards as a `1.` list; the corner numbers come from it, and the class adds nothing.
 
 ### Variant decision rule
 

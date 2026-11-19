@@ -14,11 +14,11 @@ Use to make one metric land. The number should be the headline — supporting te
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `eyebrow` | `p > code` | no | Optional label above the number. |
-| `number` | `ul > li:first-child` | yes | First list item: the giant number. |
-| `caption` | `ul > li:first-child > ul > li` | no | One-line caption below the number (nested bullet). |
+| `eyebrow` | a line of `inline code` | no | Optional label above the number. |
+| `number` | a `-` list | yes | First list item: the giant number. |
+| `caption` | a list nested 1 level under an item | no | One-line caption below the number (nested bullet). |
 
 ### Common mistakes
 

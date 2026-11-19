@@ -18,10 +18,10 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the process. |
-| `steps` | `ol > li` | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
+| `title` | a `## ` heading | yes | Slide heading naming the process. |
+| `steps` | a `1.` list | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
 
 ### Variant decision rule
 

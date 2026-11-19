@@ -14,10 +14,10 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the code shows. |
-| `code` | `pre > code` | yes | Fenced code block — language tag drives syntax highlighting. |
+| `title` | a `## ` heading | yes | Slide heading framing what the code shows. |
+| `code` | a ``` fenced block | yes | Fenced code block — language tag drives syntax highlighting. |
 
 ### Common mistakes
 

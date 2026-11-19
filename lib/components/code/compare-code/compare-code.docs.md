@@ -14,11 +14,11 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the comparison. |
-| `left` | `p:has(> code:only-child):first-of-type + pre` | yes | Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it. |
-| `right` | `p:has(> code:only-child):nth-of-type(2) + pre` | yes | Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it. |
+| `title` | a `## ` heading | yes | Slide heading framing the comparison. |
+| `left` | a ``` fenced block | yes | Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it. |
+| `right` | 2 ``` fenced blocks | yes | Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it. |
 
 ### Common mistakes
 

@@ -18,10 +18,10 @@ Use when the table IS the slide. A plain markdown table on any slide already get
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the table shows. |
-| `table` | `table` | yes | Markdown table with a header row and 2+ data rows. Column alignment is markdown's own (`:---`, `:---:`, `---:`). |
+| `title` | a `## ` heading | yes | Slide heading framing what the table shows. |
+| `table` | a table or an inline `<table>` | yes | Markdown table with a header row and 2+ data rows. Column alignment is markdown's own (`:---`, `:---:`, `---:`). |
 
 ### Common mistakes
 

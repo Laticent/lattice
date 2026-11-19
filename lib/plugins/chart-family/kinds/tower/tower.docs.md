@@ -16,11 +16,11 @@ Use for a reinsurance or insurance tower — a catastrophe program, a casualty e
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — say what the structure means for the client ('A $50M retention saves $3.7M'), not 'Program structure'. |
-| `layers` | `ul > li` | yes | One li per layer: the layer name, then a trailing inline-code size in the market's notation — `Layer 2 \`$70M xs $90M\`` (limit, then `xs`, `x/s` or `excess of`, then attachment). A size with no `xs` is the retention, the band from zero to that figure. Any order: the chart sorts by attachment, lowest at the bottom. |
-| `shares` | `li > ul > li` | no | Optional nested bullets under a layer, one per reinsurer: `Acme Re \`30%\``. Each reinsurer keeps one color across every layer. Shares that add up to less than 100% leave the rest as an `Open` segment; a layer with no shares is drawn plain. |
+| `title` | a `## ` heading | yes | Slide heading — say what the structure means for the client ('A $50M retention saves $3.7M'), not 'Program structure'. |
+| `layers` | a list | yes | One li per layer: the layer name, then a trailing inline-code size in the market's notation — `Layer 2 \`$70M xs $90M\`` (limit, then `xs`, `x/s` or `excess of`, then attachment). A size with no `xs` is the retention, the band from zero to that figure. Any order: the chart sorts by attachment, lowest at the bottom. |
+| `shares` | a `-` list nested 1 level under an item | no | Optional nested bullets under a layer, one per reinsurer: `Acme Re \`30%\``. Each reinsurer keeps one color across every layer. Shares that add up to less than 100% leave the rest as an `Open` segment; a layer with no shares is drawn plain. |
 
 ### Common mistakes
 

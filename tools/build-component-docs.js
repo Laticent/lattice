@@ -34,6 +34,7 @@
  *   2  --only target not found
  */
 
+const { describeMatch } = require('../lib/authoring/slot-contract');
 const fs = require('node:fs');
 const path = require('node:path');
 const { componentDir: libComponentDir, loadAll, manifestBucket } = require('../lib/components');
@@ -334,13 +335,36 @@ function emitAgentContract(m, lines) {
   if (hasSlots) {
     lines.push('### Slots');
     lines.push('');
-    lines.push('| Slot | Selector | Required | Description |');
+    // `Write` is the slot's `match` in an author's words, from the same reader `lint:deck`'s
+    // `slot-contract` rule runs, so the page lists exactly what lint checks.
+    lines.push('| Slot | Write | Required | Description |');
     lines.push('|---|---|---|---|');
     for (const [slotName, slot] of Object.entries(m.slots)) {
       const req = slot.required ? 'yes' : 'no';
-      lines.push(`| \`${slotName}\` | \`${slot.selector}\` | ${req} | ${tableCell(slot.description)} |`);
+      lines.push(`| \`${slotName}\` | ${slot.match ? tableCell(describeMatch(slot.match)) : `\`${slot.selector}\``} | ${req} | ${tableCell(slot.description)} |`);
     }
     lines.push('');
+    const overrides = Object.entries(m.variantSlots || {});
+    if (overrides.length) {
+      lines.push('Under a variant, a slot changes shape:');
+      lines.push('');
+      for (const [variant, over] of overrides) {
+        for (const [slotName, slot] of Object.entries(over)) {
+          const what = slot === null
+            ? 'is not used'
+            : [slot.match ? `is written as ${describeMatch(slot.match)}` : null, slot.required === false ? 'is optional' : slot.required ? 'is required' : null].filter(Boolean).join(' and ');
+          lines.push(`- \`${variant}\`: \`${slotName}\` ${what}.`);
+        }
+      }
+      lines.push('');
+    }
+    const kinds = Object.entries(m.variantKinds || {});
+    for (const [variant, k] of kinds) {
+      lines.push(k.kind === 'source'
+        ? `- \`${variant}\` is not a class: ${k.means}`
+        : `- \`${variant}\` acts only with ${k.requires.map((r) => `\`${r}\``).join(' or ')}.`);
+    }
+    if (kinds.length) lines.push('');
   }
 
   if (hasVariantRule) {

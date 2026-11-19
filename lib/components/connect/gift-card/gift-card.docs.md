@@ -14,12 +14,12 @@ Printed QR gift card. `tools/gift-cards.mjs` writes one card per slide at the `c
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | no | The card's line (e.g. "Make your next deck with Lattice."). |
-| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field. Keys: link\|url (required; the gift link, written inside a code span: ``- `https://lattice.style/gift#v1.…` `link` ``), pin (printed apart from the code when the link is locked), caption, number\|no. The link goes into the QR only and is never shown as text. |
-| `eyebrow` | `p:first-child > code` | no | Optional kicker above the heading, as an inline-code first line: `` `A deck on us` ``. |
-| `caption` | `ul > li` | no | Optional line under the heading, as a postfix-key bullet: ``- Scan to start. `caption` ``. |
+| `title` | a `## ` heading | no | The card's line (e.g. "Make your next deck with Lattice."). |
+| `fields` | a list | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field. Keys: link\|url (required; the gift link, written inside a code span: ``- `https://lattice.style/gift#v1.…` `link` ``), pin (printed apart from the code when the link is locked), caption, number\|no. The link goes into the QR only and is never shown as text. |
+| `eyebrow` | a line of `inline code` | no | Optional kicker above the heading, as an inline-code first line: `` `A deck on us` ``. |
+| `caption` | a list | no | Optional line under the heading, as a postfix-key bullet: ``- Scan to start. `caption` ``. |
 
 ### Common mistakes
 

@@ -14,10 +14,10 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Section name. Capped at `--measure-bookend-heading` (16em ≈ 33 characters); `text-wrap: balance` evens the lines. Left-aligned by default, so a short section name simply sits on one line and the cap never shows. Override the token in front-matter `style:` — never hand-break with `<br>`. |
-| `eyebrow` | `p > code` | no | Optional section number or category label above the heading. |
+| `heading` | a `# ` heading or a `## ` heading | yes | Section name. Capped at `--measure-bookend-heading` (16em ≈ 33 characters); `text-wrap: balance` evens the lines. Left-aligned by default, so a short section name simply sits on one line and the cap never shows. Override the token in front-matter `style:` — never hand-break with `<br>`. |
+| `eyebrow` | a line of `inline code` | no | Optional section number or category label above the heading. |
 
 ### Variant decision rule
 

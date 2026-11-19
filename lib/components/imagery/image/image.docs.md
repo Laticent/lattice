@@ -14,11 +14,11 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `image` | `.lattice-bg` | yes | The photo, as Markdown's picture alone on its line: `![A name](path "A longer description")`. The slide places it on its photo panel (`mirror` moves the panel to the left). To try a composition before you have the photo, use a sample: `![A lake at dusk](sample:photo-wide.svg)`, or `photo-tall`, `photo-pano` and `photo-square` (the full set is in `lib/samples/README.md`). The `@image{…}` record places the same way and takes a frame, a finish and a tone. |
-| `heading` | `h2` | no | Optional heading in the text slot. |
-| `body` | `p` | no | Optional caption or body text. |
+| `image` | an image (`![alt](src)`) or a `@image…` line | yes | The photo, as Markdown's picture alone on its line: `![A name](path "A longer description")`. The slide places it on its photo panel (`mirror` moves the panel to the left). To try a composition before you have the photo, use a sample: `![A lake at dusk](sample:photo-wide.svg)`, or `photo-tall`, `photo-pano` and `photo-square` (the full set is in `lib/samples/README.md`). The `@image{…}` record places the same way and takes a frame, a finish and a tone. |
+| `heading` | a `## ` heading | no | Optional heading in the text slot. |
+| `body` | a paragraph | no | Optional caption or body text. |
 
 ### Variant decision rule
 

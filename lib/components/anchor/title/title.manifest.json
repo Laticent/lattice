@@ -28,16 +28,19 @@
   "slots": {
     "heading": {
       "selector": "h1",
+      "match": { "kind": "heading", "level": 1 },
       "required": true,
       "description": "Deck title. Capped at `--measure-bookend-heading` (16em ≈ 33 characters) so a long title composes as a block rather than a full-width banner; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`."
     },
     "eyebrow": {
       "selector": "p > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above)."
     },
     "subtitle": {
       "selector": "p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`."
     }

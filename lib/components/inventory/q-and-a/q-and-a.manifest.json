@@ -93,21 +93,25 @@
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional kicker above the headline — wrap a short label in backticks, e.g. `Anticipated questions`."
     },
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": false,
       "description": "Optional headline framing the set — name the pressure ('What the board will press on'), not a bare label ('Q&A')."
     },
     "question": {
       "selector": "ul > li, ol > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One top-level list item per question, in the order you want to take them (lead with the toughest). Author it as plain interrogative text — no bold. Questions are indexed automatically (01, 02, …), so a `ul` and an `ol` render the same."
     },
     "answer": {
       "selector": "ul > li > ul > li, ol > li > ol > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
       "required": true,
       "description": "The prepared answer, nested one level under its question. Two or three sentences that actually close the question down — a reasoned response, not a restatement. Every question needs one."
     }

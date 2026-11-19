@@ -14,11 +14,11 @@ Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a sli
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | no | Optional heading — the so-what of the scene, not 'Animation'. |
-| `scene` | `.scene-figure svg, svg` | yes | The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image). |
-| `body` | `p` | no | Optional caption — one line on what the motion reveals that a still can't. |
+| `heading` | a `## ` heading | no | Optional heading — the so-what of the scene, not 'Animation'. |
+| `scene` | an inline `<svg>` or a ``` fenced block | yes | The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image). |
+| `body` | a paragraph | no | Optional caption — one line on what the motion reveals that a still can't. |
 
 ### Variant decision rule
 

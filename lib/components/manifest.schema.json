@@ -572,6 +572,58 @@
       "minLength": 1,
       "description": "Optional: 2-3 sentence rationale for when to reach for this component."
     },
+    "variantKinds": {
+      "type": "object",
+      "description": "What kind each variant is, for the ones that are not a plain class the CSS reacts to (the default kind, which needs no entry). `source`: the variant comes from how the author writes the Markdown, not from the class \u2014 cards-grid's `numbered` is a `1.` list \u2014 so writing it in `_class` does nothing; `means` says what to write instead. `requires`: the class acts only alongside one of the listed variants (`list numbered` needs `takeaway`). `lint:deck` warns on both misuses (`variant-inert`). Keys must be variants this manifest declares.",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "means"],
+            "properties": {
+              "kind": { "const": "source" },
+              "means": { "type": "string", "minLength": 1 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "requires"],
+            "properties": {
+              "kind": { "const": "requires" },
+              "requires": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } }
+            }
+          }
+        ]
+      }
+    },
+    "variantSlots": {
+      "type": "object",
+      "description": "Per-variant slot overrides, for a variant that changes what the author writes: `statute-stack lane` takes a table, `split-panel pullquote` anchors on a blockquote instead of a heading. Keyed by a variant this manifest declares; each value maps a slot name to the fields that change under that variant (merged over the base slot), or to `null` to drop the slot. A new slot needs `selector`, `match` and `description`, like a base slot.",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "selector": { "type": "string", "minLength": 1 },
+                "match": { "$ref": "#/$defs/slotMatch" },
+                "required": { "type": "boolean" },
+                "description": { "type": "string", "minLength": 1 }
+              }
+            }
+          ]
+        }
+      }
+    },
     "variants": {
       "type": "array",
       "items": {
@@ -630,17 +682,23 @@
     },
     "slots": {
       "type": "object",
+      "description": "What an author writes for this layout, one entry per part. Each slot's `match` describes the author's MARKDOWN (the markdown-it block tree before any transform), never the rendered DOM. `lint:deck`'s `slot-contract` rule is compiled from these (tools/build-stage-catalog.js \u2192 lib/authoring/slot-contract.generated.js): a missing `required` slot, a heading at the wrong level, and a list with the wrong marker are errors. Every sample in the manifest must satisfy its own contract (test/unit/authoring/slot-contract.test.js). engineering/decisions/2026-11-19-deterministic-authoring-audit.md W1.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "selector",
+          "match",
           "description"
         ],
         "properties": {
           "selector": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "A READ-OUT for people and the docs: a CSS-like sketch of where the slot lands. Nothing executes it as a contract; `match` is the contract."
+          },
+          "match": {
+            "$ref": "#/$defs/slotMatch"
           },
           "required": {
             "type": "boolean"
@@ -1645,6 +1703,80 @@
     }
   },
   "$defs": {
+    "slotMatch": {
+      "description": "What a slot is in the author's Markdown, as a shape the linter checks. An array is any-of. `heading`: a top-level heading of `level` (one level or a list). `list`: a list at nesting `depth` (1 = top level) whose items use `marker` \u2014 `bullet` (`-`), `ordered` (`1.`) or `any`; name one marker only where the layout reads only that one, measured. `blockquote`: a `>` block at the top level, or inside an item with `inList`. `table`. `fence`: a fenced block, optionally of `lang`, the `nth` one. `math`: a `$$` block or an inline `$` equation. `paragraph`: a plain top-level paragraph. `code-line`: a paragraph that is only inline code (the eyebrow shape), optionally starting with `prefix`. `image`: an image anywhere. `html`: a raw HTML element, optionally of `tag`. `pane`: the slide splits into panes.",
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/slotMatchOne" }
+        },
+        { "$ref": "#/$defs/slotMatchOne" }
+      ]
+    },
+    "slotMatchOne": {
+      "type": "object",
+      "required": ["kind"],
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["level"],
+          "properties": {
+            "kind": { "const": "heading" },
+            "level": {
+              "oneOf": [
+                { "type": "integer", "minimum": 1, "maximum": 6 },
+                { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "type": "integer", "minimum": 1, "maximum": 6 } }
+              ]
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["depth", "marker"],
+          "properties": {
+            "kind": { "const": "list" },
+            "depth": { "type": "integer", "minimum": 1, "maximum": 4 },
+            "marker": { "enum": ["bullet", "ordered", "any"] }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "blockquote" },
+            "inList": { "type": "boolean" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "fence" },
+            "lang": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+            "nth": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "code-line" },
+            "prefix": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "html" },
+            "tag": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "enum": ["table", "math", "paragraph", "image", "pane"] }
+          }
+        }
+      ]
+    },
     "segnoType": {
       "description": "A Segno type: a simple name, or an object whose `type` names it (lib/core/segno-spec.js).",
       "oneOf": [

@@ -90,11 +90,13 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading."
     },
     "rows": {
       "selector": "ol > li",
+      "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": true,
       "description": "Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter."
     }

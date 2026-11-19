@@ -18,10 +18,10 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
-| `items` | `ol > li` | yes | Ordered list of section titles. |
+| `title` | a `## ` heading | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
+| `items` | a `1.` list | no | Ordered list of section titles. Leave it out and the agenda fills itself from the deck's `divider` headings. |
 
 ### Variant decision rule
 

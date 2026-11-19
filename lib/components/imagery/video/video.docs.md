@@ -14,11 +14,11 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | no | Optional heading — the so-what of the clip, not 'Video'. |
-| `video` | `.video-embed` | yes | The clip, written as a `@video{"https://…"}` record on a line of its own. The video plugin draws the poster, play badge and provider label from that record; the layout adds the QR on a `qr` slide. |
-| `caption` | `.video-embed figcaption` | no | Optional: the record's `title="…"`, shown under the poster. |
+| `heading` | a `## ` heading | no | Optional heading — the so-what of the clip, not 'Video'. |
+| `video` | a `@video…` line | yes | The clip, written as a `@video{"https://…"}` record on a line of its own. The video plugin draws the poster, play badge and provider label from that record; the layout adds the QR on a `qr` slide. |
+| `caption` | a paragraph | no | Optional: the record's `title="…"`, shown under the poster. |
 
 ### Variant decision rule
 

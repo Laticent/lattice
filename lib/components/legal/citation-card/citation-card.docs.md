@@ -14,12 +14,12 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing what the citation establishes. |
-| `citation` | `p:first-of-type > code` | yes | Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA'). |
-| `quotation` | `blockquote` | yes | Verbatim quote of the cited language. |
-| `gloss` | `ul > li` | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
+| `heading` | a `## ` heading | yes | Slide heading framing what the citation establishes. |
+| `citation` | a line of `inline code` | yes | Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA'). |
+| `quotation` | a `>` blockquote | yes | Verbatim quote of the cited language. |
+| `gloss` | a list | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
 
 ### Variant decision rule
 

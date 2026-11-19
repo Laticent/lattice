@@ -49,16 +49,19 @@
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": false,
       "description": "Optional heading — the so-what of the clip, not 'Video'."
     },
     "video": {
       "selector": ".video-embed",
+      "match": { "kind": "code-line", "prefix": "@video" },
       "required": true,
       "description": "The clip, written as a `@video{\"https://…\"}` record on a line of its own. The video plugin draws the poster, play badge and provider label from that record; the layout adds the QR on a `qr` slide."
     },
     "caption": {
       "selector": ".video-embed figcaption",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "Optional: the record's `title=\"…\"`, shown under the poster."
     }

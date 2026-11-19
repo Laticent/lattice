@@ -18,10 +18,10 @@ Use to show 'who owns what' across a process, scoring policy, or org chart. Two-
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `rows` | `ul > li` | yes | One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing actor-name pill, written `{Name}` in inline code (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body. |
+| `title` | a `## ` heading | yes | Slide heading. |
+| `rows` | a list | yes | One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing actor-name pill, written `{Name}` in inline code (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body. |
 
 ### Common mistakes
 

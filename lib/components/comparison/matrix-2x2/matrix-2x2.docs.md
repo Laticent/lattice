@@ -18,10 +18,10 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the framework. |
-| `axes` | `ul > li` | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
+| `title` | a `## ` heading | yes | Slide heading naming the framework. |
+| `axes` | a list | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
 
 ### Common mistakes
 

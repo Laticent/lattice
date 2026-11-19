@@ -18,10 +18,14 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing what the three rows compare. |
-| `rows` | `ul > li` | yes | One li per jurisdiction. Lead with the jurisdiction label as a plain text first line; nested ul items carry the citation (inline code), obligation summary, and status (inline code). |
+| `heading` | a `## ` heading | yes | Slide heading framing what the three rows compare. |
+| `rows` | a list | yes | One li per jurisdiction. Lead with the jurisdiction label as a plain text first line; nested ul items carry the citation (inline code), obligation summary, and status (inline code). |
+
+Under a variant, a slot changes shape:
+
+- `lane`: `rows` is written as a table.
 
 ### Variant decision rule
 

@@ -343,6 +343,43 @@ behind the one before it only where it reads that one's output.
 - **One build gate:** every sample in every manifest satisfies its own slot contract.
 - Fix the five components whose samples fail their own contract, and `design/skills/lens.md`.
 
+**Shipped (W1, 2026-11-19).** What landed, and where it differs from the plan above:
+
+- Every slot has a structured `match` (`manifest.schema.json` `$defs.slotMatch`: `heading`,
+  `list` with `depth` and `marker`, `blockquote`, `table`, `fence`, `math`, `paragraph`,
+  `code-line`, `image`, `html`, `pane`; an array is any-of). `selector` stays as the hand-written
+  read-out the docs and `lib/components/surfaces.js` read; deriving it from `match` would drop
+  the rendered-DOM detail those readers use. The three prose selectors on `state-chart` and the
+  two that could not match (`content`, `quote`) were corrected.
+- **List markers come from the measurement** in `b-list-and-bold.md`, not from the selector: a
+  slot names `bullet` or `ordered` only where swapping the marker changed the render (16
+  layouts at the top level, 15 nested: the 13 chart kinds, `journey` and `verdict-grid`; plus
+  `compare-prose axis`); every other list slot is `any`. `math`'s legend changed by under 2% and
+  stays `any`. The test holds the manifests to that measured table, written down separately, so
+  the manifests do not grade themselves. W2 relaxes the R3 layouts, so their slots move to `any` there.
+- Per-variant overrides are a top-level `variantSlots` map, keyed by variant (the variants list
+  stays an array of names). `variantKinds` gives a variant the `source` or `requires` kind; the
+  default is a class the CSS reacts to. `source` has two instances (`numbered` on `cards-grid` and
+  `cards-stack`). `requires` has none yet: `list`'s `numbered`, `lettered`, `roman` and `bullet`
+  are already reported by the older `list-modifier-inert` rule, and declaring them too doubled
+  the warning. W5 moves that rule onto the declaration. `alias-of` has no instance left (`banner-tag` moved to
+  the registry's `aliases` group in #3308), so the kind is not added.
+- `slot-contract` (error) lands in `lint-core` (Squadra has not ported slide rules yet), compiled
+  into `lib/authoring/slot-contract.generated.js` by `tools/build-stage-catalog.js`. A second
+  rule, `variant-inert` (warning), covers `variantKinds`. Raw HTML counts as the element it
+  names (`<h2>`, `<img>`, `<blockquote>`).
+- **Ignored extra structure is not reported yet.** Which blocks a layout ignores depends on the
+  universals: a table, a fence and a trailing blockquote are accepted on most layouts as
+  universals, so the warning needs W4's `universals` block to be anything but noise. It moves to W4.
+- The sweep found the contract wrong, not the slides, in six places, and the manifests now say
+  what the code does: `closing` and `divider` take `#` as well as `##` (their CSS styles both),
+  `agenda`'s list is optional (it fills itself from the dividers), `split-compare`'s context and
+  verdict are optional, and `glossary`, `image`, `math` and `table` accept a table, `@image{…}`,
+  a ```` ```math ```` fence and a raw `<table>`. It found the slides wrong on 30 slides across
+  22 committed decks (`#` on `cards-grid`, `-` on `kpi`/`stats`/`list-tabular`/`premise`, `##`
+  on `title`, `quote` with no quotation), and those decks were fixed.
+- `quote` now styles only `blockquote + p` as the attribution.
+
 ### W2 — One list contract (R1–R3)
 
 - Each manifest declares **`lists: "prose" | "numbered-tags" | "neutral"`**. The schema requires it
@@ -484,7 +521,7 @@ named job of one workstream, which fixes it in full before it merges (HARD RULE 
 | CLAUDE.md HARD RULE #6 says "base modifiers", a term `base.docs.md` never uses | **W5**, and the CLAUDE.md wording goes to the owner (a canonical-doc change is the owner's) |
 | 20 tokens an author cannot learn; 8 registers with no section; `spark:`/`callout:` outside `DECK_SETTINGS` | **W5** (base manifest + generated reference) |
 | Bare placement words the engine paints and lint calls `unknown-class`; typos that lint clean through an open prefix; cross-component variants that lint clean | **W5** (lint reads the base manifest; prefixes closed; variants per component) |
-| Required slots, heading level and list type unenforced; prose selectors; samples that fail their own contract; `numbered` phantom; `quote` styling every paragraph as attribution | **W1** |
+| Required slots, heading level and list type unenforced; prose selectors; samples that fail their own contract; `numbered` phantom; `quote` styling every paragraph as attribution | **W1** (shipped; ignored extra structure moved to W4, see W1 above) |
 | `1.`/`-` and nested swaps change or break 30+ components | **W2** |
 | Bold as structure in 12+ components | **W3** |
 | Posters drop speaker notes, annotations and added figures (all four), the subtitle (contact, wifi, gift-card), the heading and eyebrow (contact); 11 components overflow on a coda; `premise` eyebrow/subtitle; `_focus` silent on 18; pane hosts misplace the below-note; `block-unsupported` ignores an authored blockquote | **W4** |

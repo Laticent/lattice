@@ -14,12 +14,12 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Slide heading naming the amendment or change. |
-| `citation` | `p:first-of-type > code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
-| `redline` | `blockquote` | yes | The amended language. Use `<del>old text</del>` and `<ins>new text</ins>` inline. |
-| `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
+| `heading` | a `## ` heading | yes | Slide heading naming the amendment or change. |
+| `citation` | a line of `inline code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
+| `redline` | a `>` blockquote | yes | The amended language. Use `<del>old text</del>` and `<ins>new text</ins>` inline. |
+| `implications` | a list | no | Optional explanation. Use **Why this matters** for the operational read. |
 
 ### Variant decision rule
 

@@ -18,10 +18,10 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li, ol > li` | yes | List items. Keep each under ~12 words. |
+| `title` | a `## ` heading | yes | Slide heading. |
+| `items` | a list | yes | List items. Keep each under ~12 words. |
 
 ### Variant decision rule
 
