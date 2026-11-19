@@ -19,6 +19,10 @@ import { takePendingSelection } from './pending-selection';
  * is left alone, so ProseMirror still restores the caret on Tab or `view.focus()`.
  *
  * If a prosemirror-view upgrade changes that timer, pointer-focus-caret.test.ts fails and says to re-check this.
+ *
+ * prosemirror-view 1.42.9 fixes this upstream: its timer writes back only if the DOM caret has not moved since the focus,
+ * and a click moves it. Once the dependency bump lands (#3295), check the real-click probe and delete this module
+ * (followups.d/3291-p2-drop-pointer-focus-workaround.md).
  */
 export function pointerFocusCaret(): { mousedown: (view: EditorView) => boolean; focus: (view: EditorView) => boolean } {
 	let pointer = false;
