@@ -49,6 +49,7 @@ const { spawn } = require('node:child_process');
 const { resolveChrome } = require('./lib/resolve-chrome');
 const { loadAll, manifestBucket, MODIFIER_GROUPS, surfaceOf } = require('../lib/components');
 const { componentSurfaces, CONTENT_SURFACES } = require('../lib/components/surfaces');
+const { splitSample, exercised } = require('./lib/modifier-probe');
 
 const ROOT = path.join(__dirname, '..');
 const ORACLE = path.join(ROOT, 'lib/core/modifier-effects.generated.json');
@@ -74,36 +75,7 @@ function probeTokens() {
   return out;
 }
 
-/** A component sample, as `{ tokens, body }`: the class tokens it already carries and the slide below them. */
-function splitSample(md, name) {
-  const first = String(md || '').split(/\n---\s*\n/)[0];
-  const m = first.match(/<!--\s*_class:\s*([^>]*?)\s*-->/);
-  const tokens = m ? m[1].split(/\s+/).filter(Boolean) : [name];
-  const body = m ? first.replace(m[0], '') : first;
-  return { tokens: tokens[0] === name ? tokens.slice(1) : tokens, body: body.trim() };
-}
 
-/**
- * The first sample with canonical content for each content surface it lacks, so a
- * surface is only called inert after it was EXERCISED: an eyebrow line directly
- * above the first heading (the position the eyebrow CSS matches), a heading, and
- * a small table at the end. Returns null when the sample already has all three.
- */
-function exercised(sample) {
-  let body = sample.body;
-  const lines = body.split('\n');
-  const hasHeading = lines.some((l) => /^#{1,6}\s+\S/.test(l));
-  const hasTable = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/m.test(body);
-  // A chart's axis line (`` `[Wider reach, Deeper cognition]` ``, engineering/decisions/2026-09-22-chart-axis-grammar.md)
-  // is a lone code line above the heading too, but the chart consumes it: it is not an eyebrow, so it must not stand
-  // in for one, or the eyebrow surface is never exercised and reads as inert.
-  const eyebrowAboveHeading = lines.some((l, i) => /^\s*`(?!\[)[^`]+`\s*$/.test(l) && /^#{1,6}\s/.test(lines.slice(i + 1).find((x) => x.trim()) || ''));
-  if (hasHeading && hasTable && eyebrowAboveHeading) return null;
-  if (!hasHeading) body = `## Probe heading\n\n${body}`;
-  if (!eyebrowAboveHeading) body = body.replace(/^(#{1,6}\s+\S)/m, '`PROBE · EYEBROW`\n\n$1');
-  if (!hasTable) body = `${body}\n\n| Probe | Value |\n|---|---|\n| One | 1 |\n`;
-  return { tokens: sample.tokens, body };
-}
 
 /** The probe deck for one component, plus the slide roster (1-based). */
 function probeDeck(m, probes) {
