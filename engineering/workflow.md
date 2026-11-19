@@ -1054,6 +1054,14 @@ $ git push                  # as many times as the fix takes; run the local gate
 $ gh pr ready <PR>          # one ready_for_review event = one CI run on the head
 ```
 
+**In a cloud Claude session `gh pr ready` fails**: it calls GitHub's GraphQL API, which those
+sessions cannot reach. Use the REST routes the session proxy provides, which raise the same events:
+
+```console
+$ gh api -X POST repos/Laticent/lattice/pulls/<PR>/ccr/convert_to_draft   # park
+$ gh api -X POST repos/Laticent/lattice/pulls/<PR>/ccr/ready_for_review   # run CI
+```
+
 **Why.** In the 419 PR runs from 2026-11-15T22:50Z to 2026-11-19T01:18Z, 179 (43%) were canceled
 by a newer push, after about 51 runner-minutes each in a sample of 35: roughly 9,000 runner-minutes,
 about 31% of PR CI time, that produced no verdict. Jobs with no `needs` waited a median 6.5 minutes
