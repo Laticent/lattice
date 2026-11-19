@@ -377,7 +377,7 @@ export function toSpoken(display: string, opts: SpokenOpts = {}): string {
   if (english && /^[A-Z](?:\.[A-Z])+$/.test(core) && punct.startsWith('.')) {
     // The token's final period is the initialism's own; `spokenAt` puts a full stop back where the
     // sentence really ends there (`abbreviationDot`).
-    return core.split('.').join(' ') + spokenPunct.slice(1);
+    return spellLetters(core.split('.')) + spokenPunct.slice(1);
   }
   // A DOTTED dictionary key with another mark after it (`a.m.,`, `e.g.,`): the peel took the key's own
   // period with the comma, so try the key whole and keep only the marks after it.
@@ -805,6 +805,11 @@ const AFTER_NUMBER_CURRENCY: Record<string, readonly [string, string]> = {
 };
 const BARE_NUMBER = /^-?\d[\d,]*(?:\.\d+)?$/;
 
+// A clock reading's `am` / `pm` after an hour (`10 AM`, `9:30 pm`). Undotted, so only beside a number:
+// a bare `PM` is also "product manager" and a bare `am` is a verb. The dotted forms are lexicon keys.
+const MERIDIEM: Record<string, string> = { am: 'A-M', AM: 'A-M', pm: 'P-M', PM: 'P-M' };
+const CLOCK_HOUR = /^(?:0?[1-9]|1[0-2])(?::[0-5]\d)?$/;
+
 /** A magnitude word or a currency symbol said as one, when it follows a number, else null. */
 function afterNumber(display: string, prev: string | undefined, prevPrev: string | undefined, opts: SpokenOpts): string | null {
   if (!isEnglishLang(opts.lang) || prev === undefined) return null;
@@ -813,6 +818,10 @@ function afterNumber(display: string, prev: string | undefined, prevPrev: string
   const core = punct ? tok.slice(0, -punct.length) : tok;
   // `withoutTrailingPunct`, a linear reverse scan: a `/[…]+$/` regex here is polynomial on a long run of `!`.
   const prevCore = withoutTrailingPunct(prev);
+  if (Object.hasOwn(MERIDIEM, core) && CLOCK_HOUR.test(prevCore) && prevCore === prev) {
+    const terms = indexOf(opts);
+    if (!lookupTerm(terms, tok) && !lookupTerm(terms, core)) return MERIDIEM[core] + punct;
+  }
   if (Object.hasOwn(AFTER_NUMBER_MAGNITUDE, core) && BARE_NUMBER.test(prevCore)) {
     return AFTER_NUMBER_MAGNITUDE[core] + punct.replace(/^\./, '');
   }
@@ -824,6 +833,21 @@ function afterNumber(display: string, prev: string | undefined, prevPrev: string
   const one = !afterMagnitude && amount(number) === 1;
   return AFTER_NUMBER_CURRENCY[core][one ? 0 : 1] + punct;
 }
+
+/**
+ * Letters an initialism spells, in a form every voice reads as letter NAMES. Spaced (`U S`, `D C`) is
+ * the default, but a spaced `A` before another word is the article to Kokoro's phonemizer: `U A E`
+ * reads "you uh ee", `A I` reads "uh eye". So a run with an `A` in it is written joined (`UAE`, `AI`,
+ * `BA`), which espeak and the cloud voices both spell; the few joined runs that are English words
+ * (`AM`, `AS`, `AT`, `AN`) take a hyphen instead, which keeps a leading `A` a letter.
+ */
+const JOINED_IS_A_WORD = new Set(['AM', 'AN', 'AS', 'AT', 'AH']);
+function spellLetters(letters: readonly string[]): string {
+  if (!letters.includes('A')) return letters.join(' ');
+  const joined = letters.join('');
+  return JOINED_IS_A_WORD.has(joined) ? letters.join('-') : joined;
+}
+
 
 /** One word of a spoken sequence, with the neighbors the per-token rules cannot see. */
 export function spokenAt(words: readonly string[], i: number, opts: SpokenOpts = {}): string {

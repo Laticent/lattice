@@ -124,7 +124,10 @@ const BASE_CASED: Record<string, string> = {
   // Clock and degree abbreviations, exact case (a bare `PM` is also "product manager"; only the
   // dotted forms are the clock), and the courtesy titles, exact case so an all-caps `MS.` (a product,
   // a disease) never reads "miz".
-  'a.m.': 'A M', 'p.m.': 'P M', 'A.M.': 'A M', 'P.M.': 'P M',
+  // `A-M`, not `A M`: Kokoro's phonemizer reads a lone `A` before another word as the article "uh"
+  // ("ten uh em"), while `A-M` is the letter name in every position. `AM` is no better: espeak reads
+  // "ten AM" as the verb "am". (`spellLetters` in normalize.ts guards the same trap for `U.A.E.`.)
+  'a.m.': 'A-M', 'p.m.': 'P-M', 'A.M.': 'A-M', 'P.M.': 'P-M',
   'Ph.D.': 'P H D', PhD: 'P H D',
   'Mr.': 'mister', 'Mrs.': 'missus', 'Ms.': 'miz', 'Prof.': 'professor',
   // From the exemplar census (engineering/decisions/2026-11-19-segment-acronyms.md): the acronyms the

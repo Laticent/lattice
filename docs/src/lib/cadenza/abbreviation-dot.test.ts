@@ -12,7 +12,7 @@ const said = (text: string, terms?: Map<string, string>) =>
 describe('an abbreviation period is not spoken as a stop', () => {
 	it('a month abbreviation before a day reads as one date', () => {
 		expect(said('Launch is Oct. 10. Then we scale.')).toEqual(['Launch is October ten.', 'Then we scale.']);
-		expect(said('Meet at 10 a.m. on Oct. 10.')).toEqual(['Meet at ten A M on October ten.']);
+		expect(said('Meet at 10 a.m. on Oct. 10.')).toEqual(['Meet at ten A-M on October ten.']);
 	});
 	it('a sentence that really ends on one still ends there', () => {
 		expect(said('We ship in Oct. Then we rest.')).toEqual(['We ship in October.', 'Then we rest.']);
@@ -44,8 +44,8 @@ describe('dotted abbreviations with one meaning', () => {
 describe('a replaced abbreviation ends its sentence where the splitter does', () => {
 	it('keeps the full stop where the sentence ends on it, and drops it where it goes on', () => {
 		expect(said('We moved to the U.S. Then more.')).toEqual(['We moved to the U S.', 'Then more.']);
-		expect(said('Meet at 9 a.m.')).toEqual(['Meet at nine A M.']);
-		expect(said('At 10 a.m., we met.')).toEqual(['At ten A M, we met.']);
+		expect(said('Meet at 9 a.m.')).toEqual(['Meet at nine A-M.']);
+		expect(said('At 10 a.m., we met.')).toEqual(['At ten A-M, we met.']);
 	});
 });
 

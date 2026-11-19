@@ -62,3 +62,13 @@ The same change fixed the ways the dictionary was applied (`2026-11-16-terms-reg
 built-in terms take plurals, possessives and compounds; an abbreviation's period is not spoken as a stop;
 the one-meaning dotted abbreviations (e.g., i.e., etc., vs., approx., a.m., p.m., Ph.D.) and capitals joined by
 periods (U.S.) read; a deck's dotted phrase term is never cut into two cues.
+
+**The letter A is never handed to the voice as a lone word.** The owner heard "10 a.m." read "ten uh em"
+on the export. Kokoro's phonemizer (espeak, via `kokoro-js`) reads a spaced `A` before another word as the
+article: `A M` → `ɐ ˈɛm`, `U A E` → `jˈuː ɐ ˈiː`, `A I` → `ɐ aɪ`. Measured with the same `phonemizer` package
+Kokoro calls. What reads as letter names in every position tried: `A-M` (`ˈeɪˈɛm`), and joined capitals with
+an A in them (`UAE`, `AI`, `BA` → `ˌeɪˈiː`, `ˌeɪˈaɪ`, `bˌiːˈeɪ`). Bare `AM` does not: "ten AM" reads the verb
+`æm`. So the clock reads `A-M` / `P-M` (the dotted forms in the lexicon, and an undotted `am`/`pm` only right
+after an hour, `afterNumber`), and a dotted initialism with an A is written joined unless the joined run is
+an English word (`A.S.` → `A-S`; `spellLetters` in `normalize.ts`). Runs without an A stay spaced (`U S`,
+`D C`), which every voice spells. Pinned by `docs/src/lib/cadenza/letter-names.test.ts`.
