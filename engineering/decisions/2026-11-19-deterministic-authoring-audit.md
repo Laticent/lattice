@@ -83,8 +83,9 @@ contradictions** were each checked against the code; the owner table below says 
    usually break, when `1.` and `-` swap (about 22 counting variant slides); 13 chart kinds and
    11 other components change on a nested swap; bold is structural in at least 12.
 3. **Only the coda has a support declaration.** Four poster layouts (contact, wifi, gift-card,
-   video) drop eyebrow, subtitle, figures and **speaker notes** with no declaration and no lint
-   finding.
+   video) drop **speaker notes** (HTML and PowerPoint), an annotation and an added figure;
+   `contact` also drops its heading and eyebrow, and `contact`, `wifi` and `gift-card` drop the
+   subtitle. None of it is declared, and lint says nothing.
 4. **The base manifest exists, but under another name.** `MODIFIER_GROUPS` (`lib/components/index.js:537`,
    344 tokens) is the real registry. The docs point at `UNIVERSAL_GROUPS` (62 tokens), and four
    words ("universal variant", "base modifier", "modifier", "switch") name four overlapping sets.
@@ -215,8 +216,10 @@ checking that the text is present, placed and unclipped.
 | `bleed` | 72 | — | 4 | 4 overflow |
 
 - **The four posters** (contact, wifi, gift-card, video) rebuild the slide from the authored list
-  and drop nearly every universal. `contact` drops the heading itself, along with the eyebrow,
-  subtitle, pills, figures, `bleed` and **speaker notes**. The notes are missing from the HTML
+  and drop universals. All four drop **speaker notes**, an annotation, an added figure
+  (`@image`, `@video` or a picture; `video` keeps its own video card), `bleed` and `@legend`.
+  `contact` also drops the heading itself, the eyebrow, the subtitle and pills; `wifi` and
+  `gift-card` drop the subtitle. `video` keeps its eyebrow (rendered: `eyebrow-bar` draws). The notes are missing from the HTML
   (`aside.lattice-notes` is never written), so the presenter view loses them, and so does the PowerPoint export (measured: a `contact` deck exports with no notes slide; a control `content` deck keeps its note).
 - **Overflow is flagged by the engine but not by lint.** Eleven components with no coda claim clip
   their own sample once a Key Insight is added (kpi shows its fourth tile under the panel).
@@ -484,11 +487,11 @@ named job of one workstream, which fixes it in full before it merges (HARD RULE 
 | Required slots, heading level and list type unenforced; prose selectors; samples that fail their own contract; `numbered` phantom; `quote` styling every paragraph as attribution | **W1** |
 | `1.`/`-` and nested swaps change or break 30+ components | **W2** |
 | Bold as structure in 12+ components | **W3** |
-| Posters drop speaker notes, eyebrow, subtitle, figures; 11 components overflow on a coda; `premise` eyebrow/subtitle; `_focus` silent on 18; pane hosts misplace the below-note; `block-unsupported` ignores an authored blockquote | **W4** |
+| Posters drop speaker notes, annotations and added figures (all four), the subtitle (contact, wifi, gift-card), the heading and eyebrow (contact); 11 components overflow on a coda; `premise` eyebrow/subtitle; `_focus` silent on 18; pane hosts misplace the below-note; `block-unsupported` ignores an authored blockquote | **W4** |
 | `@legend` shows as literal code on 54 surfaces, is key-only on 22 chart readers and drops on 4 posters | **W4** (the `legend` entry of the `universals` block; lint reads it) |
 | Four layouts reuse the subtitle position undeclared (redline, citation-card, regulatory-update as a citation; compare-code as a column label) | **W1** (a per-component slot the manifest declares) and **W4** (the `subtitle` entry says `claimed`) |
 | `image` and `scene` hide the deck header and footer in their own CSS; the manifest `chrome` field has no `footer` key to declare it, and `image`'s anatomy diagram draws both | **W4**: chrome is a declared universal (the schema gains `footer`), the declaration replaces the CSS, and the anatomy is generated from it |
-| `npm run check:modifier-effects` (run 2026-11-19, exit 1): the committed surface record (`lib/core/modifier-effects.generated.json`, which the Studio's `_class:` completion reads) disagreed with the render for 14 components | **This PR.** Each drift judged: (a) gantt, radar, ep-curve and histogram read eyebrow as inert because the probe took the chart's axis line (`` `[…]` ``) for an eyebrow and never placed a real one; rendered with a real eyebrow, `eyebrow-bar` draws its bar. The probe now skips axis lines. (b) agenda's `cards` variant was retired on 2026-11-08 and the record still listed it. (c) 8 components had no entry. (d) premise, split-compare and video moved from inert to an effect. The record is re-blessed from the fixed probe; D3 moves the check into a per-PR tier |
+| `npm run check:modifier-effects` (run 2026-11-19, exit 1): the committed surface record (`lib/core/modifier-effects.generated.json`, which the Studio's `_class:` completion reads) disagreed with the render for 14 components | **This PR.** Each drift judged: (a) on gantt, radar, ep-curve and histogram the buggy probe reported eyebrow as inert (gantt and radar were already recorded with an eyebrow effect, so their record does not change; ep-curve and histogram now get theirs) because it took the chart's axis line (`` `[…]` ``) for an eyebrow and never placed a real one; rendered with a real eyebrow, `eyebrow-bar` draws its bar. The probe now skips axis lines. (b) agenda's `cards` variant was retired on 2026-11-08 and the record still listed it. (c) 8 components had no entry. (d) premise (heading) and video (eyebrow) moved from inert to an effect, and quadrant and scatter (eyebrow) through the probe fix; split-compare's `table` left the inert list without gaining an effect, so the record no longer claims anything about it; why the measurement changed is not yet known, and W4's conformance test owns it. The record is re-blessed from the fixed probe; D3 moves the check into a per-PR tier |
 | `components.pick.md` contradicts itself on its length; `AGENTS.md` overstates what `lint:deck` catches | **This PR** |
 
 ## Settled with the owner (2026-11-19)
