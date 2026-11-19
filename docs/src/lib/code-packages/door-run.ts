@@ -160,7 +160,7 @@ function remember(key: string, section: string) {
 }
 
 /** The door past its no-package fast path: two renders around the code-packages slot and the plugin-fence slot. */
-export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean, stamped: Set<string> | null = null): Promise<R> {
+export async function runWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, engineOpts: Record<string, unknown> | undefined, reporting: boolean, stamped: Set<string> | null = null, withPlugins = true): Promise<R> {
 	// What this render DRAWS as approved: approved now AND in the stamp its CSS carries, when the caller gave that CSS
 	// (door.ts `approvalsInStamp`), so the markup and the plugin's sheet come from one moment. The stamp only ever
 	// narrows: code runs on a live approval, so a stale stamp cannot run a plugin whose approval was withdrawn.
@@ -177,7 +177,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	const baseUrl = typeof engineOpts?.baseUrl === 'string' ? engineOpts.baseUrl : '';
 	// THE PLUGINS' FENCES. Which plugins run, and a note for each that does not, are the CLI door's rules
 	// (planFencePlugins): a fence name two plugins claim, a shipped plugin's, a name whose prefix overlaps another's.
-	const installed = new Map(studioPlugins());
+	// Without plugins (door.ts `withPlugins`: CSS with no stamp of this page), the plugins are not there for this render.
+	const installed = new Map(withPlugins ? studioPlugins() : []);
 	const plan = planFencePlugins(
 		[...installed.values()].map((p) => ({ name: p.name, fence: p.fence, kinds: (p.kinds ?? []).map((k) => k.name) })),
 		{ shipped: SHIPPED_FENCES, isLanguage: (n: string) => HIGHLIGHT_LANGUAGES.has(n), shippedKinds: SHIPPED_KINDS },

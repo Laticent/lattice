@@ -606,9 +606,26 @@ describe('a render draws by the stamp in the CSS it paints with (#3292)', () => 
 		expect(html).toContain('data-reason="unapproved"');
 	});
 
-	it('CSS with no stamp leaves the live approvals in charge', async () => {
+	it('CSS with no stamp of this page draws as before the door held the plugin: nothing runs, nothing asks', async () => {
 		await approve();
-		const html = await drawWith('');
+		let status: { unapproved: { name: string }[] } = { unapproved: [{ name: 'unset' }] };
+		const off = onCodePackagesStatus((s) => {
+			status = s;
+		});
+		// A reload: the render began with the shell's CSS from before its stamp held the plugins (#3292).
+		const html = await drawWith('.card { color: red }', true);
+		off();
+		expect(opened).toEqual([]);
+		// The engine's own render of the deck, as with no plugin installed: no unstyled block, and no "approve" card.
+		expect(html).toBe(PG.render(DECK, 'indaco', {}).html);
+		expect(html).not.toContain('data-reason="unapproved"');
+		expect(status.unapproved).toEqual([]);
+		revokePlugin(PLUGIN.name);
+	});
+
+	it('a render handed no CSS at all (an export, a scan) keeps the live approvals in charge', async () => {
+		await approve();
+		const html = (await renderWithCodePackages<{ html: string }>(PG, DECK, 'indaco', {})).html;
 		expect(html).not.toContain('data-reason="unapproved"');
 		expect(opened.length).toBeGreaterThan(0);
 		revokePlugin(PLUGIN.name);

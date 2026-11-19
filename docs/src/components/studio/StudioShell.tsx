@@ -31,7 +31,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
-import { CODE_APPROVALS_KEY, codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
+import { CODE_APPROVALS_KEY, codePackagesStamp, exportCodeStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
@@ -3146,10 +3146,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		() => [usedLocalCss, finishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined,
 		[usedLocalCss, finishExtraCss, codeStamp, assetStampText],
 	);
-	// The same, with only this browser's own finishes: what an export carries.
+	// The same, with only this browser's own finishes and the stamp without its per-page nonce: what an export carries.
 	const exportExtraCss = React.useMemo(
-		() => (ownFinishExtraCss === finishExtraCss ? previewExtraCss : [usedLocalCss, ownFinishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined),
-		[ownFinishExtraCss, finishExtraCss, previewExtraCss, usedLocalCss, codeStamp, assetStampText],
+		() => [usedLocalCss, ownFinishExtraCss, exportCodeStamp(codeStamp), assetStampText].filter(Boolean).join('\n\n') || undefined,
+		[usedLocalCss, ownFinishExtraCss, codeStamp, assetStampText],
 	);
 	// Point the registry at the open deck (its own photos join the shared ones) and take its stamp.
 	// Skipped entirely until a deck names a photo or the Library has been used, so a deck without
