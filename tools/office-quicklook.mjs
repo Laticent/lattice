@@ -76,6 +76,31 @@ async function cutTo(zip, keep) {
 	return copy.generateAsync({ type: 'nodebuffer' });
 }
 
+/** One slide cut alone and rendered by Quick Look, as `<dir>/slide-NN.png`: the reference a run's capture is scored
+ * against (a slide alone never shows another slide's shapes). Returns the PNG's path, or null. */
+async function renderAlone(zip, dir, n) {
+	const file = path.join(dir, `slide-${String(n).padStart(2, '0')}.pptx`);
+	const png = file.replace(/\.pptx$/, '.png');
+	if (fs.existsSync(png)) return png;
+	const buf = await cutTo(zip, [n]);
+	if (!buf || !onMac) return null;
+	fs.writeFileSync(file, buf);
+	const r = spawnSync('qlmanage', ['-t', '-s', '1920', '-o', dir, file], { encoding: 'utf8', timeout: 120000 });
+	if (r.status === 0 && fs.existsSync(`${file}.png`)) {
+		fs.renameSync(`${file}.png`, png);
+		return png;
+	}
+	return null;
+}
+const refsOf = async (zip, dir, run) => {
+	const out = [];
+	for (const n of run) {
+		const p = await renderAlone(zip, dir, n);
+		out.push(p ? path.relative(OUT, p) : null);
+	}
+	return out;
+};
+
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 for (const deck of decks) {
@@ -116,7 +141,7 @@ for (const deck of decks) {
 				const run = slides.slice(i, i + 3);
 				const file = path.join(dir, `slides-${run.map((n) => String(n).padStart(2, '0')).join('-')}.pptx`);
 				fs.writeFileSync(file, await cutTo(zip, run));
-				index.push({ deck: name, slides: run, variant, path: path.relative(OUT, file) });
+				index.push({ deck: name, slides: run, variant, path: path.relative(OUT, file), refs: await refsOf(zip, dir, run) });
 			}
 		}
 	}
@@ -137,7 +162,7 @@ if (baseline) {
 			const dir = path.join(OUT, name, variant);
 			fs.mkdirSync(dir, { recursive: true });
 			const pptx = path.join(dir, `${name}.pptx`);
-			execFileSync(process.execPath, [path.join(base, 'lattice.js'), path.join(base, deck), pptx, '--editable', '--quiet'], { cwd: base, stdio: 'inherit' });
+			execFileSync(process.execPath, [path.join(base, 'lattice.js'), path.resolve(ROOT, deck), pptx, '--editable', '--quiet'], { cwd: base, stdio: 'inherit' });
 			const zip = await JSZip.loadAsync(fs.readFileSync(pptx));
 			const slides = Object.keys(zip.files).map((f) => Number(f.match(SLIDE)?.[1])).filter(Boolean).sort((a, b) => a - b);
 			if (slides.length > MAX_RUNS) continue;
@@ -145,7 +170,7 @@ if (baseline) {
 				const run = slides.slice(i, i + 3);
 				const file = path.join(dir, `slides-${run.map((n) => String(n).padStart(2, '0')).join('-')}.pptx`);
 				fs.writeFileSync(file, await cutTo(zip, run));
-				index.push({ deck: name, slides: run, variant, path: path.relative(OUT, file) });
+				index.push({ deck: name, slides: run, variant, path: path.relative(OUT, file), refs: await refsOf(zip, dir, run) });
 			}
 		}
 	} finally {
