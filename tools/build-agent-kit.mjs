@@ -3203,6 +3203,10 @@ function startDoc(files, cat) {
     '  the warning color; `kpi ops` rows 1 and 3; `kpi compliance` row 3. Put an off-plan metric',
     '  on a warning row, or leave its pill off and say the miss in the context line. A second',
     '  pill on a row is a neutral tag.',
+    // Measured 2026-11-19 by rendering every variant at 3 and 4 rows, with and without a `>`:
+    // these clip in the export, and lint:deck does not see it (followups.d/3305-p2-kpi-fit-lint.md).
+    '- A `kpi` key insight (`>`) fits only with 3 rows, and never on `kpi ops`; `kpi compliance`',
+    '  holds 3 rows. Past that the export clips the slide: drop the `>` or split.',
     // Verified by render 2026-11-19: both draw a `##` above the hero, and lint takes it.
     '- `big-number` and `quote` take an optional `## ` claim above the number or the quotation;',
     '  their skeletons omit it. Write one, so the headings-only read keeps the beat.',

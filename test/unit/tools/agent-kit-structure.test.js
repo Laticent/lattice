@@ -1001,6 +1001,7 @@ test('agent kit structure', { skip }, async (t) => {
 		assert.deepEqual(warnRows('compliance'), [3]);
 		assert.match(start, /`kpi attention` draws row 1 in\s+the warning color; `kpi ops` rows 1 and 3; `kpi compliance` row 3/);
 		assert.match(start, /`big-number` and `quote` take an optional `## ` claim/);
+		assert.match(start, /A `kpi` key insight \(`>`\) fits only with 3 rows, and never on `kpi ops`/);
 		assert.match(start, /^- `profile:` \(`general` · `teaching` · `mission`\)/m, 'the profile key the canon names');
 		const solo = readKit('paste/lattice-instructions-solo.md');
 		assert.match(solo, /A row on `agenda`, `kpi`.*always has a body/, 'the solo ledger rule names its layouts');

@@ -20,3 +20,4 @@
 - `lint:deck`'s `list-steps-inline-body` no longer flags or rewrites a step-shaped line inside a speaker note, splits after a code span rather than inside it, keeps a mixed-case body's case (`iOS`), and catches a body indented two spaces under `1. ` (CommonMark does not nest it).
 - `start.md`'s front-matter list now includes `profile:` (`general`, `teaching`, `mission`), which its canon names. The paste texts' rules now name the layouts a "ledger" or "statement" rule covers, read from lint's own sets; the solo text lists only its own layouts.
 - `start.md` now says which `kpi` rows draw the warning color under each variant (the first real-model run put `{Breaching}` on a row drawn green with a check), that `big-number` and `quote` take an optional `##` claim, and the ten `timeline-list` status words.
+- `start.md` says where a `kpi` key insight fits (3 rows, never on `ops`) and that `kpi compliance` holds 3 rows; past that the export clips.
