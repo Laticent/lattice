@@ -86,7 +86,9 @@ describe('the system prompt', () => {
 		const sys = buildAgentSystem({ canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
 		// A question about a video was answered with unrequested edits that cleared lint warnings.
 		expect(sys).toContain('WHEN TO EDIT');
-		expect(sys).toMatch(/A question[^\n]*gets an answer and no edit_slides or set_front_matter call/);
+		expect(sys).toMatch(/A question[^\n]*gets an answer and no edit call \(edit_slides, replace_text, set_front_matter, set_terms\)/);
+		// A word change goes through replace_text, not whole-slide rewrites (#3208 item 25).
+		expect(sys).toMatch(/To change a word or phrase wherever it appears, use replace_text/);
 		expect(sys).toMatch(/never a reason to edit on your own/);
 		// …and the reply said "the checker", "referent" and `big-number`.
 		expect(sys).toContain('HOW YOU TALK');
@@ -100,6 +102,8 @@ describe('the system prompt', () => {
 		const big = Array.from({ length: 200 }, (_, i) => `<!-- _class: content -->\n## Slide ${i}\n\n${'x '.repeat(80)}`).join('\n\n---\n\n');
 		expect(big.length).toBeGreaterThan(INLINE_DECK_CHARS);
 		expect(deckForTurn(big)).toContain('read_slides');
+		// …and at find_text, so a term search on a long deck is one call, not a read of every slide.
+		expect(deckForTurn(big)).toContain('find_text');
 	});
 });
 
@@ -227,6 +231,132 @@ describe('the toolbox', () => {
 		expect(out).toContain('"Derby" → "Darby"');
 		expect(out).toContain('"Ilcea.K"');
 		expect(out).toContain('Speaker notes are never read aloud.');
+	});
+
+	// #3208 items 6 and 25: "Oct. Tenth" → "October Tenth" took reading slide after slide and resending
+	// whole slides. find_text lists every hit by field; replace_text sends only the words.
+	const OCT = [
+		'---',
+		'theme: indaco',
+		'title: Oct. Tenth review',
+		'---',
+		'',
+		'<!-- _class: title -->',
+		'# Oct. Tenth',
+		'',
+		'---',
+		'',
+		'<!-- _class: content -->',
+		'## After Oct. Tenth',
+		'',
+		'- Sold out ([recap](https://x.test/oct.-tenth))',
+		'',
+		'<!-- say: Oct. Tenth was the day. -->',
+		'',
+		'---',
+		'',
+		'<!-- _class: content -->',
+		'## Nothing here',
+		'',
+		'```text',
+		'Oct. Tenth',
+		'```',
+	].join('\n');
+
+	it('find_text lists every match by slide and field, code marked, front matter apart', async () => {
+		const out = await toolbox({ source: OCT }).run('find_text', JSON.stringify({ text: 'oct. tenth' }));
+		expect(out).toContain('"oct. tenth": 4 matches in 3 slides, and 1 front-matter line.');
+		expect(out).toContain('[slide 1] heading: "# «Oct. Tenth»"');
+		expect(out).toContain('[slide 2] spoken line:');
+		expect(out).toContain('[slide 3] code (replace_text leaves this alone)');
+		expect(out).toContain('line 2: "title: Oct. Tenth review"');
+		expect(out).not.toContain('oct.-tenth»'); // a link target is never a match
+	});
+
+	it('replace_text stages one replace row per slide, leaves code, targets and front matter, and applies exactly', async () => {
+		const tb = toolbox({ source: OCT });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'October Tenth', summary: 'Spelled out the date.' }));
+		expect(out).toContain('Replaced 3 matches in 2 slides: slide 1 (1: heading); slide 2 (2: heading, spoken line).');
+		expect(out).toContain('Left alone: 1 in code on slide 3; 1 front-matter line (use set_terms or set_front_matter).');
+		expect(tb.draft).toContain('<!-- say: October Tenth was the day. -->');
+		expect(tb.draft).toContain('(https://x.test/oct.-tenth)');
+		expect(tb.draft).toContain('title: Oct. Tenth review');
+		const rows = tb.proposal();
+		expect(rows.map((e) => [e.action, e.slide])).toEqual([
+			['replace', 1],
+			['replace', 2],
+		]);
+		const { applyEditsChecked } = await import('./architect');
+		expect(applyEditsChecked(OCT, rows).source).toBe(tb.draft);
+	});
+
+	it('replace_text refuses what would change structure, and reports a miss', async () => {
+		const tb = toolbox({ source: OCT });
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'a\nb', summary: 's' }))).toContain('one line');
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'x -->', summary: 's' }))).toContain('comment markers');
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Derby', replace: 'Darby', summary: 's' }))).toContain('No replaceable match for "Derby"');
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct 10', slides: [2], summary: 's' }))).toContain('in 1 slide: slide 2');
+		expect(tb.draft).toContain('# Oct. Tenth'); // slide 1 was outside `slides`
+	});
+
+	// The checker on #3208: a slide the structure check refuses must not let the turn end "settled".
+	it('replace_text refuses a slide whose structure would change, and the turn is not settled', async () => {
+		const tb = toolbox({ source: ['---', 'theme: indaco', '---', '', '## A', '', 'TBD here', '', '---', '', '## B', '', '<!-- TBD -->'].join('\n') });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'TBD', replace: 'hide', summary: 's' }));
+		expect(out).toContain('Replaced 1 match in 1 slide: slide 1 (1: body).');
+		expect(out).toContain('slide 2: the replacement would change the slide’s structure');
+		expect(tb.draft).toContain('<!-- TBD -->');
+		expect(tb.verdict?.refused).toBe(true);
+	});
+
+	it('replace_text reads an empty slide list as every slide, and reports numbers outside the deck', async () => {
+		const tb = toolbox({ source: OCT });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'October Tenth', slides: [], summary: 's' }));
+		expect(out).toContain('in 2 slides');
+		const out2 = await toolbox({ source: OCT }).run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct 10', slides: [2, 9], summary: 's' }));
+		expect(out2).toContain('slide 9 (the draft has 3)');
+		expect(await toolbox({ source: OCT }).run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct. Tenth', case_sensitive: true, summary: 's' }))).toContain('nothing would change');
+	});
+
+	// The checker on #3208: with twin slides the LCS anchored on the wrong one, and a word change read on the card
+	// as insert + replace + delete. Same length now compares in place.
+	it('a word change across twin slides is two replace rows, not an insert and a delete', async () => {
+		const src = ['---', 'theme: indaco', '---', '', '## A\n\nfoo', '', '---', '', '## A\n\nbar', '', '---', '', '## A\n\nfoo', '', '---', '', '## A\n\nbar'].join('\n');
+		const tb = toolbox({ source: src });
+		await tb.run('replace_text', JSON.stringify({ find: 'bar', replace: 'foo', summary: 's' }));
+		const rows = tb.proposal();
+		expect(rows.map((e) => [e.action, e.slide])).toEqual([
+			['replace', 2],
+			['replace', 4],
+		]);
+		const { applyEditsChecked } = await import('./architect');
+		expect(deckSlides(applyEditsChecked(src, rows).source)).toEqual(deckSlides(tb.draft));
+	});
+
+	// The checker's second round: "insert one, delete one" keeps the slide count, and must still read as an insert
+	// and a delete, so Auto holds it for the author.
+	it('a turn that inserts and deletes keeps its delete row even at the same length', async () => {
+		const tb = toolbox({ source: DECK });
+		await tb.run('edit_slides', JSON.stringify({ edits: [{ action: 'insert', slide: 0, body: '## New first' }, { action: 'delete', slide: 4 }], summary: 's' }));
+		const rows = tb.proposal();
+		expect(rows.some((e) => e.action === 'delete')).toBe(true);
+		const { autoHold } = await import('./chat-actions');
+		expect(autoHold({ via: 'agent', clean: true, aborted: false, deckChanged: false, live: false, edits: rows, slideCount: 3 })).toBe('it deletes slides');
+	});
+
+	it('replace_text refuses a pair that changes markup, once, naming the character', async () => {
+		const tb = toolbox({ source: OCT });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: '$10', summary: 's' }));
+		expect(out).toMatch(/^Not replaced: the replacement changes `\$`/);
+		expect(tb.verdict?.refused).toBe(true);
+		expect(tb.draft).toBe(OCT);
+	});
+
+	it('Talk mode may search but not replace', async () => {
+		const tb = toolbox({ source: OCT, mode: 'talk' });
+		expect(await tb.run('find_text', JSON.stringify({ text: 'Tenth' }))).toContain('matches');
+		expect(await tb.run('replace_text', JSON.stringify({ find: 'Tenth', replace: '10th', summary: 's' }))).toContain('not available in this chat mode');
+		expect(tb.draft).toBe(OCT);
 	});
 
 	it('preview_speech skips hidden slides, caps the range, and still previews free text', async () => {

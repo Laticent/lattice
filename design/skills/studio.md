@@ -204,6 +204,8 @@ every deck, the Library, and reference docs. It leaves out the OpenRouter key.
 |---|---|
 | `read_slides` | Reads the exact Markdown of slides in the open deck |
 | `edit_slides` | Stages `replace`, `insert` or `delete` on whole slides |
+| `find_text` | Finds words across the deck: each match's slide, field (heading, body, spoken line, note, alt text…) and the words around it; front-matter matches listed apart |
+| `replace_text` | Stages a find-and-replace across the deck's text fields, one diff row per slide. Never touches link or image targets, URLs, directives, code, math, HTML, records or the front matter, and leaves a slide alone when the new words would change its structure (a heading, list, table cell or comment) |
 | `set_front_matter` | Stages setting or removing one single-line front-matter key |
 | `set_terms` | Stages adding, changing or removing deck terms (`terms:`, which absorbs `acronyms:` and `lexicon:`): how a word is spoken, what it stands for |
 | `preview_speech` | Shows what the voice says for up to 10 slides, read the way Present and the export read them (spoken line first, then the slide text, labeled approximate); lists the terms that fired and the odd words nothing covers |
