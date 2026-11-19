@@ -24,6 +24,7 @@ export const TOOL_TIERS: Readonly<Record<string, ToolTier>> = {
 	read_front_matter: 'read',
 	read_guide: 'read',
 	read_slides: 'read',
+	find_text: 'read',
 	check_deck: 'read',
 	list_assets: 'read',
 	view_asset: 'read',
@@ -31,6 +32,7 @@ export const TOOL_TIERS: Readonly<Record<string, ToolTier>> = {
 	// edit, not deck content, so it is not an act; but Talk is reads only, so it is not a read.
 	caption_asset: 'draft',
 	edit_slides: 'draft',
+	replace_text: 'draft',
 	set_front_matter: 'draft',
 	set_terms: 'draft',
 	preview_speech: 'read',

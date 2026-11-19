@@ -13,7 +13,7 @@ import { checkpointLabels, expect, gotoStudio, openArchitect, openChat, persiste
 // covering the no-key path. Mind the flip side: in a keyed environment a plain
 // `npm run test:e2e` runs this tier too — real paid calls plus live-model
 // nondeterminism (`--grep-invert ai-architect` for a deterministic-only run).
-// Cost: three tests, one Haiku-tier completion each over a 2-slide deck —
+// Cost: four tests, one Haiku-tier completion each over a 2-slide deck —
 // roughly a cent a run, with the Studio's own hard-stop budget cap armed as
 // the runaway guard.
 test.skip(!LIVE_KEY, 'OPEN_ROUTER_KEY not set — live AI scenarios skip; the no-key degradation is covered by architect/refine/workspace specs');
@@ -126,6 +126,29 @@ test('Chat: an instructed edit arrives as a diff and Apply lands it in the sourc
 	await expect(toastText(page)).toContainText('Edit applied');
 	await expect.poll(() => persistedSource(page)).toContain('ATLAS ROADMAP');
 	await expect.poll(() => checkpointLabels(page)).toContain('Before AI chat edit');
+});
+
+// #3208 / PR 3318: a word change across the deck goes through find_text / replace_text, not a rewrite of
+// every slide. "program" sits in slide 1's eyebrow (a code span, written as typed) and slide 2's heading.
+// The activity line proves which tool ran: a model that rewrote the slides instead fails here.
+test('Chat: a word change across the deck is one replace, staged for Apply', async ({ page }) => {
+	await openChat(page);
+	const input = page.getByRole('textbox', { name: 'Message the Architect' });
+	await input.fill('Change the word "program" to "initiative" everywhere in the deck. Change nothing else.');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+	const apply = page.getByRole('button', { name: 'Apply', exact: true });
+	await expect(apply).toBeVisible({ timeout: 120_000 });
+	expect(await persistedSource(page)).toContain('program');
+	// The replace tool's own activity line (architect-agent.ts `replaceText`'s note).
+	await expect(page.getByText(/replaced "program/i).first()).toBeAttached();
+
+	await apply.click();
+	await expect(toastText(page)).toContainText('Edit applied');
+	await expect.poll(() => persistedSource(page)).not.toMatch(/\bprogram\b/i);
+	const after = await persistedSource(page);
+	expect(after).toContain('referral initiative');
+	expect(after).toContain('The initiative earns its budget.');
 });
 
 test('Refine selection: Shorten rewrites the selected prose, undoably', async ({ page }) => {

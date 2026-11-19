@@ -62,7 +62,10 @@ for (const [w, h] of [
 		await expect(page.getByRole('searchbox', { name: 'Search OpenRouter models' })).toBeVisible();
 		await page.getByRole('tab', { name: 'All', exact: true }).click();
 		await page.getByRole('searchbox', { name: 'Search OpenRouter models' }).fill('Big');
-		await page.getByRole('radio', { name: /Big Model/ }).check();
+		// `.click()`, not `.check()`: picking closes the picker, so the radio is gone before `.check()` can
+		// confirm it is checked, and under load that read timed out (4 of 20 at --workers=6). The two
+		// lines below assert the pick itself.
+		await page.getByRole('radio', { name: /Big Model/ }).click();
 		// Picking closes the picker by itself.
 		await expect(page.getByRole('searchbox', { name: 'Search OpenRouter models' })).toBeHidden();
 		await expect(page.getByRole('button', { name: /^Model: Big Model/ })).toBeVisible();
