@@ -1208,7 +1208,7 @@ jobs:
           # train (see engineering/decisions/2026-06-14-drift-watch-rebase-thrash.md).
           # Only a real failure stops the gate on a PR run.
           #
-          # TWO EXCEPTIONS (followups.d/2524-p1-*, engineering/gotchas/ci.md):
+          # THREE EXCEPTIONS (followups.d/2524-p1-*, engineering/gotchas/ci.md):
           #
           # 1. `changes` must SUCCEED. Every test tier `needs: changes`, so when
           #    `changes` does not succeed, unit, integration and docs-build all read
@@ -1216,6 +1216,10 @@ jobs:
           #    no runner, sat queued 19 min and was canceled, and a diff touching lib/
           #    and tools/ went green on lint alone. A `skipped` tier is a pass only
           #    when the path filter decided to skip it, so the filter has to have run.
+          #    The one exit is a `changes` CANCELLED by a newer push (exception 3's proof:
+          #    the PR's head moved past this run's SHA), where nothing ran on this SHA and
+          #    the run on the head carries the verdict. If the PR was parked as a draft,
+          #    that verdict waits for the next ready run; the head is never green on this.
           #
           # 2. On merge_group a `cancelled` tier FAILS. Supersession, the only reason
           #    `cancelled` passes, cannot happen there: each queue group runs on its
