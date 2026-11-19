@@ -80,7 +80,7 @@ contradictions** were each checked against the code; the owner table below says 
    video) drop eyebrow, subtitle, figures and **speaker notes** with no declaration and no lint
    finding.
 4. **The base manifest exists, but under another name.** `MODIFIER_GROUPS` (`lib/components/index.js:537`,
-   343 tokens) is the real registry. The docs point at `UNIVERSAL_GROUPS` (62 tokens), and four
+   344 tokens) is the real registry. The docs point at `UNIVERSAL_GROUPS` (62 tokens), and four
    words ("universal variant", "base modifier", "modifier", "switch") name four overlapping sets.
 5. **One root cause under all four:** the contract lives in prose, and each layout re-implements
    its own reading of the Markdown. The fix is to make the manifest executable, put one
@@ -236,7 +236,7 @@ assumption, with no catalog for lint to read.
 ## Finding 4 — universals vs modifiers
 
 The machine-readable base manifest is `MODIFIER_GROUPS` (`lib/components/index.js:537`): 43
-groups, 343 tokens, each with the surface it acts on and its exclusions. The linter and the
+groups, 344 tokens (343 at the audit head `001c985`; this PR adds the `banner-tag` alias), each with the surface it acts on and its exclusions. The linter and the
 Studio's `_class:` completion both read it. Nothing calls it the base manifest, and the docs point
 elsewhere.
 
@@ -256,9 +256,9 @@ The words, as the code uses them:
 | Word | Means in code | Drift |
 |---|---|---|
 | variant | a token in one manifest's `variants` | `base.docs.md` §Universal variants also files directives (`_focus`, `_build`), content syntax and a mode token under it |
-| universal variant | a `UNIVERSAL_GROUPS` member (62) | the doc calls it the full set; the full set is 343 |
+| universal variant | a `UNIVERSAL_GROUPS` member (62) | the doc calls it the full set; the full set is 344 |
 | base modifier | `BASE_MODIFIERS`: `light` plus 6 aliases | CLAUDE.md #6 sends "base modifiers" to `base.docs.md`, which never uses the phrase |
-| modifier | any `_class` word after the component | `design-system.md` says ≈18; the code has 343 |
+| modifier | any `_class` word after the component | `design-system.md` says ≈18; the code has 344 |
 | switch | a `no-X`/`with-X` pair | 7 switch tokens missing from `MODIFIER_GROUPS`; `silent` documented with one fewer effect than it has |
 | finish | backdrop presets | also used for `sketch` (a `mode:` token), the spectrum bar, media finishes, `logo-finish:` |
 
