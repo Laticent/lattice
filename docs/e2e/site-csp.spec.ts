@@ -282,3 +282,34 @@ test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko the Playground prev
 	expect(await violations()).toEqual([]);
 });
 
+
+// WITH THE SERVICE WORKER IN CONTROL, which is how a visitor meets every page after their first. The
+// config blocks service workers, so every cell above ran without one, and that hid a Gecko defect: a
+// srcdoc preview inherits the page's policy, and Firefox matched its `'self'` wrongly for anything the
+// worker answered, so on the second page a visitor opened it refused the frame's own runtime, agents
+// file and theme fonts, and the preview fell back to the default serif (measured 2026-11-19; Chromium
+// and WebKit were clean). csp.mjs names the site's own origins beside `'self'`, which Gecko matches.
+test.describe('under the service worker', () => {
+	test.use({ serviceWorkers: 'allow' });
+	test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko the preview pages load with no violation once the service worker controls them', async ({ page }) => {
+		const violations = await watchViolations(page);
+		await page.goto('/getting-started/');
+		// A page is controlled only from the navigation after the worker activates, so wait for it, then walk.
+		await page.waitForFunction(() => navigator.serviceWorker.ready.then(() => true));
+		for (const route of ['/components/chart/bar/', '/plugins/function-plot/', '/playground/']) {
+			violations.clear();
+			await page.goto(route, { waitUntil: 'load' });
+			expect(await page.evaluate(() => !!navigator.serviceWorker.controller), `${route} is controlled`).toBe(true);
+			await expect(page.locator(CSP_META)).toHaveCount(1);
+			const frame = page.frameLocator(route === '/playground/' ? 'iframe[title]' : 'iframe:not([data-lattice-draw-frame])').first();
+			await expect(frame.locator('.lattice')).toHaveCSS('visibility', 'visible', { timeout: 30_000 });
+			// Wait on the font gate's own signal, not on network idle: the worker keeps the network busy
+			// (it revalidates in the background), and `networkidle` timed out under --workers=4. A refused
+			// face is reported when it is fetched, which is before the gate settles.
+			await expect
+				.poll(() => Promise.all(page.frames().map((f) => f.evaluate(() => (window as unknown as { __latticeFontsSettled?: boolean }).__latticeFontsSettled === true).catch(() => false))).then((r) => r.some(Boolean)), { timeout: 30_000 })
+				.toBe(true);
+			expect(await violations(), route).toEqual([]);
+		}
+	});
+});
