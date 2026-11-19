@@ -159,9 +159,9 @@ Each pair starts as a last carved to one foot.
 
 <!-- _class: premise -->
 
-## One sentence, centered, never nudged.
+## The claim holds the left, its rows the right.
 
-The claim holds the left; the rows hold the evidence.
+The spectrum rail runs above both, and neither column nudges it.
 
 1. Claim
    - One sentence on the left.
