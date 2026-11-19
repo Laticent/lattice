@@ -228,3 +228,25 @@ describe('the packed contract round-trips every manifest', () => {
     });
   }
 });
+
+describe('the packer refuses an argument it cannot carry', () => {
+  const { codeOf } = require('../../../lib/authoring/slot-contract-pack');
+  // The packed string separates alternatives with `,`, an argument's count with `#`, override slots
+  // with `+` and requiredness with `?`/`!`. A prefix holding one would decode as something else
+  // (`a,b` → two alternatives, the second of which matches anything), so it fails the build instead.
+  for (const prefix of ['a,b', '#tag', 'x+y', 'why?', 'go!', 'two words']) {
+    test(`prefix '${prefix}'`, () => assert.throws(() => codeOf({ kind: 'code-line', prefix }), /cannot carry/));
+  }
+  test('the shipped prefixes still pack', () => {
+    assert.equal(codeOf({ kind: 'code-line', prefix: '@image' }), 'c:@image');
+    assert.equal(codeOf([{ kind: 'html', tag: 'svg' }, { kind: 'fence', lang: 'mermaid', nth: 2 }]), 'x:svg,f:mermaid#2');
+  });
+});
+
+test('a class token named for an Object.prototype member does not crash the contract rules', () => {
+  // `entry.kinds` is a plain object, so an unguarded `kinds[t]` read `toString` as a function.
+  const { slotsFor, unpackContract } = require('../../../lib/authoring/slot-contract');
+  const entry = unpackContract('x|heading=h2!|a|').x;
+  assert.equal(Object.hasOwn(entry.kinds, 'toString'), false);
+  assert.deepEqual(Object.keys(slotsFor(entry, ['x', 'toString', 'constructor'])), ['heading']);
+});

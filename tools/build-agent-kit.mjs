@@ -358,6 +358,9 @@ function reviewBundle() {
         // cannot be bundled — but the VALUES are static, and lintTextWith only
         // wants `{ names, modifiers }`.
         `const UNIVERSALS = ${JSON.stringify(universalModifierNames())};`,
+        '// The packed slot contract (lib/authoring/slot-contract.generated.js): lint-core reads it from the',
+        '// vocabulary, so without it the `slot-contract`, `variant-inert` and `foreign-variant` rules are off.',
+        `const SLOT_CONTRACT = ${JSON.stringify(require(path.join(ROOT, 'lib', 'authoring', 'slot-contract.generated.js')))};`,
         '',
         '// The catalog lives beside this file in the kit. Without it neither half',
         '// can do its job: the reviewer loses per-element word budgets, and the',
@@ -374,6 +377,7 @@ function reviewBundle() {
         '      vocab: {',
         '        names: new Set(all.map((c) => c.name)),',
         '        modifiers: new Set([...UNIVERSALS, ...all.flatMap((c) => c.variants || [])]),',
+        '        slotContract: SLOT_CONTRACT,',
         '      },',
         '      found: byName.size,',
         '    };',

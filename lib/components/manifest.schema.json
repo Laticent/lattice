@@ -1759,7 +1759,7 @@
           "additionalProperties": false,
           "properties": {
             "kind": { "const": "code-line" },
-            "prefix": { "type": "string", "minLength": 1 }
+            "prefix": { "type": "string", "pattern": "^[@A-Za-z0-9_.-]+$" }
           }
         },
         {
