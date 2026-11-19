@@ -24,8 +24,8 @@ import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs
 import { frontMatterLang, frontMatterSayMap, termEntries, termsSpokenMap } from '../../../../lib/core/resolve-narration.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
-import { type ChatAction, type ChatMode, CREATE_DECK_MAX_CHARS, DEFAULT_CHAT_MODE, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, TOOL_TIERS, toolAllowed, visibleTitle } from './chat-actions';
-import { buildChartSlide } from './chat-chart';
+import { type ChatAction, type ChatMode, CREATE_DECK_MAX_CHARS, CREATE_DECK_TOOL, DEFAULT_CHAT_MODE, makeLookTools, outlineTitle, RENDER_SLIDE_MAX_PER_TURN, RENDER_TOOL, TOOL_TIERS, toolAllowed, toolsForMode, visibleTitle } from './chat-actions';
+import { buildChartSlide, CHART_TOOL } from './chat-chart';
 import { getSayLine } from './slide-say';
 
 type Edits = typeof import('@/components/studio/ai/architect-edits.js');
@@ -514,6 +514,16 @@ export const ASSET_TOOLS = [
 const READ_TOOLS = new Set(['read_component', 'read_front_matter', 'read_guide', 'read_slides', 'find_text', 'preview_speech', 'list_assets', 'view_asset', 'caption_asset']);
 /** The tools that change the draft — and run the checker on it before they return. */
 export const EDIT_TOOLS = new Set(['edit_slides', 'replace_text', 'set_front_matter', 'set_terms', 'set_theme', 'set_finish', 'chart_from_data']);
+
+/**
+ * The tool definitions one chat request carries, in the order the model sees them: the mode's tiers
+ * only. The ORDER and the BYTES are the cached prompt prefix, so this is the one place the list is
+ * assembled (the request in chat-agent.ts and its cost estimate both read it), and
+ * chat-tools.golden.test.ts holds every combination byte for byte.
+ */
+export function chatOfferedTools(o: { mode: ChatMode; themes: readonly string[]; finishes: readonly string[]; seesPictures: boolean; hasLibrary: boolean }) {
+	return toolsForMode(o.mode, [...AGENT_TOOLS, ...makeLookTools(o.themes, o.finishes), CHART_TOOL, ...(o.seesPictures ? [RENDER_TOOL] : []), CREATE_DECK_TOOL, ...(o.hasLibrary ? ASSET_TOOLS : [])]);
+}
 
 /** What the checker said about the draft after the most recent edit call. */
 export type EditVerdict = { refused: boolean; checked: boolean; errors: number; warnings: string[] };
