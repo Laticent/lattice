@@ -287,6 +287,17 @@ test('hoistRuleLightDark routes a real-property pair through a private token, in
 	assert.equal(hoistRuleLightDark('.card{--x:light-dark(#eee,#111)}').darkBlock, '');
 });
 
+test('hoistRuleLightDark flattens light-dark() in an at-rule condition it re-emits', () => {
+	// The picked-ink guard tests a relative color over `light-dark(red, red)` so WebKit 17.x falls
+	// back (#3312). The dark block re-emits each rule inside its own @supports, so the condition
+	// must be flattened there too, or the player ships the light-dark() it promises not to.
+	const guard = '@supports (color:color(from light-dark(red,red) xyz-d65 x y z))';
+	const { darkBlock } = hoistRuleLightDark(`${guard}{.n{fill:light-dark(#fff,#000)}}`);
+	assert.ok(darkBlock.length > 0, 'the rule has a dark arm');
+	assert.doesNotMatch(darkBlock, /light-dark\(/, darkBlock);
+	assert.match(darkBlock, /@supports \(color:color\(from red xyz-d65 x y z\)\)\{/);
+});
+
 test('hoistRuleLightDark keeps a declaration\'s !important OUTSIDE the var() fallback', () => {
 	// `fill: light-dark(a, b) !important` is what every marks rule is. With the flag left inside
 	// the fallback (`var(--lp-ld-0-0,a !important)`) the engine drops the whole declaration at parse time:
