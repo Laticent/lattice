@@ -1058,13 +1058,32 @@ $ git push                  # as many times as the fix takes; run the local gate
 $ gh pr ready <PR>          # one ready_for_review event = one CI run on the head
 ```
 
-**In a cloud Claude session `gh pr ready` fails**: it calls GitHub's GraphQL API, which those
-sessions cannot reach. Use the REST routes the session proxy provides, which raise the same events:
+**Use the helpers.** They work in a cloud session, where `gh pr ready` fails (it calls GitHub's
+GraphQL API, which those sessions cannot reach), and `pr:ready` closes a race the raw calls leave
+open:
 
 ```console
-$ gh api -X POST repos/Laticent/lattice/pulls/<PR>/ccr/convert_to_draft   # park
-$ gh api -X POST repos/Laticent/lattice/pulls/<PR>/ccr/ready_for_review   # run CI
+$ npm run pr:park -- <PR>    # convert to draft; warns if a ci run is still going (it keeps going)
+$ npm run pr:ready -- <PR>   # wait out the push's draft run, mark ready, confirm a real ci run started
 ```
+
+**The race `pr:ready` closes.** Marking a PR ready about a second after a draft push left #3333
+ready with ONE `ci` run, which carried the draft snapshot and skipped every job (2026-11-20): a
+ready PR whose `ci` read as passing with nothing tested. `pr:ready` waits until every `ci` run on
+the head exists and has finished, marks the PR ready, then waits for the new run and checks its
+`changes` job started (a skipped, canceled or still-queued `changes` does not count); if it did
+not, it parks and marks ready once more, and exits 1 if the second try fails too. A PR you parked
+while a real run was still going, with no push since, gets exit 3 and "a real ci run is still
+going": let that run finish rather than queue a second one behind it. Exit codes: 0 done, 1 no
+real run after two tries, 3 GitHub unreachable, a real run still going, or a wait ran out, 64 bad
+arguments. Under the hood both use the session proxy's REST routes
+`repos/Laticent/lattice/pulls/<PR>/ccr/convert_to_draft` and `…/ccr/ready_for_review`, and
+`.claude/settings.json` allows `npm run pr:park` and `npm run pr:ready` so a session's permission
+check does not refuse them (#3305's session was refused the raw call and pushed to a ready PR).
+
+**Mark it ready only when the iteration is finished**: review comments answered, the local gates
+and any e2e you can run green. Each early ready starts a full run that the next push cancels;
+`studio-chat-card-ux` spent 152 runner-minutes that way on 2026-11-19 while parking correctly.
 
 **Why.** In the 419 PR runs from 2026-11-15T22:50Z to 2026-11-19T01:18Z, 179 (43%) were canceled
 by a newer push, after about 51 runner-minutes each in a sample of 35: roughly 9,000 runner-minutes,
@@ -1089,7 +1108,7 @@ and a p90 21 minutes for a runner in merge-queue runs, so PR runs compete with t
   ready while its run is still going costs a second full run once the first ends: wait for the
   first.
 - **Never park a PR that is in the merge queue.** Converting it to a draft removes it from the queue.
-- **Forgetting `--undo` costs what it cost before**: every push runs CI. Nothing reaches `main`
+- **Forgetting to park costs what it cost before**: every push runs CI. Nothing reaches `main`
   unchecked either way.
 - **Dependabot is unaffected.** It never opens drafts, so its PRs run CI on open, and
   `dependabot-auto-merge.yml` still sees a `ci` result.
