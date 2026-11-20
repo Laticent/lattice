@@ -178,10 +178,14 @@ Hartley & Stone on 9 October; the management letter had no findings.
 
 ## How the exit would run.
 
-1. Announce — November, with twelve months' notice to every SMB account.
-2. Migrate — the certified partner onboards accounts from January to June.
-3. Redeploy — nine sellers join mid-market on 1 December.
-4. Report — churn impact at every board meeting until the last account moves.
+1. Announce
+   - November, with twelve months' notice to every SMB account.
+2. Migrate
+   - The certified partner onboards accounts from January to June.
+3. Redeploy
+   - Nine sellers join mid-market on 1 December.
+4. Report
+   - Churn impact at every board meeting until the last account moves.
 
 ---
 

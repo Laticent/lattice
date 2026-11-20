@@ -616,7 +616,6 @@ answer arrives after the pills are drawn. The class is the one signal that alway
 
 ```yaml
 ---
-marp: true
 class: inline-code-literal
 ---
 ```
@@ -773,7 +772,6 @@ front-matter:
 
 ```yaml
 ---
-marp: true
 style: |
   :root { --measure-bookend-heading: 22em; }   /* a wider title block */
 ---

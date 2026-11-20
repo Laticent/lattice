@@ -169,6 +169,8 @@ else {
 		const p = new URL(href, siteOrigin).pathname;
 		const target = p.endsWith('/') ? path.join(DIST, p, 'index.html') : path.join(DIST, p);
 		if (!fs.existsSync(target)) fail(`llms.txt links ${p}, which was not built`);
+		// The agent pack (/agents/) is files staged from dist/agent-kit/, not pages with copies.
+		if (p.startsWith('/agents/')) continue;
 		const page = p.endsWith('.md') ? (p === '/components.md' ? '/components/' : `${p.slice(0, -3)}/`) : p;
 		if (page.endsWith('/') && !indexable.has(page)) fail(`llms.txt links ${p}, whose page ${page} is not indexable`);
 	}

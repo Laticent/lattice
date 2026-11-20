@@ -178,7 +178,7 @@ test('Auto leaves an edit that deletes slides for the author, and says why @cros
 	await setMode(page, 'Auto');
 	await send(page, 'remove slide 2');
 	await expect(page.getByText('Auto left this for you to apply: it deletes slides.')).toBeVisible({ timeout: 30_000 });
-	await expect(page.getByRole('button', { name: /^Apply/ })).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Apply/ }).first()).toBeVisible();
 });
 
 for (const [w, h] of [

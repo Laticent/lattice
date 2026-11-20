@@ -378,6 +378,8 @@ which Windows reads as a `d:` URL scheme; and split a child's output on `/\r?\n/
 - `lint` — full tree
 - `lint-deck` — repo-wide strict author-facing footgun sweep
 - `build-check` — the CI/stale-artifact gate (regen + byte-diff of `dist/`)
+- `dead-code` — knip held at 0 unused files, exports and packages and 0 undeclared imports, in `.js`
+  files (~5 s; `engineering/quality-assessment.md` §Running it)
 - `docs-typecheck` — `tsc --noEmit` over the docs workspace (~36-40s), skipped
   when a push touches no `docs/` files. It is here because a docs TYPE error is
   invisible to every other local gate — biome does not typecheck, and vitest
@@ -599,7 +601,9 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (`followups.d/3034-p7-review-runner-image-pins.md`).
 - **Windows:** `build-windows` runs the full `npm run build` on `windows-2025` and `export-confine-windows` runs the CLI confinement
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
-  backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `wait-for.sh` is a macOS suite that
+  backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `dead-code-windows` runs the
+  `dead-code` pre-push check there (knip through node, since Windows cannot spawn the `.bin` shim) and plants an unused file
+  to prove it fails. `wait-for.sh` is a macOS suite that
   installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
 - **Office files in Apple's importer:** `office-quicklook` (`tools/office-quicklook.mjs`, dispatch and nightly only) exports a deck
   as an editable PowerPoint and renders every slide through `qlmanage` on macOS, the same Office importer iPhone Preview uses (it
@@ -1198,7 +1202,15 @@ runs after `astro build` and fails when a page and the list disagree, or when a 
 its canonical link. The sitemap's `lastmod` is each page's last content commit
 (`docs/src/lib/lastmod.mjs`); a shallow checkout omits it. `docs/scripts/md-twins.mjs` writes a
 plain-Markdown copy of every article page at its path plus `.md` (a component page's copy is its
-`.docs.md`) and fails the build on a copy that leaks markup.
+`.docs.md`), points each copy's site links at the other pages' copies, and fails the build on a
+copy that leaks markup or still links an HTML page that has a copy.
+
+**The agent pack lives at `/agents/`.** `docs/scripts/sync-portal.mjs` copies `dist/agent-kit/`
+(built by `tools/build-agent-kit.mjs`) there verbatim, and `/llms.txt` sends agents to
+`/agents/start.md` first. The same tree is mirrored to the `dist-kits` branch, so edit the kit's
+generator, never the copies. The kit build fails on a link that leaves the kit and on Marp wording
+outside `render/lattice-export-to-marp.md`; `tools/agent-pack-eval.mjs` (nightly) has a model write
+decks from `start.md` alone. Why: `engineering/decisions/2026-11-17-agent-pack.md`.
 The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make-og-card.js`
 (committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
 slides it uses).

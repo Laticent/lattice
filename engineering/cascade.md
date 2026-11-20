@@ -253,6 +253,17 @@ plane number mean the same thing on every slide, and `section { isolation: isola
 (`lib/base/base.elements.css`) is what supplies it. That has nothing to do with
 `@layer` and must not be "tidied" into one.
 
+## Nested sources ship flat
+
+A source may be written with native CSS nesting only if it is listed in `NESTED_SOURCES`
+(`tools/build-css.js`; today `lib/base/base.table-reflow.css`). The build lowers it with esbuild,
+nesting only, so every shipped file stays flat and the cascade is the flat file's: same rules, same
+order. One shape needs care. A nested rule under a two-selector parent lowers to a leading
+`:is(A, B) rest`, and the bundle's `distributeLeadingIs` splits that into `A rest, B rest`, which is
+only cascade-identical when A and B are equally specific. `assertEqualIsArms` refuses the build
+when they are not. Prove a migration with `node tools/css-rule-equiv.js <flat> <nested> --lower`
+(0 differing rules). Record: `engineering/decisions/2026-11-19-nesting-spike.md`.
+
 ## Related references
 
 - `engineering/decisions/2026-06-18-layer-activation-scope.md` — the

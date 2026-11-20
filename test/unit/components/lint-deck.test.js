@@ -577,6 +577,26 @@ describe('deck linter', () => {
     assert.match(hint.fix, /terms:/); // the older acronyms: still works; the coach teaches the one map
   });
 
+  test('an acronym with two meanings is named with its meanings, and a plural reports its singular', async () => {
+    // AP has several readings across the exemplar segments, so the dictionary never expands it; the
+    // suggestion lists them so the author picks one. IRBs is reported as IRB, the key one entry covers.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-disc3-'));
+    const file = path.join(dir, 'deck.md');
+    fs.writeFileSync(file, '---\ntheme: indaco\nterms:\n  CS: { expansion: customer success }\n---\n\n# Plan\n\nAP and CS met the IRBs.\n');
+    const chunks = [];
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (s) => { chunks.push(String(s)); return true; };
+    try { await main(['--json', file]); } finally { process.stdout.write = orig; fs.rmSync(dir, { recursive: true, force: true }); }
+    const out = JSON.parse(chunks.join(''));
+    const ambiguous = out.reviewFindings.filter((s) => s.rule === 'narration-acronym-ambiguous');
+    assert.deepEqual(ambiguous.map((s) => s.message.match(/`(\w+)`/)[1]), ['AP'], 'a registered CS is settled');
+    assert.match(ambiguous[0].message, /accounts payable; Advanced Placement/);
+    assert.match(ambiguous[0].fix, /AP: \{ expansion: accounts payable \}/);
+    const generic = out.reviewFindings.find((s) => s.rule === 'narration-acronyms');
+    assert.match(generic.message, /\bIRB\b/);
+    assert.doesNotMatch(generic.message, /IRBs|\bAP\b/);
+  });
+
   test('the discovery pass skips format/web initialisms that read fine letter-by-letter', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-disc2-'));
     const file = path.join(dir, 'deck.md');

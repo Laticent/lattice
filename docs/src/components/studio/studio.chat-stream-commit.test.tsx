@@ -1,8 +1,9 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __clearPendingNotices, ArchitectChat } from './ArchitectChat';
-import { loadChat, saveChat } from './studio-store';
+import { hasAnswerAfterConnect, loadChat, markAnswerAfterConnect, saveChat } from './studio-store';
 
 // #1787 — the streaming bubble has to be GONE once the reply commits.
 //
@@ -467,7 +468,7 @@ describe('Architect chat — a parked notice reaches a reader already on screen 
 // without a real sequence, and Apply goes through the ungated `raiseNotice`.
 describe('Architect chat — a refused Apply speaks on a deck that has had no turn (#1813, B1)', () => {
 	const REFUSAL = "Slide 9 doesn't exist — the deck has 1 slide.";
-	const PROPOSAL = [{ label: 'Slide 9', slide: 9, action: 'replace', raw: { action: 'replace', slide: 9, body: '# nine' }, before: '# old', after: '# nine', diff: [{ type: 'add', text: '# nine' }] }];
+	const PROPOSAL = [{ label: 'Slide 1', slide: 1, action: 'replace', raw: { action: 'replace', slide: 1, body: '# nine' }, before: '# One', after: '# nine', diff: [{ type: 'add', text: '# nine' }] }];
 
 	it('shows the refusal with no send first — the reload-and-Apply path', async () => {
 		const user = userEvent.setup();
@@ -480,7 +481,7 @@ describe('Architect chat — a refused Apply speaks on a deck that has had no tu
 		render(<ArchitectChat {...props} deckId="deck-1" />);
 
 		await user.click(screen.getByRole('button', { name: 'Apply' }));
-		expect(screen.getByText(REFUSAL), 'the refusal was discarded — the author clicked Apply and nothing happened, silently').toBeTruthy();
+		expect(screen.getAllByText(REFUSAL).length, 'the refusal was discarded — the author clicked Apply and nothing happened, silently').toBeGreaterThan(0);
 	});
 
 	it('still shows it after a send, so the fix is not just the sequence happening to match', async () => {
@@ -499,7 +500,17 @@ describe('Architect chat — a refused Apply speaks on a deck that has had no tu
 		cleanup();
 		render(<ArchitectChat {...props} deckId="deck-1" />);
 		await user.click(screen.getByRole('button', { name: 'Apply' }));
-		expect(screen.getByText(REFUSAL)).toBeTruthy();
+		expect(screen.getAllByText(REFUSAL).length).toBeGreaterThan(0);
+	});
+
+	it('says so before the click when the slide no longer reads as proposed, and offers no Apply', () => {
+		saveChat('deck-1', [
+			{ role: 'user', content: 'tighten slide one' },
+			{ role: 'assistant', content: 'Here is a diff.', proposed: [{ ...PROPOSAL[0], before: '# An older slide one' }] },
+		]);
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		expect(screen.getByText('Changed since proposed')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Apply' }), 'an Apply that can only refuse was offered').toBeNull();
 	});
 });
 
@@ -518,17 +529,25 @@ describe('Architect chat — what the author did while a reply streamed in survi
 	it('an edit applied mid-reply stays applied after the reply lands', async () => {
 		const user = userEvent.setup();
 		seed();
-		render(<ArchitectChat {...props} deckId="deck-1" />);
+		// The card reads the deck to know what is applied, so this host applies the edit as the Studio does.
+		applySpy.mockReturnValueOnce({ source: '# One, tighter\n', applied: 1, refusals: [] });
+		function Host() {
+			const [src, setSrc] = React.useState(props.source);
+			return <ArchitectChat {...props} deckId="deck-1" source={src} onApply={(next: string) => setSrc(next)} />;
+		}
+		render(<Host />);
 		const turn = deferredTurn(REPLY);
 		await sendOnce(user, 'and slide two?');
 		await user.click(screen.getByRole('button', { name: 'Apply' }));
-		expect(screen.getByText('Applied')).toBeTruthy();
+		expect(screen.getByText('1 of 1 applied')).toBeTruthy();
 		await turn.release();
 		await flushFrames();
 		expect(screen.getByText(REPLY)).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Apply' }), 'the reply put the applied edit back to unapplied').toBeNull();
 		const stored = loadChat('deck-1');
 		expect(stored.find((m) => m.content === 'Here is a diff.')?.applied).toBe(true);
+		expect(stored.find((m) => m.content === 'Here is a diff.')?.rows).toEqual(['applied']);
+		expect(screen.getByText('1 of 1 applied'), 'the reply put the applied edit back to unapplied').toBeTruthy();
 		expect(stored.at(-1)?.content).toBe(REPLY);
 	});
 
@@ -538,10 +557,212 @@ describe('Architect chat — what the author did while a reply streamed in survi
 		render(<ArchitectChat {...props} deckId="deck-1" />);
 		const turn = deferredTurn(REPLY);
 		await sendOnce(user, 'and slide two?');
-		await user.click(screen.getByRole('button', { name: 'Discard' }));
+		await user.click(screen.getByRole('button', { name: 'Discard: Slide 1' }));
 		await turn.release();
 		await flushFrames();
 		expect(screen.queryByRole('button', { name: 'Apply' }), 'the reply brought the discarded edit back').toBeNull();
-		expect(loadChat('deck-1').find((m) => m.content === 'Here is a diff.')?.proposed).toBeUndefined();
+		expect(loadChat('deck-1').find((m) => m.content === 'Here is a diff.')?.rows, 'the reply brought the discarded edit back').toEqual(['discarded']);
+		expect(screen.getByRole('button', { name: 'Bring back: Slide 1' })).toBeTruthy();
+	});
+});
+
+// ANSWER THE WAITING MESSAGE AFTER CONNECTING (the answer-after-connect mark in studio-store.ts). Seen by the owner on an iPhone: "hi" with no model
+// connected sent them to connect one; after signing in nothing answered the message, so they asked again and the
+// thread read "hi", "hi". Now the waiting message is answered once a model is ready, and only once.
+describe('Architect chat — a message sent before a model is connected is answered once one is', () => {
+	beforeEach(() => sessionStorage.clear());
+
+	it('answers the waiting message when the model becomes ready, once, without a second bubble', async () => {
+		const user = userEvent.setup();
+		const onConnect = vi.fn();
+		chatSpy.mockResolvedValueOnce({ status: 'offline' } as never);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} onConnect={onConnect} />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(onConnect, 'the author was not sent to connect a model').toHaveBeenCalled();
+		expect(chatSpy).toHaveBeenCalledTimes(1);
+		// The author connects (a key in Workspace, or the sign-in's return): the model is ready.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady onConnect={onConnect} />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy, 'the waiting message was not answered').toHaveBeenCalledTimes(2);
+		const turns = chatSpy.mock.calls[1][0] as { role: string; content: string }[];
+		expect(turns.filter((t) => t.role === 'user').map((t) => t.content)).toEqual(['hi']);
+		expect(loadChat('deck-1').filter((m) => m.role === 'user')).toHaveLength(1);
+		// Answered once: another render does not ask again.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady onConnect={onConnect} />);
+		await flushFrames();
+		expect(chatSpy).toHaveBeenCalledTimes(2);
+	});
+
+	it('marks the message by the model’s reason, even while the Studio still reads ready (the key check had not settled)', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(hasAnswerAfterConnect('deck-1'), 'a needs-key turn was not marked').toBe(true);
+		// The author connects; the Studio's readiness flips off, then on.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not mark a model that is only warming up', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'warming', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		render(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(hasAnswerAfterConnect('deck-1')).toBe(false);
+	});
+
+	it('says the message is waiting, and the same words again answer it instead of adding a second bubble', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(screen.getByText(/Waiting for a model/), 'the waiting message looked stuck').toBeTruthy();
+		// The author asks again with the same words (the owner did, on an iPhone).
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		expect(loadChat('deck-1').filter((m) => m.role === 'user').map((m) => m.content)).toEqual(['hi']);
+		expect(chatSpy).toHaveBeenCalledTimes(2);
+		expect(hasAnswerAfterConnect('deck-1'), 'a manual send left the automatic answer armed').toBe(false);
+	});
+
+	it('still adds a different message after a waiting one', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		await sendOnce(user, 'tighten slide two');
+		await flushFrames();
+		expect(loadChat('deck-1').filter((m) => m.role === 'user').map((m) => m.content)).toEqual(['hi', 'tighten slide two']);
+	});
+
+	it('does not answer behind the author when the thread has moved on', async () => {
+		markAnswerAfterConnect('deck-1');
+		saveChat('deck-1', [
+			{ role: 'user', content: 'hi' },
+			{ role: 'assistant', content: 'Hello.' },
+		]);
+		render(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await flushFrames();
+		expect(chatSpy).not.toHaveBeenCalled();
+		expect(hasAnswerAfterConnect('deck-1'), 'a stale mark stayed armed').toBe(false);
+	});
+
+	// Four gaps an independent review of the first version found (PR #3317).
+	it('answers a waiting message on another deck when the author connects there and comes back', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		// The author opens another deck and connects a model there: nothing waits on that deck.
+		rerender(<ArchitectChat {...props} deckId="deck-2" aiReady={false} />);
+		await flushFrames();
+		rerender(<ArchitectChat {...props} deckId="deck-2" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy).toHaveBeenCalledTimes(1);
+		// Back on the first deck, its message is answered (the connection did not spend the answer on the other deck).
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy, 'the waiting message on the first deck was never answered').toHaveBeenCalledTimes(2);
+	});
+
+	it('does not retry on the model that just failed, and does not claim it is answering', async () => {
+		const user = userEvent.setup();
+		chatSpy.mockResolvedValueOnce({ status: 'offline', readiness: { state: 'unavailable', source: 'cloud', provider: 'openrouter', model: 'x' } } as never);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		await act(async () => {});
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy, 'the failed turn was retried on the same model').toHaveBeenCalledTimes(1);
+		expect(screen.getByText(/Waiting for a model/)).toBeTruthy();
+		expect(screen.queryByText(/Answering this now/)).toBeNull();
+	});
+
+	it('Regenerate takes the waiting mark, so its failure is not answered again behind the author', async () => {
+		const user = userEvent.setup();
+		saveChat('deck-1', [
+			{ role: 'user', content: 'first' },
+			{ role: 'assistant', content: 'An answer.' },
+			{ role: 'user', content: 'hi' },
+		]);
+		markAnswerAfterConnect('deck-1');
+		chatSpy.mockResolvedValueOnce({ status: 'error', error: 'boom' } as never);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await flushFrames();
+		await user.click(screen.getByRole('button', { name: 'Regenerate last reply' }));
+		await flushFrames();
+		expect(hasAnswerAfterConnect('deck-1'), 'Regenerate left the automatic answer armed').toBe(false);
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy).toHaveBeenCalledTimes(1);
+	});
+
+	// A second review found the fix above stranded a SECOND waiting deck: answering one spent the trigger for all.
+	it('answers every waiting deck after one connection, each once', async () => {
+		const user = userEvent.setup();
+		const offline = { status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } } as never;
+		chatSpy.mockResolvedValueOnce(offline).mockResolvedValueOnce(offline);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await sendOnce(user, 'hi');
+		await flushFrames();
+		rerender(<ArchitectChat {...props} deckId="deck-2" aiReady={false} />);
+		await flushFrames();
+		await sendOnce(user, 'hello');
+		await flushFrames();
+		// The author connects while on the second deck: it is answered.
+		rerender(<ArchitectChat {...props} deckId="deck-2" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy).toHaveBeenCalledTimes(3);
+		// Back on the first deck, its message is answered too, and neither is answered twice.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy, 'the second waiting deck was stranded').toHaveBeenCalledTimes(4);
+		rerender(<ArchitectChat {...props} deckId="deck-2" aiReady />);
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy).toHaveBeenCalledTimes(4);
+	});
+
+	it('answers a message whose failing turn was still in flight when the author connected', async () => {
+		const user = userEvent.setup();
+		let fail: (v: unknown) => void = () => {};
+		chatSpy.mockImplementationOnce(() => new Promise((resolve) => (fail = resolve)) as never);
+		const { rerender } = render(<ArchitectChat {...props} deckId="deck-1" aiReady={false} />);
+		await sendOnce(user, 'hi');
+		// The author connects before the no-model turn has come back.
+		rerender(<ArchitectChat {...props} deckId="deck-1" aiReady />);
+		await act(async () => {
+			fail({ status: 'offline', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: 'x' } });
+		});
+		await flushFrames();
+		await act(async () => {});
+		expect(chatSpy, 'the message stayed waiting with a model connected').toHaveBeenCalledTimes(2);
+	});
+
+	it('keeps one waiting mark per deck', () => {
+		markAnswerAfterConnect('deck-1');
+		markAnswerAfterConnect('deck-2');
+		expect(hasAnswerAfterConnect('deck-1') && hasAnswerAfterConnect('deck-2'), 'marking one deck dropped the other').toBe(true);
+		// A slot that does not parse reads as nothing waiting, never as an error.
+		sessionStorage.setItem('lattice-chat-answer-after-connect', 'not json');
+		expect(hasAnswerAfterConnect('deck-1')).toBe(false);
 	});
 });

@@ -125,7 +125,8 @@ test('Chat: an instructed edit arrives as a diff and Apply lands it in the sourc
 	await apply.click();
 	await expect(toastText(page)).toContainText('Edit applied');
 	await expect.poll(() => persistedSource(page)).toContain('ATLAS ROADMAP');
-	await expect.poll(() => checkpointLabels(page)).toContain('Before AI chat edit');
+	// The card's one History entry: "Before AI edit · HH:MM · “ask” (n of m applied)".
+	await expect.poll(() => checkpointLabels(page)).toContainEqual(expect.stringMatching(/^Before AI edit · /));
 });
 
 // #3208 / PR 3318: a word change across the deck goes through find_text / replace_text, not a rewrite of
@@ -137,14 +138,15 @@ test('Chat: a word change across the deck is one replace, staged for Apply', asy
 	await input.fill('Change the word "program" to "initiative" everywhere in the deck. Change nothing else.');
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
 
-	const apply = page.getByRole('button', { name: 'Apply', exact: true });
+	// Two slides change, so the card's whole-card button reads "Apply all" (one slide: "Apply").
+	const apply = page.getByRole('button', { name: /^Apply( all)?$/ });
 	await expect(apply).toBeVisible({ timeout: 120_000 });
 	expect(await persistedSource(page)).toContain('program');
 	// The replace tool's own activity line (architect-agent.ts `replaceText`'s note).
 	await expect(page.getByText(/replaced "program/i).first()).toBeAttached();
 
 	await apply.click();
-	await expect(toastText(page)).toContainText('Edit applied');
+	await expect(toastText(page)).toContainText(/Edit applied|Applied \d+ edits/);
 	await expect.poll(() => persistedSource(page)).not.toMatch(/\bprogram\b/i);
 	const after = await persistedSource(page);
 	expect(after).toContain('referral initiative');

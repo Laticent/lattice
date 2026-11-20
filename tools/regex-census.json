@@ -77,7 +77,6 @@
     "lib/core/relationship.js": 1,
     "lib/core/remote-ref.js": 3,
     "lib/core/resolve-narration.mjs": 1,
-    "lib/core/resolve-token-expr.js": 2,
     "lib/core/scene-resolve.mjs": 1,
     "lib/core/section-index.js": 3,
     "lib/core/slide-camera.mjs": 1,
@@ -213,6 +212,7 @@
     "/#[0-9A-Fa-f]{3,8}\\b/": "safe",
     "/#[0-9a-fA-F]{3,8}\\b/g": "safe",
     "/$/": "safe",
+    "/$^/": "safe",
     "/%$/": "safe",
     "/%%/": "safe",
     "/%%\\s*\\{\\s*init/": "safe",
@@ -237,6 +237,7 @@
     "/&#x?[0-9a-f]+;?|&[a-z][a-z0-9]*;|#[a-z0-9]+;/i": "safe",
     "/&(#x[0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos|#39|nbsp);/g": "safe",
     "/&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]*);/gi": "safe",
+    "/&(#x[0-9a-f]+|#\\d+|[a-z]+);/gi": "safe",
     "/&(?![a-zA-Z#][a-zA-Z0-9]*;)/g": {
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
@@ -262,7 +263,6 @@
     "/&gt;/g": "safe",
     "/&lt;/g": "safe",
     "/&nbsp;/g": "safe",
-    "/&nbsp;|&#160;/g": "safe",
     "/&quot;/g": "safe",
     "/&quot;|&#34;/g": "safe",
     "/&quot;|&#34;|&apos;|&#39;/g": "safe",
@@ -272,6 +272,10 @@
     "/(!\\[[^\\]]*\\]\\()([^)\\s]+)(\\s*(?:\"[^\"]*\")?\\))/g": "polynomial",
     "/(--(?:font-display|font-body|eyebrow-(?:face|style|weight|case|tracking|scale|anchor-scale)|chart-text-face|chart-figure-face))[ \\t]*:/g": "safe",
     "/(--[a-zA-Z0-9-]+)\\s*:/g": "polynomial",
+    "/(--[a-zA-Z0-9-]+)\\s*:\\s*([^;{}]*?)\\s*(?=[;}])/g": {
+      "verdict": "unknown",
+      "why": "recheck cannot model it: look-ahead assertion"
+    },
     "/(--[a-zA-Z0-9-]+)\\s*:\\s*([^;{}]*light-dark[^;{}]*?)\\s*(?=[;}])/g": {
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
@@ -281,7 +285,6 @@
       "why": "recheck cannot model it: look-ahead assertion"
     },
     "/(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))[ \\t]*(?:[–—-]|to)[ \\t]*(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))$/": "polynomial",
-    "/(-?\\d*\\.?\\d+)\\s*%/": "polynomial",
     "/(-?\\d+(?:\\.\\d+)?)$/": "polynomial",
     "/(<!-- _hide: (?:true|false) -->)\\n(?:[ \\t]*\\n)*(?=\\1)/g": {
       "verdict": "unknown",
@@ -431,10 +434,6 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
     },
-    "/(\\*|_)(?=\\S)([\\s\\S]*?\\S)\\1/g": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-ahead assertion"
-    },
     "/(\\S)[ \\t]{2,}/g": "safe",
     "/(\\bdata-lattice-pagination=\")(\\d+)(\")/": "safe",
     "/(\\bdata-lattice-slide=\")(\\d+)(\")/": "safe",
@@ -532,6 +531,7 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: back-reference"
     },
+    "/(`[^`]*`)/": "safe",
     "/(`{3,}|~{3,})/": "safe",
     "/(caption|say)\\s*:/i": "safe",
     "/(deck-logo-tint-\\d+)(?=[\"')])/g": {
@@ -966,6 +966,7 @@
     "/@import\\s*[\"']([\\w-]+)[\"']\\s*;/g": "safe",
     "/@import\\s*['\"]?([A-Za-z0-9_-]+)['\"]?\\s*;?/g": "safe",
     "/@size\\s+([A-Za-z0-9:_-]+)\\s+(\\S+)\\s+(\\S+)/g": "safe",
+    "/@supports[^{};]*\\{/g": "polynomial",
     "/@theme\\s+([A-Za-z0-9_-]+)/": "safe",
     "/Cannot find (?:package|module) '((?:@[^/']+\\/)?[^/']+)/": "safe",
     "/Extension=\"lattice\"/i": "safe",
@@ -1089,6 +1090,7 @@
     "/[\\n\\r\\f]/": "safe",
     "/[\\n\\r\\f]/g": "safe",
     "/[\\n\\r\\u2028\\u2029]/": "safe",
+    "/[\\p{L}\\p{N}]/u": "safe",
     "/[\\r\\n\\f\\v\\0\\u2028\\u2029]/g": "safe",
     "/[\\r\\n\\t]+/g": "safe",
     "/[\\r\\n]$/": "safe",
@@ -1263,10 +1265,10 @@
     "/\\\\(?:\\r\\n|\\r|\\n)[ \\t]*/g": "safe",
     "/\\\\(?:cr|newline)(?![a-zA-Z])/": "safe",
     "/\\\\(?:x([0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|U([0-9a-fA-F]{8}))/g": "safe",
+    "/\\\\([!-/:-@[-`{-~])/g": "safe",
     "/\\\\([\"\\\\])/g": "safe",
     "/\\\\([0-9a-fA-F]{1,6})[ \\t\\n\\r\\f]?|\\\\(.)/g": "safe",
     "/\\\\([0-9a-f]{1,6})/gi": "safe",
-    "/\\\\([\\\\`*_{}[\\]()#+\\-.!~<>|])/g": "safe",
     "/\\\\([\\\\`*_{}[\\]()#+\\-.!~|])/g": "safe",
     "/\\\\/g": "safe",
     "/\\\\\\r?\\n/g": "safe",
@@ -1684,6 +1686,7 @@
     "/^(---[ \\t]*\\r?\\n[\\s\\S]*?\\r?\\n---[ \\t]*(?:\\r?\\n|$))/": "safe",
     "/^(--?[A-Za-z][\\w-]*)=/": "safe",
     "/^(--[a-z-]+)=(.*)$/": "safe",
+    "/^(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))%$/": "safe",
     "/^(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))(px)?$/": "safe",
     "/^(-?[\\d.]+(?:e-?\\d+)?)(px|%)$/": "safe",
     "/^(-?[\\d.]+)(deg|grad|rad|turn)$/": "safe",
@@ -1717,6 +1720,7 @@
     "/^(?: {4}|\\t)[^\\n]*$/gm": "safe",
     "/^(?: {4}|\\t| {0,3}\\t)/": "safe",
     "/^(?:\"([^\"]*)\"|'([^']*)')\\s*:\\s*(-?(?:0|[1-9]\\d*)(?:\\.\\d+)?)\\s*$/": "safe",
+    "/^(?:\"([^\"]+)\"[ \\t]*|'([^']+)'[ \\t]*|([^\\s\"'{}[\\]#,][^:]*)):(?:[ \\t]([\\s\\S]*))?$/u": "safe",
     "/^(?:\"([^\"]+)\"|'([^']+)'|([^\\s:]+))\\s*:\\s*([\\s\\S]*)$/u": "safe",
     "/^(?:#{1,6}(?:\\s|$)|(?:[-*_][ \\t]*){3,}$)/": "safe",
     "/^(?:#{1,6}(?:\\s|$)|>|(?:[-*_][ \\t]*){3,}$)/": "safe",
@@ -1888,6 +1892,7 @@
     "/^(\\d+)(?:-(\\d+))?$/": "safe",
     "/^(\\d+)\\s*:\\s*([\\s\\S]*)$/": "safe",
     "/^(\\d+)x(\\d+)$/": "safe",
+    "/^(\\d+\\.) (.*)$/": "safe",
     "/^(\\d+|full)$/": "safe",
     "/^(\\d{1,4}):(\\d{1,4})$/": "safe",
     "/^(\\d{1,9})([.)])(?=\\s|$)/": "safe",
@@ -2334,6 +2339,7 @@
     "/^[a-zA-Z][^\\s/>]*/": "safe",
     "/^[a-zA-Z][a-zA-Z0-9-]*$/": "safe",
     "/^[a-z]+$/": "safe",
+    "/^[a-z]+(?:[\\s,.;:]|$)/": "safe",
     "/^[a-z]+:\\/\\//i": "safe",
     "/^[a-z]+:\\/\\/[^/]+/i": "safe",
     "/^[a-z]/": "safe",
@@ -2779,6 +2785,7 @@
     "/^tag-(corner|foot|notch|band|inline)$/": "safe",
     "/^tag-(small|regular|large)$/": "safe",
     "/^tag:[ \\t]*(\\S.*)$/m": "safe",
+    "/^terms[ \\t]*:/": "safe",
     "/^test\\//": "safe",
     "/^text(-|$)/": "safe",
     "/^text-align\\s*:\\s*(left|right|center)$/i": "safe",
@@ -2808,6 +2815,7 @@
     "/^url\\(\\s*[^\\s\"')]/i": "safe",
     "/^v\\d+[a-z]*$/": "safe",
     "/^var\\(--([a-z0-9-]+)\\)$/i": "safe",
+    "/^var\\(/i": "safe",
     "/^var\\(\\s*--([a-z0-9-]+)\\s*(?:,([\\s\\S]+))?\\)$/i": "safe",
     "/^www\\./": "safe",
     "/^x-axis\\b\\s*(.*)$/i": "polynomial",
@@ -2823,6 +2831,7 @@
     "/^﻿?---\\r?\\n([\\s\\S]*?)\\r?\\n---[ \\t]*\\r?\\n?/": "safe",
     "/^﻿?---\\r?\\n/": "safe",
     "/^﻿?---\\r?\\n[\\s\\S]*?\\r?\\n---/": "safe",
+    "/_([^\\s_](?:[^_]*[^\\s_])?)_/g": "safe",
     "/_Back/i": "safe",
     "/_[lr]$/": "safe",
     "/_class/": "safe",
@@ -2932,6 +2941,7 @@
     "/keyframes|font-face/": "safe",
     "/lat-r(\\d+)-/g": "safe",
     "/latticeheld(\\d+)x/g": "safe",
+    "/light-dark\\(/": "safe",
     "/lining-nums/": "safe",
     "/lockdown|untrusted|restricted|appcontainer/i": "safe",
     "/mathcolor=\"(?:var\\(--warn\\)|#cc0000)\"/": "safe",

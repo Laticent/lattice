@@ -81,7 +81,7 @@ single-backtick span in the deck literal — pills, marks and all, including any
 deck's own `header:` / `footer:`. One slide at a time is
 `<!-- _class: inline-code-literal -->`. It is the switch for a
 deck you did not write, where `` `[x]` `` in prose was never meant to draw anything. See
-[`base.registers.docs.md`](base.registers.docs.md) § `inline-code:`; the Studio carries it
+[`base.registers.docs.md`](../../base/base.registers.docs.md) § `inline-code:`; the Studio carries it
 as **Deck settings · General · Inline pills and marks**.
 
 A `{LABEL}` inside **single-backtick** inline code renders as a pill. Shape and color
@@ -94,7 +94,7 @@ is the same pill. A label that holds a comma is quoted: `{"Cost, excluding tax"}
 one that holds `|` `=` `[` `]` `{` or `"` (`{"A|B", tag}`, `{"5\" screen"}`). Unquoted, such a
 label leaves the span as plain code, and `lint:deck` warns (`pill-literal`) with the quoted
 spelling. This is
-the [Segno notation](../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md)
+the [Segno notation](../../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md)
 every inline directive shares.
 
 ```markdown

@@ -127,6 +127,7 @@ distinct, stable ID.
 | `list-modifier-inert` | warning | — | On a list slide, a counter modifier its register never reads: `numbered` without `takeaway`, or `lettered`/`roman`/`bullet` without `principles`. Also `principles` over `-` bullets (it numbers an ordered list only), and `takeaway` over a `1.` list without `numbered` (the numbers are hidden). |
 | `card-style-inline-title` | error | ✓ | `- **Title.** body` (or ordered `1. **Title.** body`) on a card-style layout — the body inherits the parent `li` bold. Fix: nested `- Title` / `  - body`. |
 | `ledger-inline-title` | error | ✓ | The unordered inline-bold shape on a ledger/numbered layout — autofixes to the ordered `1. Name` / `   - body` shape the layout wants. |
+| `list-steps-inline-body` | warning | ✓ | A `list-steps` step with its title and body on one `1.` line, joined by a dash — the whole line renders as the bold title. Autofixes to `1. Title` / `   - Body`. The `timeline` variant is exempt. |
 | `chart-list-split-quote` | warning | ✓ | A `>` at the left margin between two items of a chart's list. It ends the list, so every row after it drops out of the chart. On a chart that reads a row's `>` (flowchart, state-chart and the 13 detail charts) the fix indents a one-line quote under the item above, where it becomes that row's description (a quote of several lines gets no machine fix: indent each line by hand); on a list chart that reads no detail under its rows there is no machine fix. |
 | `chart-row-quote-unread` | warning | — | A `>` under a row with no mark of its own: a radar series (its marks are its axes) or a quadrant group (its marks are its points). The chart lifts it out, so it is shown nowhere; move it under an axis or a point, where it is that mark's description. |
 | `chart-value-malformed` | warning | — | A value in a chart's rows or cells that is shaped like a number but is not one: two signs (`--5`, `(-5)`), an unpaired parenthesis (`(5`, `5)`), or digits that are not one number (`1,2,3`, `1.2.3.4x`). The chart reads it as no value (a point chart draws no mark, a pie wedge or funnel stage reads as zero, a bullet prints it as typed); before, each read as a different number with no warning. Only charts that read numbers check it, so a dotted date on a timeline is not flagged. Which number was meant is the author's call, so there is no machine fix. |
@@ -294,6 +295,7 @@ distinct, stable ID.
 | `say-key-case` | warning | — | A capitalized `Say:`, which is a speaker note; only lowercase `say:` is spoken. |
 | `lexicon-single-letter-key` | — | — | **Deprecated (2026-11-16), no longer emitted.** It warned that a single-letter/digit `lexicon:` key (`e:`, `2:`) was substituted inside every other word. A letter or digit key in `terms:`, `acronyms:` or `lexicon:` now applies only to the whole word, so the hazard is gone. |
 | `terms-key-renamed` | suggestion | ✓ | An `acronyms:` or `lexicon:` block, both older names for `terms:` and both still read. The fix renames the block and writes each plain `acronyms:` value as `{ expansion: … }`; it is offered only when the deck has one of the three blocks. |
+| `terms-entry-ignored` | warning | — | A `terms:` line the reader skips, so the term is never spoken as written: an unknown field (`pronunciation:`, `say:`; the fields are `pronounce`, `expansion` and `definition`), a list item (`- Yearn: yurn`), an entry with no value, or a line indented under no term. The message names the field that was probably meant. |
 | `greeting-hardcoded-period` | warning | — | A greeting that names a time of day; `{greeting}` adapts to the listener's clock. |
 | `greeting-not-english` | warning | — | `{greeting}` (always English) in a deck whose `lang:` is not English. |
 | `unknown-bookend-placeholder` | warning | — | A `{placeholder}` in a greeting or closing that the voice would read aloud as written. |
@@ -418,7 +420,8 @@ Emitted by `tools/lint-deck.js` itself (`--discover`), not by `lint-core`, becau
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. |
+| `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. A plural is reported as its singular (`IRBs` as `IRB`), the key one entry covers. |
+| `narration-acronym-ambiguous` | suggestion | — | An all-caps token with more than one known meaning (`AP`: accounts payable, Advanced Placement, Associated Press). The built-in dictionary never expands one; the message names the meanings, and the deck's `terms:` entry says which it means. |
 | `narration-passthrough` | suggestion | — | Slash, ratio and identifier tokens that narration will read as glyphs. |
 
 ### 3.11 Slide metadata comments

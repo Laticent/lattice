@@ -76,6 +76,10 @@
   --pass-mark: light-dark(#44360D, #B1A78C);
   --warn-mark: light-dark(#6D5500, #DFC98E);
   --fail-mark: light-dark(#221A03, #FFF1CC);
+  /* The risk matrix's critical band keeps this share of the fail fill on the dark face and steps the rest toward the
+   * slide. This palette's dark-face bands are bright, so the default 82% would land critical between low and medium;
+   * 60% makes it the darkest band, last in the order as on the light face and in print. */
+  --risk-critical-keep: 60%;
   --warn-signal-mark: light-dark(#E3AB00, #8A6700);
   --fail-signal-mark: light-dark(#BD4101, #DE602F);
   --info-mark: light-dark(#125E82, #68ADD4);
