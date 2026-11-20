@@ -571,7 +571,8 @@ test('agent kit structure', { skip }, async (t) => {
 	 */
 	await t.test('the deck-writing path teaches front matter and the modifier catalog', () => {
 		const readme = fs.readFileSync(path.join(KIT, 'authoring', 'README.md'), 'utf8');
-		assert.match(readme, /marp:\s*true/, 'the authoring README never shows front matter');
+		assert.match(readme, /paginate:\s*true/, 'the authoring README never shows front matter');
+		assert.doesNotMatch(readme, /marp:\s*true/, 'the authoring README teaches Marp front matter (2026-11-17-agent-pack.md)');
 		assert.match(readme, /theme:/, 'the authoring README never shows how to pick a theme');
 		assert.match(readme, /modifiers\.md/, 'the authoring README never points at the modifier catalog');
 	});
@@ -713,27 +714,21 @@ test('agent kit structure', { skip }, async (t) => {
 	});
 
 	/**
-	 * The whole point of the `cuoio` switch: the Marp kit registers `lattice`,
-	 * `cuoio` and `cuoio-dark` and nothing else, and Marp resolves a palette BY
-	 * NAME — so a kit that tells a model to write any other theme produces an
-	 * unstyled deck with no error. The `max` paste text reintroduced `indaco`
-	 * two commits into the fix.
+	 * Every theme a generated deck or skeleton names has to be a palette Lattice ships.
+	 * This test used to pin the three palettes the Marp kit registers, because the kit's
+	 * render route was marp-cli. It is now `npx @laticent/lattice`, which knows every
+	 * palette under themes/ (2026-11-17-agent-pack.md §4.2).
 	 */
-	await t.test('no generated file promises a theme the Marp kit cannot resolve', () => {
-		const registered = new Set(['cuoio', 'cuoio-dark', 'lattice']);
+	await t.test('no generated file names a theme Lattice does not ship', () => {
+		const shipped = new Set(fs.readdirSync(path.join(ROOT, 'themes')).flatMap((d) => [d, `${d}-dark`]));
 		const offenders = [];
 		for (const rel of kitMarkdown()) {
 			if (rel.startsWith('skills/') || rel.startsWith('library/')) continue; // verbatim copies
 			for (const m of readKit(rel).matchAll(/^theme:\s*([a-z0-9-]+)\s*$/gm)) {
-				if (!registered.has(m[1])) offenders.push(`${rel}: theme: ${m[1]}`);
+				if (!shipped.has(m[1])) offenders.push(`${rel}: theme: ${m[1]}`);
 			}
 		}
-		assert.deepEqual(
-			offenders,
-			[],
-			'A generated deck or skeleton names a theme the copy-and-go Marp route does not ' +
-				'register. It renders unstyled, with no error and no failing gate.',
-		);
+		assert.deepEqual(offenders, [], 'A generated deck or skeleton names a theme Lattice does not ship; the render stops with "unknown palette".');
 	});
 
 	/**
@@ -777,8 +772,8 @@ test('agent kit structure', { skip }, async (t) => {
 	 * fonts away from the output yield a system serif, and a missing script
 	 * yields a layout flattened to a list.
 	 */
-	await t.test('the render page teaches a route that does not move the deck', () => {
-		const doc = readKit('render/lattice-render-a-deck.md');
+	await t.test('the Marp export page teaches a route that does not move the deck', () => {
+		const doc = readKit('render/lattice-export-to-marp.md');
 		for (const [re, why] of [
 			[/--theme-set/, 'never shows how to hand marp-cli the stylesheets directly'],
 			[/--html/, 'never says to pass --html, without which marp-core escapes the script tags'],
@@ -788,7 +783,7 @@ test('agent kit structure', { skip }, async (t) => {
 			[/cdn\.jsdelivr\.net/, 'never gives a script URL that a browser will actually execute'],
 			[/raw\.githubusercontent\.com/, 'never warns that the raw host serves JS as text/plain'],
 		]) {
-			assert.match(doc, re, `render/lattice-render-a-deck.md ${why}`);
+			assert.match(doc, re, `render/lattice-export-to-marp.md ${why}`);
 		}
 	});
 
@@ -883,5 +878,133 @@ test('agent kit structure', { skip }, async (t) => {
 			assert.ok(n <= cap, `paste/${f} is ${n} chars, over its ${cap} budget`);
 			assert.ok(n > 500, `paste/${f} is ${n} chars — suspiciously empty`);
 		}
+	});
+
+	/**
+	 * start.md is the one file an agent reads first (2026-11-17-agent-pack.md §4.1). It
+	 * must name every layout (a layout it leaves out is one an agent never picks), stay
+	 * inside its budget, teach Lattice's own front matter, and lead to the render route.
+	 */
+	await t.test('start.md names every layout, holds its budget and teaches Lattice front matter', () => {
+		const start = readKit('start.md');
+		const { components } = JSON.parse(readKit('reference/components.json'));
+		const missing = components.map((c) => c.name).filter((n) => !start.includes(`[\`${n}\`](./components/${n}.md)`));
+		assert.deepEqual(missing, [], 'start.md leaves layouts out of its catalog');
+		assert.ok(start.length <= 48000, `start.md is ${start.length} chars, over its 48000 budget`);
+		assert.match(start, /^theme: indaco$/m);
+		assert.doesNotMatch(start, /^marp:/m);
+		assert.match(start, /npx @laticent\/lattice/);
+		// Variants and plugins: an agent that reads only start.md must know both exist.
+		const withVariants = components.filter((c) => (c.variants || []).length);
+		const noVariants = withVariants.filter((c) => !new RegExp(`\\[\`${c.name}\`\\][^\n]*Variants: [^\n]*\`${c.variants[0]}\``).test(start)).map((c) => c.name);
+		assert.deepEqual(noVariants, [], 'start.md leaves a layout\'s variants off its line');
+		const plugins = fs.readdirSync(path.join(ROOT, 'lib', 'plugins')).filter((n) => fs.existsSync(path.join(ROOT, 'lib', 'plugins', n, `${n}.docs.md`)));
+		assert.ok(plugins.length >= 10, `found ${plugins.length} plugin docs`);
+		const unshipped = plugins.filter((n) => !fs.existsSync(path.join(KIT, 'plugins', `${n}.md`)) || !start.includes(`(./plugins/${n}.md)`));
+		assert.deepEqual(unshipped, [], 'a plugin doc is missing from the pack or from start.md');
+		// The universal parts and the front-matter registers (the owner: "agents also need to know
+		// universal stuff too like below note, key insights").
+		for (const rel of ['authoring/universal.md', 'authoring/registers.md']) assert.ok(fs.existsSync(path.join(KIT, rel)), `the pack does not carry ${rel}`);
+		const base = fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.docs.md'), 'utf8').replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
+		const patterns = base.split(/^## Auto-detected authoring patterns\s*$/m)[1].split(/^## /m)[0].split(/^### /m).slice(1).map((c) => c.split('\n')[0].trim());
+		assert.ok(patterns.includes('Key Insight panel') && patterns.includes('Below-Note'), `base.docs.md's patterns: ${patterns.join(', ')}`);
+		const unlisted = patterns.filter((h) => !start.includes(`[${h}](./authoring/universal.md#`));
+		assert.deepEqual(unlisted, [], 'start.md leaves a universal part out');
+		const keys = [...fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.registers.docs.md'), 'utf8').matchAll(/^## .*?`([a-z-]+):`/gm)].map((m) => m[1]);
+		const unlistedKeys = keys.filter((k) => !start.includes(`\`${k}:\``));
+		assert.deepEqual(unlistedKeys, [], 'start.md leaves a front-matter register out');
+		const noInsight = components.filter((c) => !(c.authoring?.blocks || []).includes('key-insight')).map((c) => c.name);
+		const unmarked = noInsight.filter((n) => !new RegExp(`\\[\`${n}\`\\][^\\n]*No key insight`).test(start));
+		assert.deepEqual(unmarked, [], 'a layout that takes no key insight does not say so on its line');
+	});
+
+	/**
+	 * Every skeleton start.md tells an agent to copy, and every example deck, lints with
+	 * zero errors and zero warnings. The starter deck's kpi pills carried a pre-2026-10
+	 * bare span for a month: three warnings in the one file the kit says to copy, and the
+	 * pills printed as plain code.
+	 */
+	await t.test('start.md skeletons and the example decks lint clean', () => {
+		const { execFileSync } = require('node:child_process');
+		const os = require('node:os');
+		const start = readKit('start.md');
+		const section = start.split(/^## \d+\. Skeletons/m)[1].split(/^## \d+\./m)[0];
+		const blocks = [...section.matchAll(/```\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+		assert.ok(blocks.length >= 15, `start.md section 6 holds ${blocks.length} skeletons`);
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-pack-'));
+		try {
+			const deck = path.join(dir, 'skeletons.md');
+			fs.writeFileSync(deck, `---\ntheme: indaco\npaginate: true\n---\n\n${blocks.join('\n\n---\n\n')}\n`);
+			const examples = fs.readdirSync(path.join(KIT, 'examples')).filter((f) => f.endsWith('.md')).map((f) => path.join(KIT, 'examples', f));
+			for (const file of [deck, ...examples]) {
+				let out;
+				try {
+					out = execFileSync(process.execPath, [path.join(ROOT, 'tools', 'lint-deck.js'), '--json', file], { encoding: 'utf8' });
+				} catch (e) {
+					out = e.stdout;
+				}
+				const r = JSON.parse(out);
+				const bad = r.findings.filter((f) => f.severity === 'error' || f.severity === 'warning').map((f) => `${path.basename(file)} slide ${f.slide}: ${f.rule}`);
+				assert.deepEqual(bad, [], `${path.basename(file)} has lint errors or warnings`);
+			}
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	/**
+	 * The pack's flattened docs keep their code examples byte for byte, and every GitHub link
+	 * they gain resolves. Until 2026-11-19 the link flattener rewrote links inside code too:
+	 * `![](asset:team-offsite)` shipped as a GitHub URL, the avatars example's `![](marcus.jpg)`
+	 * pointed at a file that never existed, and folder links went out as `blob/` URLs, which
+	 * GitHub answers with 400.
+	 */
+	await t.test('flattened docs keep code examples verbatim and link only real repo paths', () => {
+		assert.match(readKit('authoring/universal.md'), /`!\[\]\(asset:team-offsite\)`/);
+		assert.match(readKit('plugins/avatars.md'), /^ {2}- !\[\]\(marcus\.jpg\)$/m);
+		const files = ['start.md', 'authoring/universal.md', 'authoring/registers.md', ...fs.readdirSync(path.join(KIT, 'plugins')).map((f) => `plugins/${f}`)];
+		for (const rel of files) {
+			for (const m of readKit(rel).matchAll(/https:\/\/github\.com\/Laticent\/lattice\/(blob|tree)\/main\/([^)#\s]+)/g)) {
+				const abs = path.join(ROOT, m[2]);
+				assert.ok(fs.existsSync(abs), `${rel} links ${m[2]}, which is not in the repo`);
+				assert.equal(m[1], fs.statSync(abs).isDirectory() ? 'tree' : 'blob', `${rel} links ${m[2]} as ${m[1]}/`);
+				assert.ok(!m[2].endsWith('/'), `${rel} links ${m[2]} with a trailing slash, which GitHub answers with 400`);
+			}
+		}
+	});
+
+	/**
+	 * What a model writing from start.md alone needed and did not find (the no-spend stand-in
+	 * eval, 2026-11-19): speaker notes need their syntax, a kpi pill's color comes from the row,
+	 * and a data deck needs a chart skeleton.
+	 */
+	await t.test('start.md teaches what a model writing from it alone needs', () => {
+		const start = readKit('start.md');
+		const skel = start.split(/^## \d+\. Skeletons/m)[1].split(/^## \d+\./m)[0];
+		// The bookend skeletons carry no `silent`: each manifest's `chrome` field already drops the
+		// header and page number and keeps the footer on purpose (the deck's standing note).
+		assert.match(skel, /^<!-- _class: title -->$/m, 'title skeleton defers to its manifest chrome');
+		assert.match(skel, /^<!-- _class: closing -->$/m, 'closing skeleton defers to its manifest chrome');
+		assert.match(start, /Speaker notes: a plain HTML comment/);
+		assert.match(start, /`kpi` row.s first pill takes its color from the row.s POSITION/);
+		assert.doesNotMatch(skel, /`\{(Board|Audit|Investor)\}`/, 'kpi skeleton carries no decorative pills');
+		for (const chart of ['bar', 'piechart']) assert.match(skel, new RegExp(`^### ${chart}$`, 'm'), `a ${chart} skeleton`);
+		// Which kpi rows draw the warning color is kpi.styles.css's nth-child hooks. The first
+		// real-model run put `{Breaching}` on a row `kpi attention` draws green with a check.
+		const css = fs.readFileSync(path.join(ROOT, 'lib', 'components', 'evidence', 'kpi', 'kpi.styles.css'), 'utf8');
+		const warnRows = (variant) =>
+			[...css.matchAll(/((?:section\.kpi\.[a-z]+ > \.cell-stage > ol > li:nth-child\(\d\),?\s*)+)\{[^}]*--lat-pill-bg: var\(--state-warn-hue\)/g)]
+				.flatMap((m) => [...m[1].matchAll(new RegExp(`kpi\\.${variant} > \\.cell-stage > ol > li:nth-child\\((\\d)\\)`, 'g'))].map((r) => Number(r[1])))
+				.sort();
+		assert.deepEqual(warnRows('attention'), [1]);
+		assert.deepEqual(warnRows('ops'), [1, 3]);
+		assert.deepEqual(warnRows('compliance'), [3]);
+		assert.match(start, /`kpi attention` draws row 1 in\s+the warning color; `kpi ops` rows 1 and 3; `kpi compliance` row 3/);
+		assert.match(start, /`big-number` and `quote` take an optional `## ` claim/);
+		assert.match(start, /A `kpi` key insight \(`>`\) fits only with 3 rows, and never on `kpi ops`/);
+		assert.match(start, /^- `profile:` \(`general` · `teaching` · `mission`\)/m, 'the profile key the canon names');
+		const solo = readKit('paste/lattice-instructions-solo.md');
+		assert.match(solo, /A row on `agenda`, `kpi`.*always has a body/, 'the solo ledger rule names its layouts');
+		assert.doesNotMatch(solo, /statement layout|ledger or split row/, 'no rule names a class of layout it never lists');
 	});
 });

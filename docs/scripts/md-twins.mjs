@@ -271,6 +271,27 @@ function routes(dist) {
 	return out;
 }
 
+/**
+ * Point a twin's site links at the other twins. A page converted from HTML keeps the page's own
+ * links (`/guides/cli/`), so an agent reading the 20 KB copy followed a link to 226 KB of HTML:
+ * 18 of the 23 internal links in the copies `llms.txt` lists did that (2026-11-17-agent-pack.md §1).
+ * A link to a route that has a twin becomes that twin; any other link (a PDF, an app page) is left.
+ * Code is left exactly as written, by the same scan `rebaseLinks` uses.
+ */
+export function pointLinksAtTwins(md, twinRoutes) {
+	const INLINE = /(`+)[^`\n]*?\1|(!?\[(?:[^\]`]|`[^`\n]*`)*\]\()([^)\s]+)((?:\s+"[^"]*")?\))/g;
+	const target = (href) => {
+		const m = href.match(/^(\/[^#?]*?)(#.*)?$/);
+		if (!m) return href;
+		const route = m[1].endsWith('/') ? m[1] : `${m[1]}/`;
+		return twinRoutes.has(route) && !EXISTING_TWINS[route] ? `${twinPath(route)}${m[2] ?? ''}` : href;
+	};
+	return md
+		.split(/(^(?:`{3,}|~{3,})[^\n]*\n[\s\S]*?^(?:`{3,}|~{3,})[ \t]*$)/m)
+		.map((part, i) => (i % 2 ? part : part.replace(INLINE, (whole, _ticks, open, href, close) => (open && !open.startsWith('!') ? `${open}${target(href)}${close}` : whole))))
+		.join('');
+}
+
 /** What a twin must never contain: markup that leaked through instead of becoming text. */
 export function twinProblems(md) {
 	const problems = [];
@@ -292,16 +313,25 @@ function main() {
 	const check = process.argv.includes('--check');
 	const errors = [];
 	let count = 0;
+	const pages = [];
 	for (const { file, route } of routes(DIST)) {
 		const html = fs.readFileSync(file, 'utf8');
 		const md = pageToMarkdown(html, route);
-		if (md === null) continue;
+		if (md !== null) pages.push({ file, route, html, md });
+	}
+	const twinRoutes = new Set(pages.map((p) => p.route));
+	for (const { file, route, html, md: converted } of pages) {
+		const md = pointLinksAtTwins(converted, twinRoutes);
 		count++;
 		const href = twinPath(route);
 		const target = path.join(DIST, href);
 		if (check) {
 			if (!fs.existsSync(target)) errors.push(`${route}: no twin at ${href}`);
-			else for (const p of twinProblems(fs.readFileSync(target, 'utf8'))) errors.push(`${href}: ${p}`);
+			else {
+				const written = fs.readFileSync(target, 'utf8');
+				for (const p of twinProblems(written)) errors.push(`${href}: ${p}`);
+				if (!EXISTING_TWINS[route] && pointLinksAtTwins(written, twinRoutes) !== written) errors.push(`${href}: links a page whose Markdown copy exists; link the copy`);
+			}
 			const links = html.match(/<link rel="alternate" type="text\/markdown" href="([^"]*)">/g) ?? [];
 			if (links.length !== 1 || !links[0].includes(`href="${href}"`)) errors.push(`${route}: want one <link rel="alternate" type="text/markdown" href="${href}">, found ${links.length}`);
 			continue;

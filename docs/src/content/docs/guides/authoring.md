@@ -61,7 +61,9 @@ The fastest way to choose is the **[component reference](/components/)**:
 an interactive catalog of every component with its slots, variants, when to
 reach for it, and when not to — and you can preview the whole thing in
 any Lattice palette. The same content is also available as a single
-[Markdown document](/components.md).
+[Markdown document](/components.md). An AI agent should start from
+[`/agents/start.md`](/agents/start.md) instead: every layout in one line each,
+with one Markdown file per layout under `/agents/components/`.
 
 ## Swappable renderings (variants)
 
@@ -105,9 +107,9 @@ Nearly every component accepts universal modifiers appended to the class —
 `dark`, `light`, `scale-xl`, and treatments such as `tint-corner`.
 For example `<!-- _class: cards-grid dark -->` renders the grid on the
 dark canvas. The poster layouts (`contact`, `wifi`, `gift-card`, `video`)
-do not render several of them. The catalog of the core modifiers is
-[`authoring/modifiers.md`](https://github.com/Laticent/lattice/blob/dist-kits/agent/authoring/modifiers.md)
-in the agent kit, and each component's page lists its own variants.
+do not render several of them. The [catalog of modifiers](/agents/authoring/modifiers.md)
+lists the core ones, grouped by what they are for, and each component's page lists its own
+variants.
 
 ## The `split:` key — your outline divides the slides
 

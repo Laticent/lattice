@@ -113,7 +113,10 @@ describe('split veto — a HORIZONTALLY overflowing collection must not be vetoe
     // `capacity.perPage: 1` — a connected member atomizes, so each body page holds one
     // step and there is no horizontal row left to overflow.
     for (const body of sections.slice(1).filter((p) => /data-split-role="body"/.test(p.openTag))) {
-      const li = (body.inner.match(/<ol\b[\s\S]*?<\/ol>/) || [''])[0].match(/<li\b/g) || [];
+      // Count STEPS, not every <li>: a step's body is a nested `- ` list, whose own <li> is part
+      // of the same step (the fixture moved to the canonical `1. Title` / `   - body` shape).
+      const ol = (body.inner.match(/<ol\b[\s\S]*?<\/ol>/) || [''])[0];
+      const li = ol.replace(/<ul\b[\s\S]*?<\/ul>/g, '').match(/<li\b/g) || [];
       assert.equal(li.length, 1, 'one step per page, per capacity.perPage');
     }
   });

@@ -179,7 +179,6 @@ the result, end on the decision":
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: indaco
 paginate: true

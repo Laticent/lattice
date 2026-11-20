@@ -8,7 +8,7 @@
       "description": "Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3469
+      "tokens": 3466
     },
     {
       "name": "chart-component",
@@ -62,7 +62,7 @@
       "description": "Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist.",
       "kind": "make",
       "studio": true,
-      "tokens": 3261
+      "tokens": 3255
     },
     {
       "name": "diagram",
@@ -80,7 +80,7 @@
       "description": "Use when editing or restructuring a deck that already exists: find its argument, reorder, split or merge slides, keep the author's voice and change only what was asked.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3322
+      "tokens": 3319
     },
     {
       "name": "finish",
@@ -98,7 +98,7 @@
       "description": "Use when turning lint, Coach or overflow findings into fixes: reading lint:deck output, the common rule ids and their fixes, and fitting a slide without shrinking type.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3480
+      "tokens": 3474
     },
     {
       "name": "import",
@@ -107,7 +107,7 @@
       "description": "Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3113
+      "tokens": 3123
     },
     {
       "name": "lens",
@@ -134,7 +134,7 @@
       "description": "Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3193
+      "tokens": 3188
     },
     {
       "name": "speaker-notes",
@@ -152,7 +152,7 @@
       "description": "Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do.",
       "kind": "operate",
       "studio": true,
-      "tokens": 4684
+      "tokens": 4681
     },
     {
       "name": "theme",

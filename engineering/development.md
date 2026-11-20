@@ -1198,7 +1198,15 @@ runs after `astro build` and fails when a page and the list disagree, or when a 
 its canonical link. The sitemap's `lastmod` is each page's last content commit
 (`docs/src/lib/lastmod.mjs`); a shallow checkout omits it. `docs/scripts/md-twins.mjs` writes a
 plain-Markdown copy of every article page at its path plus `.md` (a component page's copy is its
-`.docs.md`) and fails the build on a copy that leaks markup.
+`.docs.md`), points each copy's site links at the other pages' copies, and fails the build on a
+copy that leaks markup or still links an HTML page that has a copy.
+
+**The agent pack lives at `/agents/`.** `docs/scripts/sync-portal.mjs` copies `dist/agent-kit/`
+(built by `tools/build-agent-kit.mjs`) there verbatim, and `/llms.txt` sends agents to
+`/agents/start.md` first. The same tree is mirrored to the `dist-kits` branch, so edit the kit's
+generator, never the copies. The kit build fails on a link that leaves the kit and on Marp wording
+outside `render/lattice-export-to-marp.md`; `tools/agent-pack-eval.mjs` (nightly) has a model write
+decks from `start.md` alone. Why: `engineering/decisions/2026-11-17-agent-pack.md`.
 The link-preview card is `docs/public/og/lattice.png`, drawn by `node tools/make-og-card.js`
 (committed, like the PWA icons; re-run it after changing the lockup, the promise or the showcase
 slides it uses).

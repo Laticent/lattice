@@ -37,10 +37,14 @@ The exported deck plays from the same timing file that video export will read.
 
 ## How a narrated slide plays.
 
-1. Hold — the arriving slide waits its beat.
-2. Speak — each sentence plays its own clip.
-3. Breathe — a pause after every sentence.
-4. Advance — the next slide takes its hold.
+1. Hold
+   - The arriving slide waits its beat.
+2. Speak
+   - Each sentence plays its own clip.
+3. Breathe
+   - A pause after every sentence.
+4. Advance
+   - The next slide takes its hold.
 
 ---
 
@@ -73,9 +77,12 @@ The exported deck plays from the same timing file that video export will read.
 
 ## Where the timing is checked.
 
-1. Source — the conformance fixtures run against the library itself.
-2. Inlined — the same fixtures run against the text the player ships.
-3. Minified — and against that text after the production minifier.
+1. Source
+   - The conformance fixtures run against the library itself.
+2. Inlined
+   - The same fixtures run against the text the player ships.
+3. Minified
+   - And against that text after the production minifier.
 
 ---
 
