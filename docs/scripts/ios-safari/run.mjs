@@ -759,24 +759,25 @@ async function runPresentKeepaliveProbe(id) {
 		// Present opens from a REAL touch: WebKit grants the wake lock only inside a user gesture.
 		// A slow simulator can stretch a WebDriver tap into a long press, which iOS never turns into a click (tap-guard.mjs,
 		// followups.d/3223-p1). Read the hold the page saw; a long press is delivered again ONCE, the shape tap-guard uses.
-		const at = await call('latticeKeepalivePresentAt()');
+		await call('latticeKeepalivePresentAt()');
 		const holds = [];
+		let opened = false;
 		await call('latticeKeepaliveArmTap()');
 		await elementClick('latticeKeepaliveHelpers().presentButton()');
 		// A slow simulator can take well past 8 s to open Present from a click (run 44774104460: Safari took 175 s to launch).
 		// Wait for the state with a wide bound, and never touch the button's spot once Present is up: the dialog covers it.
-		if ((await call('latticeKeepaliveOpened(30000)')).open) holds.push('an element click');
-		for (let attempt = 0; attempt < 2 && !holds.length; attempt++) {
-			if ((await call('latticeKeepaliveOpened(0)')).open) {
-				holds.push('an element click, slower than its wait');
-				break;
-			}
+		opened = (await call('latticeKeepaliveOpened(30000)')).open;
+		holds.push(opened ? 'an element click' : 'an element click that opened nothing');
+		for (let attempt = 0; attempt < 2 && !opened; attempt++) {
+			// Measured again each time: the element click scrolls the button into view, so an earlier position is stale.
+			const at = await call('latticeKeepalivePresentAt()');
 			await call('latticeKeepaliveArmTap()');
 			await touchTap(at.x, at.y);
 			const o = await call('latticeKeepaliveOpened(8000)');
 			const hold = tapHold(o.log);
 			holds.push(hold === null ? 'a touch the page never saw' : `a touch held ${hold} ms`);
-			if (o.open || (hold !== null && hold < LONG_PRESS_MS)) break;
+			opened = o.open;
+			if (hold !== null && hold < LONG_PRESS_MS) break;
 		}
 		r.taps = holds.join(', then ');
 		r.open = await call('latticeKeepaliveOpen()');
@@ -787,19 +788,14 @@ async function runPresentKeepaliveProbe(id) {
 		await call('latticeKeepaliveArmTap()');
 		await elementClick('latticeKeepaliveHelpers().backdrop()');
 		r.shown = await call('latticeKeepaliveShown()');
-		if (r.shown.shown) slideHolds.push('an element click');
-		for (let attempt = 0; attempt < 2 && !slideHolds.length; attempt++) {
-			// The click may have landed late: if the chrome is up now, a second tap would hide it again.
-			if ((r.shown = await call('latticeKeepaliveShown()')).shown) {
-				slideHolds.push('an element click, slower than its wait');
-				break;
-			}
+		slideHolds.push(r.shown.shown ? 'an element click' : 'an element click that showed nothing');
+		for (let attempt = 0; attempt < 2 && !r.shown.shown; attempt++) {
 			await call('latticeKeepaliveArmTap()');
 			await touchTap(r.immersive.x, r.immersive.y);
 			r.shown = await call('latticeKeepaliveShown()');
 			const hold = tapHold(await call('({ events: (window.__kaTap || { events: [] }).events })'));
 			slideHolds.push(hold === null ? 'a touch the page never saw' : `a touch held ${hold} ms`);
-			if (r.shown.shown || (hold !== null && hold < LONG_PRESS_MS)) break;
+			if (hold !== null && hold < LONG_PRESS_MS) break;
 		}
 		r.slideTaps = slideHolds.join(', then ');
 		r.wakeAfterTap = await call('latticeKeepaliveWake()');

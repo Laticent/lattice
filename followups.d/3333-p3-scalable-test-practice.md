@@ -60,7 +60,10 @@ source: https://github.com/Laticent/lattice/pull/3333
                        and the published state only to read. No test-only copy of any tool (HARD RULE #1).
                    (c) ONE REAL-INPUT HELPER for both Playwright and the iOS driver: element click first, guarded touch
                        (tap-guard hold check, one re-delivery) as the fallback, every attempt named in the result. The
-                       keepalive probe's version is promoted out of run.mjs; new probes reuse it.
+                       keepalive probe's version is promoted out of run.mjs; new probes reuse it. It waits for the
+                       surface's READY signal first (the Studio's `window.__latticeRenderMetrics`): two keep-alive runs
+                       failed by clicking the pre-hydration skeleton's Present button, which has no handler, a trap
+                       sheet-focus-probe.js already knew and nothing pointed the new probe to.
                    (d) A WEBKIT GESTURE LIST in engineering/testing.md (or a gotchas topic): user activation at pointerup
                        not pointerdown, Playwright WebKit's click-only taps, the event-clock mismatch, simulator long
                        presses, wake lock needing a gesture, and which surface can prove each.

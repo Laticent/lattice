@@ -59,7 +59,11 @@ function latticeKeepaliveHelpers() {
  *  inside a user gesture, and a scripted click() is not one (the first iOS run, opened that way, was refused the lock). */
 async function latticeKeepalivePresentAt() {
 	const h = latticeKeepaliveHelpers();
-	const b = await h.until(() => h.presentButton(), 150000, 'the Present button');
+	// The Studio has hydrated once its first render has run (sheet-focus-probe.js waits on the same signal). Before that the
+	// header is the pre-paint skeleton, whose Present button has no handler: a click or a tap on it does nothing, which is
+	// what failed runs 44774104460 and 44781213234 on a slow simulator.
+	await h.until(() => window.__latticeRenderMetrics, 150000, "the Studio's first render");
+	const b = await h.until(() => h.presentButton(), 30000, 'the Present button');
 	b.scrollIntoView({ block: 'center' });
 	const r = b.getBoundingClientRect();
 	return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
