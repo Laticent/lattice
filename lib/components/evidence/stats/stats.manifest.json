@@ -9,7 +9,7 @@
     "data": true
   },
   "stage": "flow",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": { "claims": [] },
   "capacity": {
     "axis": "item",
     "min": 3,

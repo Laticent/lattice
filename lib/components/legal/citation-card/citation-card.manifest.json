@@ -27,11 +27,7 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
-  "coda": {
-    "claims": [
-      "blockquote"
-    ]
-  },
+  "coda": { "claims": [], "anatomy": ["blockquote"] },
   "tags": [
     "citation",
     "quotation",

@@ -131,3 +131,37 @@ section > .cell-coda[data-dock="row"] { flex: 0 0 auto; width: 100%; }
    "not full width" is not by itself wrong, and a layout that centers its composition
    wants a band that matches it. */
 section > .cell-coda[data-dock="grid"] { grid-column: 1 / -1; align-self: start; }
+
+/* ── A FIGURE'S CAPTION ──────────────────────────────────────────────────────
+ * On a layout whose note IS its figure's caption (`coda: { caption: true }` —
+ * diagram, video), lib/transformers/figure-caption.js moves the coda's below-note into
+ * the stage, under the figure, as `p.figure-caption`. It reads as the chart
+ * caption does (chart-family.styles.css `.chart-caption`): label face at meta
+ * size in secondary ink, aligned with the headline, under a short hairline.
+ * engineering/decisions/2026-11-20-coda-and-marp-parity.md, settled 2. */
+section[class] > .cell-stage > p.figure-caption {
+  flex: 0 0 auto;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding-block: var(--sp-sm);
+  text-align: var(--headline-align, center);
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+section[class] > .cell-stage > p.figure-caption::before {
+  content: '';
+  display: block;
+  height: 1px;
+  padding-bottom: var(--sp-sm);
+  background:
+    linear-gradient(
+      color-mix(in oklab, var(--border) 90%, transparent),
+      color-mix(in oklab, var(--border) 90%, transparent)
+    )
+    var(--headline-align, center) top / 7.5cqi 1px no-repeat;
+}

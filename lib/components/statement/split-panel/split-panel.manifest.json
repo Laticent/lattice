@@ -31,7 +31,7 @@
   },
   "function": "statement",
   "form": "panel",
-  "coda": { "dock": "row", "claims": ["blockquote", "trailing-paragraph"] },
+  "coda": { "dock": "row", "claims": [] },
   "substance": "structure",
   "density": {
     "axis": "item",
@@ -100,7 +100,9 @@
     "cat-5",
     "cat-6",
     "cat-7",
-    "cat-8"
+    "cat-8",
+    "panel-narrow",
+    "panel-wide"
   ],
   "variantAxes": [
     {
@@ -126,6 +128,14 @@
         "cat-6",
         "cat-7",
         "cat-8"
+      ]
+    },
+    {
+      "label": "Width",
+      "exclusive": true,
+      "members": [
+        "panel-narrow",
+        "panel-wide"
       ]
     }
   ],
@@ -288,6 +298,16 @@
       "label": "cat-8",
       "summary": "Override: pins this slide to the theme's categorical slot #8 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-8 -->\n\n`Stage 8 of 8`\n\n## Sustain it without you in the loop.\n\n- Write down what only you know\n  - If it lives in your head, it isn't sustained yet.\n- Hand off the decision, not just the task\n  - Ownership transfers when someone else can say no.\n"
+    },
+    "panel-narrow": {
+      "label": "panel-narrow",
+      "summary": "Narrows the panel to 0.8 of the variant's width; the supporting column takes the room.",
+      "sample": "<!-- _class: split-panel panel-narrow -->\n\n`split-panel panel-narrow`\n\n## A narrower panel gives the support more room.\n\nThe panel still carries the claim; the column carries the detail.\n\n- Four points fit\n  - The supporting column widens as the panel narrows.\n- The claim stays short\n  - A narrow panel wraps a long heading early.\n"
+    },
+    "panel-wide": {
+      "label": "panel-wide",
+      "summary": "Widens the panel to 1.3 of the variant's width (at most 62%); for a claim that is the argument.",
+      "sample": "<!-- _class: split-panel panel-wide -->\n\n`split-panel panel-wide`\n\n## A wider panel lets the claim breathe.\n\nUse it when the heading is the argument and the support is brief.\n\n- Two points at most\n  - The supporting column narrows as the panel widens.\n"
     }
   },
   "commonMistakes": [

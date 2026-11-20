@@ -72,6 +72,14 @@ section.video .video-card {
 section.video > .cell-stage > .video-card {
   flex: 0 0 auto;
 }
+/* A caption under the card (the slide's note, moved into the stage by lib/transformers/figure-caption.js) takes its own
+ * height out of the stage, so the card gives that much up instead of pushing the caption past the clip. The card's
+ * content is centered with room to spare, so the poster keeps its size. */
+section.video > .cell-stage:has(> .figure-caption) > .video-card {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * COMPOSITIONS — each a candidate "killer" layout; `qr` is an opt-in modifier

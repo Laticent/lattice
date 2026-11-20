@@ -16,9 +16,7 @@
     "figure": "bare"
   },
   "stage": "canvas",
-  "coda": {
-    "dock": "row"
-  },
+  "coda": { "caption": true },
   "conformance": "strict",
   "orientation": [
     "landscape",

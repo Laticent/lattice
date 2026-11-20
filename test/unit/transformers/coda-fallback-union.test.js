@@ -48,7 +48,12 @@ const css = fs.readFileSync(CSS_PATH, 'utf8');
 
 /** Every layout the catalog says renders a below-note. */
 function expectedSet() {
-  return Object.keys(CATALOG).filter((name) => blocksFor(name).includes('below-note')).sort();
+  // A layout whose paragraph beat is decided by more than "it follows a structural block" stays OUT of the CSS-only
+  // tier: a chart's note is its figure CAPTION (`coda.caption`), and quote's first paragraph after the quotation is its
+  // ATTRIBUTION (`coda.anatomy`). A selector cannot tell either from a note, so on a raw Marp render it would draw a
+  // note's hairline on a caption or an attribution (engineering/decisions/2026-11-20-coda-and-marp-parity.md).
+  const positional = (name) => !CATALOG[name].caption && !(CATALOG[name].anatomy || []).includes('trailing-paragraph');
+  return Object.keys(CATALOG).filter((name) => blocksFor(name).includes('below-note') && positional(name)).sort();
 }
 
 /**

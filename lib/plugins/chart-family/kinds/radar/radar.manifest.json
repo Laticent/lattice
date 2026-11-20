@@ -97,7 +97,7 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": { "claims": [], "caption": true },
   "tags": [
     "spider",
     "assessment",

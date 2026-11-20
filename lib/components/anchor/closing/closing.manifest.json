@@ -12,7 +12,7 @@
   "function": "anchor",
   "form": "bookend",
   "chrome": { "pagination": false },
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": { "claims": [] },
   "substance": "prose",
   "tags": [
     "summary",

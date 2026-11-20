@@ -1150,7 +1150,7 @@ describe('lint-core: unterminated comment', () => {
 // something where the block they govern renders. On a `quote` neither does.
 describe('lint-core: block-unsupported', () => {
   const bVocab = {
-    names: new Set(['quote', 'content', 'cards-grid', 'math', 'timeline-list']),
+    names: new Set(['quote', 'content', 'cards-grid', 'math', 'inventory']),
     modifiers: new Set(['insight-key', 'insight-verdict', 'no-note', 'bare']),
   };
   const bu = (cls, body = '# H\n') =>
@@ -1163,14 +1163,16 @@ describe('lint-core: block-unsupported', () => {
     assert.match(f[0].message, /does nothing here: quote doesn't show/);
   });
 
-  test('flags no-note on a quote too', () => {
-    const f = bu('quote no-note');
+  test('flags no-note on a math slide too', () => {
+    // (Was `quote` until 2026-11-20, when quote gained the note: its attribution is its anatomy and a second
+    // paragraph is the note. `math` still claims both beats for its equation grid.)
+    const f = bu('math no-note');
     assert.equal(f.length, 1);
     assert.equal(f[0].classToken, 'no-note');
   });
 
   test('flags BOTH when both are inert on the same slide', () => {
-    assert.equal(bu('quote insight-key no-note').length, 2);
+    assert.equal(bu('math insight-key no-note').length, 2);
   });
 
   test('stays silent where the block really renders', () => {
@@ -1180,9 +1182,10 @@ describe('lint-core: block-unsupported', () => {
   });
 
   test('handles a layout that takes one block and not the other', () => {
-    // timeline-list renders the key-insight callout but not a below-note.
-    assert.deepEqual(bu('timeline-list insight-key'), []);
-    assert.equal(bu('timeline-list no-note').length, 1);
+    // inventory renders a below-note but draws its trailing blockquote as its own insight treatment,
+    // so an `insight-*` label has no Key Insight panel to rename there.
+    assert.deepEqual(bu('inventory no-note'), []);
+    assert.equal(bu('inventory insight-key').length, 1);
   });
 
   test('says nothing about a correctly-authored quote carrying no modifier', () => {

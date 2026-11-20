@@ -14,7 +14,7 @@
     "figure": "bare"
   },
   "stage": "canvas",
-  "coda": { "claims": [] },
+  "coda": { "claims": [], "caption": true },
   "conformance": "strict",
   "tags": ["flowchart", "org-chart", "sequence", "process"],
   "description": "Mermaid diagram as the slide's centerpiece.",

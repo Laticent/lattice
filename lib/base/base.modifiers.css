@@ -1607,12 +1607,13 @@ section .below-note.is-annotation > p::before {
 /* ── TIER 2 · the CSS-only fallback ── */
 
 section:is(
+  .closing, .divider, .split-compare, .split-panel, .stats, .title, .topic,
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
+  .decision, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
-  .team-profile, .verdict-grid, .video
+  .team-profile, .verdict-grid
 ):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p {
   /* Space above the hairline rule (was margin-top) + below it (padding-top) are
    * BOTH folded into padding-top so the spacing lives inside the note's own box —
@@ -1628,12 +1629,13 @@ section:is(
 }
 
 section:is(
+  .closing, .divider, .split-compare, .split-panel, .stats, .title, .topic,
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
+  .decision, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
-  .team-profile, .verdict-grid, .video
+  .team-profile, .verdict-grid
 ):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p::before {
   content:''; position:absolute; top:var(--sp-sm); left:0; right:0; height:1px;
   background:linear-gradient(to right, var(--accent), transparent);
@@ -1663,12 +1665,13 @@ section:is(
 /* The annotation register on the same fallback: dotted rule instead of the
  * gradient hairline, label size, and the drawn spark. */
 section:is(
+  .closing, .divider, .split-compare, .split-panel, .stats, .title, .topic,
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
+  .decision, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
-  .team-profile, .verdict-grid, .video
+  .team-profile, .verdict-grid
 ):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child) {
   font-size:var(--fs-meta);
   color:var(--text-secondary);
@@ -1678,12 +1681,13 @@ section:is(
 }
 
 section:is(
+  .closing, .divider, .split-compare, .split-panel, .stats, .title, .topic,
   .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
   .citation-card, .code, .collage, .columns, .compare-code, .compare-prose, .table, .content, .cycle,
-  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-steps,
+  .decision, .glossary, .inventory, .kpi, .list, .list-steps,
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .rows, .scene, .statute-stack,
-  .team-profile, .verdict-grid, .video
+  .team-profile, .verdict-grid
 ):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child)::before {
   content:'';
   position:static;

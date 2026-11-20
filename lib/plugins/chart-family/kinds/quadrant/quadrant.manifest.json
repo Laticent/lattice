@@ -84,7 +84,7 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": { "claims": [], "caption": true },
   "tags": [
     "two-by-two",
     "positioning",

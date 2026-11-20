@@ -15,7 +15,7 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
-  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
+  "coda": { "claims": ["blockquote"], "anatomy": ["trailing-paragraph"] },
   "tags": [
     "pull-quote",
     "quotation",
