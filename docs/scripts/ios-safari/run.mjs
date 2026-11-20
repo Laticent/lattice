@@ -261,6 +261,13 @@ function tapLogInstall() {
 				L.events.push({ type, t: Math.round(at - L.t0), lag: Math.round(now - at), x: Math.round(pt.clientX), y: Math.round(pt.clientY), target: name(e.target), pointerType: e.pointerType || '' });
 			}, { capture: true, passive: true });
 		}
+		// Focus moves too: a selection that leaves the editor names whoever took the focus (the undo doorbell, #3241's legend).
+		for (const type of ['focusin', 'focusout']) {
+			window.addEventListener(type, (e) => {
+				const L = window.__tapLog;
+				if (L) L.events.push({ type, t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, target: name(e.target) + (e.target && e.target.closest && e.target.closest('[data-undo-doorbell]') ? ' [undo doorbell]' : '') });
+			}, { capture: true, passive: true });
+		}
 		document.addEventListener('selectionchange', () => {
 			const L = window.__tapLog;
 			if (!L) return;
@@ -281,7 +288,7 @@ function summarizeTapLog(log) {
 	const te = first('touchend') || first('touchcancel');
 	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
 	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${String(e.text).replace(/\s+/g, ' ').trim()}"`} in ${e.target}` : `${e.type}@${e.t}${e.lag ? `(+${e.lag})` : ''} ${e.x},${e.y} ${e.target}`));
-	return `${held}; ${parts.slice(0, 14).join(' | ')}${parts.length > 14 ? ` | +${parts.length - 14} more` : ''}`;
+	return `${held}; ${parts.slice(0, 30).join(' | ')}${parts.length > 30 ? ` | +${parts.length - 30} more` : ''}`;
 }
 
 /**
@@ -549,6 +556,13 @@ async function composeTouchTap(id) {
 				recovered = await deliver('control-2');
 			}
 			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall}${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
+			// DIAGNOSTIC (#3241): the same long press with the undo doorbell silenced. Its arm() rings only while WebKit reports no
+			// undo, so reporting one stops every ring without touching the product.
+			await new Promise((r) => setTimeout(r, 1000));
+			await run('window.__qce = window.__qce || document.queryCommandEnabled; document.queryCommandEnabled = () => true;');
+			const quiet = await deliver('control-3-no-doorbell', 500);
+			await run('if (window.__qce) document.queryCommandEnabled = window.__qce;');
+			step('diagnostic: the forced long press with the undo doorbell silenced (detail only)', true, `hold ${quiet.hold ?? 'no touch'} ms -> ${quiet.seen.caret ? 'caret' : `SELECTED "${quiet.seen.picked}"`} in ${quiet.seen.where}`);
 		} catch (e) {
 			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `not run: ${String(e.message || e).slice(0, 200)}`);
 		}
