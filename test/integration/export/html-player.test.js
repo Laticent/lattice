@@ -578,10 +578,12 @@ describe('html-player export — nothing shipped depends on light-dark()', () =>
 	// the shipped file, so stripping line comments there is both sufficient and bounded. Done on
 	// the raw text rather than through the DOM because the count has to cover the stylesheets,
 	// the attributes and the JSON envelope in one pass — which is the point of counting at all.
-	const schemeFree = (html) => html.replace(/^[ \t]*\/\/.*$/gm, '');
+	// An @supports prelude may carry `light-dark(` as a FEATURE PROBE (the picked-ink guard): an engine
+	// without light-dark() reads it as false and takes the plain ink, so it depends on nothing (#3312).
+	const schemeFree = (html) => html.replace(/^[ \t]*\/\/.*$/gm, '').replace(/@supports[^{};]*\{/g, '');
 
 	for (const deck of ['portrait-gantt-statechart', 'kanban-chart-redesign']) {
-		test(`${deck}: the exported player carries no light-dark() outside the script's own comments`, () => {
+		test(`${deck}: the exported player carries no light-dark() outside the script's own comments and @supports probes`, () => {
 			const hits = (schemeFree(exported[deck]).match(/light-dark\(/g) || []).length;
 			assert.equal(hits, 0, `${hits} light-dark() occurrence(s) survive the export`);
 		});

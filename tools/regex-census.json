@@ -77,7 +77,6 @@
     "lib/core/relationship.js": 1,
     "lib/core/remote-ref.js": 3,
     "lib/core/resolve-narration.mjs": 1,
-    "lib/core/resolve-token-expr.js": 2,
     "lib/core/scene-resolve.mjs": 1,
     "lib/core/section-index.js": 3,
     "lib/core/slide-camera.mjs": 1,
@@ -272,6 +271,10 @@
     "/(!\\[[^\\]]*\\]\\()([^)\\s]+)(\\s*(?:\"[^\"]*\")?\\))/g": "polynomial",
     "/(--(?:font-display|font-body|eyebrow-(?:face|style|weight|case|tracking|scale|anchor-scale)|chart-text-face|chart-figure-face))[ \\t]*:/g": "safe",
     "/(--[a-zA-Z0-9-]+)\\s*:/g": "polynomial",
+    "/(--[a-zA-Z0-9-]+)\\s*:\\s*([^;{}]*?)\\s*(?=[;}])/g": {
+      "verdict": "unknown",
+      "why": "recheck cannot model it: look-ahead assertion"
+    },
     "/(--[a-zA-Z0-9-]+)\\s*:\\s*([^;{}]*light-dark[^;{}]*?)\\s*(?=[;}])/g": {
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
@@ -281,7 +284,6 @@
       "why": "recheck cannot model it: look-ahead assertion"
     },
     "/(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))[ \\t]*(?:[–—-]|to)[ \\t]*(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))$/": "polynomial",
-    "/(-?\\d*\\.?\\d+)\\s*%/": "polynomial",
     "/(-?\\d+(?:\\.\\d+)?)$/": "polynomial",
     "/(<!-- _hide: (?:true|false) -->)\\n(?:[ \\t]*\\n)*(?=\\1)/g": {
       "verdict": "unknown",
@@ -964,6 +966,7 @@
     "/@import\\s*[\"']([\\w-]+)[\"']\\s*;/g": "safe",
     "/@import\\s*['\"]?([A-Za-z0-9_-]+)['\"]?\\s*;?/g": "safe",
     "/@size\\s+([A-Za-z0-9:_-]+)\\s+(\\S+)\\s+(\\S+)/g": "safe",
+    "/@supports[^{};]*\\{/g": "polynomial",
     "/@theme\\s+([A-Za-z0-9_-]+)/": "safe",
     "/Cannot find (?:package|module) '((?:@[^/']+\\/)?[^/']+)/": "safe",
     "/Extension=\"lattice\"/i": "safe",
@@ -1682,6 +1685,7 @@
     "/^(---[ \\t]*\\r?\\n[\\s\\S]*?\\r?\\n---[ \\t]*(?:\\r?\\n|$))/": "safe",
     "/^(--?[A-Za-z][\\w-]*)=/": "safe",
     "/^(--[a-z-]+)=(.*)$/": "safe",
+    "/^(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))%$/": "safe",
     "/^(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))(px)?$/": "safe",
     "/^(-?[\\d.]+)(deg|grad|rad|turn)$/": "safe",
     "/^(-?[\\d.]+)px$/": "safe",
@@ -2799,6 +2803,7 @@
     "/^url\\(\\s*[^\\s\"')]/i": "safe",
     "/^v\\d+[a-z]*$/": "safe",
     "/^var\\(--([a-z0-9-]+)\\)$/i": "safe",
+    "/^var\\(/i": "safe",
     "/^var\\(\\s*--([a-z0-9-]+)\\s*(?:,([\\s\\S]+))?\\)$/i": "safe",
     "/^www\\./": "safe",
     "/^x-axis\\b\\s*(.*)$/i": "polynomial",
@@ -2921,6 +2926,7 @@
     "/keyframes|font-face/": "safe",
     "/lat-r(\\d+)-/g": "safe",
     "/latticeheld(\\d+)x/g": "safe",
+    "/light-dark\\(/": "safe",
     "/lining-nums/": "safe",
     "/lockdown|untrusted|restricted|appcontainer/i": "safe",
     "/mathcolor=\"(?:var\\(--warn\\)|#cc0000)\"/": "safe",
