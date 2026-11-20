@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import { loadCalibration, recordObservation, resetCalibration } from '@/playground/readaloud-calibration';
-import { bakeClipKeys, GUIDE_LEAD_MAX_MS, GUIDE_LEAD_MS, GUIDE_SETTLE_MS, guideCueFor, guideLeadFor, previewTtsVoice, SYNC_LEAD_MS, setRoomClipSource, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
+import { bakeClipKeys, GUIDE_LEAD_MAX_MS, GUIDE_LEAD_MS, GUIDE_SETTLE_MS, guideCueFor, guideLeadFor, PREPARE_WAIT_MS, previewTtsVoice, SYNC_LEAD_MS, setRoomClipSource, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
 
 // The audio backend is now a Suono stage + sequence (not voice.speak). Two stubs:
 //   • the voice model — SYNTHESIZES bytes (synthOne, fed to the sequence's produce, never invoked
@@ -29,7 +29,7 @@ const { unlockSpy, synthSampleSpy, voiceState, stageCtl } = vi.hoisted(() => ({
 	//   · created — how many times `createVoiceModel` has been called, so a test can
 	//               assert the voice load has actually STARTED rather than infer it from
 	//               elapsed time (see the arming-window test for why that matters).
-	voiceState: { rung: 'silent' as string, gate: null as Promise<void> | null, created: 0, synthCalls: 0 },
+	voiceState: { rung: 'silent' as string, gate: null as Promise<void> | null, created: 0, synthCalls: 0, prepare: null as Promise<boolean> | null },
 	stageCtl: {
 		clockMs: 0,
 		state: 'running' as 'none' | 'suspended' | 'running',
@@ -120,6 +120,9 @@ function voiceModel() {
 		pause() {},
 		resume() {},
 		rung: () => voiceState.rung,
+		// Null: no preparation step (resolves at once, as `undefined`). A pending promise models a selected
+		// voice still being made ready — an on-device model download that has not landed.
+		prepareSelectedVoice: () => voiceState.prepare ?? Promise.resolve(true),
 		orModel: () => 'test/model',
 		orVoice: () => 'test-voice',
 		// Empty kokoro voice → the resolved calibration key is voiceKeyOf('kokoro · ?') === 'kokoro'
@@ -303,6 +306,45 @@ describe('useReadAloud — onFinish (autoplay chain signal)', () => {
 // The iOS fix: play() must unlock the Suono stage's audio context SYNCHRONOUSLY in the
 // tap — otherwise iPhone Present mode stays silent (the async sequence resumes too late).
 // This guards the call (unlockSpy is the stage's unlock); real audio is a device-only check.
+// THE CAPTIONS NEVER WAIT ON A VOICE THAT IS NOT COMING (2026-11-20). With the selected voice's
+// preparation pending forever, the highlight sat on word one, muted or not, on every surface.
+describe('useReadAloud — captions run while the voice is still being prepared', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		voiceState.prepare = new Promise<boolean>(() => {}); // never ready
+		voiceState.rung = 'kokoro'; // a clocked voice is selected, just not ready
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+		voiceState.prepare = null;
+		voiceState.rung = 'silent';
+	});
+	const moved = (a: { cueIndex: number; wordIndex: number } | null) => !!a && (a.cueIndex > 0 || a.wordIndex > 0);
+
+	it('muted: the highlight advances at once, without waiting for the voice', async () => {
+		const { result } = renderHook(() => useReadAloud('Alpha bravo charlie delta. Echo foxtrot golf.', { muted: true }));
+		act(() => result.current.play());
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1500); // well inside PREPARE_WAIT_MS: muted never waits for it
+		});
+		expect(moved(result.current.active), 'the muted captions waited on the voice').toBe(true);
+	});
+
+	it('unmuted: past the wait, the slide is read on captions alone', async () => {
+		const { result } = renderHook(() => useReadAloud('Alpha bravo charlie delta. Echo foxtrot golf.'));
+		act(() => result.current.play());
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(PREPARE_WAIT_MS - 200);
+		});
+		expect(moved(result.current.active), 'the estimate started before the voice had its chance').toBe(false);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(2000);
+		});
+		expect(moved(result.current.active), 'the captions stayed frozen behind a voice that never came').toBe(true);
+		expect(result.current.playing).toBe(true);
+	});
+});
+
 describe('useReadAloud — iOS audio unlock in the play gesture', () => {
 	beforeEach(() => unlockSpy.mockClear());
 

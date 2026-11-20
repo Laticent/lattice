@@ -64,6 +64,20 @@ A touch browser can leave a tapped button focused, and the dock pins the bloom o
 immersive that pin would hold the chrome on screen for good, so there only keyboard focus
 (`:focus-visible`) pins.
 
+### The captions froze on word one (found while testing this PR)
+
+On the owner's iPhone the caption crawl lit its first word and never moved. Reproduced in the built Studio here, in
+portrait and landscape and on `main` too, with the voice OFF: `useReadAloud.play()` awaited
+`voice.prepareSelectedVoice()` before starting the caption clock, and that promise was still pending after 6 s (the
+selected voice was still being made ready — an on-device model download that, on a slow or blocked link, does not
+land). Nothing was going to speak, yet the captions waited for the voice.
+
+`read-aloud.ts` now never makes the caption clock wait on a voice that is not coming. Muted, the estimate starts at
+once and preparation finishes in the background, so an unmute mid-slide still resumes the clocked voice. Unmuted, the
+read waits up to `PREPARE_WAIT_MS` (2.5 s); past that the slide is read on captions alone and the voice joins at the
+next slide's play once it is ready. It never joins mid-slide, which would be the race-ahead-then-snap-back the
+deferred start exists to prevent (`2026-07-09-cadenza-narration-quality.md`).
+
 ## Verification
 
 - Unit (jsdom, fake time): `studio.present-keepalive.test.tsx` — Next carries play to the end of

@@ -38,6 +38,9 @@ test('@webkit-phone a sideways phone gives Present the whole screen, with chrome
 	// the slide's width, so a bigger slide gets bigger captions (they used to float mid-slide at a fixed 18px).
 	const cc = frame.locator('[data-present-cc-over] .latt-cc-band[data-shown="1"]');
 	await expect(cc).toBeVisible({ timeout: 15000 });
+	// …and it PLAYS: the highlight walks the words with the voice off. It used to sit on word one forever,
+	// waiting on a voice that was still being prepared (read-aloud.ts, PREPARE_WAIT_MS).
+	await expect.poll(() => cc.evaluate((el) => el.querySelectorAll('.latt-cc-line[data-state="now"] [data-spoken="1"]').length + el.querySelectorAll('.latt-cc-line[data-state="read"]').length), { timeout: 10000 }).toBeGreaterThan(1);
 	// The band blooms open (a max-height transition); wait for it to finish, not a duration.
 	await expect.poll(async () => (await cc.boundingBox())?.height ?? 0).toBeGreaterThan(40);
 	// Lifted clear of the floating controls while they show.

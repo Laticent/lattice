@@ -297,6 +297,8 @@ export type OrVoiceModel = { id: string; name: string; promptPerM: number | null
 let voicePromise: Promise<VoiceModel | null> | null = null;
 /** The rungs that synthesize bytes with measured onsets (a clocked voice). */
 const CLOCKED_RUNGS = new Set(['openrouter-tts', 'gemini-tts', 'kokoro']);
+/** How long a read waits for the selected voice to be ready before reading the slide on captions alone. */
+export const PREPARE_WAIT_MS = 2500;
 /** The tier alias a voice selection names for the explicit-identity calls. */
 export type VoiceTier = 'openrouter' | 'gemini' | 'kokoro';
 
@@ -1161,7 +1163,39 @@ export function useReadAloud(
 
 		// Spoken audio in parallel once the voice model is ready (best-effort).
 		getVoice().then(async (voice) => {
-			if (voice) await Promise.all([voice.prepareSelectedVoice?.(), normalizeVoiceSelection().catch(() => false)]);
+			// THE CAPTIONS NEVER WAIT ON A VOICE THAT IS NOT COMING. Preparing the selected voice can take as
+			// long as an on-device model download (~80 MB), and on a slow or blocked link it never finishes —
+			// measured: `prepareSelectedVoice` still pending after 6 s, the highlight frozen on word one with the
+			// voice MUTED, on every surface (2026-11-20, owner report from an iPhone). So:
+			//   · muted — nothing is going to speak, so the estimate starts NOW. Preparation still finishes in
+			//     the background, so an unmute mid-slide can resume the clocked voice as before.
+			//   · unmuted — wait for the voice up to PREPARE_WAIT_MS. Past that, this slide is read on the
+			//     estimate (captions) and the voice joins at the next slide's play, once it is ready. It does
+			//     NOT join mid-slide: that is the race-ahead-then-snap-back the deferred start exists to prevent.
+			let estimateStarted = false;
+			const startEstimate = () => {
+				if (estimateStarted || ctl.signal.aborted) return;
+				estimateStarted = true;
+				armedRef.current = true;
+				if (!pausedRef.current) startLoop();
+			};
+			if (voice) {
+				const ready = Promise.all([voice.prepareSelectedVoice?.(), normalizeVoiceSelection().catch(() => false)]);
+				if (mutedRef.current) startEstimate();
+				let timer: ReturnType<typeof setTimeout> | undefined;
+				const timedOut = await Promise.race([ready.then(() => false), new Promise<boolean>((res) => { timer = setTimeout(() => res(true), PREPARE_WAIT_MS); })]);
+				clearTimeout(timer);
+				if (ctl.signal.aborted) return;
+				if (timedOut) {
+					if (!mutedRef.current) {
+						setRung('silent');
+						startEstimate();
+						return;
+					}
+					await ready;
+					if (ctl.signal.aborted) return;
+				}
+			}
 			if (ctl.signal.aborted) return;
 			if (!voice) {
 				// Voice model failed to load — the silent estimate still runs the

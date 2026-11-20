@@ -3,3 +3,4 @@
 - Closing Present now stops the narration instead of leaving it playing over the editor.
 - On a phone held sideways, the slide fills the screen and Present's controls float over it, fading after a few seconds; tap the slide to bring them back. Captions sit on the slide's bottom edge like subtitles and scale with the slide.
 - Fullscreen works on every browser: where the browser cannot go full screen (iPhone Safari), it hides Present's controls instead of showing an error.
+- Narration captions no longer freeze on the first word while the selected voice is still loading: with the voice off they play at once, and with it on they start after a short wait and the voice joins at the next slide.
