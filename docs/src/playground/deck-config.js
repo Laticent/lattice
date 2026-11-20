@@ -184,11 +184,12 @@ export function readFrontMatter(source) {
   // verbatim, not form-managed — keep them out of the scalar map's stringly view.
   for (const [k, v] of entries) if (!(v?.block)) map[k] = stripQuotes(v);
   return {
-    theme: map.theme || '',
+    // Theme, color mode and class read as the ENGINE reads them (`scalarOf`): a comment is not a value.
+    theme: scalarOf(entries, 'theme'),
     // A preset may RECOMMEND a hand (engineering/decisions/2026-11-20-deck-preset-study.md §5 D1); like every
     // look row, the row shows what renders.
     mode: map.mode || (lookBaseline(map.preset, 'mode') === 'boardroom' ? '' : lookBaseline(map.preset, 'mode')),
-    'color-mode': map['color-mode'] || '',
+    'color-mode': scalarOf(entries, 'color-mode'),
     // What the preset RECOMMENDS for the two author keys the deck leaves unset, or ''. Auto FOLLOWS the preset,
     // so the sheet's Auto choice names this value rather than hiding what renders. The color mode yields to a
     // scheme the deck pins in `class:` or with a `-dark` theme, as lib/core/resolve-color-mode.js does.
@@ -207,7 +208,7 @@ export function readFrontMatter(source) {
     paginate: paginateOn(map.paginate),
     header: map.header || '',
     footer: map.footer || '',
-    class: map.class || '',
+    class: scalarOf(entries, 'class'),
     // `validate` is binary, default ON — surfaced as a boolean (like paginate) for
     // the switch. On unless the deck explicitly opts out with a falsey value.
     validate: !FALSEY.test((map.validate || '').trim()),

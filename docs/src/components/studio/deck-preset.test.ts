@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { frontMatterName, PRESETS, withPresetTable } from '../../../../lib/core/front-matter-key.js';
-import { AUTHOR_KEYS, applyPreset, clearPresetOverrides, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetAutoLabel, presetChanges, presetOf, presetRecommendation, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
+import { AUTHOR_KEYS, applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetAutoLabel, presetChanges, presetOf, presetRecommendation, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
 
 const deck = (...fm: string[]) => ['---', 'theme: indaco', ...fm, '---', '', '# Hi'].join('\n');
 const fmOf = (src: string) => src.split('---')[1];
@@ -190,3 +190,15 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 		expect(tile).not.toContain('backdrop:');
 	});
 });
+
+describe('deckScalar — the deck panel reads a key the way the engine does', () => {
+	it('cuts quotes and a trailing comment, reads a comment-only value as empty, ignores an indented line', () => {
+		expect(deckScalar(bare('theme: cuoio  # brand'), 'theme')).toBe('cuoio');
+		expect(deckScalar(bare('theme: "NoirStudio"'), 'theme')).toBe('NoirStudio');
+		expect(deckScalar(bare('theme: # todo'), 'theme')).toBe('');
+		expect(deckScalar(bare('class: lead # dark later'), 'class')).toBe('lead');
+		expect(deckScalar(bare('foo:', '  theme: cuoio'), 'theme')).toBe('');
+		expect(deckScalar(bare(), 'theme')).toBe('');
+	});
+});
+

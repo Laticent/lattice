@@ -111,6 +111,20 @@ export function presetAutoLabel(
 	return rec && isKnown(rec) ? `preset: ${labelOf(rec)}` : fallback;
 }
 
+/**
+ * A TOP-LEVEL key's value as the ENGINE reads it (lib/core/front-matter-key.js `topLevelFrontMatterValue` +
+ * `frontMatterScalar`): quotes and a trailing comment cut, a comment-only value '', an indented line ignored.
+ * The deck panel's Theme, Color mode and class reads go through this, so `theme: # todo` or
+ * `class: lead # dark later` shows what renders rather than the comment.
+ */
+export function deckScalar(source: string, key: string): string {
+	const span = frontMatterKeySpan(source, key);
+	if (!span || span.indent) return '';
+	const line = source.slice(span.start, span.end);
+	const raw = line.slice(line.indexOf(':') + 1).trim();
+	return raw.startsWith('#') ? '' : ENGINE.frontMatterScalar(raw).trim();
+}
+
 /** The engine's color-axis class tokens (lib/core/color-mode.js `COLOR_MODE_TOKENS`). */
 const COLOR_AXIS = new Set(['dark', 'light', 'color-light', 'color-system', 'color-inherited', 'print']);
 

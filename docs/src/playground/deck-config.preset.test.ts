@@ -49,5 +49,12 @@ describe('deck-config — a preset recommendation (P0)', () => {
 			expect(readFrontMatter(deck('preset: probe', 'theme: indaco # brand')).presetTheme).toBe('');
 		});
 	});
+
+	it('the Theme, Color mode and class rows read the value the engine reads, not the comment', () => {
+		expect(readFrontMatter(deck('theme: # todo')).theme).toBe('');
+		expect(readFrontMatter(deck('theme: cuoio  # brand')).theme).toBe('cuoio');
+		expect(readFrontMatter(deck('color-mode: dark # pinned'))['color-mode']).toBe('dark');
+		expect(readFrontMatter(deck('class: lead # dark later')).class).toBe('lead');
+	});
 });
 

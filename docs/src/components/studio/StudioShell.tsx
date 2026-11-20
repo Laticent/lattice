@@ -96,7 +96,7 @@ import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
-import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister } from './deck-preset';
+import { applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister } from './deck-preset';
 import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -2722,10 +2722,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// authoritative: the deck stays that way regardless of the site mode. This is the
 	// deck-scoped sibling of the website mode toggle — it writes front matter, saved
 	// with the deck. Resolution precedence lives in @/lib/deck-theme.
-	const deckClassList = (getFrontMatter(source, 'class') || '').split(/\s+/).filter(Boolean);
+	const deckClassList = deckScalar(source, 'class').split(/\s+/).filter(Boolean);
 	// The deck's raw `theme:` (may be a `-dark` variant on an imported deck) and its
 	// base palette (darkness lives on the `class:` axis, not the theme name, in the UI).
-	const deckThemeRaw = (getFrontMatter(source, 'theme') || '').trim();
+	const deckThemeRaw = deckScalar(source, 'theme');
 	// What Auto renders when the deck's preset recommends a palette or a mode (D1,
 	// engineering/decisions/2026-11-20-deck-preset-study.md): Auto FOLLOWS the preset, and its label says so.
 	const presetTheme = presetRecommendation(source, 'theme');
@@ -2736,7 +2736,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// default the whole engine + every surface honors (2026-07-11-color-mode-frontmatter.md).
 	// A legacy `class: dark/light` or a `-dark` theme name is read as its equivalent so an
 	// imported deck still shows a value; a deck with none reads 'default' (the theme's own mode).
-	const rawColorMode = (getFrontMatter(source, 'color-mode') || '').trim().toLowerCase();
+	const rawColorMode = deckScalar(source, 'color-mode').toLowerCase();
 	const deckColorMode: 'default' | 'light' | 'dark' | 'system' | 'inherited' | 'print' =
 		rawColorMode === 'light' || rawColorMode === 'dark' || rawColorMode === 'system' || rawColorMode === 'inherited' || rawColorMode === 'print'
 			? rawColorMode
