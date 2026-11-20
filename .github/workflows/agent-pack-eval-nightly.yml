@@ -1,0 +1,76 @@
+name: Agent pack eval nightly
+
+# Does the agent pack make a model write a good deck? A model gets ONE pack file as its whole
+# system prompt (start.md for a capable model, the solo paste text for a small one), writes a
+# deck from each of three fixed briefs, and every deck goes through lint:deck and a real render.
+# tools/agent-pack-eval.mjs holds the briefs and the pass bar.
+# engineering/decisions/2026-11-17-agent-pack.md §4.5; the owner chose a nightly CI eval.
+#
+# Spends OUR OpenRouter key (HARD RULE #24), so it is nightly + dispatch only, never on the PR
+# path, and sanctioned in tools/check-ownership.js (SANCTIONED_OPENROUTER_WORKFLOWS). It FAILS
+# when the secret is unset rather than skipping green (#1931). Cost: six completions over an
+# ~11k-token prompt, about USD 0.15 to 0.26 a night (measured 2026-11-19); the tool prints the real figure.
+
+on:
+  schedule:
+    - cron: '17 3 * * *' # daily 03:17 UTC, clear of the 04:xx nightlies
+  workflow_dispatch:
+    inputs:
+      arm:
+        description: 'One arm only: start or small. Empty = both.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-pack-eval-nightly
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Require the OpenRouter key
+        run: |
+          if [ '${{ secrets.OPEN_ROUTER_KEY != '' }}' != 'true' ]; then
+            echo "::error title=OPEN_ROUTER_KEY missing::the OPEN_ROUTER_KEY secret is not set; the agent pack eval did not run."
+            echo "### Agent pack eval NOT RUN: OPEN_ROUTER_KEY is not set" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - name: Build the agent kit and the CLI
+        run: npm run build
+      - name: Run the eval
+        env:
+          OPEN_ROUTER_KEY: ${{ secrets.OPEN_ROUTER_KEY }}
+          OPENROUTER_ALLOW_SPEND: '1'
+          ARM: ${{ inputs.arm }}
+        # pipefail: without it the step takes tee's exit code, and a failed deck goes green.
+        run: |
+          set -euo pipefail
+          args=(--out eval-out)
+          if [ -n "${ARM:-}" ]; then args+=(--arm "$ARM"); fi
+          node tools/agent-pack-eval.mjs "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload the decks, PDFs and summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-pack-eval
+          path: eval-out/
+          if-no-files-found: ignore
+          retention-days: 14
