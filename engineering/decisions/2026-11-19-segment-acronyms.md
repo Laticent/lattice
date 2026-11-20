@@ -64,11 +64,22 @@ the one-meaning dotted abbreviations (e.g., i.e., etc., vs., approx., a.m., p.m.
 periods (U.S.) read; a deck's dotted phrase term is never cut into two cues.
 
 **The letter A is never handed to the voice as a lone word.** The owner heard "10 a.m." read "ten uh em"
-on the export. Kokoro's phonemizer (espeak, via `kokoro-js`) reads a spaced `A` before another word as the
-article: `A M` → `ɐ ˈɛm`, `U A E` → `jˈuː ɐ ˈiː`, `A I` → `ɐ aɪ`. Measured with the same `phonemizer` package
-Kokoro calls. What reads as letter names in every position tried: `A-M` (`ˈeɪˈɛm`), and joined capitals with
-an A in them (`UAE`, `AI`, `BA` → `ˌeɪˈiː`, `ˌeɪˈaɪ`, `bˌiːˈeɪ`). Bare `AM` does not: "ten AM" reads the verb
-`æm`. So the clock reads `A-M` / `P-M` (the dotted forms in the lexicon, and an undotted `am`/`pm` only right
-after an hour, `afterNumber`), and a dotted initialism with an A is written joined unless the joined run is
-an English word (`A.S.` → `A-S`; `spellLetters` in `normalize.ts`). Runs without an A stay spaced (`U S`,
-`D C`), which every voice spells. Pinned by `docs/src/lib/cadenza/letter-names.test.ts`.
+on the export. Kokoro phonemizes the text between each pair of punctuation marks on its own (its chunking
+regex in `kokoro-js`), and its phonemizer (espeak, the npm `phonemizer` package) reads a spaced `A` before
+another word as the article: `A M` → `ɐ ˈɛm`, `U A E` → `jˈuː ɐ ˈiː`, `B A now` → `bˈiː ɐ nˈaʊ`. Measured
+through that same chunking:
+
+| Form | Mid-sentence | Before a word | Alone between commas |
+|---|---|---|---|
+| spaced `U A E`, `B A` | `ɐ` (wrong) | `ɐ` (wrong) | `ˈeɪ` |
+| joined `UAE`, `BA` | `ˌeɪˈiː` | `bˌiːˈeɪ` | `jˈuːiː`, `bˈɑː` (wrong: "bah") |
+| hyphen after it, `U A- E`, `B A-` | `ˈeɪ ˈiː` | `bˈiː ˈeɪ` | `ˈeɪ ˈiː`, `bˈiː ˈeɪ` |
+
+So `normalize.ts` (`spellLetters`) writes each spelled `A` as `A-` and keeps the letters spaced, which also
+keeps one syllable per letter for caption timing (`syllableCount`; a joined `UAE` counted as one). The clock
+reads `A-M` / `P-M` (`ˈeɪˈɛm` in every position): the dotted forms are lexicon keys, and an undotted `am` /
+`pm` reads as the clock only right after an hour, which may open a bracket or end a range (`(10 AM)`,
+`9–10 AM`; `afterNumber`). Bare `AM` is not used: espeak reads "ten AM" in a short chunk as the verb `æm`.
+A first version joined runs with an A; an independent check found it read "bah, mah" in a list and broke
+caption timing, and this replaced it. Other voices (Gemini, the browser's speech) are not measured on
+these forms. Pinned by `docs/src/lib/cadenza/letter-names.test.ts`.

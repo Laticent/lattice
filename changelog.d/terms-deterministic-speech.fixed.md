@@ -3,4 +3,4 @@
 - **An abbreviation's period is not spoken as a full stop.** `Oct. 10` read "October. ten", with a pause in the date.
 - **Built-in terms take plurals, possessives and compounds** (`APIs`, `CEO’s`, `KPI-driven`), as a deck's own terms do, and a plural never doubles one the expansion has (`OKRs` read "objectives and key resultss").
 - **Heatmap narration names each cell by the label the chart draws.** A label with a lone `*`, `~`, an entity or a backslash escape was read differently, so the Guide could not find the cell, and `2*3 grid` was spoken "twenty-three grid".
-- **`10 a.m.` reads "ten A-M" on the on-device voice, not "ten uh em".** A spelled letter `A` before another word was read as the article; the clock (`a.m.`, `10 AM`, `9:30 pm`) and dotted initialisms with an A (`U.A.E.`, `B.A.`) now reach every voice as letter names.
+- **`10 a.m.` reads "ten A-M" on the on-device voice, not "ten uh em".** A spelled letter `A` before another word was read as the article. Clock times (`10 a.m.`, `10 AM`, `9:30 pm`, `(10 AM)`) and the `A` in a dotted initialism (`U.A.E.`, `B.A.`) now reach the voice as letter names, in a list as well as mid-sentence.

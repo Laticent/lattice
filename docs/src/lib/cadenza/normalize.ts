@@ -808,7 +808,8 @@ const BARE_NUMBER = /^-?\d[\d,]*(?:\.\d+)?$/;
 // A clock reading's `am` / `pm` after an hour (`10 AM`, `9:30 pm`). Undotted, so only beside a number:
 // a bare `PM` is also "product manager" and a bare `am` is a verb. The dotted forms are lexicon keys.
 const MERIDIEM: Record<string, string> = { am: 'A-M', AM: 'A-M', pm: 'P-M', PM: 'P-M' };
-const CLOCK_HOUR = /^(?:0?[1-9]|1[0-2])(?::[0-5]\d)?$/;
+// The hour may open a bracket or end a range: `(10 AM)`, `9–10 AM`, `9-10 pm`.
+const CLOCK_HOUR = /^\(?(?:(?:0?[1-9]|1[0-2])(?::[0-5]\d)?[–-])?(?:0?[1-9]|1[0-2])(?::[0-5]\d)?$/;
 
 /** A magnitude word or a currency symbol said as one, when it follows a number, else null. */
 function afterNumber(display: string, prev: string | undefined, prevPrev: string | undefined, opts: SpokenOpts): string | null {
@@ -818,9 +819,11 @@ function afterNumber(display: string, prev: string | undefined, prevPrev: string
   const core = punct ? tok.slice(0, -punct.length) : tok;
   // `withoutTrailingPunct`, a linear reverse scan: a `/[…]+$/` regex here is polynomial on a long run of `!`.
   const prevCore = withoutTrailingPunct(prev);
-  if (Object.hasOwn(MERIDIEM, core) && CLOCK_HOUR.test(prevCore) && prevCore === prev) {
+  // A closing bracket is peeled the way the wrap rule peels it (speech drops brackets): `(10 AM)`.
+  const clock = core.endsWith(')') ? core.slice(0, -1) : core;
+  if (Object.hasOwn(MERIDIEM, clock) && CLOCK_HOUR.test(prevCore) && prevCore === prev) {
     const terms = indexOf(opts);
-    if (!lookupTerm(terms, tok) && !lookupTerm(terms, core)) return MERIDIEM[core] + punct;
+    if (!lookupTerm(terms, tok) && !lookupTerm(terms, clock)) return MERIDIEM[clock] + punct;
   }
   if (Object.hasOwn(AFTER_NUMBER_MAGNITUDE, core) && BARE_NUMBER.test(prevCore)) {
     return AFTER_NUMBER_MAGNITUDE[core] + punct.replace(/^\./, '');
@@ -835,17 +838,16 @@ function afterNumber(display: string, prev: string | undefined, prevPrev: string
 }
 
 /**
- * Letters an initialism spells, in a form every voice reads as letter NAMES. Spaced (`U S`, `D C`) is
- * the default, but a spaced `A` before another word is the article to Kokoro's phonemizer: `U A E`
- * reads "you uh ee", `A I` reads "uh eye". So a run with an `A` in it is written joined (`UAE`, `AI`,
- * `BA`), which espeak and the cloud voices both spell; the few joined runs that are English words
- * (`AM`, `AS`, `AT`, `AN`) take a hyphen instead, which keeps a leading `A` a letter.
+ * Letters an initialism spells, spaced (`U S`, `D C`), in a form every Kokoro chunk reads as letter
+ * NAMES. Kokoro phonemizes the text between each pair of punctuation marks on its own, and its
+ * phonemizer (espeak) reads a spaced `A` before another word as the article: `U A E` was "you uh ee",
+ * `B A now` "bee uh now". A hyphen after the letter keeps it a letter in every position measured,
+ * mid-sentence, before a word and alone between commas: `U A- E`, `B A-`, `N A- S A-`. Joining the run
+ * (`UAE`) was tried and fails alone between commas (`B.A., M.A.` read "bah, mah") and counts as one
+ * syllable for caption timing. engineering/decisions/2026-11-19-segment-acronyms.md §4.
  */
-const JOINED_IS_A_WORD = new Set(['AM', 'AN', 'AS', 'AT', 'AH']);
 function spellLetters(letters: readonly string[]): string {
-  if (!letters.includes('A')) return letters.join(' ');
-  const joined = letters.join('');
-  return JOINED_IS_A_WORD.has(joined) ? letters.join('-') : joined;
+  return letters.map((l) => (l === 'A' ? 'A-' : l)).join(' ');
 }
 
 
