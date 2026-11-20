@@ -137,7 +137,7 @@
       "selector": "li > ul > li > ul",
       "match": { "kind": "list", "depth": 3, "marker": "any" },
       "required": false,
-      "description": "Optional nested sublist under a satellite (under a LEAF with `tiered`, one level deeper). Drives the shared chart-family detail substrate: the Present/Practice popover on the satellite's disc, and a speaker-note line in the static PDF, with the chart pixels unchanged. Detail sublists must be bullet (`-`/`*`) lists."
+      "description": "Optional nested sublist under a satellite (under a LEAF with `tiered`, one level deeper). Drives the shared chart-family detail substrate: the Present/Practice popover on the satellite's disc, and a speaker-note line in the static PDF, with the chart pixels unchanged. A detail sublist may be written with `-` or `1.`: the list contract reads both the same."
     }
   },
   "skeleton": "<!-- _class: hub-spoke -->\n\n`Eyebrow · context`\n\n## What the structure shows.\n\n- Hub\n  - First satellite\n  - Second satellite `at-risk`\n  - Third satellite\n  - Fourth satellite\n",

@@ -423,10 +423,11 @@ behind the one before it only where it reads that one's output.
   `any` before packing the lint contract for a component that declares `lists`, so `slot-contract`
   never reports a marker. The build fails a component with a list slot and no `lists`.
 - **Which lists are the layout's** (from the adversarial trio's review, 2026-11-20). The first
-  top-level list, and each later top-level list a heading separates from the one before (a
-  sectioned body, `regulatory-update`'s `### Added` / `### Amended`). A top-level list that follows
-  only prose is the author's aside and is left as written, as is a list inside a blockquote or in
-  raw HTML. Measured first: in every committed deck, each slide with more than one top-level list
+  top-level list, and each later one unless prose stands between it and the one before with no
+  heading after the prose: a sectioned body (`regulatory-update`'s `### Added` / `### Amended`) is
+  all the layout's, a marker change or a comment between lists changes nothing, and a list after a
+  line of prose is the author's aside, left as written, as is a list inside a blockquote or inside
+  a raw-HTML container (`<div>` … `</div>`, even when Markdown parses the list inside it). Measured first: in every committed deck, each slide with more than one top-level list
   separates them with headings. The pass also reads the deck's front-matter `class:` itself, since
   it runs before `deck_class_propagate`, so `class: steps` or `class: principles` sets the contract
   as a slide's own class does.

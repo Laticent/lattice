@@ -94,18 +94,32 @@ describe('every component that reads a list declares its contract', () => {
     assert.deepEqual(bad, []);
     assert.ok(names('h2+ol > li', 'ol') && names('section ol li', 'ol') && !names('.col > li', 'ol'), 'the selector reading');
   });
-  test('no neutral layout\'s guidance tells an author to swap `1.` and `-` (HARD RULE #6 sends agents there)', () => {
-    // Before W2 these entries described real breakage ("a `ul` renders as plain unstyled text").
-    // On a neutral layout the engine renders either marker the same, so such advice is now false.
-    const SWAP = /(instead of|rather than)[^.]{0,40}(`1\.`|`-`|numbered list|bullet list|ordered list)|(\bul\b|\bol\b|`-`|`1\.`)[^.]{0,60}(doesn't match|isn't recognized|renders as (a )?plain)/i;
+  test('no neutral layout\'s guidance tells an author one marker breaks it (HARD RULE #6 sends agents there)', () => {
+    // Before W2 these entries described real breakage ("a `ul` renders as plain unstyled text", "detail
+    // sublists must be bullet lists"). On a neutral layout either marker renders the same, so such
+    // advice is false. Read: commonMistakes, antiPatterns and every list slot's description (base and
+    // variant). "A table instead of a bullet list" is a different choice, not a marker, and passes.
+    const SWAP = [
+      /(instead of|rather than)[^.]{0,40}(`1\.`|`-`|numbered list|ordered list)/i,
+      /(\bul\b|\bol\b|`-`|`1\.`)[^.]{0,60}(doesn't match|isn't recognized|renders as (a )?plain)/i,
+      /must be (a )?(bullet|numbered|ordered)/i,
+      /not numbered\b/i,
+      /only (picks up|reads|matches) (bullet|numbered|ordered)/i,
+    ];
     const hits = [];
+    const look = (where, text) => { if (SWAP.some((re) => re.test(text))) hits.push(`${where}: ${text.slice(0, 90)}`); };
     for (const m of manifests) {
       if (m.lists !== 'neutral') continue;
-      for (const field of ['commonMistakes', 'antiPatterns']) {
-        for (const e of m[field] || []) if (SWAP.test(JSON.stringify(e))) hits.push(`${m.name}.${field}: ${JSON.stringify(e).slice(0, 90)}`);
+      for (const field of ['commonMistakes', 'antiPatterns']) for (const e of m[field] || []) look(`${m.name}.${field}`, JSON.stringify(e));
+      const slotSets = [m.slots || {}, ...Object.values(m.variantSlots || {})];
+      for (const set of slotSets) {
+        for (const [k, sl] of Object.entries(set)) {
+          if (sl?.description && [].concat(sl.match).some((x) => x?.kind === 'list')) look(`${m.name}.slots.${k}`, sl.description);
+        }
       }
     }
     assert.deepEqual(hits, []);
+    assert.ok(!SWAP.some((re) => re.test('Use a table instead of a bullet list when the rows compare.')), 'a non-marker choice passes');
   });
   test('the owner settled the R2 layouts (decision 1, 2026-11-19)', () => {
     for (const name of ['cards-grid', 'cards-stack', 'list-steps']) assert.equal(listContractFor(name).lists, 'numbered-tags', name);
@@ -181,6 +195,12 @@ describe('which lists are the layout\'s (the trio review of #3330)', () => {
     assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## H\n\n1. A\n   - a\n2. B\n   - b\n\nOpen risks:\n\n- Lock-in\n- Budget\n'), ['ol data-ordered="true"', 'ul', 'ul', 'ul']);
     assert.deepEqual(lists('<!-- _class: agenda -->\n\n## H\n\n- One\n- Two\n\nAlso:\n\n1. aside\n   1. deeper\n'), ['ol', 'ol', 'ol']);
     assert.deepEqual(lists('<!-- _class: regulatory-update -->\n\n## H\n\n### Added\n\n- A\n  - `x`\n\n### Amended\n\n- B\n  - `y`\n'), ['ol', 'ul', 'ol', 'ul']);
+  });
+  test('a pane reads the deck class; a list wrapped in raw HTML is the author\'s; a marker change or a comment is not prose', () => {
+    assert.deepEqual(lists('---\nclass: principles\n---\n\n<!-- _class: columns -->\n\n## H\n\n<!-- _pane: list -->\n\n- Alpha\n- Beta\n\n<!-- _pane: content -->\n\nText.\n'), ['ol data-ordered="false"']);
+    assert.deepEqual(lists('<!-- _class: kpi -->\n\n## H\n\n<div class="note">\n\n- in div\n\n</div>\n\n- real a\n  - x\n'), ['ul', 'ol', 'ul']);
+    assert.deepEqual(lists('<!-- _class: agenda -->\n\n## H\n\n- one\n- two\n* three\n'), ['ol', 'ol']);
+    assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## H\n\n1. A\n   - a\n\n<!-- note -->\n\n1. B\n   - b\n'), ['ol data-ordered="true"', 'ul', 'ol data-ordered="true"', 'ul']);
   });
   test('the runtime walks the same lists: not an aside, not raw HTML', () => {
     const doc = new JSDOM('<body><section class="agenda"><h2>H</h2><ul><li>x</li></ul><p>Also:</p><ul><li>aside</li></ul>'
