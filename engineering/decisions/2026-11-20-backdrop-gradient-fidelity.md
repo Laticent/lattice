@@ -168,8 +168,16 @@ glow picture; the clear-panel deck's draw-time cost.
 
 ## 6. What was not checked
 
-- **Apple PDFKit (Preview, iOS)**, the owner's viewer: not reachable from the build sandbox. It
-  honors `/Interpolate` and draws image soft masks; UNVERIFIED until a macOS or iOS run.
+- **Apple PDFKit (Preview, iOS)**, the owner's viewer: not reachable from the build sandbox. The owner
+  chose a platform suite for it (2026-11-20): `pdf-pdfkit` (`.github/platform-suites.json`,
+  `tools/pdfkit-check/`) draws the demo deck's PDF through PDFKit on a macOS runner, on every PR that
+  touches the writer and nightly, and fails when any 32 px tile is more than 12 levels from Chrome's screen.
+  Calibrated on Linux with poppler standing in: today's deck 4.6 to 8.7 levels, a dropped soft mask 16 to
+  29. It does not gate on blockiness: a glow changes by under a level every 4 px, so a viewer ignoring
+  `/Interpolate` would draw stairs of a level at most, which no gate can tell from rounding.
+- **The Studio's PDF download** is driven for real by `docs/e2e/studio-pdf-backdrop.spec.ts` (Chromium,
+  10 runs alone and 5 under load, green). Driving it found the Studio's dark slide drawn as opacity maps
+  (its hairline reached the drawing as a section strip); a section strip now goes above the glow picture.
 - WebKit on screen: the browser download was refused by this sandbox's network policy.
 - The Studio's own PDF download runs the same writer through html-to-image; it was not driven here.
 - 4K slides (the photo cap) and the editable `.pptx` (option A's follow-on) were not touched.

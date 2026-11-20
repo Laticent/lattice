@@ -119,6 +119,7 @@ const FOLDERS = {
   'tools/lib/': 'Shared modules the scripts in `tools/` import, so no script reimplements another.',
   'tools/office-conformance/': 'The Open XML SDK checker that validates exported Office files against the official schemas.',
   'tools/parser-bakeoff/': 'A measured bake-off of inline-notation parsers against the shipped kernel as the control.',
+  'tools/pdfkit-check/': 'Draws the finish demo PDF through Apple PDFKit on a macOS runner and compares it with the screen (the `pdf-pdfkit` platform suite).',
   'tools/perf-torture/': 'A reusable profiler that repeats one user action in a browser and reports memory that leaks.',
   'tools/recheck/': 'The pinned regex complexity checker behind `tools/regex-census.js`, kept out of the root install.',
   'tools/script-docs/': 'One description per npm script, the source of `dist/engineering/capabilities.md`.',
