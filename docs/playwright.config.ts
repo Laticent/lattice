@@ -22,10 +22,9 @@ import { shardProjects } from './e2e/shard-plan.mjs';
 // whose subject is resource ordering, first paint or a pre-hydration window has
 // to say WHICH build produced the `dist` it was measured against.
 //
-// Browser: Chromium build 1194 ↔ @playwright/test 1.56.1, at
-// PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers. The sandbox USED TO ship that build;
-// since 2026-11 it ships a newer one (1243), so `globalSetup` installs 1194 beside it
-// when it is missing (about 20 s). In CI, provision the pinned browser explicitly
+// Browser: Chromium build 1255 ↔ @playwright/test 1.65.1, at
+// PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers. The sandbox ships its own build (1243 as
+// of 2026-11), so `globalSetup` installs 1255 beside it when it is missing (about 20 s). In CI, provision the pinned browser explicitly
 // (the version pin IS the browser pin). See the decision doc
 // §"Sandbox + CI browser provisioning".
 //
