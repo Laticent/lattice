@@ -17,7 +17,7 @@
 const { spawn } = require('node:child_process');
 
 const [dir, role] = process.argv.slice(2);
-const LIFETIME_MS = 180000;
+const LIFETIME_MS = 240000;
 const KEEP = 6;
 
 if (role === 'child') {
