@@ -156,9 +156,13 @@ section.topic {
  * Behind `@supports` because relative color syntax is newer than `light-dark()`,
  * and a custom property holding a function the engine cannot parse is not
  * dropped at parse time — it goes invalid at computed time and takes the whole
- * shelf with it. An engine without it keeps the un-floored lift above. */
+ * shelf with it. An engine without it keeps the un-floored lift above. The guard
+ * tests the rule's own channel math, `max(l, 0.34)`, over a PLAIN origin: the
+ * registered `--_shelf-lift` is a plain color by the time it is read, so WebKit
+ * 17.4 (Safari 17.5-17.6), which drops a relative color over a light-dark()
+ * origin, paints this shelf correctly and must not be sent to the fallback. */
 @property --_shelf-lift { syntax: "<color>"; inherits: true; initial-value: transparent; }
-@supports (color: oklch(from red l c h)) {
+@supports (color: oklch(from red max(l, 0.34) c h)) {
   section.topic {
     --_shelf-lift: color-mix(in oklab, var(--surface-inverse) 80%, var(--text-display));
     --_shelf-fill: light-dark(var(--bg-alt), oklch(from var(--_shelf-lift) max(l, 0.34) c h));

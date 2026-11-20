@@ -258,6 +258,32 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   Its one curated ink sat at 2.97-4.42:1 on the dark band. `lib/core/resolve-token-expr.js` now reads a color-mix stop
   whose percentage is a var(), so offline checks resolve the new rule instead of passing it through.
   Washes stay washes: kanban cards, journey moods, bullet bands and state-chart groups are tints by design.
+- **The other relative-color guards (2026-11-20).** The same WebKit 17.4 gap reached three hand-written rules
+  outside the marks build, each behind a guard on a plain `red` that WebKit 17.4 passes: hub-spoke's icon ink
+  (`oklch(from var(--text-heading) calc(l * 0.55) c h)`), and the plugin painting canvas and plugin-off chip in
+  base.modifiers.css (`oklch(from var(--accent) l c calc(h + 34))`, which 17.4 also rejects for the calc() in the hue
+  channel). Measured in Playwright 1.44's WebKit 17.4 on indaco, both faces: the icon stroke computed to `none`, and
+  the canvas and chip lost their whole background-image. Each guard now tests its rule's own shape over a light-dark()
+  origin, so 17.4 takes the plain inks (heading ink on light, white and the canvas ink on dark) and paints every
+  gradient; Chromium 153, Firefox 142 and WebKit 26 compute the same values as before. Topic's shelf was the fourth
+  suspect and is fine: it reads a registered `<color>` (`--_shelf-lift`), which is a plain color by the time the
+  relative color reads it, so 17.4 paints the same floored shelf as Chromium. Its guard now tests the rule's own
+  `max(l, 0.34)` over a plain origin, which keeps 17.4 on the measured fill. The finish's opaque face has the same gap
+  with no guard at all; `followups.d/3232-p7-webkit17-finish-opaque-fade.md`.
+  Drawing the icons exposed a second gap: a chart finish repaints a hub-spoke disc on every engine (it carries no
+  text), but each icon ink sat behind the picked-ink guard, so WebKit 17.4 kept the plain slide's ink on the finished
+  disc. Measured over 32 palettes and three finishes, a neutral, two groups and three statuses each: 218 of 528 icons
+  under 3:1, the worst 1.11:1, where Chromium 153 has none. Four of those inks need no relative color, so
+  `tools/build-marks-css.js` now emits them outside the guard: pigment's group and neutral inks (its curated
+  `--finish-ink`, `--chart-on-mark`), every finish's status ink (`statusInk()`, a percent mix of curated inks), and
+  tone's first slot, its deepest step, where the pick is white on every light face (`--chart-on-mark`). The picked
+  inks still follow and win where the guard passes, so Chromium's 576 measured icons are unchanged. WebKit 17.4 after:
+  none under 3:1 (534 icons, plus 168 on a six-group tone slide), the worst 3.24:1. The totals differ because each
+  WebKit 17.4 run measured every page it reached: the before run's browser exited on its last few pages, so it counts
+  528; the after run covers every face but onyx light; Chromium's 576 include the a11y textured discs, which a
+  contrast ratio cannot read (552 measured). Onyx's light face was not
+  measured there: a `blocked` satellite hangs WebKit 17.4 on `main` too, from an oklab `color-mix()` of two
+  light-dark() pairs with a pure black arm; `followups.d/3232-p8-webkit17-oklab-black-mix-hang.md`.
 
 - **Tone's one status level** (`tools/build-marks-css.js` `TONE_STATUS`). Under tone a status kept its own hue at the
   text level, a 30% wash on light and 35% on dark, beside category shades that start at 92%: on light the status chart
@@ -328,6 +354,11 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
   picked one entry per token from `light-dark()` declarations alone, so the override was invisible to it. It now lets a
   later plain `:root` declaration replace an earlier pair. Measured over every palette: the five a11y palettes change,
   and the 14 brand themes' player output is byte-identical.
+- Safari 17.5-17.6 hangs on a hub-spoke `blocked` satellite on onyx's light face (an oklab `color-mix()` of two
+  light-dark() pairs with a pure black arm), on `main` too. `followups.d/3232-p8-webkit17-oklab-black-mix-hang.md`.
+- The finish compositor's opaque face (print, and the Studio's in-browser export) fades through
+  `rgb(from var(--fin-canvas) r g b / 0)` with no guard, which WebKit 17.4 drops over a light-dark() origin.
+  `followups.d/3232-p7-webkit17-finish-opaque-fade.md`.
 - Fixed in #3312 too: Chromium 119-122 crash the renderer on a relative color over a `color-mix()` origin (in
   Chromium 121 even `CSS.supports` on that shape takes the page down), which every picked ink is. The player first
   flattened the guard's `light-dark(red, red)` probe to `red`, which handed those engines the crash, so an a11y player

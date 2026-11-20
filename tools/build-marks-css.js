@@ -709,12 +709,23 @@ function build() {
   // 1.62:1). So under etch and tone the icon picks black or white from the SAME body its disc gets (the
   // finish tokens the group rule and the status rule read, so the two cannot drift), and waits on relative
   // color like every text ink here. Pigment's disc is a curated solid, so its icon takes the curated ink.
+  //
+  // Two of these inks need no relative color, so they apply on every engine (#3232 P1, measured in WebKit 17.4, which
+  // fails the guard). The disc moves everywhere, because it carries no text; an icon whose ink waited behind the guard
+  // kept the plain slide's ink on the finished disc, and 218 of 528 icons over 32 palettes and three finishes fell
+  // under 3:1, the worst 1.11:1 (Chromium 153: none). Pigment's group ink is its curated `--finish-ink`, and every
+  // finish's status ink is statusInk(), a percent mix of curated inks. The picked inks below still win where the guard
+  // passes: same selector, later in the sheet.
   w('\n/* HUB-SPOKE ICON — the ink its disc\'s finish body clears. */');
-  w(supports(rule('pigment', `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${tv(T.ink)}`])));
+  w(rule('pigment', `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${tv(T.ink)}`]));
+  w(rule(ALL, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${statusInk()}`]));
+  // Tone's first slot is its deepest step, and the picked ink is white there on every light face (Chromium 153, all 18
+  // light faces); WebKit 17.4 kept the heading ink, 2.25-2.93:1 on 11 brand themes. Its other slots and every dark face
+  // already take the plain ink the pick lands on, so this one fixed ink is the whole fallback.
+  w(rule('tone', '.hub-spoke-icon[data-hue="1"]', ['--hs-icon-ink: light-dark(var(--chart-on-mark), var(--text-heading))']));
   // The disc's body is the mark's own (THE SLOT), and the icon is a mark of the same slot: one rule for every slot.
   w(supports(rule(MOVERS, `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${`light-dark(${inkOn('var(--finish-mark-body-l)')}, ${inkOn('var(--finish-mark-body-d)')})`}`])));
   const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
-  w(supports(rule('pigment', '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${statusInk()}`])));
   w(supports(rule(MOVERS, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: light-dark(${inkOn(tmix(hsStatus.hue, T.status, T.statusBase))}, ${inkOn(tmix(hsStatus.hue, T.statusD, T.statusBase))})`])));
 
   // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
@@ -1036,7 +1047,9 @@ function build() {
       w(ruleIf(name, HS_GROUPED, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
         'fill: var(--chart-neutral-hue)', 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
       ]));
-      w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [`--hs-icon-ink: ${textInk(name)}`])));
+      // The neutral solid's curated ink needs no relative color, so it applies on every engine, like the group and status
+      // icon inks above (#3232 P1: WebKit 17.4 kept the plain heading ink on this solid, 2.33:1 on concrete).
+      w(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [`--hs-icon-ink: ${textInk(name)}`]));
     }
 
     // ── A JOURNEY STAGE BAR — one constant ground (`encodes: none`), the heaviest mark on the slide ────

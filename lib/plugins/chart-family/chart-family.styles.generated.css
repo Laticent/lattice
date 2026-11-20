@@ -679,22 +679,22 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.tower-share-value:is
 }
 
 /* HUB-SPOKE ICON — the ink its disc's finish body clears. */
-@supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-pigment :where(.hub-spoke-icon:is([data-hue="1"], [data-hue="2"], [data-hue="3"], [data-hue="4"], [data-hue="5"], [data-hue="6"], [data-hue="7"], [data-hue="8"])),
 figure.marks-pigment :where(.hub-spoke-icon:is([data-hue="1"], [data-hue="2"], [data-hue="3"], [data-hue="4"], [data-hue="5"], [data-hue="6"], [data-hue="7"], [data-hue="8"])) {
   --hs-icon-ink: var(--finish-ink) !important;
 }
+section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.hub-spoke-icon[data-s]),
+figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.hub-spoke-icon[data-s]) {
+  --hs-icon-ink: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
+}
+section.marks-tone :where(.hub-spoke-icon[data-hue="1"]),
+figure.marks-tone :where(.hub-spoke-icon[data-hue="1"]) {
+  --hs-icon-ink: light-dark(var(--chart-on-mark), var(--text-heading)) !important;
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-etch, .marks-tone) :where(.hub-spoke-icon:is([data-hue="1"], [data-hue="2"], [data-hue="3"], [data-hue="4"], [data-hue="5"], [data-hue="6"], [data-hue="7"], [data-hue="8"])),
 figure:is(.marks-etch, .marks-tone) :where(.hub-spoke-icon:is([data-hue="1"], [data-hue="2"], [data-hue="3"], [data-hue="4"], [data-hue="5"], [data-hue="6"], [data-hue="7"], [data-hue="8"])) {
   --hs-icon-ink: light-dark(color(from var(--finish-mark-body-l) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from var(--finish-mark-body-d) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
-}
-}
-@supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-pigment :where(.hub-spoke-icon[data-s]),
-figure.marks-pigment :where(.hub-spoke-icon[data-s]) {
-  --hs-icon-ink: light-dark(color-mix(in srgb, var(--finish-ink) var(--finish-status-k), var(--status-on-ink)), color-mix(in srgb, var(--finish-ink) var(--finish-status-k-d), var(--status-on-ink))) !important;
 }
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -775,11 +775,9 @@ figure.marks-pigment:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) :where
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-@supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-pigment :where(.hub-spoke-icon:not([data-s]):not([data-hue])),
 figure.marks-pigment :where(.hub-spoke-icon:not([data-s]):not([data-hue])) {
   --hs-icon-ink: var(--chart-on-mark) !important;
-}
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-pigment :where(:is(.journey-stage, .journey-vstage-name)),
