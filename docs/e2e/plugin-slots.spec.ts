@@ -185,8 +185,19 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await page.getByRole('button', { name: 'Share', exact: true }).click();
 		const sheet = page.getByRole('dialog');
 		await sheet.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
-		await expect.poll(async () => (await printPreview(sheet)).some((s) => s.startsWith('drawn ')), { timeout: 60_000 }).toBe(true);
-		expect(await printPreview(sheet), 'the print preview draws the plugin with its fill, never its source or a placeholder').not.toContainEqual(expect.stringMatching(/^(source|placeholder)$|rgba\(0, 0, 0, 0\)/));
+		// Every thumbnail, not the first: the sheet draws them one by one, so a read taken the moment ONE was drawn could
+		// still find the next as a placeholder on its way to drawn (CI, studio-smoke on PR 3307: ["placeholder", "drawn …"]).
+		// A thumbnail that never draws still fails here, at the deadline, and the failure lists what each one showed.
+		const BAD = /^(source|placeholder)$|rgba\(0, 0, 0, 0\)/;
+		await expect
+			.poll(
+				async () => {
+					const seen = await printPreview(sheet);
+					return seen.length > 0 && seen.every((s) => s.startsWith('drawn ') && !BAD.test(s)) ? 'every thumbnail drawn' : JSON.stringify(seen);
+				},
+				{ message: 'the print preview draws the plugin with its fill, never its source or a placeholder', timeout: 60_000 },
+			)
+			.toBe('every thumbnail drawn');
 		await page.keyboard.press('Escape');
 
 		// 4. THREE WIDTHS
