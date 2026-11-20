@@ -156,11 +156,11 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 		});
 	});
 
-	it('the drawer Auto head reads `preset: <label>` while the recommendation applies', () => {
+	it('the drawer Auto head reads `<label> (preset)` while the recommendation applies', () => {
 		const cap = (v: string) => v[0].toUpperCase() + v.slice(1);
 		withProbe(() => {
-			expect(presetAutoLabel(bare('preset: probe'), 'theme', 'Indaco', cap)).toBe('preset: Cuoio');
-			expect(presetAutoLabel(bare('preset: probe'), 'color-mode', "Theme's own", cap)).toBe('preset: Dark');
+			expect(presetAutoLabel(bare('preset: probe'), 'theme', 'Indaco', cap)).toBe('Cuoio (preset)');
+			expect(presetAutoLabel(bare('preset: probe'), 'color-mode', "Theme's own", cap)).toBe('Dark (preset)');
 			expect(presetAutoLabel(bare('preset: probe', 'class: dark'), 'color-mode', "Theme's own", cap)).toBe("Theme's own");
 		});
 		expect(presetAutoLabel(bare('theme: cuoio'), 'theme', 'Indaco', cap)).toBe('Indaco');

@@ -203,21 +203,21 @@ describe('DeckConfigPanel — Auto names a preset recommendation (P0)', () => {
 	it('labels Auto with the preset value, and only while the deck leaves the key to it', () => {
 		withPresetTable({ ...PRESETS, probe: PROBE }, () => {
 			mount('---\nmarp: true\npreset: probe\n---\n\n# Hi\n');
-			expect(screen.getByRole('combobox', { name: 'Choose theme' })).toHaveTextContent('Auto — preset: Cuoio');
-			expect(screen.getByRole('combobox', { name: 'Choose color mode' })).toHaveTextContent('Auto — preset: Dark');
+			expect(screen.getByRole('combobox', { name: 'Choose theme' })).toHaveTextContent('Auto — Cuoio (preset)');
+			expect(screen.getByRole('combobox', { name: 'Choose color mode' })).toHaveTextContent('Auto — Dark (preset)');
 		});
 	});
 	it('control: a scheme pinned in class: takes the color-mode label back, and leaves the theme label', () => {
 		withPresetTable({ ...PRESETS, probe: PROBE }, () => {
 			mount('---\nmarp: true\npreset: probe\nclass: light\n---\n\n# Hi\n');
-			expect(screen.getByRole('combobox', { name: 'Choose color mode' })).not.toHaveTextContent('preset:');
-			expect(screen.getByRole('combobox', { name: 'Choose theme' })).toHaveTextContent('Auto — preset: Cuoio');
+			expect(screen.getByRole('combobox', { name: 'Choose color mode' })).not.toHaveTextContent('(preset)');
+			expect(screen.getByRole('combobox', { name: 'Choose theme' })).toHaveTextContent('Auto — Cuoio (preset)');
 		});
 	});
 	it('control: a written theme takes the theme label back', () => {
 		withPresetTable({ ...PRESETS, probe: PROBE }, () => {
 			mount('---\nmarp: true\npreset: probe\ntheme: indaco\n---\n\n# Hi\n');
-			expect(screen.getByRole('combobox', { name: 'Choose theme' })).not.toHaveTextContent('preset:');
+			expect(screen.getByRole('combobox', { name: 'Choose theme' })).not.toHaveTextContent('(preset)');
 		});
 	});
 	it('control: a recommended palette the host does not have is not named', () => {

@@ -128,7 +128,7 @@ export function DeckConfigPanel({
 				{selectRow('theme', 'Theme', 'Palette for this deck. Auto follows the site; any other choice pins it and travels with the exported .md', groups, valid ? raw : '', '', {
 					round: true,
 					// Auto FOLLOWS a preset's recommended palette (D1), so it names it.
-					autoLabel: fm.presetTheme && palettes.includes(fm.presetTheme) ? `preset: ${paletteLabel(fm.presetTheme)}` : site ? `follow the site (${paletteLabel(site)})` : 'follow the site',
+					autoLabel: fm.presetTheme && palettes.includes(fm.presetTheme) ? `${paletteLabel(fm.presetTheme)} (preset)` : site ? `follow the site (${paletteLabel(site)})` : 'follow the site',
 					autoTitle: fm.presetTheme && palettes.includes(fm.presetTheme) ? 'The palette the preset recommends. Pick another theme to override it.' : 'Follow the website theme (no theme pinned to the deck).',
 				})}
 				{raw && !valid && (
@@ -157,7 +157,7 @@ export function DeckConfigPanel({
 			{show('theme') && palettes.length > 0 && themeRow()}
 			{show('color-mode') &&
 				selectRow('color-mode', 'Color mode', 'The mode the deck opens in everywhere — pin light/dark, follow the OS, or match the host', [{ options: withUnknown(COLOR_MODES, fm['color-mode']) }], fm['color-mode'], '', {
-					autoLabel: fm.presetColorMode ? `preset: ${COLOR_MODES.find((o) => o.value === fm.presetColorMode)?.label ?? fm.presetColorMode}` : "Theme's own",
+					autoLabel: fm.presetColorMode ? `${COLOR_MODES.find((o) => o.value === fm.presetColorMode)?.label ?? fm.presetColorMode} (preset)` : "Theme's own",
 					autoTitle: fm.presetColorMode ? 'The color mode the preset recommends. Pick another mode to override it.' : 'The mode the theme was designed in.',
 				})}
 			{show('preset') &&

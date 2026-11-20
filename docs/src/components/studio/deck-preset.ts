@@ -95,7 +95,8 @@ export function presetRecommendation(source: string, key: string): string | null
 	return name ? ENGINE.presetValue(name, key) : null;
 }
 
-/** The text an Auto head names for `key`: `preset: <label>` while the preset's recommendation applies, else
+/** The text an Auto head names for `key`: `<label> (preset)` — the value first, so a narrow control that
+ *  truncates keeps it — while the preset's recommendation applies, else
  *  `fallback` (what Auto resolves to without one). `labelOf` turns a value into its display label; `isKnown` says
  *  whether this host can render the value (a palette it has). */
 export function presetAutoLabel(
@@ -108,7 +109,7 @@ export function presetAutoLabel(
 	const rec = presetRecommendation(source, key);
 	// A palette this host cannot load falls back to the site's in the preview (deck-theme.ts `isKnownTheme`), so
 	// the label must not name it either.
-	return rec && isKnown(rec) ? `preset: ${labelOf(rec)}` : fallback;
+	return rec && isKnown(rec) ? `${labelOf(rec)} (preset)` : fallback;
 }
 
 /**

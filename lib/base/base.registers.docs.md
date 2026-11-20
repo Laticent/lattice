@@ -113,7 +113,7 @@ use them arrive with the deck-preset work
 anything the author writes: the deck's own key wins, a deck-wide `class: dark`, `light` or
 `print` or a `-dark` theme keeps its color mode, and the Studio never removes your `theme:` or
 `color-mode:` when you pick a preset or press Reset. In the Studio and the Playground, **Auto**
-follows the preset's recommendation and says so (`Auto — preset: Cuoio`); pick another value to
+follows the preset's recommendation and says so (`Auto — Cuoio (preset)`); pick another value to
 override it. Export to Marp writes a recommended
 palette into the bundle as its `theme:` line, because Marp picks the theme.
 
