@@ -27,7 +27,7 @@ async function openPlayground(page: Page) {
 	})).toBe(true);
 }
 
-test('@gecko Playground preview: a wheel shows the rail, a click reaches the last slide, and it hides when idle', async ({ page }) => {
+test('@gecko @crosswidth @webkit-tablet Playground preview: a wheel shows the rail, a click reaches the last slide, and it hides when idle', async ({ page }) => {
 	await openPlayground(page);
 	const box = await page.locator('#preview').boundingBox();
 	if (!box) throw new Error('preview frame has no box');
@@ -50,7 +50,7 @@ test('@gecko Playground preview: a wheel shows the rail, a click reaches the las
 	await hidden(control(page, 'top'), 5000);
 });
 
-test('@gecko Playground preview: the app scrolling the preview does not show the control; the reader does', async ({ page }) => {
+test('@gecko @crosswidth @webkit-tablet Playground preview: the app scrolling the preview does not show the control; the reader does', async ({ page }) => {
 	await openPlayground(page);
 	// Scroll it the way the editor's caret-follow does: from script, with no reader input on the frame. ONE read,
 	// taken after the frame's scroll event and two frames, never a retrying "count is 0": that would pass once the
