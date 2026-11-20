@@ -30,7 +30,7 @@ function fakeGitHub({ draft = true, runs = [], onReady = defaultReady, onTick = 
   };
   gh.api = (method, p) => {
     gh.calls.push(`${method} ${p.replace(/\?.*$/, '')}`);
-    if (method === 'GET' && /\/pulls\/\d+$/.test(p)) return { draft: gh.draft, head: { sha: gh.headSha, ref: 'feature' } };
+    if (method === 'GET' && /\/pulls\/\d+$/.test(p)) return { draft: gh.draft, head: { sha: gh.headSha, ref: 'feature', repo: { full_name: gh.headRepo || 'Laticent/lattice' } } };
     if (method === 'GET' && p.includes('/workflows/ci.yml/runs')) {
       // A run with no `sha` belongs to whatever head is asked about; one with a `sha` only to that commit.
       const asked = p.match(/head_sha=([0-9a-f]+)/)[1];
@@ -61,7 +61,8 @@ function defaultReady(gh) {
   gh.addRun('in_progress', null, 'in_progress');
 }
 
-const opts = (gh) => ({ api: gh.api, sleep: gh.sleep, tries: 5, intervalMs: 1 });
+// `pushed` stands in for `git ls-remote`: by default the remote tip is whatever GitHub shows.
+const opts = (gh) => ({ api: gh.api, sleep: gh.sleep, tries: 5, intervalMs: 1, pushed: () => gh.headSha });
 
 test('ready: a draft whose push run has finished goes ready and confirms a real run', async () => {
   const { ready } = await import(MODULE);
@@ -254,14 +255,23 @@ test('ready: run straight after a push, it waits for GitHub to show the pushed c
   gh.runs.push({ id: 1, sha: OLD, status: 'in_progress', conclusion: null, html_url: 'old' });
   gh.jobs[1] = [{ name: 'changes', status: 'completed', conclusion: 'success' }]; // the old commit's real run, still going
   gh.runs.push({ id: 2, sha: NEW, status: 'queued', conclusion: null, html_url: 'new-draft' });
-  const lines = await ready(3333, { ...opts(gh), local: { branch: 'feature', sha: NEW } });
+  const lines = await ready(3333, { ...opts(gh), pushed: (ref) => (ref === 'feature' ? NEW : null) });
   assert.match(lines.at(-1), /is ready; ci is running on ccccccc/);
 });
 
-test('ready: from another branch it does not wait on the local HEAD', async () => {
+test('ready: a fork PR never waits on this repo\'s remote', async () => {
   const { ready } = await import(MODULE);
   const gh = fakeGitHub({ runs: [{ id: 1, status: 'completed', conclusion: 'skipped', html_url: 'u1' }] });
-  const lines = await ready(3333, { ...opts(gh), local: { branch: 'main', sha: 'f'.repeat(40) } });
+  gh.headRepo = 'someone/lattice';
+  const lines = await ready(3333, { ...opts(gh), pushed: () => 'f'.repeat(40) });
+  assert.match(lines.at(-1), /is ready; ci is running/);
+  assert.equal(gh.ticks, 0);
+});
+
+test('ready: an unreadable remote does not block (no wait, same as before the fix)', async () => {
+  const { ready } = await import(MODULE);
+  const gh = fakeGitHub({ runs: [{ id: 1, status: 'completed', conclusion: 'skipped', html_url: 'u1' }] });
+  const lines = await ready(3333, { ...opts(gh), pushed: () => null });
   assert.match(lines.at(-1), /is ready; ci is running/);
   assert.equal(gh.ticks, 0);
 });

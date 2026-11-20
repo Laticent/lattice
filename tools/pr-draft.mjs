@@ -10,7 +10,7 @@
  * event into the push's run, which carried the draft snapshot, and a skipped `ci` reads as
  * passing. `ready` closes it:
  *
- *   0. when run from the PR's branch, waits until GitHub shows the local HEAD as the PR's head;
+ *   0. waits until GitHub shows the remote branch's tip (`git ls-remote`) as the PR's head;
  *   1. waits until every `ci` run on the head exists and has finished (the push's skipped run);
  *   2. marks the PR ready;
  *   3. waits for a NEW `ci` run on the head and checks that its `changes` job was not skipped;
@@ -120,28 +120,29 @@ export async function park(pr, { api = ghApi } = {}) {
 }
 
 /**
- * The commit this checkout last pushed for `pr`'s branch, or null. GitHub moves a PR's head a few
- * seconds after a push, so `ready` run straight after `git push` would otherwise read the OLD head
- * (seen live on #3342: it found the previous commit's run still going and exited 3).
+ * The commit the remote branch `ref` points at right now, read from the remote itself
+ * (`git ls-remote`), or null. GitHub moves a PR's head a few seconds after a push, so `ready` run
+ * straight after `git push` would otherwise read the OLD head (seen live on #3342: it found the
+ * previous commit's run still going and exited 3). Asking the remote, not the local checkout,
+ * keeps unpushed commits, a stale checkout and a push under another branch name out of it.
  */
-export function localHead() {
-  const git = (...a) => spawnSync('git', a, { encoding: 'utf8' });
-  const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
-  const sha = git('rev-parse', 'HEAD');
-  if (branch.status !== 0 || sha.status !== 0) return null;
-  return { branch: branch.stdout.trim(), sha: sha.stdout.trim() };
+export function remoteSha(ref) {
+  const out = spawnSync('git', ['ls-remote', 'origin', `refs/heads/${ref}`], { encoding: 'utf8' });
+  if (out.status !== 0) return null;
+  return out.stdout.trim().split(/\s+/)[0] || null;
 }
 
 /** Mark the PR ready and confirm a real CI run started on its head. Returns the lines to print. */
-export async function ready(pr, { api = ghApi, sleep = realSleep, tries = 36, intervalMs = 5000, local = null } = {}) {
+export async function ready(pr, { api = ghApi, sleep = realSleep, tries = 36, intervalMs = 5000, pushed = remoteSha } = {}) {
   const lines = [];
   const opts = { tries, intervalMs, sleep };
-  // When this checkout is on the PR's branch, wait for GitHub to show its HEAD as the PR's head.
+  // Wait for GitHub to show what the remote branch holds as the PR's head (same-repo PRs only).
   const first = api('GET', `repos/${REPO}/pulls/${pr}`);
-  if (local && local.branch === first.head.ref && local.sha !== first.head.sha) {
-    await poll(() => api('GET', `repos/${REPO}/pulls/${pr}`).head.sha === local.sha, {
+  const want = first.head.repo?.full_name === REPO ? pushed(first.head.ref) : null;
+  if (want && want !== first.head.sha) {
+    await poll(() => api('GET', `repos/${REPO}/pulls/${pr}`).head.sha === want, {
       ...opts,
-      what: `GitHub to show ${local.sha.slice(0, 7)} as #${pr}'s head (was it pushed?)`,
+      what: `GitHub to show ${want.slice(0, 7)} (the tip of ${first.head.ref}) as #${pr}'s head`,
     });
   }
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -194,7 +195,7 @@ async function main(argv) {
     return 64;
   }
   try {
-    const lines = verb === 'park' ? await park(Number(pr)) : await ready(Number(pr), { local: localHead() });
+    const lines = verb === 'park' ? await park(Number(pr)) : await ready(Number(pr));
     for (const line of lines) console.log(line);
     return 0;
   } catch (err) {
