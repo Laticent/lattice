@@ -22,6 +22,7 @@ import { CLIP_ORIGIN } from './clip-origin';
 import { deckSchema, SEP, serializeSlideNode, slideContent } from './deck-doc';
 import { latticeMarkdownSerializer } from './deck-markdown';
 import { hasLossyConstruct, parseDeck } from './deck-source';
+import { takePendingSelection } from './pending-selection';
 import { isRawBlockText } from './raw-block';
 
 // ── Reading: does this text mean Markdown? ──────────────────────────────────────────────────────────────
@@ -408,6 +409,10 @@ export function markdownClipboardPlugin(notice: ClipboardNotice, check: RemoteCh
 			}
 		}
 		if ((view as unknown as { isDestroyed?: boolean }).isDestroyed) return;
+		// The paste resumes after an `await`, so a click during the check may have moved the caret without ProseMirror
+		// reading it yet. Read it first, or this transaction writes the old caret back and the paste lands where the caret was
+		// (pending-selection.ts; the same race as the change flash's clear).
+		takePendingSelection(view);
 		const state = view.state;
 		const tr = p.slides ? placeSlides(state, p.slice.content) : p.slice.size ? state.tr.replaceSelection(p.slice) : state.tr;
 		const merged = merge ? merge((state.doc.attrs.frontMatter as string) || '', p.frontMatter) : null;

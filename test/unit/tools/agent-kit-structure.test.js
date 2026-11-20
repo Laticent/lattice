@@ -192,6 +192,20 @@ test('agent kit structure', { skip }, async (t) => {
 		);
 	});
 
+	await t.test('the checker carries the slot contract, so slot-contract fires inside the kit', () => {
+		// lint-core reads the contract from the vocabulary (`slotContract`), and the kit builds its own
+		// vocabulary from components.json: without the packed string it ran with the rule silently off.
+		const { execFileSync } = require('node:child_process');
+		const os = require('node:os');
+		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kit-slot-'));
+		const deck = path.join(tmp, 'd.md');
+		fs.writeFileSync(deck, ['---', 'theme: cuoio', '---', '', '<!-- _class: agenda -->', '', '## What we cover', '', '- Pipeline', '- Hiring', ''].join('\n'));
+		const out = execFileSync(process.execPath, [path.join(KIT, 'review', 'check.mjs'), deck, '--json'], { encoding: 'utf8' });
+		fs.rmSync(tmp, { recursive: true, force: true });
+		const rules = JSON.parse(out).files[0].findings.map((f) => f.rule);
+		assert.ok(rules.includes('slot-contract'), `the kit's checker no longer reports slot-contract: ${rules.join(', ')}`);
+	});
+
 	await t.test('the checker ships, runs, and finds real defects', () => {
 		const check = path.join(KIT, 'review', 'check.mjs');
 		assert.ok(fs.existsSync(check), 'review/check.mjs is missing — the kit has no checker');

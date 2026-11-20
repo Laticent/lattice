@@ -16,10 +16,10 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading — typically 'Glossary'. |
-| `entries` | `ul > li` | yes | Nested bullets: outer li is the term, inner li is its one-line definition. A runtime transform converts the list into a two-column table and derives the alphabetic range pill from the first and last terms, so terms should be authored in alphabetical order; without the Lattice runtime the raw nested list renders unstyled. |
+| `title` | a `## ` heading | yes | Slide heading — typically 'Glossary'. |
+| `entries` | a `-` list or a table | yes | Nested bullets: outer li is the term, inner li is its one-line definition. A runtime transform converts the list into a two-column table and derives the alphabetic range pill from the first and last terms, so terms should be authored in alphabetical order; without the Lattice runtime the raw nested list renders unstyled. |
 
 ### Common mistakes
 
@@ -72,7 +72,7 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

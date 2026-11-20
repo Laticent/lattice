@@ -39,16 +39,19 @@
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": [1, 2] },
       "required": true,
       "description": "Closing line — takeaway, thank-you, or call to action. Capped at `--measure-bookend-heading` (16em ≈ 33 characters), mirroring title; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`."
     },
     "eyebrow": {
       "selector": "p > code",
+      "match": { "kind": "code-line" },
       "required": false,
       "description": "Optional category label."
     },
     "subtitle": {
       "selector": "p",
+      "match": { "kind": "paragraph" },
       "required": false,
       "description": "Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure."
     }

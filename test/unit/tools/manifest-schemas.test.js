@@ -177,6 +177,8 @@ test('BITES: an unregistered manifest family, and a `$schema` pointing at the wr
     // A minimal but REAL root: the small families copied whole, components stubbed
     // with one genuine manifest so every family is non-empty.
     for (const d of ['themes', 'lib/forms', 'lib/finishes', 'lib/motion', 'lib/plugins', 'lib/use-cases']) fs.cpSync(path.join(ROOT, d), path.join(tmp, d), { recursive: true });
+    fs.mkdirSync(path.join(tmp, 'lib/base'), { recursive: true });
+    for (const f of ['base.manifest.json', 'base.manifest.schema.json']) fs.copyFileSync(path.join(ROOT, 'lib/base', f), path.join(tmp, 'lib/base', f));
     fs.mkdirSync(path.join(tmp, 'lib/components/anchor/title'), { recursive: true });
     fs.copyFileSync(
       path.join(ROOT, 'lib/components/manifest.schema.json'),
@@ -326,14 +328,14 @@ test('BITES: a typo inside a SLOT — 61 manifests set slots.*.required', () => 
   );
 });
 
-test('the slots subschema is closed, and all 180 slots use only its three keys', () => {
+test('the slots subschema is closed, and every slot uses only its four keys', () => {
   const slot = read('lib/components/manifest.schema.json').properties.slots.additionalProperties;
   assert.equal(slot.additionalProperties, false, 'slots.<name> must reject undeclared keys');
   const used = new Set();
   for (const f of listFamilyManifests(family('component'))) {
     for (const s of Object.values(read(f).slots ?? {})) for (const k of Object.keys(s)) used.add(k);
   }
-  assert.deepEqual([...used].sort(), ['description', 'required', 'selector']);
+  assert.deepEqual([...used].sort(), ['description', 'match', 'required', 'selector']);
 });
 
 test('the sweep skips dot-directories and parked `_` directories', () => {

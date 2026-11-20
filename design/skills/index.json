@@ -134,7 +134,7 @@
       "description": "Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3194
+      "tokens": 3193
     },
     {
       "name": "speaker-notes",
@@ -152,7 +152,7 @@
       "description": "Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do.",
       "kind": "operate",
       "studio": true,
-      "tokens": 4629
+      "tokens": 4684
     },
     {
       "name": "theme",

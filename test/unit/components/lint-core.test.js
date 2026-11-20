@@ -47,10 +47,13 @@ describe('lint-core: detector helpers', () => {
 });
 
 describe('lint-core: isKnownModifier', () => {
-  test('set membership and prefix families are known; gibberish is not', () => {
+  test('set membership is known; prefix families and gibberish are not', () => {
     assert.equal(core.isKnownModifier('dark', vocab), true);
-    assert.equal(core.isKnownModifier('tint-corner', vocab), true); // prefix family
-    assert.equal(core.isKnownModifier('mark-orbit', vocab), true);
+    // The prefix families closed in W5 (2026-11-19 audit): a word is known through the vocabulary,
+    // so a bare vocab without `tint-corner` or `mark-orbit` no longer waves them through on a prefix.
+    assert.equal(core.isKnownModifier('tint-corner', vocab), false);
+    assert.equal(core.isKnownModifier('mark-orbit', vocab), false);
+    assert.equal(core.isKnownModifier('finish-atrium', vocab), true); // saved finish names stay open
     assert.equal(core.isKnownModifier('wobble', vocab), false);
   });
 });

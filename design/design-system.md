@@ -441,22 +441,11 @@ recognizes four tiers:
 
 **Tier 1 — Universal.** Apply to every component. `effectiveVariants()` adds
 the `UNIVERSAL_GROUPS` subset automatically; manifests must NOT list them. The
-full registry of modifiers is `MODIFIER_GROUPS` in `lib/components/index.js`;
-the table below shows the core groups, not the full set. The categories:
-
-| Category | Variants |
-|---|---|
-| Mood | `dark` |
-| Decoration | `no-treatment`, `tint-corner at-tl`, `mark-orbit`, `tint-vignette`, `tint-edge at-right`, `mark-threads` |
-| Typography | `with-period`, `no-period`, `scale-l`, `scale-xl`, `scale-2xl` |
-| Chrome | `silent`, `no-header`, `no-footer`, `no-pagination`, `no-progress` |
-| Social | `safe` |
-| State | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
-| Tone | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
-| Insight | `insight-key`, `insight-recommendation`, `insight-takeaway`, `insight-verdict`, `insight-so-what`, `insight-bottom-line`, `insight-the-ask`, `insight-our-view`, `insight-implication`, `insight-next-step`, `insight-why` |
-| Claim | `claim-quiet`, `claim-hero`, `claim-framed` (the last is the no-op per-slide opt-out marker) |
-| Note | `no-note`, `note-warn` |
-| Table | `table-plain`, `table-fill`, `state-cells` |
+full set is declared in `lib/base/base.manifest.json`, which builds
+`MODIFIER_GROUPS` (`lib/components/index.js`), and is listed group by group in
+the generated [base modifier reference](../lib/base/base.modifiers.docs.md),
+with the test that tells a component, a variant, a modifier, a switch and a
+register apart. The list is generated, so this page does not repeat it.
 
 The State variants are the team-collaboration vocabulary — visible
 markers for slides that are in-progress, confidential, or otherwise

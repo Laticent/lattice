@@ -79,13 +79,15 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading — typically 'Agenda' or 'What we'll cover'."
     },
     "items": {
       "selector": "ol > li",
-      "required": true,
-      "description": "Ordered list of section titles."
+      "match": { "kind": "list", "depth": 1, "marker": "ordered" },
+      "required": false,
+      "description": "Ordered list of section titles. Leave it out and the agenda fills itself from the deck's `divider` headings."
     }
   },
   "skeleton": "<!-- _class: agenda -->\n\n## What this deck covers.\n\n1. First section title\n2. Second section title\n3. Third section title\n4. Fourth section title\n",

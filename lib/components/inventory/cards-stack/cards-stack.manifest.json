@@ -60,6 +60,12 @@
   ],
   "description": "Parallel items stacked vertically, full-width cards.",
   "purpose": "Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best.",
+  "variantKinds": {
+    "numbered": {
+      "kind": "source",
+      "means": "Write the cards as a `1.` list; the corner numbers come from it, and the class adds nothing."
+    }
+  },
   "variants": [
     "horizontal",
     "numbered"
@@ -67,11 +73,13 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading."
     },
     "cards": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional pill on the title line, written `{status}` in inline code, is right-anchored."
     }

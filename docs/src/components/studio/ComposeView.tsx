@@ -27,6 +27,7 @@ import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, typ
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { takePendingSelection } from '@/lib/compose/pending-selection';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
+import { pointerFocusCaret } from '@/lib/compose/pointer-focus-caret';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { applySlideLayout, layoutBlocker, restoreSlide, type SlideLayoutChoice, slideComponent, slideFit, slideStarter } from '@/lib/compose/slide-layout';
@@ -3318,6 +3319,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// the add-slide gallery, a Markdown round trip), and each one used to silently unfold
 		// everything. Read first, restore after — the doc the keys are matched against has to be
 		// the new one.
+		// A resync can start with no key or click (a co-editor's change in a live session, a held change settling on a
+		// timer), and the caret it keeps is read from the state below: read a click ProseMirror has not taken in yet first,
+		// or the rebuilt state puts the caret back on the slide the author just left (pending-selection.ts).
+		takePendingSelection(view);
 		const folded = collapsedKeys(view.state);
 		const before = view.state.doc;
 		const doc = deckToDoc(src);
@@ -3422,6 +3427,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const at = mountAt;
 			const onFocus = !!at && at.slide >= 0 && at.slide < doc.childCount;
 			if (onFocus) lastSlideRef.current = at.slide;
+			const clickCaret = pointerFocusCaret();
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({
 					doc,
@@ -3558,6 +3564,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					}
 				},
 				handleDOMEvents: {
+					// A click that focuses the editor keeps its caret: prosemirror-view's own focus timer could write the old caret
+					// back before WebKit delivered the click's `selectionchange` (pointer-focus-caret.ts pins the internal it races).
+					mousedown: clickCaret.mousedown,
+					focus: clickCaret.focus,
 					// Shift-Enter adds one line inside a paragraph (line-break-command.ts). A DOM handler, not a keymap entry: on iOS
 					// prosemirror-view never passes an Enter keydown to the keymaps and answers it with a plain Enter, which splits the
 					// block. A selected pill or image keeps Shift-Enter as the key that opens its editor, like Enter.

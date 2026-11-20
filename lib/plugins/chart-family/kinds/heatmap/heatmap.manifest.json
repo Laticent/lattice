@@ -65,16 +65,19 @@
 	"slots": {
 		"title": {
 			"selector": "h2",
+			"match": { "kind": "heading", "level": 2 },
 			"required": true,
 			"description": "Slide heading — name what the grid shows ('Retention decays fastest in month two'), not the chart type."
 		},
 		"eyebrow": {
 			"selector": "p > code:only-child",
+			"match": { "kind": "code-line" },
 			"required": false,
 			"description": "Optional kicker above the title — the dataset and its period."
 		},
 		"rows": {
 			"selector": "table > tbody > tr",
+			"match": { "kind": "table" },
 			"required": true,
 			"description": "One table row per ROW of the matrix, leading with its label. The header row names the columns; a blank cell is a crossing nobody measured."
 		}

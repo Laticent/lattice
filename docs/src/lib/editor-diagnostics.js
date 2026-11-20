@@ -163,6 +163,9 @@ export function buildVocabSets(vocab) {
 	// snapshot passed across the boundary.
 	if (v.exclusiveAxes) sets.exclusiveAxes = v.exclusiveAxes; // conflicting-variants axes
 	if (Array.isArray(v.pluginRegisters)) /** @type {Record<string, unknown>} */ (sets).pluginRegisters = v.pluginRegisters; // `icon:` / `avatar:` words
+	// The packed slot contract (lib/authoring/slot-contract.generated.js): without it the
+	// `slot-contract`, `variant-inert` and `foreign-variant` rules stay quiet in the browser.
+	if (typeof v.slotContract === 'string') /** @type {Record<string, unknown>} */ (sets).slotContract = v.slotContract;
 	return sets;
 }
 

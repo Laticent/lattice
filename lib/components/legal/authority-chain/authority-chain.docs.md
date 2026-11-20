@@ -18,10 +18,10 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Slide heading naming the rule whose chain is being walked. |
-| `tiers` | `ol > li` | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
+| `heading` | a `## ` heading | yes | Slide heading naming the rule whose chain is being walked. |
+| `tiers` | a list | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
 
 ### Variant decision rule
 
@@ -175,7 +175,7 @@ Tiers grouped by actor.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

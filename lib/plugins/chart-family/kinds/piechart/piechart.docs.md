@@ -16,11 +16,11 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the breakdown. |
-| `slices` | `ul > li` | yes | One li per slice: label text then a trailing inline-code value pill, e.g. - Marketing `40%` (slices are drawn proportionally to the values). |
-| `detail` | `li > ul` | no | Optional nested sublist under a slice. Drives two surfaces from one source via the shared chart-family detail substrate (identical to funnel/map/quadrant/radar): (1) Present/Practice — the kernel keeps the label/value as-is, tags each wedge `<path>` with `data-mark`, and emits the sublist as an inert `<template class="chart-detail">` (inside a `.chart-details` wrapper) the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment, which notes-core lifts into the per-slide note channel (a PDF text annotation + the hidden `aside`). The note rides the existing channel, so the chart pixels stay byte-identical. A pie with no sublists emits no note and is unchanged. Detail sublists must be bullet (`-`/`*`) lists, not numbered. |
+| `title` | a `## ` heading | yes | Slide heading framing the breakdown. |
+| `slices` | a list | yes | One li per slice: label text then a trailing inline-code value pill, e.g. - Marketing `40%` (slices are drawn proportionally to the values). |
+| `detail` | a `-` list nested 1 level under an item | no | Optional nested sublist under a slice. Drives two surfaces from one source via the shared chart-family detail substrate (identical to funnel/map/quadrant/radar): (1) Present/Practice — the kernel keeps the label/value as-is, tags each wedge `<path>` with `data-mark`, and emits the sublist as an inert `<template class="chart-detail">` (inside a `.chart-details` wrapper) the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment, which notes-core lifts into the per-slide note channel (a PDF text annotation + the hidden `aside`). The note rides the existing channel, so the chart pixels stay byte-identical. A pie with no sublists emits no note and is unchanged. Detail sublists must be bullet (`-`/`*`) lists, not numbered. |
 
 ### Variant decision rule
 
@@ -107,7 +107,7 @@ Refreshed weekly · figures from the time-tracking export
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

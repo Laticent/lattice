@@ -1,0 +1,2 @@
+studio: +89
+The Studio island unpacks the lint vocabulary's two modifier word lists, which studio.astro now ships as packed strings instead of arrays (+69, StudioIsland via lint-vocab-names.ts), and buildVocabSets forwards the packed slot contract to lint-core (+20, editor-diagnostics.js). The packing is what pays for the contract: the studio page's htmlRaw fell 248.7 KB → 234.0 KB, and lint-core's bundle (lintCoreGz) to 163.2 KB under its 163.4 KB ceiling, because the contract rides the vocabulary instead of lint-core (PR #3321).

@@ -1225,7 +1225,7 @@ export function proposalFromDraft(original: string, draft: string, fmTouched: Ma
 }
 
 /** The review-card row for one raw edit: label, before/after, line diff. */
-export function describeEdit(original: string, e: AgentRawEdit): { label: string; before: string; after: string; diff: DiffRow[] } {
+export function describeEdit(original: string, e: AgentRawEdit): { label: string; before: string; after: string; diff: DiffRow[]; anchor?: string } {
 	if (e.action === 'frontmatter' && e.block) {
 		const before = frontMatterBlockText(original, e.key ?? '');
 		const after = e.value == null ? '' : `${e.key}:\n${e.value}`;
@@ -1240,7 +1240,9 @@ export function describeEdit(original: string, e: AgentRawEdit): { label: string
 	const before = e.action === 'insert' ? '' : (sliceSlide(original, e.slide) as string);
 	const after = e.action === 'delete' ? '' : String(e.body || '').trim();
 	const label = e.action === 'insert' ? (e.slide === 0 ? 'Insert at the start' : `Insert after slide ${e.slide}`) : e.action === 'delete' ? `Delete slide ${e.slide}` : `Slide ${e.slide}`;
-	return { label, before, after, diff: diffLines(before, after) as DiffRow[] };
+	// The neighbor a new or removed slide sits after, by its text, so the change card can place it by content (change-card.ts).
+	const anchor = e.action === 'insert' && e.slide > 0 && e.slide !== Number.MAX_SAFE_INTEGER ? (sliceSlide(original, e.slide) as string) : e.action === 'delete' && e.slide > 1 ? (sliceSlide(original, e.slide - 1) as string) : undefined;
+	return { label, before, after, diff: diffLines(before, after) as DiffRow[], ...(anchor ? { anchor } : {}) };
 }
 
 // ── The loop ────────────────────────────────────────────────────────────────

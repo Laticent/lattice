@@ -3011,6 +3011,12 @@ const SANCTIONED_TYPE_SIZE_MODIFIERS = [
     count: 1,
     why: 'Size-neutral. `:is(section.kanban, figure.kanban).dark .kanban-size` shares one rule with the bare `.kanban-size` selector, so the chip is `--fs-meta` on both canvases; the arm exists only to outrank an earlier dark treatment of the chip.',
   },
+  {
+    file: 'lib/base/base.sketch.css',
+    modifier: 'sketch',
+    count: 1,
+    why: 'Size-neutral, and a deck-wide mode. `section.sketch.split-panel .panel-right :is(p, li, strong)` holds --fs-body, the size split-panel.styles.css already gives those right-panel lines (:145, :147, :197), so it changes no size; it outranks the hand face\'s own sizing. The gate sees it since `sketch` joined MODIFIER_GROUPS through lib/base/base.manifest.json (the `mode` group, W5 of 2026-11-19-deterministic-authoring-audit.md).',
+  },
 ];
 
 /** Every style rule in a stylesheet as { selector, decls: [{ prop, value }] }. Quote- and

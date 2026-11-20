@@ -14,12 +14,17 @@ Use when the slide IS the equation. `$$…$$` renders as a centered display bloc
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `eyebrow` | `p:first-child > code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
-| `heading` | `h2` | yes | One-sentence framing of what the math establishes. |
-| `equation` | `p` | yes | Display equation wrapped in `$$…$$` or a ```math fence (the same equation). Renders centered. |
-| `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
+| `eyebrow` | a line of `inline code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
+| `heading` | a `## ` heading | yes | One-sentence framing of what the math establishes. |
+| `equation` | a `$$` equation or a fenced code block tagged `math` | yes | Display equation wrapped in `$$…$$` or a ```math fence (the same equation). Renders centered. |
+| `legend` | a list | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
+
+Under a variant, a slot changes shape:
+
+- `derivation`: `equation` is written as a table or a `$$` equation.
+- `theorem`: `equation` is written as a `>` blockquote.
 
 ### Variant decision rule
 
@@ -250,7 +255,7 @@ $$
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

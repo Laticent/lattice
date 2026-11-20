@@ -82,6 +82,12 @@
   ],
   "description": "2–4 parallel items, similar weight, scannable in a grid.",
   "purpose": "Use when the audience needs to compare or scan a small set of options at a glance. Avoid for more than 4 items — split into multiple slides. For ordered/numbered steps, use list-steps instead.",
+  "variantKinds": {
+    "numbered": {
+      "kind": "source",
+      "means": "Write the cards as a `1.` list; the corner numbers come from it, and the class adds nothing."
+    }
+  },
   "variants": [
     "four",
     "three",
@@ -100,16 +106,19 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading."
     },
     "cards": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule)."
     },
     "insight": {
       "selector": "blockquote",
+      "match": { "kind": "blockquote" },
       "required": false,
       "description": "Optional key-insight panel above the cards."
     }

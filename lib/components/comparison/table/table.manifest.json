@@ -65,11 +65,13 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading framing what the table shows."
     },
     "table": {
       "selector": "table",
+      "match": [{ "kind": "table" }, { "kind": "html", "tag": "table" }],
       "required": true,
       "description": "Markdown table with a header row and 2+ data rows. Column alignment is markdown's own (`:---`, `:---:`, `---:`)."
     }

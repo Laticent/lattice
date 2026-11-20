@@ -59,7 +59,7 @@ You author the same workstream × phase table. The kernel reads the deck's orien
 
 ---
 
-<!-- _class: quote -->
+<!-- _class: content -->
 
 ## Every chart now meets the box where it is.
 

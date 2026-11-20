@@ -112,7 +112,7 @@ Both paths are viable. The difference is where we spend the next eighteen months
 
 <!-- _class: title silent -->
 
-## One contract, every frame.
+# One contract, every frame.
 
 `engineering/decisions/2026-06-18-component-adaptive-sizing.md`
 

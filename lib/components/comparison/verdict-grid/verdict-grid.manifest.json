@@ -60,16 +60,19 @@
   "slots": {
     "title": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading naming the choice."
     },
     "options": {
       "selector": "ul > li",
+      "match": { "kind": "list", "depth": 1, "marker": "bullet" },
       "required": true,
       "description": "One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[!]/[?]/[ ]/[/]) followed by a label of AT MOST TWO WORDS; the check and the label are drawn as one pill. Criteria are shared across every option, in the same order. The last option renders as the focal verdict."
     },
     "rationale": {
       "selector": "ul > li > ul > li:last-child",
+      "match": { "kind": "list", "depth": 2, "marker": "bullet" },
       "required": true,
       "description": "REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the criteria."
     }

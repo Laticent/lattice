@@ -16,10 +16,10 @@ Use after a comparison slide to land the decision. The justifications render as 
 
 ### Slots
 
-| Slot | Selector | Required | Description |
+| Slot | Write | Required | Description |
 |---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the decision. |
-| `options` | `ul > li` | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
+| `title` | a `## ` heading | yes | Slide heading framing the decision. |
+| `options` | a list | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
 
 ### Variant decision rule
 
@@ -91,7 +91,7 @@ Headlines each card with its camp.
 
 ## Universal modifiers
 
-Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--four-tiers) for the catalog.
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.
 
 ## Related components
 

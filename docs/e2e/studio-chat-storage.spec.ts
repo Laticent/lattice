@@ -172,11 +172,11 @@ for (const tag of ['', ' @gecko', ' @webkit-tablet']) test.describe(`chat storag
 		);
 		await page.reload();
 		await openChatAtWidth(page, page.viewportSize()?.width ?? 1440);
-		await expect(page.getByRole('button', { name: 'Apply' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeVisible();
 		await page.getByRole('textbox', { name: 'Message the Architect' }).fill('and one more thing?');
 		await page.getByRole('button', { name: 'Send', exact: true }).click();
 		// Mid-reply: apply the earlier proposal.
-		await page.getByRole('button', { name: 'Apply' }).click();
+		await page.getByRole('button', { name: 'Apply', exact: true }).click();
 		await expect(page.getByText('Applied', { exact: true })).toBeVisible();
 		release();
 		await expect(page.getByText('the reply that streamed meanwhile')).toBeVisible({ timeout: 30_000 });

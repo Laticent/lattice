@@ -35,12 +35,14 @@
   "slots": {
     "heading": {
       "selector": "h2",
+      "match": { "kind": "heading", "level": 2 },
       "required": true,
       "description": "Slide heading."
     },
     "body": {
-      "selector": "section > p, section > ul",
-      "required": true,
+      "selector": "p, ul > li, ol > li",
+      "match": [{ "kind": "paragraph" }, { "kind": "list", "depth": 1, "marker": "any" }],
+      "required": false,
       "description": "Paragraphs or a short bullet list under the heading. Keep under ~40 words \u2014 an editorial target for a slide you chose this layout for, not a limit the engine enforces; a slide that merely fell back to `content` is bound by the overflow oracle, not by this."
     }
   },

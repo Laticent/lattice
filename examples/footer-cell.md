@@ -34,12 +34,12 @@ footer band beside the running footer text — content, not decoration.
 
 ## The band holds its line
 
-- 3
-  - cells per frame
-- 1
-  - in-flow footer row
-- 0
-  - magic padding guesses
+1. 3
+   - cells per frame
+2. 1
+   - in-flow footer row
+3. 0
+   - magic padding guesses
 
 ---
 
