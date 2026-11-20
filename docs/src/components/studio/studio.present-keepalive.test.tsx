@@ -21,8 +21,10 @@ vi.mock('@/playground/voice-model.js', () => ({
 vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const spoken = (heading: string, line: string) => `<!-- _class: title -->\n\n# ${heading}\n\n<!-- say: ${line} -->`;
-const silent = '<!-- _class: title -->\n\n<!-- say: -->';
+// The narration comes from the slide's own text (no hand-typed note grammar, which the four-notes change rewrites).
+const spoken = (heading: string, line: string) => `<!-- _class: title -->\n\n# ${heading}\n\n${line}`;
+// A slide with nothing to read: no heading, no text, so the narration is empty and the deck treats it as silent.
+const silent = '<!-- _class: title -->';
 const deck = [spoken('One', 'The first slide speaks.'), spoken('Two', 'The second slide speaks.'), spoken('Three', 'The third slide speaks.')];
 
 const STEP = 10;
