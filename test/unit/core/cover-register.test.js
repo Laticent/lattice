@@ -103,7 +103,9 @@ function renderRuntimeBaked(deckSource, markup, ready) {
   });
 }
 
-test('runtime: stamps title and closing only from a baked block, and honors cover-inverse', async () => {
+// The timeout is a deadline for a regression, not a timing assertion: the test waits on a signal, and
+// without a deadline a broken wiring would hang the run instead of failing it.
+test('runtime: stamps title and closing only from a baked block, and honors cover-inverse', { timeout: 60_000 }, async () => {
   const markup = '<section class="title"><h1>One</h1></section>'
     + '<section class="content"><h2>Two</h2></section>'
     + '<section class="closing cover-inverse"><h2>Three</h2></section>'

@@ -1866,8 +1866,9 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// RE-BLESSED for the light cover (`cover: light` → `cover-light`, lib/core/resolve-cover.js).
 	// The player's scheme pins learn the new class: `:not(.cover-light)` joins the title and
 	// closing force-dark arms and the unpinned-section exclusion, and `.cover-light` joins the
-	// light-pin restores, and the script's `pinsOpposite` keeps a deck-wide `dark` class off a
-	// light cover. So the dark-mode CSS text and one script line move for every export (and the
+	// light-pin restores, and the script's `pinsOpposite` leaves a light cover's classes alone when
+	// the viewer toggles (the engine may have stamped a deck-wide `dark` on it; the cover CSS outranks
+	// that, so the slide stays light in every scheme). So the dark-mode CSS text and one script line move for every export (and the
 	// CSP `script-src` sha with it); no markup or block order moves. What it RENDERS moves
 	// only on a slide carrying `cover-light`: the selectors gain a class no other slide has, so
 	// every other slide matches exactly the rules it matched before (pinned by the matcher tests

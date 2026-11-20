@@ -1310,9 +1310,8 @@ cover in a deck without the key.
 nothing, so `title light` keeps its inverse panel. That meaning is unchanged; `cover-light` is
 the word that repaints. Under `color-mode: print` a cover is paper either way.
 
-The register is `lib/core/resolve-cover.js`; the record is
-`engineering/decisions/2026-11-20-deck-preset-study.md` §7 (L2). It has no Studio control on
-purpose: presets will set it (the plan's D10 simplicity budget).
+The register is `lib/core/resolve-cover.js`. It has no Studio control on purpose: presets
+will set it, and the Studio's Basic tier gains no new controls for the ingredients presets use.
 
 ## The `spark:` front-matter register (inline sparks)
 

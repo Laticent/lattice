@@ -1326,8 +1326,8 @@ section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not
 
 /* ── THE LIGHT COVER (`cover: light` → `cover-light`, title and closing only) ────────────────
  * The front and back cover on the deck's own light canvas instead of the inverse panel. The
- * register is lib/core/resolve-cover.js; the record is
- * engineering/decisions/2026-11-20-deck-preset-study.md §7 L2 and §8 WP-cover.
+ * register is lib/core/resolve-cover.js, which also says why this is a register of its own and not
+ * the `light` mood token.
  *
  * ONE RULE, BECAUSE THE PANEL'S INKS ARE TOKENS. Every dark-cover ink on these two layouts is
  * named through a token rather than a color: the heading reads `--text-display` (a constant
