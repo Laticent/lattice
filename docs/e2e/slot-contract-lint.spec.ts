@@ -17,6 +17,8 @@ const CARDS_H1 = '<!-- _class: cards-grid -->\n\n# Three outputs\n\n- Briefs\n  
 const CARDS_H2 = '<!-- _class: cards-grid -->\n\n## Three outputs\n\n- Briefs\n  - one page\n- Logs\n  - every call';
 const KPI_FOREIGN = '<!-- _class: kpi gallery -->\n\n## Revenue held\n\n1. 4%\n   - growth';
 const KPI_OWN = '<!-- _class: kpi spotlight -->\n\n## Revenue held\n\n1. 4%\n   - growth';
+// A sublist under an agenda row is not part of agenda's design (list-depth-unsupported, a warning).
+const AGENDA_SUBLIST = '<!-- _class: agenda -->\n\n## What we cover\n\n- Pipeline\n  - Two new entrants\n- Hiring';
 
 test('@crosswidth @webkit-phone @gecko the slot contract marks the wrong forms in the editor, and the right forms stay clean', async ({ page }, info) => {
 	await gotoStudio(page);
@@ -41,4 +43,14 @@ test('@crosswidth @webkit-phone @gecko the slot contract marks the wrong forms i
 	await expect(errors.filter({ hasText: '_class: agenda' })).toHaveCount(0, { timeout: 15_000 });
 	await expect(errors.filter({ hasText: '_class: cards-grid' })).toHaveCount(0);
 	await expect(warnings.filter({ hasText: '_class: kpi' })).toHaveCount(0);
+
+	// list-depth-unsupported: the sublist line gets the warning, and the flat agenda above stays clean.
+	await setEditorContent(page, deck([AGENDA_SUBLIST]));
+	await expect(warnings.filter({ hasText: 'Two new entrants' }).first()).toBeVisible({ timeout: 15_000 });
+	const nested = info.outputPath(`list-depth-unsupported-${width}.png`);
+	await page.screenshot({ path: nested });
+	await info.attach(`list-depth-unsupported-${width}.png`, { path: nested, contentType: 'image/png' });
+	await setEditorContent(page, deck([AGENDA_DASH]));
+	await expect(warnings.filter({ hasText: 'Two new entrants' })).toHaveCount(0, { timeout: 15_000 });
+	await expect(warnings).toHaveCount(0);
 });
