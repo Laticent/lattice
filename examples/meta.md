@@ -21,10 +21,14 @@ A slide's settings live in one comment; each note lives in its own.
 
 ## A record is read in four steps.
 
-1. The door finds each own-line record comment before anything else reads the deck.
-2. It checks every field against the catalog and drops what a slide may not set.
-3. It writes one internal comment on the same lines, so no position moves.
-4. The engine applies the fields exactly as the old comments applied them.
+1. Find
+   - The door finds each own-line record before anything else reads the deck.
+2. Check
+   - Every field is checked against the catalog; what a slide may not set is dropped.
+3. Rewrite
+   - One internal comment takes the same lines, so no position moves.
+4. Apply
+   - The engine applies the fields exactly as the old comments did.
 
 ---
 
@@ -55,9 +59,12 @@ A slide's settings live in one comment; each note lives in its own.
 
 ## Focus steps still walk the slide.
 
-1. Each step lights the next item, live.
-2. The record's class stays on the slide.
-3. The footer rides along unchanged.
+1. Light
+   - Each step lights the next item, live.
+2. Keep the class
+   - The record's class stays on the slide.
+3. Keep the footer
+   - The footer rides along unchanged.
 
 ---
 
@@ -69,9 +76,12 @@ The second one says the arrow --\> needs an escape inside a comment.} -->
 
 ## Notes sit beside the record.
 
-1. The record holds settings: layout, footer, panes, focus.
-2. Each note is its own comment, named for where it shows up.
-3. An arrow that ends a comment gets a backslash before its last character.
+1. Settings in the record
+   - Layout, footer, panes and focus share one comment.
+2. Notes beside it
+   - Each note is its own comment, named for where it shows up.
+3. Arrows escaped
+   - An arrow that would end the comment gets a backslash before its last character.
 
 ---
 
