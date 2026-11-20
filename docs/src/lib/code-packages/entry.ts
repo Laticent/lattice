@@ -6,7 +6,7 @@
 // exactly `PG.render` (docs/route-budget.json holds the Studio's first load to its bytes).
 
 import type { Renderer } from './door';
-import { withWaits } from './wait';
+import { benchRecorder, withWaits } from './wait';
 
 type Door = typeof import('./door');
 
@@ -72,3 +72,6 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	// The D1 benchmark (wait.ts): a placeholder in a listed plugin's place, before the door holds the plugins.
 	return PG.render(withWaits(source), theme, engineOpts) as R;
 }
+
+// The D1 benchmark (wait.ts): the per-frame record for a browser the harness cannot script before load. Off unless set.
+if (typeof window !== 'undefined') benchRecorder('bench-bars');
