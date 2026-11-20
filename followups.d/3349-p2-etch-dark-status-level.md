@@ -1,12 +1,12 @@
 ---
-origin: 0000
+origin: 3349
 priority: P2
 recorded: 2026-11-20
 area: chart
 severity: medium
 swimlane: engineering/chart-styling.md §3
 deferred: blocked — raising it collides with the owner's one-status-level rule (#2908), and text sits on the same level
-source: WP-marks (F6), engineering/decisions/2026-11-20-deck-preset-study.md §8
+source: https://github.com/Laticent/lattice/pull/3349 — WP-marks (F6), engineering/decisions/2026-11-20-deck-preset-study.md §8
 ---
 
 # Etch's dark status bars and Plan / Actual columns still sit under 3:1
