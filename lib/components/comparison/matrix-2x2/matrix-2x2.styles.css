@@ -23,8 +23,8 @@ section.matrix-2x2 > .cell-stage { display:flex; flex-direction:column; }
  * under content-box, width + padding + border exceeds 50 % and the second card wraps
  * (runbook gotcha 1). Equal heights resolve because `.cell-stage` gives this list a
  * definite (flex:1, min-height:0) height (gotcha 2). */
-section.matrix-2x2 > .cell-stage > ul:where(:not([data-list="aside"])),
-section.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.matrix-2x2 > .cell-stage > ul,
+section.matrix-2x2 > .cell-stage > ol {
   /* The rows sit where the `cards:` register puts them (#2317). The manifest declares
    * `stretch`: four equal quadrants are the matrix, so a deck that says nothing keeps them. */
   display:flex; flex-wrap:wrap; align-content:var(--cards-align);
@@ -52,8 +52,8 @@ section.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) {
   min-height:0;
   list-style:none; padding:0; margin:0;
 }
-section.matrix-2x2 > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.matrix-2x2 > .cell-stage > ul > li,
+section.matrix-2x2 > .cell-stage > ol > li {
   box-sizing:border-box;
   width:calc(50% - var(--sp-md) / 2);
   /* Exactly half the list under `stretch` (min and max meet, `--cards-grow` 1), the old fixed
@@ -82,17 +82,18 @@ section.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   position:relative; overflow:hidden;
 }
 /* Convention: the fourth (bottom-right) quadrant is the "outcome" cell. */
-section.matrix-2x2 > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(4),
-section.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4) {
+section.matrix-2x2 > .cell-stage > ul > li:nth-child(4),
+section.matrix-2x2 > .cell-stage > ol > li:nth-child(4) {
   border-color:var(--on-accent-soft);
   background:var(--accent-soft);
 }
-/* Body — the cell's nested list becomes the cell prose. Only that level: a list the author nests below it
- * keeps its marker (lib/core/list-contract.js). */
-section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+/* Body — nested ul/ol becomes the cell prose. */
+section.matrix-2x2 li > ul,
+section.matrix-2x2 li > ol {
   list-style:none; padding:0; margin:0;
 }
-section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) > li {
+section.matrix-2x2 li > ul > li,
+section.matrix-2x2 li > ol > li {
   font-size:var(--fs-body);
   font-weight:400;
   color:var(--text-body);
@@ -116,14 +117,14 @@ section.matrix-2x2 :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * grid rules — the role the attribute played. */
 /* Tall/strip → single column: flex-column, each card flex:1 to split the height
  * (the flex mirror of the grid's `grid-auto-rows:minmax(0,1fr)`). */
-section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])),
-section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
   flex-direction: column;
   flex-wrap: nowrap;
   justify-content: var(--cards-align);
 }
-section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
   width: 100%;
   height: auto;
   /* A COLUMN places its cards along the main axis: each grows only under `stretch` (equal
@@ -137,7 +138,7 @@ section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"])
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
-section.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.matrix-2x2 > .cell-stage > ol > li {
   box-shadow: var(--elevation-card);
 }
 section.matrix-2x2 > .cell-stage {
@@ -156,10 +157,10 @@ section.matrix-2x2 > .cell-stage {
  * It shows only in a STACKED form: the tall/strip family rule above, and the width reflow
  * below. Never in the 2×2, where it would repeat the grid.
  * followups.d → engineering/decisions/2026-11-03-responsive-tables.md §Position components. */
-section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(1) { --_mx-at: 0 0; }
-section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(2) { --_mx-at: 100% 0; }
-section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(3) { --_mx-at: 0 100%; }
-section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(4) { --_mx-at: 100% 100%; }
+section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { --_mx-at: 0 0; }
+section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(2) { --_mx-at: 100% 0; }
+section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(3) { --_mx-at: 0 100%; }
+section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(4) { --_mx-at: 100% 100%; }
 
 /* A split page (lib/engine/carousel.js) holds the cards after the first `--lat-split-offset` ones,
  * so its first card is not the matrix's first: page three of a one-card-per-page split shows the
@@ -168,31 +169,31 @@ section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) 
  * style queries (Firefox, as of this change) falls back to the page-local place. */
 /* The outcome ring follows the fourth quadrant onto its split page, by the same offset. */
 @container style(--lat-split-offset: 1) {
-  section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(3) { border-color: var(--on-accent-soft); background: var(--accent-soft); }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(3) { border-color: var(--on-accent-soft); background: var(--accent-soft); }
 }
 @container style(--lat-split-offset: 2) {
-  section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(2) { border-color: var(--on-accent-soft); background: var(--accent-soft); }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(2) { border-color: var(--on-accent-soft); background: var(--accent-soft); }
 }
 @container style(--lat-split-offset: 3) {
-  section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(1) { border-color: var(--on-accent-soft); background: var(--accent-soft); }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { border-color: var(--on-accent-soft); background: var(--accent-soft); }
 }
 @container style(--lat-split-offset: 1) {
-  section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(1) { --_mx-at: 100% 0; }
-  section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(2) { --_mx-at: 0 100%; }
-  section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(3) { --_mx-at: 100% 100%; }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { --_mx-at: 100% 0; }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(2) { --_mx-at: 0 100%; }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(3) { --_mx-at: 100% 100%; }
 }
 @container style(--lat-split-offset: 2) {
-  section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(1) { --_mx-at: 0 100%; }
-  section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(2) { --_mx-at: 100% 100%; }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { --_mx-at: 0 100%; }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(2) { --_mx-at: 100% 100%; }
 }
 @container style(--lat-split-offset: 3) {
-  section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(1) { --_mx-at: 100% 100%; }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { --_mx-at: 100% 100%; }
 }
-section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(-n+4) {
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:nth-child(-n+4) {
   padding-inline-end: calc(var(--sp-md) + var(--_mx-size) + var(--sp-sm));
   --_mx-size: 0.875em;
 }
-section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(-n+4)::before {
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:nth-child(-n+4)::before {
   content: ""; position: absolute;
   inset-block-start: var(--sp-md); inset-inline-end: var(--sp-md);
   width: var(--_mx-size); height: var(--_mx-size);
@@ -211,18 +212,18 @@ section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"])
  * (lib/core/table-reflow-fit.js) sees it and holds the 2×2, instead of each card clipping its
  * own text out of the probe's sight. A half pane on 16:9 (about 25.4em) keeps the 2×2. */
 @container lat-cards (width < 24em) {
-  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) {
+  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
     flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
   }
-  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
+  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
     width: 100%; height: auto; flex: var(--cards-grow) 0 var(--cards-basis);
     min-height: min-content; max-height: none;
   }
-  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li:nth-child(-n+4) {
+  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li:nth-child(-n+4) {
     padding-inline-end: calc(var(--sp-md) + var(--_mx-size) + var(--sp-sm));
     --_mx-size: 0.875em;
   }
-  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li:nth-child(-n+4)::before {
+  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li:nth-child(-n+4)::before {
     content: ""; position: absolute;
     inset-block-start: var(--sp-md); inset-inline-end: var(--sp-md);
     width: var(--_mx-size); height: var(--_mx-size);

@@ -334,8 +334,7 @@ describe('resolve-spectrum — the sub-registers partition cleanly', () => {
 });
 
 describe('resolve-spectrum — CARD CSS contract (base.accent-finish.css)', () => {
-  // The aside exclusion every stage-list rule carries (list contract, #3330) is cut: these tests read the rail rules.
-  const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8').replaceAll(':where(:not([data-list="aside"]))', '');
+  const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
   const block = css.slice(css.indexOf('SPECTRUM CARD'));
 
   test('the card rail targets card surfaces (both .card and li forms), reading the geometry tokens', () => {

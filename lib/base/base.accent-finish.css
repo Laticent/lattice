@@ -217,10 +217,10 @@ section.print { --sp-card-img: var(--print-border); }
  * shorthand would swallow the rail anyway. A card component added later opts in by extending
  * this list. */
 section:is(.with-spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow):is(.cards-grid, .cards-stack) .card,
-section:is(.with-spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow):is(.cards-grid, .cards-stack) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li,
-section:is(.with-spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).stats > .cell-stage > ol:where(:not([data-list="aside"])) > li,
-section:is(.with-spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section:is(.with-spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section:is(.with-spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow):is(.cards-grid, .cards-stack) > .cell-stage > :is(ul, ol) > li,
+section:is(.with-spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).stats > .cell-stage > ol > li,
+section:is(.with-spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).pricing > .cell-stage > ul > li,
+section:is(.with-spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).verdict-grid > .cell-stage > ul > li {
   background-image: var(--sp-card-img);
   background-repeat: no-repeat;
   background-position: var(--sp-card-pos);

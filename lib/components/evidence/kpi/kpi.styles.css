@@ -57,8 +57,8 @@ section.kpi h2 {
   margin: 0;
   padding: 0 0 var(--sp-md) 0;
 }
-section.kpi > .cell-stage > ol:where(:not([data-list="aside"])),
-section.kpi > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.kpi > .cell-stage > ol,
+section.kpi > .cell-stage > ul {
   list-style: none; padding: 0; margin: 0;
   /* flex:1 fills the stage. The `min-height:auto` floor STAYS — deliberately, and
    * #1277 is the record of what happens when it doesn't.
@@ -88,11 +88,11 @@ section.kpi > .cell-stage > ul:where(:not([data-list="aside"])) {
    * that re-flows rather than overprinting. */
   flex: 1;
 }
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li::marker { content: ''; }
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li > :where(ul, ol) {
+section.kpi > .cell-stage > :where(ol, ul) > li::marker { content: ''; }
+section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) {
   list-style: none; padding: 0; margin: 0;
 }
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li > :where(ul, ol) > li::marker { content: ''; }
+section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li::marker { content: ''; }
 
 /* THE STATUS PILL is a status MARK (engineering/decisions/2026-10-24-status-is-one-system.md): the
  * deck's status solid (`--state-X-hue`, muted or vivid by `marks:`), its label in the one ink
@@ -115,7 +115,7 @@ section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li
  * pills stay neutral. kpi asks for three things of its own, for the pills in its tile rows only (a heading's pill keeps
  * the plugin's defaults): UPPERCASE labels, the wider tracking that pairs with them, and the meta
  * type step at every tile size (a pill beside a hero figure must not grow with it). */
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) {
+section.kpi > .cell-stage > :where(ol, ul) {
   --lat-pill-case: uppercase;
   --lat-pill-tracking: 0.12em;
   --lat-pill-size: var(--fs-meta);
@@ -123,7 +123,7 @@ section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) {
 /* A row that carries a spark centers its items: the frame is a step taller than the pill, so
  * a baseline row would hang the pill and the text off the top of the frame (measured 3.2px
  * off center). A row with no spark keeps its baseline alignment. */
-section.kpi:not(.compliance) > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li > :where(ul, ol) > li:has(> .lat-spark) {
+section.kpi:not(.compliance) > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li:has(> .lat-spark) {
   align-items: center;
 }
 /* Pill leading gap (was a 0.46875cqi left inline margin on the pill — horizontal
@@ -140,15 +140,15 @@ section.kpi:not(.compliance) > .cell-stage > :where(ol, ul):where(:not([data-lis
 section.kpi > .cell-stage > p:has(> .lat-pill:only-child):not(:where([data-prose])) {
   padding-left: 0.46875cqi;
 }
-section.kpi:not(.compliance) > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li > :where(ul, ol) > li:has(.lat-pill) {
+section.kpi:not(.compliance) > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li:has(.lat-pill) {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   column-gap: 0.46875cqi;
   row-gap: 0;
 }
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li :where(ul, ol) > li .lat-pill ~ .lat-pill:not([data-c]),
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li > .lat-pill ~ .lat-pill:not([data-c]) {
+section.kpi > .cell-stage > :where(ol, ul) > li :where(ul, ol) > li .lat-pill ~ .lat-pill:not([data-c]),
+section.kpi > .cell-stage > :where(ol, ul) > li > .lat-pill ~ .lat-pill:not([data-c]) {
   --lat-pill-edge: var(--muted-mark);
   --lat-pill-bg: var(--bg);
   --lat-pill-ink: var(--text-muted);
@@ -168,12 +168,12 @@ section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li
  * solid square. */
 /* A category pill (`data-c`) names a category, not a status, wherever it sits in the row: it never draws the row's
  * status mark or ring (the pills plugin repaints only its colors). */
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li .lat-pill[data-c] {
+section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill[data-c] {
   --kpi-pill-mark-box: none;
   --kpi-pill-lead-trim: 0em;
   --kpi-pill-rim: transparent;
 }
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li .lat-pill {
+section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill {
   box-shadow: 0 0 0 1px var(--kpi-pill-rim, transparent);
   /* The mark's box is 0.3em wider than the mark (the gap before the label lives inside it), and Calco lifts only a
    * CENTERED mask, so half of that sits before the mark too. The pill pulls its first line back by the same 0.15em
@@ -181,7 +181,7 @@ section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li
    * padding change: the pill's padding is the pills plugin's to set (check-ownership SANCTIONED_PILL_READS). */
   text-indent: calc(-1 * var(--kpi-pill-lead-trim, 0em));
 }
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li .lat-pill::before {
+section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill::before {
   content: '';
   display: var(--kpi-pill-mark-box, none);
   width: 1.15em;
@@ -193,7 +193,7 @@ section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li
 }
 
 /* Shared number / label / target typography. */
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li > strong {
+section.kpi > .cell-stage > :where(ol, ul) > li > strong {
   font-family: var(--font-display);
   font-weight: 700;
   color: var(--text-heading);
@@ -202,14 +202,14 @@ section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li
   letter-spacing: -0.03em;
   display: block;
 }
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li > :where(ul, ol) > li:first-child {
+section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li:first-child {
   font-size: var(--fs-body);
   font-weight: 500;
   color: var(--text-heading);
   padding-top: var(--sp-sm);
   line-height: var(--lh-snug);
 }
-section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li > :where(ul, ol) > li + li {
+section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li + li {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   color: var(--text-secondary);
@@ -219,8 +219,8 @@ section.kpi > .cell-stage > :where(ol, ul):where(:not([data-list="aside"])) > li
 }
 
 /* ─ MODIFIER · BRIEFING (also the bare-kpi default) ─────────────────── */
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.kpi.briefing > .cell-stage > ol,
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol {
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
   /* Rows: `minmax(min-content, var(--cards-track, 1fr))` — divide the stage, never below content.
@@ -256,12 +256,12 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  * That is cosmetic only because a 5-metric slide is past the stated allowance and
  * clips anyway — the ledger is already telling the author to split. Do not read this
  * as the layout extending gracefully; it does not, by design and by declaration. */
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])):has(> li:nth-child(3)):not(:has(> li:nth-child(4))),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])):has(> li:nth-child(3)):not(:has(> li:nth-child(4))) {
+section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))) {
   grid-template-rows: repeat(2, minmax(min-content, var(--cards-track, 1fr)));
 }
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])):has(> li:nth-child(4)),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])):has(> li:nth-child(4)) {
+section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(4)),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(4)) {
   grid-template-rows: repeat(3, minmax(min-content, var(--cards-track, 1fr)));
 }
 /* THE HERO IS THE FOCUS, so it is composed like one: centered on BOTH axes.
@@ -297,8 +297,8 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  * value — which pushes ink to y = -4.7 at the documented density, above the panel's
  * own top edge. The variant that keeps the mark costs capacity; retiring it does
  * not. */
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) {
+section.kpi.briefing > .cell-stage > ol > li:nth-child(1),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) {
   grid-column: 1; grid-row: 1 / -1;
   background: var(--accent-soft);
   padding: var(--sp-lg) var(--sp-xl);
@@ -310,23 +310,23 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
   border-left: 4px solid var(--accent);
 }
 /* Retired with the hero's recomposition — see the note above. */
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1)::after,
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1)::after {
+section.kpi.briefing > .cell-stage > ol > li:nth-child(1)::after,
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1)::after {
   content: none;
 }
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > strong,
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > strong {
+section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > strong,
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-hero);
   line-height: 0.88;
 }
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > ul > li:first-child,
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > ul > li:first-child {
+section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > ul > li:first-child,
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > ul > li:first-child {
   font-family: var(--font-display);
   font-size: var(--fs-h3);
   padding-top: var(--sp-md);
 }
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child) {
+section.kpi.briefing > .cell-stage > ol > li:not(:first-child),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:not(:first-child) {
   grid-column: 2;
   display: flex; flex-direction: column;
   justify-content: center;
@@ -342,8 +342,8 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  * 2-metric slide borrowed the hard-coded 3-row template and the support landed in a
  * short row 1), so it ships with them. The corpus has no 2-metric kpi slide to catch
  * it — but it is now the shape a downstream author gets by default. */
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])):not(:has(> li:nth-child(3))) > li:not(:first-child),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])):not(:has(> li:nth-child(3))) > li:not(:first-child) {
+section.kpi.briefing > .cell-stage > ol:not(:has(> li:nth-child(3))) > li:not(:first-child),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:not(:has(> li:nth-child(3))) > li:not(:first-child) {
   justify-content: start;
 }
 /* THE RULE IS A SEPARATOR, SO IT ONLY EXISTS BETWEEN TWO RAIL ROWS.
@@ -365,32 +365,32 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  *
  * The surviving separators are all 1px --border. The 1.5px --text-heading weight
  * existed only on the two edges being removed. */
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2) {
+section.kpi.briefing > .cell-stage > ol > li:nth-child(2),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(2) {
   grid-row: 1;
 }
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3) {
+section.kpi.briefing > .cell-stage > ol > li:nth-child(3),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(3) {
   grid-row: 2;
 }
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4) {
+section.kpi.briefing > .cell-stage > ol > li:nth-child(4),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(4) {
   grid-row: 3;
 }
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(n+3),
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(n+3) {
+section.kpi.briefing > .cell-stage > ol > li:nth-child(n+3),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(n+3) {
   border-top: 1px solid var(--border);
 }
 /* Briefing supports: 3.9583cqi (= 38pt) sits between --fs-h2 (28pt, reads
  * as a heading, too quiet next to the hero) and --fs-h1 (48pt, which makes
  * 3 stacked supports overflow the right column). Layout-specific metric
  * tier — the briefing grid can't fit three h1-sized rows beside the hero. */
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child) > strong,
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child) > strong {
+section.kpi.briefing > .cell-stage > ol > li:not(:first-child) > strong,
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:not(:first-child) > strong {
   font-size: calc(3.9583cqi * var(--fs-scale)); /* cqi-ok: briefing hero support — designed display size between h2 and h1 */
 }
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li,
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.kpi.briefing > .cell-stage > ol > li,
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li {
   --lat-pill-edge: var(--state-pass-hue);
   --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
@@ -402,7 +402,7 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
 /* `attention` modifier — the hero is the one slipping. Hero pill turns
  * warn-colored and the accent left-border picks up --warn too. Use
  * when the hero metric is below target / off plan. */
-section.kpi.attention > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) {
+section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   --lat-pill-edge: var(--warn-signal-mark);
   --kpi-pill-rim: var(--state-warn-edge);
   --lat-pill-bg: var(--state-warn-hue);
@@ -411,7 +411,7 @@ section.kpi.attention > .cell-stage > ol:where(:not([data-list="aside"])) > li:n
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
 }
-section.kpi.attention > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) {
+section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   border-left-color: var(--warn);
 }
 /* The hero's flagship mark is retired (see the hero note above) and the rule that
@@ -421,7 +421,7 @@ section.kpi.attention > .cell-stage > ol:where(:not([data-list="aside"])) > li:n
  * `color: rgb(138, 93, 0)` while the mark still painted accent blue. */
 
 /* ─ MODIFIER · OPS (SLO/SLA review) ─────────────────────────────────── */
-section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.kpi.ops > .cell-stage > ol {
   display: grid;
   grid-template-columns: 1fr 1fr;
   /* minmax(min-content,1fr): the 2×2 cells share the bounded stage, and floor at
@@ -431,7 +431,7 @@ section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) {
   /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
   padding: var(--elevation-berth);
 }
-section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.kpi.ops > .cell-stage > ol > li {
   background: var(--bg-alt);
   /* Struck elevation — zero-blur, light-dark()-flipping lift (base.tokens.css). */
   box-shadow: var(--elevation-card);
@@ -441,12 +441,12 @@ section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   position: relative;
   min-width: 0;
 }
-section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong {
+section.kpi.ops > .cell-stage > ol > li > strong {
   font-size: var(--fs-h1);
   line-height: 0.92;
 }
-section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1),
-section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3) {
+section.kpi.ops > .cell-stage > ol > li:nth-child(1),
+section.kpi.ops > .cell-stage > ol > li:nth-child(3) {
   --lat-pill-edge: var(--warn-signal-mark);
   --kpi-pill-rim: var(--state-warn-edge);
   --lat-pill-bg: var(--state-warn-hue);
@@ -455,8 +455,8 @@ section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-chi
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
 }
-section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2),
-section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4) {
+section.kpi.ops > .cell-stage > ol > li:nth-child(2),
+section.kpi.ops > .cell-stage > ol > li:nth-child(4) {
   --lat-pill-edge: var(--state-pass-hue);
   --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
@@ -465,11 +465,11 @@ section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-chi
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
 }
-section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > strong,
-section.kpi.ops > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3) > strong { color: var(--warn); }
+section.kpi.ops > .cell-stage > ol > li:nth-child(1) > strong,
+section.kpi.ops > .cell-stage > ol > li:nth-child(3) > strong { color: var(--warn); }
 
 /* ─ MODIFIER · COMPLIANCE (legal / regulatory) ──────────────────────── */
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.kpi.compliance > .cell-stage > ol {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -493,7 +493,7 @@ section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) {
  * pill still trails its meta text. Why that is a DOM problem rather than a CSS one,
  * and what each attempt broke, is the comment on the meta line below — read that
  * before reaching for a container display here again. */
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.kpi.compliance > .cell-stage > ol > li {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   grid-template-rows: auto auto;
@@ -528,10 +528,10 @@ section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li 
  * a shipped draft of this comment quoted those, but the top of row 3 carries no
  * border, so that edge paints nothing and the number describes a boundary the
  * reader cannot see. */
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:last-child) {
+section.kpi.compliance > .cell-stage > ol > li:not(:last-child) {
   border-bottom: 1px solid var(--border);
 }
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong {
+section.kpi.compliance > .cell-stage > ol > li > strong {
   /* `1 / 3` — the two EXPLICIT rows. An earlier draft wrote `1 / -1` claiming the
    * value would then center against a third sub-bullet too; it does not. Negative
    * line numbers count from the last line of the EXPLICIT grid, and
@@ -546,8 +546,8 @@ section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li 
   text-align: right;
   align-self: center;
 }
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul { display: contents; }
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li:first-child {
+section.kpi.compliance > .cell-stage > ol > li > ul { display: contents; }
+section.kpi.compliance > .cell-stage > ol > li > ul > li:first-child {
   grid-column: 2; grid-row: 1;
   padding-top: 0;
 }
@@ -566,7 +566,7 @@ section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li 
  * label left=392.1 with the meta at left=64 on the branch, against 128 / 128 and
  * stacked on main. `lint:deck` says nothing about it. Narrow shape, real regression,
  * and one declaration prevents it. */
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li:nth-child(2) {
+section.kpi.compliance > .cell-stage > ol > li > ul > li:nth-child(2) {
   grid-column: 2; grid-row: 2;
   padding-top: 0;
 }
@@ -608,13 +608,13 @@ section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li 
  * text over text, silent. Pre-existing (it reproduces on main) and beyond the
  * documented row shape of value/label/target, but this diff rewrites the very rule
  * that caused it, so it is fixed here rather than left behind. */
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li:nth-child(n+3) {
+section.kpi.compliance > .cell-stage > ol > li > ul > li:nth-child(n+3) {
   grid-column: 2;
   padding-top: 0;
 }
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1),
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2),
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4) {
+section.kpi.compliance > .cell-stage > ol > li:nth-child(1),
+section.kpi.compliance > .cell-stage > ol > li:nth-child(2),
+section.kpi.compliance > .cell-stage > ol > li:nth-child(4) {
   --lat-pill-edge: var(--state-pass-hue);
   --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
@@ -623,7 +623,7 @@ section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li:
   --kpi-pill-mark-box: inline-block;
   --kpi-pill-lead-trim: 0.15em;
 }
-section.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3) {
+section.kpi.compliance > .cell-stage > ol > li:nth-child(3) {
   --lat-pill-edge: var(--warn-signal-mark);
   --kpi-pill-rim: var(--state-warn-edge);
   --lat-pill-bg: var(--state-warn-hue);
@@ -650,7 +650,7 @@ section.kpi.compliance > .cell-stage > p:last-of-type {
  * `:not(:has(nth-child(N)))`, all at equal specificity, so the last one that matches
  * wins and a shorter list lands on a narrower template. A 5th metric still
  * auto-places on `grid-auto-rows`, as before. */
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.kpi.trajectory > .cell-stage > ol {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   /* Flexible rows, not max-content + align-content:center — the cards FILL the
@@ -664,7 +664,7 @@ section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) {
   /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
   padding: var(--elevation-berth);
 }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.kpi.trajectory > .cell-stage > ol > li {
   background: var(--bg-alt);
   padding: var(--sp-lg) var(--sp-md);
   display: flex; flex-direction: column;
@@ -675,24 +675,24 @@ section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) > li 
   /* Struck elevation composed under the categorical top stripe (base.tokens.css). */
   box-shadow: var(--elevation-card);
 }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])):not(:has(> li:nth-child(4))) {
+section.kpi.trajectory > .cell-stage > ol:not(:has(> li:nth-child(4))) {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])):not(:has(> li:nth-child(3))) {
+section.kpi.trajectory > .cell-stage > ol:not(:has(> li:nth-child(3))) {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])):not(:has(> li:nth-child(2))) {
+section.kpi.trajectory > .cell-stage > ol:not(:has(> li:nth-child(2))) {
   grid-template-columns: minmax(0, 1fr);
 }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) { border-top-color: var(--cat-1-mark); }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2) { border-top-color: var(--cat-2-mark); }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3) { border-top-color: var(--cat-3-mark); }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4) { border-top-color: var(--cat-4-mark); }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong {
+section.kpi.trajectory > .cell-stage > ol > li:nth-child(1) { border-top-color: var(--cat-1-mark); }
+section.kpi.trajectory > .cell-stage > ol > li:nth-child(2) { border-top-color: var(--cat-2-mark); }
+section.kpi.trajectory > .cell-stage > ol > li:nth-child(3) { border-top-color: var(--cat-3-mark); }
+section.kpi.trajectory > .cell-stage > ol > li:nth-child(4) { border-top-color: var(--cat-4-mark); }
+section.kpi.trajectory > .cell-stage > ol > li > strong {
   font-size: var(--fs-h1);
   line-height: 1;
 }
-section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.kpi.trajectory > .cell-stage > ol > li {
   --lat-pill-edge: var(--state-pass-hue);
   --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
@@ -703,7 +703,7 @@ section.kpi.trajectory > .cell-stage > ol:where(:not([data-list="aside"])) > li 
 }
 
 /* ─ MODIFIER · SPOTLIGHT (single hero metric) ───────────────────────── */
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.kpi.spotlight > .cell-stage > ol {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   /* The hero spans every row; the side supports divide the stage beside it. Same
@@ -715,10 +715,10 @@ section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) {
   align-items: stretch;
   gap: var(--sp-2xl);
 }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])):has(> li:nth-child(3)):not(:has(> li:nth-child(4))) {
+section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))) {
   grid-template-rows: repeat(2, minmax(min-content, var(--cards-track, 1fr)));
 }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])):has(> li:nth-child(4)) {
+section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(4)) {
   grid-template-rows: repeat(3, minmax(min-content, var(--cards-track, 1fr)));
 }
 /* THE PILL LINE IS A FLEX CONTAINER, so `text-align` does not reach it.
@@ -736,14 +736,14 @@ section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])):has(> 
  *
  * Scoped to the HERO. The rail's own pill lines stay left-aligned — they sit in a
  * ledger, not a centered panel. */
-section.kpi.briefing > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > ul > li,
-section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > ul > li,
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > ul > li {
+section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > ul > li,
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > ul > li,
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li {
   justify-content: center;
 }
 
 /* Same composition as the briefing hero above, for the same measured reasons. */
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) {
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   grid-column: 1; grid-row: 1 / -1;
   background: var(--accent-soft);
   padding: var(--sp-lg) var(--sp-xl);
@@ -754,17 +754,17 @@ section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:n
   text-align: center;
   border-left: 4px solid var(--accent);
 }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1)::after { content: none; }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > strong {
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1)::after { content: none; }
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-hero);
   line-height: 0.88;
 }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > ul > li:first-child {
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li:first-child {
   font-family: var(--font-display);
   font-size: var(--fs-h3);
   padding-top: var(--sp-md);
 }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > ul > li + li {
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li + li {
   font-family: var(--font-display);
   font-style: italic;
   font-size: var(--fs-body);
@@ -774,7 +774,7 @@ section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:n
   padding-top: var(--sp-sm);
   line-height: var(--lh-snug);
 }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) {
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   --lat-pill-edge: var(--state-pass-hue);
   --kpi-pill-rim: var(--state-pass-edge);
   --lat-pill-bg: var(--state-pass-hue);
@@ -787,10 +787,10 @@ section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:n
  * metric auto-placed into COLUMN 1 — under the hero card — and the separator rule
  * below then drew a 634.7px hairline across it. Briefing has carried the equivalent
  * `grid-column: 2` on `li:not(:first-child)` all along; spotlight never did. */
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child) { grid-column: 2; }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2) { grid-column: 2; grid-row: 1; }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3) { grid-column: 2; grid-row: 2; }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4) { grid-column: 2; grid-row: 3; }
+section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) { grid-column: 2; }
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(2) { grid-column: 2; grid-row: 1; }
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(3) { grid-column: 2; grid-row: 2; }
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(4) { grid-column: 2; grid-row: 3; }
 /* TOP-ALIGN the supports under their own rules. Each support's border-top is a
  * hairline heading the number below it, and centering the content in a row taller
  * than the content strands that hairline — measured 37.3px of gap on a 187.1px row,
@@ -822,17 +822,17 @@ section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:n
  * above already sizes the rail to the supports authored — a 3-metric slide computes
  * `187.109px 187.109px`, two tracks — so there is no phantom third row. The dead space is
  * unfilled slack INSIDE the last row. */
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child) {
+section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) {
   display: flex; flex-direction: column;
   justify-content: start;
   padding: 0;
 }
 /* Separators only, exactly as the briefing rail above — same rail, same two outer
  * edges removed. */
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(n+3) {
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(n+3) {
   border-top: 1px solid var(--border);
 }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child) > strong {
+section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
   font-size: var(--fs-emphasis);
 }
 /* THE LEAD GOES ON THE ROWS THAT CARRY A RULE, AND ONLY THOSE. `start` above packs
@@ -895,7 +895,7 @@ section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:n
  * matches there and every split page computes `padding-top: 0px`. Like the tall/strip
  * separator below, that arm reaches only surfaces that do not re-paginate — the runtime
  * preview, the Studio, export-to-Marp. It is kept for those. */
-section.kpi.spotlight:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(n+3) > strong {
+section.kpi.spotlight:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:nth-child(n+3) > strong {
   padding-top: 0.12em;
 }
 /* THE LINEARIZED FAMILIES GET NO LEAD, AND THE REASON IS CAPACITY — NOT CLEARANCE.
@@ -932,15 +932,15 @@ section.kpi.spotlight:where(section:not([data-family]), [data-family="square"]) 
  * needs `li:nth-child(2)` to exist, which a one-element-per-page split never produces, so
  * it reaches only surfaces that do NOT split — the runtime preview and the Studio, which
  * render the authored slide whole. It is kept for those; it is not doing work in a PDF. */
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child) > ul > li:first-child {
+section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li:first-child {
   padding-top: 0.15625cqi;
   font-size: var(--fs-body);
 }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child) > ul > li + li {
+section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li + li {
   font-size: var(--fs-meta);
   padding-top: 0.15625cqi;
 }
-section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:first-child) .lat-pill {
+section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) .lat-pill {
   padding: 0.15625cqi 0.625cqi;
   font-size: var(--fs-meta);
 }
@@ -971,8 +971,8 @@ section.kpi.spotlight > .cell-stage > ol:where(:not([data-list="aside"])) > li:n
  * `.kpi.kpi` (class doubled) lifts the selector to (0,2,2) so it matches
  * the per-variant grid rules' specificity (`section.kpi.spotlight > .cell-stage > ol`) and wins
  * on source order — the role the old `[data-orientation]` attribute played. */
-section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])),
-section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol,
+section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   display: flex;
   flex-direction: column;
   /* The list keeps `flex: 1` (fills the slide below the title), so center the
@@ -1005,7 +1005,7 @@ section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage
 /* Linearized, the hero is the lead ROW of a ledger rather than a panel, so the
  * centering the wide composition adds has to come back off — a ledger row reads from
  * the left like every row under it. */
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) {
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) {
   background: none;
   border-left: none;
   align-items: stretch;
@@ -1024,7 +1024,7 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
  * right and the point was moot: the same change deleted `border-top` from the
  * briefing `li:nth-child(2)` block, and `nth-child(n+3)` cannot match child 2, so
  * this is the only declaration of a top border on that element. */
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2) {
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(2) {
   border-top: 1px solid var(--border);
 }
 /* …and the hero's PILL LINE has to come back off center too. The wide composition
@@ -1035,14 +1035,14 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
  * left-aligned — measured 264.2px of left gap against 0 on the next row. The same
  * two-alignments-in-one-ledger defect the wide fix exists to remove, one family over.
  * Ties that rule at (0,4,5) and wins on source order. */
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > ul > li {
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > ul > li {
   justify-content: normal;
 }
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > strong {
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-h1);
   line-height: 1;
 }
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1) > ul > li:first-child {
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > ul > li:first-child {
   font-family: var(--font-body);
   font-size: var(--fs-body);
   padding-top: var(--sp-3xs);
@@ -1051,7 +1051,7 @@ section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-
 /* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): shed the
  * status pills, the lowest-priority unit (manifest `adapt.droppable`), so the
  * numbers and their labels own the narrow frame instead of crowding it. */
-section.kpi.kpi:where([data-family="strip"]) > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) li .lat-pill { display: none; }
+section.kpi.kpi:where([data-family="strip"]) > .cell-stage > :is(ol,ul) li .lat-pill { display: none; }
 
 
 /* ── card composition (resolve-cards.js) ────────────────────────────────────────────────
@@ -1059,10 +1059,10 @@ section.kpi.kpi:where([data-family="strip"]) > .cell-stage > :is(ol,ul):where(:n
  * `stretch` (the pre-register look: tiles fill the stage), `auto` otherwise, so the tiles
  * hug their content and `--cards-align` places the band. The track fallback is the pre-register
  * look for a section the engine stamped nothing on; `--cards-align` has none (the manifest owns it). */
-section.kpi.kpi.kpi > .cell-stage > ol:where(:not([data-list="aside"])) { align-content: var(--cards-align); }
+section.kpi.kpi.kpi > .cell-stage > ol { align-content: var(--cards-align); }
 /* `safe`: tiles taller than the stage lose their tail, never their head (#1277's worst overflow kind);
  * the token's `center` has no `safe`. */
-section.kpi.kpi.kpi[data-cards="center"] > .cell-stage > ol:where(:not([data-list="aside"])) { align-content: safe center; }
+section.kpi.kpi.kpi[data-cards="center"] > .cell-stage > ol { align-content: safe center; }
 /* OWNER RULING 2026-10-16: the content-sized, centered composition recorded above as rejected by
  * looking is now the default (`cards: center`) for the register's sake; `cards-stretch` restores the
  * full-height hero, and `compliance` (a flex column with its own spacing) does not follow the register. */
@@ -1074,14 +1074,14 @@ section.kpi.kpi.kpi[data-cards="center"] > .cell-stage > ol:where(:not([data-lis
  * the lead row. Type keeps its size: the tall form also enlarges the hero, and a narrow box
  * is not a reason to change type. */
 @container lat-cards (width < 34em) {
-  section.kpi.kpi.kpi > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])):not(.lat-reflow-held) {
+  section.kpi.kpi.kpi > .cell-stage > :is(ol, ul):not(.lat-reflow-held) {
     display: flex; flex-direction: column; justify-content: safe center;
     gap: var(--sp-md); align-content: normal; --lat-narrow: 1;
   }
-  section.kpi.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li:nth-child(1) {
+  section.kpi.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol:not(.lat-reflow-held) > li:nth-child(1) {
     background: none; border-inline-start: none; align-items: stretch; text-align: start; padding: var(--sp-sm) 0;
   }
-  section.kpi.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li:nth-child(2) {
+  section.kpi.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol:not(.lat-reflow-held) > li:nth-child(2) {
     border-top: 1px solid var(--border);
   }
 }
@@ -1091,9 +1091,9 @@ section.kpi.kpi.kpi[data-cards="center"] > .cell-stage > ol:where(:not([data-lis
  * meta line. Every item is placed again, because the wide grid places each one explicitly (a
  * one-column template alone sent the labels into an implicit column on top of the numbers). */
 @container lat-cards (width < 24em) {
-  section.kpi.kpi.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
-  section.kpi.kpi.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li > strong { grid-column: 1; grid-row: 1; min-width: 0; text-align: start; align-self: start; }
-  section.kpi.kpi.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li > ul > li:first-child { grid-column: 1; grid-row: 2; }
-  section.kpi.kpi.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li > ul > li:nth-child(2) { grid-column: 1; grid-row: 3; }
-  section.kpi.kpi.kpi.compliance > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li > ul > li:nth-child(n+3) { grid-column: 1; grid-row: auto; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > strong { grid-column: 1; grid-row: 1; min-width: 0; text-align: start; align-self: start; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > ul > li:first-child { grid-column: 1; grid-row: 2; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > ul > li:nth-child(2) { grid-column: 1; grid-row: 3; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > ul > li:nth-child(n+3) { grid-column: 1; grid-row: auto; }
 }

@@ -720,19 +720,20 @@ every level the layout reads: a chart's nested `1.` rows draw the same chart as 
 KPI's label lines read the same either way. A `2.` start still counts: it continues a numbered run
 from the slide before.
 
-What stays exactly as you wrote it, on every layout:
+Each layout reads as many list levels as it was designed for: the item, then its body or detail
+line (a card's text, a KPI's detail, a step's body), and on a few layouts one level more (a kanban
+card's tag line, a flowchart connection inside a group). The contract covers exactly those levels.
 
-- **A list nested deeper than the layout reads.** A numbered list under a card's body line keeps
-  its numbers, inside the text column (and a screen reader hears them). A card's body is itself a
-  level the card layouts read (`cards-grid`, `actors`, `statute-stack`, …): written `1.` or `-`, it
-  draws the same plain lines. On `agenda`, which reads only its section titles, a list under a
-  title sits on its own line beneath it, indented to the title.
-- **An aside**: a list after a line of prose ("Open risks:") with no heading in between. Lists
-  separated only by a heading (`### Added`, `### Amended`) are all the layout's. An aside is
-  stamped `data-list="aside"`; no layout draws it as its own cards, tiles or steps, and it shows
-  plain bullets or numbers in the text column. Where it sits is the layout's: `premise` places it
-  beside the ledger, `math` in the legend column.
-- **A list inside a blockquote** (a Key Insight callout) **or inside raw HTML** (`<div>` … `</div>`).
+**A list shape the layout was not designed for gets a warning, not a look.** `lint:deck` and the
+Studio report `list-depth-unsupported` for:
+
+- **a list nested deeper than the layout reads**, such as a sublist under an `agenda` section;
+- **an aside**: a second list after a line of prose ("Open risks:") with no heading in between.
+  Lists separated only by a heading (`### Added`, `### Amended`) are all the layout's.
+
+Fold the extra list into the line above, or give it its own `content` slide: `content` and
+`list` are prose layouts and take any list. A list inside a blockquote (a Key Insight callout) or
+inside raw HTML (`<div>` … `</div>`) is left as you wrote it.
 
 A deck-wide `class:` in front matter counts like a slide's own: `class: steps` makes every
 `split-panel` slide a numbered-tags layout.

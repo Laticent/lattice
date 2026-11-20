@@ -2793,3 +2793,32 @@ describe('lint-core: check-label-code', () => {
     assert.equal(hit(grid('checklist', '- [x] Residency `[!]` text')), undefined);
   });
 });
+
+describe('lint-core: list-depth-unsupported', () => {
+  // A list shape a designed layout has no look for warns (owner, 2026-11-20): a list nested deeper than
+  // the levels its manifest declares, or a second list after a line of prose. Prose layouts take any list.
+  const vocab = { names: new Set(['agenda', 'cards-grid', 'list-steps', 'regulatory-update', 'content', 'kanban']), modifiers: new Set() };
+  const shapes = (cls, body) =>
+    core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H\n\n${body}\n`, vocab)
+      .filter((f) => f.rule === 'list-depth-unsupported')
+      .map((f) => `${f.severity}:${f.line}`);
+
+  test('a sublist under a one-level layout warns, once per list, naming its first item', () => {
+    assert.deepEqual(shapes('agenda', '- One\n  1. a\n  2. b\n- Two\n  - c'), ['warning:1. a', 'warning:- c']);
+    assert.deepEqual(shapes('agenda', '- One\n- Two'), []);
+  });
+  test('a declared body level is the design; one level more warns', () => {
+    assert.deepEqual(shapes('cards-grid', '- A\n  - body\n- B\n  - body'), []);
+    assert.deepEqual(shapes('cards-grid', '- A\n  - body\n    - deep'), ['warning:- deep']);
+    assert.deepEqual(shapes('kanban', '- Lane\n  - Card `S`\n    - team-a'), []);
+  });
+  test('a list after a line of prose is an aside and warns; one under a heading is a section and does not', () => {
+    assert.deepEqual(shapes('list-steps', '1. A\n   - a\n\nOpen risks:\n\n- x'), ['warning:- x']);
+    assert.deepEqual(shapes('regulatory-update', '### Added\n\n- A\n  - `x`\n\n### Amended\n\n- B\n  - `y`'), []);
+  });
+  test('a quoted list, a raw-HTML list and a prose layout are left alone', () => {
+    assert.deepEqual(shapes('agenda', '- One\n\n> - quoted\n>   - deep'), []);
+    assert.deepEqual(shapes('agenda', '- One\n\n<div>\n\n- raw\n  - deep\n\n</div>'), []);
+    assert.deepEqual(shapes('content', '- One\n  - two\n    - three\n\nAlso:\n\n- four'), []);
+  });
+});

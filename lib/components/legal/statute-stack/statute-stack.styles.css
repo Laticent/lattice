@@ -35,8 +35,8 @@
  * .preemption (chevron-linked stack), .lane (markdown table — a different shape, below).
  * ──────────────────────────────────────────────────────────────────── */
 section.statute-stack > .cell-stage { display:flex; flex-direction:column; }
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])),
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.statute-stack > .cell-stage > ul,
+section.statute-stack > .cell-stage > ol {
   list-style:none; padding:0; margin:0;
   /* flex, not grid (flex shop §10): the default is three equal rails — a flex row
    * with `flex:1` cells reproduces `repeat(3,1fr)`. The vertical variants below flip
@@ -57,8 +57,8 @@ section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) {
    * foot — down with it. */
   min-height:0;
 }
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.statute-stack > .cell-stage > ul > li,
+section.statute-stack > .cell-stage > ol > li {
   flex:1; min-width:0;
   background:var(--bg-alt);
   border:1px solid var(--border);
@@ -78,14 +78,14 @@ section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li {
  * height (`align-items` stretches them to the line). At square/tall/strip the rails stack
  * into a COLUMN (below) and the register reads there as `justify-content`; the manifest's
  * `spread` at those families is the `space-evenly` the column always had. */
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) {
   flex-wrap: wrap; align-content: var(--cards-align);
 }
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li {
   max-height: 100%; box-sizing: border-box;
 }
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li::marker,
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::marker { content:''; }
+section.statute-stack > .cell-stage > ul > li::marker,
+section.statute-stack > .cell-stage > ol > li::marker { content:''; }
 /* Three-jurisdiction hue rotation. Federal = warm cobalt, State = warm
  * sienna, Local = warm slate. Cycles after three. */
 /* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
@@ -94,9 +94,9 @@ section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::
  * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
  * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
  * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
-section.statute-stack > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); --jur-ink:var(--cat-4-ink, var(--cat-4-mark)); }
-section.statute-stack > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); --jur-ink:var(--cat-6-ink, var(--cat-6-mark)); }
-section.statute-stack > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); --jur-ink:var(--cat-1-ink, var(--cat-1-mark)); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); --jur-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); --jur-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); --jur-ink:var(--cat-1-ink, var(--cat-1-mark)); }
 /* Jurisdiction label — eyebrow chrome (auto-bolded by slotLabelLift). The lifted
  * <strong> is the card's HEADER ROW: the label sits left, and trailing inline `code` pills
  * ride the same row. Placement is keyed to the card SHAPE (see below), because a wide row
@@ -106,8 +106,8 @@ section.statute-stack > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]
  *   · COLUMN cards (the 3-rail default — narrow): the lone citation pill anchors RIGHT
  *     (top-right corner); the status pill drops to the card foot (bottom-left, below) so the
  *     two never collide and wrap in the tight rail. */
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong:first-child,
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong:first-child {
+section.statute-stack > .cell-stage > ul > li > strong:first-child,
+section.statute-stack > .cell-stage > ol > li > strong:first-child {
   display:flex; align-items:baseline; gap:var(--sp-sm);
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -120,7 +120,7 @@ section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li >
  * plugin, neutral outline by default: the citation reads identical across cards (an identifier,
  * not a signal). The label above is uppercase and meta-sized; a pill keeps its own case and fills
  * the label's size rather than 0.85 of it. */
-section.statute-stack > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong:first-child > .lat-pill {
+section.statute-stack > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill {
   --lat-pill-case:none;
   --lat-pill-cap:1;
 }
@@ -128,7 +128,7 @@ section.statute-stack > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]
  * Two-child header row (label + lone pill) → space-between pushes the pill to the right
  * edge WITHOUT a left-auto margin (auto margins sit outside the flex content box and break
  * the virtual-list height measurement). */
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong:first-child {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > strong:first-child {
   justify-content:space-between;
 }
 /* ROW cards — the citation stays left after the label; the trailing status pill (the second
@@ -140,10 +140,10 @@ section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > 
  * header's right edge with absolute positioning, so the label + citation stay packed left at
  * their natural widths. (A flex:1 spacer can't be used here — the citation is a chrome-bearing
  * pill, so growing it would stretch its visible box rather than open up clean space.) */
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong:first-child {
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child {
   position:relative;
 }
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
   position:absolute; right:0; top:50%; transform:translateY(-50%);
   /* Border keeps the mark (a 1px stroke, 3:1); the pill's TEXT takes the ink, like
    * every other categorical label here. Missed in the first pass because the pill's ink
@@ -152,31 +152,31 @@ section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul
    * light and 1.28:1 on a11y under `_class: dark` — the same numbers this change
    * exists to retire. (#1263) */
 }
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong:first-child > .lat-pill:not([data-c]):last-child:not(:first-child) {
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:not([data-c]):last-child:not(:first-child) {
   --lat-pill-edge:var(--jur-accent, var(--accent));
   --lat-pill-ink:var(--jur-ink, var(--accent));
 }
 /* Body list. */
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul,
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul,
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol,
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol {
+section.statute-stack > .cell-stage > ul > li > ul,
+section.statute-stack > .cell-stage > ol > li > ul,
+section.statute-stack > .cell-stage > ul > li > ol,
+section.statute-stack > .cell-stage > ol > li > ol {
   list-style:none; padding:0; margin:0;
   display:flex; flex-direction:column; gap:var(--sp-xs);
   flex:1;
 }
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > :is(ul, ol) > li,
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > :is(ul, ol) > li {
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li,
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li {
   font-size:var(--fs-body);
   line-height:var(--lh-snug);
   color:var(--text-body);
 }
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > :is(ul, ol) > li::marker,
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > :is(ul, ol) > li::marker { content:''; }
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li::marker,
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li::marker { content:''; }
 /* Citation chip — first body item, only-child <code>. Non-pill hanging
  * cite: mono, body-heading color, no chrome. */
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code,
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code,
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
   display:block;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -196,17 +196,17 @@ section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li >
  * breaks the virtual-list height measurement): instead of margin-top:auto on the status li,
  * the body item immediately ABOVE the status (a chrome-free prose/citation line) grows to
  * fill the rail's free space, pushing the status to the foot — the flex:1-spacer idiom. */
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul:where(:not([data-list="aside"])) > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > .lat-pill:only-child),
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol:where(:not([data-list="aside"])) > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > .lat-pill:only-child) {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > .lat-pill:only-child),
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol > li > :is(ul, ol) > li:has(+ li:last-child:not(:where([data-prose])) > .lat-pill:only-child) {
   flex:1 1 auto;
 }
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill,
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill {
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill,
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill {
   --lat-pill-case:none;
   align-self:flex-start;
 }
-section.statute-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]),
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]) {
+section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]),
+section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]) {
   --lat-pill-edge:var(--jur-accent, var(--accent));
   --lat-pill-ink:var(--jur-ink, var(--accent));
 }
@@ -215,15 +215,15 @@ section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li >
  * (Federal tall, State mid, Local short) so the cascade of authority reads top-to-bottom.
  * Cards inherit the base anatomy (label+citation header, gloss, foot status) — only the
  * arrangement differs. flex mirror of `grid-auto-rows:1.5fr 1fr 0.7fr`. */
-section.statute-stack.hierarchy > .cell-stage > ul:where(:not([data-list="aside"])),
-section.statute-stack.hierarchy > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.statute-stack.hierarchy > .cell-stage > ul,
+section.statute-stack.hierarchy > .cell-stage > ol {
   flex-direction:column;
 }
-section.statute-stack.hierarchy > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(1) { flex:1.5; }
-section.statute-stack.hierarchy > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(2) { flex:1; }
-section.statute-stack.hierarchy > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(3) { flex:0.7; }
-section.statute-stack.hierarchy > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.statute-stack.hierarchy > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.statute-stack.hierarchy > .cell-stage > :is(ul, ol) > li:nth-child(1) { flex:1.5; }
+section.statute-stack.hierarchy > .cell-stage > :is(ul, ol) > li:nth-child(2) { flex:1; }
+section.statute-stack.hierarchy > .cell-stage > :is(ul, ol) > li:nth-child(3) { flex:0.7; }
+section.statute-stack.hierarchy > .cell-stage > ul > li,
+section.statute-stack.hierarchy > .cell-stage > ol > li {
   border-top:1px solid var(--border);
   border-left:4px solid var(--jur-accent, var(--accent));
 }
@@ -231,19 +231,19 @@ section.statute-stack.hierarchy > .cell-stage > ol:where(:not([data-list="aside"
 /* .bands — the shared jurisdiction card, stacked full-width with EQUAL heights: an
  * at-a-glance scorecard. Cards inherit the base anatomy; the container just stacks them
  * (base `flex:1` → equal rows in a column). flex mirror of `grid-auto-rows:1fr`. */
-section.statute-stack.bands > .cell-stage > ul:where(:not([data-list="aside"])),
-section.statute-stack.bands > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.statute-stack.bands > .cell-stage > ul,
+section.statute-stack.bands > .cell-stage > ol {
   flex-direction:column;
 }
-section.statute-stack.bands > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.statute-stack.bands > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.statute-stack.bands > .cell-stage > ul > li,
+section.statute-stack.bands > .cell-stage > ol > li {
   border-top:1px solid var(--border);
   border-left:4px solid var(--jur-accent, var(--accent));
 }
 
 /* .preemption — vertical stack with arrows between cards. */
-section.statute-stack.preemption > .cell-stage > ul:where(:not([data-list="aside"])),
-section.statute-stack.preemption > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.statute-stack.preemption > .cell-stage > ul,
+section.statute-stack.preemption > .cell-stage > ol {
   /* content-height cards stacked + centered — flex mirror of `grid-auto-rows:auto;
    * align-content:center`. */
   flex-direction:column;
@@ -265,15 +265,15 @@ section.statute-stack.preemption > .cell-stage > ol:where(:not([data-list="aside
    * byte-identical. */
   justify-content:safe center;
 }
-section.statute-stack.preemption > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.statute-stack.preemption > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.statute-stack.preemption > .cell-stage > ul > li,
+section.statute-stack.preemption > .cell-stage > ol > li {
   flex:0 0 auto;
   border:1px solid var(--border);
   border-left:4px solid var(--jur-accent, var(--accent));
   border-top:1px solid var(--border);
   position:relative;
 }
-section.statute-stack.preemption > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:not(:last-child)::after {
+section.statute-stack.preemption > .cell-stage > :is(ul, ol) > li:not(:last-child)::after {
   /* The same chevron the compare-prose connector uses, rotated down, for one
    * connector vocabulary across the deck. It sits CENTERED in its own clean band (the
    * inter-card gap), not floated over the next card's edge behind a `var(--bg)` mask
@@ -299,15 +299,15 @@ section.statute-stack.preemption > .cell-stage > :is(ul, ol):where(:not([data-li
  * (citation left, status right) and the gloss sits below, so each card is just two compact
  * lines. Tighter padding + a centered content block keep the card balanced in its band
  * (especially hierarchy's tall Federal card) instead of stranding the two lines at the top. */
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li {
   padding:var(--sp-sm) var(--sp-md);
   gap:var(--sp-2xs);
   justify-content:center;
 }
-section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   flex:0 1 auto;
 }
-section.statute-stack:is(.hierarchy, .bands) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.statute-stack:is(.hierarchy, .bands) > .cell-stage > :is(ul, ol) {
   gap:var(--sp-sm);
 }
 
@@ -319,8 +319,8 @@ section.statute-stack:is(.hierarchy, .bands) > .cell-stage > :is(ul, ol):where(:
  *   | State        | Cal. Civ. Code §1798  | Notice + opt-out + DSAR   | Enforced    |
  *   | Local        | NYC §22-1201          | Annual AEDT bias audit    | Effective   |
  */
-section.statute-stack.lane > .cell-stage > ul:where(:not([data-list="aside"])),
-section.statute-stack.lane > .cell-stage > ol:where(:not([data-list="aside"])) { display:none; }
+section.statute-stack.lane > .cell-stage > ul,
+section.statute-stack.lane > .cell-stage > ol { display:none; }
 section.statute-stack.lane table {
   width:100%; border-collapse:collapse;
   flex:1; font-size:var(--fs-body);
@@ -403,20 +403,20 @@ section.statute-stack.lane td:last-child {
  * surface loses (HARD RULE #23), so square stays stacked and the number stays
  * out of the argument until `density` is honest (see the capacity section of
  * 2026-07-27-family-stamp-replaces-container-queries.md). */
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])),
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
   /* portrait → single column of content-height cards, evenly distributed (flex mirror
      of `grid-auto-rows:auto; align-content:space-evenly`). */
   flex-direction: column; flex-wrap: nowrap;
   justify-content: var(--cards-align);
 }
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
   flex: var(--cards-grow) 0 auto;
 }
 /* Header-pill authoring already carries the citation + status on the label row, so the
    portrait card needs no pill-lift — just breathing room between that row and the gloss. */
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   padding-top:var(--sp-md);
 }
 
@@ -425,7 +425,7 @@ section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):wh
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
-section.statute-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.statute-stack > .cell-stage > ol > li {
   box-shadow: var(--elevation-card);
 }
 section.statute-stack > .cell-stage {
@@ -439,10 +439,10 @@ section.statute-stack > .cell-stage {
  * reserved for it, so in a narrow card it landed on the label and the citation: below 24em the
  * header wraps and the pill takes its place in the flow. */
 @container lat-cards (width < 36em) {
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) {
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
     flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
   }
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
     flex: var(--cards-grow) 0 auto;
   }
 }
@@ -450,13 +450,13 @@ section.statute-stack > .cell-stage {
  * right; in a narrow card the pill ran past the card's edge. Below 24em the header wraps, so
  * the citation drops under the label, still at the right. */
 @container lat-cards (width < 24em) {
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong:first-child {
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > strong:first-child {
     flex-wrap: wrap; row-gap: var(--sp-2xs);
   }
 }
 @container lat-cards (width < 24em) {
-  section.statute-stack.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong:first-child { flex-wrap: wrap; row-gap: var(--sp-2xs); }
-  section.statute-stack.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
+  section.statute-stack.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child { flex-wrap: wrap; row-gap: var(--sp-2xs); }
+  section.statute-stack.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
     position: static; transform: none;
   }
 }

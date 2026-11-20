@@ -49,8 +49,7 @@ const STYLES = path.resolve(
 const LEDGER = 'section.inventory:not(.cards):not(.timeline):not(.editorial)';
 
 describe('inventory ledger ordinal arms', () => {
-  // The aside exclusion every stage-list rule carries (list contract, #3330) is cut: these tests read the arms.
-  const css = fs.readFileSync(STYLES, 'utf8').replaceAll(':where(:not([data-list="aside"]))', '');
+  const css = fs.readFileSync(STYLES, 'utf8');
   // Every selector in the file that ends in `::before` and targets a ledger row.
   // Rules are read as [selector-list]{...}: comments are stripped first, then each
   // list is split on commas, because the two arms share one declaration block.

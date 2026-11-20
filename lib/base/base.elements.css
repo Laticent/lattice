@@ -211,14 +211,6 @@ section :is(code, pre, marp-pre, kbd, samp) {
 section hr { border:none; height:0.15625cqi; background:var(--spectrum-structure); border-radius:0.15625cqi; width:5.625cqi; margin:0; align-self:var(--headline-justify, center); }
 section ul { list-style:none; padding:0; margin:0; }
 section ol { padding:0; margin:0; }
-/* An aside (a list after a line of prose on a layout that reads a list) is the author's, left as
- * written by the list contract and stamped `data-list="aside"` (lib/core/list-contract.js). The reset
- * above strips its markers; it gets them back, inside the stage's text column. */
-section :is(ul, ol)[data-list="aside"] { list-style: revert; padding-inline-start: 1.25em; }
-/* An author's numbered list nested inside a list item keeps its numbers (the list contract leaves it
- * as written), so it needs room for them: with the reset's zero padding they hang left of the text
- * column, outside a card's edge. A layout that styles its own nested lists overrides this. */
-section li > ol { padding-inline-start: 1.25em; }
 section blockquote { margin:0; padding:0; border:none; }
 
 /* ── UNIVERSAL TABLE ──────────────────────────────────────────────────────

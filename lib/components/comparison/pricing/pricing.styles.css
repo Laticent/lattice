@@ -24,7 +24,7 @@
 section.pricing > .cell-stage { display: flex; flex-direction: column; }
 
 /* ── Tier grid ── three columns by default; `two` / `four` adjust. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.pricing > .cell-stage > ul {
   /* flex mirror of `repeat(N,1fr)` (flex shop §11.A): N equal tiers per row, wrapping any
    * extras; align-items:stretch (default) gives a row of equal-height tiers, and the rows
    * sit where the `cards:` register puts them (#2317) — tiers in one row stay equal height
@@ -37,21 +37,21 @@ section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) {
    * elevation shadow (base.tokens.css --elevation-berth). Not margin (#20). */
   flex: 1; list-style: none; padding: var(--elevation-berth); margin: 0;
 }
-section.pricing.two > .cell-stage > ul:where(:not([data-list="aside"])) { --pricing-cols: 2; }
-section.pricing.two > .cell-stage > ul:where(:not([data-list="aside"])) > li { width: calc(100% / 2 - var(--sp-md) / 2); }
-section.pricing.four > .cell-stage > ul:where(:not([data-list="aside"])) { --pricing-cols: 4; }
-section.pricing.four > .cell-stage > ul:where(:not([data-list="aside"])) > li { width: calc(100% / 4 - 3 * var(--sp-md) / 4); }
+section.pricing.two > .cell-stage > ul { --pricing-cols: 2; }
+section.pricing.two > .cell-stage > ul > li { width: calc(100% / 2 - var(--sp-md) / 2); }
+section.pricing.four > .cell-stage > ul { --pricing-cols: 4; }
+section.pricing.four > .cell-stage > ul > li { width: calc(100% / 4 - 3 * var(--sp-md) / 4); }
 /* FOUR TIERS, FOUR ACROSS, with or without `four`. The default row is three, so a bare
  * four-tier slide wrapped its fourth tier to a second row and clipped it: `capacity.hard`
  * says four, and nothing a bare slide could do reached it. Only the exact count moves, so a
  * two- or three-tier slide is unchanged, and `two` still wins where the author set it. A
  * portrait box stacks the tiers in one column (below), so it is left out. */
-section.pricing:not(.two):not([data-orientation="portrait"]):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ul:where(:not([data-list="aside"])):has(> li:nth-child(4):last-child) { --pricing-cols: 4; }
-section.pricing:not(.two):not([data-orientation="portrait"]):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ul:where(:not([data-list="aside"])):has(> li:nth-child(4):last-child) > li { width: calc(100% / 4 - 3 * var(--sp-md) / 4); }
+section.pricing:not(.two):not([data-orientation="portrait"]):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ul:has(> li:nth-child(4):last-child) { --pricing-cols: 4; }
+section.pricing:not(.two):not([data-orientation="portrait"]):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ul:has(> li:nth-child(4):last-child) > li { width: calc(100% / 4 - 3 * var(--sp-md) / 4); }
 
 /* ── Tier card ── auto-bold name via the card's own weight (cards-grid
  * pattern); children revert below. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.pricing > .cell-stage > ul > li {
   position: relative;
   /* outer flex item: N tiers per row (mirror of the 1fr columns). Uses `width` (not a
    * `flex`-shorthand calc basis, which renders unreliably) with the matrix-2x2 formula
@@ -73,10 +73,10 @@ section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li {
   box-shadow: var(--elevation-card);
 }
 /* Back-compat: if an author wraps the name in **…**, render it identically. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong { font-weight: inherit; color: inherit; }
+section.pricing > .cell-stage > ul > li > strong { font-weight: inherit; color: inherit; }
 
 /* ── Price ── trailing inline code, promoted to a display figure. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > code {
+section.pricing > .cell-stage > ul > li > code {
   display: block;
   font-family: var(--font-display);
   font-size: var(--fs-emphasis);
@@ -87,7 +87,7 @@ section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > code 
 
 /* ── Recommendation ribbon ── the author's *marker* renders top-right. A corner tab, not a pill:
  * it owns its type and padding. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > em {
+section.pricing > .cell-stage > ul > li > em {
   position: absolute; top: 0; inset-inline-end: 0;
   font-style: normal; font-weight: 700;
   font-family: var(--font-body);
@@ -99,24 +99,24 @@ section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > em {
 }
 
 /* ── Elevated tier ── any card carrying a marker (standalone :has). */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li:has(> em) {
+section.pricing > .cell-stage > ul > li:has(> em) {
   background: var(--accent-soft);
   border-color: var(--accent);
   /* accent ring composed OVER the Struck lift — this tier both pops and floats. */
   box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card);
   color: var(--on-accent-soft);
 }
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li:has(> em) > code { color: var(--on-accent-soft); }
+section.pricing > .cell-stage > ul > li:has(> em) > code { color: var(--on-accent-soft); }
 
 /* ── Feature list ── fills the card so the caption can pin to the bottom;
  * weight reverts from the card's 700. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul {
+section.pricing > .cell-stage > ul > li > ul {
   list-style: none; padding: var(--sp-sm) 0 0 0; margin: 0;
   width: 100%; flex: 1 1 auto;
   display: flex; flex-direction: column; gap: var(--sp-2xs);
   font-weight: 400;
 }
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li {
+section.pricing > .cell-stage > ul > li > ul > li {
   font-size: var(--fs-body);
   font-weight: 400; color: var(--text-body);
   line-height: var(--lh-snug);
@@ -130,39 +130,39 @@ section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > 
  * A one-line row is 1.6em tall, as it was: one tight line plus the row's own padding. The
  * disc is the check's own (base.modifiers.css `.lat-state`); this sheet only places it. Its
  * prose margin is reset (#20 allows `margin:0`), and `gap` spaces it from the label. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li:has(> .lat-state:first-child) {
+section.pricing > .cell-stage > ul > li > ul > li:has(> .lat-state:first-child) {
   --pricing-line: calc(var(--lh-tight) * 1em);
   display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 0.35em;
   line-height: var(--lh-tight); text-wrap: pretty;
   padding-block: calc((1.6em - var(--pricing-line)) / 2);
 }
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li > .lat-state:first-child {
+section.pricing > .cell-stage > ul > li > ul > li > .lat-state:first-child {
   margin-inline: 0;
   /* Centred on the first line: the PAINTED disc (`--_disc`, the check's own, rim included) is centred,
    * and its box sits one rim inside it (lib/plugins/checks/checks.styles.css). */
   top: calc((var(--pricing-line) - var(--_disc)) / 2 + var(--state-ring-outer-w, 0px));
 }
 /* A sub-list under a feature takes its own line. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li:has(> .lat-state:first-child) > :is(ul, ol) { grid-column: 1 / -1; }
+section.pricing > .cell-stage > ul > li > ul > li:has(> .lat-state:first-child) > :is(ul, ol) { grid-column: 1 / -1; }
 /* `[/]` not included: the label is struck and muted, as it was. The label is a text node, so
  * the row carries the decoration and the disc, an atomic inline box, does not inherit it. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li:has(> .lat-state.skip:first-child) { color: var(--text-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted-mark) 60%, transparent); }
+section.pricing > .cell-stage > ul > li > ul > li:has(> .lat-state.skip:first-child) { color: var(--text-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted-mark) 60%, transparent); }
 /* ── "Who it's for" line ── the marker-less last nested li, pinned bottom. */
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li:last-child {
+section.pricing > .cell-stage > ul > li > ul > li:last-child {
   flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end;
   padding-top: var(--sp-sm);
   font-size: var(--fs-meta); color: var(--text-muted);
 }
-section.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li:has(> em) > ul > li:last-child { color: var(--on-accent-soft); }
+section.pricing > .cell-stage > ul > li:has(> em) > ul > li:last-child { color: var(--on-accent-soft); }
 
 /* ── Portrait / square reflow (social/mobile @sizes). Keyed on the deck-wide
  * data-orientation stamp (lib/engine/slides.js); landscape untouched. See
  * 2026-06-16-social-mobile-portrait-sizes.md (phase 3). Tiers stack to one
  * column — the standard mobile pricing pattern. */
-section.pricing[data-orientation="portrait"] > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.pricing[data-orientation="portrait"] > .cell-stage > ul {
   flex-direction: column;
 }
-section.pricing[data-orientation="portrait"] > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
   flex: 0 0 auto;
 }
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
@@ -170,20 +170,20 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul:where(:not([data
  * so it fires on any tall or strip deck — replacing the
  * deck-wide data-orientation stamp. Doubled class reaches (0,2,2) to match the
  * [data-orientation] reflow it mirrors. */
-section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
 }
-section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
   flex: 0 0 auto;
 }
 /* The stacked tiers are a COLUMN, so the `cards:` register places them along the main axis
  * (`justify-content`), and a tier grows only under `stretch` (`--cards-grow`). */
-section.pricing[data-orientation="portrait"] > .cell-stage > ul:where(:not([data-list="aside"])),
-section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.pricing[data-orientation="portrait"] > .cell-stage > ul,
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   justify-content: var(--cards-align);
 }
-section.pricing[data-orientation="portrait"] > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.pricing[data-orientation="portrait"] > .cell-stage > ul > li,
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
   flex-grow: var(--cards-grow);
 }
 
@@ -194,32 +194,32 @@ section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .ce
  * two to a row below 46em and stack below 24em. A stacked tier spans the column: `width: auto`
  * releases the per-tier share, which a column would otherwise keep as a third of its width. */
 @container lat-cards (width < 46em) {
-  section.pricing.pricing.four > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held),
-  section.pricing.pricing:has(> .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(4):last-child) > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) { --lat-narrow: 1; }
-  section.pricing.pricing.four > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) > li,
-  section.pricing.pricing:has(> .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(4):last-child) > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
+  section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held),
+  section.pricing.pricing:has(> .cell-stage > ul > li:nth-child(4):last-child) > .cell-stage > ul:not(.lat-reflow-held) { --lat-narrow: 1; }
+  section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held) > li,
+  section.pricing.pricing:has(> .cell-stage > ul > li:nth-child(4):last-child) > .cell-stage > ul:not(.lat-reflow-held) > li {
     width: calc(50% - var(--sp-md) / 2);
   }
 }
 @container lat-cards (width < 36em) {
-  section.pricing.pricing:not(.two):not(.four):not(:has(> .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(4):last-child)) > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) {
+  section.pricing.pricing:not(.two):not(.four):not(:has(> .cell-stage > ul > li:nth-child(4):last-child)) > .cell-stage > ul:not(.lat-reflow-held) {
     flex-direction: column; justify-content: var(--cards-align); --lat-narrow: 1;
   }
-  section.pricing.pricing:not(.two):not(.four):not(:has(> .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(4):last-child)) > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
+  section.pricing.pricing:not(.two):not(.four):not(:has(> .cell-stage > ul > li:nth-child(4):last-child)) > .cell-stage > ul:not(.lat-reflow-held) > li {
     width: auto; flex: 0 0 auto; flex-grow: var(--cards-grow);
   }
 }
 @container lat-cards (width < 24em) {
   /* The four-tier selectors repeat here because the `:has()` one above out-ranks a plain
    * class chain; at equal weight this later block wins. */
-  section.pricing.pricing.pricing > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held),
-  section.pricing.pricing.four > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held),
-  section.pricing.pricing:has(> .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(4):last-child) > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) {
+  section.pricing.pricing.pricing > .cell-stage > ul:not(.lat-reflow-held),
+  section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held),
+  section.pricing.pricing:has(> .cell-stage > ul > li:nth-child(4):last-child) > .cell-stage > ul:not(.lat-reflow-held) {
     flex-direction: column; justify-content: var(--cards-align); --lat-narrow: 1;
   }
-  section.pricing.pricing.pricing > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) > li,
-  section.pricing.pricing.four > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) > li,
-  section.pricing.pricing:has(> .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(4):last-child) > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
+  section.pricing.pricing.pricing > .cell-stage > ul:not(.lat-reflow-held) > li,
+  section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held) > li,
+  section.pricing.pricing:has(> .cell-stage > ul > li:nth-child(4):last-child) > .cell-stage > ul:not(.lat-reflow-held) > li {
     width: auto; flex: 0 0 auto; flex-grow: var(--cards-grow);
   }
 }

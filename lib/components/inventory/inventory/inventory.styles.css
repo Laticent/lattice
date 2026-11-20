@@ -22,7 +22,7 @@
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage {
   display: flex; flex-direction: column; justify-content: safe center;
 }
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul {
   /* Bottom pad = the insight band's gap, parked on this no-bg ul so the band's
    * background doesn't extend up into the gap (HARD RULE #20). Row rhythm is tuned to
    * seat four rows + the band inside the bounded stage under Form, where the masthead
@@ -46,7 +46,7 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:
   --inv-ord-w: calc(var(--fs-h3) * 1.2);
   --inv-ord-gap: var(--sp-sm);
 }
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li {
   counter-increment: r; position: relative; list-style: none;
   padding: var(--sp-3xs) 0 var(--sp-3xs) calc(var(--inv-ord-w) + var(--inv-ord-gap));
   font-size: var(--fs-body); color: var(--text-body);
@@ -60,7 +60,7 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:
  * only match an interior boundary, so there is no outer edge to suppress and
  * nothing to keep in sync. Row padding is symmetric, so the hairline lands on the
  * same pixel it did as a bottom border. */
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:where(:not([data-list="aside"])) > li + li {
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li + li {
   border-top: 1px solid var(--border);
 }
 /* THE ORDINAL HANGS OFF THE TITLE IT INDEXES, NOT OFF THE ROW BOX. It is still
@@ -98,18 +98,18 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:
  * beside the mid-sentence bold. Complementing on the same `:first-child` is what
  * keeps a row from falling through both arms or landing in neither: a row whose only
  * strong is mid-sentence has no lead, so it takes the row-anchored arm. */
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong:first-child::before,
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:where(:not([data-list="aside"])) > li:not(:has(> strong:first-child))::before {
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child::before,
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li:not(:has(> strong:first-child))::before {
   content: counter(r, decimal-leading-zero); position: absolute;
   width: var(--inv-ord-w);
   font-family: var(--font-label); font-size: var(--fs-h3); font-weight: 600; color: var(--accent);
 }
 /* The <strong> starts at the row's CONTENT edge, so the ordinal reaches back
  * across the gutter the row reserved for it — one expression, same two tokens. */
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong:first-child::before {
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child::before {
   top: calc(var(--sp-2xs) - var(--sp-3xs)); left: calc(-1 * (var(--inv-ord-w) + var(--inv-ord-gap)));
 }
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:where(:not([data-list="aside"])) > li:not(:has(> strong:first-child))::before {
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li:not(:has(> strong:first-child))::before {
   top: var(--sp-2xs); left: 0;
 }
 /* `--lh-tight` because the title is DISPLAY type set as a block, and without it the
@@ -119,7 +119,7 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:
  * start and the band was clipped mid-line (the Playground renders the skeleton, the
  * gallery never carried the band). The ordinal lives inside this <strong> and shares
  * its line box, so it moves with the title. Every look's title takes the same value. */
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:where(:not([data-list="aside"])) > li strong {
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
   line-height: var(--lh-tight);
@@ -128,7 +128,7 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:
  * above); it adds no offset of its own, so nothing moves. Scoped to the lead rather
  * than folded into the rule above so a mid-sentence bold, which that rule also
  * styles, does not become a positioning context it has no use for. */
-section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong:first-child {
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child {
   position: relative;
 }
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > blockquote {
@@ -151,8 +151,8 @@ section.inventory.cards > .cell-stage { justify-content: var(--cards-align); }
 section.inventory.cards[data-cards="center"] > .cell-stage { justify-content: safe center; }
 section.inventory.cards[data-cards-coda]:has(> .cell-coda) > .cell-stage { justify-content: var(--cards-align); }
 section.inventory.cards[data-cards-coda="center"]:has(> .cell-coda) > .cell-stage { justify-content: safe center; }
-section.inventory.cards > .cell-stage > ul:where(:not([data-list="aside"])) { flex-grow: var(--cards-grow); }
-section.inventory.cards > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.inventory.cards > .cell-stage > ul { flex-grow: var(--cards-grow); }
+section.inventory.cards > .cell-stage > ul {
   /* The card gutter is `--sp-md`, the same as every other card grid (decision, pricing,
    * statute-stack, matrix-2x2). It was `--sp-xs` everywhere, a third of that, which read as
    * cramped once the grid sat centered in free space (#2317). */
@@ -162,13 +162,13 @@ section.inventory.cards > .cell-stage > ul:where(:not([data-list="aside"])) {
 /* …except above a pull-quote: sp-xs tops (not sp-md) so a 2×2 grid + the pull-quote (incl.
  * its closing-quote ::after) seats inside the bounded stage under Form — the masthead claims
  * the height the legacy slide-height layout had. */
-section.inventory.cards > .cell-stage > ul:where(:not([data-list="aside"])):has(+ blockquote) { gap: var(--sp-xs); }
-section.inventory.cards > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.inventory.cards > .cell-stage > ul:has(+ blockquote) { gap: var(--sp-xs); }
+section.inventory.cards > .cell-stage > ul > li {
   list-style: none; background: var(--bg-alt); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: var(--sp-xs) var(--sp-md);
   font-size: var(--fs-body); color: var(--text-body);
 }
-section.inventory.cards > .cell-stage > ul:where(:not([data-list="aside"])) > li strong {
+section.inventory.cards > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-2xs);
   line-height: var(--lh-tight);
@@ -192,7 +192,7 @@ section.inventory.timeline > .cell-stage > blockquote {
   order: -1; text-align: center; font-family: var(--font-display);
   font-size: var(--fs-message); color: var(--text-muted); padding: 0 0 var(--sp-md);
 }
-section.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.inventory.timeline > .cell-stage > ul {
   list-style: none; padding: var(--sp-md) 0 0;
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
   gap: var(--sp-lg); counter-reset: t var(--lat-split-offset, 0);
@@ -207,22 +207,22 @@ section.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])) {
    * from the same value, so they cannot drift from it. */
   --inv-dot: calc(var(--fs-body) * 1.9);
 }
-section.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.inventory.timeline > .cell-stage > ul > li {
   counter-increment: t; position: relative; list-style: none;
   padding-top: calc(var(--inv-dot) * 1.5); font-size: var(--fs-body); color: var(--text-body);
 }
-section.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])) > li::before {
+section.inventory.timeline > .cell-stage > ul > li::before {
   content: counter(t); position: absolute; top: 0; left: 0; width: var(--inv-dot); height: var(--inv-dot);
   border-radius: 50%; background: var(--accent); color: var(--on-accent);
   display: grid; place-items: center; font-family: var(--font-label);
   font-weight: 600; font-size: var(--fs-body); z-index: 2;
 }
-section.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])) > li::after {
+section.inventory.timeline > .cell-stage > ul > li::after {
   content: ''; position: absolute; top: calc(var(--inv-dot) / 2); left: var(--inv-dot); right: calc(var(--sp-lg) * -1);
   height: 2px; background: var(--border);
 }
-section.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])) > li:last-child::after { display: none; }
-section.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])) > li strong {
+section.inventory.timeline > .cell-stage > ul > li:last-child::after { display: none; }
+section.inventory.timeline > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-h3);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-2xs);
   line-height: var(--lh-tight);
@@ -258,15 +258,15 @@ section.inventory.editorial > .cell-stage > blockquote {
   font-family: var(--font-display); font-style: italic; font-size: var(--fs-message);
   color: var(--accent); border-left: 0.3cqi solid var(--accent); padding-left: var(--sp-md);
 }
-section.inventory.editorial > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.inventory.editorial > .cell-stage > ul {
   grid-column: 2; grid-row: 1; list-style: none; padding: 0;
   display: flex; flex-direction: column; justify-content: safe center; gap: var(--sp-md);
 }
-section.inventory.editorial > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.inventory.editorial > .cell-stage > ul > li {
   list-style: none; padding-left: var(--sp-md); border-left: 2px solid var(--border);
   font-size: var(--fs-body); color: var(--text-body);
 }
-section.inventory.editorial > .cell-stage > ul:where(:not([data-list="aside"])) > li strong {
+section.inventory.editorial > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-message);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
   line-height: var(--lh-tight);
@@ -295,7 +295,7 @@ section.inventory.editorial > .cell-stage > ul:where(:not([data-list="aside"])) 
 section.inventory.editorial.lat-split-native > .cell-stage {
   grid-template-columns: 1fr;
 }
-section.inventory.editorial.lat-split-native > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.inventory.editorial.lat-split-native > .cell-stage > ul {
   grid-column: 1;
 }
 /* …and RELEASE THE ROW PIN, or the one column stacks nothing. The base editorial rules pin
@@ -305,7 +305,7 @@ section.inventory.editorial.lat-split-native > .cell-stage > ul:where(:not([data
  * the tall-family reflow below never fires: the insight's two lines printed straight
  * through the row's title and body. `auto` lets them stack in source order, the same
  * release the tall reflow gives the unsplit slide. */
-section.inventory.editorial.lat-split-native > .cell-stage > ul:where(:not([data-list="aside"])),
+section.inventory.editorial.lat-split-native > .cell-stage > ul,
 section.inventory.editorial.lat-split-native > .cell-stage > blockquote {
   grid-row: auto;
 }
@@ -313,7 +313,7 @@ section.inventory.editorial.lat-split-native > .cell-stage > blockquote {
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
-section.inventory.cards > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.inventory.cards > .cell-stage > ul > li {
   box-shadow: var(--elevation-card);
 }
 section.inventory.cards > .cell-stage {
@@ -328,7 +328,7 @@ section.inventory.cards > .cell-stage {
  * Square keeps both grids: two columns is what a balanced box is for, and the
  * declared `adapt.capacity.square` (sweet 4 / hard 6) assumes it. */
 section.inventory:where([data-family="tall"], [data-family="strip"]) .inv-pairs,
-section.inventory:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])):not(.inv-rows),
+section.inventory:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:not(.inv-rows),
 section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
   grid-template-columns: 1fr;
 }
@@ -351,7 +351,7 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
  * ACROSS two columns, and in a single column auto-placement is exactly what stacking wants. Pin
  * both and the two blocks would land in one cell, on top of each other. */
 section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > blockquote,
-section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   grid-column: 1; grid-row: auto;
 }
 
@@ -372,15 +372,15 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
  * new implicit column beside the last. Here it flows by row, the dot moves to the left of
  * its title, and the connector drops from each dot to the next. The dot, its gutter and the
  * connector all derive from `--inv-dot`, as the horizontal run's do. */
-section.inventory.timeline[data-family="tall"] > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.inventory.timeline[data-family="tall"] > .cell-stage > ul {
   grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); gap: var(--sp-md);
   padding: var(--sp-xs) 0 0;
 }
-section.inventory.timeline[data-family="tall"] > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.inventory.timeline[data-family="tall"] > .cell-stage > ul > li {
   padding: 0 0 0 calc(var(--inv-dot) + var(--sp-sm));
   min-height: var(--inv-dot);
 }
-section.inventory.timeline[data-family="tall"] > .cell-stage > ul:where(:not([data-list="aside"])) > li::after {
+section.inventory.timeline[data-family="tall"] > .cell-stage > ul > li::after {
   top: var(--inv-dot); bottom: calc(-1 * var(--sp-md));
   left: calc(var(--inv-dot) / 2 - 1px); right: auto;
   width: 2px; height: auto;
@@ -389,13 +389,13 @@ section.inventory.timeline[data-family="tall"] > .cell-stage > ul:where(:not([da
 /* CARDS: four stacked tiles plus the pull-quote. The tiles keep their look; the air
  * between and inside them comes down one rung and the prose sets at `--lh-snug`, which is
  * what the stack of four needed (866px against the 844px stage before). */
-section.inventory.cards[data-family="tall"] > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.inventory.cards[data-family="tall"] > .cell-stage > ul {
   padding-top: 0; gap: var(--sp-2xs);
 }
-section.inventory.cards[data-family="tall"] > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+section.inventory.cards[data-family="tall"] > .cell-stage > ul > li {
   padding: var(--sp-xs) var(--sp-sm); line-height: var(--lh-snug);
 }
-section.inventory.cards[data-family="tall"] > .cell-stage > ul:where(:not([data-list="aside"])) > li strong {
+section.inventory.cards[data-family="tall"] > .cell-stage > ul > li strong {
   padding-bottom: var(--sp-3xs);
 }
 
@@ -407,14 +407,14 @@ section.inventory.cards[data-family="tall"] > .cell-stage > ul:where(:not([data-
 section.inventory.editorial[data-family="tall"] > .cell-stage {
   row-gap: var(--sp-sm);
 }
-section.inventory.editorial[data-family="tall"] > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.inventory.editorial[data-family="tall"] > .cell-stage > ul {
   gap: var(--sp-xs);
 }
-section.inventory.editorial[data-family="tall"] > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.inventory.editorial[data-family="tall"] > .cell-stage > ul > li,
 section.inventory.editorial[data-family="tall"] > .cell-stage > blockquote {
   line-height: var(--lh-snug);
 }
-section.inventory.editorial[data-family="tall"] > .cell-stage > ul:where(:not([data-list="aside"])) > li strong {
+section.inventory.editorial[data-family="tall"] > .cell-stage > ul > li strong {
   font-size: var(--fs-h3);
 }
 
@@ -467,10 +467,10 @@ section.inventory.lat-split-native > .cell-stage:not(:has(> .lat-split-rel))::af
  * centers that one grid track, so the dot, title and body travel together. The weight
  * matches the base rule's four-times `.lat-split-native` idiom and adds the component,
  * look and `form` classes it needs to win. */
-section.inventory.timeline.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ul:where(:not([data-list="aside"])):has(> li:only-child) {
+section.inventory.timeline.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ul:has(> li:only-child) {
   align-content: center;
 }
-section.inventory.timeline.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ul:where(:not([data-list="aside"])) > li:only-child {
+section.inventory.timeline.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ul > li:only-child {
   flex: 0 0 auto;
   align-content: start;
 }
@@ -511,17 +511,17 @@ section.inventory.timeline.lat-split-native > .cell-stage > blockquote {
  * deck gets. (`editorial` grids the content area itself, which a query on that area cannot
  * change; it keeps its family rule.) */
 @container lat-cards (width < 24em) {
-  section.inventory.inventory.cards > .cell-stage > ul:where(:not([data-list="aside"])):not(.inv-rows):not(.lat-reflow-held) { grid-template-columns: 1fr; --lat-narrow: 1; }
+  section.inventory.inventory.cards > .cell-stage > ul:not(.inv-rows):not(.lat-reflow-held) { grid-template-columns: 1fr; --lat-narrow: 1; }
 }
 @container lat-cards (width < 36em) {
-  section.inventory.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) {
+  section.inventory.inventory.timeline > .cell-stage > ul:not(.lat-reflow-held) {
     grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); gap: var(--sp-md);
     padding: var(--sp-xs) 0 0; --lat-narrow: 1;
   }
-  section.inventory.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
+  section.inventory.inventory.timeline > .cell-stage > ul:not(.lat-reflow-held) > li {
     padding-block: 0; padding-inline: calc(var(--inv-dot) + var(--sp-sm)) 0; min-height: var(--inv-dot);
   }
-  section.inventory.inventory.timeline > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) > li::after {
+  section.inventory.inventory.timeline > .cell-stage > ul:not(.lat-reflow-held) > li::after {
     top: var(--inv-dot); bottom: calc(-1 * var(--sp-md));
     inset-inline-start: calc(var(--inv-dot) / 2 - 1px); inset-inline-end: auto; width: 2px; height: auto;
   }

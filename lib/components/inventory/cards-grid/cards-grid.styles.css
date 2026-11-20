@@ -14,12 +14,12 @@ section.cards-grid > .cell-stage { display:flex; flex-direction:column; }
  * idiom — `width` on the cells) whose wrapped rows stretch to share the bounded stage. Each
  * card is itself the two-cells-then-full-width pattern (actors §11.A): title + badge on the
  * header row, the body wraps to a full-width row 2. */
-section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])), section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.cards-grid > .cell-stage > ul, section.cards-grid > .cell-stage > ol {
   display:flex; flex-wrap:wrap; align-content: var(--cards-align);
   gap:var(--sp-md); flex:1;
   list-style:none; padding:0; margin:0;
 }
-section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li, section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.cards-grid > .cell-stage > ul > li, section.cards-grid > .cell-stage > ol > li {
   box-sizing:border-box; width:calc(100% / var(--cards-cols) - (var(--cards-cols) - 1) * var(--sp-md) / var(--cards-cols)); min-height:0;
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
@@ -30,19 +30,19 @@ section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li, sec
   justify-content:space-between;
   font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading);
 }
-section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li:last-child:nth-child(odd),
-section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li:last-child:nth-child(odd) { width:var(--cards-last); }
+section.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
+section.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd) { width:var(--cards-last); }
 /* — strong: backwards-compat shim (**Title** in existing slides renders identically) — */
-section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong { flex:1 1 auto; min-width:0; }
+section.cards-grid > .cell-stage > ul > li > strong { flex:1 1 auto; min-width:0; }
 /* — a pill pinned right on the title row. The author writes it with the pills plugin's notation
  *   (`` `{status}` ``) and the plugin draws it; the card only keeps it from stretching. — */
-section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > .lat-pill,
-section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li > .lat-pill { flex:0 0 auto; }
+section.cards-grid > .cell-stage > ul > li > .lat-pill,
+section.cards-grid > .cell-stage > ol > li > .lat-pill { flex:0 0 auto; }
 /* — card body (nested list) — full-width row below the title. */
-section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul, section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol,
-section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul, section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
-section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li, section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol > li,
-section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li, section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
+section.cards-grid > .cell-stage > ul > li > ul, section.cards-grid > .cell-stage > ul > li > ol,
+section.cards-grid > .cell-stage > ol > li > ul, section.cards-grid > .cell-stage > ol > li > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
+section.cards-grid > .cell-stage > ul > li > ul > li, section.cards-grid > .cell-stage > ul > li > ol > li,
+section.cards-grid > .cell-stage > ol > li > ul > li, section.cards-grid > .cell-stage > ol > li > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 /* — lattice.js post-processed path — */
 section.cards-grid .cards-grid-inner,
 section.cards-grid .cards-grid-inner--ordered {
@@ -66,12 +66,12 @@ section.cards-grid .card > ul > li, section.cards-grid .card > ol > li { font-si
 /* — numbered cards (ol): the counter feeds the flush corner tag (lib/base/base.card-tag.css) — */
 /* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
    without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
-section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) { counter-reset:card var(--lat-split-offset, 0); }
-section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.cards-grid > .cell-stage > ol { counter-reset:card var(--lat-split-offset, 0); }
+section.cards-grid > .cell-stage > ol > li {
   counter-increment:card;   /* the tag reserve: lib/base/base.card-tag.css */
   --card-tag-rest: var(--sp-sm);   /* the card's own top padding, for a tag off the top */
 }
-section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::before {
+section.cards-grid > .cell-stage > ol > li::before {
   content:counter(card);   /* geometry + color: lib/base/base.card-tag.css */
 }
 section.cards-grid .cards-grid-inner--ordered { counter-reset:card var(--lat-split-offset, 0); }
@@ -85,13 +85,13 @@ section.cards-grid .cards-grid-inner--ordered > .card::before {
 
 /* ── CARDS-GRID ───────────────────────────────────────────────────────────────
  * ul/ol > li (nested list format) → mimic .cards-grid-inner > .card             */
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])),
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol {
   display:flex; flex-wrap:wrap; align-content: var(--cards-align);
   gap:var(--sp-md); flex:1; list-style:none; padding:0; margin:0;
 }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li {
   box-sizing:border-box; width:calc(100% / var(--cards-cols) - (var(--cards-cols) - 1) * var(--sp-md) / var(--cards-cols)); min-height:0;
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
@@ -100,25 +100,25 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([d
   justify-content:space-between;
   font-weight:700; color:var(--text-heading);
 }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li:last-child:nth-child(odd),
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li:last-child:nth-child(odd) { width:var(--cards-last); }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong { flex:1 1 auto; min-width:0; }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > .lat-pill,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > .lat-pill { flex:0 0 auto; }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol > li,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li:last-child:nth-child(odd),
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li:last-child:nth-child(odd) { width:var(--cards-last); }
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > strong { flex:1 1 auto; min-width:0; }
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > .lat-pill,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > .lat-pill { flex:0 0 auto; }
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ul,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ol,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > ul,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ul > li,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ol > li,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > ul > li,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 /* — numbered cards (ol source, VS Code fallback) — */
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) { counter-reset:card var(--lat-split-offset, 0); }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol { counter-reset:card var(--lat-split-offset, 0); }
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li {
   counter-increment:card;   /* the tag reserve: lib/base/base.card-tag.css */
 }
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::before {
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before {
   content:counter(card);   /* geometry + color: lib/base/base.card-tag.css */
 }
 
@@ -143,15 +143,15 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([d
  * grid it spans the row; in an N-up grid it is just another cell. One variable is what lets a
  * family or a width rule change the count without out-ranking `.three` (a `three` grid used to
  * outrank the tall/strip single-column rule and stay three across on a phone). */
-section.cards-grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])),
+section.cards-grid > .cell-stage > :is(ul, ol),
 section.cards-grid .cards-grid-inner,
 section.cards-grid .cards-grid-inner--ordered { --cards-cols: 2; --cards-last: 100%; }
-section.cards-grid.three > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])),
+section.cards-grid.three > .cell-stage > :is(ul, ol),
 section.cards-grid.three .cards-grid-inner,
 section.cards-grid.three .cards-grid-inner--ordered {
   --cards-cols: 3; --cards-last: calc(100% / 3 - 2 * var(--sp-md) / 3);
 }
-section.cards-grid.four > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])),
+section.cards-grid.four > .cell-stage > :is(ul, ol),
 section.cards-grid.four .cards-grid-inner,
 section.cards-grid.four .cards-grid-inner--ordered {
   --cards-cols: 4; --cards-last: calc(100% / 4 - 3 * var(--sp-md) / 4);
@@ -205,13 +205,13 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * on the portrait side — nobody could see the result, since the whole square tier
  * was inert until #1218. matrix-2x2 always got this right ("a square box reads the
  * quadrants fine"); this is the same call. */
-section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])),
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol),
 section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) .cards-grid-inner,
 section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) .cards-grid-inner--ordered {
   --cards-cols: 1; --cards-last: 100%;     /* single column, whatever `.three` or `.four` asked */
 }
-section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
   min-height: 0;
 }
 
@@ -222,17 +222,17 @@ section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"])
  * (about 54em). `--lat-narrow: 1` tells the slide fit check (lib/core/table-reflow-fit.js) the
  * narrow form is active; a held grid (`lat-reflow-held`) keeps its authored count. */
 @container lat-cards (width < 46em) {
-  section.cards-grid.four > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held),
+  section.cards-grid.four > .cell-stage > :is(ul, ol):not(.lat-reflow-held),
   section.cards-grid.four .cards-grid-inner:not(.lat-reflow-held),
   section.cards-grid.four .cards-grid-inner--ordered:not(.lat-reflow-held) { --cards-cols: 2; --cards-last: 100%; --lat-narrow: 1; }
 }
 @container lat-cards (width < 36em) {
-  section.cards-grid.three > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held),
+  section.cards-grid.three > .cell-stage > :is(ul, ol):not(.lat-reflow-held),
   section.cards-grid.three .cards-grid-inner:not(.lat-reflow-held),
   section.cards-grid.three .cards-grid-inner--ordered:not(.lat-reflow-held) { --cards-cols: 2; --cards-last: 100%; --lat-narrow: 1; }
 }
 @container lat-cards (width < 24em) {
-  section.cards-grid.cards-grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held),
+  section.cards-grid.cards-grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held),
   section.cards-grid.cards-grid .cards-grid-inner:not(.lat-reflow-held),
   section.cards-grid.cards-grid .cards-grid-inner--ordered:not(.lat-reflow-held) { --cards-cols: 1; --cards-last: 100%; --lat-narrow: 1; }
 }
@@ -242,8 +242,8 @@ section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"])
  * emit paths (marp-cli ul/ol>li · lattice.js .card · VS Code :not(:has) fallback).
  * `var(--elevation-card)` is zero-blur and flips light↔dark via light-dark()
  * (base.tokens.css) — PDF-safe, card fill unchanged. */
-section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.cards-grid > .cell-stage > ul > li,
+section.cards-grid > .cell-stage > ol > li,
 section.cards-grid .card {
   box-shadow: var(--elevation-card);
 }
@@ -252,10 +252,10 @@ section.cards-grid .card {
  * margin (#20). The native (VS Code) path's `:not(:has(.cards-grid-inner))` base
  * rule sets padding:0 at (0,3,2) — this MUST mirror that selector to win, else the
  * berth silently loses on that path and the shadow clips. */
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul:where(:not([data-list="aside"])),
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])),
-section.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])),
-section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])),
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol,
+section.cards-grid > .cell-stage > ul,
+section.cards-grid > .cell-stage > ol,
 section.cards-grid .cards-grid-inner,
 section.cards-grid .cards-grid-inner--ordered {
   padding: var(--elevation-berth);

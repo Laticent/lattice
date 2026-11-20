@@ -76,8 +76,8 @@ section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-ch
 section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child):not(:where([data-prose])):has(+ ul) > code {
   font-size:var(--fs-meta); font-style:normal; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;
 }
-section.regulatory-update.regulatory-update > .cell-stage > ol:where(:not([data-list="aside"])),
-section.regulatory-update.regulatory-update > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.regulatory-update.regulatory-update > .cell-stage > ol,
+section.regulatory-update.regulatory-update > .cell-stage > ul {
   list-style:none; padding:0; margin:0;
 /* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
    without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
@@ -86,7 +86,7 @@ section.regulatory-update.regulatory-update > .cell-stage > ul:where(:not([data-
   gap:var(--sp-xs);
   flex:1;
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li {
   counter-increment:upd;
   display:grid;
   grid-template-columns:auto auto auto 1fr auto;
@@ -103,8 +103,8 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:n
   font-size:var(--fs-body);
   line-height:var(--lh-snug);
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li::marker { content:''; }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li::before {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li::marker { content:''; }
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li::before {
   content:counter(upd, decimal-leading-zero);
   grid-column:1; grid-row:1;
   font-family:var(--font-label);
@@ -113,7 +113,7 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:n
   color:var(--accent);
   letter-spacing:0.04em;
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > strong:first-child {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > strong:first-child {
   grid-column:2; grid-row:1;
   font-size:var(--fs-body);
   font-weight:700;
@@ -122,21 +122,21 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:n
 /* Body list uses display:contents so its <li> children land directly in
  * the parent grid. Cite chip on row 1 col 3, prose on row 2 spans 2-4,
  * pill on row 1 col 5 (right-anchored). */
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > ul,
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > ol {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > ul,
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > ol {
   display:contents;
   list-style:none;
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li {
   font-size:var(--fs-body);
   color:var(--text-body);
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li::marker { content:''; }
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li::marker { content:''; }
 /* Citation chip — first nested item, only-child <code>. Row 1, col 3. */
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) {
   grid-column:3; grid-row:1;
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])) > code {
   font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:600;
@@ -144,16 +144,16 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:n
   background:none; border:none; padding:0;
 }
 /* Prose body — middle nested items. Row 2 spans cols 2-4. */
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li:not(:first-child):not(:last-child) {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child) {
   grid-column:2 / span 3; grid-row:2;
 }
 /* Impact / date pill — last nested item, only-child pill (`{Effective Feb 2026}`), drawn by the
  * pills plugin in the panel's accent. Row 1, col 5. */
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) {
   grid-column:5; grid-row:1;
   justify-self:end;
 }
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]) {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) > .lat-pill:not([data-c]) {
   --lat-pill-edge:var(--accent);
   --lat-pill-ink:var(--accent);
   --lat-pill-bg:var(--accent-soft);
@@ -162,41 +162,41 @@ section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:n
 /* ── `cards:` register (#2317) ── not `timeline`, which is its own composition. The default
  * list is a COLUMN of boxed rows: it reads the token as `justify-content`, and a row grows only
  * under `stretch` (`--cards-grow`). `.cards` below is a GRID and reads it as `align-content`. */
-section.regulatory-update.regulatory-update:not(.timeline) > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) {
+section.regulatory-update.regulatory-update:not(.timeline) > .cell-stage > :is(ol, ul) {
   justify-content:var(--cards-align);
 }
-section.regulatory-update.regulatory-update:not(.timeline):not(.cards) > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li {
+section.regulatory-update.regulatory-update:not(.timeline):not(.cards) > .cell-stage > :is(ol, ul) > li {
   flex-grow:var(--cards-grow);
 }
 
 /* .cards — items as 2x2 grid of cards. */
-section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) {
+section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul) {
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:var(--sp-md);
   align-content:var(--cards-align);
 }
-section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li {
+section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul) > li {
   grid-template-columns:auto 1fr;
   grid-template-rows:auto auto 1fr;
   padding:var(--sp-md);
 }
-section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li::before { grid-row:1; }
-section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > strong:first-child { grid-row:1; grid-column:2; }
-section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul) > li::before { grid-row:1; }
+section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul) > li > strong:first-child { grid-row:1; grid-column:2; }
+section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
   grid-row:2; grid-column:1 / -1;
   padding-top:var(--sp-sm);
 }
 
 /* .timeline — horizontal row of timestamped milestones. */
-section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) {
+section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul) {
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(0, 1fr));
   grid-auto-flow:column;
   gap:var(--sp-md);
   position:relative;
 }
-section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul):where(:not([data-list="aside"]))::before {
+section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul)::before {
   content:'';
   position:absolute;
   top:1.4cqi; left:5cqi; right:5cqi;
@@ -204,7 +204,7 @@ section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul)
   background:var(--accent-soft);
   z-index:0;
 }
-section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li {
+section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul) > li {
   display:flex; flex-direction:column; gap:var(--sp-xs);
   background:var(--bg);
   border:1px solid var(--border);
@@ -212,7 +212,7 @@ section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul)
   padding-top:var(--sp-lg);
   position:relative;
 }
-section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li::before {
+section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul) > li::before {
   position:absolute; top:0; left:50%; transform:translate(-50%, -50%);
   display:inline-flex; align-items:center; justify-content:center; line-height:1;
   background:var(--accent); color:var(--on-accent);
@@ -220,13 +220,13 @@ section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul)
   padding:0.3em 0.75em;
   z-index:1;
 }
-section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > strong:first-child { font-size:var(--fs-body); }
-section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) { padding-top:var(--sp-xs); }
+section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul) > li > strong:first-child { font-size:var(--fs-body); }
+section.regulatory-update.regulatory-update.timeline > .cell-stage > :is(ol, ul) > li > :is(ul, ol) { padding-top:var(--sp-xs); }
 
 /* .diff-bands — sections by change kind: ADDED / AMENDED / REPEALED / ENFORCED.
  * Author writes h3 section headers within the slide. */
-section.regulatory-update.regulatory-update.diff-bands > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li { border-left-width:4px; padding:var(--sp-xs) var(--sp-md); background:none; border-color:transparent; border-bottom:1px solid var(--border); border-radius:0; }
-section.regulatory-update.regulatory-update.diff-bands > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li::before { display:none; }
+section.regulatory-update.regulatory-update.diff-bands > .cell-stage > :is(ol, ul) > li { border-left-width:4px; padding:var(--sp-xs) var(--sp-md); background:none; border-color:transparent; border-bottom:1px solid var(--border); border-radius:0; }
+section.regulatory-update.regulatory-update.diff-bands > .cell-stage > :is(ol, ul) > li::before { display:none; }
 section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3 {
   margin:0;
   /* --sp-sm, not --sp-md: the band set this variant documents is FOUR (Added /
@@ -258,7 +258,7 @@ section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:nth-of
  * borrow the status colors, so they are status MARKS (engineering/decisions/2026-10-24-status-is-one-system.md):
  * the deck's status solid under the one ink, the two urgent tiers wearing the signal ring, and the row's
  * rail the slide ink. The word TIER n is the second channel. */
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li::before {
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li::before {
   content:'TIER ' counter(upd);
   display:inline-flex; align-items:center; justify-content:center; line-height:1;
   font-family:var(--font-body);
@@ -270,12 +270,12 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
   border-radius:var(--radius-full);
   padding:0.3em 0.75em;
 }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li:nth-child(1) { border-left-color:var(--fail); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li:nth-child(1)::before { background:var(--state-fail-hue); color:var(--state-fail-on-ink); box-shadow:inset 0 0 0 var(--state-signal-w) var(--fail-signal-mark); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li:nth-child(2) { border-left-color:var(--warn); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li:nth-child(2)::before { background:var(--state-warn-hue); color:var(--state-warn-on-ink); box-shadow:inset 0 0 0 var(--state-signal-w) var(--warn-signal-mark); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li:nth-child(3) { border-left-color:var(--pass); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li:nth-child(3)::before { background:var(--state-pass-hue); color:var(--state-pass-on-ink); box-shadow:inset 0 0 0 var(--state-signal-w) transparent; }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1) { border-left-color:var(--fail); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1)::before { background:var(--state-fail-hue); color:var(--state-fail-on-ink); box-shadow:inset 0 0 0 var(--state-signal-w) var(--fail-signal-mark); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(2) { border-left-color:var(--warn); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(2)::before { background:var(--state-warn-hue); color:var(--state-warn-on-ink); box-shadow:inset 0 0 0 var(--state-signal-w) var(--warn-signal-mark); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3) { border-left-color:var(--pass); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3)::before { background:var(--state-pass-hue); color:var(--state-pass-on-ink); box-shadow:inset 0 0 0 var(--state-signal-w) transparent; }
 
 /* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
    A1). The DEFAULT changelog row is a five-column `auto auto auto 1fr auto` grid
@@ -295,16 +295,16 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
    follow-up). The nested list uses `display:contents`, so its <li> children are
    direct grid items — re-anchor each to column 2 and let them auto-flow down the
    rows. */
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li {
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
   grid-template-columns: auto 1fr;
   grid-template-rows: none;
   grid-auto-flow: row;
   row-gap: var(--sp-xs);
   align-items: baseline;
 }
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])),
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) {
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])),
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) {
   grid-column: 2;
   grid-row: auto;
   justify-self: start;
@@ -314,7 +314,7 @@ section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
-section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li {
+section.regulatory-update.regulatory-update > .cell-stage > :is(ol, ul) > li {
   box-shadow: var(--elevation-card);
 }
 section.regulatory-update > .cell-stage {

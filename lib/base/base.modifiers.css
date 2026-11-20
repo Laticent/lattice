@@ -1781,39 +1781,39 @@ section:not(.math) :is(.katex-display, mjx-container[display="true"]) { padding:
  * own block. */
 
 /* full → alarm */
-section.heat > ul:where(:not([data-list="aside"])) > li.state.pass,
-section.heat > ol:where(:not([data-list="aside"])) > li.state.pass,
-section.heat > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.pass,
-section.heat > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.pass,
+section.heat > ul > li.state.pass,
+section.heat > ol > li.state.pass,
+section.heat > .cell-stage > ul > li.state.pass,
+section.heat > .cell-stage > ol > li.state.pass,
 section.heat .lat-state.pass,
 section.heat td .state.pass,
 section.heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--state-fail-on-ink); --state-edge:var(--state-fail-edge); }
 
 /* half → caution (unchanged, but redeclared for symmetry and so per-layout
  * source-order overrides under .heat resolve to the universal palette) */
-section.heat > ul:where(:not([data-list="aside"])) > li.state.warn,
-section.heat > ol:where(:not([data-list="aside"])) > li.state.warn,
-section.heat > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.warn,
-section.heat > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.warn,
+section.heat > ul > li.state.warn,
+section.heat > ol > li.state.warn,
+section.heat > .cell-stage > ul > li.state.warn,
+section.heat > .cell-stage > ol > li.state.warn,
 section.heat .lat-state.warn,
 section.heat td .state.warn,
 section.heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--state-warn-on-ink); --state-edge:var(--state-warn-edge); }
 
 /* empty → relief */
-section.heat > ul:where(:not([data-list="aside"])) > li.state.fail,
-section.heat > ol:where(:not([data-list="aside"])) > li.state.fail,
-section.heat > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.fail,
-section.heat > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.fail,
+section.heat > ul > li.state.fail,
+section.heat > ol > li.state.fail,
+section.heat > .cell-stage > ul > li.state.fail,
+section.heat > .cell-stage > ol > li.state.fail,
 section.heat .lat-state.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
 section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--state-pass-on-ink); --state-edge:var(--state-pass-edge); }
 
 /* skip → muted (unchanged, redeclared for symmetry) */
-section.heat > ul:where(:not([data-list="aside"])) > li.state.skip,
-section.heat > ol:where(:not([data-list="aside"])) > li.state.skip,
-section.heat > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.skip,
-section.heat > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.skip,
+section.heat > ul > li.state.skip,
+section.heat > ol > li.state.skip,
+section.heat > .cell-stage > ul > li.state.skip,
+section.heat > .cell-stage > ol > li.state.skip,
 section.heat .lat-state.skip,
 section.heat td .state.skip,
 section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial; }
@@ -2073,7 +2073,7 @@ section.split-panel.mirror {
  * (compare-prose.styles.css addresses `> .cell-stage > ul`); the pre-migration
  * bare `> :is(ul,ol)` never matched the wrapped row. The `.compare-prose-inner
  * / .card` structure is retired and emitted by no render path. */
-section.compare-prose.mirror > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
   flex-direction: row-reverse;
 }
 
@@ -3477,12 +3477,12 @@ section.lat-split-cover.split-cover-table .split-feat-h::after {
    untouched. The doubled class is a deliberate weight bump — a component's own
    `section.X > .cell-stage > ul` sits at (0,2,2) and would otherwise win. Palette-blind;
    no margin (HARD #3, #20). */
-section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) {
   flex: 0 0 auto;
   justify-content: flex-start;
   align-content: flex-start;
 }
-section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li {
   flex-grow: 0;
   flex-basis: auto;
 }
@@ -3514,11 +3514,11 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):where
    fill sat at (0,5,3) and LOST, so `perPage: 1` produced a content-height card above two-thirds
    of white on exactly the components §0b had just atomized (seen on a real render of a split
    list-steps run). Four repetitions clear it with a rung to spare. */
-section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):has(> li:only-child) {
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):has(> li:only-child) {
   flex: 1 1 auto;
   align-content: stretch;   /* the wrap case (cards-grid tiles) — one line, full height */
 }
-section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:only-child {
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child {
   flex: 1 1 auto;           /* the column case (cards-stack, actors) */
   /* …and the ROW case: a member alone on its page takes the whole measure, whatever track
      width its component computed for a row of N.
@@ -3590,11 +3590,11 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
    page: `list-style-type: disc`, `padding-inline-start: 52.65px`, with `font-size` already at
    68.04px against a 46.98px body. So the `ul` test hoists the exclusion out to its own
    top-level `:not(:has(> li > …))`, which reads the same members and parses. */
-section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):has(> li:only-child):not(:has(> li :is(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6))) {
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):has(> li:only-child):not(:has(> li :is(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6))) {
   list-style: none;
   padding-inline-start: 0;
 }
-section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:only-child:not(:has(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6)) {
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child:not(:has(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6)) {
   font-size: var(--fs-emphasis);
   line-height: var(--lh-snug);
   text-wrap: pretty;

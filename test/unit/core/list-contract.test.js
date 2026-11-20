@@ -124,22 +124,20 @@ describe('every component that reads a list declares its contract', () => {
     assert.deepEqual(hits, []);
     assert.ok(!SWAP.some((re) => re.test('Use a table instead of a bullet list when the rows compare.')), 'a non-marker choice passes');
   });
-  // The list contract reaches as deep as a component's deepest list slot; below that a list is the
-  // author's (owner, #3330), and so is an aside. A stylesheet must not reach past that:
+  // The list contract reaches as deep as a component's deepest list slot. A list nested deeper, or a
+  // second list after a line of prose, is not part of a layout's design: `list-depth-unsupported`
+  // warns on it in the Studio and the CLI (owner, 2026-11-20). A stylesheet must still not turn an
+  // author's nested `1.` into the layout's own rows:
   //   (a) a one-marker selector reaches the stage's list only through the stage scope
-  //       (`ol:where(.cell-stage > :not([data-list="aside"]))`), never by a descendant combinator, so it
-  //       cannot restyle a nested list, an aside or a quoted list as the layout's own;
+  //       (`ol:where(.cell-stage > *)`), never by a descendant combinator, so it cannot restyle a
+  //       nested or a quoted list as the layout's own;
   //   (b) no selector styles `ul` and `ol` differently at a depth the manifest does not declare
   //       (a list reached through an `li` is one level deeper);
-  //   (c) a one-marker list never reaches its items by a descendant combinator (`ol li` reaches nested items);
-  //   (d) a rule that picks the stage's list as a direct child excludes an aside
-  //       (`:where(:not([data-list="aside"]))`), or the aside is drawn as more cards, tiles or steps.
-  // Found by review of #3330 (list-steps and agenda drew a nested `1.` as STEP cards and ledger rows;
-  // cards-grid drew an aside as a second row of cards). Every tracked stylesheet under lib/ and themes/
-  // is read, and a selector counts for every layout whose class it names.
-  const SCOPE = ':where(.cell-stage > :not([data-list="aside"]))';
-  const ASIDE_OUT = ':where(:not([data-list="aside"]))';
-  const excludesAside = (rest) => rest.startsWith(ASIDE_OUT) || rest.startsWith(SCOPE) || rest.startsWith(':not([data-list="aside"])');
+  //   (c) a one-marker list never reaches its items by a descendant combinator (`ol li` reaches nested items).
+  // Found by review of #3330 (list-steps and agenda drew a nested `1.` as STEP cards and ledger rows).
+  // Every tracked stylesheet under lib/ and themes/ is read, and a selector counts for every layout
+  // whose class it names.
+  const SCOPE = ':where(.cell-stage > *)';
   /** Split a stylesheet into normalized selectors, comments dropped, commas inside brackets kept. */
   function cssSelectors(css) {
     const out = [];
@@ -168,7 +166,7 @@ describe('every component that reads a list declares its contract', () => {
     const compound = head[1].replace(/:not\((?:[^()]|\([^()]*\))*\)/g, '');
     return [...compound.matchAll(/\.([\w-]+)/g)].map((c) => c[1]).filter((c) => names.has(c));
   }
-  /** What a selector does wrong for a layout row, per (a)–(d) above; `set` holds every selector, for the flip test. */
+  /** What a selector does wrong for a layout row, per (a)–(c) above; `set` holds every selector, for the flip test. */
   function listFindings(name, row, sel, set) {
     const bad = [];
     const flipAt = (at, el) => sel.slice(0, at) + (el === 'ul' ? 'ol' : 'ul') + sel.slice(at + 2);
@@ -183,17 +181,6 @@ describe('every component that reads a list declares its contract', () => {
       if (!/[+~]$/.test(before)) depth++;
       if (first && /(^|[\s>])li(?=[\s>.:[]|$)/.test(flat(before))) depth++; // reached through an item: nested
       const rest = sel.slice(at + (t[2] === 'L' ? 1 : 2));
-      const directChild = /(\.cell-stage|^section\S*) >$/.test(flat(before));
-      // `ul.team-roster` and `ul.tile-track` are built by a transform (team-profile, topic-track), never the
-      // author's; any other classed list is checked like the rest.
-      const built = /^\.(team-roster|tile-track)(?![\w-])/.test(rest);
-      // (d) the stage's own list, picked as a direct child, must leave an aside alone.
-      if (first && directChild && !built && !excludesAside(rest)) bad.push(`${name}: stage list without the aside exclusion in '${sel}'`);
-      // A list reached by a sibling combinator sits where an aside can (`p + ol`, `ol ~ ol`). Straight
-      // after a heading or another list it cannot: an aside follows prose.
-      const prev = before.replace(/\s*[+~]$/, '').split(/[\s>+~]+/).pop() || '';
-      const safePrev = /[+]$/.test(before) && /^(h[1-6]|ul|ol|L)(?![\w-])/.test(prev);
-      if (/[+~]$/.test(before) && !safePrev && !built && !excludesAside(rest)) bad.push(`${name}: sibling list without the aside exclusion in '${sel}'`);
       first = false;
       if (t[2] === 'L') continue; // `:is(ul, ol)` styles both markers alike
       if (sel[at + 2] === '.') continue; // `ul.team-roster`: a list a transform builds, not the author's
@@ -249,17 +236,13 @@ describe('every component that reads a list declares its contract', () => {
       'section.agenda li > ol',
       'section.agenda :is(ol) > li',
       `section.agenda ol${SCOPE} li`,
-      'section.agenda > .cell-stage > :is(ul, ol) > li',
-      'section.cards-grid > .cell-stage > ol > li::before',
-      'section.agenda > .cell-stage > p + ol > li',
-      `section.agenda > .cell-stage > ol${ASIDE_OUT} ~ ol > li`,
-      '.agenda > .cell-stage > ol > li',
+      '.agenda ol > li',
     ]) assert.ok(caught(sel), `missed '${sel}'`);
     for (const sel of [
       `section.agenda ol${SCOPE} > li`,
-      `section.agenda > .cell-stage > :is(ul, ol)${ASIDE_OUT} > li`,
       `section.agenda:not(.circles, .checks) ol${SCOPE} > li::before`,
-      'section.agenda > .cell-stage > :is(ul, ol):not([data-list="aside"]) > li',
+      'section.agenda > .cell-stage > ol > li',
+      'section.agenda > .cell-stage > :is(ul, ol) > li',
     ]) assert.ok(!caught(sel), `flagged a scoped selector '${sel}'`);
   });
   test('the owner settled the R2 layouts (decision 1, 2026-11-19)', () => {
@@ -356,25 +339,10 @@ describe('which lists are the layout\'s (the trio review of #3330)', () => {
     assert.deepEqual(lists('<!-- _class: agenda -->\n\n## H\n\n- one\n- two\n* three\n'), ['ol', 'ol']);
     assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## H\n\n1. A\n   - a\n\n<!-- note -->\n\n1. B\n   - b\n'), ['ol data-ordered="true"', 'ul', 'ol data-ordered="true"', 'ul']);
   });
-  test('the slot-label lift bolds the layout\'s items only: an aside and a quoted list keep their weight (engine)', () => {
-    const html = String(engine.render('<!-- _class: decision -->\n\n## H\n\n- Build\n  - why\n- Buy\n  - why\n\n> - quoted item\n\nOpen risks:\n\n1. Lock-in\n2. Budget\n').html);
+  test('the slot-label lift bolds the layout\'s items only: a quoted list keeps its weight', () => {
+    const html = String(engine.render('<!-- _class: decision -->\n\n## H\n\n- Build\n  - why\n- Buy\n  - why\n\n> - quoted item\n').html);
     assert.match(html, /<li><strong>Build<\/strong>/, 'the layout\'s own items are lifted');
-    assert.match(html, /<li>Lock-in<\/li>/, 'an aside item is not');
     assert.match(html, /<li>quoted item<\/li>/, 'a quoted item is not');
-  });
-  test('team-profile rebuilds its roster only: an aside stays a list (engine)', () => {
-    const html = String(engine.render('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Lovelace\n  - Chief engineer\n- Grace Hopper\n  - Compilers\n\nAlso on call:\n\n- Alan Turing\n').html);
-    assert.equal((html.match(/class="team-roster"/g) || []).length, 1, 'one roster');
-    assert.match(html, /<ul data-list="aside">\s*<li>Alan Turing<\/li>/, 'the aside is left as written');
-  });
-  test('the slot-label lift skips an aside in the runtime too', async () => {
-    const { bootRuntime } = require('../../helpers/runtime-boot');
-    const dom = new JSDOM('<!doctype html><body><section class="decision"><h2>H</h2><ul><li>Build<ul><li>why</li></ul></li><li>Buy<ul><li>why</li></ul></li></ul>'
-      + '<p>Open risks:</p><ol><li>Lock-in</li><li>Budget</li></ol></section></body>', { runScripts: 'dangerously' });
-    await bootRuntime(dom);
-    const items = [...dom.window.document.querySelectorAll('section li')].map((li) => li.firstElementChild?.tagName === 'STRONG' ? `*${li.firstElementChild.textContent}` : li.firstChild.textContent);
-    assert.ok(items.includes('*Build') && items.includes('*Buy'), `the layout's items are lifted: ${items}`);
-    assert.ok(items.includes('Lock-in') && items.includes('Budget'), `the aside's are not: ${items}`);
   });
   test('the runtime walks the same lists: not an aside, not raw HTML', () => {
     const doc = new JSDOM('<body><section class="agenda"><h2>H</h2><ul><li>x</li></ul><p>Also:</p><ul><li>aside</li></ul>'

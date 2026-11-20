@@ -31,8 +31,8 @@
  * A trailing `{status}` pill (inline code) on a row floats right as a status tag. */
 section.checklist > .cell-stage { display:flex; flex-direction:column; }
 section.checklist h2 { font-size:var(--fs-emphasis); }
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])),
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.checklist > .cell-stage > ul,
+section.checklist > .cell-stage > ol {
   list-style:none; padding:0; margin:0;
   display:flex; flex-direction:column;
   gap:var(--sp-sm);
@@ -42,8 +42,8 @@ section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) {
   flex:1; min-height:0;
   justify-content:center;
 }
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.checklist > .cell-stage > ul > li,
+section.checklist > .cell-stage > ol > li {
   position:relative;
   display:flex;
   /* center, not baseline: each row stretches to fill its share of the stage, so
@@ -68,38 +68,38 @@ section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li {
 /* A row's pill — a status tag written `{blocked}` in inline code, drawn by the pills plugin — rides
  * the row's far end. The label before it is an anonymous text run, so the push is an auto margin
  * (the one sanctioned flex push, tools/check-ownership.js SANCTIONED_MARGINS). */
-section.checklist > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > .lat-pill {
+section.checklist > .cell-stage > :is(ul, ol) > li > .lat-pill {
   margin-inline-start:auto;
   align-self:center;
 }
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li::marker,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li::marker { content:''; }
+section.checklist > .cell-stage > ul > li::marker,
+section.checklist > .cell-stage > ol > li::marker { content:''; }
 
 /* Per-row color token + chrome — rail and background tint pick up the
  * resolved --state-color via color-mix. The token itself draws via
  * ::before below. */
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.pass,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.pass {
+section.checklist > .cell-stage > ul > li.state.pass,
+section.checklist > .cell-stage > ol > li.state.pass {
   --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--state-pass-on-ink); --state-edge:var(--state-pass-edge);
   border-left-color:var(--state-ink);
   background:var(--pass-bg, var(--bg-alt));
 }
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.warn,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.warn {
+section.checklist > .cell-stage > ul > li.state.warn,
+section.checklist > .cell-stage > ol > li.state.warn {
   --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--state-warn-on-ink); --state-edge:var(--state-warn-edge);
   border-left-color:var(--state-ink);
   background:var(--warn-bg, var(--bg-alt));
 }
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.fail,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.fail {
+section.checklist > .cell-stage > ul > li.state.fail,
+section.checklist > .cell-stage > ol > li.state.fail {
   --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--state-fail-on-ink); --state-edge:var(--state-fail-edge);
   border-left-color:var(--state-ink);
   background:var(--fail-bg, var(--bg-alt));
 }
 /* Under `heat` the roles invert (base.modifiers.css § heat): a `[x]` row paints the fail disc and rail, a `[!]` row the
  * pass ones. The row's GROUND follows the same role, or the row would read green under a red disc. */
-section.checklist.heat > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li.state.pass { background:var(--fail-bg, var(--bg-alt)); }
-section.checklist.heat > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li.state.fail { background:var(--pass-bg, var(--bg-alt)); }
+section.checklist.heat > .cell-stage > :is(ul, ol) > li.state.pass { background:var(--fail-bg, var(--bg-alt)); }
+section.checklist.heat > .cell-stage > :is(ul, ol) > li.state.fail { background:var(--pass-bg, var(--bg-alt)); }
 /* todo — `[ ]` is "not yet started", a NEUTRAL state, not a failure: a true
  * hollow ring (empty center, --state-color edge ring; see `.state.todo` in
  * base.modifiers.css). No red, no strike — it reads "on the list, not done",
@@ -122,16 +122,16 @@ section.checklist.heat > .cell-stage > :is(ul, ol):where(:not([data-list="aside"
  * a filled disc carrying a slash, its label struck through and dropped to
  * --text-muted. Giving todo a private neutral token would add a third value
  * nothing could tell apart from this one. */
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.todo,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.todo,
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.unknown,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.unknown {
+section.checklist > .cell-stage > ul > li.state.todo,
+section.checklist > .cell-stage > ol > li.state.todo,
+section.checklist > .cell-stage > ul > li.state.unknown,
+section.checklist > .cell-stage > ol > li.state.unknown {
   --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial;
   border-left-color:var(--state-ink);
   background:var(--bg-alt);
 }
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state.skip,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state.skip {
+section.checklist > .cell-stage > ul > li.state.skip,
+section.checklist > .cell-stage > ol > li.state.skip {
   --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); --state-edge:initial;
   border-left-color:var(--state-ink);
   background:var(--bg-alt);
@@ -146,10 +146,10 @@ section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state
  * slash) on top. Colors are mixed HERE from --state-color (resolved on
  * the .state row) + the knobs set by the default or a .checks-* variant.
  * Mirror recipe: verdict-grid.styles.css, obligation-matrix.styles.css. */
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state::before,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state::before,
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state::after,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state::after {
+section.checklist > .cell-stage > ul > li.state::before,
+section.checklist > .cell-stage > ol > li.state::before,
+section.checklist > .cell-stage > ul > li.state::after,
+section.checklist > .cell-stage > ol > li.state::after {
   content:'';
   position:absolute;
   left:var(--sp-md);
@@ -161,8 +161,8 @@ section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state
   height:calc(1.15em * var(--state-disc-scale));
   box-sizing:border-box;
 }
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state::before,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state::before {
+section.checklist > .cell-stage > ul > li.state::before,
+section.checklist > .cell-stage > ol > li.state::before {
   border-radius:50%;
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
@@ -170,16 +170,16 @@ section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state
     0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-edge, var(--state-ink)) var(--state-ring-mix), black),
     inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
 }
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li.state::after,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li.state::after {
+section.checklist > .cell-stage > ul > li.state::after,
+section.checklist > .cell-stage > ol > li.state::after {
   background-color:color-mix(in srgb, var(--state-ink) var(--state-mark-pct), var(--state-glyph-mark));
   -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
           mask:var(--state-mark) center / 100% 100% no-repeat;
 }
 /* Inline _em_ tail inside an item — soft annotation. Renders as muted
  * italic body voice; the eye still reads the label first. */
-section.checklist > .cell-stage > ul:where(:not([data-list="aside"])) > li em,
-section.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li em {
+section.checklist > .cell-stage > ul > li em,
+section.checklist > .cell-stage > ol > li em {
   font-style:italic;
   font-weight:400;
   color:var(--text-secondary);

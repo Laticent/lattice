@@ -61,7 +61,7 @@ section.stats:where(:not(.math)) h3 { padding-bottom:0.3125cqi; }
 section.stats:where(:not(.math)) > .cell-stage > p, section.stats:where(:not(.math)) > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 
 /* The stat strip: the top-level list laid out as a centered flex row. */
-section.stats:where(:not(.math)) > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.stats:where(:not(.math)) > .cell-stage > ol {
   display:flex; justify-content:center; gap:var(--sp-md);
   list-style:none; margin:0;
   /* Berth ONLY on the vertical axis: the tile shadow extends downward (all layers
@@ -74,23 +74,23 @@ section.stats:where(:not(.math)) > .cell-stage > ol:where(:not([data-list="aside
  * the stage in both canvases. Fill unchanged across themes (light-dark() token).
  * Horizontal padding stays tight (--sp-sm) so five tiles + gaps fit the stage
  * within the pre-tile width budget; vertical padding carries the tile height. */
-section.stats:where(:not(.math)) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.stats:where(:not(.math)) > .cell-stage > ol > li {
   display:flex; flex-direction:column; align-items:center; gap:0.46875cqi; text-align:center;
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-lg) var(--sp-sm);
   box-shadow:var(--elevation-card);
 }
 /* The number — the lifted parent-li lead. */
-section.stats:where(:not(.math)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong {
+section.stats:where(:not(.math)) > .cell-stage > ol > li > strong {
   font-family:var(--font-display); font-size:var(--fs-h1); font-weight:700;
   color:var(--accent); line-height:1; display:block;
   letter-spacing:0; text-transform:none; font-variant-numeric:tabular-nums;
 }
 /* The label — the nested sublist. */
-section.stats:where(:not(.math)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul {
+section.stats:where(:not(.math)) > .cell-stage > ol > li > ul {
   list-style:none; padding:0; margin:0;
 }
-section.stats:where(:not(.math)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li {
+section.stats:where(:not(.math)) > .cell-stage > ol > li > ul > li {
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600;
   letter-spacing:0.18em; text-transform:uppercase; color:var(--text-label);
 }
@@ -105,16 +105,16 @@ section.stats:where(:not(.math)) > .cell-stage > ol:where(:not([data-list="aside
    to fit instead of clipping — a big floor (was --sp-2xl) overflowed 4 numbers +
    a 2-line title at the shortest portrait (4:5). Keyed on data-orientation, so
    landscape is untouched. */
-section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol:where(:not([data-list="aside"])),
-section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol:where(:not([data-list="aside"])) { display:flex; flex-direction:column;
+section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol,
+section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol { display:flex; flex-direction:column;
   flex-direction: column; gap: var(--sp-sm); width: 100%; justify-content: space-evenly; flex: 1;
 }
-section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong,
-section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong {
+section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol > li > strong,
+section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol > li > strong {
   font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
 }
-section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li,
-section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li {
+section.stats:where(:not(.math))[data-orientation='portrait'] > .cell-stage > ol > li > ul > li,
+section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol > li > ul > li {
   font-size: var(--fs-body); /* label legible under the big number (was --fs-meta) */
 }
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): square, tall and strip
@@ -130,7 +130,7 @@ section.stats:where(:not(.math))[data-orientation='square'] > .cell-stage > ol:w
  * examples/social-square.md by 75px — stage 750, content 825). A 2-up wrap uses
  * both axes, which is exactly what `square` means in lib/adaptive/families.js:
  * "balanced — 2x2 grids, 2-up". Measured with tools/calibrate-capacity.js. */
-section.stats.stats:where(:not(.math)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.stats.stats:where(:not(.math)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
   display: flex; flex-direction: column; gap: var(--sp-sm); width: 100%;
   justify-content: space-evenly; flex: 1;
 }
@@ -138,7 +138,7 @@ section.stats.stats:where(:not(.math)):where([data-family="tall"], [data-family=
  * split minus its share of the gap (the same calc idiom cards-grid uses); wrap
  * puts the overflow on the next row, and `align-content: space-evenly` spreads
  * the rows down the frame instead of stretching each tile to fill it. */
-section.stats.stats:where(:not(.math)):where([data-family="square"]) > .cell-stage > ol:where(:not([data-list="aside"])) {
+section.stats.stats:where(:not(.math)):where([data-family="square"]) > .cell-stage > ol {
   display: flex; flex-wrap: wrap; width: 100%; flex: 1;
   /* `row` is stated, not inherited: the older `[data-orientation="square"]` rule
    * above sets `column` at the same specificity, and without this the 50%
@@ -146,14 +146,14 @@ section.stats.stats:where(:not(.math)):where([data-family="square"]) > .cell-sta
   flex-direction: row;
   gap: var(--sp-sm); justify-content: center; align-content: space-evenly;
 }
-section.stats.stats:where(:not(.math)):where([data-family="square"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
+section.stats.stats:where(:not(.math)):where([data-family="square"]) > .cell-stage > ol > li {
   flex: 0 1 calc(50% - var(--sp-sm) / 2);
   box-sizing: border-box;
 }
-section.stats.stats:where(:not(.math)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong {
+section.stats.stats:where(:not(.math)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > strong {
   font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
 }
-section.stats.stats:where(:not(.math)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li {
+section.stats.stats:where(:not(.math)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > ul > li {
   font-size: var(--fs-body);
 }
 
@@ -207,11 +207,11 @@ section.stats.stats:where(:not(.math)):where([data-family="square"], [data-famil
    deliberately repeats `.lat-split-native` twice for the natural-height rules and
    FOUR times for the lone-member fill, and documents why; the lone-member rules
    sit at (0,7,3) and an override has to clear that to be seen at all. */
-section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol:where(:not([data-list="aside"])):has(> li:only-child) {
+section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol:has(> li:only-child) {
   justify-content: safe center;
 }
 /* tall · strip — the ol is a column, so its MAIN axis is the vertical one. */
-section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li:only-child {
+section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:only-child {
   flex: 0 1 auto;
 }
 /* wide · square — the ol is a row, so the tile's height is the CROSS axis.
@@ -227,7 +227,7 @@ section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.la
    Confirmed unreachable by construction, not merely untested: two fixtures that
    overflow at wide horizontally (10 and 6 tiles) and one that overflows
    vertically (4 tall-captioned tiles) all clip rather than split. */
-section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol:where(:not([data-list="aside"])) > li:only-child {
+section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:only-child {
   align-self: center;
 }
 
@@ -240,7 +240,7 @@ section.stats.stats:where(:not(.math)).form.lat-split-native.lat-split-native.la
 section.stats:where(:not(.math)):not([data-family="square"], [data-family="tall"], [data-family="strip"]):not([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage {
   display: flex; flex-direction: column; justify-content: var(--cards-align);
 }
-section.stats:where(:not(.math))[data-cards="stretch"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol:where(:not([data-list="aside"])) { flex: 1; }
+section.stats:where(:not(.math))[data-cards="stretch"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol { flex: 1; }
 /* `safe`: a strip taller than the stage must lose its TAIL, never its head. `safe center` is the
  * stage's own declaration above; `--cards-align: center` has no `safe`, so the default needs this
  * per-value rule (`safe` is invalid with `stretch` and `space-evenly`, which is why it is not
@@ -256,24 +256,24 @@ section.stats:where(:not(.math))[data-cards="center"]:not([data-family="square"]
  * never wrap; they go one to a row below 18em. (A flat 40em first cut stacked three stats in a
  * 33em pane that read fine as a row, on examples/panes.md at 4:3; the sweep caught it.) */
 @container lat-cards (width < 51em) {
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(6)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(6)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(6)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(6)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
 }
 @container lat-cards (width < 44em) {
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(5)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(5)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(5)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(5)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
 }
 @container lat-cards (width < 35em) {
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(4)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(4)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
 }
 @container lat-cards (width < 26em) {
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(3)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(3)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
 }
 /* One to a row, for any count: the `:has()` matches the count steps' weight, so this later rule
  * wins (a first cut at a lighter weight lost to them for three or more tiles). */
 @container lat-cards (width < 18em) {
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
-  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2)) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li { flex: 0 1 100%; box-sizing: border-box; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(2)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(2)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 100%; box-sizing: border-box; }
 }

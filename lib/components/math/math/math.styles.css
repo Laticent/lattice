@@ -76,16 +76,14 @@ section.math h3 {
   padding: 0 0 var(--sp-xs) 0;
 }
 section.math p { padding: 0 0 var(--sp-xs) 0; }
-/* The stage's own list draws unmarked (a `·` on a `-` list, below); an author's nested list and an
- * aside keep the markers they were written with (lib/core/list-contract.js). */
-section.math :is(ul, ol):where(.cell-stage > :not([data-list="aside"])) {
+section.math ul, section.math ol {
   list-style: none; padding: 0; margin: 0;
 }
 section.math ul > li, section.math ol > li {
   padding: 0 0 var(--sp-xs) 0;
   line-height: var(--lh-base);
 }
-section.math ul:where(.cell-stage > :not([data-list="aside"])) > li::before {
+section.math ul:where(.cell-stage > *) > li::before {
   content: '·';
   padding-right: 0.5em;
   color: var(--accent);
@@ -188,8 +186,8 @@ section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canva
 section.math.form.feature > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.75em;
 }
-section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])),
-section.math.form.feature > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol),
+section.math.form.feature > .cell-stage > :is(ul, ol) {
   grid-column: 2;
   align-self: center;
 }
@@ -208,12 +206,12 @@ section.math.form.feature > .cell-stage > :is(ul, ol):where(:not([data-list="asi
  * `:has()` on the STAGE'S children, not a class, so a legend added later brings the split back with
  * no author action. The `tall`/`strip` arm below already makes this single column for a legend too;
  * this one is for the landscape frames where the split used to apply. */
-section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):not(:has(> .cell-stage > :is(ul, ol):where(:not([data-list="aside"])))) > .cell-stage,
-section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol):where(:not([data-list="aside"])))) > .cell-stage {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage,
+section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage {
   grid-template-columns: 1fr;
 }
-section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):not(:has(> .cell-stage > :is(ul, ol):where(:not([data-list="aside"])))) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])),
-section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol):where(:not([data-list="aside"])))) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])),
+section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   grid-column: 1 / -1;
   border-right: none;
   padding-right: 0;
@@ -223,7 +221,7 @@ section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol):where(:not([data-
  * (0,3,1) that promotes the stage to a flex column, so a lone `math feature align-left` stayed a grid
  * and moved nothing; bare `math` only worked because stage.css comes later in the bundle and wins the
  * tie. Re-state the promotion here, above both, for the no-legend case. */
-section.math.form.feature:is(.align-top, .align-middle, .align-bottom, .align-left, .align-center, .align-right):not(:has(> .cell-stage > :is(ul, ol):where(:not([data-list="aside"])))) > .cell-stage {
+section.math.form.feature:is(.align-top, .align-middle, .align-bottom, .align-left, .align-center, .align-right):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage {
   display: flex;
   flex-direction: column;
 }
@@ -232,7 +230,7 @@ section.math.form.feature:is(.align-top, .align-middle, .align-bottom, .align-le
  * places the block, but only if the block is narrower than the stage and does not carry its own
  * `align-self`. Pinned, `align-left` and `align-right` changed nothing sideways. Without a modifier
  * the stage stays a grid and `justify-self` centers it. */
-section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):not(:has(> .cell-stage > :is(ul, ol):where(:not([data-list="aside"])))) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   width: fit-content;
   max-width: 100%;
   justify-self: center;
@@ -243,19 +241,19 @@ section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canva
  * unmigrated copy applies unchanged: this is the LEGEND list only, because an
  * absolutely-positioned marker breaks inside `.compare`'s multicol and orphans
  * itself under `.matrix.decompose`'s centered text. */
-section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li,
-section.math.form.feature > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol) > li,
+section.math.form.feature > .cell-stage > :is(ul, ol) > li {
   padding-left: var(--sp-sm);
   position: relative;
 }
-section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before,
-section.math.form.feature > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol) > li::before,
+section.math.form.feature > .cell-stage > :is(ul, ol) > li::before {
   position: absolute;
   left: 0;
   padding-right: 0;
 }
-section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before,
-section.math.form.feature > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > .cell-stage > :is(ul, ol)::before,
+section.math.form.feature > .cell-stage > :is(ul, ol)::before {
   content: 'where';
   display: block;
   font-family: var(--font-label);
@@ -335,8 +333,8 @@ section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .
    * the SECTION is the grid there, and a section is not itself a grid item. */
   min-width: 0;
 }
-section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])),
-section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.math.form:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol),
+section.math.form.feature:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
   grid-column: 1 / -1;
   align-self: start;
   min-width: 0;
@@ -921,7 +919,7 @@ section.math.form.matrix > .cell-stage > p:has(> :is(.katex-display, mjx-contain
 section.math.form.matrix > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.7em;
 }
-section.math.form.matrix > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.math.form.matrix > .cell-stage > :is(ul, ol) {
   align-self: center;
   padding-left: var(--sp-md);
   border-left: 1px solid var(--border);
@@ -934,7 +932,7 @@ section.math.form.matrix > .cell-stage > :is(ul, ol):where(:not([data-list="asid
  * Pre-existing (identical on the sovereign arm, at every size), fixed here because this
  * commit rewrites these rules. A flex row gives the value its own block, so a wrap stays
  * in the value column. The bullet pseudo becomes the first flex item and keeps its place. */
-section.math.form.matrix > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li {
   /* Hanging indent, not flex. A flex row was tried first and traded one defect for a
    * worse one: the property VALUE is a bare text node, so it becomes an anonymous flex
    * item that cannot be given `min-width: 0`, and at `square` the legend column could no
@@ -946,7 +944,7 @@ section.math.form.matrix > .cell-stage > :is(ul, ol):where(:not([data-list="asid
   text-indent: -5em;
   color: var(--text-body);
 }
-section.math.form.matrix > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong {
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong {
   display: inline-block;
   min-width: 4em;
   font-family: var(--font-mono);
@@ -972,12 +970,12 @@ section.math.form.matrix > .cell-stage > :is(ul, ol):where(:not([data-list="asid
  * `--fs-body`/`--fs-meta` ratio is not even constant across families (1.37 at square,
  * 1.43 at hd, 1.56 at tall), so no single multiplier would have fixed it either. The box
  * keeps its `--fs-meta` reservation; only what is drawn inside it takes `--fs-body`. */
-section.math.form.matrix > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong:has(:is(.katex, mjx-container)) {
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong:has(:is(.katex, mjx-container)) {
   text-transform: none;
   letter-spacing: normal;
   color: var(--text-heading);
 }
-section.math.form.matrix > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong :is(.katex, mjx-container) {
+section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong :is(.katex, mjx-container) {
   font-size: var(--fs-body);
 }
 
@@ -1007,7 +1005,7 @@ section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"])
   align-content: start;
   gap: var(--sp-sm);
 }
-section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
   padding-left: 0;
   border-left: none;
   padding-top: var(--sp-sm);
@@ -1024,7 +1022,7 @@ section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"])
 section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.15em;
 }
-section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.math.math.form.matrix:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
   padding-bottom: var(--sp-xs);
 }
 
@@ -1091,7 +1089,7 @@ section.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, m
  * from the rules above; what it must NOT inherit is this variant's centring (a legend
  * reads as a list, not as a caption) or `matrix`'s side rule, which belongs beside a
  * column and here sits under a full-width divider that already separates the two. */
-section.math.form.matrix.decompose > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.math.form.matrix.decompose > .cell-stage > :is(ul, ol) {
   text-align: start;
   padding-left: 0;
   border-left: none;
@@ -1327,7 +1325,7 @@ section.math.form.lat-split-native:where(:not(.derivation):not(.theorem):not(.co
   padding-right: 0;
   border-right: 0;
 }
-section.math.form.lat-split-native:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.stats)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.math.form.lat-split-native:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.stats)) > .cell-stage > :is(ul, ol) {
   grid-column: 1 / -1;
   align-self: start;
   min-width: 0;

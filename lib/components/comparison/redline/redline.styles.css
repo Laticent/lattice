@@ -125,20 +125,20 @@ section.redline del, section.redline s {
 }
 /* Annotation list — appears below the quote, gives reviewer plain-English
  * rationale for each numbered delta in the text. */
-section.redline > .cell-stage > ol:where(:not([data-list="aside"])),
-section.redline > .cell-stage > ul:where(:not([data-list="aside"])) {
+section.redline > .cell-stage > ol,
+section.redline > .cell-stage > ul {
   list-style:none; padding:0;
   display:flex; flex-direction:column; gap:var(--sp-xs);
 }
-section.redline > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li {
+section.redline > .cell-stage > :is(ol, ul) > li {
   font-size:var(--fs-body);
   color:var(--text-body);
   line-height:var(--lh-snug);
   padding-left:var(--sp-md);
   border-left:2px solid var(--accent);
 }
-section.redline > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li::marker { content:''; }
-section.redline > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li > strong {
+section.redline > .cell-stage > :is(ol, ul) > li::marker { content:''; }
+section.redline > .cell-stage > :is(ol, ul) > li > strong {
   display:inline-block;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -190,7 +190,7 @@ section.redline.split.split > .cell-stage > blockquote:nth-of-type(2)::before {
   color:var(--pass);
   padding-bottom:var(--sp-xs);
 }
-section.redline.split > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) { grid-column:1 / -1; grid-row:2; }
+section.redline.split > .cell-stage > :is(ol, ul) { grid-column:1 / -1; grid-row:2; }
 
 /* .annotated — single passage with numbered sup markers; annotations below. */
 /* sanctioned: a superscript footnote marker — stays raised + small (0.7em,
@@ -208,18 +208,18 @@ section.redline.annotated > .cell-stage > blockquote sup {
   line-height:1.4;
   vertical-align:super;
 }
-section.redline.annotated > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) {
+section.redline.annotated > .cell-stage > :is(ol, ul) {
   counter-reset:rl var(--lat-split-offset, 0);
   padding-top:var(--sp-md);
 }
-section.redline.annotated > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li {
+section.redline.annotated > .cell-stage > :is(ol, ul) > li {
   counter-increment:rl;
   position:relative;
   padding-left:calc(var(--sp-lg) + var(--sp-xs));
 }
 /* sanctioned: positioned annotation counter, anchored to the list-row origin
  * (absolute). Footnote weight (700) is kept; radius + font route to tokens. */
-section.redline.annotated > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li::before {
+section.redline.annotated > .cell-stage > :is(ol, ul) > li::before {
   content:counter(rl);
   position:absolute; left:0; top:0.156cqi;
   display:inline-flex; align-items:center; justify-content:center;
@@ -335,11 +335,11 @@ section.redline.three-col.three-col > .cell-stage > blockquote:nth-of-type(2)::b
   color:var(--pass);
   padding-bottom:var(--sp-xs);
 }
-section.redline.three-col > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) {
+section.redline.three-col > .cell-stage > :is(ol, ul) {
   grid-column:3; grid-row:1;
   align-self:stretch;
 }
-section.redline.three-col > .cell-stage > :is(ol, ul):where(:not([data-list="aside"]))::before {
+section.redline.three-col > .cell-stage > :is(ol, ul)::before {
   content:'WHY';
   display:block;
   font-family:var(--font-label);
@@ -394,7 +394,7 @@ section.redline.split.split[data-orientation="portrait"] > .cell-stage > blockqu
 section.redline.three-col.three-col[data-orientation="portrait"] > .cell-stage > blockquote {
   flex:0 0 auto; overflow:visible;
 }
-section.redline.three-col.three-col[data-orientation="portrait"] > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) { align-self:stretch; }
+section.redline.three-col.three-col[data-orientation="portrait"] > .cell-stage > :is(ol, ul) { align-self:stretch; }
 
 /* ── block-split slides (carousel.js redline-blocks) ──
  * When the collapsed stack is still too tall, the splitter gives OLD and NEW their own slides.

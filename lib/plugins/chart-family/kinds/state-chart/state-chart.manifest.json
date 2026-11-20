@@ -161,6 +161,12 @@
       "match": { "kind": "code-line" },
       "required": false,
       "description": "The key is derived from what the chart uses (statuses, heavy and patterned lines, slots on composites); one bracketed span after the list renames entries, `[{=>, Happy path}]`, as on the flowchart. Words that paint the same tone share one entry."
+    },
+    "composite-transitions": {
+      "selector": "li > ul > li > ul > li",
+      "match": { "kind": "list", "depth": 3, "marker": "any" },
+      "required": false,
+      "description": "A transition from a substate inside a composite state, written under that substate."
     }
   },
   "segno": {

@@ -431,33 +431,41 @@ behind the one before it only where it reads that one's output.
   separates them with headings. The pass also reads the deck's front-matter `class:` itself, since
   it runs before `deck_class_propagate`, so `class: steps` or `class: principles` sets the contract
   as a slide's own class does.
-- **Nested lists below what a layout reads stay the author's** (owner's ruling on #3330,
-  2026-11-20). Each layout's deepest list slot sets how far down the contract reaches (`depths` in
-  the generated table); a deeper `1.` keeps its `<ol>`, so a screen reader still hears numbers, and
-  a list under a card's body line still shows them (a base rule gives a nested `ol` room for its
-  numbers, `lib/base/base.elements.css`). Seventeen layouts read a nested level without declaring
-  it, so each gained an optional depth-2 slot, and the engine hands them a `ul` there for either
-  marker (a `1.` body drew no numbers but still announced them to a screen reader). The first eight read a nested level without declaring
-  it, so each gained an optional depth-2 slot: kpi, stats, glossary, list-tabular,
-  policy-recommendation and premise (found by the gallery swap probe), and decision and list-steps
-  (found by review, 2026-11-20: their galleries had no nested `1.` to swap). The other nine, all
-  card bodies (actors, authority-chain, cards-grid, cards-stack, compare-prose, cycle, matrix-2x2,
-  split-panel, statute-stack), were found by a second review. It also found the slot-label lift
-  bolding an aside's or a quoted list's items on 13 layouts; it now skips both, on the engine and
-  in the runtime. Review also found
-  descendant selectors in agenda, list-steps and list-tabular (and math's legend bullet) that drew a
-  nested, quoted or aside `1.` list as the layout's own cards or rows; they are now scoped to the
-  stage's own list (`ol:where(.cell-stage > :not([data-list="aside"]))`, no added specificity).
-  A second review (2026-11-20) found 17 layouts still drew an aside as their own cards, tiles or
-  steps through `> .cell-stage > ol` rules, so every rule that picks the stage's list as a direct
-  child now excludes an aside (`:where(:not([data-list="aside"]))`, 1,200-odd selectors, no added
-  specificity), and the aside draws plain bullets or numbers. A swap probe cannot see a level no
-  gallery writes, so test/unit/core/list-contract.test.js reads every tracked stylesheet under
-  `lib/` and `themes/` instead, and counts a selector for each layout its section compound names:
-  no one-marker selector below the manifest's `depths` (a list reached through an `li` counts one
-  deeper), none reaching the stage's list by a descendant combinator or its items by `ol li`, and
-  no direct-child stage-list rule without the aside exclusion. A second test feeds it the shapes the
-  review slipped past the first version, so it can fail.
+- **Each layout reads the list levels it was designed for, and no more** (owner, 2026-11-20).
+  Each layout's deepest list slot sets how far down the contract reaches (`depths` in the generated
+  table). A census of the 537 committed decks settled what that is: the second level is the
+  designed body or detail line on about 45 layouts (cards-grid writes it on 254 of 254 slides, kpi
+  on 104 of 104), so 23 layouts gained an optional slot for a level they read but had not declared:
+  - kpi, stats, glossary, list-tabular, policy-recommendation and premise (found by the gallery swap
+    probe);
+  - decision and list-steps (found by review);
+  - the bodies of actors, authority-chain, cards-grid, cards-stack, compare-prose, cycle,
+    matrix-2x2, split-panel and statute-stack;
+  - split-compare, citation-card, kanban and regulatory-update, whose committed decks nest that
+    level on nearly every slide;
+  - a third level on kanban (a card's tag line), flowchart and state-chart (a connection or
+    transition inside a group or composite).
+
+  **A shape a layout was not designed for gets a warning, not a look.** An earlier round of this PR
+  styled sublists under `agenda` rows, asides and deeper lists. The owner rejected that: the layouts
+  are designed, so an unsupported sublist is an authoring error. `list-depth-unsupported` (warning,
+  `lint:deck` and the Studio) names a list nested deeper than the declared levels and a second list
+  after a line of prose. The same census found no committed deck that writes either shape. Those
+  shapes render as they did before W2.
+
+  Review found descendant selectors in agenda, list-steps and list-tabular (and math's legend
+  bullet) that drew a nested or quoted `1.` list as the layout's own cards or rows. They are scoped
+  to the stage's own list (`ol:where(.cell-stage > *)`, no added specificity). A swap probe cannot
+  see a level no gallery writes, so test/unit/core/list-contract.test.js reads every tracked
+  stylesheet under `lib/` and `themes/` and counts a selector for each layout its section compound
+  names. It fails on:
+  - a one-marker selector below the manifest's `depths` (a list reached through an `li` counts one
+    deeper);
+  - one reaching the stage's list by a descendant combinator;
+  - one reaching its items by `ol li`.
+
+  A second test feeds it the shapes review slipped past the first version, so it can fail. The
+  slot-label lift no longer bolds a quoted list's items.
 - **Contracts as declared.** `prose`: `content`, `list`. `numbered-tags`: `cards-grid`,
   `cards-stack`, `list-steps`, `split-panel steps` and `split-panel watermark` (which already drew
   numbered panels for `1.` and plain cards for `-`, so it was R2 in all but name). `neutral`:

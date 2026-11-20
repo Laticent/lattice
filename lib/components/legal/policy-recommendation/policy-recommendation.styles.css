@@ -81,7 +81,7 @@
   }
 
   /* Rationale — evidence-grounded reasons; the reason bold, its evidence nested. */
-  section.policy-recommendation > .cell-stage > ul:where(:not([data-list="aside"])) {
+  section.policy-recommendation > .cell-stage > ul {
     list-style: none;
     padding: 0;
     display: flex;
@@ -109,7 +109,7 @@
     min-height: 0;
     justify-content: safe center;
   }
-  section.policy-recommendation > .cell-stage > ul:where(:not([data-list="aside"])) > li {
+  section.policy-recommendation > .cell-stage > ul > li {
     padding-left: var(--sp-md);
     border-left: 3px solid var(--stance);
     font-size: var(--fs-body);
@@ -118,11 +118,11 @@
     color: var(--text-heading);
   }
   /* Nested evidence line — resets to body weight/color; the citation rides a chip. */
-  section.policy-recommendation > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul {
+  section.policy-recommendation > .cell-stage > ul > li > ul {
     list-style: none;
     padding: var(--sp-3xs) 0 0 0;
   }
-  section.policy-recommendation > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li {
+  section.policy-recommendation > .cell-stage > ul > li > ul > li {
     font-weight: 400;
     color: var(--text-body);
     font-size: var(--fs-body);
@@ -130,12 +130,12 @@
   }
   /* Element siblings of the bolded lead don't inherit its weight (matches the
    * CARD_STYLE_LAYOUTS hardening in cards-grid). */
-  section.policy-recommendation > .cell-stage > ul:where(:not([data-list="aside"])) > li > :is(ul, ol) { font-weight: 400; }
+  section.policy-recommendation > .cell-stage > ul > li > :is(ul, ol) { font-weight: 400; }
 
   /* Citation chip — a pill at the end of an evidence line, written `{FTC 2025}` in inline code and
    * drawn by the pills plugin. A record's citation is quiet: the panel's own fill, hairline and
    * secondary ink, not the plugin's default chip. */
-  section.policy-recommendation > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li > .lat-pill:not([data-c]) {
+  section.policy-recommendation > .cell-stage > ul > li > ul > li > .lat-pill:not([data-c]) {
     --lat-pill-bg: var(--bg-alt);
     --lat-pill-edge: var(--border);
     --lat-pill-ink: var(--text-secondary);
@@ -177,7 +177,7 @@
   /* ── Portrait / square reflow (adapt.mode: reflow). Tighten the rhythm and let
    *    the reasons pack from the top instead of centering in a tall box. ─────── */
   section.policy-recommendation:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage { gap: var(--sp-sm); }
-  section.policy-recommendation:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) {
+  section.policy-recommendation:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
     flex: 0 0 auto;
     justify-content: flex-start;
   }

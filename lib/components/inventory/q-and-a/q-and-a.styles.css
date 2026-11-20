@@ -66,7 +66,7 @@ section.q-and-a {
 }
 
 /* The pair stack fills the canvas below the headline and centers its rows. */
-section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.q-and-a > .cell-stage > :is(ul, ol) {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -95,7 +95,7 @@ section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
  * −18.6px on `solo`, and on `grid` it varied −7.7 to −42.2 WITHIN one slide as the
  * questions wrapped differently. `align-items: baseline` is exact and font-metric-proof,
  * which no `top` offset can be. */
-section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.q-and-a > .cell-stage > :is(ul, ol) > li {
   counter-increment: qa;
   position: relative;
   display: flex;
@@ -117,7 +117,7 @@ section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > l
   color: var(--text-heading);
   line-height: var(--lh-snug);
 }
-section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before {
+section.q-and-a > .cell-stage > :is(ul, ol) > li::before {
   /* `decimal-leading-zero`, NOT a literal "0" prefix: the prefix printed `010` at item ten.
      Unreachable while a page held several members and the counter effectively never passed
      `perPage`; one structural element per page plus the `--lat-split-offset` seed drives it
@@ -136,7 +136,7 @@ section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > l
 /* The question is lifted into <strong> by slotLabelLift so flex can size it (rail/grid).
  * Transparent by default — it inherits the question's own type so the stream looks
  * (ledger / spine / tab / solo / compact) read exactly as a bare text node would. */
-section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong {
+section.q-and-a > .cell-stage > :is(ul, ol) > li > strong {
   font: inherit;
   color: inherit;
   letter-spacing: inherit;
@@ -145,7 +145,7 @@ section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > l
 }
 
 /* Answer — the nested list, reset off the question's weight/size/color. */
-section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.q-and-a > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   list-style: none;
   /* basis 100% wraps the answer onto its own flex line under the question; the
      left padding re-uses the index column so the answer starts on the question's
@@ -155,7 +155,7 @@ section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > l
   flex: 1 1 100%;
   padding: var(--sp-xs) 0 0 var(--qa-gutter);
 }
-section.q-and-a > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) > li {
+section.q-and-a > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
   font-family: var(--font-body);
   font-size: var(--fs-body);
   font-weight: 400;
@@ -173,7 +173,7 @@ section.q-and-a.spine {
   --qa-node-top: 0.42em;           /* the dot's top, from its pair's top — `em` is the
                                       question's own size, so the dot rides the type */
 }
-section.q-and-a.spine > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.q-and-a.spine > .cell-stage > :is(ul, ol) {
   /* border-box so the spine's own `padding-left` is absorbed WITHIN the inherited
    * `width:100%` (base ul rule) — `box-sizing` isn't inherited, so a content-box ul
    * would add sp-xl on top of 100% and push the answer column past the stage's right
@@ -182,12 +182,12 @@ section.q-and-a.spine > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]
   padding-left: var(--sp-xl);
   gap: var(--sp-lg);
 }
-section.q-and-a.spine > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.q-and-a.spine > .cell-stage > :is(ul, ol) > li {
   padding-left: 0;
   border-left: none;
 }
 /* The node. Absolute again — it is a drawn mark at a fixed offset, not a column. */
-section.q-and-a.spine > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before {
+section.q-and-a.spine > .cell-stage > :is(ul, ol) > li::before {
   content: "";
   position: absolute;
   left: calc(-1 * var(--sp-xl));
@@ -210,7 +210,7 @@ section.q-and-a.spine > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]
  * of line dangling above the first node and 122px below the last, and the two tails
  * moved independently with the content. A per-pair segment cannot dangle — its length
  * is the pair's own height plus the one gap below it, both known here. */
-section.q-and-a.spine > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::after {
+section.q-and-a.spine > .cell-stage > :is(ul, ol) > li::after {
   content: "";
   position: absolute;
   left: calc(-1 * var(--sp-xl) + (var(--qa-node) - var(--qa-thread)) / 2);
@@ -220,19 +220,19 @@ section.q-and-a.spine > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]
   width: var(--qa-thread);
   background: var(--border);
 }
-section.q-and-a.spine > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:last-child::after {
+section.q-and-a.spine > .cell-stage > :is(ul, ol) > li:last-child::after {
   display: none;
 }
 /* No index column on the spine — the node replaces it, so the answer keeps the
    question's own left edge. */
-section.q-and-a.spine > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.q-and-a.spine > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   padding-left: 0;
 }
 
 /* ── rail — question / answer columns ─────────────────────────────────── */
 /* The pair becomes a three-column exhibit row: number | question | answer,
  * separated by a hairline. The index drops into the flow as the first cell. */
-section.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.q-and-a.rail > .cell-stage > :is(ul, ol) {
   gap: var(--sp-lg);
 }
 /* flex mirror of `grid-template-columns:auto minmax(0,0.46fr) minmax(0,0.54fr)`: the index is
@@ -243,7 +243,7 @@ section.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
  * BOXES — and the three carry three type sizes, so the answer's first line landed 7.9px above
  * the question's baseline on every row of an exhibit table whose whole promise is that a row
  * reads as one line. `nowrap` because here the answer is a COLUMN, not a wrapped second line. */
-section.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.q-and-a.rail > .cell-stage > :is(ul, ol) > li {
   flex-wrap: nowrap;
   column-gap: var(--sp-lg);
   padding-left: 0;
@@ -251,23 +251,23 @@ section.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
   border-left: none;
   border-bottom: 1px solid var(--border);
 }
-section.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:last-child {
+section.q-and-a.rail > .cell-stage > :is(ul, ol) > li:last-child {
   padding-bottom: 0;
   border-bottom: none;
 }
 /* The numeral keeps the ledger's `decimal-leading-zero`. It was a bare `counter(qa)`, so one
    component printed `01` in five looks and `1` in the sixth — and a bare counter is also
    variable-width, which walks the question column right at item ten. */
-section.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before {
+section.q-and-a.rail > .cell-stage > :is(ul, ol) > li::before {
   font-weight: 700;
 }
-section.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong {
+section.q-and-a.rail > .cell-stage > :is(ul, ol) > li > strong {
   flex: 0.46 1 0;
   min-width: 0;
   padding-right: var(--sp-lg);   /* widens the question↔answer gutter without widening the
                                     index↔question one — `column-gap` is uniform */
 }
-section.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.q-and-a.rail > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   flex: 0.54 1 0;
   min-width: 0;
   padding: 0;
@@ -283,24 +283,24 @@ section.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
  * ratio of 1.1, which is no grouping at all. Tightening the pair and opening the gap
  * takes it to 2.6 without costing a pair of capacity (a 4th pair overflowed before this
  * change too — `compact` is the escape, as it is for every look here). */
-section.q-and-a.tab > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.q-and-a.tab > .cell-stage > :is(ul, ol) {
   gap: calc(var(--sp-lg) + var(--sp-sm));
 }
-section.q-and-a.tab > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.q-and-a.tab > .cell-stage > :is(ul, ol) > li {
   padding-left: 0;
   border-left: none;
 }
-section.q-and-a.tab > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before {
+section.q-and-a.tab > .cell-stage > :is(ul, ol) > li::before {
   display: none;
 }
-section.q-and-a.tab > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.q-and-a.tab > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   position: relative;
   /* the sp-2xs that separated the question from the underline now rides INSIDE the ul as
      extra top padding, with the underline (::before) dropped by the same sp-2xs so it lands
      where it did — keeps the box measurable (no margin-top above the ul). */
   padding: calc(var(--sp-sm) + var(--sp-2xs)) 0 0;
 }
-section.q-and-a.tab > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol)::before {
+section.q-and-a.tab > .cell-stage > :is(ul, ol) > li > :is(ul, ol)::before {
   content: "";
   position: absolute;
   top: var(--sp-2xs);
@@ -325,7 +325,7 @@ section.q-and-a.tab > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))
  * aligns the questions exactly, at any length, and spends nothing. */
 /* flex mirror of a 2×2 grid (flex shop §11.A, the matrix-2x2 recipe): wrap four cells, each
  * a border-box half-minus-half-gap in both axes, so they tile the quadrant. */
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.q-and-a.grid > .cell-stage > :is(ul, ol) {
   display: flex;
   flex-direction: row;   /* override the base column stream — the quadrant tiles in rows */
   flex-wrap: wrap;
@@ -339,9 +339,9 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
 /* The dividing cross marks the quadrant's middle. When the cells pack (center/top/spread)
  * there is no quadrant — the middle of the list is no longer between the rows — so the
  * cross draws only under `stretch`. */
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before,
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::after { opacity: var(--cards-grow); }
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before {
+section.q-and-a.grid > .cell-stage > :is(ul, ol)::before,
+section.q-and-a.grid > .cell-stage > :is(ul, ol)::after { opacity: var(--cards-grow); }
+section.q-and-a.grid > .cell-stage > :is(ul, ol)::before {
   content: "";
   position: absolute;
   left: 50%;
@@ -351,7 +351,7 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
   transform: translateX(-50%);
   background: linear-gradient(to bottom, transparent, var(--border) 18%, var(--border) 82%, transparent);
 }
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::after {
+section.q-and-a.grid > .cell-stage > :is(ul, ol)::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -361,7 +361,7 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
   transform: translateY(-50%);
   background: linear-gradient(to right, transparent, var(--border) 18%, var(--border) 82%, transparent);
 }
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.q-and-a.grid > .cell-stage > :is(ul, ol) > li {
   box-sizing: border-box;
   width: calc(50% - var(--sp-2xl) / 2);
   /* Exactly half the list under `stretch` (min and max meet), its own content otherwise —
@@ -380,15 +380,15 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
   padding-left: 0;
   border-left: none;
 }
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before {
+section.q-and-a.grid > .cell-stage > :is(ul, ol) > li::before {
   flex: 0 0 auto;   /* in a column the ledger's `0 0 <gutter>` would be a HEIGHT */
   line-height: var(--lh-tight);
 }
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong {
+section.q-and-a.grid > .cell-stage > :is(ul, ol) > li > strong {
   flex: 0 0 auto;
   padding-top: var(--sp-2xs);
 }
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.q-and-a.grid > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   flex: 0 0 auto;
   padding: var(--sp-sm) 0 0;
 }
@@ -397,13 +397,13 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
  * rail + grid size the question via the lifted <strong>. A renderer that skips the kernel
  * (raw VS Code preview) leaves the question unwrapped, so there's no hook to proportion —
  * fall back to a single-column stack rather than mis-size an unselectable text node. */
-section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(:has(> li > strong)) {
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) {
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   gap: var(--qa-gap);
 }
-section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(:has(> li > strong)) > li {
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li {
   /* back to the ledger's wrapping row: index beside the question, answer under both. */
   flex-direction: row;
   flex-wrap: wrap;
@@ -416,15 +416,15 @@ section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):where(:not([data-li
   max-height: none;
   padding-left: var(--sp-xs);
 }
-section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(:has(> li > strong)) > li::before {
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li::before {
   flex: 0 0 var(--qa-index-col);
 }
-section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(:has(> li > strong)) > li > :is(ul, ol) {
+section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > strong)) > li > :is(ul, ol) {
   flex: 1 1 100%;
   padding: var(--sp-xs) 0 0 var(--qa-gutter);
 }
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(:has(> li > strong))::before,
-section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(:has(> li > strong))::after {
+section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > strong))::before,
+section.q-and-a.grid > .cell-stage > :is(ul, ol):not(:has(> li > strong))::after {
   display: none;
 }
 
@@ -437,7 +437,7 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
 section.q-and-a.compact {
   --qa-gap: var(--sp-sm);
 }
-section.q-and-a.compact > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.q-and-a.compact > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   padding-top: var(--sp-2xs);
 }
 
@@ -450,21 +450,21 @@ section.q-and-a.compact > .cell-stage > :is(ul, ol):where(:not([data-list="aside
 section.q-and-a.solo {
   --qa-index: calc(var(--fs-emphasis) * 0.8);
 }
-section.q-and-a.solo > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.q-and-a.solo > .cell-stage > :is(ul, ol) {
   gap: 0;
 }
-section.q-and-a.solo > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.q-and-a.solo > .cell-stage > :is(ul, ol) > li {
   font-size: var(--fs-emphasis);
   line-height: var(--lh-tight);
 }
-section.q-and-a.solo > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before {
+section.q-and-a.solo > .cell-stage > :is(ul, ol) > li::before {
   font-size: var(--qa-index);
   line-height: var(--lh-tight);
 }
-section.q-and-a.solo > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   padding-top: var(--sp-md);
 }
-section.q-and-a.solo > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) > li {
+section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
   font-size: var(--fs-message);
   line-height: var(--lh-snug);
 }
@@ -480,7 +480,7 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])
    descendant (`> ul`) so the container query CAN restyle it: drop to a flex column
    so the pairs pack by content height + gap (the grid's stretched auto-rows left
    huge gaps), and release the quadrant cell's fixed width/height. */
-section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
   display: flex;
   flex-direction: column;
   justify-content: var(--cards-align);
@@ -488,11 +488,11 @@ section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-
   gap: var(--sp-lg);
 }
 /* release the quadrant cell sizing — natural-height pairs in the single column. */
-section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--cards-grow); }
-section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before,
-section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::after { display: none; }
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--cards-grow); }
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before,
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::after { display: none; }
 /* rail columns → the ledger's hanging-index block so Q and A stack legibly. */
-section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
   flex-wrap: wrap;                /* the answer drops under the question instead of beside it */
   column-gap: var(--qa-col-gap);
   padding-left: var(--sp-xs);
@@ -500,11 +500,11 @@ section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-
   border-left: 2px solid var(--accent);
 }
 /* The numeral is the ledger's already — the columns are what this arm undoes. */
-section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong {
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong {
   flex: 1 1 0;
   padding-right: 0;
 }
-section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   flex: 1 1 100%;
   padding: var(--sp-xs) 0 0 var(--qa-gutter);
 }
@@ -515,18 +515,18 @@ section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-
  * content area they take the forms a tall deck gets: the grid becomes one column of pairs
  * (its cross rules go), and in the rail the answer drops under its question. */
 @container lat-cards (width < 28em) {
-  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) {
+  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
     display: flex; flex-direction: column; justify-content: var(--cards-align); align-items: stretch;
     gap: var(--sp-lg); --lat-narrow: 1;
   }
-  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--cards-grow); }
-  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held)::before,
-  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held)::after { display: none; }
-  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) { --lat-narrow: 1; }
-  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
+  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--cards-grow); }
+  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held)::before,
+  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held)::after { display: none; }
+  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) { --lat-narrow: 1; }
+  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
     flex-wrap: wrap; column-gap: var(--qa-col-gap); padding-inline-start: var(--sp-xs);
     padding-bottom: var(--sp-lg); border-inline-start: 2px solid var(--accent);
   }
-  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li > strong { flex: 1 1 0; padding-inline-end: 0; }
-  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li > :is(ul, ol) { flex: 1 1 100%; }
+  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li > strong { flex: 1 1 0; padding-inline-end: 0; }
+  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li > :is(ul, ol) { flex: 1 1 100%; }
 }
