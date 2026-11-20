@@ -519,7 +519,7 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   changes how an existing deck renders). Some findings also omit `classToken` or
   `line`, which §1 lists as required: the review tier's slide- and deck-level
   findings and the CLI's `--discover` findings carry no `line`. And three
-  front-matter findings (`autosplit-retired`, `caption-key-retired`,
+  front-matter findings (`autosplit-retired`, `note-key-retired`,
   `paginate-unsupported-value`) report `slide: 1`, where §1 says front matter is
   `slide: 0`. Specifying these is the
   next minor version's work.
