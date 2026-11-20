@@ -8,7 +8,9 @@
 # across a reload, and measures the localStorage allowance (chat-storage-probe.js), against the site in both simulators. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
 # cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
 # photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=player-charts
-# exports two decks to HTML players and taps their chart detail cards open and shut (player-charts.mjs). PROBE=office opens each one-slide editable .pptx that
+# exports two decks to HTML players and taps their chart detail cards open and shut (player-charts.mjs). PROBE=grain-banding
+# photographs a finish's dark glow in the finish grain demo's player, with and without the screen grain, in both simulators
+# and the Mac's own Safari, and measures its flat runs (grain-banding.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
 # and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
@@ -74,6 +76,17 @@ elif [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ]; then
   (cd "$page" && python3 -m http.server $PORT > "$OUT/preview.log" 2>&1) &
   server=$!
   ready="http://localhost:$PORT/"
+elif [ "$PROBE" = grain-banding ]; then
+  # The finish grain demo exported to an HTML player with the real CLI, and the same player with the screen grain switched
+  # off (its one `--backdrop-grain:url(...)` declaration set to none), so grain-banding.mjs can compare Safari's drawing of
+  # the glow with and without it. A plain server is all they need.
+  page="$RUNNER_TEMP/grain-banding-page"
+  mkdir -p "$page"
+  node lattice.js examples/finish-screen-grain.md "$page/grain.html" --player -q
+  node -e "const fs=require('fs');const s=fs.readFileSync(process.argv[1],'utf8');const t=s.replace(/--backdrop-grain:url\(data:image\/png[^)]*\)/g,'--backdrop-grain:none');if(t===s){console.error('grain-banding: the exported player has no grain to switch off');process.exit(1)}fs.writeFileSync(process.argv[2],t)" "$page/grain.html" "$page/plain.html"
+  (cd "$page" && python3 -m http.server $PORT > "$OUT/preview.log" 2>&1) &
+  server=$!
+  ready="http://localhost:$PORT/grain.html"
 elif [ "$PROBE" = player-charts ]; then
   # Two decks exported to standalone HTML players with the real CLI (player-charts.mjs): the test deck and the checker's
   # hostile deck. The export renders through Puppeteer's Chrome, which npm ci installed. A plain server is all they need.
@@ -163,8 +176,9 @@ if [ -n "${DEVICES:-}" ]; then
       *) echo "DEVICES: unknown device '$d' (iPad, iPhone, Mac)" >&2; exit 1 ;;
     esac
   done
-  # A selection this probe runs nothing on must fail, not pass with nothing tested: only the undo probe has a Mac half.
-  if [ -z "${families// /}" ] && { [ "$PROBE" != undo ] || [ "$run_mac" = 0 ]; }; then
+  # A selection this probe runs nothing on must fail, not pass with nothing tested: only the undo and grain banding probes
+  # have a Mac half.
+  if [ -z "${families// /}" ] && { { [ "$PROBE" != undo ] && [ "$PROBE" != grain-banding ]; } || [ "$run_mac" = 0 ]; }; then
     echo "DEVICES='$DEVICES' selects no device the $PROBE probe runs on" >&2
     exit 1
   fi
@@ -294,10 +308,10 @@ for family in $families; do
   left=$((left - 1))
 done
 
-# The undo probe's desktop half: the runner's own Safari, through the same safaridriver.
-if [ "$PROBE" = undo ] && [ "$run_mac" = 1 ]; then
+# The undo and grain banding probes' desktop half: the runner's own Safari, through the same safaridriver.
+if { [ "$PROBE" = undo ] || [ "$PROBE" = grain-banding ]; } && [ "$run_mac" = 1 ]; then
   xcrun simctl shutdown all || true
-  if ! PROBE=undo SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
+  if ! PROBE="$PROBE" SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
     status=1
     probe_failed=1
   fi

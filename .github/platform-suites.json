@@ -362,6 +362,22 @@
       "on_pull_request": false
     },
     {
+      "name": "ios-safari-grain-banding",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "lib/base/base.finish.css",
+        "examples/finish-screen-grain.md",
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/grain-banding.mjs"
+      ],
+      "run": "PROBE=grain-banding bash docs/scripts/ios-safari/run.sh",
+      "why": "Safari does not dither a CSS gradient, so a finish's dark glow can draw as flat concentric bands; the screen grain (lib/base/base.finish.css, `--backdrop-grain`) breaks them up. Its banding was measured in Linux WebKit, whose graphics backend is not Apple's. This photographs the first slide of examples/finish-screen-grain.md (a dark nimbus glow) in its exported HTML player, as shipped and with the grain switched off, in real Mobile Safari (iPad and iPhone iOS Simulators) and the runner's own macOS Safari, and measures the runs of one exact color along rows in the glow (grain-banding.mjs). It fails when, with the grain, the p90 run passes 4 CSS px; the grain-off numbers are reported, and say whether Apple's Safari bands at all. A simulator draws with the Mac's GPU, not a phone's.",
+      "on_pull_request": false
+    },
+    {
       "name": "ios-safari-focus-sync",
       "os": [
         "macos-26"
