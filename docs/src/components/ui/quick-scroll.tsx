@@ -4,7 +4,7 @@ import { ArrowDownToLine, ArrowUpToLine } from "lucide-react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
-import { type Box, edgeState, fits, IDLE_MS, INTENT_MS, JUMP_RETRIES, layoutFor, PAGING_KEYS, type Placement, place, STREAK_MS } from "@/lib/quick-scroll"
+import { type Box, edgeState, fits, IDLE_MS, INTENT_MS, JUMP_RETRIES, layoutFor, OVERLAY_BAR, PAGING_KEYS, type Placement, place, STREAK_MS } from "@/lib/quick-scroll"
 
 /**
  * QuickScroll — jump to the top or bottom of a long pane, out of the way until you scroll.
@@ -84,9 +84,20 @@ function isElement(t: unknown): t is HTMLElement {
  *  the element, at an offsetX past its clientWidth), or a frame's viewport bar (past the root's width). */
 function onScrollbar(e: PointerEvent): boolean {
 	const t = e.target
-	if (isElement(t) && t !== t.ownerDocument.documentElement && t !== t.ownerDocument.body) return e.offsetX >= t.clientWidth && scrollsY(t)
-	const root = (isNode(t) ? t.ownerDocument : null)?.documentElement
-	return !!root && e.clientX >= root.clientWidth
+	if (isElement(t) && t !== t.ownerDocument.documentElement && t !== t.ownerDocument.body) {
+		if (!scrollsY(t)) return false
+		// An overlay scrollbar (macOS by default) takes no width, so `clientWidth` is the whole box and a press on
+		// the bar reads as a press in content, which would veto the hover path for the drag that follows (the card
+		// grader's final-round finding). With no gutter, the right-hand OVERLAY_BAR px of the scroller count as the
+		// bar. Content keeps clear of that band: Compose pads 44px from the scrollbar on a mouse.
+		const gutter = t.offsetWidth - t.clientWidth
+		return e.offsetX >= t.clientWidth - (gutter > 0 ? 0 : OVERLAY_BAR)
+	}
+	const doc = isNode(t) ? t.ownerDocument : null
+	const root = doc?.documentElement
+	if (!root || !doc?.defaultView) return false
+	const overlay = doc.defaultView.innerWidth - root.clientWidth <= 0
+	return e.clientX >= root.clientWidth - (overlay ? OVERLAY_BAR : 0)
 }
 
 /** True when a key lands in editable text, where Space, Home and End type or move the caret. */

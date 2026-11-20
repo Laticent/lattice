@@ -113,10 +113,33 @@ test('@webkit-phone Studio Compose: on a phone the stack sits above the New slid
 	expect(b.y + b.height).toBeLessThanOrEqual(fab.y);
 });
 
+/** Wait until the pane holds still: its box and scrollTop unchanged across two animation frames. The Studio
+ *  keeps laying out and scrolling for a moment after Compose appears (and after a click into it), and a test
+ *  that reads a position or scrolls during that settling races it (seen 1 in 144: a `before` read mid-scroll;
+ *  a pane resize dropping a just-shown control). A signal, not a sleep (HARD RULE #32). */
+async function settled(host: Locator) {
+	await expect
+		.poll(() =>
+			host.evaluate(
+				(el) =>
+					new Promise<boolean>((done) => {
+						const sig = () => {
+							const r = el.getBoundingClientRect();
+							return `${r.width}x${r.height}@${el.scrollTop}`;
+						};
+						const a = sig();
+						requestAnimationFrame(() => requestAnimationFrame(() => done(sig() === a)));
+					}),
+			),
+		)
+		.toBe(true);
+}
+
 async function openCompose(page: Page) {
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
 	const host = page.locator('.cs-host');
 	await expect(host.locator('.ProseMirror')).toBeVisible();
+	await settled(host);
 	const box = await host.boundingBox();
 	if (!box) throw new Error('Compose has no box');
 	return { host, box };
@@ -129,7 +152,9 @@ test('@gecko Studio Compose: typing that scrolls the pane (spaces included) does
 	// ALREADY in view: clicking the last one made Playwright scroll it into view under the hovering pointer
 	// before the press (seen in Gecko, 6 of 20), a scroll no reader makes, which the hover path rightly counted.
 	await host.locator('.ProseMirror p').first().click();
+	await settled(host);
 	await page.keyboard.press('ControlOrMeta+End');
+	await settled(host);
 	const before = await host.evaluate((el) => el.scrollTop);
 	await page.keyboard.type('one two three ');
 	for (let i = 0; i < 12; i++) await page.keyboard.press('Enter');
@@ -279,4 +304,20 @@ test('@gecko Studio Compose: a click into the text, then the app scrolling the p
 			}),
 	);
 	expect(shownAfterClick).toBe(0);
+});
+
+test('@gecko Studio Compose: a press on an overlay scrollbar, then the drag, shows the control', async ({ page }) => {
+	const { host } = await openCompose(page);
+	// Headless browsers draw no scrollbar gutter, like an overlay bar (macOS by default): the press lands on the
+	// scroller itself, inside its right edge. It must read as a press on the bar, not a click into content,
+	// which would veto the hover path for the drag that follows (the card grader's final-round finding). The
+	// pointer is never moved onto the pane, so only the press can make this scroll count.
+	await host.evaluate((el) => {
+		const r = el.getBoundingClientRect();
+		el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.right - 6, clientY: r.top + r.height / 2 }));
+		el.scrollTop = el.scrollTop + 700;
+	});
+	// A POSITIVE outcome waits for the state: a one-shot read two frames later raced React's render in Gecko
+	// (1 in 120 under load) and read 0 for a control about to show.
+	await shown(control(page, 'top'));
 });

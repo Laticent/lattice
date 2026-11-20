@@ -37,6 +37,8 @@ export const IDLE_MS = 1500;
  * the caret. Long enough to cover a trackpad's or a finger's momentum tail.
  */
 export const INTENT_MS = 1200;
+/** An overlay scrollbar takes no width; a press this close to a gutterless scroller's right edge counts as on it. */
+export const OVERLAY_BAR = 16;
 /** A scroll within this many ms of the previous counted one extends the reader's window (a slow drag, a glide). */
 export const STREAK_MS = 250;
 /** Keys that page or jump a pane. Arrows and typing move the caret, and the scroll that follows is not a request. */
