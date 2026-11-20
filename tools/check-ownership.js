@@ -7263,9 +7263,9 @@ const SANCTIONED_EOL_BOUNDARIES = [
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
     file: 'lib/core/meta-edit.mjs',
-    why: 'folds a line break inside ONE FIELD VALUE the Studio hands the structured edit (a note typed in a textarea), '
-       + 'so a note channel becomes a `key: |` block and any other field a single line: a raw CR would end the record\'s '
-       + 'value and drop every field in it. It reads no markdown source and writes only that value.',
+    why: 'folds a line break inside ONE FIELD VALUE the Studio hands the structured edit (typed in a text box), '
+       + 'so the field is written on a single line: a raw CR would end the record\'s value and drop every field in it. '
+       + 'It reads no markdown source and writes only that value.',
   },
   {
     file: 'tools/skill-index.js',
@@ -7330,13 +7330,13 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
   },
   {
     file: 'docs/src/components/playground/PlaygroundApp.tsx',
-    why: 'a COMPARISON fold, not an ingest — the same shape as notes-core.js below. The '
+    why: 'a COMPARISON fold, not an ingest. The '
        + 'Playground asks ONE question with it: has the author edited the deck since Explore '
        + 'handed it to the editor? CodeMirror stores a document with its own line separator, '
        + 'so a source that arrived CRLF comes back LF and raw equality reports an edit nobody '
        + 'made, silently dropping a plan walk and stripping the ?c=/?s= params. Neither string '
        + 'is written back and nothing downstream of the answer decides a palette or a slide '
-       + 'count. It strips no BOM for the reason notes-core does not: there is no document '
+       + 'count. It strips no BOM because there is no document '
        + 'here whose front matter a BOM could defeat — the deck that IS ingested goes through '
        + 'the editor and the engine, both already boundaries.',
   },
@@ -7356,12 +7356,17 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + 'wrong read fails its own checks loudly rather than shipping anywhere.',
   },
   {
-    file: 'lib/authoring/notes-core.js',
-    why: 'a COMPARISON fold, not an ingest. stripNotesFromSource matches note bodies that came '
-       + 'back from RENDERED slide HTML (where markdown-it already normalized) against raw '
-       + 'source text; the fold canonicalizes the CANDIDATE for that one comparison and the '
-       + 'source itself flows on untouched. It strips no BOM for the same reason — there is no '
-       + 'document here whose front matter could be defeated.',
+    file: 'lib/core/note-grammar.mjs',
+    why: 'folds inside ONE NOTE BODY (`dedent`), to find the indentation its lines share, so a note written indented '
+       + 'inside its comment reads flush. The body is a comment\'s text, already cut out of a document; the fold '
+       + 'shapes the note a person reads and writes nothing back. It strips no BOM because there is no document '
+       + 'here whose front matter a BOM could defeat (engineering/decisions/2026-11-20-four-notes.md).',
+  },
+  {
+    file: 'lib/cli/migrate-notes.mjs',
+    why: 'a ROUND TRIP, not an ingest: `lattice migrate notes` reads a deck, folds it to LF and drops its BOM so the '
+       + 'codemod scans one shape, then writes the rewritten deck back with the file\'s OWN line endings and BOM. '
+       + 'Nothing it folds reaches the engine or another reader; a deck it does not change is left byte for byte.',
   },
 ];
 

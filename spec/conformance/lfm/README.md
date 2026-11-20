@@ -1,8 +1,9 @@
 # LFM shared test cases
 
 These cases say what a conformant LFM implementation does with a given deck. They are written
-against the spec ([`LFM-1.0.md`](../../LFM-1.0.md), and [`LFM-1.1.md`](../../LFM-1.1.md) for
-the cases marked `LFM-1.1`), not against Lattice's code, so a second
+against the spec ([`LFM-1.0.md`](../../LFM-1.0.md), [`LFM-1.1.md`](../../LFM-1.1.md) for
+the cases marked `LFM-1.1`, and the [`LFM-2.0.md`](../../LFM-2.0.md) draft for those marked
+`LFM-2.0`), not against Lattice's code, so a second
 implementation can run this folder with its own adapter and compare.
 
 **License:** CC-BY-4.0, like the spec. **Owner:** @saden1.
@@ -28,7 +29,10 @@ Each case is two files with the same name:
 
 A case lists only the levels and fields it checks. A field it leaves out is not checked.
 `spec` names the version that introduced the case: a 1.0 implementation passes the `LFM-1.0`
-cases, and a 1.1 implementation passes them all.
+cases, and a 1.1 implementation passes them all. `until`, when present, names the version that
+changed what the case pins: an implementation of that version or later does not run it. The
+reference implementation follows the [`LFM-2.0`](../../LFM-2.0.md) draft, so it runs every case
+without an `until` at or below `LFM-2.0`.
 
 ### A table
 
@@ -67,7 +71,7 @@ host does.
 | `slides[i].cards` | The card grammar's reads (§3.1): `{ "title", "body": [] }` per top-level item. |
 | `slides[i].states` | The answer each top-level list item's state marker carries (§3.2), or `null` when it has none. The answers are the words in §3.2's table: `yes`, `partly`, `no`, `unknown`, `open`, `does not apply`. |
 | `slides[i].fences` | The fences the slide draws as a figure at render time rather than leaving as code for the browser (§3.3), named without hyphens. Today that is `functionplot` and its `latticeplot` alias; a `mermaid`, `math` or `anima` fence is not listed. |
-| `slides[i].notes` | The slide's speaker notes, one string per note comment, in order (§3.5). |
+| `slides[i].notes` | The slide's four notes (LFM-2.0 §3.5): `{ note, say, alt, handout }`, each a string or `null`. `note` and `handout` join several comments with a blank line, `say` and `alt` with a space. A case with `until` (`LFM-1.0`'s `speaker-notes`) still uses the 1.x shape: one string per note comment, in order. |
 | `slides[i].lens` | The slide's `_lens` membership (§2.4): `{ "include": [], "exclude": [] }`, each sorted. |
 | `slides[i].inline` | The slide's inline notation (§3.6) and plain inline code, in document order. Each item is one of `{ "kind": "pill", "label", "shape", "color" }` (with `"icon": true` when the pill leads with an icon; `color` is `null` with no slot), `{ "kind": "mark", "answer" }`, `{ "kind": "spark", "type" }`, `{ "kind": "icon", "name" }`, or `{ "kind": "code", "text" }` for a span that stayed code. Code inside a fenced block is not listed. |
 

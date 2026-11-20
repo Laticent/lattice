@@ -1328,7 +1328,7 @@ test('the player ships the Marp-equivalent chrome CSS (pagination + notes hide +
 	// for every host, CLI included, instead of leaving the CLI's copy as the only one.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /section\[data-lattice-pagination\]::after\{content:attr\(data-lattice-pagination\)\}/, 'page numbers render even when the host docHtml carries no pagination CSS of its own');
-	assert.match(html, /aside\.lattice-notes,aside\.lattice-reader\{display:none!important\}/, 'speaker-note and reader-note asides stay hidden regardless of host docHtml');
+	assert.match(html, /aside\.lattice-notes,aside\.lattice-handout\{display:none!important\}/, 'speaker-note and handout asides stay hidden regardless of host docHtml');
 	assert.match(html, /\.lattice-description\{position:absolute!important/, 'the accessible description is sr-only, never a visible extra paragraph on the slide');
 });
 
@@ -1873,6 +1873,9 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// only on a slide carrying `cover-light`: the selectors gain a class no other slide has, so
 	// every other slide matches exactly the rules it matched before (pinned by the matcher tests
 	// in this file, which assert by `el.matches()`, not by text).
+	// Re-blessed 2026-11-20 (four notes, engineering/decisions/2026-11-20-four-notes.md): the reader note became the
+	// handout, so the notes-hide rule reads `aside.lattice-notes,aside.lattice-handout{display:none!important}`, and the
+	// Read article gains one `.lp-handout` rule set, where each slide's handout now prints. CSS only.
 	assert.equal(sha, '839c15642a8de4a6adf3dbf26ffef0e57e1431db91ad84abea105a98a035ec9a', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 

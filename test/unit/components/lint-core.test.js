@@ -205,66 +205,100 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
   });
 });
 
-// `caption:` / `captions:` retired for `say:` (2026-09-28). An ERROR: the engine ignores the
-// old key, so the slide silently speaks its generated narration and the old line lands in the
-// presenter's notes. engineering/decisions/2026-09-28-say-not-caption.md.
-describe('lint-core: caption-key-retired', () => {
+// The note keys retired on 2026-11-20 (engineering/decisions/2026-11-20-four-notes.md): `say:`, `caption:`,
+// `describe:`, `reader:`, the Studio's `note:` and the front-matter `say:` / `captions:` maps. An ERROR: the engine
+// reads none of them, so the line reaches nothing. `note:` alone is a WARNING, because it is how an author opens a
+// comment to themselves.
+describe('lint-core: note-key-retired', () => {
   const vocab = { names: new Set(), modifiers: new Set(), capacity: {} };
-  const retired = (src) => core.lintTextWith(src, vocab).filter((x) => x.rule === 'caption-key-retired');
+  const retired = (src) => core.lintTextWith(src, vocab).filter((x) => x.rule === 'note-key-retired');
 
-  test('an inline <!-- caption: --> is an error that names say:, on the right slide', () => {
-    const f = retired('---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n<!-- caption: The old line. -->\n');
-    assert.equal(f.length, 1);
-    assert.equal(f[0].severity, 'error');
-    assert.equal(f[0].slide, 2);
-    assert.match(f[0].fix, /<!-- say: … -->/);
-  });
-
-  test('a front-matter captions: map is an error that names say:', () => {
-    const f = retired('---\ntheme: indaco\ncaptions:\n  1: The old map.\n---\n\n# One\n');
-    assert.equal(f.length, 1);
-    assert.equal(f[0].severity, 'error');
-    assert.match(f[0].fix, /`say:`/);
-  });
-
-  test('the engine\u2019s comment shapes are found, and the finding names the key line', () => {
-    for (const c of ['<!--- caption: a --->', '<!-- caption: a --!>', '<!--\ncaption: a -->']) {
-      const f = retired(`# One\n\n${c}\n`);
-      assert.equal(f.length, 1, c);
-      assert.match(f[0].line, /caption: a/, c);
+  test('each retired comment key is an error that names its note, on the right slide', () => {
+    const cases = [['say', '@say'], ['caption', '@say'], ['describe', '@alt'], ['reader', '@handout']];
+    for (const [key, note] of cases) {
+      const f = retired(`---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n<!-- ${key}: The old line. -->\n`);
+      assert.equal(f.length, 1, key);
+      assert.equal(f[0].severity, 'error', key);
+      assert.equal(f[0].slide, 2, key);
+      assert.equal(f[0].classToken, key, key);
+      assert.ok(f[0].fix.includes(`<!-- ${note}{…} -->`), `${key}: ${f[0].fix}`);
+      assert.match(f[0].fix, /lattice migrate notes/);
     }
   });
 
-  test('a capitalized Caption: is only a WARNING — it may be a real private note', () => {
-    const f = retired('# One\n\n<!-- Caption: fix the chart typo -->\n');
+  test('the Studio’s `note:` is only a WARNING: it is also how an author opens a comment to themselves', () => {
+    const f = retired('# One\n\n<!-- note: check the figure -->\n');
     assert.equal(f.length, 1);
     assert.equal(f[0].severity, 'warning');
+    assert.match(f[0].fix, /<!-- @note\{…\} -->/);
   });
 
-  test('say:, a nested captions key, and the old syntax quoted in code are all clean', () => {
+  test('a front-matter say: or captions: map is an error that names @say', () => {
+    for (const key of ['say', 'captions']) {
+      const f = retired(`---\ntheme: indaco\n${key}:\n  1: The old map.\n---\n\n# One\n`);
+      assert.equal(f.length, 1, key);
+      assert.equal(f[0].severity, 'error', key);
+      assert.equal(f[0].classToken, key, key);
+      assert.match(f[0].fix, /@say\{…\}/, key);
+    }
+  });
+
+  test('the engine’s comment shapes are found, and the finding names the key line', () => {
+    for (const c of ['<!--- say: a --->', '<!-- describe: a --!>', '<!--\nreader: a -->']) {
+      const f = retired(`# One\n\n${c}\n`);
+      assert.equal(f.length, 1, c);
+      assert.match(f[0].line, /(say|describe|reader): a/, c);
+    }
+  });
+
+  test('the case follows the engine as it was: describe:/caption: in any case, say:/reader:/note: lowercase only', () => {
+    assert.equal(retired('# One\n\n<!-- Describe: a chart -->\n<!-- CAPTION: a line -->\n').length, 2);
+    assert.deepEqual(retired('# One\n\n<!-- Say: thank the ops team -->\n<!-- Reader: hi -->\n<!-- Note: me -->\n'), []);
+  });
+
+  test('the four notes, a nested map key, and the old syntax quoted in code are all clean', () => {
     const src = [
-      '---', 'theme: indaco', 'speaker:', '  captions: nested, a different key', 'say:', '  1: The new map.', '---', '',
-      '# One', '', '<!-- say: The new line. -->', '', 'Write `<!-- caption: … -->` no more.', '',
-      '```markdown', '<!-- caption: a fenced sample -->', '```', '',
+      '---', 'theme: indaco', 'speaker:', '  say: nested, a different key', '---', '',
+      '# One', '', '<!-- @say{The new line.} -->', '<!-- @note{Mine.} -->', '<!-- @alt{A chart.} -->', '<!-- @handout{Later.} -->', '',
+      'Write `<!-- say: … -->` no more.', '',
+      '```markdown', '<!-- describe: a fenced sample -->', '```', '',
     ].join('\n');
     assert.deepEqual(retired(src), []);
   });
+
+  test('a retired record field is reported by the record rule, naming its note', () => {
+    const f = core.lintTextWith('# One\n\n<!-- {layout=cards, describe="A chart."} -->\n', vocab).filter((x) => x.classToken === 'meta-note-field');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].severity, 'error');
+    assert.match(f[0].message, /<!-- @alt\{…\} -->/);
+  });
 });
 
-// `say:` is lowercase only — a capitalized one stays a private note, and this says so.
-describe('lint-core: say-key-case', () => {
+// A comment that almost is a note reaches nothing, and this says so.
+describe('lint-core: note-malformed', () => {
   const vocab = { names: new Set(), modifiers: new Set(), capacity: {} };
-  const hits = (src) => core.lintTextWith(src, vocab).filter((x) => x.rule === 'say-key-case');
+  const hits = (src) => core.lintTextWith(src, vocab).filter((x) => x.rule === 'note-malformed');
 
-  test('a capitalized Say: is a WARNING that it stays a note', () => {
-    const f = hits('# One\n\n<!-- Say: thank the ops team -->\n\n<!-- SAY: pause -->\n');
-    assert.equal(f.length, 2);
-    assert.ok(f.every((x) => x.severity === 'warning'));
-    assert.match(f[0].message, /speaker note/);
+  test('a capitalized name, unclosed braces and trailing text are ERRORS', () => {
+    const f = hits('# One\n\n<!-- @Say{thank the ops team} -->\n\n<!-- @note{lost its brace -->\n\n<!-- @alt{A chart.} and more -->\n');
+    assert.deepEqual(f.map((x) => [x.severity, x.classToken]), [['error', 'Say'], ['error', 'note'], ['error', 'alt']]);
+    assert.match(f[0].fix, /@say\{…\}/);
+    assert.match(f[1].message, /never close/);
+    assert.match(f[2].message, /Text follows/);
   });
 
-  test('lowercase say:, a plain "Say this" note, and quoted code are clean', () => {
-    assert.deepEqual(hits('# One\n\n<!-- say: spoken -->\n\n<!-- Say this warmly. -->\n\n`<!-- Say: quoted -->`\n'), []);
+  test('an unknown name is only a WARNING: it may be the author’s own tag', () => {
+    const f = hits('# One\n\n<!-- @speaker{Ana} -->\n');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].severity, 'warning');
+    assert.match(f[0].fix, /@note, @say, @alt, @handout/);
+  });
+
+  test('the four notes (escaped braces and arrows included), @meta records, plain comments and quoted code are clean', () => {
+    assert.deepEqual(
+      hits('# One\n\n<!-- @say{spoken} -->\n\n<!-- @note{a \\{ brace and --\\> arrow} -->\n\n<!-- @meta{layout=cards} -->\n\n<!-- Say this warmly. -->\n\n`<!-- @Say{quoted} -->`\n'),
+      [],
+    );
   });
 });
 

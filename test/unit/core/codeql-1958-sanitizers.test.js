@@ -48,7 +48,7 @@ test('a speaker-note detail decodes each entity once: an author\'s literal &lt; 
   // markdown-it writes an author's literal `&lt;` as `&amp;lt;`. Decoding `&amp;` first turned
   // it into `&lt;` and then into `<` (CodeQL js/double-escaping).
   const note = detailNote([{ label: 'Margin', detail: 'kept &amp;lt; 5% &amp; rising' }]);
-  assert.equal(note, '<!-- Margin: kept &lt; 5% & rising -->');
+  assert.equal(note, '<!-- @note{Margin: kept &lt; 5% & rising} -->');
 });
 
 test('stripDebugAttrs is linear on a long whitespace run (it was quadratic)', () => {

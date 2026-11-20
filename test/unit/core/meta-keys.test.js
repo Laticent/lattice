@@ -50,7 +50,11 @@ describe('the vocabulary is derived from the meta manifest', () => {
     // (engineering/decisions/2026-11-09-steps-as-a-behavior.md).
     assert.deepEqual([...keys.NO_CUSTOM_PROP_KEYS].sort(), ['build', 'debug', 'focusSteps', 'track']);
     assert.deepEqual([...keys.STRUCTURE_KEYS].sort(), ['pane', 'panes']);
-    assert.deepEqual([...keys.CHANNEL_KEYS].sort(), ['describe', 'reader', 'say']);
+    // The channel comment keys (`say:`, `describe:`, `reader:`) became the four notes on 2026-11-20
+    // (engineering/decisions/2026-11-20-four-notes.md): named `@name{…}`, in the order the docs teach them.
+    assert.equal(Object.hasOwn(keys, 'CHANNEL_KEYS'), false);
+    assert.deepEqual([...keys.NOTE_NAMES], ['note', 'say', 'alt', 'handout']);
+    assert.deepEqual(manifest.contributes.meta.notes && Object.keys(manifest.contributes.meta.notes), ['note', 'say', 'alt', 'handout']);
     assert.deepEqual([...keys.MARKER_NAMES], ['stress-slide']);
   });
 
