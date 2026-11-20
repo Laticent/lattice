@@ -17,7 +17,7 @@ describe('VoiceModelSection: a measured voice caveat', () => {
 	it('shows the note under the card when Gemini Flash-Lite is the voice', () => {
 		choose('gemini', 'gemini-3.8-flash-lite-tts');
 		render(<VoiceModelSection />);
-		expect(screen.getByRole('note')).toHaveTextContent(/depending on where it falls in a sentence/);
+		expect(screen.getByRole('note')).toHaveTextContent(/differently from one line, or one play, to the next/);
 	});
 	it('shows no note for a voice that read the same word right every time', () => {
 		choose('openrouter', 'google/gemini-3.1-flash-tts-preview');

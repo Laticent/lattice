@@ -2205,7 +2205,7 @@ never turn "passed in headless" into "works on iOS."
 - **Removable when** — never, while the editors use a font with ligatures.
 - **Commits** — the Studio pane follow-ups PR after #3222 (2026-11-16).
 
-## A voice says a deck term wrong in one sentence and right in the next
+## A voice says a deck term wrong in one sentence, or one play, and right in the next
 
 - **Symptom** — a name such as "Yearn" is read right in "This is why I love Yearn." and wrong in "Our pick is Yearn."
   (heard as "yarn") or "Yearn is our pick." (garbled), with the deck's `terms:` entry unchanged. Seen on Gemini

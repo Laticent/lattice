@@ -22,7 +22,7 @@ export const VOICE_CAVEATS: readonly VoiceCaveat[] = [
 		// right, so the voice varies by sentence and by run. Only the on-device voice is shown to read a term the same way
 		// every time (it works from phonemes); no machine judge is reliable on Gemini's voice (the follow-up says why).
 		model: /flash-lite(?:-preview)?-tts/,
-		note: 'Flash-Lite can say a word differently depending on where it falls in a sentence: a name it reads right in one line can come out wrong in the next. If a term sounds wrong, switch to the on-device voice, which reads it the same way every time.',
+		note: 'Flash-Lite can read the same word differently from one line, or one play, to the next: a name it reads right once can come out wrong the next time. If a term sounds wrong, switch to the on-device voice, which reads it the same way every time.',
 		evidence: 'followups.d/3319-p1-gemini-tts-misreads-yearn-by-position.md',
 	},
 ];
