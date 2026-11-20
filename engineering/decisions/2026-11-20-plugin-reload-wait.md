@@ -90,7 +90,28 @@ are noise, not the arm: Gecko's C and C+ runs carry a 5–6 s tail in 3 of 10 re
 its earlier arms show (raw values in the bench output), and B's Chromium spread is 564–1682 ms. Gecko's
 timings are not used to rank the arms; its correctness rows above are.
 
-**iOS Simulator** — IOS_PENDING
+**iOS Simulator** — real Mobile Safari (Safari 26.5) in the iPad and iPhone iOS Simulators on a
+GitHub macOS runner, 10 reloads per arm, via a throwaway dispatch of the platform suites
+(run [44661218740](https://github.com/Laticent/lattice/actions/runs/44661218740), branch
+`probe/d1-ios-bench`, not for main). The page records its own frames (`wait.ts` `benchRecorder`):
+
+| Device | Arm | Runs with a wrong frame | Placeholder frames (mean) | Block shift (median) | Coda shift |
+|---|---|---|---|---|---|
+| iPad | off | 4 / 9 | 0 | 289 px | 0 |
+| iPad | A | 0 / 10 | 0 | 0 | 0 |
+| iPad | B | 0 / 10 | 2.0 | 124 px | 0 |
+| iPad | C | 0 / 10 | 7.5 | 124 px | 0 |
+| iPad | C+ | 0 / 10 | 2.4 | **0** | 0 |
+| iPhone | off | 7 / 9 | 0 | 289 px | 0 |
+| iPhone | A | 0 / 10 | 0 | 0 | 0 |
+| iPhone | B | 0 / 10 | 2.2 | 124 px | 0 |
+| iPhone | C | 0 / 10 | 1.8 | 124 px | 0 |
+| iPhone | C+ | 0 / 10 | 2.3 | **0** | 0 |
+
+The same pattern as the desktop engines: every arm removes the wrong frames, and only A and C+
+never move the block. (`off` has 9 runs: one reload on each device recorded no drawn frame within
+30 s and is left out.) The simulator runs on the runner's shared CPU and the arms ran one after
+another, so its times (4–8 s to first paint) are not used to rank the arms.
 
 **Bytes** on the Studio route (gzip level 6, the route budget's measure). The route has about
 1.1 KB of headroom under its ceiling today:
