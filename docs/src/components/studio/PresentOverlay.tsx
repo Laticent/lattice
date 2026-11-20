@@ -2217,7 +2217,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// WebKit grants the lock only inside a user gesture (found by the iOS Simulator suite: a scripted open was refused,
 	// a real tap was not). So the request on open can fail, and so can the re-request when the page comes back to the
 	// front, which has no gesture behind it. Any tap or key press inside Present while the lock is not held asks again,
-	// from inside that gesture, which Safari can grant.
+	// from inside that gesture (at the finger LIFTING, which is when a touch grants activation), which Safari can grant.
 	React.useEffect(() => {
 		if (!open) return;
 		const keeper = new WakeKeeper();
@@ -2227,11 +2227,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const retry = () => {
 			if (keeper.state === 'not held') keeper.keep(true);
 		};
-		window.addEventListener('pointerdown', retry, true);
-		window.addEventListener('keydown', retry, true);
+		// The events that GRANT user activation: for a touch that is the finger lifting (pointerup, then click), not the
+		// finger landing: a retry on pointerdown asked a moment too early and WebKit refused it (iOS Simulator suite,
+		// 8ccad23: a clean 160 ms tap, lock not held). A key press grants it on keydown.
+		const GESTURES = ['pointerup', 'click', 'keydown'] as const;
+		for (const t of GESTURES) window.addEventListener(t, retry, true);
 		return () => {
-			window.removeEventListener('pointerdown', retry, true);
-			window.removeEventListener('keydown', retry, true);
+			for (const t of GESTURES) window.removeEventListener(t, retry, true);
 			keeper.onChange = null;
 			keeper.keep(false);
 		};

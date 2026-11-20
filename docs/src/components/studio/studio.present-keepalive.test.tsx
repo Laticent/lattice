@@ -294,10 +294,12 @@ describe('Present — the phone stays awake and answers its media keys', () => {
 			await step(0);
 			const dialog = screen.getByRole('dialog', { name: 'Present' });
 			expect(dialog.getAttribute('data-wake'), 'the refused request was reported as held').toBe('not held');
-			gesture = true;
+			// A touch grants activation when the finger LIFTS: a re-ask on pointerdown comes too early and is refused.
 			fireEvent.pointerDown(dialog);
 			await step(0);
-			expect(request).toHaveBeenCalledTimes(2);
+			gesture = true;
+			fireEvent.pointerUp(dialog);
+			await step(0);
 			expect(dialog.getAttribute('data-wake'), 'a tap did not take the lock').toBe('held');
 		} finally {
 			Reflect.deleteProperty(navigator, 'wakeLock');

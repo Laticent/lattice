@@ -88,7 +88,8 @@ The first `ios-safari-present-keepalive` run (on `efb3797`) passed everything bu
 opened Present with a scripted `click()`. On the owner's phone a real tap opened it, which is why the screen stayed on.
 It still exposed a product gap: the re-request when the page comes back to the front has no gesture behind it, so
 Safari refuses it. Now any tap or key press inside Present while the lock is not held asks again from inside that
-gesture (unit test with a lock that refuses outside a gesture, mutated red), and the probe opens Present with a real
+gesture, at the event that GRANTS activation (pointerup/click for a touch, keydown for a key; a later run showed a re-ask
+on pointerdown is refused, because a touch grants activation when the finger lifts) (unit test with a lock that refuses outside a gesture, mutated red), and the probe opens Present with a real
 WebDriver touch.
 
 ### Two caption modes (owner, iPhone, 2026-11-20)
