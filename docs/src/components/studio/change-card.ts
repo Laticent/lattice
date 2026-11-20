@@ -264,7 +264,8 @@ export function toldLine(edits: ChatProposal[], states: RowState[], auto = false
 export function toldNote(told: readonly string[], slides: number): string {
 	const lines = told.filter(Boolean);
 	if (!lines.length) return '';
-	return `\n\n(What happened to the edits you proposed earlier, oldest first: ${lines.join(' ')} The deck has ${slides} slide${slides === 1 ? '' : 's'} now, so slide numbers from earlier turns may name other slides; go by the deck as it is now.)`;
+	return `\n\n(What happened to the edits you proposed earlier, oldest first: ${lines.join(' ')})`; // PROBE: the slide-count sentence dropped on purpose (#34 failing arm); this branch is deleted after the run
+	void slides;
 }
 
 // The shell-facing pieces (ChatApplyOpts, NO_ENTRY, ChatDraft) live in change-card-types.ts, which imports nothing,
