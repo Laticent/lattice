@@ -16,6 +16,9 @@ test('@webkit-phone a sideways phone gives Present the whole screen, with chrome
 	await page.setViewportSize({ width: 852, height: 393 });
 	const stage = dialog.locator('[data-present-immersive]');
 	await expect(stage).toBeVisible();
+	// The turn re-lays the deck out in steps; the stage is held back until the size is still, then shown.
+	await expect(dialog).not.toHaveAttribute('data-settling', /.*/);
+	await expect(dialog).toHaveCSS('opacity', '1');
 	// The slide fills the screen: fit by height, less only the 12px frame above and below it that the Studio's own
 	// landscape preview keeps (no docked chrome). Docked, it was under half this.
 	const frame = dialog.locator('[data-slide-frame]').first();

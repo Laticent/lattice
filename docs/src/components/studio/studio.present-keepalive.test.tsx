@@ -168,6 +168,40 @@ describe('Present — immersive on a phone held sideways', () => {
 	});
 });
 
+describe('Present — turning the phone does not show the relayout (owner recording, 2026-11-20)', () => {
+	let fire: () => void = () => {};
+	let restore: () => void = () => {};
+	beforeEach(() => {
+		const orig = window.matchMedia;
+		window.matchMedia = ((q: string) => ({
+			matches: false,
+			media: q,
+			addEventListener: (_t: string, fn: () => void) => {
+				if (q === '(orientation: landscape)') fire = fn;
+			},
+			removeEventListener() {},
+			addListener() {},
+			removeListener() {},
+			onchange: null,
+			dispatchEvent: () => false,
+		})) as unknown as typeof window.matchMedia;
+		restore = () => {
+			window.matchMedia = orig;
+		};
+	});
+	afterEach(() => restore());
+	const settling = () => screen.getByRole('dialog', { name: 'Present' }).hasAttribute('data-settling');
+
+	it('holds the stage back while the screen turns, then shows it once the size is still', async () => {
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={deck} />);
+		await step(0);
+		expect(settling()).toBe(false);
+		act(() => fire());
+		expect(settling(), 'the stage stayed visible through the relayout').toBe(true);
+		expect(await stepUntil(() => !settling(), 1300), 'the stage never came back').toBe(true);
+	});
+});
+
 describe('Present — leaving stops the narration', () => {
 	it('closing Present stops the reader and nothing plays on', async () => {
 		const props = { onClose: () => {}, options, slides: deck };

@@ -47,38 +47,21 @@ export const STAGE_CHROME_CSS = `
 @media (min-width:640px){.latt-cc-line{font-size:18px;}}
 /* OVER THE SLIDE — Present's immersive (landscape-phone) layout. The crawl is a subtitle on the slide's bottom edge,
    sized as a share of the SLIDE's width (the wrapper is an inline-size container), so it grows and shrinks with the
-   slide instead of holding a fixed 16-18px against whatever size the slide happens to be. Every length is in em.
-   The backing is the chrome's own --bg, near-solid behind the lines: the ink is the chrome's --text-heading, so the
-   pair keeps its contrast whatever the slide underneath is (a fade-to-clear wash left the top line on the slide). */
+   slide instead of holding a fixed 16-18px against whatever size the slide happens to be. Every length is in em. */
 .latt-cc-over{position:absolute;left:0;right:0;bottom:0;z-index:2;container-type:inline-size;pointer-events:none;transition:transform .3s cubic-bezier(.22,.61,.36,1);}
 .latt-cc-over .latt-cc-band{font-size:clamp(11px,2.5cqw,40px);padding:0 4% 2.5%;}
 .latt-cc-over .latt-cc-band[data-shown="1"]{max-height:6em;}
-.latt-cc-over .latt-cc{height:3.4em;max-width:none;padding:0;}
+.latt-cc-over .latt-cc{height:1.7em;max-width:none;padding:0;}
 .latt-cc-over .latt-cc-line{font-size:1em;padding:.1em .4em;}
-/* A · BROADCAST — the line being read, alone, on a dark rounded plate with white type: the TV-subtitle convention, the
-   same in both modes because the plate, not the slide, is what the type sits on. Read / upcoming lines are hidden. */
-.latt-cc-over[data-cc-style="broadcast"] .latt-cc{height:1.7em;}
-.latt-cc-over[data-cc-style="broadcast"] .latt-cc-win{-webkit-mask-image:none;mask-image:none;}
-.latt-cc-over[data-cc-style="broadcast"] .latt-cc-track{display:flex;flex-direction:column;align-items:center;}
-.latt-cc-over[data-cc-style="broadcast"] .latt-cc-line[data-state="read"],.latt-cc-over[data-cc-style="broadcast"] .latt-cc-line[data-state="up"]{visibility:hidden;}
-.latt-cc-over[data-cc-style="broadcast"] .latt-cc-line[data-state="now"]{padding:.12em .55em;border-radius:.35em;background:rgb(0 0 0 / .74);-webkit-box-decoration-break:clone;box-decoration-break:clone;}
-.latt-cc-over[data-cc-style="broadcast"] .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:white;}
-.latt-cc-over[data-cc-style="broadcast"] .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="0"]{color:rgb(255 255 255 / .62);}
-/* B · GLASS — the three-line crawl on dark frosted glass: the slide blurs behind the band, whose top FADES into the
-   slide rather than ending on a hard edge. White type, like A and C: a caption sits on the SLIDE, whose colors belong to
-   the deck, not to the app's light or dark mode — a band in the app's --bg went muddy gray over a dark slide. */
-.latt-cc-over[data-cc-style="glass"] .latt-cc-band{background:rgb(0 0 0 / .5);-webkit-backdrop-filter:blur(14px) saturate(1.15);backdrop-filter:blur(14px) saturate(1.15);-webkit-mask-image:linear-gradient(to top,black 72%,transparent);mask-image:linear-gradient(to top,black 72%,transparent);padding-top:1.1em;}
-.latt-cc-over[data-cc-style="glass"] .latt-cc-line{color:rgb(255 255 255 / .42);}
-.latt-cc-over[data-cc-style="glass"] .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:white;}
-.latt-cc-over[data-cc-style="glass"] .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="0"]{color:rgb(255 255 255 / .66);}
-/* C · CLEAN — no plate at all: the line being read, alone, in white with a soft dark edge around every glyph (the
-   streaming-subtitle look), so it holds over a light or a dark slide without boxing anything off. */
-.latt-cc-over[data-cc-style="clean"] .latt-cc{height:1.7em;}
-.latt-cc-over[data-cc-style="clean"] .latt-cc-win{-webkit-mask-image:none;mask-image:none;}
-.latt-cc-over[data-cc-style="clean"] .latt-cc-line[data-state="read"],.latt-cc-over[data-cc-style="clean"] .latt-cc-line[data-state="up"]{visibility:hidden;}
-.latt-cc-over[data-cc-style="clean"] .latt-cc-line[data-state="now"]{text-shadow:0 0 .08em rgb(0 0 0 / .9),0 0 .08em rgb(0 0 0 / .9),0 .04em .2em rgb(0 0 0 / .8),0 0 .5em rgb(0 0 0 / .5);}
-.latt-cc-over[data-cc-style="clean"] .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:white;}
-.latt-cc-over[data-cc-style="clean"] .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="0"]{color:rgb(255 255 255 / .72);}
+/* The line being read, alone, on a dark rounded plate with white type: the TV-subtitle convention, the same in both
+   modes because a caption sits on the SLIDE, whose colors are the deck's, not the app's light or dark mode (a band in
+   the app's --bg went muddy over a dark slide). Chosen from three over-the-slide designs by the owner, 2026-11-20. */
+.latt-cc-over .latt-cc-win{-webkit-mask-image:none;mask-image:none;}
+.latt-cc-over .latt-cc-track{display:flex;flex-direction:column;align-items:center;}
+.latt-cc-over .latt-cc-line[data-state="read"],.latt-cc-over .latt-cc-line[data-state="up"]{visibility:hidden;}
+.latt-cc-over .latt-cc-line[data-state="now"]{padding:.12em .55em;border-radius:.35em;background:rgb(0 0 0 / .74);-webkit-box-decoration-break:clone;box-decoration-break:clone;}
+.latt-cc-over .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:white;}
+.latt-cc-over .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="0"]{color:rgb(255 255 255 / .62);}
 /* ── the progress rail ───────────────────────────────────────────────────── */
 .latt-rail{display:flex;min-width:0;flex-direction:column;align-items:stretch;gap:.375rem;width:100%;}
 .latt-rail-title{height:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;line-height:1;letter-spacing:.16em;color:var(--text-muted);}

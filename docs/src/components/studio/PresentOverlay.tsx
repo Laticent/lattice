@@ -82,20 +82,12 @@ function focusVisible(target: EventTarget): boolean {
 }
 // How long a silent slide the presenter moved to mid-play stays up before continuous play moves on (carryPlay).
 const SILENT_DWELL_MS = 4000;
+// The rotation hold (see `settling`): frames the window size must hold still, and the most it may ever take.
+const ROTATE_STILL_FRAMES = 6;
+const ROTATE_SETTLE_MAX_MS = 1200;
 // A toggle that is ON reads as a SOLID accent pill, an OFF one as an outline. The old on-state, a tinted
 // outline, sat too close to off: in the dark theme CC, Voice and Rail on looked like Guide off (owner, 2026-11-20).
 const ON_PILL = 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]';
-// The over-the-slide caption treatment, chosen per showing for the design round: `?cc-style=broadcast|glass|clean`
-// on the Studio URL. One of them becomes the only one once the owner picks.
-const CC_STYLES = ['broadcast', 'glass', 'clean'] as const;
-function ccStyleParam(): (typeof CC_STYLES)[number] {
-	try {
-		const v = new URLSearchParams(window.location.search).get('cc-style');
-		return (CC_STYLES as readonly string[]).includes(v ?? '') ? (v as (typeof CC_STYLES)[number]) : 'glass';
-	} catch {
-		return 'glass';
-	}
-}
 const EMPTY_SENTENCES_N: number[] = [];
 /** Cheap elementwise compare, so an unchanged readiness poll keeps its array identity. */
 function sameFractions(a: number[], b: number[]): boolean {
@@ -355,6 +347,48 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const landscapePhone = useLandscapePhone();
 	const [focusMode, setFocusMode] = React.useState(false);
 	const immersive = landscapePhone || focusMode;
+	// TURNING THE PHONE re-lays the deck out in steps: the page resizes a frame before React swaps in the immersive
+	// layout (the slide shows docked and small), and iOS settles the viewport height over its rotation animation (the
+	// slide shows oversized and cut off). Measured in the owner's screen recording, 2026-11-20: three sizes in ~0.5 s.
+	// A video player hides that by holding the picture back until the screen is still, and so does Present: on an
+	// orientation change the stage fades out and returns once the window size has held for ROTATE_STILL_FRAMES frames
+	// (bounded by ROTATE_SETTLE_MAX_MS, so it can never stay hidden).
+	const [settling, setSettling] = React.useState(false);
+	React.useEffect(() => {
+		if (!open || typeof window === 'undefined' || !window.matchMedia) return;
+		const mq = window.matchMedia('(orientation: landscape)');
+		let raf = 0;
+		let cap = 0;
+		const done = () => {
+			cancelAnimationFrame(raf);
+			window.clearTimeout(cap);
+			setSettling(false);
+		};
+		const onTurn = () => {
+			cancelAnimationFrame(raf);
+			window.clearTimeout(cap);
+			setSettling(true);
+			let last = '';
+			let still = 0;
+			const look = () => {
+				const vv = window.visualViewport;
+				const size = `${window.innerWidth}x${window.innerHeight}|${vv?.width ?? 0}x${vv?.height ?? 0}`;
+				still = size === last ? still + 1 : 0;
+				last = size;
+				if (still >= ROTATE_STILL_FRAMES) return done();
+				raf = requestAnimationFrame(look);
+			};
+			raf = requestAnimationFrame(look);
+			cap = window.setTimeout(done, ROTATE_SETTLE_MAX_MS);
+		};
+		mq.addEventListener('change', onTurn);
+		return () => {
+			mq.removeEventListener('change', onTurn);
+			cancelAnimationFrame(raf);
+			window.clearTimeout(cap);
+			setSettling(false);
+		};
+	}, [open]);
 	const focusModeRef = React.useRef(focusMode);
 	focusModeRef.current = focusMode;
 	const immersiveRef = React.useRef(immersive);
@@ -363,7 +397,6 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// slide, measured, so they sit just above it and come back down when it fades.
 	const dockRef = React.useRef<HTMLDivElement>(null);
 	const [ccLift, setCcLift] = React.useState(0);
-	const ccStyle = React.useMemo(ccStyleParam, []);
 	const [showHint, setShowHint] = React.useState(false);
 	// Chart mark-detail reveal on the delivery slide. Present's card is pointer-events-none (a swipe
 	// surface), so the reveal runs in PINNED mode — a parent hit-surface (pointer-events:auto) over the
@@ -2719,7 +2752,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// measures the wrong window. This is the same trick the Vetrina tour uses for its
 				// own oracles (`data-vt-phase`): publish the state rather than infer it.
 				data-beat={holding ? 'hold' : undefined}
-				className="lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden"
+				data-settling={settling ? '' : undefined}
+				className={cn('lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden', settling ? 'opacity-0' : 'opacity-100 transition-opacity duration-200 motion-reduce:transition-none')}
 			>
 			<div
 				// Immersive takes NONE of the docked padding: a responsive `sm:px-5` would come later in the stylesheet than
@@ -2888,7 +2922,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 							    below it they would float mid-slide once the dock floats. Lifted clear of the controls while
 							    they show. */}
 							{immersive && !stageHost && (
-								<div className="latt-cc-over" data-present-cc-over data-cc-style={ccStyle} style={ccLift ? { transform: `translateY(-${ccLift}px)` } : undefined}>
+								<div className="latt-cc-over" data-present-cc-over style={ccLift ? { transform: `translateY(-${ccLift}px)` } : undefined}>
 									{captionBand}
 								</div>
 							)}
