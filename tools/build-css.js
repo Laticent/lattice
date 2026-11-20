@@ -707,7 +707,7 @@ function assemble() {
   }
   // Generated: the PRESET TOKENS (engineering/decisions/2026-11-20-deck-preset-study.md §5 D10) — one
   // `section.preset-<name> { --token: value }` rule per preset that sets internal tokens, from the preset
-  // table itself (lib/core/front-matter-key.js `presetTokensCss`, which validates every name and value).
+  // table itself (lib/core/resolve-preset.js `presetTokensCss`, which validates every name and value).
   // No shipped preset sets a token yet, so this adds nothing and the bundle is byte-identical.
   const presetTokens = require('../lib/core/resolve-preset').presetTokensCss();
   if (presetTokens) {
