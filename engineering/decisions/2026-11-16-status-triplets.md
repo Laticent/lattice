@@ -284,6 +284,11 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   contrast ratio cannot read (552 measured). Onyx's light face was not
   measured there: a `blocked` satellite hangs WebKit 17.4 on `main` too, from an oklab `color-mix()` of two
   light-dark() pairs with a pure black arm; `followups.d/3232-p8-webkit17-oklab-black-mix-hang.md`.
+  The gap was never Safari's alone. Chromium 125 (Playwright 1.44) and Firefox 128 (Playwright 1.46) also pass a
+  relative-color guard on a plain `red` and drop the color over a light-dark() origin: with `main`'s CSS each drew none
+  of 576 hub-spoke icons, and with this note's guards each draws every icon at 3:1 or better (552 measured, the worst
+  3.24:1, onyx light included). Real Mobile Safari 17.5 (iOS 17.5 Simulator) agrees: the contrast computed from the
+  stroke and disc colors it reported is 3.26:1 at worst under the new guards, and the old guards left two icons undrawn.
 
 - **Achromatopsia's light ramp (2026-11-20).** A monochromacy reads a status by lightness alone, so on
   a11y-achromatopsia's light face the risk bands must darken in order: low (pass) < medium (warn) < high (fail) <
