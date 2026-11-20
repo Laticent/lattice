@@ -71,10 +71,10 @@ function fmtDate(ts: number): string {
 
 // The one Import picker names NO `accept`, on every device. iOS maps each `accept` entry to a system file type and
 // grays out whatever matches none, and it has no type for `.lattice`, so any list kept a deck out of reach on an
-// iPhone (2026-11-20). A device sniff to drop the list only there failed on a real phone, so there is no sniff and
-// no list: the bytes decide where a file goes (`classifyDropped`, then library-deck-ref.ts `routeByBytes`), and a
-// file nothing takes is named in the toast. With no `accept` and no `capture`, a phone's sheet still offers Photo
-// Library, Take Photo or Video and Choose Files.
+// iPhone (2026-11-20). A device sniff to drop the list only there did not hold on the owner's phone, so there is no
+// sniff and no list: the bytes decide where a file goes (`classifyDropped`, then library-deck-ref.ts `routeByBytes`),
+// and a file nothing takes is named in the toast. What a phone's own sheet offers with no `accept` (whether Photo
+// Library and Take Photo still appear beside Choose Files) has not been checked on a device: UNVERIFIED.
 
 /** The reference-file extensions the picker accepts, as a lower-cased set. */
 const REF_DOC_EXTS = new Set(
@@ -83,9 +83,11 @@ const REF_DOC_EXTS = new Set(
 
 const extOf = (name: string) => (/\.[a-z0-9]+$/i.exec(name)?.[0] ?? '').toLowerCase();
 
-/** Extensions that are always a deck: the project file and a PowerPoint. A `.zip` may be either a deck or a
- *  package, so its bytes decide (library-deck-ref.ts `routeByBytes`). */
-const DECK_EXTS = new Set(['.lattice', '.pptx']);
+/** Extensions the deck reader takes and the reference reader does not: the project file, a PowerPoint, a Lattice
+ *  webpage and MDX. Each goes through the deck reader (deck-import.ts), which names a file that is no deck (a webpage
+ *  Lattice did not export). A `.zip` may be a deck or a package, so its bytes decide (library-deck-ref.ts
+ *  `routeByBytes`); a `.md` or `.pdf` stays a reference file that may also open as a deck. */
+const DECK_EXTS = new Set(['.lattice', '.pptx', '.html', '.htm', '.mdx']);
 
 /**
  * Split a dropped set into the Library's ingests, plus what none takes.
@@ -580,7 +582,7 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 			const one = async (file: File, asDeck: boolean) => {
 				try {
 					const r = asDeck ? await readDeckReference(file) : await readLibraryReference(file);
-					await saveRefDoc(r.doc, Date.now(), { deck: r.deck });
+					await saveRefDoc(r.doc, Date.now(), { deck: r.deck, sourceExact: r.sourceExact });
 					if (r.note) notes.push(r.note);
 					n++;
 				} catch (e) {
@@ -1093,7 +1095,7 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 			{phone || searchShown ? null : <PanelSearchButton label="Search library" onClick={() => setSearchOpen(true)} />}
 					{/* ONE import, the same on every tab. The kind of file decides where it goes; the person only
 					    chooses files. No `accept` (a list grays out a `.lattice` on iOS; see `classifyDropped`) and no
-					    `capture`, so a phone's sheet offers Photo Library, Take Photo or Video and Choose Files. */}
+					    `capture` (a `capture` skips the choice and opens the camera). */}
 					<Tip label="Import files, photos, decks or a package (.zip)"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => importRef.current?.click()} aria-label="Import files"><Upload className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Import</span></Button></Tip>
 					<input
 						ref={importRef}
@@ -1266,7 +1268,7 @@ export function Library({ open, onOpenChange, docked, onCollapse, options, activ
 				<div className="p-2.5">
 					<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><FileText className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="truncate">{d.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">File</span></div>
 					<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{d.deck ? 'deck · text' : d.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(d.bytes)} · added {fmtDate(d.addedAt)}</div>
-					{d.deck && onOpenDeck && (
+					{(d.deck || (d.sourceExact && d.docKind === 'text')) && onOpenDeck && (
 						<button type="button" onClick={() => openDoc(d)} aria-label={`Open ${d.name} as a deck`} className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><FolderOpen className="size-3.5" />Open as deck</button>
 					)}
 					<div className="mt-2.5 flex items-center gap-1.5">

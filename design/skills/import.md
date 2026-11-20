@@ -91,13 +91,16 @@ does not read. `lint:deck` names each one.
   iOS grays out a `.lattice` under any `accept` list, so the reader sniffs the
   bytes instead and names a file that is not a deck.
 - **Library**: its one Import (or a drop on the Library) takes a deck too:
-  `.lattice`, a deck saved as `.zip`, `.pptx`, and a Lattice PDF. The deck lands
-  on the Files tab as reference material, its slide text and speaker notes, so
-  the chat can read it. Its card's "Open as deck" opens it through the same
-  reader as "Import deck…". A `.zip` that holds a package still imports as a
-  package; the bytes decide which. A `.md` stays a reference file and also gets
-  "Open as deck", because the reader opens any Markdown as a deck. A plain PDF,
-  and a PowerPoint made elsewhere, land as reference only.
+  `.lattice`, a deck saved as `.zip`, `.pptx`, a Lattice webpage (`.html`,
+  `.htm`), `.mdx` and a Lattice PDF. The deck lands on the Files tab as
+  reference material, its slide text and speaker notes, so the chat can read it.
+  Its card's "Open as deck" opens it through the same reader as "Import deck…".
+  A `.zip` that holds a package still imports as a package; the bytes decide
+  which. A webpage that holds no Lattice deck is refused with the reader's own
+  message. The Library keeps a copy of a deck up to 50 MB; a bigger one is
+  refused with a pointer to "Import deck…". A `.md` stays a plain reference
+  file; it gets "Open as deck" only when its stored text is the file byte for
+  byte. A plain PDF, and a PowerPoint made elsewhere, land as reference only.
 - **CLI**: `npx @laticent/lattice deck.md deck.pdf` reads a Markdown file and strips a
   BOM and CRLF/CR line endings on the way in (`readFileOrDie` in `lattice.js`).
 - **Lint**: `npm run lint:deck -- <file>`; `--fix` applies the machine fixes.

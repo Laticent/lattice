@@ -82,6 +82,16 @@ describe('a deck kept as reference', () => {
 		expect(new Uint8Array(await (refDocDeckFile(saved) as File).arrayBuffer())).toEqual(new Uint8Array([0x50, 0x4b, 0x03, 0x04, 7]));
 	});
 
+	it('rebuilds a Markdown doc whose text is the file, and keeps no second copy of it', async () => {
+		const saved = await saveRefDoc({ name: 'brief.md', kind: 'text', text: '# Brief\n', bytes: 8 }, 9, { sourceExact: true });
+		const record = putAsset.mock.calls[0][0];
+		expect(record).toMatchObject({ sourceExact: true });
+		expect(record).not.toHaveProperty('deck');
+		const f = refDocDeckFile(saved) as File;
+		expect(f.name).toBe('brief.md');
+		expect(await f.text()).toBe('# Brief\n');
+	});
+
 	it('gives no deck file for a doc that is not a deck', async () => {
 		const saved = await saveRefDoc({ name: 'notes.txt', kind: 'text', text: 'x', bytes: 1 }, 9);
 		expect(putAsset.mock.calls[0][0]).not.toHaveProperty('deck');

@@ -45,9 +45,9 @@ describe('classifyDropped', () => {
 		expect(docs).toHaveLength(1);
 	});
 
-	it('never turns a deck down: a .lattice and a .pptx go to the decks, case-insensitive', () => {
-		const { zips, decks, docs, rejected } = classifyDropped([file('q3.lattice'), file('Talk.PPTX'), file('Q4.LATTICE')]);
-		expect(decks.map((f) => f.name)).toEqual(['q3.lattice', 'Talk.PPTX', 'Q4.LATTICE']);
+	it('never turns a deck down: every deck the reader opens goes to the decks, case-insensitive', () => {
+		const { zips, decks, docs, rejected } = classifyDropped([file('q3.lattice'), file('Talk.PPTX'), file('Q4.LATTICE'), file('player.html'), file('old.HTM'), file('talk.mdx')]);
+		expect(decks.map((f) => f.name)).toEqual(['q3.lattice', 'Talk.PPTX', 'Q4.LATTICE', 'player.html', 'old.HTM', 'talk.mdx']);
 		expect(zips).toEqual([]);
 		expect(docs).toEqual([]);
 		expect(rejected).toEqual([]);

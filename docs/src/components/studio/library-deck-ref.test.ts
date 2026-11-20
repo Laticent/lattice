@@ -8,9 +8,11 @@
 import JSZip from 'jszip';
 import { PDFDocument } from 'pdf-lib';
 import { beforeAll, describe, expect, it } from 'vitest';
+import latticeDoc from '../../../../lib/core/lattice-doc.js';
 import { embedInPdf, embedInPptx } from './embedded-source';
 import { exportLatticeBlob } from './lattice-file';
 import { deckReferenceText, pptxReferenceText, readDeckReference, readLibraryReference, routeByBytes } from './library-deck-ref';
+import { MAX_DECK_REF_BYTES } from './reference-doc-store';
 
 // readReferenceDoc reads text and PDFs with FileReader, a browser API Node does not have.
 beforeAll(() => {
@@ -38,6 +40,20 @@ const SRC = [
 
 const file = (b: Blob | Uint8Array | string, name: string, type = '') => new File([b as BlobPart], name, { type });
 const lattice = () => exportLatticeBlob(SRC, 'Halcyon quarterly', [], 7);
+const bytesOf = async (b: Blob) => new Uint8Array(await b.arrayBuffer());
+
+/** Names of the files `claimsSize` made that something read whole. */
+const readWhole = new Set<string>();
+/** A file that CLAIMS `size` bytes and records it if anything reads it whole: a size check must come before any read. */
+function claimsSize(name: string, size: number, head: Uint8Array = new Uint8Array([0x50, 0x4b, 0x03, 0x04])): File {
+	const f = new File([head as BlobPart], name);
+	Object.defineProperty(f, 'size', { value: size });
+	f.arrayBuffer = () => {
+		readWhole.add(name);
+		throw new Error(`${name} was read whole`);
+	};
+	return f;
+}
 
 /** A Library package zip: a folder holding a component's parts, no `deck.md` at the root. */
 async function packageZip(): Promise<Blob> {
@@ -86,6 +102,23 @@ describe('routeByBytes — a .zip is a deck or a package, and the archive says w
 		expect(r.zips.map((f) => f.name)).toEqual(['broken.zip']);
 		expect(r.decks).toEqual([]);
 	});
+
+	it('never hands a zip-shaped file with another extension (.docx, .key, a damaged one) to the package import', async () => {
+		const broken = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
+		const r = await routeByBytes({ zips: [], rejected: [file(await packageZip(), 'report.docx'), file(broken, 'talk.key')] });
+		expect(r.zips).toEqual([]);
+		expect(r.decks).toEqual([]);
+		expect(r.rejected.map((f) => f.name)).toEqual(['report.docx', 'talk.key']);
+	});
+
+	it('checks the size before reading: a .zip over the deck cap goes to the package import unread', async () => {
+		const big = claimsSize('huge.zip', MAX_DECK_REF_BYTES + 1);
+		const odd = claimsSize('huge.docx', MAX_DECK_REF_BYTES + 1);
+		const r = await routeByBytes({ zips: [big], rejected: [odd] });
+		expect(r.zips).toEqual([big]);
+		expect(r.rejected).toEqual([odd]);
+		expect(readWhole.has('huge.zip') || readWhole.has('huge.docx')).toBe(false);
+	});
 });
 
 describe('deckReferenceText — the words on each slide, then its speaker note', () => {
@@ -113,8 +146,24 @@ describe('readDeckReference — a deck file lands as reference text and keeps it
 		expect(r.doc).toMatchObject({ name: 'halcyon.lattice', kind: 'text' });
 		expect(r.doc.text).toContain('Speaker notes: Open with the retention number.');
 		expect(r.doc.bytes).toBe(new TextEncoder().encode(r.doc.text as string).length);
-		expect(r.deck).toBe(f);
+		// A COPY of the bytes, not the picker's own File: that is a handle on a file the device can change or remove.
+		expect(r.deck).not.toBe(f);
+		expect(await bytesOf(r.deck as Blob)).toEqual(await bytesOf(f));
 		expect(r.note).toBeUndefined();
+	});
+
+	it('refuses a deck over the Library\'s cap before reading it, and names the way to open it', async () => {
+		await expect(readDeckReference(claimsSize('big.lattice', MAX_DECK_REF_BYTES + 1))).rejects.toThrow(/over the 50 MB the Library keeps for one deck\. Open it with Import deck/);
+	});
+
+	it('reads a webpage Lattice exported, and an .mdx, as decks; names a webpage that holds none', async () => {
+		const html = `<!doctype html><html><head><title>x</title></head><body>${latticeDoc.buildEnvelope({ source: SRC, title: 'Halcyon quarterly' }, { now: 1 })}</body></html>`;
+		const page = await readDeckReference(file(html, 'halcyon.html'));
+		expect(page.doc.text).toContain('Speaker notes: Open with the retention number.');
+		expect(page.deck).not.toBeNull();
+		const mdx = await readDeckReference(file('# One\n\n---\n\n# Two', 'talk.mdx'));
+		expect(mdx.doc.text).toBe('Slide 1\n# One\n\nSlide 2\n# Two');
+		await expect(readDeckReference(file('<!doctype html><p>hi</p>', 'page.html'))).rejects.toThrow(/no Lattice deck inside/);
 	});
 
 	it('reads a re-openable PowerPoint as its deck', async () => {
@@ -122,7 +171,7 @@ describe('readDeckReference — a deck file lands as reference text and keeps it
 		const f = file(pptx, 'halcyon.pptx');
 		const r = await readDeckReference(f);
 		expect(r.doc.text).toContain('Retention held');
-		expect(r.deck).toBe(f);
+		expect(await bytesOf(r.deck as Blob)).toEqual(await bytesOf(f));
 	});
 
 	it('keeps a PowerPoint made elsewhere as its own words, with no "Open as deck"', async () => {
@@ -144,14 +193,26 @@ describe('pptxReferenceText', () => {
 		const text = await pptxReferenceText(file(await zip.generateAsync({ type: 'blob' }), 'x.pptx'));
 		expect(text).toBe('Slide 1\nS1\n\nSlide 2\nS9\n\nSlide 3\nS10');
 	});
+
+	it('reads an untrusted archive within the zip limits: too many parts is refused before any inflates', async () => {
+		const zip = new JSZip();
+		for (let n = 1; n <= 2001; n++) zip.file(`ppt/slides/slide${n}.xml`, '<a:p><a:t>x</a:t></a:p>');
+		await expect(pptxReferenceText(file(await zip.generateAsync({ type: 'blob' }), 'x.pptx'))).rejects.toThrow(/too large to read as reference text/);
+	});
 });
 
 describe('readLibraryReference — a reference file stays one, and gains "Open as deck" where the importer reads it', () => {
-	it('keeps a .md as its own text and offers it as a deck (the importer opens any Markdown)', async () => {
-		const f = file('# Brief\n\nThree points.', 'brief.md', 'text/markdown');
-		const r = await readLibraryReference(f);
+	it('keeps a .md as plain reference with no second copy, and marks it openable only when the text is the file', async () => {
+		const r = await readLibraryReference(file('# Brief\n\nThree points.', 'brief.md', 'text/markdown'));
 		expect(r.doc).toMatchObject({ name: 'brief.md', kind: 'text', text: '# Brief\n\nThree points.' });
-		expect(r.deck).toBe(f);
+		expect(r.deck).toBeNull();
+		expect(r.sourceExact).toBe(true);
+		// A byte-order mark is dropped when the text is read, so the text is no longer the file: no "Open as deck".
+		const bom = await readLibraryReference(file(new Uint8Array([0xef, 0xbb, 0xbf, 0x23, 0x20, 0x41]), 'bom.md', 'text/markdown'));
+		expect(bom.sourceExact).toBeUndefined();
+		// Nor when the text was cut at the reference cap.
+		const long = await readLibraryReference(file(`# Long\n\n${'x'.repeat(41_000)}`, 'long.md', 'text/markdown'));
+		expect(long.sourceExact).toBeUndefined();
 	});
 
 	it('keeps a .txt as plain reference, with no deck', async () => {
@@ -172,6 +233,17 @@ describe('readLibraryReference — a reference file stays one, and gains "Open a
 		const r = await readLibraryReference(f);
 		expect(r.doc.kind).toBe('text');
 		expect(r.doc.text).toContain('Speaker notes: Open with the retention number.');
-		expect(r.deck).toBe(f);
+		expect(await bytesOf(r.deck as Blob)).toEqual(await bytesOf(f));
+	});
+
+	it('checks a PDF\'s size first: over the deck cap it is refused unread', async () => {
+		const pdfHead = new TextEncoder().encode('%PDF-1.7');
+		await expect(readLibraryReference(claimsSize('huge.pdf', MAX_DECK_REF_BYTES + 1, pdfHead))).rejects.toThrow(/over the 50 MB/);
+	});
+
+	it('keeps the 5 MB reference limit for a PDF that holds no deck', async () => {
+		const f = file(await plainPdf(), 'scan.pdf', 'application/pdf');
+		Object.defineProperty(f, 'size', { value: 6 * 1024 * 1024 });
+		await expect(readLibraryReference(f)).rejects.toThrow(/the limit is 5 MB/);
 	});
 });

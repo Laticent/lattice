@@ -22,8 +22,9 @@ import { type ReferenceDoc, readReferenceDoc, sanitizeDocText } from './referenc
 import { MAX_DECK_REF_BYTES } from './reference-doc-store';
 
 /** What the Library keeps for one imported file: the reference doc, and the deck file when the
- *  deck importer can open it. `note` is a line for the toast when something was left out. */
-export type LibraryReference = { doc: ReferenceDoc; deck: File | null; note?: string };
+ *  deck importer can open it. `note` is a line for the toast when something was left out. `sourceExact`: the stored
+ *  text is byte for byte the Markdown file, so "Open as deck" can rebuild it from the text. */
+export type LibraryReference = { doc: ReferenceDoc; deck: Blob | null; note?: string; sourceExact?: boolean };
 
 const extOf = (name: string) => (/\.[a-z0-9]+$/i.exec(name)?.[0] ?? '').toLowerCase();
 
@@ -34,35 +35,29 @@ async function head(file: File, n = 4): Promise<Uint8Array> {
 const isZipHead = (b: Uint8Array) => b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
 
 /**
- * Settle the files the extension alone cannot place. A `.zip` is a deck when its archive
- * says so (`deckZipKind`), and a package otherwise. A file with an extension nothing takes
- * is read too: a zip whose name lost its `.lattice` (a mail app, a share sheet) is still a
- * deck. Everything else stays where it was.
+ * Settle the files the extension alone cannot place. Size first, then bytes:
+ * - A `.zip` up to the Library's deck cap is opened and asked `deckZipKind`: a deck goes to the decks, anything else
+ *   (a package, or a damaged zip) to the package import as before. A bigger `.zip` goes straight to the package
+ *   import, which refuses it on size before it reads a byte (asset-bundle.ts), as it always has.
+ * - A file with an extension nothing takes is read ONLY to find a deck that lost its name (a mail app, a share sheet).
+ *   A `.docx`, `.xlsx`, `.key` or `.epub` is a zip too, and is never handed to the package import: when it holds no
+ *   deck it stays rejected, and the toast names it.
  */
 export async function routeByBytes(files: { zips: File[]; rejected: File[] }): Promise<{ zips: File[]; decks: File[]; rejected: File[] }> {
-	const { default: JSZip } = await import('jszip');
-	const { deckZipKind } = await import('./deck-import');
 	const zips: File[] = [];
 	const decks: File[] = [];
 	const rejected: File[] = [];
-	const kindOf = async (f: File): Promise<'deck' | 'package' | 'other'> => {
-		if (!isZipHead(await head(f))) return 'other';
+	const holdsDeck = async (f: File): Promise<boolean> => {
+		if (f.size > MAX_DECK_REF_BYTES || !isZipHead(await head(f))) return false;
+		const [{ default: JSZip }, { deckZipKind }] = await Promise.all([import('jszip'), import('./deck-import')]);
 		try {
-			return deckZipKind(await JSZip.loadAsync(await f.arrayBuffer())) ? 'deck' : 'package';
+			return deckZipKind(await JSZip.loadAsync(await f.arrayBuffer())) !== null;
 		} catch {
-			return 'package'; // a damaged zip: the package importer names the problem, as it always has
+			return false; // a damaged zip is no deck; where it goes is the caller's rule
 		}
 	};
-	for (const f of files.zips) {
-		const k = await kindOf(f);
-		(k === 'deck' ? decks : zips).push(f);
-	}
-	for (const f of files.rejected) {
-		const k = await kindOf(f);
-		if (k === 'deck') decks.push(f);
-		else if (k === 'package') zips.push(f);
-		else rejected.push(f);
-	}
+	for (const f of files.zips) ((await holdsDeck(f)) ? decks : zips).push(f);
+	for (const f of files.rejected) ((await holdsDeck(f)) ? decks : rejected).push(f);
 	return { zips, decks, rejected };
 }
 
@@ -104,17 +99,22 @@ function withoutComments(chunk: string): string {
  * "Open as deck".
  */
 export async function pptxReferenceText(file: File): Promise<string> {
-	const { default: JSZip } = await import('jszip');
+	const [{ default: JSZip }, { assertZipWithinLimits, readBudget }] = await Promise.all([import('jszip'), import('./zip-limits')]);
 	const zip = await JSZip.loadAsync(await file.arrayBuffer());
+	// An untrusted archive, read like every other: entry count and declared size checked before anything inflates,
+	// then one running budget across every part read, so a crafted slide cannot inflate past it.
+	const tooBig = 'That PowerPoint is too large to read as reference text.';
+	assertZipWithinLimits(zip, tooBig);
+	const read = readBudget(tooBig);
 	const slideNo = (p: string) => Number(/slide(\d+)\.xml$/.exec(p)?.[1] ?? 0);
 	const slides = Object.keys(zip.files)
 		.filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p))
 		.sort((a, b) => slideNo(a) - slideNo(b));
 	const out: string[] = [];
 	for (const [i, path] of slides.entries()) {
-		const words = runs(await zip.file(path)?.async('string') ?? '');
-		const notePath = await notesPathFor(zip, path);
-		const note = notePath ? bodyRuns(await zip.file(notePath)?.async('string') ?? '') : '';
+		const words = runs((await read(zip.file(path))) ?? '');
+		const notePath = notesPathFor((await read(zip.file(path.replace(/slides\/(slide\d+\.xml)$/, 'slides/_rels/$1.rels')))) ?? '');
+		const note = notePath ? bodyRuns((await read(zip.file(notePath))) ?? '') : '';
 		const lines = [`Slide ${i + 1}`];
 		if (words) lines.push(words);
 		if (note) lines.push(`Speaker notes: ${note}`);
@@ -124,10 +124,8 @@ export async function pptxReferenceText(file: File): Promise<string> {
 }
 
 /** A slide's notes page, from the slide's own relationships (notes pages are not numbered like slides). */
-async function notesPathFor(zip: { file: (p: string) => { async: (t: 'string') => Promise<string> } | null }, slidePath: string): Promise<string | null> {
-	const rels = slidePath.replace(/slides\/(slide\d+\.xml)$/, 'slides/_rels/$1.rels');
-	const xml = (await zip.file(rels)?.async('string')) ?? '';
-	const target = /Target="\.\.\/notesSlides\/(notesSlide\d+\.xml)"/.exec(xml)?.[1];
+function notesPathFor(rels: string): string | null {
+	const target = /Target="\.\.\/notesSlides\/(notesSlide\d+\.xml)"/.exec(rels)?.[1];
 	return target ? `ppt/notesSlides/${target}` : null;
 }
 
@@ -157,57 +155,68 @@ function bodyRuns(xml: string): string {
 
 const utf8Bytes = (s: string) => new TextEncoder().encode(s).length;
 
+/** The refusal for a deck too large to keep a copy of: named, with the way to open it anyway. */
+const tooLargeToKeep = (name: string) => `${name} is over the ${Math.floor(MAX_DECK_REF_BYTES / 1_048_576)} MB the Library keeps for one deck. Open it with Import deck… instead.`;
+
 /**
- * Read a file the Library already knows is a deck (`.lattice`, `.pptx`, or a zip
- * `routeByBytes` found one in). The deck importer reads it; its slide text and notes become
- * the reference text, and the file is kept for "Open as deck". A PowerPoint with no Lattice
- * deck inside still lands, as its own words, without the action. Throws the importer's own
- * message for a file that is broken, the way "Import deck…" would.
+ * Read a file the Library already knows is a deck (`.lattice`, `.pptx`, `.html`, `.mdx`, or a zip `routeByBytes` found a
+ * deck in). Its size is checked first, so a file over the Library's deck cap is refused before it is read. The deck
+ * importer reads it; its slide text and notes become the reference text, and a copy of its bytes is kept for "Open as
+ * deck". A PowerPoint with no Lattice deck inside still lands, as its own words, without the action. Throws the
+ * importer's own message for a file that is broken or is no deck (a webpage Lattice did not export), the way
+ * "Import deck…" would.
  */
 export async function readDeckReference(file: File): Promise<LibraryReference> {
+	if (file.size > MAX_DECK_REF_BYTES) throw new Error(tooLargeToKeep(file.name));
 	const { NO_SOURCE_PPTX, readDeckFile } = await import('./deck-import');
-	let text: string;
-	let opens = true;
 	try {
 		const deck = await readDeckFile(file);
-		text = await deckReferenceText(deck.source, deck.title);
+		return deckRef(file, await deckReferenceText(deck.source, deck.title));
 	} catch (err) {
 		if ((err as Error)?.message !== NO_SOURCE_PPTX) throw err;
-		text = await pptxReferenceText(file);
-		opens = false;
 	}
-	return withDeck({ name: file.name || 'deck', kind: 'text', text, bytes: utf8Bytes(text) }, opens ? file : null, !opens);
+	const text = await pptxReferenceText(file);
+	return { doc: textDoc(file.name, text), deck: null, note: `${file.name} has no editable deck inside, so it was added as reference text only.` };
 }
 
 /**
- * Read a reference file (`.md`, `.pdf`, `.txt`): what it always was, plus "Open as deck" where
- * the deck importer reads it. A PDF exported "Re-openable in Lattice" carries its deck, so it
- * lands as that deck's slide text and notes; any other PDF stays a PDF reference. A Markdown
- * file IS a deck source to the importer, so it keeps its text as before and gains the action.
- * A `.txt` stays a plain reference: it is notes far more often than a deck.
+ * Read a reference file (`.md`, `.pdf`, `.txt`): what it always was, plus "Open as deck" where the deck importer reads
+ * it.
+ * - A PDF exported "Re-openable in Lattice" carries its deck, so it lands as that deck's slide text and notes, with a
+ *   copy of the PDF for "Open as deck". Any other PDF stays a PDF reference. Size decides first: over the deck cap is
+ *   refused unread; between reference-doc.ts's 5 MB and the deck cap, only a Lattice PDF is kept (a PDF can hide its
+ *   attachment in a compressed object stream, so there is no cheap marker: it is parsed, within the deck cap).
+ * - A Markdown file stays plain reference, as before: no second copy, no DECK badge. Its card offers "Open as deck"
+ *   only when the stored text is byte for byte the file (`sourceExact`), since the importer opens any Markdown and
+ *   the file is rebuilt from that text. A `.txt` stays plain reference: it is notes far more often than a deck.
  */
 export async function readLibraryReference(file: File): Promise<LibraryReference> {
 	const ext = extOf(file.name);
 	if (ext === '.pdf' || isPdfHead(await head(file, 5))) {
+		if (file.size > MAX_DECK_REF_BYTES) throw new Error(tooLargeToKeep(file.name));
 		// The deck importer decides, as it does for "Import deck…". A PDF it cannot open (no deck inside, or a
-		// damaged one) is still the reference PDF it always was: the Library never turns a PDF down for that.
+		// damaged one) is still the reference PDF it always was, within the reference size.
 		const { readDeckFile } = await import('./deck-import');
 		const deck = await readDeckFile(file).catch(() => null);
-		if (deck) {
-			const text = await deckReferenceText(deck.source, deck.title);
-			return withDeck({ name: file.name, kind: 'text', text, bytes: utf8Bytes(text) }, file, false);
-		}
+		if (deck) return deckRef(file, await deckReferenceText(deck.source, deck.title));
 	}
 	const doc = await readReferenceDoc(file);
-	return { doc, deck: ext === '.md' || ext === '.markdown' ? file : null };
+	const exact = (ext === '.md' || ext === '.markdown') && doc.kind === 'text' && sameBytes(new TextEncoder().encode(doc.text ?? ''), new Uint8Array(await file.arrayBuffer()));
+	return { doc, deck: null, ...(exact ? { sourceExact: true } : {}) };
 }
 
 const isPdfHead = (b: Uint8Array) => String.fromCharCode(...b) === '%PDF-';
 
-function withDeck(doc: ReferenceDoc, deck: File | null, noSource: boolean): LibraryReference {
-	if (noSource) return { doc, deck: null, note: `${doc.name} has no editable deck inside, so it was added as reference text only.` };
-	if (deck && deck.size > MAX_DECK_REF_BYTES) {
-		return { doc, deck: null, note: `${doc.name} is too large to keep a copy of here, so it was added as reference text only. Open it with Import deck….` };
-	}
-	return { doc, deck };
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+	return true;
+}
+
+const textDoc = (name: string, text: string): ReferenceDoc => ({ name: name || 'deck', kind: 'text', text, bytes: utf8Bytes(text) });
+
+/** A deck's reference: its text, and a COPY of its bytes. The picker's own File is a handle on the device's file, which
+ *  can change or vanish after the pick; the PDF path stores decoded bytes for the same reason. */
+async function deckRef(file: File, text: string): Promise<LibraryReference> {
+	return { doc: textDoc(file.name, text), deck: new Blob([await file.arrayBuffer()], { type: file.type }) };
 }

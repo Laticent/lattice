@@ -10,9 +10,12 @@ import { CHROME, expect, gotoStudio, isPhone, test } from './studio-fixture';
 // instead of turning it down: it lands on Files as reference text (slide words and speaker notes)
 // and its card opens it through the same reader "Import deck…" uses.
 //
-// Driven on desktop Chromium, Gecko and WebKit at an iPhone's size and user agent (the case the
-// old sniff answered). The iOS Files sheet itself is the phone's, and no runner here reaches it:
-// that half is UNVERIFIED until it is tried on a device.
+// Which arm tells the old code from the new: the `@gecko` title (desktop Chromium and Firefox). There
+// the old code named an `accept` list, so the "no accept" checks fail on it. The `@webkit-phone` arm
+// CANNOT tell them apart for the pickers: under an iPhone user agent the old sniff already dropped the
+// list, so both builds show no `accept` there. It is here for the Library flow (import, Files, Open as
+// deck) in WebKit at a phone's size. Neither arm reaches the iOS Files sheet, which is the phone's own:
+// whether a `.lattice` is pickable on an iPhone is UNVERIFIED until it is tried on a device.
 
 test.describe.configure({ timeout: 180_000 });
 
@@ -110,8 +113,8 @@ test('a .lattice imported through the Library lands on Files and opens as a deck
 });
 
 test('a .lattice imported through the Library lands on Files and opens as a deck, at an iPhone\'s size and user agent @webkit-phone', async ({ page }, testInfo) => {
-	// The case the old device sniff answered: this project reports an iPhone, so the test proves the pickers no longer
-	// depend on what the device says it is.
+	// This project reports an iPhone, the case the old sniff already answered with no `accept`: so this arm checks the
+	// Library flow in WebKit, not the picker fix (the `@gecko` arm is the one the old code fails).
 	expect(await page.evaluate(() => navigator.userAgent)).toContain('iPhone');
 	await importsADeck(page, testInfo);
 });

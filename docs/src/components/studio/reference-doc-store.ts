@@ -38,6 +38,9 @@ export type RefDocRecord = {
 	deck?: Blob;
 	/** Only where an engine refused to store a `Blob`: the deck's bytes as an ArrayBuffer, rebuilt into `deck`. */
 	deckData?: ArrayBuffer;
+	/** A Markdown doc whose `text` is byte for byte the file it came from: "Open as deck" rebuilds the file from the text
+	 *  instead of keeping a second copy (library-deck-ref.ts `readLibraryReference`). */
+	sourceExact?: boolean;
 	bytes: number;
 	addedAt: number;
 };
@@ -79,9 +82,12 @@ function readable(row: RefDocRecord): RefDocRecord {
 	return out;
 }
 
-/** A saved deck's file, ready for the deck importer, or null for a doc that is not a deck. */
+/** A saved deck's file, ready for the deck importer, or null for a doc that is not a deck: the kept copy of a deck,
+ *  or a Markdown doc rebuilt from its text when that text is the file byte for byte. */
 export function refDocDeckFile(rec: RefDocRecord): File | null {
-	return rec.deck ? new File([rec.deck], rec.name, { type: rec.deck.type }) : null;
+	if (rec.deck) return new File([rec.deck], rec.name, { type: rec.deck.type });
+	if (rec.sourceExact && rec.docKind === 'text' && typeof rec.text === 'string') return new File([rec.text], rec.name, { type: 'text/markdown' });
+	return null;
 }
 
 /**
@@ -96,7 +102,7 @@ export const WRITE_PDFS_AS_BINARY = true;
 
 /** Persist a doc to the shared library (dedups by name — re-adding replaces in
  *  place). `addedAt` is passed in so callers own the clock (tests stay deterministic). */
-export async function saveRefDoc(doc: ReferenceDoc, addedAt: number, { binary = WRITE_PDFS_AS_BINARY, deck = null }: { binary?: boolean; deck?: Blob | null } = {}): Promise<RefDocRecord> {
+export async function saveRefDoc(doc: ReferenceDoc, addedAt: number, { binary = WRITE_PDFS_AS_BINARY, deck = null, sourceExact = false }: { binary?: boolean; deck?: Blob | null; sourceExact?: boolean } = {}): Promise<RefDocRecord> {
 	// A PDF arrives as base64 text (it is read that way for the request) and is stored as the bytes it encodes,
 	// typed as a PDF whatever the text said (a file picked with no type reads as octet-stream, and a backup row can
 	// claim any type: `recordToDoc` sends this type to the model).
@@ -106,6 +112,7 @@ export async function saveRefDoc(doc: ReferenceDoc, addedAt: number, { binary = 
 	// cost readout and the spend guard read this number.
 	const bytes = blob ? blob.size : Math.min(MAX_DOC_BYTES, Math.max(0, Math.floor(Number(doc.bytes) || 0)));
 	const record: Omit<RefDocRecord, 'id'> = { kind: REFDOC_KIND, name: doc.name, docKind: doc.kind, text: doc.text, bytes, addedAt };
+	if (sourceExact && doc.kind === 'text') record.sourceExact = true;
 	if (blob && !binary) {
 		// The format every build reads: base64 text, now with the type a PDF has and the size that was decoded.
 		record.dataUrl = `data:application/pdf;base64,${(doc.dataUrl as string).slice((doc.dataUrl as string).indexOf(',') + 1)}`;
