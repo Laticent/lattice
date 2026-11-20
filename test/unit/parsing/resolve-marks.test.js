@@ -121,6 +121,9 @@ describe('marks: tone\'s source axis', () => {
     assert.equal(etch.rule, 'marks-source-needs-tone');
     assert.match(etch.message, /'ink' picks the one hue `tone` draws in.*'etch'/);
     assert.match(rules('accent')[0].message, /the default, pigment/);
+    // A slide that asks for tone takes the deck's source, so the word is not dead and the warning stays quiet.
+    const withToneSlide = lint('---\nmarks: ink\n---\n\n<!-- _class: bar marks-tone -->\n\n## A\n\n- A `3`\n').findings;
+    assert.equal(withToneSlide.filter((f) => f.rule === 'marks-source-needs-tone').length, 0);
   });
 });
 
