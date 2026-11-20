@@ -43,8 +43,10 @@ A slide has four notes. Each name is the place the words end up, a place an auth
 
 Settings stay in the record (`<!-- {layout=funnel, footer="Q3"} -->`). Words go in `@name{…}`. One spelling each.
 
-Private working notes have two homes, and neither is a note: a plain comment (never exported) and a Studio review
-comment (kept in the `.lattice` file, outside the markdown). A markdown file cannot keep a secret once it is shared, so
+Private working notes have two homes, and neither is a note: a plain comment and a Studio review comment (kept in the
+`.lattice` file, outside the markdown). A plain comment reaches no rendered, spoken or annotated surface, but it is
+part of the source, so an export that carries the source (the player, `--embed-source`, `--reopenable`) carries it
+and says so on the console, and `--strip-notes` removes it (N5). A markdown file cannot keep a secret once it is shared, so
 "private" is never a property of a note.
 
 ## 2. Decisions (owner, 2026-11-20)
@@ -62,8 +64,10 @@ comment (kept in the `.lattice` file, outside the markdown). A markdown file can
 **Decided by the maker, inside this branch:**
 
 - **The codemod turns every plain comment that ships as a speaker note today into `@note{…}`**, so no deck's output
-  changes (373 in 76 decks and fixtures). Comments that are plainly author labels go back to plain comments in a
-  separate, reviewed commit.
+  changes, in `examples/` and the test fixtures (57 decks). The galleries (HARD RULE #8) are left as written: once pane
+  markers were held out (§6), their only plain comments were the "Import Mermaid and the Lattice runtime theme for VS
+  Code" boilerplate in `diagram.gallery.md` and the baseline gallery. That was never a presenter note, and under the new
+  rule it stops shipping as one with no edit.
 - **Export to Marp:** `@note` becomes a plain Marp note, `@handout` a note labeled `Handout:`, and `@say` and `@alt`
   are dropped, because Marp has no channel for either. Before this change they leaked into Marp's speaker notes.
 
@@ -81,23 +85,37 @@ comment (kept in the `.lattice` file, outside the markdown). A markdown file can
 
 - A note is a comment whose content is exactly one `@name{…}` with `name` one of `note`, `say`, `alt`, `handout`. The
   opener line carries `<!-- @name{`, so a line scan finds it (the rule `2026-10-17-meta-record.md` §4.1 set for records).
-- **The body is prose, not a record.** It runs from `{` to the matching `}` and may span lines and paragraphs. Braces in
-  the body must balance; an unbalanced body is a lint error (`note-unbalanced`), never a silent truncation.
-- **`-->` and `--!>` cannot appear in a body**, because they end the comment in a browser or in markdown-it. A body
-  that needs them is a lint error; there is no escape in this change.
-- Several notes of the same name on one slide join in source order, as paragraphs.
-- Lowercase only: `@Say{…}` is not a note. `lint:deck` warns, in case it was meant.
+- **The body is prose, not a record.** It runs from `{` to the matching `}` and may span lines and paragraphs; the
+  indentation its lines share is dropped. A literal brace that does not balance is written `\{` or `\}`; nothing else
+  is an escape, so `C:\Users` reads as written. A body whose braces never close, or with text after the closing brace,
+  is not a note, and lint reports it (`note-malformed`, an error), never a silent truncation.
+- **`-->` and `--!>` end the comment** in markdown-it and a browser, so a body writes `--\>` (`--!\>`); a reader
+  removes one backslash (§6). `writeNote` adds every escape a text needs, so any text round-trips.
+- Several notes of the same name on one slide join in source order: `@note` and `@handout` as paragraphs, `@say` and
+  `@alt` into one line.
+- Lowercase only: `@Say{…}` is not a note. `lint:deck` reports it as an error (`note-malformed`), because the author
+  meant a note and it reached nothing; an unknown `@word{…}` is a warning, since it may be the author's own tag.
 - Front-matter `terms:` (how a term is spoken) is deck data, not a note, and is unchanged.
 
 ## 5. What is removed, and how the repo moves
 
-Removed with no alias: `<!-- say: … -->`, `<!-- describe: … -->`, `<!-- reader: … -->`, plain-comment speaker notes, and
-the record fields `note=`, `say=`, `describe=`, `reader=`. `lint:deck` reports each old form as an error that names its
-replacement, as `caption-key-retired` does (`2026-09-28-say-not-caption.md`); the engine does not read them.
+Removed with no alias: `<!-- say: … -->`, `<!-- describe: … -->`, `<!-- reader: … -->`, `<!-- note: … -->`,
+plain-comment speaker notes, the front-matter `say:` map, and the record fields `note=`, `say=`, `describe=`,
+`reader=`. The engine reads none of them. `lint:deck` reports each old KEY with its replacement (`note-key-retired`, as
+`caption-key-retired` did, `2026-09-28-say-not-caption.md`); `note:` is a warning, because "note: check this" is also
+how an author opens a comment to themselves. A plain comment is not reported: it is legitimate now, and lint cannot
+tell one that used to be a speaker note from one that never was. Two things cover that case instead:
+`lattice migrate notes` (which turns every plain comment the engine read as a note into `@note`), and the CLI, which
+says so when `--notes` finds no `@note` but the deck holds plain comments.
 
-A codemod rewrites every deck in the repo. The Marp importer turns a Marp deck's plain-comment notes into `@note{…}`,
-so an imported deck keeps its speaker notes, and export-to-Marp writes `@note` and `@handout` back as Marp's plain
-note comments.
+**The migration is output-preserving** (checked by an independent run of eleven repo decks, origin/main against the
+migrated deck: notes sidecar, `.vtt`, PPTX notes and alt text, page counts): a plain comment becomes `@note`; a
+retired `caption:` becomes `@note` too, because it has been a plain speaker note since 2026-09-28; a slide that held
+several old say lines keeps only the last, the one the engine spoke; and a `captions:` map stays where it is, silent
+as it has been since 2026-09-28. The visible differences are the `Reader:` label (now `Handout:`) and a Studio
+`note:` prefix that no longer prints. There is no Marp importer: a Marp deck opens as LFM, and `lattice migrate notes`
+turns its plain-comment notes into `@note`. Export to Marp writes `@note` and `@handout` back as Marp's plain note
+comments.
 
 ## 6. What the build found
 
