@@ -141,7 +141,9 @@ const decode = (s: string) =>
 function runs(xml: string): string {
 	const paras: string[] = [];
 	for (const p of xml.match(/<a:p>[\s\S]*?<\/a:p>|<a:p\s[\s\S]*?<\/a:p>/g) ?? []) {
-		const text = (p.match(/<a:t>([^<]*)<\/a:t>|<a:t\s[^>]*>([^<]*)<\/a:t>/g) ?? []).map((t) => decode(t.replace(/<[^>]+>/g, ''))).join('');
+		// The run's text is the capture group, never the match with its tags stripped by a regex: stripping, then decoding
+		// `&lt;`, could hand back markup (CodeQL js/incomplete-multi-character-sanitization). The text is plain reference text.
+		const text = [...p.matchAll(/<a:t(?:\s[^>]*)?>([^<]*)<\/a:t>/g)].map((m) => decode(m[1] ?? '')).join('');
 		if (text.trim()) paras.push(text.trim());
 	}
 	return paras.join('\n');
