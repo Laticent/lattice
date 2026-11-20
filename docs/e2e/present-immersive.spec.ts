@@ -16,9 +16,10 @@ test('@webkit-phone a sideways phone gives Present the whole screen, with chrome
 	await page.setViewportSize({ width: 852, height: 393 });
 	const stage = dialog.locator('[data-present-immersive]');
 	await expect(stage).toBeVisible();
-	// The slide fills the screen: fit by height, so its height is the viewport's (less nothing — no docked chrome).
+	// The slide fills the screen: fit by height, less only the 12px frame above and below it that the Studio's own
+	// landscape preview keeps (no docked chrome). Docked, it was under half this.
 	const frame = dialog.locator('[data-slide-frame]').first();
-	await expect.poll(async () => (await frame.boundingBox())?.height ?? 0).toBeGreaterThan(393 * 0.95);
+	await expect.poll(async () => (await frame.boundingBox())?.height ?? 0).toBeGreaterThan(393 - 2 * 12 - 2);
 	await page.screenshot({ path: test.info().outputPath('immersive-revealed.png') });
 	// The chrome fades on its own…
 	const top = dialog.locator('[data-present-chrome="top"]');

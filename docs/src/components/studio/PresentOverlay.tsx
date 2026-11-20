@@ -2542,6 +2542,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// control flip to Play for 0.8–4s at every single slide transition.
 	const delivering = reader.playing || holding;
 	// Immersive chrome that has faded: invisible AND untouchable, so a tap anywhere reaches the slide and brings it back.
+	// The immersive slide row keeps the Studio's landscape preview framing (`py-3`, the cinema morph's holder) so the
+	// slide does not butt against Safari's toolbar, and the bottom clears the home indicator as well.
 	const chromeHidden = immersive && !revealed;
 	// The tap rule, shared by the backdrop and the slide row (a chart's detail layer takes pointer events over its box,
 	// so a tap there reaches the row, never the backdrop). A second finger down makes it a pinch, never a tap.
@@ -2823,7 +2825,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			    `items-center` on the sizer stays LOAD-BEARING (#1227): default `stretch`
 			    makes a flex item's cross size definite, which beats `aspect-ratio` per spec
 			    and would flatten the card. Centering the card removes the stretch. */}
-			<div className={cn('relative flex min-h-0 w-full flex-1 items-center justify-center', immersive ? 'pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]' : cn('gap-3 px-4 pt-4 sm:gap-5 sm:px-6 sm:pt-5', bandCls))} data-present-immersive={immersive ? '' : undefined} onPointerDown={immersive ? tapDown : undefined} onPointerUp={immersive ? tapUp : undefined} onPointerCancel={immersive ? tapUp : undefined}>
+			<div className={cn('relative flex min-h-0 w-full flex-1 items-center justify-center', immersive ? 'pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-3' : cn('gap-3 px-4 pt-4 sm:gap-5 sm:px-6 sm:pt-5', bandCls))} data-present-immersive={immersive ? '' : undefined} onPointerDown={immersive ? tapDown : undefined} onPointerUp={immersive ? tapUp : undefined} onPointerCancel={immersive ? tapUp : undefined}>
 				{!immersive && <button type="button" onClick={goPrev} disabled={atStart} className={arrowCls(atStart)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>}
 				<div className="flex min-h-0 w-full min-w-0 items-center justify-center self-stretch [container-type:size]">
 					{unavailable ? (
