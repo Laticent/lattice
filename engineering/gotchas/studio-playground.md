@@ -2244,3 +2244,10 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — anything in a centered dialog that fills in after it opens: a measured number, a status line, a
   badge.
 - **Removable when** — never.
+- **Second case: the chat's model chip** — its popover priced a turn ("Ask a question", "Make an edit") only once the
+  model catalog landed, in two rows ABOVE the source switch, so "On-device" dropped 50 px under a press. That one is
+  proven: `model-spine.spec.ts:206` failed on mobile in a 2-worker full Chromium run on `11d0d61` (2026-11-20) with
+  "On-device" focused but not selected, the signature of a press and release that landed on different elements. The
+  fix (`ChatCost.tsx`) keeps both rows for a priced source and shows a dash until the price arrives;
+  `model-spine.spec.ts` "the source switch stays where it was when the turn prices land" holds the catalog and checks
+  the switch's box before and after.

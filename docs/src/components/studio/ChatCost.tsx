@@ -85,7 +85,7 @@ export function ChatCost({ source, grounding, docs, primed, explicitCache = true
 	// names who will answer. Spend metrics are a cloud matter, so they follow a ready cloud model.
 	return (
 		<span className={cn('flex min-w-0 items-center gap-2 font-sans text-[11px] normal-case tracking-normal', className)}>
-			<ModelChip status={status} turnEst={cloud ? turnEst : null} usd={usd} spend={spend} onRefresh={() => setPulse((p) => p + 1)} onManageModels={onManageModels} />
+			<ModelChip status={status} priced={cloud} turnEst={cloud ? turnEst : null} usd={usd} spend={spend} onRefresh={() => setPulse((p) => p + 1)} onManageModels={onManageModels} />
 			{cloud ? <MetricsMenu spend={spend} deckId={deckId} last={last} usd={usd} messages={messages} price={status.price} compact={compact} /> : null}
 		</span>
 	);
@@ -387,7 +387,7 @@ function SourceSwitch({ status, showDevice, setShowDevice }: { status: ReturnTyp
 
 /** The model's name with a dropdown: the cost of a turn on THIS model, the session against its
  *  cap, and the same picker the Workspace sheet has. The catalog loads when it first opens. */
-function ModelChip({ status, turnEst, usd, spend, onRefresh, onManageModels }: { status: ReturnType<typeof useArchitectStatus>; turnEst: TurnEst; usd: (n: number) => string; spend: Spend; onRefresh: () => void; onManageModels?: () => void }) {
+function ModelChip({ status, priced, turnEst, usd, spend, onRefresh, onManageModels }: { status: ReturnType<typeof useArchitectStatus>; priced: boolean; turnEst: TurnEst; usd: (n: number) => string; spend: Spend; onRefresh: () => void; onManageModels?: () => void }) {
 	const [open, setOpen] = React.useState(false);
 	const searchRef = React.useRef<HTMLInputElement>(null);
 	const catalog = useModelCatalog(status, { enabled: open, onPicked: () => {
@@ -438,19 +438,30 @@ function ModelChip({ status, turnEst, usd, spend, onRefresh, onManageModels }: {
 				}}
 			>
 				<div className="mb-3 flex flex-col gap-1.5 rounded-lg bg-[var(--accent-soft)] px-2.5 py-2 text-[12px]">
-					{turnEst != null && (
+					{/* A priced source keeps both rows from the first frame, a dash standing in until the catalog
+					    prices the model: rows that arrived later pushed the source switch down under a press, and
+					    the tap landed beside "On-device" (model-spine.spec.ts, "stays where it was"). */}
+					{priced && (
 						<>
 							<div className="flex items-baseline justify-between gap-3">
 								<span className="text-muted-foreground">Ask a question</span>
-								<span className="font-semibold text-foreground" data-usd={turnEst.question}>
-									≈ {usd(turnEst.question)}
-								</span>
+								{turnEst != null ? (
+									<span className="font-semibold text-foreground" data-usd={turnEst.question}>
+										≈ {usd(turnEst.question)}
+									</span>
+								) : (
+									<span className="text-muted-foreground">—</span>
+								)}
 							</div>
 							<div className="flex items-baseline justify-between gap-3" title="An edit reads the layout first, then edits: a second model call.">
 								<span className="text-muted-foreground">Make an edit</span>
-								<span className="font-semibold text-foreground" data-usd={turnEst.edit}>
-									≈ {usd(turnEst.edit)}
-								</span>
+								{turnEst != null ? (
+									<span className="font-semibold text-foreground" data-usd={turnEst.edit}>
+										≈ {usd(turnEst.edit)}
+									</span>
+								) : (
+									<span className="text-muted-foreground">—</span>
+								)}
 							</div>
 						</>
 					)}
