@@ -230,7 +230,7 @@ The finish backdrop's strength and mask.
 Acts on: the slide.
 
 - one of `backdrop-20` · `backdrop-40` · `backdrop-60` · `backdrop-80` · `backdrop-full`
-- one of `backdrop-clear` · `backdrop-open` · `backdrop-spot-tl` · `backdrop-spot-t` · `backdrop-spot-tr` · `backdrop-spot-l` · `backdrop-spot-c` · `backdrop-spot-r` · `backdrop-spot-bl` · `backdrop-spot-b` · `backdrop-spot-br`
+- one of `backdrop-clear` · `backdrop-open` · `backdrop-spot-tl` · `backdrop-spot-t` · `backdrop-spot-tr` · `backdrop-spot-l` · `backdrop-spot-c` · `backdrop-spot-r` · `backdrop-spot-bl` · `backdrop-spot-b` · `backdrop-spot-br` · `backdrop-clear-footer` · `backdrop-clear-hero`
 
 ### Card tag — `card-tag`
 

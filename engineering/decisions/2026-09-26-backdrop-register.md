@@ -506,3 +506,54 @@ and `finish-override.backdrop` stays with the register winning. The original que
 2. The strength steps: 20/40/60/80, or a finer 10% grid.
 3. Whether `finish-override.backdrop` stays supported indefinitely (§4.5) or is deprecated with
    a migration warning.
+
+## 8. Addendum (2026-11-20): the keep-outs, `clear-footer` and `clear-hero`
+
+The preset study (`2026-11-20-deck-preset-study.md` §7 L6, package WP-clear) needs pattern
+finishes (grid, halftone, ruled) that run behind the content but never under the footer text,
+the page number or a hero number. §4.6's `clear` cannot do that: it empties the content box,
+which is the pattern's whole point.
+
+**Shape: two new mask words, not a wider `clear`.** Widening `clear` would change the render of
+every deck that already says it; new words keep those decks byte-identical. Both sit on the mask
+axis, so a slide's `backdrop-open` or spot still evicts them, and they take a strength as `clear`
+does (`backdrop: 40 clear-hero`).
+
+**Mechanism: the same clear layer, moved.** Both words reuse §4.6's blurred `::before` on
+`.backdrop-mask`, with the same fill, bleed and blur, and the same Studio-raster mask. Only the
+layer's box changes. Its content box is the footer band: the footer Cell's row
+(`--chrome-fs * 1.6`, `stage.css`) above `--frame-inset-b`, between the chrome insets, down to
+the slide edge. The box reaches two bleeds past the slide on three sides, so the only soft edge
+on the slide is the top one. `clear-hero` moves the top edge up to the content box on a
+`big-number` slide; elsewhere it is `clear-footer`.
+
+**Rejected: a clear layer on the hero stack itself.** The first draft hung a blurred pseudo on
+big-number's `.cell-stage > ul`, on the atmosphere plane. It looked right, and it pushed the
+number and its caption out of the PDF's text layer: the writer (`read-slide.mjs` `pseudoOver`)
+treats a host's positioned pseudo as painting over its text, so 15 words went into the photo,
+taken at 2x (135 KB against 42 KB for that page). Teaching the writer about negative z-index is
+an export change, so the hero clear stays in `.backdrop` instead, at the cost of clearing the
+whole content box on that slide rather than a halo around the number. The integration test
+(`test/integration/invariants/backdrop-keepouts.test.js`) pins that no word is covered.
+
+**What the checker found, and the fixes.** One independent checker reviewed the first build and
+reproduced two defects, both fixed in the same PR and pinned in the integration test:
+
+- *Split slides.* `split-panel` and `split-compare` restate the clear layer's box for `clear` at
+  up to (0,8,2), so their `padding`, `inset` and `width` mixed with the band's into a box below the
+  slide, or a hard canvas bar at the top-left on `metric`. A split-specific copy of the band now
+  outranks them (the spot rule's `[class]` device), and the panel's own clear layer, which clears
+  the panel's own copy of the finish, takes the same band, so the page number over the panel sits
+  on clean canvas too. That layer stays inside the panel and reaches past it only as a zero-blur
+  `box-shadow`. A first fix that extended the box made the panel's scrollable overflow grow and
+  flagged the slide as clipped. In portrait and square, a split slide gives the panel a page of
+  its own, so the panel band holds in every orientation.
+- *Tone rail.* The band reached past the mask's 8px tone inset and washed the tone rail. A
+  `clip-path` now cuts the layer back to the mask's box after the blur.
+
+**PDF cost, measured** on the 7-slide demo deck (`examples/backdrop-keepouts.md`, `strata`,
+light), CLI PDF, the whole deck under one deck-level mask: `open` 170 KB, `clear-hero` 172 KB,
+`clear-footer` 177 KB, `clear` 220 KB. Every page keeps one 1280×720 background photo at 96 ppi
+(`pdfimages -list`), the same count as `open`, and none is taken at 2x. **Existing decks do not
+move:** `examples/backdrop-register.md` and `examples/finish-backdrops.md` rendered on `main` and
+on this branch rasterize to identical pages (25 of 25 at 72 dpi).

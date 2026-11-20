@@ -2224,3 +2224,31 @@ never turn "passed in headless" into "works on iOS."
   `decodeGeminiSpeech` passes the WAV to the browser, which does); a script that treats the bytes as raw PCM adds a
   click and about 90 ms of loud noise. The reproduction and the open work are
   `followups.d/3319-p1-gemini-tts-misreads-yearn-by-position.md` and `…-p2-voice-model-pronunciation-caveats.md`.
+
+## A click on a dialog's button lands beside it on a loaded machine, and the dialog stays open
+
+- **Symptom** — `expect(dialog).toHaveCount(0)` times out right after a passing `click()` on the dialog's own button,
+  only under load (`library-images-render.spec.ts:148` in a 2-worker full Chromium run, 2026-11-19: the "Add 1 photo"
+  dialog still open 15 s after "Add photo" was clicked).
+- **Cause** — the dialog grew after it opened. `DialogContent` is centered on both axes, so content that arrives late
+  (here the photo-format sizes, measured by the import's encoder) moves the footer down by half the growth. Playwright
+  hit-tests the button, then sends the press at the point it measured; when the sizes land in between, that point is
+  above the button's new top edge (measured: 18.5 px of movement against a 32 px button). A person aiming at the button
+  as the numbers land misses it the same way. **This is the suspected cause of the :148 run, not a proven one:** a
+  deterministic replay of :148 on the build before the fix (aim while the encoder is held, let the sizes land, then
+  press the aimed point) still hit the button, so if this test times out again with the fix in place, look elsewhere.
+- **Fix** — reserve the late content's space from the first frame: draw the empty bar track and give the summary line
+  its full height while measuring (`PhotoFormatDialog.tsx`). `e2e/library-images.spec.ts` holds the encoder and checks
+  the dialog's height and the button's row before and after the sizes land, and that the old aim point is still the
+  button.
+- **Triggered by** — anything in a centered dialog that fills in after it opens: a measured number, a status line, a
+  badge.
+- **Removable when** — never.
+- **Second case: the chat's model chip** — its popover priced a turn ("Ask a question", "Make an edit") only once the
+  model was priced, in two rows ABOVE the source switch, so "On-device" dropped 50 px under a press. The catalog
+  download itself had finished about 1.9 s earlier; what landed inside the click was the status refresh that renders
+  the rows (the trace's snapshots show no rows before the click and both after). That one is proven: `model-spine.spec.ts:206` failed on mobile in a 2-worker full Chromium run on `11d0d61` (2026-11-20) with
+  "On-device" focused but not selected, the signature of a press and release that landed on different elements. The
+  fix (`ChatCost.tsx`) keeps both rows for a priced source and shows a dash until the price arrives;
+  `model-spine.spec.ts` "the source switch stays where it was when the turn prices land" holds the catalog and checks
+  the switch's box before and after.

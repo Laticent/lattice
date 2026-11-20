@@ -233,6 +233,20 @@
    }
   },
   {
+   "name": "backdrop: clear-footer",
+   "source": "---\nbackdrop: clear-footer\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: clear-hero",
+   "source": "---\nbackdrop: clear-hero\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
    "name": "backdrop: (unknown)",
    "source": "---\nbackdrop: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {

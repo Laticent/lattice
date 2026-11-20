@@ -6,6 +6,11 @@ PDFs from Markdown. It is the engine layer of the **Laticent** org. The
 **in this repository** — it is not built yet, and there is no separate desktop
 repo. Older notes that say otherwise are corrected in place.
 
+**We DEVELOP Lattice here; we never CONSUME it** — true after it is published too.
+Measure, test, render and audit only on this repo's own install and `npm run build`:
+never a published package, CDN copy, foreign `dist/` or a stub for a missing package. If install or build fails, **stop and say so
+first**; report no numbers.
+
 **The visual contract is `lattice.css`.** Layouts are palette-blind: every
 color goes through `var(--token)`. Themes (`themes/indaco/indaco.css`,
 `themes/cuoio/cuoio.css`, …) supply the tokens.
@@ -240,13 +245,6 @@ needs no OK of its own. **It is not a rung of the ladder:** it grades the card, 
 does not review the code, so routine work still self-reviews and the card's
 "Independent eyes" axis still asks whether the tier the work earned ran. See `engineering/visual-review.md`.
 
-**Every agent runs on Opus** (HARD RULE #27) — the ladder decides *whether* an
-agent runs, and there is no second question about what it runs on.
-
-**"The trio" on its own means the adversarial trio. The additive trio
-(`seam-census` · `blast-radius` · `contradictions`) must be named in full. When a
-request is ambiguous, ask — the two do opposite work.**
-
 **Maker-checker is the middle rung of the verification ladder** (HARD RULE #25):
 routine work self-reviews with the gates; blast radius gets maker-checker;
 **critical, high-blast-radius, or genuinely novel work escalates to the
@@ -286,9 +284,7 @@ is for now:
 | `seam-census` · `blast-radius` · `contradictions` | The **additive** trio — discovery, not verification (`engineering/orchestration.md` § The additive trio) |
 | `docs-auditor` · `prose-checker` | Doc honesty · prose audit |
 
-**"The trio" on its own means the adversarial trio. The additive trio must be
-named in full. When a request is ambiguous, ask — the two do opposite work.** The
-adversarial three audit claims you already have; the additive three generate them
+The adversarial three audit claims you already have; the additive three generate them
 (joins, reverse-dependency closures, refused tradeoffs). The additive trio is
 **not** a rung on the verification ladder and is never mandatory.
 
@@ -722,7 +718,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | **Writing, fixing or investigating a test (any tier)** — the missions, the practice, the gotchas; and, for a test that waits, times, randomizes or reaches out, the nine flaky shapes and their fixes (HARD RULE #32) | `engineering/testing.md` (section by section), then `engineering/decisions/2026-11-06-flaky-tests.md` for the flaky shapes |
 | **Waiting on a slow job** — a build, the integration tier, a push — one waiter per job, always bounded | `engineering/development.md` §Waiting for a slow job. Never hand-roll `until …; do sleep N; done` in a background call: it has no deadline and no identity, and a late fire re-sends the whole conversation at full price. Use `tools/wait-for.sh` |
 | Something behaving strangely (symptom index) | `dist/engineering/gotchas.md` (generated on install, not committed) lists SYMPTOMS — skim it, open the ONE `engineering/gotchas/<topic>.md` it names. Searching by API / property / selector / token instead? **`grep -rn <term> engineering/gotchas/`** — the bodies live there, not in the index. Never read either top-to-bottom |
-| Where X lives · engine internals | `dist/engineering/codemap.md` · `engineering/architecture.md` |
+| Where X lives (grep the map first) · engine internals | `dist/engineering/codemap.md` (generated, not committed) · `engineering/architecture.md` |
 | Where we stand vs Marp (independence scorecard) | `engineering/marp-independence.md` |
 | The CSS cascade / `@layer` (declared-but-inert; the trap) | `engineering/cascade.md` |
 | **Layering a slide** — which z-plane a thing lives on, and the local 0–9 band | `design/forms.md` §5.2 + `lib/base/base.tokens.css` § depth axis |

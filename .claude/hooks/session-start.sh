@@ -69,7 +69,34 @@ quiet_try() {
 #    container-state caching after the first run; the lockfile pins versions.
 #    Its `prepare` step also runs `lefthook install`, wiring the git hooks so
 #    the pre-commit / pre-push gates are actually active in this session.
-quiet npm install --no-audit --no-fund
+#    If it fails, nothing after it can work: CLAUDE.md says we develop Lattice from this
+#    repo's own build and never from anything else, so the session must stop and tell the
+#    owner first. `cant_build` prints that in plain words below the step's own output, and
+#    the hook ends with exit 0: a SessionStart hook's stdout reaches the session's context
+#    only on exit 0 (the comment above QUIET_LOG relies on the same rule), and on exit 1 the
+#    session would start without ever seeing why. The banner is also copied to stderr, which
+#    a human sees only in verbose mode; the session saying it is what reaches the owner.
+cant_build() {
+  local banner="LATTICE CANNOT BE BUILT IN THIS SESSION: $1 failed (its output is above).
+CLAUDE.md: we develop Lattice here and never consume it. Say this to the owner FIRST,
+before any other work, and report no measurement, test or render until a build succeeds."
+  # Ask the registry the way npm itself connects (its proxy and registry config), bounded.
+  # npm reports an unreachable registry several ways, so its install output is no test, and
+  # a DNS lookup is wrong both ways (a proxy-only host fails it while npm works; an egress
+  # block passes it while npm fails). "Likely": a failed ping does not prove it is why.
+  if ! timeout 10 npm ping >/dev/null 2>&1; then
+    banner="$banner
+Likely cause: this environment cannot reach the npm registry (package installs are off).
+Fix: the owner turns package installs on in the environment's network settings, then
+starts a new session; a running session may not pick the change up."
+  fi
+  printf '\n%s\n' "$banner"
+  printf '\n%s\n' "$banner" >&2
+}
+if ! quiet npm install --no-audit --no-fund; then
+  cant_build "'npm install'"
+  exit 0
+fi
 
 # 1b. The generated bundles. dist/ and the docs-site bundles are BUILT, not
 #     committed (.gitignore, 2026-08-17), so a fresh container has neither. Almost
@@ -77,12 +104,14 @@ quiet npm install --no-audit --no-fund
 #     integration suites, the docs site, and the agent-facing catalog
 #     dist/docs/components.pick.md that CLAUDE.md tells you to grep. ~16s, no
 #     browser. Idempotent — a no-op when they are already current.
-# `|| true` is deliberate under `set -euo pipefail`: a build failure must NOT abort
-# the hook, because everything below it — poppler-utils and CHROME_PATH — is what
-# the render pipeline needs, and losing those to a build error would strand the
-# session with a far more confusing failure than a missing dist/. The build also
-# self-bootstraps a cold tree, so this is a no-op on a warm one.
-quiet_try npm run build || echo "  (build failed — run 'npm run build' to see why; continuing)"
+# A build failure must NOT abort the hook under `set -euo pipefail`, because everything
+# below it — poppler-utils and CHROME_PATH — is what the render pipeline needs. But a
+# session with a stale or missing dist/ must not be told it is ready either (CLAUDE.md:
+# report nothing until a build succeeds), so it gets the same banner as a failed install
+# and the closing "ready" line is withheld. The build self-bootstraps a cold tree, so this
+# is a no-op on a warm one.
+BUILD_OK=1
+quiet npm run build || { BUILD_OK=0; cant_build "'npm run build'"; }
 
 # 2. System deps for the PDF pipeline. A fresh container's apt index is often
 #    stale, so refresh it once before installing — a stale index 404s on the
@@ -181,4 +210,7 @@ fi
 # 5. Point every session at the centralized standard-practice digest. The hook's
 #    stdout lands in the session's initial context, so this one line is what
 #    turns "rediscover the sandbox each time" into "read it once, up front".
-echo "Lattice sandbox ready — standard practice (render / docs-site / lint / test cheatsheet): see CLAUDE.md § \"Cloud sandbox\"."
+if [ "$BUILD_OK" = 1 ]; then
+  echo "Lattice sandbox ready — standard practice (render / docs-site / lint / test cheatsheet): see CLAUDE.md § \"Cloud sandbox\"."
+fi
+exit 0

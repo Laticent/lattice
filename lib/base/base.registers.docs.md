@@ -303,6 +303,8 @@ or fabricated, without changing the finish itself. It takes up to two words, one
 | Mask | `clear` | `backdrop-clear` | The frame's content box (eyebrow, heading and body) is clean canvas; the finish reads only in the margin, fading in softly on screen and in the PDF, HTML and image exports alike. On a `split-panel` or `split-compare` slide it clears behind the content of the side with the cards |
 | Mask | `spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br` | `backdrop-spot-<pos>` | The finish shows in one window at that anchor, and nowhere else |
 | Mask | `open` | `backdrop-open` | No mask, discarding a finish's own baked clearance or spotlight |
+| Mask | `clear-footer` | `backdrop-clear-footer` | A keep-out for a pattern finish (a grid, dots, ruled lines). The finish keeps running behind the content and steps aside only for the footer band: the footer text, the section rail and the page number sit on clean canvas, and the pattern fades back in above them. The band clears whether or not a slide draws its footer, so the pattern's lower edge holds still |
+| Mask | `clear-hero` | `backdrop-clear-hero` | `clear-footer`, and on a `big-number` slide the content box as well, so the pattern never runs under the hero number. Elsewhere it is `clear-footer`, so one deck line serves a whole patterned deck |
 
 ```markdown
 ---

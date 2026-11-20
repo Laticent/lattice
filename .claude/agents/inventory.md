@@ -39,3 +39,10 @@ The requested data, in the requested shape, with nothing padded around it. Then
 one line stating what you covered — the directories or globs scanned and the
 totals — plus anything you could not reach and why. No preamble, no summary of
 what you were about to do, no restatement of the question.
+
+## Finding your way
+
+To learn **which folder** holds something, grep `dist/engineering/codemap.md`
+first: one line per folder, code part, plugin and workspace library, with its
+purpose and layer. It stops at folders, so grep inside the folder it names. If
+the file is missing, `npm run codemap:build` writes it.

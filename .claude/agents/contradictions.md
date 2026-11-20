@@ -98,3 +98,10 @@ real surface. Never edit; never commit.
 4. **Claims taken from prose**, listed separately, each with the doc it came from
    and what would confirm it against code.
 5. **What you did not trace**, and the specific next step for each.
+
+## Finding your way
+
+To learn **which folder** holds something, grep `dist/engineering/codemap.md`
+first: one line per folder, code part, plugin and workspace library, with its
+purpose and layer. It stops at folders, so grep inside the folder it names. If
+the file is missing, `npm run codemap:build` writes it.

@@ -6871,7 +6871,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								value={deckBd.mask ?? AUTO_VALUE}
 								onValueChange={(v) => setDeckBackdrop('mask', v)}
 								className="w-full"
-								groups={withAutoHead([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: m === 'clear' ? 'Clear behind' : m === 'open' ? 'No mask' : `Window ${m.slice(5).toUpperCase()}` })) }], { label: "Finish's own" })}
+								groups={withAutoHead([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: m === 'clear' ? 'Clear behind' : m === 'open' ? 'No mask' : m === 'clear-footer' ? 'Clear the footer' : m === 'clear-hero' ? 'Clear footer and hero' : `Window ${m.slice(5).toUpperCase()}` })) }], { label: "Finish's own" })}
 							/>
 						</Field>
 					</>
