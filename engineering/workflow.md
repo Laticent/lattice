@@ -2489,7 +2489,8 @@ The owner runs many sessions at once. The 🚦 📋 🎯 ❓ cards each describe
 session. The fleet board puts all of them on one screen, so the owner can see
 who needs them, what is at risk, and what to do next. A **command center**
 session builds it whenever the owner asks for a board ("board", "fleet",
-`/fleet`). It never runs on a schedule unless the owner asks for one.
+`/fleet`). `/fleet table`, `/fleet loud`, `/fleet <name or #PR>` and
+`/fleet go A1 A3` pick the view or act; the skill lists them. It never runs on a schedule unless the owner asks for one.
 
 **It reads state; it stores none.** Sessions already leave their state where
 the board can read it, so the board adds no log, issue or file:

@@ -7,9 +7,23 @@ description: >
   "go". Use when the owner asks for a board, the fleet, a command-center view, a
   morning or weekly stand-up of sessions, or "where is each session at". NOT for one
   session's own status: that is its 📋 standup or 🎯 brief.
+argument-hint: "[table | cards | 🔴 | go A1 A3 | <name>]"
 ---
 
 # Fleet board
+
+## Arguments — `/fleet <what>`
+
+| Typed | Does |
+|---|---|
+| `/fleet` | the board as cards: the overview, then one card per line of work |
+| `/fleet table` | the same board as one table (`npm run card -- --table`) |
+| `/fleet 🔴` or `/fleet loud` | only the 🔴 and 🟠 cards, for a quick check |
+| `/fleet <name or #PR>` | one card for that line of work, with its transcript read |
+| `/fleet go A1 A3` | carry out those actions from the last board, nothing else |
+
+Anything else after `/fleet` is a question about the fleet: answer it from the
+same sources.
 
 The contract is `engineering/workflow.md` §🛰️ Fleet board. Read that section
 (`grep -n '🛰️ Fleet board' engineering/workflow.md`, then `sed` the range), not this
