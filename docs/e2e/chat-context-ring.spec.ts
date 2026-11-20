@@ -53,8 +53,8 @@ for (const [w, h] of [
 		// On the model that wrote the reply: 18.4K of 200K.
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
 		const menu = page.getByTestId('chat-metrics');
-		await expect(menu.getByText('9% used')).toBeVisible();
-		await expect(menu.getByText('18K of 200K tokens')).toBeVisible();
+		await expect(menu.getByText('9% used', { exact: true })).toBeVisible();
+		await expect(menu.getByText('18K of 200K tokens', { exact: true })).toBeVisible();
 		await page.keyboard.press('Escape');
 		await expect(menu).toBeHidden();
 
@@ -73,9 +73,9 @@ for (const [w, h] of [
 
 		// The same tokens, measured against the window of the model picked now.
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
-		await expect(menu.getByText('2% used')).toBeVisible();
-		await expect(menu.getByText('18K of 1.0M tokens')).toBeVisible();
-		await expect(menu.getByText('18K of 200K tokens')).toHaveCount(0);
+		await expect(menu.getByText('2% used', { exact: true })).toBeVisible();
+		await expect(menu.getByText('18K of 1.0M tokens', { exact: true })).toBeVisible();
+		await expect(menu.getByText('18K of 200K tokens', { exact: true })).toHaveCount(0);
 		await page.screenshot({ path: test.info().outputPath(`ring-after-switch-${w}.png`) });
 	});
 }

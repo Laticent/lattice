@@ -90,8 +90,8 @@ for (const [w, h] of [
 		await expect(menu).toBeVisible();
 		// One card per question; each card's breakdown sits behind its own "show details" toggle.
 		// Two model calls: $0.011 + $0.006. The window is the LAST call's input: 18.4K of 200K, 9%.
-		await expect(menu.getByText('9% used')).toBeVisible();
-		await expect(menu.getByText('18K of 200K tokens')).toBeVisible();
+		await expect(menu.getByText('9% used', { exact: true })).toBeVisible();
+		await expect(menu.getByText('18K of 200K tokens', { exact: true })).toBeVisible();
 		await menu.getByRole('button', { name: 'Context window: show details' }).click();
 		await expect(menu.getByText('Last reply wrote')).toBeVisible();
 		await expect(menu.getByTitle(/of them thinking$/)).toBeVisible();
@@ -151,7 +151,7 @@ for (const [w, h] of [
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
 		const menu = page.getByTestId('chat-metrics');
 		// Six messages stay word for word, so 18 of the 24 would become the briefing.
-		await expect(menu.getByText('18 messages')).toBeVisible();
+		await expect(menu.getByText('18 messages', { exact: true })).toBeVisible();
 		await menu.getByRole('button', { name: 'Compact conversation: show details' }).click();
 		await expect(menu.getByText('Saves about')).toBeVisible();
 		await expect(menu.getByText('Costs once')).toBeVisible();
