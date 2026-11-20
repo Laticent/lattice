@@ -2224,3 +2224,21 @@ never turn "passed in headless" into "works on iOS."
   `decodeGeminiSpeech` passes the WAV to the browser, which does); a script that treats the bytes as raw PCM adds a
   click and about 90 ms of loud noise. The reproduction and the open work are
   `followups.d/3319-p1-gemini-tts-misreads-yearn-by-position.md` and `…-p2-voice-model-pronunciation-caveats.md`.
+
+## A click on a dialog's button lands beside it on a loaded machine, and the dialog stays open
+
+- **Symptom** — `expect(dialog).toHaveCount(0)` times out right after a passing `click()` on the dialog's own button,
+  only under load (`library-images-render.spec.ts:148` in a 2-worker full Chromium run, 2026-11-19: the "Add 1 photo"
+  dialog still open 15 s after "Add photo" was clicked).
+- **Cause** — the dialog grew after it opened. `DialogContent` is centered on both axes, so content that arrives late
+  (here the photo-format sizes, measured by the import's encoder) moves the footer down by half the growth. Playwright
+  hit-tests the button, then sends the press at the point it measured; when the sizes land in between, that point is
+  above the button's new top edge (measured: 18.5 px of movement against a 32 px button). A person aiming at the button
+  as the numbers land misses it the same way.
+- **Fix** — reserve the late content's space from the first frame: draw the empty bar track and give the summary line
+  its full height while measuring (`PhotoFormatDialog.tsx`). `e2e/library-images.spec.ts` holds the encoder and checks
+  the dialog's height and the button's row before and after the sizes land, and that the old aim point is still the
+  button.
+- **Triggered by** — anything in a centered dialog that fills in after it opens: a measured number, a status line, a
+  badge.
+- **Removable when** — never.

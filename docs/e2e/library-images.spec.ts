@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { motionSettled } from './barriers';
 import { confirmPhotoFormat } from './photo-format';
 import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
@@ -418,3 +419,66 @@ for (const engine of [' @gecko', ' @webkit-tablet']) test(`@smoke adding a photo
 	// The size shown for PNG is the size stored, within the measurement's own rounding.
 	expect(Math.abs(stored.bytes - png) / png).toBeLessThan(0.1);
 });
+
+// THE DIALOG HOLDS ITS PLACE WHILE THE SIZES LAND. The dialog is centered on both axes, and each option's size, bar
+// and the summary line arrive after it opens, measured by the import's own encoder. When those grew the dialog, its
+// "Add" button moved 18.5 px down under a pointer already aimed at it (desktop, one 1800x600 PNG), so a press made as
+// the numbers landed hit the space above the button and the dialog stayed open. The full Chromium run lost
+// library-images-render.spec.ts:148 that way on a loaded machine (2026-11-19), and a person can lose a tap the same way.
+// The encoder is HELD here, so "before the sizes land" is a state the test chooses rather than a race it hopes to win.
+for (const engine of [' @gecko', ' @webkit-tablet'])
+	for (const width of [1440, 390])
+		test(`the photo-format dialog keeps its Add button where it was when the measured sizes land, at ${width}px${engine}`, async ({ page }) => {
+			await gotoStudio(page);
+			await page.setViewportSize({ width, height: width >= 1100 ? 900 : 844 });
+			await openLibraryImages(page, width);
+			await page.evaluate(async () => {
+				const c = document.createElement('canvas');
+				c.width = 1800;
+				c.height = 600;
+				const g = c.getContext('2d') as CanvasRenderingContext2D;
+				g.fillStyle = '#d0a028';
+				g.fillRect(0, 0, 1800, 600);
+				const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/png'));
+				// From here on every encode waits for the test: the dialog's measurement encodes through `toBlob`
+				// (media-import.ts), one format after another, so holding the first holds them all.
+				const w = window as unknown as { __releaseEncodes: () => void };
+				const real = HTMLCanvasElement.prototype.toBlob;
+				const queue: Array<() => void> = [];
+				let held = true;
+				HTMLCanvasElement.prototype.toBlob = function (cb: BlobCallback, ...rest: [string?, number?]) {
+					real.call(this, (b) => (held ? queue.push(() => cb(b)) : cb(b)), ...rest);
+				};
+				w.__releaseEncodes = () => {
+					held = false;
+					for (const run of queue.splice(0)) run();
+				};
+				const dt = new DataTransfer();
+				dt.items.add(new File([blob], 'pano.png', { type: 'image/png' }));
+				const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+				input.files = dt.files;
+				input.dispatchEvent(new Event('change', { bubbles: true }));
+			});
+			const dialog = page.getByRole('dialog', { name: /^Add 1 photo/ });
+			const add = dialog.getByRole('button', { name: /^Add photo/ });
+			await expect(add).toBeVisible();
+			// The state under test: nothing measured yet, every option still on its spinner.
+			await expect(dialog.getByLabel('Measuring')).toHaveCount(4);
+			await motionSettled(page, '[role="dialog"]');
+			const before = { dialog: await dialog.boundingBox(), add: await add.boundingBox() };
+			await page.evaluate(() => (window as unknown as { __releaseEncodes: () => void }).__releaseEncodes());
+			await expect(dialog.getByLabel('Measuring')).toHaveCount(0);
+			await expect(dialog.locator('[data-format-size="original"]')).toContainText(/MB/);
+			await motionSettled(page, '[role="dialog"]');
+			const after = { dialog: await dialog.boundingBox(), add: await add.boundingBox() };
+			if (!before.dialog || !before.add || !after.dialog || !after.add) throw new Error('the dialog or its Add button has no box');
+			// The button's label grows to name the choice ("Keep original · 0.1 MB"); it grows from its fixed edge, so the
+			// box may widen, but its height, its row and the dialog around it may not move.
+			expect(after.dialog.height, 'the dialog grew when the sizes landed').toBeCloseTo(before.dialog.height, 0);
+			expect(after.add.y, 'the Add button moved up or down when the sizes landed').toBeCloseTo(before.add.y, 0);
+			expect(after.add.height).toBeCloseTo(before.add.height, 0);
+			// What a person aimed at before the numbers landed is still the Add button after.
+			const aim = { x: before.add.x + before.add.width / 2, y: before.add.y + before.add.height / 2 };
+			const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('button')?.textContent ?? null, aim);
+			expect(hit, 'the point the Add button covered before the sizes landed').toMatch(/^Add photo/);
+		});
