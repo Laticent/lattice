@@ -95,6 +95,12 @@ async function latticeKeepaliveOpen() {
 async function latticeKeepaliveImmersive() {
 	const h = latticeKeepaliveHelpers();
 	const full = await h.until(() => h.button('Fullscreen'), 15000, 'the Fullscreen button');
+	// This step tests the REFUSED path: Present turns on its immersive layout when the browser will not go full screen.
+	// A scripted click is no gesture of its own, but it inherits one while the last real tap is still recent, and this
+	// Safari (26.5) then GRANTS real full screen (run 44804692039: fullscreenEnabled and fullscreenElement both true),
+	// which Present rightly answers with no immersive layout. So wait for that activation to lapse; the request is then
+	// refused every time, instead of by whichever way the timing fell.
+	const activationLapsed = await h.until(() => (navigator.userActivation ? !navigator.userActivation.isActive : 'no API'), 15000, 'the last tap to stop counting as a gesture');
 	full.click();
 	// On a timeout, say what the page DID reach: a macOS run costs 40 minutes, so a bare "timed out" wastes one.
 	const row = await h.until(() => h.dialog()?.querySelector('[data-present-immersive]'), 10000, 'the immersive layout').catch((e) => {
@@ -106,7 +112,7 @@ async function latticeKeepaliveImmersive() {
 	await h.until(() => h.opacity(h.top()) === 0, 15000, 'the chrome to fade');
 	const r = h.frame().getBoundingClientRect();
 	// The middle of the slide's upper half: clear of the captions and of the dock that will come back over the bottom.
-	return { immersive: !!row, realFullscreen, x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height * 0.3), frame: [Math.round(r.width), Math.round(r.height)] };
+	return { immersive: !!row, realFullscreen, activationLapsed, x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height * 0.3), frame: [Math.round(r.width), Math.round(r.height)] };
 }
 
 /** The lock after a real tap: Present re-asks from inside any tap while it is not held, so by now it must be held. */

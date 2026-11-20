@@ -180,3 +180,10 @@ Toggle states were also hard to read: on was a tinted outline, close to off. On 
   That is a change to `read-aloud.ts`'s playback path, and it can only be verified on a device.
 - **An author-declared autoplay** (front matter, Deck settings, the HTML player). Needs a design
   round before code: see the decision card on the PR.
+- **Real full screen on an iPhone.** `docs/src/lib/fullscreen.ts` says iPhone Safari never grants
+  element full screen. The iOS Simulator suite saw the opposite: in Safari 26.5 on an iPhone 17 Pro
+  simulator, `fullscreenEnabled` was true and a request that inherited a recent tap was granted
+  (run 44804692039). Present handles both outcomes: granted gives real full screen with the docked
+  controls, refused gives the immersive layout. Whether a real iPhone grants it too, and whether a
+  phone in real full screen should also hide its controls, still needs a check on a device. The
+  keep-alive probe now waits for the tap's activation to lapse, so it always tests the refused path.
