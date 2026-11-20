@@ -80,6 +80,11 @@ test('Astro: front matter, HTML comments and style blocks are each read in their
   assert.deepEqual(lines(commentLines('x.astro', astro)), [2, 5, 8]);
 });
 
+test('a closing tag with a space or attributes still ends its block (</script >, </style\n>)', () => {
+  const html = '<script>\n// js\n</script >\n<!-- html -->\n<style>\n/* css */\n</style\n>\n// after: page text\n';
+  assert.deepEqual(lines(commentLines('x.html', html)), [2, 4, 6]);
+});
+
 test('markdown and unknown types have no comment lines', () => {
   assert.equal(commentLines('x.md', '<!-- _class: quote -->\n').size, 0);
   assert.equal(commentLines('x.json', '{"a": 1}\n').size, 0);

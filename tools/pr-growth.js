@@ -139,8 +139,8 @@ function maskMarkup(text, file) {
     if (fm) region(fm.index + fm[0].indexOf(fm[1]), fm.index + fm[0].indexOf(fm[1]) + fm[1].length, (s) => maskScript(s, 'x.ts'));
   }
   for (const [re, masker] of [
-    [/(<script\b[^>]*>)([\s\S]*?)(<\/script>)/gi, (s) => maskScript(s, 'x.ts')],
-    [/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi, (s) => cssCommentMask()(s)],
+    [/(<script\b[^>]*>)([\s\S]*?)(<\/script\b[^>]*>)/gi, (s) => maskScript(s, 'x.ts')],
+    [/(<style\b[^>]*>)([\s\S]*?)(<\/style\b[^>]*>)/gi, (s) => cssCommentMask()(s)],
   ]) {
     for (const m of [...out.matchAll(re)]) {
       const start = m.index + m[1].length;
