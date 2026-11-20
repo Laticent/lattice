@@ -268,7 +268,7 @@ above its verdict; and, on Marp, the LAST slide of every kit deck lost its coda,
 `<script>`/`<link>` lines at the end of the deck land inside that slide after its beats and the kernel's
 tail scan stopped at them (it now steps over them as it does over Marp's `<footer>`).
 
-**Not done here.** `image` and `collage` captions (`followups.d/coda-image-collage-caption.md`). Video
+**Not done here.** `image` and `collage` captions (`followups.d/3362-p3-image-collage-caption.md`). Video
 with BOTH a key insight and a caption fits only just: the engine's fit check flags a few pixels on the
 gallery sample. The runtime-off notice is verified on a modeled VS Code page (marp-core with the
 preview's options), not yet in a real VS Code.
