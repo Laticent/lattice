@@ -159,6 +159,7 @@ if (process.env.PROBE === 'present-keepalive') {
 		r.immersive = await call('latticeKeepaliveImmersive()');
 		await page.touchscreen.tap(r.immersive.x, r.immersive.y);
 		r.shown = await call('latticeKeepaliveShown()');
+		r.wakeAfterTap = await call('latticeKeepaliveWake()');
 		r.play = await call('latticeKeepalivePlay()');
 		r.next = await call('latticeKeepaliveNext()');
 		r.close = await call('latticeKeepaliveClose()');

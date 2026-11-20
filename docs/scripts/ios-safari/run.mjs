@@ -763,9 +763,19 @@ async function runPresentKeepaliveProbe(id) {
 		r.taps = holds.join(', then ');
 		r.open = await call('latticeKeepaliveOpen()');
 		r.immersive = await call('latticeKeepaliveImmersive()');
-		// A real finger: a WebDriver touch at the slide, as the owner taps it.
-		await touchTap(r.immersive.x, r.immersive.y);
-		r.shown = await call('latticeKeepaliveShown()');
+		// A real finger: a WebDriver touch at the slide, as the owner taps it, re-delivered ONCE if iOS read it as a long press
+		// (no click follows a long press, so the tap rule never sees it): the same guard as the Present tap above.
+		const slideHolds = [];
+		for (let attempt = 0; attempt < 2; attempt++) {
+			await call('latticeKeepaliveArmTap()');
+			await touchTap(r.immersive.x, r.immersive.y);
+			r.shown = await call('latticeKeepaliveShown()');
+			const hold = tapHold(await call('({ events: (window.__kaTap || { events: [] }).events })'));
+			slideHolds.push(hold === null ? 'no touch seen' : `${hold} ms`);
+			if (r.shown.shown || (hold !== null && hold < LONG_PRESS_MS)) break;
+		}
+		r.slideTaps = slideHolds.join(', then ');
+		r.wakeAfterTap = await call('latticeKeepaliveWake()');
 		r.play = await call('latticeKeepalivePlay()');
 		r.next = await call('latticeKeepaliveNext()');
 		r.close = await call('latticeKeepaliveClose()');

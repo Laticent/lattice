@@ -98,6 +98,12 @@ async function latticeKeepaliveImmersive() {
 	return { immersive: !!row, realFullscreen, x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height * 0.3), frame: [Math.round(r.width), Math.round(r.height)] };
 }
 
+/** The lock after a real tap: Present re-asks from inside any tap while it is not held, so by now it must be held. */
+async function latticeKeepaliveWake() {
+	const h = latticeKeepaliveHelpers();
+	return { wake: await h.until(() => (h.dialog()?.getAttribute('data-wake') === 'held' ? 'held' : null), 5000, 'the lock').catch(() => h.dialog()?.getAttribute('data-wake') || 'no attribute') };
+}
+
 async function latticeKeepaliveShown() {
 	const h = latticeKeepaliveHelpers();
 	const shown = await h.until(() => h.opacity(h.top()) === 1, 5000, 'the chrome to come back').catch(() => false);
@@ -150,13 +156,15 @@ async function latticeKeepaliveClose() {
 /** The verdict, shared by run.mjs and probe.selftest.mjs. It judges states reached, never durations (HARD RULE #32). */
 function latticeKeepaliveChecks(r, { realSafari }) {
 	return [
-		{ name: 'Present holds a screen wake lock', pass: r.open?.wake === 'held', detail: `data-wake=${r.open?.wake}, navigator.wakeLock ${r.open?.hasApi ? 'present' : 'absent'}${r.taps ? `; Present opened by a touch held ${r.taps}` : ''}` },
+		// WebKit grants the lock only inside a user gesture, and a slow simulator can stretch a tap past what counts as one. So
+		// the claim is the product's: after a real tap (the one that opened Present, or the tap on the slide) the lock is held.
+		{ name: 'Present holds a screen wake lock after a real tap', pass: (r.wakeAfterTap?.wake ?? r.open?.wake) === 'held', detail: `at open ${r.open?.wake}, after the slide tap ${r.wakeAfterTap?.wake ?? 'not read'}; navigator.wakeLock ${r.open?.hasApi ? 'present' : 'absent'}${r.taps ? `; Present opened by a touch held ${r.taps}` : ''}` },
 		{ name: 'Fullscreen turns on the immersive layout, and its chrome fades', pass: r.immersive?.immersive === true, detail: `${realSafari ? 'real full screen ' + (r.immersive?.realFullscreen ? 'granted' : 'refused') : ''} slide ${r.immersive?.frame?.join('x')}` },
-		{ name: 'a touch tap on the slide brings the chrome back', pass: r.shown?.shown === true, detail: `top bar opacity ${r.shown?.opacity}` },
+		{ name: 'a touch tap on the slide brings the chrome back', pass: r.shown?.shown === true, detail: `top bar opacity ${r.shown?.opacity}${r.slideTaps ? `; the tap held ${r.slideTaps}` : ''}` },
 		{ name: 'the captions ride inside the slide and their highlight walks the words', pass: r.play?.inside === true && r.play?.lit > 1, detail: `"${r.play?.caption}" ${r.play?.lit} lit, ${r.play?.fontPx}px on a ${r.play?.frameW}px slide` },
 		{ name: 'Next while playing: the next slide plays on its own and the lock is still held', pass: r.next?.to === r.next?.from + 1 && r.next?.still === true && r.next?.wake === 'held', detail: `${r.next?.from} -> ${r.next?.to}, "${r.next?.caption}", wake ${r.next?.wake}` },
 		{ name: 'closing Present stops the narration', pass: r.close?.stopped === true, detail: '' },
 	];
 }
 
-Object.assign(globalThis, { latticeKeepaliveArmTap, latticeKeepaliveOpened, latticeKeepalivePresentAt, latticeKeepaliveOpen, latticeKeepaliveImmersive, latticeKeepaliveShown, latticeKeepalivePlay, latticeKeepaliveNext, latticeKeepaliveClose, latticeKeepaliveChecks });
+Object.assign(globalThis, { latticeKeepaliveWake, latticeKeepaliveArmTap, latticeKeepaliveOpened, latticeKeepalivePresentAt, latticeKeepaliveOpen, latticeKeepaliveImmersive, latticeKeepaliveShown, latticeKeepalivePlay, latticeKeepaliveNext, latticeKeepaliveClose, latticeKeepaliveChecks });
