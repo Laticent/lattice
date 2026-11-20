@@ -1058,6 +1058,126 @@ section.backdrop-clear {
   --backdrop-veil-weight: 1;
   --backdrop-dim-scrim: var(--backdrop-veil-fill);
 }
+/* THE KEEP-OUTS — `clear-footer` and `clear-hero`. `clear` empties the whole content box, which
+ * is right for a wash and wrong for a pattern: a grid, halftone or ruled finish exists to run
+ * behind the content. What a pattern must never cross is what a reader decodes letter by letter:
+ * the footer text, the section rail, the page number and a hero number. So the keep-outs leave
+ * the content alone and move the SAME clear layer (the blurred `::before` above: same fill, bleed
+ * and blur, and the same Studio-raster mask) onto that chrome. New words, not a wider `clear`, so
+ * a deck that already says `clear` renders byte-identical (2026-11-20-deck-preset-study.md L6).
+ *
+ *   clear-footer  the footer band: from the top of the band down to the slide's bottom edge,
+ *                 across the slide's full width.
+ *   clear-hero    the same, and on a big-number slide the rectangle starts at the TOP of the
+ *                 content box instead, so it also covers the hero stack (number, caption and
+ *                 eyebrow). Elsewhere `clear-hero` is `clear-footer`, so one deck word serves a
+ *                 patterned deck whose big-number slides need more room.
+ *
+ * ONE RECTANGLE, IN THE BACKDROP. The CLI PDF's camera keeps any text an element paints over in
+ * the photo, and it reads a pseudo on the hero stack as painting over the number, even at a
+ * negative z-index: a first draft drew the hero clear there and the number left the PDF's text
+ * layer. Kept in `.backdrop`, the clear is background the camera photographs, and the words stay
+ * vector. One rectangle also keeps the Studio raster's two-axis mask (keyed on the layer's
+ * content box) exact, where two rectangles would need two masks.
+ *
+ * THE GEOMETRY. The layer's CONTENT box is the rectangle, and its padding is at least one bleed
+ * on every side, so the rule above (background from -bleed, size +2 bleeds) and the Studio mask
+ * work unchanged. The content box spans the slide's full width and reaches down to its bottom
+ * edge; the padding carries the box two bleeds past the slide on those three sides, and a
+ * `clip-path` cuts it back to the mask's own box AFTER the blur (clip follows filter). So the
+ * only soft edge is the top one, and the layer never reaches past the mask: unclipped, it washed
+ * out a tone slide's 8px rail, which sits under `.backdrop` beside the inset mask (the checker,
+ * 2026-11-20). The band's height is the footer Cell's: it hugs `--frame-inset-b` and its one row
+ * is `--chrome-fs * 1.6` (lib/forms/cell/stage/stage.css, `.cell-footer` grid-template-rows). It
+ * clears the band whether or not a slide draws its footer, so the pattern's lower edge holds still
+ * from slide to slide. It covers a finish MARK in that band too (atrium's left rule stops above the
+ * footer), as `clear` covers one in the content box; the section's own `spectrum-edge:` bar is not
+ * a finish layer and is untouched. */
+section.backdrop-clear-footer,
+section.backdrop-clear-hero {
+  --backdrop-scrim: none;
+  --backdrop-scrim-opaque: none;
+  --backdrop-clear-scrim: var(--backdrop-clear-fill);
+  --backdrop-veil-weight: 1;
+  --backdrop-dim-scrim: var(--backdrop-veil-fill);
+}
+section.finish:is(.backdrop-clear-footer, .backdrop-clear-hero) > .backdrop > .backdrop-mask::before {
+  box-sizing: content-box;
+  top: auto;
+  right: calc(var(--backdrop-clear-bleed) * -2);
+  bottom: calc(var(--backdrop-clear-bleed) * -2);
+  left: calc(var(--backdrop-clear-bleed) * -2);
+  width: auto;
+  height: calc(var(--frame-inset-b) + var(--chrome-fs) * 1.6);
+  padding: var(--backdrop-clear-bleed) calc(var(--backdrop-clear-bleed) * 2) calc(var(--backdrop-clear-bleed) * 2);
+  clip-path: inset(0 calc(var(--backdrop-clear-bleed) * 2) calc(var(--backdrop-clear-bleed) * 2));
+}
+/* SPLIT SLIDES restate the clear layer's box for `clear` (split-panel.styles.css,
+ * split-compare.styles.css: the supporting zone's content box, at up to 0,8,2), and their
+ * `padding` / `inset` / `width` would mix with the band's into a box off the slide, or a hard bar
+ * at the top-left on `metric` (the checker, 2026-11-20). `[class]` and the two `:not()` lift this
+ * copy of the band above them (the spot rule's device, below). The footer text sits on the
+ * supporting side and the page number over the panel, and the panel paints its OWN copy of the
+ * finish, so the panel's clear layer (the split CSS's `::before`, filled by `--fin-surface-clear`)
+ * takes the same band, measured from the panel's bottom edge, which is the slide's in landscape.
+ * That layer stays INSIDE the panel: a box reaching past it counts as the panel's scrollable
+ * overflow and flagged the slide as clipped. Its solid fill reaches past the box as a zero-blur
+ * `box-shadow` instead, which is ink and not overflow, and the clip cuts it back after the blur.
+ * Portrait and square give the panel a page of its own, so the split CSS's box rules stand down
+ * there and so does the slide-level copy above; the panel's band still holds, since the panel ends
+ * at the slide's bottom edge in every orientation. `pullquote` draws its opening quote on that pseudo, so its panel keeps
+ * the finish under a keep-out, as it does under `clear`. */
+section.finish[class]:is(.split-panel, .split-compare):is(.backdrop-clear-footer, .backdrop-clear-hero):not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {
+  top: auto;
+  right: calc(var(--backdrop-clear-bleed) * -2);
+  bottom: calc(var(--backdrop-clear-bleed) * -2);
+  left: calc(var(--backdrop-clear-bleed) * -2);
+  width: auto;
+  padding: var(--backdrop-clear-bleed) calc(var(--backdrop-clear-bleed) * 2) calc(var(--backdrop-clear-bleed) * 2);
+}
+section.finish:is(.backdrop-clear-footer, .backdrop-clear-hero) :is(.panel-left, .panel-right, .compare-left) {
+  --fin-surface-clear: var(--backdrop-clear-fill);
+  --fin-surface-clear-filter: var(--backdrop-clear-filter, none);
+}
+section.finish[class].split-panel:not(.metric):not(.pullquote):is(.backdrop-clear-footer, .backdrop-clear-hero) .panel-left::before,
+section.finish[class].split-panel.metric:is(.backdrop-clear-footer, .backdrop-clear-hero) .panel-right::before,
+section.finish[class].split-compare:is(.backdrop-clear-footer, .backdrop-clear-hero) .compare-left::before {
+  box-sizing: border-box;
+  top: auto;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: calc(var(--frame-inset-b) + var(--chrome-fs) * 1.6 + var(--backdrop-clear-bleed));
+  padding: 0;
+  background-origin: border-box;
+  background-position: 0 0;
+  background-size: 100% 100%;
+  box-shadow: 0 calc(var(--backdrop-clear-bleed) * 2) 0 calc(var(--backdrop-clear-bleed) * 2) var(--fin-canvas);
+  clip-path: inset(calc(var(--backdrop-clear-bleed) * -2) 0 0 0);
+}
+/* The Studio raster turns the blur off; the panel band's top edge fades through a one-axis mask over
+ * the bleed instead (the split CSS's two-axis ramp would also fade the band's sides and bottom). */
+section.finish[class].lattice-exporting.split-panel:not(.metric):not(.pullquote):is(.backdrop-clear-footer, .backdrop-clear-hero) .panel-left::before,
+section.finish[class].lattice-exporting.split-panel.metric:is(.backdrop-clear-footer, .backdrop-clear-hero) .panel-right::before,
+section.finish[class].lattice-exporting.split-compare:is(.backdrop-clear-footer, .backdrop-clear-hero) .compare-left::before {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black var(--backdrop-clear-bleed));
+  mask-image: linear-gradient(to bottom, transparent, black var(--backdrop-clear-bleed));
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+  -webkit-mask-origin: border-box;
+  mask-origin: border-box;
+  -webkit-mask-position: 0 0;
+  mask-position: 0 0;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+/* The hero arm: the top edge is the content box's (the section's own top padding, inherited
+ * as `clear` does), and the bottom stays the slide's. */
+section.finish.backdrop-clear-hero.big-number > .backdrop > .backdrop-mask::before {
+  top: 0;
+  height: auto;
+  padding-top: inherit;
+}
 /* SPOTLIGHT at one of nine anchors — the same two-face window Fabricate bakes
  * (finish-generate.ts `spotlightMask`): transparent inside = finish shown, the canvas
  * outside = finish hidden; RICH feathers, OPAQUE is one hard stop for the vector PDF. Only
