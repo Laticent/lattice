@@ -2,6 +2,7 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
+import { PRESETS, withPresetTable } from '../../../lib/core/front-matter-key.js';
 import { deckClassTokens, deckThemeName, pinnedMode, resolveDeckTheme } from './deck-theme';
 
 // A permissive registry for the tests — every built-in name we reference is "known".
@@ -203,5 +204,42 @@ describe('resolveDeckTheme — the first-class color-mode: key', () => {
 		const r = resolveDeckTheme(fm('style: |\n  class: dark\ntheme: indaco'), { sitePalette: 'laguna', siteMode: 'light', isKnownTheme });
 		expect(r.pinnedDark).toBe(false);
 		expect(r.colorMode).toBe(null);
+	});
+});
+
+// P0 of engineering/decisions/2026-11-20-deck-preset-study.md (§5 D1): a preset RECOMMENDS a palette and a
+// color mode. No shipped preset sets either yet, so these arms run on a probe preset.
+
+describe('resolveDeckTheme — a preset recommendation (P0)', () => {
+	const PROBE = { label: 'Probe', desc: '', values: { theme: 'cuoio', 'color-mode': 'dark' } };
+	const withProbe = <T,>(f: () => T): T => withPresetTable({ ...PRESETS, probe: PROBE }, f);
+	const site = { sitePalette: 'indaco', siteMode: 'light' as const, isKnownTheme };
+
+	it('renders the preset palette and mode when the deck names neither', () => {
+		withProbe(() => {
+			const r = resolveDeckTheme(fm('preset: probe'), site);
+			expect(r).toMatchObject({ palette: 'cuoio', fromDeck: true, mode: 'dark', pinnedDark: true, colorMode: 'dark' });
+			expect(deckThemeName(fm('preset: probe'))).toBe('cuoio');
+		});
+		// Control: outside the probe the name recommends nothing, so the site decides.
+		expect(resolveDeckTheme(fm('preset: probe'), site)).toMatchObject({ palette: 'indaco', fromDeck: false, mode: 'light' });
+	});
+
+	it('a key the deck writes, or a legacy scheme pin, wins over the recommendation', () => {
+		withProbe(() => {
+			expect(resolveDeckTheme(fm('preset: probe\ntheme: laguna\ncolor-mode: light'), site)).toMatchObject({ palette: 'laguna', mode: 'light' });
+			expect(resolveDeckTheme(fm('preset: probe\nclass: light'), site)).toMatchObject({ mode: 'light', pinnedLight: true });
+			expect(resolveDeckTheme(fm('preset: probe\nclass: color-system'), site).colorMode).toBe(null);
+			expect(resolveDeckTheme(fm('preset: probe\nclass: Dark'), site).colorMode).toBe('dark');
+			expect(resolveDeckTheme(fm('preset: probe\ntheme: cuoio-dark'), site)).toMatchObject({ mode: 'dark', pinnedDark: true, colorMode: null });
+		});
+	});
+});
+
+describe('deckThemeName — the engine scalar rule', () => {
+	it('reads a quoted value with a trailing comment as the engine does', () => {
+		expect(deckThemeName(fm('theme: "cuoio" # brand'))).toBe('cuoio');
+		expect(deckThemeName(fm('theme: cuoio  # brand'))).toBe('cuoio');
+		expect(deckThemeName(fm('theme: # todo'))).toBe(null);
 	});
 });

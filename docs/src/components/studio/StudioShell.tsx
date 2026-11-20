@@ -2725,14 +2725,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const deckClassList = (getFrontMatter(source, 'class') || '').split(/\s+/).filter(Boolean);
 	// The deck's raw `theme:` (may be a `-dark` variant on an imported deck) and its
 	// base palette (darkness lives on the `class:` axis, not the theme name, in the UI).
-	const deckThemeRaw = (getFrontMatter(source, 'theme') || '').trim();
+	// An absent `theme:` shows the palette the deck's preset recommends, which is what renders (D1,
+	// engineering/decisions/2026-11-20-deck-preset-study.md).
+	const deckThemeRaw = (getFrontMatter(source, 'theme') || presetBaseline(source, 'theme') || '').trim();
 	const deckThemeBase = deckThemeRaw.replace(/-dark$/, '');
 	// The deck's first-class `color-mode:` value — light/dark PIN a side, `system` follows
 	// the viewer's OS, `inherited` adopts the host (site/player) mode. It is the authored
 	// default the whole engine + every surface honors (2026-07-11-color-mode-frontmatter.md).
 	// A legacy `class: dark/light` or a `-dark` theme name is read as its equivalent so an
 	// imported deck still shows a value; a deck with none reads 'default' (the theme's own mode).
-	const rawColorMode = (getFrontMatter(source, 'color-mode') || '').trim().toLowerCase();
+	// An absent key shows the preset's recommended mode, unless the deck pins a scheme the legacy way, which
+	// a recommendation never overrides (lib/core/resolve-color-mode.js `deckColorModeValue`).
+	const legacySchemePin = deckClassList.some((t) => t === 'dark' || t === 'light' || t === 'print') || /-dark$/.test((getFrontMatter(source, 'theme') || '').trim());
+	const rawColorMode = (getFrontMatter(source, 'color-mode') || (legacySchemePin ? '' : presetBaseline(source, 'color-mode')) || '').trim().toLowerCase();
 	const deckColorMode: 'default' | 'light' | 'dark' | 'system' | 'inherited' | 'print' =
 		rawColorMode === 'light' || rawColorMode === 'dark' || rawColorMode === 'system' || rawColorMode === 'inherited' || rawColorMode === 'print'
 			? rawColorMode

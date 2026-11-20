@@ -184,9 +184,12 @@ export function readFrontMatter(source) {
   // verbatim, not form-managed — keep them out of the scalar map's stringly view.
   for (const [k, v] of entries) if (!(v?.block)) map[k] = stripQuotes(v);
   return {
-    theme: map.theme || '',
-    mode: map.mode || '',
-    'color-mode': map['color-mode'] || '',
+    // A preset RECOMMENDS a palette, a hand and a color mode (engineering/decisions/2026-11-20-deck-preset-study.md
+    // §5 D1): an absent key reads as the preset's, as the engine renders it. The color mode yields to a scheme the
+    // deck pins the legacy way (`class: dark`, a `-dark` theme), as lib/core/resolve-color-mode.js does.
+    theme: map.theme || lookBaseline(map.preset, 'theme') || '',
+    mode: map.mode || (lookBaseline(map.preset, 'mode') === 'boardroom' ? '' : lookBaseline(map.preset, 'mode')),
+    'color-mode': map['color-mode'] || (legacySchemePin(map) ? '' : lookBaseline(map.preset, 'color-mode') || ''),
     // A preset's backdrop reads as the current value; `none` stays the empty baseline.
     finish: map.finish || (lookBaseline(map.preset, 'finish') === 'none' ? '' : lookBaseline(map.preset, 'finish')),
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
@@ -216,6 +219,12 @@ export function readFrontMatter(source) {
     configured: present &&
       MANAGED.some((k) => k !== 'theme' && map[k] != null && map[k] !== '' && !isDefault(k, map[k])),
   };
+}
+
+// The deck pins its scheme the legacy way — a deck-wide `class: dark|light|print` or a `-dark` theme — which a
+// preset's recommended color mode never overrides (lib/core/resolve-color-mode.js `deckColorModeValue`).
+function legacySchemePin(map) {
+  return String(map.class || '').split(/\s+/).some((t) => t === 'dark' || t === 'light' || t === 'print') || /-dark$/.test(String(map.theme || '').trim());
 }
 
 function isDefault(key, value) {
@@ -262,8 +271,9 @@ function normalize(key, value, preset) {
   // none = backdrop baseline → omit (same no-class render as no key at all).
   // Under a preset with a backdrop, `none` is the override that gets written.
   if (key === 'finish') { const f = v.toLowerCase(); return f === '' || f === lookBaseline(preset, 'finish') ? null : f; }
-  // boardroom = style (mode) baseline → omit.
-  if (key === 'mode') { const s = v.toLowerCase(); return s === '' || s === 'boardroom' ? null : s; }
+  // boardroom = style (mode) baseline → omit. Under a preset that recommends another hand, the preset's
+  // hand is the baseline and `boardroom` is the override that gets written — the rule the look rows follow.
+  if (key === 'mode') { const s = v.toLowerCase(); return s === '' || s === lookBaseline(preset, 'mode') ? null : s; }
   if (key === 'split') { return v.toLowerCase() === 'rule' ? 'rule' : null; }
   // A look register at the value the deck's preset already gives it is omitted; any other
   // value is the override, written — the same rule `finish` and `lift` follow above.

@@ -135,12 +135,20 @@ function paletteClosure(palette) {
   return out;
 }
 
-/** Read the deck's `theme:` front-matter palette, or null. */
+/**
+ * Read the deck's palette from its front matter, or null — through the shared top-level reader the
+ * CLI and the engine use (`topLevelRegisterValue`), so a preset that recommends a
+ * `theme:` (engineering/decisions/2026-11-20-deck-preset-study.md §5 D1) picks the palette the bundle
+ * ships, and a trailing YAML comment (`theme: cuoio  # brand`) no longer drops the deck to the default
+ * while the engine renders `cuoio`.
+ */
 function readTheme(src) {
+  // The `^---\r?\n` anchor is deliberate: it reads the deck as `readDeckSource` hands it, so the
+  // ingest boundary stays the one place a BOM or a lone CR is folded (test/unit/core/line-endings.test.js).
   const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   if (!m) return null;
-  const t = [...m[1].matchAll(/^theme[ \t]*:[ \t]*["']?([A-Za-z0-9_-]+)["']?[ \t]*$/gm)].pop(); // the last repeat wins (#3050, D1)
-  return t ? t[1].trim() : null;
+  const t = require('../lib/core/front-matter-key').topLevelRegisterValue(m[1].replace(/\r$/gm, ''), 'theme');
+  return t && /^[A-Za-z0-9_-]+$/.test(t) ? t : null;
 }
 
 /**

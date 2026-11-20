@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { frontMatterName } from '../../../../lib/core/front-matter-key.js';
-import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetChanges, presetOf, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
+import { frontMatterName, PRESETS, withPresetTable } from '../../../../lib/core/front-matter-key.js';
+import { AUTHOR_KEYS, applyPreset, clearPresetOverrides, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetChanges, presetOf, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
 
 const deck = (...fm: string[]) => ['---', 'theme: indaco', ...fm, '---', '', '# Hi'].join('\n');
 const fmOf = (src: string) => src.split('---')[1];
@@ -103,5 +103,58 @@ describe('deck-preset — Reset never reaches into a `style: |` block (followups
 		const src = deck('preset: brand', 'lift: off', 'style: |', '  lift: on', '  rule: short');
 		expect(presetChanges(deck('preset: brand', 'style: |', '  lift: on', '  rule: short'))).toEqual([]);
 		expect(clearPresetOverrides(src)).toBe(deck('preset: brand', 'style: |', '  lift: on', '  rule: short'));
+	});
+});
+
+// P0 of engineering/decisions/2026-11-20-deck-preset-study.md: a preset RECOMMENDS `theme`, `color-mode`, `mode`,
+// `marks` and `backdrop` (D1). No shipped preset sets them yet, so the arms below run on a probe preset.
+const PROBE = { label: 'Probe', desc: 'test only', values: { theme: 'cuoio', 'color-mode': 'dark', marks: 'etch vivid', backdrop: '40 clear', rule: 'short' } };
+const withProbe = <T,>(fn: () => T): T => withPresetTable({ ...PRESETS, probe: PROBE }, fn);
+const bare = (...fm: string[]) => ['---', ...fm, '---', '', '# Hi'].join('\n');
+
+describe('deck-preset — the recommendation keys (P0)', () => {
+	it('reads a multi-word value whole, and a theme in its own case', () => {
+		expect(registerValue(bare('marks: etch vivid'), 'marks')).toBe('etch vivid');
+		expect(registerValue(bare('marks: "etch  Vivid"  # house'), 'marks')).toBe('etch vivid');
+		expect(registerValue(bare('backdrop: 40 clear'), 'backdrop')).toBe('40 clear');
+		expect(registerValue(bare('theme: NoirStudio'), 'theme')).toBe('NoirStudio');
+		// Control: a single-word key still reads as the bare, lower-cased name it always did.
+		expect(registerValue(bare('rule: Short'), 'rule')).toBe('short');
+		// A top-level key nested under another block is not the deck's key.
+		expect(registerValue(bare('foo:', '  backdrop: 40'), 'backdrop')).toBe('');
+	});
+
+	it('shows the preset recommendation until the deck writes its own', () => {
+		withProbe(() => {
+			const src = bare('preset: probe');
+			expect(registerValue(src, 'theme')).toBe('cuoio');
+			expect(registerValue(src, 'color-mode')).toBe('dark');
+			expect(registerValue(src, 'marks')).toBe('etch vivid');
+			expect(registerValue(src, 'backdrop')).toBe('40 clear');
+			expect(registerValue(bare('preset: probe', 'theme: indaco'), 'theme')).toBe('indaco');
+			// The old `chart-finish:` key still speaks for `marks:` and beats the preset, as in the engine.
+			expect(registerValue(bare('preset: probe', 'chart-finish: tone'), 'marks')).toBe('tone');
+			expect(registerValue(bare('preset: probe', 'marks: pigment', 'chart-finish: tone'), 'marks')).toBe('pigment');
+		});
+	});
+
+	it('Reset and the drift count never touch the author theme or color mode', () => {
+		expect(AUTHOR_KEYS).toEqual(['theme', 'color-mode']);
+		withProbe(() => {
+			const src = bare('preset: probe', 'theme: indaco', 'color-mode: light', 'marks: tone', 'rule: none');
+			expect(presetChanges(src)).toEqual(['rule', 'marks']);
+			expect(clearPresetOverrides(src)).toBe(bare('preset: probe', 'theme: indaco', 'color-mode: light'));
+		});
+		// Control: with no preset at all, Reset still keeps them.
+		expect(clearPresetOverrides(bare('theme: indaco', 'color-mode: dark', 'rule: none'))).toBe(bare('theme: indaco', 'color-mode: dark'));
+	});
+
+	it('a picker tile keeps the deck theme and color mode, and drops every other override', () => {
+		const fm = '---\ntheme: indaco\ncolor-mode: dark\nmarks: tone\nbackdrop: 80\n---';
+		const tile = presetSampleDeck(fm, 'editorial');
+		expect(tile).toContain('theme: indaco');
+		expect(tile).toContain('color-mode: dark');
+		expect(tile).not.toContain('marks:');
+		expect(tile).not.toContain('backdrop:');
 	});
 });

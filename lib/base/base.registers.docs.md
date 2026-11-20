@@ -74,7 +74,7 @@ Not a per-slide register — it has no `_class:` form. Contract:
 
 ## The `preset:` front-matter register (a named look)
 
-`preset:` is **one word that sets up to twelve registers**: the backdrop (`finish:`), headline
+`preset:` is **one word that sets up to twelve registers**, and may recommend five more (below): the backdrop (`finish:`), headline
 alignment, the brand bar and its placement, the card rail and its placement, structural trim,
 the heading rule, the eyebrow, card lift, corners and the type set (`typography:`). Each of those still works on its own —
 **an explicit key always wins over the preset** — so a preset is a starting point and the keys
@@ -99,16 +99,32 @@ rule: none          # everything from Editorial except the heading rule
 ---
 ```
 
-A preset has **no class token and no CSS of its own**. It resolves in the front-matter reader
-every render path shares (`frontMatterValue` in `lib/core/front-matter-key.js`): when a key in
-the family is absent — or written empty — the reader answers with the preset's value, and
-`preset:` itself is read top-level only. So `preset: editorial` renders exactly as if the deck
-had written its seven keys, per-slide `_class:` overrides work unchanged (`no-finish` keeps a
-slide clean), and the CLI, the export and the Studio agree by construction. A preset
-deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `cards:`, `stamp:` /
-`tone:` and every content key. An unknown name is flagged by the linter (`unknown-preset`) and
-resolves to no preset. The Studio previews the four live on one sample slide, in the deck's theme and color mode, at the top of
-the deck panel, with a count of the keys that differ from the chosen preset and a Reset. See
+A preset resolves in the front-matter reader every render path shares (`frontMatterValue` in
+`lib/core/front-matter-key.js`): when a key in the family is absent — or written empty — the
+reader answers with the preset's value, and `preset:` itself is read top-level only. So
+`preset: editorial` renders exactly as if the deck had written its seven keys, per-slide
+`_class:` overrides work unchanged (`no-finish` keeps a slide clean), and the CLI, the export
+and the Studio agree by construction.
+
+**A preset may also recommend** `theme:` (the palette), `color-mode:`, `mode:` (the rendering
+hand), `marks:` and `backdrop:`. None of the four shipped presets does yet; the presets that
+use them arrive with the deck-preset work
+(`engineering/decisions/2026-11-20-deck-preset-study.md`). A recommendation is weaker than
+anything the author writes: the deck's own key wins, a deck-wide `class: dark`, `light` or
+`print` or a `-dark` theme keeps its color mode, and the Studio never removes your `theme:` or
+`color-mode:` when you pick a preset or press Reset. Export to Marp writes a recommended
+palette into the bundle as its `theme:` line, because Marp picks the theme.
+
+**A preset may carry internal tokens.** A preset can set design tokens no author key exposes
+(a rule weight, a rail weight) through a `tokens` map in its table entry. A deck on such a
+preset gets a `preset-<name>` class on every slide, and the build generates the matching
+`section.preset-<name>` rule. A preset with no tokens adds no class and no CSS, which is true
+of all four today. The class is the engine's to stamp; don't write it in `_class:`.
+
+A preset leaves alone `claim:`, `cards:`, `stamp:` / `tone:` and every content key. An unknown
+name is flagged by the linter (`unknown-preset`) and resolves to no preset. The Studio previews
+the four live on one sample slide, in the deck's theme and color mode, at the top of the deck
+panel, with a count of the keys that differ from the chosen preset and a Reset. See
 `engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md`.
 
 ## The `mode:` front-matter register (rendering mode)
