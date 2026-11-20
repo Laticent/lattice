@@ -58,7 +58,8 @@ export function rememberWaits(list: { fence: string; name: string; placement?: s
 	} catch {}
 }
 
-const norm = (body: string) => body.replace(/\r\n?/g, '\n').trim();
+// The deck text is already LF: the Studio folds line endings where it reads a deck in (normalizeSourceText).
+const norm = (body: string) => body.trim();
 /** FNV-1a over the block's body: which drawing an afterimage belongs to. */
 function fnv(s: string): string {
 	let h = 0x811c9dc5;

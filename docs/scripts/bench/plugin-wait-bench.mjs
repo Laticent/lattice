@@ -21,6 +21,8 @@ import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit } from '@playwright/test';
 import JSZip from 'jszip';
 
+import { BENCH_MANIFEST } from './bench-bars-manifest.mjs';
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (name, dflt) => {
 	const i = process.argv.indexOf(`--${name}`);
@@ -37,9 +39,11 @@ const LAUNCH = { chromium, webkit, firefox };
 const NAME = 'bench-bars';
 const DECK = `---\nplugins: [${NAME}]\n---\n\n## Q3 revenue by region\n\n\`\`\`${NAME}\nEMEA: 4.1\nNA: 5.2\nAPAC: 2.9\nLATAM: 6.0\nANZ: 3.4\n\`\`\`\n\n> EMEA led the quarter; APAC recovered in September.\n`;
 
+
 async function pluginZip() {
 	const dir = path.join(here, NAME);
 	const zip = new JSZip();
+	zip.file(`${NAME}/${NAME}.manifest.json`, JSON.stringify(BENCH_MANIFEST));
 	for (const f of fs.readdirSync(dir)) zip.file(`${NAME}/${f}`, fs.readFileSync(path.join(dir, f)));
 	return zip.generateAsync({ type: 'nodebuffer' });
 }
@@ -117,14 +121,36 @@ async function setup(ctx, arm) {
 	const editor = page.locator('[aria-label="Deck source"]').first();
 	await editor.waitFor({ timeout: 60000 });
 	await editor.click();
-	await page.evaluate((deck) => {
-		const el = document.querySelector('[aria-label="Deck source"]');
-		el.focus();
+	// Clear, wait for an empty document, then insert: WebKit's one-step replace kept a leading blank
+	// line, so the front matter did not parse (mirrors e2e/studio-fixture.ts setEditorContent).
+	const editorText = () => page.evaluate(() => [...document.querySelectorAll('[aria-label="Deck source"] .cm-line')].map((l) => l.textContent).join('\n'));
+	await page.evaluate(() => {
+		document.querySelector('[aria-label="Deck source"]').focus();
 		document.execCommand('selectAll');
-		document.execCommand('insertText', false, deck);
-	}, DECK);
+		document.execCommand('delete');
+	});
+	await page.waitForFunction(() => [...document.querySelectorAll('[aria-label="Deck source"] .cm-line')].every((l) => !l.textContent), null, { timeout: 15000 });
+	await page.keyboard.insertText(DECK);
+	// WebKit still lands one blank line above the deck; drop it so the front matter is line 1.
+	if ((await editorText()).startsWith('\n')) {
+		await page.keyboard.press('Control+Home');
+		await page.keyboard.press('Delete');
+	}
+	await page.waitForFunction((d) => [...document.querySelectorAll('[aria-label="Deck source"] .cm-line')].map((l) => l.textContent).join('\n').trimEnd() === d.trimEnd(), DECK, { timeout: 15000 }).catch(async (e) => {
+		console.log('editor holds:', JSON.stringify((await editorText()).slice(0, 120)));
+		throw e;
+	});
 	const notice = page.locator('[data-slot="code-packages"]');
-	await notice.and(page.locator('[data-state="unapproved"]')).waitFor({ timeout: 60000 });
+	await notice
+		.and(page.locator('[data-state="unapproved"]'))
+		.waitFor({ timeout: 60000 })
+		.catch(async (e) => {
+			if (process.env.DEBUG_SHOT) {
+				await page.screenshot({ path: process.env.DEBUG_SHOT });
+				console.log('editor text:', await page.evaluate(() => document.querySelector('[aria-label="Deck source"]')?.textContent?.slice(0, 200)));
+			}
+			throw e;
+		});
 	await notice.getByRole('button', { name: `Approve the code of ${NAME}` }).click();
 	const frame = page.frameLocator('[aria-label="Live deck preview"] iframe.live');
 	await frame.locator(`[data-lattice-plugin="${NAME}"] rect`).first().waitFor({ timeout: 60000 });
@@ -197,10 +223,12 @@ for (const engine of ENGINES) {
 							results.push({ engine, arm, ...s });
 						} catch (e) {
 							results.push({ engine, arm, error: String(e).slice(0, 200) });
+							if (process.env.DEBUG_ERR) console.log(engine, arm, String(e).slice(0, 600));
 						}
 					}
 				} catch (e) {
 					results.push({ engine, arm, error: `setup: ${String(e).slice(0, 200)}` });
+					if (process.env.DEBUG_ERR) console.log(engine, arm, String(e).slice(0, 600));
 				} finally {
 					await ctx.close();
 				}
