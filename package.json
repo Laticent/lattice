@@ -227,6 +227,8 @@
     "queue:precheck": "bash tools/queue-precheck.sh",
     "regex:census": "node tools/regex-census.js",
     "branch:owner": "bash tools/branch-owner.sh",
+    "pr:park": "node tools/pr-draft.mjs park",
+    "pr:ready": "node tools/pr-draft.mjs ready",
     "release": "node tools/release.js",
     "release:dry": "node tools/release.js --dry-run",
     "release:prepare": "node tools/release.js --prepare",
