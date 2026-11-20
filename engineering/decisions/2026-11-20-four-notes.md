@@ -99,6 +99,21 @@ A codemod rewrites every deck in the repo. The Marp importer turns a Marp deck's
 so an imported deck keeps its speaker notes, and export-to-Marp writes `@note` and `@handout` back as Marp's plain
 note comments.
 
-## 6. Open items
+## 6. What the build found
 
-Filled in as the build proceeds; each is closed in this note before merge.
+- **The `-->` escape already existed.** A note body writes `--\>` (`--!\>`), which the readers undo
+  (`decodeNoteText`), as record notes did (`2026-10-17-meta-record.md` §10). Unbalanced braces escape as `\{` and
+  `\}`; `writeNote` adds them only when the text needs them, so any text round-trips.
+- **Pane markers are read by the pane carve, not the directive reader.** The first cut of `isPrivateComment` took
+  `<!-- _pane: bar -->` for a plain comment, so the codemod would have made it a speaker note and `--strip-notes`
+  would have deleted it from the source a recipient re-imports. The check now asks `parsePaneMarker` too.
+- **The player's Read view never showed the reader note.** `2026-10-17-meta-record.md` D8 said it did; the CSS hid
+  `aside.lattice-reader` in every view. `projectDeckToProse` now prints each slide's handout after its body
+  (`.lp-handout`, once per split run), in all three article hosts.
+- **The scrub no longer needs the render to know what a note is.** `--strip-notes` used to lift note bodies from a
+  render and match them back against the source; every leak it had was a way for the two to disagree. A note is
+  named now, so `stripChannelsFromSource` classifies each comment where it stands. The cut measurement (render both
+  candidate cuts, keep the one that reproduces the deck) is unchanged.
+- **LFM 2.0 starts here.** No 2.0 draft existed; `spec/LFM-2.0.md` is written as changes against 1.1, with §3.5 in
+  full and the shared case `spec/conformance/lfm/four-notes`. A case pinning 1.x behavior that 2.0 changed carries
+  `until: LFM-2.0`, and the reference runner skips it.
