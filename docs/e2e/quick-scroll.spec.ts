@@ -125,8 +125,10 @@ async function openCompose(page: Page) {
 test('@gecko Studio Compose: typing that scrolls the pane (spaces included) does not show the control', async ({ page }) => {
 	const { host, box } = await openCompose(page);
 	// The pointer rests on the pane, as it does while someone types: the hover path must still refuse a
-	// scroll that typing caused. A click into the text is not reader scroll intent either.
-	await host.locator('.ProseMirror p').last().click();
+	// scroll that typing caused. A click into the text is not reader scroll intent either. Click a paragraph
+	// ALREADY in view: clicking the last one made Playwright scroll it into view under the hovering pointer
+	// before the press (seen in Gecko, 6 of 20), a scroll no reader makes, which the hover path rightly counted.
+	await host.locator('.ProseMirror p').first().click();
 	await page.keyboard.press('ControlOrMeta+End');
 	const before = await host.evaluate((el) => el.scrollTop);
 	await page.keyboard.type('one two three ');
@@ -229,4 +231,52 @@ test('@gecko Playground: typing in the editor, with the pointer resting on the p
 	// Alive, so the 0 was a decision: the reader's wheel on the preview shows it.
 	await page.mouse.wheel(0, 400);
 	await shown(control(page, 'top'));
+});
+
+test('@gecko Playground preview: a typing key inside the preview frame is not reader scroll intent', async ({ page }) => {
+	await openPlayground(page);
+	// The key is built from the FRAME's own KeyboardEvent, as a real key in the frame is: an `instanceof` check
+	// against the top page's constructors misread it as a paging key, so the next app scroll showed the control.
+	const shownAfterFrameKey = await page.evaluate(
+		() =>
+			new Promise<number>((done) => {
+				const w = (document.getElementById('preview') as HTMLIFrameElement).contentWindow as Window & typeof globalThis;
+				w.addEventListener(
+					'scroll',
+					() => requestAnimationFrame(() => requestAnimationFrame(() => done(document.querySelectorAll('[data-slot=quick-scroll][data-state=shown]').length))),
+					{ once: true },
+				);
+				w.document.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+				w.scrollTo(0, w.scrollY + 600);
+			}),
+	);
+	expect(shownAfterFrameKey).toBe(0);
+	// A PAGING key inside the frame is reader intent, so the same app scroll after it shows the control.
+	await page.evaluate(() => {
+		const w = (document.getElementById('preview') as HTMLIFrameElement).contentWindow as Window & typeof globalThis;
+		w.document.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
+		w.scrollTo(0, w.scrollY + 600);
+	});
+	await shown(control(page, 'top'));
+});
+
+test('@gecko Studio Compose: a click into the text, then the app scrolling the pane, does not show the control', async ({ page }) => {
+	const { host } = await openCompose(page);
+	// Clicking into Compose makes the Studio scroll the active slide into view a moment later. The pointer then
+	// rests on the pane, and nobody has typed, so that app scroll used to pass the hover path. Here the app's
+	// scroll is made from script in the task right after the press, so the outcome never depends on its timing.
+	const p = host.locator('.ProseMirror p').first();
+	await p.click();
+	const shownAfterClick = await host.evaluate(
+		(el) =>
+			new Promise<number>((done) => {
+				el.addEventListener(
+					'scroll',
+					() => requestAnimationFrame(() => requestAnimationFrame(() => done(document.querySelectorAll('[data-slot=quick-scroll][data-state=shown]').length))),
+					{ once: true },
+				);
+				el.scrollTop = el.scrollTop + 700;
+			}),
+	);
+	expect(shownAfterClick).toBe(0);
 });

@@ -70,19 +70,30 @@ function frameTarget(frame: HTMLIFrameElement): Target | null {
 	}
 }
 
+/** Node and element tests by shape, not `instanceof`: an event from the preview frame carries the FRAME's
+ *  `HTMLElement` / `KeyboardEvent`, so an `instanceof` against this page's constructors is false there (found by
+ *  the card grader, round 3: frame keys never reached `noteTyping`, and every frame key counted as reader input). */
+function isNode(t: unknown): t is Node {
+	return !!t && typeof t === "object" && typeof (t as Node).nodeType === "number"
+}
+function isElement(t: unknown): t is HTMLElement {
+	return isNode(t) && t.nodeType === 1
+}
+
 /** True when a press lands on a vertical scrollbar: the element's own (Chromium reports it as a press on
  *  the element, at an offsetX past its clientWidth), or a frame's viewport bar (past the root's width). */
 function onScrollbar(e: PointerEvent): boolean {
 	const t = e.target
-	if (t instanceof HTMLElement && t !== t.ownerDocument.documentElement && t !== t.ownerDocument.body) return e.offsetX >= t.clientWidth && scrollsY(t)
-	const root = (t instanceof Node ? t.ownerDocument : null)?.documentElement
+	if (isElement(t) && t !== t.ownerDocument.documentElement && t !== t.ownerDocument.body) return e.offsetX >= t.clientWidth && scrollsY(t)
+	const root = (isNode(t) ? t.ownerDocument : null)?.documentElement
 	return !!root && e.clientX >= root.clientWidth
 }
 
 /** True when a key lands in editable text, where Space, Home and End type or move the caret. */
 function isEditable(t: EventTarget | null): boolean {
-	if (!(t instanceof HTMLElement)) return false
-	return t.isContentEditable || t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !["button", "checkbox", "radio", "range", "submit"].includes(t.type))
+	if (!isElement(t)) return false
+	if (t.isContentEditable || t.tagName === "TEXTAREA") return true
+	return t.tagName === "INPUT" && !["button", "checkbox", "radio", "range", "submit"].includes((t as HTMLInputElement).type)
 }
 
 function avoidBoxes(): Box[] {
@@ -94,18 +105,27 @@ function avoidBoxes(): Box[] {
 	return out
 }
 
-/** When someone last typed anywhere on the page: a key that is not a paging key, or any key in editable text.
- *  One capturing listener for the page, shared by every control, so typing in one pane vetoes the hover path of
- *  all of them (a preview follows its editor). Keys typed inside a frame reach `mark` and land here too. */
+/** When someone last worked in the page: typed (a key that is not a paging key, or any key in editable text) or
+ *  pressed in content (`notePress`). One capturing listener per kind for the page, shared by every control, so
+ *  work in one pane vetoes the hover path of all of them (a preview follows its editor). Keys and presses inside
+ *  a frame reach `mark` and land here too. */
 let typedAt = Number.NEGATIVE_INFINITY
 let typingWatched = false
 function noteTyping(e: KeyboardEvent) {
 	if (!PAGING_KEYS.has(e.key) || isEditable(e.target)) typedAt = performance.now()
 }
+/** A press in CONTENT (not on a scrollbar) counts as working in the page, like typing. Clicking into Compose's
+ *  text makes the Studio scroll the active slide into view about 10ms later, and with the pointer resting on
+ *  the pane that app scroll passed the hover path and flashed the control (measured: 4 runs in 10 on the
+ *  production build, the scroll landing after the click). A press on a scrollbar is reader intent instead. */
+function notePress(e: PointerEvent) {
+	if (!onScrollbar(e)) typedAt = performance.now()
+}
 function watchTyping() {
 	if (typingWatched || typeof document === "undefined") return
 	typingWatched = true
 	document.addEventListener("keydown", noteTyping, { capture: true, passive: true })
+	document.addEventListener("pointerdown", notePress, { capture: true, passive: true })
 }
 
 type View = { show: boolean; atTop: boolean; atBottom: boolean; p: Placement | null }
@@ -204,11 +224,17 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 			// Typing scrolls the pane to follow the caret, which is the app's scroll, not the reader's. Space,
 			// Home and End are typing keys in an editor, so a paging key counts only outside editable text
 			// (maker-checker finding 2: a space then Enter flashed the control in Compose).
-			if (e instanceof KeyboardEvent) noteTyping(e)
-			if (e instanceof KeyboardEvent && (!PAGING_KEYS.has(e.key) || isEditable(e.target))) return
+			if (e.type === "keydown") {
+				const k = e as KeyboardEvent
+				noteTyping(k)
+				if (!PAGING_KEYS.has(k.key) || isEditable(k.target)) return
+			}
 			// A press counts only ON A SCROLLBAR. A click into the text is the start of typing, and the
 			// caret-follow scroll that typing causes is the app's.
-			if (e.type === "pointerdown" && !onScrollbar(e as PointerEvent)) return
+			if (e.type === "pointerdown" && !onScrollbar(e as PointerEvent)) {
+				notePress(e as PointerEvent)
+				return
+			}
 			intent.current = performance.now()
 			// The reader taking over cancels a jump in flight, so its re-aim never yanks them back (finding 5).
 			if (pending.current) {
