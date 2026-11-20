@@ -36,8 +36,14 @@ async function seedDeck(page: Page, source: string): Promise<void> {
 	await page.getByLabel('Deck source').click();
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('Backspace');
-	await page.keyboard.type(source, { delay: 0 });
-	await expect.poll(() => deckSource(page)).toContain('```');
+	// ONE input event, as compose-fenced-code.spec.ts seeds, never `type`: key by key, the Enter after "```ts" can accept the
+	// fence-language completion instead of breaking the line, whenever load puts the popup up in time.
+	await page.keyboard.insertText(source);
+	// Wait for the WHOLE deck to persist, its last line included. Waiting for the first fence returned while the persist
+	// debounce had saved a half-typed deck ("return a"), so `before` was that half and the byte-for-byte check failed
+	// (1 run in 10 at --workers=4; flaky-tests.md F3, read once, too early).
+	const last = source.trimEnd().split('\n').at(-1) ?? '';
+	await expect.poll(() => deckSource(page)).toMatch(new RegExp(`${last.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`));
 }
 
 const RECORD = '`@code{title="src/load.ts",  focus=2}`';
