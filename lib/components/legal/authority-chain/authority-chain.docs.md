@@ -22,6 +22,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 |---|---|---|---|
 | `heading` | a `## ` heading | yes | Slide heading naming the rule whose chain is being walked. |
 | `tiers` | a list | yes | A list of authority tiers (`1.` or `-`) (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below keeps the marker you wrote. |
 
 ### Variant decision rule
 

@@ -565,9 +565,9 @@ section.divider:not(.light):not(.print) {
  * carry a mode-scoped register group as well; every register in that group stopped
  * repainting anything when the three bar rules learned to say `background-image`
  * (#2291), so what is left is the print asymmetry the paragraph above measures. */
-section.topic:not(:has(> ul:where(:not([data-list="aside"])).tile-track)),
-section.topic.fact:has(> ul:where(:not([data-list="aside"])).tile-track),
-section.topic:has(> ul:where(:not([data-list="aside"])).tile-track):not(.print) {
+section.topic:not(:has(> ul.tile-track)),
+section.topic.fact:has(> ul.tile-track),
+section.topic:has(> ul.tile-track):not(.print) {
   --fin-canvas: var(--surface-inverse);
 }
 

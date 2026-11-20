@@ -155,6 +155,12 @@
       "match": { "kind": "list", "depth": 1, "marker": "bullet" },
       "required": true,
       "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. \"You know you're here when\"); the other two render as the paired proof cards."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below keeps the marker you wrote."
     }
   },
   "skeleton": "<!-- _class: split-panel -->\n\n`Eyebrow context`\n\n## Headline that anchors the panel.\n\nOne-sentence framing paragraph explaining what the points cover.\n\n- First point\n  - Supporting detail explaining the first point.\n- Second point\n  - Supporting detail explaining the second point.\n- Third point\n  - Supporting detail explaining the third point.\n",

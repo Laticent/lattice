@@ -22,6 +22,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 | `heading` | a `## ` heading | yes | The featured element in the left panel — a heading by default; a hero number under `metric`; the phase name under `steps`. (Under `pullquote`, use a blockquote instead — see the variant.) |
 | `lede` | a paragraph | no | One-sentence framing paragraph under the feature. |
 | `points` | a list | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. "You know you're here when"); the other two render as the paired proof cards. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below keeps the marker you wrote. |
 
 Under a variant, a slot changes shape:
 

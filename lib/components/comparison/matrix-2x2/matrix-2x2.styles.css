@@ -87,13 +87,12 @@ section.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-
   border-color:var(--on-accent-soft);
   background:var(--accent-soft);
 }
-/* Body — nested ul/ol becomes the cell prose. */
-section.matrix-2x2 li > ul,
-section.matrix-2x2 li > ol {
+/* Body — the cell's nested list becomes the cell prose. Only that level: a list the author nests below it
+ * keeps its marker (lib/core/list-contract.js). */
+section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
   list-style:none; padding:0; margin:0;
 }
-section.matrix-2x2 li > ul > li,
-section.matrix-2x2 li > ol > li {
+section.matrix-2x2 > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) > li {
   font-size:var(--fs-body);
   font-weight:400;
   color:var(--text-body);

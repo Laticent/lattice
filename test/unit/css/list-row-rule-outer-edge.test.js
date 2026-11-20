@@ -124,7 +124,8 @@ describe('a ruled list draws its rule between rows, never as an outer edge', () 
       'progression/list-steps/list-steps': /\.ghost ol(?::where\(\.cell-stage > :not\(\[data-list="aside"\]\)\))? > li \+ li \{\s*\n?\s*border-top:1px solid var\(--border\)/,
     };
     for (const [rel, re] of Object.entries(carries)) {
-      const src = fs.readFileSync(path.join(COMPONENTS, `${rel}.styles.css`), 'utf8');
+      // The aside exclusion every stage-list rule carries (list contract, #3330) is cut: this reads the rule.
+      const src = fs.readFileSync(path.join(COMPONENTS, `${rel}.styles.css`), 'utf8').replaceAll(':where(:not([data-list="aside"]))', '');
       assert.match(src, re, `${rel} no longer carries its row rule`);
     }
   });

@@ -231,7 +231,7 @@ section.topic > h2 + p {
  * naming it is what stops a stray list on a topic slide being styled as a scale
  * it is not. The bare form was load-bearing while an authored `<ul>` WAS the
  * override; it is a liability now that one never is. */
-section.topic > ul:where(:not([data-list="aside"])).tile-track {
+section.topic > ul.tile-track {
   position: absolute;
   /* The columns carry their own inline padding (`--_tab-pad`) so the lit one has
    * room to be a filled tab. Bleeding the list out by that same amount keeps the
@@ -260,7 +260,7 @@ section.topic > ul:where(:not([data-list="aside"])).tile-track {
   max-width: none;
   padding: 0;
 }
-section.topic > ul:where(:not([data-list="aside"])).tile-track > li {
+section.topic > ul.tile-track > li {
   flex: 1 1 0;
   /* `min-width: 0`, or the flex base is min-content and a column cannot shrink
    * below its longest word — the track silently stops being equal-width and
@@ -292,7 +292,7 @@ section.topic > ul:where(:not([data-list="aside"])).tile-track > li {
    * depends on every other label, so adding one topic re-wraps them all and the
    * track visibly reflows between consecutive slides of one section. */
 }
-section.topic > ul:where(:not([data-list="aside"])).tile-track > li::marker { content: none; }
+section.topic > ul.tile-track > li::marker { content: none; }
 
 /* HERE — the upper band reaches down into this column as a tab.
  *
@@ -328,7 +328,7 @@ section.topic > ul:where(:not([data-list="aside"])).tile-track > li::marker { co
  * on the light palettes the accent is a dark hue sitting on the dark tab and the
  * dark band, and a bar in it rendered invisible on indaco itself. Painted as a
  * background layer rather than a border, so it takes no room from the label. */
-section.topic > ul:where(:not([data-list="aside"])).tile-track > li.on {
+section.topic > ul.tile-track > li.on {
   color-scheme: dark;        /* the heading's pin, for the same ink — see `> h2` */
   background-color: var(--surface-inverse);
   background-image: linear-gradient(var(--text-display), var(--text-display));
@@ -343,12 +343,12 @@ section.topic > ul:where(:not([data-list="aside"])).tile-track > li.on {
  * is the sweet spot, six is comfortable, past nine split the section"), NOT a
  * `capacity` block: the ceiling is a property of the SECTION, so this component
  * is on SANCTIONED_DENSITY_EXEMPT and has no soft/hard to match. */
-section.topic > ul:where(:not([data-list="aside"])).tile-track:has(> li:nth-child(7)) > li { font-size: var(--fs-body-compact); }
-section.topic > ul:where(:not([data-list="aside"])).tile-track:has(> li:nth-child(9)) > li { font-size: var(--fs-meta); }
+section.topic > ul.tile-track:has(> li:nth-child(7)) > li { font-size: var(--fs-body-compact); }
+section.topic > ul.tile-track:has(> li:nth-child(9)) > li { font-size: var(--fs-meta); }
 /* Past eight the inset halves too: nine columns at full inset leave ~90px of
  * measure at HD, a hair under a word like "Postmortems" in the lit weight. The
  * bleed follows the inset so the labels stay on the heading's gutter. */
-section.topic > ul:where(:not([data-list="aside"])).tile-track:has(> li:nth-child(9)) { --_tab-pad: calc(var(--_sec-1cqi, 1cqi) * 0.625); }
+section.topic > ul.tile-track:has(> li:nth-child(9)) { --_tab-pad: calc(var(--_sec-1cqi, 1cqi) * 0.625); }
 
 /* ── fact ─────────────────────────────────────────────────────────────────────
  * One flat canvas, and the type hierarchy inverts: the NAME becomes a label on
@@ -371,7 +371,7 @@ section.topic.fact {
 /* The derived track is suppressed rather than hidden at the kernel: a deck that
  * mixes both forms keeps ONE derivation, so a `fact` slide still contributes its
  * name to its siblings' tracks. */
-section.topic.fact > ul:where(:not([data-list="aside"])).tile-track { display: none; }
+section.topic.fact > ul.tile-track { display: none; }
 
 section.topic.fact > h2 {
   display: flex;
@@ -455,7 +455,7 @@ section.topic.fact > p:not(:has(> code:only-child):not(:where([data-prose]))):la
  * tell it. Dropping all three — band, seam, reserve — leaves the eyebrow, name
  * and claim on a single dark canvas, which is the `divider`-family composition
  * the rest of the anchor bucket already uses. */
-section.topic:not(:has(> ul:where(:not([data-list="aside"])).tile-track)) {
+section.topic:not(:has(> ul.tile-track)) {
   /* RESTATE the field, do not inherit it from `section.topic`.
    *
    * Dropping this line looked free — the rule above sets the same value — and it

@@ -64,6 +64,12 @@
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing actor-name pill, written `{Name}` in inline code (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below keeps the marker you wrote."
     }
   },
   "skeleton": "<!-- _class: actors -->\n\n## Who owns each part of the process.\n\n- Owns the first part `{First actor}`\n  - One-line note on what that ownership covers.\n- Owns the second part `{Second actor}`\n  - One-line note.\n- Owns the third part `{Third actor}`\n  - One-line note.\n",

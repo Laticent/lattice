@@ -992,7 +992,8 @@ test('agent kit structure', { skip }, async (t) => {
 		for (const chart of ['bar', 'piechart']) assert.match(skel, new RegExp(`^### ${chart}$`, 'm'), `a ${chart} skeleton`);
 		// Which kpi rows draw the warning color is kpi.styles.css's nth-child hooks. The first
 		// real-model run put `{Breaching}` on a row `kpi attention` draws green with a check.
-		const css = fs.readFileSync(path.join(ROOT, 'lib', 'components', 'evidence', 'kpi', 'kpi.styles.css'), 'utf8');
+		// The aside exclusion every stage-list rule carries (list contract, #3330) is cut: this reads the row hooks.
+		const css = fs.readFileSync(path.join(ROOT, 'lib', 'components', 'evidence', 'kpi', 'kpi.styles.css'), 'utf8').replaceAll(':where(:not([data-list="aside"]))', '');
 		const warnRows = (variant) =>
 			[...css.matchAll(/((?:section\.kpi\.[a-z]+ > \.cell-stage > ol > li:nth-child\(\d\),?\s*)+)\{[^}]*--lat-pill-bg: var\(--state-warn-hue\)/g)]
 				.flatMap((m) => [...m[1].matchAll(new RegExp(`kpi\\.${variant} > \\.cell-stage > ol > li:nth-child\\((\\d)\\)`, 'g'))].map((r) => Number(r[1])))
