@@ -46,7 +46,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 ## When NOT to use
 
 - **Sub-bullets per section.** The agenda is a wayfinder, not a treatment. If a section needs decomposition, that belongs on a section divider when the section opens — not here.
-- **Unnumbered list.** Authoring with `-` instead of `1.` loses the numbered chrome the layout depends on. Always use ordered list syntax.
+- **Typing the section numbers.** Do not write `01`, `02` into the items: the ledger numbers itself. Either list marker works (`1.` or `-`, the list contract renders both the same), so pick the one you type fastest and let the layout count.
 - **Single-section decks.** If the deck has no sections to enumerate, skip the agenda. Empty wayfinding is more friction than no wayfinding.
 - **More than six sections.** A single agenda slide holds up to six sections at a legible row height; beyond that the rows crowd the footer. Group related items under fewer headings, or split the agenda across two slides.
 

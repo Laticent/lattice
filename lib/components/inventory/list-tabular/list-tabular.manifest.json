@@ -233,8 +233,8 @@
       "fix": "Each secondary modifier is scoped to exactly one primary — `rule` only styles `def`, `solid` only styles `metric`, `stacked` only styles `spec`, `outline` only styles `register`; pairing across combinations does nothing because no CSS selector matches."
     },
     {
-      "mistake": "Authoring rows as a bullet list (`-`) instead of a numbered list (`1.`).",
-      "fix": "The counter column and row styling are keyed to `ol > li` — a `ul` doesn't produce the numbered ledger at all."
+      "mistake": "Typing the row numbers into the items.",
+      "fix": "The counter column numbers the rows itself. Either list marker works (`1.` or `-`, rendered the same by the list contract); a typed `01` doubles the count."
     },
     {
       "mistake": "Reaching for a column modifier before looking at the default.",

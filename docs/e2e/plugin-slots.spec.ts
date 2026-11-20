@@ -188,12 +188,14 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		// Wait for EVERY frame the sheet holds to draw, not one: the sheet can still hold the frame of the
 		// earlier unapproved preview, so a poll for "some frame drew" let go while that frame still said
 		// `placeholder`, and the line below read both (studio-smoke on #3330: ["placeholder", "drawn …"]).
+		// The poll returns what it read, so a frame that never draws times out naming its state (`placeholder`)
+		// instead of `expected true, received false`.
 		await expect
 			.poll(async () => {
 				const seen = await printPreview(sheet);
-				return seen.length > 0 && seen.every((s) => s.startsWith('drawn '));
-			}, { timeout: 60_000 })
-			.toBe(true);
+				return seen.length > 0 && seen.every((s) => s.startsWith('drawn ')) ? 'every frame drawn' : seen.join(' | ') || 'no frame read';
+			}, { timeout: 60_000, message: 'every print-preview frame draws the plugin' })
+			.toBe('every frame drawn');
 		expect(await printPreview(sheet), 'the print preview draws the plugin with its fill, never its source or a placeholder').not.toContainEqual(expect.stringMatching(/^(source|placeholder)$|rgba\(0, 0, 0, 0\)/));
 		await page.keyboard.press('Escape');
 

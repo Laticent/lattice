@@ -36,7 +36,7 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 
 ### Common mistakes
 
-- **Authoring a detail sublist as a numbered list (`1.`) instead of `-`/`*` bullets.** Detail sublists must use `-`/`*` bullets — a numbered list isn't recognized as the axis's detail content.
+- **Writing a detail line as prose under the score instead of a nested list item.** A detail is a nested list item under the series (`-` or `1.`, read the same). A paragraph under the series is not part of the chart.
 - **Giving a series a different number of values than there are axes.** Each series must supply exactly one number per axis, using the SAME axis labels every other series uses — later series align to the first series's axes by label (case-insensitive), falling back to position only when a label doesn't match, so reordering axes across series is safe as long as the labels agree. A genuinely mismatched count or label desyncs which value maps to which spoke.
 
 ## When to use

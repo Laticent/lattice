@@ -61,23 +61,51 @@ describe('every component that reads a list declares its contract', () => {
   }
   test('every list slot selector names the element the engine hands the layout', () => {
     // The semantic-invariant suite executes these selectors (`ol > li` on authority-chain): a
-    // contract that rewrote that list to `ul` left the selector matching nothing.
+    // contract that rewrote that list to `ul` left the selector matching nothing. Base slots and
+    // each variant's slots (merged as the build merges them) against that variant's row; a selector
+    // names an element after any combinator (`h2+ol`, `section ol`), never inside a word (`.col`).
+    const names = (sel, el) => new RegExp(`(^|[\\s>,(+~])${el}\\b`).test(sel);
     const bad = [];
     for (const m of manifests) {
-      const c = CATALOG[m.name];
-      if (!c || c.lists === 'prose') continue;
-      for (const [k, s] of Object.entries(m.slots || {})) {
-        const mt = [].concat(s?.match).find((x) => x?.kind === 'list');
-        if (!mt || !s.selector) continue;
-        const d = mt.depth || 1;
-        const want = c.lists === 'numbered-tags' && d === 1 ? c.markers[0] : c.markers[d - 1] || 'ul';
-        if (!want) continue; // numbered-tags with no named marker: the author's element is kept
-        const ol = /(^|[\s>,(])ol\b/.test(s.selector);
-        const ul = /(^|[\s>,(])ul\b/.test(s.selector);
-        if ((want === 'ul' && ol && !ul) || (want === 'ol' && ul && !ol)) bad.push(`${m.name}.${k} '${s.selector}' vs ${want}`);
+      if (!CATALOG[m.name] || CATALOG[m.name].lists === 'prose') continue;
+      const views = [[m.name, m.slots || {}, listContractFor(m.name)]];
+      for (const [v, over] of Object.entries(m.variantSlots || {})) {
+        const slots = { ...(m.slots || {}) };
+        for (const [k, sl] of Object.entries(over)) {
+          if (sl === null) delete slots[k];
+          else slots[k] = { ...(slots[k] || {}), ...sl };
+        }
+        views.push([`${m.name} ${v}`, slots, listContractFor(`${m.name} ${v}`)]);
+      }
+      for (const [label, slots, c] of views) {
+        if (c.lists === 'prose') continue;
+        for (const [k, sl] of Object.entries(slots)) {
+          const mt = [].concat(sl?.match).find((x) => x?.kind === 'list');
+          if (!mt || !sl.selector) continue;
+          const d = mt.depth || 1;
+          const want = c.lists === 'numbered-tags' && d === 1 ? c.markers[0] : c.markers[d - 1] || 'ul';
+          if (!want) continue; // numbered-tags with no named marker: the author's element is kept
+          const ol = names(sl.selector, 'ol');
+          const ul = names(sl.selector, 'ul');
+          if ((want === 'ul' && ol && !ul) || (want === 'ol' && ul && !ol)) bad.push(`${label}.${k} '${sl.selector}' vs ${want}`);
+        }
       }
     }
     assert.deepEqual(bad, []);
+    assert.ok(names('h2+ol > li', 'ol') && names('section ol li', 'ol') && !names('.col > li', 'ol'), 'the selector reading');
+  });
+  test('no neutral layout\'s guidance tells an author to swap `1.` and `-` (HARD RULE #6 sends agents there)', () => {
+    // Before W2 these entries described real breakage ("a `ul` renders as plain unstyled text").
+    // On a neutral layout the engine renders either marker the same, so such advice is now false.
+    const SWAP = /(instead of|rather than)[^.]{0,40}(`1\.`|`-`|numbered list|bullet list|ordered list)|(\bul\b|\bol\b|`-`|`1\.`)[^.]{0,60}(doesn't match|isn't recognized|renders as (a )?plain)/i;
+    const hits = [];
+    for (const m of manifests) {
+      if (m.lists !== 'neutral') continue;
+      for (const field of ['commonMistakes', 'antiPatterns']) {
+        for (const e of m[field] || []) if (SWAP.test(JSON.stringify(e))) hits.push(`${m.name}.${field}: ${JSON.stringify(e).slice(0, 90)}`);
+      }
+    }
+    assert.deepEqual(hits, []);
   });
   test('the owner settled the R2 layouts (decision 1, 2026-11-19)', () => {
     for (const name of ['cards-grid', 'cards-stack', 'list-steps']) assert.equal(listContractFor(name).lists, 'numbered-tags', name);
@@ -139,6 +167,26 @@ describe('what the contract leaves alone', () => {
     const pages = partitionAxis('<h2>H</h2><ul style="--lat-split-offset:3;"><li>a</li><li>b</li><li>c</li><li>d</li></ul>', 'item', 2);
     assert.match(pages[0], /--lat-split-offset:3;/);
     assert.match(pages[1], /--lat-split-offset:5;/);
+  });
+});
+
+describe('which lists are the layout\'s (the trio review of #3330)', () => {
+  const lists = (md) => [...String(engine.render(md).html).matchAll(/<(ul|ol)([^>]*)>/g)].map((x) => `${x[1]}${x[2]}`);
+  test('a deck-wide variant in front matter sets the contract, as a slide\'s own class does', () => {
+    // `deck_class_propagate` runs after this pass; the pass reads the deck's class itself.
+    assert.deepEqual(lists('---\nclass: steps\n---\n\n<!-- _class: split-panel -->\n\n## H\n\n1. **Plan** it\n2. **Build** it\n'), ['ol data-ordered="true"']);
+    assert.deepEqual(lists('---\nclass: principles\n---\n\n<!-- _class: list -->\n\n## H\n\n- One\n- Two\n'), ['ol data-ordered="false"']);
+  });
+  test('a list after prose is an aside, left as written; one after a heading is a section of the body', () => {
+    assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## H\n\n1. A\n   - a\n2. B\n   - b\n\nOpen risks:\n\n- Lock-in\n- Budget\n'), ['ol data-ordered="true"', 'ul', 'ul', 'ul']);
+    assert.deepEqual(lists('<!-- _class: agenda -->\n\n## H\n\n- One\n- Two\n\nAlso:\n\n1. aside\n   1. deeper\n'), ['ol', 'ol', 'ol']);
+    assert.deepEqual(lists('<!-- _class: regulatory-update -->\n\n## H\n\n### Added\n\n- A\n  - `x`\n\n### Amended\n\n- B\n  - `y`\n'), ['ol', 'ul', 'ol', 'ul']);
+  });
+  test('the runtime walks the same lists: not an aside, not raw HTML', () => {
+    const doc = new JSDOM('<body><section class="agenda"><h2>H</h2><ul><li>x</li></ul><p>Also:</p><ul><li>aside</li></ul>'
+      + '<div><ul><li>raw</li></ul></div><div class="cell-stage"><h3>S</h3><ul><li>y</li></ul></div></section></body>').window.document;
+    normalizeListsDom(doc);
+    assert.deepEqual([...doc.querySelectorAll('section ul, section ol')].map((e) => `${e.tagName}:${e.textContent}`), ['OL:x', 'UL:aside', 'UL:raw', 'OL:y']);
   });
 });
 

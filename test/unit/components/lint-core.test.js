@@ -337,6 +337,15 @@ describe('lint-core: lintTextWith rules', () => {
     assert.equal(ruleFor(`${FM}<!-- _class: list-steps -->\n\n## H\n\n- Freeze — the window\n  - Two weeks out.\n`, 'list-steps-inline-body'), undefined);
   });
 
+  test('rule 2c — a tab-indented body nests (CommonMark), a CRLF source stays CRLF, and `+` / `1)` steps are read', () => {
+    assert.equal(ruleFor(`${FM}<!-- _class: list-steps -->\n\n## H\n\n- Freeze — w\n\t- tab nested\n`, 'list-steps-inline-body'), undefined);
+    const crlf = `${FM}<!-- _class: list-steps -->\r\n\r\n## H\r\n\r\n1. Freeze — the window\r\n`;
+    const fixed = core.applyFix(crlf, ruleFor(crlf, 'list-steps-inline-body'));
+    assert.match(fixed, /1\. Freeze\r\n {3}- The window\r\n/);
+    assert.ok(fixed.endsWith('1. Freeze\r\n   - The window\r\n'), 'both written lines end CRLF, as the source does');
+    for (const m of ['+', '1)']) assert.ok(ruleFor(`${FM}<!-- _class: list-steps -->\n\n## H\n\n${m} Plan — scope it\n`, 'list-steps-inline-body'), m);
+  });
+
   test('rule 2c — a step that already has a body, the timeline variant and other layouts are left alone', () => {
     assert.equal(ruleFor(`${FM}<!-- _class: list-steps -->\n\n## H\n\n1. Freeze — the window\n   - Two weeks out.\n`, 'list-steps-inline-body'), undefined);
     assert.equal(ruleFor(`${FM}<!-- _class: list-steps timeline -->\n\n## H\n\n1. Hold — wait a beat\n`, 'list-steps-inline-body'), undefined);

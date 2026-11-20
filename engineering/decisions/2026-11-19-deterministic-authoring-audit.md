@@ -422,6 +422,17 @@ behind the one before it only where it reads that one's output.
   element the engine produces. `tools/build-stage-catalog.js` relaxes every list marker to
   `any` before packing the lint contract for a component that declares `lists`, so `slot-contract`
   never reports a marker. The build fails a component with a list slot and no `lists`.
+- **Which lists are the layout's** (from the adversarial trio's review, 2026-11-20). The first
+  top-level list, and each later top-level list a heading separates from the one before (a
+  sectioned body, `regulatory-update`'s `### Added` / `### Amended`). A top-level list that follows
+  only prose is the author's aside and is left as written, as is a list inside a blockquote or in
+  raw HTML. Measured first: in every committed deck, each slide with more than one top-level list
+  separates them with headings. The pass also reads the deck's front-matter `class:` itself, since
+  it runs before `deck_class_propagate`, so `class: steps` or `class: principles` sets the contract
+  as a slide's own class does.
+- **A default VS Code preview does not apply it.** It runs no scripts, so the runtime mirror never
+  runs there; logged in `engineering/gotchas/vscode.md` §Known preview gaps. Baking the contract
+  into the exported Markdown would close it, and changes export bytes: `followups.d/3330-p3-…`.
 - **Contracts as declared.** `prose`: `content`, `list`. `numbered-tags`: `cards-grid`,
   `cards-stack`, `list-steps`, `split-panel steps` and `split-panel watermark` (which already drew
   numbered panels for `1.` and plain cards for `-`, so it was R2 in all but name). `neutral`:

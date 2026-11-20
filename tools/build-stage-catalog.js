@@ -604,8 +604,8 @@ function listMarkers(slots) {
   // authority-chain, regulatory-update, timeline-list) is read as that element: the layout reads
   // both, and the selector, which the semantic-invariant suite executes, stays true.
   const fromSelector = (sel) => {
-    const ol = /(^|[\s>,(])ol\b/.test(sel || '');
-    const ul = /(^|[\s>,(])ul\b/.test(sel || '');
+    const ol = /(^|[\s>,(+~])ol\b/.test(sel || '');
+    const ul = /(^|[\s>,(+~])ul\b/.test(sel || '');
     // Only `ol`: a `ul` is already what a neutral layout gets, and on a numbered-tags layout a
     // `ul > li` selector describes the unnumbered form, not a target to rewrite `1.` into.
     return ol && !ul ? 'ol' : null;

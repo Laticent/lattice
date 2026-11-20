@@ -240,8 +240,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Authoring steps as a bullet list (`-`) instead of a numbered list (`1.`).",
-      "fix": "The card chrome — background, border, STEP badge, connector arrow — is scoped to `ol > li` specifically; a `ul` renders as plain unstyled text with no cards, no counter, no badge."
+      "mistake": "Writing `-` and expecting STEP numbers.",
+      "fix": "`1.` numbers the cards (STEP 01, the badge and its counter); `-` renders the same cards and connectors with no number tag. Use `-` only when the steps genuinely have no order."
     },
     {
       "mistake": "Writing a step's title and body on one line, e.g. `1. Freeze new integrations — two weeks before cutover, changes stop.`",

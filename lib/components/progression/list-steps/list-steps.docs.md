@@ -41,7 +41,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ### Common mistakes
 
-- **Authoring steps as a bullet list (`-`) instead of a numbered list (`1.`).** The card chrome — background, border, STEP badge, connector arrow — is scoped to `ol > li` specifically; a `ul` renders as plain unstyled text with no cards, no counter, no badge.
+- **Writing `-` and expecting STEP numbers.** `1.` numbers the cards (STEP 01, the badge and its counter); `-` renders the same cards and connectors with no number tag. Use `-` only when the steps genuinely have no order.
 - **Writing a step's title and body on one line, e.g. `1. Freeze new integrations — two weeks before cutover, changes stop.`** The whole `1.` line is the step's title, so the sentence renders as one bold block with no body under it. Put the title on the `1.` line and the sentence on a nested line: `1. Freeze new integrations` then `   - Two weeks before cutover, changes stop.` `lint:deck` flags this (`list-steps-inline-body`) and `--fix` splits it.
 - **Deleting or reordering a step and not re-reading the other steps' prose for a stale reference to its old position (e.g. "as covered in step 3").** The STEP/PHASE/… badge is generated purely from a CSS `counter()` on the `ol` position — it renumbers automatically, but any prose that names a step by number does not.
 

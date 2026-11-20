@@ -1746,7 +1746,7 @@
           "properties": {
             "kind": { "const": "list" },
             "depth": { "type": "integer", "minimum": 1, "maximum": 4 },
-            "marker": { "enum": ["bullet", "ordered", "any"] }
+            "marker": { "enum": ["bullet", "ordered", "any"], "description": "The list element this layout reads at this depth (`ordered` is `<ol>`, `bullet` is `<ul>`). It is not a requirement on the author: on a component with a list contract (`lists`) the engine rewrites the author's list to this element, and lint relaxes it to `any` (lib/core/list-contract.js, W2). Changing it changes what the layout receives, so render the gallery after editing it." }
           }
         },
         {
