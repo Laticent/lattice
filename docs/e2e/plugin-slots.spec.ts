@@ -102,10 +102,18 @@ async function expectNoBareFrame(page: Parameters<typeof gotoStudio>[0], when: s
 	expect(watch.bare, `no frame painted the badge text without the plugin fill ${when}`).toEqual([]);
 }
 
-/** What each print-preview thumbnail in the Share sheet shows for the plugin's block: `drawn <fill>`, `placeholder` or `source`. */
+/**
+ * What each print-preview thumbnail in the Share sheet shows for the plugin's block: `drawn <fill>`, `placeholder` or `source`.
+ *
+ * VISIBLE frames only. The print cells come from a preview pool (preview-pool.tsx), and the Print drawer stays mounted
+ * after it closes. When the stamp changes on Approve, the cell's shape key changes too, so its next open takes a new slot
+ * and frees the old one. The freed slot stays in the sheet with `visibility: hidden`, still holding the unapproved
+ * placeholder, until the pool parks it `PARK_MS` (5 s) later. Reading every `iframe` counted that hidden frame whenever
+ * step 3b opened less than 5 s after step 0 closed (CI run 44765170649: 9.5 s for the whole test).
+ */
 async function printPreview(sheet: import('@playwright/test').Locator): Promise<string[]> {
 	const seen: string[] = [];
-	for (const el of await sheet.locator('iframe').elementHandles()) {
+	for (const el of await sheet.locator('iframe').filter({ visible: true }).elementHandles()) {
 		const s = await (await el.contentFrame())
 			?.evaluate((name) => {
 				const badge = document.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
@@ -180,7 +188,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await page.keyboard.press('Escape');
 
 		// 3b. PRINT PREVIEW: its thumbnails render with the export's CSS, which carries the plugin's sheet under a stamp with no
-		// nonce, so the door draws the plugin by the live approval (door-run.ts `unstamped`, #3292). A rule that read every
+		// nonce, so the door draws the plugin by the live approval (door-run.ts, the stamp-less override, #3292). A rule that read every
 		// stamp-less CSS as "draw no plugin" showed the block's source here, while the printed PDF drew it.
 		await page.getByRole('button', { name: 'Share', exact: true }).click();
 		const sheet = page.getByRole('dialog');
@@ -214,7 +222,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		}
 
 		// 5. RELOAD, the plugin approved in the session before: from the first frame of the new page, the badge never shows
-		// its words without its fill. A render can begin before the Studio's stamp holds the plugins (door-run.ts `unstamped`).
+		// its words without its fill. A render can begin before the Studio's stamp holds the plugins (door-run.ts, the stamp-less override).
 		await page.setViewportSize({ width: 1440, height: 900 });
 		await page.addInitScript(installBadgeWatch, { sel: LIVE_PREVIEW, name: NAME });
 		await page.reload();
