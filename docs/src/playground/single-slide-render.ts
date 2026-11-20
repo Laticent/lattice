@@ -66,6 +66,7 @@ import { previewCspMeta } from '../playground/preview-csp.js';
 // with the Stage (page-script-nonce.js).
 const PREVIEW_SCRIPT_NONCE = PAGE_SCRIPT_NONCE;
 
+import { watchAfterimages } from '../lib/code-packages/wait';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
 
@@ -2590,6 +2591,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// The frame is live: measure the deck's other photos through it, so the next slide
 					// the reader turns to is stamped final before it paints.
 					prefetchImages(fr);
+					// The D1 benchmark, arm cplus (code-packages/wait.ts): keep the boxes of this document's plugin drawings.
+					watchAfterimages(fr.contentDocument);
 					const now = performance.now();
 					const rec = recordRenderSample({
 						engineMs,
