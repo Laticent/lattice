@@ -6,7 +6,11 @@ engine — and each slide opts into a **component** via a
 `<!-- _class: <name> -->` directive and fills its slots with ordinary
 Markdown. This file orients any AI agent (Claude Code, Copilot, Cursor, an
 SDK agent) toward authoring decks correctly. For engine/contributor work,
-read `CLAUDE.md` and the `engineering/` docs instead — and before building any
+read `CLAUDE.md` and the `engineering/` docs instead. To find **where code lives**,
+grep `dist/engineering/codemap.md` first: one line per folder, code part, plugin and
+workspace library, with its purpose and layer (no clone? it is on the
+[`dist-kits`](https://github.com/Laticent/lattice/blob/dist-kits/engineering/codemap.md)
+branch). It stops at folders, so grep inside the folder it names. And before building any
 script or tool, **grep** `dist/engineering/capabilities.md` (the generated index of
 every script, tool, and framework) for what you were about to build, then open
 the script or tool the row names — its own header is the long form. Extend what
