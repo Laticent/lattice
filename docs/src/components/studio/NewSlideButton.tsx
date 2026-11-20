@@ -126,8 +126,11 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 	if (confirmation) {
 		return (
 			<>
-				<div data-new-slide={variant}
-				data-quick-scroll-avoid={variant === 'fab' ? '' : undefined} data-confirming="" className={cn(base, NOTE, 'max-w-[min(22rem,calc(100vw-2rem))] cursor-default select-none', className)}>
+				<div
+					data-new-slide={variant}
+					data-quick-scroll-avoid={variant === 'fab' ? '' : undefined}
+					data-confirming=""
+					className={cn(base, NOTE, 'max-w-[min(22rem,calc(100vw-2rem))] cursor-default select-none', className)}>
 					<Check className={cn(icon, 'text-[var(--accent)]')} aria-hidden />
 					<span className="truncate">{confirmation}</span>
 				</div>
@@ -141,7 +144,7 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 			type="button"
 			aria-label={NEW_SLIDE}
 			data-new-slide={variant}
-				data-quick-scroll-avoid={variant === 'fab' ? '' : undefined}
+			data-quick-scroll-avoid={variant === 'fab' ? '' : undefined}
 			onTouchStart={() => {
 				lastTouch.current = Date.now();
 			}}

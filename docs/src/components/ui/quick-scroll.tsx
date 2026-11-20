@@ -4,7 +4,7 @@ import { ArrowDownToLine, ArrowUpToLine } from "lucide-react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
-import { type Box, edgeState, fits, IDLE_MS, INTENT_MS, JUMP_RETRIES, layoutFor, PAGING_KEYS, type Placement, place } from "@/lib/quick-scroll"
+import { type Box, edgeState, fits, IDLE_MS, INTENT_MS, JUMP_RETRIES, layoutFor, PAGING_KEYS, type Placement, place, STREAK_MS } from "@/lib/quick-scroll"
 
 /**
  * QuickScroll — jump to the top or bottom of a long pane, out of the way until you scroll.
@@ -70,6 +70,21 @@ function frameTarget(frame: HTMLIFrameElement): Target | null {
 	}
 }
 
+/** True when a press lands on a vertical scrollbar: the element's own (Chromium reports it as a press on
+ *  the element, at an offsetX past its clientWidth), or a frame's viewport bar (past the root's width). */
+function onScrollbar(e: PointerEvent): boolean {
+	const t = e.target
+	if (t instanceof HTMLElement && t !== t.ownerDocument.documentElement && t !== t.ownerDocument.body) return e.offsetX >= t.clientWidth && scrollsY(t)
+	const root = (t instanceof Node ? t.ownerDocument : null)?.documentElement
+	return !!root && e.clientX >= root.clientWidth
+}
+
+/** True when a key lands in editable text, where Space, Home and End type or move the caret. */
+function isEditable(t: EventTarget | null): boolean {
+	if (!(t instanceof HTMLElement)) return false
+	return t.isContentEditable || t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !["button", "checkbox", "radio", "range", "submit"].includes(t.type))
+}
+
 function avoidBoxes(): Box[] {
 	const out: Box[] = []
 	for (const el of document.querySelectorAll("[data-quick-scroll-avoid]")) {
@@ -97,12 +112,23 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 	const idle = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 	/** When the reader last touched this pane (INTENT_MS). */
 	const intent = React.useRef(Number.NEGATIVE_INFINITY)
+	/** When the last COUNTED scroll arrived, for STREAK_MS. */
+	const lastScroll = React.useRef(Number.NEGATIVE_INFINITY)
+	/** The pointer is over the pane, and when someone last typed in it (the second way a scroll counts). */
+	const hovered = React.useRef(false)
+	const typedAt = React.useRef(Number.NEGATIVE_INFINITY)
 	/** A jump in flight, re-aimed once scrolling settles if the document grew under it. */
 	const pending = React.useRef<{ to: "top" | "bottom"; tries: number; timer?: ReturnType<typeof setTimeout> } | null>(null)
 	const [mounted, setMounted] = React.useState(false)
 	React.useEffect(() => setMounted(true), [])
 
 	const hide = React.useCallback(() => setView((v) => (v.show ? { ...v, show: false } : v)), [])
+	/** Unmount the buttons. React fires no pointerleave on unmount, so a hovered button would leave
+	 *  `engaged` stuck true and the next reveal would never idle out (maker-checker finding 3). */
+	const drop = React.useCallback(() => {
+		engaged.current = false
+		setView((v) => (v.show || v.p ? HIDDEN : v))
+	}, [])
 	const armIdle = React.useCallback(() => {
 		clearTimeout(idle.current)
 		if (!engaged.current) idle.current = setTimeout(hide, IDLE_MS)
@@ -126,7 +152,18 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 			}, 150)
 		}
 		// The app scrolling a pane (a preview following the caret, a tour, a restore) is not the reader.
-		if (performance.now() - intent.current > INTENT_MS) return
+		const now = performance.now()
+		// Two ways a scroll is the reader's. (1) Their own input on the pane just now: a wheel, a touch, a press on
+		// its scrollbar, a paging key. (2) The pointer is over the pane and nobody has typed in it lately: a
+		// scrollbar drag in an engine that sends no DOM event for the press (whether Firefox does is unverified;
+		// its test build hides scrollbars). Typing's caret-follow scroll fails (2) on purpose, and a preview that
+		// follows the editor fails it because the pointer is on the editor.
+		const explicit = now - intent.current <= INTENT_MS
+		if (!explicit && !(hovered.current && now - typedAt.current > INTENT_MS)) return
+		// A scroll that continues a reader's scroll keeps counting, so a slow scrollbar drag or a long
+		// momentum glide does not drop out of the window halfway (maker-checker finding, 2026-11-20).
+		if (now - lastScroll.current < STREAK_MS) intent.current = now
+		lastScroll.current = now
 		const box = t.box()
 		const e = edgeState(t.el.scrollTop, t.el.scrollHeight, t.el.clientHeight)
 		if (!e.long || box.right - box.left <= 0 || box.bottom - box.top <= 0) return hide()
@@ -149,8 +186,22 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 		// touch-drag can scroll without one; `touchmove` fires through the gesture (the player's finding).
 		const nudge = () => target.current && reveal()
 		const mark = (e: Event) => {
-			if (e instanceof KeyboardEvent && !PAGING_KEYS.has(e.key)) return
+			// Typing scrolls the pane to follow the caret, which is the app's scroll, not the reader's. Space,
+			// Home and End are typing keys in an editor, so a paging key counts only outside editable text
+			// (maker-checker finding 2: a space then Enter flashed the control in Compose).
+			if (e instanceof KeyboardEvent && (!PAGING_KEYS.has(e.key) || isEditable(e.target))) {
+				typedAt.current = performance.now()
+				return
+			}
+			// A press counts only ON A SCROLLBAR. A click into the text is the start of typing, and the
+			// caret-follow scroll that typing causes is the app's.
+			if (e.type === "pointerdown" && !onScrollbar(e as PointerEvent)) return
 			intent.current = performance.now()
+			// The reader taking over cancels a jump in flight, so its re-aim never yanks them back (finding 5).
+			if (pending.current) {
+				clearTimeout(pending.current.timer)
+				pending.current = null
+			}
 		}
 		const INTENT_EVENTS = ["wheel", "touchstart", "touchmove", "pointerdown", "keydown"] as const
 
@@ -166,10 +217,21 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 				win.addEventListener("scroll", reveal, opts)
 				win.addEventListener("touchmove", nudge, opts)
 				for (const type of INTENT_EVENTS) win.addEventListener(type, mark, { capture: true, passive: true })
+				const doc = win.document
+				const over = () => {
+					hovered.current = true
+				}
+				const out = (e: Event) => {
+					if (!(e as PointerEvent).relatedTarget) hovered.current = false
+				}
+				doc.addEventListener("pointerover", over, { passive: true })
+				doc.addEventListener("pointerout", out, { passive: true })
 				unbindFrame = () => {
 					win.removeEventListener("scroll", reveal)
 					win.removeEventListener("touchmove", nudge)
 					for (const type of INTENT_EVENTS) win.removeEventListener(type, mark, { capture: true })
+					doc.removeEventListener("pointerover", over)
+					doc.removeEventListener("pointerout", out)
 				}
 			}
 			bindFrame()
@@ -185,19 +247,26 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 			}
 			on(host, "scroll", (e) => pick(e.target), { capture: true, passive: true })
 			for (const type of INTENT_EVENTS) on(host, type, mark, { capture: true, passive: true })
+			on(host, "pointerenter", () => { hovered.current = true }, { passive: true })
+			on(host, "pointerleave", () => { hovered.current = false }, { passive: true })
 			on(host, "touchmove", nudge, { capture: true, passive: true })
 		}
-		const onResize = () => setView((v) => (v.show ? HIDDEN : v))
-		on(window, "resize", onResize, { passive: true })
+		// The buttons are placed once per reveal, so any change to the pane's box (a window resize, a split
+		// drag, a sidebar, the pane hidden) drops them rather than leaving them at the old box (finding 6).
+		on(window, "resize", drop, { passive: true })
+		const ro = typeof ResizeObserver === "function" ? new ResizeObserver(() => drop()) : null
+		ro?.observe(host)
 		return () => {
+			ro?.disconnect()
 			for (const f of off) f()
 			clearTimeout(idle.current)
 			clearTimeout(pending.current?.timer)
 			pending.current = null
 			target.current = null
+			engaged.current = false
 			setView(HIDDEN)
 		}
-	}, [root, reveal])
+	}, [root, reveal, drop])
 
 	const jump = (to: "top" | "bottom") => {
 		const t = target.current
@@ -207,6 +276,15 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 		clearTimeout(pending.current?.timer)
 		pending.current = { to, tries: 0 }
 		t.scrollTo(to === "top" ? 0 : t.el.scrollHeight, !reduce)
+	}
+	/** The buttons live in `body`, so a wheel over one would scroll the document, not the pane under it.
+	 *  Hand it to the pane (maker-checker finding 4: a 28px dead spot at the pane's edge). */
+	const forwardWheel = (e: React.WheelEvent) => {
+		const t = target.current
+		if (!t) return
+		const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? t.el.clientHeight : 1
+		intent.current = performance.now()
+		t.scrollTo(t.el.scrollTop + e.deltaY * unit, false)
 	}
 	const engage = () => {
 		engaged.current = true
@@ -238,6 +316,7 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 				onPointerEnter={engage}
 				onPointerLeave={release}
 				onClick={() => jump(dir)}
+				onWheel={forwardWheel}
 				style={{ left: at.x, top: at.y, width: p.size, height: p.size }}
 				className={[
 					"fixed z-40 m-0 grid cursor-pointer appearance-none place-items-center rounded-full border border-solid p-0",

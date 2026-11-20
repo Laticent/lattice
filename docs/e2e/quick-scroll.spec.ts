@@ -112,3 +112,86 @@ test('@webkit-phone Studio Compose: on a phone the stack sits above the New slid
 	expect(overlaps(b, fab)).toBe(false);
 	expect(b.y + b.height).toBeLessThanOrEqual(fab.y);
 });
+
+async function openCompose(page: Page) {
+	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
+	const host = page.locator('.cs-host');
+	await expect(host.locator('.ProseMirror')).toBeVisible();
+	const box = await host.boundingBox();
+	if (!box) throw new Error('Compose has no box');
+	return { host, box };
+}
+
+test('@gecko Studio Compose: typing that scrolls the pane (spaces included) does not show the control', async ({ page }) => {
+	const { host, box } = await openCompose(page);
+	// The pointer rests on the pane, as it does while someone types: the hover path must still refuse a
+	// scroll that typing caused. A click into the text is not reader scroll intent either.
+	await host.locator('.ProseMirror p').last().click();
+	await page.keyboard.press('ControlOrMeta+End');
+	const before = await host.evaluate((el) => el.scrollTop);
+	await page.keyboard.type('one two three ');
+	for (let i = 0; i < 12; i++) await page.keyboard.press('Enter');
+	await page.keyboard.type('four five ');
+	// ONE read once the caret-follow scroll has moved the pane and two frames have passed (not a retrying count).
+	await expect.poll(() => host.evaluate((el) => el.scrollTop)).toBeGreaterThan(before);
+	const shownWhileTyping = await page.evaluate(() => new Promise<number>((done) =>
+		requestAnimationFrame(() => requestAnimationFrame(() => done(document.querySelectorAll('[data-slot=quick-scroll][data-state=shown]').length)))));
+	expect(shownWhileTyping).toBe(0);
+	// Alive, so the 0 was a decision: the reader's wheel on the same pane shows it.
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.wheel(0, -400);
+	await shown(control(page, 'top'));
+});
+
+test('@gecko Studio Compose: a scroll with no DOM event, under a resting pointer, shows the control', async ({ page }) => {
+	// The shape of a scrollbar drag in an engine that sends no event for the press: the pointer is over the
+	// pane, nobody typed, and the pane moves.
+	const { host, box } = await openCompose(page);
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await host.evaluate((el) => {
+		el.scrollTop = el.scrollHeight / 3;
+	});
+	await shown(control(page, 'top'));
+});
+
+test('Studio Compose: a wheel over a shown button scrolls the pane under it', async ({ page }) => {
+	const { host, box } = await openCompose(page);
+	// Aim at where the TOP rail button appears (lib/quick-scroll.ts: INSET 8, rail SIZE 28), so the wheel that
+	// reveals it leaves the pointer on it. The precondition is a STATE, not a race against the 1.5s idle: the
+	// button is shown, under the pointer and hovered, which holds it open. Under load the first draft lost that
+	// race and wheeled the bare pane; its retry then wheeled DOWN onto the bottom button until the pane reached
+	// the end, where that arrow hides by design. The top arrow stays wanted the whole way down.
+	const gutter = await host.evaluate((el) => (el as HTMLElement).offsetWidth - el.clientWidth);
+	const x = box.x + box.width - gutter - 8 - 14;
+	const y = box.y + 8 + 14;
+	const up = control(page, 'top');
+	await expect(async () => {
+		await page.mouse.move(x - 1, y);
+		await page.mouse.wheel(0, 120);
+		await expect(up).toHaveAttribute('data-state', 'shown', { timeout: 2000 });
+		await page.mouse.move(x, y);
+		expect(await up.evaluate((el) => el.matches(':hover'))).toBe(true);
+		await expect(up).toHaveAttribute('data-state', 'shown', { timeout: 500 });
+	}).toPass();
+	const before = await host.evaluate((el) => el.scrollTop);
+	await page.mouse.wheel(0, 300);
+	await expect.poll(() => host.evaluate((el) => el.scrollTop)).toBeGreaterThan(before);
+});
+
+test('Studio Compose: a resize while a button is hovered does not leave the control stuck on screen', async ({ page }) => {
+	const { box } = await openCompose(page);
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.wheel(0, 300);
+	const up = control(page, 'top');
+	await shown(up);
+	await up.hover();
+	await page.setViewportSize({ width: 1400, height: 900 });
+	await expect(up).toHaveCount(0);
+	const nb = await page.locator('.cs-host').boundingBox();
+	if (!nb) throw new Error('Compose has no box');
+	await page.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2);
+	await page.mouse.wheel(0, 200);
+	await shown(control(page, 'top'));
+	// It must idle out again: before the fix the stale hover kept it shown indefinitely.
+	await hidden(control(page, 'top'), 5000);
+});
