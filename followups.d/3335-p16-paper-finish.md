@@ -12,5 +12,5 @@ source: https://github.com/Laticent/lattice/pull/3335
 # N5: a paper finish
 
 why now   — D7: a paper finish that reads at thumbnail size and stays off the words, reviving Atelier and Letterpress.
-where     — lib/finishes (a new finish) on the F1 hook and F5 keep-out.
+where     — lib/finishes/paper/ as a generator recipe, using the extended `backdrop: clear` keep-out (WP-clear).
 done when — `finish: paper` renders in light and dark; an Atelier or Letterpress preset built on it scores 8.5 or higher with both judges.
