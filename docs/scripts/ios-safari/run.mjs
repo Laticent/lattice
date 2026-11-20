@@ -8,9 +8,8 @@
  * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
  * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
  * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), or chart detail cards in an
- * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs), or whether a finish's dark glow
- * bands, with and without the screen grain (PROBE=grain-banding, grain-banding.mjs). SIM_UDID=mac drives the Mac's own Safari
- * instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key; and the grain banding probe's).
+ * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs). SIM_UDID=mac drives the
+ * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
  *   SIM_UDID=<udid> SIM_LABEL=iPad [PROBE=jpeg] node scripts/ios-safari/run.mjs
@@ -27,7 +26,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
-import { runGrainBanding } from './grain-banding.mjs';
 import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
 import { LONG_PRESS_MS, pressSelected, tapHold, tapVerdict } from './tap-guard.mjs';
 
@@ -161,7 +159,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : PROBE === 'grain-banding' ? await runGrainBandingProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -591,36 +589,6 @@ async function runPlayerChartsProbe(id) {
 			});
 			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 		},
-	});
-}
-
-/**
- * The grain banding suite (PROBE=grain-banding, grain-banding.mjs): the demo deck's HTML player as shipped and with the
- * grain off, which run.sh exports and serves at STUDIO_URL. The first finish slide is photographed with WebDriver's element
- * screenshot, so the measure sees Safari's own drawing of the glow at the device's pixel ratio. pngjs decodes it in Node.
- */
-async function runGrainBandingProbe(id) {
-	const { PNG } = (await import('pngjs')).default;
-	return runGrainBanding({
-		players: { grain: `${BASE}/grain.html`, plain: `${BASE}/plain.html` },
-		go: async (url) => {
-			await wd('POST', `/session/${id}/url`, { url });
-			// The player paints its first slide on load; the wait covers the web fonts and the first frame.
-			for (let i = 0; i < 40; i++) {
-				const ready = await wd('POST', `/session/${id}/execute/sync`, { script: "return document.readyState === 'complete' && !!document.querySelector('section.finish') && document.fonts.status === 'loaded';", args: [] });
-				if (ready) break;
-				await sleep(500);
-			}
-			await sleep(1500);
-		},
-		info: () => wd('POST', `/session/${id}/execute/sync`, { script: 'return { dpr: devicePixelRatio, width: innerWidth, ua: navigator.userAgent };', args: [] }),
-		shot: async () => {
-			const el = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: 'section.finish' });
-			const ref = el['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(el)[0];
-			return wd('GET', `/session/${id}/element/${ref}/screenshot`);
-		},
-		decode: (b64) => PNG.sync.read(Buffer.from(b64, 'base64')),
-		save: (name, b64) => fs.writeFileSync(path.join(OUT, `${name}-${LABEL}.png`), Buffer.from(b64, 'base64')),
 	});
 }
 

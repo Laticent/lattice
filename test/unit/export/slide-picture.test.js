@@ -67,19 +67,5 @@ test('a capture that keeps a rounded corner as transparency is never a JPEG, and
   const h = handle({ png: 3_000_000, jpeg: 300 * KB, tone: true });
   const out = await shootPicture(h, { type: 'png', omitBackground: true });
   assert.equal(isJpeg(out), false);
-  assert.deepEqual(shots(h), ['png']);
-  // The only page calls are the capture mark around the shot (captureScreenshot), never the tone question.
-  assert.equal(h.calls.filter((c) => c.type === 'evaluate').length, 2);
-});
-
-test('every native slide screenshot in lattice.js goes through captureScreenshot', () => {
-  // The fallback when the slide camera cannot load (an unbuilt checkout, a camera that throws). A bare `.screenshot(` on a
-  // slide photographs the screen-only grain (lib/base/base.finish.css § SCREEN GRAIN): a PNG of a dark finish slide came
-  // out 2.05x the size with it. `scratch` is the SVG rasterizer's own page, not a slide.
-  const fs = require('node:fs');
-  const path = require('node:path');
-  const src = fs.readFileSync(path.join(__dirname, '../../../lattice.js'), 'utf8');
-  const bare = [...src.matchAll(/(\w+)\.screenshot\(/g)].map((m) => m[1]).filter((who) => who !== 'scratch');
-  assert.deepEqual(bare, [], `slide screenshots outside captureScreenshot: ${bare.join(', ')}`);
-  assert.ok((src.match(/captureScreenshot\(h, /g) || []).length >= 4, 'the four fallbacks call it');
+  assert.deepEqual(h.calls.map((c) => c.type), ['png']);
 });

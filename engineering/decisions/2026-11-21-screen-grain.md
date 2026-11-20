@@ -1,110 +1,77 @@
 ---
-status: in-progress
-summary: Safari (WebKit) does not dither CSS gradients, so a finish's dark glow draws as visible concentric bands in the HTML player and the Studio. A faint noise tile on the finish's mask layer (`--backdrop-grain`, a 32 px PNG, 0.7 KB of player CSS) removes them on screen, and every export switches it off, so PDFs, pictures, PowerPoint, ODP and video are byte-identical. Building it found and fixed a latent bug in the player's CSS masker that dropped 234 KB of dark-mode rules for any quoted url() holding a ")".
+status: shipped
+summary: A screen grain to stop a finish's dark glow banding in Safari was built, measured and NOT shipped. Linux WebKit bands (p90 run 11.5 to 13.5 CSS px), but real Apple Safari (iPad and iPhone iOS Simulators, macOS Safari 27.2) does not (1.3 to 4.0 CSS px without the grain), so the grain would cost texture, color, paint and bytes for no visible gain on the devices decks are read on. Building it found a real bug, kept and fixed: the player's CSS masker dropped 234 KB of dark-mode rules after any quoted url() holding a ")".
 ---
 
-# Screen grain: no banding in Safari (2026-11-21)
+# Screen grain: measured, not shipped (2026-11-21)
 
 **Asked.** After the PDF backdrop work (`2026-11-20-backdrop-gradient-fidelity.md`), the owner asked
 for the HTML player to be checked, and chose a screen dither for every browser over a Safari-only
-one or none (2026-11-21).
+one or none (2026-11-21). The first measurements were made in Linux WebKit; the owner then asked
+for real Apple Safari to be measured before merging, and, once it had been, left the call to the
+maker ("use your best judgment").
 
-## 1. What is wrong
+## 1. What was seen
 
-Chrome dithers a CSS gradient when it paints it; WebKit does not. A dark glow spans a few color
-levels across hundreds of pixels, so WebKit draws it as flat concentric bands. Measured in the
-exported player, `finish-nimbus dark`, 2x, the right half of the slide: one color runs a median
-**6 px (p90 30)** in WebKit against **1 px** in Chromium. Visible at normal contrast on a dark slide.
+Chrome dithers a CSS gradient when it paints it. Playwright's WebKit on Linux does not: in the
+exported player, `finish-nimbus dark` at 2x, one color runs a median **6 px (p90 30)** against
+**1 px** in Chromium, and the glow shows concentric rings once the contrast is raised.
 
-## 2. What was built
+## 2. What was built and measured
 
-- `lib/base/base.finish.css` § SCREEN GRAIN: `--backdrop-grain`, a 32 px indexed PNG noise tile
-  (four grays, each at 6/255 opacity, from a seeded generator), as the top layer of `.backdrop-mask`,
-  under the clear panel. WebKit's runs fall to **1 px (p90 2)**; the mean color moves under one level
-  (0.86). It is a PNG, not an SVG filter, for memory: see §3.
-- **Off in every capture**, so no export carries it (noise is the worst case for a photographed
-  slide's size):
-  - the export face (`.lattice-exporting`) and print;
-  - every clone the slide camera photographs, on either face (`lattice-capturing`, added in
-    `lib/core/slide-camera.mjs`): a PNG set and a picture `.pptx` take the SCREEN face;
-  - a native screenshot fallback, used when the slide camera cannot load (an unbuilt checkout, a camera
-    that throws): `captureScreenshot` (`lib/export/slide-picture.js`) marks the slide `lattice-capturing`
-    around the shot, and unmarks only what it marked. The same class, so the rule needs no root selector,
-    which the engine's CSS scoper cannot pack. Every native slide screenshot goes through it: the office
-    export, the CLI camera, and the four in `lattice.js` (the PNG set, the image set and its thumbnails,
-    the `--paper` raster PDF, the PDF writer's photo). A census in `test/unit/export/slide-picture.test.js`
-    holds that. The PR's review found three of those four bare: with the camera bundle missing, a PNG of a
-    dark finish slide came out 2,543,008 bytes with the grain against 1,256,442 without. With the fix it
-    is byte-identical to the grain-off PNG. `lattice-capturing` is a reserved engine class
-    (`lib/base/base.registers.docs.md`);
-  - the video, which records the exported player: the player's prune drops rules keyed to a capture
-    class (they match nothing when it is exported), so `lib/export/video.mjs` switches the grain off in
-    the style it already adds.
-- **Found on the way:** the player's CSS masker (`minifyCss`, `maskCss` in `lib/export/player-core.mjs`)
-  matched `url\([^)]*\)`, which stops at the first `)`. A quoted url holding its own `)` (the first,
-  SVG grain's `url(#g)` filter reference) left an unmatched quote, and the masker read the stylesheet to
-  the next quote as one string: 234 KB of dark-mode rules dropped from the player. A quoted url is now
-  taken whole. The shipped PNG tile has no `)`, but any deck CSS with such a url was exposed, so the
-  fix stays.
+A faint noise tile (`--backdrop-grain`) on the finish's mask layer, switched off in every capture
+(export face, print, the slide camera's clones, the native screenshot fallbacks, the video), so no
+export carried it.
 
-## 3. Measured
+- **The first tile, an SVG `feTurbulence` filter, was dropped for memory:** WebKit kept a full-size
+  filter buffer per slide, +97 MB peak for a 4K deck at 3x (791 to 889 MB). A 32 px indexed PNG
+  (four grays at 6/255 opacity) did the same job for +1 MB.
+- **Linux WebKit**, the dark nimbus title slide, p90 run of one color in two strips of the glow,
+  in CSS px: without the grain 4.3 (iPhone size, 3x), 11.5 (iPad size, 2x), 13.5 (Mac size, 2x);
+  with it 0.7, 1.0, 1.5.
+- **Real Apple Safari**, the same measure, platform-suite run 44815692040 (a suite written for the
+  question, `ios-safari-grain-banding`, on a macOS runner):
 
-**Exports**, `main` against this branch, `finish-backdrops` and `backdrop-register`:
+  | Safari | Without the grain (median/p90, CSS px) | With the grain |
+  |---|---|---|
+  | iPad iOS Simulator, Safari 26.5, 2x | 1.0 / 2.0 | 0.5 / 1.0 |
+  | iPhone iOS Simulator, Safari 26.5, 3x | 0.7 / 1.3 | 0.3 / 0.7 |
+  | macOS Safari 27.2, 1x | 2.0 / 4.0 | 1.0 / 2.0 |
 
-| Export | Change |
-|---|---|
-| PDF, PNG set, `.odp`, picture `.pptx` | byte-identical |
-| editable `.pptx` | its pictures identical (`docProps/core.xml` timestamp only) |
-| HTML player | **+0.7 KB** (the grain's CSS: 611 B rule, 75 B print rule, 27 B layer entry) |
+  Apple's Safari dithers the gradient itself, or draws it finely enough that no ring forms: a 1 to
+  2 CSS px run is not a visible band.
 
-Before the camera marked its clones, a picture `.pptx` of `finish-backdrops` grew 3.25 to 3.76 MB
-(+16%): the reason every capture path is covered.
+## 3. Decision: not shipped
 
-**Memory**, the number that chose the PNG. WebKit (WPE under Playwright), the exported player of a
-`size: 4K` finish deck (three dark finish slides), 1280x720 at 3x, every slide visited; peak resident
-memory of the web and UI processes, five fresh browsers per arm, median. The no-grain arm is a separate
-player file with the grain removed, not switched off after load.
+On the devices decks are read on, the grain halves runs that are already invisible, and it costs:
+a faint texture on every finish slide, a mean color shift of 0.6 to 1.4 levels, 22 to 34% more
+paint time when twenty slides repaint at once (about 1 ms a repaint with one slide on screen), and
+0.7 KB in every exported player. The banding it fixes belongs to WebKit builds outside Apple's
+(Linux WebKitGTK and WPE browsers), which are rare for this audience.
 
-| Tile | CSS | Peak | WebKit run (median/p90) | Mean shift |
-|---|---|---|---|---|
-| none | 0 | 791 MB | 6/30 px | 0 |
-| SVG `feTurbulence`, 128 px, 2% (first version) | 765 B | **889 MB (+97)** | 1/4 px | 2.14 |
-| PNG, 64 px, four grays at 6/255 | 1.6 KB | 793 MB | 1/2 px | 0.86 |
-| **PNG, 32 px, four grays at 6/255 (shipped)** | 557 B | **792 MB (+1)** | 1/2 px | 0.86 |
+The measuring suite was not kept either. Its purpose was this decision. As a standing guard on
+the shipped player it would sit at its own edge: macOS Safari's p90 without the grain is 4.0 CSS
+px, exactly the 4 px gate, so it would fail at random.
 
-Three slides at 3840x2160x4 bytes is about 100 MB: WebKit appears to keep one full-size filter
-buffer per slide for the SVG. A plain bitmap tile is repeated without one.
+**Revisit when** a real device shows rings (a photo of a phone or a Mac screen), or the audience
+moves to a non-Apple WebKit. The tile, its capture switch-offs and the suite are in the history of
+PR #3344 (commits 5d57639, 3e4d3d5, 032c8eb, 44e1f31).
 
-**Rendering** (measured on the SVG tile; the PNG is cheaper to paint, not re-measured), 20 dark finish slides on screen at once at 2x, software rendering (the sandbox has no
-GPU), median of five:
+## 4. What shipped: the player's CSS masker
 
-| | Grain off | Grain on |
-|---|---|---|
-| Chromium, first frame | 78 ms | 86 ms (+10%) |
-| Chromium, a frame where every slide repaints | 58.7 ms | 78.9 ms (+34%) |
-| WebKit, first frame | 1,377 ms | 1,585 ms (+15%) |
-| WebKit, a frame where every slide repaints | 549 ms | 672 ms (+22%) |
-| Scrolling 20 slides (Chromium / WebKit) | 60.3 / 41.6 fps | 60.8 / 39.5 fps |
+The player's CSS masker (`minifyCss`, `maskCss` in `lib/export/player-core.mjs`) matched
+`url\([^)]*\)`, which stops at the first `)`. A quoted url holding its own `)` (an SVG data URI
+with a filter reference, `url(%23g)`) left an unmatched quote, and the masker read the stylesheet
+to the next quote as one string: 234 KB of dark-mode rules dropped from the player. A quoted url
+is now taken whole. Any deck CSS with such a url was exposed. Pinned by
+`test/unit/export/html-player.test.js` ("a quoted url() holding its own ")" is taken whole"),
+which goes red on the old pattern.
 
-That is the worst case; one slide on screen adds about 1 ms a repaint in Chromium. An earlier
-measurement read "first paint doubles": it timed a full-page PNG screenshot, whose ENCODER is what the
-noise slows. A viewer never encodes a PNG.
-
-**Accepted cost.** These were measured on the first, SVG tile; the shipped PNG tile was not re-timed.
-A player or the Studio shows one slide at a time, where the cost is about a millisecond a repaint;
-the 22 to 34% is twenty slides repainting at once, which the Studio's slide strip comes closest to.
-Scrolling stays within 2 fps. The banding it removes is visible on every dark finish slide in Safari.
-
-## 4. Not checked
-
-- A real iPhone or iPad (WebKit 26 under Playwright on Linux was the surface) and a GPU-rendered
-  browser: the rendering and memory costs above are software rendering. Present's opening frame on
-  its own was not split out: the memory figure is the peak across opening and stepping.
-- The video was not recorded end to end (it needs the narration model). Its switch-off is
-  `RECORDING_STYLE` in `lib/export/video.mjs`, the style the recorder adds to the exported player, and
-  `test/integration/export/backdrop-grain.test.js` applies that string to a real exported player and
-  reads the grain gone (red with the rule removed).
-- Banding was measured in WebKit under Playwright on Linux, not in Safari on an Apple platform, whose
-  graphics backend differs. The iOS Simulator platform suites ran the player on this branch (charts on
-  iPhone and iPad, green) but do not measure banding. If Safari on Apple already dithered, the grain
-  would only add its faint texture; nothing would break.
+**Cost against `main`, measured.** Five decks exported to players with `main`'s `player-core.mjs` and
+with this one (`finish-backdrops`, `chart-detail-reveal`, the baseline gallery, the chart and
+statement galleries): every player byte-identical. On Lattice's whole built stylesheet
+(`dist/lattice.css`, 2.9 MB) both patterns find the same 8,582 strings and urls in 3.5 to 4 ms a pass.
+On hostile input the new pattern stays linear: `url(` followed by a million spaces and no `)` takes
+6.7 ms (`main`: 2.9 ms), an unclosed `url("` 16.5 ms (`main`: 18.1 ms). The first version of the fix
+put `\s*` on both sides of the alternation, which overlapped the unquoted branch and went cubic: 2.7 s
+for 2,000 spaces. The spaces now belong to each quoted branch.

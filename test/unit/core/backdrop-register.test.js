@@ -91,7 +91,7 @@ test('engine: a slide\'s token evicts the deck\'s on its own axis only', () => {
 
 test('css: the compositor reads the register first, then the baked value', () => {
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
-  assert.match(css, /background-image:\s*var\(--backdrop-grain,\s*none\),\s*var\(--backdrop-scrim,\s*var\(--fin-backdrop-mask,\s*none\)\),\s*var\(--backdrop-dim-scrim,\s*var\(--fin-backdrop-dim-scrim,\s*none\)\)/);
+  assert.match(css, /background-image:\s*var\(--backdrop-scrim,\s*var\(--fin-backdrop-mask,\s*none\)\),\s*var\(--backdrop-dim-scrim,\s*var\(--fin-backdrop-dim-scrim,\s*none\)\)/);
   for (const n of [20, 40, 60, 80]) {
     // A step always uses the veil: a deck's step can sit over a finish saved with an old baked
     // mask, and group opacity around that mask is the poppler wedge.

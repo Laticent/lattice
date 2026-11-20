@@ -1,2 +1,0 @@
-- A finish's dark glow no longer shows concentric bands in Safari (iPhone, iPad and Mac) in the HTML player and the Studio. A faint grain, too fine to see, now breaks the bands up on screen; exports switch it off, so PDFs, pictures, PowerPoint, ODP and video are unchanged.
-- An exported HTML player no longer loses dark-mode styles when a deck's CSS holds a quoted `url("…")` with a `)` inside it.

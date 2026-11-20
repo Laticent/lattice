@@ -254,40 +254,10 @@ section.finish > .backdrop > .backdrop-mask {
   position: absolute;
   inset: 0;
   z-index: 2;
-  /* Three layers: the screen GRAIN on top (below), then the SHAPE (clearance / spotlight — the
-   * register's `--backdrop-scrim` first, then the finish's baked mask) over the register's flat
-   * strength VEIL. */
-  background-image: var(--backdrop-grain, none), var(--backdrop-scrim, var(--fin-backdrop-mask, none)), var(--backdrop-dim-scrim, var(--fin-backdrop-dim-scrim, none));
+  /* Two layers: the SHAPE (clearance / spotlight — the register's `--backdrop-scrim` first,
+   * then the finish's baked mask) over the register's flat strength VEIL. */
+  background-image: var(--backdrop-scrim, var(--fin-backdrop-mask, none)), var(--backdrop-dim-scrim, var(--fin-backdrop-dim-scrim, none));
 }
-
-/* SCREEN GRAIN — a faint noise over the finish, so a glow does not band in Safari.
- * Chrome dithers a CSS gradient when it paints it; WebKit (Safari on the iPhone, iPad and Mac) does
- * not, so a dark glow, which spans a few color levels across hundreds of pixels, draws as flat
- * concentric bands. Measured in the exported player on `finish-nimbus dark` at 2x: one color runs a
- * median 6 px (p90 30) in WebKit against 1 px in Chromium. This tile brings WebKit to 1 px (p90 2)
- * and moves the mean color under one level.
- * The tile is a 32 px indexed PNG (four grays, each at 6/255 opacity, seeded noise): 0.6 KB of CSS.
- * It is a PNG on purpose. An SVG `feTurbulence` tile did the same job but WebKit kept a full-size
- * filter buffer per slide: +97 MB peak memory for a 4K deck at 3x (791 to 889 MB); this tile adds
- * none (792 MB). It sits under the clear panel, so the words stay on clean canvas, and it is
- * neutral gray, so it is palette-blind.
- * SCREEN ONLY: every capture switches it off (below), so a PDF, a picture, a video and a PowerPoint
- * never carry it: noise in an exported photo is the worst case for its size, and the PDF draws its own
- * glow (engineering/decisions/2026-11-21-screen-grain.md). */
-section.finish {
-  --backdrop-grain: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgAgMAAAAOFJJnAAAADFBMVEUAAABVVVWqqqr////Bf2LRAAAABHRSTlMGBgYGLUxHRwAAAStJREFUeNoBIAHf/gDC4IMGMLtz8AC4QIcXwx9B5gDaK4gaDjy3EQAl8j/E5BfC2ABPpgVZRQUTXwCkXSksDuhC5wDeUOqpnUUr+gDYQPrmvspWcACOrVbdf3aLGABeambBh+FzFgCn8BQeuTYqlQDGchSbc1hCQQCkc9Q/hVBKxADxscsFgnjvIQCG/efNnwH/ZAA0qTXshHQ5QwDkKU5wFBd69QCkdDQfYvrmXwD2bMuqdIuVlwA86ZWdbXuBFQDZn1n0dTLENwBMdRhqzIv7RQC+3cEZq3F7TAAaHqwTYDXBtwBECBEa5GETkgAMVAC88hy5IgAp/fCxss/mnwAP+z6CTSu9ZABIqT2Xw7dEEABKFTRlsfbxcgAejV4PtqqYYwCS4EFM3vdjdTcIfQlL8M+oAAAAAElFTkSuQmCC");
-}
-@media print {
-  section.finish { --backdrop-grain: none; }
-}
-/* Every capture: the export face, and any slide photographed (`lattice-capturing`, either face: the
- * slide camera marks its clones, lib/core/slide-camera.mjs, and a native screenshot fallback marks
- * the slide for the shot, lib/export/slide-picture.js; a PNG set and a picture .pptx take the screen
- * face). The video records the exported player, whose prune drops these rules (they match nothing
- * when it is exported), so lib/export/video.mjs switches the grain off in the style it adds. The
- * capture arm names `lattice-capturing` first so the package index reserves it as an engine class. */
-section.finish.lattice-exporting,
-section.lattice-capturing.finish { --backdrop-grain: none; }
 
 /* CLEAR BEHIND CONTENT — the frame's CONTENT BOX (masthead + stage) is clean canvas; the
  * finish reads only in the frame margin. (engineering/decisions/2026-09-26-backdrop-register.md

@@ -2875,7 +2875,7 @@ test('relative style urls resolve to files that exist, and the inliner embeds pi
 
 test('a quoted url() holding its own ")" is taken whole: no rule after it is lost (minifyCss and themeDualMode)', () => {
 	// A data URI SVG with a filter reference: `url("…url(%23g)…")`. The old `url\([^)]*\)` stopped at the inner `)`, left
-	// an unmatched quote, and read the stylesheet to the next quote as one string: an SVG grain's data URI took 234 KB
+	// an unmatched quote, and read the stylesheet to the next quote as one string: an SVG data URI with a filter reference took 234 KB
 	// of dark-mode rules out of the exported player.
 	const uri = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><rect filter='url(%23g)'/></svg>")`;
 	const css = `.a { background: ${uri}; }\n.b { color: red; }\n.c { content: 'x'; }\n:root { --d: light-dark(white, black); }`;
