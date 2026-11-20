@@ -105,14 +105,9 @@ function stringArm(md, size) {
 }
 // Strip what each mark's string arm drew, then let its DOM arm draw it again. A proof slide keeps a `cat-N` the
 // author pinned; the one the engine sequenced comes off.
-// ONE document, reused: its body is replaced per deck. A fresh JSDOM per deck leaked even when closed (one attribute
-// query, `.lattice[data-lv]`, kept about 2.4 MB of each document alive), so over the ~570-deck corpus the heap reached
-// 1997 MB on main, at V8's ~2 GB default, and one more deck ran it out of memory. Reused, the corpus holds at 138 MB.
-// The DOM arms read and write only inside the body, so replacing it resets everything they touch.
-const DOM_ARM = new JSDOM('<!doctype html><body></body>');
 function domArm(html, src) {
-  const doc = DOM_ARM.window.document;
-  doc.body.innerHTML = `<div class="lattice">${html}</div>`;
+  const dom = new JSDOM(`<!doctype html><body><div class="lattice">${html}</div></body>`);
+  const doc = dom.window.document;
   for (const sel of ['.tile-progress', '.divider-marker', '.agenda-rail', '[data-agenda-page]', 'p[data-derived="section"]']) {
     for (const n of doc.querySelectorAll(sel)) n.remove();
   }
