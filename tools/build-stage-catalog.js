@@ -600,17 +600,28 @@ function buildSlotContract() {
 // (engineering/decisions/2026-11-19-deterministic-authoring-audit.md W2).
 function listMarkers(slots) {
   const byDepth = [];
-  const visit = (match) => {
+  // A slot whose marker is `any` but whose `selector` names one element (`ol > li`, the ledgers
+  // authority-chain, regulatory-update, timeline-list) is read as that element: the layout reads
+  // both, and the selector, which the semantic-invariant suite executes, stays true.
+  const fromSelector = (sel) => {
+    const ol = /(^|[\s>,(])ol\b/.test(sel || '');
+    const ul = /(^|[\s>,(])ul\b/.test(sel || '');
+    // Only `ol`: a `ul` is already what a neutral layout gets, and on a numbered-tags layout a
+    // `ul > li` selector describes the unnumbered form, not a target to rewrite `1.` into.
+    return ol && !ul ? 'ol' : null;
+  };
+  const visit = (match, selector) => {
     for (const mt of Array.isArray(match) ? match : [match]) {
       if (mt?.kind !== 'list') continue;
       const d = (mt.depth || 1) - 1;
-      const el = mt.marker === 'ordered' ? 'ol' : mt.marker === 'bullet' ? 'ul' : null;
+      const named = mt.marker === 'ordered' ? 'ol' : mt.marker === 'bullet' ? 'ul' : null;
+      const el = named || (d === 0 ? fromSelector(selector) : null);
       if (!el) continue;
       if (byDepth[d] && byDepth[d] !== el) throw new Error(`list contract: two list slots at depth ${d + 1} name different markers`);
       byDepth[d] = el;
     }
   };
-  for (const slot of Object.values(slots)) if (slot) visit(slot.match);
+  for (const slot of Object.values(slots)) if (slot) visit(slot.match, slot.selector);
   const out = Array.from({ length: byDepth.length }, (_, i) => byDepth[i] || null);
   return out;
 }

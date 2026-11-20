@@ -416,7 +416,10 @@ behind the one before it only where it reads that one's output.
 - **The manifests keep their markers.** W1 wrote `ordered` / `bullet` where a layout reads only
   one element. That is now the element the engine rewrites the list to, which is why the plan's
   "move the R3 layouts to `any`" did not happen: the marker became the normalization target
-  rather than an author requirement. `tools/build-stage-catalog.js` relaxes every list marker to
+  rather than an author requirement. A slot whose marker is `any` but whose `selector` names only `ol` (the ledgers
+  `authority-chain`, `regulatory-update`, `timeline-list`) is read as `ol`, so the selector the
+  semantic-invariant suite executes stays true; a unit test holds every list selector to the
+  element the engine produces. `tools/build-stage-catalog.js` relaxes every list marker to
   `any` before packing the lint contract for a component that declares `lists`, so `slot-contract`
   never reports a marker. The build fails a component with a list slot and no `lists`.
 - **Contracts as declared.** `prose`: `content`, `list`. `numbered-tags`: `cards-grid`,

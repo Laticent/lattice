@@ -59,6 +59,26 @@ describe('every component that reads a list declares its contract', () => {
       assert.equal(CATALOG[m.name]?.lists, m.lists, `${m.name}: list-contract.generated.js is stale — run node tools/build-stage-catalog.js`);
     });
   }
+  test('every list slot selector names the element the engine hands the layout', () => {
+    // The semantic-invariant suite executes these selectors (`ol > li` on authority-chain): a
+    // contract that rewrote that list to `ul` left the selector matching nothing.
+    const bad = [];
+    for (const m of manifests) {
+      const c = CATALOG[m.name];
+      if (!c || c.lists === 'prose') continue;
+      for (const [k, s] of Object.entries(m.slots || {})) {
+        const mt = [].concat(s?.match).find((x) => x?.kind === 'list');
+        if (!mt || !s.selector) continue;
+        const d = mt.depth || 1;
+        const want = c.lists === 'numbered-tags' && d === 1 ? c.markers[0] : c.markers[d - 1] || 'ul';
+        if (!want) continue; // numbered-tags with no named marker: the author's element is kept
+        const ol = /(^|[\s>,(])ol\b/.test(s.selector);
+        const ul = /(^|[\s>,(])ul\b/.test(s.selector);
+        if ((want === 'ul' && ol && !ul) || (want === 'ol' && ul && !ol)) bad.push(`${m.name}.${k} '${s.selector}' vs ${want}`);
+      }
+    }
+    assert.deepEqual(bad, []);
+  });
   test('the owner settled the R2 layouts (decision 1, 2026-11-19)', () => {
     for (const name of ['cards-grid', 'cards-stack', 'list-steps']) assert.equal(listContractFor(name).lists, 'numbered-tags', name);
     assert.equal(listContractFor('split-panel steps').lists, 'numbered-tags');
