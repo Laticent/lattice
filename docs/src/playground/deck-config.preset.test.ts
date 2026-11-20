@@ -11,14 +11,18 @@ const withProbe = <T,>(f: () => T): T => withPresetTable({ ...PRESETS, probe: PR
 const deck = (...fm: string[]) => ['---', 'marp: true', ...fm, '---', '', '# Hi'].join('\n');
 
 describe('deck-config — a preset recommendation (P0)', () => {
-	it('reads the preset palette, hand and color mode for a deck that names none', () => {
+	it('reads the preset hand as the row value, and the recommended palette and color mode for the Auto label', () => {
 		withProbe(() => {
-			expect(readFrontMatter(deck('preset: probe'))).toMatchObject({ theme: 'cuoio', 'color-mode': 'dark', mode: 'sketch' });
-			expect(readFrontMatter(deck('preset: probe', 'theme: indaco', 'mode: boardroom'))).toMatchObject({ theme: 'indaco', mode: 'boardroom' });
-			expect(readFrontMatter(deck('preset: probe', 'class: light'))['color-mode']).toBe('');
+			// Auto FOLLOWS a recommended palette or color mode, so the rows stay at Auto ('') and the
+			// recommendation rides beside them for the label.
+			expect(readFrontMatter(deck('preset: probe'))).toMatchObject({ theme: '', 'color-mode': '', mode: 'sketch', presetTheme: 'cuoio', presetColorMode: 'dark' });
+			expect(readFrontMatter(deck('preset: probe', 'theme: indaco', 'mode: boardroom'))).toMatchObject({ theme: 'indaco', presetTheme: '', mode: 'boardroom' });
+			expect(readFrontMatter(deck('preset: probe', 'class: light')).presetColorMode).toBe('');
+			expect(readFrontMatter(deck('preset: probe', 'class: color-system')).presetColorMode).toBe('');
+			expect(readFrontMatter(deck('preset: probe', 'color-mode: light')).presetColorMode).toBe('');
 		});
 		// Control: no recommendation, the old empty baselines.
-		expect(readFrontMatter(deck('preset: editorial'))).toMatchObject({ theme: '', 'color-mode': '', mode: '' });
+		expect(readFrontMatter(deck('preset: editorial'))).toMatchObject({ theme: '', 'color-mode': '', mode: '', presetTheme: '', presetColorMode: '' });
 	});
 
 	it('writes `boardroom` as the override under a preset that recommends another hand, and omits the preset hand', () => {

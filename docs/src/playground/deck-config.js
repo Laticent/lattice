@@ -184,12 +184,16 @@ export function readFrontMatter(source) {
   // verbatim, not form-managed — keep them out of the scalar map's stringly view.
   for (const [k, v] of entries) if (!(v?.block)) map[k] = stripQuotes(v);
   return {
-    // A preset RECOMMENDS a palette, a hand and a color mode (engineering/decisions/2026-11-20-deck-preset-study.md
-    // §5 D1): an absent key reads as the preset's, as the engine renders it. The color mode yields to a scheme the
-    // deck pins the legacy way (`class: dark`, a `-dark` theme), as lib/core/resolve-color-mode.js does.
-    theme: map.theme || lookBaseline(map.preset, 'theme') || '',
+    theme: map.theme || '',
+    // A preset may RECOMMEND a hand (engineering/decisions/2026-11-20-deck-preset-study.md §5 D1); like every
+    // look row, the row shows what renders.
     mode: map.mode || (lookBaseline(map.preset, 'mode') === 'boardroom' ? '' : lookBaseline(map.preset, 'mode')),
-    'color-mode': map['color-mode'] || (legacySchemePin(map) ? '' : lookBaseline(map.preset, 'color-mode') || ''),
+    'color-mode': map['color-mode'] || '',
+    // What the preset RECOMMENDS for the two author keys the deck leaves unset, or ''. Auto FOLLOWS the preset,
+    // so the sheet's Auto choice names this value rather than hiding what renders. The color mode yields to a
+    // scheme the deck pins in `class:` or with a `-dark` theme, as lib/core/resolve-color-mode.js does.
+    presetTheme: map.theme ? '' : presetRecommends(map.preset, 'theme'),
+    presetColorMode: map['color-mode'] || legacySchemePin(map) ? '' : presetRecommends(map.preset, 'color-mode'),
     // A preset's backdrop reads as the current value; `none` stays the empty baseline.
     finish: map.finish || (lookBaseline(map.preset, 'finish') === 'none' ? '' : lookBaseline(map.preset, 'finish')),
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
@@ -221,10 +225,17 @@ export function readFrontMatter(source) {
   };
 }
 
-// The deck pins its scheme the legacy way — a deck-wide `class: dark|light|print` or a `-dark` theme — which a
-// preset's recommended color mode never overrides (lib/core/resolve-color-mode.js `deckColorModeValue`).
+// The deck pins its scheme in `class:` (any color-axis token, lib/core/color-mode.js `COLOR_MODE_TOKENS`) or with a
+// `-dark` theme, which a preset's recommended color mode never overrides (lib/core/resolve-color-mode.js
+// `deckColorModeValue`).
+const COLOR_AXIS = new Set(['dark', 'light', 'color-light', 'color-system', 'color-inherited', 'print']);
 function legacySchemePin(map) {
-  return String(map.class || '').split(/\s+/).some((t) => t === 'dark' || t === 'light' || t === 'print') || /-dark$/.test(String(map.theme || '').trim());
+  return String(map.class || '').split(/\s+/).some((t) => COLOR_AXIS.has(t)) || /-dark$/.test(String(map.theme || '').trim());
+}
+
+// What preset `name` recommends for `key`, or '' (no preset, an unknown one, or one that leaves the key alone).
+function presetRecommends(name, key) {
+  return frontMatterKey.presetValue(String(name || '').split(/[ \t]#/)[0].trim().toLowerCase(), key) || '';
 }
 
 function isDefault(key, value) {

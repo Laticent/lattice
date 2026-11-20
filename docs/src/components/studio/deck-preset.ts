@@ -31,6 +31,7 @@ const ENGINE = frontMatterKey as unknown as {
 	presetEffective: (name: string, key: string) => string | null;
 	isKnownPreset: (value: unknown) => boolean;
 	frontMatterScalar: (raw: string) => string;
+	presetValue: (name: string, key: string) => string | null;
 };
 
 export const PRESET_KEYS: readonly string[] = ENGINE.PRESET_KEYS;
@@ -71,6 +72,38 @@ export function presetOf(source: string): string {
 	const raw = span && !span.indent ? (getFrontMatterName(source, 'preset') || '').toLowerCase() : '';
 	return ENGINE.isKnownPreset(raw) ? raw : DEFAULT_PRESET;
 }
+
+/**
+ * What the deck's preset RECOMMENDS for an author key (`theme`, `color-mode`) that the deck leaves to it,
+ * or null: the deck writes its own, the preset recommends nothing, or (color mode) the deck pins a scheme in
+ * `class:` or with a `-dark` theme, which a recommendation never overrides (lib/core/resolve-color-mode.js
+ * `deckColorModeValue`). A control's Auto choice FOLLOWS the preset (the coordinator's ruling on P0), so its
+ * label names this value: `Auto — preset: Brina`, never a bare Auto that hides what renders.
+ */
+export function presetRecommendation(source: string, key: string): string | null {
+	if (ownValue(source, key) !== undefined) return null;
+	if (key === 'color-mode') {
+		const span = frontMatterKeySpan(source, 'class');
+		const classLine = span && !span.indent ? source.slice(span.start, span.end) : '';
+		const tokens = ENGINE.frontMatterScalar(classLine.slice(classLine.indexOf(':') + 1)).split(/\s+/);
+		if (classLine && tokens.some((t) => COLOR_AXIS.has(t))) return null;
+		if (/-dark$/.test(ownValue(source, 'theme') ?? '')) return null;
+	}
+	const span = frontMatterKeySpan(source, 'preset');
+	if (!span || span.indent) return null;
+	const name = (getFrontMatterName(source, 'preset') ?? '').toLowerCase();
+	return name ? ENGINE.presetValue(name, key) : null;
+}
+
+/** The text an Auto head names for `key`: `preset: <label>` while the preset's recommendation applies, else
+ *  `fallback` (what Auto resolves to without one). `labelOf` turns a value into its display label. */
+export function presetAutoLabel(source: string, key: string, fallback: string, labelOf: (value: string) => string = (v) => v): string {
+	const rec = presetRecommendation(source, key);
+	return rec ? `preset: ${labelOf(rec)}` : fallback;
+}
+
+/** The engine's color-axis class tokens (lib/core/color-mode.js `COLOR_MODE_TOKENS`). */
+const COLOR_AXIS = new Set(['dark', 'light', 'color-light', 'color-system', 'color-inherited', 'print']);
 
 /** What `key` resolves to under the preset alone, before any key the deck wrote. */
 export function presetBaseline(source: string, key: string): string {

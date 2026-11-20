@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { frontMatterName, PRESETS, withPresetTable } from '../../../../lib/core/front-matter-key.js';
-import { AUTHOR_KEYS, applyPreset, clearPresetOverrides, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetChanges, presetOf, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
+import { AUTHOR_KEYS, applyPreset, clearPresetOverrides, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetAutoLabel, presetChanges, presetOf, presetRecommendation, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
 
 const deck = (...fm: string[]) => ['---', 'theme: indaco', ...fm, '---', '', '# Hi'].join('\n');
 const fmOf = (src: string) => src.split('---')[1];
@@ -136,6 +136,28 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 			expect(registerValue(bare('preset: probe', 'chart-finish: tone'), 'marks')).toBe('tone');
 			expect(registerValue(bare('preset: probe', 'marks: pigment', 'chart-finish: tone'), 'marks')).toBe('pigment');
 		});
+	});
+
+	it('names what Auto follows: the recommendation, only while the deck leaves the key to the preset', () => {
+		withProbe(() => {
+			expect(presetRecommendation(bare('preset: probe'), 'theme')).toBe('cuoio');
+			expect(presetRecommendation(bare('preset: probe'), 'color-mode')).toBe('dark');
+			expect(presetRecommendation(bare('preset: probe', 'theme: indaco'), 'theme')).toBe(null);
+			expect(presetRecommendation(bare('preset: probe', 'class: color-system'), 'color-mode')).toBe(null);
+			expect(presetRecommendation(bare('preset: probe', 'theme: cuoio-dark'), 'color-mode')).toBe(null);
+			expect(presetRecommendation(bare('foo:', '  preset: probe'), 'theme')).toBe(null);
+		});
+		expect(presetRecommendation(bare('preset: editorial'), 'theme')).toBe(null);
+	});
+
+	it('the drawer Auto head reads `preset: <label>` while the recommendation applies', () => {
+		const cap = (v: string) => v[0].toUpperCase() + v.slice(1);
+		withProbe(() => {
+			expect(presetAutoLabel(bare('preset: probe'), 'theme', 'Indaco', cap)).toBe('preset: Cuoio');
+			expect(presetAutoLabel(bare('preset: probe'), 'color-mode', "Theme's own", cap)).toBe('preset: Dark');
+			expect(presetAutoLabel(bare('preset: probe', 'class: dark'), 'color-mode', "Theme's own", cap)).toBe("Theme's own");
+		});
+		expect(presetAutoLabel(bare('theme: cuoio'), 'theme', 'Indaco', cap)).toBe('Indaco');
 	});
 
 	it('Reset and the drift count never touch the author theme or color mode', () => {

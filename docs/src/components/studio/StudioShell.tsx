@@ -96,7 +96,7 @@ import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
 import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
-import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
+import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetAutoLabel, presetBaseline, presetChanges, presetOf, presetRecommendation, registerValue, writeRegister } from './deck-preset';
 import { keysDiffer, revertKeys, touchedKeys } from './deck-reset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -2725,19 +2725,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const deckClassList = (getFrontMatter(source, 'class') || '').split(/\s+/).filter(Boolean);
 	// The deck's raw `theme:` (may be a `-dark` variant on an imported deck) and its
 	// base palette (darkness lives on the `class:` axis, not the theme name, in the UI).
-	// An absent `theme:` shows the palette the deck's preset recommends, which is what renders (D1,
-	// engineering/decisions/2026-11-20-deck-preset-study.md).
-	const deckThemeRaw = (getFrontMatter(source, 'theme') || presetBaseline(source, 'theme') || '').trim();
+	const deckThemeRaw = (getFrontMatter(source, 'theme') || '').trim();
+	// What Auto renders when the deck's preset recommends a palette or a mode (D1,
+	// engineering/decisions/2026-11-20-deck-preset-study.md): Auto FOLLOWS the preset, and its label says so.
+	const presetTheme = presetRecommendation(source, 'theme');
+	const presetColorMode = presetRecommendation(source, 'color-mode');
 	const deckThemeBase = deckThemeRaw.replace(/-dark$/, '');
 	// The deck's first-class `color-mode:` value — light/dark PIN a side, `system` follows
 	// the viewer's OS, `inherited` adopts the host (site/player) mode. It is the authored
 	// default the whole engine + every surface honors (2026-07-11-color-mode-frontmatter.md).
 	// A legacy `class: dark/light` or a `-dark` theme name is read as its equivalent so an
 	// imported deck still shows a value; a deck with none reads 'default' (the theme's own mode).
-	// An absent key shows the preset's recommended mode, unless the deck pins a scheme the legacy way, which
-	// a recommendation never overrides (lib/core/resolve-color-mode.js `deckColorModeValue`).
-	const legacySchemePin = deckClassList.some((t) => t === 'dark' || t === 'light' || t === 'print') || /-dark$/.test((getFrontMatter(source, 'theme') || '').trim());
-	const rawColorMode = (getFrontMatter(source, 'color-mode') || (legacySchemePin ? '' : presetBaseline(source, 'color-mode')) || '').trim().toLowerCase();
+	const rawColorMode = (getFrontMatter(source, 'color-mode') || '').trim().toLowerCase();
 	const deckColorMode: 'default' | 'light' | 'dark' | 'system' | 'inherited' | 'print' =
 		rawColorMode === 'light' || rawColorMode === 'dark' || rawColorMode === 'system' || rawColorMode === 'inherited' || rawColorMode === 'print'
 			? rawColorMode
@@ -6745,7 +6744,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// word — the same shape every auto head in both scopes now uses. It is
 				// safe to be this long again because the control owns a fixed half of
 				// its row and truncates (SETTING_ROW); it used to widen the whole row.
-				groups={[{ options: [{ value: AUTO_VALUE, label: autoHeadLabel(paletteLabel(palette)), icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
+				groups={[{ options: [{ value: AUTO_VALUE, label: autoHeadLabel(presetAutoLabel(source, 'theme', paletteLabel(palette), paletteLabel)), icon: <AutoIcon />, title: presetTheme ? `Automatic — the preset's palette, ${paletteLabel(presetTheme)}. Pick another theme to override it.` : 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
 			/>
 		</Field>
 	);
@@ -6774,7 +6773,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				className="w-full"
 				value={deckColorMode === 'default' ? AUTO_VALUE : deckColorMode}
 				onValueChange={(v) => setDeckColorMode(v === AUTO_VALUE ? 'default' : (v as typeof deckColorMode))}
-				groups={withAutoHead([{ options: (['light', 'dark', 'system', 'inherited', 'print'] as const).map((v) => ({ value: v, label: COLOR_MODE_META[v].label, icon: COLOR_MODE_META[v].icon })) }], { label: "Theme's own" }, { title: 'The mode the theme was designed in.' })}
+				groups={withAutoHead([{ options: (['light', 'dark', 'system', 'inherited', 'print'] as const).map((v) => ({ value: v, label: COLOR_MODE_META[v].label, icon: COLOR_MODE_META[v].icon })) }], { label: presetAutoLabel(source, 'color-mode', "Theme's own", (v) => COLOR_MODE_META[v as keyof typeof COLOR_MODE_META]?.label ?? v) }, { title: presetColorMode ? 'The color mode the preset recommends. Pick another mode to override it.' : 'The mode the theme was designed in.' })}
 			/>
 		</Field>
 	);
