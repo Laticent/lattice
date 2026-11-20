@@ -378,6 +378,8 @@ which Windows reads as a `d:` URL scheme; and split a child's output on `/\r?\n/
 - `lint` — full tree
 - `lint-deck` — repo-wide strict author-facing footgun sweep
 - `build-check` — the CI/stale-artifact gate (regen + byte-diff of `dist/`)
+- `dead-code` — knip held at 0 unused files, exports and packages and 0 undeclared imports (~5 s;
+  `engineering/quality-assessment.md` §Running it)
 - `docs-typecheck` — `tsc --noEmit` over the docs workspace (~36-40s), skipped
   when a push touches no `docs/` files. It is here because a docs TYPE error is
   invisible to every other local gate — biome does not typecheck, and vitest

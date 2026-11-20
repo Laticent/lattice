@@ -29,6 +29,9 @@
  *   node tools/quality-assessment.js --json      # machine-readable summary
  *   node tools/quality-assessment.js --bless     # write test/quality/baseline.json
  *   node tools/quality-assessment.js --check     # compare vs committed baseline
+ *   node tools/quality-assessment.js --check --only dead-code
+ *                                                # knip alone (~7 s): the pre-push ratchet (owner's D1,
+ *                                                # 2026-11-20); --bless --only dead-code rewrites just its rows
  */
 
 const fs = require('node:fs');
@@ -96,12 +99,14 @@ function runDeadCode() {
   const result = runBin('knip', ['--reporter', 'json']);
   // knip exits 1 when it finds any issue — expected, not a tool failure.
   const data = JSON.parse(result.stdout || '{"issues":[]}');
-  const totals = { files: 0, exports: 0, types: 0, unusedDependencies: 0, unlistedDependencies: 0 };
+  const totals = { files: 0, exports: 0, types: 0, unusedDependencies: 0, unlistedDependencies: 0, binaries: 0, unresolved: 0 };
   for (const issue of data.issues) {
     totals.files += issue.files?.length || 0;
     totals.exports += (issue.exports?.length || 0) + (issue.types?.length || 0) + (issue.namespaceMembers?.length || 0);
     totals.unusedDependencies += (issue.dependencies?.length || 0) + (issue.devDependencies?.length || 0);
     totals.unlistedDependencies += issue.unlisted?.length || 0;
+    totals.binaries += issue.binaries?.length || 0;
+    totals.unresolved += issue.unresolved?.length || 0;
   }
   return { raw: data, totals, issueCount: data.issues.length };
 }
@@ -136,15 +141,26 @@ function assess() {
   };
 }
 
+/** The knip rows: what the pre-push ratchet holds (lower is better, each one). */
+function deadCodeMetrics(deadCode) {
+  return {
+    deadFiles: deadCode.totals.files,
+    deadExports: deadCode.totals.exports,
+    unusedDependencies: deadCode.totals.unusedDependencies,
+    unlistedDependencies: deadCode.totals.unlistedDependencies,
+    unlistedBinaries: deadCode.totals.binaries,
+    unresolvedImports: deadCode.totals.unresolved,
+  };
+}
+
 function toMetrics(assessment) {
+  if (!assessment.coupling) return deadCodeMetrics(assessment.deadCode); // --only dead-code
   return {
     circularDependencies: assessment.coupling.circularDependencies.length,
     boundaryViolations: assessment.coupling.boundaryViolations.length,
     duplicatedPercent: assessment.duplication.duplicatedPercent,
     duplicateClones: assessment.duplication.clones,
-    deadFiles: assessment.deadCode.totals.files,
-    deadExports: assessment.deadCode.totals.exports,
-    unlistedDependencies: assessment.deadCode.totals.unlistedDependencies,
+    ...deadCodeMetrics(assessment.deadCode),
     complexityFunctionsAboveThreshold: assessment.complexity.functionsAboveThreshold,
     worstFunctionComplexity: assessment.complexity.worstFunction?.complexity || 0,
   };
@@ -159,6 +175,11 @@ function writeRawReports(assessment) {
 
 function printSummary(assessment) {
   const m = toMetrics(assessment);
+  if (!assessment.coupling) {
+    console.log('=== DEAD CODE (knip) ===\n');
+    for (const [k, v] of Object.entries(m)) console.log(`${k.padEnd(22)} ${v}`);
+    return;
+  }
   console.log('=== QUALITY ASSESSMENT SUMMARY ===\n');
   console.log(`Structural coupling   modules analyzed: ${assessment.coupling.modulesAnalyzed}`);
   console.log(`Circular dependencies: ${m.circularDependencies}`);
@@ -166,7 +187,9 @@ function printSummary(assessment) {
   console.log(`Duplication:           ${m.duplicatedPercent}% (${m.duplicateClones} clones, ${assessment.duplication.sourcesScanned} files scanned)`);
   console.log(`Dead files (knip):     ${m.deadFiles}`);
   console.log(`Dead exports (knip):   ${m.deadExports}`);
+  console.log(`Unused deps (knip):    ${m.unusedDependencies}`);
   console.log(`Unlisted deps (knip):  ${m.unlistedDependencies}`);
+  console.log(`Binaries / unresolved: ${m.unlistedBinaries} / ${m.unresolvedImports}`);
   console.log(`Complexity:            ${m.complexityFunctionsAboveThreshold} functions ≥ ${COMPLEXITY_THRESHOLD} (worst: ${m.worstFunctionComplexity})`);
   console.log(
     `Change coupling:       ${assessment.changeCoupling.pairsAboveThreshold} pairs ≥ ${CHANGE_COUPLING_MIN_CO_CHANGES} co-changes ` +
@@ -178,7 +201,9 @@ function printSummary(assessment) {
 }
 
 function blessBaseline(assessment) {
-  const metrics = toMetrics(assessment);
+  // A partial run (--only) rewrites only its own rows and keeps every other recorded metric.
+  const previous = fs.existsSync(BASELINE_FILE) ? JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8')).metrics : {};
+  const metrics = assessment.coupling ? toMetrics(assessment) : { ...previous, ...toMetrics(assessment) };
   fs.mkdirSync(path.dirname(BASELINE_FILE), { recursive: true });
   const baseline = {
     version: 1,
@@ -204,9 +229,16 @@ function checkBaseline(assessment) {
   let regressed = false;
 
   console.log('\n=== QUALITY CHECK · current vs committed baseline ===');
-  for (const key of Object.keys(baseline.metrics)) {
+  // A partial run checks only the rows it measured; every row it measured must have a baseline.
+  const keys = assessment.coupling ? Object.keys(baseline.metrics) : Object.keys(current);
+  for (const key of keys) {
     const before = baseline.metrics[key];
     const after = current[key];
+    if (before === undefined) {
+      console.error(`  ${key}: no baseline row — run with --bless (and the same --only) first`);
+      regressed = true;
+      continue;
+    }
     const worse = after > before; // every one of these metrics: lower is better
     if (worse) regressed = true;
     const flag = worse ? 'REGRESSED' : after < before ? 'improved' : 'unchanged';
@@ -225,8 +257,14 @@ function main() {
   const wantJson = argv.includes('--json');
   const wantBless = argv.includes('--bless');
   const wantCheck = argv.includes('--check');
+  const onlyAt = argv.findIndex((a) => a === '--only' || a.startsWith('--only='));
+  const only = onlyAt === -1 ? null : argv[onlyAt].includes('=') ? argv[onlyAt].split('=')[1] : argv[onlyAt + 1];
+  if (only !== null && only !== 'dead-code') {
+    console.error(`--only accepts dead-code (got ${only || 'nothing'})`);
+    process.exit(2);
+  }
 
-  const assessment = assess();
+  const assessment = only === 'dead-code' ? { deadCode: runDeadCode() } : assess();
   writeRawReports(assessment);
 
   if (wantJson) console.log(JSON.stringify(toMetrics(assessment), null, 2));
@@ -238,4 +276,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { assess, toMetrics };
+module.exports = { assess, toMetrics, deadCodeMetrics, runDeadCode };

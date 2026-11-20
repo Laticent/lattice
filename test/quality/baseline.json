@@ -11,6 +11,9 @@
     "deadExports": 0,
     "unlistedDependencies": 0,
     "complexityFunctionsAboveThreshold": 64,
-    "worstFunctionComplexity": 45
+    "worstFunctionComplexity": 45,
+    "unusedDependencies": 0,
+    "unlistedBinaries": 0,
+    "unresolvedImports": 0
   }
 }

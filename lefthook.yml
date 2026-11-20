@@ -104,6 +104,13 @@ pre-push:
       # The CI build / stale-artifact gate. Deterministic (no rendering),
       # fast. Catches "edited a generator source, forgot to rebuild dist/".
       run: npm run build:check
+    - name: dead-code
+      # knip's unused files, exports and packages, and imports package.json does not declare, held
+      # to test/quality/baseline.json so a push can only keep them level or lower them (owner's D1,
+      # 2026-11-20). About 5 s. A real finding is fixed; a file or package this repo loads in a way
+      # knip cannot follow goes in knip.jsonc with its reason. Nothing else runs knip, which is how
+      # 20 files and 59 imports drifted unseen before this job existed.
+      run: node tools/quality-assessment.js --check --only dead-code
     - name: docs-typecheck
       # `tsc --noEmit` over the docs workspace. This is the one gate that lives
       # ONLY in CI's docs-build and had no local equivalent, so "everything green
