@@ -1,0 +1,1 @@
+- The pre-merge card built by `npm run card` now ends with a GROWTH section, read from git by `tools/pr-growth.js`: lines added and removed, and files touched, for docs, decks, code, comments, CSS, tests, config and generated files. Comment lines are found by a real parser, and the total matches `git diff --numstat`.
