@@ -2767,6 +2767,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				onTouchStart={gestureStart}
 				onClick={tapClick}
 			/>
+			{/* THE ROTATION COVER. The stage is held back while the screen turns by fading THIS display-sized cover over it,
+			    never by animating the opacity of a layer that holds the slide frame: on WebKit an opacity animation on the
+			    frame's ancestor can promote a compositing layer at the frame's own (up to 4K) box size, the memory the 4K
+			    Present crash fix (#3304) removed. Opaque in the app's background, so the relayout is never seen. */}
+			<div aria-hidden="true" data-present-cover="" className={cn('pointer-events-none fixed inset-0 z-[103] bg-background', settling ? 'opacity-100' : 'opacity-0 transition-opacity duration-200 motion-reduce:transition-none')} />
 			<div
 				ref={dialogRef}
 				role="dialog"
@@ -2782,7 +2787,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				data-beat={holding ? 'hold' : undefined}
 				data-settling={settling ? '' : undefined}
 				data-wake={wakeState}
-				className={cn('lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden', settling ? 'opacity-0' : 'opacity-100 transition-opacity duration-200 motion-reduce:transition-none')}
+				className="lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden"
 			>
 			<div
 				// Immersive takes NONE of the docked padding: a responsive `sm:px-5` would come later in the stylesheet than

@@ -18,7 +18,7 @@ test('@webkit-phone a sideways phone gives Present the whole screen, with chrome
 	await expect(stage).toBeVisible();
 	// The turn re-lays the deck out in steps; the stage is held back until the size is still, then shown.
 	await expect(dialog).not.toHaveAttribute('data-settling', /.*/);
-	await expect(dialog).toHaveCSS('opacity', '1');
+	await expect(page.locator('[data-present-cover]')).toHaveCSS('opacity', '0');
 	// The slide fills the screen: fit by height, less only the 12px frame above and below it that the Studio's own
 	// landscape preview keeps (no docked chrome). Docked, it was under half this.
 	const frame = dialog.locator('[data-slide-frame]').first();

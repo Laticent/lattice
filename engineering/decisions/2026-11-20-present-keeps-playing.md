@@ -138,7 +138,9 @@ glass that fades into the slide) and **clean** (the line being read, alone, whit
 second on a turn: the docked layout at the new size (React swaps in immersive a frame after the resize), then an
 oversized slide cut off at the bottom (iOS settles the viewport height over its rotation animation), then the final
 frame. Present now does what a video player does: on an orientation change the stage fades out and comes back once
-the window and visual-viewport sizes have held still for 6 animation frames, never later than 1.2 s.
+the window and visual-viewport sizes have held still for 6 animation frames, never later than 1.2 s. The fade is an opaque
+display-sized COVER faded over the stage, never opacity on a layer that holds the slide frame: on WebKit that can
+promote a compositing layer at the frame's own 4K box, the memory the 4K Present crash fix (#3304) removes.
 
 Toggle states were also hard to read: on was a tinted outline, close to off. On is now a solid accent pill with
 `--on-accent` type (`ON_PILL`), off stays an outline, for every on/off control in Present.
