@@ -279,31 +279,17 @@ test(`REAPED, STALE PID: reap kills no process by a stale pid on ${process.platf
 // REAPED, SPAWNING: a browser can start a helper WHILE `reap()` sweeps (windows-2025 run 44789928753, on #3333's head:
 // LIVE BROWSER read 8 processes before the sweep and 1 left after 20 reads). A sweep that lists once and stops once
 // leaves that helper running. code-door-spawner.js makes the race certain: it starts children naming the profile until
-// it is killed, so a one-pass sweep leaves at least one behind (the failing arm in this arm's PR body). Off Windows
-// the spawner leads its own process group, as the browser does, and the group kill ends it and its children together.
-test(`REAPED, SPAWNING: reap ends a browser that starts helpers while it is swept, on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+// it is killed. Off Windows the spawner leads its own process group, as the browser does.
+
+/** Start code-door-spawner.js on a fresh profile folder; resolves once its children are running. */
+const startSpawner = async () => {
   const { fs, os, path, processesUsing } = reapHarness();
   const { spawn } = require('node:child_process');
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-door-'));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-sandbox-'));
   const name = path.basename(dir);
   const spawner = spawn(process.execPath, [path.join(__dirname, '../../fixtures/code-door-spawner.js'), dir], { stdio: ['ignore', 'pipe', 'inherit'], detached: process.platform !== 'win32' });
   const exited = new Promise((resolve) => spawner.once('exit', resolve));
-  try {
-    // The signal, not a duration: go on once the spawner has its children running.
-    await new Promise((resolve, reject) => {
-      let out = '';
-      spawner.stdout.on('data', (d) => {
-        out += d;
-        if (out.includes('ready')) resolve();
-      });
-      spawner.once('exit', (code) => reject(new Error(`the spawner exited (${code}) before it was ready`)));
-    });
-    const before = processesUsing(name).length;
-    assert.ok(before >= 2, `the spawner and its children should name the profile on 2 or more command lines, and ${before} did`);
-    fs.writeFileSync(path.join(scratch, 'state.json'), JSON.stringify([{ pid: spawner.pid, dir }]));
-    reapAndCheck(t, scratch, dir, before);
-  } finally {
+  const cleanup = async () => {
     // A red run leaves children behind: end them here so they do not outlive the test.
     for (const pid of processesUsing(name)) {
       try {
@@ -315,6 +301,55 @@ test(`REAPED, SPAWNING: reap ends a browser that starts helpers while it is swep
     if (spawner.exitCode === null && spawner.signalCode === null) spawner.kill('SIGKILL');
     await exited;
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  };
+  try {
+    // The signal, not a duration: go on once the spawner has its children running.
+    await new Promise((resolve, reject) => {
+      let out = '';
+      spawner.stdout.on('data', (d) => {
+        out += d;
+        if (out.includes('ready')) resolve();
+      });
+      spawner.once('exit', (code) => reject(new Error(`the spawner exited (${code}) before it was ready`)));
+    });
+  } catch (e) {
+    await cleanup();
+    throw e;
+  }
+  const before = processesUsing(name).length;
+  return { spawner, dir, name, before, cleanup };
+};
+
+// The CONTROL comes first and proves the arm can fail, on every run: the weak kill (ONE sweep pass on Windows, the
+// parent's pid alone elsewhere) must leave children behind. If it ever leaves none, the fixture stopped racing and the
+// arm below would pass for nothing.
+test(`CONTROL, SPAWNING: a weak kill leaves the spawner's children behind, on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+  const { processesLeft } = reapHarness();
+  const { killBrowserTree } = require('../../../lib/cli/code-door.js');
+  const s = await startSpawner();
+  try {
+    assert.ok(s.before >= 2, `the spawner and its children should name the profile on 2 or more command lines, and ${s.before} did`);
+    if (process.platform === 'win32') assert.equal(killBrowserTree(s.spawner.pid, s.dir, { passes: 1 }), 'sweep');
+    else process.kill(s.spawner.pid, 'SIGKILL');
+    // Read until the dying ones are gone (processesLeft's own bound); what remains was never killed.
+    const left = processesLeft(s.name);
+    t.diagnostic(`a weak kill left ${left.length} of ${s.before} processes naming the profile`);
+    assert.ok(left.length >= 1, 'a weak kill left nothing behind, so the spawner no longer races and REAPED, SPAWNING proves nothing');
+  } finally {
+    await s.cleanup();
+  }
+});
+
+test(`REAPED, SPAWNING: reap ends a browser that starts helpers while it is swept, on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+  const { fs, os, path } = reapHarness();
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-door-'));
+  const s = await startSpawner();
+  try {
+    assert.ok(s.before >= 2, `the spawner and its children should name the profile on 2 or more command lines, and ${s.before} did`);
+    fs.writeFileSync(path.join(scratch, 'state.json'), JSON.stringify([{ pid: s.spawner.pid, dir: s.dir }]));
+    reapAndCheck(t, scratch, s.dir, s.before);
+  } finally {
+    await s.cleanup();
     fs.rmSync(scratch, { recursive: true, force: true });
   }
 });
