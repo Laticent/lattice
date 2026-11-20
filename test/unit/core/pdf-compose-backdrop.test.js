@@ -211,3 +211,11 @@ test('pngHasAlpha: only an RGBA or gray-alpha PNG is a transparent photo', () =>
 	assert.equal(compose.pngHasAlpha(ihdr(4)), true);
 	assert.equal(compose.pngHasAlpha(ihdr(2)), false, 'an opaque RGB screenshot would bury the drawing');
 });
+
+test("the section's own strip (a hairline) goes above the glow picture, so the glows still flatten", () => {
+	const got = bd.backdropPrims({ stack: [
+		{ image: 'linear-gradient(90deg, rgb(10, 20, 30), rgb(40, 50, 60))', size: '100% 1px', position: '0% 0%', repeat: 'no-repeat', box: BOX, clip: BOX, section: true },
+		{ image: `radial-gradient(120% 90% at 100% 0%, ${ACCENT} 0%, rgba(0, 0, 0, 0) 60%)`, size: 'cover', position: '0% 0%', repeat: 'no-repeat' },
+	], box: BOX, bg: WHITE });
+	assert.deepEqual(got.prims.map((p) => p.kind), ['rgbmap', 'shade'], 'the glow is the picture; the 1 px strip draws over it, sharp');
+});
