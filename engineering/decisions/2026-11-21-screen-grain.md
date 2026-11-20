@@ -27,9 +27,16 @@ exported player, `finish-nimbus dark`, 2x, the right half of the slide: one colo
   - the export face (`.lattice-exporting`) and print;
   - every clone the slide camera photographs, on either face (`lattice-capturing`, added in
     `lib/core/slide-camera.mjs`): a PNG set and a picture `.pptx` take the SCREEN face;
-  - a native screenshot fallback (`captureScreenshot`, `lib/export/slide-picture.js`, marks the slide
-    `lattice-capturing` around the shot: the same class, so the rule needs no root selector, which the
-    engine's CSS scoper cannot pack);
+  - a native screenshot fallback, used when the slide camera cannot load (an unbuilt checkout, a camera
+    that throws): `captureScreenshot` (`lib/export/slide-picture.js`) marks the slide `lattice-capturing`
+    around the shot, and unmarks only what it marked. The same class, so the rule needs no root selector,
+    which the engine's CSS scoper cannot pack. Every native slide screenshot goes through it: the office
+    export, the CLI camera, and the four in `lattice.js` (the PNG set, the image set and its thumbnails,
+    the `--paper` raster PDF, the PDF writer's photo). A census in `test/unit/export/slide-picture.test.js`
+    holds that. The PR's review found three of those four bare: with the camera bundle missing, a PNG of a
+    dark finish slide came out 2,543,008 bytes with the grain against 1,256,442 without. With the fix it
+    is byte-identical to the grain-off PNG. `lattice-capturing` is a reserved engine class
+    (`lib/base/base.registers.docs.md`);
   - the video, which records the exported player: the player's prune drops rules keyed to a capture
     class (they match nothing when it is exported), so `lib/export/video.mjs` switches the grain off in
     the style it already adds.

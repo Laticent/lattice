@@ -284,9 +284,10 @@ section.finish {
  * slide camera marks its clones, lib/core/slide-camera.mjs, and a native screenshot fallback marks
  * the slide for the shot, lib/export/slide-picture.js; a PNG set and a picture .pptx take the screen
  * face). The video records the exported player, whose prune drops these rules (they match nothing
- * when it is exported), so lib/export/video.mjs switches the grain off in the style it adds. */
+ * when it is exported), so lib/export/video.mjs switches the grain off in the style it adds. The
+ * capture arm names `lattice-capturing` first so the package index reserves it as an engine class. */
 section.finish.lattice-exporting,
-section.finish.lattice-capturing { --backdrop-grain: none; }
+section.lattice-capturing.finish { --backdrop-grain: none; }
 
 /* CLEAR BEHIND CONTENT — the frame's CONTENT BOX (masthead + stage) is clean canvas; the
  * finish reads only in the frame margin. (engineering/decisions/2026-09-26-backdrop-register.md

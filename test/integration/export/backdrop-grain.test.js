@@ -74,6 +74,11 @@ test('the grain is on the live screen, and off on the export face, on a capture 
     const during = await captureScreenshot({ evaluate: el.evaluate.bind(el), screenshot: () => maskImage(page, '') }, {});
     assert.doesNotMatch(during, /data:image\/png/, 'a native screenshot fallback');
     assert.match(await maskImage(page, ''), /data:image\/png/, 'and the mark is gone after the shot');
+    // A section that already carried the class keeps it: the shot unmarks only what it marked.
+    await page.evaluate(() => document.querySelector('section.finish').classList.add('lattice-capturing'));
+    await captureScreenshot({ evaluate: el.evaluate.bind(el), screenshot: async () => '' }, {});
+    assert.equal(await page.evaluate(() => document.querySelector('section.finish').classList.contains('lattice-capturing')), true, 'a mark it did not add stays');
+    await page.evaluate(() => document.querySelector('section.finish').classList.remove('lattice-capturing'));
     await page.emulateMediaType('print');
     assert.doesNotMatch(await maskImage(page, ''), /data:image\/png/, 'print');
   });

@@ -4985,7 +4985,7 @@ async function renderBody(browser, g, closeBrowser) {
     const jpegBuffers = [];
     const rasterCam = await slideCameraFor(page);
     for (const [i, h] of handles.entries()) {
-      jpegBuffers.push(await g(() => (rasterCam ? rasterCam.shoot(i, { type: 'jpeg', quality: 95, opaque: true }) : h.screenshot({ type: 'jpeg', quality: 95 })), 'screenshot slide'));
+      jpegBuffers.push(await g(() => (rasterCam ? rasterCam.shoot(i, { type: 'jpeg', quality: 95, opaque: true }) : require('./lib/export/slide-picture').captureScreenshot(h, { type: 'jpeg', quality: 95 })), 'screenshot slide'));
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
@@ -5047,7 +5047,7 @@ async function renderBody(browser, g, closeBrowser) {
     let effectiveSvgBackground = IMAGE_SET_OPTS.svgBackground;
     const images = [];
     const setCam = await slideCameraFor(page);
-    const setShot = (i, h) => (setCam ? setCam.shoot(i, { type: fmt, quality: IMAGE_SET_OPTS.quality, opaque: !OMIT_BG }) : h.screenshot(shot));
+    const setShot = (i, h) => (setCam ? setCam.shoot(i, { type: fmt, quality: IMAGE_SET_OPTS.quality, opaque: !OMIT_BG }) : require('./lib/export/slide-picture').captureScreenshot(h, shot));
     for (const [i, h] of handles.entries()) {
       images.push(await g(() => setShot(i, h), 'screenshot slide'));
     }
@@ -5420,7 +5420,7 @@ async function renderBody(browser, g, closeBrowser) {
       for (const [i, h] of handles.entries()) {
         const cam = picCam ? { png: () => picCam.shoot(i, { type: 'png', opaque: !OMIT_BG }), jpeg: (q) => picCam.shoot(i, { type: 'jpeg', quality: q }) } : null;
         // A `.pptx` slide picture is opaque, so a photographic one is stored as a JPEG (lib/export/slide-picture.js).
-        pngBuffers.push(await g(() => (OUT_FORMAT === 'pptx' ? require('./lib/export/slide-picture').shootPicture(h, pngShot, cam) : cam ? cam.png() : h.screenshot(pngShot)), 'screenshot slide'));
+        pngBuffers.push(await g(() => (OUT_FORMAT === 'pptx' ? require('./lib/export/slide-picture').shootPicture(h, pngShot, cam) : cam ? cam.png() : require('./lib/export/slide-picture').captureScreenshot(h, pngShot)), 'screenshot slide'));
       }
       await closeBrowser();
 
@@ -5946,7 +5946,7 @@ async function composePdfInPage(g, page) {
           // Align the slide's top edge with the viewport's exactly: scrollIntoView can leave
           // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
-          const buf = await h.screenshot(type === 'jpeg'
+          const buf = await require('./lib/export/slide-picture').captureScreenshot(h, type === 'jpeg'
             ? { type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false }
             : { type: 'png', optimizeForSpeed: PDF_PHOTO_FAST, captureBeyondViewport: false });
           return Buffer.from(buf).toString('base64');

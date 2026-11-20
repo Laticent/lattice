@@ -341,7 +341,11 @@ Never put `lattice-exporting` in deck source — a slide carrying it would rende
 its *export* (flatter) finish on screen. The Studio's Finish faculty has an
 **Export-preview** toggle that adds it to the live specimen on purpose, so a
 designer can see the baked look; that is the only legitimate authoring use, and
-it is transient (UI state, never written to the deck). The other reserved finish
+it is transient (UI state, never written to the deck). `lattice-capturing` is
+reserved the same way: the slide camera (`lib/core/slide-camera.mjs`) puts it on the
+clone it photographs, and a native screenshot fallback
+(`captureScreenshot`, `lib/export/slide-picture.js`) on the slide for the shot, which
+switches off the screen-only grain (`--backdrop-grain`). The other reserved finish
 words are the five preset slugs (`atrium`/`meridian`/`strata`/`halo`/`ledger`),
 `no-finish`/`no-backdrop` (the per-slide opt-out), and `finish-preview` (the
 faculty specimen) — a *saved* custom finish whose name collides with any of these
