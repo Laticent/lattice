@@ -16,7 +16,7 @@ acronyms:
 
 Print mode renders the whole deck ink-on-white — grayscale plus textures, so nothing depends on hue. Set `color-mode: print`, or export with `--print`.
 
-<!-- Speaker: this same deck renders in full color without the print key; the print band is a render-time choice, not a rewrite. -->
+<!-- @note{Speaker: this same deck renders in full color without the print key; the print band is a render-time choice, not a rewrite.} -->
 
 ---
 

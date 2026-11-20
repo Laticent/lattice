@@ -16,9 +16,9 @@ header: "The Invisible Half · Craft, quality, kaizen"
 
 Most of what makes a thing good is hidden from the person who buys it. Today we go looking for it.
 
-<!-- Open cold. The two pairs are on the table, face down, and nobody touches them
+<!-- @note{Open cold. The two pairs are on the table, face down, and nobody touches them
      until the next slide. Do not name the brands, the prices, or which is which.
-     Hold two seconds after the subtitle before you move on. -->
+     Hold two seconds after the subtitle before you move on.} -->
 
 ---
 
@@ -37,13 +37,13 @@ Most of what makes a thing good is hidden from the person who buys it. Today we 
 4. Name what you can't check
    - One difference you suspect but cannot prove by looking. This is the one that matters.
 
-<!-- Set a real timer. Silence is the whole point — the moment they talk, the
+<!-- @note{Set a real timer. Silence is the whole point — the moment they talk, the
      loudest person's categories become everyone's categories, and you lose the
      independent observations you need for the debrief.
 
      Step 4 is the hinge of the session. Most groups produce nothing for it on the
      first pass. That blank is the lesson: they have no vocabulary for the part
-     that matters, because nobody ever showed it to them. Don't rescue them. -->
+     that matters, because nobody ever showed it to them. Don't rescue them.} -->
 
 ---
 
@@ -60,12 +60,12 @@ Most of what makes a thing good is hidden from the person who buys it. Today we 
 
 > The visible half sells the object. The invisible half decides how long you keep it.
 
-<!-- Collect the left column from the room out loud, on a whiteboard, in their
+<!-- @note{Collect the left column from the room out loud, on a whiteboard, in their
      words. Then read the right column yourself and watch it land.
 
      The trap to name: every item on the left can be faked cheaply. Machine
      stitching can be tightened to look hand-close. Edges can be burnished on a
-     shoe that will fall apart. The surface is the easiest thing to buy. -->
+     shoe that will fall apart. The surface is the easiest thing to buy.} -->
 
 ---
 
@@ -79,7 +79,7 @@ One maker carved a rib — the holdfast — out of the insole itself and stitche
 
 > Every craft has a holdfast — the part nobody inspects, which decides everything.
 
-<!-- If you have a cutaway or a failed pair, this is the moment to pass it around.
+<!-- @note{If you have a cutaway or a failed pair, this is the moment to pass it around.
 
      Push the generalization hard, because this is the sentence the session exists
      to deliver: every discipline has a holdfast. In code it's the test suite and
@@ -87,7 +87,7 @@ One maker carved a rib — the holdfast — out of the insole itself and stitche
      it's the reasoning behind the recommendation. Nobody inspects any of them,
      and all of them decide how long the work survives contact with reality.
 
-     Ask the room for their own holdfast before you move on. -->
+     Ask the room for their own holdfast before you move on.} -->
 
 ---
 
@@ -97,7 +97,7 @@ One maker carved a rib — the holdfast — out of the insole itself and stitche
 
 — W. Edwards Deming, *Out of the Crisis*, 1982
 
-<!-- Land it, then stop talking. Let them read it twice.
+<!-- @note{Land it, then stop talking. Let them read it twice.
 
      Then the turn: this is why the review at the end never saves the work. By the
      time anyone inspects, the quality is already decided — you are only sorting
@@ -107,7 +107,7 @@ One maker carved a rib — the holdfast — out of the insole itself and stitche
      printing; p. 26 in the 2000 MIT Press second edition — cite the edition, not
      a bare page). Deming continues: "As Harold F. Dodge said, 'You cannot inspect
      quality into a product.'" Trimmed from the slide to keep it inside one
-     breath, but it is the sharper line if you want to close on it. -->
+     breath, but it is the sharper line if you want to close on it.} -->
 
 ---
 
@@ -126,7 +126,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 - Fear buys silence, and silence looks like quality
   - Punish the messenger and reports stop. Defects continue.
 
-<!-- This is the slide that changes how they manage people, so slow down.
+<!-- @note{This is the slide that changes how they manage people, so slow down.
 
      The instinct in the room will be to blame the maker. Name that instinct out
      loud, then take it apart: a skilled person, paid by the pair and watched on
@@ -142,7 +142,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
      figure. Defend the direction.
 
      Then ask the room: what does your team get paid and measured on, and what
-     invisible saving does that make rational? -->
+     invisible saving does that make rational?} -->
 
 ---
 
@@ -163,7 +163,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 — None of it appears on a budget line. Rework is done by people already on payroll.
 
-<!-- Land the note aloud, because it is the whole slide: the cost is real, it is
+<!-- @note{Land the note aloud, because it is the whole slide: the cost is real, it is
      large, and it is invisible. It never shows up as a cost. It shows up as
      "we're busy." That is the hidden factory — a second production line running
      inside the first, staffed by people already on payroll, making nothing.
@@ -180,7 +180,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
      estimate about his own consulting market. Do not lend those figures more
      authority than they have. The escalation is well evidenced and the direction
      is not in dispute; the exact multiplier is a teaching device. Saying that out
-     loud is not a weakness in the argument. It is the argument. -->
+     loud is not a weakness in the argument. It is the argument.} -->
 
 ---
 
@@ -199,12 +199,12 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 - Act
   - Make it the new standard, or drop it and plan again.
 
-<!-- Deming fought for "Study" over "Check" for the rest of his life, and the
+<!-- @note{Deming fought for "Study" over "Check" for the rest of his life, and the
      distinction is the whole loop. Check asks "did we do it?" Study asks "was our
      theory right?" Only the second one teaches you anything.
 
      The prediction in Plan is what makes Study possible. A change with no
-     prediction attached cannot be wrong, which means it cannot be learned from. -->
+     prediction attached cannot be wrong, which means it cannot be learned from.} -->
 
 ---
 
@@ -223,7 +223,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 - Stop the line
   - Anyone may halt work on a defect. Passing it downstream turns a cheap problem into an expensive one.
 
-<!-- Land this line yourself, since it isn't on the slide: kaizen is not a program
+<!-- @note{Land this line yourself, since it isn't on the slide: kaizen is not a program
      you launch, it is what you do between programs.
 
      The Japanese names, if you want them: genchi genbutsu (go to the actual
@@ -233,7 +233,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
      "Standard first" is the one they'll skip. Push it: an improvement to an
      unwritten process is indistinguishable from that process drifting, and next
-     month nobody can tell which happened. -->
+     month nobody can tell which happened.} -->
 
 ---
 
@@ -250,7 +250,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 > The welt is boring, invisible, and the most consequential decision in the shoe.
 
-<!-- Point at the welt on the good pair while this is up, and trace it with a
+<!-- @note{Point at the welt on the good pair while this is up, and trace it with a
      finger all the way round. It is a strip of leather most people would call a
      decorative edge.
 
@@ -259,7 +259,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
      REPLACEABLE, which is what lets it get better later.
 
      Then ask the question and wait for answers: what in your work is glued that
-     should be welted? -->
+     should be welted?} -->
 
 ---
 
@@ -278,7 +278,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
 
 > Five pieces, six configurations. Without the shared tab, that is six separate products.
 
-<!-- Take it apart in front of them, then hand the pieces round and make them
+<!-- @note{Take it apart in front of them, then hand the pieces round and make them
      rebuild it a different way. The swap is the argument; describing it is not.
 
      Three things to point at, in this order. First the saddle stitch — the same
@@ -299,7 +299,7 @@ Paid by the pair and measured on pairs, the maker did the rational thing.
      Then the design point: the hard work was never the carries. It was settling
      the tab once, correctly, so that every carry after it could be easy. Get a
      carry wrong and you have lost one carry. Get the tab wrong and you have lost
-     all six configurations, permanently. -->
+     all six configurations, permanently.} -->
 
 ---
 
@@ -313,13 +313,13 @@ Improvement costs what it costs to change one thing. In a glued shoe the sole *i
 
 > Kaizen without modularity is good intentions with a large bill attached.
 
-<!-- This is the sentence to leave them with, so deliver it slowly.
+<!-- @note{This is the sentence to leave them with, so deliver it slowly.
 
      Everyone agrees with continuous improvement in the abstract. The reason it
      dies in practice is almost never willpower — it's that in a tightly coupled
      system the smallest worthwhile change is enormous, so nobody makes it. The
      work that makes kaizen possible is boundary work, done before the improvement
-     anyone can see. -->
+     anyone can see.} -->
 
 ---
 
@@ -332,7 +332,7 @@ Improvement costs what it costs to change one thing. In a glued shoe the sole *i
 1. Find the holdfast in your work — the part nobody inspects, which decides how long it lasts.
 2. When something goes wrong, fix whatever made it the easy choice before you blame a person.
 
-<!-- Two, not a list of ten, because a list of ten is a list of none. Make them
+<!-- @note{Two, not a list of ten, because a list of ten is a list of none. Make them
      write one down and say it aloud before they leave — a commitment nobody heard
      is a commitment nobody made.
 
@@ -341,7 +341,7 @@ Improvement costs what it costs to change one thing. In a glued shoe the sole *i
      mechanics. The two on the slide are the ones that change behavior.
 
      Number 2 is the one that costs them something socially, and it is the one
-     that separates a manager from a supervisor. -->
+     that separates a manager from a supervisor.} -->
 
 ---
 
@@ -353,13 +353,13 @@ Improvement costs what it costs to change one thing. In a glued shoe the sole *i
 
 Bring one improvement you made where nobody would have noticed.
 
-<!-- Stop here. This is where you stop presenting — the glossary after it is an
+<!-- @note{Stop here. This is where you stop presenting — the glossary after it is an
      appendix for the deck they take away, not a slide to click into. Nothing
      follows the close out loud.
 
      The last line is the assignment and it doubles as the test of whether the
      session landed: they have to pick something unobserved, which means they have
-     to have found their own holdfast. -->
+     to have found their own holdfast.} -->
 
 ---
 
@@ -378,7 +378,7 @@ Bring one improvement you made where nobody would have noticed.
 - Outsole
   - The bottom layer meeting the ground. It dies first. How the maker attached it decides whether the shoe dies with it.
 
-<!-- Reference, not a slide to present. Both pages sit after the close on purpose,
+<!-- @note{Reference, not a slide to present. Both pages sit after the close on purpose,
      so the deck they keep can answer "what was a holdfast again?" a week later.
 
      Every entry says what the word means AND why anyone should care, because a
@@ -389,7 +389,7 @@ Bring one improvement you made where nobody would have noticed.
      If you want the vocabulary live instead, say the four shoe words once while
      the pairs are still in their hands during the observation block — upper,
      insole, outsole, welt — and let the rest arrive in context. Vocabulary handed
-     out before anyone needs it slides straight off. -->
+     out before anyone needs it slides straight off.} -->
 
 ---
 
@@ -408,8 +408,8 @@ Bring one improvement you made where nobody would have noticed.
 - Welt
   - A strip of leather joining upper to outsole. It turns the sole into a part a cobbler can swap without touching the rest.
 
-<!-- Second page, same job. If someone asks why a deck about craftsmanship
+<!-- @note{Second page, same job. If someone asks why a deck about craftsmanship
      bothers defining PDSA and poka-yoke: because they will meet both words in
      any workplace that has ever run an improvement program, usually from someone
-     who assumes they already know them. -->
+     who assumes they already know them.} -->
 
