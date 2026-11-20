@@ -831,11 +831,14 @@ async function runFontCacheProbe(id) {
 		['control', BASE],
 		['warm', process.env.WARM_URL || 'http://localhost:4322'],
 	]) {
+		// Stamped BEFORE the first page of this origin: the landing page that seeds the settings fetches faces of its own at
+		// iPad width, and on the warm port the Studio then reads those from the cache, so the probe must count them (#3095).
+		const since = Date.now();
 		await wd('POST', `/session/${id}/url`, { url: `${origin}/` });
 		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 		await wd('POST', `/session/${id}/url`, { url: `${origin}/studio/` });
 		last = await wd('POST', `/session/${id}/execute/async`, {
-			script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeFontCacheProbe(${JSON.stringify(arm)}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+			script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeFontCacheProbe(${JSON.stringify(arm)}, ${since}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
 			args: [],
 		});
 		steps.push(...(last.steps || []).map((s) => ({ ...s, name: `${arm} · ${s.name}` })));

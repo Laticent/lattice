@@ -683,8 +683,13 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   emoji, a code block and `finish: sketch`, and counts every font request after the edit: none on the warm arm, some on
   the control arm, which proves the probe can see a miss. (A first cut told the frame's loads from the warm-up's fetches
   by `Sec-Fetch-Dest`; in Mobile Safari 26.5 neither arm saw a request marked `font`, so it proved nothing.)
+  The count of faces served starts when `run.mjs` FIRST navigates to the origin, not when the Studio's document starts:
+  `run.mjs` seeds the settings on the landing page, whose slide previews fetch faces of their own (8 at the iPad's 1032 px,
+  3 at iPhone width). On the warm port the Studio then reads those from the cache, so a count from the Studio's start stalled at
+  23 of 31 on the iPad (#3095). The iPhone simulator passed, most likely because its previews had not fetched before WebDriver moved on; Playwright WebKit stalls at 28 of 31 at iPhone size once they have.
   `PROBE=font-cache node docs/scripts/ios-safari/probe.selftest.mjs`, with the server running, does the same on
   Playwright WebKit with a persistent profile: an ephemeral WebKit context keeps no disk cache across preview documents.
+  It visits the landing page first, as `run.mjs` does, and waits for its previews' font gates.
   `ios-safari-chat-storage-ipad` and `ios-safari-chat-storage-iphone` run it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
   `chat-storage-probe.js` plants two chat threads the way a build before #3138 saved them (`lattice-studio-chat-<deckId>`,
   one on the open deck, one on a deck never opened), `run.mjs` reloads the page for real, and the probe then waits up to a

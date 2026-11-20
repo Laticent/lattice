@@ -26,8 +26,12 @@ const FONT_CACHE_DECK = ['---', 'finish: sketch', '---', '', '# Font cache 😀 
 /** The faces the warm-up fetches: studio-warm.ts WARM_FONT_FILES (17 text, 3 icon, 11 emoji). */
 const FONT_CACHE_WARM_COUNT = 31;
 
+/**
+ * @param {'control'|'warm'} arm
+ * @param {number} [sinceMs] epoch ms when the runner first navigated to this origin; defaults to this document's start.
+ */
 // biome-ignore lint/correctness/noUnusedVariables: run.mjs and probe.selftest.mjs call it by name.
-async function latticeFontCacheProbe(arm) {
+async function latticeFontCacheProbe(arm, sinceMs) {
 	const steps = [];
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 	const until = async (fn, ms, what) => {
@@ -39,12 +43,17 @@ async function latticeFontCacheProbe(arm) {
 			await sleep(100);
 		}
 	};
-	// This page's part of the server's log: every request since this document's navigation began. The server outlives a run
-	// (run.sh drives the iPad, then the iPhone, against one server), so a count over the whole log was already met by the run
-	// before, and the second device edited before its own warm-up had run (found on the self-test's second page shape). Not
-	// "since this probe started": under WebDriver the probe arrives after the load event, and the first slide's own faces may
-	// already have been served. The server and the simulator share the host's clock; a second of slack covers rounding.
-	const since = performance.timeOrigin - 1000;
+	// This run's part of the server's log: every request since the runner FIRST navigated to this origin (`sinceMs`, which
+	// run.mjs and probe.selftest.mjs pass), else since this document's navigation began. The server outlives a run (run.sh
+	// drives the iPad, then the iPhone, against one server), so a count over the whole log was already met by the run before,
+	// and the second device edited before its own warm-up had run (found on the self-test's second page shape). Not "since
+	// this document began" either, when the runner loaded another page of the origin first: run.mjs seeds the settings on the
+	// landing page, whose live slide previews fetch some faces at iPad width (1032 px). On the warm port those land in the
+	// cache, the Studio's warm-up reads them from there, the server never sees them again, and a count since the Studio's
+	// own start stalled at 23 or 24 of 31 (#3095). They ARE cached before the edit, which is all this step asks. Not "since
+	// this probe started": under WebDriver the probe arrives after the load event, and the first slide's own faces may already
+	// have been served. The server, the runner and the simulator share the host's clock; a second of slack covers rounding.
+	const since = (typeof sinceMs === 'number' ? sinceMs : performance.timeOrigin) - 1000;
 	const log = async () => ((await (await fetch('/__probe/fonts', { cache: 'no-store' })).json()) || []).filter((e) => e.at >= since);
 	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0;
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
