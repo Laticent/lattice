@@ -67,5 +67,7 @@ test('a capture that keeps a rounded corner as transparency is never a JPEG, and
   const h = handle({ png: 3_000_000, jpeg: 300 * KB, tone: true });
   const out = await shootPicture(h, { type: 'png', omitBackground: true });
   assert.equal(isJpeg(out), false);
-  assert.deepEqual(h.calls.map((c) => c.type), ['png']);
+  assert.deepEqual(shots(h), ['png']);
+  // The only page calls are the capture mark around the shot (captureScreenshot), never the tone question.
+  assert.equal(h.calls.filter((c) => c.type === 'evaluate').length, 2);
 });

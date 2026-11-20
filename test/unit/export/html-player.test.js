@@ -2872,3 +2872,16 @@ test('relative style urls resolve to files that exist, and the inliner embeds pi
 	assert.doesNotMatch(out.html, /cHJpdmF0ZQ|private/, 'a file that is not a picture never is');
 	assert.equal(fileToDataUri(path.join(root, 'secret.txt')), null);
 });
+
+test('a quoted url() holding its own ")" is taken whole: no rule after it is lost (minifyCss and themeDualMode)', () => {
+	// A data URI SVG with a filter reference: `url("…url(%23g)…")`. The old `url\([^)]*\)` stopped at the inner `)`, left
+	// an unmatched quote, and read the stylesheet to the next quote as one string: an SVG grain's data URI took 234 KB
+	// of dark-mode rules out of the exported player.
+	const uri = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><rect filter='url(%23g)'/></svg>")`;
+	const css = `.a { background: ${uri}; }\n.b { color: red; }\n.c { content: 'x'; }\n:root { --d: light-dark(white, black); }`;
+	const min = minifyCss(css);
+	assert.ok(min.includes(uri), `the url survives whole: ${min}`);
+	assert.ok(min.includes('.b{color:red}') && min.includes(".c{content:'x'}"), `the rules after it survive: ${min}`);
+	const { darkBlock } = themeDualMode(css);
+	assert.match(darkBlock, /--d:\s*black/, `the dark arm after the url is still collected: ${darkBlock}`);
+});
