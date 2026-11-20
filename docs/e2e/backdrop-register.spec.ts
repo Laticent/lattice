@@ -34,6 +34,18 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await expect.poll(() => persistedSource(page)).not.toContain('backdrop:');
 	});
 
+	// The keep-outs (2026-11-20): two more mask words, each one option in both mask menus.
+	test(`the keep-outs: deck and slide mask menus write \`clear-hero\` and \`clear-footer\`${tag}`, async ({ page }) => {
+		await openInspector(page);
+		await page.getByRole('combobox', { name: 'Backdrop mask' }).click();
+		await page.getByRole('option', { name: 'Clear footer and hero' }).click();
+		await expect.poll(() => persistedSource(page)).toContain('\\nbackdrop: clear-hero\\n');
+		await page.getByRole('button', { name: CHROME.slideSettings }).first().click();
+		await page.getByRole('combobox', { name: 'Backdrop mask' }).filter({ visible: true }).first().click();
+		await page.getByRole('option', { name: 'Clear the footer' }).click();
+		await expect.poll(() => persistedSource(page)).toContain('backdrop-clear-footer');
+	});
+
 	test(`deck settings: no Backdrop row without a finish${tag}`, async ({ page }) => {
 		await setEditorContent(page, '---\ntitle: Plain\n---\n\n# Plain\n');
 		await openInspector(page);

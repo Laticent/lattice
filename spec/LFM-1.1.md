@@ -108,7 +108,7 @@ specify them, and `split:` and `preset:` have none.
 |---|---|---|---|
 | `mode:` | `boardroom` · `sketch` · `sketch-clean` | The rendering mode: clean, or drawn by hand. | `unknown-mode` |
 | `finish:` | `none` · `atrium` · `meridian` · `strata` · `halo` · `ledger` · `nimbus` · `loom` · `savile` · `gallery` | The backdrop painted behind every slide. A host MAY also accept the name of a finish package it holds or the deck carries (LATTICE-FILE §4); the list is the finishes every renderer knows. | `unknown-finish` |
-| `backdrop:` | a strength (`20` `40` `60` `80` `full`), a mask (`clear` `open`) or a spot (`spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br`); up to one of each | How strongly the finish shows, and where it clears. | `unknown-backdrop` |
+| `backdrop:` | a strength (`20` `40` `60` `80` `full`), a mask (`clear` `open` `clear-footer` `clear-hero`) or a spot (`spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br`); up to one of each | How strongly the finish shows, and where it clears. | `unknown-backdrop` |
 | `preset:` | `classic` · `editorial` · `brand` · `minimal` | A named look that sets several registers at once. A register the deck sets itself wins over the preset's. | `unknown-preset` |
 | `split:` | `headings` · `rule` | How the deck divides into slides: at headings as well as `---` (§2.2), or at `---` only. | `unknown-split` |
 | `stamp:` | `tab` `notch` `bracket` `seal` `pill` `ribbon` `flag` `underline` `dot` `mark` `veil` `bar` `pin` | The shape of a slide's marker. | `unknown-stamp` |
@@ -585,6 +585,7 @@ LFM 1.1 deliberately does **not**:
 | 1.1-draft | 2026-10-20 | §2.3: `header` and `footer` in a slide comment apply to that slide only, in either spelling; only front matter sets them for every slide. `paginate` is front matter only, on by default, and a slide comment for it has no effect (classes decide, audit §11s). A change to a normative meaning that departs from Marpit, landed before ratification (§7); the engine's changelog carries the `Breaking:` line. Owner ruling: `engineering/decisions/2026-10-16-preview-as-library-audit.md` §11r. |
 | 1.1-draft | 2026-10-29 | The header line no longer says nothing in 1.0 changes meaning. It names what 1.1 changes from 1.0: the `header`/`footer` and `paginate` keys (§2.3), which 1.0 left to Marpit, and the heading split (§2.2), which 1.0 left optional. Editorial: it states what the 2026-10-08 and 2026-10-20 rows already landed. |
 | 1.1-draft | 2026-11-10 | §2.3 adds `video:`, the video plugin's register for the media display layer (size, frame, finish, tone). A word may carry its strength the record's way (`nimbus=40`), read as the hyphen word. Additive. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-16-media-plugins.md` §4.7. |
+| 1.1-draft | 2026-11-20 | §2.3 adds two `backdrop:` masks, `clear-footer` and `clear-hero`: the finish keeps running behind the content and clears only the footer band, or the footer band and a big-number's hero stack. `clear` keeps its meaning. Additive. Shared cases: `spec/conformance/lfm/front-matter-registers.json`. |
 
 ## Appendix A — A worked example (informative)
 

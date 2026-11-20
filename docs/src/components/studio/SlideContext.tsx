@@ -453,7 +453,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// per-slide override; lib/core/resolve-backdrop.js). Two axes, each Auto = follow the deck.
 	const bdStrength = React.useMemo(() => backdropProvenance(chunk, source, 'strength'), [chunk, source]);
 	const bdMask = React.useMemo(() => backdropProvenance(chunk, source, 'mask'), [chunk, source]);
-	const maskLabel = (m?: string): string => (!m ? "Finish's own" : m === 'clear' ? 'Clear behind content' : m === 'open' ? 'No mask' : `Window · ${BACKDROP_SPOT_LABEL[m.slice(5)] ?? m}`);
+	const maskLabel = (m?: string): string => (!m ? "Finish's own" : m === 'clear' ? 'Clear behind content' : m === 'open' ? 'No mask' : m === 'clear-footer' ? 'Clear the footer' : m === 'clear-hero' ? 'Clear footer and hero' : `Window · ${BACKDROP_SPOT_LABEL[m.slice(5)] ?? m}`);
 	const bdMaskGroups = inheritGroups([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: maskLabel(m) })) }], bdMask.deckValue ? { value: bdMask.deckValue } : { label: maskLabel() });
 	const onBdStrength = (v: string | null) => onMutate((c) => setBackdrop(c, 'strength', v));
 	const onBdMask = (v: string) => onMutate((c) => setBackdrop(c, 'mask', v === '__inherit__' ? null : v));

@@ -299,3 +299,44 @@ test('kernel and lint agree: a YAML flow list renders, and only a trailing % is 
     assert.equal(warn(v), 1, v);
   }
 });
+
+/* ── The keep-outs: `clear-footer` and `clear-hero` (2026-11-20-deck-preset-study.md L6) ──── */
+
+test('kernel: the keep-outs are mask words, so they evict `clear` and a spot, not a strength', () => {
+  assert.deepEqual(backdropClasses('clear-footer'), ['backdrop-clear-footer']);
+  assert.deepEqual(backdropClasses('40 clear-hero'), ['backdrop-40', 'backdrop-clear-hero']);
+  assert.ok(isBackdropMaskToken('backdrop-clear-footer') && isBackdropMaskToken('backdrop-clear-hero'));
+  assert.ok(!isBackdropStrengthToken('backdrop-clear-hero'));
+  // One word per axis: a second mask is a duplicate, and the first one wins.
+  const both = parseBackdrop('clear clear-hero');
+  assert.deepEqual(backdropClasses('clear clear-hero'), ['backdrop-clear']);
+  assert.ok(both.duplicate.includes('clear-hero'), JSON.stringify(both));
+});
+
+test('css: the keep-outs move the same clear layer onto the footer band; `clear` keeps its rule', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
+  const on = css.match(/section\.backdrop-clear-footer,\s*section\.backdrop-clear-hero \{[^}]*\}/);
+  assert.ok(on, 'keep-out switch rule missing');
+  assert.match(on[0], /--backdrop-clear-scrim: var\(--backdrop-clear-fill\)/);
+  assert.match(on[0], /--backdrop-scrim: none/);
+  const band = css.match(/section\.finish:is\(\.backdrop-clear-footer, \.backdrop-clear-hero\) > \.backdrop > \.backdrop-mask::before \{[^}]*\}/);
+  assert.ok(band, 'footer band geometry missing');
+  // The band is the footer Cell's own row (stage.css), and it reads no new blur or bleed.
+  assert.match(band[0], /height: calc\(var\(--frame-inset-b\) \+ var\(--chrome-fs\) \* 1\.6\)/);
+  assert.doesNotMatch(band[0], /filter|--backdrop-clear-(blur|bleed):/);
+  // The hero arm moves only the top edge, to the content box's, as `clear` does.
+  assert.match(css, /section\.finish\.backdrop-clear-hero\.big-number > \.backdrop > \.backdrop-mask::before \{\s*top: 0;\s*height: auto;\s*padding-top: inherit;\s*\}/);
+  // Never a pseudo on the hero stack: the PDF writer reads one as covering the number.
+  assert.doesNotMatch(css, /backdrop-clear-hero[^{]*\.cell-stage/);
+  // `clear` is exactly as before.
+  assert.match(css, /section\.backdrop-clear \{\s*--backdrop-scrim: none;\s*--backdrop-scrim-opaque: none;\s*--backdrop-clear-scrim: var\(--backdrop-clear-fill\);\s*--backdrop-veil-weight: 1;\s*--backdrop-dim-scrim: var\(--backdrop-veil-fill\);\s*\}/);
+});
+
+test('the Studio mirror lists the same mask words in the same order', () => {
+  const ts = fs.readFileSync(path.join(ROOT, 'docs/src/components/studio/slide-provenance.ts'), 'utf8');
+  const { BACKDROP_MASK_NAMES } = require(path.join(ROOT, 'lib/core/resolve-backdrop.js'));
+  const line = ts.match(/export const BACKDROP_MASKS = \[([^\n]*)\] as const;/)[1];
+  const spots = ['tl', 't', 'tr', 'l', 'c', 'r', 'bl', 'b', 'br'].map((p) => `spot-${p}`);
+  const words = line.split(',').map((w) => w.trim()).flatMap((w) => (w.startsWith('...') ? spots : [w.replace(/'/g, '')]));
+  assert.deepEqual(words, [...BACKDROP_MASK_NAMES]);
+});
