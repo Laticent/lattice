@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: The deck-look preset works because it turns about ten dials into one choice among four pictures. Two more Studio surfaces have the same problem at a larger scale. The slide panel has about 40 controls, and the Share sheet asks for a format and then a different options sheet per format. This note proposes slide LOOKS (Standard, Spotlight, Contrast, and possibly Clean), named in the slide's class line and expanded in the shared kernel the way `preset:` is, and Share PURPOSES (Send for review, Hand out, Keep editing in PowerPoint, Post online, Print handout) that pick the format and its switches. A prototype built on real engine renders shows that Spotlight and Contrast read clearly at tile size, and that Clean barely differs from Standard. The owner chose, in one round: a `look-*` class token the shared kernel expands; three looks (Standard, Spotlight, Contrast) with Clean kept as today's switch; Share purpose-first with format as the escape hatch; slide looks built first.
+summary: The deck-look preset works because it turns about ten dials into one choice among four pictures. Two more Studio surfaces have the same problem at a larger scale. The slide panel has about 40 controls, and the Share sheet asks for a format and then a different options sheet per format. This note proposes slide LOOKS (Standard, Spotlight, Contrast), named in the slide's class line and expanded in the shared kernel the way `preset:` is, and Share PURPOSES (Send for review, Hand out, Keep editing in PowerPoint, Post online, Print handout) that pick the format and its switches. A prototype built on real engine renders shows that Spotlight and Contrast read clearly at tile size, and that Clean barely differs from Standard. The owner chose, in one round: a `look-*` class token the shared kernel expands; three looks (Standard, Spotlight, Contrast) with Clean kept as today's switch; Share purpose-first with format as the escape hatch; slide looks built first.
 companion:
   - ./2026-09-26-deck-presets-and-settings-tiers.md
   - ./2026-07-03-slide-context-editor.md
@@ -8,7 +8,7 @@ companion:
 
 # Slide looks and Share purposes
 
-**Date:** 2026-11-20 · **Status:** decided (owner, one round, 2026-11-20); not built
+**Date:** 2026-11-20 · **Status:** proposed; the forks are owner-settled (2026-11-20, one round, §6); nothing is built
 
 The ask: *"The Studio is getting way too complicated even for me to remember what's what. I
 love the presets we have for the deck look. I wonder if there are more opportunities to
@@ -61,8 +61,8 @@ Standard at tile size; card rails and an eyebrow bar fixed it.
 | Contrast | `dark silent tint-ambient scale-xl` | A dark slide, no header/footer/page number, larger type | Yes, strongly |
 | Clean | `silent no-spectrum no-finish no-treatment flat no-heading-rule` | No bar, footer, page number, backdrop or heading rule | **No.** On a cards or number slide it differs from Standard by the footer line and a hairline rule |
 
-The prototype (a clickable page on the real renders; regenerate with the generator under
-"Reproduce" below) lets the owner switch deck preset, slide layout and look.
+The prototype (a clickable page on the real renders; regenerate the renders with the
+script under "Reproduce" below) lets the owner switch deck preset, slide layout and look.
 
 ### 3.2 Rules that keep slide looks from fighting deck presets
 
@@ -73,10 +73,15 @@ The prototype (a clickable page on the real renders; regenerate with the generat
   must stay left-aligned on a Spotlight slide. In the render, Editorial's ledger rail and
   left alignment survive every look. Clean removes the finish (`no-finish`) rather than
   choosing a different one, which is still within this rule.
-- **Universal tokens only.** Every token in the table is in `universalGroups` or
-  `semiUniversalVariants` (`dist/docs/components.json`). `accent` and `with-spectrum-card` are
-  semi-universal: on a layout without cards the rail does nothing, so Spotlight is weaker on a
-  `quote` slide than on `cards-grid`. A gallery pass over all 14 buckets is owed before ship.
+- **Which layouts accept each token is still open.** Of the 16 tokens in §3.1, five are in
+  `universalGroups` (`dark`, `silent`, `scale-l`, `scale-xl`, `no-treatment`) and one is in
+  `semiUniversalVariants` (`accent`), in `dist/docs/components.json` `vocabularies`. The other
+  ten (`rule-accent`, `eyebrow-bar`, `flat`, `with-spectrum-card`, `spectrum-card-solid`,
+  `tint-spotlight`, `tint-ambient`, `no-spectrum`, `no-finish`, `no-heading-rule`) are listed
+  only in `modifierGroups` (rule, eyebrow, lift, card rail, decoration, switches). The build
+  PR must check every token against each layout's accepted modifiers, and decide whether a
+  look applies only the tokens a layout accepts. The card rail does nothing on a layout
+  without cards, so Spotlight is weaker on a `quote` slide than on `cards-grid`.
 
 ### 3.3 Where a look lives (fork F1)
 
@@ -112,7 +117,7 @@ pool must outlive the panel on WebKit); a slide panel must not add a second pool
 | Hand out | PDF | Strip speaker notes on; Add comments as sticky notes off; One page per step off; Re-openable in Lattice off |
 | Keep editing in PowerPoint | PowerPoint | Editable text on; Re-openable in Lattice on |
 | Post online | Webpage | Color mode: System; Animate charts on; Strip speaker notes on; Embed pictures from other sites on |
-| Print handout | Print | Paper size from the region; Layout: slide and notes; Color: print-safe |
+| Print handout | Print | Paper size: Auto (least-wasteful fit); Layout: Notes; Color: Black & white |
 
 ### 4.2 How it behaves
 
@@ -160,13 +165,33 @@ bridge.
   (`lib/base/base.docs.md`, `design/skills/restyle-deck.md`, `design/skills/studio.md`), a
   `changelog.d/` fragment, and a demo deck `examples/slide-looks.md` (HARD RULE #9). Before
   ship: render all three looks across the 14 buckets and both color modes, since `accent` and
-  `with-spectrum-card` are semi-universal and Spotlight is weaker where there are no cards.
+  `with-spectrum-card` do not reach every layout (§3.2), and Spotlight is weaker where there are no cards.
 - **Share purposes (second PR).** Studio-only: the purpose table, the sheet, the change count
   over the format sheet, e2e at the three widths.
 
 ## Reproduce
 
-The generator writes two decks (`preset: classic`, `preset: editorial`) of `cards-grid` and
-`big-number` slides, one pair per look, and renders them with
-`node dist/lattice.js deck-<preset>.md out/<preset>.png`. The token sets are the table in
-§3.1. Lint (`npm run lint:deck`) reported no errors or warnings on either deck.
+The renders came from this script (run from an empty folder) and the CLI. The sample decks are
+not committed; this section is the whole recipe.
+
+```js
+// gen.mjs — writes deck-classic.md and deck-editorial.md
+import fs from 'node:fs';
+const P = {
+  standard: '',
+  spotlight: 'accent rule-accent with-spectrum-card spectrum-card-solid tint-spotlight scale-l eyebrow-bar',
+  contrast: 'dark silent tint-ambient scale-xl',
+  clean: 'silent no-spectrum no-finish no-treatment flat no-heading-rule',
+};
+const cards = (m) => `<!-- _class: cards-grid ${m} -->\n\n## The framework has three parts.\n\n- Signal intake\n  - One weekly sweep across customer calls, market data and rival moves.\n- Scoring model\n  - Each signal scored for confidence, recency and strategic fit.\n- Decision log\n  - Every call recorded with the signals and options behind it.\n`;
+const big = (m) => `<!-- _class: big-number ${m} -->\n\n\`Six-month pilot\`\n\n- 14×\n  - Return on signal investment, measured as first-time-right decisions against the old baseline.\n`;
+for (const deck of ['classic', 'editorial']) {
+  const slides = Object.values(P).flatMap((m) => [cards(m), big(m)]);
+  const fm = `---\ntheme: indaco\npreset: ${deck}\npaginate: true\nfooter: "Signal framework · Q3 review"\n---\n\n`;
+  fs.writeFileSync(`deck-${deck}.md`, fm + slides.join('\n---\n\n'));
+}
+```
+
+Then, from the repo root: `node dist/lattice.js <dir>/deck-classic.md <dir>/classic.png` (and the
+same for `editorial`). That writes one 2560×1440 PNG per slide. `npm run lint:deck` reported no
+errors or warnings on either deck.
