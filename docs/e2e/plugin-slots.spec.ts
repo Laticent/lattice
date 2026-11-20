@@ -102,10 +102,18 @@ async function expectNoBareFrame(page: Parameters<typeof gotoStudio>[0], when: s
 	expect(watch.bare, `no frame painted the badge text without the plugin fill ${when}`).toEqual([]);
 }
 
-/** What each print-preview thumbnail in the Share sheet shows for the plugin's block: `drawn <fill>`, `placeholder` or `source`. */
+/**
+ * What each print-preview thumbnail in the Share sheet shows for the plugin's block: `drawn <fill>`, `placeholder` or `source`.
+ *
+ * VISIBLE frames only. The print cells come from a preview pool (preview-pool.tsx), and the Print drawer stays mounted
+ * after it closes. When the stamp changes on Approve, the cell's shape key changes too, so its next open takes a new slot
+ * and frees the old one. The freed slot stays in the sheet with `visibility: hidden`, still holding the unapproved
+ * placeholder, until the pool parks it `PARK_MS` (5 s) later. Reading every `iframe` counted that hidden frame whenever
+ * step 3b opened less than 5 s after step 0 closed (CI run 44765170649: 9.5 s for the whole test).
+ */
 async function printPreview(sheet: import('@playwright/test').Locator): Promise<string[]> {
 	const seen: string[] = [];
-	for (const el of await sheet.locator('iframe').elementHandles()) {
+	for (const el of await sheet.locator('iframe').filter({ visible: true }).elementHandles()) {
 		const s = await (await el.contentFrame())
 			?.evaluate((name) => {
 				const badge = document.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
