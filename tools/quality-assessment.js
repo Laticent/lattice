@@ -115,9 +115,13 @@ function parseKnipResult(result) {
   return data;
 }
 
-function runDeadCode() {
-  const data = parseKnipResult(runBin('knip', ['--reporter', 'json']));
-  const totals = { files: 0, exports: 0, types: 0, unusedDependencies: 0, unlistedDependencies: 0, binaries: 0, unresolved: 0 };
+// The knip report fields these rows count; any other array-valued field (duplicates, enumMembers,
+// nsExports, a category a later knip adds…) lands in `other`, so no finding is silently dropped.
+const KNIP_COUNTED = new Set(['files', 'exports', 'types', 'namespaceMembers', 'dependencies', 'devDependencies', 'unlisted', 'binaries', 'unresolved']);
+
+/** Count knip's report into the ratchet's totals; refuses a run that found something no field counts. */
+function tallyKnip(data, status) {
+  const totals = { files: 0, exports: 0, types: 0, unusedDependencies: 0, unlistedDependencies: 0, binaries: 0, unresolved: 0, other: 0 };
   for (const issue of data.issues) {
     totals.files += issue.files?.length || 0;
     totals.exports += (issue.exports?.length || 0) + (issue.types?.length || 0) + (issue.namespaceMembers?.length || 0);
@@ -125,7 +129,25 @@ function runDeadCode() {
     totals.unlistedDependencies += issue.unlisted?.length || 0;
     totals.binaries += issue.binaries?.length || 0;
     totals.unresolved += issue.unresolved?.length || 0;
+    for (const [key, value] of Object.entries(issue)) {
+      if (Array.isArray(value) && !KNIP_COUNTED.has(key)) totals.other += value.length;
+    }
   }
+  const counted = totals.files + totals.exports + totals.unusedDependencies + totals.unlistedDependencies + totals.binaries + totals.unresolved + totals.other;
+  if (status === 1 && counted === 0) {
+    throw new Error('knip exited 1 (it found something) but no field this tool counts is non-empty; read `npx knip` and teach runDeadCode the new field');
+  }
+  return totals;
+}
+
+function runDeadCode() {
+  // Run knip's own entry through Node, not the extensionless node_modules/.bin shim, which Windows
+  // cannot spawn without a shell (engineering/development.md).
+  const knipEntry = path.join(ROOT, 'node_modules', 'knip', 'bin', 'knip.js');
+  const raw = spawnSync(process.execPath, [knipEntry, '--reporter', 'json'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1024 * 1024 * 128 });
+  if (raw.error) throw raw.error;
+  const data = parseKnipResult(raw);
+  const totals = tallyKnip(data, raw.status);
   return { raw: data, totals, issueCount: data.issues.length };
 }
 
@@ -168,6 +190,7 @@ function deadCodeMetrics(deadCode) {
     unlistedDependencies: deadCode.totals.unlistedDependencies,
     unlistedBinaries: deadCode.totals.binaries,
     unresolvedImports: deadCode.totals.unresolved,
+    otherFindings: deadCode.totals.other,
   };
 }
 
@@ -294,4 +317,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { assess, toMetrics, deadCodeMetrics, runDeadCode, parseKnipResult };
+module.exports = { assess, toMetrics, deadCodeMetrics, runDeadCode, parseKnipResult, tallyKnip };

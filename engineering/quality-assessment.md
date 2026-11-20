@@ -58,15 +58,19 @@ node tools/quality-assessment.js --check --only dead-code   # knip alone, ~5 s: 
   of `lib/`, and re-bless deliberately when a change is expected to move a
   number (the PR is where that's justified, exactly like a perf re-bless).
 - **Dead code is the exception: it is held on every push.** The `dead-code` pre-push job runs
-  `node tools/quality-assessment.js --check --only dead-code`, which runs knip alone and compares six
+  `node tools/quality-assessment.js --check --only dead-code`, which runs knip alone and compares seven
   rows of `test/quality/baseline.json`: unused files, unused exports, unused packages, imports of
-  undeclared packages, unknown binaries and unresolved imports. All six are 0, so a push that adds
-  one fails. Fix a real finding. For something this repo loads in a way knip cannot follow (a path
+  undeclared packages, unknown binaries, unresolved imports, and every other category knip reports
+  (`otherFindings`: duplicate exports, enum members, any category a later knip adds). All seven are
+  0, so a push that adds one fails, and a knip run that finds something no row counts fails too.
+  **Scope: `.js` files.** `knip.jsonc`'s `project` does not yet include the 229 `.mjs` files in
+  `lib/` and `tools/`; widening it is `followups.d/3334-p3`. The job checks the working tree before
+  a push, not the result of the merge queue, and no CI step runs it. Fix a real finding. For something this repo loads in a way knip cannot follow (a path
   string, a build alias, a spawned process, a directory listing, a package used only in `docs/`),
   add it to `knip.jsonc` with its reason on the same line. `--bless --only dead-code` rewrites only
-  those six rows. Why it is a hook and the rest is not: knip takes about 5 s and is exact, and before
-  the job existed the baseline said 0 while knip found 20 files and 59 imports, because nothing ran
-  it (owner's D1, 2026-11-20).
+  those seven rows. Why it is a hook and the rest is not: knip takes about 5 s and is exact, and before
+  the job existed the baseline said 0 while knip found 20 files, 16 packages and 40 undeclared
+  imports, because nothing ran it (owner's D1, 2026-11-20).
 
 Individual sub-tools also run standalone for a faster, narrower loop:
 
@@ -138,7 +142,8 @@ real file import — several browser-bundle cores (`lib/theme`, `lib/layout`,
 (`tools/build-theme-core.js` and siblings), which static analysis can't
 trace into. Those directories are listed as `entry` globs so their files
 aren't false-flagged as unreachable — knip still checks *exports* within
-them, just not file-level reachability. `knip` also flags unused npm
+them, just not file-level reachability. (Not their exports either: knip skips an entry file's
+exports unless `includeEntryExports` is set, so an unused export in an entry file is not reported.) `knip` also flags unused npm
 dependencies, imports of undeclared ones (`unlisted`), unknown binaries and
 unresolved imports; since 2026-11-20 all of them are baseline rows held at 0 by the
 pre-push ratchet above. Every exception in `knip.jsonc` carries its reason.

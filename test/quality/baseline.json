@@ -14,6 +14,7 @@
     "worstFunctionComplexity": 45,
     "unusedDependencies": 0,
     "unlistedBinaries": 0,
-    "unresolvedImports": 0
+    "unresolvedImports": 0,
+    "otherFindings": 0
   }
 }
