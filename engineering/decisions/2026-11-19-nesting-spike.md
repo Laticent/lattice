@@ -40,12 +40,12 @@ because `distributeLeadingIs` already splits leading `:is()` in every bundle.
 
 | Measure | Flat (today) | A: nested | B: `:is()` by hand |
 |---|---|---|---|
-| Source bytes | 81,656 | 42,987 | 72,372 |
-| Source bytes without comments | 69,458 | 30,190 (−57%) | 60,191 (−13%) |
-| Source gzip -9 | 7,596 | 6,588 | 7,090 |
+| Source bytes | 81,656 | 42,511 | 72,372 |
+| Source bytes without comments | 69,458 | 29,750 (−57%) | 60,191 (−13%) |
+| Source gzip (Node zlib, level 9) | 7,551 | 6,796 | 7,048 |
 | The 92-character slide prefix, written | 277 times (24.7 KB) | 35 times (3.1 KB) | 277 times |
-| Longest line | 478 | 281 | 386 |
-| Lines | 663 | 739 | 658 |
+| Longest line | 478 | 327 | 386 |
+| Lines | 663 | 611 | 658 |
 | `dist/lattice-min.css` (raw / gzip) | 1,172,119 / 143,511 | **byte-identical** | **byte-identical** |
 | `dist/styles-min/*`, `lattice-vscode*-min.css`, `lattice-default-min.css` | | **byte-identical** | **byte-identical** |
 | `dist/lattice.css` (raw / gzip) | 3,118,271 / 857,968 | 3,106,871 / 854,100 | 3,118,183 |
@@ -83,8 +83,13 @@ Conditions for 4.2 (the chart-family generated sheet, the `figure` dual-surface 
 1. A file joins `NESTED_SOURCES` explicitly. Nothing is detected from content.
 2. Its PR shows `node tools/css-rule-equiv.js <flat> <nested> --lower` at 0 differing rules, and
    `dist/lattice-min.css` byte-identical (or a diff that is only whitespace or quoting, explained).
-3. The guard stays: a parent pair of unequal specificity refuses the build.
-4. A generated sheet (`chart-family.styles.generated.css`) is nested by changing its generator,
+3. The guard stays: a rule that starts with `&` under a parent list of unequal specificity refuses
+   the build. (`.y &` under such a list is fine: it lowers to an `:is()` that is never split.)
+4. Every gate in `tools/check-ownership.js` reads CSS through `readCssSource`, which lowers each
+   `NESTED_SOURCES` file first. A nested file a gate read raw would show it selectors starting
+   with `&`, and `checkSectionBoxOwnership` would miss `section.chart-frame { &.x { … } }`.
+   `test/unit/cli/css-nesting.test.js` pins that no gate reads a CSS file raw.
+5. A generated sheet (`chart-family.styles.generated.css`) is nested by changing its generator,
    not by hand.
 
 **What it does not buy.** Shipped bytes. Nesting is a source-readability change; the bundle stays

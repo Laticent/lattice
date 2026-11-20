@@ -32,14 +32,26 @@ function normalizeSelector(sel) {
   return { text: csstree.generate(ast), spec: specificity(ast).join(',') };
 }
 
-/** The ordered style rules of a stylesheet, each as {ctx, sels:[{text,spec}], decls}. */
+/** The ordered style rules and at-rule entries of a stylesheet, each as {ctx, sels:[{text,spec}], decls}. */
 function styleRules(css) {
   const ast = csstree.parse(css, { parseValue: true, parseRulePrelude: false });
   const out = [];
   const ctx = [];
   csstree.walk(ast, {
     enter(n) {
-      if (n.type === 'Atrule') ctx.push(`@${n.name} ${n.prelude ? csstree.generate(n.prelude) : ''}`);
+      if (n.type === 'Atrule') {
+        const head = `@${n.name} ${n.prelude ? csstree.generate(n.prelude) : ''}`.trim();
+        // A statement at-rule (@import, @charset, a @layer list) and the declarations an at-rule
+        // holds directly (@font-face, @property, @page) are part of the cascade too: compare them
+        // as entries with no selector, so two sheets that differ only there are not reported equal.
+        if (!n.block) out.push({ ctx: [...ctx, `${head};`].join(' / '), sels: [], decls: '' });
+        else {
+          const own = n.block.children.toArray().filter((d) => d.type === 'Declaration')
+            .map((d) => `${d.property}:${csstree.generate(d.value)}${d.important ? '!important' : ''}`);
+          if (own.length) out.push({ ctx: [...ctx, head].join(' / '), sels: [], decls: own.join(';') });
+        }
+        ctx.push(head);
+      }
       if (n.type === 'Rule') {
         const sels = splitSelectorList(stripCssComments(csstree.generate(n.prelude))).filter((s) => s.trim()).map(normalizeSelector);
         const decls = n.block.children.toArray().filter((d) => d.type === 'Declaration')

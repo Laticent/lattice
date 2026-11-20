@@ -3,7 +3,8 @@
  * tools/build-marp-vscode-css.js (its tie test) and tools/build-css.js (the nesting guard).
  *
  * Returns [ids, classes, types]. `:where()` adds zero; `:is()`, `:not()`, `:has()` and `:matches()`
- * add their most specific argument; any other pseudo-class adds one class. The four legacy
+ * add their most specific argument; `:nth-child(… of S)` and `:nth-last-child(… of S)` add one class
+ * plus the most specific selector in S; any other pseudo-class adds one class. The four legacy
  * one-colon pseudo-elements (`section:after`) count as pseudo-elements, as browsers read them.
  */
 
@@ -29,7 +30,11 @@ function specificity(sel) {
       if (name === 'where') return;
       const list = n.children?.first;
       if (['is', 'not', 'has', 'matches'].includes(name) && list && list.type === 'SelectorList') add(most(list));
-      else s[1]++;
+      else {
+        s[1]++;
+        // Selectors Level 4: `:nth-child(odd of .a.b)` weighs one class PLUS its `of` list.
+        if ((name === 'nth-child' || name === 'nth-last-child') && list && list.type === 'Nth' && list.selector) add(most(list.selector));
+      }
     }
   });
   return s;
