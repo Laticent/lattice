@@ -20,7 +20,7 @@ import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { completionKeys, completionLoading as completionLoadingFacet } from '@/playground/completion-keys.js';
 import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
-import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, withLazyInlineCore } from './editor-complete';
+import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, positionCompletionInfo, registerValueLists, studioCompletionSources, withLazyInlineCore } from './editor-complete';
 import { largeInsert } from './editor-large-insert';
 import { payloadFold } from './editor-payload-fold';
 import { editorTheme, studioHighlight } from './editor-theme';
@@ -663,7 +663,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const measuredPhotoRef = React.useRef(measuredPhoto);
 	measuredPhotoRef.current = measuredPhoto;
 	const buildAutocomplete = () => [
-		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? [], () => samplesRef.current?.() ?? []), completionComponents, completionRegisters), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false }),
+		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? [], () => samplesRef.current?.() ?? []), completionComponents, completionRegisters), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false, positionInfo: positionCompletionInfo }),
 		// The completion keys (Ctrl-Space, Option-Esc on macOS, Tab to accept) and the "No suggestions here" note, shared
 		// with CodeField and the Playground (completion-keys.js).
 		completionKeys(),

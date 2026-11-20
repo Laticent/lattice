@@ -286,6 +286,7 @@ distinct, stable ID.
 | `say-key-case` | warning | — | A capitalized `Say:`, which is a speaker note; only lowercase `say:` is spoken. |
 | `lexicon-single-letter-key` | — | — | **Deprecated (2026-11-16), no longer emitted.** It warned that a single-letter/digit `lexicon:` key (`e:`, `2:`) was substituted inside every other word. A letter or digit key in `terms:`, `acronyms:` or `lexicon:` now applies only to the whole word, so the hazard is gone. |
 | `terms-key-renamed` | suggestion | ✓ | An `acronyms:` or `lexicon:` block, both older names for `terms:` and both still read. The fix renames the block and writes each plain `acronyms:` value as `{ expansion: … }`; it is offered only when the deck has one of the three blocks. |
+| `terms-entry-ignored` | warning | — | A `terms:` line the reader skips, so the term is never spoken as written: an unknown field (`pronunciation:`, `say:`; the fields are `pronounce`, `expansion` and `definition`), a list item (`- Yearn: yurn`), an entry with no value, or a line indented under no term. The message names the field that was probably meant. |
 | `greeting-hardcoded-period` | warning | — | A greeting that names a time of day; `{greeting}` adapts to the listener's clock. |
 | `greeting-not-english` | warning | — | `{greeting}` (always English) in a deck whose `lang:` is not English. |
 | `unknown-bookend-placeholder` | warning | — | A `{placeholder}` in a greeting or closing that the voice would read aloud as written. |
@@ -410,7 +411,8 @@ Emitted by `tools/lint-deck.js` itself (`--discover`), not by `lint-core`, becau
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. |
+| `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. A plural is reported as its singular (`IRBs` as `IRB`), the key one entry covers. |
+| `narration-acronym-ambiguous` | suggestion | — | An all-caps token with more than one known meaning (`AP`: accounts payable, Advanced Placement, Associated Press). The built-in dictionary never expands one; the message names the meanings, and the deck's `terms:` entry says which it means. |
 | `narration-passthrough` | suggestion | — | Slash, ratio and identifier tokens that narration will read as glyphs. |
 
 ### 3.11 Slide metadata comments

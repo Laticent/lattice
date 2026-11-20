@@ -212,6 +212,7 @@
     "/#[0-9A-Fa-f]{3,8}\\b/": "safe",
     "/#[0-9a-fA-F]{3,8}\\b/g": "safe",
     "/$/": "safe",
+    "/$^/": "safe",
     "/%$/": "safe",
     "/%%/": "safe",
     "/%%\\s*\\{\\s*init/": "safe",
@@ -236,6 +237,7 @@
     "/&#x?[0-9a-f]+;?|&[a-z][a-z0-9]*;|#[a-z0-9]+;/i": "safe",
     "/&(#x[0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos|#39|nbsp);/g": "safe",
     "/&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]*);/gi": "safe",
+    "/&(#x[0-9a-f]+|#\\d+|[a-z]+);/gi": "safe",
     "/&(?![a-zA-Z#][a-zA-Z0-9]*;)/g": {
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
@@ -261,7 +263,6 @@
     "/&gt;/g": "safe",
     "/&lt;/g": "safe",
     "/&nbsp;/g": "safe",
-    "/&nbsp;|&#160;/g": "safe",
     "/&quot;/g": "safe",
     "/&quot;|&#34;/g": "safe",
     "/&quot;|&#34;|&apos;|&#39;/g": "safe",
@@ -432,10 +433,6 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
     },
-    "/(\\*|_)(?=\\S)([\\s\\S]*?\\S)\\1/g": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-ahead assertion"
-    },
     "/(\\S)[ \\t]{2,}/g": "safe",
     "/(\\bdata-lattice-pagination=\")(\\d+)(\")/": "safe",
     "/(\\bdata-lattice-slide=\")(\\d+)(\")/": "safe",
@@ -533,6 +530,7 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: back-reference"
     },
+    "/(`[^`]*`)/": "safe",
     "/(`{3,}|~{3,})/": "safe",
     "/(caption|say)\\s*:/i": "safe",
     "/(deck-logo-tint-\\d+)(?=[\"')])/g": {
@@ -1090,6 +1088,7 @@
     "/[\\n\\r\\f]/": "safe",
     "/[\\n\\r\\f]/g": "safe",
     "/[\\n\\r\\u2028\\u2029]/": "safe",
+    "/[\\p{L}\\p{N}]/u": "safe",
     "/[\\r\\n\\f\\v\\0\\u2028\\u2029]/g": "safe",
     "/[\\r\\n\\t]+/g": "safe",
     "/[\\r\\n]$/": "safe",
@@ -1264,10 +1263,10 @@
     "/\\\\(?:\\r\\n|\\r|\\n)[ \\t]*/g": "safe",
     "/\\\\(?:cr|newline)(?![a-zA-Z])/": "safe",
     "/\\\\(?:x([0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|U([0-9a-fA-F]{8}))/g": "safe",
+    "/\\\\([!-/:-@[-`{-~])/g": "safe",
     "/\\\\([\"\\\\])/g": "safe",
     "/\\\\([0-9a-fA-F]{1,6})[ \\t\\n\\r\\f]?|\\\\(.)/g": "safe",
     "/\\\\([0-9a-f]{1,6})/gi": "safe",
-    "/\\\\([\\\\`*_{}[\\]()#+\\-.!~<>|])/g": "safe",
     "/\\\\([\\\\`*_{}[\\]()#+\\-.!~|])/g": "safe",
     "/\\\\/g": "safe",
     "/\\\\\\r?\\n/g": "safe",
@@ -1718,6 +1717,7 @@
     "/^(?: {4}|\\t)[^\\n]*$/gm": "safe",
     "/^(?: {4}|\\t| {0,3}\\t)/": "safe",
     "/^(?:\"([^\"]*)\"|'([^']*)')\\s*:\\s*(-?(?:0|[1-9]\\d*)(?:\\.\\d+)?)\\s*$/": "safe",
+    "/^(?:\"([^\"]+)\"[ \\t]*|'([^']+)'[ \\t]*|([^\\s\"'{}[\\]#,][^:]*)):(?:[ \\t]([\\s\\S]*))?$/u": "safe",
     "/^(?:\"([^\"]+)\"|'([^']+)'|([^\\s:]+))\\s*:\\s*([\\s\\S]*)$/u": "safe",
     "/^(?:#{1,6}(?:\\s|$)|(?:[-*_][ \\t]*){3,}$)/": "safe",
     "/^(?:#{1,6}(?:\\s|$)|>|(?:[-*_][ \\t]*){3,}$)/": "safe",
@@ -2774,6 +2774,7 @@
     "/^tag-(corner|foot|notch|band|inline)$/": "safe",
     "/^tag-(small|regular|large)$/": "safe",
     "/^tag:[ \\t]*(\\S.*)$/m": "safe",
+    "/^terms[ \\t]*:/": "safe",
     "/^test\\//": "safe",
     "/^text(-|$)/": "safe",
     "/^text-align\\s*:\\s*(left|right|center)$/i": "safe",
@@ -2819,6 +2820,7 @@
     "/^﻿?---\\r?\\n([\\s\\S]*?)\\r?\\n---[ \\t]*\\r?\\n?/": "safe",
     "/^﻿?---\\r?\\n/": "safe",
     "/^﻿?---\\r?\\n[\\s\\S]*?\\r?\\n---/": "safe",
+    "/_([^\\s_](?:[^_]*[^\\s_])?)_/g": "safe",
     "/_Back/i": "safe",
     "/_[lr]$/": "safe",
     "/_class/": "safe",
