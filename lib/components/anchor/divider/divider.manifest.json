@@ -11,7 +11,7 @@
   "function": "anchor",
   "form": "divider",
   "chrome": { "pagination": false },
-  "coda": { "claims": [] },
+  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
   "substance": "prose",
   "tags": [
     "section-break",

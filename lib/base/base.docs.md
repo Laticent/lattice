@@ -368,9 +368,12 @@ audience should remember from a card-grid slide.
 > Signals without decisions are noise.
 ```
 
-**Supported layouts: 71 of 80 draw this panel — the block is OPT-OUT.** A layout
+**Supported layouts: 67 of 80 draw this panel — the block is OPT-OUT.** A layout
 renders the callout unless it declares `coda: { claims: ["blockquote"] }` in its
-manifest. Nine do. Six because a blockquote IS part of the layout: `quote` (the quotation),
+manifest. Thirteen do. **The four anchors — `title`, `closing`, `divider`, `topic` —
+take no coda at all**: they open and close the argument, and a takeaway belongs on the
+content slide it sums up (owner, 2026-11-20); `lint:deck` flags a `>` written on one.
+Six more because a blockquote IS part of the layout: `quote` (the quotation),
 `math` (a display equation), `redline` (the old and new passages), and the three QR
 posters, `contact`, `wifi` and `gift-card`, whose card fills the stage. Three more
 draw your trailing `> …` as their OWN insight treatment rather than this panel:
@@ -410,9 +413,10 @@ shouldn't get card weight.
 — Note: figures are pre-audit; final numbers ship in Q3.
 ```
 
-**Supported layouts: 75 of 80, opt-out like Key Insight.** A layout withholds the
-note by declaring `coda: { claims: ["trailing-paragraph"] }`. Five do: `math` (its
-equation grid), `image` (its text column) and the three QR posters. Two layouts
+**Supported layouts: 71 of 80, opt-out like Key Insight.** A layout withholds the
+note by declaring `coda: { claims: ["trailing-paragraph"] }`. Nine do: the four
+anchors (no coda, see Key Insight above), `math` (its equation grid), `image` (its
+text column) and the three QR posters. Two layouts
 place it somewhere other than the band, and both are declared:
 
 - **Every chart kind** (`coda: { caption: true }`). The note IS the chart's caption:
@@ -427,11 +431,10 @@ place it somewhere other than the band, and both are declared:
   after the quotation is its attribution; a SECOND paragraph is the note.
 
 Everything else promotes, **including `content`**, which means any slide that names
-no component at all, since that is what an un-classed slide resolves to (#1292). The
-anchors (`title`, `closing`, `divider`, `topic`), `stats`, `split-panel` and
-`split-compare` took the note on 2026-11-20: their own lede or verdict comes first,
-and promotion needs a structural block before the paragraph, so the lede is never
-taken (`engineering/decisions/2026-11-20-coda-and-marp-parity.md`).
+no component at all, since that is what an un-classed slide resolves to (#1292).
+`stats`, `split-panel` and `split-compare` took the note on 2026-11-20: their own lede
+or verdict comes first, and promotion needs a structural block before the paragraph, so
+the lede is never taken (`engineering/decisions/2026-11-20-coda-and-marp-parity.md`).
 
 The history of these lists — claims that protected selectors nothing emitted
 (`diagram`, `big-number`, `code`), and the ones that looked dead and were not
@@ -585,8 +588,8 @@ which fails on a missing name and on a stale one.)*
 The three registers are told apart by MARKDOWN SHAPE, not by a class the author
 types. They do not all reach the same layouts, and the counts are measured on a real
 render rather than derived from this page — 80 layouts, one probe slide each, on the
-engine (2026-11-20): **key insight 71 (plus 3 that draw it in their own style),
-below-note 75, annotation 75.** The last two are equal by
+engine (2026-11-20): **key insight 67 (plus 3 that draw it in their own style),
+below-note 71, annotation 71.** The last two are equal by
 construction: an annotation *is* a below-note that happens to be italic-only.
 
 | Markdown shape | Renders as | Visual |

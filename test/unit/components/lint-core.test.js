@@ -1188,6 +1188,21 @@ describe('lint-core: block-unsupported', () => {
     assert.equal(bu('inventory insight-key').length, 1);
   });
 
+  test('flags an authored `>` on an anchor, which takes no coda (owner, 2026-11-20)', () => {
+    const v = { ...bVocab, names: new Set([...bVocab.names, 'title']), slotContract: require('../../../lib/authoring/slot-contract.generated.js') };
+    const f = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Growth held.\n\n> Services filled the gap.\n', v)
+      .filter((x) => x.rule === 'block-unsupported');
+    assert.equal(f.length, 1);
+    assert.match(f[0].message, /title takes no key insight or note/);
+    // A `>` inside a code fence is code, and a quote's own quotation is its anatomy.
+    const fenced = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# T\n\n```\n> not a beat\n```\n', v)
+      .filter((x) => x.rule === 'block-unsupported');
+    assert.equal(fenced.length, 0);
+    const q = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: quote -->\n\n> A quotation.\n\n— Someone\n', { ...v, slotContract: v.slotContract })
+      .filter((x) => x.rule === 'block-unsupported');
+    assert.equal(q.length, 0);
+  });
+
   test('says nothing about a correctly-authored quote carrying no modifier', () => {
     assert.deepEqual(bu('quote', '> A quotation.\n\n— Someone\n'), []);
     assert.deepEqual(bu('quote bare', '> A quotation.\n\n— Someone\n'), []);

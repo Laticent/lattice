@@ -8,13 +8,11 @@ meta: "The coda · key insight, note, caption"
 
 <!-- _class: title silent -->
 
-`The coda · 75 layouts`
+`The coda · 71 layouts`
 
-# Close any slide the same way.
+# Close any content slide the same way.
 
-A key insight, a note, or a source line now reach the anchors, splits, quotes and charts.
-
-> One shape closes every slide: a quote for the takeaway, a sentence for the footnote.
+A key insight, a note, or a source line now reach the splits, quotes and charts. Title slides take none.
 
 ---
 

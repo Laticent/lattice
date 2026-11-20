@@ -12,7 +12,7 @@
   "function": "anchor",
   "form": "bookend",
   "chrome": { "pagination": false, "header": false },
-  "coda": { "claims": [] },
+  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
   "substance": "prose",
   "tags": [
     "pitch",

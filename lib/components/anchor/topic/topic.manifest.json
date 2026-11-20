@@ -13,7 +13,7 @@
       "eyebrow"
     ]
   },
-  "coda": { "claims": [] },
+  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
   "tags": [
     "walkthrough",
     "agenda-setting",

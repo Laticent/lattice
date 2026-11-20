@@ -133,7 +133,9 @@ about a sixth of the slide; a dense `gantt`, `journey`, `matrix-grid` or `roadma
 will not shrink to make room, so Lattice flags it as clipped. Trim it, or keep one beat. On a `quote`, the first
 line after the quotation is the attribution and a second one is the note. On the
 split layouts it closes the supporting column. A few layouts use the element for
-their own anatomy and do not take it: `math` and the QR posters take neither,
+their own anatomy and do not take it. The title, closing, divider and topic slides
+take neither, by design: put the takeaway on the content slide it sums up. `math` and
+the QR posters take neither,
 `image` takes no note, and `inventory`, `policy-recommendation` and
 `split-compare` draw your `> …` as their own insight. Each component's page lists
 what it takes (its `authoring.blocks`), and the editor flags a mismatch.

@@ -162,6 +162,7 @@ surface the owner named:
 | Question | Answer |
 |---|---|
 | 1. Coda reach | Opt-outs shrink to `math` and the three QR posters. **`quote` does not opt out**: its attribution stays the first paragraph after the quotation, and a second trailing paragraph becomes the below-note (or annotation). Quote takes **no** key insight; a second blockquote stays a plain quote. The anchors, `stats`, `image` and the blockquote-anatomy layouts gain the coda as recommended |
+| 1b. Anchors (asked later the same day) | **The four anchors — `title`, `closing`, `divider`, `topic` — take no coda at all**, overruling 1's "gain the coda": a takeaway belongs on the content slide it sums up. They claim both beats; `lint:deck` flags an authored `>` on any layout that withholds both beats and has no quotation slot of its own (`block-unsupported`). This is a breaking change for the key insight, which anchors showed before |
 | 2. Charts | **A chart's caption IS its coda's paragraph beat.** The below-note or annotation renders inside the figure as its `<figcaption>`; the key insight stays the slide-level panel. Captions stay optional. The same rule applies to `diagram` and `video` |
 | 2b. `image`, `collage` | Not decided: they have their own semantics and need a deeper assessment before the caption rule reaches them (`followups.d/`) |
 | 3. Split width | `panel-narrow` / `panel-wide` on `split-panel` and `split-compare`; no modifier keeps today's widths |
@@ -237,8 +238,8 @@ Each is fixed in the change that implements §5.
 
 | Beat | Published before | Published now |
 |---|---|---|
-| Key insight panel | 68 | **71**, plus 3 that draw your `> …` as their own insight (`inventory`, `policy-recommendation`, `split-compare`) |
-| Below-note / annotation | 38 / 38 | **75 / 75** |
+| Key insight panel | 68 | **67**, plus 3 that draw your `> …` as their own insight (`inventory`, `policy-recommendation`, `split-compare`) |
+| Below-note / annotation | 38 / 38 | **71 / 71** |
 
 **The mechanism.** Two new manifest fields beside `coda.claims`, read by one kernel (`lib/core/coda.js`):
 
