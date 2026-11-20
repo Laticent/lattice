@@ -261,7 +261,9 @@ async function latticePhotoProbe() {
 		const hover = (dx) => {
 			movedAt = Date.now();
 			let { row } = where();
-			if (row.top < 0 || row.bottom > innerHeight) {
+			// Out of view means out of the editor's scroller, which clips it, not only out of the window.
+			const port = document.querySelector('.cm-scroller')?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
+			if (row.top < Math.max(0, port.top) || row.bottom > Math.min(innerHeight, port.bottom)) {
 				live.scrollIntoView({ block: 'center' });
 				({ row } = where());
 			}
@@ -347,9 +349,17 @@ async function latticePhotoProbe() {
 		// off has the same length, so the stamp cannot show it. Not a fixed sleep: on the simulator a pass outlasts any guess.
 		// 20 s is the same allowance the underline had to appear: the verdict and one re-run.
 		await linted('the fixed deck');
-		const underline = () => [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'))?.querySelector('.cm-lintRange-warning');
-		const cleared = await until(() => !underline(), 20000, 'the editor warning to clear').then(() => true, () => false);
-		step('slide 1: the editor warning clears too', cleared, cleared ? '' : 'still underlined after 20 s');
+		// The line must be in the page for its absence of an underline to mean anything: CodeMirror draws only lines near
+		// the view, so bring it there first, as for the warning itself.
+		const photoLine = () => [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes('![A bright harbor](data:'));
+		const view = editorView();
+		const at = view ? view.state.doc.toString().indexOf('![A bright harbor](data:') : -1;
+		if (at >= 0) view.dispatch({ effects: view.constructor.scrollIntoView(at, { y: 'start' }) });
+		const cleared = await until(() => {
+			const line = photoLine();
+			return line && !line.querySelector('.cm-lintRange-warning');
+		}, 20000, 'the editor warning to clear').then(() => true, () => false);
+		step('slide 1: the editor warning clears too', cleared, cleared ? '' : photoLine() ? 'still underlined after 20 s' : 'the photo line was not in the page for 20 s');
 
 		// 3. A thin spotlight card: the Coach and the editor tooltip agree word for word.
 		await caretTo('A dark photo.', HEADINGS[1]);

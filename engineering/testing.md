@@ -390,7 +390,7 @@ when that missed too.
 A point measured once also goes stale: the editor can scroll after the range is found, and a
 phone run under load hovered a line 250 px below the warning for the whole wait.
 
-**Do instead.** Point at the middle of the range's first row (`range.getClientRects()[0]`), read
+**Do instead.** Point at the middle of the range's first row (its first non-empty client rect), read
 where it is at every move, and move again only after the last move had a full second to open a
 tooltip.
 
