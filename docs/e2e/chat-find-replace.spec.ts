@@ -63,7 +63,7 @@ test(`the chat finds a title and replaces it on one card the author applies at $
 	await openChatAtWidth(page, w);
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('add "today" to the first title');
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
-	const apply = page.getByRole('button', { name: /^Apply/ });
+	const apply = page.getByRole('button', { name: /^Apply( all)?$/ });
 	await expect(apply).toBeVisible({ timeout: 30_000 });
 	expect(title).not.toBe('');
 	// find_text ran in the page: its result is the tool message in the second request.
@@ -122,7 +122,7 @@ test('the chat replaces by pattern, through the page’s Worker @crosswidth @gec
 	await openChatAtWidth(page, w);
 	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('add "today" to the first title');
 	await page.getByRole('button', { name: 'Send', exact: true }).click();
-	const apply = page.getByRole('button', { name: /^Apply/ });
+	const apply = page.getByRole('button', { name: /^Apply( all)?$/ });
 	await expect(apply).toBeVisible({ timeout: 30_000 });
 	expect(title).not.toBe('');
 	// A replace that settles its turn ends on its summary, so the result may not reach a second request; the card
@@ -177,7 +177,7 @@ for (const preserve of [true, false])
 		await openChatAtWidth(page, w);
 		await page.getByRole('textbox', { name: 'Message the Architect' }).fill('rename the first word of the title');
 		await page.getByRole('button', { name: 'Send', exact: true }).click();
-		const apply = page.getByRole('button', { name: /^Apply/ });
+		const apply = page.getByRole('button', { name: /^Apply( all)?$/ });
 		await expect(apply).toBeVisible({ timeout: 30_000 });
 		// The arms differ only if the title's first word is not already lower case.
 		expect(word).not.toBe('');
