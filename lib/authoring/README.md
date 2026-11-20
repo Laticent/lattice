@@ -11,7 +11,6 @@ board-ready the deck is (scorecard), and the note/non-note boundary.
 - `review-core.js` — advisory presentation-trap suggestions.
 - `prose-budgets.js` — word budgets per element (feeds `review-core`).
 - `scorecard.js` — aggregates lint + review + structure into a grade.
-- `fact-check-core.js` — claim inventory + verifiability triage.
 - `notes-core.js` — the single speaker-note boundary.
 
 **Gotcha:** these are bundled to the browser by
