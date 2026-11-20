@@ -103,9 +103,14 @@ async function expectNoBareFrame(page: Parameters<typeof gotoStudio>[0], when: s
 }
 
 /** What each print-preview thumbnail in the Share sheet shows for the plugin's block: `drawn <fill>`, `placeholder` or `source`. */
+// Only the frames on show. The Print drawer draws its cells from a preview pool (preview-pool.tsx), which keeps a free
+// slot's frame in the page, `visibility: hidden`, holding the last slide it showed until it parks (PARK_MS). So right after
+// approval a hidden slot can still hold the unapproved placeholder while the visible cell draws the plugin: CI run
+// 44767086190 read ["placeholder", "drawn …"] that way. A hidden frame is not the print preview, so it is skipped.
 async function printPreview(sheet: import('@playwright/test').Locator): Promise<string[]> {
 	const seen: string[] = [];
 	for (const el of await sheet.locator('iframe').elementHandles()) {
+		if (!(await el.isVisible())) continue;
 		const s = await (await el.contentFrame())
 			?.evaluate((name) => {
 				const badge = document.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
