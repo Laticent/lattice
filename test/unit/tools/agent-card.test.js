@@ -295,7 +295,7 @@ test('fleet table: a row per session, loudest first, children under their parent
   assert.equal(r.ok, true, r.errors.join('; '));
   const rows = r.lines.filter((l) => /^\| (🔴|🟠|🟢|🔵|✅) \|/u.test(l));
   assert.deepEqual(
-    rows.map((l) => l.split(' | ')[1].replace(/\]\(.*$/, '').replace('[', '')),
+    rows.map((l) => l.split(' | ')[1].replace(/\]\(.*$/, '').replace(/\[/g, '')),
     ['CSP stage 2', 'Universal Coda audit', 'Studio presets', '· P0 plumbing', '· WP-cover', 'rename-toast test'],
   );
   assert.match(rows[0], /\[#3307\]\(https:\/\/github\.com\/Laticent\/lattice\/pull\/3307\) \| \[run\]\(https:\/\/github\.com\//);
@@ -307,6 +307,12 @@ test('fleet table: a | in a value cannot split the row, and a non-fleet card is 
   card.items[1].state = 'ci red | lint';
   const row = renderFleetTable(card).lines.find((l) => l.includes('CSP stage 2'));
   assert.equal(row.split(/(?<!\\)\|/).length, 7, 'six cells, so seven pieces around the bars');
+  // A value that already holds `\|` must not turn into `\\|` (an escaped backslash, then a bare bar).
+  card.items[1].state = 'regex a\\|b';
+  const tricky = renderFleetTable(card).lines.find((l) => l.includes('CSP stage 2'));
+  assert.ok(tricky.includes('regex a\\\\\\|b'), tricky);
+  const bars = tricky.replace(/\\./g, '').split('|').length;
+  assert.equal(bars, 7, 'after dropping escape pairs, six cells remain');
   assert.match(renderFleetTable(load('standup')).errors.join(''), /only on a fleet card/);
   card.items[1].level = 'urgent';
   assert.equal(renderFleetTable(card).ok, false, 'the table shares the cards\' validation');

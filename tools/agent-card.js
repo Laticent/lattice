@@ -727,8 +727,11 @@ function renderFleet(d, page) {
   page.lines = page.blocks.flatMap((b) => b.lines);
 }
 
-/** A table cell: one line, with a literal `|` escaped so it cannot split the row. */
-const cell = (text) => String(text).replace(/\|/g, '\\|');
+/**
+ * A table cell: one line, with `\` escaped first and then `|`, so neither a bare
+ * `|` nor a `\|` already in the value can split the row.
+ */
+const cell = (text) => String(text).replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 
 /**
  * The fleet board as one markdown table: a row per session, loudest first,
