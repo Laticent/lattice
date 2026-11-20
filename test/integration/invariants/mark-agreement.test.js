@@ -293,9 +293,15 @@ describe('mark agreement', () => {
     assert.ok(fs.readdirSync(FIXTURES).length >= 14);
   });
 
-  test('every committed deck: every mark agrees with the source, on both arms', () => {
+  test('every committed deck: every mark agrees with the source, on both arms', async () => {
     const findings = [];
-    for (const file of CORPUS) for (const f of measure(file)) findings.push(fmt(file, f));
+    for (const file of CORPUS) {
+      for (const f of measure(file)) findings.push(fmt(file, f));
+      // YIELD TO THE EVENT LOOP after each deck. jsdom frees a window only once the loop turns, so a synchronous walk
+      // of the ~570-deck corpus held every deck's DOM-arm window at once: a 2.2 GB peak, which ran out of heap when the
+      // integration tier ran this file beside others (HARD RULE #33). One turn per deck holds the live heap flat.
+      await new Promise((resolve) => setImmediate(resolve));
+    }
     assert.deepEqual(findings, []);
   });
 
