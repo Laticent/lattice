@@ -23,6 +23,7 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 | `heading` | a `## ` heading | yes | The claim — why the ordering in the ledger matters, not a summary of it. |
 | `lede` | a paragraph | yes | One-to-two sentence framing paragraph under the claim, naming the two axes or dimensions the ledger's rows walk. |
 | `rows` | a `1.` list | yes | Each row is a NUMBERED item: the term on the item's own line, then exactly two nested bullets — the description clause, then a short framing question. The ordinal is a CSS counter (never author-typed, so rows renumber on reorder) and the term bolds automatically. 3-8 rows; each is colored by its own slot in the theme's categorical palette. |
+| `parts` | a list nested 1 level under an item | no | The row's parts, nested under its claim. `-` or `1.` read the same here. |
 
 ### Common mistakes
 

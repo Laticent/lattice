@@ -75,6 +75,16 @@
       "match": { "kind": "blockquote" },
       "required": false,
       "description": "The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar."
+    },
+    "evidence": {
+      "selector": "ul > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The reason's supporting line, nested under it. `-` or `1.` read the same here."
     }
   },
   "skeleton": "<!-- _class: policy-recommendation adopt -->\n\n## The recommendation as a complete sentence.\n\nOne line naming the problem or the stakes.\n\n- First reason\n  - The evidence for it, with a `{Citation}` chip.\n- Second reason\n  - The evidence for it, with a `{Citation}` chip.\n- Third reason\n  - The evidence for it, with a `{Citation}` chip.\n\n> The specific legislative ask — sponsor, vote, or amend, with the section.\n",

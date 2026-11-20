@@ -112,6 +112,16 @@
       "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": true,
       "description": "One li per KPI, written as a list (`1.` or `-`; the list contract renders both the same). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. The value still renders big with no nested bullets, but the tile has no metric-name label under it — always nest at least one."
+    },
+    "details": {
+      "selector": "ol > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The KPI's label and its detail lines, nested under the value. `-` or `1.` read the same here: the layout styles them as its caption rows."
     }
   },
   "skeleton": "<!-- _class: kpi -->\n\n## Revenue ahead of plan; margin and cash both expanded.\n\n1. $2.4B\n   - Total revenue\n   - target $2.2B · +9% `{On plan}`\n2. 42%\n   - Gross margin\n   - +2pp QoQ `{On plan}`\n3. $1.1B\n   - Cash & equivalents\n   - +$180M QoQ `{On plan}`\n",

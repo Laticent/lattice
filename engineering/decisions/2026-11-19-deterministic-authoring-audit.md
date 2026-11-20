@@ -431,6 +431,12 @@ behind the one before it only where it reads that one's output.
   separates them with headings. The pass also reads the deck's front-matter `class:` itself, since
   it runs before `deck_class_propagate`, so `class: steps` or `class: principles` sets the contract
   as a slide's own class does.
+- **Nested lists below what a layout reads stay the author's** (owner's ruling on #3330,
+  2026-11-20). Each layout's deepest list slot sets how far down the contract reaches (`depths` in
+  the generated table); a deeper `1.` keeps its `<ol>`, so a screen reader still hears numbers, and
+  a card's numbered body steps still show them. The swap probe found six layouts that read a nested
+  level without declaring it (kpi, stats, glossary, list-tabular, policy-recommendation, premise:
+  captions, definitions, detail rows); each gained an optional depth-2 slot.
 - **Contracts as declared.** `prose`: `content`, `list`. `numbered-tags`: `cards-grid`,
   `cards-stack`, `list-steps`, `split-panel steps` and `split-panel watermark` (which already drew
   numbered panels for `1.` and plain cards for `-`, so it was R2 in all but name). `neutral`:

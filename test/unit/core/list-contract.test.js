@@ -17,8 +17,11 @@ const manifests = loadAll();
 const hasListSlot = (slots) =>
   Object.values(slots || {}).some((s) => s && [].concat(s.match).some((mt) => mt?.kind === 'list'));
 
-/** Swap `-` and `1.` on every list line (all depths), re-indenting what nests under a changed marker. */
-function swapMarkers(md) {
+/**
+ * Swap `-` and `1.` on every list line down to `maxDepth` (the deepest level the layout reads; deeper
+ * lists are the author's and keep their marker), re-indenting what nests under a changed marker.
+ */
+function swapMarkers(md, maxDepth = Infinity) {
   const out = [];
   const stack = [];
   let fence = false;
@@ -33,7 +36,7 @@ function swapMarkers(md) {
     const shift = stack.length ? stack.at(-1).nc - stack.at(-1).oc : 0;
     const m = /^(\s*)([-*+]|\d+[.)])(\s+)(.*)$/.exec(line);
     if (m && !/^\s*(---|\*\*\*)\s*$/.test(line)) {
-      const marker = /\d/.test(m[2]) ? '-' : '1.';
+      const marker = stack.length + 1 > maxDepth ? m[2] : /\d/.test(m[2]) ? '-' : '1.';
       const ni = ind + shift;
       stack.push({ oc: ind + m[2].length + m[3].length, nc: ni + marker.length + 1 });
       out.push(`${' '.repeat(ni)}${marker} ${m[4]}`);
@@ -138,7 +141,7 @@ describe('R3: a neutral layout renders either marker the same (manifest samples,
     for (const [label, md] of samples) {
       test(`${m.name} ${label}`, () => {
         probes++;
-        const swapped = swapMarkers(md);
+        const swapped = swapMarkers(md, listContractFor(md.match(/_class:\s*([^>]*)-->/)?.[1] || '').depths);
         assert.notEqual(swapped, md, 'the swap changed nothing');
         assert.equal(section(swapped), section(md));
       });
@@ -155,7 +158,16 @@ describe('R1, R2: the author marker is recorded where a layout reads it', () => 
   });
   test('cards-grid keeps the element the author wrote: `ol` draws the corner tags', () => {
     assert.deepEqual(lists('<!-- _class: cards-grid -->\n\n## S\n\n- A\n  - a\n'), ['ul data-ordered="false"', 'ul']);
-    assert.deepEqual(lists('<!-- _class: cards-grid -->\n\n## S\n\n1. A\n   1. a\n'), ['ol data-ordered="true"', 'ul']);
+    assert.deepEqual(lists('<!-- _class: cards-grid -->\n\n## S\n\n1. A\n   1. a\n'), ['ol data-ordered="true"', 'ol']);
+  });
+  test('below the deepest level a layout reads, a list is the author\'s: a nested `1.` stays numbered (owner, #3330)', () => {
+    // decision reads one level; its card body's numbered steps keep their `ol` (and a screen reader hears numbers).
+    assert.deepEqual(lists('<!-- _class: decision -->\n\n## D\n\n- Option A\n  1. first\n  2. then\n'), ['ul', 'ol']);
+    // kpi reads two levels (the value, then its label lines): its second level is still normalized.
+    assert.deepEqual(lists('<!-- _class: kpi -->\n\n## K\n\n- 94%\n  1. Gross retention\n'), ['ol', 'ul']);
+    // gantt reads three levels (a chart consumes them, so read the kernel): a fourth is the author's.
+    const { targetElement } = require('../../../lib/core/list-contract');
+    assert.deepEqual([1, 2, 3, 4].map((d) => targetElement(listContractFor('gantt'), d)), ['ul', 'ul', 'ul', null]);
   });
   test('list principles: `-` becomes a dotted `ol`; content and plain list render as written', () => {
     assert.deepEqual(lists('<!-- _class: list principles -->\n\n## S\n\n- A\n- B\n'), ['ol data-ordered="false"']);
@@ -216,9 +228,10 @@ describe('the runtime mirror agrees with the engine', () => {
     const doc = dom('<section class="list-steps"><h2>S</h2><ul><li>A<ol><li>a</li></ol></li></ul></section>'
       + '<section class="agenda"><ul><li>One</li></ul></section>'
       + '<section class="content"><ol start="3"><li>x</li></ol></section>');
-    assert.equal(normalizeListsDom(doc), 3);
+    // list-steps reads one level, so the step's nested `1.` stays the author's `ol`.
+    assert.equal(normalizeListsDom(doc), 2);
     assert.deepEqual([...doc.querySelectorAll('ul, ol')].map((e) => e.outerHTML.match(/^<[^>]*>/)[0]), [
-      '<ol data-ordered="false">', '<ul>', '<ol>', '<ol start="3">',
+      '<ol data-ordered="false">', '<ol>', '<ol>', '<ol start="3">',
     ]);
     assert.equal(normalizeListsDom(doc), 0);
   });

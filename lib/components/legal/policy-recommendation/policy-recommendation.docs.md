@@ -25,6 +25,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 | `impact` | a paragraph | no | One-sentence framing of the problem or stakes the recommendation addresses. |
 | `rationale` | a `-` list | yes | Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in a citation chip, written `{FTC 2025}` in inline code. |
 | `ask` | a `>` blockquote | no | The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar. |
+| `evidence` | a list nested 1 level under an item | no | The reason's supporting line, nested under it. `-` or `1.` read the same here. |
 
 ### Variant decision rule
 

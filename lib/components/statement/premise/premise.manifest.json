@@ -62,6 +62,16 @@
       "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": true,
       "description": "Each row is a NUMBERED item: the term on the item's own line, then exactly two nested bullets — the description clause, then a short framing question. The ordinal is a CSS counter (never author-typed, so rows renumber on reorder) and the term bolds automatically. 3-8 rows; each is colored by its own slot in the theme's categorical palette."
+    },
+    "parts": {
+      "selector": "ol > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The row's parts, nested under its claim. `-` or `1.` read the same here."
     }
   },
   "skeleton": "<!-- _class: premise -->\n\n## The claim the ledger exists to support.\n\nOne or two sentences naming the axes the rows below walk.\n\n1. First term\n   - A short clause describing it.\n   - A question it answers?\n2. Second term\n   - A short clause describing it.\n   - A question it answers?\n3. Third term\n   - A short clause describing it.\n   - A question it answers?\n",

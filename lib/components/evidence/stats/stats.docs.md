@@ -23,6 +23,7 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 | `title` | a `## ` heading | yes | Slide heading framing the metrics. |
 | `subtitle` | a line of `inline code` | no | Optional inline-code paragraph (eyebrow before the h2, or caption after it). Styled by the generic `> p`/`> em` rule, not a dedicated `p > code` rule. |
 | `tiles` | a `1.` list | yes | One li per stat tile, written as a list (`1.` or `-`; the list contract renders both the same). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:     1. 73%        - faster close The number still renders big with no nested caption, but the tile has no label under it — always nest a caption. |
+| `caption` | a list nested 1 level under an item | no | The tile's caption, nested under the number. `-` or `1.` read the same here. |
 
 ### Common mistakes
 

@@ -100,6 +100,16 @@
       "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": true,
       "description": "Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter."
+    },
+    "columns": {
+      "selector": "ol > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The row's detail columns, nested under its name. `-` or `1.` read the same here."
     }
   },
   "skeleton": "<!-- _class: list-tabular -->\n\n## Slide heading.\n\n1. First entry\n   - Description or value for the first entry.\n2. Second entry\n   - Description or value for the second entry.\n3. Third entry\n   - Description or value for the third entry.\n4. Fourth entry\n   - Description or value for the fourth entry.\n",

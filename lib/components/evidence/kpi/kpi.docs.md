@@ -23,6 +23,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 | `title` | a `## ` heading | yes | Slide heading naming the KPI group. |
 | `eyebrow` | a line of `inline code` | no | Optional inline-code eyebrow above the heading, set in the eyebrow voice: the heading face's italic, as written (e.g. `Financial · Q4 2026`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
 | `kpis` | a `1.` list | yes | One li per KPI, written as a list (`1.` or `-`; the list contract renders both the same). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. The value still renders big with no nested bullets, but the tile has no metric-name label under it — always nest at least one. |
+| `details` | a list nested 1 level under an item | no | The KPI's label and its detail lines, nested under the value. `-` or `1.` read the same here: the layout styles them as its caption rows. |
 
 ### Variant decision rule
 

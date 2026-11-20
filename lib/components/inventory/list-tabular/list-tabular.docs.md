@@ -20,6 +20,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading. |
 | `rows` | a `1.` list | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
+| `columns` | a list nested 1 level under an item | no | The row's detail columns, nested under its name. `-` or `1.` read the same here. |
 
 ### Variant decision rule
 
