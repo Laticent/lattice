@@ -26,8 +26,9 @@
  * dist-kits branch for readers without a clone.
  * Record: engineering/decisions/2026-10-09-generated-indexes-uncommitted.md.
  *
- * FOUND BY SEARCH. .gitignore hides dist/, and ripgrep (behind the agent Grep and Glob tools)
- * honors .gitignore, so a search for a folder name never reached this map. The root `.ignore`,
+ * FOUND BY SEARCH. .gitignore hides dist/, and ripgrep (behind the agent Grep tool) honors
+ * .gitignore, so a search for a folder name never reached this map. (The agent Glob tool lists
+ * ignored files anyway, so it always could.) The root `.ignore`,
  * which only search tools read, re-includes this one file and nothing else under dist/. Git
  * still ignores it. Agents are also pointed here by CLAUDE.md's "Where X lives" row, AGENTS.md
  * and every roster card that locates code.
