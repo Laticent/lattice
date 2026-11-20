@@ -99,7 +99,7 @@ describe('the sandbox shell', () => {
 		expect(write(`${tag}default-src 'none' *; script-src 'sha256-x'">`)).toBe(0); // beside a source, 'none' is ignored
 		// The deny covers only what the policy leaves out, so its own script-src must be as narrow as the
 		// hosts write it (found by the code checker on 32ab992): hashes, 'unsafe-eval', one base URL.
-		for (const weak of ['', "script-src *", "script-src 'sha256-x' *", "script-src 'sha256-x' 'unsafe-inline'", "script-src 'sha256-x' 'strict-dynamic'", "script-src 'sha256-x' https:", "script-src 'sha256-x' data:", "script-src 'sha256-x'; script-src-elem *", "script-src 'self'"]) {
+		for (const weak of ['', "script-src *", "script-src 'sha256-x' *", "script-src 'sha256-x' 'unsafe-inline'", "script-src 'sha256-x' 'strict-dynamic'", "script-src 'sha256-x' https:", "script-src 'sha256-x' data:", "script-src 'sha256-x'; script-src-elem *", "script-src 'self'", "script-src 'sha256-x' &#42;", "script-src 'sha256-x' &#39;unsafe-inline&#39;", "script-src 'sha256-x' &ast;"]) {
 			expect(write(`${SHELL_DOC_PREFIX} ${weak}"></head>`), weak).toBe(0);
 		}
 		// …and every host's real document passes (code-door-core sandboxCsp, draw-frame-core drawFrameCsp

@@ -179,7 +179,8 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     stays in force beside the written one, so the pair is only as strict as the written policy. The
     shell now also reads the written `script-src` (`shellPolicyOk`) and refuses a wildcard,
     `'unsafe-inline'`, `'strict-dynamic'`, a bare scheme, a `script-src-elem`/`-attr` override, or no
-    hash at all; the prefix ends at `;`, since `default-src 'none' *` is `default-src *`.
+    hash at all; the prefix ends at `;`, since `default-src 'none' *` is `default-src *`. It also
+    refuses any `&`: the browser decodes `&#42;` to `*` before it applies the policy (the card grader).
   - **A missing agents file shows the slides; it does not blank them** (added 2026-11-19, from the
     inversion lens). Inline, the fit and reveal ran whatever else failed to load; in a fetched file, a
     404 after a deploy or a refused load left `.lattice` and `#latt-stage` hidden for good. The file
