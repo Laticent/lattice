@@ -57,7 +57,7 @@ describe('noteShape and readNote', () => {
   test('balanced braces nest; an escaped brace is text and does not count', () => {
     assert.equal(g.readNote('@note{set {a, b} and {c {d}}}').text, 'set {a, b} and {c {d}}');
     assert.equal(g.readNote('@note{a \\} b \\{ c}').text, 'a } b { c');
-    // Only `\{` and `\}` are escapes, so a Windows path reads as written.
+    // A backslash before anything but `\`, `{` or `}` is itself, so a hand-written Windows path reads as written.
     assert.equal(g.readNote('@note{C:\\Users\\ana}').text, 'C:\\Users\\ana');
   });
 
@@ -80,9 +80,12 @@ describe('writeNote', () => {
       ['a } b', '<!-- @note{a \\} b} -->'],
       ['open { only', '<!-- @note{open \\{ only} -->'],
       ['a --> b --!> c', '<!-- @note{a --\\> b --!\\> c} -->'],
-      ['C:\\', '<!-- @note{C:\\ } -->'],
-      // A literal `--\>` keeps its backslash: the writer adds one, the reader takes one away.
-      ['a --\\> b', '<!-- @note{a --\\\\> b} -->'],
+      // A backslash is written `\\`, so a trailing one cannot escape the closing brace.
+      ['C:\\', '<!-- @note{C:\\\\} -->'],
+      // A literal `--\>`: its backslash doubled, then the arrow escaped; the reader undoes both.
+      ['a --\\> b', '<!-- @note{a --\\\\\\> b} -->'],
+      // Balanced braces stay as written; only the backslashes are escaped.
+      ['a \\{b} c', '<!-- @note{a \\\\{b} c} -->'],
     ];
     for (const [text, comment] of cases) {
       assert.equal(g.writeNote('note', text), comment, text);

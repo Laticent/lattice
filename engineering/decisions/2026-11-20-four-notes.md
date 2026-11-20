@@ -86,8 +86,11 @@ and says so on the console, and `--strip-notes` removes it (N5). A markdown file
 - A note is a comment whose content is exactly one `@name{…}` with `name` one of `note`, `say`, `alt`, `handout`. The
   opener line carries `<!-- @name{`, so a line scan finds it (the rule `2026-10-17-meta-record.md` §4.1 set for records).
 - **The body is prose, not a record.** It runs from `{` to the matching `}` and may span lines and paragraphs; the
-  indentation its lines share is dropped. A literal brace that does not balance is written `\{` or `\}`; nothing else
-  is an escape, so `C:\Users` reads as written. A body whose braces never close, or with text after the closing brace,
+  indentation its lines share is dropped. `\\`, `\{` and `\}` are a literal backslash and braces; a backslash before
+  anything else is itself, so a hand-written `C:\Users` reads as written. `writeNote` escapes every backslash, and every
+  brace when the braces do not balance, so no text can escape the note's closing brace. (The first cut escaped braces
+  only, and CodeQL's `js/incomplete-sanitization` flagged it on PR 3351: a trailing backslash took a space workaround
+  instead. The owner's CodeQL policy is fix, not dismiss, `2026-10-26-codeql-triage.md` §7.) A body whose braces never close, or with text after the closing brace,
   is not a note, and lint reports it (`note-malformed`, an error), never a silent truncation.
 - **`-->` and `--!>` end the comment** in markdown-it and a browser, so a body writes `--\>` (`--!\>`); a reader
   removes one backslash (§6). `writeNote` adds every escape a text needs, so any text round-trips.

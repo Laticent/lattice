@@ -37,8 +37,9 @@ never any of the four.
 
 **The grammar, in full.** The names are lowercase. The body runs from `{` to its matching
 `}` and may span lines and paragraphs; indentation is dropped. A literal brace that does
-not balance is written `\{` or `\}`, and `-->` is written `--\>`, because it would end the
-comment. Several notes of one name on a slide join in order. Anything else (`@Say{…}`,
+not balance is written `\{` or `\}`, a backslash right before a brace or another backslash is
+written `\\`, and `-->` is written `--\>`, because it would end the comment. Any other backslash
+is itself, so `C:\Users` reads as typed. Several notes of one name on a slide join in order. Anything else (`@Say{…}`,
 an unclosed brace, text after the `}`) is not a note and reaches nothing; `lint:deck`
 names it (`note-malformed`). The grammar is one module, `lib/core/note-grammar.mjs`.
 
