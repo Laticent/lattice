@@ -82,6 +82,20 @@ function focusVisible(target: EventTarget): boolean {
 }
 // How long a silent slide the presenter moved to mid-play stays up before continuous play moves on (carryPlay).
 const SILENT_DWELL_MS = 4000;
+// A toggle that is ON reads as a SOLID accent pill, an OFF one as an outline. The old on-state, a tinted
+// outline, sat too close to off: in the dark theme CC, Voice and Rail on looked like Guide off (owner, 2026-11-20).
+const ON_PILL = 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]';
+// The over-the-slide caption treatment, chosen per showing for the design round: `?cc-style=broadcast|glass|clean`
+// on the Studio URL. One of them becomes the only one once the owner picks.
+const CC_STYLES = ['broadcast', 'glass', 'clean'] as const;
+function ccStyleParam(): (typeof CC_STYLES)[number] {
+	try {
+		const v = new URLSearchParams(window.location.search).get('cc-style');
+		return (CC_STYLES as readonly string[]).includes(v ?? '') ? (v as (typeof CC_STYLES)[number]) : 'glass';
+	} catch {
+		return 'glass';
+	}
+}
 const EMPTY_SENTENCES_N: number[] = [];
 /** Cheap elementwise compare, so an unchanged readiness poll keeps its array identity. */
 function sameFractions(a: number[], b: number[]): boolean {
@@ -349,6 +363,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// slide, measured, so they sit just above it and come back down when it fades.
 	const dockRef = React.useRef<HTMLDivElement>(null);
 	const [ccLift, setCcLift] = React.useState(0);
+	const ccStyle = React.useMemo(ccStyleParam, []);
 	const [showHint, setShowHint] = React.useState(false);
 	// Chart mark-detail reveal on the delivery slide. Present's card is pointer-events-none (a swipe
 	// surface), so the reveal runs in PINNED mode — a parent hit-surface (pointer-events:auto) over the
@@ -2745,7 +2760,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				<DropdownMenu>
 					<Tip label="Venue — the room size, for this showing only">
 						<DropdownMenuTrigger asChild>
-							<button type="button" aria-label={`Venue: ${venueOption(shownVenue)?.label ?? 'Default'}`} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', venuePick !== undefined && venuePick !== authoredVenue ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Users className="size-4" /><span className="hidden md:inline">{venueOption(shownVenue)?.label ?? 'Venue'}</span></button>
+							<button type="button" aria-label={`Venue: ${venueOption(shownVenue)?.label ?? 'Default'}`} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', venuePick !== undefined && venuePick !== authoredVenue ? ON_PILL : 'border-border text-muted-foreground hover:text-foreground')}><Users className="size-4" /><span className="hidden md:inline">{venueOption(shownVenue)?.label ?? 'Venue'}</span></button>
 						</DropdownMenuTrigger>
 					</Tip>
 					<DropdownMenuContent align="end" className="w-60 bg-card shadow-xl">
@@ -2759,8 +2774,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						))}
 					</DropdownMenuContent>
 				</DropdownMenu>
-				<Tip label="All slides (G) — jump anywhere"><button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} aria-label="Slides" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden md:inline">Slides</span></button></Tip>
-				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" /><span className="hidden md:inline">Rehearse</span></button>
+				<Tip label="All slides (G) — jump anywhere"><button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} aria-label="Slides" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? ON_PILL : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden md:inline">Slides</span></button></Tip>
+				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? ON_PILL : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" /><span className="hidden md:inline">Rehearse</span></button>
 				{/* ONE LADDER FOR THE WHOLE CLUSTER. Slides · Rehearse · Fullscreen · Stage
 				    are all the same pill and all show their label at the SAME breakpoint,
 				    collapsing to bare icons together below it. They used to disagree three ways —
@@ -2787,7 +2802,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						    name to contain the visible text, so a speech-input user saying "click
 						    Fullscreen" actually hits it; `aria-pressed` is what carries on/off, the same
 						    rule the Stage and Voice buttons follow. */}
-						<button type="button" onClick={toggleWhole} aria-pressed={wholeOn} aria-label="Fullscreen" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', wholeOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}>
+						<button type="button" onClick={toggleWhole} aria-pressed={wholeOn} aria-label="Fullscreen" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', wholeOn ? ON_PILL : 'border-border text-muted-foreground hover:text-foreground')}>
 							{wholeOn ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
 							<span className="hidden md:inline">Fullscreen</span>
 						</button>
@@ -2798,7 +2813,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				    (2026-08-24-stage-console-split.md §5). This opens the AUDIENCE's window.
 				    Still a ≥ md affordance — a phone has no second display to stage onto — and
 				    still the same pill as the rest of the staging cluster. */}
-				<Tip label={stageOn ? 'Close the Stage (S) — the deck window on your second screen' : 'Stage (S) — send the deck to your second screen, chrome-free'}><button type="button" onClick={() => openStage()} aria-pressed={stageOn} aria-label="Stage" className={cn('hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px] md:inline-flex', stageOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Monitor className="size-4" />{/* The label is STABLE — `aria-pressed` carries the on/off state. A label that
+				<Tip label={stageOn ? 'Close the Stage (S) — the deck window on your second screen' : 'Stage (S) — send the deck to your second screen, chrome-free'}><button type="button" onClick={() => openStage()} aria-pressed={stageOn} aria-label="Stage" className={cn('hidden shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px] md:inline-flex', stageOn ? ON_PILL : 'border-border text-muted-foreground hover:text-foreground')}><Monitor className="size-4" />{/* The label is STABLE — `aria-pressed` carries the on/off state. A label that
 						    changes with state reads to a screen reader as the control itself becoming a
 						    different control, and it is jarring mid-delivery. One rule, applied to every
 						    toggle on this bar. */}
@@ -2873,7 +2888,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 							    below it they would float mid-slide once the dock floats. Lifted clear of the controls while
 							    they show. */}
 							{immersive && !stageHost && (
-								<div className="latt-cc-over" data-present-cc-over style={ccLift ? { transform: `translateY(-${ccLift}px)` } : undefined}>
+								<div className="latt-cc-over" data-present-cc-over data-cc-style={ccStyle} style={ccLift ? { transform: `translateY(-${ccLift}px)` } : undefined}>
 									{captionBand}
 								</div>
 							)}
@@ -3023,7 +3038,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						{!rehearse && stageOn && (
 							<>
 								<span className="hidden shrink-0 whitespace-nowrap font-mono text-[12px] tabular-nums text-muted-foreground sm:inline"><span className="sr-only">Talk time </span><span ref={clockRef}>0:00</span></span>
-								<Tip label={resetArmed ? 'Press again to reset the talk clock' : 'Reset the talk clock'}><button type="button" onClick={resetTalkClock} aria-label={resetArmed ? 'Confirm reset of the talk clock' : 'Reset the talk clock'} className={cn('hidden shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold sm:inline-flex', resetArmed ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><RotateCcw className="size-3.5" />{resetArmed ? 'Confirm' : 'Reset'}</button></Tip>
+								<Tip label={resetArmed ? 'Press again to reset the talk clock' : 'Reset the talk clock'}><button type="button" onClick={resetTalkClock} aria-label={resetArmed ? 'Confirm reset of the talk clock' : 'Reset the talk clock'} className={cn('hidden shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold sm:inline-flex', resetArmed ? ON_PILL : 'border-border text-muted-foreground hover:text-foreground')}><RotateCcw className="size-3.5" />{resetArmed ? 'Confirm' : 'Reset'}</button></Tip>
 							</>
 						)}
 						{rehearse && (
@@ -3040,7 +3055,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 					    phone user can always find captions. Reduced-motion holds them fully lit. */}
 					{!rehearse && (
 						<div className={cn('flex items-center gap-2 transition-opacity duration-300 motion-reduce:!opacity-100 motion-reduce:transition-none', revealed ? 'opacity-100' : 'opacity-50')}>
-							<Tip label="Captions — show the narration as text"><button type="button" onClick={() => setCaptionsOn((v) => !v)} aria-pressed={captionsOn} aria-label="Captions" className={cn('inline-flex shrink-0 items-center rounded-full border px-2.5 py-2 text-[12px] font-extrabold tracking-wide', captionsOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>CC</button></Tip>
+							<Tip label="Captions — show the narration as text"><button type="button" onClick={() => setCaptionsOn((v) => !v)} aria-pressed={captionsOn} aria-label="Captions" className={cn('inline-flex shrink-0 items-center rounded-full border px-2.5 py-2 text-[12px] font-extrabold tracking-wide', captionsOn ? ON_PILL : 'border-border bg-card text-muted-foreground hover:text-foreground')}>CC</button></Tip>
 							<Tip label={roomVoiceOn ? `Tap to hear ${follow?.by ?? 'the presenter'}'s narration` : follow && !detached ? `${follow.by}'s voice comes through the call` : 'Voice — speak the narration aloud'}><button type="button" disabled={!!follow && !detached && !roomVoiceOn} onClick={() => {
 								// An iPhone starts sound only from inside a tap: this one is the member's "Tap to listen".
 								if (roomVoiceOn && muted) {
@@ -3051,7 +3066,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 									}
 								}
 								setMuted((v) => !v);
-							}} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}{/* The label NEVER changes with transport state. Swapping it to a
+							}} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : ON_PILL)}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}{/* The label NEVER changes with transport state. Swapping it to a
 							    status string mid-delivery is jarring, and for a screen reader it
 							    reads as the control itself becoming a different control. Buffering
 							    is reported on the rail, where it belongs. */}
@@ -3060,10 +3075,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 							    presenter's and the console owes it at every width; what it cannot afford
 							    on a narrow screen is keeping it permanently on top of the slide. */}
 							{notesPill && (
-								<Tip label="Speaker notes (N) — what you'll say on this slide"><button type="button" onClick={() => setNotesOpen((v) => !v)} aria-pressed={notesOpen} aria-label="Speaker notes" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', notesOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}><StickyNote className="size-3.5" /><span className="hidden sm:inline">Notes</span></button></Tip>
+								<Tip label="Speaker notes (N) — what you'll say on this slide"><button type="button" onClick={() => setNotesOpen((v) => !v)} aria-pressed={notesOpen} aria-label="Speaker notes" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', notesOpen ? ON_PILL : 'border-border bg-card text-muted-foreground hover:text-foreground')}><StickyNote className="size-3.5" /><span className="hidden sm:inline">Notes</span></button></Tip>
 							)}
-							<Tip label="Rail — show the deck's progress to the room"><button type="button" onClick={() => setRailOn((v) => !v)} aria-pressed={railOn} aria-label={railOn ? 'Progress rail on — turn off to hide it from the room' : 'Progress rail off — turn on to show the room where the deck is'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', railOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}><Rows3 className="size-3.5" /><span className="hidden sm:inline">Rail</span></button></Tip>
-							<Tip label="Guide — point at what is being narrated"><button type="button" onClick={() => setGuideOn((v) => !v)} aria-pressed={guideOn} aria-label={guideOn ? 'Guide on — turn off to stop pointing at the narrated text' : 'Guide off — turn on to point at the narrated text'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', guideOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}><MousePointer2 className="size-3.5" /><span className="hidden sm:inline">Guide</span></button></Tip>
+							<Tip label="Rail — show the deck's progress to the room"><button type="button" onClick={() => setRailOn((v) => !v)} aria-pressed={railOn} aria-label={railOn ? 'Progress rail on — turn off to hide it from the room' : 'Progress rail off — turn on to show the room where the deck is'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', railOn ? ON_PILL : 'border-border bg-card text-muted-foreground hover:text-foreground')}><Rows3 className="size-3.5" /><span className="hidden sm:inline">Rail</span></button></Tip>
+							<Tip label="Guide — point at what is being narrated"><button type="button" onClick={() => setGuideOn((v) => !v)} aria-pressed={guideOn} aria-label={guideOn ? 'Guide on — turn off to stop pointing at the narrated text' : 'Guide off — turn on to point at the narrated text'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', guideOn ? ON_PILL : 'border-border bg-card text-muted-foreground hover:text-foreground')}><MousePointer2 className="size-3.5" /><span className="hidden sm:inline">Guide</span></button></Tip>
 						</div>
 					)}
 				</div>

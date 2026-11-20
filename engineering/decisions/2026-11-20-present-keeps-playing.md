@@ -78,6 +78,18 @@ read waits up to `PREPARE_WAIT_MS` (2.5 s); past that the slide is read on capti
 next slide's play once it is ready. It never joins mid-slide, which would be the race-ahead-then-snap-back the
 deferred start exists to prevent (`2026-07-09-cadenza-narration-quality.md`).
 
+### Caption treatment and toggle states — design round (owner, 2026-11-20)
+
+The owner found the light-mode captions odd: a flat slab in the app's own `--bg` across the slide. The root: a caption
+sits on the SLIDE, whose colors belong to the deck, while the band took the app's light/dark mode, so light chrome over
+a dark slide went muddy and the type lost contrast. Three treatments, all mode-independent (white type, as video
+captions are), switchable per showing with `?cc-style=` on the Studio URL until the owner picks one:
+**broadcast** (the line being read, alone, on a dark rounded plate), **glass** (the three-line crawl on dark frosted
+glass that fades into the slide) and **clean** (the line being read, alone, white with a dark glyph edge, no plate).
+
+Toggle states were also hard to read: on was a tinted outline, close to off. On is now a solid accent pill with
+`--on-accent` type (`ON_PILL`), off stays an outline, for every on/off control in Present.
+
 ## Verification
 
 - Unit (jsdom, fake time): `studio.present-keepalive.test.tsx` — Next carries play to the end of
