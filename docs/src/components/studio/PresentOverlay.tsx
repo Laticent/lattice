@@ -2368,14 +2368,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	}, [open]);
 
 	if (!open) return null;
-	// The caption band reserves space only while it's actually crawling (playing) — so
-	// pressing Play BLOOMS it in and the slide shrinks to fit, and Pause folds it back
-	// (Quiet Bloom). The vertical grow/shrink is animated (motion-reduce snaps).
-	// The band stays reserved through the between-slide beat (`holding`), not just while the
-	// voice is sounding. Without that it would collapse and re-grow at every transition — the
-	// slide resizing twice per slide, a jank the beat itself would have introduced. During the
-	// hold it shows the new slide's opening line unhighlighted, which is exactly the intent:
-	// the audience reads it, then the voice starts.
+	// The caption band owns its space while captions are on (`data-reserved`, stage-chrome.js `.latt-cc-band`), playing
+	// or paused, so Play and Pause never resize the slide: `showCaption` only fades the crawl in and out. Turning CC on or
+	// off adds or removes the band in one step, one resize. It used to reserve space only while crawling, so every Play
+	// shrank the slide and every Pause grew it back, rescaling the slide frame each time. On an iPhone, with Guide on,
+	// that rescale of a 4K deck reloaded the tab (2026-11-20).
+	// The crawl stays shown through the between-slide beat (`holding`), not just while the voice is sounding: during
+	// the hold it shows the new slide's opening line unhighlighted, so the audience reads it, then the voice starts.
 	// DELIVERING = "the deck is mid-presentation", which is NOT the same as "a reader is
 	// sounding". Between two slides the previous reader has ended and the next has not started,
 	// yet the deck is plainly still presenting — so the transport must read Pause and the
@@ -2432,10 +2431,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// documents so they look identical.
 	//
 	// `announce=muted`: when Voice speaks the line the TTS is the audio, so the screen
-	// reader announcement is suppressed. The band is present but collapsed when there is
-	// nothing to show, so blooming in is a transition rather than a mount.
+	// reader announcement is suppressed. While captions are on the band holds its full height, and is
+	// transparent when there is nothing to show, so a caption fading in never moves the slide.
 	const captionBand = (
-		<div className="latt-cc-band" data-shown={showCaption ? '1' : '0'}>
+		<div className="latt-cc-band" data-reserved={captionsOn && !rehearse ? '1' : '0'} data-shown={showCaption ? '1' : '0'}>
 			{showCaption && <PresentCaption track={reader.track} active={reader.active} announce={muted} className={delivery.caption === 'still' ? 'latt-cc--still' : undefined} />}
 		</div>
 	);
