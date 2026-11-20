@@ -94,6 +94,20 @@ function avoidBoxes(): Box[] {
 	return out
 }
 
+/** When someone last typed anywhere on the page: a key that is not a paging key, or any key in editable text.
+ *  One capturing listener for the page, shared by every control, so typing in one pane vetoes the hover path of
+ *  all of them (a preview follows its editor). Keys typed inside a frame reach `mark` and land here too. */
+let typedAt = Number.NEGATIVE_INFINITY
+let typingWatched = false
+function noteTyping(e: KeyboardEvent) {
+	if (!PAGING_KEYS.has(e.key) || isEditable(e.target)) typedAt = performance.now()
+}
+function watchTyping() {
+	if (typingWatched || typeof document === "undefined") return
+	typingWatched = true
+	document.addEventListener("keydown", noteTyping, { capture: true, passive: true })
+}
+
 type View = { show: boolean; atTop: boolean; atBottom: boolean; p: Placement | null }
 const HIDDEN: View = { show: false, atTop: true, atBottom: false, p: null }
 
@@ -114,9 +128,8 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 	const intent = React.useRef(Number.NEGATIVE_INFINITY)
 	/** When the last COUNTED scroll arrived, for STREAK_MS. */
 	const lastScroll = React.useRef(Number.NEGATIVE_INFINITY)
-	/** The pointer is over the pane, and when someone last typed in it (the second way a scroll counts). */
+	/** The pointer is over the pane (the second way a scroll counts; see `typedAt` for its veto). */
 	const hovered = React.useRef(false)
-	const typedAt = React.useRef(Number.NEGATIVE_INFINITY)
 	/** A jump in flight, re-aimed once scrolling settles if the document grew under it. */
 	const pending = React.useRef<{ to: "top" | "bottom"; tries: number; timer?: ReturnType<typeof setTimeout> } | null>(null)
 	const [mounted, setMounted] = React.useState(false)
@@ -156,10 +169,11 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 		// Two ways a scroll is the reader's. (1) Their own input on the pane just now: a wheel, a touch, a press on
 		// its scrollbar, a paging key. (2) The pointer is over the pane and nobody has typed in it lately: a
 		// scrollbar drag in an engine that sends no DOM event for the press (whether Firefox does is unverified;
-		// its test build hides scrollbars). Typing's caret-follow scroll fails (2) on purpose, and a preview that
-		// follows the editor fails it because the pointer is on the editor.
+		// its test build hides scrollbars). Typing ANYWHERE on the page vetoes (2): typing scrolls its own pane to
+		// the caret, and a preview that follows the editor scrolls too, even with the pointer resting on it (the
+		// card grader's round-2 finding; a per-pane veto let that preview's control show).
 		const explicit = now - intent.current <= INTENT_MS
-		if (!explicit && !(hovered.current && now - typedAt.current > INTENT_MS)) return
+		if (!explicit && !(hovered.current && now - typedAt > INTENT_MS)) return
 		// A scroll that continues a reader's scroll keeps counting, so a slow scrollbar drag or a long
 		// momentum glide does not drop out of the window halfway (maker-checker finding, 2026-11-20).
 		if (now - lastScroll.current < STREAK_MS) intent.current = now
@@ -177,6 +191,7 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 	React.useEffect(() => {
 		const host = root.current
 		if (!host) return
+		watchTyping()
 		const off: Array<() => void> = []
 		const on = <K extends string>(node: EventTarget, type: K, fn: (e: Event) => void, opts: AddEventListenerOptions) => {
 			node.addEventListener(type, fn, opts)
@@ -189,10 +204,8 @@ export function QuickScroll({ root, label, className }: QuickScrollProps) {
 			// Typing scrolls the pane to follow the caret, which is the app's scroll, not the reader's. Space,
 			// Home and End are typing keys in an editor, so a paging key counts only outside editable text
 			// (maker-checker finding 2: a space then Enter flashed the control in Compose).
-			if (e instanceof KeyboardEvent && (!PAGING_KEYS.has(e.key) || isEditable(e.target))) {
-				typedAt.current = performance.now()
-				return
-			}
+			if (e instanceof KeyboardEvent) noteTyping(e)
+			if (e instanceof KeyboardEvent && (!PAGING_KEYS.has(e.key) || isEditable(e.target))) return
 			// A press counts only ON A SCROLLBAR. A click into the text is the start of typing, and the
 			// caret-follow scroll that typing causes is the app's.
 			if (e.type === "pointerdown" && !onScrollbar(e as PointerEvent)) return

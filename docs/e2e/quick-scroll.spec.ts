@@ -195,3 +195,38 @@ test('Studio Compose: a resize while a button is hovered does not leave the cont
 	// It must idle out again: before the fix the stale hover kept it shown indefinitely.
 	await hidden(control(page, 'top'), 5000);
 });
+
+test('@gecko Playground: typing in the editor, with the pointer resting on the preview, does not show the preview control', async ({ page }) => {
+	await openPlayground(page);
+	await page.locator('.pg-mode button, .pg-mode [role=tab]').nth(1).click();
+	const editor = page.locator('#editor-host .cm-content');
+	await expect(editor).toBeVisible();
+	await editor.click();
+	// Rest the pointer on the preview, the way a reader watches it while typing.
+	const box = await page.locator('#preview').boundingBox();
+	if (!box) throw new Error('preview frame has no box');
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.keyboard.type(' typed');
+	// The preview following the caret, done the way the app does it: a keystroke in the editor, then the preview
+	// scrolled from script, in ONE task so no timing separates them. (The first draft waited for the app's own
+	// follow, which did not always move the preview, and failed 8 times in 10.) The read comes after the
+	// preview's scroll event and two frames, never a retrying count.
+	const shownWhileTyping = await page.evaluate(
+		() =>
+			new Promise<number>((done) => {
+				const w = (document.getElementById('preview') as HTMLIFrameElement).contentWindow as Window;
+				const typed = document.querySelector('#editor-host .cm-content') as HTMLElement;
+				w.addEventListener(
+					'scroll',
+					() => requestAnimationFrame(() => requestAnimationFrame(() => done(document.querySelectorAll('[data-slot=quick-scroll][data-state=shown]').length))),
+					{ once: true },
+				);
+				typed.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+				w.scrollTo(0, w.scrollY + 600);
+			}),
+	);
+	expect(shownWhileTyping).toBe(0);
+	// Alive, so the 0 was a decision: the reader's wheel on the preview shows it.
+	await page.mouse.wheel(0, 400);
+	await shown(control(page, 'top'));
+});
