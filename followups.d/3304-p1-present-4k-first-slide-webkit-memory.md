@@ -27,6 +27,9 @@ evidence  — Playwright WebKit (WPE, iPhone 15 Pro, the test deck), process RSS
             dropped it to 1,161 MB, but a build without that blur still opened at 1,728 MB, so the strip only
             forced a redraw. A frame-opacity poke raised it (1,969 MB); body and dialog pokes left it flat.
             The narration memory window in #3304 is a different cost and is fixed (the owner's full deck played).
+            PRE-EXISTING, measured: the same run on a build with #3304's 17 changed docs/src files checked out
+            at the merge base (6cfe053, so no `decodeAhead` in the bundle): Present open on slide 1 1,717 MB
+            (title deck) and 2,027 MB (plain-heading deck), slide 2 1,124 and 1,187 MB.
 verify    — In Playwright WebKit as an iPhone 15 Pro, import the test deck through the Studio's import input
             (as #3289's present-narration-probe.js does), open Present, and sum the RSS of the WPEWebProcess and
             MiniBrowser processes from /proc/<pid>/smaps_rollup on slide 1, then slide 2, then back on slide 1.
