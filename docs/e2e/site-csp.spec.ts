@@ -73,6 +73,39 @@ async function watchViolations(page: Page) {
 	return Object.assign(() => Promise.resolve([...seen]), { clear: () => void seen.splice(0) });
 }
 
+/**
+ * Wait until the page has finished what it fetches: no request in flight and the main thread idle
+ * (requestIdleCallback, which fires only when no task is queued; two animation frames on WebKit, which
+ * lacks it), checked until two rounds in a row agree. Call it once per page, before the first goto.
+ * NOT `waitForLoadState('networkidle')`: that is a quiet period, so load can stretch it, and on Gecko
+ * under four workers it never arrived on the Playground with no request of the page's still open
+ * (1 run in 8; engineering/gotchas/browser-engine.md, "networkidle0 stays a duration").
+ */
+function settler(page: Page) {
+	let inFlight = 0;
+	page.on('request', () => inFlight++);
+	page.on('requestfinished', () => inFlight--);
+	page.on('requestfailed', () => inFlight--);
+	const idle = () =>
+		page.evaluate(
+			() =>
+				new Promise<void>((done) => {
+					const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void };
+					if (w.requestIdleCallback) w.requestIdleCallback(() => done(), { timeout: 10_000 });
+					else requestAnimationFrame(() => requestAnimationFrame(() => done()));
+				}),
+		);
+	/** No request in flight and the main thread idle, twice in a row. */
+	return async () => {
+		let quiet = 0;
+		while (quiet < 2) {
+			await expect.poll(() => inFlight, { timeout: 60_000 }).toBe(0);
+			await idle();
+			quiet = inFlight === 0 ? quiet + 1 : 0;
+		}
+	};
+}
+
 // One page of each kind csp.mjs covers: a Starlight docs page, a standalone article, the
 // features catalog, a catalog Learn page, a library demo shell and the offline fallback — and,
 // since stage 2, the pages that build a slide preview: a component page, the function-plot plugin
@@ -85,11 +118,12 @@ const REPRESENTATIVE = ['/getting-started/', '/comparison/', '/features/', '/plu
 
 test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a page of every kind loads under its strict CSP with no violation', async ({ page }) => {
 	const violations = await watchViolations(page);
+	const settle = settler(page);
 	for (const route of REPRESENTATIVE) {
 		await page.goto(route, { waitUntil: 'load' });
 		// The policy is really there: a test that passes because the page had none proves nothing.
 		await expect(page.locator(CSP_META)).toHaveCount(1);
-		await page.waitForLoadState('networkidle');
+		await settle();
 		expect(await violations(), route).toEqual([]);
 	}
 });
@@ -197,28 +231,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko every control on the libra
 			);
 		});
 	});
-	let inFlight = 0;
-	page.on('request', () => inFlight++);
-	page.on('requestfinished', () => inFlight--);
-	page.on('requestfailed', () => inFlight--);
-	const idle = () =>
-		page.evaluate(
-			() =>
-				new Promise<void>((done) => {
-					const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void };
-					if (w.requestIdleCallback) w.requestIdleCallback(() => done(), { timeout: 10_000 });
-					else requestAnimationFrame(() => requestAnimationFrame(() => done()));
-				}),
-		);
-	/** No request in flight and the main thread idle, twice in a row. */
-	const settle = async () => {
-		let quiet = 0;
-		while (quiet < 2) {
-			await expect.poll(() => inFlight, { timeout: 60_000 }).toBe(0);
-			await idle();
-			quiet = inFlight === 0 ? quiet + 1 : 0;
-		}
-	};
+	const settle = settler(page);
 
 	const pressedOn: Record<string, number> = {};
 	for (const route of demos) {
@@ -251,10 +264,11 @@ test('every page that carries the CSP loads with no violation', async ({ page })
 	// them. csp.mjs's own MIN_POLICY_PAGES floor fails the build first.
 	expect(routes.length).toBeGreaterThan(190);
 	const violations = await watchViolations(page);
+	const settle = settler(page);
 	const found: Record<string, string[]> = {};
 	for (const route of routes) {
 		await page.goto(route, { waitUntil: 'load' });
-		await page.waitForLoadState('networkidle');
+		await settle();
 		const v = await violations();
 		if (v.length) found[route] = v;
 		violations.clear();
@@ -298,6 +312,16 @@ test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko the Playground prev
 	const frame = page.frameLocator('iframe[title]').first();
 	await expect(frame.locator('.lattice')).toHaveCSS('visibility', 'visible', { timeout: 30_000 });
 	await expect(frame.locator('.lattice > section').first()).toBeAttached();
+	expect(await violations()).toEqual([]);
+	// That first frame is the BAKE (`data-pg-bake`, bake-newcomer-frame.mjs), written at build time. The
+	// preview the Playground builds for an author's own deck (deck-preview.js buildSrcdoc) first appears in
+	// the editing view, so check that one too: an inline script patched into the built builder passed the
+	// bake-only check above in Chromium and Gecko.
+	await page.goto('/playground/?view=edit');
+	const live = page.frameLocator('iframe[title]:not([data-pg-bake])').first();
+	await expect(live.locator('html:not([data-pg-bake])[data-latt-agents]')).toHaveCount(1, { timeout: 30_000 });
+	await expect(live.locator('.lattice')).toHaveCSS('visibility', 'visible', { timeout: 30_000 });
+	await expect(live.locator('.lattice > section').first()).toBeAttached();
 	expect(await violations()).toEqual([]);
 });
 
