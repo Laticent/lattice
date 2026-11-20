@@ -235,6 +235,7 @@ const SCHEMAS = {
       card: { const: 'fleet' },
       as_of: str,
       scope: str,
+      spend: str,
       hindsight: str,
       insight: str,
       foresight: str,
@@ -688,6 +689,7 @@ function renderFleet(d, page) {
   const loud = all.filter((x) => x.level === 'needs-you').length;
   page.field('needs you', loud ? `${loud} — the 🔴 cards below` : 'NOTHING — no 🔴 card', 'items');
   page.field('scope', d.scope, 'scope');
+  page.field('spend', d.spend, 'spend');
   if (d.hindsight || done.length) page.section('HINDSIGHT — since last board');
   // Every finished session, a child of a live line of work included, so the list
   // matches the ✅ count. A done parent that still has a live child keeps its card instead.
@@ -747,7 +749,9 @@ function renderFleet(d, page) {
  * A table cell: one line, with `\` escaped first and then `|`, so neither a bare
  * `|` nor a `\|` already in the value can split the row.
  */
-const cell = (text) => String(text).replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+const cell = (text) => String(text).replace(/[\\|]/g, '\\$&');
+/** Link text: as a cell, plus `[` and `]`, which would end the link early. One pass, so nothing is escaped twice. */
+const linkText = (text) => String(text).replace(/[\\|[\]]/g, '\\$&');
 
 /**
  * The fleet board as one markdown table: a row per session, loudest first,
@@ -772,8 +776,7 @@ function renderFleetTable(card) {
   ];
   const row = (x, child) => {
     const name = cell(x.title);
-    // Brackets in link text would end the link early, so escape them there too.
-    const named = x.session ? `[${name.replace(/[[\]]/g, '\\$&')}](https://claude.ai/code/${x.session})` : name;
+    const named = x.session ? `[${linkText(x.title)}](https://claude.ai/code/${x.session})` : name;
     lines.push(
       `| ${fleetIcon(x.level)} | ${child ? '· ' : ''}${named} | ${x.pr ? `[#${x.pr}](${REPO_URL}/pull/${x.pr})` : ''} | ${x.build ? `[run](${x.build})` : ''} | ${cell(x.state)}${x.needs ? ` — **needs:** ${cell(x.needs)}` : ''} |`,
     );

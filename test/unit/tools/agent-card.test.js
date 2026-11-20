@@ -379,3 +379,20 @@ test('fleet board: a card header wears its loudest session icon; a done child is
   assert.match(r.text, /```\n🔴 Shipped parent\n/, 'the ✅ parent holding a 🔴 child shows 🔴 in its header');
   assert.match(r.text, /done\n {4}Merged slice #42 merged/);
 });
+
+test('fleet board: an optional spend line sits in BOTTOM LINE', () => {
+  const card = load('fleet');
+  assert.doesNotMatch(renderFleet(card).text, /\n {2}spend\n/);
+  card.spend = '$41 today across 23 sessions';
+  const r = renderFleet(card);
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.match(r.text.split('HINDSIGHT')[0], /\n {2}spend\n {4}\$41 today across 23 sessions\n/);
+});
+
+test('fleet table: link text escapes \\ | [ ] exactly once', () => {
+  const t = hiddenChild();
+  t.items[0].title = 'a\\]b|c[d';
+  t.items[0].session = 'session_abc123';
+  const row = renderFleetTable(t).lines.find((l) => l.includes('session_abc123'));
+  assert.ok(row.includes('[a\\\\\\]b\\|c\\[d](https://claude.ai/code/session_abc123)'), row);
+});
