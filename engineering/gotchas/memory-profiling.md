@@ -90,17 +90,30 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Cause** — a slide frame is laid out at the slide's own box (3840x2160) and shrunk with `transform: scale()`
   (`single-slide-render.ts` `scaleFrame`). Drawing the frame flat costs about what an HD frame does. But WebKit gives
   anything COMPOSITED inside or on that frame (an opacity animation, `will-change`, the frame's own fade) a buffer sized
-  by the frame's own box times the screen's pixel density: about 300 MB at 3x. Measured in Playwright WebKit (WPE, one
-  browser's own processes, DPR 3): one `will-change` element inside a 4K frame +123 MB, in a 1920x1080 or 1280x720 frame
-  about 0; an opacity animation on the iframe element +40 MB; the same animation on a display-sized wrapper 0. WPE does
-  not accelerate opacity transitions INSIDE a frame and iOS does, so `will-change` is WPE's stand-in for an iOS fade.
-  `zoom` on the iframe element instead of `transform` is no fix: WebKit lays the child out in a 393px viewport and the
-  frame keeps its 3840px box in the page, unlike Chromium and Firefox.
-- **Mitigation** — keep compositing out of slide frames. The frame fades through its display-sized slot
-  (`frameSlot`, `fadeInSlot`), with its own opacity set in one step; Present hides the editor's preview
-  (`display: none`, StudioShell `presentOpen`), so one frame is drawn. `docs/e2e/present-frame-memory.spec.ts` holds both.
-  Measure WebKit memory per browser (`launchServer` and its child processes), never with a machine-wide `pgrep`: another
-  session's WebKit swings a sum by hundreds of MB.
+  by the frame's own box times the screen's pixel density squared. Measured in Playwright WebKit (WPE, `launchServer`
+  and its own child processes, a 393 CSS px wide page at DPR 3, one iframe scaled to fit), two runs each: one
+  `will-change: opacity` element (30% x 30% of the slide) inside a 3840x2160 frame **+1,142 / +1,152 MB**, inside a
+  1280x720 frame **+141 / +148 MB**; the same frame with nothing composited +11 to +16 MB either way (checker, PR #3304,
+  `.scratch/mem/m.js`). An earlier entry here said +123 MB at 4K and about 0 at HD; its element size was not recorded
+  and the figure did not reproduce. An opacity animation on the iframe element +40 MB; the same animation on a
+  display-sized wrapper 0. WPE does not accelerate opacity transitions INSIDE a frame and iOS does, so `will-change` is
+  WPE's stand-in for an iOS fade. `zoom` on the iframe element instead of `transform` is no fix: WebKit lays the child
+  out in a 393px viewport and the frame keeps its 3840px box in the page, unlike Chromium and Firefox.
+  **Sharpness does not follow the box.** An HD layout drawn at 3x density matched a native 4K layout at 3840 px: the
+  same text and icons, with line weight the only difference (fixed-px rules, 2026-11-20). So the canvas only has to be
+  as big as the pixels the screen shows.
+- **Mitigation** — two layers. (1) Lay a 4K deck out on HD wherever the screen shows the slide at 2,560 device px or
+  fewer across: `lib/core/screen-canvas.mjs` `screenCanvas`, applied by `single-slide-render.ts` (the `size:` line
+  rewritten with `withSize`, re-rendered when a resize crosses the line) and by the exported player (`lpCanvas` in
+  `lib/export/player-core.mjs`, which switches the box and the slide's `--_sec-1cqi` together). A 4K display presenting
+  full screen keeps 4K. This is the fix that holds against content: author CSS and future components can still make
+  layers, and at HD each costs about an eighth. (2) Keep compositing out of slide frames anyway: the frame fades through
+  its display-sized slot (`frameSlot`, `fadeInSlot`) with its own opacity set in one step; Present hides the editor's
+  preview (`display: none`, StudioShell `presentOpen`); Guide steps its dims' opacity in script; the Underpainting brush
+  carries no standing `will-change`. `docs/e2e/present-frame-memory.spec.ts` and `player-screen-canvas.spec.ts` hold
+  them. Measure WebKit memory per browser (`launchServer` and its child processes), never with a machine-wide `pgrep`:
+  another session's WebKit swings a sum by hundreds of MB. There is no memory signal to detect instead: iOS Safari has
+  no `navigator.deviceMemory`, `performance.memory` or `measureUserAgentSpecificMemory`.
 - **Triggered by** — anything animated or `will-change` inside a slide document, or on the slide's iframe, on a deck
   larger than the screen.
 - **Removable when** — WebKit sizes a transformed subframe's layers by their on-screen size.

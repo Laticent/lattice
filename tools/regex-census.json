@@ -2743,6 +2743,7 @@
     "/^sequenceDiagram$/i": "safe",
     "/^sequenceDiagram\\b/": "safe",
     "/^sha256-[A-Za-z0-9+/]{43}=$/": "safe",
+    "/^size[ \\t]*:([^\\r\\n]*)$/gm": "safe",
     "/^size[ \\t]*:/": "safe",
     "/^size[ \\t]*:[ \\t]*[\"']?([A-Za-z0-9:x._-]+)[\"']?/gm": "safe",
     "/^size[ \\t]*:[ \\t]*[\"']?([\\w:/.-]+)/gm": "safe",

@@ -9,6 +9,9 @@ import { expect, gotoStudio, test, typeDeck } from './studio-fixture';
 //   3. Guide's dims never transition opacity: the Guide steps it as inline style (present-guide.ts `crossfadeOpacity`),
 //      so nothing inside the slide runs a compositor animation while it plays.
 // Measured in WebKit at 3x with rules 1 and 2: Present's opening peak fell from 1,445-1,756 MB to 957-1,015 MB.
+// Since the screen canvas (the last test below), a 4K deck shown at these widths lays out on HD, so these first two
+// tests no longer run on a 4K frame. What they hold (no animated frame, the editor's preview not drawn) does not depend
+// on the canvas, and still keeps the layers out of the frame on a screen large enough to keep 4K.
 const deck = `---
 marp: true
 theme: indaco
@@ -108,4 +111,32 @@ test('Guide dims the slide with no animation inside the frame @crosswidth @webki
 		await presented.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 	}
 	expect(sawDimLevel, 'the receded parts reach their dim level').toBe(true);
+});
+
+// THE SCREEN CANVAS (lib/core/screen-canvas.mjs): a 4K deck is laid out on its 4K canvas only where the slide is shown
+// more than 2,560 device px across; everywhere smaller it is laid out on HD, because WebKit pays every layer inside the
+// frame at the frame's own size. Present on a 1920x1080 screen at 2x density shows the slide well over 2,560 device px wide,
+// so it keeps 4K; the same window narrowed to 800 px crosses the line and re-renders on HD; a phone is HD from the start.
+const frameWidth = (dialog: import('@playwright/test').Locator) => dialog.locator('[aria-label="Presented slide"] iframe.live').evaluate((fr) => (fr as HTMLIFrameElement).style.width);
+
+test('a 4K deck lays out on 4K only where the screen shows 4K, and crosses back on a resize @crosswidth @webkit-phone @gecko', async ({ browser, page }, testInfo) => {
+	const phone = /phone|mobile/.test(testInfo.project.name);
+	const ctx = phone ? null : await browser.newContext({ ...testInfo.project.use, viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 2 });
+	try {
+		const p = ctx ? await ctx.newPage() : page;
+		await gotoStudio(p);
+		await typeDeck(p, deck);
+		await p.getByRole('button', { name: 'Present', exact: true }).click();
+		const dialog = p.getByRole('dialog', { name: 'Present' });
+		await expect(dialog.locator('[aria-label="Presented slide"] iframe.live')).toHaveCSS('opacity', '1', { timeout: 20000 });
+		if (phone) {
+			await expect.poll(() => frameWidth(dialog)).toBe('1280px');
+			return;
+		}
+		await expect.poll(() => frameWidth(dialog), { timeout: 20000 }).toBe('3840px');
+		await p.setViewportSize({ width: 800, height: 600 });
+		await expect.poll(() => frameWidth(dialog), { timeout: 20000 }).toBe('1280px');
+	} finally {
+		await ctx?.close();
+	}
 });

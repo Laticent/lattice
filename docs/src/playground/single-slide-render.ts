@@ -28,6 +28,8 @@ import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
+import { deckSizeOf, screenCanvas } from '../../../lib/core/screen-canvas.mjs';
+import sizesCore from '../../../lib/core/sizes.js';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
 import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
@@ -323,7 +325,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeDocLoad?: Promise<void>; __latticeDocSettle?: () => void };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeDocLoad?: Promise<void>; __latticeDocSettle?: () => void; __latticeScreenCanvas?: { deckSize: string; canvas: 'hd' | null; rerender: () => void; pending?: boolean } };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -1588,6 +1590,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		armLateFonts(fr);
 		fr.style.width = geom.width + 'px';
 		fr.style.height = geom.height + 'px';
+		// The screen canvas (see renderInto): a resize that carries the slide across the line re-renders it on the
+		// other canvas, once, after the resize settles.
+		const sc = (host as LiveHost).__latticeScreenCanvas;
+		if (sc && w > 0 && !sc.pending && screenCanvas(sc.deckSize, w, window.devicePixelRatio || 1) !== sc.canvas) {
+			sc.pending = true;
+			setTimeout(() => {
+				if (!disposed && host.isConnected && (host as LiveHost).__latticeScreenCanvas === sc) sc.rerender();
+			}, 150);
+		}
 		if (w > 0) {
 			fr.style.transform = 'scale(' + (w / geom.width).toFixed(5) + ')';
 			// The slide's EDGE is the engine's (base.modifiers.css, "The slide's EDGE"): it draws a
@@ -1793,6 +1804,33 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// an unguarded edge, and one line closes the class instead of the instance.
 		if (disposed) return Promise.resolve({ ok: false, slides: 0, error: 'renderer disposed' });
 		countIn(); // first render joins the shared-memo refcount — see createSingleSlideRenderer
+		// THE SCREEN CANVAS (lib/core/screen-canvas.mjs): a 4K deck is laid out on HD wherever the slide is shown at
+		// 2,560 device px or fewer across, because WebKit pays every layer inside a 4K frame at 3840x2160 times the
+		// density squared, and an iPhone presenting one reloaded the tab (owner, 2026-11-20). Sharpness does not follow
+		// the canvas, only memory does. The rewrite is the deck's `size:` line only, the same `withSize` the CLI's
+		// `--size` and the export panel use; exports render on their own and never pass through here. scaleFrame
+		// re-renders the host when a resize carries it across the line (a window made full screen on a 4K display).
+		{
+			const deckSize = deckSizeOf(markdown);
+			if (/^4k$/i.test(deckSize.trim())) {
+				const original = { markdown, slideMarkdown: opts?.slideMarkdown };
+				const canvas = screenCanvas(deckSize, host.clientWidth, window.devicePixelRatio || 1);
+				const prev = (host as LiveHost).__latticeScreenCanvas;
+				(host as LiveHost).__latticeScreenCanvas = {
+					deckSize,
+					canvas,
+					pending: false,
+					rerender: () => {
+						void renderInto(host, original.markdown, drawn, paletteOverride, extra, modeOverride, extraCss, opts && { ...opts, slideMarkdown: original.slideMarkdown });
+					},
+				};
+				if (prev?.pending) prev.pending = false;
+				if (canvas) {
+					markdown = sizesCore.withSize(markdown, canvas);
+					if (opts?.slideMarkdown) opts = { ...opts, slideMarkdown: sizesCore.withSize(opts.slideMarkdown, canvas) };
+				}
+			} else (host as LiveHost).__latticeScreenCanvas = undefined;
+		}
 		const allow = [...new Set(opts?.webOrigins ?? [])].sort();
 		const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 		const mode = modeOverride ?? docMode;
