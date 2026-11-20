@@ -243,28 +243,43 @@ async function latticePhotoProbe() {
 		content.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false, clientX: 0, clientY: 0 }));
 		await until(() => !document.querySelector('.cm-tooltip-lint'), 5000, 'the earlier tooltip to close').catch(() => null);
 		await sleep(400);
-		const box = range.getBoundingClientRect();
-		// Point at the range's FIRST ROW, not the middle of its box. A range that wraps (the spotlight's class comment on a
-		// phone, the photo's data: line everywhere) has a box whose middle can fall in the gap between two rows, and
-		// CodeMirror opens no hover tooltip for a pointer above the character it maps to (HoverPlugin.startHover). The probe
-		// then leaned on the lint gutter's marker, and when that missed too the wait ran out with the underline in place.
-		const row = [...range.getClientRects()].find((r) => r.width > 0 && r.height > 0) ?? box;
+		// WHERE THE RANGE IS NOW, read at every move. The editor can scroll after the range is found (the Studio follows
+		// the caret, a late layout pass), and a point measured once then lands on another line: a phone run under load
+		// hovered "![A dark lake]" 250 px below the warning it was after for the whole 20 s. A range CodeMirror redrew is
+		// found again by its line's text.
+		let live = range;
+		const where = () => {
+			if (!live.isConnected) live = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent.includes(text))?.querySelector('.cm-lintRange-warning') ?? live;
+			const box = live.getBoundingClientRect();
+			// The range's FIRST ROW, not the middle of its box. A range that wraps (the spotlight's class comment on a phone,
+			// the photo's data: line everywhere) has a box whose middle can fall in the gap between two rows, and CodeMirror
+			// opens no hover tooltip for a pointer above the character it maps to (HoverPlugin.startHover).
+			const row = [...live.getClientRects()].find((r) => r.width > 0 && r.height > 0) ?? box;
+			return { box, row };
+		};
 		let movedAt = 0;
 		const hover = (dx) => {
 			movedAt = Date.now();
+			let { row } = where();
+			if (row.top < 0 || row.bottom > innerHeight) {
+				live.scrollIntoView({ block: 'center' });
+				({ row } = where());
+			}
 			const at = { clientX: row.left + Math.min(8 + dx, row.width / 2), clientY: row.top + row.height / 2, bubbles: true };
-			range.dispatchEvent(new PointerEvent('pointermove', at));
-			range.dispatchEvent(new MouseEvent('mousemove', at));
+			live.dispatchEvent(new PointerEvent('pointermove', at));
+			live.dispatchEvent(new MouseEvent('mousemove', at));
 		};
 		hover(0);
 		const t0 = Date.now();
 		// The lint gutter's marker for the same line opens the same tooltip from a plain mouseover: the fallback when a
 		// synthetic pointer move does not open the hover tooltip (CodeMirror can ignore one that follows another).
-		const marker = () =>
-			[...document.querySelectorAll('.cm-lint-marker')].find((m) => {
+		const marker = () => {
+			const { box } = where();
+			return [...document.querySelectorAll('.cm-lint-marker')].find((m) => {
 				const r = m.getBoundingClientRect();
 				return r.bottom > box.top - 2 && r.top < box.top + box.height + 2;
 			});
+		};
 		let markerTried = false;
 		const tip = await until(() => {
 			// CodeMirror opens a hover tooltip only for a pointer that has RESTED: each move restarts its 300 ms check
