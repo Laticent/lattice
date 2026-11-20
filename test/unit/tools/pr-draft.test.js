@@ -36,7 +36,13 @@ function fakeGitHub({ draft = true, runs = [], onReady = defaultReady, onTick = 
       const asked = p.match(/head_sha=([0-9a-f]+)/)[1];
       return { workflow_runs: gh.runs.filter((r) => !r.sha || r.sha === asked).map((r) => ({ ...r })) };
     }
-    if (method === 'GET' && /\/actions\/runs\/\d+\/jobs/.test(p)) return { jobs: gh.jobs[Number(p.match(/runs\/(\d+)/)[1])] || [] };
+    if (method === 'GET' && /\/actions\/runs\/\d+\/jobs/.test(p)) {
+      // Like GitHub: without filter=all, only the latest attempt's jobs are listed.
+      const jobs = gh.jobs[Number(p.match(/runs\/(\d+)/)[1])] || [];
+      if (p.includes('filter=all')) return { jobs };
+      const latest = Math.max(1, ...jobs.map((j) => j.run_attempt || 1));
+      return { jobs: jobs.filter((j) => (j.run_attempt || 1) === latest) };
+    }
     if (method === 'GET' && /\/actions\/runs\/\d+$/.test(p)) return { ...gh.runs.find((r) => r.id === Number(p.match(/runs\/(\d+)$/)[1])) };
     if (method === 'POST' && p.endsWith('/ccr/convert_to_draft')) {
       gh.draft = true;
@@ -274,4 +280,17 @@ test('ready: an unreadable remote does not block (no wait, same as before the fi
   const lines = await ready(3333, { ...opts(gh), pushed: () => null });
   assert.match(lines.at(-1), /is ready; ci is running/);
   assert.equal(gh.ticks, 0);
+});
+
+test('ready: a real run whose gate job was re-run (a later attempt) still counts as real', async () => {
+  const { ready, PrDraftError } = await import(MODULE);
+  const gh = fakeGitHub({ draft: true });
+  // Attempt 1 ran `changes`; attempt 2 re-ran only the `ci` gate and is still going (#3342 live).
+  const id = gh.addRun('in_progress', null);
+  gh.jobs[id] = [
+    { name: 'changes', status: 'completed', conclusion: 'success', run_attempt: 1 },
+    { name: 'ci', status: 'in_progress', conclusion: null, run_attempt: 2 },
+  ];
+  await assert.rejects(ready(3333, opts(gh)), (err) => err instanceof PrDraftError && err.code === 3 && /still going/.test(err.message));
+  assert.equal(gh.calls.filter((c) => c.startsWith('POST')).length, 0);
 });

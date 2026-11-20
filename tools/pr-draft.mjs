@@ -88,8 +88,10 @@ function settled(api, sha, needOne) {
  */
 function verdict(api, run) {
   if (run.status === 'completed' && run.conclusion === 'skipped') return 'skipped';
-  const jobs = api('GET', `repos/${REPO}/actions/runs/${run.id}/jobs?per_page=100`).jobs || [];
-  const changes = jobs.find((j) => j.name === 'changes');
+  // `filter=all`: re-running some jobs makes a new attempt that lists only those, so `changes`
+  // from an earlier attempt would vanish from the default (latest-attempt) list. Use the newest.
+  const jobs = api('GET', `repos/${REPO}/actions/runs/${run.id}/jobs?filter=all&per_page=100`).jobs || [];
+  const changes = jobs.filter((j) => j.name === 'changes').sort((a, b) => (b.run_attempt || 1) - (a.run_attempt || 1))[0];
   if (!changes) return run.status === 'completed' ? 'dead' : null;
   if (changes.conclusion === 'skipped') return 'skipped';
   if (changes.conclusion === 'success' || changes.status === 'in_progress') return 'real';
