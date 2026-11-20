@@ -26,6 +26,12 @@
  * dist-kits branch for readers without a clone.
  * Record: engineering/decisions/2026-10-09-generated-indexes-uncommitted.md.
  *
+ * FOUND BY SEARCH. .gitignore hides dist/, and ripgrep (behind the agent Grep and Glob tools)
+ * honors .gitignore, so a search for a folder name never reached this map. The root `.ignore`,
+ * which only search tools read, re-includes this one file and nothing else under dist/. Git
+ * still ignores it. Agents are also pointed here by CLAUDE.md's "Where X lives" row, AGENTS.md
+ * and every roster card that locates code.
+ *
  * Flags:
  *   --check    Validate the SOURCES: exit 1 on a folder or part with no purpose line, or a stale
  *              FOLDERS entry. Reads no output.
@@ -438,4 +444,4 @@ function main(argv = process.argv.slice(2)) {
 
 if (require.main === module) process.exit(main());
 
-module.exports = { FOLDERS, SCOPES, collect, problems, render, foldersInScope, scopeOf, summarize, cell, main };
+module.exports = { OUT_FILE, FOLDERS, SCOPES, collect, problems, render, foldersInScope, scopeOf, summarize, cell, main };

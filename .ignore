@@ -1,0 +1,9 @@
+# Search-tool ignore rules (ripgrep, and the agent Grep/Glob tools built on it). Git never reads
+# this file. It re-includes ONE generated file that .gitignore hides: dist/engineering/codemap.md,
+# the map of what lives where, so a plain search for a folder or part name lands on its map row.
+# Everything else under dist/ stays out of search. Why: tools/build-codemap.js header.
+!/dist/
+/dist/*
+!/dist/engineering/
+/dist/engineering/*
+!/dist/engineering/codemap.md
