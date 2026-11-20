@@ -2500,6 +2500,24 @@ the board can read it, so the board adds no log, issue or file:
 | Open PRs | `list_pull_requests` (`state: open`, `fields` trimmed) | number, head branch, draft, last update |
 | PR comments | `pull_request_read` `get_comments`, newest first | the latest 🚦 card and its level, the CI note with its run link, handovers naming a session |
 
+**Who owns each fact.** No single store is the source of truth: each fact has
+one owner, and the board owns none of them. The board is a snapshot of those
+owners at its `as_of` time and is never saved, so the next board is built from
+the owners again and never from the last board.
+
+| Fact | Owner |
+|---|---|
+| Session running, blocked, idle or archived | the session system (`list_sessions`) |
+| PR open, merged or closed; CI; a merge conflict | GitHub |
+| The session's own claims: 🚦 level, what it needs, what is next | its latest card, posted as a comment on its PR |
+| Why a 🔴 or 🟠 session is stuck | its transcript (`list_events`) |
+| The owner's decision (`go A2`) | the owner's message in the command center |
+
+When two disagree, the narrower owner wins. GitHub wins on PR facts: a session
+that says "waiting on merge" for a merged PR is stale, and the board shows ✅.
+A session's PR card wins over its one-line summary, because the comment is the
+record (§Where the cards go).
+
 A session joins its PR by the PR's head branch, or by a comment that names the
 session ID. **Open a transcript (`list_events`) only for a 🔴 or 🟠 row.**
 That keeps a board at a handful of calls however many sessions are live.
