@@ -37,12 +37,12 @@ A preset can now set the heading rule's weight, style and ink, the card rail's t
 
 ## With no hook set, nothing moves
 
-- Heading rule
-  - A one-pixel hairline in the border gray, under the masthead.
-- Card rail
-  - A thin spectrum rail down each card's left edge.
-- Card corner
-  - The theme's medium radius on every card surface.
+1. Heading rule
+   - A one-pixel hairline in the border gray, under the masthead.
+2. Card rail
+   - A thin spectrum rail down each card's left edge.
+3. Card corner
+   - The theme's medium radius on every card surface.
 
 The hooks read today's values as their fallbacks, so every existing deck keeps its bytes.
 
@@ -54,12 +54,12 @@ The hooks read today's values as their fallbacks, so every existing deck keeps i
 
 ## Four hooks set on the same cards
 
-- Heading rule
-  - Three pixels, drawn in the heading ink.
-- Card rail
-  - Two and a half times the default thickness.
-- Card corner
-  - Square cards; the slide keeps its own corner.
+1. Heading rule
+   - Three pixels, drawn in the heading ink.
+2. Card rail
+   - Two and a half times the default thickness.
+3. Card corner
+   - Square cards; the slide keeps its own corner.
 
 One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w` and `--radius-card`.
 
@@ -114,12 +114,12 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ## The hooks hold on a dark slide.
 
-- Rule ink
-  - The heading ink, resolved on the slide, so it follows the dark scheme.
-- Rail
-  - The same heavier rail, painted in the deck's spectrum.
-- Corner
-  - Square cards on the dark canvas.
+1. Rule ink
+   - The heading ink, resolved on the slide, so it follows the dark scheme.
+2. Rail
+   - The same heavier rail, painted in the deck's spectrum.
+3. Corner
+   - Square cards on the dark canvas.
 
 ---
 

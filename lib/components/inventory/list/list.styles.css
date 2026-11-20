@@ -111,7 +111,7 @@ section.list > .cell-stage > ol { counter-reset:list-counter var(--lat-split-off
 section.list > .cell-stage > ol > li {
   counter-increment:list-counter;
   background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--list-pad) var(--sp-md);
+  border-radius:var(--radius-card, var(--radius-md)); padding:var(--list-pad) var(--sp-md);
   gap:var(--sp-md);
 }
 /* Every counter, in every register, is this box. */

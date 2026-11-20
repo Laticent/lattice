@@ -14599,11 +14599,11 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   // them; a preset's stamped class (Phase 0) or a deck `style:` block sets them on a section, and
   // every read carries today's value as its fallback, so unset they render byte-for-byte as before.
   // Contract: the comment beside `--radius-*` in lib/base/base.tokens.css.
-  { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the split-page runheads. Fallback 1px (segment: 0.22cqi).' },
+  { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
   { token: 'rule-style', why: 'heading-rule border style on the same border-drawn rules. Fallback solid.' },
   { token: 'rule-mark', why: 'heading-rule ink on the same rules (rule-accent keeps --accent). Fallback var(--border).' },
   { token: 'rail-w', why: 'spectrum-card rail thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
-  { token: 'radius-card', why: 'card-surface corner: cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps. Fallback var(--radius-md); never --radius-full or corners:.' },
+  { token: 'radius-card', why: 'card corner: every tile in a parallel set (cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list, actors, decision, compare-prose, split-compare, split-panel proof/watermark, citation-card triptych, statute-stack) and the card tag. Fallback var(--radius-md); never --radius-full, quote panels or corners:.' },
 ]);
 
 /**

@@ -76,7 +76,7 @@
   --card-tag-lh: 1;
   --card-tag-track: 0.08em;
   --card-tag-h: calc(var(--card-tag-fs) * (var(--card-tag-lh) + 2 * var(--card-tag-pad-y)));
-  --card-tag-radius: var(--radius-md) 0 var(--radius-sm) 0;
+  --card-tag-radius: var(--radius-card, var(--radius-md)) 0 var(--radius-sm) 0;
   --card-tag-gap: var(--sp-md);
   --card-tag-num-font: var(--font-label);
   --card-tag-band-pad-y: 0.6;
@@ -232,7 +232,7 @@ section.tag-bare .card > strong:first-child {
  * boxed tag on a slide takes one size, and --card-tag-block feeds the reserve. Without a
  * script each tag keeps its own size and the card reserves one line of tag, as a corner
  * does. engineering/decisions/2026-09-27-card-tag-register.md §3.3, §6 phase 3. */
-section.tag-foot { --card-tag-radius: 0 var(--radius-sm) 0 var(--radius-md); }
+section.tag-foot { --card-tag-radius: 0 var(--radius-sm) 0 var(--radius-card, var(--radius-md)); }
 section.tag-notch,
 section.tag-inline { --card-tag-radius: var(--radius-sm); }
 section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)) {
@@ -348,7 +348,7 @@ section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-i
 section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).split-compare .verdict::before,
 section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol > li::before {
   right: 0;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: var(--radius-card, var(--radius-md)) var(--radius-card, var(--radius-md)) 0 0;
 }
 
 /* inline */
