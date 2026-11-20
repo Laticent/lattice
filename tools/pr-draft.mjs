@@ -44,8 +44,9 @@ export class PrDraftError extends Error {
 /** The real GitHub client: `gh api`, JSON in and out. */
 export function ghApi(method, path) {
   const out = spawnSync('gh', ['api', '-X', method, path], { encoding: 'utf8' });
+  if (out.error) throw new PrDraftError(`could not run gh (${out.error.code || out.error.message}); is the GitHub CLI installed?`, 3);
   if (out.status !== 0) {
-    throw new PrDraftError(`gh api ${method} ${path} failed: ${(out.stderr || out.stdout || '').trim()}`, 3);
+    throw new PrDraftError(`gh api ${method} ${path} failed: ${(out.stderr || out.stdout || '').trim() || `exit ${out.status}`}`, 3);
   }
   return out.stdout.trim() ? JSON.parse(out.stdout) : {};
 }
@@ -78,14 +79,26 @@ function settled(api, sha, needOne) {
   return runs.every((r) => r.status === 'completed') ? runs : null;
 }
 
-/** For a run started after ready: 'real' once `changes` is past skipping, 'skipped' if it skipped, null while unknown. */
+/**
+ * What a run tested, read from its `changes` job (every other ci.yml job needs it, so it decides):
+ * 'real' once `changes` has started or succeeded, 'skipped' if it skipped (a draft run, or a ready
+ * event folded into one), 'dead' if it was canceled or failed before deciding, null while unknown
+ * (no jobs yet, or `changes` still queued, which is how a run waiting behind another looks).
+ */
 function verdict(api, run) {
   if (run.status === 'completed' && run.conclusion === 'skipped') return 'skipped';
   const jobs = api('GET', `repos/${REPO}/actions/runs/${run.id}/jobs?per_page=100`).jobs || [];
   const changes = jobs.find((j) => j.name === 'changes');
-  if (!changes) return null;
+  if (!changes) return run.status === 'completed' ? 'dead' : null;
   if (changes.conclusion === 'skipped') return 'skipped';
-  return 'real';
+  if (changes.conclusion === 'success' || changes.status === 'in_progress') return 'real';
+  if (changes.status === 'completed') return 'dead';
+  return run.status === 'completed' ? 'dead' : null;
+}
+
+/** The newest run on the head whose `changes` job really ran and was not canceled, if any. */
+function realRun(api, sha) {
+  return ciRuns(api, sha).find((r) => r.conclusion !== 'cancelled' && verdict(api, r) === 'real');
 }
 
 /** Convert the PR to a draft. Returns the lines to print. */
@@ -114,13 +127,21 @@ export async function ready(pr, { api = ghApi, sleep = realSleep, tries = 36, in
     const sha = pull.head.sha;
     const short = sha.slice(0, 7);
     if (attempt === 1 && !pull.draft) {
-      const real = ciRuns(api, sha).find((r) => r.conclusion !== 'skipped');
+      const real = realRun(api, sha);
       if (real) {
         lines.push(`#${pr} is already ready and has a ci run on ${short}: ${real.html_url}`);
         return lines;
       }
       api('POST', `repos/${REPO}/pulls/${pr}/ccr/convert_to_draft`);
       lines.push(`#${pr} was ready with no real ci run on ${short}; parked it to mark it ready cleanly.`);
+    }
+    // A real run still going on this head (the PR was parked mid-run, with no push since): marking
+    // ready now would queue a second full run behind it. Say so instead of waiting minutes.
+    if (attempt === 1 && pull.draft) {
+      const going = ciRuns(api, sha).find((r) => r.status !== 'completed' && verdict(api, r) === 'real');
+      if (going) {
+        throw new PrDraftError(`a real ci run is still going on ${short} (${going.html_url}); let it finish, then run pr:ready again`, 3);
+      }
     }
     // 1. The push's own (skipped) run must exist and be finished before the ready event.
     const seen = await poll(() => settled(api, sha, attempt === 1 && pull.draft), { ...opts, what: `the draft run on ${short} to finish` });
@@ -138,7 +159,7 @@ export async function ready(pr, { api = ghApi, sleep = realSleep, tries = 36, in
       return lines;
     }
     // 4. The ready event landed in a draft-snapshot run. Park and try once more.
-    lines.push(`the ci run after ready skipped every job (${run.html_url}); parking and marking ready again.`);
+    lines.push(`the ci run after ready did not run its jobs (skipped or canceled: ${run.html_url}); parking and marking ready again.`);
     api('POST', `repos/${REPO}/pulls/${pr}/ccr/convert_to_draft`);
   }
   throw new PrDraftError(`#${pr}: no real ci run started on its head after two tries; mark it ready by hand and check the run`, 1);

@@ -24,7 +24,8 @@ function fakeGitHub({ draft = true, runs = [], onReady = defaultReady, onTick = 
   gh.addRun = (status, conclusion, changes) => {
     const id = gh.nextId++;
     gh.runs.push({ id, status, conclusion, html_url: `https://example.test/runs/${id}` });
-    if (changes) gh.jobs[id] = [{ name: 'changes', status: changes === 'queued' ? 'queued' : 'completed', conclusion: changes === 'queued' ? null : changes }];
+    // `changes` is 'queued' / 'in_progress' (no conclusion yet) or a conclusion ('skipped', 'success', 'cancelled').
+    if (changes) gh.jobs[id] = [{ name: 'changes', status: ['queued', 'in_progress'].includes(changes) ? changes : 'completed', conclusion: ['queued', 'in_progress'].includes(changes) ? null : changes }];
     return id;
   };
   gh.api = (method, p) => {
@@ -51,9 +52,9 @@ function fakeGitHub({ draft = true, runs = [], onReady = defaultReady, onTick = 
   return gh;
 }
 
-/** The common case: the ready event starts a run whose `changes` job is queued, not skipped. */
+/** The common case: the ready event starts a run whose `changes` job is running, not skipped. */
 function defaultReady(gh) {
-  gh.addRun('queued', null, 'queued');
+  gh.addRun('in_progress', null, 'in_progress');
 }
 
 const opts = (gh) => ({ api: gh.api, sleep: gh.sleep, tries: 5, intervalMs: 1 });
@@ -93,12 +94,12 @@ test('ready: a run that skipped every job after ready gets one re-park and retry
     onReady: (g) => {
       readies++;
       if (readies === 1) g.addRun('completed', 'skipped', 'skipped'); // the race lost: a draft-snapshot run
-      else g.addRun('queued', null, 'queued');
+      else g.addRun('in_progress', null, 'in_progress');
     },
   });
   const lines = await ready(3333, opts(gh));
   assert.equal(readies, 2);
-  assert.ok(lines.some((l) => /skipped every job.*parking and marking ready again/.test(l)));
+  assert.ok(lines.some((l) => /did not run its jobs.*parking and marking ready again/.test(l)));
   assert.match(lines.at(-1), /is ready; ci is running/);
   assert.equal(gh.calls.filter((c) => c.endsWith('/ccr/convert_to_draft')).length, 1);
 });
@@ -114,7 +115,8 @@ test('ready: two skipped runs in a row fail with exit code 1, never a silent "re
 
 test('ready: a ready PR with a real run on its head is left alone', async () => {
   const { ready } = await import(MODULE);
-  const gh = fakeGitHub({ draft: false, runs: [{ id: 1, status: 'in_progress', conclusion: null, html_url: 'u1' }] });
+  const gh = fakeGitHub({ draft: false });
+  gh.addRun('in_progress', null, 'in_progress');
   const lines = await ready(3333, opts(gh));
   assert.match(lines[0], /already ready and has a ci run/);
   assert.equal(gh.calls.filter((c) => c.startsWith('POST')).length, 0);
@@ -161,7 +163,7 @@ test('ready: a run still going whose changes job skipped counts as skipped, not 
       readies++;
       // The run has not finished, but its `changes` job already skipped: a draft-snapshot run.
       if (readies === 1) g.addRun('in_progress', null, 'skipped');
-      else g.addRun('queued', null, 'queued');
+      else g.addRun('in_progress', null, 'in_progress');
     },
     // GitHub finishes a run whose jobs all skipped within seconds; the retry waits for that.
     onTick: (g) => {
@@ -171,4 +173,63 @@ test('ready: a run still going whose changes job skipped counts as skipped, not 
   const lines = await ready(3333, opts(gh));
   assert.equal(readies, 2, 'a skipped changes job must trigger the re-park and retry');
   assert.match(lines.at(-1), /is ready; ci is running on ccccccc: https:\/\/example\.test\/runs\/101/);
+});
+
+test('ready: a ready PR whose only run is a draft snapshot still going is NOT left alone (marked ready by hand mid-race)', async () => {
+  const { ready } = await import(MODULE);
+  const gh = fakeGitHub({
+    draft: false,
+    // GitHub finishes the all-skipped run within seconds.
+    onTick: (g) => {
+      for (const r of g.runs) if (r.status === 'in_progress' && g.jobs[r.id]?.[0]?.conclusion === 'skipped') Object.assign(r, { status: 'completed', conclusion: 'skipped' });
+    },
+  });
+  gh.addRun('in_progress', null, 'skipped'); // conclusion still null: the old shortcut trusted this
+  const lines = await ready(3333, opts(gh));
+  assert.match(lines[0], /was ready with no real ci run/);
+  assert.match(lines.at(-1), /is ready; ci is running/);
+  assert.equal(gh.calls.filter((c) => c.endsWith('/ccr/ready_for_review')).length, 1);
+});
+
+test('ready: a canceled run on a ready PR does not count as tested', async () => {
+  const { ready } = await import(MODULE);
+  const gh = fakeGitHub({ draft: false });
+  gh.addRun('completed', 'cancelled', 'success'); // `changes` ran, then a push canceled the run
+  const lines = await ready(3333, opts(gh));
+  assert.match(lines[0], /was ready with no real ci run/);
+  assert.match(lines.at(-1), /is ready; ci is running/);
+});
+
+test('ready: a draft whose real run is still going fails fast with exit 3 and marks nothing ready', async () => {
+  const { ready, PrDraftError } = await import(MODULE);
+  const gh = fakeGitHub({ draft: true });
+  gh.addRun('in_progress', null, 'in_progress'); // parked mid-run, no push since
+  await assert.rejects(ready(3333, opts(gh)), (err) => err instanceof PrDraftError && err.code === 3 && /still going/.test(err.message));
+  assert.equal(gh.calls.filter((c) => c.startsWith('POST')).length, 0);
+  assert.equal(gh.ticks, 0, 'it must not wait out the real run');
+});
+
+test('ready: a run whose changes job is still queued is not called real until it starts', async () => {
+  const { ready } = await import(MODULE);
+  const gh = fakeGitHub({
+    runs: [{ id: 1, status: 'completed', conclusion: 'skipped', html_url: 'u1' }],
+    onReady: (g) => g.addRun('queued', null, 'queued'),
+    onTick: (g) => {
+      for (const jobs of Object.values(g.jobs)) if (jobs[0].status === 'queued') Object.assign(jobs[0], { status: 'in_progress' });
+    },
+  });
+  const lines = await ready(3333, opts(gh));
+  assert.ok(gh.ticks >= 1, 'it must wait for the queued changes job to start');
+  assert.match(lines.at(-1), /is ready; ci is running/);
+});
+
+test('ghApi: a missing gh says so instead of an empty error', async () => {
+  const { ghApi, PrDraftError } = await import(MODULE);
+  const saved = process.env.PATH;
+  process.env.PATH = '/nonexistent';
+  try {
+    assert.throws(() => ghApi('GET', 'repos/x/y'), (err) => err instanceof PrDraftError && err.code === 3 && /could not run gh/.test(err.message));
+  } finally {
+    process.env.PATH = saved;
+  }
 });
