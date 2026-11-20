@@ -13573,6 +13573,8 @@ const NUL_TEXT_EXTENSIONS = [
   '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.css', '.scss', '.md', '.mdx',
   '.json', '.jsonc', '.yml', '.yaml', '.html', '.svg', '.sh', '.txt', '.toml', '.py',
   '.vtt', '.webmanifest', '.patch', '.gitignore', '.gitattributes', '.nvmrc', '.cmd',
+  // The root search-tool ignore file (ripgrep's .ignore), which re-includes the code map.
+  '.ignore',
   // Peggy grammar source (tools/parser-bakeoff/grammars/peggy/) — plain text.
   '.peggy',
   // A vendored library's license text, beside its copy (lib/plugins/<name>/vendor/*.LICENSE).

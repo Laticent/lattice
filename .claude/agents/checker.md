@@ -71,3 +71,10 @@ verify and why**. Both sections are mandatory and neither is silently empty. A
 report that lists only problems leaves the reader unable to tell covered from
 unexamined — and that ambiguity is exactly what an independent pass is meant to
 remove.
+
+## Finding your way
+
+To learn **which folder** holds something, grep `dist/engineering/codemap.md`
+first: one line per folder, code part, plugin and workspace library, with its
+purpose and layer. It stops at folders, so grep inside the folder it names. If
+the file is missing, `npm run codemap:build` writes it.

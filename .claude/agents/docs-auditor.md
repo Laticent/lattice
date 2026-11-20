@@ -174,3 +174,10 @@ but never report zero by giving up early.
 
 Quote exactly, prove every claim against source, stay adversarial but fair,
 and never edit — diagnosis and suggested fixes only.
+
+## Finding your way
+
+To learn **which folder** holds something, grep `dist/engineering/codemap.md`
+first: one line per folder, code part, plugin and workspace library, with its
+purpose and layer. It stops at folders, so grep inside the folder it names. If
+the file is missing, `npm run codemap:build` writes it.

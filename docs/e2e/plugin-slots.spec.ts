@@ -185,18 +185,19 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await page.getByRole('button', { name: 'Share', exact: true }).click();
 		const sheet = page.getByRole('dialog');
 		await sheet.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
-		// Wait for EVERY frame the sheet holds to draw, not one: the sheet can still hold the frame of the
-		// earlier unapproved preview, so a poll for "some frame drew" let go while that frame still said
-		// `placeholder`, and the line below read both (studio-smoke on #3330: ["placeholder", "drawn …"]).
-		// The poll returns what it read, so a frame that never draws times out naming its state (`placeholder`)
-		// instead of `expected true, received false`.
+		// Every thumbnail, not the first: the sheet draws them one by one, so a read taken the moment ONE was drawn could
+		// still find the next as a placeholder on its way to drawn (CI, studio-smoke on PR 3307: ["placeholder", "drawn …"]).
+		// A thumbnail that never draws still fails here, at the deadline, and the failure lists what each one showed.
+		const BAD = /^(source|placeholder)$|rgba\(0, 0, 0, 0\)/;
 		await expect
-			.poll(async () => {
-				const seen = await printPreview(sheet);
-				return seen.length > 0 && seen.every((s) => s.startsWith('drawn ')) ? 'every frame drawn' : seen.join(' | ') || 'no frame read';
-			}, { timeout: 60_000, message: 'every print-preview frame draws the plugin' })
-			.toBe('every frame drawn');
-		expect(await printPreview(sheet), 'the print preview draws the plugin with its fill, never its source or a placeholder').not.toContainEqual(expect.stringMatching(/^(source|placeholder)$|rgba\(0, 0, 0, 0\)/));
+			.poll(
+				async () => {
+					const seen = await printPreview(sheet);
+					return seen.length > 0 && seen.every((s) => s.startsWith('drawn ') && !BAD.test(s)) ? 'every thumbnail drawn' : JSON.stringify(seen);
+				},
+				{ message: 'the print preview draws the plugin with its fill, never its source or a placeholder', timeout: 60_000 },
+			)
+			.toBe('every thumbnail drawn');
 		await page.keyboard.press('Escape');
 
 		// 4. THREE WIDTHS

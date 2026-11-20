@@ -237,6 +237,41 @@ async function chipReachesEverySource(page: Page) {
 	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ source: 'cloud', provider: 'openrouter', model: 'test/model' });
 }
 
+// The chip's popover prices a turn once the model catalog lands, in rows ABOVE the source switch.
+// If those rows arrive between a press and its release, the switch slides away under the pointer:
+// the radio takes focus but never the click, and "On-device" stays unpicked (model-spine:206 on
+// mobile in a loaded full Chromium run, 2026-11-20). Hold the catalog, aim, release it, compare.
+test('@crosswidth @webkit-phone @webkit-tablet @gecko the source switch stays where it was when the turn prices land', async ({ page }) => {
+	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
+	await mockOpenRouter(page);
+	let release!: () => void;
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	// Registered after mockOpenRouter, so it answers the catalog first: same body, held until released.
+	await page.route(/openrouter\.ai\/api\/v1\/models/, async (route) => {
+		await held;
+		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: MODELS }) });
+	});
+	await gotoStudio(page);
+	await openChatAtWidth(page, page.viewportSize()?.width ?? 1440);
+	await page.getByTestId('chat-model-chip-name').click();
+	const onDevice = page.getByRole('radiogroup', { name: 'Chat source' }).getByRole('radio', { name: 'On-device' });
+	await expect(onDevice).toBeVisible();
+	// Aim once the popover's opening zoom has finished, as a person's eye and Playwright's click both do.
+	// Only the popover's own finite animations: the page keeps endless ones (a spinner) that never finish.
+	await onDevice.evaluate((el) => {
+		const pop = el.closest('[data-radix-popper-content-wrapper]') ?? el;
+		const finite = pop.getAnimations({ subtree: true }).filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+		return Promise.all(finite.map((a) => a.finished));
+	});
+	const before = await onDevice.boundingBox();
+	release();
+	// The prices are what moved it: wait for the figure itself (the label stands from the first frame).
+	await expect(page.getByText('Ask a question', { exact: true }).locator('xpath=following-sibling::span[@data-usd]')).toBeVisible();
+	expect(await onDevice.boundingBox()).toEqual(before);
+});
+
 test('@webkit-tablet @gecko another tab follows a selection change without a reload', async ({ page, context }) => {
 	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
 	await mockOpenRouter(page);
