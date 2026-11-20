@@ -108,6 +108,21 @@ One rule in the deck's `style:` block sets `--rule-w`, `--rule-mark`, `--rail-w`
 
 ---
 
+<!-- _class: decision rule-auto -->
+
+## Square cards keep square tags.
+
+`Set · on a decision`
+
+- Adopt the hooks
+  - One rule in the deck squares the cards and the tag in each corner together.
+- Why not a register
+  - Presets set these internally, so the Basic settings gain no control.
+- Why not per component
+  - One token per family keeps every card on the slide in one corner language.
+
+---
+
 <!-- _class: cards-grid three dark rule-auto -->
 
 `Set · in dark mode`

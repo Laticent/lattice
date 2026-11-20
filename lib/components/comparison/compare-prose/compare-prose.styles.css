@@ -83,7 +83,7 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol::before
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
   flex:1; background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  border-radius:var(--radius-card, var(--radius-md)); padding:var(--sp-sm) var(--sp-md);
   --card-tag-rest:var(--sp-sm);
   display:grid; align-content:start; justify-items:start;
   font-weight:700; color:var(--text-heading);

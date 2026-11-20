@@ -1250,15 +1250,16 @@ style: |
 | `--rule-style` | `solid` | The same rules, except the short / accent segment, which is a filled bar |
 | `--rule-mark` | `var(--border)` | The same rules, except `rule: accent` (always `--accent`) and the dark `split-panel metric` kicker |
 | `--rail-w` | `0.35cqi` of the slide | The `spectrum-card:` rail on every card it paints |
-| `--radius-card` | `var(--radius-md)` | Every card, meaning a tile in a parallel set: `cards-grid`, `cards-stack`, `stats`, `pricing`, `verdict-grid`, `list-steps`, `list` (ordered), `actors`, `decision`, `compare-prose`, `split-compare` options, `split-panel` proof and watermark tiles, `citation-card` triptych tiles, `statute-stack`. Also what sits in a card's corner: the card tag's flush corner and band, and `pricing`'s badge |
+| `--radius-card` | `var(--radius-md)` | The cards, meaning the bordered or filled tiles that can carry a card tag: `cards-grid`, `cards-stack`, `stats`, `pricing`, `verdict-grid`, `list-steps`, `list` (ordered), `actors`, `decision`, `compare-prose`, `split-compare` options and verdict, `split-panel` proof and watermark tiles, `citation-card` triptych tiles, `statute-stack`. Also what sits in a card's corner: the card tag's flush corner and band, and `pricing`'s badge, so a tag always matches its card |
 
 `--radius-card` is not `corners:`, which shapes the slide's own surface and is square by
-default. Pills keep `--radius-full`, and quote or callout panels keep `--radius-md`.
+default. Pills keep `--radius-full`. Quote and callout panels, and diagram-like tiles
+(`matrix-2x2` quadrants, `cycle`, `authority-chain`, `regulatory-update`), keep `--radius-md`.
 
-**Two limits.** Under `mode: sketch` the heading rule is redrawn in rough ink at its own width, so
-the three rule hooks have no visible effect there. The CLI PDF writer draws a solid rule as a
-vector, but a `double` or `dashed` one stays in the page's background photo. It still prints,
-as a raster.
+**Two limits.** Under `mode: sketch` the `form` masthead rule is redrawn in rough ink at its own
+width, so the three rule hooks have no visible effect on it; the `split-panel` kicker and the
+runheads still follow them. The CLI PDF writer leaves a `double` or `dashed` rule in the page's
+background photo instead of drawing it as a vector. It still prints, as a raster.
 
 The full contract is the comment beside `--radius-*` in `base.tokens.css`.
 

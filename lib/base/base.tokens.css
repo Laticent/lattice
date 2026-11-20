@@ -232,15 +232,18 @@
    * a section-scoped remap (`section.print`, `section.dark`) cannot reach it — the same trap the
    * runhead block below documents.
    *
-   *   --radius-card  the corner of a CARD: a tile in a parallel set — cards-grid, cards-stack,
-   *                  stats, pricing, verdict-grid, list-steps, list (ordered), actors, decision,
-   *                  compare-prose, split-compare options, split-panel proof / watermark tiles,
-   *                  citation-card triptych tiles, statute-stack — plus what sits in a card's
-   *                  corner (the card tag's flush corner and band, pricing's badge). Fallback
-   *                  `var(--radius-md)`. NOT quote or callout panels (citation-card's
-   *                  blockquote), NOT `corners:` (the slide's own surface), NOT `--radius-full`
-   *                  (pills stay round), NOT the Mermaid subgraph (`--mermaid-subgraph-radius`,
-   *                  SVG user space). `0` squares the cards.
+   *   --radius-card  the corner of a CARD: a bordered or filled tile that can carry a card tag —
+   *                  cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list
+   *                  (ordered), actors, decision, compare-prose (both paths), split-compare
+   *                  options and verdict, split-panel proof / watermark tiles, citation-card
+   *                  triptych tiles, statute-stack — plus what sits in a card's corner (the
+   *                  card tag's flush corner and band, pricing's badge), so a tag and its host
+   *                  always share a corner. Fallback `var(--radius-md)`. NOT diagram-like tiles
+   *                  (matrix-2x2 quadrants, cycle, authority-chain, regulatory-update), NOT quote
+   *                  or callout panels (citation-card's blockquote), NOT `corners:` (the
+   *                  slide's own surface), NOT `--radius-full` (pills stay round), NOT the
+   *                  Mermaid subgraph (`--mermaid-subgraph-radius`, SVG user space). `0`
+   *                  squares the cards.
    *   --rule-w       the heading rule's weight. Fallback `1px` on the border-drawn rules (the
    *                  form masthead hairline, `rule-full`, the split-panel kicker, the five split-page
    *                  runheads); `0.22cqi` on the `rule-short` / `rule-accent` segment's height.
@@ -255,11 +258,13 @@
    *                  Write a `px` length; a bare `cqi` resolves against the CARD's container
    *                  when the card is one, not the slide.
    *
-   * Where they do NOT show: `mode: sketch` redraws the heading rule in rough ink at its own
-   * width and makes the border transparent (base.sketch.css § masthead divider), so the rule
-   * hooks reserve space there but draw nothing visible. The CLI PDF writer draws a solid rule
-   * as a vector and leaves a `double` / `dashed` one in the page photo (engineering/pipeline.md
-   * §3) — it still prints, as a raster.
+   * Where they do NOT show: `mode: sketch` redraws the `form` MASTHEAD rule in rough ink at its
+   * own width and makes its border transparent (base.sketch.css § masthead divider), so there
+   * the rule hooks reserve space but draw nothing visible; the split-panel kicker and the
+   * runheads still draw them. The CLI PDF writer leaves any non-solid border (`double`,
+   * `dashed`) in the page photo rather than drawing it as a vector
+   * (lib/core/pdf-compose/read-slide.mjs, the border-style bail-out) — it still prints, as a
+   * raster.
    *
    * Public settings they are NOT: presets set them internally (deck-preset study D10,
    * engineering/decisions/2026-11-20-deck-preset-study.md §5, §8 WP-tokens). */
