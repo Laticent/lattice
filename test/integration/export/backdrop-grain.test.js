@@ -6,7 +6,8 @@
  * noise in a photographed slide is the worst case for its size (a picture .pptx grew 16% before the camera marked its
  * clones). The checks, on the real exported player and the real slide camera (dist/lattice-pdf-compose-min.js):
  *   1. the live player paints the grain on a finish slide;
- *   2. the export face (`.lattice-exporting`), a native screenshot fallback (`captureScreenshot`, which marks the
+ *   2. the export face (`.lattice-exporting`), the video recorder's style (`RECORDING_STYLE`, lib/export/video.mjs), a native
+ *      screenshot fallback (`captureScreenshot`, which marks the
  *      slide `lattice-capturing` for the shot) and print switch it off (the video switches it off in its own style: lib/export/video.mjs);
  *   3. the slide camera, on its default SCREEN face (a PNG set, a picture .pptx), photographs the slide without it: its
  *      picture equals the picture of the same slide with the grain forced off, byte for byte.
@@ -81,6 +82,15 @@ test('the grain is on the live screen, and off on the export face, on a capture 
     await page.evaluate(() => document.querySelector('section.finish').classList.remove('lattice-capturing'));
     await page.emulateMediaType('print');
     assert.doesNotMatch(await maskImage(page, ''), /data:image\/png/, 'print');
+  });
+});
+
+test('the video recorder switches the grain off in the exported player it records', { timeout: 180_000 }, async () => {
+  const { RECORDING_STYLE } = await import('../../../lib/export/video.mjs');
+  await withPage(true, async (page) => {
+    assert.match(await maskImage(page, ''), /data:image\/png/, 'the exported player paints the grain');
+    await page.addStyleTag({ content: RECORDING_STYLE });
+    assert.doesNotMatch(await maskImage(page, ''), /data:image\/png/, 'the recording style switches it off');
   });
 });
 

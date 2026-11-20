@@ -90,10 +90,21 @@ That is the worst case; one slide on screen adds about 1 ms a repaint in Chromiu
 measurement read "first paint doubles": it timed a full-page PNG screenshot, whose ENCODER is what the
 noise slows. A viewer never encodes a PNG.
 
+**Accepted cost.** These were measured on the first, SVG tile; the shipped PNG tile was not re-timed.
+A player or the Studio shows one slide at a time, where the cost is about a millisecond a repaint;
+the 22 to 34% is twenty slides repainting at once, which the Studio's slide strip comes closest to.
+Scrolling stays within 2 fps. The banding it removes is visible on every dark finish slide in Safari.
+
 ## 4. Not checked
 
 - A real iPhone or iPad (WebKit 26 under Playwright on Linux was the surface) and a GPU-rendered
   browser: the rendering and memory costs above are software rendering. Present's opening frame on
   its own was not split out: the memory figure is the peak across opening and stepping.
-- The video was not recorded end to end (it needs the narration model); its switch-off is the style
-  rule above, pinned by reading.
+- The video was not recorded end to end (it needs the narration model). Its switch-off is
+  `RECORDING_STYLE` in `lib/export/video.mjs`, the style the recorder adds to the exported player, and
+  `test/integration/export/backdrop-grain.test.js` applies that string to a real exported player and
+  reads the grain gone (red with the rule removed).
+- Banding was measured in WebKit under Playwright on Linux, not in Safari on an Apple platform, whose
+  graphics backend differs. The iOS Simulator platform suites ran the player on this branch (charts on
+  iPhone and iPad, green) but do not measure banding. If Safari on Apple already dithered, the grain
+  would only add its faint texture; nothing would break.
