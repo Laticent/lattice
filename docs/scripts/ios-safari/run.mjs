@@ -763,8 +763,14 @@ async function runPresentKeepaliveProbe(id) {
 		const holds = [];
 		await call('latticeKeepaliveArmTap()');
 		await elementClick('latticeKeepaliveHelpers().presentButton()');
-		if ((await call('latticeKeepaliveOpened(8000)')).open) holds.push('an element click');
+		// A slow simulator can take well past 8 s to open Present from a click (run 44774104460: Safari took 175 s to launch).
+		// Wait for the state with a wide bound, and never touch the button's spot once Present is up: the dialog covers it.
+		if ((await call('latticeKeepaliveOpened(30000)')).open) holds.push('an element click');
 		for (let attempt = 0; attempt < 2 && !holds.length; attempt++) {
+			if ((await call('latticeKeepaliveOpened(0)')).open) {
+				holds.push('an element click, slower than its wait');
+				break;
+			}
 			await call('latticeKeepaliveArmTap()');
 			await touchTap(at.x, at.y);
 			const o = await call('latticeKeepaliveOpened(8000)');
@@ -783,6 +789,11 @@ async function runPresentKeepaliveProbe(id) {
 		r.shown = await call('latticeKeepaliveShown()');
 		if (r.shown.shown) slideHolds.push('an element click');
 		for (let attempt = 0; attempt < 2 && !slideHolds.length; attempt++) {
+			// The click may have landed late: if the chrome is up now, a second tap would hide it again.
+			if ((r.shown = await call('latticeKeepaliveShown()')).shown) {
+				slideHolds.push('an element click, slower than its wait');
+				break;
+			}
 			await call('latticeKeepaliveArmTap()');
 			await touchTap(r.immersive.x, r.immersive.y);
 			r.shown = await call('latticeKeepaliveShown()');
