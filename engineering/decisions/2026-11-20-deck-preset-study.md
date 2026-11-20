@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: A study of more deck presets. 21 candidates were rendered on one four-slide deck in their paired palette, the opposite color mode and the house palette, and scored by two independent judges; 11 revised candidates were scored again. With today's registers the best reach 8/10 and none reaches 10. Readability is solved (every bar 3.33:1 or better, every card text 6.5:1 or better); the gap is distinctness, because once the palette changes the presets collapse into each other, and every backdrop soft enough to stay off the words vanishes at sheet size. The owner chose ten target presets, let a preset carry palette, mode, chart style and backdrop as recommendations, asked for Minimal to get a real identity, set the build order for four new ingredients (title compositions, one accent on a grayscale palette, hand-drawn chart marks, and a real halftone backdrop), and set a ship floor of 8.5 with a target of 9, which no preset meets today.
+summary: A study of more deck presets, scored by two independent judges over six rounds. Rounds 1 and 2 tuned recipes from today's registers and topped out at 8/10, because presets collapse into each other once the palette changes. The owner set a ship floor of 8.5 (target 9) and asked for the limiting factors to be found and solved. Rounds 3 to 6 prototyped new ingredients as deck CSS through the real engine (light covers, heavy and double rules, rail weight, one-ink charts, grid, halftone, ruled paper), and seven presets cleared 8.5 with both judges (Earnings, Annual Report, Strategy House, Museum, Keynote, Editorial, Blueprint), plus Riso with one. Every remaining workaround traces to one of eleven engine limits (§7), each with its root cause, the presets it blocks and the fix; one of them, the PDF photographing every page background at 96 ppi, changes export bytes and waits for the owner's sign-off.
 companion:
   - ./2026-09-26-deck-presets-and-settings-tiers.md
   - ./2026-11-20-slide-and-share-presets.md
@@ -114,6 +114,87 @@ The sizes are estimates made before any code was read for them.
 Brand-forward 7, Minimal 5 and 6). So the ten ship one at a time, each when its ingredient lands
 and a judge scores it at 8.5 or higher. The shipped four are held to the same floor: raising them
 is part of the work, and Minimal's new identity (D2) is judged against it too.
+
+## 6. Rounds 3 to 6: prototyping the ingredients
+
+After D5 the owner added: *"no settling, no jank, no tech debt, no broken window when it comes to
+the designs … shoot for 8.5. Minimal and Classic are okay to fall under 8.5, maybe a few more to
+satisfy boardroom grade"*, and then: *"if we can't reach 8.5 then that means we need to identify
+and solve the limiting factors."*
+
+**Method.** Each ingredient was prototyped as deck CSS in the front matter's `style:` block, using
+palette tokens only and sizes as multiples of `--fs-h1` / `--fs-h2`, and rendered through the real
+CLI. Both judges scored every round at full resolution in own, flip and house, contrast included.
+The prototypes prove each design reads; they are not the build, and §7 says what the build needs
+instead of their selector workarounds.
+
+**Final scores (round 6).**
+
+| Preset | Judge A | Judge B | Result |
+|---|---|---|---|
+| Earnings | 9 | 8.5 | clears the floor; Judge A's 9 is the only score at the target |
+| Annual Report | 8.5 | 8.5 | clears |
+| Strategy House | 8.5 | 8.5 | clears |
+| Museum | 8.5 | 8.5 | clears |
+| Keynote | 8.5 | 8.5 | clears |
+| Editorial | 8.5 | 8.5 | clears |
+| Blueprint | 8.5 | 8.5 | clears |
+| Riso Zine | 7 (round 5, before its fixes) | 8.5 | clears with Judge B; Judge A has not rescored it |
+| Brand-forward | 8 | 8.5 | split; shipped house look, Judge A advises not to chase it |
+| Field Notes | 8 | 8 | below; capped by L7 and L8 |
+| Minimal | 7.5 | 8 | below, allowed |
+
+**What each preset's prototype adds** (all recipes in the study's round-6 `candidates.json`):
+
+- Editorial: a light cover under a heavy rule, a 4px masthead rule and no finish.
+- Strategy House: a 22px accent edge, 10px card rails, square cards, and a light cover with a
+  right-hand accent column.
+- Annual Report: a small-caps light cover over a double rule, and a double masthead rule.
+- Earnings: a light cover, a red accent edge and black-and-white charts.
+- Brand-forward: a poster cover, left-aligned, with a 44px foot band; content slides carry a
+  matching band.
+- Museum: a gallery-label cover and one warm accent across the eyebrow, the bars and the big number.
+- Keynote: a 2.75× cover and an accent glow on dark slides.
+- Blueprint: a drafting border, a two-scale grid with content-sized plates, and a boxed title.
+- Riso Zine: a halftone at the edge, a second-ink plate offset sideways, and em-based cover
+  misregistration.
+- Field Notes: a margin line, ruled paper on text slides and hand-drawn bars.
+- Minimal: no header or footer, page numbers kept, light-weight headings and square corners.
+
+**Defects the judges caught in the maker's work, and fixed:**
+
+- Stale review sheets, twice.
+- Light covers with white text, then with a muddy finish wash.
+- Rules and bands written in CSS that never rendered.
+- A bar shadow that drew bars below zero, then covered the value labels.
+- A margin line and a drawing border through the footer.
+- A halftone under the page number.
+- A plate seam through a headline.
+- `corners: square` judged dead when the Minimal preset itself defaults to rounded.
+
+## 7. The limiting factors, and how each is solved
+
+Every remaining workaround in the prototypes traces to one of these. Each references code read at
+the cited line on 2026-11-20. "Blocks" lists the presets that need it.
+
+| # | Limit | Root cause | Blocks | The fix | Kind |
+|---|---|---|---|---|---|
+| L1 | A dark slide with the bar off wipes any deck background | `section.dark.no-spectrum { background-image: none }`, `lib/base/base.variants.css:349` (and `:356` for the divider) | Keynote, Blueprint, Riso, Field Notes, Strategy's cover column | Those rules clear only the bar layer, and the engine composes a `--deck-backdrop` hook beneath it on every section | hook |
+| L2 | The title slide is hard-wired dark | `section.title { background: var(--surface-inverse); color-scheme: dark }`, `lib/components/anchor/title/title.styles.css:27`; the subtitle is fixed to `--on-dark-secondary` at `:39`; `--text-display` is remapped to the light ink | The seven light covers | A `cover: light` register: `section.title.light` repaints the canvas and `--fin-canvas`, and the inks come from scheme-aware tokens, as `divider.light` already does | register + fix |
+| L3 | Chart marks cannot take one ink | `fill`, `stroke` and `stroke-width` are `!important` at `lib/plugins/chart-family/chart-family.styles.generated.css:351-354`; the edge reads `--chart-cat-N-ink` | Earnings, Museum | A `marks: mono` value (or a `chart-ink` register) that sets `--chart-cat1` and `--chart-cat1-ink` from `--text-heading` or `--accent` | register |
+| L4 | Card rail width is fixed | `--sp-card-w: calc(… * 0.35)` on `section:is(.with-spectrum-card, …)`, `lib/base/base.accent-finish.css:197-198` | Strategy House | `--sp-card-w: var(--rail-w, calc(…))`, exposed as `rail: hair\|bold` | token |
+| L5 | Heading rule weight and style are fixed | `section.rule-full.form .cell-masthead { border-bottom: 1px solid var(--border) }`, `lib/base/base.accent-finish.css:22`; short and accent rules at `:37-56` | Editorial, Annual Report | `--rule-w`, `--rule-style` and `--rule-color` tokens defaulting to today's values, set by the preset | token |
+| L6 | A finish cannot step aside for text | The only off switch is the per-slide `no-finish` class, `lib/base/base.finish.css:1242` | Blueprint, Riso, Field Notes (hand-placed plates) | A keep-out hook on the finish layer that clears the masthead box, the footer box and the hero stack | hook |
+| L7 | No pattern finishes | Grid, halftone and ruled paper exist only as deck CSS; a true halftone needs dot size to follow tone; ruled lines need to snap to the body line-height | Blueprint, Riso, Field Notes | New `finish:` values (`grid`, `halftone`, `ruled`), built on L1 and L6 | register values |
+| L8 | Sketch mode stops at the chart | The prototype's `feTurbulence` filter is the effect `lib/core/rough-ink.js:27-29` records a veto against (it collapsed Marp's print transform). The owned CLI PDF did not shrink in round 5; export-to-Marp, PPTX, WebKit and Gecko are unverified | Field Notes | Extend `rough-ink.js`, which already draws filter-free rough paths, to chart marks | fix |
+| L9 | The PDF photographs the page background at 1× | Every CLI PDF page carries its background as one 1280×720 image at 96 ppi; measured on the shipped `classic` and `editorial` presets as well as the prototypes. The text and drawings stay vector (`engineering/pipeline.md` §3, "The page itself") | Every preset with a pattern or finish, in the exported PDF | Photograph the background at 2× or more, or emit pattern finishes as vector. **This changes the bytes of every exported PDF, so it needs the owner's export sign-off (Quality Bar)** | export |
+| L10 | Card radius is not driven by `corners:` | `corners:` shapes only the slide surface (`lib/base/base.modifiers.css:4214`); cards read `--radius-md` from `lib/base/base.tokens.css:224`, which no register sets | Strategy House | `corners: square` also zeroes the `--radius-*` component tokens | fix |
+| L11 | No second-ink token | Riso borrows `--cat-2-mark` and mixes it per mode | Riso | `--ink-2` with light and dark arms in the palette contract | token |
+
+**Order.** L1, L2 and L3 first: together they remove every selector workaround in seven of the
+eight presets that clear the floor, so each ships as a plain preset. Then L4, L5 and L10, which are
+small tokens. Then L6 and L7 together, since the pattern finishes are built on the keep-out hook.
+Then L8 and L11. L9 waits for the owner's export sign-off, rendered in dark and light.
 
 ## Reproduce
 
