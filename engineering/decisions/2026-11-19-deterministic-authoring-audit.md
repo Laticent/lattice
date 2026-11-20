@@ -431,9 +431,6 @@ behind the one before it only where it reads that one's output.
   separates them with headings. The pass also reads the deck's front-matter `class:` itself, since
   it runs before `deck_class_propagate`, so `class: steps` or `class: principles` sets the contract
   as a slide's own class does.
-- **A default VS Code preview does not apply it.** It runs no scripts, so the runtime mirror never
-  runs there; logged in `engineering/gotchas/vscode.md` §Known preview gaps. Baking the contract
-  into the exported Markdown would close it, and changes export bytes: `followups.d/3330-p3-…`.
 - **Contracts as declared.** `prose`: `content`, `list`. `numbered-tags`: `cards-grid`,
   `cards-stack`, `list-steps`, `split-panel steps` and `split-panel watermark` (which already drew
   numbered panels for `1.` and plain cards for `-`, so it was R2 in all but name). `neutral`:

@@ -5,4 +5,3 @@
 - `list-steps` written as `-` renders the same step cards without the STEP tag (it collapsed to plain text), and `list principles` written as `-` draws a dot before each principle (it fell back to the default pills).
 - `slot-contract` no longer reports a list marker: on every layout that reads a list, either marker renders as its contract says.
 - The contract applies to the layout's own list: the first top-level list, and any later one under its own heading. A list inside a blockquote (a Key Insight callout), a list after a line of prose (an aside), and a list in raw HTML are left as you wrote them. A deck-wide `class: steps` or `class: principles` sets the contract like a slide's own class.
-- In a default (Strict) Marp for VS Code preview, which runs no scripts, lists render as before; write each layout's own marker there. Exported HTML and `marp-cli` apply the contract.
