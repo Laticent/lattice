@@ -39,3 +39,18 @@ test('blockiness: a smooth glow has almost no step over a level; a 12 px stairca
 	assert.ok(m.blockiness(smooth, 0, 0, 96, 30) < 0.01);
 	assert.ok(m.blockiness(stairs, 0, 0, 96, 30) > 0.05);
 });
+
+test('worstTileAt: a local fault is found where it is; a color shift moves the slide mean, a local fault barely does', () => {
+	const flat = picture(320, 192, () => [100, 120, 140]);
+	const box = picture(320, 192, (x, y) => (x >= 128 && x < 192 && y >= 64 && y < 128 ? [30, 26, 21] : [100, 120, 140]));
+	const at = m.worstTileAt(box, flat);
+	assert.equal(at.worst, m.worstTile(box, flat), 'the same worst tile as worstTile');
+	assert.ok(at.x >= 128 && at.x < 192 && at.y >= 64 && at.y < 128, `found at ${at.x},${at.y}`);
+	assert.deepEqual(at.a.map(Math.round), [30, 26, 21]);
+	assert.deepEqual(at.b.map(Math.round), [100, 120, 140]);
+	// Color management shifts every tile the same way: the slide mean moves as far as the worst tile.
+	const shifted = picture(320, 192, () => [90, 110, 130]);
+	const s = m.worstTileAt(shifted, flat);
+	assert.deepEqual(s.meanDiff.map(Math.round), [-10, -10, -10]);
+	assert.ok(Math.abs(at.meanDiff[0]) < at.worst / 5, `a local box moves the slide mean ${at.meanDiff[0].toFixed(1)}, far less than its own ${at.worst.toFixed(1)}`);
+});

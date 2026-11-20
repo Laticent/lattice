@@ -16,7 +16,12 @@
  *      missing fade puts one region far off while the slide's mean barely moves), and, reported only, the share of large
  *      steps in a glow patch at 3x. A glow changes by under a level every 4 px, so a viewer that ignored /Interpolate would
  *      draw stairs of a level at most: invisible, and not something a gate can tell from rounding.
- * It fails when any tile is more than MAX_TILE levels from the screen. Evidence goes to
+ *   4. reported only, to tell a fault in the drawing from one in how PDFKit shows any picture: where the worst tile is, with
+ *      both colors there and the slide's mean signed difference per channel (a color-management shift moves every tile the
+ *      same way; a dropped mask moves one region); and a CONTROL arm, the same deck with the backdrop refused (a zero blur on
+ *      `.backdrop`, which `readBackdrop` refuses as `backdrop-effect` and which paints the same), so the writer photographs
+ *      it whole as it did before the backdrop was drawn.
+ * It fails when any tile is more than MAX_TILE levels from the screen (the drawn arm only). Evidence goes to
  * platform-suite-artifacts/pdf-pdfkit/: each page as PDFKit drew it, the screen, and report.json.
  *
  * Elsewhere (Linux) it draws the pages with poppler instead (`pdftoppm`), so the comparison itself is testable, and says
@@ -29,7 +34,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
-import { blockiness, worstTile } from './metrics.mjs';
+import { blockiness, worstTile, worstTileAt } from './metrics.mjs';
 
 const require = createRequire(import.meta.url);
 const { PNG } = require('pngjs');
@@ -82,6 +87,15 @@ try {
 		execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, pdf, '--quiet'], { cwd: ROOT, stdio: 'inherit' });
 		execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, html, '--quiet'], { cwd: ROOT, stdio: 'inherit' });
 		fs.copyFileSync(pdf, path.join(dir, `${slug}.pdf`));
+		// The control: the same deck, its backdrop photographed whole (refused by a zero blur, which paints the same).
+		const control = path.join(path.dirname(path.join(ROOT, deck)), `.${slug}-photo-control.md`), controlPdf = path.join(tmp, `${slug}-photo.pdf`);
+		fs.writeFileSync(control, `${fs.readFileSync(path.join(ROOT, deck), 'utf8')}\n\n<style>\nsection > .backdrop { backdrop-filter: blur(0px); }\n</style>\n`);
+		try {
+			execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), control, controlPdf, '--quiet'], { cwd: ROOT, stdio: 'inherit' });
+		} finally {
+			fs.unlinkSync(control);
+		}
+		fs.copyFileSync(controlPdf, path.join(dir, `${slug}-photo.pdf`));
 		// The screen: each slide of the HTML export, as Chrome paints it.
 		const page = await browser.newPage();
 		await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
@@ -89,20 +103,27 @@ try {
 		await page.evaluate(() => document.fonts.ready);
 		const sections = await page.$$('section');
 		const pages = drawPages(pdf, path.join(dir, 'pdf'), W / (fs.existsSync(pdf) ? pageWidthPt(pdf) : 960));
+		const photos = drawPages(controlPdf, path.join(dir, 'pdf-photo'), W / pageWidthPt(controlPdf));
 		const zoom = drawPages(pdf, path.join(dir, 'pdf-3x'), (3 * W) / pageWidthPt(pdf));
 		const rows = [];
+		const rgb = (c) => c.map((v) => Math.round(v)).join(',');
 		for (let i = 0; i < pages.length; i++) {
 			const shot = path.join(dir, `screen-${String(i + 1).padStart(2, '0')}.png`);
 			await sections[i].scrollIntoView();
 			await sections[i].screenshot({ path: shot });
-			const tile = worstTile(readPng(pages[i]), readPng(shot));
+			const screen = readPng(shot), drawn = readPng(pages[i]);
+			const tile = worstTile(drawn, screen);
+			const at = worstTileAt(drawn, screen);
+			const photo = photos[i] ? worstTileAt(readPng(photos[i]), screen) : null;
 			// Reported, not gated: the share of steps over a level in a glow patch at 3x (see metrics.mjs).
 			const z = readPng(zoom[i]);
 			const steps = blockiness(z, Math.floor(z.width * 0.55), Math.floor(z.height * 0.62), Math.floor(z.width * 0.4), Math.floor(z.height * 0.3));
 			const ok = tile <= MAX_TILE;
 			if (!ok) failed++;
-			rows.push({ slide: i + 1, worstTile: Math.round(tile * 100) / 100, bigSteps: Math.round(steps * 1000) / 1000, ok });
+			rows.push({ slide: i + 1, worstTile: Math.round(tile * 100) / 100, bigSteps: Math.round(steps * 1000) / 1000, ok, at, photo });
 			console.log(`${ok ? 'ok  ' : 'FAIL'} ${slug} slide ${i + 1}: worst ${32}px tile ${tile.toFixed(2)} levels from the screen; steps over a level in the glow ${(steps * 100).toFixed(1)}%`);
+			console.log(`       drawn: worst tile at ${at.x},${at.y} pdf ${rgb(at.a)} screen ${rgb(at.b)}; slide mean signed diff ${at.meanDiff.map((v) => v.toFixed(2)).join(',')}`);
+			if (photo) console.log(`       photo control: worst tile ${photo.worst.toFixed(2)} at ${photo.x},${photo.y} pdf ${rgb(photo.a)} screen ${rgb(photo.b)}; slide mean signed diff ${photo.meanDiff.map((v) => v.toFixed(2)).join(',')}`);
 		}
 		await page.close();
 		report.decks.push({ deck, slides: rows });
