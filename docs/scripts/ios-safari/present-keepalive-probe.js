@@ -50,7 +50,9 @@ function latticeKeepaliveHelpers() {
 	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	/** The Studio's own Present button: the visible one (a phone keeps a second, hidden copy in another bar). */
 	const presentButton = () => [...document.querySelectorAll('button')].find((b) => visible(b) && (b.textContent.trim() === 'Present' || b.getAttribute('aria-label') === 'Present'));
-	return { sleep, until, dialog, counter, button, opacity, top, frame, band, walked, playing, presentButton };
+	/** The gesture layer behind the slide (the backdrop): its middle is the middle of the slide. */
+	const backdrop = () => [...document.querySelectorAll('div[aria-hidden="true"].lx-ui.fixed')].find((d) => getComputedStyle(d).zIndex === '100');
+	return { sleep, until, dialog, counter, button, opacity, top, frame, band, walked, playing, presentButton, backdrop };
 }
 
 /** Where to tap the Studio's Present button. The DRIVER taps it with a real touch: WebKit grants the screen wake lock only
@@ -83,7 +85,7 @@ async function latticeKeepaliveOpen() {
 	await h.until(() => h.dialog() && h.counter(), 30000, 'the Present dialog and its counter (after the tap on Present)');
 	// The lock is asked for on open and arrives asynchronously; `unsupported` or `not held` after the wait is the finding.
 	const wake = await h.until(() => (h.dialog()?.getAttribute('data-wake') === 'held' ? 'held' : null), 10000, 'the screen wake lock').catch(() => h.dialog()?.getAttribute('data-wake') || 'no attribute');
-	return { ua: navigator.userAgent, width: innerWidth, total: h.counter()[1], wake, hasApi: 'wakeLock' in navigator };
+	return { ua: navigator.userAgent, width: innerWidth, total: h.counter()[1], wake, hasApi: 'wakeLock' in navigator, backdrop: !!h.backdrop() };
 }
 
 async function latticeKeepaliveImmersive() {
@@ -158,9 +160,9 @@ function latticeKeepaliveChecks(r, { realSafari }) {
 	return [
 		// WebKit grants the lock only inside a user gesture, and a slow simulator can stretch a tap past what counts as one. So
 		// the claim is the product's: after a real tap (the one that opened Present, or the tap on the slide) the lock is held.
-		{ name: 'Present holds a screen wake lock after a real tap', pass: (r.wakeAfterTap?.wake ?? r.open?.wake) === 'held', detail: `at open ${r.open?.wake}, after the slide tap ${r.wakeAfterTap?.wake ?? 'not read'}; navigator.wakeLock ${r.open?.hasApi ? 'present' : 'absent'}${r.taps ? `; Present opened by a touch held ${r.taps}` : ''}` },
+		{ name: 'Present holds a screen wake lock after a real tap', pass: (r.wakeAfterTap?.wake ?? r.open?.wake) === 'held', detail: `at open ${r.open?.wake}, after the slide tap ${r.wakeAfterTap?.wake ?? 'not read'}; navigator.wakeLock ${r.open?.hasApi ? 'present' : 'absent'}${r.taps ? `; Present opened by ${r.taps}` : ''}` },
 		{ name: 'Fullscreen turns on the immersive layout, and its chrome fades', pass: r.immersive?.immersive === true, detail: `${realSafari ? 'real full screen ' + (r.immersive?.realFullscreen ? 'granted' : 'refused') : ''} slide ${r.immersive?.frame?.join('x')}` },
-		{ name: 'a touch tap on the slide brings the chrome back', pass: r.shown?.shown === true, detail: `top bar opacity ${r.shown?.opacity}${r.slideTaps ? `; the tap held ${r.slideTaps}` : ''}` },
+		{ name: 'a touch tap on the slide brings the chrome back', pass: r.shown?.shown === true, detail: `top bar opacity ${r.shown?.opacity}${r.slideTaps ? `; the slide tapped by ${r.slideTaps}` : ''}` },
 		{ name: 'the captions ride inside the slide and their highlight walks the words', pass: r.play?.inside === true && r.play?.lit > 1, detail: `"${r.play?.caption}" ${r.play?.lit} lit, ${r.play?.fontPx}px on a ${r.play?.frameW}px slide` },
 		{ name: 'Next while playing: the next slide plays on its own and the lock is still held', pass: r.next?.to === r.next?.from + 1 && r.next?.still === true && r.next?.wake === 'held', detail: `${r.next?.from} -> ${r.next?.to}, "${r.next?.caption}", wake ${r.next?.wake}` },
 		{ name: 'closing Present stops the narration', pass: r.close?.stopped === true, detail: '' },

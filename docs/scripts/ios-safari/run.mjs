@@ -741,6 +741,15 @@ async function runPresentKeepaliveProbe(id) {
 		return r;
 	};
 	const touchTap = (x, y) => wd('POST', `/session/${id}/actions`, { actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }] }).then(() => wd('DELETE', `/session/${id}/actions`).catch(() => {}));
+	// WebDriver's ELEMENT click: a real user gesture to Safari (it grants activation, so the wake lock), with no finger hold
+	// for a slow simulator to stretch into a long press. Scripted touches did exactly that on three of four macOS runs
+	// (holds of 406 to 25318 ms). The element comes back from a sync script as a WebDriver reference, as focus-sync does.
+	const elementClick = async (expr) => {
+		const el = await wd('POST', `/session/${id}/execute/sync`, { script: `${source}\nreturn ${expr};`, args: [] });
+		const ref = el?.['element-6066-11e4-a52e-4f735466cecf'] ?? (el ? Object.values(el)[0] : null);
+		if (!ref) throw new Error(`no element for ${expr}`);
+		await wd('POST', `/session/${id}/element/${ref}/click`, {});
+	};
 	const r = {};
 	let error = '';
 	try {
@@ -752,12 +761,15 @@ async function runPresentKeepaliveProbe(id) {
 		// followups.d/3223-p1). Read the hold the page saw; a long press is delivered again ONCE, the shape tap-guard uses.
 		const at = await call('latticeKeepalivePresentAt()');
 		const holds = [];
-		for (let attempt = 0; attempt < 2; attempt++) {
+		await call('latticeKeepaliveArmTap()');
+		await elementClick('latticeKeepaliveHelpers().presentButton()');
+		if ((await call('latticeKeepaliveOpened(8000)')).open) holds.push('an element click');
+		for (let attempt = 0; attempt < 2 && !holds.length; attempt++) {
 			await call('latticeKeepaliveArmTap()');
 			await touchTap(at.x, at.y);
 			const o = await call('latticeKeepaliveOpened(8000)');
 			const hold = tapHold(o.log);
-			holds.push(hold === null ? 'no touch seen' : `${hold} ms`);
+			holds.push(hold === null ? 'a touch the page never saw' : `a touch held ${hold} ms`);
 			if (o.open || (hold !== null && hold < LONG_PRESS_MS)) break;
 		}
 		r.taps = holds.join(', then ');
@@ -766,12 +778,16 @@ async function runPresentKeepaliveProbe(id) {
 		// A real finger: a WebDriver touch at the slide, as the owner taps it, re-delivered ONCE if iOS read it as a long press
 		// (no click follows a long press, so the tap rule never sees it): the same guard as the Present tap above.
 		const slideHolds = [];
-		for (let attempt = 0; attempt < 2; attempt++) {
+		await call('latticeKeepaliveArmTap()');
+		await elementClick('latticeKeepaliveHelpers().backdrop()');
+		r.shown = await call('latticeKeepaliveShown()');
+		if (r.shown.shown) slideHolds.push('an element click');
+		for (let attempt = 0; attempt < 2 && !slideHolds.length; attempt++) {
 			await call('latticeKeepaliveArmTap()');
 			await touchTap(r.immersive.x, r.immersive.y);
 			r.shown = await call('latticeKeepaliveShown()');
 			const hold = tapHold(await call('({ events: (window.__kaTap || { events: [] }).events })'));
-			slideHolds.push(hold === null ? 'no touch seen' : `${hold} ms`);
+			slideHolds.push(hold === null ? 'a touch the page never saw' : `a touch held ${hold} ms`);
 			if (r.shown.shown || (hold !== null && hold < LONG_PRESS_MS)) break;
 		}
 		r.slideTaps = slideHolds.join(', then ');
