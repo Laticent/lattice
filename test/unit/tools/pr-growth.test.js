@@ -28,6 +28,10 @@ test('classify: each path lands in one row', () => {
     'package.json': 'config',
     '.github/workflows/ci.yml': 'config',
     'package-lock.json': 'generated',
+    'docs/src/content/docs/guide.mdx': 'docs',
+    'examples/README.md': 'docs',
+    'examples/deck-class-register.pdf': 'assets',
+    'test/integration/goldens/a.png': 'assets',
     'lib/plugins/styles.generated.js': 'generated',
   };
   for (const [file, kind] of Object.entries(cases)) assert.equal(classify(file), kind, file);
@@ -65,10 +69,10 @@ test('CSS: block comments count, and a // inside url() does not', () => {
   assert.deepEqual(lines(commentLines('x.css', css)), [1, 3, 4, 5]);
 });
 
-test('shell and YAML: # lines count, a shebang and an inline # do not', () => {
+test('shell: # lines count, a shebang and an inline # do not; YAML is config and is not split', () => {
   const sh = '#!/bin/bash\n# comment\necho "# not one"\n  # indented\n';
   assert.deepEqual(lines(commentLines('x.sh', sh)), [2, 4]);
-  assert.deepEqual(lines(commentLines('x.yml', 'a: 1 # trailing\n# whole\n')), [2]);
+  assert.equal(commentLines('x.yml', 'a: 1 # trailing\n# whole\n').size, 0);
 });
 
 test('Astro: front matter, HTML comments and style blocks are each read in their own language', () => {
@@ -146,8 +150,58 @@ test('the pre-merge card renders a GROWTH section within the phone width', () =>
   };
   const r = renderCard(card);
   assert.equal(r.ok, true, r.errors.join('; '));
-  const at = r.lines.indexOf('GROWTH — vs main, from git');
+  const at = r.lines.indexOf('GROWTH — vs origin/main, from git');
   assert.ok(at > 0, 'GROWTH section present');
   assert.ok(!r.lines.some((l) => l.includes('tests')), 'an unchanged kind is left out');
   for (const l of r.lines) assert.ok(displayWidth(l) <= WIDTH, `"${l}" is ${displayWidth(l)} columns`);
+});
+
+test('cUnquote reverses git C-quoting, octal UTF-8 bytes included', () => {
+  const { cUnquote } = require('../../../tools/pr-growth');
+  assert.equal(cUnquote('"docs/e2e/\\303\\274.ts"'), 'docs/e2e/ü.ts');
+  assert.equal(cUnquote('"a\\tb\\"c\\\\d"'), 'a\tb"c\\d');
+  assert.equal(cUnquote('plain/path.js'), 'plain/path.js');
+});
+
+test('JSX text that looks like a comment is page text, and deep nesting keeps its comments', () => {
+  assert.deepEqual(lines(commentLines('x.tsx', 'const p = (\n  <p>\n    // shown on the page\n  </p>\n);\n// real\n')), [6]);
+  const deep = `// top\nconst x = ${Array.from({ length: 20000 }, (_, i) => `"p${i}"`).join(' + ')};\n// bottom\n`;
+  assert.deepEqual(lines(commentLines('deep.js', deep)), [1, 3]);
+});
+
+test('growth() ignores user git config and reads odd paths: noprefix, suppressBlankEmpty, spaces, UTF-8', (t) => {
+  const r = repo();
+  t.after(r.cleanup);
+  r.write('lib/sp ace.js', 'const a = 1;\n\n// keep\n');
+  r.write('docs/e2e/ü.ts', 'export {};\n');
+  r.git('add', '-A');
+  r.git('commit', '-q', '-m', 'base');
+  r.git('checkout', '-q', '-b', 'feature');
+  // The blank context line matters: with diff.suppressBlankEmpty it prints as '' and, unhandled,
+  // shifts every later line number by one, so the added code line would land on '// keep'.
+  r.write('lib/sp ace.js', 'const a = 1;\n\n// keep\nconst z = 0;\n');
+  r.write('docs/e2e/ü.ts', 'export {};\n// why\n');
+  r.git('add', '-A');
+  r.git('commit', '-q', '-m', 'feature');
+  r.git('config', 'diff.noprefix', 'true');
+  r.git('config', 'diff.suppressBlankEmpty', 'true');
+  r.git('config', 'core.quotePath', 'true');
+  const g = growth({ base: 'main', head: 'HEAD', cwd: r.dir });
+  const row = (k) => g.rows.find((x) => x.kind === k);
+  assert.deepEqual(row('code'), { kind: 'code', added: 1, removed: 0, files: 1 });
+  assert.deepEqual(row('comments'), { kind: 'comments', added: 1, removed: 0, files: 1 });
+  assert.deepEqual(row('tests'), { kind: 'tests', added: 0, removed: 0, files: 1 });
+  assert.equal(row('config').files, 0, 'no file fell into config');
+});
+
+test('card CLI: a hand-typed growth block is refused, and --base needs a value', () => {
+  const { spawnSync } = require('node:child_process');
+  const CARD = path.join(__dirname, '..', '..', '..', 'tools', 'card.js');
+  const yaml = 'card: pre-merge\npr: 1\npick: {verdict: merge, why: w}\nconfidence: {level: very high, limited_by: nothing, graded_by: checker agent}\nraise_it: nothing outstanding\nraised: none\nchange: {what: w, why: w}\nproof: {ran: r}\nrisk: {if_wrong: w, revert: r, left_behind: none}\ngrowth: {base: origin/main, rows: []}\n';
+  const typed = spawnSync(process.execPath, [CARD, '--no-growth', '-'], { input: yaml, encoding: 'utf8' });
+  assert.equal(typed.status, 1);
+  assert.match(typed.stderr, /growth: is read from git/);
+  const noValue = spawnSync(process.execPath, [CARD, '-', '--base'], { input: yaml, encoding: 'utf8' });
+  assert.equal(noValue.status, 2);
+  assert.match(noValue.stderr, /--base needs a git ref/);
 });

@@ -16,7 +16,7 @@
  */
 
 const Ajv = require('ajv');
-const { growthLines } = require('./pr-growth');
+const { growthLines, KINDS } = require('./pr-growth');
 
 const WIDTH = 38;
 const MAX_FIELD_LINES = 2;
@@ -71,7 +71,23 @@ const SCHEMAS = {
       growth: {
         type: 'object',
         required: ['base', 'rows'],
-        properties: { base: { type: 'string' }, rows: { type: 'array' } },
+        properties: {
+          base: { type: 'string' },
+          rows: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['kind', 'added', 'removed', 'files'],
+              additionalProperties: false,
+              properties: {
+                kind: { enum: KINDS },
+                added: { type: 'integer', minimum: 0 },
+                removed: { type: 'integer', minimum: 0 },
+                files: { type: 'integer', minimum: 0 },
+              },
+            },
+          },
+        },
       },
     },
   },
@@ -401,7 +417,8 @@ function renderPreMerge(d, page) {
   page.field('revert', d.risk.revert, 'risk.revert');
   page.field('left behind', d.risk.left_behind, 'risk.left_behind');
   if (d.growth) {
-    page.section(`GROWTH — vs ${String(d.growth.base).replace(/^origin\//, '')}, from git`);
+    // The base as given: `main` and `origin/main` can differ by a stale local branch.
+    page.section(`GROWTH — vs ${d.growth.base}, from git`);
     for (const line of growthLines(d.growth)) page.raw(line, 'growth');
   }
 }

@@ -14,10 +14,14 @@
  *   - JS / TS / JSX / TSX: the TypeScript parser (`typescript`, already a devDependency), so a `//`
  *     inside a string, a template literal or a regular expression is not a comment;
  *   - CSS: `maskCssComments` from lib/core/css-comments.mjs, the engine's own comment reader;
- *   - shell, YAML, Python, TOML: a line whose first non-blank character is `#` (not a `#!` shebang);
+ *   - shell and Python: a line whose first non-blank character is `#` (not a `#!` shebang); a `#`
+ *     line inside a heredoc is counted as a comment, a known limit;
  *   - Astro, Svelte, Vue, HTML: `<!-- -->` comments, plus the script and style parts read as above.
  * The code, style and tests rows count NON-comment lines; the comments row counts the comment lines
- * across all of them, so no line is counted twice.
+ * across all of them, so no line is counted twice. The config, docs and decks rows are not split.
+ *
+ * Your own git config cannot move the numbers: the diff runs with fixed prefixes, unquoted paths,
+ * no textconv and no relative mode (`DIFF_ARGS`). A path git still quotes is unquoted here.
  *
  * Usage:
  *   node tools/pr-growth.js                  # table for HEAD against origin/main
@@ -28,11 +32,13 @@ const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
 /** Display order of the card's rows. */
-const KINDS = ['docs', 'decks', 'code', 'comments', 'style', 'tests', 'config', 'generated'];
+const KINDS = ['docs', 'decks', 'code', 'comments', 'style', 'tests', 'config', 'assets', 'generated'];
 
 const CODE_EXT = new Set(['.js', '.mjs', '.cjs', '.jsx', '.ts', '.mts', '.cts', '.tsx']);
 const MARKUP_EXT = new Set(['.astro', '.svelte', '.vue', '.html', '.htm']);
-const HASH_EXT = new Set(['.sh', '.bash', '.py', '.yml', '.yaml', '.toml']);
+const HASH_EXT = new Set(['.sh', '.bash', '.py']);
+/** Binary media and fonts: counted by file, never by line. */
+const ASSET_EXT = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.ico', '.woff', '.woff2', '.ttf', '.otf', '.mp3', '.mp4', '.ogg', '.opus', '.wav', '.zip']);
 const STYLE_EXT = new Set(['.css']);
 
 /**
@@ -46,9 +52,11 @@ function classify(file) {
   if (base === 'package-lock.json' || /\.generated\.[a-z]+$/.test(base) || p.includes('/__snapshots__/')) {
     return 'generated';
   }
+  if (ASSET_EXT.has(ext)) return 'assets';
   if (/^(test|tests)\//.test(p) || p.startsWith('docs/e2e/') || /\.(test|spec)\.[a-z]+$/.test(base)) return 'tests';
-  if (ext === '.md') {
-    if (/^(examples|exemplars)\//.test(p) || base.endsWith('.gallery.md')) return 'decks';
+  if (ext === '.md' || ext === '.mdx') {
+    if (base.endsWith('.gallery.md')) return 'decks';
+    if (ext === '.md' && /^(examples|exemplars)\//.test(p) && base.toLowerCase() !== 'readme.md') return 'decks';
     return 'docs';
   }
   if (STYLE_EXT.has(ext)) return 'style';
@@ -75,11 +83,15 @@ function cssCommentMask() {
 /** `text` with the [start, end) ranges replaced by spaces, newlines kept. */
 function blankRanges(text, ranges) {
   if (!ranges.length) return text;
-  const chars = text.split('');
-  for (const [start, end] of ranges) {
-    for (let i = start; i < end && i < chars.length; i++) if (chars[i] !== '\n' && chars[i] !== '\r') chars[i] = ' ';
+  let out = '';
+  let at = 0;
+  for (const [start, end] of [...ranges].sort((a, b) => a[0] - b[0])) {
+    if (end <= at) continue;
+    const from = Math.max(start, at);
+    out += text.slice(at, from) + text.slice(from, end).replace(/[^\r\n]/g, ' ');
+    at = end;
   }
-  return chars.join('');
+  return out + text.slice(at);
 }
 
 /** Every comment range in JS or TS source, from the TypeScript parser. */
@@ -91,13 +103,21 @@ function scriptCommentRanges(text, file) {
   const sf = t.createSourceFile(file || 'x.js', text, t.ScriptTarget.Latest, true, kind);
   const seen = new Map();
   const add = (ranges) => { for (const r of ranges || []) seen.set(r.pos, r.end); };
-  const visit = (node) => {
+  // An explicit stack, not recursion: a deeply nested expression (thousands of `a + b + …`)
+  // would overflow the call stack and silently drop the file's comments.
+  const stack = [sf];
+  const jsxText = [];
+  while (stack.length) {
+    const node = stack.pop();
+    if (node.kind === t.SyntaxKind.JsxText) jsxText.push([node.pos, node.end]);
     add(t.getLeadingCommentRanges(text, node.getFullStart()));
     add(t.getTrailingCommentRanges(text, node.getEnd()));
-    for (const child of node.getChildren(sf)) visit(child);
-  };
-  visit(sf);
-  return [...seen].map(([pos, end]) => [pos, end]);
+    const kids = node.getChildren(sf);
+    for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]);
+  }
+  // JSX text is page text: a `// …` line inside <p> is not a comment, whichever node's scan found it.
+  const inJsxText = (pos) => jsxText.some(([a, b]) => pos >= a && pos < b);
+  return [...seen].filter(([pos]) => !inJsxText(pos)).map(([pos, end]) => [pos, end]);
 }
 
 /** Script text with its comments blanked. */
@@ -153,7 +173,8 @@ function commentLines(file, text) {
     else if (MARKUP_EXT.has(ext)) masked = maskMarkup(text, file);
     else if (HASH_EXT.has(ext)) masked = maskHash(text);
     else return new Set();
-  } catch {
+  } catch (err) {
+    console.error(`pr-growth: could not read the comments in ${file} (${String(err.message).split('\n')[0]}); its lines count as code`);
     return new Set();
   }
   const orig = text.split('\n');
@@ -167,7 +188,64 @@ function commentLines(file, text) {
 
 function git(args, cwd, input) {
   // No `encoding`: execFileSync then returns a Buffer, which cat-file's byte offsets need.
-  return execFileSync('git', args, { cwd, input, maxBuffer: 1 << 30 });
+  try {
+    return execFileSync('git', args, { cwd, input, maxBuffer: 1 << 30, stdio: ['pipe', 'pipe', 'pipe'] });
+  } catch (err) {
+    const why = String(err.stderr || err.message).trim().split('\n')[0];
+    throw new Error(`git ${args.find((a) => !a.startsWith('-') && !a.includes('='))}: ${why}`);
+  }
+}
+
+/**
+ * The diff's settings, fixed so no user or repo config changes what is counted: `a/` and `b/`
+ * prefixes (diff.noprefix, diff.mnemonicPrefix), raw UTF-8 paths (core.quotePath), blank context
+ * lines kept as a single space (diff.suppressBlankEmpty), no textconv drivers, no relative mode.
+ */
+const DIFF_ARGS = [
+  '-c', 'core.quotePath=false', '-c', 'diff.suppressBlankEmpty=false',
+  '-c', 'diff.noprefix=false', '-c', 'diff.mnemonicPrefix=false',
+  'diff', '--no-textconv', '--no-relative', '--src-prefix=a/', '--dst-prefix=b/',
+  '-M', '--no-color', '--no-ext-diff',
+];
+
+const ESCAPES = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13, '"': 34, '\\': 92 };
+
+/** Undo git's C-style quoting of a path (a quoted name with backslash escapes and octal bytes). */
+function cUnquote(s) {
+  if (!s.startsWith('"') || !s.endsWith('"')) return s;
+  const bytes = [];
+  const body = Array.from(s.slice(1, -1)); // code points, so an emoji stays whole
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch !== '\\') { bytes.push(...Buffer.from(ch, 'utf8')); continue; }
+    const next = body[i + 1];
+    if (/[0-7]/.test(next)) { bytes.push(Number.parseInt(body.slice(i + 1, i + 4).join(''), 8)); i += 3; continue; }
+    bytes.push(ESCAPES[next] ?? next.charCodeAt(0));
+    i += 1;
+  }
+  return Buffer.from(bytes).toString('utf8');
+}
+
+/** A `--- a/x` / `+++ b/x` / `rename from x` path: tab suffix cut, unquoted, prefix dropped. */
+function pathOf(raw, prefix) {
+  const value = raw.split('\t')[0];
+  if (value === '/dev/null') return null;
+  const p = cUnquote(value);
+  return prefix && p.startsWith(prefix) ? p.slice(prefix.length) : p;
+}
+
+/** The paths on a `diff --git a/X b/Y` line, used only when no `---`/`+++` lines follow. */
+function gitLinePaths(rest) {
+  if (rest.startsWith('"')) {
+    const end = rest.indexOf('" ', 1);
+    return [pathOf(rest.slice(0, end + 1), 'a/'), pathOf(rest.slice(end + 2), 'b/')];
+  }
+  const half = (rest.length - 1) / 2;
+  if (Number.isInteger(half) && rest.slice(2, half) === rest.slice(half + 3)) {
+    return [rest.slice(2, half), rest.slice(half + 3)];
+  }
+  const at = rest.lastIndexOf(' b/');
+  return [pathOf(rest.slice(0, at), 'a/'), pathOf(rest.slice(at + 1), 'b/')];
 }
 
 /**
@@ -183,8 +261,7 @@ function parseDiff(out) {
     if (line.startsWith('diff --git ')) {
       cur = { oldPath: null, newPath: null, binary: false, added: [], removed: [], inHunks: false };
       files.push(cur);
-      const m = /^diff --git "?a\/(.+?)"? "?b\/(.+?)"?$/.exec(line);
-      if (m) { cur.oldPath = m[1]; cur.newPath = m[2]; }
+      [cur.oldPath, cur.newPath] = gitLinePaths(line.slice(11));
       continue;
     }
     if (!cur) continue;
@@ -193,12 +270,13 @@ function parseDiff(out) {
     if (cur.inHunks) {
       if (line.startsWith('+')) { cur.added.push(newLine++); continue; }
       if (line.startsWith('-')) { cur.removed.push(oldLine++); continue; }
+      // A blank context line is ' '; '' is the end of the output (suppressBlankEmpty is forced off).
       if (line.startsWith(' ')) { oldLine++; newLine++; continue; }
     }
-    if (line.startsWith('--- ')) { cur.oldPath = line === '--- /dev/null' ? null : line.slice(6).replace(/^"|"$/g, ''); continue; }
-    if (line.startsWith('+++ ')) { cur.newPath = line === '+++ /dev/null' ? null : line.slice(6).replace(/^"|"$/g, ''); continue; }
-    if (line.startsWith('rename from ')) { cur.oldPath = line.slice(12); continue; }
-    if (line.startsWith('rename to ')) { cur.newPath = line.slice(10); continue; }
+    if (line.startsWith('--- ')) { cur.oldPath = pathOf(line.slice(4), 'a/'); continue; }
+    if (line.startsWith('+++ ')) { cur.newPath = pathOf(line.slice(4), 'b/'); continue; }
+    if (line.startsWith('rename from ')) { cur.oldPath = pathOf(line.slice(12), ''); continue; }
+    if (line.startsWith('rename to ')) { cur.newPath = pathOf(line.slice(10), ''); continue; }
     if (line.startsWith('new file mode')) { cur.oldPath = null; continue; }
     if (line.startsWith('deleted file mode')) { cur.newPath = null; continue; }
     if (line.startsWith('Binary files ')) { cur.binary = true; continue; }
@@ -235,7 +313,7 @@ function growth({ base = 'origin/main', head = 'HEAD', cwd = process.cwd() } = {
   const headSha = git(['rev-parse', head], cwd).toString('utf8').trim();
   // Default context, not -U0: git can align a hunk differently with no context, and the
   // default is what `git diff --numstat` and GitHub's PR counts use.
-  const diff = git(['diff', '-M', '--no-color', '--no-ext-diff', mergeBase, headSha], cwd).toString('utf8');
+  const diff = git([...DIFF_ARGS, mergeBase, headSha], cwd).toString('utf8');
   const files = parseDiff(diff);
 
   const specs = [];
@@ -270,7 +348,7 @@ function growth({ base = 'origin/main', head = 'HEAD', cwd = process.cwd() } = {
 
 /** The card's lines for a growth result: rows with any change, then a total. Fits 38 columns. */
 function growthLines(g) {
-  const fmt = (r) => `  ${r.kind.padEnd(10)}${`+${r.added}`.padStart(7)}${`−${r.removed}`.padStart(8)}${String(r.files).padStart(7)}`;
+  const fmt = (r) => `  ${r.kind.padEnd(10)}${`+${r.added}`.padStart(8)}${`−${r.removed}`.padStart(9)}${String(r.files).padStart(6)}`;
   const shown = g.rows.filter((r) => r.added || r.removed || r.files);
   const total = shown.filter((r) => r.kind !== 'comments').reduce(
     (t, r) => ({ kind: 'total', added: t.added + r.added, removed: t.removed + r.removed, files: t.files + r.files }),
@@ -281,13 +359,13 @@ function growthLines(g) {
   total.added += c ? c.added : 0;
   total.removed += c ? c.removed : 0;
   return [
-    `  ${'kind'.padEnd(10)}${'added'.padStart(7)}${'removed'.padStart(8)}${'files'.padStart(7)}`,
+    `  ${'kind'.padEnd(10)}${'added'.padStart(8)}${'removed'.padStart(9)}${'files'.padStart(6)}`,
     ...shown.map(fmt),
     fmt(total),
   ];
 }
 
-module.exports = { classify, commentLines, parseDiff, growth, growthLines, KINDS };
+module.exports = { classify, commentLines, parseDiff, cUnquote, growth, growthLines, KINDS };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

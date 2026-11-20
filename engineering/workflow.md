@@ -2224,8 +2224,9 @@ kind: `docs`, `decks`, `code`, `comments`, `style`, `tests`, `config` and `gener
 no change is left out. The `code`, `style` and `tests` rows count non-comment lines, and the
 `comments` row counts the comment lines across all three, so no line is counted twice and the total
 equals `git diff --numstat`. A real parser finds the comments: TypeScript for JS and TS, the
-engine's CSS comment reader for CSS. A `//` inside a string is not a comment. A typical PR takes
-about 50 ms. It replaced a CI size budget (owner's D3, 2026-11-19): the owner reads the numbers at
+engine's CSS comment reader for CSS. A `//` inside a string is not a comment. Measured: about 50 ms
+for a PR of docs and shell (#3313, 14 files), about 250 ms for one that changes JavaScript, since
+loading the TypeScript parser costs about 200 ms. Your own git config cannot move the numbers. It replaced a CI size budget (owner's D3, 2026-11-19): the owner reads the numbers at
 the merge gate instead of a gate enforcing a number.
 
 Template:
