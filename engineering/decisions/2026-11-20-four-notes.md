@@ -55,6 +55,17 @@ comment (kept in the `.lattice` file, outside the markdown). A markdown file can
 | N2 | Names | **`note`, `say`, `alt`, `handout`.** `describe` becomes `alt` and `reader` becomes `handout`. |
 | N3 | A plain comment | **Goes nowhere.** It stops being the speaker note. |
 | N4 | Record fields `note=`, `say=`, `describe=`, `reader=` | **Retired and removed** ("we are not GA"). The record holds settings only. |
+| N5 | A plain comment in an export that carries the source | **Travels with the source, like a code comment; `--strip-notes` removes it.** Five exports carry the raw markdown: the HTML player, PDF `--embed-source`, the reopenable `.lattice` inside a PDF or PPTX, the Studio Markdown share, and the Marp bundle. A plain comment never renders, speaks or annotates, but it rides in that source unless `--strip-notes` is set. The Marp bundle always strips it, because Marp would show it as a speaker note. |
+| N6 | The front-matter `say:` map | **Removed.** It was a second spelling of `@say` (3 files), with a renumbering writer (`lib/core/renumber-say.mjs`), a remap across split and hidden slides, its own scrub, and an open numbering defect (`followups.d/3287-p2-front-matter-say-map-numbering.md`). The codemod moves each entry onto its slide as `@say{…}`. |
+| N7 | The LFM spec | **Folded into the LFM 2.0 draft** that `2026-10-17-meta-record.md` §9 step 7 already plans, with conformance cases, in this PR. §3.5 of LFM 1.0 and 1.1 stays as ratified. |
+
+**Decided by the maker, inside this branch:**
+
+- **The codemod turns every plain comment that ships as a speaker note today into `@note{…}`**, so no deck's output
+  changes (373 in 76 decks and fixtures). Comments that are plainly author labels go back to plain comments in a
+  separate, reviewed commit.
+- **Export to Marp:** `@note` becomes a plain Marp note, `@handout` a note labeled `Handout:`, and `@say` and `@alt`
+  are dropped, because Marp has no channel for either. Before this change they leaked into Marp's speaker notes.
 
 ## 3. Why the old model confused people
 
