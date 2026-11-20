@@ -689,7 +689,10 @@ function renderFleet(d, page) {
   page.field('needs you', loud ? `${loud} — the 🔴 cards below` : 'NOTHING — no 🔴 card', 'items');
   page.field('scope', d.scope, 'scope');
   if (d.hindsight || done.length) page.section('HINDSIGHT — since last board');
-  page.field('done', done.map((x) => `${x.title}${x.pr ? ` #${x.pr}` : ''} ${x.state}`).join('; '), 'items[done]');
+  // Every finished session, a child of a live line of work included, so the list
+  // matches the ✅ count. A done parent that still has a live child keeps its card instead.
+  const finished = all.filter((x) => x.level === 'done' && !live.includes(x));
+  page.field('done', finished.map((x) => `${x.title}${x.pr ? ` #${x.pr}` : ''} ${x.state}`).join('; '), 'items[done]');
   page.field('notes', d.hindsight, 'hindsight');
   if (d.insight) page.section('INSIGHT — patterns');
   page.field('pattern', d.insight, 'insight');
@@ -712,7 +715,8 @@ function renderFleet(d, page) {
       page.errors.push(`${where}: a needs-you card must say what it needs in "needs"`);
     }
     page.lines = [];
-    header(page, fleetName(x), null, `${where}.title`);
+    // The header wears the loudest session's icon, so scanning headers for 🔴 finds every 🔴.
+    header(page, `${FLEET_LEVELS[fleetLoudest(x)].icon}${fleetName(x).slice(fleetIcon(x.level).length)}`, null, `${where}.title`);
     page.blank();
     page.section('BOTTOM LINE');
     page.field('state', x.state, `${where}.state`);

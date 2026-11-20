@@ -256,8 +256,8 @@ test('fleet board: loudest card first, done folds into hindsight, links sit outs
   const heads = r.text.split('\n').filter((l) => /^(🔴|🟠|🟢|🔵|✅) /u.test(l));
   assert.deepEqual(
     heads.map((h) => [...h][0]),
-    ['🔴', '🟠', '🔵'],
-    'cards are sorted needs-you, at-risk, review; the done item gets no card',
+    ['🔴', '🟠', '🟢'],
+    'cards are sorted loudest first; Studio presets wears its 🟢 child; the done item gets no card',
   );
   assert.match(r.text, /done\n {4}rename-toast test #3306 merged/);
   // Every link is on a line outside any fence, so it can be clicked.
@@ -349,7 +349,7 @@ test('fleet board: a 🔴 child under a ✅ parent is counted, gets a card, and 
   assert.match(r.text, /needs you\n {4}1 — the 🔴 cards below/);
   assert.doesNotMatch(r.text, /NOTHING/);
   const firstCard = r.text.split('\n\n```\n')[1];
-  assert.match(firstCard, /^✅ Shipped parent/, 'the line of work holding the 🔴 child comes first');
+  assert.match(firstCard, /^🔴 Shipped parent/, 'the line of work holding the 🔴 child comes first');
   assert.match(firstCard, /🔴 Blocked child\n {4}asked a question\n {4}needs you: answer the question/);
   assert.doesNotMatch(r.text, /done\n {4}Shipped parent/, 'it is not folded into hindsight');
 });
@@ -369,4 +369,13 @@ test('fleet board: a needs-you child must say what it needs; brackets cannot bre
   t.items[0].session = 'session_abc123';
   const row = renderFleetTable(t).lines.find((l) => l.includes('bracket'));
   assert.ok(row.includes('[Fix \\] bracket](https://claude.ai/code/session_abc123)'), row);
+});
+
+test('fleet board: a card header wears its loudest session icon; a done child is listed in hindsight', () => {
+  const card = hiddenChild();
+  card.items[0].children = [{ level: 'done', title: 'Merged slice', pr: 42, state: 'merged' }];
+  const r = renderFleet(card);
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.match(r.text, /```\n🔴 Shipped parent\n/, 'the ✅ parent holding a 🔴 child shows 🔴 in its header');
+  assert.match(r.text, /done\n {4}Merged slice #42 merged/);
 });
