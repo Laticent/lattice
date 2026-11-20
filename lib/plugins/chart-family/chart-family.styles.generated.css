@@ -813,7 +813,7 @@ figure.marks-pigment :where(.risk-cell[data-band="high"]) {
 }
 section.marks-pigment :where(.risk-cell[data-band="critical"]),
 figure.marks-pigment :where(.risk-cell[data-band="critical"]) {
-  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-shade-keep, 82%), var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
@@ -847,7 +847,7 @@ figure.marks-pigment :where(.risk-key-number[data-band="high"]) {
 }
 section.marks-pigment :where(.risk-key-marker[data-band="critical"]),
 figure.marks-pigment :where(.risk-key-marker[data-band="critical"]) {
-  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-shade-keep, 82%), var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))) !important;
 }
 section.marks-pigment :where(.risk-key-number[data-band="critical"]),
 figure.marks-pigment :where(.risk-key-number[data-band="critical"]) {

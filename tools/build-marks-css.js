@@ -1108,7 +1108,9 @@ function build() {
       // only lands critical between low and medium (achromatopsia: low 0.39, critical 0.49, medium 0.59 luminance) keeps
       // less, so critical is the DARKEST band there, last in the order as it is on the light face and in print.
       const CRITICAL_DARK = 'color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))';
-      const CRITICAL = `light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), ${CRITICAL_DARK})`;
+      // On the light face the step's size is `--risk-critical-shade-keep` (82% by default): a monochromacy palette, which
+      // reads severity by lightness alone, keeps less so critical clears high (a11y-achromatopsia, 40%).
+      const CRITICAL = `light-dark(color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-shade-keep, 82%), var(--status-shade-mark)), ${CRITICAL_DARK})`;
       w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${CRITICAL}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A timeline's dots are hollow rings by default; pigment is the solid finish, so its dot is filled with its own ink.
       w(rule(name, '.timeline-dot', ['--timeline-dot-fill: var(--timeline-dot-ink)']));

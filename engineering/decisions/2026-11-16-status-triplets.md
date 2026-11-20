@@ -285,6 +285,20 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   measured there: a `blocked` satellite hangs WebKit 17.4 on `main` too, from an oklab `color-mix()` of two
   light-dark() pairs with a pure black arm; `followups.d/3232-p8-webkit17-oklab-black-mix-hang.md`.
 
+- **Achromatopsia's light ramp (2026-11-20).** A monochromacy reads a status by lightness alone, so on
+  a11y-achromatopsia's light face the risk bands must darken in order: low (pass) < medium (warn) < high (fail) <
+  critical. They did not: medium was the lightest band (luminance 0.0975, low 0.0390, high 0.0109, critical 0.0059;
+  steps 0.60, 2.42 and 1.09:1). `tools/curate-chart-solids.js` now solves this palette's light trio with an order
+  constraint (`solveCvdTrio(…, ordered)`: pass lighter than warn lighter than fail), and the light face's critical step
+  takes a per-palette share, `--risk-critical-shade-keep` (82% by default; achromatopsia keeps 40%), beside the dark
+  face's `--risk-critical-keep`. After: low 0.0920, medium 0.0394, high 0.0109, critical 0.0006; steps 1.59, 1.47 and
+  1.20:1. Only pass and warn moved (`#44360D` to `#5E553C`, `#6D5500` to `#463600`), still under white at 7:1, and the
+  trio still clears the palette's 0.11 OKLab floor. The follow-up asked for 1.3:1 per step, and the gates rule it out:
+  three fills 0.11 apart in OKLab under white at 7:1 leave fail at most 0.0146 luminance, and even a black critical is
+  then 1.29:1 under it. Black would add 0.02 over 40% and lose the band's hue. The other four a11y palettes' light
+  bands are out of order too (medium lighter than low on base, protanopia and tritanopia; medium darker than high on
+  deuteranopia), but hue still separates them for their readers, so they keep their trio. Held by `marks-css.test.js`
+  (the light-face arm) and shown in `examples/achromatopsia-light-risk-ramp.md`.
 - **Tone's one status level** (`tools/build-marks-css.js` `TONE_STATUS`). Under tone a status kept its own hue at the
   text level, a 30% wash on light and 35% on dark, beside category shades that start at 92%: on light the status chart
   read faded next to its pie, and on dark it all but vanished. Tone now keeps a status at its curated solid on both faces,
@@ -345,9 +359,8 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
 - Carbone's first category is green, so an unstatused mark reads close to on-track (light 0.075, dark 0.053 OKLab from
   the pass fill). Not caused here, and light improved from 0.029; the fix is a brand call.
   `followups.d/3232-p3-carbone-first-category-reads-on-track.md`.
-- On achromatopsia's LIGHT face the risk bands do not climb in order: medium (0.098) is lighter than low (0.039), and
-  high (0.011) and critical (0.006) sit 1.09:1 apart. That predates this note and is the palette's light status ramp.
-  `followups.d/3232-p4-achromatopsia-light-risk-ramp.md`.
+- Fixed 2026-11-20: on achromatopsia's LIGHT face the risk bands did not climb in order. See § 4, "Achromatopsia's
+  light ramp".
 - Fixed in #3312, found while signing off its exports: onyx's curated status inks (`--pass-on-mark:
   light-dark(#FFFFFF, #FFFFFF)` and the rest) reached the a11y palettes, which extend onyx, in the HTML player only.
   a11y-base overrides them with `var(--on-mark)`, the one a11y ink, but `themeDualMode` in lib/export/player-core.mjs

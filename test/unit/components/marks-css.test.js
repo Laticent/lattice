@@ -130,8 +130,8 @@ describe('marks.generated.css', () => {
     const rules = [...css.matchAll(/risk-cell\[data-band="critical"\][^{]*\{([^}]*)\}/g)].map((m) => m[1]).filter((b) => /fill:/.test(b));
     assert.ok(rules.length >= 1, 'a critical band fill');
     for (const body of rules) {
-      if (!/--fail-vivid-mark\) 82%/.test(body)) continue;
-      assert.match(body, /light-dark\(color-mix\(in oklab, var\(--fail-vivid-mark\) 82%, var\(--status-shade-mark\)\), color-mix\(in oklab, var\(--fail-vivid-mark\) var\(--risk-critical-keep, 82%\), var\(--bg\)\)\)/);
+      if (!/--risk-critical-shade-keep, 82%\)/.test(body)) continue;
+      assert.match(body, /light-dark\(color-mix\(in oklab, var\(--fail-vivid-mark\) var\(--risk-critical-shade-keep, 82%\), var\(--status-shade-mark\)\), color-mix\(in oklab, var\(--fail-vivid-mark\) var\(--risk-critical-keep, 82%\), var\(--bg\)\)\)/);
     }
   });
 
@@ -163,6 +163,25 @@ describe('marks.generated.css', () => {
       const next = Math.min(Y.low, Y.medium, Y.high);
       const step = (next + 0.05) / (Y.critical + 0.05);
       assert.ok(step >= 1.5, `${theme} dark: critical (${critical}, ${Y.critical.toFixed(3)}) sits ${step.toFixed(2)}:1 below the darkest other band (${next.toFixed(3)}); it must be the darkest band by at least 1.5:1`);
+    }
+  });
+
+  // A monochromacy reads severity by lightness alone, so on a11y-achromatopsia's LIGHT face the four bands darken in
+  // order (followups.d/3232-p4, closed). Before the re-solve, medium (0.098) was lighter than low (0.039) and critical sat
+  // 1.09:1 under high. The follow-up asked for 1.3:1 per step; the palette's own gates cap the last one: three fills 0.11
+  // apart in OKLab under white at 7:1 leave fail at most 0.0146 luminance, and even a black critical is then 1.29:1
+  // under it. So the floor here is the order plus 1.15:1, and the steps measure 1.59, 1.47 and 1.20.
+  test('on a11y-achromatopsia\'s light face the risk bands darken in order, low to critical', () => {
+    const { mergedVars } = require('../../../tools/composed-contrast.js');
+    const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
+    const { relativeLuminance: lum, hexToRgb } = require('../../../lib/core/color.js');
+    const V = mergedVars('a11y-achromatopsia');
+    const Y = (expr) => lum(hexToRgb(String(resolveTokenExpr(expr, V, false)).trim()));
+    const bands = [['low', Y('var(--pass-mark)')], ['medium', Y('var(--warn-mark)')], ['high', Y('var(--fail-mark)')], ['critical', Y(CRITICAL_FILL)]];
+    for (let i = 1; i < bands.length; i++) {
+      const [[a, ya], [b, yb]] = [bands[i - 1], bands[i]];
+      const step = (ya + 0.05) / (yb + 0.05);
+      assert.ok(step >= 1.15, `light: ${b} (${yb.toFixed(4)}) must sit at least 1.15:1 under ${a} (${ya.toFixed(4)}); it sits ${step.toFixed(2)}:1`);
     }
   });
 
