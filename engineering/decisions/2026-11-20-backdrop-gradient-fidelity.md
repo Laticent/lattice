@@ -1,9 +1,9 @@
 ---
-status: proposed
-summary: Audit of why a finish's backdrop gradient looks dithered and blotchy in exports. The PDF writer leaves the backdrop in a 1x photo of the slide, usually a JPEG, and JPEG cuts a faint gradient into 8x8 blocks with color patches. Measured on finish-backdrops.md, those photos are 407 KB of the 502 KB PDF. Chrome's own print path, which wrote the same gradients as vectors, gave a smooth backdrop in a 291 KB file. Recommends drawing the backdrop as PDF shadings in the shared writer (smoother and smaller), then the same backdrop as native gradient fills in the editable .pptx. Every raster-only fix costs bytes.
+status: in-progress
+summary: Why a finish's backdrop looked dithered and blotchy in exported PDFs (a 1x JPEG photo of it, 81% of a finish deck's bytes), and what replaced it. The shared writer now draws the backdrop - glows as one computed, lossless, smoothly scaled picture; textures as paths; fades above them as opacity maps - and reads the finish's screen face. Smoother, closer to the screen on every slide measured, usually smaller, and drawn 14 to 35 times faster in Chrome's PDF engine than Chrome's own vector print. Awaits the owner's export sign-off.
 ---
 
-# Backdrop gradient fidelity — the audit (2026-11-20)
+# Backdrop gradient fidelity — the audit, and the build (2026-11-20)
 
 **Asked.** The owner sees dithering in the backdrop gradient, suspects it also inflates the
 slide's background image, and wants every surface to look better without bloating the files. The
@@ -85,10 +85,91 @@ owner's sign-off before merge (CLAUDE.md Quality Bar).
 B is still worth taking for the photos that remain, if a later measurement shows the color
 patches there.
 
-## 5. What was not checked
+## 5. What was built (2026-11-20)
 
-- WebKit (Safari, iOS) on screen: the browser download was refused by this sandbox's network
-  policy. CSS gradients in WebKit are known not to dither, so dark slides may band there; this
-  needs the WebKit Playwright project or a device.
-- Real PowerPoint, Keynote, and Apple PDFKit rendering of vector shadings.
-- The PNG set and video.
+The owner chose option A with the rich face included, and asked that viewer performance be tested,
+because Chrome's vector PDFs had opened slowly before. That memory was right, and measured: Chrome's
+print writes a repeating gradient (a finish texture) as a PostScript-function shading inside a tiling
+pattern, which a viewer evaluates per pixel. Chrome's own PDF engine (PDFium) took 12.8 s to draw the
+15-slide `finish-backdrops` deck and 20.8 s for an 11-slide dark `loom` deck; today's writer took 0.56
+and 0.37 s.
+
+So the build is shaped by draw cost as much as by looks. Measured per full page at 150 dpi:
+
+| Drawing | PDFium | poppler | MuPDF | Ghostscript |
+|---|---|---|---|---|
+| axial or radial shading | 0.070 s | 0.093 s | 0.028 s | 0.008 s |
+| quarter-resolution RGB picture, `/Interpolate` | 0.012 s | 0.016 s | 0.020 s | 0.013 s |
+| 1x1 color over a quarter-resolution opacity map | 0.025 s | 0.077 s | 0.050 s | 0.058 s |
+| soft-mask group (poppler rasterizes a page-sized bitmap each) | — | ~0.22 s | — | — |
+
+What the writer does now (`lib/core/pdf-compose/backdrop.mjs`, `read-slide.mjs` `readBackdrop`,
+`engineering/pipeline.md` §4a0):
+
+- **Glows under the first texture: one opaque picture**, blended onto the slide color in JS from the
+  gradients' own math (premultiplied, Oklab for `color(srgb …)` stops as Chrome paints), at a quarter of
+  the slide's resolution, Flate with the PNG Up predictor. No dither, no JPEG. All four engines scale it
+  smoothly (largest step along a fade: one level).
+- **Textures: paths.** Stripes, a weave, rings, a disk per dot. Sharp at any zoom.
+- **Fades of one color above a texture: opacity maps.** A vignette, a spotlight's scrim, a strength veil,
+  and the clear panel (its export face, two ramps multiplied: the documented stand-in for the blur).
+- **The section's sharp inset shadows** (a `frame` keyline, a tone rail) and the mask layer's sharp outer
+  ring are paths too. The keyline goes over the glow picture, not under it: under an opaque picture it
+  would vanish. It loses a few percent of glow over a 3 px line.
+- **The photo** is taken with all of that hidden, transparent, and cut to the boxes that hold ink.
+- **The screen face** is read whenever nothing of the finish stays in the photo.
+
+Measured, old writer against new (PDFium draw time, whole deck, 150 dpi):
+
+| Deck | Size | PDFium | Closer to the screen (mean error) |
+|---|---|---|---|
+| `finish-backdrops` (15 slides) | 502 → 368 KB | 0.61 → 0.57 s | every finish slide; 4.1 → 2.9 at worst |
+| `backdrop-vector-export` demo (8) | 259 → 158 KB | — | all 8; 3.4 → 1.2 on dark `nimbus` |
+| owner deck, dark `loom` + strength 40 (11) | 455 → 193 KB | 0.39 → 0.48 s | 1.9 → 1.35 |
+| owner deck, dark `nimbus`, photographs (5) | 4.4 → 4.4 MB | 0.42 → 0.51 s | 5.3 → 1.1 |
+| owner deck, `meridian` + `clear`, 51 slides | 5.4 → 5.4 MB | 1.88 → 3.43 s | 2.6 → 1.3 |
+
+The 51-slide deck is the one real regression in draw time: 37 to 67 ms a page in PDFium, from the clear
+panel's opacity map on every slide. Folding the panel into the glow picture would remove it, but a
+texture under a feathered panel would then draw wrong, so it was not done. Poppler is the slowest
+engine throughout (0.14 to 0.34 s a page on that deck); MuPDF and Ghostscript sit between.
+
+Found on the way, and fixed by the same path: the export face buried a `tint-edge` rail under a finish
+(the rail pixel read rgb(39, 32, 22) against the screen's rgb(166, 98, 124)), because its bottom glow
+ends on solid canvas. Where the backdrop is drawn, the screen face is used and the rail is back; where it
+stays in the photo, it is still lost (`followups.d/`).
+
+### 5.1 The adversarial review (red team, inversion, independent checker)
+
+Fixed in the same change, each with a test that fails without it:
+
+- **Group opacity dimmed the section's own keyline** (checker, red team): a strength without a mask
+  dimmed every drawn piece, the frame's ring included, which the screen leaves whole. The rings now keep
+  full strength; a section layer under a dimmed backdrop, or a part of it left in the photo, refuses.
+- **A busy photo became a transparent PNG about 8x its JPEG** (inversion): past 64 KB the old opaque
+  photo is taken as well and the smaller wins (`backdrop-busy-photo`).
+- **A camera with no transparent PNG** would have buried the drawing under an opaque photo (checker):
+  it now refuses (`backdrop-camera`).
+- **A wide-gamut accent aborted the writer**, and its glow wrapped to wrong colors (red team): clipped.
+- **A flex child at `z-index: -3`** paints under the canvas plane with no `position` (red team):
+  `backdrop-under`.
+- **Hard stops and strips** (strata's top bar) were blurred into the quarter-resolution picture (red
+  team): only smooth glows over the whole box go in it.
+- **Unbounded work**: a ring cap bypassed by a far start, and an 80,000 px mask pseudo-element (red team):
+  counted from the loop's real start; clipped to the backdrop.
+- **A 1x1 color image under a larger soft mask** (inversion: Apple PDFKit is the strict viewer): the
+  color image is now the mask's own size.
+- Smaller: an even-odd hole that could leak past its clip, two faces on one slide, a backdrop on a
+  plane at or above 0, section layers lost beside a tone rail.
+
+Accepted and recorded: each slide picks its own face (a slide that keeps a ghost numeral in the photo
+stays on the export face while its neighbors take the screen face); the keyline is drawn above the
+glow picture; the clear-panel deck's draw-time cost.
+
+## 6. What was not checked
+
+- **Apple PDFKit (Preview, iOS)**, the owner's viewer: not reachable from the build sandbox. It
+  honors `/Interpolate` and draws image soft masks; UNVERIFIED until a macOS or iOS run.
+- WebKit on screen: the browser download was refused by this sandbox's network policy.
+- The Studio's own PDF download runs the same writer through html-to-image; it was not driven here.
+- 4K slides (the photo cap) and the editable `.pptx` (option A's follow-on) were not touched.
