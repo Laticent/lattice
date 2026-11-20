@@ -20,7 +20,7 @@ const SHA = 'c'.repeat(40);
  * `onTick(gh)` runs on every fake sleep, which is how runs appear and finish over time.
  */
 function fakeGitHub({ draft = true, runs = [], onReady = defaultReady, onTick = () => {} } = {}) {
-  const gh = { draft, runs: [...runs], jobs: {}, calls: [], nextId: 100, ticks: 0 };
+  const gh = { draft, runs: [...runs], jobs: {}, calls: [], nextId: 100, ticks: 0, headSha: SHA };
   gh.addRun = (status, conclusion, changes) => {
     const id = gh.nextId++;
     gh.runs.push({ id, status, conclusion, html_url: `https://example.test/runs/${id}` });
@@ -30,8 +30,12 @@ function fakeGitHub({ draft = true, runs = [], onReady = defaultReady, onTick = 
   };
   gh.api = (method, p) => {
     gh.calls.push(`${method} ${p.replace(/\?.*$/, '')}`);
-    if (method === 'GET' && /\/pulls\/\d+$/.test(p)) return { draft: gh.draft, head: { sha: SHA } };
-    if (method === 'GET' && p.includes('/workflows/ci.yml/runs')) return { workflow_runs: gh.runs.map((r) => ({ ...r })) };
+    if (method === 'GET' && /\/pulls\/\d+$/.test(p)) return { draft: gh.draft, head: { sha: gh.headSha, ref: 'feature' } };
+    if (method === 'GET' && p.includes('/workflows/ci.yml/runs')) {
+      // A run with no `sha` belongs to whatever head is asked about; one with a `sha` only to that commit.
+      const asked = p.match(/head_sha=([0-9a-f]+)/)[1];
+      return { workflow_runs: gh.runs.filter((r) => !r.sha || r.sha === asked).map((r) => ({ ...r })) };
+    }
     if (method === 'GET' && /\/actions\/runs\/\d+\/jobs/.test(p)) return { jobs: gh.jobs[Number(p.match(/runs\/(\d+)/)[1])] || [] };
     if (method === 'GET' && /\/actions\/runs\/\d+$/.test(p)) return { ...gh.runs.find((r) => r.id === Number(p.match(/runs\/(\d+)$/)[1])) };
     if (method === 'POST' && p.endsWith('/ccr/convert_to_draft')) {
@@ -232,4 +236,32 @@ test('ghApi: a missing gh says so instead of an empty error', async () => {
   } finally {
     process.env.PATH = saved;
   }
+});
+
+test('ready: run straight after a push, it waits for GitHub to show the pushed commit as the head (#3342 live)', async () => {
+  const { ready } = await import(MODULE);
+  const OLD = 'a'.repeat(40);
+  const NEW = SHA;
+  const gh = fakeGitHub({
+    draft: true,
+    onTick: (g) => {
+      // GitHub catches up: the PR's head moves to the pushed commit, whose draft run then finishes.
+      if (g.ticks === 1) g.headSha = NEW;
+      if (g.ticks === 2) Object.assign(g.runs.find((r) => r.sha === NEW), { status: 'completed', conclusion: 'skipped' });
+    },
+  });
+  gh.headSha = OLD;
+  gh.runs.push({ id: 1, sha: OLD, status: 'in_progress', conclusion: null, html_url: 'old' });
+  gh.jobs[1] = [{ name: 'changes', status: 'completed', conclusion: 'success' }]; // the old commit's real run, still going
+  gh.runs.push({ id: 2, sha: NEW, status: 'queued', conclusion: null, html_url: 'new-draft' });
+  const lines = await ready(3333, { ...opts(gh), local: { branch: 'feature', sha: NEW } });
+  assert.match(lines.at(-1), /is ready; ci is running on ccccccc/);
+});
+
+test('ready: from another branch it does not wait on the local HEAD', async () => {
+  const { ready } = await import(MODULE);
+  const gh = fakeGitHub({ runs: [{ id: 1, status: 'completed', conclusion: 'skipped', html_url: 'u1' }] });
+  const lines = await ready(3333, { ...opts(gh), local: { branch: 'main', sha: 'f'.repeat(40) } });
+  assert.match(lines.at(-1), /is ready; ci is running/);
+  assert.equal(gh.ticks, 0);
 });
