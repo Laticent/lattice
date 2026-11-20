@@ -545,7 +545,7 @@ describe('piechart per-slice detail → speaker-note comment', () => {
     const html = engine.transformChartSection(
       '<h2>Mix</h2><ul><li>A <code>60%</code><ul><li>the bulk</li></ul></li><li>B <code>40%</code></li></ul>',
       'piechart').html;
-    assert.match(html, /<!-- A \(60%\): the bulk -->/);
+    assert.match(html, /<!-- @note\{A \(60%\): the bulk\} -->/);
     assert.match(html, /class="piechart-figure"/, 'figure still rendered');
     assert.match(html, /template class="chart-detail" data-mark="0"/, 'present-mode template intact');
   });

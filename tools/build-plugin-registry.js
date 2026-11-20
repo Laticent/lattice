@@ -1084,7 +1084,9 @@ function renderMeta(ordered) {
   const fields = {};
   const markers = [];
   const commentKeys = {};
+  const notes = [];
   for (const p of providers) {
+    notes.push(...Object.keys(p.manifest.contributes.meta.notes || {}));
     Object.assign(fields, p.manifest.contributes.meta.fields);
     markers.push(...(p.manifest.contributes.meta.markers || []));
     Object.assign(commentKeys, p.manifest.contributes.meta.comments || {});
@@ -1108,6 +1110,8 @@ export const META_FIELDS = ${freeze(fields)};
 export const META_MARKERS = ${freeze(markers)};
 
 export const META_COMMENTS = ${freeze(commentKeys)};
+
+export const META_NOTES = ${freeze(notes)};
 
 export const META_REGISTERS = ${freeze(registers)};
 

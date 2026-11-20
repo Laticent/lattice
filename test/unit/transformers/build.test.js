@@ -164,13 +164,13 @@ describe('build — directive plumbing', () => {
     assert.equal(directive('<!-- _build: rows -->', 'build').value, 'rows');
   });
   test('a prose comment is not a directive', () => {
-    assert.deepEqual(comments('<!-- just a note -->').map((c) => c.kind), ['note']);
+    assert.deepEqual(comments('<!-- just a note -->').map((c) => c.kind), ['comment']);
   });
   test('bare value is scoped to FLAG directives — a bare non-flag word stays prose', () => {
     // `build` is the only flag directive; a bare known-directive word like
     // `color`/`header` must NOT be swallowed as a directive (regression guard for
     // the optional-value regex widening).
-    assert.deepEqual(comments('<!-- color -->\n<!-- header -->').map((c) => c.kind), ['note', 'note']);
+    assert.deepEqual(comments('<!-- color -->\n<!-- header -->').map((c) => c.kind), ['comment', 'comment']);
     // …but a colon form still works, as a global.
     const d = directive('<!-- color: red -->', 'color');
     assert.equal(d.value, 'red');

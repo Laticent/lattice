@@ -87,7 +87,7 @@ test('meta-in-html-block near misses: a blank line between, a comment above, pro
 });
 
 test('meta-block-in-container: a multi-line record with a blank line inside a list or quote', () => {
-  const src = deck('# One\n\n- <!-- {layout=kpi}\n  note: |\n\n    second para -->');
+  const src = deck('# One\n\n- <!-- {layout=kpi}\n  footer: |\n\n    second para -->');
   assert.deepEqual(rules(src), ['1:meta-not-own-line', '1:meta-block-in-container']);
   const f = findMetaCommentIssues(src).find((x) => x.rule === 'meta-block-in-container');
   assert.equal(f.severity, 'error');
@@ -96,7 +96,7 @@ test('meta-block-in-container: a multi-line record with a blank line inside a li
 
 test('meta-block-in-container near misses: no blank line inside, and a blank line at top level', () => {
   assert.deepEqual(rules(deck('# One\n\n- <!-- {layout=kpi}\n  footer="Q3" -->')), ['1:meta-not-own-line']);
-  assert.deepEqual(rules(deck('<!-- {layout=kpi}\nnote: |\n\n  second para -->\n\n# One')), []);
+  assert.deepEqual(rules(deck('<!-- {layout=kpi}\nfooter: |\n\n  second para -->\n\n# One')), []);
 });
 
 test('legacy-directive-comment is silent by default and fires with metaCut: true', () => {

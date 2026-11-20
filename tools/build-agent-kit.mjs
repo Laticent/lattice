@@ -3201,8 +3201,10 @@ function startDoc(files, cat) {
     // Gaps a model writing from this file alone hit on 2026-11-19 (the no-spend stand-in eval,
     // engineering/decisions/2026-11-17-agent-pack.md §4.5): it was told to use speaker notes
     // with no syntax, and it wrote `{Off plan}` on a kpi row the layout colors as on plan.
-    '- Speaker notes: a plain HTML comment on the slide, `<!-- Pause here for questions. -->`.',
-    '  `<!-- say: … -->` holds the exact words to speak. Notes never show on the slide.',
+    // The four notes (engineering/decisions/2026-11-20-four-notes.md): a plain comment reaches nothing.
+    '- Notes: `<!-- @note{Pause here for questions.} -->` is the speaker note, `<!-- @say{…} -->` the exact',
+    '  words to speak, `<!-- @alt{…} -->` the alt text, `<!-- @handout{…} -->` the handout. Notes never',
+    '  show on the slide, and a plain `<!-- comment -->` reaches no channel.',
     // The first real-model run (2026-11-19) then put `{Breaching}` on a row `kpi attention` draws
     // green with a check: the rule named no rows. These rows are kpi.styles.css's nth-child hooks,
     // pinned by test/unit/tools/agent-kit-structure.test.js.

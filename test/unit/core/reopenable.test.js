@@ -15,7 +15,7 @@ const JSZip = require('jszip');
 const pdfLib = require('pdf-lib');
 const k = require('../../../lib/core/reopenable');
 
-const SOURCE = '# Halcyon — revue\n\n<!-- note: keep -->\n\n---\n\n## Two\n';
+const SOURCE = '# Halcyon — revue\n\n<!-- @note{keep} -->\n\n---\n\n## Two\n';
 
 describe('buildLatticeZip', () => {
   test('writes deck.md verbatim, the manifest, and package folders with no folder entries', async () => {
