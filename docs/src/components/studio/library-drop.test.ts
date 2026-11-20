@@ -45,12 +45,29 @@ describe('classifyDropped', () => {
 		expect(docs).toHaveLength(1);
 	});
 
-	it('rejects what neither ingest takes, and an extensionless file', () => {
-		const { zips, docs, images, rejected } = classifyDropped([file('deck.pptx'), file('Makefile')]);
+	it('never turns a deck down: a .lattice and a .pptx go to the decks, case-insensitive', () => {
+		const { zips, decks, docs, rejected } = classifyDropped([file('q3.lattice'), file('Talk.PPTX'), file('Q4.LATTICE')]);
+		expect(decks.map((f) => f.name)).toEqual(['q3.lattice', 'Talk.PPTX', 'Q4.LATTICE']);
 		expect(zips).toEqual([]);
 		expect(docs).toEqual([]);
+		expect(rejected).toEqual([]);
+	});
+
+	it('leaves a .zip for its bytes to decide (a deck or a package) and keeps a .md/.pdf a reference file', () => {
+		// The extension cannot tell a `.lattice` saved as `.zip` from a package: library-deck-ref.ts reads the archive.
+		const { zips, decks, docs } = classifyDropped([file('deck.zip'), file('deck.md'), file('deck.pdf')]);
+		expect(zips.map((f) => f.name)).toEqual(['deck.zip']);
+		expect(decks).toEqual([]);
+		expect(docs.map((f) => f.name)).toEqual(['deck.md', 'deck.pdf']);
+	});
+
+	it('rejects what no ingest takes, and an extensionless file (its bytes are read next)', () => {
+		const { zips, decks, docs, images, rejected } = classifyDropped([file('talk.key'), file('Makefile')]);
+		expect(zips).toEqual([]);
+		expect(decks).toEqual([]);
+		expect(docs).toEqual([]);
 		expect(images).toEqual([]);
-		expect(rejected.map((f) => f.name)).toEqual(['deck.pptx', 'Makefile']);
+		expect(rejected.map((f) => f.name)).toEqual(['talk.key', 'Makefile']);
 	});
 
 	it('reads the extension from the END of the name, not the first dot', () => {
@@ -62,8 +79,9 @@ describe('classifyDropped', () => {
 	});
 
 	it('splits a mixed drop instead of taking the first kind and dropping the rest', () => {
-		const { zips, docs, images, rejected } = classifyDropped([file('a.zip'), file('b.md'), file('c.png'), file('d.zip'), file('e.pptx')]);
+		const { zips, decks, docs, images, rejected } = classifyDropped([file('a.zip'), file('b.md'), file('c.png'), file('d.zip'), file('e.pptx'), file('f.key')]);
 		expect(zips).toHaveLength(2);
+		expect(decks).toHaveLength(1);
 		expect(docs).toHaveLength(1);
 		expect(images).toHaveLength(1);
 		expect(rejected).toHaveLength(1);
@@ -72,8 +90,9 @@ describe('classifyDropped', () => {
 
 describe('rejectedMessage', () => {
 	it('names what was refused', () => {
-		expect(rejectedMessage(['deck.pptx'])).toContain('deck.pptx');
-		expect(rejectedMessage(['deck.pptx'])).toContain(REF_DOC_ACCEPT);
+		expect(rejectedMessage(['talk.key'])).toContain('talk.key');
+		expect(rejectedMessage(['talk.key'])).toContain(REF_DOC_ACCEPT);
+		expect(rejectedMessage(['talk.key'])).toContain('a deck (.lattice, .pptx)');
 	});
 
 	it('caps the list at three so a folder drop is not a wall of text', () => {
@@ -136,9 +155,12 @@ describe('landingFilter', () => {
 		expect(land('a.png', 'clip.mov')).toBe('media');
 	});
 
-	it('opens Design for a package archive and Files for a reference file', () => {
+	it('opens Design for a package archive and Files for a reference file or a deck', () => {
 		expect(land('assets.zip')).toBe('design');
 		expect(land('notes.md', 'brief.pdf')).toBe('refdoc');
+		expect(land('q3.lattice')).toBe('refdoc');
+		expect(land('q3.lattice', 'notes.md')).toBe('refdoc');
+		expect(land('talk.pptx', 'a.png')).toBe('all');
 	});
 
 	it('opens All when the batch spans kinds, and stays put when nothing can be added', () => {

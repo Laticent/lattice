@@ -1,0 +1,117 @@
+import { createRequire } from 'node:module';
+import { join, resolve } from 'node:path';
+import type { Page, TestInfo } from '@playwright/test';
+import { CHROME, expect, gotoStudio, isPhone, test } from './studio-fixture';
+
+// A deck imported through the Library (2026-11-20). On a real iPhone, "Import deck…" showed every
+// `.lattice` grayed out in Files: iOS grays out what an `accept` list does not name and has no type
+// for `.lattice`, and the device sniff that dropped the list only on iOS did not hold on the
+// owner's phone. So neither picker names an `accept` on any device, and the Library takes a deck
+// instead of turning it down: it lands on Files as reference text (slide words and speaker notes)
+// and its card opens it through the same reader "Import deck…" uses.
+//
+// Driven on desktop Chromium, Gecko and WebKit at an iPhone's size and user agent (the case the
+// old sniff answered). The iOS Files sheet itself is the phone's, and no runner here reaches it:
+// that half is UNVERIFIED until it is tried on a device.
+
+test.describe.configure({ timeout: 180_000 });
+
+const DECK = [
+	'# Halcyon quarterly',
+	'## Retention held\n\n- 94% of accounts renewed.\n\n<!-- Open with the retention number. -->',
+].join('\n\n---\n\n');
+
+/** A `.lattice` from the kernel both writers use (lib/core/reopenable.js), as a recipient would get it. */
+async function latticeBytes(): Promise<Buffer> {
+	const root = resolve(import.meta.dirname, '..', '..');
+	const req = createRequire(join(root, 'package.json'));
+	const bytes: Uint8Array = await req('./lib/core/reopenable.js').buildLatticeZip(req('jszip'), { source: DECK, title: 'Halcyon quarterly', comments: [], now: 0, packages: [], date: new Date(0) });
+	return Buffer.from(bytes);
+}
+
+async function openLibrary(page: Page) {
+	if (!isPhone(page)) {
+		await page.getByRole('button', { name: CHROME.library }).click();
+		return;
+	}
+	await page.getByRole('button', { name: CHROME.moreControls, exact: true }).click();
+	await page.getByRole('button', { name: /^Library/ }).click();
+}
+
+/** The active deck's stored source (studio-store writes every value as JSON). Saving is debounced, so callers poll. */
+function activeSource(page: Page): Promise<string> {
+	return page.evaluate(() => {
+		try {
+			const active = JSON.parse(localStorage.getItem('lattice-studio-active') || '{}');
+			return JSON.parse(localStorage.getItem(`lattice-studio-src-${active.deckId}`) || '""');
+		} catch {
+			return '';
+		}
+	});
+}
+
+/** What the Library stored for a reference doc: its text, and whether it kept a deck file (a Blob or, where an engine
+ *  refuses one, an ArrayBuffer). */
+function storedRef(page: Page, name: string): Promise<{ text: string; deckBytes: number } | null> {
+	return page.evaluate(async (want) => {
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			const r = indexedDB.open('lattice-workbench');
+			r.onsuccess = () => res(r.result);
+			r.onerror = () => rej(r.error);
+		});
+		const rows: Record<string, unknown>[] = await new Promise((res) => {
+			const r = db.transaction('assets').objectStore('assets').getAll();
+			r.onsuccess = () => res(r.result as Record<string, unknown>[]);
+		});
+		db.close();
+		const row = rows.find((x) => x.kind === 'refdoc' && x.name === want);
+		if (!row) return null;
+		const deckBytes = row.deck ? (row.deck as Blob).size : row.deckData ? (row.deckData as ArrayBuffer).byteLength : 0;
+		return { text: String(row.text ?? ''), deckBytes };
+	}, name);
+}
+
+async function importsADeck(page: Page, testInfo: TestInfo) {
+	const bytes = await latticeBytes();
+	await gotoStudio(page);
+	// Both pickers name no `accept`, on this engine and this user agent: a list is what grays a `.lattice` out on iOS.
+	await expect(page.getByTestId('deck-import-input')).toHaveCount(1);
+	await expect(page.getByTestId('deck-import-input')).not.toHaveAttribute('accept', /.*/);
+	await openLibrary(page);
+	const input = page.getByTestId('library-import-input');
+	await expect(input).toBeAttached();
+	await expect(input).not.toHaveAttribute('accept', /.*/);
+
+	// The real file chooser, through the Library's own button.
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Import files', exact: true }).click();
+	await (await chooser).setFiles({ name: 'Halcyon.lattice', mimeType: 'application/octet-stream', buffer: bytes });
+
+	// It lands on Files as a deck, with the action to open it.
+	const open = page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' });
+	await expect(open).toBeVisible({ timeout: 30_000 });
+	await expect(page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Files', exact: true })).toHaveAttribute('aria-selected', 'true');
+
+	await page.screenshot({ path: testInfo.outputPath('library-deck-card.png') });
+
+	// Its reference text is the slide words and the speaker note; the file is kept, byte for byte in size.
+	await expect.poll(() => storedRef(page, 'Halcyon.lattice')).toEqual({
+		text: 'Deck: Halcyon quarterly\n\nSlide 1\n# Halcyon quarterly\n\nSlide 2\n## Retention held\n\n- 94% of accounts renewed.\nSpeaker notes: Open with the retention number.',
+		deckBytes: bytes.length,
+	});
+
+	// "Open as deck" runs the deck importer: the deck opens as itself, speaker note and all.
+	await open.click();
+	await expect.poll(() => activeSource(page), { timeout: 30_000 }).toBe(DECK);
+}
+
+test('a .lattice imported through the Library lands on Files and opens as a deck @gecko', async ({ page }, testInfo) => {
+	await importsADeck(page, testInfo);
+});
+
+test('a .lattice imported through the Library lands on Files and opens as a deck, at an iPhone\'s size and user agent @webkit-phone', async ({ page }, testInfo) => {
+	// The case the old device sniff answered: this project reports an iPhone, so the test proves the pickers no longer
+	// depend on what the device says it is.
+	expect(await page.evaluate(() => navigator.userAgent)).toContain('iPhone');
+	await importsADeck(page, testInfo);
+});

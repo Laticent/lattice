@@ -33,7 +33,7 @@ async function addPhoto(page: Page, name: string) {
 		const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/png'));
 		const dt = new DataTransfer();
 		dt.items.add(new File([blob], fileName, { type: 'image/png' }));
-		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+		const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
 	}, name);
@@ -285,7 +285,7 @@ onEveryEngine('@smoke a .lattice carries the photo, and a fresh browser profile 
 		const p2 = await other.newPage();
 		await gotoStudio(p2);
 		await p2.setViewportSize({ width: 1440, height: 900 });
-		await p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: readFileSync(path) });
+		await p2.locator('[data-testid="deck-import-input"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: readFileSync(path) });
 		await expect(p2.getByText(/Added 1 photo from the file to your Library/).first()).toBeVisible({ timeout: 30_000 });
 		const img = p2.locator('[aria-label="Live deck preview"] iframe.live').contentFrame().locator('img[alt="A green probe"]').first();
 		await expect(img).toHaveAttribute('src', /^blob:/, { timeout: 40_000 });
@@ -326,7 +326,7 @@ onEveryEngine('@smoke a re-openable PDF carries the photo, and a fresh browser p
 		const p2 = await other.newPage();
 		await gotoStudio(p2);
 		await p2.setViewportSize({ width: 1440, height: 900 });
-		await p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.pdf', mimeType: 'application/pdf', buffer: readFileSync(path) });
+		await p2.locator('[data-testid="deck-import-input"]').setInputFiles({ name: 'probe.pdf', mimeType: 'application/pdf', buffer: readFileSync(path) });
 		await expect(p2.getByText(/Added 1 photo from the file to your Library/).first()).toBeVisible({ timeout: 30_000 });
 		const img = p2.locator('[aria-label="Live deck preview"] iframe.live').contentFrame().locator('img[alt="A green probe"]').first();
 		await expect(img).toHaveAttribute('src', /^blob:/, { timeout: 40_000 });

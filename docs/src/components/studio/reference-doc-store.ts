@@ -8,7 +8,13 @@
 // inline-only decision, engineering/decisions/2026-06-29-studio-spend-budget.md).
 import { ASSET_STORE, openDB } from '@/components/studio/library/asset-db.js';
 import { deleteAsset, listAssets, putAsset, REFUSAL_PREFIX } from '@/components/studio/library/asset-store.js';
+import limits from '../../../../lib/packages/limits.js';
 import { blobToDataUrl, dataUrlToBlob, MAX_DOC_BYTES, type ReferenceDoc } from './reference-doc';
+
+/** The largest deck file the Library keeps a copy of, for "Open as deck" (library-deck-ref.ts). The Library's own
+ *  per-file cap, the one a clip is held to (lib/packages/limits.js): a bigger deck still lands as its reference text,
+ *  and a backup restores no deck file above it. */
+export const MAX_DECK_REF_BYTES: number = limits.MAX_MEDIA_FILE_BYTES;
 
 /** A persisted reference doc — an asset-store record of kind 'refdoc'. */
 export type RefDocRecord = {
@@ -26,6 +32,12 @@ export type RefDocRecord = {
 	/** A PDF as base64 text: a record from before PDFs were binary (rewritten when the Library opens), or one written
 	 *  with `{ binary: false }`. Every build reads it. */
 	dataUrl?: string;
+	/** A DECK kept as reference (library-deck-ref.ts): the file as imported, so "Open as deck" hands the deck
+	 *  importer the same bytes "Import deck…" would read. Absent on every other doc. `text` holds the deck's slide
+	 *  text and notes, which is what a call is grounded in; this is never sent anywhere. */
+	deck?: Blob;
+	/** Only where an engine refused to store a `Blob`: the deck's bytes as an ArrayBuffer, rebuilt into `deck`. */
+	deckData?: ArrayBuffer;
 	bytes: number;
 	addedAt: number;
 };
@@ -55,9 +67,21 @@ export function refDocBlob(rec: RefDocRecord): Blob | null {
 
 /** A row as the app uses it: a `blob`, whichever way the bytes were stored. */
 function readable(row: RefDocRecord): RefDocRecord {
-	if (row.blob || !row.data) return row;
-	const { data, ...rest } = row;
-	return { ...rest, blob: new Blob([data], { type: 'application/pdf' }) };
+	let out = row;
+	if (!out.blob && out.data) {
+		const { data, ...rest } = out;
+		out = { ...rest, blob: new Blob([data], { type: 'application/pdf' }) };
+	}
+	if (!out.deck && out.deckData) {
+		const { deckData, ...rest } = out;
+		out = { ...rest, deck: new Blob([deckData]) };
+	}
+	return out;
+}
+
+/** A saved deck's file, ready for the deck importer, or null for a doc that is not a deck. */
+export function refDocDeckFile(rec: RefDocRecord): File | null {
+	return rec.deck ? new File([rec.deck], rec.name, { type: rec.deck.type }) : null;
 }
 
 /**
@@ -72,7 +96,7 @@ export const WRITE_PDFS_AS_BINARY = true;
 
 /** Persist a doc to the shared library (dedups by name — re-adding replaces in
  *  place). `addedAt` is passed in so callers own the clock (tests stay deterministic). */
-export async function saveRefDoc(doc: ReferenceDoc, addedAt: number, { binary = WRITE_PDFS_AS_BINARY }: { binary?: boolean } = {}): Promise<RefDocRecord> {
+export async function saveRefDoc(doc: ReferenceDoc, addedAt: number, { binary = WRITE_PDFS_AS_BINARY, deck = null }: { binary?: boolean; deck?: Blob | null } = {}): Promise<RefDocRecord> {
 	// A PDF arrives as base64 text (it is read that way for the request) and is stored as the bytes it encodes,
 	// typed as a PDF whatever the text said (a file picked with no type reads as octet-stream, and a backup row can
 	// claim any type: `recordToDoc` sends this type to the model).
@@ -82,20 +106,20 @@ export async function saveRefDoc(doc: ReferenceDoc, addedAt: number, { binary = 
 	// cost readout and the spend guard read this number.
 	const bytes = blob ? blob.size : Math.min(MAX_DOC_BYTES, Math.max(0, Math.floor(Number(doc.bytes) || 0)));
 	const record: Omit<RefDocRecord, 'id'> = { kind: REFDOC_KIND, name: doc.name, docKind: doc.kind, text: doc.text, bytes, addedAt };
-	if (!blob) return readable((await putAsset(record)) as RefDocRecord);
-	if (!binary) {
+	if (blob && !binary) {
 		// The format every build reads: base64 text, now with the type a PDF has and the size that was decoded.
-		const dataUrl = `data:application/pdf;base64,${(doc.dataUrl as string).slice((doc.dataUrl as string).indexOf(',') + 1)}`;
-		return readable((await putAsset({ ...record, dataUrl })) as RefDocRecord);
+		record.dataUrl = `data:application/pdf;base64,${(doc.dataUrl as string).slice((doc.dataUrl as string).indexOf(',') + 1)}`;
 	}
+	const pdf = blob && binary ? blob : null;
+	if (!pdf && !deck) return readable((await putAsset(record)) as RefDocRecord);
 	try {
 		// putAsset assigns an id and updates an existing (kind,name) in place.
-		return readable((await putAsset({ ...record, blob })) as RefDocRecord);
+		return readable((await putAsset({ ...record, ...(pdf ? { blob: pdf } : {}), ...(deck ? { deck } : {}) })) as RefDocRecord);
 	} catch (first) {
 		// A full disk or our own refusal is not a Blob problem; a second attempt would fail the same way.
 		if ((first as { name?: string } | null)?.name === 'QuotaExceededError' || String((first as Error)?.message ?? '').startsWith(REFUSAL_PREFIX)) throw first;
 		// Some engines refuse to store a Blob at all (Safari in a private window): the bytes go in as an ArrayBuffer.
-		return readable((await putAsset({ ...record, data: await blob.arrayBuffer() })) as RefDocRecord);
+		return readable((await putAsset({ ...record, ...(pdf ? { data: await pdf.arrayBuffer() } : {}), ...(deck ? { deckData: await deck.arrayBuffer() } : {}) })) as RefDocRecord);
 	}
 }
 

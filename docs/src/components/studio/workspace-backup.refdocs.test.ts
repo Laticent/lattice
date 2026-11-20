@@ -30,7 +30,7 @@ vi.hoisted(() => {
 });
 
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { listRefDocs, saveRefDoc } from './reference-doc-store';
+import { listRefDocs, refDocDeckFile, saveRefDoc } from './reference-doc-store';
 import { exportStudioState, importStudioState, loadSource, saveSource } from './studio-store';
 import { backupRestoreGaps, type PackReport, packWorkspace, restoreWorkspace } from './workspace-backup';
 import { MAX_INFLATED_BYTES } from './zip-limits';
@@ -126,5 +126,31 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		expect(summary.refused).toEqual([]);
 		expect(summary.refdocs).toBe(2);
 		expect((await listRefDocs()).map((r) => r.name).sort()).toContain('empty.pdf');
+	});
+});
+
+describe('restoreWorkspace — a deck kept as reference', () => {
+	it('carries the deck file as base64, brings it back for "Open as deck", and keeps the text when the file row is bad', async () => {
+		const deck = Buffer.from(crypto.getRandomValues(new Uint8Array(2048)));
+		await saveRefDoc({ name: 'q3.lattice', kind: 'text', text: 'Slide 1\nRetention held', bytes: 22 }, T0, { deck: new Blob([deck]) });
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(new Uint8Array(await (await packWorkspace(T0)).arrayBuffer()));
+		const rows = JSON.parse(await (zip.file('refdocs.json') as { async: (t: 'string') => Promise<string> }).async('string')) as Array<Record<string, unknown>>;
+		expect(rows).toHaveLength(1);
+		expect(rows[0].deck).toBeUndefined();
+		expect(String(rows[0].deckDataUrl)).toMatch(/^data:[^;]*;base64,/);
+		// A second row whose deck file is not base64: it comes back as reference text alone.
+		zip.file('refdocs.json', JSON.stringify([...rows, { ...rows[0], name: 'bad.lattice', deckDataUrl: 'data:application/zip;base64,@@@' }]));
+		const blob = (await zip.generateAsync({ type: 'uint8array' })) as unknown as Blob;
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(blob, T0 + 1);
+		expect(summary.refdocs).toBe(2);
+		const back = await listRefDocs();
+		const good = back.find((d) => d.name === 'q3.lattice');
+		const bad = back.find((d) => d.name === 'bad.lattice');
+		expect(good?.text).toBe('Slide 1\nRetention held');
+		expect(Buffer.from(await (refDocDeckFile(good as NonNullable<typeof good>) as File).arrayBuffer()).equals(deck)).toBe(true);
+		expect(bad?.text).toBe('Slide 1\nRetention held');
+		expect(refDocDeckFile(bad as NonNullable<typeof bad>)).toBeNull();
 	});
 });

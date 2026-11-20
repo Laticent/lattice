@@ -1,0 +1,3 @@
+- Studio: "Import deck…" no longer grays out `.lattice` files in the iPhone and iPad Files picker. Neither the deck picker nor the Library's Import filters by file type on any device now; the Studio reads the file and names one that is not a deck.
+- Studio: the Library's Import takes a deck instead of turning it down. A `.lattice`, a deck saved as `.zip`, a `.pptx` or a PDF exported "Re-openable in Lattice" lands on the Files tab as reference material (its slide text and speaker notes, which the chat can read), and its card's "Open as deck" opens it the way "Import deck…" does. A `.md` file gets "Open as deck" too. A package `.zip` still imports as a package.
+- Studio: a workspace backup keeps a deck saved in the Library, so "Open as deck" comes back after a restore.

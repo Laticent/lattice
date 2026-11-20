@@ -31,7 +31,7 @@ import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
 import { LIBRARY_SCOPE } from './media-store';
 import { blobToDataUrl, dataUrlToBlob, MAX_DOC_BYTES } from './reference-doc';
-import { listRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
+import { listRefDocs, MAX_DECK_REF_BYTES, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene, unreadableSceneShelf } from './scene-library';
 import { exportStudioState, type ImportSummary, importStudioState, loadSource, mapCheckpointSources, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
@@ -181,7 +181,11 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 		// the Blob) is left out and named in the report: it must not cost the whole backup.
 		const rows: unknown[] = [];
 		for (const r of refdocs) {
-			const { blob: _blob, data: _data, ...rest } = r;
+			const { blob: _blob, data: _data, deck: _deck, deckData: _deckData, ...bare } = r;
+			// A deck kept as reference carries its file as base64 text too, so "Open as deck" comes back with it. A file
+			// the browser can no longer read costs only the action: the row keeps its reference text.
+			const deckDataUrl = r.deck ? await blobToDataUrl(r.deck).catch(() => undefined) : undefined;
+			const rest = deckDataUrl ? { ...bare, deckDataUrl } : bare;
 			if (r.dataUrl) {
 				rows.push({ ...rest, dataUrl: r.dataUrl });
 				continue;
@@ -519,8 +523,12 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 			summary.refused.push({ name: `reference doc ${rec.name.slice(0, 60)}`, why: 'its PDF is not readable base64 data, or is over the size a reference doc may be' });
 			continue;
 		}
+		// A deck's file comes back only when it is base64 within the Library's deck cap; otherwise the doc returns as its
+		// reference text alone, which is what it grounds a call in either way.
+		const deckDataUrl = (rec as { deckDataUrl?: unknown }).deckDataUrl;
+		const deck = typeof deckDataUrl === 'string' && deckDataUrl.length <= Math.ceil((MAX_DECK_REF_BYTES * 4) / 3) + 64 && canDecode(deckDataUrl) ? dataUrlToBlob(deckDataUrl) : null;
 		// saveRefDoc upserts by name — the same path Library import uses; it stores the PDF as binary.
-		await saveRefDoc({ id: rec.id, name: rec.name, kind: pdf ? 'pdf' : 'text', text: rec.text, dataUrl: rec.dataUrl, bytes: rec.bytes }, rec.addedAt ?? now);
+		await saveRefDoc({ id: rec.id, name: rec.name, kind: pdf ? 'pdf' : 'text', text: rec.text, dataUrl: rec.dataUrl, bytes: rec.bytes }, rec.addedAt ?? now, { deck });
 		summary.refdocs++;
 	}
 
