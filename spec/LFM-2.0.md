@@ -53,11 +53,13 @@ end of the comment: text after that brace makes the comment not a note. The body
 lines and paragraphs; the note's text is the body with the indentation its non-blank lines
 share removed, then trimmed. Inside the body:
 
-- `\{` and `\}` are a literal brace that does not count toward the balance. No other escape is
-  defined, so `C:\Users` reads as written.
 - A comment cannot contain `-->` (or `--!>`, which ends it in a browser). A note that needs one
   writes `--\>` (`--!\>`), and each further backslash before the `>` is a literal one: a reader
-  removes one backslash.
+  removes one backslash, before it reads the escapes below.
+- `\\` is a literal backslash, and `\{` and `\}` a literal brace that does not count toward the
+  balance. A backslash before any other character is itself, so a hand-written `C:\Users` reads as
+  written. A writer escapes every backslash, and every brace when the braces do not balance, so
+  any text round-trips and no body can escape its own closing brace.
 
 **Several notes of one name** on a slide join in source order: `@note` and `@handout` as
 paragraphs (separated by a blank line), `@say` and `@alt` into one line (separated by a space).
