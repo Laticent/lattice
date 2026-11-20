@@ -119,3 +119,17 @@ Each layout declares what the marker means, and the engine renders it that way b
 - Write it down before you build it.
 - Ship small, and ship often.
 - Leave the code better than you found it.
+
+---
+
+<!-- _class: agenda checks progress-2 -->
+<!-- _footer: "agenda · a list nested under a section keeps the marker you wrote" -->
+
+## A nested list is yours.
+
+- Where the market moved
+  1. Pricing pressure from two new entrants
+  2. Buyers consolidating vendors
+- What our customers told us
+  - Onboarding takes too long
+- The plan for next year

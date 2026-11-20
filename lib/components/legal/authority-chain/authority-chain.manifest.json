@@ -84,7 +84,7 @@
       "selector": "ol > li",
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
-      "description": "Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss."
+      "description": "A list of authority tiers (`1.` or `-`) (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss."
     }
   },
   "skeleton": "<!-- _class: authority-chain -->\n\n## Rule name — the chain, tier by tier.\n\n1. Statute\n   - `Citation reference`\n   - One-line gloss naming the body that issued it and what it does.\n2. Regulation\n   - `Citation reference`\n   - One-line gloss naming the agency rule.\n3. Guidance\n   - `Citation reference`\n   - One-line gloss naming the staff guidance.\n4. Case\n   - `Citation reference`\n   - One-line gloss naming the precedent.\n",

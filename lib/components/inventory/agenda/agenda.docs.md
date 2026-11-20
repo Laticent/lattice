@@ -21,7 +21,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
-| `items` | a `1.` list | no | Ordered list of section titles. Leave it out and the agenda fills itself from the deck's `divider` headings. |
+| `items` | a list | no | A list of section titles (`1.` or `-`; the ledger numbers itself). Leave it out and the agenda fills itself from the deck's `divider` headings. |
 
 ### Variant decision rule
 

@@ -124,6 +124,71 @@ describe('every component that reads a list declares its contract', () => {
     assert.deepEqual(hits, []);
     assert.ok(!SWAP.some((re) => re.test('Use a table instead of a bullet list when the rows compare.')), 'a non-marker choice passes');
   });
+  test('a layout\'s CSS reads lists only where its manifest says it does', () => {
+    // The list contract reaches as deep as a component's deepest list slot; below that a list is the
+    // author's (owner, #3330). So a stylesheet must not reach past it: (a) no selector may hit a list
+    // through a descendant combinator straight from the section (it would restyle a nested list, an
+    // aside or a quoted list as the layout's own; scope it as `ol:where(.cell-stage > :not([data-list="aside"]))`), and (b) no
+    // selector may style `ul` and `ol` differently at a depth the manifest does not declare. Found
+    // by review of #3330: list-steps and agenda drew a nested `1.` as STEP cards and ledger rows.
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const ROOT = path.join(__dirname, '..', '..', '..');
+    const dirOf = new Map(manifests.map((m) => [m.name, m.__dir || null]));
+    const find = (name) => {
+      for (const base of ['lib/components', 'lib/plugins/chart-family/kinds']) {
+        for (const d of fs.readdirSync(path.join(ROOT, base), { withFileTypes: true })) {
+          const p = base === 'lib/components' ? path.join(ROOT, base, d.name, name) : path.join(ROOT, base, name);
+          if (fs.existsSync(path.join(p, `${name}.manifest.json`))) return p;
+        }
+      }
+      return dirOf.get(name);
+    };
+    const selectors = (css) => {
+      const out = [];
+      for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)) {
+        if (m[1].trim().startsWith('@')) continue;
+        let depth = 0;
+        let cur = '';
+        for (const ch of m[1]) {
+          if (ch === '(') depth++;
+          if (ch === ')') depth--;
+          if (ch === ',' && !depth) { out.push(cur); cur = ''; } else cur += ch;
+        }
+        out.push(cur);
+      }
+      return out.map((x) => x.replace(/\s+/g, ' ').replace(/:(is|where)\(\s*(ul\s*,\s*ol|ol\s*,\s*ul)\s*\)/g, 'L').trim());
+    };
+    const bad = [];
+    for (const [name, row] of Object.entries(CATALOG)) {
+      const dir = find(name);
+      if (!dir) continue;
+      const css = fs.readdirSync(dir).filter((f) => f.endsWith('.css')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
+      const sels = selectors(css);
+      const set = new Set(sels);
+      if (row.lists === 'prose') continue; // a prose layout renders every native list, by design
+      const flipAt = (sel, at, el) => sel.slice(0, at) + (el === 'ul' ? 'ol' : 'ul') + sel.slice(at + 2);
+      for (const sel of sels) {
+        // Each ul/ol in the selector, with its list depth: `>` or a space nests one deeper, `+`/`~` is a sibling.
+        let depth = 0;
+        for (const t of sel.matchAll(/(^|[\s>+~(])(ul|ol|L)(?=[\s>.:[)#+~]|$)/g)) {
+          const before = sel.slice(0, t.index + t[1].length).trimEnd();
+          if (!/[+~]$/.test(before)) depth++;
+          if (t[2] === 'L') continue; // `:is(ul, ol)` styles both markers alike
+          if (sel[t.index + t[0].length] === '.') continue; // `ul.team-roster`: a list a transform builds, not the author's
+          const at = t.index + t[1].length;
+          if (set.has(flipAt(sel, at, t[2]))) continue; // the other marker is styled the same way
+          // (a) one marker only, reached by a descendant combinator straight from the section: it
+          // restyles a nested list, an aside or a quoted list as the layout's own.
+          const desc = depth === 1 && /^section\S*$/.test(before) && t[1] === ' ';
+          if (desc && !sel.slice(at + 2).startsWith(':where(.cell-stage > :not([data-list="aside"]))')) bad.push(`${name}: one-marker descendant selector '${sel}'`);
+          // (b) one marker only, at a depth the manifest does not read.
+          if (depth > (row.depths || 0)) bad.push(`${name}: depth ${depth} styles only \`${t[2]}\` in '${sel}' (manifest reads ${row.depths})`);
+        }
+      }
+    }
+    assert.deepEqual(bad, []);
+  });
   test('the owner settled the R2 layouts (decision 1, 2026-11-19)', () => {
     for (const name of ['cards-grid', 'cards-stack', 'list-steps']) assert.equal(listContractFor(name).lists, 'numbered-tags', name);
     assert.equal(listContractFor('split-panel steps').lists, 'numbered-tags');
@@ -161,8 +226,10 @@ describe('R1, R2: the author marker is recorded where a layout reads it', () => 
     assert.deepEqual(lists('<!-- _class: cards-grid -->\n\n## S\n\n1. A\n   1. a\n'), ['ol data-ordered="true"', 'ol']);
   });
   test('below the deepest level a layout reads, a list is the author\'s: a nested `1.` stays numbered (owner, #3330)', () => {
-    // decision reads one level; its card body's numbered steps keep their `ol` (and a screen reader hears numbers).
-    assert.deepEqual(lists('<!-- _class: decision -->\n\n## D\n\n- Option A\n  1. first\n  2. then\n'), ['ul', 'ol']);
+    // agenda reads one level; a numbered sub-list under a section keeps its `ol` (and a screen reader hears numbers).
+    assert.deepEqual(lists('<!-- _class: agenda -->\n\n## A\n\n- One\n  1. first\n  2. then\n- Two\n'), ['ol', 'ol']);
+    // decision reads two (its card body), so a nested `1.` there is the layout's and reads like `-`.
+    assert.deepEqual(lists('<!-- _class: decision -->\n\n## D\n\n- Option A\n  1. first\n  2. then\n'), ['ul', 'ul']);
     // kpi reads two levels (the value, then its label lines): its second level is still normalized.
     assert.deepEqual(lists('<!-- _class: kpi -->\n\n## K\n\n- 94%\n  1. Gross retention\n'), ['ol', 'ul']);
     // gantt reads three levels (a chart consumes them, so read the kernel): a fourth is the author's.
@@ -204,8 +271,8 @@ describe('which lists are the layout\'s (the trio review of #3330)', () => {
     assert.deepEqual(lists('---\nclass: principles\n---\n\n<!-- _class: list -->\n\n## H\n\n- One\n- Two\n'), ['ol data-ordered="false"']);
   });
   test('a list after prose is an aside, left as written; one after a heading is a section of the body', () => {
-    assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## H\n\n1. A\n   - a\n2. B\n   - b\n\nOpen risks:\n\n- Lock-in\n- Budget\n'), ['ol data-ordered="true"', 'ul', 'ul', 'ul']);
-    assert.deepEqual(lists('<!-- _class: agenda -->\n\n## H\n\n- One\n- Two\n\nAlso:\n\n1. aside\n   1. deeper\n'), ['ol', 'ol', 'ol']);
+    assert.deepEqual(lists('<!-- _class: list-steps -->\n\n## H\n\n1. A\n   - a\n2. B\n   - b\n\nOpen risks:\n\n- Lock-in\n- Budget\n'), ['ol data-ordered="true"', 'ul', 'ul', 'ul data-list="aside"']);
+    assert.deepEqual(lists('<!-- _class: agenda -->\n\n## H\n\n- One\n- Two\n\nAlso:\n\n1. aside\n   1. deeper\n'), ['ol', 'ol data-list="aside"', 'ol']);
     assert.deepEqual(lists('<!-- _class: regulatory-update -->\n\n## H\n\n### Added\n\n- A\n  - `x`\n\n### Amended\n\n- B\n  - `y`\n'), ['ol', 'ul', 'ol', 'ul']);
   });
   test('a pane reads the deck class; a list wrapped in raw HTML is the author\'s; a marker change or a comment is not prose', () => {
@@ -228,10 +295,10 @@ describe('the runtime mirror agrees with the engine', () => {
     const doc = dom('<section class="list-steps"><h2>S</h2><ul><li>A<ol><li>a</li></ol></li></ul></section>'
       + '<section class="agenda"><ul><li>One</li></ul></section>'
       + '<section class="content"><ol start="3"><li>x</li></ol></section>');
-    // list-steps reads one level, so the step's nested `1.` stays the author's `ol`.
-    assert.equal(normalizeListsDom(doc), 2);
+    // list-steps reads two levels (the step, then its body), so the body's nested `1.` reads like `-`.
+    assert.equal(normalizeListsDom(doc), 3);
     assert.deepEqual([...doc.querySelectorAll('ul, ol')].map((e) => e.outerHTML.match(/^<[^>]*>/)[0]), [
-      '<ol data-ordered="false">', '<ol>', '<ol>', '<ol start="3">',
+      '<ol data-ordered="false">', '<ul>', '<ol>', '<ol start="3">',
     ]);
     assert.equal(normalizeListsDom(doc), 0);
   });

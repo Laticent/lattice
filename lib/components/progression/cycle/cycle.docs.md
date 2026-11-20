@@ -22,7 +22,7 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading naming the cycle. |
 | `eyebrow` | a line of `inline code` | no | Optional label above the heading. |
-| `stages` | a `-` list | yes | Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first. |
+| `stages` | a list | yes | Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first. |
 
 ### Common mistakes
 

@@ -88,7 +88,7 @@
       "selector": "ol > li",
       "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": false,
-      "description": "Ordered list of section titles. Leave it out and the agenda fills itself from the deck's `divider` headings."
+      "description": "A list of section titles (`1.` or `-`; the ledger numbers itself). Leave it out and the agenda fills itself from the deck's `divider` headings."
     }
   },
   "skeleton": "<!-- _class: agenda -->\n\n## What this deck covers.\n\n1. First section title\n2. Second section title\n3. Third section title\n4. Fourth section title\n",

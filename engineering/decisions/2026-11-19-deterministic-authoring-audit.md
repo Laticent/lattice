@@ -434,9 +434,16 @@ behind the one before it only where it reads that one's output.
 - **Nested lists below what a layout reads stay the author's** (owner's ruling on #3330,
   2026-11-20). Each layout's deepest list slot sets how far down the contract reaches (`depths` in
   the generated table); a deeper `1.` keeps its `<ol>`, so a screen reader still hears numbers, and
-  a card's numbered body steps still show them. The swap probe found six layouts that read a nested
-  level without declaring it (kpi, stats, glossary, list-tabular, policy-recommendation, premise:
-  captions, definitions, detail rows); each gained an optional depth-2 slot.
+  a card's numbered body steps still show them. Eight layouts read a nested level without declaring
+  it, so each gained an optional depth-2 slot: kpi, stats, glossary, list-tabular,
+  policy-recommendation and premise (found by the gallery swap probe), and decision and list-steps
+  (found by review, 2026-11-20: their galleries had no nested `1.` to swap). Review also found
+  descendant selectors in agenda, list-steps and list-tabular (and math's legend bullet) that drew a
+  nested, quoted or aside `1.` list as the layout's own cards or rows; they are now scoped to the
+  stage's own list (`ol:where(.cell-stage > *)`, no added specificity). A swap probe cannot see a
+  level no gallery writes, so test/unit/core/list-contract.test.js reads every stylesheet instead: no
+  one-marker selector below the manifest's `depths`, and no one-marker selector reaching a list
+  through a bare descendant combinator.
 - **Contracts as declared.** `prose`: `content`, `list`. `numbered-tags`: `cards-grid`,
   `cards-stack`, `list-steps`, `split-panel steps` and `split-panel watermark` (which already drew
   numbered panels for `1.` and plain cards for `-`, so it was R2 in all but name). `neutral`:

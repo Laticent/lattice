@@ -22,7 +22,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 |---|---|---|---|
 | `heading` | a `## ` heading | yes | Slide heading framing the period or theme of the changes. |
 | `scope` | a line of `inline code` | no | Optional inline-code scope label (e.g. 'Federal · State · International'). |
-| `items` | a list | yes | Ordered list of changes. Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code). |
+| `items` | a list | yes | A list of changes (`1.` or `-`). Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code). |
 
 ### Variant decision rule
 

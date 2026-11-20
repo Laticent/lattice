@@ -21,7 +21,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `heading` | a `## ` heading | yes | Slide heading naming the rule whose chain is being walked. |
-| `tiers` | a list | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
+| `tiers` | a list | yes | A list of authority tiers (`1.` or `-`) (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
 
 ### Variant decision rule
 

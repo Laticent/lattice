@@ -19,13 +19,13 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading framing the comparison. |
-| `options` | a list | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, number the two items (`1. Own the verb`) and nest one description bullet under each: the lead is the facet's title, and its numeral (`I` / `II`) is generated from the ordered list. |
+| `options` | a list | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, nest one description bullet under each of the two items (`1. Own the verb` or `- Own the verb`, read the same): the lead is the facet's title, and its numeral (`I` / `II`) is generated. |
 | `lede` | a paragraph | no | `axis` only. A framing sentence between the heading and the two facet cards. |
 | `note` | a paragraph | no | A closing line after the two cards. Plain prose in the base layout; `axis` renders it centered and italic. |
 
 Under a variant, a slot changes shape:
 
-- `axis`: `options` is written as a `1.` list.
+- `axis`: `options` is written as a list.
 
 ### Variant decision rule
 

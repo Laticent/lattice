@@ -21,7 +21,8 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading naming the process. |
-| `steps` | a `1.` list | yes | Ordered list; each li is one step and gets a step number. The `1.` line is the step's TITLE and renders bold; its body goes on a nested `- ` line indented three spaces under it. A title and body on one line (`1. Freeze — two weeks before cutover`) renders the whole sentence as the bold title. |
+| `steps` | a list | yes | Ordered list; each li is one step and gets a step number. The `1.` line is the step's TITLE and renders bold; its body goes on a nested `- ` line indented three spaces under it. A title and body on one line (`1. Freeze — two weeks before cutover`) renders the whole sentence as the bold title. |
+| `body` | a list nested 1 level under an item | no | The step's body line, nested under its title. `-` or `1.` read the same here: the layout styles it as the card body. |
 
 ### Variant decision rule
 

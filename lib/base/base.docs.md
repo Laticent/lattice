@@ -715,9 +715,24 @@ layout sees the slide (`lib/core/list-contract.js`), so the docs, the render and
 | **numbered tags** (R2) | `cards-grid`, `cards-stack`, `list-steps`, `split-panel steps`, `split-panel watermark` | each card gets its number tag (corner tag, STEP 01, circle) | the same cards, no tag |
 | **neutral** (R3) | everything else that reads a list: `agenda`, `kpi`, `stats`, `premise`, `list-tabular`, `cycle`, `pricing`, every chart kind, … | renders the same as `-` | renders the same as `1.` |
 
-So write `1.` when the order is the point, on any layout. On a neutral layout it changes nothing, and
-nesting works the same way: a chart's nested `1.` rows draw the same chart as nested `-` rows. A
-`2.` start still counts: it continues a numbered run from the slide before.
+So write `1.` when the order is the point, on any layout. On a neutral layout it changes nothing at
+every level the layout reads: a chart's nested `1.` rows draw the same chart as nested `-` rows, and a
+KPI's label lines read the same either way. A `2.` start still counts: it continues a numbered run
+from the slide before.
+
+What stays exactly as you wrote it, on every layout:
+
+- **A list nested deeper than the layout reads.** A numbered list inside a card's body keeps its
+  numbers (and a screen reader hears them). On `agenda`, which reads only its section titles, a
+  list under a title sits on its own line beneath it, indented to the title.
+- **An aside**: a list after a line of prose ("Open risks:") with no heading in between. Lists
+  separated only by a heading (`### Added`, `### Amended`) are all the layout's. An aside is
+  stamped `data-list="aside"`, no layout styles it as its own, and it draws plain bullets or
+  numbers in the text column.
+- **A list inside a blockquote** (a Key Insight callout) **or inside raw HTML** (`<div>` … `</div>`).
+
+A deck-wide `class:` in front matter counts like a slide's own: `class: steps` makes every
+`split-panel` slide a numbered-tags layout.
 
 ```markdown
 <!-- _class: cards-grid -->

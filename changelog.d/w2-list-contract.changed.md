@@ -5,4 +5,4 @@
 - `list-steps` written as `-` renders the same step cards without the STEP tag (it collapsed to plain text), and `list principles` written as `-` draws a dot before each principle (it fell back to the default pills).
 - `slot-contract` no longer reports a list marker: on every layout that reads a list, either marker renders as its contract says.
 - The contract applies to the layout's own list: the first top-level list, and any later one under its own heading. A list inside a blockquote (a Key Insight callout), a list after a line of prose (an aside), and a list in raw HTML are left as you wrote them. A deck-wide `class: steps` or `class: principles` sets the contract like a slide's own class.
-- A nested list below the levels a layout reads keeps the marker you wrote: a `1.` list inside a card's body stays numbered.
+- A nested list below the levels a layout reads keeps the marker you wrote: a `1.` list inside a card's body stays numbered. On `agenda` it sits on its own line under the section title (every variant) instead of running into it, and an aside keeps its bullets or numbers.

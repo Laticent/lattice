@@ -21,7 +21,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 | `eyebrow` | a line of `inline code` | no | Optional inline-code label above the feature (the phase number under `steps`, the unit under `metric`). |
 | `heading` | a `## ` heading | yes | The featured element in the left panel — a heading by default; a hero number under `metric`; the phase name under `steps`. (Under `pullquote`, use a blockquote instead — see the variant.) |
 | `lede` | a paragraph | no | One-sentence framing paragraph under the feature. |
-| `points` | a `-` list | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. "You know you're here when"); the other two render as the paired proof cards. |
+| `points` | a list | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. "You know you're here when"); the other two render as the paired proof cards. |
 
 Under a variant, a slot changes shape:
 

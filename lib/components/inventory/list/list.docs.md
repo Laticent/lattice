@@ -25,7 +25,7 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 Under a variant, a slot changes shape:
 
-- `principles`: `items` is written as a `1.` list.
+- `principles`: `items` is written as a list.
 
 ### Variant decision rule
 

@@ -25,9 +25,9 @@ section.list-steps > .cell-stage { display:flex; flex-direction:column; min-heig
  * bottom padding first and only then overflows — where the export's clip warning is the
  * right channel. Landscape (hd/4k) hits it first: a 16:9 stage is the shortest one a
  * four-column strip has to fit into. */
-section.list-steps ol { list-style:none; counter-reset:step-counter var(--lat-split-offset, 0); display:flex; gap:var(--sp-xl); flex:1; min-height:0; padding:0; margin:0; align-items:stretch; }
-section.list-steps ol > li { counter-increment:step-counter; flex:1; background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); position:relative; font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading); }
-section.list-steps ol > li:not(:last-child)::after {
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) { list-style:none; counter-reset:step-counter var(--lat-split-offset, 0); display:flex; gap:var(--sp-xl); flex:1; min-height:0; padding:0; margin:0; align-items:stretch; }
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li { counter-increment:step-counter; flex:1; background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); position:relative; font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading); }
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li:not(:last-child)::after {
   content:'';
   position:absolute;
   right:calc(-1 * var(--sp-xl) / 2);
@@ -38,14 +38,14 @@ section.list-steps ol > li:not(:last-child)::after {
   border-left:10px solid var(--border);
   z-index:1;
 }
-section.list-steps ol > li::before { content:'STEP ' counter(step-counter, decimal-leading-zero); color:var(--card-tag-inline-ink); }   /* the tag voice: lib/base/base.card-tag.css */
-section.list-steps ol > li strong { display:block; }
-section.list-steps ol > li p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); margin:0; }
-section.list-steps ol > li:not(:has(> ul)) > p { flex:1; }
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li::before { content:'STEP ' counter(step-counter, decimal-leading-zero); color:var(--card-tag-inline-ink); }   /* the tag voice: lib/base/base.card-tag.css */
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li strong { display:block; }
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); margin:0; }
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li:not(:has(> ul)) > p { flex:1; }
 /* Nested list format: - body text under each step */
-section.list-steps ol > li > ul { list-style:none; padding:0; margin:0; flex:1; }
-section.list-steps ol > li > ul > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
-section.list-steps ol > li > ul > li::before { display:none; content:none; }
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li > ul { list-style:none; padding:0; margin:0; flex:1; }
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li > ul > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li > ul > li::before { display:none; content:none; }
 
 
 
@@ -74,13 +74,13 @@ section.list-steps.milestone { --step-prefix: 'MILESTONE '; }
 section.list-steps.rank      { --step-prefix: 'RANK '; }
 section.list-steps.tier      { --step-prefix: 'TIER '; }
 
-section.list-steps:is(.phase, .stage, .milestone, .rank, .tier) ol > li::before {
+section.list-steps:is(.phase, .stage, .milestone, .rank, .tier) ol:where(.cell-stage > :not([data-list="aside"])) > li::before {
   content: var(--step-prefix) counter(step-counter, decimal-leading-zero);
 }
-section.list-steps.lettered ol > li::before {
+section.list-steps.lettered ol:where(.cell-stage > :not([data-list="aside"])) > li::before {
   content: var(--step-prefix, 'STEP ') counter(step-counter, upper-alpha);
 }
-section.list-steps.roman ol > li::before {
+section.list-steps.roman ol:where(.cell-stage > :not([data-list="aside"])) > li::before {
   content: var(--step-prefix, 'STEP ') counter(step-counter, upper-roman);
 }
 
@@ -88,16 +88,16 @@ section.list-steps.roman ol > li::before {
  * right-pointing connector arrow becomes a down-pointing arrow centered
  * on the bottom edge of each non-last card. Cards size to content rather
  * than stretching equally so a 3-4 step deck fits the canvas. */
-section.list-steps.vertical ol {
+section.list-steps.vertical ol:where(.cell-stage > :not([data-list="aside"])) {
   flex-direction: column;
   gap: var(--sp-md);
   align-items: stretch;
   flex: 0 1 auto;
 }
-section.list-steps.vertical ol > li {
+section.list-steps.vertical ol:where(.cell-stage > :not([data-list="aside"])) > li {
   flex: 0 0 auto;
 }
-section.list-steps.vertical ol > li:not(:last-child)::after {
+section.list-steps.vertical ol:where(.cell-stage > :not([data-list="aside"])) > li:not(:last-child)::after {
   right: 50%;
   top: auto;
   bottom: calc(-1 * var(--sp-md) / 2);
@@ -132,12 +132,12 @@ section.form.list-steps.capsule:not(.rule-full) .cell-masthead { border-bottom: 
 section.list-steps.capsule > .cell-stage { justify-content: safe center; }
 /* A slide-proportional cap so three cards stay a readable centered group
  * rather than stretching the full frame width. */
-section.list-steps.capsule ol { flex: 0 1 auto; max-width: 80cqi; align-self: center; width: 100%; }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) { flex: 0 1 auto; max-width: 80cqi; align-self: center; width: 100%; }
 /* `capsule` is the editorial register — a reflective practice, not a pipeline —
  * so it drops the base variant's step-to-step connector arrows. The badges
  * already carry the sequence. */
-section.list-steps.capsule ol > li:not(:last-child)::after { content: none; }
-section.list-steps.capsule ol > li {
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li:not(:last-child)::after { content: none; }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li {
   align-items: center;
   text-align: center;
 }
@@ -149,7 +149,7 @@ section.list-steps.capsule ol > li {
  * as tokens, and `tag-plain` / `tag-bare` / `tag-small|large` / `tag-start|end` re-point them.
  * A placement word (`tag-foot`, …) moves it like any other step tag (base.card-tag.css). */
 section.capsule:where(.list-steps) { --card-tag-lead: 0.5; }
-section.list-steps.capsule ol > li::before {
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li::before {
   display: inline-block;
   align-self: center;
   padding:
@@ -164,14 +164,14 @@ section.list-steps.capsule ol > li::before {
   box-shadow: var(--card-tag-edge);
   font-size: var(--card-tag-fs);
 }
-section.list-steps.capsule ol > li strong {
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li strong {
   font-family: var(--font-display);
   font-size: var(--fs-h4);
   font-weight: 600;
   color: var(--text-heading);
 }
-section.list-steps.capsule ol > li > p,
-section.list-steps.capsule ol > li > ul > li {
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li > p,
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li > ul > li {
   text-align: center;
 }
 
@@ -196,14 +196,14 @@ section.list-steps.capsule ol > li > ul > li {
  * >=4.5:1 (test/unit/palette/contrast.test.js). It was the pale `--cat-N-fill` with
  * `--cat-on-fill`, the one categorical tag on the soft tier. (Mark INK on the pale fill was
  * the pair that failed AA, at 4.25:1 — mark as a FILL under on-mark ink is the pinned pair.) */
-section.list-steps.capsule ol > li:nth-child(8n+1) { --card-tag-fill: var(--cat-1-mark); --card-tag-ink: var(--cat-on-mark); }
-section.list-steps.capsule ol > li:nth-child(8n+2) { --card-tag-fill: var(--cat-2-mark); --card-tag-ink: var(--cat-on-mark); }
-section.list-steps.capsule ol > li:nth-child(8n+3) { --card-tag-fill: var(--cat-3-mark); --card-tag-ink: var(--cat-on-mark); }
-section.list-steps.capsule ol > li:nth-child(8n+4) { --card-tag-fill: var(--cat-4-mark); --card-tag-ink: var(--cat-on-mark); }
-section.list-steps.capsule ol > li:nth-child(8n+5) { --card-tag-fill: var(--cat-5-mark); --card-tag-ink: var(--cat-on-mark); }
-section.list-steps.capsule ol > li:nth-child(8n+6) { --card-tag-fill: var(--cat-6-mark); --card-tag-ink: var(--cat-on-mark); }
-section.list-steps.capsule ol > li:nth-child(8n+7) { --card-tag-fill: var(--cat-7-mark); --card-tag-ink: var(--cat-on-mark); }
-section.list-steps.capsule ol > li:nth-child(8n) { --card-tag-fill: var(--cat-8-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(8n+1) { --card-tag-fill: var(--cat-1-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(8n+2) { --card-tag-fill: var(--cat-2-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(8n+3) { --card-tag-fill: var(--cat-3-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(8n+4) { --card-tag-fill: var(--cat-4-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(8n+5) { --card-tag-fill: var(--cat-5-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(8n+6) { --card-tag-fill: var(--cat-6-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(8n+7) { --card-tag-fill: var(--cat-7-mark); --card-tag-ink: var(--cat-on-mark); }
+section.list-steps.capsule ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(8n) { --card-tag-fill: var(--cat-8-mark); --card-tag-ink: var(--cat-on-mark); }
 
 /* ── timeline variant — former `timeline` component (progression.list-steps.timeline) ──
  * Dots-on-a-spine: ordered stages as labeled nodes along one horizontal axis.
@@ -312,20 +312,20 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em
 /* shared: center the flow, stack as a column, strip the default card + STEP
  * badge (::before) + right-arrow connector (::after) chrome. */
 section.list-steps:is(.chevron, .converge, .ghost) > .cell-stage { justify-content:safe center; }
-section.list-steps:is(.chevron, .converge, .ghost) ol { flex-direction:column; align-items:stretch; flex:0 1 auto; }
-section.list-steps:is(.chevron, .converge, .ghost) ol > li { flex:0 0 auto; border:none; background:none; padding:0; font-weight:400; }
-section.list-steps:is(.chevron, .converge, .ghost) ol > li::before { content:none; }
-section.list-steps:is(.chevron, .converge, .ghost) ol > li::after  { content:none; }
-section.list-steps:is(.chevron, .converge, .ghost) ol > li > ul { list-style:none; padding:0; }
+section.list-steps:is(.chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])) { flex-direction:column; align-items:stretch; flex:0 1 auto; }
+section.list-steps:is(.chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])) > li { flex:0 0 auto; border:none; background:none; padding:0; font-weight:400; }
+section.list-steps:is(.chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])) > li::before { content:none; }
+section.list-steps:is(.chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])) > li::after  { content:none; }
+section.list-steps:is(.chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])) > li > ul { list-style:none; padding:0; }
 
 /* chevron — accent down-chevron tab carries the label; a bordered card holds the
  * description, tied to the tab by a solid accent left key. The chevron point aims
  * at the next row so the eye reads a cascade. */
-section.list-steps.chevron ol { gap:1.4cqi; }
-section.list-steps.chevron ol > li {
+section.list-steps.chevron ol:where(.cell-stage > :not([data-list="aside"])) { gap:1.4cqi; }
+section.list-steps.chevron ol:where(.cell-stage > :not([data-list="aside"])) > li {
   display:grid; grid-template-columns:16cqi 1fr; gap:2cqi; align-items:stretch; min-height:7.4cqi;
 }
-section.list-steps.chevron ol > li > strong {
+section.list-steps.chevron ol:where(.cell-stage > :not([data-list="aside"])) > li > strong {
   display:flex; align-items:center; justify-content:center; text-align:center;
   background:var(--accent); color:var(--on-accent);
   font-family:var(--font-label); font-size:var(--fs-h5); font-weight:700;
@@ -333,12 +333,12 @@ section.list-steps.chevron ol > li > strong {
   padding:0 1cqi 2cqi;
   clip-path:polygon(0 0, 100% 0, 100% 66%, 50% 100%, 0 66%);
 }
-section.list-steps.chevron ol > li > ul {
+section.list-steps.chevron ol:where(.cell-stage > :not([data-list="aside"])) > li > ul {
   display:flex; flex-direction:column; justify-content:center;
   background:var(--bg-alt); border:1px solid var(--border); border-left:0.7cqi solid var(--accent);
   padding:1cqi 2.2cqi;
 }
-section.list-steps.chevron ol > li > ul > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); }
+section.list-steps.chevron ol:where(.cell-stage > :not([data-list="aside"])) > li > ul > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); }
 
 /* converge — every band is full-width, clipped to a trapezoid whose edges sit on
  * two continuous converging diagonals; stacked at gap:0 the clips read as ONE
@@ -351,23 +351,23 @@ section.list-steps.chevron ol > li > ul > li { font-size:var(--fs-body); color:v
  * light and dark (2026-10-16 sweep, examples/converge-band-contrast.md).
  * Geometry is authored for 4 bands; a 5th+ band degrades to the narrowest
  * trapezoid rather than breaking. */
-section.list-steps.converge ol { gap:0; width:100%; }
-section.list-steps.converge ol > li {
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) { gap:0; width:100%; }
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) > li {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   text-align:center; gap:0.4cqi; width:100%; box-sizing:border-box; padding-block:1.5cqi;
 }
-section.list-steps.converge ol > li:nth-child(1)    { clip-path:polygon(0% 0,     100% 0,     93.25% 100%, 6.75% 100%);  padding-inline:6cqi;  background:var(--accent-soft); }
-section.list-steps.converge ol > li:nth-child(2)    { clip-path:polygon(6.75% 0,  93.25% 0,   86.5% 100%,  13.5% 100%);  padding-inline:13cqi; background:color-mix(in srgb, var(--accent) 12%, var(--accent-soft)); }
-section.list-steps.converge ol > li:nth-child(3)    { clip-path:polygon(13.5% 0,  86.5% 0,    79.75% 100%, 20.25% 100%); padding-inline:19cqi; background:color-mix(in srgb, var(--accent) 92%, var(--accent-soft)); }
-section.list-steps.converge ol > li:nth-child(n+4)  { clip-path:polygon(20.25% 0, 79.75% 0,   73% 100%,    27% 100%);    padding-inline:25cqi; background:var(--accent); }
-section.list-steps.converge ol > li:nth-child(-n+2) :is(strong, ul li) { color:var(--accent-soft-body); }
-section.list-steps.converge ol > li:nth-child(n+3)  :is(strong, ul li) { color:var(--on-accent); }
-section.list-steps.converge ol > li > strong {
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(1)    { clip-path:polygon(0% 0,     100% 0,     93.25% 100%, 6.75% 100%);  padding-inline:6cqi;  background:var(--accent-soft); }
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(2)    { clip-path:polygon(6.75% 0,  93.25% 0,   86.5% 100%,  13.5% 100%);  padding-inline:13cqi; background:color-mix(in srgb, var(--accent) 12%, var(--accent-soft)); }
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(3)    { clip-path:polygon(13.5% 0,  86.5% 0,    79.75% 100%, 20.25% 100%); padding-inline:19cqi; background:color-mix(in srgb, var(--accent) 92%, var(--accent-soft)); }
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(n+4)  { clip-path:polygon(20.25% 0, 79.75% 0,   73% 100%,    27% 100%);    padding-inline:25cqi; background:var(--accent); }
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(-n+2) :is(strong, ul li) { color:var(--accent-soft-body); }
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) > li:nth-child(n+3)  :is(strong, ul li) { color:var(--on-accent); }
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) > li > strong {
   font-family:var(--font-label); font-size:var(--fs-h5); font-weight:700;
   text-transform:uppercase; letter-spacing:0.05em;
 }
-section.list-steps.converge ol > li > ul > li { font-size:var(--fs-body); line-height:var(--lh-snug); }
-section.list-steps.converge ol::after {
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"])) > li > ul > li { font-size:var(--fs-body); line-height:var(--lh-snug); }
+section.list-steps.converge ol:where(.cell-stage > :not([data-list="aside"]))::after {
   content:""; width:100%; height:3.6cqi; background:var(--accent);
   clip-path:polygon(27% 0, 73% 0, 50% 100%);
 }
@@ -375,20 +375,20 @@ section.list-steps.converge ol::after {
 /* ghost — a large faint chevron watermarks each row; the label is a small accent
  * eyebrow and the description is the hero in heading type. Hairline rules imply
  * the flow. Maximum restraint, maximum type. */
-section.list-steps.ghost ol { gap:0; }
-section.list-steps.ghost ol > li { position:relative; padding:1.55cqi 0 1.55cqi 9cqi; }
-section.list-steps.ghost ol > li + li { border-top:1px solid var(--border); }
-section.list-steps.ghost ol > li::before {
+section.list-steps.ghost ol:where(.cell-stage > :not([data-list="aside"])) { gap:0; }
+section.list-steps.ghost ol:where(.cell-stage > :not([data-list="aside"])) > li { position:relative; padding:1.55cqi 0 1.55cqi 9cqi; }
+section.list-steps.ghost ol:where(.cell-stage > :not([data-list="aside"])) > li + li { border-top:1px solid var(--border); }
+section.list-steps.ghost ol:where(.cell-stage > :not([data-list="aside"])) > li::before {
   content:''; position:absolute; left:1.2cqi; top:50%; transform:translateY(-50%);
   width:6.2cqi; height:6.2cqi; background:var(--accent); opacity:0.12;
   clip-path:polygon(50% 88%, 0 34%, 14% 20%, 50% 60%, 86% 20%, 100% 34%);
 }
-section.list-steps.ghost ol > li > strong {
+section.list-steps.ghost ol:where(.cell-stage > :not([data-list="aside"])) > li > strong {
   display:block; font-family:var(--font-label); font-size:var(--fs-meta); color:var(--accent);
   font-weight:700; text-transform:uppercase; letter-spacing:0.18em; line-height:var(--lh-snug);
   padding-bottom:0.7cqi;
 }
-section.list-steps.ghost ol > li > ul > li {
+section.list-steps.ghost ol:where(.cell-stage > :not([data-list="aside"])) > li > ul > li {
   font-size:var(--fs-h4); color:var(--text-heading); font-weight:400; line-height:var(--lh-snug);
 }
 
@@ -402,11 +402,11 @@ section.list-steps.ghost ol > li > ul > li {
    is `≤ 0.9` (tall + strip): a square box fits neither the horizontal row (it
    overflows) nor 3–4 full cards stacked (also overflows), so `square` is left out of
    `adapt.families` and the vertical stack fires only on the taller frames. */
-section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol {
+section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > :not([data-list="aside"])) {
   flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
 }
-section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol > li { flex: 0 0 auto; }
-section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol > li:not(:last-child)::after {
+section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > :not([data-list="aside"])) > li { flex: 0 0 auto; }
+section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol:where(.cell-stage > :not([data-list="aside"])) > li:not(:last-child)::after {
   right: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
   transform: translate(50%, 50%);
   border-top: 10px solid var(--border); border-bottom: none;
@@ -417,7 +417,7 @@ section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.g
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
-section.list-steps ol > li {
+section.list-steps ol:where(.cell-stage > :not([data-list="aside"])) > li {
   box-shadow: var(--elevation-card);
 }
 section.list-steps > .cell-stage {
@@ -491,4 +491,4 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
  * base.card-tag.css skip a `data-ordered="false"` list the same way. `timeline` keeps a plain dot
  * (above), and `ghost` keeps its chevron glyph, which is a decoration, not a number. Last in the
  * file so it wins over the counter-format rules of the same weight (phase, lettered, capsule). */
-section.list-steps:not(.ghost) ol[data-ordered="false"] > li::before { content:none; }
+section.list-steps:not(.ghost) ol:where(.cell-stage > :not([data-list="aside"]))[data-ordered="false"] > li::before { content:none; }

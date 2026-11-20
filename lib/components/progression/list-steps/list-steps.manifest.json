@@ -116,6 +116,16 @@
       "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": true,
       "description": "Ordered list; each li is one step and gets a step number. The `1.` line is the step's TITLE and renders bold; its body goes on a nested `- ` line indented three spaces under it. A title and body on one line (`1. Freeze — two weeks before cutover`) renders the whole sentence as the bold title."
+    },
+    "body": {
+      "selector": "ol > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The step's body line, nested under its title. `-` or `1.` read the same here: the layout styles it as the card body."
     }
   },
   "skeleton": "<!-- _class: list-steps -->\n\n## How to roll this out.\n\n1. First step\n   - One sentence on what happens in this step.\n2. Second step\n   - One sentence on what happens in this step.\n3. Third step\n   - One sentence on what happens in this step.\n4. Fourth step\n   - One sentence on what happens in this step.\n",

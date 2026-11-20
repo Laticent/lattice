@@ -99,7 +99,10 @@ section.list > .cell-stage > ul > li {
    (owner ruling 2026-09-29, 2026-09-29-one-reading-size-per-venue.md §4 E7), as content's
    sub-bullets and split-panel's supporting lines are. */
 section.list > .cell-stage > ul > li > ul { list-style:none; margin:0; padding:0; }
-section.list > .cell-stage > ul > li > ul > li {
+/* A nested `1.` keeps its numbers (a prose register renders the author's marker), inside the pill's
+   text column rather than hanging off its left edge, and in the same compact face as a `-` line. */
+section.list > .cell-stage > ul > li > ol { margin:0; padding:0; list-style-position:inside; }
+section.list > .cell-stage > ul > li > :is(ul, ol) > li {
   font-size:var(--fs-body-compact); color:var(--text-label);
   line-height:var(--lh-snug); background:none; border:none; padding:0;
 }

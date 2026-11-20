@@ -113,7 +113,7 @@
       "selector": "ul > li",
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
-      "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, number the two items (`1. Own the verb`) and nest one description bullet under each: the lead is the facet's title, and its numeral (`I` / `II`) is generated from the ordered list."
+      "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, nest one description bullet under each of the two items (`1. Own the verb` or `- Own the verb`, read the same): the lead is the facet's title, and its numeral (`I` / `II`) is generated."
     },
     "lede": {
       "selector": "h2 + p",

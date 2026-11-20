@@ -83,7 +83,7 @@ section.math ul > li, section.math ol > li {
   padding: 0 0 var(--sp-xs) 0;
   line-height: var(--lh-base);
 }
-section.math ul > li::before {
+section.math ul:where(.cell-stage > :not([data-list="aside"])) > li::before {
   content: '·';
   padding-right: 0.5em;
   color: var(--accent);

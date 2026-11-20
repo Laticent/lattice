@@ -19,7 +19,7 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading — typically 'Glossary'. |
-| `entries` | a `-` list or a table | yes | Nested bullets: outer li is the term, inner li is its one-line definition. A runtime transform converts the list into a two-column table and derives the alphabetic range pill from the first and last terms, so terms should be authored in alphabetical order; without the Lattice runtime the raw nested list renders unstyled. |
+| `entries` | a list or a table | yes | Nested bullets: outer li is the term, inner li is its one-line definition. A runtime transform converts the list into a two-column table and derives the alphabetic range pill from the first and last terms, so terms should be authored in alphabetical order; without the Lattice runtime the raw nested list renders unstyled. |
 | `definition` | a list nested 1 level under an item | no | The term's definition, nested under it. `-` or `1.` read the same here: the layout turns the pair into a table row. |
 
 ### Common mistakes
