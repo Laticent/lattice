@@ -6,7 +6,7 @@
 // (2, the landscape-phone layout, is e2e/present-immersive.spec.ts plus the immersive cases below.)
 //
 // Fake time throughout, stepped in fixed slices (HARD RULE #32): every wait is a condition with a budget in FAKE ms.
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, createEvent, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadAuthoring } from '@/playground/authoring-door.js';
 import { PresentOverlay } from './PresentOverlay';
@@ -166,6 +166,34 @@ describe('Present — immersive on a phone held sideways', () => {
 		expect(hidden(), 'a bare click did not bring the chrome back').toBe(false);
 	});
 
+	it('a tap the way iOS sends it (pointerdown, touchstart, a click on another clock) brings the chrome back and keeps it', async () => {
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={deck} />);
+		await step(4000);
+		expect(hidden()).toBe(true);
+		// The gesture layer: the backdrop, whose native touchstart listener reveals the chrome before React sees the event.
+		const backdrop = document.querySelector('.lx-ui.fixed.inset-0') as HTMLElement;
+		const at = { clientX: 100, clientY: 100 };
+		const stamped = <E extends Event>(e: E, t: number) => {
+			Object.defineProperty(e, 'timeStamp', { value: t });
+			return e;
+		};
+		// The touch half on the time-since-load clock, as WebKit stamps it…
+		fireEvent(backdrop, stamped(createEvent.pointerDown(backdrop, { ...at, isPrimary: true }), 5000));
+		fireEvent(backdrop, stamped(createEvent.touchStart(backdrop, { touches: [at], targetTouches: [at], changedTouches: [at] }), 5001));
+		await step(0);
+		// …and the click on the wall clock: WebKit can stamp touch and mouse events on different clocks, so the tap rule must
+		// not compare event timestamps at all.
+		const click = new MouseEvent('click', { bubbles: true, cancelable: true, ...at });
+		Object.defineProperty(click, 'timeStamp', { value: Date.now() });
+		act(() => {
+			backdrop.dispatchEvent(click);
+		});
+		await step(0);
+		expect(hidden(), 'the tap showed the chrome and hid it again at once').toBe(false);
+		await step(1500);
+		expect(hidden(), 'the chrome did not stay up for the bloom timer').toBe(false);
+	});
+
 	it('a two-finger touch is a pinch, not a tap', async () => {
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={deck} />);
 		const row = document.querySelector('[data-present-immersive]') as HTMLElement;
@@ -241,6 +269,8 @@ describe('Present — the phone stays awake and answers its media keys', () => {
 			const { rerender } = render(<PresentOverlay open {...props} />);
 			await step(0);
 			expect(request).toHaveBeenCalledWith('screen');
+			// Published for the iOS Simulator suite, which cannot see the lock any other way.
+			expect(screen.getByRole('dialog', { name: 'Present' }).getAttribute('data-wake')).toBe('held');
 			rerender(<PresentOverlay open={false} {...props} />);
 			await step(0);
 			expect(release).toHaveBeenCalled();

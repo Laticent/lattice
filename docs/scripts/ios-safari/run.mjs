@@ -25,6 +25,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
 import { LONG_PRESS_MS, pressSelected, tapHold, tapVerdict } from './tap-guard.mjs';
@@ -159,7 +160,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -722,6 +723,52 @@ async function runPresentMemoryProbe(id) {
 	const steps = presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac });
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: a.ua, width: a.width, deckBytes: deck.bytes.length, arms, steps };
+}
+
+/**
+ * The Present keep-alive probe (PROBE=present-keepalive, PR #3333): what keeps a playing deck playing on an iPhone, in
+ * real Mobile Safari. Present opens on the Studio's own deck and must hold a screen wake lock; Fullscreen, which iPhone
+ * Safari cannot grant, turns on the immersive layout and its chrome fades; a REAL WebDriver touch tap on the slide brings
+ * the chrome back; Play puts the captions on the slide with a moving highlight; Next while playing plays the next slide
+ * on its own with the lock still held; closing stops the narration. The verdict is present-keepalive-probe.js
+ * `latticeKeepaliveChecks`: states reached, never durations (HARD RULE #32).
+ */
+async function runPresentKeepaliveProbe(id) {
+	const source = fs.readFileSync(path.join(here, 'present-keepalive-probe.js'), 'utf8');
+	const call = async (expr) => {
+		const r = await wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+		if (r?.error) throw new Error(`${expr}: ${r.error}`);
+		return r;
+	};
+	const r = {};
+	let error = '';
+	try {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		r.open = await call('latticeKeepaliveOpen()');
+		r.immersive = await call('latticeKeepaliveImmersive()');
+		// A real finger: a WebDriver touch at the slide, as the owner taps it.
+		await wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: r.immersive.x, y: r.immersive.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+		});
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		r.shown = await call('latticeKeepaliveShown()');
+		r.play = await call('latticeKeepalivePlay()');
+		r.next = await call('latticeKeepaliveNext()');
+		r.close = await call('latticeKeepaliveClose()');
+	} catch (e) {
+		error = String(e.message || e).slice(0, 300);
+	}
+	// The verdict runs in Node from the same source the page ran (its functions touch no DOM at definition).
+	const sandbox = {};
+	vm.createContext(sandbox);
+	vm.runInContext(source, sandbox);
+	const steps = sandbox.latticeKeepaliveChecks(r, { realSafari: true });
+	if (error) steps.push({ name: 'the probe ran to the end', pass: false, detail: error });
+	console.log(`${LABEL}: present keep-alive: ${steps.map((s) => `${s.pass ? 'ok' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`).join(' | ')}`);
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: r.open?.ua, width: r.open?.width, steps };
 }
 
 /**

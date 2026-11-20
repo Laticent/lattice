@@ -84,6 +84,8 @@ function focusVisible(target: EventTarget): boolean {
 const SILENT_DWELL_MS = 4000;
 // The rotation hold (see `settling`): frames the window size must hold still, and the most it may ever take.
 const ROTATE_STILL_FRAMES = 6;
+// How long after a gesture starts its click still belongs to it (a tap's click follows its touchstart within a few frames).
+const TAP_WINDOW_MS = 1000;
 const ROTATE_SETTLE_MAX_MS = 1200;
 // A toggle that is ON reads as a SOLID accent pill, an OFF one as an outline. The old on-state, a tinted
 // outline, sat too close to off: in the dark theme CC, Voice and Rail on looked like Guide off (owner, 2026-11-20).
@@ -2209,11 +2211,19 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// long as it is open — a presenter driving by hand needs the screen as much as a deck playing itself — and takes it
 	// again when the page comes back to the front (a hidden page loses it). `WakeKeeper` is the Live room's keeper,
 	// which already handles the overlapping-request and late-arrival cases.
+	// The lock's state is PUBLISHED on the dialog (`data-wake`), because nothing outside can see it: the iOS Simulator
+	// suite (ios-safari-present-keepalive) reads it to prove real Mobile Safari granted the lock.
+	const [wakeState, setWakeState] = React.useState<'held' | 'not held' | 'unsupported'>('not held');
 	React.useEffect(() => {
 		if (!open) return;
 		const keeper = new WakeKeeper();
+		keeper.onChange = setWakeState;
+		setWakeState(keeper.state);
 		keeper.keep(true);
-		return () => keeper.keep(false);
+		return () => {
+			keeper.onChange = null;
+			keeper.keep(false);
+		};
 	}, [open]);
 	// The OS media controls — lock screen, Control Center, headset buttons — drive the same verbs as the transport, and
 	// the audio session is marked as media playback (present/present-media.ts). Read through a ref so the binding is
@@ -2268,6 +2278,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const pinnedRef = React.useRef(false);
 	const hideTimer = React.useRef<number | null>(null);
 	const gestureRef = React.useRef<{ t: number; shown: boolean } | null>(null);
+	const revealedRef = React.useRef(revealed);
+	revealedRef.current = revealed;
 	const wake = React.useCallback(() => {
 		setRevealed(true);
 		if (hideTimer.current) window.clearTimeout(hideTimer.current);
@@ -2614,15 +2626,21 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// Whether the chrome was SHOWN is read at the gesture's start where the browser reports one (pointer- or touch-down):
 	// the gesture controller's `onInput` reveals the chrome on touchstart, so read at the click it would always look shown
 	// and every tap would hide it straight away. With no start reported, the state at the click decides.
-	const gestureStart = (e: React.SyntheticEvent) => {
-		gestureRef.current = { t: e.timeStamp, shown: revealed };
+	// TIME IS OURS, NOT THE EVENT'S: WebKit can stamp touch and mouse events on different clocks (wall clock vs time since
+	// load), and comparing `event.timeStamp`s across them put every tap outside the window, so the rule fell back to "shown
+	// now" (true: touchstart had just revealed it) and the tap hid the chrome it had just shown (owner, iPhone, 2026-11-20).
+	// The FIRST start of a gesture is kept (a tap sends pointerdown AND touchstart), and the state is read from a ref.
+	const gestureStart = () => {
+		const now = performance.now();
+		if (gestureRef.current && now - gestureRef.current.t < TAP_WINDOW_MS) return;
+		gestureRef.current = { t: now, shown: revealedRef.current };
 	};
 	const tapClick = (e: React.MouseEvent) => {
 		const g = gestureRef.current;
 		gestureRef.current = null;
 		if (!immersive) return;
 		if ((e.target as Element).closest?.('button, a, input, [role="menu"], [role="dialog"] [role="dialog"]')) return;
-		const shown = g && e.timeStamp - g.t < 1000 ? g.shown : revealed;
+		const shown = g && performance.now() - g.t < TAP_WINDOW_MS ? g.shown : revealedRef.current;
 		if (shown) {
 			if (hideTimer.current) window.clearTimeout(hideTimer.current);
 			setRevealed(false);
@@ -2752,6 +2770,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// own oracles (`data-vt-phase`): publish the state rather than infer it.
 				data-beat={holding ? 'hold' : undefined}
 				data-settling={settling ? '' : undefined}
+				data-wake={wakeState}
 				className={cn('lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden', settling ? 'opacity-0' : 'opacity-100 transition-opacity duration-200 motion-reduce:transition-none')}
 			>
 			<div

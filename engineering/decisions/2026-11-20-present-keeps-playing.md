@@ -81,6 +81,23 @@ read waits up to `PREPARE_WAIT_MS` (2.5 s); past that the slide is read on capti
 next slide's play once it is ready. It never joins mid-slide, which would be the race-ahead-then-snap-back the
 deferred start exists to prevent (`2026-07-09-cadenza-narration-quality.md`).
 
+### Tap timing, the caption plate, and an iOS Simulator suite (owner, iPhone, 2026-11-20)
+
+- **A tap flashed the chrome and hid it again.** The tap rule compared `event.timeStamp`s across the touch and the click,
+  and WebKit can stamp those on different clocks (wall clock vs time since load): every tap fell outside the window, the
+  rule fell back to "shown now" (true, because touchstart had just revealed it), and the tap hid it. It now measures with
+  its own `performance.now()`, keeps the first start of a gesture, and reads the state from a ref. The unit test sends the
+  click on the other clock and went red before the fix.
+- **The caption plate hugs the words and lets the slide through.** It is drawn per visual line on an inline box
+  (`box-decoration-break: clone`) instead of around the whole sentence, so a short last line no longer sits in a
+  slide-wide bar, and it is `rgb(0 0 0 / .55)` over a 6 px blur. One visual line shows at a time.
+- **`ios-safari-present-keepalive`** (nightly and dispatch, like every iOS suite; the owner's choice of option A) runs
+  `docs/scripts/ios-safari/present-keepalive-probe.js` in Mobile Safari on an iPhone simulator: the wake lock is held
+  (Present publishes it as `data-wake`), Fullscreen falls back to immersive and the chrome fades, a real WebDriver touch
+  brings it back, the captions sit in the slide with a moving highlight, Next while playing plays on, closing stops the
+  voice. Its self-test (`PROBE=present-keepalive node scripts/ios-safari/probe.selftest.mjs`) passes on Playwright
+  WebKit, and with the lock, Next and the tap broken on purpose it fails exactly those checks.
+
 ### Caption treatment and toggle states — design round (owner, 2026-11-20)
 
 The owner found the light-mode captions odd: a flat slab in the app's own `--bg` across the slide. The root: a caption

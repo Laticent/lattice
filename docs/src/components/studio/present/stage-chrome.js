@@ -51,17 +51,21 @@ export const STAGE_CHROME_CSS = `
 .latt-cc-over{position:absolute;left:0;right:0;bottom:0;z-index:2;container-type:inline-size;pointer-events:none;transition:transform .3s cubic-bezier(.22,.61,.36,1);}
 .latt-cc-over .latt-cc-band{font-size:clamp(11px,2.5cqw,40px);padding:0 4% 2.5%;}
 .latt-cc-over .latt-cc-band[data-shown="1"]{max-height:6em;}
-.latt-cc-over .latt-cc{height:1.7em;max-width:none;padding:0;}
+.latt-cc-over .latt-cc{max-width:none;padding:0;}
 .latt-cc-over .latt-cc-line{font-size:1em;padding:.1em .4em;}
 /* The line being read, alone, on a dark rounded plate with white type: the TV-subtitle convention, the same in both
    modes because a caption sits on the SLIDE, whose colors are the deck's, not the app's light or dark mode (a band in
-   the app's --bg went muddy over a dark slide). Chosen from three over-the-slide designs by the owner, 2026-11-20. */
+   the app's --bg went muddy over a dark slide). Chosen from three over-the-slide designs by the owner, 2026-11-20.
+   The plate is drawn PER VISUAL LINE and hugs the words (an inline box, box-decoration-break: clone), so a short last
+   line does not sit in a slide-wide bar; one visual line shows at a time, scrolling as the voice moves on. It is see-through, with the slide blurred under
+   it, so the plate reads as a caption over the slide rather than a panel cut out of it (owner, iPhone, 2026-11-20). */
+.latt-cc-over .latt-cc{height:1.9em;}
 .latt-cc-over .latt-cc-win{-webkit-mask-image:none;mask-image:none;}
-.latt-cc-over .latt-cc-track{display:flex;flex-direction:column;align-items:center;}
-.latt-cc-over .latt-cc-line[data-state="read"],.latt-cc-over .latt-cc-line[data-state="up"]{visibility:hidden;}
-.latt-cc-over .latt-cc-line[data-state="now"]{padding:.12em .55em;border-radius:.35em;background:rgb(0 0 0 / .74);-webkit-box-decoration-break:clone;box-decoration-break:clone;}
+.latt-cc-over .latt-cc-track{text-align:center;}
+.latt-cc-over .latt-cc-line[data-state="read"],.latt-cc-over .latt-cc-line[data-state="up"]{display:none;}
+.latt-cc-over .latt-cc-line[data-state="now"]{display:inline;padding:.12em .4em;line-height:1.9;border-radius:.3em;background:rgb(0 0 0 / .55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-box-decoration-break:clone;box-decoration-break:clone;}
 .latt-cc-over .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:white;}
-.latt-cc-over .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="0"]{color:rgb(255 255 255 / .62);}
+.latt-cc-over .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="0"]{color:rgb(255 255 255 / .7);}
 /* ── the progress rail ───────────────────────────────────────────────────── */
 .latt-rail{display:flex;min-width:0;flex-direction:column;align-items:stretch;gap:.375rem;width:100%;}
 .latt-rail-title{height:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;line-height:1;letter-spacing:.16em;color:var(--text-muted);}
