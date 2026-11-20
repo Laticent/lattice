@@ -119,7 +119,7 @@
     "prosemirror-search": "^1.1.1",
     "prosemirror-state": "^1.4.4",
     "prosemirror-tables": "^1.8.5",
-    "prosemirror-view": "^1.42.8",
+    "prosemirror-view": "^1.42.9",
     "radix-ui": "^1.5.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
