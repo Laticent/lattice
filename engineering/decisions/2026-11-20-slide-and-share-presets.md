@@ -48,8 +48,8 @@ four properties, and every new preset surface should keep all four:
 
 ### 3.1 The candidates, rendered
 
-A 16-slide deck (two layouts, `cards-grid` and `big-number`, under four looks, under the
-`classic` and `editorial` deck presets, theme `indaco`) was rendered through the CLI. The
+Two 8-slide decks (two layouts, `cards-grid` and `big-number`, under four looks, under the
+`classic` and `editorial` deck presets, theme `indaco`) were rendered through the CLI. The
 token sets below are the second round. The first round's Spotlight (`accent spectrum-solid
 rule-accent tint-spotlight scale-l`) changed only the title color and a faint glow, and read as
 Standard at tile size; card rails and an eyebrow bar fixed it.
