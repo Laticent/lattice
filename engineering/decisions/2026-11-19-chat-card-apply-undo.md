@@ -24,7 +24,7 @@ builds nothing in the Studio.
 | Whole-card actions | **At the bottom right** of the deck card: Apply all (then Apply remaining N), Discard all, and Undo all once nothing waits |
 | Undo after the deck moved on | **By content, decided before the click** (§5, §8) |
 | History | **One entry per card, label kept current**: "Before AI edit · 10:42 · “Make slides 2 and 3…” (2 of 3 applied)" (§6) |
-| Tell the AI | **Yes**: the next message carries one line per card saying which slides were applied, discarded or undone |
+| Tell the AI | **Yes**: the next message carries one line per card saying which slides were applied, discarded or undone, then the deck's slide count (PR #3324) |
 | Look | **The shared collapsible card** (`collapsible-card.tsx`), the same one the chat's cost menu uses |
 
 ## 1. What exists today
