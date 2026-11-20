@@ -358,6 +358,42 @@ start while the editor was scrolled to its tail, and the warning it waited for w
 **Do instead.** Find text through the editor's own document (the `cmTile` view handle) and dispatch
 the editor's `scrollIntoView` for the line before waiting on it (#3213).
 
+## An editor underline waited for before lint has answered
+
+**Trap.** Every CodeMirror underline in the Source editor comes from a lint pass, and the pass runs
+in a worker that can take far longer than any fixed wait. A test that gives an underline N seconds
+from some unrelated moment races the worker, not the product.
+
+**Example.** The iOS photo probe gave the photo warning 20 s from the moment it scrolled to the
+line. In the iOS Simulator the editor's first lint answer for the probe's deck came up to 14.9 s
+after that scroll, about 20 s after the slide first showed (a cold lint worker loading the lint core). Lint-only warnings arrived in the
+same instant as the photo warning, so lint was the slow step. Two runs in about 300 (an iPad and an
+iPhone) ran out before lint had answered.
+
+**Do instead.** Wait until the editor's root has `data-linted-chars` equal to the length of the
+text it now holds (`Editor.tsx` `reportLint` stamps it for this). Then give the underline its own
+short wait. Size the lint wait as a hang guard, not as a guess at speed. The stamp is a length, so
+it cannot see a re-run on the same text (a new preview measurement): to see an underline go after
+one, wait for the underline itself to go.
+
+## A hover at the middle of a wrapped range opens nothing
+
+**Trap.** CodeMirror opens a hover tooltip only for a pointer over a character that has rested
+for 300 ms (`HoverPlugin.startHover` and `checkHover`). The middle of a wrapped range's bounding box
+can fall in the gap between two rows, where CodeMirror finds no character, and a move every poll
+keeps restarting the 300 ms.
+
+**Example.** At phone width the photo probe hovered the middle of a class comment that wrapped onto
+two rows. Only the lint gutter's marker rescued it, and the probe failed 2 of 120 runs under load
+when that missed too.
+
+A point measured once also goes stale: the editor can scroll after the range is found, and a
+phone run under load hovered a line 250 px below the warning for the whole wait.
+
+**Do instead.** Point at the middle of the range's first row (its first non-empty client rect), read
+where it is at every move, and move again only after the last move had a full second to open a
+tooltip.
+
 ## A test-set selection reaches ProseMirror late
 
 **Trap.** ProseMirror learns of a DOM selection only from the browser's queued `selectionchange`
