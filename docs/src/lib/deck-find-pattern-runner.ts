@@ -5,5 +5,7 @@
 
 import { type PatternRunner, type PatternWorker, workerPatternRunner } from './deck-find-pattern';
 
-export const browserPatternRunner: PatternRunner | null =
-	typeof Worker === 'undefined' ? null : workerPatternRunner(() => new Worker(new URL('./deck-find-pattern.worker.ts', import.meta.url), { type: 'module' }) as unknown as PatternWorker);
+// PROBE: no pattern Worker, on purpose (#34 failing arm for the pattern e2e); this branch is deleted after the run.
+export const browserPatternRunner: PatternRunner | null = null;
+void workerPatternRunner;
+export type { PatternWorker };
