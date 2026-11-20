@@ -2483,6 +2483,62 @@ the session can answer every NEED YOU item without a follow-up question. Born fr
 a chart-fit session where the strip-size decision was item five of a status list
 and had to be asked for twice.)*
 
+## 🛰️ Fleet board — every session at a glance, on demand
+
+The owner runs many sessions at once. The 🚦 📋 🎯 ❓ cards each describe ONE
+session. The fleet board puts all of them on one screen, so the owner can see
+who needs them, what is at risk, and what to do next. A **command center**
+session builds it whenever the owner asks for a board ("board", "fleet",
+`/fleet`). It never runs on a schedule unless the owner asks for one.
+
+**It reads state; it stores none.** Sessions already leave their state where
+the board can read it, so the board adds no log, issue or file:
+
+| Source | Call | Gives |
+|---|---|---|
+| Sessions | `list_sessions` (`mine: true`) | status bucket, `task_summary`, `post_turn_summary.needs_action`, parent, tags, last update |
+| Open PRs | `list_pull_requests` (`state: open`, `fields` trimmed) | number, head branch, draft, last update |
+| PR comments | `pull_request_read` `get_comments`, newest first | the latest 🚦 card and its level, the CI note with its run link, handovers naming a session |
+
+A session joins its PR by the PR's head branch, or by a comment that names the
+session ID. **Open a transcript (`list_events`) only for a 🔴 or 🟠 row.**
+That keeps a board at a handful of calls however many sessions are live.
+
+**Five levels, loudest first.** The renderer sorts by them, so a 🔴 card never
+sits below a 🟢 one.
+
+| Level | Icon | When |
+|---|---|---|
+| `needs-you` | 🔴 | blocked on the owner: a question, a `needs_action`, or a 🚦 merge ask at HIGH or VERY HIGH |
+| `at-risk` | 🟠 | red or flaky CI, "working" with no update for over 3h, or two sessions on the same PR, issue or files |
+| `moving` | 🟢 | working and recently active |
+| `review` | 🔵 | green and waiting in the owner's merge queue |
+| `done` | ✅ | merged or finished since the last board; folded into HINDSIGHT, no card |
+
+**Four lenses, one board.** The overview card carries HINDSIGHT (what finished),
+INSIGHT (a pattern across sessions, such as one flaky test hitting three of
+them), FORESIGHT (merge order, what unblocks what) and ACTIONS. Oversight is
+the 🔴 and 🟠 cards themselves.
+
+**Actions wait for `go`.** Each action is numbered (`A1`, `A2`, …). The command
+center sends no message, starts no session and interrupts nothing until the
+owner replies `go A1 A3`. A fix session for a flaky test is an action like any
+other (HARD RULE #33 still decides that the fix is owed). The board inherits
+CLAUDE.md's SECOND FILTER: it proposes, the owner decides.
+
+**Build it with `npm run card`**, like every other card. Copy
+`engineering/card-examples/fleet.yml`. Each item names its `level`, `title`,
+`state`, and optionally `pr`, `session`, a `build` run URL, `needs` (required at
+`needs-you`), `why` and `children` (the child sessions of a line of work, one
+line each). The board is the one card that is **not a single fence**: each card
+is fenced, and its link row (`Pull Request | Session | Build`) sits under the
+fence, because a link inside a fence cannot be clicked. Paste the output
+verbatim. The board lives in the command center's chat; it is not posted on a
+PR, because it is about many PRs and each PR's own cards are already the record.
+
+*(discipline. The test is whether the owner can act on every 🔴 card from the
+board alone, without opening the session first.)*
+
 ## Work queue — the kanban board (cards, swimlanes, the mirror)
 
 Where work *comes from*. The model is the lean-kanban ADR

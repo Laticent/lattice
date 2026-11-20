@@ -12,13 +12,15 @@ const EXAMPLES = path.join(ROOT, 'engineering', 'card-examples');
 const load = (name) => YAML.parse(fs.readFileSync(path.join(EXAMPLES, `${name}.yml`), 'utf8'));
 
 test('every shipped example renders, and no line is wider than the phone', () => {
-  for (const name of ['pre-merge', 'standup', 'continuation', 'decision']) {
+  for (const name of ['pre-merge', 'standup', 'continuation', 'decision', 'fleet']) {
     const r = renderCard(load(name));
     assert.equal(r.ok, true, `${name}: ${r.errors.join('; ')}`);
     for (const line of r.lines) {
       assert.ok(displayWidth(line) <= WIDTH, `${name}: "${line}" is ${displayWidth(line)} columns`);
     }
-    assert.ok(r.text.startsWith('```\n') && r.text.endsWith('\n```'), `${name} is fenced`);
+    assert.ok(r.text.startsWith('```\n'), `${name} opens with a fence`);
+    // A fleet board ends with its last card's link row, which must sit outside the fence.
+    if (name !== 'fleet') assert.ok(r.text.endsWith('\n```'), `${name} is fenced`);
   }
 });
 
@@ -245,4 +247,45 @@ test('pre-merge: left_behind is required and printed under RISK', () => {
   assert.equal(lines[lines.indexOf('  left behind') + 1], '    none');
   delete card.risk.left_behind;
   assert.equal(renderCard(card).ok, false);
+});
+
+test('fleet board: loudest card first, done folds into hindsight, links sit outside the fences', () => {
+  const r = renderCard(load('fleet'));
+  assert.equal(r.ok, true, r.errors.join('; '));
+  const heads = r.text.split('\n').filter((l) => /^(🔴|🟠|🟢|🔵|✅) /u.test(l));
+  assert.deepEqual(
+    heads.map((h) => [...h][0]),
+    ['🔴', '🟠', '🔵'],
+    'cards are sorted needs-you, at-risk, review; the done item gets no card',
+  );
+  assert.match(r.text, /done\n {4}rename-toast test #3306 merged/);
+  // Every link is on a line outside any fence, so it can be clicked.
+  let fenced = false;
+  for (const line of r.text.split('\n')) {
+    if (line === '```') fenced = !fenced;
+    else if (line.includes('](https://')) assert.equal(fenced, false, `link inside a fence: ${line}`);
+  }
+  assert.match(r.text, /\[Pull Request\]\(https:\/\/github\.com\/Laticent\/lattice\/pull\/3307\) \| \[Session\]\(https:\/\/claude\.ai\/code\/session_/);
+});
+
+test('fleet board: a needs-you card must say what it needs; a bad level or link is refused', () => {
+  const card = load('fleet');
+  delete card.items[1].needs;
+  assert.match(renderCard(card).errors.join('\n'), /needs-you card must say what it needs/);
+  const bad = load('fleet');
+  bad.items[1].level = 'urgent';
+  bad.items[1].build = 'http://example.com';
+  const errors = renderCard(bad).errors.join('\n');
+  assert.match(errors, /level must be one of: needs-you, at-risk, moving, review, done/);
+  assert.match(errors, /build/);
+});
+
+test('fleet board: with no actions there is no reply line, and no 🔴 says NOTHING', () => {
+  const card = load('fleet');
+  delete card.actions;
+  card.items = card.items.filter((x) => x.level !== 'needs-you');
+  const r = renderCard(card);
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.doesNotMatch(r.text, /reply: go/);
+  assert.match(r.text, /needs you\n {4}NOTHING/);
 });
