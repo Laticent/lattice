@@ -601,7 +601,9 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (`followups.d/3034-p7-review-runner-image-pins.md`).
 - **Windows:** `build-windows` runs the full `npm run build` on `windows-2025` and `export-confine-windows` runs the CLI confinement
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
-  backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `wait-for.sh` is a macOS suite that
+  backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `dead-code-windows` runs the
+  `dead-code` pre-push check there (knip through node, since Windows cannot spawn the `.bin` shim) and plants an unused file
+  to prove it fails. `wait-for.sh` is a macOS suite that
   installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
 - **Office files in Apple's importer:** `office-quicklook` (`tools/office-quicklook.mjs`, dispatch and nightly only) exports a deck
   as an editable PowerPoint and renders every slide through `qlmanage` on macOS, the same Office importer iPhone Preview uses (it

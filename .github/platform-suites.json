@@ -397,6 +397,21 @@
       "on_pull_request": false,
       "run": "node tools/office-quicklook.mjs --custgeom-only examples/inline-icons.md test/integration/baseline-decks/gallery.md && PROBE=office bash docs/scripts/ios-safari/run.sh",
       "why": "iPhone Preview opens a .pptx with Apple's own Office importer, which draws it unlike PowerPoint, LibreOffice or Google Slides (it ignores embedded fonts, and collapsed every icon shape inside a group to a speck). macOS Quick Look uses the same importer; Linux has nothing that does. Renders each slide to a PNG under platform-suite-artifacts/office-quicklook/, as exported and as rewritten variants, so the comparison is seen without a phone."
+    },
+    {
+      "name": "dead-code-windows",
+      "os": [
+        "windows-2025"
+      ],
+      "paths": [
+        "tools/quality-assessment.js",
+        "knip.jsonc",
+        "test/quality/baseline.json",
+        "lefthook.yml",
+        "test/unit/tools/quality-dead-code.test.js"
+      ],
+      "run": "node tools/quality-assessment.js --check --only dead-code && node --test test/unit/tools/quality-dead-code.test.js && p=tools/lib/zz-dead-probe && echo 'module.exports = 1;' > \"$p.js\" && ! node tools/quality-assessment.js --check --only dead-code && rm \"$p.js\"",
+      "why": "The dead-code pre-push job (owner's D1) runs on every contributor's machine. It starts knip through node (process.execPath plus node_modules/knip/bin/knip.js) because Windows cannot spawn the extensionless node_modules/.bin shim without a shell. This proves on a real Windows runner that the check runs and passes on the tree, that its unit tests pass, and, with a planted unused file, that it fails."
     }
   ]
 }
