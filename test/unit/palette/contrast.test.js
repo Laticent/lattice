@@ -239,7 +239,9 @@ describe('contrast', () => {
   // the rule the chrome reads --text-muted again, and the token test above would still pass.
   test('contrast: the bookend rule points header, footer and page number at --on-inverse-muted', () => {
     const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.modifiers.css'), 'utf8');
-    const at = css.indexOf('section:where(.title, .closing, .divider:not(.light)):not(.print) {');
+    // `cover-light` (the light cover, lib/core/resolve-cover.js) is carved out inside the `:where()`, so the rule
+    // still weighs (0,1,1); a light cover keeps the light canvas's own chrome ink.
+    const at = css.indexOf('section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not(.light)):not(.print) {');
     assert.ok(at >= 0, 'the bookend chrome rule is missing from base.modifiers.css');
     const body = css.slice(at, css.indexOf('}', at));
     for (const v of ['header', 'footer', 'pagination']) {

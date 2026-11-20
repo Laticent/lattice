@@ -1279,8 +1279,11 @@ section.color-inherited {
  * `.print` DOES win, and must: it remaps the surface to the ink-on-white band, so the
  * panel genuinely stops being dark (measured: `title print` renders 21:1 on white).
  * `divider.light` is the bright variant — it REPLACES the canvas with `--bg`, so it keeps
- * the light scheme it declares beside that background. */
-section:is(.title, .closing):not(.print),
+ * the light scheme it declares beside that background. `cover-light` (the `cover: light`
+ * register, lib/core/resolve-cover.js) does the same for title and closing, so it is carved out
+ * here too — inside the `:not()` that already held `.print`, which keeps the selector at the
+ * (0,2,1) it always had. The light cover's own block follows the chrome rule below. */
+section:is(.title, .closing):not(.print, .cover-light),
 section.divider:not(.light):not(.print) {
   color-scheme: dark;
   /* SAME PREDICATE, SAME PLACE — and that is the point. The deck logo used to flip on
@@ -1315,10 +1318,53 @@ section.divider:not(.light):not(.print) {
  * which loads later, wins. Written with `:is()` like the block above it weighed (0,2,1) and took an
  * author's chrome color away on every bookend slide in every theme (found by the checker, 2026-11-09).
  * It still beats the (0,0,1) `section` mapping in base.tokens.css, which is all it has to beat. */
-section:where(.title, .closing, .divider:not(.light)):not(.print) {
+section:where(.title:not(.cover-light), .closing:not(.cover-light), .divider:not(.light)):not(.print) {
   --marp-slide-header-color: var(--on-inverse-muted, var(--text-muted));
   --marp-slide-footer-color: var(--on-inverse-muted, var(--text-muted));
   --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
+}
+
+/* ── THE LIGHT COVER (`cover: light` → `cover-light`, title and closing only) ────────────────
+ * The front and back cover on the deck's own light canvas instead of the inverse panel. The
+ * register is lib/core/resolve-cover.js; the record is
+ * engineering/decisions/2026-11-20-deck-preset-study.md §7 L2 and §8 WP-cover.
+ *
+ * ONE RULE, BECAUSE THE PANEL'S INKS ARE TOKENS. Every dark-cover ink on these two layouts is
+ * named through a token rather than a color: the heading reads `--text-display` (a constant
+ * light ink in every theme), and the subtitle, eyebrow, closing list, inline-code chip and the
+ * eyebrow rebinds above all read the `--on-dark-*` tier. Repointing those tokens on the section
+ * reaches every one of them at once, the way `section.print` remaps the same tokens to the print
+ * band, so no element rule is copied and none can be missed. Each points at the light-canvas
+ * ink a content slide uses for the same role: display → heading, primary → heading, secondary →
+ * secondary, ghost → muted.
+ *
+ * `background: var(--bg)` with `color-scheme: light`, the pair `section.divider.light` paints, so
+ * the light cover and the bright divider are the same surface. THE SAME IN BOTH COLOR MODES: in a
+ * dark deck a light cover is still the light canvas, because the scheme travels with the surface
+ * (2026-08-17-dark-surface-ink.md) and `--bg` is a `light-dark()` pair that resolves to its light
+ * side under `color-scheme: light`. A dark deck that wants dark covers leaves the key out.
+ *
+ * The CHROME and the LOGO go back to the light canvas's own: the two blocks above carve
+ * `cover-light` out of their panel predicate, so the bands keep the `--text-muted` mapping from
+ * base.tokens.css, and the logo filter is reset here because a `-dark` theme or a `.dark` deck
+ * sets the inverse mark on every section at (0,1,1). `--fin-canvas` is repointed in
+ * base.finish.css, beside the rule that points it at the panel.
+ *
+ * `:not(.print)`: a printed cover is paper already, and print's own remap of these tokens must
+ * keep winning, so a `cover-light` slide under print renders exactly as a printed title does.
+ *
+ * (0,3,1) beats the component sheets' `section.title` / `section.closing` (0,1,1) canvas, the
+ * `.dark` / `.color-*` scheme registers (0,1,1), and the inverse-logo rules (0,1,1). No font
+ * size, no margin, no hex: HARD RULES #4, #20 and #3. */
+section:is(.title, .closing).cover-light:not(.print) {
+  background: var(--bg);
+  color-scheme: light;
+  --text-display: var(--text-heading);
+  --on-dark-primary: var(--text-heading);
+  --on-dark-secondary: var(--text-secondary);
+  --on-dark-ghost: var(--text-muted);
+  --deck-logo-filter: initial;
+  --deck-logo-opacity: initial;
 }
 
 
