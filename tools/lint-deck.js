@@ -360,6 +360,16 @@ async function main(argv) {
     }
     process.stderr.write('\n');
   }
+  // --fit: render each deck and, for every slide that clips, name the smallest `claim` that makes it fit, CHECKED by
+  // rendering it again (lib/cli/fit-grace.js, the same check the export prints under its overflow warnings). Lint
+  // itself never renders, so this is the opt-in that does; it advises and never changes the exit code.
+  if (flags.has('--fit')) {
+    const grace = require('../lib/cli/fit-grace.js');
+    for (const file of files) {
+      const lines = grace.describe(grace.plan(fs.readFileSync(file, 'utf8')));
+      process.stderr.write(lines.length ? `${file} · fit\n${lines.join('\n')}\n\n` : `${file} · fit: nothing clips.\n`);
+    }
+  }
   if (!report.length && !suggestions.length) {
     process.stdout.write(`lint:deck — ${files.length} file(s) clean.\n`);
     return 0;

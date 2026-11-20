@@ -145,6 +145,24 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 | `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes. |
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
 
+**When a slide does not fit, Lattice names a claim that does — checked, not guessed.**
+No `fit:` level gives a crammed slide more room. A `claim` does: `claim-quiet` adds about
+24px of stage at 1280x720 and `claim-hero` about 113px, the same on every layout, without
+cutting a word or shrinking a type size. So the export ends its OVERFLOW and CONTENT CLIPPED
+warnings with the smallest claim that makes each clipped slide fit, found by rendering
+that slide again under each one:
+
+```text
+  ↳ grace: slide 22 fits with `claim-hero` added to its `_class:` (checked by rendering).
+```
+
+When three or more slides clip and one deck-wide `claim: quiet` (or `claim: hero`) fits
+them all, that comes first, with the slide-by-slide list beside it. A slide whose only cut
+is the running footer is left out, because dropping the footer is not a fix. Run it on its
+own with `npm run fit:grace -- deck.md` or `npm run lint:deck -- deck.md --fit`;
+`LATTICE_FIT_GRACE=off` silences it in the export
+(`engineering/decisions/2026-11-20-coda-and-marp-parity.md` §9).
+
 **The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
 `trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`
 wins. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.

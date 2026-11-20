@@ -140,6 +140,13 @@ the QR posters take neither,
 `split-compare` draw your `> …` as their own insight. Each component's page lists
 what it takes (its `authoring.blocks`), and the editor flags a mismatch.
 
+**When a slide is slightly too full**, the export names a fix it has checked: the
+smallest `claim` that makes the slide fit. `claim-quiet` tones the header and footer
+down and gives the content a little more room; `claim-hero` drops them and gives it a
+lot more. Add it to the slide's `_class:`, or, when several slides are crammed, to the
+deck's front matter as `claim: quiet`. No words are cut and no type shrinks.
+`npm run lint:deck -- deck.md --fit` gives the same advice while you draft.
+
 **In a deck Marp renders** (the copy-and-go kit, the VS Code preview) the closing
 beats are built by Lattice's runtime script, so they appear only where it runs.
 

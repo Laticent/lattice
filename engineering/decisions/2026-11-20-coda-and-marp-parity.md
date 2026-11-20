@@ -296,3 +296,26 @@ to this change:
 
 Not reached: a real VS Code (its download host is blocked here), real PowerPoint or Keynote, and the
 player's article view.
+
+## 9. Grace: a checked way out when a slide overflows (owner, 2026-11-20)
+
+**Asked.** Lattice reported overflow and offered no way out. The owner's idea: suggest `claim-hero` for slides like
+charts that naturally benefit, and a deck-wide claim when a deck is slightly crammed. That gives grace without loosening
+any budget, and avoids budgets measured wrongly.
+
+**Measured.** A claim's extra room is the same on every layout, because it comes from the chrome bands: `claim-quiet`
++24px of stage (x1.055), `claim-hero` about +113px (x1.26), at 1280x720 over content, cards-grid, checklist, list,
+list-steps, table, kpi, bar, agenda and glossary. On the showcase deck, `claim-quiet` fits matrix-grid and
+`claim-hero` fits gantt and journey (after the journey key fix); neither fixes a footer cut.
+
+**Settled.** (1) A suggestion is CHECKED, never guessed: `lib/cli/fit-grace.js` renders the deck at `fit: report`,
+reads the export's own verdict (`LATTICE_FIT_REPORT`) so a suggestion can never disagree with the warning, then renders
+the clipped slides under each claim. The export prints it under its overflow warnings; `npm run fit:grace` and
+`lint:deck --fit` print it on demand. (2) Deck-wide: three or more clipped slides and one claim fits them all,
+`quiet` before `hero`, always with the per-slide alternative. (3) Budgets follow the claim: lint judges a slide that
+carries a claim by that claim's measured budget (`capacity.withClaim`, calibrated with
+`tools/calibrate-capacity.js --variant claim-…`), and names the claim as a fix for a bare slide it would hold.
+
+**Applied to the showcase deck,** the three suggested claims cleared every body clip; only the two footer-only pages
+remain, as designed.
+

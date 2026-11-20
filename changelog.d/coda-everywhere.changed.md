@@ -7,3 +7,4 @@
 - Fixed: a `video` slide with a key insight or a note no longer pushes its card off the slide (its manifest declared the wrong dock).
 - Fixed: in a deck Marp renders, the last slide lost its key insight and note. The kit's `<script>` and `<link>` lines at the end of a deck land inside the last slide, after its closing beats, and the coda stopped at them.
 - Fixed: a `journey` with a key insight or a caption no longer pushes its mood key off the slide. Its actor key and mood key now share one row at the foot of the board.
+- When a slide clips, the export now names the smallest `claim` that makes it fit, checked by rendering the slide again: `claim-quiet`, then `claim-hero`, or one deck-wide `claim: quiet` / `claim: hero` when three or more slides clip and it fits them all. Also `npm run fit:grace -- deck.md` and `lint:deck --fit`. `LATTICE_FIT_GRACE=off` silences it in the export.
