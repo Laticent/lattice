@@ -1102,6 +1102,26 @@
    }
   },
   {
+   "name": "marks: tone ink (tone's source: the heading ink)",
+   "source": "---\nmarks: tone ink\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "marks: etch accent (a source means something only under tone)",
+   "source": "---\nmarks: etch accent\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "marks-source-needs-tone",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
    "name": "marks: tone",
    "source": "---\nmarks: tone\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
