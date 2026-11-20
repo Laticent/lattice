@@ -1574,7 +1574,7 @@ function listShapes(only) {
   const ls = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
   const solo = { has: (n) => !only || only.includes(n) };
   const fmt = (names) => names.map((n) => `\`${n}\``).join(', ');
-  const ledger = [...ls.LEDGER_OL_LAYOUTS, ...ls.SPLIT_SLOT_LAYOUTS].filter((n) => solo.has(n));
+  const ledger = [...ls.LEDGER_LAYOUTS, ...ls.SPLIT_SLOT_LAYOUTS].filter((n) => solo.has(n));
   // A rule about a layout the reader cannot use is noise: it drops while no statement layout is solo.
   return { ledger: fmt(ledger), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
 }
