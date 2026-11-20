@@ -20,6 +20,8 @@
       "Bash(git rev-parse*)",
       "Bash(git rev-list*)",
       "Bash(npm run lint*)",
+      "Bash(npm run pr:park*)",
+      "Bash(npm run pr:ready*)",
       "Bash(npm test*)",
       "Bash(npm run test:*)",
       "Bash(npm run build*)",
