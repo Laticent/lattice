@@ -38,6 +38,11 @@ const FLEET_LEVELS = [
 const FLEET_LEVEL_NAMES = FLEET_LEVELS.map((l) => l.name);
 const fleetIcon = (level) => FLEET_LEVELS.find((l) => l.name === level).icon;
 const fleetRank = (level) => FLEET_LEVEL_NAMES.indexOf(level);
+/**
+ * A line of work is as loud as its loudest session, child sessions included,
+ * so a 🔴 child is never hidden under a ✅ or 🟢 parent.
+ */
+const fleetLoudest = (x) => Math.min(fleetRank(x.level), ...(x.children || []).map((k) => fleetRank(k.level)));
 const REPO_URL = 'https://github.com/Laticent/lattice';
 
 const SCHEMAS = {
@@ -262,6 +267,7 @@ const SCHEMAS = {
                   session: { type: 'string', pattern: '^session_[A-Za-z0-9]+$' },
                   build: { type: 'string', pattern: '^https://\\S+$' },
                   state: str,
+                  needs: str,
                 },
               },
             },
@@ -664,8 +670,10 @@ const fleetName = (x) => `${fleetIcon(x.level)} ${x.title}${x.pr ? ` — #${x.pr
  * overview. Returns the blocks; the caller joins them.
  */
 function renderFleet(d, page) {
-  const live = d.items.filter((x) => x.level !== 'done');
-  const done = d.items.filter((x) => x.level === 'done');
+  // A done parent with a live child stays live: the child still needs a card.
+  const DONE = fleetRank('done');
+  const live = d.items.filter((x) => fleetLoudest(x) !== DONE);
+  const done = d.items.filter((x) => fleetLoudest(x) === DONE);
   const all = d.items.flatMap((x) => [x, ...(x.children || [])]);
   const counts = FLEET_LEVELS.map((l) => [l.icon, all.filter((x) => x.level === l.name).length])
     .filter(([, n]) => n)
@@ -677,7 +685,7 @@ function renderFleet(d, page) {
   page.blank();
   page.section('BOTTOM LINE');
   page.field('board', counts, 'items');
-  const loud = live.filter((x) => x.level === 'needs-you').length;
+  const loud = all.filter((x) => x.level === 'needs-you').length;
   page.field('needs you', loud ? `${loud} — the 🔴 cards below` : 'NOTHING — no 🔴 card', 'items');
   page.field('scope', d.scope, 'scope');
   if (d.hindsight || done.length) page.section('HINDSIGHT — since last board');
@@ -695,7 +703,7 @@ function renderFleet(d, page) {
   // Stable sort, loudest first, so a 🔴 never sits below a 🟢.
   const sorted = live
     .map((x, i) => ({ x, i }))
-    .sort((a, b) => fleetRank(a.x.level) - fleetRank(b.x.level) || a.i - b.i)
+    .sort((a, b) => fleetLoudest(a.x) - fleetLoudest(b.x) || a.i - b.i)
     .map(({ x }) => x);
   page.blocks = [{ lines: page.lines }];
   for (const x of sorted) {
@@ -718,6 +726,10 @@ function renderFleet(d, page) {
       if (displayWidth(name) > WIDTH) page.errors.push(`${at}.title: line is wider than ${WIDTH} columns`);
       page.lines.push(name);
       page.push(wrap(k.state, '    ', '    '), `${at}.state`, MAX_FIELD_LINES, 'state');
+      if (k.needs) page.push(wrap(`needs you: ${k.needs}`, '    ', '    '), `${at}.needs`, MAX_FIELD_LINES, 'needs');
+      if (k.level === 'needs-you' && !k.needs) {
+        page.errors.push(`${at}: a needs-you session must say what it needs in "needs"`);
+      }
     });
     const links = [fleetLinks(x), ...kids.filter((k) => fleetLinks(k)).map((k) => `${k.title}: ${fleetLinks(k)}`)]
       .filter(Boolean)
@@ -747,7 +759,7 @@ function renderFleetTable(card) {
   }
   const order = card.items
     .map((x, i) => ({ x, i }))
-    .sort((a, b) => fleetRank(a.x.level) - fleetRank(b.x.level) || a.i - b.i);
+    .sort((a, b) => fleetLoudest(a.x) - fleetLoudest(b.x) || a.i - b.i);
   const lines = [
     `🛰️ **Fleet** · ${cell(card.as_of)}`,
     '',
@@ -756,7 +768,8 @@ function renderFleetTable(card) {
   ];
   const row = (x, child) => {
     const name = cell(x.title);
-    const named = x.session ? `[${name}](https://claude.ai/code/${x.session})` : name;
+    // Brackets in link text would end the link early, so escape them there too.
+    const named = x.session ? `[${name.replace(/[[\]]/g, '\\$&')}](https://claude.ai/code/${x.session})` : name;
     lines.push(
       `| ${fleetIcon(x.level)} | ${child ? '· ' : ''}${named} | ${x.pr ? `[#${x.pr}](${REPO_URL}/pull/${x.pr})` : ''} | ${x.build ? `[run](${x.build})` : ''} | ${cell(x.state)}${x.needs ? ` — **needs:** ${cell(x.needs)}` : ''} |`,
     );

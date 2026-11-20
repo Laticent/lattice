@@ -2524,7 +2524,9 @@ session ID. **Open a transcript (`list_events`) only for a 🔴 or 🟠 row.**
 That keeps a board at a handful of calls however many sessions are live.
 
 **Five levels, loudest first.** The renderer sorts by them, so a 🔴 card never
-sits below a 🟢 one.
+sits below a 🟢 one. A line of work is as loud as its loudest session, children
+included: a 🔴 child under a ✅ parent keeps its card, counts in "needs you", and
+must say what it needs.
 
 | Level | Icon | When |
 |---|---|---|

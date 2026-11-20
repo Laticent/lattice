@@ -6,6 +6,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const YAML = require('yaml');
 const { renderCard, renderFleetTable, displayWidth, WIDTH } = require('../../../tools/agent-card');
+const renderFleet = renderCard;
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EXAMPLES = path.join(ROOT, 'engineering', 'card-examples');
@@ -325,4 +326,47 @@ test('CLI: --table prints the fleet board as a markdown table', () => {
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^🛰️ \*\*Fleet\*\*/u);
   assert.match(r.stdout, /\n\| \| Session \| PR \| CI \| State \|\n/);
+});
+
+// The checker's case on #3359: a 🔴 child under a ✅ or 🟢 parent must not be hidden.
+const hiddenChild = () => ({
+  card: 'fleet',
+  as_of: 'Fri 20 Nov 21:00 UTC',
+  items: [
+    { level: 'moving', title: 'Busy work', state: 'building' },
+    {
+      level: 'done',
+      title: 'Shipped parent',
+      state: 'merged',
+      children: [{ level: 'needs-you', title: 'Blocked child', state: 'asked a question', needs: 'answer the question' }],
+    },
+  ],
+});
+
+test('fleet board: a 🔴 child under a ✅ parent is counted, gets a card, and sorts first', () => {
+  const r = renderFleet(hiddenChild());
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.match(r.text, /needs you\n {4}1 — the 🔴 cards below/);
+  assert.doesNotMatch(r.text, /NOTHING/);
+  const firstCard = r.text.split('\n\n```\n')[1];
+  assert.match(firstCard, /^✅ Shipped parent/, 'the line of work holding the 🔴 child comes first');
+  assert.match(firstCard, /🔴 Blocked child\n {4}asked a question\n {4}needs you: answer the question/);
+  assert.doesNotMatch(r.text, /done\n {4}Shipped parent/, 'it is not folded into hindsight');
+});
+
+test('fleet table: a 🔴 child under a ✅ parent sorts above a 🟢 row', () => {
+  const rows = renderFleetTable(hiddenChild()).lines.filter((l) => /^\| (🔴|🟠|🟢|🔵|✅) \|/u.test(l));
+  assert.deepEqual(rows.map((l) => [...l][2]), ['✅', '🔴', '🟢']);
+  assert.match(rows[1], /\*\*needs:\*\* answer the question/);
+});
+
+test('fleet board: a needs-you child must say what it needs; brackets cannot break a table link', () => {
+  const card = hiddenChild();
+  delete card.items[1].children[0].needs;
+  assert.match(renderFleet(card).errors.join('\n'), /children\[0\]: a needs-you session must say what it needs/);
+  const t = hiddenChild();
+  t.items[0].title = 'Fix ] bracket';
+  t.items[0].session = 'session_abc123';
+  const row = renderFleetTable(t).lines.find((l) => l.includes('bracket'));
+  assert.ok(row.includes('[Fix \\] bracket](https://claude.ai/code/session_abc123)'), row);
 });
