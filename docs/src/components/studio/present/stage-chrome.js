@@ -45,27 +45,22 @@ export const STAGE_CHROME_CSS = `
 .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:var(--accent);}
 .latt-cc--still .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken]{color:var(--text-muted);}
 @media (min-width:640px){.latt-cc-line{font-size:18px;}}
-/* OVER THE SLIDE — Present's immersive (landscape-phone) layout. The crawl is a subtitle on the slide's bottom edge,
-   sized as a share of the SLIDE's width (the wrapper is an inline-size container), so it grows and shrinks with the
-   slide instead of holding a fixed 16-18px against whatever size the slide happens to be. Every length is in em. */
+/* OVER THE SLIDE — Present's immersive (landscape-phone) layout: CLOSED CAPTIONS, not the crawl (owner, 2026-11-20).
+   The sentence being spoken shows whole on the slide's bottom edge, sized as a share of the SLIDE's width (the wrapper is
+   an inline-size container, every length in em), and the only motion is a fade: the band fades in and out, and each
+   new sentence fades in. No scroll, no word-by-word highlight.
+   The plate is ON BRAND and works on light and dark decks: the app palette's --surface-inverse (the brand's dark tone,
+   the same in both modes) slightly see-through, with white type and a faint accent edge so it still separates from a
+   dark slide. It is drawn per visual line and hugs the words (an inline box, box-decoration-break: clone). */
 .latt-cc-over{position:absolute;left:0;right:0;bottom:0;z-index:2;container-type:inline-size;pointer-events:none;transition:transform .3s cubic-bezier(.22,.61,.36,1);}
-.latt-cc-over .latt-cc-band{font-size:clamp(11px,2.5cqw,40px);padding:0 4% 2.5%;}
-.latt-cc-over .latt-cc-band[data-shown="1"]{max-height:6em;}
-.latt-cc-over .latt-cc{max-width:none;padding:0;}
-.latt-cc-over .latt-cc-line{font-size:1em;padding:.1em .4em;}
-/* The line being read, alone, on a dark rounded plate with white type: the TV-subtitle convention, the same in both
-   modes because a caption sits on the SLIDE, whose colors are the deck's, not the app's light or dark mode (a band in
-   the app's --bg went muddy over a dark slide). Chosen from three over-the-slide designs by the owner, 2026-11-20.
-   The plate is drawn PER VISUAL LINE and hugs the words (an inline box, box-decoration-break: clone), so a short last
-   line does not sit in a slide-wide bar; one visual line shows at a time, scrolling as the voice moves on. It is see-through, with the slide blurred under
-   it, so the plate reads as a caption over the slide rather than a panel cut out of it (owner, iPhone, 2026-11-20). */
-.latt-cc-over .latt-cc{height:1.9em;}
-.latt-cc-over .latt-cc-win{-webkit-mask-image:none;mask-image:none;}
-.latt-cc-over .latt-cc-track{text-align:center;}
+.latt-cc-over .latt-cc-band{font-size:clamp(11px,2.5cqw,40px);padding:0 5% 2.5%;max-height:none;transition:opacity .3s;}
+.latt-cc-over .latt-cc{height:auto;max-width:none;padding:0;}
+.latt-cc-over .latt-cc-win{height:auto;-webkit-mask-image:none;mask-image:none;}
+.latt-cc-over .latt-cc-track{position:static;transform:none!important;transition:none;text-align:center;}
 .latt-cc-over .latt-cc-line[data-state="read"],.latt-cc-over .latt-cc-line[data-state="up"]{display:none;}
-.latt-cc-over .latt-cc-line[data-state="now"]{display:inline;padding:.12em .4em;line-height:1.9;border-radius:.3em;background:rgb(0 0 0 / .55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-box-decoration-break:clone;box-decoration-break:clone;}
-.latt-cc-over .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:white;}
-.latt-cc-over .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="0"]{color:rgb(255 255 255 / .7);}
+.latt-cc-over .latt-cc-line[data-state="now"]{display:inline;font-size:1em;padding:.12em .45em;line-height:1.75;border-radius:.3em;color:white;background:color-mix(in srgb,var(--surface-inverse) 86%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone;animation:latt-cc-in .3s ease-out;}
+.latt-cc-over .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken]{color:white;}
+@keyframes latt-cc-in{from{opacity:0}to{opacity:1}}
 /* ── the progress rail ───────────────────────────────────────────────────── */
 .latt-rail{display:flex;min-width:0;flex-direction:column;align-items:stretch;gap:.375rem;width:100%;}
 .latt-rail-title{height:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;line-height:1;letter-spacing:.16em;color:var(--text-muted);}
@@ -95,6 +90,7 @@ export const STAGE_CHROME_CSS = `
 @keyframes latt-fade-rise{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 @media (prefers-reduced-motion:reduce){
 .latt-cc-band,.latt-cc-track,.latt-cc-line,.latt-cc-over,.latt-rail-fill{transition:none!important;}
+.latt-cc-over .latt-cc-line{animation:none!important;}
 .latt-rail-title>span{animation:none!important;}
 }
 `;

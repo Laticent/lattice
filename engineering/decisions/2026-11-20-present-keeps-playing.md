@@ -81,6 +81,21 @@ read waits up to `PREPARE_WAIT_MS` (2.5 s); past that the slide is read on capti
 next slide's play once it is ready. It never joins mid-slide, which would be the race-ahead-then-snap-back the
 deferred start exists to prevent (`2026-07-09-cadenza-narration-quality.md`).
 
+### Two caption modes (owner, iPhone, 2026-11-20)
+
+The owner set the two caption surfaces apart:
+
+- **Docked (portrait, desktop, the Stage): a carried crawl, "the Star Wars opening text".** The crawl kept only the
+  current slide's sentences, so it jumped back to its top at every slide. `PresentCaption`'s `carry` now keeps the
+  sentences of the slide just left above as read lines (the last 12), at the offsets they had, so the transform that
+  centered the last line still points at it and the re-center glides on up to the new slide's first line, the spoken
+  word still highlighted. A new track also restarts the cursor, so a cue index latched on the slide just left never
+  points into the new one (`PresentCaption.carry.test.tsx`; both halves were mutated red).
+- **Over the slide (landscape, immersive): closed captions.** The sentence being spoken shows whole, with no scroll and no
+  per-word highlight; the only motion is a fade (the band, and each new sentence). The plate is on brand: the app
+  palette's `--surface-inverse` at 86%, white type, a faint accent edge so it separates from a dark slide too, drawn per
+  visual line so it hugs the words. Reduced motion drops the fade.
+
 ### Tap timing, the caption plate, and an iOS Simulator suite (owner, iPhone, 2026-11-20)
 
 - **A tap flashed the chrome and hid it again.** The tap rule compared `event.timeStamp`s across the touch and the click,

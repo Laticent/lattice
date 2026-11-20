@@ -2701,7 +2701,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// nothing to show, so blooming in is a transition rather than a mount.
 	const captionBand = (
 		<div className="latt-cc-band" data-shown={showCaption ? '1' : '0'}>
-			{showCaption && <PresentCaption track={reader.track} active={reader.active} announce={muted} className={delivery.caption === 'still' ? 'latt-cc--still' : undefined} />}
+			{showCaption && <PresentCaption track={reader.track} active={reader.active} announce={muted} carry={!immersive || !!stageHost} className={delivery.caption === 'still' ? 'latt-cc--still' : undefined} />}
 		</div>
 	);
 	const railBar = <PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} prefetchFront={rehearse ? 0 : prefetchFront} ready={rehearse ? undefined : readyFractions} onJump={setIdx} />;
