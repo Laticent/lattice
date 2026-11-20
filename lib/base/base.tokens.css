@@ -1326,6 +1326,12 @@
   --state-pass-on-ink: var(--pass-on-mark);
   --state-warn-on-ink: var(--warn-on-mark);
   --state-fail-on-ink: var(--fail-on-mark);
+  /* The risk matrix's critical key number where relative color is missing (Safari 17.5-17.x, Firefox 120-127), so the
+   * @supports ink pick does not apply: the fail ink on the light band, and on the dark one the fail ink unless the palette
+   * names a step ink (`--risk-critical-step-ink`; the a11y palettes name black, because their one curated ink sits at
+   * 2.97-4.42:1 on their darker dark band). Declared here, beside --state-fail-on-ink, so it re-resolves on each slide
+   * and follows a slide-level ink such as print's. */
+  --risk-critical-on-ink: light-dark(var(--fail-on-mark), var(--risk-critical-step-ink, var(--fail-on-mark)));
   --state-info-on-ink: var(--info-on-mark);
   --state-mute-on-ink: var(--mute-on-mark);
   --state-pass-edge: var(--_state-pass-edge, var(--pass-edge-mark));

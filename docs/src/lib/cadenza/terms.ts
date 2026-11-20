@@ -68,6 +68,13 @@ function caseMatches(key: string, word: string): boolean {
   return isAllCaps(word); // a Capitalized key: its ALL-CAPS form (a title), never the lower-case word
 }
 
+/** Does a written word match one word of a registry key, under the ONE case rule the matcher uses?
+ *  A foldable key (lower-case or Capitalized) matches its other cases; any other key only as written.
+ *  The sentence splitter asks this too, so a phrase it keeps together is one the matcher will match. */
+export function wordMatches(key: string, word: string): boolean {
+  return isFoldable(key) ? caseMatches(key, word) : word === key;
+}
+
 const EMPTY: TermMap = new Map();
 const cache = new WeakMap<TermMap, WeakMap<TermMap, WeakMap<TermMap, TermIndex>>>();
 

@@ -2204,3 +2204,23 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — any monospace font with programming ligatures on a CodeMirror content box.
 - **Removable when** — never, while the editors use a font with ligatures.
 - **Commits** — the Studio pane follow-ups PR after #3222 (2026-11-16).
+
+## A voice says a deck term wrong in one sentence, or one play, and right in the next
+
+- **Symptom** — a name such as "Yearn" is read right in "This is why I love Yearn." and wrong in "Our pick is Yearn."
+  (heard as "yarn") or "Yearn is our pick." (garbled), with the deck's `terms:` entry unchanged. Seen on Gemini
+  Flash-Lite TTS (`gemini-3.8-flash-lite-tts`), measured 2026-11-19 (#3319).
+- **Cause** — the voice, not the text. Cadenza sends every voice the same spoken text, with `terms:` applied, one
+  sentence per request. A language-model voice then decides how to say it from the words around it, so the same
+  word can come out differently by position. The on-device voice (Kokoro) works from phonemes and says it the same
+  every time. Whether Gemini 3.1 Flash TTS (through OpenRouter) is steadier is not settled: an early judge scored it
+  right 24 of 24, but that judge read Gemini's WAV header and trailing C2PA chunk as audio (see the next point).
+- **Fix** — none in Lattice yet: pick a voice that reads the term the same way (Workspace settings says so under the Voice
+  model card, for each voice in `docs/src/lib/voice-caveats.ts`). A `terms:` respelling is the only lever on the voice itself, and
+  it must be heard on THAT voice: on Kokoro, `yurn` and `yern` produce the same phonemes as `yearn`, so they change
+  nothing. **Machine listening does not settle it on Gemini:** Whisper writes "yarn" for clips a person hears as
+  "yearn", and scoring the two transcripts disagreed with the owner's ear on clean audio. Decide by ear, on the deck.
+  **Gemini answers a RIFF WAV with a signed C2PA chunk after the audio**: read only its `data` chunk (the Studio's
+  `decodeGeminiSpeech` passes the WAV to the browser, which does); a script that treats the bytes as raw PCM adds a
+  click and about 90 ms of loud noise. The reproduction and the open work are
+  `followups.d/3319-p1-gemini-tts-misreads-yearn-by-position.md` and `…-p2-voice-model-pronunciation-caveats.md`.

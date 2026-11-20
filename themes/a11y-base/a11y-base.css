@@ -216,6 +216,10 @@
   --warn-mark: light-dark(#854A00, #DD9653);
   --warn-vivid-mark: var(--warn-mark);
   --fail-mark: light-dark(#9E0011, #FF7F74);
+  /* The risk matrix's critical key number on the dark band where relative color is missing: black clears every a11y
+   * palette's dark critical band (4.75-5.33:1), where the one curated ink sits at 2.97-4.42:1. base.tokens.css reads it
+   * into --risk-critical-on-ink. */
+  --risk-critical-step-ink: #000000;
   --fail-vivid-mark: var(--fail-mark);
   --info-mark: light-dark(#125E82, #68ADD4);
   --info-vivid-mark: var(--info-mark);

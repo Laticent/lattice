@@ -287,6 +287,47 @@ test('hoistRuleLightDark routes a real-property pair through a private token, in
 	assert.equal(hoistRuleLightDark('.card{--x:light-dark(#eee,#111)}').darkBlock, '');
 });
 
+test('themeDualMode lets a later plain :root declaration override an earlier pair, as the cascade does', () => {
+	// onyx curates `--pass-on-mark: light-dark(#FFFFFF, #FFFFFF)`; a11y-base, which extends it,
+	// re-declares `--pass-on-mark: var(--on-mark)` with the one a11y ink. A pair-only scan kept
+	// onyx's white on the dark scope, where the browser shows #1A1A1A (#3312).
+	const css = ':root{--on-mark:light-dark(#FFFFFF,#1A1A1A);--pass-on-mark:light-dark(#FFFFFF,#FFFFFF)}'
+		+ ':root{--pass-on-mark:var(--on-mark)}';
+	const { darkBlock } = themeDualMode(css);
+	assert.match(darkBlock, /--on-mark:#1A1A1A/);
+	assert.match(darkBlock, /--pass-on-mark:var\(--on-mark\)/, darkBlock.slice(0, 300));
+	assert.doesNotMatch(darkBlock, /--pass-on-mark:#FFFFFF/);
+	// A later declaration that is NOT at :root does not override a root pair.
+	const scoped = themeDualMode(':root{--x:light-dark(#111,#eee)}.card{--x:red}').darkBlock;
+	assert.match(scoped, /--x:#eee/);
+});
+
+test('themeDualMode keeps the @supports light-dark() feature probe and flattens every declaration', () => {
+	// The picked-ink guard tests a relative color over `light-dark(red, red)`. In the player that is a
+	// feature probe: an engine without light-dark() reads it as false and takes the plain ink. Chromium
+	// 119-122 have relative color but no light-dark() and crash on a relative color over color-mix(),
+	// so flattening the probe to `red` handed them the crash (#3312).
+	const guard = '@supports (color:color(from light-dark(red,red) xyz-d65 x y z))';
+	const { base, darkBlock } = themeDualMode(`${guard}{.n{fill:light-dark(#fff,#000)}} :root{--a:light-dark(#111,#eee)}`);
+	assert.ok(base.includes(guard), base);
+	assert.match(darkBlock, /@supports \(color:color\(from light-dark\(red,red\) xyz-d65 x y z\)\)\{/, darkBlock.slice(0, 400));
+	// A COMMENT that mentions @supports protects nothing: `[^{]*` ran past the comment, a `;` and a `}`
+	// and shielded a real declaration, which then shipped as light-dark() with no dark arm (#3312 review).
+	const commented = themeDualMode(':root{/* uses @supports */ --x: light-dark(#111,#eee)} .a{color:red}');
+	assert.doesNotMatch(commented.base, /light-dark\(/, commented.base);
+	assert.match(commented.darkBlock, /--x:#eee/);
+	// A `/*` inside a string is not a comment: the probe swap runs on masked text, so it neither cuts
+	// the string nor the rules between it and a later real comment.
+	const stringy = themeDualMode(`.q{content:"/*"} ${guard}{.n{fill:light-dark(#fff,#000)}} /* note */ :root{--y:light-dark(#111,#eee)}`);
+	assert.match(stringy.base, /content:"\/\*"/, stringy.base);
+	assert.ok(stringy.base.includes(guard), stringy.base);
+	assert.match(stringy.darkBlock, /--y:#eee/);
+	// Everywhere else, no light-dark() survives.
+	const strip = (css) => css.replace(/@supports[^{};]*\{/g, '');
+	assert.doesNotMatch(strip(base), /light-dark\(/, base);
+	assert.doesNotMatch(strip(darkBlock), /light-dark\(/, darkBlock.slice(0, 400));
+});
+
 test('hoistRuleLightDark keeps a declaration\'s !important OUTSIDE the var() fallback', () => {
 	// `fill: light-dark(a, b) !important` is what every marks rule is. With the flag left inside
 	// the fallback (`var(--lp-ld-0-0,a !important)`) the engine drops the whole declaration at parse time:

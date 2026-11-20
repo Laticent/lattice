@@ -1,6 +1,8 @@
 // The term matcher (terms.ts) through the public speech calls. Each case is a form a deck really
 // writes that used to read as typed. engineering/decisions/2026-11-16-terms-registry.md §4.
 import { describe, expect, it } from 'vitest';
+import { AMBIGUOUS_TERMS } from '../../../../lib/authoring/ambiguous-terms.js';
+import { houseTerms } from './lexicon';
 import { toSpokenText, unmatchedAcronyms } from './normalize';
 import { buildTrack } from './track';
 
@@ -111,5 +113,71 @@ describe('term registry: precedence and aliases', () => {
 	it('stops the lint coaching a term the registry covers in any of its forms', () => {
 		expect(unmatchedAcronyms('CRO, EBITDA and the QZX', { terms })).toEqual(['QZX']);
 		expect(unmatchedAcronyms('CRO, EBITDA and the QZX')).toEqual(['CRO', 'QZX']); // EBITDA is built in
+	});
+});
+
+// The BUILT-IN terms (lexicon.ts) take the same endings and compounds as an author's, through the same
+// matcher. Before, only the exact token matched: `API` expanded and `APIs`, `CEO’s`, `KPI-driven` read raw.
+describe('built-in terms: endings and compounds', () => {
+	const plain = (text: string) => toSpokenText(text);
+	it('a plural or possessive of a built-in term says the term', () => {
+		expect(plain('Two APIs ship.')).toBe('Two application programming interfaces ship.');
+		expect(plain('the CEO’s plan')).toBe("the chief executive officer's plan");
+		expect(plain('EMEA’s teams')).toBe("E M E A's teams");
+	});
+	it('takes a plural only where the built-in list states one', () => {
+		// "you is", "area under the curves", "week over weeks": each read wrong, so each reads as written.
+		for (const t of ['UIs', 'AUCs', 'GAs', 'WoWs', 'MoMs', 'LatAms']) expect(plain(`two ${t}`), t).toBe(`two ${t}`);
+		expect(plain('two KPIs')).toBe('two key performance indicators');
+	});
+	it('a suffix is not a compound part', () => {
+		expect(plain('SaaS-y')).toBe('SaaS-y');
+	});
+	it('a hyphen compound with a built-in term says each part', () => {
+		expect(plain('a KPI-driven plan')).toBe('a key performance indicator driven plan');
+		expect(plain('API-first.')).toBe('application programming interface first.');
+	});
+	it('leaves a compound with no term, a range and a date as they read', () => {
+		expect(plain('under-13 users, 24/7, FY24-FY26, Q1-Q2')).toBe('under-13 users, 24/7, FY24-FY26, Q1-Q2');
+	});
+	it('an author entry still wins over the built-in one', () => {
+		expect(toSpokenText('Two APIs', { terms: new Map([['API', 'A P I']]) })).toBe('Two A P Is');
+	});
+	it('a non-English deck gets no built-in ending either', () => {
+		expect(toSpokenText('Zwei APIs', { lang: 'de' })).toBe('Zwei APIs');
+	});
+});
+
+// A plural ending never doubles a plural the spoken form already has (`withEnding`).
+describe('term endings: one plural, never two', () => {
+	it('adds nothing after a spoken form that ends in s', () => {
+		expect(toSpokenText('Set OKRs now.')).toBe('Set objectives and key results now.');
+		expect(toSpokenText('FAQs')).toBe('frequently asked questions');
+		expect(toSpokenText('CROs', { terms: new Map([['CRO', 'chief revenue officers']]) })).toBe('chief revenue officers');
+	});
+	it('adds es after ss, and s otherwise', () => {
+		expect(toSpokenText('B2Bs win', { terms: new Map([['B2B', 'business to business']]) })).toBe('business to businesses win');
+		expect(say('CROs met')).toBe('chief revenue officers met');
+	});
+});
+
+// The acronyms with one meaning across the five exemplar segments expand; the ones with two never do.
+// engineering/decisions/2026-11-19-segment-acronyms.md.
+describe('segment acronyms', () => {
+	it('expands an acronym with one meaning, in its own case only', () => {
+		expect(toSpokenText('Our GPA, the VP, a GIS map per WCAG.')).toBe(
+			'Our grade point average, the vice president, a geographic information system map per Web Content Accessibility Guidelines.',
+		);
+		expect(toSpokenText('a vp of gis')).toBe('a vp of gis');
+	});
+	it('uses the stated plural where adding s to the last word is wrong', () => {
+		expect(toSpokenText('three RFPs')).toBe('three requests for proposal');
+	});
+	it('never expands an acronym with more than one meaning', () => {
+		for (const t of Object.keys(AMBIGUOUS_TERMS)) expect(toSpokenText(`the ${t} team`), t).toBe(`the ${t} team`);
+	});
+	it('no ambiguous acronym is also a built-in term', () => {
+		const built = new Set(houseTerms().map((h) => h.term));
+		expect(Object.keys(AMBIGUOUS_TERMS).filter((t) => built.has(t))).toEqual([]);
 	});
 });

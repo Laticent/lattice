@@ -378,6 +378,8 @@ which Windows reads as a `d:` URL scheme; and split a child's output on `/\r?\n/
 - `lint` — full tree
 - `lint-deck` — repo-wide strict author-facing footgun sweep
 - `build-check` — the CI/stale-artifact gate (regen + byte-diff of `dist/`)
+- `dead-code` — knip held at 0 unused files, exports and packages and 0 undeclared imports, in `.js`
+  files (~5 s; `engineering/quality-assessment.md` §Running it)
 - `docs-typecheck` — `tsc --noEmit` over the docs workspace (~36-40s), skipped
   when a push touches no `docs/` files. It is here because a docs TYPE error is
   invisible to every other local gate — biome does not typecheck, and vitest
@@ -599,7 +601,9 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (`followups.d/3034-p7-review-runner-image-pins.md`).
 - **Windows:** `build-windows` runs the full `npm run build` on `windows-2025` and `export-confine-windows` runs the CLI confinement
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
-  backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `wait-for.sh` is a macOS suite that
+  backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `dead-code-windows` runs the
+  `dead-code` pre-push check there (knip through node, since Windows cannot spawn the `.bin` shim) and plants an unused file
+  to prove it fails. `wait-for.sh` is a macOS suite that
   installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
 - **Office files in Apple's importer:** `office-quicklook` (`tools/office-quicklook.mjs`, dispatch and nightly only) exports a deck
   as an editable PowerPoint and renders every slide through `qlmanage` on macOS, the same Office importer iPhone Preview uses (it

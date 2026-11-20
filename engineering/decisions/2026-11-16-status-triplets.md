@@ -237,6 +237,26 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   bands, the risk key and a slope chart's signal lines 28-42% toward the slide on the dark face, because the one shared
   set of vivid fills was "a fire-engine block" there. The bands, key and lines now wear `--state-X-hue` on both faces;
   critical keeps its one designed step (82% fail toward `--status-shade-mark`, as risk-matrix.styles.css has it).
+  On the dark face it steps toward the slide instead and keeps `--risk-critical-keep` of the fail fill (82% by
+  default). Three a11y palettes keep less: achromatopsia 60%, deuteranopia and tritanopia 68%. Their dark-face bands are
+  so bright that 82% landed critical between low and medium (achromatopsia: low 0.389, critical 0.488, medium 0.594 luminance; on
+  `main` before this note it sat above medium at 0.255). At 60% critical is the darkest band on all five a11y dark
+  faces, 1.66-1.83:1 below the next band and at least 3.6:1 off the slide. Found after merge by a whole-slide review of
+  the a11y dark faces; held by `marks-css.test.js` (critical is the darkest band on every a11y dark face).
+  Where relative color is missing, the critical key number cannot pick its own ink, so it reads
+  `--risk-critical-on-ink`, declared per slide beside `--state-fail-on-ink` so it follows print's ink: the fail ink on
+  the light band, and on the dark one the palette's `--risk-critical-step-ink` if it names one. a11y-base names black
+  for every a11y palette, which clears 4.75-5.33:1 there (the one curated ink sat at 2.97-4.42:1). The surface is Safari
+  17.5-17.x and Firefox 120-127; an older Chrome lacks light-dark() too, so it reaches this rule only through the HTML
+  player's flattening. Safari 17.x reaches it because the relative-color guard (`SUPPORTS` in
+  tools/build-marks-css.js, and tower's copy) now tests a light-dark() origin: WebKit 17.4 parsed the old guard but
+  dropped a relative color over a light-dark() token and painted the ink black (1.0:1 on the light critical band,
+  measured in Playwright 1.44's WebKit 17.4). Firefox 121 and WebKit 17.4 now render every critical key number at
+  4.82-18.76:1; Chromium 153, Firefox 142 and WebKit 26 still pass the guard and are unchanged. Deuteranopia and
+  tritanopia keep 68% rather than 60% so their band stays light enough
+  for black.
+  Its one curated ink sat at 2.97-4.42:1 on the dark band. `lib/core/resolve-token-expr.js` now reads a color-mix stop
+  whose percentage is a var(), so offline checks resolve the new rule instead of passing it through.
   Washes stay washes: kanban cards, journey moods, bullet bands and state-chart groups are tints by design.
 
 - **Tone's one status level** (`tools/build-marks-css.js` `TONE_STATUS`). Under tone a status kept its own hue at the
@@ -296,3 +316,21 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
 
 - The Studio's theme generator (`lib/theme/derive.js`) still derives the one-ink pair, so a generated theme keeps the
   one ink on both faces: correct and readable, but not the light-face triplet. `followups.d/3232-p2-derive-status-triplets.md`.
+- Carbone's first category is green, so an unstatused mark reads close to on-track (light 0.075, dark 0.053 OKLab from
+  the pass fill). Not caused here, and light improved from 0.029; the fix is a brand call.
+  `followups.d/3232-p3-carbone-first-category-reads-on-track.md`.
+- On achromatopsia's LIGHT face the risk bands do not climb in order: medium (0.098) is lighter than low (0.039), and
+  high (0.011) and critical (0.006) sit 1.09:1 apart. That predates this note and is the palette's light status ramp.
+  `followups.d/3232-p4-achromatopsia-light-risk-ramp.md`.
+- Fixed in #3312, found while signing off its exports: onyx's curated status inks (`--pass-on-mark:
+  light-dark(#FFFFFF, #FFFFFF)` and the rest) reached the a11y palettes, which extend onyx, in the HTML player only.
+  a11y-base overrides them with `var(--on-mark)`, the one a11y ink, but `themeDualMode` in lib/export/player-core.mjs
+  picked one entry per token from `light-dark()` declarations alone, so the override was invisible to it. It now lets a
+  later plain `:root` declaration replace an earlier pair. Measured over every palette: the five a11y palettes change,
+  and the 14 brand themes' player output is byte-identical.
+- Fixed in #3312 too: Chromium 119-122 crash the renderer on a relative color over a `color-mix()` origin (in
+  Chromium 121 even `CSS.supports` on that shape takes the page down), which every picked ink is. The player first
+  flattened the guard's `light-dark(red, red)` probe to `red`, which handed those engines the crash, so an a11y player
+  (and any dark risk-matrix slide) hung. `themeDualMode` now keeps `light-dark(` inside @supports preludes as a feature
+  probe and flattens every declaration as before; the player's contract test counts light-dark() outside @supports
+  preludes. Chromium 121 now paints every slide of both demo decks, light and dark, matching Chromium 153.
