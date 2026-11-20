@@ -105,9 +105,16 @@ function stringArm(md, size) {
 }
 // Strip what each mark's string arm drew, then let its DOM arm draw it again. A proof slide keeps a `cat-N` the
 // author pinned; the one the engine sequenced comes off.
+// ONE document for the whole corpus, its content replaced per deck. A JSDOM per deck kept about 3.5 MB each past
+// garbage collection (1 MB even with `window.close()`), so the 573-deck walk ended near Node's 2 GB default heap
+// and one more committed deck ran it out of memory. Reused, the walk stays near 115 MB. The whole document element
+// is replaced, not just the deck's div, so nothing a transformer adds to <head> or <body> reaches the next deck.
+let DOM_ARM_DOC = null;
 function domArm(html, src) {
-  const dom = new JSDOM(`<!doctype html><body><div class="lattice">${html}</div></body>`);
-  const doc = dom.window.document;
+  DOM_ARM_DOC ??= new JSDOM('<!doctype html><html><head></head><body></body></html>').window.document;
+  const doc = DOM_ARM_DOC;
+  for (const name of doc.documentElement.getAttributeNames()) doc.documentElement.removeAttribute(name);
+  doc.documentElement.innerHTML = `<head></head><body><div class="lattice">${html}</div></body>`;
   for (const sel of ['.tile-progress', '.divider-marker', '.agenda-rail', '[data-agenda-page]', 'p[data-derived="section"]']) {
     for (const n of doc.querySelectorAll(sel)) n.remove();
   }
