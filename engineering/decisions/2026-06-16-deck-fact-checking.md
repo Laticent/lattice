@@ -1,12 +1,24 @@
 ---
-status: proposed
+status: superseded
+superseded-by: 2026-11-19-bundle-legibility-and-slimming.md
 summary: Design model for an LLM deck fact-check that returns an honest trust map with quick parametric and deep-research tiers
 version: 1
 supersedes: none
-last-status-update: 2026-06-16
+last-status-update: 2026-11-20
 ---
 
 # Deck fact-checking — a two-tier "trust map" for a deck's factual claims
+
+> **Withdrawn 2026-11-20, and its code deleted.** The owner decided to delete
+> `lib/authoring/fact-check-core.js` and its test (decision D2 in
+> `2026-11-19-bundle-legibility-and-slimming.md` §4, PR #3313). Why: the file was the
+> deterministic first half of this design (#389 design, #395 code, both 2026-06-16), and the
+> second half never came. No model verdict layer was built, and its planned home, the
+> Drawing Board panel, was removed when the Studio replaced it (`2026-07-03-studio-succession.md`).
+> Five months on, nothing but its own test called it, and no issue or followup tracked it. To
+> bring the feature back, start from this note and restore the file from git: `git show
+> c6852a28:lib/authoring/fact-check-core.js` is the first version, and the last one is in the
+> parent of the commit that deleted it. The rest of this note is kept as written.
 
 **Date:** 2026-06-16 · **Status:** design-decision; **deterministic floor
 shipped** (`lib/authoring/fact-check-core.js`) · **Owner:** Sharmarke

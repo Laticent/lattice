@@ -928,13 +928,12 @@ Key-aware (43; the shared scanner `lib/core/class-directive-scan.mjs` is the one
 - `lib/packages/rename.js`
 - `lib/playground/index.js`
 
-Only strip, skip, tokenize or escape (18):
+Only strip, skip, tokenize or escape (17; `lib/authoring/fact-check-core.js` was deleted 2026-11-20):
 
 - `docs/src/components/studio/architect-agent.ts`
 - `docs/src/lib/caret-probe.ts`
 - `docs/src/lib/deck-outline/deck-outline.ts`
 - `docs/src/lib/playground-controller.ts`
-- `lib/authoring/fact-check-core.js`
 - `lib/plugins/chart-family/shared/mark-detail.js`
 - `lib/core/closed-comments.js`
 - `lib/core/flowchart-html.js`
