@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: The universal coda (key insight, below-note, annotation) reaches 68, 38 and 38 of 80 layouts on the engine — honestly declared, but far short of "almost all" — and on Marp it works only when the runtime runs, which VS Code's default preview security forbids; deck-wide `claim:` never reaches Marp at all. Measured on every layout and three surfaces, with a plan to widen the coda, give split-panel the coda and a width modifier, and make the Marp kit honest.
 ---
 
@@ -157,6 +157,18 @@ surface the owner named:
    each beat and asserts the result equals `authoring.blocks`. This is W4's conformance test,
    started with the coda.
 
+**Settled with the owner (2026-11-20):**
+
+| Question | Answer |
+|---|---|
+| 1. Coda reach | Opt-outs shrink to `math` and the three QR posters. **`quote` does not opt out**: its attribution stays the first paragraph after the quotation, and a second trailing paragraph becomes the below-note (or annotation). Quote takes **no** key insight; a second blockquote stays a plain quote. The anchors, `stats`, `image` and the blockquote-anatomy layouts gain the coda as recommended |
+| 2. Charts | **A chart's caption IS its coda's paragraph beat.** The below-note or annotation renders inside the figure as its `<figcaption>`; the key insight stays the slide-level panel. Captions stay optional. The same rule applies to `diagram` and `video` |
+| 2b. `image`, `collage` | Not decided: they have their own semantics and need a deeper assessment before the caption rule reaches them (`followups.d/`) |
+| 3. Split width | `panel-narrow` / `panel-wide` on `split-panel` and `split-compare`; no modifier keeps today's widths |
+| 4. Marp at *Strict* | **Loud notice only.** Lattice needs the runtime and will not work without it; the deck should say so as clearly as it can. No markdown-it spike |
+
+The options as they were put follow, for the record.
+
 **Decisions for the owner** (put as one round):
 
 1. **How far the coda reaches.** *Recommend:* every layout takes all three beats except where the
@@ -220,3 +232,43 @@ Each is fixed in the change that implements §5.
 - **The website has no page on the closing beats at all** — only lint ids and a switch row. The
   fix adds a "Closing beats" section to `guides/authoring.md`, generated from `authoring.blocks`,
   so it cannot drift.
+
+## 7. As built (2026-11-20)
+
+| Beat | Published before | Published now |
+|---|---|---|
+| Key insight panel | 68 | **71**, plus 3 that draw your `> …` as their own insight (`inventory`, `policy-recommendation`, `split-compare`) |
+| Below-note / annotation | 38 / 38 | **75 / 75** |
+
+**The mechanism.** Two new manifest fields beside `coda.claims`, read by one kernel (`lib/core/coda.js`):
+
+- `coda.anatomy` — the layout uses the FIRST blockquote or paragraph of its own, and a later one is the
+  beat: `quote`'s attribution (`trailing-paragraph`), `citation-card`'s cited text (`blockquote`).
+- `coda.caption` — the paragraph beat is the figure's caption. Every chart kind hands it back to its own
+  caption code (`chart-frame.js` `noteToCaption`, so a chart deck renders as before); `diagram` and `video`
+  get a late pass, `lib/transformers/figure-caption.js`, that moves it into the stage under the figure. On a
+  `caption` layout a `<figure>` (a drawn `@video{…}`) counts as the block a note may follow.
+
+Panes keep both kinds of element in the pane (`panes.js` `paneClaims`), so a chart pane keeps its caption
+and a quote pane its attribution, as before.
+
+**Where it departs from the settled answer, and why.** The tests found three cases the plan had wrong:
+
+- **`redline` keeps its blockquote claim.** It has TWO blockquotes of its own (the old and new passages),
+  so "the first one is the layout's" is false for it; a pane and the carousel split pinned that.
+- **`inventory`, `policy-recommendation` and `split-compare` keep theirs too.** Each already draws the
+  author's trailing `> …` as its own insight (a look-specific band, the ask, the verdict); a second panel
+  beside it would be two takeaways. All three gained the note.
+- **`image` is unchanged** (key insight yes, note no): settled 2b sends it to a deeper assessment.
+
+**Defects found and fixed on the way:** `video` declared `dock: "row"` on a section that is a flex column,
+so any key insight or note pushed its card off the slide; split-panel `metric` painted the note navy on
+navy; `split-panel qr` and `closing`/`divider qr` put the code inside the note; `split-compare` put the note
+above its verdict; and, on Marp, the LAST slide of every kit deck lost its coda, because the kit's
+`<script>`/`<link>` lines at the end of the deck land inside that slide after its beats and the kernel's
+tail scan stopped at them (it now steps over them as it does over Marp's `<footer>`).
+
+**Not done here.** `image` and `collage` captions (`followups.d/coda-image-collage-caption.md`). Video
+with BOTH a key insight and a caption fits only just: the engine's fit check flags a few pixels on the
+gallery sample. The runtime-off notice is verified on a modeled VS Code page (marp-core with the
+preview's options), not yet in a real VS Code.

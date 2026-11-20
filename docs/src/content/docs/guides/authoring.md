@@ -101,6 +101,44 @@ make the body inherit the title's weight. The component reference flags
 this per component, and the repo's commit-time validator catches it across
 every deck.
 
+## Closing a slide — key insight, note, source line
+
+Almost any slide can end with up to two closing beats, written in plain Markdown
+after the body. You type no class; the shape decides what you get.
+
+```markdown
+- Signal intake
+  - Every request is logged with its source.
+- Decision log
+  - The call, the owner and the reason.
+
+> Signals without decisions are noise.
+
+Figures are pre-audit; final numbers ship in Q3.
+```
+
+| You write | You get |
+|---|---|
+| a trailing `> …` | a **Key Insight** panel across the foot of the slide |
+| a paragraph after a list, table, quote or code block | a **below-note**: a muted footnote under a hairline |
+| a paragraph that is only `_italics_` | an **annotation**: the source-line form, smaller, with a drawn spark |
+
+The insight comes first and the note last. A paragraph after a paragraph is
+ordinary body text, so prose never turns into a footnote by accident; `no-note`
+on a slide keeps a closing sentence as body text.
+
+**Where it lands depends on the layout.** On a chart, `diagram` or `video`, the
+note is the figure's **caption**, drawn under the figure. On a `quote`, the first
+line after the quotation is the attribution and a second one is the note. On the
+split layouts it closes the supporting column. A few layouts use the element for
+their own anatomy and do not take it: `math` and the QR posters take neither,
+`image` takes no note, and `inventory`, `policy-recommendation` and
+`split-compare` draw your `> …` as their own insight. Each component's page lists
+what it takes (its `authoring.blocks`), and the editor flags a mismatch.
+
+**In a deck Marp renders** (the copy-and-go kit, the VS Code preview) the closing
+beats are built by Lattice's runtime script, so they appear only where it runs.
+
 ## Modifiers
 
 Nearly every component accepts universal modifiers appended to the class —
@@ -370,7 +408,9 @@ Every one of them is a **switch**, and every switch is spelled the same way:
 
 A front-matter `class:` reaches **every** slide, including one that sets its own
 `<!-- _class: … -->`: the slide's classes are added to the deck's, never swapped
-for them. So `class: no-progress` takes the rail off everywhere, and one slide
+for them. (That is Lattice's rule. Marp's own is the opposite — a slide's `_class:`
+replaces the deck's — so in a deck Marp renders, put deck-wide classes in the
+settings block below.) So `class: no-progress` takes the rail off everywhere, and one slide
 brings it back with `<!-- _class: content with-progress -->`. A slide's `with-X`
 always wins over a `no-X` from the deck.
 
@@ -385,7 +425,10 @@ more. The full list is in [Switches](/reference/switches/).
 **In an Export-to-Marp bundle** the deck-wide settings (`class:`, `color-mode:`,
 `finish:`, `logo:`, …) sit in a settings block directly under the front matter,
 and that is where you change them. Every place that opens the bundle (marp-cli,
-the VS Code preview, VS Code's Export command) reads that block as you edit it.
+the VS Code preview, VS Code's Export command) reads that block as you edit it,
+provided Lattice's runtime script runs there: the VS Code preview runs it only at
+security level *Disable*, and says so across the top when it does not. The same
+block works in a hand-written deck that uses the copy-and-go kit.
 
 A header, footer or page-number comment on a slide sets **that slide only**, with
 or without the underscore: `<!-- header: "Appendix" -->` on slide 12 puts the text

@@ -1,7 +1,11 @@
 # base — front-matter registers
 
 The **deck-level registers**: keys you set once in a deck's front matter that
-propagate to every slide, and that a per-slide `_class:` can override. They are
+propagate to every slide, and that a per-slide `_class:` can override. (In a deck
+rendered by Marp — the copy-and-go kit, marp-cli, the VS Code preview — Marp drops
+these keys from the front matter; put them in a settings block,
+`<script type="application/lattice-settings">`, directly under it. The runtime reads
+the block, so it needs the runtime to run. `dist/marp-kit/README.md` has the recipe.) They are
 `theme:`'s siblings — `theme:` picks the palette, these pick the rendering hand,
 the backdrop, the divider, the marker shape, the accent, the heading rule, the
 kicker, whether inline code draws pills and marks, the framing alignment, the card
