@@ -109,17 +109,21 @@ Toggle states were also hard to read: on was a tinted outline, close to off. On 
   the deck and are unbound on close. Each was mutated red and restored.
   `studio.present-fullscreen.test.tsx` covers the immersive fallback, the synchronous-throw case
   and Escape. `studio.present-pace.test.tsx`'s leave-beat case now asserts the hand-off to slide 2.
-- Browser: `e2e/present-immersive.spec.ts` (`@webkit-phone`) — the slide fills the landscape box,
-  the chrome fades, a tap brings it back, Play works over the slide, a second tap hides it,
-  portrait restores the docked layout. **Run here on Chromium at an 852x393 touch viewport**, not
-  WebKit: this sandbox's network policy blocks Playwright's browser download hosts, so WebKit
-  could not be installed. Its first run went red on a real defect (the gesture controller's own
-  reveal on touchstart made every tap hide the chrome); green after the fix, 10/10 repeated and
-  5/5 at four workers. WebKit runs it in the nightly (`studio-e2e-nightly.yml`, project `webkit-phone`); nothing per-PR does.
-  `e2e/present.spec.ts` stays green on `desktop`, `mobile-touch` and `tablet-touch` (swipe and
-  pinch share the backdrop with the new tap rule).
-- **UNVERIFIED on a real iPhone.** The wake lock, the media keys and the audio session are OS
-  behavior that neither jsdom nor Playwright's WebKit exercises. Confirm on the device.
+- Browser, Chromium first: `e2e/present-immersive.spec.ts` (`@webkit-phone`) ran on Chromium at an 852x393 touch
+  viewport while this sandbox's network policy blocked Playwright's browser downloads. Its first run went red on a real
+  defect (the gesture controller's own reveal on touchstart made every tap hide the chrome), fixed.
+- Browser, real WebKit and Gecko, once the owner allowed the download hosts: the Present specs (`present-immersive`,
+  `present`, `present-beat`, `present-steps`, `present-bookends`) on `webkit-phone`, `webkit-tablet`, `gecko`,
+  `desktop`, `mobile` and `mobile-touch`: 36 passed, 3 skipped by design (two touch-only cases on `desktop`, the Stage
+  case on `mobile`). The first `webkit-phone` run FAILED on a second real defect — WebKit sends a tap as a `click` with
+  no pointer events, so faded chrome never came back — fixed by reading the tap from `click`. After the fix the
+  immersive spec on `webkit-phone` passed 10/10 repeated and 5/5 at four workers.
+- iOS Safari Simulator (`platform-suites.yml`, suite `ios-safari-present-memory`, macOS 26) passed on the commit before
+  the click fix. That probe measures memory while stepping a photo deck; it does not exercise the wake lock, the
+  immersive layout, the tap or the media keys, so it is no evidence for those.
+- **UNVERIFIED on a real iPhone:** the wake lock keeping the screen on, the lock-screen and headset controls, the
+  audio-session category, the notch safe-area padding, and whether the rotation fade fully covers iOS's relayout. They
+  are OS behavior that jsdom and Playwright's WebKit do not exercise.
 
 ## Open
 
