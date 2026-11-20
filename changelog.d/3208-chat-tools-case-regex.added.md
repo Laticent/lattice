@@ -4,3 +4,6 @@
   regular expression, and the replacement can use `$1`, `$<name>` and `$&`. A pattern runs in a Worker, never on the
   page's main thread, and the Studio stops it after 2 seconds, so a pattern that backtracks forever cannot freeze the
   page (#3208).
+- **The Studio chat knows the deck may have moved since its last card.** When it is told what the author did with
+  its earlier cards, it is now also told how many slides the deck has and that slide numbers from earlier turns may
+  name other slides, so it re-reads the deck instead of acting on a stale number (#3208).

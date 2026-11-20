@@ -19,7 +19,7 @@ import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigu
 import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { ChatTraceDialog } from './ChatTraceDialog';
-import { applyRows, applyTarget, type ChatApplyOpts, type ChatDraft, cardHistoryLabel, landingSlide, NO_ENTRY, type RowState, reconcile, rowName, rowStates, toldLine, undoRows } from './change-card';
+import { applyRows, applyTarget, type ChatApplyOpts, type ChatDraft, cardHistoryLabel, landingSlide, NO_ENTRY, type RowState, reconcile, rowName, rowStates, toldLine, toldNote as toldEarlier, undoRows } from './change-card';
 import { autoHold } from './chat-actions';
 import { thoughtTail } from './chat-activity';
 import { applyCompaction, modelText, splitForCompaction, transcript } from './chat-compact';
@@ -661,7 +661,7 @@ export function ArchitectChat({ costSlot, deckId, source, aiReady, grounding, on
 			// What the author did with each earlier card rides the NEWEST author message, not the replies it describes:
 			// rewriting an earlier turn on every card action would change the cached prompt from that turn on.
 			const told = history.flatMap((m) => (m.role === 'assistant' && m.proposed?.length ? [toldLine(m.proposed, reconcile(sourceRef.current, m.proposed, rowStates(m)), !!m.autoApplied)] : [])).filter(Boolean);
-			const toldNote = told.length ? `\n\n(What happened to the edits you proposed earlier, oldest first: ${told.join(' ')})` : '';
+			const toldNote = toldEarlier(told, deckSlideCount(sourceRef.current));
 			const turns: ChatTurn[] = history.map((m, i) => ({ role: m.role, content: modelText({ ...m, content: m.role === 'user' && i !== lastIdx && (m.photos?.length || m.videos?.length) ? `${m.content}${photoNote((m.photos ?? []).map((p) => p.name), false)}${videoNote(m.videos?.length ?? 0, false)}` : m.role === 'user' && i === lastIdx && toldNote ? `${m.content}${toldNote}` : m.content }) }));
 			const sentVideos = history[lastIdx]?.role === 'user' ? (history[lastIdx].videos ?? []) : [];
 			const clips = (await Promise.all(sentVideos.map(async (v) => ({ name: v.name, dataUrl: await videoDataUrl(v.name).catch(() => null) })))).filter((x): x is { name: string; dataUrl: string } => !!x.dataUrl);

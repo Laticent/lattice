@@ -193,7 +193,7 @@ recommendation, and what it would change:
 | The diff | `change-diff.tsx` | Plain words (Markdown markers dropped, changed words marked, a rewritten line shown whole); Show source for the Markdown |
 | History | `StudioShell.tsx` `applyChatEdit`; `studio-store.ts` `saveCheckpointWithId`, `relabelCheckpoint` | The card's first action saves "Before AI edit · HH:MM · “ask” (n of m applied)"; later actions relabel that entry. The message keeps its id (`cardCheckpoint`) and the time (`cardAt`), so the link survives a reload. Each action is its own undo step, named ("AI chat edit: Slide 2", "Undo AI edit: Slide 2") |
 | Preview | `ChatDraftPreview.tsx`, lazy in `StudioShell.tsx` | Over the preview pane on a desktop or tablet; a full-screen sheet on a phone, which stops its pointer and focus events at its edge (the chat's own modal sheet otherwise dismissed itself on a tap in the preview) and takes Esc first. Before/After, Esc, B. Any change to the deck closes it |
-| Tell the AI | `ArchitectChat.tsx` (the turn builder) | A past reply's text carries `[The author applied slide 2; discarded slide 3; …]` |
+| Tell the AI | `ArchitectChat.tsx` (the turn builder), `change-card.ts` `toldNote` | The NEWEST author message carries `[The author applied slide 2; discarded slide 3; …]` for each earlier card, oldest first, then the deck as it is now: its slide count, and that slide numbers from earlier turns may name other slides (added by PR #3324 for #3208 items 5 and 27) |
 | Auto | the same card, kind `auto` | "What Auto changed", rows folded, each with Undo |
 
 Tests: `change-card.test.ts` (out-of-order apply, undo after typing, insert and delete round trips, a deck
