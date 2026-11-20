@@ -340,7 +340,7 @@ test('@webkit-tablet @gecko Present reads in the selected voice and names it', a
 	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_bella' }) });
 	const seen = await mockOpenRouter(page);
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The selected voice reads this line. -->\n\n---\n\n# Two\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{The selected voice reads this line.} -->\n\n---\n\n# Two\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
@@ -401,7 +401,7 @@ test(`${tags} Present decodes a Gemini clip on a worker and plays it at the decl
 	// A phone shows the slides first; its Markdown source tab reveals the editor.
 	const source = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
 	if (await source.isVisible()) await source.click();
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The decoded clip reads this line. -->\n\n---\n\n# Two\n\n<!-- say: The decoded clip reads this line. -->\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{The decoded clip reads this line.} -->\n\n---\n\n# Two\n\n<!-- @say{The decoded clip reads this line.} -->\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
@@ -497,7 +497,7 @@ test('@webkit-tablet @gecko a voice model Gemini retired turns read-aloud off an
 		return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
 	});
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: First line. Second line. Third line. -->\n\n---\n\n# Two\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{First line. Second line. Third line.} -->\n\n---\n\n# Two\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
@@ -549,7 +549,7 @@ test('Present waits for the on-device voice on its first read, and its voice pil
 	await page.evaluate(() => {
 		window.Worker = Object.getPrototypeOf(window.Worker);
 	});
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The on-device voice reads this line. -->\n\n---\n\n# Two\n');
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- @say{The on-device voice reads this line.} -->\n\n---\n\n# Two\n');
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
