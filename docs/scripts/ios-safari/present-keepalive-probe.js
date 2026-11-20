@@ -96,7 +96,12 @@ async function latticeKeepaliveImmersive() {
 	const h = latticeKeepaliveHelpers();
 	const full = await h.until(() => h.button('Fullscreen'), 15000, 'the Fullscreen button');
 	full.click();
-	const row = await h.until(() => h.dialog()?.querySelector('[data-present-immersive]'), 10000, 'the immersive layout');
+	// On a timeout, say what the page DID reach: a macOS run costs 40 minutes, so a bare "timed out" wastes one.
+	const row = await h.until(() => h.dialog()?.querySelector('[data-present-immersive]'), 10000, 'the immersive layout').catch((e) => {
+		const toast = [...document.querySelectorAll('[role="status"], [data-sonner-toast]')].map((t) => t.textContent.trim()).filter(Boolean).join(' / ');
+		const seen = { dialog: !!h.dialog(), pressed: h.button('Fullscreen')?.getAttribute('aria-pressed'), fullscreenEnabled: !!(document.fullscreenEnabled || document.webkitFullscreenEnabled), fullscreenElement: !!(document.fullscreenElement || document.webkitFullscreenElement), viewport: `${innerWidth}x${innerHeight}`, toast: toast.slice(0, 160) };
+		throw new Error(`${e.message}; saw ${JSON.stringify(seen)}`);
+	});
 	const realFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
 	await h.until(() => h.opacity(h.top()) === 0, 15000, 'the chrome to fade');
 	const r = h.frame().getBoundingClientRect();

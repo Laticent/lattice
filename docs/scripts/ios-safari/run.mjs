@@ -766,8 +766,9 @@ async function runPresentKeepaliveProbe(id) {
 		await elementClick('latticeKeepaliveHelpers().presentButton()');
 		// A slow simulator can take well past 8 s to open Present from a click (run 44774104460: Safari took 175 s to launch).
 		// Wait for the state with a wide bound, and never touch the button's spot once Present is up: the dialog covers it.
-		opened = (await call('latticeKeepaliveOpened(30000)')).open;
-		holds.push(opened ? 'an element click' : 'an element click that opened nothing');
+		const clicked = await call('latticeKeepaliveOpened(30000)');
+		opened = clicked.open;
+		holds.push(opened ? 'an element click' : `an element click that opened nothing (the page saw: ${(clicked.log?.events || []).map((e) => e.type).join(' ') || 'no event'})`);
 		for (let attempt = 0; attempt < 2 && !opened; attempt++) {
 			// Measured again each time: the element click scrolls the button into view, so an earlier position is stale.
 			const at = await call('latticeKeepalivePresentAt()');
