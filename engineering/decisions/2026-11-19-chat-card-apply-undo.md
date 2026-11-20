@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: How the Studio chat's change card lets the author see, apply, discard and take back an AI edit one slide at a time or all at once, on top of Filo (the Studio's one undo history) and Version history. Prototyped, reviewed by a UI/UX pass, chosen by the owner and built in PR #3317: live rows with no tick boxes, undo by content, one History entry per card, a preview in the Studio's own pane.
 ---
 
