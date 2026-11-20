@@ -15,17 +15,15 @@ test.describe.configure({ timeout: 300_000 });
 const DECK = `---
 theme: indaco
 paginate: true
-say:
-  1: Alpha is spoken.
-  2: Bravo must never be spoken.
-  3: Charlie is spoken.
 ---
 
 ## Alpha
 
 First shown slide.
 
-<!-- Alpha note -->
+<!-- @note{Alpha note} -->
+
+<!-- @say{Alpha is spoken.} -->
 
 ---
 
@@ -35,13 +33,17 @@ First shown slide.
 
 This slide is hidden.
 
-<!-- BRAVO SECRET NOTE -->
+<!-- @note{BRAVO SECRET NOTE} -->
+
+<!-- @say{Bravo must never be spoken.} -->
 
 ---
 
 ## Charlie
 
 Second shown slide.
+
+<!-- @say{Charlie is spoken.} -->
 
 ---
 
@@ -101,7 +103,7 @@ test('the Webpage export carries 3 slides and no hidden slide or its note', asyn
 	expect(html).not.toContain('This slide is hidden.');
 });
 
-test('the Captions export narrates the 3 shown slides, each with its own say: line', async ({ page }) => {
+test('the Captions export narrates the 3 shown slides, each with its own @say line', async ({ page }) => {
 	const zip = await JSZip.loadAsync(readFileSync(await download(page, 'captions', 'zip')));
 	const tracks = Object.keys(zip.files).filter((n) => /\.vtt$/.test(n));
 	// WebVTT word-timing tags (`<00:00:00.410>`) sit between the words; read the spoken text without them. Only that

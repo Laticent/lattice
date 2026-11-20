@@ -62,7 +62,7 @@ test('a speaker note is written into the slide source on blur', async ({ page })
 	await note.fill('Open with the headline number.');
 	await note.blur();
 
-	await expect.poll(() => persistedSource(page)).toContain('note: Open with the headline number.');
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @note{Open with the headline number.} -->');
 });
 
 test('saving a version records a checkpoint', async ({ page }) => {
