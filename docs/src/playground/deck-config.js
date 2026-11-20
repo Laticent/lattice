@@ -192,8 +192,10 @@ export function readFrontMatter(source) {
     // What the preset RECOMMENDS for the two author keys the deck leaves unset, or ''. Auto FOLLOWS the preset,
     // so the sheet's Auto choice names this value rather than hiding what renders. The color mode yields to a
     // scheme the deck pins in `class:` or with a `-dark` theme, as lib/core/resolve-color-mode.js does.
-    presetTheme: map.theme ? '' : presetRecommends(map.preset, 'theme'),
-    presetColorMode: map['color-mode'] || legacySchemePin(map) ? '' : presetRecommends(map.preset, 'color-mode'),
+    // Read through the engine's scalar rule (`scalarOf`), not `map`: `map` keeps a trailing comment and reads a
+    // comment-only value as written, and the label must agree with what the engine renders.
+    presetTheme: scalarOf(entries, 'theme') ? '' : presetRecommends(scalarOf(entries, 'preset'), 'theme'),
+    presetColorMode: scalarOf(entries, 'color-mode') || legacySchemePin(entries) ? '' : presetRecommends(scalarOf(entries, 'preset'), 'color-mode'),
     // A preset's backdrop reads as the current value; `none` stays the empty baseline.
     finish: map.finish || (lookBaseline(map.preset, 'finish') === 'none' ? '' : lookBaseline(map.preset, 'finish')),
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
@@ -229,13 +231,22 @@ export function readFrontMatter(source) {
 // `-dark` theme, which a preset's recommended color mode never overrides (lib/core/resolve-color-mode.js
 // `deckColorModeValue`).
 const COLOR_AXIS = new Set(['dark', 'light', 'color-light', 'color-system', 'color-inherited', 'print']);
-function legacySchemePin(map) {
-  return String(map.class || '').split(/\s+/).some((t) => COLOR_AXIS.has(t)) || /-dark$/.test(String(map.theme || '').trim());
+function legacySchemePin(entries) {
+  return scalarOf(entries, 'class').split(/\s+/).some((t) => COLOR_AXIS.has(t)) || /-dark$/.test(scalarOf(entries, 'theme'));
+}
+
+// A flat key's value as the ENGINE reads it (lib/core/front-matter-key.js `frontMatterScalar`): quotes and a
+// trailing comment cut, a comment-only value empty. The last line of a repeated key wins, as in the engine.
+function scalarOf(entries, key) {
+  const hit = entries.filter(([k, v]) => k === key && !v?.block).pop();
+  if (!hit) return '';
+  const raw = String(hit[1]).trim();
+  return raw.startsWith('#') ? '' : frontMatterKey.frontMatterScalar(raw).trim();
 }
 
 // What preset `name` recommends for `key`, or '' (no preset, an unknown one, or one that leaves the key alone).
 function presetRecommends(name, key) {
-  return frontMatterKey.presetValue(String(name || '').split(/[ \t]#/)[0].trim().toLowerCase(), key) || '';
+  return frontMatterKey.presetValue(String(name || '').trim().toLowerCase(), key) || '';
 }
 
 function isDefault(key, value) {

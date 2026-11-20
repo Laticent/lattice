@@ -148,6 +148,12 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 			expect(presetRecommendation(bare('foo:', '  preset: probe'), 'theme')).toBe(null);
 		});
 		expect(presetRecommendation(bare('preset: editorial'), 'theme')).toBe(null);
+		// A quoted empty value, a comment-only value and a trailing comment read as the engine reads them.
+		withProbe(() => {
+			expect(presetRecommendation(bare('preset: probe', 'theme: ""'), 'theme')).toBe('cuoio');
+			expect(presetRecommendation(bare('preset: probe', 'color-mode: # todo'), 'color-mode')).toBe('dark');
+			expect(presetRecommendation(bare('preset: probe', 'theme: indaco # brand'), 'theme')).toBe(null);
+		});
 	});
 
 	it('the drawer Auto head reads `preset: <label>` while the recommendation applies', () => {
@@ -158,6 +164,10 @@ describe('deck-preset — the recommendation keys (P0)', () => {
 			expect(presetAutoLabel(bare('preset: probe', 'class: dark'), 'color-mode', "Theme's own", cap)).toBe("Theme's own");
 		});
 		expect(presetAutoLabel(bare('theme: cuoio'), 'theme', 'Indaco', cap)).toBe('Indaco');
+		// A palette this host cannot render is not named: the preview falls back to the site's.
+		withProbe(() => {
+			expect(presetAutoLabel(bare('preset: probe'), 'theme', 'Indaco', cap, (n) => n !== 'cuoio')).toBe('Indaco');
+		});
 	});
 
 	it('Reset and the drift count never touch the author theme or color mode', () => {

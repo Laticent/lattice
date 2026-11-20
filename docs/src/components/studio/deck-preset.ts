@@ -96,10 +96,19 @@ export function presetRecommendation(source: string, key: string): string | null
 }
 
 /** The text an Auto head names for `key`: `preset: <label>` while the preset's recommendation applies, else
- *  `fallback` (what Auto resolves to without one). `labelOf` turns a value into its display label. */
-export function presetAutoLabel(source: string, key: string, fallback: string, labelOf: (value: string) => string = (v) => v): string {
+ *  `fallback` (what Auto resolves to without one). `labelOf` turns a value into its display label; `isKnown` says
+ *  whether this host can render the value (a palette it has). */
+export function presetAutoLabel(
+	source: string,
+	key: string,
+	fallback: string,
+	labelOf: (value: string) => string = (v) => v,
+	isKnown: (value: string) => boolean = () => true,
+): string {
 	const rec = presetRecommendation(source, key);
-	return rec ? `preset: ${labelOf(rec)}` : fallback;
+	// A palette this host cannot load falls back to the site's in the preview (deck-theme.ts `isKnownTheme`), so
+	// the label must not name it either.
+	return rec && isKnown(rec) ? `preset: ${labelOf(rec)}` : fallback;
 }
 
 /** The engine's color-axis class tokens (lib/core/color-mode.js `COLOR_MODE_TOKENS`). */
@@ -125,7 +134,9 @@ function ownValue(source: string, key: string): string | undefined {
 	if (!span || (span.indent && TOP_LEVEL_KEYS.has(key))) return undefined;
 	const line = source.slice(span.start, span.end);
 	const raw = line.slice(line.indexOf(':') + 1).trim();
-	if (raw === '' || raw.startsWith('#')) return undefined;
+	// Empty as the ENGINE reads it: no value, a comment only, or a quoted empty string (`theme: ""`), which
+	// `frontMatterScalar` also reads as '' — so the preset applies, in the render and here alike.
+	if (raw === '' || raw.startsWith('#') || ENGINE.frontMatterScalar(raw).trim() === '') return undefined;
 	// A multi-word value through the engine's own scalar rule (quotes, a trailing comment), its words
 	// single-spaced: a bare-name read drops `etch vivid` to '' and the row would show the default.
 	if (MULTI_WORD_KEYS.has(key)) return ENGINE.frontMatterScalar(raw).trim().split(/\s+/).join(' ').toLowerCase();
@@ -139,7 +150,9 @@ function legacyMarks(source: string): string | undefined {
 	if (!span) return undefined;
 	const line = source.slice(span.start, span.end);
 	const raw = line.slice(line.indexOf(':') + 1).trim();
-	if (raw === '' || raw.startsWith('#')) return undefined;
+	// Empty as the ENGINE reads it: no value, a comment only, or a quoted empty string (`theme: ""`), which
+	// `frontMatterScalar` also reads as '' — so the preset applies, in the render and here alike.
+	if (raw === '' || raw.startsWith('#') || ENGINE.frontMatterScalar(raw).trim() === '') return undefined;
 	return ENGINE.frontMatterScalar(raw).trim().split(/\s+/).join(' ').toLowerCase();
 }
 

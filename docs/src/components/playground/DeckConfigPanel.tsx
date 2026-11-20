@@ -128,8 +128,8 @@ export function DeckConfigPanel({
 				{selectRow('theme', 'Theme', 'Palette for this deck. Auto follows the site; any other choice pins it and travels with the exported .md', groups, valid ? raw : '', '', {
 					round: true,
 					// Auto FOLLOWS a preset's recommended palette (D1), so it names it.
-					autoLabel: fm.presetTheme ? `preset: ${paletteLabel(fm.presetTheme)}` : site ? `follow the site (${paletteLabel(site)})` : 'follow the site',
-					autoTitle: fm.presetTheme ? 'The palette the preset recommends. Pick another theme to override it.' : 'Follow the website theme (no theme pinned to the deck).',
+					autoLabel: fm.presetTheme && palettes.includes(fm.presetTheme) ? `preset: ${paletteLabel(fm.presetTheme)}` : site ? `follow the site (${paletteLabel(site)})` : 'follow the site',
+					autoTitle: fm.presetTheme && palettes.includes(fm.presetTheme) ? 'The palette the preset recommends. Pick another theme to override it.' : 'Follow the website theme (no theme pinned to the deck).',
 				})}
 				{raw && !valid && (
 					<p className="db-settings-note db-config-warn">

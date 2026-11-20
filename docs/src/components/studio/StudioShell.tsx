@@ -6744,7 +6744,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// word — the same shape every auto head in both scopes now uses. It is
 				// safe to be this long again because the control owns a fixed half of
 				// its row and truncates (SETTING_ROW); it used to widen the whole row.
-				groups={[{ options: [{ value: AUTO_VALUE, label: autoHeadLabel(presetAutoLabel(source, 'theme', paletteLabel(palette), paletteLabel)), icon: <AutoIcon />, title: presetTheme ? `Automatic — the preset's palette, ${paletteLabel(presetTheme)}. Pick another theme to override it.` : 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
+				groups={[{ options: [{ value: AUTO_VALUE, label: autoHeadLabel(presetAutoLabel(source, 'theme', paletteLabel(palette), paletteLabel, (n) => BUILTIN_PALETTES.includes(n) || savedThemes.some((t) => t.name === n))), icon: <AutoIcon />, title: presetTheme && (BUILTIN_PALETTES.includes(presetTheme) || savedThemes.some((t) => t.name === presetTheme)) ? `Automatic — the preset's palette, ${paletteLabel(presetTheme)}. Pick another theme to override it.` : 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
 			/>
 		</Field>
 	);

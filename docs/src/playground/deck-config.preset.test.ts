@@ -33,4 +33,21 @@ describe('deck-config — a preset recommendation (P0)', () => {
 		// Control: with no preset hand, boardroom is the omitted baseline, as before.
 		expect(writeFrontMatter(deck('preset: editorial'), 'mode', 'boardroom')).not.toMatch(/^mode:/m);
 	});
+
+	it('reads every key the way the engine does: comments, quotes, comment-only and the -dark pin', () => {
+		withProbe(() => {
+			// The engine renders the preset under a comment-only key, so the label names it.
+			expect(readFrontMatter(deck('preset: probe', 'theme: # todo')).presetTheme).toBe('cuoio');
+			expect(readFrontMatter(deck('preset: probe', 'color-mode: # todo')).presetColorMode).toBe('dark');
+			// A comment after the class is not a class token: `lead # dark later` pins nothing.
+			expect(readFrontMatter(deck('preset: probe', 'class: lead # dark later')).presetColorMode).toBe('dark');
+			// A `-dark` theme with a trailing comment still pins the scheme.
+			expect(readFrontMatter(deck('preset: probe', 'theme: cuoio-dark # c')).presetColorMode).toBe('');
+			// A quoted preset name with a trailing comment is still the preset.
+			expect(readFrontMatter(deck("preset: 'probe' # c")).presetTheme).toBe('cuoio');
+			// A written theme with a comment is the author's.
+			expect(readFrontMatter(deck('preset: probe', 'theme: indaco # brand')).presetTheme).toBe('');
+		});
+	});
 });
+
