@@ -1232,6 +1232,30 @@ a checker pass caught — the list above is derived from the class names in
 to a register's default and so have no CSS to be derived from. They are added by hand; what
 they do is under "Back to the default on one slide" in `base.registers.docs.md`.
 
+### Preset hooks — `--rule-w` · `--rule-style` · `--rule-mark` · `--rail-w` · `--radius-card`
+
+Five tokens that change a deck's weight without a new register. **Unset, they change nothing:**
+every consumer reads its hook with today's value as the fallback, so no existing deck moves.
+Presets set them internally; they are not public settings (deck-preset study, decision D10). An
+author who wants one today writes it in a deck `style:` block, on `section`:
+
+```yaml
+style: |
+  section { --rule-w: 3px; --rule-style: double; --rail-w: 6px; --radius-card: 0; }
+```
+
+| Token | Unset value | What reads it |
+|---|---|---|
+| `--rule-w` | `1px` (the short segment: `0.22cqi`) | The heading rule: the `form` masthead hairline, `rule: full`, the `rule: short` / `accent` segment's height, the `split-panel` kicker, and the split-page runheads (`split-panel`, `compare-prose`, `decision`, `list-tabular`) |
+| `--rule-style` | `solid` | The same rules, except the short / accent segment, which is a filled bar |
+| `--rule-mark` | `var(--border)` | The same rules, except `rule: accent` (always `--accent`) and the dark `split-panel metric` kicker |
+| `--rail-w` | `0.35cqi` of the slide | The `spectrum-card:` rail on every card it paints |
+| `--radius-card` | `var(--radius-md)` | The card surfaces: `cards-grid`, `cards-stack`, `stats`, `pricing` (and its corner badge), `verdict-grid`, `list-steps` |
+
+`--radius-card` is not `corners:`, which shapes the slide's own surface and is square by
+default. Pills keep `--radius-full`. The full contract is the comment beside `--radius-*` in
+`base.tokens.css`.
+
 ### `scale-l` / `scale-xl` / `scale-2xl`
 
 Bump the readable fonts on the slide up in lockstep. The typography

@@ -48,7 +48,7 @@ section.form .cell-masthead {
    * margins are banned (they fight the virtual-list scrollHeight measurement). padding-bottom
    * positions the hairline below the title; the section gap supplies the hairline↔stage space. */
   padding-bottom: var(--sp-md);
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border));
 }
 /* The band owns its spacing: padding-bottom (above) is the SOLE title↔hairline gap. A heading
  * lifted into the band still carries its own block-axis flow spacing — a `margin-bottom` (base

@@ -184,7 +184,7 @@ section.decision-points .split-runhead {
   font-family: var(--runhead-face);
   font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
-  color: var(--runhead-ink, var(--text-secondary)); border-bottom: 1px solid var(--border);
+  color: var(--runhead-ink, var(--text-secondary)); border-bottom: var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border));
   padding-bottom: var(--sp-xs);
 }
 section.decision-points .split-pts { list-style: none; padding: var(--sp-xl) 0 0 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-lg); }

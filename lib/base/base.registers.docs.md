@@ -533,6 +533,9 @@ caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
 Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
 it on where it earns its place.
 
+The rail's **thickness** is the `--rail-w` token (unset: `0.35cqi` of the slide), which a preset
+sets; no register exposes it. See "Preset hooks" in [`base.docs.md`](base.docs.md).
+
 **`spectrum-trim:` — how much the STRUCTURAL accents carry the spectrum.** Three tiers of
 increasing presence on the in-content accents (table-header rails, the `list-steps` timeline
 spine, code-panel strips, the `hr` rule, split-card underlines). Off by default — those accents
@@ -585,6 +588,11 @@ positioned pseudo that had to be hand-placed; the element makes alignment a plai
 `rule:` governs the `form` masthead hairline — the canonical heading underline. The
 split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
 masthead-scoped. On a slide with no heading underline, `rule:` is a graceful no-op.
+
+`rule:` picks the rule's *shape*; its **weight, line style and ink** are three tokens —
+`--rule-w`, `--rule-style`, `--rule-mark` — that a preset sets and no register exposes. Unset,
+they are today's `1px solid var(--border)`. See "Preset hooks" in
+[`base.docs.md`](base.docs.md).
 
 ## The `inline-code:` front-matter register (pills and marks)
 
@@ -1328,6 +1336,10 @@ slide.
 |---|---|---|
 | `square` | *(none)* | Hard corners. **The default** (omit the key). |
 | `rounded` | `corners-rounded` | The slide rounds, at the theme's radius. |
+
+`corners:` shapes the slide, never its cards. A card's corner is the separate `--radius-card`
+token (unset: `--radius-md`), which a preset sets; see "Preset hooks" in
+[`base.docs.md`](base.docs.md).
 
 Per slide, `<!-- _class: corners-rounded -->` rounds one slide in a square deck and
 `<!-- _class: corners-square -->` squares one slide off in a rounded deck (include the

@@ -136,7 +136,7 @@ section.split-panel .panel-left p { font-size:var(--fs-message); color:var(--on-
  * an over-stuffed right zone bleeds past the panel wall. The left panel already
  * clips (overflow:hidden, line above); this walls the supporting zone to match. */
 section.split-panel .panel-right { flex:1; min-height:0; overflow:clip; background-color:var(--bg); display:flex; flex-direction:column; padding:var(--sp-xl) var(--sp-xl) var(--sp-xl) var(--sp-lg); }
-section.split-panel .panel-right h3 { font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--text-secondary); font-weight:600; margin:0; padding-bottom:var(--sp-sm); border-bottom:1px solid var(--border); }
+section.split-panel .panel-right h3 { font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.14em; color:var(--text-secondary); font-weight:600; margin:0; padding-bottom:var(--sp-sm); border-bottom:var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border)); }
 /* The evidence list is a COLUMN that reads the `cards:` register as `justify-content` (#2317).
  * The manifest's `spread` is the `space-evenly` it always had; an item grows only under
  * `stretch` (`--cards-grow`). A `proof` list is a grid and reads it below. */
@@ -478,7 +478,7 @@ section.split-panel-points .split-runhead {
   font-family: var(--runhead-face);
   font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
-  color: var(--runhead-ink, var(--text-secondary)); border-bottom: 1px solid var(--border);
+  color: var(--runhead-ink, var(--text-secondary)); border-bottom: var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border));
   padding-bottom: var(--sp-xs);
 }
 section.split-panel-points .split-pts {

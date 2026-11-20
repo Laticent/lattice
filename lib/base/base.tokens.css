@@ -224,6 +224,32 @@
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   /* A fully round end — a capsule's corner. Any radius past half the box's height does it. */
   --radius-full:999px;
+  /* PRESET HOOKS — `--radius-card`, `--rule-w` / `--rule-style` / `--rule-mark`, `--rail-w`.
+   * DELIBERATELY NOT DECLARED HERE. Each consumer reads the hook with today's value as its
+   * `var()` FALLBACK, so an unset hook renders byte-for-byte as before, and a hook set on a
+   * section (a preset's stamped class, or a deck `style:` block) reaches every consumer under it.
+   * Declaring a default here would freeze `var(--border)` / `var(--radius-md)` at `<html>`, where
+   * a section-scoped remap (`section.print`, `section.dark`) cannot reach it — the same trap the
+   * runhead block below documents.
+   *
+   *   --radius-card  the corner of a CARD surface: cards-grid / cards-stack cards, the stats /
+   *                  pricing / verdict-grid / list-steps tiles, and pricing's corner badge.
+   *                  Fallback `var(--radius-md)`. NOT `corners:` (the slide's own surface), NOT
+   *                  `--radius-full` (pills stay round), NOT the Mermaid subgraph (`--mermaid-
+   *                  subgraph-radius`, SVG user space). `0` squares the cards.
+   *   --rule-w       the heading rule's weight. Fallback `1px` on the border-drawn rules (the
+   *                  form masthead hairline, `rule-full`, the split-panel kicker, the split-page
+   *                  runheads); `0.22cqi` on the `rule-short` / `rule-accent` segment's height.
+   *   --rule-style   the border style (`solid`, `double`, `dashed`, …) of the border-drawn rules.
+   *                  Fallback `solid`. The short / accent segment is a filled bar and ignores it.
+   *   --rule-mark   the rule's ink. Fallback `var(--border)`. `rule-accent` keeps `--accent` (it
+   *                  IS the accent rule), and a `split-panel metric` kicker keeps its on-dark ink.
+   *   --rail-w       the `spectrum-card:` rail's thickness. Fallback
+   *                  `calc(var(--_sec-1cqi, 1cqi) * 0.35)`. Write a container-relative value in
+   *                  the same `--_sec-1cqi` form, or a `px` length.
+   *
+   * Public settings they are NOT: presets set them internally (deck-preset study D10,
+   * engineering/decisions/2026-11-20-deck-preset-study.md §5, §8 WP-tokens). */
   /* The Mermaid subgraph box's corner — the containment tier's radius, and the
    * one radius on this scale that is NOT container-relative. It cannot be:
    * `rx`/`ry` are SVG GEOMETRY properties, so their value is read in the
