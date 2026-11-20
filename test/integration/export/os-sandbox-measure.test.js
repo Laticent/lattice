@@ -310,7 +310,7 @@ const startSpawner = async () => {
         out += d;
         if (out.includes('ready')) resolve();
       });
-      spawner.once('exit', (code) => reject(new Error(`the spawner exited (${code}) before it was ready`)));
+      spawner.once('exit', (code) => reject(new Error(`the spawner exited (${code}) before it was ready: ${out.trim()}`)));
     });
   } catch (e) {
     await cleanup();
