@@ -184,8 +184,9 @@ describe('every component that reads a list declares its contract', () => {
       if (first && /(^|[\s>])li(?=[\s>.:[]|$)/.test(flat(before))) depth++; // reached through an item: nested
       const rest = sel.slice(at + (t[2] === 'L' ? 1 : 2));
       const directChild = /(\.cell-stage|^section\S*) >$/.test(flat(before));
-      // A list with a class (`ul.team-roster`, `ul.tile-track`) is one a transform builds, never the author's.
-      const built = /^\.[\w-]/.test(rest);
+      // `ul.team-roster` and `ul.tile-track` are built by a transform (team-profile, topic-track), never the
+      // author's; any other classed list is checked like the rest.
+      const built = /^\.(team-roster|tile-track)(?![\w-])/.test(rest);
       // (d) the stage's own list, picked as a direct child, must leave an aside alone.
       if (first && directChild && !built && !excludesAside(rest)) bad.push(`${name}: stage list without the aside exclusion in '${sel}'`);
       // A list reached by a sibling combinator sits where an aside can (`p + ol`, `ol ~ ol`). Straight
@@ -198,7 +199,7 @@ describe('every component that reads a list declares its contract', () => {
       if (sel[at + 2] === '.') continue; // `ul.team-roster`: a list a transform builds, not the author's
       if (set.has(flipAt(at, t[2]))) continue; // the other marker is styled the same way
       // (a) one marker only, reached by a descendant combinator rather than the stage scope.
-      if (depth === 1 && descendant && !rest.startsWith(SCOPE) && !rest.startsWith(':not(:where(li *')) bad.push(`${name}: one-marker descendant selector '${sel}'`);
+      if (depth === 1 && descendant && !rest.startsWith(SCOPE)) bad.push(`${name}: one-marker descendant selector '${sel}'`);
       // (c) one marker only, then a descendant step to items: it reaches nested lists' items too.
       const after = rest.replace(/^(:where\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)|:not\((?:[^()]|\([^()]*\))*\)|[.:[][^\s>+~]*)*/, '');
       if (/^ li\b/.test(after)) bad.push(`${name}: one-marker list reaches its items by a descendant combinator in '${sel}'`);
@@ -360,6 +361,11 @@ describe('which lists are the layout\'s (the trio review of #3330)', () => {
     assert.match(html, /<li><strong>Build<\/strong>/, 'the layout\'s own items are lifted');
     assert.match(html, /<li>Lock-in<\/li>/, 'an aside item is not');
     assert.match(html, /<li>quoted item<\/li>/, 'a quoted item is not');
+  });
+  test('team-profile rebuilds its roster only: an aside stays a list (engine)', () => {
+    const html = String(engine.render('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Lovelace\n  - Chief engineer\n- Grace Hopper\n  - Compilers\n\nAlso on call:\n\n- Alan Turing\n').html);
+    assert.equal((html.match(/class="team-roster"/g) || []).length, 1, 'one roster');
+    assert.match(html, /<ul data-list="aside">\s*<li>Alan Turing<\/li>/, 'the aside is left as written');
   });
   test('the slot-label lift skips an aside in the runtime too', async () => {
     const { bootRuntime } = require('../../helpers/runtime-boot');
