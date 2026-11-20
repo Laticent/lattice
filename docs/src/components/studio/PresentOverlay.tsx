@@ -2267,8 +2267,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// dock (or focus within it) PINS it open so it can't fold while you're aiming a click.
 	const pinnedRef = React.useRef(false);
 	const hideTimer = React.useRef<number | null>(null);
-	const tapRef = React.useRef<{ x: number; y: number; t: number; shown: boolean } | null>(null);
-	const touchesRef = React.useRef(0);
+	const gestureRef = React.useRef<{ t: number; shown: boolean } | null>(null);
 	const wake = React.useCallback(() => {
 		setRevealed(true);
 		if (hideTimer.current) window.clearTimeout(hideTimer.current);
@@ -2609,19 +2608,22 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// slide does not butt against Safari's toolbar, and the bottom clears the home indicator as well.
 	const chromeHidden = immersive && !revealed;
 	// The tap rule, shared by the backdrop and the slide row (a chart's detail layer takes pointer events over its box,
-	// so a tap there reaches the row, never the backdrop). A second finger down makes it a pinch, never a tap.
-	const tapDown = (e: React.PointerEvent) => {
-		// The first finger of a gesture is `isPrimary`, so a count a lost pointer-up left behind resets here.
-		touchesRef.current = e.isPrimary ? 1 : touchesRef.current + 1;
-		tapRef.current = touchesRef.current > 1 ? null : { x: e.clientX, y: e.clientY, t: e.timeStamp, shown: revealed };
+	// so a tap there reaches the row, never the backdrop). A TAP is a `click`: the browser sends one only for a tap, never
+	// for a swipe or a pinch, and on every engine — Playwright's WebKit sends a tap as a click with no pointer events at
+	// all, which is how the pointer-up rule this replaced was found wanting.
+	// Whether the chrome was SHOWN is read at the gesture's start where the browser reports one (pointer- or touch-down):
+	// the gesture controller's `onInput` reveals the chrome on touchstart, so read at the click it would always look shown
+	// and every tap would hide it straight away. With no start reported, the state at the click decides.
+	const gestureStart = (e: React.SyntheticEvent) => {
+		gestureRef.current = { t: e.timeStamp, shown: revealed };
 	};
-	const tapUp = (e: React.PointerEvent) => {
-		touchesRef.current = Math.max(0, touchesRef.current - 1);
-		const d = tapRef.current;
-		tapRef.current = null;
-		if (e.type === 'pointercancel' || !immersive || !d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12 || e.timeStamp - d.t > 500) return;
+	const tapClick = (e: React.MouseEvent) => {
+		const g = gestureRef.current;
+		gestureRef.current = null;
+		if (!immersive) return;
 		if ((e.target as Element).closest?.('button, a, input, [role="menu"], [role="dialog"] [role="dialog"]')) return;
-		if (d.shown) {
+		const shown = g && e.timeStamp - g.t < 1000 ? g.shown : revealed;
+		if (shown) {
 			if (hideTimer.current) window.clearTimeout(hideTimer.current);
 			setRevealed(false);
 		} else wake();
@@ -2731,13 +2733,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// above), before anything else happens.
 				style={consolePointerHidden ? { cursor: 'none' } : undefined}
 				onPointerMove={wake}
-				// IMMERSIVE: a TAP on the slide shows the chrome, and a tap while it shows hides it again. A swipe is
-				// navigation, not a tap, so it is told apart by distance and time; navigating reveals nothing.
-				// `shown` is read at pointer-DOWN: the gesture controller's `onInput` reveals the chrome on touchstart, before
-				// the pointer-up, so read at pointer-up it would always look shown and the tap would hide it straight away.
-				onPointerDown={tapDown}
-				onPointerUp={tapUp}
-				onPointerCancel={tapUp}
+				// IMMERSIVE: a TAP on the slide shows the chrome, and a tap while it shows hides it again (`tapClick`).
+				onPointerDown={gestureStart}
+				onTouchStart={gestureStart}
+				onClick={tapClick}
 			/>
 			<div
 				ref={dialogRef}
@@ -2889,7 +2888,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			    `items-center` on the sizer stays LOAD-BEARING (#1227): default `stretch`
 			    makes a flex item's cross size definite, which beats `aspect-ratio` per spec
 			    and would flatten the card. Centering the card removes the stretch. */}
-			<div className={cn('relative flex min-h-0 w-full flex-1 items-center justify-center', immersive ? 'pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-3' : cn('gap-3 px-4 pt-4 sm:gap-5 sm:px-6 sm:pt-5', bandCls))} data-present-immersive={immersive ? '' : undefined} onPointerDown={immersive ? tapDown : undefined} onPointerUp={immersive ? tapUp : undefined} onPointerCancel={immersive ? tapUp : undefined}>
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: the tap only shows or hides the immersive chrome, which every key press already shows (Present's key handler calls `wake`); there is no action here a keyboard lacks. */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: same reason; the row is the slide's frame, not a control, and the tap is a pointer shortcut for what any key already does. */}
+			<div className={cn('relative flex min-h-0 w-full flex-1 items-center justify-center', immersive ? 'pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-3' : cn('gap-3 px-4 pt-4 sm:gap-5 sm:px-6 sm:pt-5', bandCls))} data-present-immersive={immersive ? '' : undefined} onPointerDown={immersive ? gestureStart : undefined} onTouchStart={immersive ? gestureStart : undefined} onClick={immersive ? tapClick : undefined}>
 				{!immersive && <button type="button" onClick={goPrev} disabled={atStart} className={arrowCls(atStart)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>}
 				<div className="flex min-h-0 w-full min-w-0 items-center justify-center self-stretch [container-type:size]">
 					{unavailable ? (

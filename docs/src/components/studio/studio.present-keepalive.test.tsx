@@ -135,9 +135,11 @@ describe('Present — immersive on a phone held sideways', () => {
 
 	const top = () => document.querySelector('[data-present-chrome="top"]') as HTMLElement;
 	const hidden = () => top().className.includes('opacity-0');
+	// A tap is a click (the browser sends none for a swipe or a pinch); the pointer-down before it, when the engine sends
+	// one, is where the shown/hidden state is read.
 	const tap = (el: Element) => {
 		fireEvent.pointerDown(el, { clientX: 100, clientY: 100, isPrimary: true });
-		fireEvent.pointerUp(el, { clientX: 100, clientY: 100, isPrimary: true });
+		fireEvent.click(el, { clientX: 100, clientY: 100 });
 	};
 
 	it('fills the screen, fades the chrome, and a tap toggles it', async () => {
@@ -153,6 +155,15 @@ describe('Present — immersive on a phone held sideways', () => {
 		tap(row);
 		await step(0);
 		expect(hidden(), 'a tap while shown did not hide it').toBe(true);
+	});
+
+	it('a tap with no pointer events before it (Playwright WebKit sends only the click) still toggles', async () => {
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={deck} />);
+		const row = document.querySelector('[data-present-immersive]') as HTMLElement;
+		await step(4000);
+		fireEvent.click(row);
+		await step(0);
+		expect(hidden(), 'a bare click did not bring the chrome back').toBe(false);
 	});
 
 	it('a two-finger touch is a pinch, not a tap', async () => {

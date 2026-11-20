@@ -47,7 +47,10 @@ immersive; a failed exit does not.
 In immersive the top bar and dock take none of the docked padding: their safe-area padding is the only padding, because a
 responsive `sm:px-5` comes later in the stylesheet and would win on every landscape phone, putting the Exit ✕ under the
 notch. Taps are read on the slide row as well as the backdrop (a chart's detail layer takes pointer events over its box),
-and a second finger makes the touch a pinch, never a tap.
+and a tap is read from the `click` the browser sends only for a tap (never for a swipe or a pinch). The first version
+read pointer-up instead; real WebKit (Playwright's `webkit-phone`, once this sandbox could install it) sends a tap as a
+`click` with no pointer events at all, so faded chrome never came back there. Whether the chrome was shown is still
+read at the gesture's start where the engine reports one, because the gesture controller reveals it on touchstart.
 
 **Captions in immersive ride on the slide.** Docked, the caption crawl sits in the dock under the slide at a fixed
 16-18px. Once the dock floats, that left the captions hanging mid-slide over the slide's own text (owner's iPhone
