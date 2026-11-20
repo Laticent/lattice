@@ -103,6 +103,7 @@
       ]
     }
   ],
+  "lists": "numbered-tags",
   "slots": {
     "title": {
       "selector": "h2",
@@ -163,7 +164,7 @@
     },
     {
       "name": "list",
-      "when": "tenets or values (the `principles` variant) rather than a sequence; `takeaway numbered` for gating requirements rather than a sequence of actions"
+      "when": "tenets or values (the `principles` variant) rather than a sequence; `list takeaway` over a `1.` list for gating requirements rather than a sequence of actions"
     },
     {
       "name": "funnel",

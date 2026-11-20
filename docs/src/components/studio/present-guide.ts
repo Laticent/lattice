@@ -1635,7 +1635,7 @@ function isTransparent(value: string): boolean {
  * Three shapes, and they are the three Lattice ships:
  *
  *   BLOCK ABOVE — `list-steps.timeline`'s rail disc, a flex child at the top of a centered column.
- *   INLINE LEFT — `list takeaway numbered`'s index on a lead-plus-gloss row, an absolutely-placed
+ *   INLINE LEFT — the index of `list takeaway` over a `1.` list on a lead-plus-gloss row, an absolutely-placed
  *   gutter number (the shape the retired `list-criteria` drew).
  *   THE REAL `::marker` — split-compare's `list-style: disc`, drawn OUTSIDE the item in the list's
  *   own left padding, which is why the gutter is where it has to be looked for.

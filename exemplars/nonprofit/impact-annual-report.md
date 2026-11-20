@@ -148,7 +148,7 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- tier: full -->
 
 `What makes the model work`

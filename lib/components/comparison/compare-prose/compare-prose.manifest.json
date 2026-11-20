@@ -60,7 +60,7 @@
           "depth": 1,
           "marker": "ordered"
         },
-        "description": "The options, written as a `1.` list: the axis draws its numerals from it."
+        "description": "The options. The axis numbers them whichever marker you write (the list contract renders `-` as `1.` here)."
       }
     }
   },
@@ -101,6 +101,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

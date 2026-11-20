@@ -83,6 +83,7 @@
     "body": "list",
     "keyBelow": false
   },
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

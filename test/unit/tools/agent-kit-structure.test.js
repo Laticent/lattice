@@ -199,7 +199,8 @@ test('agent kit structure', { skip }, async (t) => {
 		const os = require('node:os');
 		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kit-slot-'));
 		const deck = path.join(tmp, 'd.md');
-		fs.writeFileSync(deck, ['---', 'theme: cuoio', '---', '', '<!-- _class: agenda -->', '', '## What we cover', '', '- Pipeline', '- Hiring', ''].join('\n'));
+		// `#` where agenda reads `##`: a slot-contract error. (A `-` list was the fixture until W2 made either marker valid.)
+		fs.writeFileSync(deck, ['---', 'theme: cuoio', '---', '', '<!-- _class: agenda -->', '', '# What we cover', '', '1. Pipeline', '2. Hiring', ''].join('\n'));
 		const out = execFileSync(process.execPath, [path.join(KIT, 'review', 'check.mjs'), deck, '--json'], { encoding: 'utf8' });
 		fs.rmSync(tmp, { recursive: true, force: true });
 		const rules = JSON.parse(out).files[0].findings.map((f) => f.rule);

@@ -29,6 +29,7 @@
   ],
   "description": "Single oversized number as the focal claim.",
   "purpose": "Use to make one metric land. The number should be the headline — supporting text is one short caption. The whole slide is the chart.",
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p > code",

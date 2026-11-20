@@ -356,7 +356,7 @@ behind the one before it only where it reads that one's output.
   layouts at the top level, 15 nested: the 13 chart kinds, `journey` and `verdict-grid`; plus
   `compare-prose axis`); every other list slot is `any`. `math`'s legend changed by under 2% and
   stays `any`. The test holds the manifests to that measured table, written down separately, so
-  the manifests do not grade themselves. W2 relaxes the R3 layouts, so their slots move to `any` there.
+  the manifests do not grade themselves. (W2 kept these markers as the element the engine rewrites a list to, and relaxed them in the lint contract instead; see W2 below.)
 - Per-variant overrides are a top-level `variantSlots` map, keyed by variant (the variants list
   stays an array of names). `variantKinds` gives a variant the `source` or `requires` kind; the
   default is a class the CSS reacts to. `source` has two instances (`numbered` on `cards-grid` and
@@ -400,6 +400,41 @@ behind the one before it only where it reads that one's output.
   `principles` follow R1; `numbered` becomes the `1.` marker, not a class.
 - Lint rules that enforce a list type (`ledger-inline-title`, `list-modifier-inert`'s list arms)
   retire, because the marker stops mattering.
+
+**W2 shipped (2026-11-19).** What landed, and where it differs from the plan above:
+
+- **One normalizing step, not one helper per reader.** `lib/core/list-contract.js` rewrites the
+  list TOKENS once, in the engine's markdown-it chain (`listContract`, registered so it runs
+  before every other rule anchored on the slide containers), and its DOM twin runs first in the
+  runtime's content pass for a Marp render. Every reader downstream (`splitDetail`,
+  `findOuterUL`, the agenda, glossary, cycle and timeline-list parsers, the `ol > li` / `ul > li`
+  CSS) now sees the one element its layout reads, so none of them changed. Lifting
+  `parseTopLevelLis` into each reader would have touched some thirty files to reach the same
+  render, and every new reader would have had to remember it. The mirror stamps the slide
+  `data-list-contract` and never revisits it, so it cannot rewrite a list a chart transform builds
+  later (journey draws its own `<ol class="journey-stages">`).
+- **The manifests keep their markers.** W1 wrote `ordered` / `bullet` where a layout reads only
+  one element. That is now the element the engine rewrites the list to, which is why the plan's
+  "move the R3 layouts to `any`" did not happen: the marker became the normalization target
+  rather than an author requirement. `tools/build-stage-catalog.js` relaxes every list marker to
+  `any` before packing the lint contract for a component that declares `lists`, so `slot-contract`
+  never reports a marker. The build fails a component with a list slot and no `lists`.
+- **Contracts as declared.** `prose`: `content`, `list`. `numbered-tags`: `cards-grid`,
+  `cards-stack`, `list-steps`, `split-panel steps` and `split-panel watermark` (which already drew
+  numbered panels for `1.` and plain cards for `-`, so it was R2 in all but name). `neutral`:
+  the other 57 layouts that read a list. A list inside a blockquote (a callout) is left as written. `list-steps` gets an `ol` either way, with
+  `data-ordered="false"` for `-`, and drops its tag on that; `list principles` declares an
+  `ordered` slot in `variantSlots`, so it too gets an `ol` and draws a dot for `-`.
+- **`numbered` retired from `list`.** `takeaway` numbers a `1.` list and not a `-` one; the class
+  no longer decides. The repo's 37 `list … numbered` slides were migrated (class dropped, items
+  written as `1.`), `takeaway numbered`'s measured venue rows moved to `takeaway`'s `ordered`
+  shape, and `list-modifier-inert` names the change on any deck still carrying the word.
+- **Lint.** `ledger-inline-title` (which demanded `1.`) is deprecated; its layouts join
+  `card-style-inline-title`, whose autofix keeps the author's marker. `list-modifier-inert` lost
+  its two marker arms (`principles` over `-`, `takeaway` over `1.`), whose defects are fixed.
+- **Evidence** (the PR body carries the tables): the gallery swap probe, re-run with the same
+  scripts against `main` and against this branch, and `test/unit/core/list-contract.test.js`,
+  which renders every neutral manifest sample with its markers swapped and requires the same HTML.
 
 ### W3 — Bold is emphasis, never structure (R4)
 
@@ -566,7 +601,7 @@ named job of one workstream, which fixes it in full before it merges (HARD RULE 
 | 20 tokens an author cannot learn; 8 registers with no section; `spark:`/`callout:` outside `DECK_SETTINGS` | **W5** (the tokens and the eight registers are in the generated reference; `spark:`/`callout:` and generating `DECK_SETTINGS` are in `followups.d/`) |
 | Bare placement words the engine paints and lint calls `unknown-class`; typos that lint clean through an open prefix; cross-component variants that lint clean | **W5** (shipped) |
 | Required slots, heading level and list type unenforced; prose selectors; samples that fail their own contract; `numbered` phantom; `quote` styling every paragraph as attribution | **W1** (shipped; ignored extra structure moved to W4, see W1 above) |
-| `1.`/`-` and nested swaps change or break 30+ components | **W2** |
+| `1.`/`-` and nested swaps change or break 30+ components | **W2** (shipped 2026-11-19, see W2 above) |
 | Bold as structure in 12+ components | **W3** |
 | Posters drop speaker notes, annotations and added figures (all four), the subtitle (contact, wifi, gift-card), the heading and eyebrow (contact); 11 components overflow on a coda; `premise` eyebrow/subtitle; `_focus` silent on 18; pane hosts misplace the below-note; `block-unsupported` ignores an authored blockquote | **W4** |
 | `@legend` shows as literal code on 54 surfaces, is key-only on 22 chart readers and drops on 4 posters | **W4** (the `legend` entry of the `universals` block; lint reads it) |

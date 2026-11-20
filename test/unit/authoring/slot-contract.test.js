@@ -2,8 +2,10 @@
 // manifests it is compiled from. Three promises:
 //   1. every sample a manifest ships satisfies its own slot contract (D3, manifest → code);
 //   2. the mutations the 2026-11-19 audit found lint silent on now each produce a finding:
-//      the required heading deleted, written one level off, a heading-only slide, and a list
-//      written with the marker the layout does not read (D4, the no-silent-change invariant);
+//      the required heading deleted, written one level off and a heading-only slide (D4, the
+//      no-silent-change invariant). A list written with the other marker is the one mutation that
+//      is now NOT a finding: W2's list contract makes both markers render the same, so lint
+//      reports nothing (the render side is test/unit/core/list-contract.test.js);
 //   3. the reader itself reads Markdown the way markdown-it does (fences under a bullet, an
 //      inline-code line, raw HTML).
 // engineering/decisions/2026-11-19-deterministic-authoring-audit.md, W1.
@@ -113,14 +115,14 @@ describe('the audit mutations are no longer lint silent', () => {
   for (const m of manifests) {
     const strict = Object.values(m.slots).find((s) => !Array.isArray(s.match) && s.match.kind === 'list' && s.match.depth === 1 && s.match.marker !== 'any');
     if (!strict || !/^(- |1\. )/m.test(m.sample)) continue;
-    test(`${m.name}: top-level list written with the other marker`, () => {
+    test(`${m.name}: top-level list written with the other marker lints clean (W2)`, () => {
       counts.marker[1]++;
       let n = 0;
       const swapped = strict.match.marker === 'bullet'
         ? m.sample.replace(/^- /gm, () => `${++n}. `).replace(/^ {2}(?=\S|- )/gm, '   ')
         : m.sample.replace(/^\d+\. /gm, '- ').replace(/^ {3}(?=\S|- )/gm, '  ');
       const found = contractFindings(swapped);
-      assert.ok(found.some((f) => /this slide writes/.test(f.message)), `${m.name} with the wrong marker lints clean`);
+      assert.ok(!found.some((f) => /this slide writes/.test(f.message)), `${m.name} still reports a marker the engine now normalizes`);
       counts.marker[0]++;
     });
   }
@@ -128,12 +130,12 @@ describe('the audit mutations are no longer lint silent', () => {
   for (const m of manifests) {
     const strict = Object.values(m.slots).find((s) => !Array.isArray(s.match) && s.match.kind === 'list' && s.match.depth === 2 && s.match.marker === 'bullet');
     if (!strict || !/^ {2,3}- /m.test(m.sample)) continue;
-    test(`${m.name}: nested list written with \`1.\``, () => {
+    test(`${m.name}: nested list written with \`1.\` lints clean (W2)`, () => {
       counts.nested[1]++;
       // `1. ` is one column wider than `- `, so whatever nests under a swapped item moves right by one.
       const swapped = m.sample.replace(/^( {4,})(?=\S)/gm, '$1 ').replace(/^( {2,3})- /gm, '$11. ');
       const found = contractFindings(swapped);
-      assert.ok(found.some((f) => /this slide writes/.test(f.message)), `${m.name} with nested \`1.\` lints clean`);
+      assert.ok(!found.some((f) => /this slide writes/.test(f.message)), `${m.name} still reports a nested \`1.\` the engine now normalizes`);
       counts.nested[0]++;
     });
   }
@@ -148,8 +150,9 @@ describe('the audit mutations are no longer lint silent', () => {
 
 // The strict markers are not the manifests grading themselves: this is the measured table from
 // engineering/decisions/2026-11-19-deterministic-authoring-audit/b-list-and-bold.md (the layouts a
-// marker swap changed), written down independently. A manifest that loses one fails here. W2 moves
-// the R3 layouts to `any` and edits this table in the same change.
+// marker swap changed), written down independently. A manifest that loses one fails here. Since W2
+// a strict marker is no longer what an author must write: it names the element the list contract
+// rewrites the list to (lib/core/list-contract.js), so these layouts read either marker.
 const MEASURED = {
   top: {
     bullet: ['big-number', 'cycle', 'glossary', 'inventory', 'journey', 'logo-wall', 'policy-recommendation', 'pricing', 'verdict-grid', 'split-panel'],
@@ -213,16 +216,21 @@ describe('the reader reads Markdown as markdown-it does', () => {
 describe('the packed contract round-trips every manifest', () => {
   // The vocabulary carries the contract as one string (tools/build-stage-catalog.js packContract);
   // what unpacks must be what the manifests say, slot by slot, so the packing can lose nothing.
+  // A component with a list contract (`lists`, W2) reaches lint with every list marker relaxed to
+  // `any`, because the engine renders both markers the same there.
+  const relax = (mt) => (mt?.kind === 'list' && mt.marker && mt.marker !== 'any' ? { ...mt, marker: 'any' } : mt);
+  const asLinted = (m, slot) => (m.lists && slot?.match ? { ...slot, match: Array.isArray(slot.match) ? slot.match.map(relax) : relax(slot.match) } : slot);
   const strictList = (m) => !Array.isArray(m) && m?.kind === 'list' && m.marker !== 'any';
   for (const m of manifests) {
     test(m.name, () => {
       const got = SLOT_CONTRACT[m.name];
-      for (const [name, slot] of Object.entries(m.slots)) {
+      for (const [name, raw] of Object.entries(m.slots)) {
+        const slot = asLinted(m, raw);
         if (!slot.required && !strictList(slot.match)) continue;
         assert.equal(got.slots[name], slotText(slot), `${m.name}.${name}`);
       }
       for (const [v, over] of Object.entries(m.variantSlots || {})) {
-        for (const [name, slot] of Object.entries(over)) assert.equal(got.over[v][name], slotText(slot), `${m.name} ${v}.${name}`);
+        for (const [name, slot] of Object.entries(over)) assert.equal(got.over[v][name], slotText(asLinted(m, slot)), `${m.name} ${v}.${name}`);
       }
       assert.deepEqual(Object.keys(got.kinds), Object.keys(m.variantKinds || {}), `${m.name} variantKinds`);
     });

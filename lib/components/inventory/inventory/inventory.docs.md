@@ -47,7 +47,7 @@ Use for a small register of related items where each carries similar weight. Aut
 ## When NOT to use
 
 - **More than five items.** Past five rows at 16:9 the looks lose scannability (cards and timeline past four). Escalate to list-tabular or split across slides.
-- **Ordered steps.** If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight.
+- **Ordered steps.** If sequence carries meaning, use list-steps or `list takeaway` over a `1.` list. inventory entries are parallel, of similar weight.
 - **Nested-bullet authoring.** inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
 - **Lopsided density.** Equalize the prose when one entry has three sentences and the rest have one — uneven density unbalances every look.
 

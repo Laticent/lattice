@@ -51,6 +51,7 @@
   ],
   "description": "Roster of responsibilities owned by named actors.",
   "purpose": "Use to show 'who owns what' across a process, scoring policy, or org chart. Two-column layout: actor on left, responsibilities on right.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

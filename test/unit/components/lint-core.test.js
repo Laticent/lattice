@@ -299,15 +299,22 @@ describe('lint-core: lintTextWith rules', () => {
     assert.equal(f.severity, 'error');
   });
 
-  test('rule 2b — unordered inline title+body on a ledger/numbered layout is an error', () => {
-    const f = ruleFor(`${FM}<!-- _class: kpi -->\n\n## H\n\n- **Platform licensing.** $1.2M — 3-year commitment.\n`, 'ledger-inline-title');
-    assert.ok(f, 'ledger layouts want a numbered list, not an unordered bold lead-in');
-    assert.equal(f.severity, 'error');
-    assert.equal(f.classToken, 'kpi');
+  test('rule 2 — a ledger layout is held to the nested shape too, whichever marker (W2)', () => {
+    // `ledger-inline-title` demanded `1.`; the list contract makes the marker irrelevant on these
+    // layouts, so the inline bold title is the card-style finding, with the marker-keeping autofix.
+    for (const marker of ['-', '1.']) {
+      const f = ruleFor(`${FM}<!-- _class: kpi -->\n\n## H\n\n${marker} **Platform licensing.** $1.2M — 3-year commitment.\n`, 'card-style-inline-title');
+      assert.ok(f, `\`${marker} **Title.** body\` on a ledger layout must be flagged`);
+      assert.equal(f.severity, 'error');
+      assert.equal(f.classToken, 'kpi');
+    }
   });
 
-  test('rule 2b — a correctly authored numbered ledger slide is clean', () => {
-    assert.equal(ruleFor(`${FM}<!-- _class: kpi -->\n\n## H\n\n1. 94%\n   - label\n`, 'ledger-inline-title'), undefined);
+  test('rule 2 — a nested ledger slide is clean with either marker, and the retired rule never fires', () => {
+    for (const md of ['1. 94%\n   - label\n', '- 94%\n  - label\n']) {
+      const all = core.lintTextWith(`${FM}<!-- _class: kpi -->\n\n## H\n\n${md}`, vocab);
+      assert.equal(all.some((x) => x.rule === 'card-style-inline-title' || x.rule === 'ledger-inline-title'), false, md);
+    }
   });
 
   test('rule 3 — bold in an ordered statement (principles) is an error', () => {
@@ -386,19 +393,13 @@ describe('lint-core: auto-fix', () => {
     assert.equal(core.applyFix('x', f), null);
   });
 
-  test('autofixOrderedNestedTitle converts to the numbered ledger shape; null otherwise', () => {
-    assert.equal(core.autofixOrderedNestedTitle('- **Plan.** ship it'), '1. Plan\n   - ship it');
-    assert.equal(core.autofixOrderedNestedTitle('  - **A** b'), '  1. A\n     - b'); // indentation preserved
-    assert.equal(core.autofixOrderedNestedTitle('- bare title'), null);
-  });
-
-  test('ledger inline-title is autofixable; applyFix writes the numbered shape and re-lints clean', () => {
+  test('a ledger inline-title autofixes to the nested shape and keeps the marker; re-lints clean', () => {
     const src = `${FM}<!-- _class: kpi -->\n\n## H\n\n- **Build.** in-house\n`;
-    const f = ruleFor(src, 'ledger-inline-title');
+    const f = ruleFor(src, 'card-style-inline-title');
     assert.equal(f.autofixable, true);
     const fixed = core.applyFix(src, f);
-    assert.ok(fixed.includes('1. Build\n   - in-house'));
-    assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'ledger-inline-title'), false);
+    assert.ok(fixed.includes('- Build\n  - in-house'));
+    assert.equal(core.lintTextWith(fixed, vocab).some((x) => x.rule === 'card-style-inline-title'), false);
   });
 
   test('autofixGanttDelimiter swaps a retired delimiter only in the TRAILING span pills; null otherwise', () => {
@@ -2653,35 +2654,31 @@ describe('lint-core: list-modifier-inert', () => {
   const UL = '- One.\n- Two.\n- Three.';
   const OL = '1. One.\n2. Two.\n3. Three.';
 
-  test('principles over `-` bullets', () => {
-    const f = li('list principles', UL);
-    assert.equal(f.length, 1);
-    assert.equal(f[0].classToken, 'principles');
-    assert.equal(f[0].severity, 'warning');
-  });
-
-  test('numbered without takeaway', () => {
-    assert.deepEqual(li('list numbered', OL).map((f) => f.classToken), ['numbered']);
+  test('`numbered` retired from list (W2): named on any register, and told to write `1.` over `-`', () => {
+    for (const cls of ['list numbered', 'list takeaway numbered']) {
+      const [f, ...rest] = li(cls, UL);
+      assert.equal(rest.length, 0, cls);
+      assert.equal(f.classToken, 'numbered');
+      assert.equal(f.severity, 'warning');
+      assert.match(f.fix, /Write the items as `1\.`/);
+    }
+    assert.match(li('list takeaway numbered', OL)[0].fix, /^Drop `numbered`/);
   });
 
   test('a principles counter format without principles', () => {
     assert.deepEqual(li('list takeaway roman', UL).map((f) => f.classToken), ['roman']);
   });
 
-  test('takeaway over a `1.` list without numbered', () => {
-    assert.deepEqual(li('list takeaway', OL).map((f) => f.classToken), ['takeaway']);
+  test('the marker arms retired with their defects: principles over `-`, takeaway over `1.`', () => {
+    assert.deepEqual(li('list principles', UL), []);
+    assert.deepEqual(li('list takeaway', OL), []);
   });
 
   test('stays silent on every shape the gallery ships', () => {
     for (const [cls, body] of [
-      ['list', UL], ['list', OL], ['list takeaway', UL], ['list takeaway numbered', OL],
-      ['list principles', OL], ['list principles lettered', OL], ['list principles bullet', OL],
+      ['list', UL], ['list', OL], ['list takeaway', UL], ['list takeaway', OL],
+      ['list principles', OL], ['list principles', UL], ['list principles lettered', OL], ['list principles bullet', OL],
     ]) assert.deepEqual(li(cls, body), [], cls);
-  });
-
-  test('reads the TOP-level list, not a nested gloss or fenced code', () => {
-    assert.deepEqual(li('list takeaway', '- Lead\n  1. gloss'), []);
-    assert.deepEqual(li('list principles', '```\n- not a list\n```\n\n1. One.'), []);
   });
 });
 
@@ -2690,13 +2687,19 @@ describe('lint-core: list-modifier-inert reads the list the renderer reads', () 
   const li = (cls, body) =>
     core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H\n\n${body}\n`, lVocab)
       .filter((f) => f.rule === 'list-modifier-inert');
+  const isUl = (f) => /this one is `-`/.test(f.message);
 
   test('a list indented up to three spaces is still top-level', () => {
-    assert.equal(li('list principles', '  - One.\n  - Two.').length, 1);
+    assert.ok(isUl(li('list takeaway numbered', '  - One.\n  - Two.')[0]));
+  });
+
+  test('reads the TOP-level list, not a nested gloss or fenced code', () => {
+    assert.ok(!isUl(li('list takeaway numbered', '1. Lead\n   - gloss')[0]));
+    assert.ok(!isUl(li('list takeaway numbered', '```\n- not a list\n```\n\n1. One.')[0]));
   });
 
   test('a longer fence that quotes a shorter one does not swallow the rest of the slide', () => {
-    assert.equal(li('list principles', '````\n```\n````\n\n- One.\n- Two.').length, 1);
+    assert.ok(isUl(li('list takeaway numbered', '````\n```\n````\n\n- One.\n- Two.')[0]));
   });
 });
 

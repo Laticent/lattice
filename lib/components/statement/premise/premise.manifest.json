@@ -43,6 +43,7 @@
   ],
   "description": "A framing claim beside a vertically centered ledger of parallel rows — a number, a term, a description, and a right-aligned note, each row colored by its own categorical hue.",
   "purpose": "Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, a set of named stages, a ranked taxonomy — and wants one framing claim to sit beside the whole list at a glance, not one slide per term. The claim doesn't summarize the rows; it states why the ordering matters. Each row is a fixed four-part record: an index, the term, one description clause, and a short framing question or note, right-aligned. Both zones share the page's own background — unlike `split-panel`, there's no colored panel divide.",
+  "lists": "neutral",
   "slots": {
     "heading": {
       "selector": "h2",

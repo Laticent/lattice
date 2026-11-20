@@ -30,6 +30,7 @@
   ],
   "description": "An identity card that encodes a vCard: name, title and contact lines beside a QR that saves the presenter to a phone.",
   "purpose": "Use as the \"scan to add me\" close or a speaker-intro slide. The QR encodes a vCard the audience saves in one tap, or, with `qr: tel`, a link that dials; the card shows the name as hero with title/org and a contact ledger. Author the fields as a postfix-key list. It reflows by canvas (side by side, then stacked) and holds at every venue.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

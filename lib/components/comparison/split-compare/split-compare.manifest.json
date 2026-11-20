@@ -89,6 +89,7 @@
   ],
   "description": "Two options + verdict — dark frame on the left, 2-column option grid + a recommendation card on the right.",
   "purpose": "Use when a decision frames a binary choice and the recommendation must be unambiguous. Second top-level list item is always the preferred option (gets the accent badge). The verdict blockquote becomes a recommendation card with a corner tag, pinned across the bottom.",
+  "lists": "neutral",
   "slots": {
     "frame": {
       "selector": "p:first-of-type > code",

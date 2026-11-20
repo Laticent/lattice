@@ -79,6 +79,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "heading": {
       "selector": "h2",
@@ -145,7 +146,7 @@
     },
     {
       "name": "list",
-      "when": "`takeaway numbered`: flat enumeration of requirements without dates or citations"
+      "when": "`list takeaway` over a `1.` list: flat enumeration of requirements without dates or citations"
     },
     {
       "name": "list-steps",

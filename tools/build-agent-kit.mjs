@@ -1391,7 +1391,7 @@ const FRONT_MATTER = ['---', 'marp: true', 'theme: cuoio', 'paginate: true', '--
  * BE PRECISE ABOUT PROVENANCE — an earlier draft of this comment claimed all nine
  * are rated `error` by the linter, which was checkable and wrong. Four map to
  * `error` rules in `lib/authoring/lint-core.js` (`card-style-inline-title`,
- * `ledger-inline-title` / `split-bodyless-item`, `statement-ol-bold`,
+ * `split-bodyless-item`, `statement-ol-bold`,
  * `unterminated-comment`). One maps to a `warning` (`unknown-class`). The other
  * four — separator spacing, the three-space nested indent under `1.`, bookend slot
  * ORDER, and never writing a hex code — are load-bearing at RENDER time and the

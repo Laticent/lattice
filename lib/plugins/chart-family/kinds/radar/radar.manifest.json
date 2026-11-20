@@ -106,6 +106,7 @@
   "description": "Native radar / spider chart — items rated across multiple axes.",
   "purpose": "Use to compare 2–4 options across the same 4–8 criteria. Each option becomes a polygon; overlap shows where strengths align.",
   "axisSet": {"members": ["value"], "body": "list", "keyBelow": false},
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

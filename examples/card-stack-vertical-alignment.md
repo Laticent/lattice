@@ -87,19 +87,19 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- _footer: "How the register is built." -->
 
 ## One token, and every default survives it.
 
-- **A class sets a variable**
-  - `cards: top` stamps a class that sets `--cards-align`.
-- **Each row keeps its own default**
-  - Each row reads the variable with its own fallback.
-- **So a rule keeps its own default**
-  - `cards: center` stamps nothing; each fallback wins.
-- **And the splitter still wins**
-  - Split pages override it, so a run stays uniform.
+1. **A class sets a variable**
+   - `cards: top` stamps a class that sets `--cards-align`.
+1. **Each row keeps its own default**
+   - Each row reads the variable with its own fallback.
+1. **So a rule keeps its own default**
+   - `cards: center` stamps nothing; each fallback wins.
+1. **And the splitter still wins**
+   - Split pages override it, so a run stays uniform.
 
 ---
 

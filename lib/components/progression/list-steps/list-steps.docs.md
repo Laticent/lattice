@@ -314,7 +314,7 @@ Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) com
 
 - [`split-panel`](../../statement/split-panel/split-panel.docs.md) — phase label + heading on the left, steps on the right
 - [`roadmap`](../../../plugins/chart-family/kinds/roadmap/roadmap.docs.md) — phased grid across multiple workstreams
-- [`list`](../../inventory/list/list.docs.md) — tenets or values (the `principles` variant) rather than a sequence; `takeaway numbered` for gating requirements rather than a sequence of actions
+- [`list`](../../inventory/list/list.docs.md) — tenets or values (the `principles` variant) rather than a sequence; `list takeaway` over a `1.` list for gating requirements rather than a sequence of actions
 - [`funnel`](../../../plugins/chart-family/kinds/funnel/funnel.docs.md) — a value-driven funnel with conversion percentages, rather than the qualitative `converge` variant
 
 ## Demo deck

@@ -27,7 +27,7 @@ Under a variant, a slot changes shape:
 
 - `pullquote`: `heading` is optional.
 - `pullquote`: `quote` is written as a `>` blockquote and is required.
-- `steps`: `points` is written as a `1.` list.
+- `steps`: `points` is written as a list.
 - `watermark`: `points` is written as a list.
 
 ### Variant decision rule

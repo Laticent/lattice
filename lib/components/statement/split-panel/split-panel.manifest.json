@@ -65,13 +65,13 @@
     },
     "steps": {
       "points": {
-        "selector": "ol > li",
+        "selector": "ol > li, ul > li",
         "match": {
           "kind": "list",
           "depth": 1,
-          "marker": "ordered"
+          "marker": "any"
         },
-        "description": "The moves, written as a `1.` list: the column draws its step numbers from it."
+        "description": "The moves. A `1.` list numbers the steps on the rail; a `-` list leaves them unnumbered (the list contract, R2)."
       }
     },
     "watermark": {
@@ -129,6 +129,8 @@
       ]
     }
   ],
+  "lists": "neutral",
+  "variantLists": { "steps": "numbered-tags", "watermark": "numbered-tags" },
   "slots": {
     "eyebrow": {
       "selector": "p:first-of-type > code",

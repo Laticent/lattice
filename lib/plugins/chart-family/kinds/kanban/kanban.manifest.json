@@ -92,6 +92,7 @@
   "excludes": [
     "claim-bleed"
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

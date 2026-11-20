@@ -699,12 +699,21 @@ Authors don't carry presentational markup.
   because their card titles are editorial sentences, not categorical
   labels.
 
-### Auto-Numbered cards
+### Auto-Numbered cards — and what `1.` versus `-` means everywhere
 
-A card-bearing layout authored as `ol` (`1. … 2. … 3.`) instead of
-`ul` (`- … - … - …`) automatically stamps an accent corner tag on each
-card with the index. Use whenever the cards carry a sequence —
-problem → cause → fix, or step 1 → step 2 → step 3.
+Every layout answers one question the same way: **does the marker you type mean anything here?**
+The component's manifest declares the answer (`lists`), and the engine enforces it before the
+layout sees the slide (`lib/core/list-contract.js`), so the docs, the render and `lint:deck` agree.
+
+| Contract | Layouts | `1.` | `-` |
+|---|---|---|---|
+| **prose** (R1) | `content`, `list` (every register) | a numbered list: `01 02 03`, or the `principles` counter | a bulleted list: pills, plain takeaway rows, or `principles` dots |
+| **numbered tags** (R2) | `cards-grid`, `cards-stack`, `list-steps`, `split-panel steps`, `split-panel watermark` | each card gets its number tag (corner tag, STEP 01, circle) | the same cards, no tag |
+| **neutral** (R3) | everything else that reads a list: `agenda`, `kpi`, `stats`, `premise`, `list-tabular`, `cycle`, `pricing`, every chart kind, … | renders the same as `-` | renders the same as `1.` |
+
+So write `1.` when the order is the point, on any layout. On a neutral layout it changes nothing, and
+nesting works the same way: a chart's nested `1.` rows draw the same chart as nested `-` rows. A
+`2.` start still counts: it continues a numbered run from the slide before.
 
 ```markdown
 <!-- _class: cards-grid -->
@@ -719,18 +728,14 @@ problem → cause → fix, or step 1 → step 2 → step 3.
    - The source of truth for the calibration loop…
 ```
 
-> **Indentation rule for `ol`:** sublists must be indented **3 spaces**
+> **Indentation rule for `1.`:** sublists must be indented **3 spaces**
 > to clear the `1. ` prefix. 2 spaces breaks the nesting — Markdown
 > treats it as a sibling list, not a child list.
 
-**Layouts that auto-number when authored as `ol`:** `cards-grid`,
-`cards-stack` (incl. `horizontal`), `list`,
-`list-steps`, `list-tabular`, `split-panel`, `timeline`,
-`principles`.
-
-Each layout owns its own counter style (corner tag, header pill, mono
-rail, "STEP 01" prefix, large accent block, circle node — see each
-component's `<name>.docs.md`).
+There is no class that numbers a list: the `numbered` word on `list` retired (2026-11-19), and on
+`cards-grid` and `cards-stack` it is the `1.` marker, never a class. Each layout owns its own
+counter style (corner tag, header pill, "STEP 01" prefix, large accent block, circle node — see
+each component's `<name>.docs.md`).
 
 ---
 

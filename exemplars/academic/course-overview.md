@@ -65,7 +65,7 @@ This is a graduate seminar for students with calculus, basic linear algebra, and
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- tier: short -->
 
 ## By the end of the course, you will be able to:

@@ -326,19 +326,19 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: list takeaway numbered -->
-<!-- _footer: "Numbered criteria · list takeaway numbered" -->
+<!-- _class: list takeaway -->
+<!-- _footer: "Numbered criteria · list takeaway over 1." -->
 
 ## Four requirements every decision system must meet
 
-- **Speed**
-  - Decisions close inside their window. Six months to calibrate isn't fast. We won't dwell on that here.
-- **Auditability**
-  - Every decision above the threshold carries a traceable rationale — for after the launch goes badly.
-- **Adoption**
-  - Weekly use, or calibration never runs. We budgeted 90 minutes per PM. Actual: 11.
-- **Calibration**
-  - It has to improve. A static model is a spreadsheet with a dashboard nobody checks.
+1. **Speed**
+   - Decisions close inside their window. Six months to calibrate isn't fast. We won't dwell on that here.
+1. **Auditability**
+   - Every decision above the threshold carries a traceable rationale — for after the launch goes badly.
+1. **Adoption**
+   - Weekly use, or calibration never runs. We budgeted 90 minutes per PM. Actual: 11.
+1. **Calibration**
+   - It has to improve. A static model is a spreadsheet with a dashboard nobody checks.
 
 ---
 
@@ -764,18 +764,18 @@ The pilot team measured what the pilot team built.
 
 ---
 
-<!-- _class: list takeaway numbered -->
-<!-- _footer: "Section recap before the data · list takeaway numbered" -->
+<!-- _class: list takeaway -->
+<!-- _footer: "Section recap before the data · list takeaway over 1." -->
 
 `Recap · Sections 01 through 03`
 
 ## Before the results, what you should have learned in the first 47 slides
 
-- Four components. Two used regularly. — see Section 02
-- The evaluation team recommended the tool the evaluation team built. — see Section 03
-- Phase 01 shipped. Phase 03 in the roadmap since 2024. — see Section 03
-- Adoption is 12%. Target 90%. The gap is "cultural." — see this section
-- The calibration loop has run once. We call it "calibrated." — see this section
+1. Four components. Two used regularly. — see Section 02
+1. The evaluation team recommended the tool the evaluation team built. — see Section 03
+1. Phase 01 shipped. Phase 03 in the roadmap since 2024. — see Section 03
+1. Adoption is 12%. Target 90%. The gap is "cultural." — see this section
+1. The calibration loop has run once. We call it "calibrated." — see this section
 
 ---
 

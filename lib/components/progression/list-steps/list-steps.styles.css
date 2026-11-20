@@ -283,7 +283,8 @@ section.list-steps.timeline > .cell-stage > ol > li::before {
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
   flex-shrink:0;
 }
-section.list-steps.timeline > .cell-stage > ul > li::before {
+/* A `-` timeline (the list contract, R2: `-` leaves the numbers off) keeps its dots, unnumbered. */
+section.list-steps.timeline > .cell-stage > ol[data-ordered="false"] > li::before {
   content:''; display:block; width:var(--ls-disc); height:var(--ls-disc); border-radius:50%;
   background:var(--accent); border:3px solid var(--bg);
   box-shadow:0 0 0 1px var(--border); flex-shrink:0;
@@ -482,3 +483,12 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
   section.list-steps.list-steps.chevron > .cell-stage > ol > li { grid-template-columns: min-content 1fr; }
   section.list-steps.list-steps.chevron > .cell-stage > ol > li > strong { padding-inline: var(--sp-xs); }
 }
+
+/* ── `-` steps: the same cards, no number tag ──
+ * The list contract (lib/core/list-contract.js, R2) hands every list-steps slide an `ol`, and
+ * records the author's marker as `data-ordered`: `1.` numbers the cards (STEP 01, PHASE 01, the
+ * capsule pill, the corner tags), `-` leaves the tag off and keeps the card. The tag placements in
+ * base.card-tag.css skip a `data-ordered="false"` list the same way. `timeline` keeps a plain dot
+ * (above), and `ghost` keeps its chevron glyph, which is a decoration, not a number. Last in the
+ * file so it wins over the counter-format rules of the same weight (phase, lettered, capsule). */
+section.list-steps:not(.ghost) ol[data-ordered="false"] > li::before { content:none; }

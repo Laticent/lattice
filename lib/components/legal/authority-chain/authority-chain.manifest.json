@@ -72,6 +72,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "heading": {
       "selector": "h2",
@@ -110,7 +111,7 @@
   "antiPatterns": [
     {
       "title": "Flat list of citations",
-      "body": "If the rows have no tier hierarchy, use `list takeaway numbered` or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point."
+      "body": "If the rows have no tier hierarchy, use `list takeaway` over a `1.` list or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point."
     },
     {
       "title": "Missing citation chip",
@@ -128,7 +129,7 @@
     },
     {
       "name": "list",
-      "when": "`takeaway numbered`: flat enumeration of requirements without tier hierarchy"
+      "when": "`list takeaway` over a `1.` list: flat enumeration of requirements without tier hierarchy"
     },
     {
       "name": "list-steps",

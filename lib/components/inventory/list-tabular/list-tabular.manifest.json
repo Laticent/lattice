@@ -87,6 +87,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

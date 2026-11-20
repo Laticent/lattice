@@ -35,6 +35,7 @@
   "tags": ["process", "workflow", "retrospective"],
   "description": "A closed loop of 3-6 stages that returns to its start — for a process with no beginning or end, where the last stage feeds the first.",
   "purpose": "Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring phase. A linear process with a real start and finish is list-steps; a cycle's whole point is the return.",
+  "lists": "neutral",
   "slots": {
     "title": { "selector": "h2", "match": { "kind": "heading", "level": 2 }, "required": true, "description": "Slide heading naming the cycle." },
     "eyebrow": { "selector": "p > code", "match": { "kind": "code-line" }, "required": false, "description": "Optional label above the heading." },
