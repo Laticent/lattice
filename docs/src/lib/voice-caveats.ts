@@ -18,11 +18,11 @@ export interface VoiceCaveat {
 
 export const VOICE_CAVEATS: readonly VoiceCaveat[] = [
 	{
-		// gemini-3.8-flash-lite-tts, measured 2026-11-19 (#3319): "This is why I love Yearn." read right; "Our pick is
-		// Yearn. It wins." as "yarn"; "Yearn is our pick." garbled. Gemini 3.1 Flash TTS via OpenRouter read the same
-		// four sentences right 24 of 24 times.
+		// gemini-3.8-flash-lite-tts (#3319): the owner heard "Yearn" misread in the Studio, then heard four later clips read
+		// right, so the voice varies by sentence and by run. Only the on-device voice is shown to read a term the same way
+		// every time (it works from phonemes); no machine judge is reliable on Gemini's voice (the follow-up says why).
 		model: /flash-lite(?:-preview)?-tts/,
-		note: 'Flash-Lite can say a word differently depending on where it falls in a sentence: a name it reads right in one line can come out wrong in the next. If a term sounds wrong, switch to Gemini Flash TTS (through OpenRouter) or the on-device voice, which read it the same way every time.',
+		note: 'Flash-Lite can say a word differently depending on where it falls in a sentence: a name it reads right in one line can come out wrong in the next. If a term sounds wrong, switch to the on-device voice, which reads it the same way every time.',
 		evidence: 'followups.d/3319-p1-gemini-tts-misreads-yearn-by-position.md',
 	},
 ];
