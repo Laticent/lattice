@@ -77,7 +77,7 @@ export const MARKS_FINISHES: MarksEntry[] = [
 
 /** Tone's SOURCE, the register's third axis (the engine's MARKS_SOURCES): which one hue tone draws in. A deck that
  *  names none draws chart color one. Display metadata only, so the words the editor completes carry a human label;
- *  the deck picker shows no source control (the simplicity budget: a deck names it in `marks:`, or a preset does). */
+ *  the deck picker shows no source control (the simplicity budget): a deck names it in `marks:`. */
 export type MarksSourceEntry = { name: string; label: string; blurb: string };
 export const MARKS_SOURCE_ENTRIES: MarksSourceEntry[] = [
 	{ name: 'ink', label: 'Ink', blurb: 'Tone in the heading ink: every chart in the deck\'s own ink, in stepped shades.' },
