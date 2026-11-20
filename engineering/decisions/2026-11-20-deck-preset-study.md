@@ -110,7 +110,10 @@ The sizes are estimates made before any code was read for them.
 | D5. The ship floor | **No preset ships below 8.5 OVERALL, and the target is 9.** An independent judge sets the score with the §1 rubric, on renders of all three rows (own, flip, house), never the maker | Ship at today's 7 to 8 |
 | D6. Where cover styles live (owner asked for existing keys and axes, then "are we fitting a square peg in a round hole?") | Weight and style that apply on every slide ride existing axes: `rule: heavy\|double` and a weight word on `spectrum-edge:` (`left bold`). Surface and composition belong to the bookends (title, closing, divider), which the engine already treats as one family: one `bookends:` register taking a surface word and a composition word (`bookends: light label`). The existing `light` mood token is fixed to repaint a title, as `divider light` already does | A new `cover:` key, which misses closing and divider slides. Size on `headline:` (an alignment axis), and `rule: box\|side` and a 12% column on `spectrum-edge:`, all of which would make an existing key mean two things |
 | D7. Extras | Add a `paper` finish (reviving Atelier and Letterpress), a playful many-color preset (reviving Festival) and Chalkboard (on `marks: sketch`), each judged against 8.5 | None for now |
-| D8. Cadence | All presets launch together, once every one has cleared the floor | Ship each as it is ready |
+| D8. Cadence (re-decided after the trio) | **Waves.** Wave 1: Earnings, Annual Report, Strategy House, Museum and the raised Editorial. Wave 2: Keynote and Blueprint. Wave 3: Riso, Field Notes, Chalkboard, the paper finish and the playful preset. Each wave launches in one PR | All presets together, which stalled every preset behind the slowest item and contradicted §8 in three places |
+| D10. Simplicity budget (owner, after the trio) | **Strict.** The picker shows at most five tiles at once (grouped). The Basic settings tier gains no controls. New ingredients (rule weight, rail weight, cover composition) are set by presets internally and are not public author settings until someone asks for one | Expose every ingredient as a public setting |
+| D11. Changing shipped presets (owner) | Change them in place: the product is not generally available, so the only decks are the repo's and the owner's. **Guard:** no deck may start to overflow; every repo deck that names an affected preset is rendered before and after and its overflow count must not rise | New names with the old recipes kept |
+| D12. Agent budget (owner) | Approved past the 10-agent session budget (HARD RULE #25): parallel sessions for the independent Phase-1 packages, each with its own checker and card grader, about 20 agents in all | One session; or checkers on the riskier packages only |
 | D9. WebKit and Gecko testing | In CI, which installs both; no change to this environment | Allow the Playwright download hosts here |
 
 **What D5 means today.** No preset clears it. The best two (Strategy House and Field Notes) score
@@ -183,13 +186,13 @@ the cited line on 2026-11-20. "Blocks" lists the presets that need it.
 
 | # | Limit | Root cause | Blocks | The fix | Kind |
 |---|---|---|---|---|---|
-| L1 | A dark slide with the bar off wipes any deck background | `section.dark.no-spectrum { background-image: none }`, `lib/base/base.variants.css:349` (and `:356` for the divider) | Keynote, Blueprint, Riso, Field Notes, Strategy's cover column | Those rules clear only the bar layer, and the engine composes a `--deck-backdrop` hook beneath it on every section | hook |
+| L1 | A dark slide with the bar off wipes a background painted on the section | `section.dark.no-spectrum { background-image: none }`, `lib/base/base.variants.css:349` (and nine more `background-image: none` sites). **Corrected by the trio:** engine finishes paint on the injected `.backdrop` child (`base.finish.css:125, :151`), which these rules never touch, so only deck CSS on the section is wiped | Prototypes only | None needed once every pattern is a real finish (Phase 2); the prototypes' workaround goes away with them | none |
 | L2 | The title slide is hard-wired dark | `section.title { background: var(--surface-inverse); color-scheme: dark }`, `lib/components/anchor/title/title.styles.css:27`; the subtitle is fixed to `--on-dark-secondary` at `:39`; `--text-display` is remapped to the light ink | The seven light covers | Fix the existing `light` mood token on `title` and `closing` to repaint the canvas and `--fin-canvas` with scheme-aware inks, as `divider.light` already does, and a `bookends:` register that stamps it (D6) | register + fix |
-| L3 | Chart marks cannot take one ink | `fill`, `stroke` and `stroke-width` are `!important` at `lib/plugins/chart-family/chart-family.styles.generated.css:351-354`; the edge reads `--chart-cat-N-ink` | Earnings, Museum | A `marks: mono` value (or a `chart-ink` register) that sets `--chart-cat1` and `--chart-cat1-ink` from `--text-heading` or `--accent` | register |
+| L3 | Chart marks cannot take one ink | `fill`, `stroke` and `stroke-width` are `!important` at `lib/plugins/chart-family/chart-family.styles.generated.css:351-354`, keyed on `section:is(.marks-pigment, .marks-etch, .marks-tone)`; the edge reads `--chart-cat-N-ink`. **Corrected:** `marks: tone` already draws one hue in eight steps; what is missing is choosing that hue | Earnings, Museum | An ink-source word on the existing `tone` finish (from the heading ink or the accent instead of cat-1), emitted by `tools/build-marks-css.js` | register value |
 | L4 | Card rail width is fixed | `--sp-card-w: calc(… * 0.35)` on `section:is(.with-spectrum-card, …)`, `lib/base/base.accent-finish.css:197-198` | Strategy House | `--sp-card-w: var(--rail-w, calc(…))`, exposed as `rail: hair\|bold` | token |
 | L5 | Heading rule weight and style are fixed | `section.rule-full.form .cell-masthead { border-bottom: 1px solid var(--border) }`, `lib/base/base.accent-finish.css:22`; short and accent rules at `:37-56` | Editorial, Annual Report | `--rule-w`, `--rule-style` and `--rule-color` tokens defaulting to today's values, set by the preset | token |
-| L6 | A finish cannot step aside for text | The only off switch is the per-slide `no-finish` class, `lib/base/base.finish.css:1242` | Blueprint, Riso, Field Notes (hand-placed plates) | A keep-out hook on the finish layer that clears the masthead box, the footer box and the hero stack | hook |
-| L7 | No pattern finishes | Grid, halftone and ruled paper exist only as deck CSS; a true halftone needs dot size to follow tone; ruled lines need to snap to the body line-height | Blueprint, Riso, Field Notes | New `finish:` values (`grid`, `halftone`, `ruled`), built on L1 and L6 | register values |
+| L6 | A finish cannot step aside for the footer or the hero | **Corrected:** `backdrop: clear` and the `spot-*` masks already clear the content box under a finish (`resolve-backdrop.js:9, :41`; `base.finish.css:257-310`). They do not cover the footer box or the hero stack | Blueprint, Riso, Field Notes | Extend the existing clear mask to the footer box and the hero stack | register value |
+| L7 | No pattern finishes at the needed strength | **Corrected:** `lib/finishes/finish-generate.js:35` `TEXTURE_TYPES` already has `grid`, `dots`, `ruled`, `hatch` and `lattice`, and `ledger` is a ruled finish. Shipped finishes must be generator recipes (`checkFinishPackages`, `tools/check-ownership.js:1013`). Missing: dots sized by tone, a dark-only glow, line-height snapping | Blueprint, Riso, Field Notes | New `lib/finishes/<name>/` recipes, extending the generator only where it lacks a feature | recipe + generator |
 | L8 | Sketch mode stops at the chart | The prototype's `feTurbulence` filter is the effect `lib/core/rough-ink.js:27-29` records a veto against (it collapsed Marp's print transform). The owned CLI PDF did not shrink in round 5; export-to-Marp, PPTX, WebKit and Gecko are unverified | Field Notes | Extend `rough-ink.js`, which already draws filter-free rough paths, to chart marks | fix |
 | L9 | The PDF photographs the page background at 1× | Every CLI PDF page carries its background as one 1280×720 image at 96 ppi; measured on the shipped `classic` and `editorial` presets as well as the prototypes. The text and drawings stay vector (`engineering/pipeline.md` §3, "The page itself") | Every preset with a pattern or finish, in the exported PDF | Photograph the background at 2× or more, or emit pattern finishes as vector. **This changes the bytes of every exported PDF, so it needs the owner's export sign-off (Quality Bar)** | export |
 | L10 | Card radius is not driven by `corners:` | `corners:` shapes only the slide surface (`lib/base/base.modifiers.css:4214`); cards read `--radius-md` from `lib/base/base.tokens.css:224`, which no register sets | Strategy House | `corners: square` also zeroes the `--radius-*` component tokens | fix |
@@ -200,78 +203,114 @@ eight presets that clear the floor, so each ships as a plain preset. Then L4, L5
 small tokens. Then L6 and L7 together, since the pattern finishes are built on the keep-out hook.
 Then L8 and L11. L9 waits for the owner's export sign-off, rendered in dark and light.
 
-## 8. The build plan
+## 8. The build plan (revised after the adversarial trio)
 
 The owner: *"our plan should include fixes for these. I am also open to adding new things
-(finishes, marks, etc) that help us raise the floor."*
+(finishes, marks, etc) that help us raise the floor."* Then: *"run the trio, address any
+findings."* The red team, the inversion and the checker all returned "not buildable as written."
+The diagnosis held, but several mechanics did not; this section is the corrected plan. The
+corrections are listed at the end.
 
 **Rules every step follows.**
 
-- **Registers only.** A preset is written as registers alone, with no deck CSS and no
-  specificity workarounds. Every rule in a shipped preset comes from the engine.
-- **One feature, one branch from `main`, one PR** (HARD RULE #17). Steps marked "independent"
-  build and test on `main` alone, so they run in parallel.
-- **Each engine step gets an independent checker** (MAKER-CHECKER) and ships a demo deck in dark
-  and light (#9), a `changelog.d/` fragment (#10) and its docs.
-- **Today's decks do not move.** Every new token and register defaults to today's value, and
-  golden renders of existing decks stay byte-identical. That is how each step proves it.
-- **The 8.5 gate (D5).** A preset ships in the PR that adds it, after both judges score it at
-  8.5 or higher on own, flip and house renders. The maker never sets the score.
+- **Registers and recipes only.** A preset is a table entry. Every rule it uses comes from the
+  engine, so no deck CSS and no specificity workarounds. New finishes are `lib/finishes/<name>/`
+  recipes built by the generator (`checkFinishPackages`).
+- **One package, one branch from `main`, one PR** (HARD RULE #17). Every engine step gets an
+  independent checker, a demo deck in dark and light (#9), a `changelog.d/` fragment (#10), its
+  docs (including `lib/base/base.registers.docs.md` and `spec/LFM-1.1.md` §2.3 with the
+  conformance JSON when it adds a register), and the HARD RULE #34 evidence for every new or
+  changed test.
+- **Existing renders do not move unless the step says so.** New tokens default to today's
+  value, and CI's golden-diff job is the evidence. The stated exceptions are F6 (etch contrast)
+  and the raised shipped presets (D11).
+- **The overflow guard (D11).** Before a step merges, every repo deck it can reach is rendered
+  before and after, and the overflow count must not rise.
+- **The judging gate.** A preset is judged on a preset corpus deck of 25 to 30 slides (one or
+  more per component bucket, every chart kind touched by a new mark, the dense layouts, and
+  long-heading stress slides), in own, flip and house, **and in the exported PDF**. Machine gates
+  run first: contrast, `tools/pixel-check.js`, `npm run check:jank` and overflow. Then two fresh
+  judges, who have not seen earlier rounds, score the **worst slide**, with Classic and today's
+  Editorial in the same batch as calibration anchors. The floor is 8.5 (D5).
+- **The simplicity budget (D10).** No step adds a Basic-tier control or a picker tile beyond the
+  five-in-view limit.
+
+### Phase 0: preset plumbing (first, per D3)
+
+| Step | What ships | Why |
+|---|---|---|
+| P0 | A reader that falls back to the preset for top-level keys (`theme`, `color-mode`, `backdrop`), threaded through the palette (`resolve-palette.js:45`), the CLI theme pick (`lattice.js:417-420`), export-to-Marp (`bundle-front-matter.js`, `tools/export-marp.js:417`), `register-factory.js` reads, the Playground (`deck-config.js:266`) and the legacy `chart-finish:` alias. **Preset tokens:** a preset can set internal tokens (rule weight, rail weight, cover composition) through a stamped `preset-<name>` class with generated CSS, which reverses "a preset is not a class token" in `resolve-preset.js` (D10). The Studio mirror (`deck-preset.ts`, `deck-preset.test.ts`, `preset-register.test.js`) learns multi-word values, never strips the author's `theme:` from a tile or on Reset, and keeps tiles rendering in the deck's own theme | D1 is not "the table": `theme` and `backdrop` never reach the render through a preset today, and widening `PRESET_KEYS` alone breaks the Studio |
 
 ### Phase 1: fix the limits
 
-| Step | Fixes | What ships | Unlocks | Depends on |
+| Package | Steps | What ships | Owns (files) | Depends on |
 |---|---|---|---|---|
-| F1 | L1 | A `--deck-backdrop` hook: the dark-mode bar reset (`base.variants.css:349`, `:356`) clears only the bar layer | Keynote, Blueprint, Riso, Field Notes, Strategy | independent |
-| F2 | L2 | Fix the existing `light` mood token on `title` and `closing` to repaint the slide (as `divider light` does) with `--fin-canvas` repointed and scheme-aware inks (`title.styles.css:27`, `:39`), and add the `bookends:` register whose surface word `inverse` (today's look, the default) or `light` stamps it on every bookend (D6) | the seven light covers | independent |
-| F3 | L3 | `marks: mono`: chart marks in one ink, from `--text-heading`, or from `--accent` with `mono accent`. It sets the chart ink tokens, so the `!important` rules stay as they are | Earnings, Museum | independent |
-| F4 | L4, L5, L10 | Weights on existing axes (D6): `rule: heavy\|double` (tokens `--rule-w`, `--rule-style`, `--rule-color`), a weight word on `spectrum-edge:` (`left bold`), `rail: hair\|bold` (`--rail-w`), and `corners: square` also zeroing `--radius-*` | Strategy, Editorial, Annual, Earnings, Brand-forward | independent |
-| F5 | L6 | A finish keep-out: the finish layer clears the masthead box, the footer box and the hero stack by itself, so no preset hand-sizes a plate | every patterned finish | F1 |
-| F6 | p9 | The shipped `marks: etch` bar fill passes 3:1 on every built-in dark theme. It measured 1.51 to 1.75:1, a broken window in a shipped register | any deck using etch | independent |
+| WP-marks | F3, F6 | An ink-source word on `marks: tone` (heading ink or accent), and the shipped `etch` fill raised to 3:1 on every dark theme (a stated render change to `examples/marks.md` and the chart-finish examples) | `resolve-marks.js`, `tools/build-marks-css.js`, `chart-family.styles.generated.css`, `marks-catalog.ts`, `engineering/chart-styling.md` | none |
+| WP-tokens | F4a | Tokens only, defaults equal to today: `--rule-w`, `--rule-style`, `--rule-color` (`accent-finish.css:22`, `:37-56`, `forms/cell/masthead/masthead.css:51`, split-panel's kickers), `--rail-w` (`accent-finish.css:197-198`), and a card-radius hook that excludes `--radius-full` | `base.accent-finish.css`, `masthead.css`, `split-panel.styles.css`, `base.tokens.css` | none |
+| WP-clear | F5 | The existing `backdrop: clear` mask extended to the footer box and the hero stack | `base.finish.css` (the clear-mask region only), `resolve-backdrop.js` | none |
+| WP-cover | F2 | A `cover:` register for the front and back cover (title and closing), stamping its own collision-free token (`cover-light`), so today's `light`, `title light` and the HTML player's `BOOKEND_FORCES_DARK` keep their tested meaning. It repaints the canvas and `--fin-canvas`, with scheme-aware inks for the subtitle, eyebrow and chrome. Dividers and `topic` keep their own surfaces. **Export:** `player-core.mjs` gains the new token, so the owner signs off on the HTML player in dark and light | the anchor components' CSS, `base.modifiers.css:1259-1320`, `base.finish.css:520-700`, `player-core.mjs`, the shared register plumbing (`plugins.js`, `runtime/index.js`, `lint.js:238`, `deck-settings*.js`, `rules/front-matter/index.js`, `components/index.js`, `surface-registers.js`, `record-registers.js`, `meta.generated.mjs`) | P0 |
+
+WP-marks, WP-tokens and WP-clear touch disjoint files and run in parallel with P0. WP-cover
+owns the shared register plumbing, so it starts after P0 lands, and later register work rebases
+on it. `lint.js:238` is one line, so any two packages that add vocabulary conflict there by
+construction; rebase on that real conflict (HARD RULE #16).
 
 ### Phase 2: new things that raise the floor
 
-| Step | New | What it is | Raises |
+| Step | New | What it is | Depends on |
 |---|---|---|---|
-| N1 | Bookend compositions | Composition words for `bookends:` (D6): `masthead` (a heavy rule over the title), `ledger` (a small-caps title over a double rule), `column` (an accent column), `label` (a gallery wall label), `stage` (a stage-size title), `frame` (a boxed title) and `poster` (a giant left title). Written as `bookends: light column`; they style title, closing and divider alike. Sizes come from `--fs-*` roles, so `headline:` stays an alignment axis | the covers of all eight passing presets, and Minimal |
-| N2 | Finishes `grid`, `halftone`, `ruled` and `stage` | `grid`: a two-scale drafting grid. `halftone`: an SVG pattern whose dot size follows tone (L7), placed at an edge. `ruled`: lines snapped to the body line-height, with a margin line. `stage`: an accent glow on dark slides only. All four are built on F1 and F5 | Blueprint, Riso, Field Notes, Keynote |
-| N3 | Marks `sketch` and `print` | `sketch`: rough, hatched chart marks drawn by `lib/core/rough-ink.js` (L8), with no SVG filter. `print`: a second-ink plate offset sideways | Field Notes, Riso, and Chalkboard returns |
-| N4 | The `--ink-2` token | A second ink with light and dark arms, in the palette contract (L11) | Riso, and any two-ink look |
-| N5 | Finish `paper` (D7) | A paper grain that reads at thumbnail size and stays off the words, built on F1 and F5 | revives Atelier and Letterpress |
-| N6 | A playful many-color preset (D7) | Bold rails (`rail: bold`), rainbow card rails and a festival type set; it fills the "playful" gap both judges flagged | revives Festival |
-| N7 | Chalkboard (D7) | Hand-drawn marks (`marks: sketch`) on a slate pairing, with `sketch-clean` titles | revives Chalkboard |
+| N1 | Cover compositions | Declared as `variants` in the title and closing manifests, which `checkTypeSizeModifiers` exempts (a modifier may not set `font-size`): `masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`. Presets set them (D10). They graduate into the anchor galleries in a separate commit (HARD RULE #8) | WP-cover, WP-tokens, P0 |
+| N2 | Finish recipes `grid`, `halftone`, `ruled`, `glow` | Generator recipes. The generator gains dots sized by tone, a dark-only glow and line-height snapping. Patterns are drawn as **vector**, so an exported PDF keeps them sharp without changing any existing PDF's bytes (L9) | WP-clear |
+| N3 | Marks `sketch` and `print` | `sketch`: rough, hatched marks from `lib/core/rough-ink.js` on every chart kind, never an SVG filter. `print`: a second-ink plate offset sideways. The names avoid `color-mode: print` in the build | N4 for `print` |
+| N4 | `--ink-2` | A second ink in the palette contract, satisfying `checkNoSafeDefaultTokens` and `checkThemeTokenParity` (`lib/theme/derive.js` REQUIRED_TOKENS) | none |
+| N5 | Finish recipe `paper` | A paper grain that reads at thumbnail size and stays off the words | WP-clear |
+| N6 | The playful preset | Bold rainbow rails through `--rail-w` | WP-tokens, P0 |
+| N7 | Chalkboard | `marks: sketch` on a slate pairing | N3 |
 
-### Phase 3: verify what is unverified today
+### Phase 3: verify
 
-| Step | Verifies | How |
-|---|---|---|
-| V1 | L9: the PDF photographs every page background at 96 ppi | A spike measures file size, render time and zoomed sharpness for two options: photographing at 2×, or emitting patterned finishes as vector. Then the owner signs off on a demo deck in dark and light before any change to export bytes |
-| V2 | The new finishes and marks in every export | PDF, PPTX and ODP (the vector-or-picture table in `engineering/pipeline.md` §3), export-to-Marp (`lib/export/marp-bundle.js`), and the HTML player, each rendered and looked at |
-| V3 | The browsers | Playwright Chromium, WebKit and Gecko on the Studio's preset picker and a deck using every new register, run in CI (D9), which installs both engines |
-| V4 | The Studio | The deck panel's preset tiles render the new presets live in the deck's theme and mode; screenshots at 390, 820 and 1440 px |
-| V5 | The judge gate | Every preset is rescored on the built engine, not the prototype. Riso gets its missing second score. Field Notes is judged again once N2 and N3 land |
-
-### Phase 4: ship the presets
-
-D1 widens `PRESET_KEYS` (`lib/core/front-matter-key.js`) to carry `theme`, `mode`, `marks` and
-`backdrop`, plus the new `bookends` and `rail`. The presets launch together (D8), in one PR that
-adds them to the table once every one has cleared 8.5. Each needs these steps first:
-
-| Preset | Ready after |
+| Step | Verifies |
 |---|---|
-| Earnings | F2, F3, F4, N1 |
-| Annual Report | F2, F4, N1 |
-| Editorial | F2, F4, N1 |
-| Strategy House | F1, F2, F4, N1 |
-| Museum | F2, F3, N1 |
-| Keynote | F1, N1, N2 (`stage`) |
-| Blueprint | F1, F5, N1, N2 (`grid`) |
-| Riso Zine | F1, F5, N1, N2 (`halftone`), N3 (`print`), N4 |
-| Field Notes | F1, F5, N2 (`ruled`), N3 (`sketch`) |
-| Atelier or Letterpress | F1, F2, F5, N1, N5 |
-| The playful preset | F4, N1, N6 |
-| Chalkboard | F1, N3 (`sketch`), N7 |
-| Minimal (allowed below the floor) | F2, F4 |
+| V1 | The PDF background photo (L9). The new patterns avoid it by being vector (N2). Whether today's finishes should also leave the 96-ppi photo is a separate export change that needs the owner's sign-off in dark and light; it does not block any wave |
+| V2 | Every new register, recipe and mark in PDF, PPTX, ODP (`engineering/pipeline.md` §4a0 and its table), export-to-Marp (`lib/export/marp-bundle.js`), and the HTML player |
+| V3 | Playwright Chromium, WebKit and Gecko in CI (D9) on the Studio picker and the preset corpus deck |
+| V4 | The Studio picker within the five-in-view budget (D10): tiles render live in the deck's theme and mode, and show a cover as well as a content slide, since covers are where presets differ most; screenshots at 390, 820 and 1440 px; WebKit's retained preview frames stay bounded |
+| V5 | The judging gate above, run per wave on the built engine |
+
+### Phase 4: ship in waves (D8)
+
+| Wave | Presets | Needs |
+|---|---|---|
+| 1 | Earnings, Annual Report, Strategy House, Museum, and the raised Editorial (D11) | P0, WP-marks, WP-tokens, WP-cover, N1 |
+| 2 | Keynote, Blueprint, and Brand-forward's raised foot band | wave 1, WP-clear, N2 (`glow`, `grid`) |
+| 3 | Riso, Field Notes, Chalkboard, a paper preset (Atelier or Letterpress), the playful preset, and Minimal's new identity | N2 (`halftone`, `ruled`), N3, N4, N5, N6, N7 |
+
+Each wave's PR adds its presets to `PRESETS` (whose "four, on purpose" comment is rewritten for
+the grouped picker), passes the overflow guard and the judging gate, and launches together.
+
+### What the trio corrected
+
+- F2 redefined `light`: a decided, test-pinned contract (`finish-canvas-matrix.test.js:19-20`,
+  `html-player.test.js:546-605`) that the legacy `class: light` alias reaches. Replaced by its own
+  `cover-light` token. `bookends` was also already the narration's term
+  (`lib/core/resolve-bookends.mjs`), and `divider light` is a different layout, so the register
+  is `cover:` for title and closing only.
+- D1 was not "the table". It became P0, scheduled first.
+- Multi-word values (`spectrum-edge: left bold`) are silently dropped by every one-word reader, so
+  rule and rail weight became preset tokens (D10), not new public words.
+- `corners: square` is the default and stamps nothing, so zeroing radii there would move every
+  deck. Replaced by a separate radius hook.
+- `marks: mono` would have matched none of the generated rules. Replaced by an ink-source word on
+  `tone`.
+- L1, L6 and L7 were partly wrong (above). F1 is dropped, F5 extends `backdrop: clear`, and the
+  new finishes are recipes.
+- Cover compositions set `font-size` and would fail `checkTypeSizeModifiers`, so they became
+  component variants.
+- The 4-slide sample was too small to trust and the judges had worked six rounds beside the
+  maker, so a 25-to-30-slide corpus deck, worst-slide scoring, fresh judges and calibration
+  anchors became the gate.
+- Cadence, simplicity, the shipped presets and the agent budget were put back to the owner
+  (D8, D10, D11, D12).
 
 ## Reproduce
 

@@ -9,8 +9,8 @@ deferred: large — a new register plus a fix to the title component in both mod
 source: https://github.com/Laticent/lattice/pull/3335
 ---
 
-# F2: fix the light mood on title slides, and a bookends register
+# WP-cover: a cover register with its own cover-light token
 
 why now   — seven of the eight presets that clear 8.5 use a light cover; the engine's `light` token is a silent no-op on `title` while `divider light` works (D6).
-where     — lib/components/anchor/title/title.styles.css:27 and :39; closing; mirror divider.light (divider.styles.css:78, :84); a new lib/core/resolve-bookends.js.
-done when — `title light` and `closing light` repaint in light and dark with scheme-aware inks; `bookends: inverse|light` stamps it on every bookend, defaulting to today's look (golden renders unchanged); contrast measured.
+where     — title and closing CSS, base.modifiers.css:1259-1320, base.finish.css:520-700, lib/export/player-core.mjs, the shared register plumbing (§8 Phase 1).
+done when — `cover: light` stamps `cover-light` on title and closing in light and dark with scheme-aware inks; today's `light`, `title light` and `BOOKEND_FORCES_DARK` keep their tested meaning; the owner signs off the HTML player renders; golden-diff shows existing decks unchanged.
