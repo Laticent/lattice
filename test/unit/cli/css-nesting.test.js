@@ -64,6 +64,20 @@ describe('build-css: native CSS nesting in sources', () => {
     for (const p of styleRules(bundle()).preludes) assert.doesNotMatch(p, /(^|[\s,>+~(])&/, p.slice(0, 120));
   });
 
+  // esbuild does the lowering, and Dependabot merges its patch bumps on its own, so a change in how
+  // it flattens nesting would move dist/ with nothing else going red. The fixture is the flat form of
+  // base.table-reflow.css as it shipped when the file was nested (rule-identical to the flat source at
+  // b86f2d6f). After an intended edit to the nested source, regenerate it:
+  //   node tools/css-rule-equiv.js --emit-flat lib/base/base.table-reflow.css > test/fixtures/table-reflow.flat.css
+  test('the lowered table-reflow sheet is rule-for-rule the committed flat fixture', () => {
+    const { compare } = require('../../../tools/css-rule-equiv');
+    const fixture = fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'table-reflow.flat.css'), 'utf8');
+    const source = fs.readFileSync(path.join(ROOT, 'lib', 'base', 'base.table-reflow.css'), 'utf8');
+    const r = compare(fixture, source, { lower: true });
+    assert.ok(r.before > 100, `fixture holds ${r.before} rules`);
+    assert.deepEqual(r.diffs.slice(0, 3), [], `${r.diffs.length} rules differ from the fixture; if the source edit was intended, regenerate the fixture (see the comment above)`);
+  });
+
   test('G6: unequal arms under a list parent refuse the build', () => {
     const css = '.a, .b.c { & > .x { color: red; } }';
     assert.throws(() => lowerNesting(css, 'fixture.css'), /differ in specificity \(0,1,0 vs 0,2,0\)/);

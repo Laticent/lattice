@@ -15,6 +15,7 @@
  *
  * Usage:
  *   node tools/css-rule-equiv.js <before.css> <after.css> [--lower]
+ *   node tools/css-rule-equiv.js --emit-flat <nested.css>   # the flat form the build ships
  *     --lower   lower AFTER's nesting first (esbuild, nesting only), as build-css.js does
  * Exit codes: 0 equivalent · 1 a rule differs (the first few are printed) · 2 usage error.
  */
@@ -80,8 +81,18 @@ function compare(beforeCss, afterCss, { lower = false } = {}) {
 
 function main(argv) {
   const files = argv.filter((x) => !x.startsWith('--'));
+  // --emit-flat <nested.css>: print the source the way the build ships it (nesting lowered, leading
+  // :is() split). test/fixtures/table-reflow.flat.css is written with it; see css-nesting.test.js.
+  if (argv.includes('--emit-flat')) {
+    if (files.length !== 1) {
+      process.stderr.write('usage: node tools/css-rule-equiv.js --emit-flat <nested.css>\n');
+      return 2;
+    }
+    process.stdout.write(distributeLeadingIs(lowerNestingOnly(fs.readFileSync(files[0], 'utf8'))));
+    return 0;
+  }
   if (files.length !== 2) {
-    process.stderr.write('usage: node tools/css-rule-equiv.js <before.css> <after.css> [--lower]\n');
+    process.stderr.write('usage: node tools/css-rule-equiv.js <before.css> <after.css> [--lower] | --emit-flat <nested.css>\n');
     return 2;
   }
   const r = compare(fs.readFileSync(files[0], 'utf8'), fs.readFileSync(files[1], 'utf8'), { lower: argv.includes('--lower') });
