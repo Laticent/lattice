@@ -28,6 +28,7 @@
 // class contract the shared projection emits, so the markup stays one thing.
 
 import { readClassAttr, scanTags } from '@laticent/markup';
+import { escapeHtml } from '@/lib/markup/escape';
 import { currentPaletteMode, type SingleSlideOptions } from '@/playground/single-slide-render';
 import { RUNTIME_DRAWN_FENCES } from '../../../../lib/plugins/drawn.generated.mjs';
 import { drawnFenceCount } from '../../../../lib/plugins/drawn-probe.mjs';
@@ -243,15 +244,20 @@ export async function projectDeckArticle(
 	// denominator, so a miscount silently DISCARDS a good bake and hands the reader the
 	// un-baked article. `deck-export.js` documents the same trap at its own call. (The
 	// Playground's `splitSections` was that flat scan until it moved onto this same walker.)
-	const { splitSectionsCore } = (await loadAuthoringCore()) as unknown as {
+	const { splitSectionsCore, notesCore } = (await loadAuthoringCore()) as unknown as {
 		splitSectionsCore: (h: string) => { type: string; openTag: string; inner: string }[];
+		notesCore: { slideNoteRecord: (sections: string[]) => { handout: string | null }[] };
 	};
 	const staticSections = splitSectionsCore(render.html)
 		.filter((p) => p.type === 'section')
 		.map((p) => `${p.openTag}${p.inner}</section>`);
 	if (!staticSections.length) return { articleHtml: '', toc: [], css: '' };
+	// THE HANDOUT, read before the bake and the sanitizer delete the comment it rides in (`<!-- @handout{…} -->`), as the
+	// export reads it (`share-export.ts`, "THE FOUR NOTES, LIFTED ONCE"). The bake keeps slide-count parity, so index i
+	// of the record is section i of whichever list is projected.
+	const handouts = notesCore.slideNoteRecord(staticSections).map((r) => r.handout);
 	const baked = await bakeArticleSections(render, staticSections, isStale);
-	const projected = await projectSectionsToArticle(baked ?? staticSections);
+	const projected = await projectSectionsToArticle(withHandouts(baked ?? staticSections, handouts));
 	const article = { ...projected, articleHtml: remoteRef.blockWebImages(projected.articleHtml, allowed, { fonts: true }).html };
 	return { ...article, css: await scopedArticleCss(article.articleHtml, render.flatCss, mode) };
 }
@@ -302,6 +308,22 @@ export async function scopedArticleCss(articleHtml: string, flatCss: string | un
 	}
 	const scoped = scopeReHostedCss(flatCss, (b) => used.has(b), { root: ARTICLE_ROOT, within: '.lp-figure', colorScheme: mode });
 	return sanitizeMod.sanitizeStyleText(`${rehostContainerCss(ARTICLE_ROOT)}\n${scoped.css}`);
+}
+
+/**
+ * Each slide's handout as the hidden `aside.lattice-handout` the projection reads (lib/transformers/prose-projection.mjs
+ * `handoutOf`), placed first inside the slide's `<section>`, the way the CLI injects it (lattice.js `slidesWithNotes`)
+ * and the player export does (`share-export.ts` `materializeNotes`). The text is escaped; the sanitizer keeps an
+ * `aside` with `class` and `hidden`.
+ */
+export function withHandouts(sections: string[], handouts: readonly (string | null)[]): string[] {
+	return sections.map((sec, i) => {
+		const handout = handouts[i];
+		if (!handout) return sec;
+		// A REPLACER, not a replacement string: the handout is author prose, and `$&` in a replacement string is a
+		// backreference (lattice.js `slidesWithNotes` fixed the same bug).
+		return sec.replace(/^(\s*<section\b[^>]*>)/i, (open: string) => `${open}<aside class="lattice-handout" hidden>${escapeHtml(handout)}</aside>`);
+	});
 }
 
 /** The sanitize-then-project kernel, split out so a caller holding rendered sections

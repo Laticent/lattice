@@ -66,6 +66,14 @@ describe('the system prompt', () => {
 		expect(sys).toContain('NESTED bullets');
 	});
 
+	it('teaches the four notes, and never the retired plain-comment note', () => {
+		// The prompt taught the retired `note:` comment until 2026-11-20, which is now a plain comment that reaches nothing:
+		// a model following it wrote speaker notes that never showed up (engineering/decisions/2026-11-20-four-notes.md).
+		const sys = buildAgentSystem({ canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
+		for (const n of ['@note{…}', '@say{…}', '@alt{…}', '@handout{…}']) expect(sys).toContain(`<!-- ${n} -->`);
+		expect(sys).not.toContain(['<!--', 'note:'].join(' '));
+	});
+
 	it('is byte-stable for the same inputs (the cache prefix)', () => {
 		const o = { canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] };
 		expect(buildAgentSystem(o)).toBe(buildAgentSystem(o));
@@ -220,11 +228,11 @@ describe('the toolbox', () => {
 			'',
 			"- Twinkima.G's line launched",
 			'',
-			"<!-- say: On October tenth, Twinkima.G's line launched at the Derby, then Ilcea.K joined. -->",
-			'<!-- note: a reminder for the presenter -->',
+			"<!-- @say{On October tenth, Twinkima.G's line launched at the Derby, then Ilcea.K joined.} -->",
+			'<!-- @note{a reminder for the presenter} -->',
 		].join('\n');
 		const out = await toolbox({ source: src }).run('preview_speech', JSON.stringify({ from: 1 }));
-		expect(out).toContain('[slide 1] Read from its spoken line (say:).');
+		expect(out).toContain('[slide 1] Read from its spoken line (@say).');
 		expect(out).toContain("Spoken as: On October tenth, Twinkee mah Gee's line launched at the Darby");
 		expect(out).not.toContain('Oct.'); // the on-screen title is not what the voice says
 		expect(out).not.toContain('reminder'); // nor is the note
@@ -252,7 +260,7 @@ describe('the toolbox', () => {
 		'',
 		'- Sold out ([recap](https://x.test/oct.-tenth))',
 		'',
-		'<!-- say: Oct. Tenth was the day. -->',
+		'<!-- @say{Oct. Tenth was the day.} -->',
 		'',
 		'---',
 		'',
@@ -279,7 +287,7 @@ describe('the toolbox', () => {
 		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'October Tenth', summary: 'Spelled out the date.' }));
 		expect(out).toContain('Replaced 3 matches in 2 slides: slide 1 (1: heading); slide 2 (2: heading, spoken line).');
 		expect(out).toContain('Left alone: 1 in code on slide 3; 1 front-matter line (use set_terms or set_front_matter).');
-		expect(tb.draft).toContain('<!-- say: October Tenth was the day. -->');
+		expect(tb.draft).toContain('<!-- @say{October Tenth was the day.} -->');
 		expect(tb.draft).toContain('(https://x.test/oct.-tenth)');
 		expect(tb.draft).toContain('title: Oct. Tenth review');
 		const rows = tb.proposal();
@@ -427,7 +435,7 @@ describe('the toolbox', () => {
 		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: '$10', summary: 's' }));
 		expect(out).toContain('Replaced 3 matches in 2 slides');
 		expect(tb.draft).toContain('# \\$10');
-		expect(tb.draft).toContain('<!-- say: $10 was the day. -->'); // a spoken line is written as typed
+		expect(tb.draft).toContain('<!-- @say{$10 was the day.} -->'); // a spoken line is written as typed
 		expect(tb.verdict?.refused).toBe(false);
 	});
 
