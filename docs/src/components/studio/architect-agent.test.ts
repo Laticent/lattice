@@ -359,7 +359,7 @@ describe('the toolbox', () => {
 		expect(jobs[0].source).toBe('Oct\\. (Tenth|10)');
 		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct\\. (Tenth)', replace: 'October $1', regex: true, summary: 's' }));
 		expect(out).toContain('Replaced 3 matches in 2 slides');
-		expect(tb.draft).toContain('<!-- say: October Tenth was the day. -->');
+		expect(tb.draft).toContain('<!-- @say{October Tenth was the day.} -->');
 		expect(tb.draft).toContain('(https://x.test/oct.-tenth)');
 		expect(tb.draft).toContain('title: Oct. Tenth review');
 		expect(jobs).toHaveLength(2);
