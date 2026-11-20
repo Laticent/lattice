@@ -41,7 +41,8 @@
       "split across slides (automatic)",
       "list-tabular"
     ],
-    "note": "past four jurisdictions the three-column rail collapses"
+    "note": "past four jurisdictions the three-column rail collapses",
+    "withClaim": {"quiet":{"soft":5,"hard":6},"hero":{"soft":5,"hard":6}}
   },
   "density": {
     "axis": "item",

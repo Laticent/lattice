@@ -1348,3 +1348,38 @@ describe('list-steps registers and the split-panel points column are judged by l
     assert.equal(P(['proof', 'sketch'], proof), null, 'an unknown modifier');
   });
 });
+
+// A claim grows the stage, so a slide under one is judged by the budget measured with it, and an
+// over-budget slide is told the smallest claim that holds it (2026-11-20-coda-and-marp-parity.md §9).
+describe('withClaim — the budget follows the claim', () => {
+  const cl = require('../../../lib/components/inventory/checklist/checklist.manifest.json').capacity;
+  const v = { names: new Set(['checklist']), modifiers: new Set(['claim-framed', 'claim-quiet', 'claim-hero']), capacity: { checklist: cl } };
+  const items = (n) => Array.from({ length: n }, (_, i) => `- Item ${i + 1}`).join('\n');
+  const run = (cls, n, fm = '') => core.lintTextWith(`---\nmarp: true\n${fm}---\n\n<!-- _class: ${cls} -->\n\n## H.\n\n${items(n)}\n`, v).filter((f) => f.rule === 'capacity-overflow');
+
+  test('a bare ten-item checklist is over budget, and the fix names claim-quiet', () => {
+    const out = run('checklist', 10);
+    assert.equal(out.length, 1);
+    assert.match(out[0].fix, /add `claim-quiet`, which fits 10/);
+  });
+
+  test('the same ten items under claim-quiet are silent', () => {
+    assert.deepEqual(run('checklist claim-quiet', 10), []);
+  });
+
+  test('past quiet, the fix skips to claim-hero', () => {
+    assert.match(run('checklist', 12)[0].fix, /add `claim-hero`, which fits 12/);
+    assert.match(run('checklist claim-quiet', 12)[0].fix, /add `claim-hero`, which fits 12/);
+  });
+
+  test('a deck-wide claim: hero budgets every slide, and a slide claim-framed opts back out', () => {
+    assert.deepEqual(run('checklist', 12, 'claim: hero\n'), []);
+    const out = run('checklist claim-framed', 12, 'claim: hero\n');
+    assert.equal(out.length, 1);
+    assert.doesNotMatch(out[0].fix, /claim-/);
+  });
+
+  test('past what any claim holds, no claim is offered', () => {
+    assert.doesNotMatch(run('checklist', 13)[0].fix, /claim-/);
+  });
+});

@@ -163,6 +163,11 @@ own with `npm run fit:grace -- deck.md` or `npm run lint:deck -- deck.md --fit`;
 `LATTICE_FIT_GRACE=off` silences it in the export
 (`engineering/decisions/2026-11-20-coda-and-marp-parity.md` §9).
 
+`lint:deck` follows the claim too. A list or card layout measured to hold more under a
+claim is judged by that budget, so a ten-item `checklist claim-quiet` is in budget where a
+bare one is not, and an over-budget bare slide is told the smallest claim that holds it:
+"Or add `claim-quiet`, which fits 10." A slide marked `claim-framed` is never offered one.
+
 **The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
 `trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`
 wins. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.

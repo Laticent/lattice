@@ -316,6 +316,15 @@ the clipped slides under each claim. The export prints it under its overflow war
 carries a claim by that claim's measured budget (`capacity.withClaim`, calibrated with
 `tools/calibrate-capacity.js --variant claim-…`), and names the claim as a fix for a bare slide it would hold.
 
+**Budgets as built.** Fourteen components measured more room under a claim than their bare budget, and thirteen now
+declare it: agenda, cards-grid, cards-stack, checklist, inventory, list-steps, policy-recommendation, pricing, q-and-a,
+roadmap, statute-stack, table and verdict-grid (`capacity.withClaim.<quiet|hero>.{soft,hard}`). `lint-core` takes the
+claim in force (the slide's own `claim-*`, else the deck's `claim:`; `claim-framed` and `claim-bleed` give none), and
+with `compact` as well takes the larger bound of the two. `list` measured 7 under hero but declares only per-family
+budgets, which have no `withClaim` slot, and seven components measured a bare ceiling below their declared `hard`
+(actors, authority-chain, cycle, kanban, premise, regulatory-update, team-profile), so a claim number on them would
+sit beside a wrong base. Both are `followups.d/3362-p3-claim-budget-gaps.md`.
+
 **Applied to the showcase deck,** the three suggested claims cleared every body clip; only the two footer-only pages
 remain, as designed.
 

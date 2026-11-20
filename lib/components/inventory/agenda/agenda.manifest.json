@@ -24,7 +24,8 @@
     "escalateTo": [
       "split across slides"
     ],
-    "note": "past six sections the list crowds"
+    "note": "past six sections the list crowds",
+    "withClaim": {"hero":{"soft":7,"hard":7}}
   },
   "density": {
     "axis": "item",

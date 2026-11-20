@@ -29,7 +29,8 @@
     "escalateTo": [
       "split across slides (automatic)"
     ],
-    "note": "four pairs fit bare and a fifth with `compact`, which tightens the spacing (measured); past five, split the slide"
+    "note": "four pairs fit bare and a fifth with `compact`, which tightens the spacing (measured); past five, split the slide",
+    "withClaim": {"quiet":{"soft":5,"hard":5},"hero":{"soft":5,"hard":5}}
   },
   "density": {
     "axis": "item",

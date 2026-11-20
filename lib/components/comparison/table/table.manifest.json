@@ -25,7 +25,8 @@
     "escalateTo": [
       "split across slides"
     ],
-    "note": "the table density crowds past six rows"
+    "note": "the table density crowds past six rows",
+    "withClaim": {"hero":{"soft":8,"hard":10}}
   },
   "density": {
     "axis": "row",

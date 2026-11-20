@@ -17,7 +17,8 @@
       "list-tabular",
       "split across slides"
     ],
-    "note": "the ledger/editorial looks take a couple more rows than the cards or timeline looks; 16:9 holds five full rows, portrait six; past that, escalate"
+    "note": "the ledger/editorial looks take a couple more rows than the cards or timeline looks; 16:9 holds five full rows, portrait six; past that, escalate",
+    "withClaim": {"hero":{"soft":7,"hard":7}}
   },
   "density": {
     "axis": "item",

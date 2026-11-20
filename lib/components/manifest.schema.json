@@ -996,6 +996,15 @@
       ],
       "description": "Optional content-capacity contract: how many elements the layout holds along the axis it is built on, so the author/agent picks by content SHAPE and the linter can warn before an overflow. `soft`/`hard` are element counts on `axis` (a focusAxes member): past `soft` the layout begins to crowd (soft warning); past `hard` it overflows / loses legibility (overflow warning). Advisory only — never blocks. Counted approximately at authoring time (lib/authoring/lint-core.js `countPrimaryCollection`) and exactly at render time (lib/core/collections.js). See engineering/decisions/2026-06-17-content-capacity-contract.md.",
       "properties": {
+        "withClaim": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The budget on a slide that carries a claim (its own `claim-quiet` / `claim-hero`, or the deck's `claim:`), which gives the content more of the frame without shrinking type: `quiet` about 24px more stage at 1280x720, `hero` about 113px. Each is the declared budget PLUS the elements that claim measured to add (`tools/calibrate-capacity.js --variant claim-…`), so the editorial margin is kept. Lint judges a claim slide by it and names the claim as the fix for a bare slide it would hold (engineering/decisions/2026-11-20-coda-and-marp-parity.md §9).",
+          "properties": {
+            "quiet": { "type": "object", "additionalProperties": false, "properties": { "soft": { "type": "integer", "minimum": 1 }, "hard": { "type": "integer", "minimum": 1 } } },
+            "hero": { "type": "object", "additionalProperties": false, "properties": { "soft": { "type": "integer", "minimum": 1 }, "hard": { "type": "integer", "minimum": 1 } } }
+          }
+        },
         "withCompact": {
           "type": "object",
           "additionalProperties": false,
