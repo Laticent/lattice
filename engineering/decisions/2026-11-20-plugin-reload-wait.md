@@ -73,7 +73,22 @@ unstyled drawing, a placeholder, or drawn, plus the block's and the coda's posit
 Every arm removes the wrong frames on every engine. B and C reserve the slot's size, not the
 drawing's, so the block still jumps about 125 px when the chart arrives. Only A and C+ never move.
 
-**First paint** — TIMING_PENDING
+**First paint** — a second, low-load pass: one browser context, 10 reloads per arm, arms run one
+after another. "First visible" is the first frame where the slide shows anything; "drawn" is the
+first frame with the plugin's real drawing. Medians, in ms:
+
+| Engine | off: visible / drawn | A | B | C | C+ |
+|---|---|---|---|---|---|
+| Chromium | 539 / 655 | 845 / 845 | 1001 / 1139 | 542 / 657 | 552 / 668 |
+| WebKit | 1104 / 1252 | 1315 / 1315 | 1125 / 1283 | 1110 / 1228 | 1121 / 1255 |
+| Gecko | 1166 / 1231 | 1327 / 1327 | 1304 / 1420 | 1384 / 1493 | 1964 / 2004 |
+
+A holds the whole slide blank about 200–300 ms longer than today (Chromium +306 ms, WebKit
++211 ms): the reader waits for the drawing with nothing on screen. C and C+ show the slide as soon
+as today does, and the drawing lands at the same moment. B's Chromium row and Gecko's later arms
+are noise, not the arm: Gecko's C and C+ runs carry a 5–6 s tail in 3 of 10 reloads that none of
+its earlier arms show (raw values in the bench output), and B's Chromium spread is 564–1682 ms. Gecko's
+timings are not used to rank the arms; its correctness rows above are.
 
 **iOS Simulator** — IOS_PENDING
 
