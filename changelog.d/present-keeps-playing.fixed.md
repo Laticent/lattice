@@ -1,0 +1,5 @@
+- Present keeps the screen awake while it is open, so a phone no longer locks and stops a deck mid-play; the lock screen and headset buttons now play, pause and move the deck.
+- Previous, Next and jumps no longer stop continuous play: once Play is pressed the deck keeps playing from wherever you move it until you press Pause.
+- Closing Present now stops the narration instead of leaving it playing over the editor.
+- On a phone held sideways, the slide fills the screen and Present's controls float over it, fading after a few seconds; tap the slide to bring them back.
+- Fullscreen works on every browser: where the browser cannot go full screen (iPhone Safari), it hides Present's controls instead of showing an error.
