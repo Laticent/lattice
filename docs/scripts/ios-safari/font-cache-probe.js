@@ -28,7 +28,8 @@ const FONT_CACHE_WARM_COUNT = 31;
 
 /**
  * @param {'control'|'warm'} arm
- * @param {number} [sinceMs] epoch ms when the runner first navigated to this origin; defaults to this document's start.
+ * @param {number} [sinceMs] epoch ms when the runner first navigated to this origin; when given, any face served between
+ *   then and this document's start fails the run.
  */
 // biome-ignore lint/correctness/noUnusedVariables: run.mjs and probe.selftest.mjs call it by name.
 async function latticeFontCacheProbe(arm, sinceMs) {
@@ -43,17 +44,21 @@ async function latticeFontCacheProbe(arm, sinceMs) {
 			await sleep(100);
 		}
 	};
-	// This run's part of the server's log: every request since the runner FIRST navigated to this origin (`sinceMs`, which
-	// run.mjs and probe.selftest.mjs pass), else since this document's navigation began. The server outlives a run (run.sh
-	// drives the iPad, then the iPhone, against one server), so a count over the whole log was already met by the run before,
-	// and the second device edited before its own warm-up had run (found on the self-test's second page shape). Not "since
-	// this document began" either, when the runner loaded another page of the origin first: run.mjs seeds the settings on the
-	// landing page, whose live slide previews fetch some faces at iPad width (1032 px). On the warm port those land in the
-	// cache, the Studio's warm-up reads them from there, the server never sees them again, and a count since the Studio's
-	// own start stalled at 23 or 24 of 31 (#3095). They ARE cached before the edit, which is all this step asks. Not "since
-	// this probe started": under WebDriver the probe arrives after the load event, and the first slide's own faces may already
-	// have been served. The server, the runner and the simulator share the host's clock; a second of slack covers rounding.
-	const since = (typeof sinceMs === 'number' ? sinceMs : performance.timeOrigin) - 1000;
+	// This run's part of the server's log: every request since this document's navigation began. The server outlives a run
+	// (run.sh drives the iPad, then the iPhone, against one server), so a count over the whole log was already met by the run
+	// before, and the second device edited before its own warm-up had run (found on the self-test's second page shape). Not
+	// "since this probe started": under WebDriver the probe arrives after the load event, and the first slide's own faces may
+	// already have been served. The server and the simulator share the host's clock; a second of slack covers rounding.
+	const since = performance.timeOrigin - 1000;
+	// Every face must come from THIS document. A face fetched by an earlier page of the origin (`sinceMs`, stamped by the
+	// runner before its first navigation) is cached on the warm port, so the Studio reads it without asking the server and
+	// the count below stalls. #3095: run.mjs seeded on the landing page, whose previews fetched 8 faces at iPad width, and
+	// the iPad stopped at 23 of 31. Counting those would let the warm arm pass on faces the Studio never warmed, so the probe
+	// refuses the run instead, naming them. The bound is this document's start itself, not `since`: a page left a moment
+	// before the Studio opened fetched inside the slack above, which the first cut of this check missed. Nothing of the
+	// Studio's own reaches the server before its document starts.
+	const earlier = async () =>
+		typeof sinceMs === 'number' ? ((await (await fetch('/__probe/fonts', { cache: 'no-store' })).json()) || []).filter((e) => e.at >= sinceMs && e.at < performance.timeOrigin).map((e) => e.path.split('/').pop()) : [];
 	const log = async () => ((await (await fetch('/__probe/fonts', { cache: 'no-store' })).json()) || []).filter((e) => e.at >= since);
 	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0;
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
@@ -71,6 +76,8 @@ async function latticeFontCacheProbe(arm, sinceMs) {
 		await until(() => frame()?.style.opacity === '1', 150000, 'the first slide revealed');
 		// Every face fetched once, by the warm-up or the first slide's frame: the server has answered all 31 files, so whatever
 		// the edit asks for has been asked for before.
+		const pre = await earlier();
+		if (pre.length) throw new Error(`a page before the Studio fetched ${pre.length} face(s), so the server cannot see the Studio fetch them: ${pre.join(', ')}`);
 		const served = async () => new Set((await log()).map((e) => e.path)).size;
 		const t0 = Date.now();
 		let n = 0;

@@ -831,10 +831,12 @@ async function runFontCacheProbe(id) {
 		['control', BASE],
 		['warm', process.env.WARM_URL || 'http://localhost:4322'],
 	]) {
-		// Stamped BEFORE the first page of this origin: the landing page that seeds the settings fetches faces of its own at
-		// iPad width, and on the warm port the Studio then reads those from the cache, so the probe must count them (#3095).
+		// Seeded on the server's blank page, not the landing page: the landing page's slide previews fetch faces (8 at the
+		// iPad's width), and on the warm port the Studio then read those from the cache, so the server never saw them and the
+		// warm arm could not prove the Studio warmed all 31 itself (#3095). `since` is stamped before the first page of this
+		// origin, so the probe can check that nothing before the Studio fetched a face.
 		const since = Date.now();
-		await wd('POST', `/session/${id}/url`, { url: `${origin}/` });
+		await wd('POST', `/session/${id}/url`, { url: `${origin}/__probe/blank` });
 		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 		await wd('POST', `/session/${id}/url`, { url: `${origin}/studio/` });
 		last = await wd('POST', `/session/${id}/execute/async`, {

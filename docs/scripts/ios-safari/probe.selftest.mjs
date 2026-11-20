@@ -62,29 +62,10 @@ if (process.env.PROBE === 'font-cache') {
 		const context = await webkit.launchPersistentContext(dir, options);
 		for (const arm of ['control', 'warm']) {
 			const page = await context.newPage();
-			// The same pages in the same order as run.mjs: the landing page first, where the settings are seeded. At iPad
-			// width its slide previews fetch faces of their own, which the warm arm must count (#3095); a self-test that went
-			// straight to the Studio passed while the iPad failed. `since` is stamped before it, as run.mjs stamps it.
+			// The same pages in the same order as run.mjs: the server's blank page first, where the settings are seeded, and
+			// `since` stamped before it, so the probe's check that nothing fetched a face before the Studio runs here too.
 			const since = Date.now();
-			await page.goto(`${origins[arm]}/`, { waitUntil: 'load' });
-			// On a simulator the landing page's previews fetch their faces while WebDriver seeds the settings; here the next
-			// navigation would beat them. So wait until every preview frame built so far has its faces (its font gate), which
-			// puts them in the cache the way the iPad's run does.
-			await page.waitForFunction(
-				() => {
-					const gates = [...document.querySelectorAll('iframe')].map((f) => {
-						try {
-							return f.contentWindow?.__latticeFontsSettled;
-						} catch {
-							return undefined;
-						}
-					});
-					const built = gates.filter((g) => typeof g === 'boolean');
-					return built.length > 0 && built.every(Boolean);
-				},
-				undefined,
-				{ timeout: 60000 },
-			);
+			await page.goto(`${origins[arm]}/__probe/blank`, { waitUntil: 'load' });
 			await page.addScriptTag({ content: SEED });
 			await page.goto(`${origins[arm]}/studio/`, { waitUntil: 'domcontentloaded' });
 			await page.addScriptTag({ content: FONT });
