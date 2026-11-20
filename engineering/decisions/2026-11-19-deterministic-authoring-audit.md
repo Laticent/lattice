@@ -434,16 +434,25 @@ behind the one before it only where it reads that one's output.
 - **Nested lists below what a layout reads stay the author's** (owner's ruling on #3330,
   2026-11-20). Each layout's deepest list slot sets how far down the contract reaches (`depths` in
   the generated table); a deeper `1.` keeps its `<ol>`, so a screen reader still hears numbers, and
-  a card's numbered body steps still show them. Eight layouts read a nested level without declaring
+  a list under a card's body line still shows them (a base rule gives a nested `ol` room for its
+  numbers, `lib/base/base.elements.css`). A card's body is a level the card layouts style alike for
+  either marker, so it draws the same plain lines from `1.` or `-`. Eight layouts read a nested level without declaring
   it, so each gained an optional depth-2 slot: kpi, stats, glossary, list-tabular,
   policy-recommendation and premise (found by the gallery swap probe), and decision and list-steps
   (found by review, 2026-11-20: their galleries had no nested `1.` to swap). Review also found
   descendant selectors in agenda, list-steps and list-tabular (and math's legend bullet) that drew a
   nested, quoted or aside `1.` list as the layout's own cards or rows; they are now scoped to the
-  stage's own list (`ol:where(.cell-stage > *)`, no added specificity). A swap probe cannot see a
-  level no gallery writes, so test/unit/core/list-contract.test.js reads every stylesheet instead: no
-  one-marker selector below the manifest's `depths`, and no one-marker selector reaching a list
-  through a bare descendant combinator.
+  stage's own list (`ol:where(.cell-stage > :not([data-list="aside"]))`, no added specificity).
+  A second review (2026-11-20) found 17 layouts still drew an aside as their own cards, tiles or
+  steps through `> .cell-stage > ol` rules, so every rule that picks the stage's list as a direct
+  child now excludes an aside (`:where(:not([data-list="aside"]))`, 1,200-odd selectors, no added
+  specificity), and the aside draws plain bullets or numbers. A swap probe cannot see a level no
+  gallery writes, so test/unit/core/list-contract.test.js reads every tracked stylesheet under
+  `lib/` and `themes/` instead, and counts a selector for each layout its section compound names:
+  no one-marker selector below the manifest's `depths` (a list reached through an `li` counts one
+  deeper), none reaching the stage's list by a descendant combinator or its items by `ol li`, and
+  no direct-child stage-list rule without the aside exclusion. A second test feeds it the shapes the
+  review slipped past the first version, so it can fail.
 - **Contracts as declared.** `prose`: `content`, `list`. `numbered-tags`: `cards-grid`,
   `cards-stack`, `list-steps`, `split-panel steps` and `split-panel watermark` (which already drew
   numbered panels for `1.` and plain cards for `-`, so it was R2 in all but name). `neutral`:

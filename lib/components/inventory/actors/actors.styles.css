@@ -18,8 +18,8 @@
  * ──────────────────────────────────────────────────────────────────────── */
 section.actors > .cell-stage { display:flex; flex-direction:column; }
 section.actors h2 { font-size:var(--fs-emphasis); }
-section.actors > .cell-stage > ul,
-section.actors > .cell-stage > ol {
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])),
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) {
   list-style:none; padding:0; margin:0;
   display:flex; flex-direction:column;
   gap:var(--sp-xs);
@@ -32,9 +32,9 @@ section.actors > .cell-stage > ol {
   justify-content:var(--cards-align);
 }
 /* `safe`: if the rows ever outgrow the stage, lose the tail, never the head (the token's `center` has no `safe`). */
-section.actors[data-cards="center"] > .cell-stage > :is(ul, ol) { justify-content: safe center; }
-section.actors > .cell-stage > ul > li,
-section.actors > .cell-stage > ol > li {
+section.actors[data-cards="center"] > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) { justify-content: safe center; }
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   /* flex mirror of `grid-template-columns:1fr auto` + a full-width second row: the header
    * (strong + chip) rides row 1, the body wraps to row 2 at flex-basis:100% (flex shop §11.A,
    * the two-cells-then-full-width pattern). */
@@ -56,11 +56,11 @@ section.actors > .cell-stage > ol > li {
   border-left:3px solid var(--accent);
   border-radius:var(--radius-md);
 }
-section.actors > .cell-stage > ul > li::marker,
-section.actors > .cell-stage > ol > li::marker { content:''; }
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li::marker,
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li::marker { content:''; }
 /* Strong = primary header (responsibility / capability), left-aligned. */
-section.actors > .cell-stage > ul > li > strong,
-section.actors > .cell-stage > ol > li > strong {
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong,
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong {
   flex:1 1 auto;
   font-size:var(--fs-body);
   font-weight:700;
@@ -71,41 +71,41 @@ section.actors > .cell-stage > ol > li > strong {
  * outlined in the row's categorical hue and kept at its natural width so the strong label takes
  * the rest of the header row (that is what right-anchors it). The --cN-dark palette is
  * theme-defined; both cuoio (warm earth pigments) and indaco (cool L≈32 deeps) ship balanced sets. */
-section.actors > .cell-stage > ul > li > .lat-pill,
-section.actors > .cell-stage > ol > li > .lat-pill {
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li > .lat-pill,
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li > .lat-pill {
   flex:0 0 auto;
 }
 /* The hue is a default: a pill whose author named a color keeps it. */
-section.actors > .cell-stage > ul > li > .lat-pill:not([data-c]),
-section.actors > .cell-stage > ol > li > .lat-pill:not([data-c]) {
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li > .lat-pill:not([data-c]),
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li > .lat-pill:not([data-c]) {
   --lat-pill-edge:var(--actor-hue, var(--muted-mark));
 }
 /* Categorical rotation across items (cycle of 8). Sets --actor-hue on the <li>; the pill's edge
  * and the row marker (border-left on the <li>) take the same hue. */
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+1) { --actor-hue:var(--cat-1-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+2) { --actor-hue:var(--cat-2-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+3) { --actor-hue:var(--cat-3-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+4) { --actor-hue:var(--cat-4-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+5) { --actor-hue:var(--cat-5-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+6) { --actor-hue:var(--cat-6-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+7) { --actor-hue:var(--cat-7-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n)   { --actor-hue:var(--cat-8-mark); }
+section.actors > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+1) { --actor-hue:var(--cat-1-mark); }
+section.actors > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+2) { --actor-hue:var(--cat-2-mark); }
+section.actors > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+3) { --actor-hue:var(--cat-3-mark); }
+section.actors > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+4) { --actor-hue:var(--cat-4-mark); }
+section.actors > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+5) { --actor-hue:var(--cat-5-mark); }
+section.actors > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+6) { --actor-hue:var(--cat-6-mark); }
+section.actors > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+7) { --actor-hue:var(--cat-7-mark); }
+section.actors > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n)   { --actor-hue:var(--cat-8-mark); }
 /* The accent left-border picks up the same hue as the chip. */
-section.actors > .cell-stage > :is(ul, ol) > li {
+section.actors > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
   border-left-color:var(--actor-hue, var(--accent));
 }
 /* Body row spans full width below the header. */
-section.actors > .cell-stage > ul > li > ul,
-section.actors > .cell-stage > ol > li > ul,
-section.actors > .cell-stage > ul > li > ol,
-section.actors > .cell-stage > ol > li > ol {
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul,
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul,
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol,
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol {
   flex:0 0 100%;
   list-style:none; padding:0; margin:0;
 }
-section.actors > .cell-stage > ul > li > ul > li,
-section.actors > .cell-stage > ol > li > ul > li,
-section.actors > .cell-stage > ul > li > ol > li,
-section.actors > .cell-stage > ol > li > ol > li {
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li,
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li,
+section.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol > li,
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol > li {
   font-size:var(--fs-body);
   color:var(--text-body);
   line-height:var(--lh-base);
@@ -122,7 +122,7 @@ section.actors > .cell-stage > ol > li > ol > li {
 /* the strong's padding-bottom (not a chip margin-top) supplies the sp-2xs gap above
    the wrapped chip — measurable, and strong carries no background so the inset is
    invisible. */
-section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
+section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
 /* Drop the chip onto its own line, hanging at the LEFT under the responsibility. The
    chip rides the row's far end through the strong label's `flex:1`; here the label takes the full
    line (above), so the chip wraps onto its own line and hangs at the left. */
@@ -137,24 +137,24 @@ section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell
  * its row 83px, and seven rows then outgrow the stage; the export's OVERFLOW line and the render
  * tier's overflow probe report it (nothing here does). Tall and strip decks keep their stacked
  * reflow above (their stage is shaped for it). */
-section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li {
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):has(> li:nth-child(5)) > li {
   flex-wrap:nowrap;
   padding-block:var(--sp-xs);
 }
-section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > strong {
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):has(> li:nth-child(5)) > li > strong {
   order:1; flex:0 0 22%;
 }
-section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > :is(ul, ol) {
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):has(> li:nth-child(5)) > li > :is(ul, ol) {
   order:2; flex:1 1 0; min-width:0;
 }
-section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > .lat-pill {
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):has(> li:nth-child(5)) > li > .lat-pill {
   order:3;
 }
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
-section.actors > .cell-stage > ol > li {
+section.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   box-shadow: var(--elevation-card);
 }
 section.actors > .cell-stage {

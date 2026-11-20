@@ -42,7 +42,7 @@ section.team-profile > .cell-stage {
 /* The headline block keeps its natural height at the top; the roster takes the
  * rest of the canvas and centers its rows as one cluster, so a two-row grid sits
  * in the middle of the frame rather than hanging off the heading. */
-section.team-profile > .cell-stage > ul.team-roster {
+section.team-profile > .cell-stage > ul:where(:not([data-list="aside"])).team-roster {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -63,7 +63,7 @@ section.team-profile > .cell-stage > ul.team-roster {
   align-items: start;
 }
 
-section.team-profile > .cell-stage > ul.team-roster > li.person {
+section.team-profile > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person {
   /* `width` (not a flex-basis calc, which renders unreliably) tiles N per row. */
   width: calc((100% - (var(--person-cols) - 1) * var(--person-col-gap)) / var(--person-cols));
   flex: 0 0 auto;
@@ -191,22 +191,22 @@ section.team-profile ul.team-roster:not(:has(.person-photo, .person-figure--avat
  * that row 1 faces row 1, row 2 faces row 2. Nothing in the data says that; a QBR
  * roll-call is two teams, not a set of counterparts. Shifting the right-hand list
  * by three breaks the mirror while keeping every person a stable color. */
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-4-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-5-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-6-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-7-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-8-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-1-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-2-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-3-mark); }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-4-mark); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-5-mark); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-6-mark); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-7-mark); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-8-mark); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-1-mark); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-2-mark); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-3-mark); }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2):not(:has(.person-photo, .person-figure--avatar)) > li.person:nth-child(8n) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
 
 /* ── The words.
  * A column by default, centered under the portrait. The three lines are a
@@ -267,7 +267,7 @@ section.team-profile .person-note {
  * CONTENT decision, so that is where `bench` takes over rather than this rule
  * silently hiding what someone wrote. */
 section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio)
-  > .cell-stage > ul.team-roster:has(> li.person:nth-child(7)) {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(7)) {
   --person-cols: 4;
   --person-size: 6.5cqi;
 }
@@ -316,14 +316,14 @@ section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-co
 }
 
 section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-coda)
-  > .cell-stage > ul.team-roster > li.person {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person {
   flex-direction: row;
   align-items: center;
   gap: var(--sp-md);
 }
 
 section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-coda)
-  > .cell-stage > ul.team-roster > li.person > .person-text {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person > .person-text {
   align-items: start;
   text-align: left;
 }
@@ -339,17 +339,17 @@ section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio):has(> .cell-co
  * gap, the hero's rule padding, and the hero note's type — which together cover
  * the coda's bill without touching the hierarchy the design is about. */
 section.team-profile.lead:has(> .cell-coda)
-  > .cell-stage > ul.team-roster {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster {
   row-gap: var(--sp-md);
 }
 
 section.team-profile.lead:has(> .cell-coda)
-  > .cell-stage > ul.team-roster > li.person:first-child {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child {
   padding-bottom: var(--sp-xs);
 }
 
 section.team-profile.lead:has(> .cell-coda)
-  > .cell-stage > ul.team-roster > li.person:first-child .person-note {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child .person-note {
   padding-top: var(--sp-xs);
   font-size: var(--fs-body);
 }
@@ -366,7 +366,7 @@ section.team-profile.lead > .cell-stage {
   --person-row-gap: var(--sp-md);
 }
 
-section.team-profile.lead > .cell-stage > ul.team-roster {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster {
   align-content: var(--cards-align);
   row-gap: var(--sp-xl);
 }
@@ -395,19 +395,19 @@ section.team-profile.lead > .cell-stage > ul.team-roster {
  * has stopped being what to shrink. That slide degrades (notes clipped, no name
  * lost) rather than being tuned for here — a rule that half-rescues a shape the
  * docs steer away from is a rule nobody can explain later. */
-section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(6)) {
   --person-cols: 5;
   --person-size: 6cqi;
 }
-section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(7)) {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(7)) {
   --person-cols: 6;
   --person-size: 5.5cqi;
 }
-section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(8)) {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(8)) {
   --person-cols: 7;
   --person-size: 5cqi;
 }
-section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-child(9)) {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(9)) {
   --person-cols: 8;
   --person-size: 4.5cqi;
 }
@@ -418,11 +418,11 @@ section.team-profile.lead > .cell-stage > ul.team-roster:has(> li.person:nth-chi
  * already stepped down to 4.5cqi and eight was still at 5cqi, so the larger roster
  * fit and the smaller one did not. That is a mistuned rung, not a capacity wall. */
 section.team-profile.lead:has(> .cell-coda)
-  > .cell-stage > ul.team-roster:has(> li.person:nth-child(8)) {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(8)) {
   --person-size: 4.5cqi;
 }
 
-section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child {
   width: 100%;
   flex-direction: row;
   align-items: center;
@@ -434,24 +434,24 @@ section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child
   --person-size: 12cqi;
 }
 
-section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child > .person-text {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child > .person-text {
   align-items: start;
   text-align: left;
 }
 
-section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child .person-name {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child .person-name {
   font-size: var(--fs-h3);
   font-weight: 600;
   line-height: var(--lh-tight);
 }
 
-section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child .person-role {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child .person-role {
   padding-top: var(--sp-2xs);
   font-size: var(--fs-body-compact);
   color: var(--accent);
 }
 
-section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child .person-note {
+section.team-profile.lead > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child .person-note {
   padding-top: var(--sp-sm);
   font-size: var(--fs-body);
   color: var(--text-body);
@@ -477,7 +477,7 @@ section.team-profile.bench > .cell-stage {
 section.team-profile.bench .person-note { display: none; }
 section.team-profile.bench .person-name { font-size: var(--fs-body); }
 section.team-profile.bench .person-role { font-size: var(--fs-meta); letter-spacing: 0.06em; }
-section.team-profile.bench > .cell-stage > ul.team-roster > li.person { gap: var(--sp-xs); }
+section.team-profile.bench > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person { gap: var(--sp-xs); }
 
 /* ── sides — two labeled rosters facing each other.
  * The author writes two `### ` headings, each followed by its own list; the stage
@@ -541,9 +541,9 @@ section.team-profile.sides > .cell-stage > p {
   color: var(--text-body);
 }
 section.team-profile.sides > .cell-stage > h3:nth-of-type(1) { grid-area: 7 / 1; }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 8 / 1; }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(1) { grid-area: 8 / 1; }
 section.team-profile.sides > .cell-stage > h3:nth-of-type(2) { grid-area: 7 / 2; }
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 8 / 2; }
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2) { grid-area: 8 / 2; }
 
 section.team-profile.sides > .cell-stage > h3 {
   padding: 0 var(--sp-xl) var(--sp-md);
@@ -556,7 +556,7 @@ section.team-profile.sides > .cell-stage > h3 {
   color: var(--text-label, var(--text-secondary));
 }
 
-section.team-profile.sides > .cell-stage > ul.team-roster {
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster {
   padding: 0 var(--sp-xl);
   flex-direction: column;
   flex-wrap: nowrap;
@@ -566,7 +566,7 @@ section.team-profile.sides > .cell-stage > ul.team-roster {
 }
 
 /* Each person is a row inside the column — portrait, then name over role. */
-section.team-profile.sides > .cell-stage > ul.team-roster > li.person {
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person {
   width: 100%;
   flex-direction: row;
   align-items: center;
@@ -580,7 +580,7 @@ section.team-profile.sides .person-text { align-items: start; text-align: left; 
  * tighter gap covers three times without the rows reading as crowded. (A footer is
  * not in this selector, or any of the ones above: it costs the stage nothing.) */
 section.team-profile.sides:has(> .cell-coda)
-  > .cell-stage > ul.team-roster {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster {
   gap: var(--sp-sm);
 }
 
@@ -588,7 +588,7 @@ section.team-profile.sides:has(> .cell-coda)
  * Keyed on WHICH ELEMENTS they are, not on their position among the stage's
  * children, for the same reason the placement above is explicit. */
 section.team-profile.sides > .cell-stage > h3:nth-of-type(2),
-section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2) {
+section.team-profile.sides > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2) {
   border-inline-start: 1px solid var(--border);
 }
 
@@ -602,14 +602,14 @@ section.team-profile.bio > .cell-stage {
   --person-size: 6.25cqi;
 }
 
-section.team-profile.bio > .cell-stage > ul.team-roster {
+section.team-profile.bio > .cell-stage > ul:where(:not([data-list="aside"])).team-roster {
   flex-direction: column;
   flex-wrap: nowrap;
   gap: 0;
   justify-content: center;
 }
 
-section.team-profile.bio > .cell-stage > ul.team-roster > li.person {
+section.team-profile.bio > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person {
   width: 100%;
   flex-direction: row;
   align-items: center;
@@ -618,7 +618,7 @@ section.team-profile.bio > .cell-stage > ul.team-roster > li.person {
   border-bottom: 1px solid var(--border);
 }
 
-section.team-profile.bio > .cell-stage > ul.team-roster > li.person:last-child {
+section.team-profile.bio > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:last-child {
   border-bottom: 0;
 }
 
@@ -634,13 +634,13 @@ section.team-profile.bio > .cell-stage > ul.team-roster > li.person:last-child {
  * costs the thing `bio` exists for. Past eight people the sentence is no longer
  * readable at any row height and the answer is `bench`, which drops the notes as a
  * stated content decision — the manifest's capacity note says so. */
-section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-child(5)) {
+section.team-profile.bio > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(5)) {
   --person-size: 5.5cqi;
 }
-section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-child(5)) > li.person {
+section.team-profile.bio > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(5)) > li.person {
   padding: var(--sp-3xs) 0;
 }
-section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-child(7)) {
+section.team-profile.bio > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(7)) {
   --person-size: 4.5cqi;
 }
 
@@ -652,15 +652,15 @@ section.team-profile.bio > .cell-stage > ul.team-roster:has(> li.person:nth-chil
  * therefore shift down by one, and the last one buys the rest of the coda's bill
  * out of the portrait — the only part of a bio row carrying no words. */
 section.team-profile.bio:has(> .cell-coda)
-  > .cell-stage > ul.team-roster:has(> li.person:nth-child(4)) {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(4)) {
   --person-size: 5.5cqi;
 }
 section.team-profile.bio:has(> .cell-coda)
-  > .cell-stage > ul.team-roster:has(> li.person:nth-child(4)) > li.person {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(4)) > li.person {
   padding: var(--sp-3xs) 0;
 }
 section.team-profile.bio:has(> .cell-coda)
-  > .cell-stage > ul.team-roster:has(> li.person:nth-child(5)) {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(5)) {
   --person-size: 5cqi;
 }
 /* FIVE is where `bio` stops on a shortened stage, and the measurement says why
@@ -672,15 +672,15 @@ section.team-profile.bio:has(> .cell-coda)
  * name. The manifest's capacity note carries the number, so a deck hits a warning
  * before it hits the slide. */
 section.team-profile.bio:has(> .cell-coda)
-  > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(6)) {
   --person-size: 4.25cqi;
 }
 section.team-profile.bio:has(> .cell-coda)
-  > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) > li.person {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(6)) > li.person {
   padding: 0;
 }
 section.team-profile.bio:has(> .cell-coda)
-  > .cell-stage > ul.team-roster:has(> li.person:nth-child(6)) .person-note {
+  > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:has(> li.person:nth-child(6)) .person-note {
   padding-top: 0;
 }
 
@@ -773,7 +773,7 @@ section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage {
   --person-size: 9cqi;
 }
 
-section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage > ul.team-roster > li.person:first-child {
+section.team-profile.lead.lead:where([data-family="square"]) > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child {
   --person-size: 17cqi;
 }
 
@@ -785,12 +785,12 @@ section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]
   --person-size: 11cqi;
 }
 
-section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster > li.person:first-child {
+section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child {
   flex-direction: column;
   --person-size: 26cqi;
 }
 
-section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster > li.person:first-child > .person-text {
+section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])).team-roster > li.person:first-child > .person-text {
   align-items: center;
   text-align: center;
 }
@@ -815,12 +815,12 @@ section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip
 
 section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p { grid-column: 1 / -1; }
 section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(1) { grid-area: 7 / 1; }
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 8 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(1) { grid-area: 8 / 1; }
 section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2) { grid-area: 9 / 1; }
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 10 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2) { grid-area: 10 / 1; }
 
 section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2),
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(2) {
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:nth-of-type(2) {
   border-inline-start: 0;
 }
 
@@ -830,7 +830,7 @@ section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip
 }
 
 section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3,
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster {
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])).team-roster {
   padding-inline: 0;
 }
 
@@ -847,8 +847,8 @@ section.team-profile.bio.bio:where([data-family="tall"], [data-family="strip"]) 
  * 7-person roster staying four across in a 25em pane). The
  * side-by-side `sides` and the single `bio` keep their own forms. */
 @container lat-cards (width < 30em) {
-  section.team-profile.team-profile.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul.team-roster:not(.lat-reflow-held) { --person-cols: 2; --lat-narrow: 1; }
+  section.team-profile.team-profile.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:not(.lat-reflow-held) { --person-cols: 2; --lat-narrow: 1; }
 }
 @container lat-cards (width < 16em) {
-  section.team-profile.team-profile.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul.team-roster:not(.lat-reflow-held) { --person-cols: 1; }
+  section.team-profile.team-profile.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul:where(:not([data-list="aside"])).team-roster:not(.lat-reflow-held) { --person-cols: 1; }
 }

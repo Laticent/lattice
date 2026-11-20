@@ -15,7 +15,7 @@
  *    - A framing question?
  *
  * The ledger is an ORDERED list — the same shape every other numbered layout
- * in Lattice uses (LEDGER_OL_LAYOUTS, lib/authoring/lint-core.js). The ordinal
+ * in Lattice uses (LEDGER_LAYOUTS, lib/authoring/lint-core.js). The ordinal
  * is a CSS counter (the built-in `list-item`), so rows renumber on reorder — but
  * an explicit `<ol start="N">` DOES flow through as a presentational hint, which
  * is exactly what lets a split run continue 05/06 instead of restarting. Each row's
@@ -97,7 +97,7 @@ section.premise .premise-claim > p {
  *
  * `fit-content(40%)` caps the term column so one runaway term cannot starve the
  * descriptions; only a term past that cap still ellipsizes. */
-section.premise > ol {
+section.premise > ol:where(:not([data-list="aside"])) {
   flex: 1 1 auto;
   min-width: 0;
   max-width: calc(74% - var(--sp-2xl));
@@ -112,7 +112,7 @@ section.premise > ol {
   padding: 0;
   margin: 0;
 }
-section.premise > ol > li {
+section.premise > ol:where(:not([data-list="aside"])) > li {
   /* The BUILT-IN `list-item` counter, not a private one. `<ol start="4">` maps to
    * `counter-reset: list-item 3` as a presentational hint, so the ordinals continue
    * across a split run; a private `premise-row` counter is reset by every fresh
@@ -149,13 +149,13 @@ section.premise > ol > li {
  * rather than the quietest text tier. The 3.75:1 this comment used to attribute to
  * --text-muted is now --muted-mark's number — #1715 split the tier and gave --text-muted
  * a 4.5 floor instead of an exemption from it. --text-secondary is still right here. */
-section.premise > ol > li::before {
+section.premise > ol:where(:not([data-list="aside"])) > li::before {
   content: counter(list-item, decimal-leading-zero);
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   color: var(--text-secondary);
 }
-section.premise > ol > li > strong {
+section.premise > ol:where(:not([data-list="aside"])) > li > strong {
   font-size: var(--fs-body);
   /* `--row-ink`, not `--row-mark`. The mark tier is guaranteed 3:1 against the
    * background — the WCAG NON-TEXT bar a stroke token is scoped to, right for the
@@ -179,7 +179,7 @@ section.premise > ol > li > strong {
  * a flex line sits at the start, so the dropped question aligns under its clause.
  * That is a designed second line: each item is placed at its full width, and only an
  * item wider than the whole track wraps inside itself (see the row's `white-space`). */
-section.premise > ol > li > ul {
+section.premise > ol:where(:not([data-list="aside"])) > li > ul {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -190,19 +190,19 @@ section.premise > ol > li > ul {
   margin: 0;
   min-width: 0;
 }
-section.premise > ol > li > ul > li {
+section.premise > ol:where(:not([data-list="aside"])) > li > ul > li {
   /* The nested items are list items too, and the row's `display: grid` does not
    * stop them bumping the `list-item` counter the ordinal reads. */
   counter-increment: none;
 }
-section.premise > ol > li > ul > li:nth-child(1) {
+section.premise > ol:where(:not([data-list="aside"])) > li > ul > li:nth-child(1) {
   flex: 0 1 auto;
   min-width: 0;
 }
-section.premise > ol > li > ul > li:nth-child(2) {
+section.premise > ol:where(:not([data-list="aside"])) > li > ul > li:nth-child(2) {
   min-width: 0;
 }
-section.premise > ol > li > ul > li:nth-child(2) {
+section.premise > ol:where(:not([data-list="aside"])) > li > ul > li:nth-child(2) {
   font-size: var(--fs-meta);
   color: var(--text-secondary);
 }
@@ -231,20 +231,20 @@ section.premise > ol > li > ul > li:nth-child(2) {
  * The count rules skip the stacked families (square/tall/strip) entirely: those
  * set their own row padding below, and their row gap stays the tight default,
  * because portrait is the family whose capacity binds. */
-section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:not(:has(> li:nth-child(4))) {
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])):not(:has(> li:nth-child(4))) {
   --premise-row-gap: var(--sp-md);
   --premise-row-pad: var(--sp-md);
 }
-section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(4)):not(:has(> li:nth-child(6))) {
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])):has(> li:nth-child(4)):not(:has(> li:nth-child(6))) {
   --premise-row-gap: var(--sp-sm);
 }
-section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(5)):not(:has(> li:nth-child(8))) {
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])):has(> li:nth-child(5)):not(:has(> li:nth-child(8))) {
   --premise-row-pad: var(--sp-xs);
 }
-section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(6)):not(:has(> li:nth-child(8))) {
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])):has(> li:nth-child(6)):not(:has(> li:nth-child(8))) {
   --premise-row-gap: var(--sp-xs);
 }
-section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:has(> li:nth-child(8)) {
+section.premise:not([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])):has(> li:nth-child(8)) {
   --premise-row-pad: var(--sp-xs);
 }
 
@@ -257,14 +257,14 @@ section.premise:not([data-family="square"], [data-family="tall"], [data-family="
  *   --row-ink  → --cat-N-ink   the verb name, TEXT on --bg-alt, gated 4.5:1
  * Same split as `math.theorem`'s blockquote border-left + label pairing, which
  * moved onto the ink tier in the same change (#1263). */
-section.premise > ol > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); --row-ink: var(--cat-1-ink, var(--cat-1-mark)); }
-section.premise > ol > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); --row-ink: var(--cat-2-ink, var(--cat-2-mark)); }
-section.premise > ol > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); --row-ink: var(--cat-3-ink, var(--cat-3-mark)); }
-section.premise > ol > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); --row-ink: var(--cat-4-ink, var(--cat-4-mark)); }
-section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); --row-ink: var(--cat-5-ink, var(--cat-5-mark)); }
-section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); --row-ink: var(--cat-6-ink, var(--cat-6-mark)); }
-section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); --row-ink: var(--cat-7-ink, var(--cat-7-mark)); }
-section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); --row-ink: var(--cat-8-ink, var(--cat-8-mark)); }
+section.premise > ol:where(:not([data-list="aside"])) > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); --row-ink: var(--cat-1-ink, var(--cat-1-mark)); }
+section.premise > ol:where(:not([data-list="aside"])) > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); --row-ink: var(--cat-2-ink, var(--cat-2-mark)); }
+section.premise > ol:where(:not([data-list="aside"])) > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); --row-ink: var(--cat-3-ink, var(--cat-3-mark)); }
+section.premise > ol:where(:not([data-list="aside"])) > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); --row-ink: var(--cat-4-ink, var(--cat-4-mark)); }
+section.premise > ol:where(:not([data-list="aside"])) > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); --row-ink: var(--cat-5-ink, var(--cat-5-mark)); }
+section.premise > ol:where(:not([data-list="aside"])) > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); --row-ink: var(--cat-6-ink, var(--cat-6-mark)); }
+section.premise > ol:where(:not([data-list="aside"])) > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); --row-ink: var(--cat-7-ink, var(--cat-7-mark)); }
+section.premise > ol:where(:not([data-list="aside"])) > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); --row-ink: var(--cat-8-ink, var(--cat-8-mark)); }
 
 /* ── Family reflow (#1220). `premise` declared `adapt.mode: "reflow"` and shipped
  * NONE — its landscape row (a 34% claim rail beside the ledger) was the only
@@ -333,7 +333,7 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
  *
  * This is most visible on a SPLIT body page, where the hoisted lede is no longer there
  * to fill the gap — so the fix belongs with that work even though the rule predates it. */
-section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol {
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])) {
   flex: 0 1 auto;
   max-width: none;
 }
@@ -343,7 +343,7 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
  * `nowrap` (correct when every track is wide enough), which is what forced the
  * ellipsis rather than a wrap. (The landscape row wraps too now, for the same reason at
  * a larger venue.) */
-section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li {
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])) > li {
   /* The row STAYS A ROW — ordinal, term, rest — it just stops pinning the term to
    * a fixed `10.9375cqi` track and stops forbidding a wrap. That is the whole
    * truncation bug: a 107px track with `nowrap` + ellipsis cut "Remember" to "R…".
@@ -365,22 +365,22 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
   padding: var(--sp-xs) var(--sp-md);
   gap: var(--sp-2xs) var(--sp-sm);
 }
-section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > strong {
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])) > li > strong {
   overflow: visible;
   text-overflow: clip;
 }
 /* The description + framing question share track 3. Stack them rather than
  * competing for one line at this width, and let the question sit under the clause
  * it belongs to instead of right-aligning into its lap. */
-section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul {
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])) > li > ul {
   flex-direction: column;
   align-items: stretch;
   gap: var(--sp-3xs);
 }
-section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(1) {
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])) > li > ul > li:nth-child(1) {
   overflow: visible;
   text-overflow: clip;
 }
-section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(2) {
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol:where(:not([data-list="aside"])) > li > ul > li:nth-child(2) {
   text-align: left;
 }

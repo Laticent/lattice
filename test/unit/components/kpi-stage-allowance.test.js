@@ -53,8 +53,10 @@ const KPI_CSS = path.join(ROOT, 'lib', 'components', 'evidence', 'kpi', 'kpi.sty
  * whitespace-only reformat of kpi.styles.css — a line rewrapped, a selector list put on
  * one line — would red the suite with nothing behavioral changed.
  */
+// The aside exclusion every stage-list rule carries (list contract, #3330) adds no specificity and is
+// not what these tests read, so it is cut before the selectors are matched as text.
 function normalize(css) {
-  return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ');
+  return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').replaceAll(':where(:not([data-list="aside"]))', '');
 }
 
 /** The declaration block a selector-substring opens. */

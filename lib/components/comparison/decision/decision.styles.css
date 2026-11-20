@@ -38,16 +38,16 @@ section.decision:where(:not(.compare-prose)) h2 {
  * center` (below), so releasing this floor cannot throw a card's content off its top —
  * measured on the overstuffed control, the ink stays exactly where it was and the tail
  * is still lost visibly. */
-section.decision:where(:not(.compare-prose)) > .cell-stage > ul,
-section.decision:where(:not(.compare-prose)) > .cell-stage > ol {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul:where(:not([data-list="aside"])),
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol:where(:not([data-list="aside"])) {
   display:flex;
   gap:var(--sp-md);
   flex:1;
   min-height:0;
   list-style:none; padding:0; margin:0;
 }
-section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li,
-section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   flex:1;
   background:var(--bg-alt);
   border:1px solid var(--border);
@@ -73,39 +73,39 @@ section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li {
  * the same token as `justify-content`, and each card grows only under `stretch`
  * (`--cards-grow`); otherwise it sits at its content height (`--cards-basis`).
  * engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §13. */
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) {
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
   flex-wrap: wrap; align-content: var(--cards-align);
 }
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li {
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
   min-width: 0; max-height: 100%; box-sizing: border-box;
 }
-section.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) {
+section.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
   flex-wrap: nowrap; justify-content: var(--cards-align);
 }
-section.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li {
+section.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
   flex: var(--cards-grow) 1 var(--cards-basis); min-height: auto; max-height: none;
 }
 /* Categorical rotation across cards (cycle of 6, then mauve/slate) —
  * mirrors the KPI palette so the two layouts read as siblings (KPI = top
  * accent, decision = bottom accent). Each card's corner-tag fill follows
  * the same variable so the card reads as one color. */
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+1) { --decision-accent:var(--cat-1-mark);   --decision-accent-deep:var(--cat-1-mark); }
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+2) { --decision-accent:var(--cat-2-mark);  --decision-accent-deep:var(--cat-2-mark); }
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+3) { --decision-accent:var(--cat-3-mark); --decision-accent-deep:var(--cat-3-mark); }
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+4) { --decision-accent:var(--cat-4-mark); --decision-accent-deep:var(--cat-4-mark); }
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+5) { --decision-accent:var(--cat-5-mark);   --decision-accent-deep:var(--cat-5-mark); }
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+6) { --decision-accent:var(--cat-6-mark);   --decision-accent-deep:var(--cat-6-mark); }
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n+7) { --decision-accent:var(--cat-7-mark);  --decision-accent-deep:var(--cat-7-mark); }
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li:nth-child(8n)   { --decision-accent:var(--cat-8-mark);  --decision-accent-deep:var(--cat-8-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+1) { --decision-accent:var(--cat-1-mark);   --decision-accent-deep:var(--cat-1-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+2) { --decision-accent:var(--cat-2-mark);  --decision-accent-deep:var(--cat-2-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+3) { --decision-accent:var(--cat-3-mark); --decision-accent-deep:var(--cat-3-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+4) { --decision-accent:var(--cat-4-mark); --decision-accent-deep:var(--cat-4-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+5) { --decision-accent:var(--cat-5-mark);   --decision-accent-deep:var(--cat-5-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+6) { --decision-accent:var(--cat-6-mark);   --decision-accent-deep:var(--cat-6-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n+7) { --decision-accent:var(--cat-7-mark);  --decision-accent-deep:var(--cat-7-mark); }
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(8n)   { --decision-accent:var(--cat-8-mark);  --decision-accent-deep:var(--cat-8-mark); }
 /* The card's tag wears the categorical pair: the per-card mark and its paired ink,
  * AA-gated per theme and mode (test/unit/palette/contrast.test.js). The tag is drawn
  * by lib/base/base.card-tag.css, flush corner or `banner-tag` band. */
-section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li {
+section.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
   --card-tag-fill: var(--decision-accent-deep, var(--accent));
   --card-tag-ink: var(--cat-on-mark);
 }
-section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > strong,
-section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > strong {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong {
   display:block;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -114,10 +114,10 @@ section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > strong {
   text-transform:uppercase;
   color:var(--accent);
 }
-section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > p,
-section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > p,
-section.decision:where(:not(.compare-prose)) > .cell-stage > ul > li > ul,
-section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li > ul {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > p,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > p,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul,
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul {
   font-size:var(--fs-body);
   line-height:var(--lh-base);
   color:var(--text-body);
@@ -149,7 +149,7 @@ section.decision:where(:not(.compare-prose)) :is(ul,ol) > li > strong ~ * { font
  * State the basis with any capacity number — the count depends on it. This rule
  * read `<= 1.05` because it was written when the only question was
  * landscape-or-portrait and square rode the portrait side, unseen (#1218). */
-section.decision.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) { flex-direction: column; }
+section.decision.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) { flex-direction: column; }
 /* Centering the justification in its card used to live here, scoped to square,
    tall and strip. It is not a family behavior — a card that fills its track owes
    its content the height in every family — so it moved up to the base card rule
@@ -157,7 +157,7 @@ section.decision.decision:where([data-family="tall"], [data-family="strip"]):whe
 /* One option per full-width card. The justification reads at --fs-body, the one
    reading size (typography.md §7): a portrait slide carries two to four of them, so it
    is reading text, not a one-per-slide lead line. It read at --fs-message here before. */
-section.decision.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
+section.decision.decision:where([data-family="tall"], [data-family="strip"]):where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(p, ul, ol) {
   font-size:var(--fs-body);
   line-height: var(--lh-snug);
 }
@@ -195,7 +195,7 @@ section.decision-points .split-pt-b { color: var(--text-body); font-size: var(--
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
-section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li {
+section.decision:where(:not(.compare-prose)) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   box-shadow: var(--elevation-card);
 }
 section.decision:where(:not(.compare-prose)) > .cell-stage {
@@ -207,18 +207,18 @@ section.decision:where(:not(.compare-prose)) > .cell-stage {
  * under about 11.5em (24em of the content area for two options, 36em for three or more) the
  * options stack, the form a tall deck gets. */
 @container lat-cards (width < 36em) {
-  section.decision.decision:where(:not(.compare-prose)):has(> .cell-stage > :is(ul, ol) > li:nth-child(3)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
+  section.decision.decision:where(:not(.compare-prose)):has(> .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(3)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) {
     flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
   }
-  section.decision.decision:where(:not(.compare-prose)):has(> .cell-stage > :is(ul, ol) > li:nth-child(3)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
+  section.decision.decision:where(:not(.compare-prose)):has(> .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:nth-child(3)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
     flex: var(--cards-grow) 1 var(--cards-basis); min-height: auto; max-height: none;
   }
 }
 @container lat-cards (width < 24em) {
-  section.decision.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
+  section.decision.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) {
     flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
   }
-  section.decision.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
+  section.decision.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
     flex: var(--cards-grow) 1 var(--cards-basis); min-height: auto; max-height: none;
   }
 }

@@ -204,7 +204,7 @@ section.sketch.split-compare .option :is(ul, ol) > li::marker {
   color: var(--accent);
 }
 section.sketch.content ul > li::marker,
-section.sketch.split-compare .option ul > li::marker {
+section.sketch.split-compare .option :is(ul, ol) > li::marker {
   content: "\2013\00a0";
 }
 
@@ -275,29 +275,29 @@ section > svg[data-lattice-rough-ink] {
  * component ships: the marp-cli native `> ul/ol > li` and the lattice.js
  * post-processed `.card`.
  */
-section.sketch.cards-grid > ul > li,
-section.sketch.cards-grid > ol > li,
+section.sketch.cards-grid > ul:where(:not([data-list="aside"])) > li,
+section.sketch.cards-grid > ol:where(:not([data-list="aside"])) > li,
 section.sketch.cards-grid .card,
-section.sketch.cards-grid > .cell-stage > ul > li,
-section.sketch.cards-grid > .cell-stage > ol > li,
-section.sketch.cards-stack > ul > li,
-section.sketch.cards-stack > ol > li,
+section.sketch.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.sketch.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.sketch.cards-stack > ul:where(:not([data-list="aside"])) > li,
+section.sketch.cards-stack > ol:where(:not([data-list="aside"])) > li,
 section.sketch.cards-stack .card,
-section.sketch.cards-stack > .cell-stage > ul > li,
-section.sketch.cards-stack > .cell-stage > ol > li,
-section.sketch.verdict-grid > ul > li,
-section.sketch.verdict-grid > .cell-stage > ul > li,
-section.sketch.decision > ol > li,
-section.sketch.decision > .cell-stage > ol > li,
-section.sketch.matrix-2x2 > ol > li,
-section.sketch.matrix-2x2 > ul > li,
-section.sketch.matrix-2x2 > .cell-stage > ol > li,
-section.sketch.matrix-2x2 > .cell-stage > ul > li,
-section.sketch.pricing > ul > li,
-section.sketch.pricing > .cell-stage > ul > li,
+section.sketch.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.sketch.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.sketch.verdict-grid > ul:where(:not([data-list="aside"])) > li,
+section.sketch.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.sketch.decision > ol:where(:not([data-list="aside"])) > li,
+section.sketch.decision > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.sketch.matrix-2x2 > ol:where(:not([data-list="aside"])) > li,
+section.sketch.matrix-2x2 > ul:where(:not([data-list="aside"])) > li,
+section.sketch.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.sketch.matrix-2x2 > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.sketch.pricing > ul:where(:not([data-list="aside"])) > li,
+section.sketch.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li,
 section.sketch.compare-prose .card,
-section.sketch.compare-prose > ol > li,
-section.sketch.compare-prose > .cell-stage > ol > li,
+section.sketch.compare-prose > ol:where(:not([data-list="aside"])) > li,
+section.sketch.compare-prose > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.sketch.citation-card > blockquote,
 section.sketch.citation-card > .cell-stage > blockquote,
 /* The generic "KEY INSIGHT" blockquote (the trailing `> blockquote` on any
@@ -322,49 +322,49 @@ section.sketch:not(.quote):not(.math):not(.citation-card):not(.redline) > .cell-
 /* Alternate the radius + a slight tilt per card so each grid of cards
  * reads hand-placed rather than stamped. Scoped to the multi-card list
  * layouts (single-card layouts get the drawn box above, no tilt). */
-section.sketch.cards-grid > ul > li:nth-child(2n),
-section.sketch.cards-grid > ol > li:nth-child(2n),
+section.sketch.cards-grid > ul:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.cards-grid > ol:where(:not([data-list="aside"])) > li:nth-child(2n),
 section.sketch.cards-grid .card:nth-child(2n),
-section.sketch.cards-grid > .cell-stage > ul > li:nth-child(2n),
-section.sketch.cards-grid > .cell-stage > ol > li:nth-child(2n),
-section.sketch.cards-stack > ul > li:nth-child(2n),
-section.sketch.cards-stack > ol > li:nth-child(2n),
+section.sketch.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.cards-stack > ul:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.cards-stack > ol:where(:not([data-list="aside"])) > li:nth-child(2n),
 section.sketch.cards-stack .card:nth-child(2n),
-section.sketch.cards-stack > .cell-stage > ul > li:nth-child(2n),
-section.sketch.cards-stack > .cell-stage > ol > li:nth-child(2n),
-section.sketch.verdict-grid > ul > li:nth-child(2n),
-section.sketch.verdict-grid > .cell-stage > ul > li:nth-child(2n),
-section.sketch.decision > ol > li:nth-child(2n),
-section.sketch.decision > .cell-stage > ol > li:nth-child(2n),
-section.sketch.matrix-2x2 > ol > li:nth-child(2n),
-section.sketch.matrix-2x2 > ul > li:nth-child(2n),
-section.sketch.matrix-2x2 > .cell-stage > ol > li:nth-child(2n),
-section.sketch.matrix-2x2 > .cell-stage > ul > li:nth-child(2n),
-section.sketch.pricing > ul > li:nth-child(2n),
-section.sketch.pricing > .cell-stage > ul > li:nth-child(2n) {
+section.sketch.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.verdict-grid > ul:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.decision > ol:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.decision > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.matrix-2x2 > ol:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.matrix-2x2 > ul:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.matrix-2x2 > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.pricing > ul:where(:not([data-list="aside"])) > li:nth-child(2n),
+section.sketch.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(2n) {
   border-radius: 15px 225px 15px 255px / 225px 15px 255px 15px;
   transform: rotate(-0.5deg);
 }
-section.sketch.cards-grid > ul > li:nth-child(3n),
-section.sketch.cards-grid > ol > li:nth-child(3n),
+section.sketch.cards-grid > ul:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.cards-grid > ol:where(:not([data-list="aside"])) > li:nth-child(3n),
 section.sketch.cards-grid .card:nth-child(3n),
-section.sketch.cards-grid > .cell-stage > ul > li:nth-child(3n),
-section.sketch.cards-grid > .cell-stage > ol > li:nth-child(3n),
-section.sketch.cards-stack > ul > li:nth-child(3n),
-section.sketch.cards-stack > ol > li:nth-child(3n),
+section.sketch.cards-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.cards-stack > ul:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.cards-stack > ol:where(:not([data-list="aside"])) > li:nth-child(3n),
 section.sketch.cards-stack .card:nth-child(3n),
-section.sketch.cards-stack > .cell-stage > ul > li:nth-child(3n),
-section.sketch.cards-stack > .cell-stage > ol > li:nth-child(3n),
-section.sketch.verdict-grid > ul > li:nth-child(3n),
-section.sketch.verdict-grid > .cell-stage > ul > li:nth-child(3n),
-section.sketch.decision > ol > li:nth-child(3n),
-section.sketch.decision > .cell-stage > ol > li:nth-child(3n),
-section.sketch.matrix-2x2 > ol > li:nth-child(3n),
-section.sketch.matrix-2x2 > ul > li:nth-child(3n),
-section.sketch.matrix-2x2 > .cell-stage > ol > li:nth-child(3n),
-section.sketch.matrix-2x2 > .cell-stage > ul > li:nth-child(3n),
-section.sketch.pricing > ul > li:nth-child(3n),
-section.sketch.pricing > .cell-stage > ul > li:nth-child(3n) {
+section.sketch.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.verdict-grid > ul:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.decision > ol:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.decision > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.matrix-2x2 > ol:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.matrix-2x2 > ul:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.matrix-2x2 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.matrix-2x2 > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.pricing > ul:where(:not([data-list="aside"])) > li:nth-child(3n),
+section.sketch.pricing > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(3n) {
   border-radius: 225px 15px 255px 18px / 15px 255px 15px 225px;
   transform: rotate(0.4deg);
 }
@@ -415,8 +415,8 @@ section.sketch {
  * gain. `border-spacing: 0` keeps the rows tight. */
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > table,
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table,
-section.sketch.list-tabular > ol,
-section.sketch.list-tabular > .cell-stage > ol {
+section.sketch.list-tabular > ol:where(:not([data-list="aside"])),
+section.sketch.list-tabular > .cell-stage > ol:where(:not([data-list="aside"])) {
   border: 2px solid var(--sketch-ink);
   /* Enrollment: a non-empty --rough-ink-stroke is what actually opts a
    * structure into the ink (lib/core/rough-ink-dom.js `measureRoughInk`).
@@ -443,8 +443,8 @@ section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap)
  * as `--rough-ink-inset`, a registered `<length>` so the measurer reads it back
  * in px (lib/core/rough-ink-dom.js). */
 @property --rough-ink-inset { syntax: "<length>"; inherits: false; initial-value: 0px; }
-section.sketch.list.principles > ol,
-section.sketch.list.principles > .cell-stage > ol {
+section.sketch.list.principles > ol:where(:not([data-list="aside"])),
+section.sketch.list.principles > .cell-stage > ol:where(:not([data-list="aside"])) {
   --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
   --rough-ink-width: 1.5;
   --rough-ink-inset: var(--list-rule-inset, 0px);
@@ -493,40 +493,40 @@ section.sketch.list.principles > .cell-stage > ol {
  * first/last row's own rule is dropped to avoid doubling it. */
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > table td,
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > :where(.cell-stage) > table td,
-section.sketch.list-tabular > ol > li,
-section.sketch.list-tabular > .cell-stage > ol > li,
-section.sketch.list.principles > ol > li,
-section.sketch.list.principles > .cell-stage > ol > li {
+section.sketch.list-tabular > ol:where(:not([data-list="aside"])) > li,
+section.sketch.list-tabular > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.sketch.list.principles > ol:where(:not([data-list="aside"])) > li,
+section.sketch.list.principles > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   position: relative;
   border-bottom-color: transparent;
 }
 /* list's row rule is a background (list.styles.css § Row rules), not a border; clear it
  * too, or it shows through under the wave. */
-section.sketch.list.principles > ol > li,
-section.sketch.list.principles > .cell-stage > ol > li { background-image: none; }
+section.sketch.list.principles > ol:where(:not([data-list="aside"])) > li,
+section.sketch.list.principles > .cell-stage > ol:where(:not([data-list="aside"])) > li { background-image: none; }
 /* The ledger's row rule is a `border-top` between two rows (list-tabular.styles.css `li + li`).
  * Under the finish the wave strip (and, once it paints, the ink) IS that rule, so every row's top
  * border goes transparent, not only the first's: left on, it drew a straight rule beside each
  * wave, two rules per row. */
-section.sketch.list-tabular > ol > li,
-section.sketch.list-tabular > .cell-stage > ol > li { border-top-color: transparent; }
+section.sketch.list-tabular > ol:where(:not([data-list="aside"])) > li,
+section.sketch.list-tabular > .cell-stage > ol:where(:not([data-list="aside"])) > li { border-top-color: transparent; }
 /* THE FRAME HUGS THE ROWS. The ledger's `ol` fills the stage (`flex: 1`) and centers its rows
  * inside itself (`align-content: safe center`), so the box the frame is drawn on — the CSS border
  * and the ink measured from it (lib/core/rough-ink-dom.js) — was the whole stage: three rows sat
  * mid-frame between two empty bands. Under the finish the `ol` takes its rows' height and the
  * STAGE centers it, which puts the rows exactly where they were and the frame on them. */
 section.sketch.list-tabular > .cell-stage { justify-content: safe center; }
-section.sketch.list-tabular > .cell-stage > ol { flex: 0 1 auto; }
+section.sketch.list-tabular > .cell-stage > ol:where(:not([data-list="aside"])) { flex: 0 1 auto; }
 /* …and keeps the counter off it. A table's cells carry their own padding inside the frame; the
  * ledger's rows start at the list's edge, so under a frame the `01` sat ON the left rule. */
-section.sketch.list-tabular > ol,
-section.sketch.list-tabular > .cell-stage > ol { padding-inline: var(--sp-md); }
+section.sketch.list-tabular > ol:where(:not([data-list="aside"])),
+section.sketch.list-tabular > .cell-stage > ol:where(:not([data-list="aside"])) { padding-inline: var(--sp-md); }
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > table td::after,
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)) > :where(.cell-stage) > table td::after,
-section.sketch.list-tabular > ol > li::after,
-section.sketch.list-tabular > .cell-stage > ol > li::after,
-section.sketch.list.principles > ol > li:not(:last-child)::after,
-section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
+section.sketch.list-tabular > ol:where(:not([data-list="aside"])) > li::after,
+section.sketch.list-tabular > .cell-stage > ol:where(:not([data-list="aside"])) > li::after,
+section.sketch.list.principles > ol:where(:not([data-list="aside"])) > li:not(:last-child)::after,
+section.sketch.list.principles > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:last-child)::after {
   content: "";
   position: absolute;
   left: 0;
@@ -539,14 +539,14 @@ section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
   pointer-events: none;
 }
 /* The fallback wave keeps the principles row rule's inset and lighter ink, like the painter. */
-section.sketch.list.principles > ol > li:not(:last-child)::after,
-section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
+section.sketch.list.principles > ol:where(:not([data-list="aside"])) > li:not(:last-child)::after,
+section.sketch.list.principles > .cell-stage > ol:where(:not([data-list="aside"])) > li:not(:last-child)::after {
   left: var(--list-rule-inset, 0px);
   background-color: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
 }
 /* The frame already draws the ledger's last edge — drop the last row's rule. */
-section.sketch.list-tabular > ol > li:last-child::after,
-section.sketch.list-tabular > .cell-stage > ol > li:last-child::after { display: none; }
+section.sketch.list-tabular > ol:where(:not([data-list="aside"])) > li:last-child::after,
+section.sketch.list-tabular > .cell-stage > ol:where(:not([data-list="aside"])) > li:last-child::after { display: none; }
 /* Same for the two table components, which this escape used to skip. Under `finish: sketch`
    the crisp `border-bottom` is turned transparent and the wave strip IS the row rule — so
    the strip under the LAST row is the table's outer bottom edge, and it collided with the
@@ -604,18 +604,18 @@ section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:
  * own CSS fallback and needs no pane rule here.) */
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane):not(.glossary)):has(> svg[data-lattice-rough-ink]) td:not(lat-pane td)::after,
 section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"]):not([data-pane="glossary"])) > .cell-stage > table td::after,
-section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol > li::after,
-section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol > li::after,
-section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after,
-section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > ol > li::after,
-section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol > li::after {
+section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol:where(:not([data-list="aside"])) > li::after,
+section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol:where(:not([data-list="aside"])) > li::after,
+section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol:where(:not([data-list="aside"])) > li::after,
+section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > ol:where(:not([data-list="aside"])) > li::after,
+section.sketch.list.principles:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol:where(:not([data-list="aside"])) > li::after {
   display: none;
 }
 section.sketch:where(:not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane)):has(> svg[data-lattice-rough-ink]) table:not(lat-pane table),
 section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane:where(:not([data-pane="matrix-grid"]):not([data-pane="roadmap"])) > .cell-stage > table,
-section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol,
-section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol,
-section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol {
+section.sketch:has(> svg[data-lattice-rough-ink]) lat-pane[data-pane="list-tabular"] > .cell-stage > ol:where(:not([data-list="aside"])),
+section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > ol:where(:not([data-list="aside"])),
+section.sketch.list-tabular:has(> svg[data-lattice-rough-ink]) > .cell-stage > ol:where(:not([data-list="aside"])) {
   border-color: transparent;
 }
 /* NOTE — there is deliberately NO rule here clearing cells' LEFT/RIGHT
@@ -661,17 +661,17 @@ section.sketch.quote blockquote {
 }
 section.sketch.redline > blockquote,
 section.sketch.redline > .cell-stage > blockquote,
-section.sketch.checklist > ol > li,
-section.sketch.checklist > .cell-stage > ol > li {
+section.sketch.checklist > ol:where(:not([data-list="aside"])) > li,
+section.sketch.checklist > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   border-radius: 4px 225px 15px 4px / 4px 15px 225px 4px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
 }
-section.sketch.actors > ul > li,
-section.sketch.actors > ol > li,
-section.sketch.actors > .cell-stage > ul > li,
-section.sketch.actors > .cell-stage > ol > li,
-section.sketch.list > ul > li,
-section.sketch.list > .cell-stage > ul > li {
+section.sketch.actors > ul:where(:not([data-list="aside"])) > li,
+section.sketch.actors > ol:where(:not([data-list="aside"])) > li,
+section.sketch.actors > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.sketch.actors > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.sketch.list > ul:where(:not([data-list="aside"])) > li,
+section.sketch.list > .cell-stage > ul:where(:not([data-list="aside"])) > li {
   border-radius: 255px 12px 225px 15px / 15px 225px 15px 255px;
   box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 30%, transparent);
 }
@@ -782,8 +782,8 @@ section.sketch.split-panel .panel-right :is(p, li, strong) {
 
 /* checklist: a full 7-row list plus the per-row offset-ink shadow runs the
  * last row into the footer. Tighten the inter-row gap so the set clears it. */
-section.sketch.checklist > :is(ul, ol),
-section.sketch.checklist > .cell-stage > :is(ul, ol) {
+section.sketch.checklist > :is(ul, ol):where(:not([data-list="aside"])),
+section.sketch.checklist > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
   gap: var(--sp-xs);
 }
 
@@ -801,25 +801,25 @@ section.sketch.agenda {
 }
 /* Numerals in the hand display face (harmless on the markless ::before of
  * checks/active-ledger, which carry no text). */
-section.sketch.agenda > ol > li::before,
-section.sketch.agenda > .cell-stage > ol > li::before { font-family: var(--sketch-font-display); }
+section.sketch.agenda > ol:where(:not([data-list="aside"])) > li::before,
+section.sketch.agenda > .cell-stage > ol:where(:not([data-list="aside"])) > li::before { font-family: var(--sketch-font-display); }
 
 /* Ledger — the active "you are here" rule bends into a pen stroke. Scoped to
  * ledger only (:not the styled variants): checks reuses the active row's
  * ::after for its arrow at the same nth-child, so an unscoped rule would
  * overwrite that arrow with this horizontal wave strip. */
-section.sketch.agenda:not(.circles):not(.checks).progress-1 > ol > li:nth-child(1)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-1 > .cell-stage > ol > li:nth-child(1)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-2 > ol > li:nth-child(2)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-2 > .cell-stage > ol > li:nth-child(2)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-3 > ol > li:nth-child(3)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-3 > .cell-stage > ol > li:nth-child(3)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-4 > ol > li:nth-child(4)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-4 > .cell-stage > ol > li:nth-child(4)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-5 > ol > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-5 > .cell-stage > ol > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-6 > ol > li:nth-child(6)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-6 > .cell-stage > ol > li:nth-child(6)::after {
+section.sketch.agenda:not(.circles):not(.checks).progress-1 > ol:where(:not([data-list="aside"])) > li:nth-child(1)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-1 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(1)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-2 > ol:where(:not([data-list="aside"])) > li:nth-child(2)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-2 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(2)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-3 > ol:where(:not([data-list="aside"])) > li:nth-child(3)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-3 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(3)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-4 > ol:where(:not([data-list="aside"])) > li:nth-child(4)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-4 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(4)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-5 > ol:where(:not([data-list="aside"])) > li:nth-child(5)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-5 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(5)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-6 > ol:where(:not([data-list="aside"])) > li:nth-child(6)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-6 > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(6)::after {
   height: 7px;
   -webkit-mask: var(--sketch-wave) repeat-x center / 140px 7px;
   mask: var(--sketch-wave) repeat-x center / 140px 7px;
@@ -859,16 +859,16 @@ section.sketch.agenda:not(.circles):not(.checks).progress-6:has(> svg[data-latti
 }
 
 /* circles — hand-drawn rings with an offset ink + a per-row tilt. */
-section.sketch.agenda.circles > ol > li::before,
-section.sketch.agenda.circles > .cell-stage > ol > li::before {
+section.sketch.agenda.circles > ol:where(:not([data-list="aside"])) > li::before,
+section.sketch.agenda.circles > .cell-stage > ol:where(:not([data-list="aside"])) > li::before {
   border-color: var(--sketch-ink);
   border-radius: 47% 53% 49% 51% / 53% 47% 52% 48%;
   box-shadow: 1.5px 2px 0 -1px color-mix(in srgb, var(--sketch-ink) 26%, transparent);
 }
-section.sketch.agenda.circles > ol > li:nth-child(odd)::before,
-section.sketch.agenda.circles > .cell-stage > ol > li:nth-child(odd)::before { transform: rotate(-2deg); }
-section.sketch.agenda.circles > ol > li:nth-child(even)::before,
-section.sketch.agenda.circles > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(2deg); }
+section.sketch.agenda.circles > ol:where(:not([data-list="aside"])) > li:nth-child(odd)::before,
+section.sketch.agenda.circles > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(odd)::before { transform: rotate(-2deg); }
+section.sketch.agenda.circles > ol:where(:not([data-list="aside"])) > li:nth-child(even)::before,
+section.sketch.agenda.circles > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(even)::before { transform: rotate(2deg); }
 
 /* checks — hand-drawn boxes. The "current" arrow lives inside a small filled
  * box; the bowed hand arrow muddies at that knockout scale, so checks keeps
@@ -876,13 +876,13 @@ section.sketch.agenda.circles > .cell-stage > ol > li:nth-child(even)::before { 
 section.sketch.agenda.checks {
   --ag-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 9 H21 M14 3 L21 9 L14 15' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
-section.sketch.agenda.checks > ol > li::before,
-section.sketch.agenda.checks > .cell-stage > ol > li::before {
+section.sketch.agenda.checks > ol:where(:not([data-list="aside"])) > li::before,
+section.sketch.agenda.checks > .cell-stage > ol:where(:not([data-list="aside"])) > li::before {
   border-color: var(--sketch-ink);
   border-radius: 5px 13px 6px 12px / 12px 6px 13px 5px;
 }
-section.sketch.agenda.checks > ol > li:nth-child(odd)::before,
-section.sketch.agenda.checks > .cell-stage > ol > li:nth-child(odd)::before { transform: rotate(-1.5deg); }
-section.sketch.agenda.checks > ol > li:nth-child(even)::before,
-section.sketch.agenda.checks > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(1.5deg); }
+section.sketch.agenda.checks > ol:where(:not([data-list="aside"])) > li:nth-child(odd)::before,
+section.sketch.agenda.checks > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(odd)::before { transform: rotate(-1.5deg); }
+section.sketch.agenda.checks > ol:where(:not([data-list="aside"])) > li:nth-child(even)::before,
+section.sketch.agenda.checks > .cell-stage > ol:where(:not([data-list="aside"])) > li:nth-child(even)::before { transform: rotate(1.5deg); }
 

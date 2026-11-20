@@ -34,7 +34,7 @@ section.logo-wall > .cell-stage {
 
 /* The headline block (eyebrow + h2) keeps its natural height at the top;
  * the wall grows to fill the remaining canvas and centers its rows. */
-section.logo-wall > .cell-stage > ul {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"])) {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -52,7 +52,7 @@ section.logo-wall > .cell-stage > ul {
   align-items: center;
 }
 
-section.logo-wall > .cell-stage > ul > li {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"])) > li {
   /* `width` (not a flex-shorthand calc basis, which renders unreliably) tiles N marks/row. */
   width: calc((100% - (var(--logo-cols) - 1) * var(--logo-col-gap)) / var(--logo-cols));
   flex: 0 0 auto;
@@ -75,7 +75,7 @@ section.logo-wall > .cell-stage > ul > li {
  * one cohesive wall that re-tones per theme and per color-mode via `light-dark()`,
  * AA on both grounds. `--logo-ink` defaults to the AA `--text-secondary`; the
  * `color` variant overrides it per mark with categorical `--cat-*-mark` hues. */
-section.logo-wall > .cell-stage > ul > li > .logo-mark {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"])) > li > .logo-mark {
   width: 100%;
   height: var(--logo-cell-h);
   -webkit-mask-image: var(--logo-mask);
@@ -94,7 +94,7 @@ section.logo-wall > .cell-stage > ul > li > .logo-mark {
  * currentColor`, so it takes the SAME `--logo-ink` token via `color` — identical
  * color to the preview, but a robust vector in every PDF viewer. Turn the
  * mask/background treatment off and let the inline svg paint instead. */
-section.logo-wall > .cell-stage > ul > li > .logo-mark-svg {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"])) > li > .logo-mark-svg {
   -webkit-mask-image: none;
   mask-image: none;
   background-color: transparent;
@@ -103,7 +103,7 @@ section.logo-wall > .cell-stage > ul > li > .logo-mark-svg {
   align-items: center;
   justify-content: center;
 }
-section.logo-wall > .cell-stage > ul > li > .logo-mark-svg > svg {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"])) > li > .logo-mark-svg > svg {
   width: 100%;
   height: 100%;
   display: block;
@@ -117,7 +117,7 @@ section.logo-wall > .cell-stage > ul > li > .logo-mark-svg > svg {
  * Both optional, in any combination. Substance is prose, so this is pure
  * structure + CSS — no transform. The nested <ul> is a centered column; a plain
  * <li> is the name, a `{…}` pill inside an <li> is the chip, drawn by the pills plugin. */
-section.logo-wall > .cell-stage > ul > li > ul {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul {
   list-style: none;
   padding: 0;
   width: 100%;
@@ -129,7 +129,7 @@ section.logo-wall > .cell-stage > ul > li > ul {
 
 /* The name — a restrained caption that stays subordinate to the mark, in the
  * same muted register so the wall still reads as one texture. */
-section.logo-wall > .cell-stage > ul > li > ul > li {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li {
   font-size: var(--fs-meta);
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -140,10 +140,10 @@ section.logo-wall > .cell-stage > ul > li > ul > li {
 
 /* The pill — a metadata chip below the name, drawn by the pills plugin. The wall reads as one
  * quiet texture, so the chip takes the caption's muted ink and no fill. */
-section.logo-wall > .cell-stage > ul > li > ul > li > .lat-pill {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li > .lat-pill {
   --lat-pill-cap: 1;   /* as large as the name above it, not 0.85 of it */
 }
-section.logo-wall > .cell-stage > ul > li > ul > li > .lat-pill:not([data-c]) {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li > .lat-pill:not([data-c]) {
   --lat-pill-ink: var(--text-muted);
   --lat-pill-bg: transparent;
 }
@@ -166,18 +166,18 @@ section.logo-wall.dense > .cell-stage {
  * authored `fill: currentColor`. That is a graphical object, so WCAG 1.4.11's 3:1
  * is the bar it answers to, and 3:1 is exactly what --cat-N-mark is gated at.
  * Moving it to the ink tier would only darken the brand marks, for no gain. */
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 1)  > .logo-mark { --logo-ink: var(--cat-1-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 2)  > .logo-mark { --logo-ink: var(--cat-2-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 3)  > .logo-mark { --logo-ink: var(--cat-3-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 4)  > .logo-mark { --logo-ink: var(--cat-4-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 5)  > .logo-mark { --logo-ink: var(--cat-5-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 6)  > .logo-mark { --logo-ink: var(--cat-6-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 7)  > .logo-mark { --logo-ink: var(--cat-7-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 8)  > .logo-mark { --logo-ink: var(--cat-8-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 9)  > .logo-mark { --logo-ink: var(--cat-9-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 10) > .logo-mark { --logo-ink: var(--cat-10-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 11) > .logo-mark { --logo-ink: var(--cat-11-mark); }
-section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 12) > .logo-mark { --logo-ink: var(--cat-12-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 1)  > .logo-mark { --logo-ink: var(--cat-1-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 2)  > .logo-mark { --logo-ink: var(--cat-2-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 3)  > .logo-mark { --logo-ink: var(--cat-3-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 4)  > .logo-mark { --logo-ink: var(--cat-4-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 5)  > .logo-mark { --logo-ink: var(--cat-5-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 6)  > .logo-mark { --logo-ink: var(--cat-6-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 7)  > .logo-mark { --logo-ink: var(--cat-7-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 8)  > .logo-mark { --logo-ink: var(--cat-8-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 9)  > .logo-mark { --logo-ink: var(--cat-9-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 10) > .logo-mark { --logo-ink: var(--cat-10-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 11) > .logo-mark { --logo-ink: var(--cat-11-mark); }
+section.logo-wall.color > .cell-stage > ul:where(:not([data-list="aside"])) > li:nth-child(12n + 12) > .logo-mark { --logo-ink: var(--cat-12-mark); }
 
 /* Dark canvas needs no mark override: `--text-secondary` / `--cat-*-mark` and the
  * caption tokens (--text-muted, --pill-*) all resolve through `light-dark()`, so
@@ -192,7 +192,7 @@ section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 12) > .logo-mark
    That was forced under the retired `@container` form (§11 — a query cannot style
    its own container); #1218 lifted the constraint, but the descendant form is
    correct and stays. */
-section.logo-wall.logo-wall:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+section.logo-wall.logo-wall:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) {
   --logo-cols: 2;
   --logo-col-gap: var(--sp-xl);
   /* Cohesive centered cluster — the marks read as one wall held in the slide's
@@ -202,7 +202,7 @@ section.logo-wall.logo-wall:where([data-family="tall"], [data-family="strip"]) >
   column-gap: var(--sp-xl);
 }
 /* dense carries twice the roster — keep it denser than the default wall. */
-section.logo-wall.dense:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul { --logo-cols: 3; }
+section.logo-wall.dense:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) { --logo-cols: 3; }
 
 /* ── Equal visual weight (lib/core/logo-wall-pack.js).
    Once every mark's shape is known, the packer gives each mark the same AREA unless that would
@@ -219,10 +219,10 @@ section.logo-wall.dense:where([data-family="tall"], [data-family="strip"]) > .ce
    first visit paints once instead of drawing the grid and jumping into rows. Safe because the Studio's
    exports wait for the measure (docs/src/components/studio/export/deck-export.js waitForMeasuring)
    and never bake a list in this state. */
-section.logo-wall > .cell-stage > ul[data-logo-wall="measuring"] {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"]))[data-logo-wall="measuring"] {
   visibility: hidden;
 }
-section.logo-wall > .cell-stage > ul[data-logo-wall="packed"] {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"]))[data-logo-wall="packed"] {
   /* cqi of the stage, whose width is the list's: the unit every stamped fraction is in. */
   column-gap: calc(var(--logo-gx) * 100cqi);
   row-gap: calc(var(--logo-gy) * 100cqi);
@@ -230,13 +230,13 @@ section.logo-wall > .cell-stage > ul[data-logo-wall="packed"] {
    * captions up. */
   align-items: flex-start;
 }
-section.logo-wall > .cell-stage > ul[data-logo-wall="packed"] > li {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"]))[data-logo-wall="packed"] > li {
   width: calc((var(--logo-cell) + var(--logo-ps, 0) + var(--logo-pe, 0)) * 100%);
   /* A packed row is as tall as its tallest mark: the packer planned the wall's height that way. */
   min-height: 0;
   padding-inline: calc(var(--logo-ps, 0) * 100%) calc(var(--logo-pe, 0) * 100%);
 }
-section.logo-wall > .cell-stage > ul[data-logo-wall="packed"] > li > .logo-mark {
+section.logo-wall > .cell-stage > ul:where(:not([data-list="aside"]))[data-logo-wall="packed"] > li > .logo-mark {
   box-sizing: content-box;
   width: calc(var(--logo-mw) * 100%);
   height: auto;

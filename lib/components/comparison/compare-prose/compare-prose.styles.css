@@ -37,13 +37,13 @@ section.compare-prose .connector { display:flex; align-items:center; justify-con
  * not a property of the PDF. Do not add one back. */
 
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
-section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
+section.compare-prose > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
 
 /* ── COMPARISON ──────────────────────────────────────────────────────────────
  * ul/ol > li (nested list format) → side-by-side cards with → connector         */
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol {
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul:where(:not([data-list="aside"])),
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) {
   /* Dedicated connector SLOT, flex-native. The `❯` is a REAL flex item (not an
    * absolute chevron floated at 50/50 with a `var(--bg)` chip painted over the gap to
    * mask it). `order` brackets it between the two cards — card · connector · card —
@@ -65,8 +65,8 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol {
   gap:var(--sp-lg);
   list-style:none; padding:0; margin:0; position:relative;
 }
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul::before,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol::before {
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul:where(:not([data-list="aside"]))::before,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"]))::before {
   /* DRAWN, not typed (HARD RULE #29) — `❯` is U+276F, which no text face in the
    * stack carries, so it used to arrive from whatever fallback font the machine
    * happened to have. The box is sized in `em` off the same --fs-h3 tier the
@@ -80,8 +80,8 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol::before
   -webkit-mask:var(--shape-chevron-right) var(--shape-paint);
           mask:var(--shape-chevron-right) var(--shape-paint);
 }
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   flex:1; background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
   --card-tag-rest:var(--sp-sm);
@@ -94,22 +94,22 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
  * right and ran past the stage, which clips: the axis slide's split pages at square@hall lost the card's right
  * edge (151px of connector and gap ahead of a 700px card). A connector between one card and nothing says
  * nothing, so it goes. */
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):has(> li:only-child)::before {
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):has(> li:only-child)::before {
   display: none;
 }
 /* Cards bracket the connector slot: first before it, second after it. */
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:first-child { order:1; }
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:last-child { order:3; }
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li > strong,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li > strong { display:block; }
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li > ul,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li > ol,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li > ul,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li > ol { list-style:none; padding:var(--sp-xs) 0 0 0; margin:0; width:100%; }
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li > ul > li,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li > ol > li,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li > ul > li,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:first-child { order:1; }
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:last-child { order:3; }
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong { display:block; }
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol { list-style:none; padding:var(--sp-xs) 0 0 0; margin:0; width:100%; }
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol > li,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 
 /* ── Compare-prose family modifiers — appended Phase 7 ──
  */
@@ -136,8 +136,8 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li > 
  * `li:first-child` (considered) and `li:last-child` (the choice). */
 
 /* chosen: the second card is the winner — accent-soft fill + accent edge. */
-section.compare-prose.chosen > .cell-stage > :is(ul, ol) > li:last-child,
-section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:last-child {
+section.compare-prose.chosen > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:last-child,
+section.compare-prose.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:last-child {
   border-color: var(--on-accent-soft);
   border-left: 4px solid var(--on-accent-soft);
   background: var(--accent-soft);
@@ -146,10 +146,10 @@ section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:last-child {
 /* rejected: the second card is the option dropped — dimmed card + struck tag. A LONE card (a split page, or one
  * option) is never the loser: there is nothing it lost to, so `:not(:only-child)` keeps it at full strength.
  * decision's losing first card below takes the same guard; a lone card there keeps the winner's fill. */
-section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child:not(:only-child) {
+section.compare-prose.rejected > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:last-child:not(:only-child) {
   color: var(--text-secondary);
 }
-section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child:not(:only-child) > strong:first-child {
+section.compare-prose.rejected > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:last-child:not(:only-child) > strong:first-child {
   text-decoration: line-through;
 }
 
@@ -163,13 +163,13 @@ section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child:not(:
  * which started far higher, sailed through. The wash was also doing no work the design
  * needs: the winner is already marked by an --accent-soft fill and an accent edge, and
  * the loser's label is already struck through. So the card recedes by ink alone. */
-section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child:not(:only-child) {
+section.compare-prose.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:first-child:not(:only-child) {
   color: var(--text-secondary);
 }
-section.compare-prose.decision > .cell-stage > :is(ul, ol) > li:first-child:not(:only-child) > strong:first-child {
+section.compare-prose.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:first-child:not(:only-child) > strong:first-child {
   text-decoration: line-through;
 }
-section.compare-prose.decision > .cell-stage > :is(ul, ol)::before {
+section.compare-prose.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before {
   color: var(--accent);
   font-weight: 700;
   font-size: var(--fs-h2);
@@ -177,7 +177,7 @@ section.compare-prose.decision > .cell-stage > :is(ul, ol)::before {
    * in the divide instead of bleeding onto the adjacent cards. */
   padding: 0 var(--sp-lg);
 }
-section.compare-prose.decision > .cell-stage > :is(ul, ol)::after {
+section.compare-prose.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::after {
   content: 'DECISION';
   position: absolute;
   left: 50%;
@@ -193,7 +193,7 @@ section.compare-prose.decision > .cell-stage > :is(ul, ol)::after {
 }
 /* The label names the connector, so a one-card list (a split page, or a lone card) drops it with the connector:
  * left alone it floated in the middle of the card, where a longer body runs into it. */
-section.compare-prose.decision > .cell-stage > :is(ul, ol):has(> li:only-child)::after {
+section.compare-prose.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):has(> li:only-child)::after {
   display: none;
 }
 
@@ -201,10 +201,10 @@ section.compare-prose.decision > .cell-stage > :is(ul, ol):has(> li:only-child):
  * them (flex column — the cards' order:1/3 + connector order:2 carry over from the
  * base), chevron rotated to point down. The two cards split the bounded stage and
  * fill it — matching the horizontal default. */
-section.compare-prose.vertical > .cell-stage > :is(ul, ol) {
+section.compare-prose.vertical > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
   flex-direction: column;
 }
-section.compare-prose.vertical > .cell-stage > :is(ul, ol)::before {
+section.compare-prose.vertical > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before {
   transform: rotate(90deg);
 }
 
@@ -258,13 +258,13 @@ section.compare-prose.transition .compare-prose-inner .connector::after {
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
 }
-section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
+section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before {
   background-color: var(--accent);
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
 }
 section.compare-prose.transition .compare-prose-inner .card:nth-child(3),
-section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:last-child {
+section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:last-child {
   border-color: var(--on-accent-soft); background: var(--accent-soft);
 }
 
@@ -319,7 +319,7 @@ section.compare-prose.axis > .cell-stage > p:first-child {
  * column or it grows a fourth line and clips the stage. The cap still does its
  * job — it holds the pair as a centered group instead of letting it span the
  * full frame — it's just set for OUR type tier. */
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
   max-width: 72cqi;
   align-self: center;
   width: 100%;
@@ -328,14 +328,14 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
  * card: at portrait@hall a 700px card wrapped "You can do the cognitive work" two words a line and ran 93px past
  * the stage on its split page (218px for the second facet, whose title took two lines too). The cards take the
  * stage's width there. */
-section.compare-prose.axis:where([data-family="tall"], [data-family="strip"]):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) {
+section.compare-prose.axis:where([data-family="tall"], [data-family="strip"]):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
   max-width: none;
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before {
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
   align-content: center;
   justify-items: center;
   text-align: center;
@@ -349,13 +349,13 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
  *      - the body
  * upper-roman because this variant pairs two FACETS of one idea (I / II), where
  * arabic would read as sequence. */
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) {
   counter-reset: axis-facet var(--lat-split-offset, 0);
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   counter-increment: axis-facet;
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li::before {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before {
   content: counter(axis-facet, upper-roman);
   font-family: var(--font-display);
   font-size: var(--fs-h1);
@@ -367,7 +367,7 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
 /* And the numeral steps one tier down there: at hall type --fs-h1 is ~110px of a stacked card, and on the second
  * facet's split page (the heading's "(cont.)" on a line of its own, the next-page chip under the card) that tier
  * was the last 19px the page did not have. --fs-h2 still out-sizes the card title. */
-section.compare-prose.axis:where([data-family="tall"], [data-family="strip"]):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li::before {
+section.compare-prose.axis:where([data-family="tall"], [data-family="strip"]):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li::before {
   font-size: var(--fs-h2);
 }
 /* `axis` opts OUT of the family's corner-tag recipe. That recipe lifts a card's
@@ -380,10 +380,10 @@ section.compare-prose.axis:where([data-family="tall"], [data-family="strip"]):no
  * --sp-lg of top space for a flush corner tag this variant does not render, so
  * on an opted-out card that reserve is dead space — and it was 16px of the 39px
  * this stage overran at design size. */
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) {
   padding-top: var(--sp-xs);
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child {
   position: static;
   background: none;
   padding: 0 0 var(--sp-xs);
@@ -401,19 +401,19 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   line-height: 1;   /* the tag kernel sets --card-tag-lh; a title keeps its own */
   text-align: center;
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > strong {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > strong {
   display: block;
   font-size: var(--fs-h3);
   font-weight: 700;
   color: var(--text-heading);
   padding-bottom: var(--sp-xs);
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) {
   list-style: none;
   padding: 0;
   margin: 0;
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) > li {
   font-size: var(--fs-body);
   font-weight: 400;
   color: var(--text-body);
@@ -430,7 +430,7 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
    and rotate the chevron to point down — so a tall or strip deck reads the pair top-to-bottom. Keyed on the deck's `data-family` stamp. Targets the live DOM (`:not(:has(.compare-prose-inner))`), matching the
    base layout; the doubled class `.compare-prose.compare-prose` holds specificity
    over the base flex-row rule. */
-section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) {
   /* mirror `.vertical` — flex column, the connector slot is the divider row (cards
      order:1/3 + connector order:2 carry from the base). */
   flex-direction: column;
@@ -443,17 +443,17 @@ section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-
    card's statement vertically (the corner tag is an absolute top-left badge, so it
    stays put) so the body owns the card's optical middle instead of a short line
    stranded at the top over empty space. */
-section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li {
   align-content: center;
 }
 /* One side per full-width card. Its statement reads at --fs-body, the one reading size
    (typography.md §7), as it does in the wide family: two sides are reading text, not a
    one-per-slide lead line. It read at --fs-message here before. */
-section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li > :is(ul, ol) > li {
   font-size: var(--fs-body);
   line-height: var(--lh-snug);
 }
-section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before {
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"]))::before {
   transform: rotate(90deg);
 }
 
@@ -507,7 +507,7 @@ section.compare-split-points .split-pt-b { color: var(--text-body); font-size: v
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
 section.compare-prose .compare-prose-inner .card,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   box-shadow: var(--elevation-card);
 }
 section.compare-prose > .cell-stage {
@@ -519,7 +519,7 @@ section.compare-prose > .cell-stage {
  * one line) and the register decides whether the panes stretch or sit at text height.
  * `vertical` and tall/strip frames stack the panes and are left alone. `decision` is left out
  * too: its DECISION label is placed at the stage's mid-height, so moving the panes strands it. */
-section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol),
+section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])),
 section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) .compare-prose-inner {
   flex-wrap: wrap; align-content: var(--cards-align);
 }
@@ -527,7 +527,7 @@ section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tal
  * the stage clip (stage-clip-chrome-shear.test.js). Capping each card's border box at the row keeps the
  * line inside the stage, as the one-line row did; `min-width: 0` stops a long word from
  * pushing a pane onto a second line. */
-section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol) > li,
+section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li,
 section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) .compare-prose-inner > * {
   min-width: 0; max-height: 100%; box-sizing: border-box;
 }
@@ -536,9 +536,9 @@ section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tal
  * squeeze below 28em of the content area (a side under about 11.5em): there the pair stacks
  * and the chevron points down, the form a tall deck gets. */
 @container lat-cards (width < 28em) {
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
+  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) {
     flex-direction: column; gap: var(--sp-2xl); --lat-narrow: 1;
   }
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li { align-content: center; }
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held)::before { transform: rotate(90deg); }
+  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held) > li { align-content: center; }
+  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held)::before { transform: rotate(90deg); }
 }

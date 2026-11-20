@@ -20,7 +20,7 @@
 section.cards-stack > .cell-stage { display:flex; flex-direction:column; }
 
 /* shared visual contract — both raw and post-processed */
-section.cards-stack > .cell-stage > ul, section.cards-stack > .cell-stage > ol,
+section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])), section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])),
 section.cards-stack .cards-stack-inner {
   display:flex; flex-direction:column; gap:var(--sp-sm);
   /* flex:1 fills the stage; min-height:0 lets the stack shrink to the bounded stage
@@ -28,7 +28,7 @@ section.cards-stack .cards-stack-inner {
    * bodies — without it the default min-height:auto floor clipped the last card. */
   flex:1; min-height:0; list-style:none; margin:0; padding:0;
 }
-section.cards-stack > .cell-stage > ul > li, section.cards-stack > .cell-stage > ol > li,
+section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li, section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.cards-stack .card {
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
@@ -45,32 +45,32 @@ section.cards-stack .card {
   font-size:var(--fs-body); line-height:var(--lh-snug);
   font-weight:700; color:var(--text-heading);
 }
-section.cards-stack > .cell-stage > ul > li::marker, section.cards-stack > .cell-stage > ol > li::marker { content:''; }
+section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li::marker, section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::marker { content:''; }
 
 /* — title strong: backwards-compat shim. Legacy slides that wrap the title in
  *   `**…**` render identically; the strong simply inherits the li's bold. — */
-section.cards-stack > .cell-stage > ul > li > strong, section.cards-stack > .cell-stage > ol > li > strong,
+section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong, section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong,
 section.cards-stack .card > strong { font-weight:inherit; color:inherit; }
 
 /* — a pill on the title row, right-anchored by the card's `space-between`. The author writes it
  *   with the pills plugin's notation (`` `{shipped}` ``) and the plugin draws it; the stack only
  *   places it on the title's baseline. A top-level `li` and the emulator's `.card` (which is not
  *   inside a ul/ol) both hold it as a direct child. — */
-section.cards-stack > .cell-stage > ul > li > .lat-pill, section.cards-stack > .cell-stage > ol > li > .lat-pill,
+section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > .lat-pill, section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > .lat-pill,
 section.cards-stack .card > .lat-pill {
   align-self:baseline;
 }
 
 /* — card body (nested list) wraps full-width below the title row, reset to
  *   normal weight and body color so only the title reads bold. — */
-section.cards-stack > .cell-stage > ul > li > ul, section.cards-stack > .cell-stage > ul > li > ol,
-section.cards-stack > .cell-stage > ol > li > ul, section.cards-stack > .cell-stage > ol > li > ol,
+section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul, section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol,
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul, section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol,
 section.cards-stack .card > ul, section.cards-stack .card > ol {
   flex-basis:100%; list-style:none; padding:var(--sp-xs) 0 0 0;
   font-weight:400; color:var(--text-body); line-height:var(--lh-base);
 }
-section.cards-stack > .cell-stage > ul > li > ul > li, section.cards-stack > .cell-stage > ul > li > ol > li,
-section.cards-stack > .cell-stage > ol > li > ul > li, section.cards-stack > .cell-stage > ol > li > ol > li,
+section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li, section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol > li,
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > ul > li, section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li > ol > li,
 section.cards-stack .card > ul > li, section.cards-stack .card > ol > li {
   font-size:var(--fs-body);
 }
@@ -83,13 +83,13 @@ section.cards-stack .card > ul > li, section.cards-stack .card > ol > li {
  * vertically or flow as a row. ── */
 /* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
    without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
-section.cards-stack > .cell-stage > ol { counter-reset:stack var(--lat-split-offset, 0); }
-section.cards-stack > .cell-stage > ol > li {
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) { counter-reset:stack var(--lat-split-offset, 0); }
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   counter-increment:stack;
   --card-tag-gap: var(--sp-xs);   /* a stack row's own top padding; reserve in base.card-tag.css */
   --card-tag-rest: var(--sp-sm);   /* the row's own top padding, for a tag off the top */
 }
-section.cards-stack > .cell-stage > ol > li::before {
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::before {
   content:counter(stack);   /* geometry + color: lib/base/base.card-tag.css */
 }
 section.cards-stack .cards-stack-inner--ordered { counter-reset:stack var(--lat-split-offset, 0); }
@@ -107,8 +107,8 @@ section.cards-stack .cards-stack-inner--ordered > .card::before {
  * Default cards-stack flows the cards as a vertical stack (one per row).
  * `horizontal` flips to a horizontal row, useful when cards are short and
  * the slide reads left-to-right rather than top-to-bottom. ── */
-section.cards-stack.horizontal > .cell-stage > ul,
-section.cards-stack.horizontal > .cell-stage > ol,
+section.cards-stack.horizontal > .cell-stage > ul:where(:not([data-list="aside"])),
+section.cards-stack.horizontal > .cell-stage > ol:where(:not([data-list="aside"])),
 section.cards-stack.horizontal .cards-stack-inner {
   flex-direction: row;
   align-items: stretch;
@@ -132,12 +132,12 @@ section.cards-stack :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
 /* Portrait / square (social) — content-height cards distributed across the frame,
    not flex:1 balloons. Mirrors the list de-balloon; keyed on data-orientation. */
-section.cards-stack[data-orientation='portrait'] > .cell-stage > :is(ul,ol),
-section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) {
+section.cards-stack[data-orientation='portrait'] > .cell-stage > :is(ul,ol):where(:not([data-list="aside"])),
+section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol):where(:not([data-list="aside"])) {
   justify-content: var(--cards-align);
 }
-section.cards-stack[data-orientation='portrait'] > .cell-stage > :is(ul,ol) > li,
-section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
+section.cards-stack[data-orientation='portrait'] > .cell-stage > :is(ul,ol):where(:not([data-list="aside"])) > li,
+section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol):where(:not([data-list="aside"])) > li {
   flex: var(--cards-grow) 0 auto;
 }
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
@@ -145,24 +145,24 @@ section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
  * on the deck's `data-family` stamp so it fires on any square, tall or strip deck.
  * Doubled class matches the [data-orientation]
  * reflow's specificity. */
-section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) {
+section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol):where(:not([data-list="aside"])) {
   justify-content: var(--cards-align);
 }
-section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) > li {
+section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol):where(:not([data-list="aside"])) > li {
   flex: var(--cards-grow) 0 auto;
 }
 
 
 /* ── Struck elevation ── lift each card off the stage (see cards-grid). Zero-blur,
  * light-dark()-flipping `var(--elevation-card)` (base.tokens.css); PDF-safe. */
-section.cards-stack > .cell-stage > ul > li,
-section.cards-stack > .cell-stage > ol > li,
+section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])) > li,
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.cards-stack .card {
   box-shadow: var(--elevation-card);
 }
 /* Berth from the stage clip (see cards-grid). Padding, not margin (#20). */
-section.cards-stack > .cell-stage > ul,
-section.cards-stack > .cell-stage > ol,
+section.cards-stack > .cell-stage > ul:where(:not([data-list="aside"])),
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])),
 section.cards-stack .cards-stack-inner {
   padding: var(--elevation-berth);
 }
@@ -176,19 +176,19 @@ section.cards-stack .cards-stack-inner {
  * is the `space-evenly` they always had.
  * `horizontal` is a ROW: it wraps so `align-content` applies; the zero-basis cards still
  * share one line. */
-section.cards-stack:not(.horizontal) > .cell-stage > :is(ul, ol),
+section.cards-stack:not(.horizontal) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])),
 section.cards-stack:not(.horizontal) .cards-stack-inner {
   justify-content: var(--cards-align);
 }
-section.cards-stack:not(.horizontal):not(:where([data-family="square"], [data-family="tall"], [data-family="strip"], [data-orientation="portrait"], [data-orientation="square"])) > .cell-stage > :is(ul, ol) > li,
+section.cards-stack:not(.horizontal):not(:where([data-family="square"], [data-family="tall"], [data-family="strip"], [data-orientation="portrait"], [data-orientation="square"])) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li,
 section.cards-stack:not(.horizontal):not(:where([data-family="square"], [data-family="tall"], [data-family="strip"], [data-orientation="portrait"], [data-orientation="square"])) .cards-stack-inner > .card {
   flex: var(--cards-grow) 1 var(--cards-basis); min-height: 0;
 }
-section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol),
+section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])),
 section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) .cards-stack-inner {
   flex-wrap: wrap; align-content: var(--cards-align);
 }
-section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol) > li,
+section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li,
 section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) .cards-stack-inner > * {
   min-width: 0; max-height: 100%; box-sizing: border-box;
 }
@@ -197,7 +197,7 @@ section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="
  * and never wraps them (a zero basis keeps them on one line), so a narrow box squeezed each
  * card. Below 36em of the content area the row stacks back to the component's own column. */
 @container lat-cards (width < 36em) {
-  section.cards-stack.cards-stack.horizontal > .cell-stage > :is(ul, ol):not(.lat-reflow-held),
+  section.cards-stack.cards-stack.horizontal > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])):not(.lat-reflow-held),
   section.cards-stack.cards-stack.horizontal .cards-stack-inner:not(.lat-reflow-held) {
     flex-direction: column; flex-wrap: nowrap; --lat-narrow: 1;
   }

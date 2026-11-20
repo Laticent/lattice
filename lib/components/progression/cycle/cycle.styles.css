@@ -29,7 +29,7 @@ section.cycle > .cell-stage {
 
 /* ── The ring: a row of equal-height stage nodes, with room below for the
  *    return arc (reserved with padding — measurable by the overflow probe). ── */
-section.cycle > .cell-stage > ul {
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) {
   /* WHERE THE REPEAT MARK SITS, as a background-position pair — read by the
    * arc's mask below to open a hole exactly there. It lives on the `ul` and not
    * on either pseudo on purpose: the arc and the mark are two different
@@ -67,7 +67,7 @@ section.cycle > .cell-stage > ul {
 
 /* ── A stage node. The first text line is the stage name (auto-bold via the
  *    li's own weight, the card idiom); the nested bullet is the body clause. ── */
-section.cycle > .cell-stage > ul > li {
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > li {
   flex: 1 1 0;
   min-width: 0;
   box-sizing: border-box;
@@ -91,7 +91,7 @@ section.cycle > .cell-stage > ul > li {
  * (The pseudo it replaced was `1em` of `--fs-h3` placed into a `--sp-lg` gap that a
  * `venue-*` class does not scale, so at hall it painted over the next card.) The mark
  * is an inline SVG that draws in `currentColor`, scaled by its box. */
-section.cycle > .cell-stage > ul > .cycle-link {
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > .cycle-link {
   /* The viewBox is cropped to the chevron's ink (11 × 19), so the box is exactly the
    * mark: long side = the heading size, short side = that × 11/19. The slot reserved
    * between two cards is therefore the chevron and nothing more. */
@@ -105,14 +105,14 @@ section.cycle > .cell-stage > ul > .cycle-link {
   color: var(--accent);
   position: relative;
 }
-section.cycle > .cell-stage > ul > .cycle-link > svg {
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > .cycle-link > svg {
   display: block;
   width: 100%;
   height: 100%;
 }
 /* The stroke lives here, not on the path's attributes: the transform ships in the engine
  * bundle, and every attribute it does not write is a byte it does not cost. */
-section.cycle > .cell-stage > ul > .cycle-link path {
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > .cycle-link path {
   fill: none;
   stroke: currentColor;
   stroke-width: 2.6;
@@ -134,7 +134,7 @@ section.cycle > .cell-stage > ul > .cycle-link path {
  * as a pale rectangle over any finish or backdrop, where a hole shows whatever
  * is actually behind the slide. Mask alpha only — `black` here is opacity, not
  * paint, so the arc's color is still var(--accent) (HARD RULE #3). */
-section.cycle > .cell-stage > ul::after {
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"]))::after {
   content: "";
   position: absolute;
   left: var(--sp-md);
@@ -149,7 +149,7 @@ section.cycle > .cell-stage > ul::after {
   -webkit-mask: radial-gradient(circle at var(--cycle-notch), transparent 0 0.85em, black 0.85em);
           mask: radial-gradient(circle at var(--cycle-notch), transparent 0 0.85em, black 0.85em);
 }
-section.cycle > .cell-stage > ul::before {
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"]))::before {
   /* DRAWN, not typed (HARD RULE #29) — the repeat mark seats in the gap the arc
    * above punches for it. */
   content: "";
@@ -170,21 +170,21 @@ section.cycle > .cell-stage > ul::before {
 }
 
 /* ── The stage body — the nested clause under the name. ── */
-section.cycle > .cell-stage > ul > li > ul,
-section.cycle > .cell-stage > ul > li > ol {
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul,
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol {
   list-style: none;
   padding: var(--sp-xs) 0 0 0;
 }
-section.cycle > .cell-stage > ul > li > ul > li,
-section.cycle > .cell-stage > ul > li > ol > li {
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li,
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > li > ol > li {
   font-weight: 400;
   color: var(--text-body);
   font-size: var(--fs-body);
   line-height: var(--lh-base);
 }
 /* backwards-compat: an explicit `**Name**` shim shouldn't bold its siblings. */
-section.cycle > .cell-stage > ul > li > strong { font-weight: 700; }
-section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong { font-weight: 700; }
+section.cycle > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong ~ * { font-weight: 400; }
 
 /* ── Reflow: a narrow / portrait frame stacks the ring vertically. The forward
  *    connector becomes a down-chevron between rows; the return arc runs up the
@@ -197,7 +197,7 @@ section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
  *    saw the result — which is a 4-stage stack whose last card and return arc fall
  *    off the frame. Verified: gallery `cycle` at `size: square` overflows with
  *    square in this set and fits without it. ── */
-section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) {
   flex-direction: column;
   padding: 0 0 0 var(--sp-xl);
   /* The arc stands up on the LEFT edge here and the mark moves to its vertical
@@ -207,13 +207,13 @@ section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage >
    * edge: at `left:0` a 1em mark hangs off the stage and gets clipped. */
   --cycle-notch: 50% 50%;
 }
-section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > .cycle-link {
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) > .cycle-link {
   /* The tall/strip families turn the connector down the column: the slot is short and
    * wide, and the same chevron is turned a quarter and centered in it. */
   width: var(--cycle-link-long);
   height: var(--cycle-link-short);
 }
-section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > .cycle-link > svg {
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) > .cycle-link > svg {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -221,7 +221,7 @@ section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage >
   height: var(--cycle-link-long);
   transform: translate(-50%, -50%) rotate(90deg);
 }
-section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul::after {
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"]))::after {
   left: 0;
   right: auto;
   top: var(--sp-md);
@@ -232,7 +232,7 @@ section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage >
   border-right: none;
   border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
-section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul::before {
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"]))::before {
   /* Centered ON the vertical arc (which spans x 0 … --sp-lg), not on its left
    * edge — so the whole mark is inside the stage and the arc's hole, which sits
    * at --cycle-notch 50% 50%, is concentric with it. */
@@ -251,16 +251,16 @@ section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage >
  * (lib/core/relationship.js, §8 rule 12a). So the arc is suppressed on split pages and the
  * chevron between stages goes with it (there is no next stage on the page to point at).
  * The unsplit ring is untouched. */
-section.cycle.lat-split-native > .cell-stage > ul::after,
-section.cycle.lat-split-native > .cell-stage > ul::before {
+section.cycle.lat-split-native > .cell-stage > ul:where(:not([data-list="aside"]))::after,
+section.cycle.lat-split-native > .cell-stage > ul:where(:not([data-list="aside"]))::before {
   content: none;
 }
-section.cycle.lat-split-native > .cell-stage > ul > .cycle-link { display: none; }
-section.cycle.lat-split-native > .cell-stage > ul { padding-bottom: 0; }
+section.cycle.lat-split-native > .cell-stage > ul:where(:not([data-list="aside"])) > .cycle-link { display: none; }
+section.cycle.lat-split-native > .cell-stage > ul:where(:not([data-list="aside"])) { padding-bottom: 0; }
 
 /* A stage ALONE on its page fills the stage cell, so center its content in the now page-tall
  * card — same reasoning as list-steps' rule (the generic lone-member rule sets
  * `align-content`, which answers a wrap-row card; a stage node is a flex column). */
-section.cycle.lat-split-native > .cell-stage > ul > li:only-child {
+section.cycle.lat-split-native > .cell-stage > ul:where(:not([data-list="aside"])) > li:only-child {
   justify-content: center;
 }

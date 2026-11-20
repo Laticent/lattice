@@ -124,70 +124,130 @@ describe('every component that reads a list declares its contract', () => {
     assert.deepEqual(hits, []);
     assert.ok(!SWAP.some((re) => re.test('Use a table instead of a bullet list when the rows compare.')), 'a non-marker choice passes');
   });
+  // The list contract reaches as deep as a component's deepest list slot; below that a list is the
+  // author's (owner, #3330), and so is an aside. A stylesheet must not reach past that:
+  //   (a) a one-marker selector reaches the stage's list only through the stage scope
+  //       (`ol:where(.cell-stage > :not([data-list="aside"]))`), never by a descendant combinator, so it
+  //       cannot restyle a nested list, an aside or a quoted list as the layout's own;
+  //   (b) no selector styles `ul` and `ol` differently at a depth the manifest does not declare
+  //       (a list reached through an `li` is one level deeper);
+  //   (c) a one-marker list never reaches its items by a descendant combinator (`ol li` reaches nested items);
+  //   (d) a rule that picks the stage's list as a direct child excludes an aside
+  //       (`:where(:not([data-list="aside"]))`), or the aside is drawn as more cards, tiles or steps.
+  // Found by review of #3330 (list-steps and agenda drew a nested `1.` as STEP cards and ledger rows;
+  // cards-grid drew an aside as a second row of cards). Every tracked stylesheet under lib/ and themes/
+  // is read, and a selector counts for every layout whose class it names.
+  const SCOPE = ':where(.cell-stage > :not([data-list="aside"]))';
+  const ASIDE_OUT = ':where(:not([data-list="aside"]))';
+  /** Split a stylesheet into normalized selectors, comments dropped, commas inside brackets kept. */
+  function cssSelectors(css) {
+    const out = [];
+    for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{};]+)\{/g)) {
+      if (m[1].trim().startsWith('@')) continue;
+      let depth = 0;
+      let cur = '';
+      for (const ch of m[1]) {
+        if (ch === '(') depth++;
+        if (ch === ')') depth--;
+        if (ch === ',' && !depth) { out.push(cur); cur = ''; } else cur += ch;
+      }
+      out.push(cur);
+    }
+    return out
+      .map((x) => x.replace(/\s+/g, ' ').trim())
+      .filter((x) => x && !/^(from|to|\d+%)$/.test(x))
+      .map((x) => x.replace(/:(is|where)\(\s*(ul|ol)\s*\)/g, '$2').replace(/:(is|where)\(\s*(ul\s*,\s*ol|ol\s*,\s*ul)\s*\)/g, 'L'));
+  }
+  /** Drop every bracketed group, so `section:not(.a, .b).x` reads as one compound. */
+  const flat = (s) => { let t = s; let prev; do { prev = t; t = t.replace(/\([^()]*\)/g, ''); } while (t !== prev); return t; };
+  /** The layouts a selector belongs to: the classes on its subject `section` compound, outside `:not()`. */
+  function layoutsOf(sel, names) {
+    const head = /^section((?:[.:[][^\s>+~]*)?)/.exec(sel);
+    if (!head) return [];
+    const compound = head[1].replace(/:not\((?:[^()]|\([^()]*\))*\)/g, '');
+    return [...compound.matchAll(/\.([\w-]+)/g)].map((c) => c[1]).filter((c) => names.has(c));
+  }
+  /** What a selector does wrong for a layout row, per (a)–(d) above; `set` holds every selector, for the flip test. */
+  function listFindings(name, row, sel, set) {
+    const bad = [];
+    const flipAt = (at, el) => sel.slice(0, at) + (el === 'ul' ? 'ol' : 'ul') + sel.slice(at + 2);
+    let depth = 0;
+    let first = true;
+    for (const t of sel.matchAll(/(^|[\s>+~(])(ul|ol|L)(?=[\s>.:[)#+~]|$)/g)) {
+      const at = t.index + t[1].length;
+      const before = sel.slice(0, at).trimEnd();
+      const open = (sel.slice(0, at).match(/\(/g) || []).length - (sel.slice(0, at).match(/\)/g) || []).length;
+      if (open > 0) continue; // inside a pseudo-class argument (`:has(> ul)`): not the subject chain
+      const descendant = !/[>+~]$/.test(before) && before.length > 0;
+      if (!/[+~]$/.test(before)) depth++;
+      if (first && /(^|[\s>])li(?=[\s>.:[]|$)/.test(flat(before))) depth++; // reached through an item: nested
+      const rest = sel.slice(at + (t[2] === 'L' ? 1 : 2));
+      const directChild = /(\.cell-stage|^section\S*) >$/.test(flat(before));
+      // (d) the stage's own list, picked as a direct child, must leave an aside alone.
+      if (first && directChild && !rest.startsWith(ASIDE_OUT) && !rest.startsWith(SCOPE)) bad.push(`${name}: stage list without the aside exclusion in '${sel}'`);
+      first = false;
+      if (t[2] === 'L') continue; // `:is(ul, ol)` styles both markers alike
+      if (sel[at + 2] === '.') continue; // `ul.team-roster`: a list a transform builds, not the author's
+      if (set.has(flipAt(at, t[2]))) continue; // the other marker is styled the same way
+      // (a) one marker only, reached by a descendant combinator rather than the stage scope.
+      if (depth === 1 && descendant && !rest.startsWith(SCOPE)) bad.push(`${name}: one-marker descendant selector '${sel}'`);
+      // (c) one marker only, then a descendant step to items: it reaches nested lists' items too.
+      const after = rest.replace(/^(:where\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)|:not\((?:[^()]|\([^()]*\))*\)|[.:[][^\s>+~]*)*/, '');
+      if (/^ li\b/.test(after)) bad.push(`${name}: one-marker list reaches its items by a descendant combinator in '${sel}'`);
+      // (b) one marker only, at a depth the manifest does not read.
+      if (depth > row.depths) bad.push(`${name}: depth ${depth} styles only \`${t[2]}\` in '${sel}' (manifest reads ${row.depths})`);
+    }
+    return bad;
+  }
   test('a layout\'s CSS reads lists only where its manifest says it does', () => {
-    // The list contract reaches as deep as a component's deepest list slot; below that a list is the
-    // author's (owner, #3330). So a stylesheet must not reach past it: (a) no selector may hit a list
-    // through a descendant combinator straight from the section (it would restyle a nested list, an
-    // aside or a quoted list as the layout's own; scope it as `ol:where(.cell-stage > :not([data-list="aside"]))`), and (b) no
-    // selector may style `ul` and `ol` differently at a depth the manifest does not declare. Found
-    // by review of #3330: list-steps and agenda drew a nested `1.` as STEP cards and ledger rows.
+    const { execSync } = require('node:child_process');
     const fs = require('node:fs');
     const path = require('node:path');
     const ROOT = path.join(__dirname, '..', '..', '..');
-    const dirOf = new Map(manifests.map((m) => [m.name, m.__dir || null]));
-    const find = (name) => {
-      for (const base of ['lib/components', 'lib/plugins/chart-family/kinds']) {
-        for (const d of fs.readdirSync(path.join(ROOT, base), { withFileTypes: true })) {
-          const p = base === 'lib/components' ? path.join(ROOT, base, d.name, name) : path.join(ROOT, base, name);
-          if (fs.existsSync(path.join(p, `${name}.manifest.json`))) return p;
-        }
-      }
-      return dirOf.get(name);
-    };
-    const selectors = (css) => {
-      const out = [];
-      for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)) {
-        if (m[1].trim().startsWith('@')) continue;
-        let depth = 0;
-        let cur = '';
-        for (const ch of m[1]) {
-          if (ch === '(') depth++;
-          if (ch === ')') depth--;
-          if (ch === ',' && !depth) { out.push(cur); cur = ''; } else cur += ch;
-        }
-        out.push(cur);
-      }
-      return out.map((x) => x.replace(/\s+/g, ' ').replace(/:(is|where)\(\s*(ul\s*,\s*ol|ol\s*,\s*ul)\s*\)/g, 'L').trim());
-    };
+    const files = execSync('git ls-files "lib/**/*.css" "themes/**/*.css"', { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+    assert.ok(files.length > 100, `read ${files.length} stylesheets`);
+    const names = new Set(Object.keys(CATALOG));
+    const all = files.flatMap((f) => cssSelectors(fs.readFileSync(path.join(ROOT, f), 'utf8')).map((sel) => ({ f, sel })));
+    const set = new Set(all.map((x) => x.sel));
     const bad = [];
-    for (const [name, row] of Object.entries(CATALOG)) {
-      const dir = find(name);
-      if (!dir) continue;
-      const css = fs.readdirSync(dir).filter((f) => f.endsWith('.css')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
-      const sels = selectors(css);
-      const set = new Set(sels);
-      if (row.lists === 'prose') continue; // a prose layout renders every native list, by design
-      const flipAt = (sel, at, el) => sel.slice(0, at) + (el === 'ul' ? 'ol' : 'ul') + sel.slice(at + 2);
-      for (const sel of sels) {
-        // Each ul/ol in the selector, with its list depth: `>` or a space nests one deeper, `+`/`~` is a sibling.
-        let depth = 0;
-        for (const t of sel.matchAll(/(^|[\s>+~(])(ul|ol|L)(?=[\s>.:[)#+~]|$)/g)) {
-          const before = sel.slice(0, t.index + t[1].length).trimEnd();
-          if (!/[+~]$/.test(before)) depth++;
-          if (t[2] === 'L') continue; // `:is(ul, ol)` styles both markers alike
-          if (sel[t.index + t[0].length] === '.') continue; // `ul.team-roster`: a list a transform builds, not the author's
-          const at = t.index + t[1].length;
-          if (set.has(flipAt(sel, at, t[2]))) continue; // the other marker is styled the same way
-          // (a) one marker only, reached by a descendant combinator straight from the section: it
-          // restyles a nested list, an aside or a quoted list as the layout's own.
-          const desc = depth === 1 && /^section\S*$/.test(before) && t[1] === ' ';
-          if (desc && !sel.slice(at + 2).startsWith(':where(.cell-stage > :not([data-list="aside"]))')) bad.push(`${name}: one-marker descendant selector '${sel}'`);
-          // (b) one marker only, at a depth the manifest does not read.
-          if (depth > (row.depths || 0)) bad.push(`${name}: depth ${depth} styles only \`${t[2]}\` in '${sel}' (manifest reads ${row.depths})`);
-        }
+    let checked = 0;
+    for (const { f, sel } of all) {
+      const named = layoutsOf(sel, names);
+      // A prose layout renders every native list, by design; a variant word on one (`list principles bullet`)
+      // is not another layout.
+      if (named.some((n) => CATALOG[n].lists === 'prose')) continue;
+      for (const name of named) {
+        const row = CATALOG[name];
+        checked++;
+        for (const b of listFindings(name, row, sel, set)) bad.push(`${f}: ${b}`);
       }
     }
+    assert.ok(checked > 2000, `checked ${checked} layout selectors`);
     assert.deepEqual(bad, []);
+  });
+  test('the CSS guard can fail: each shape the #3330 review slipped past it is caught', () => {
+    const row = { lists: 'neutral', depths: 1 };
+    const names = new Set(['agenda', 'a', 'b', 'cards-grid']);
+    const caught = (sel) => {
+      const [s] = cssSelectors(`${sel} { color: red; }`);
+      return layoutsOf(s, names).length > 0 && listFindings('agenda', row, s, new Set([s])).length > 0;
+    };
+    for (const sel of [
+      'section.agenda ol > li',
+      'section.agenda:not(.circles, .checks) ol > li',
+      'section:is(.a, .b).agenda ol > li',
+      'section.agenda > .cell-stage ol > li',
+      'section.agenda li > ol',
+      'section.agenda :is(ol) > li',
+      `section.agenda ol${SCOPE} li`,
+      'section.agenda > .cell-stage > :is(ul, ol) > li',
+      'section.cards-grid > .cell-stage > ol > li::before',
+    ]) assert.ok(caught(sel), `missed '${sel}'`);
+    for (const sel of [
+      `section.agenda ol${SCOPE} > li`,
+      `section.agenda > .cell-stage > :is(ul, ol)${ASIDE_OUT} > li`,
+      `section.agenda:not(.circles, .checks) ol${SCOPE} > li::before`,
+    ]) assert.ok(!caught(sel), `flagged a scoped selector '${sel}'`);
   });
   test('the owner settled the R2 layouts (decision 1, 2026-11-19)', () => {
     for (const name of ['cards-grid', 'cards-stack', 'list-steps']) assert.equal(listContractFor(name).lists, 'numbered-tags', name);

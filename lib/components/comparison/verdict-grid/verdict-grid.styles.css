@@ -20,7 +20,7 @@
  * (flex cell-tree §6); the section itself carried no display, so the codemod left
  * the cell without one. */
 section.verdict-grid > .cell-stage { display:flex; flex-direction:column; }
-section.verdict-grid > .cell-stage > ul {
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) {
   /* flex mirror of `grid-template-columns:1fr 1fr; grid-auto-rows:minmax(0,1fr)`: a 2-col
    * tiling (matrix-2x2 idiom — `width` on the cells, not a flex-shorthand calc basis) whose
    * wrapped rows are content-height and CENTERED in the bounded stage. A dense grid still
@@ -35,7 +35,7 @@ section.verdict-grid > .cell-stage > ul {
   display:flex; flex-wrap:wrap; align-content: var(--cards-align);
   gap:var(--sp-sm); flex:1; list-style:none; padding:0; margin:0;
 }
-section.verdict-grid > .cell-stage > ul > li {
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li {
   box-sizing:border-box;
   width:calc(50% - var(--sp-sm) / 2);
   min-height:0;
@@ -44,8 +44,8 @@ section.verdict-grid > .cell-stage > ul > li {
   display:flex; flex-direction:column; gap:var(--sp-xs);
   font-size:var(--fs-body); font-weight:700; color:var(--text-heading);
 }
-section.verdict-grid > .cell-stage > ul > li:last-child { background:var(--accent-soft); border-color:var(--on-accent-soft); color:var(--on-accent-soft); position:relative; overflow:hidden; padding-inline-end:3.125cqi; }
-section.verdict-grid > .cell-stage > ul > li:last-child::after {
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li:last-child { background:var(--accent-soft); border-color:var(--on-accent-soft); color:var(--on-accent-soft); position:relative; overflow:hidden; padding-inline-end:3.125cqi; }
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li:last-child::after {
   /* DRAWN, not typed (HARD RULE #29). The box is the mark now, so it is sized
    * DIRECTLY rather than through a font-size + `em` basis. */
   content:''; position:absolute; top:0.625cqi; inset-inline-end:0.625cqi;
@@ -56,21 +56,21 @@ section.verdict-grid > .cell-stage > ul > li:last-child::after {
           mask:var(--shape-spark-open) var(--shape-paint);
   pointer-events:none;
 }
-section.verdict-grid > .cell-stage > ul > li:last-child:nth-child(odd) { width:100%; }
-section.verdict-grid > .cell-stage > ul > li > strong { font-weight:inherit; color:inherit; }
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li:last-child:nth-child(odd) { width:100%; }
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > strong { font-weight:inherit; color:inherit; }
 /* Inner ul = badge row */
-section.verdict-grid > .cell-stage > ul > li > ul { display:flex; flex-wrap:wrap; gap:0.390625cqi; list-style:none; padding:0; margin:0; align-content:flex-start; }
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul { display:flex; flex-wrap:wrap; gap:0.390625cqi; list-style:none; padding:0; margin:0; align-content:flex-start; }
 /* Criterion items (all but the last nested li) hold one composed pill. The item itself draws
  * nothing; its type is reset from the card title's bold heading so the pill sizes from body
  * text. The pill keeps to one line, as the badge did. */
-section.verdict-grid > .cell-stage > ul > li > ul > li:not(:last-child) { display:inline-flex; align-items:center; font-size:var(--fs-body); font-weight:400; color:var(--text-body); line-height:1; white-space:nowrap; }
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li:not(:last-child) { display:inline-flex; align-items:center; font-size:var(--fs-body); font-weight:400; color:var(--text-body); line-height:1; white-space:nowrap; }
 /* `[/]` does not apply: the label is struck and muted, as the badge was. Placement and text
  * only, through the pill's own ink hook; the pill's edge, fill and padding stay its own. */
 section.verdict-grid .lat-pill:has(> .lat-pill-lead > .lat-state.skip) { --lat-pill-ink:var(--text-muted); text-decoration:line-through; text-decoration-color:color-mix(in srgb, var(--muted-mark) 60%, transparent); }
 /* Body text (last nested li) — reset inherited card-title styles */
-section.verdict-grid > .cell-stage > ul > li > ul > li:last-child { width:100%; font-size:var(--fs-body); font-weight:400; color:var(--text-body); line-height:var(--lh-snug); background:none; border:none; border-radius:0; padding:0; display:block; }
-section.verdict-grid > .cell-stage > ul > li:last-child > ul > li:last-child { padding-inline-end:3.125cqi; }
-section.verdict-grid > .cell-stage > ul > li > ul > li::before { display:none; content:none; }
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li:last-child { width:100%; font-size:var(--fs-body); font-weight:400; color:var(--text-body); line-height:var(--lh-snug); background:none; border:none; border-radius:0; padding:0; display:block; }
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li:last-child > ul > li:last-child { padding-inline-end:3.125cqi; }
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li > ul > li::before { display:none; content:none; }
 
 /* Hardening: element siblings of <strong> in a card li don't inherit
  * the parent's font-weight:700. Covers cases like `<strong>Title.</strong>
@@ -92,27 +92,27 @@ section.verdict-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * text. `nowrap`: a column that may overflow must not wrap into a second column. The three stacked
  * forms below (orientation, family, width) share these declarations, so a phone, a tall deck and a
  * narrow pane read the same. */
-section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul {
+section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul:where(:not([data-list="aside"])) {
   flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align);
 }
-section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li {
+section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul:where(:not([data-list="aside"])) > li {
   width: auto; flex: var(--cards-grow) 0 var(--cards-basis); min-height: min-content;
 }
 /* fill:center — under `stretch` a card is taller than its content; top-anchored content
  * then leaves dead space at the card bottom ("a grid of boxes", forms.md §6). Center
  * the content block so the full-height cards read as a board deck. Portrait only;
  * the wide 2×2 is untouched. */
-section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { justify-content: safe center; }
+section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul:where(:not([data-list="aside"])) > li { justify-content: safe center; }
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
  * (≤0.9) collapse the verdict grid to one column, keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. Doubled
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
 /* The CODA arm that used to sit here is gone — `verdict-grid.manifest.json` declares
  * `"cards": { "default": "center", "withCoda": "stretch" }` and the engine resolves it,
  * stamping `data-cards`. lib/core/resolve-cards.js; the note's §10. */
-section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) {
   flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align);
 }
-section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
+section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:where(:not([data-list="aside"])) > li {
   width: auto; flex: var(--cards-grow) 0 var(--cards-basis); min-height: min-content; justify-content: safe center;
 }
 
@@ -120,7 +120,7 @@ section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="stri
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
-section.verdict-grid > .cell-stage > ul > li {
+section.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])) > li {
   box-shadow: var(--elevation-card);
 }
 section.verdict-grid > .cell-stage {
@@ -131,10 +131,10 @@ section.verdict-grid > .cell-stage {
  * aspect; this answers the box's width. Below 24em of the content area a card would be under
  * about 11.5em, so the grid goes to one column, the same form a tall deck gets. */
 @container lat-cards (width < 24em) {
-  section.verdict-grid.verdict-grid > .cell-stage > ul:not(.lat-reflow-held) {
+  section.verdict-grid.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) {
     flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
   }
-  section.verdict-grid.verdict-grid > .cell-stage > ul:not(.lat-reflow-held) > li {
+  section.verdict-grid.verdict-grid > .cell-stage > ul:where(:not([data-list="aside"])):not(.lat-reflow-held) > li {
     width: auto; flex: var(--cards-grow) 0 var(--cards-basis); min-height: min-content; justify-content: safe center;
   }
 }

@@ -92,13 +92,13 @@
 }
 
 /* ── The shared voice — every tag, whatever its placement ── */
-section.cards-grid > .cell-stage > ol > li::before,
+section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.cards-grid .cards-grid-inner--ordered > .card::before,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.cards-stack > .cell-stage > ol > li::before,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.cards-stack .cards-stack-inner--ordered > .card::before,
-section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
 section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
 section.split-compare .verdict::before,
 section.list-steps ol:where(.cell-stage > :not([data-list="aside"])):where(:not([data-ordered="false"])) > li::before {
@@ -110,22 +110,22 @@ section.list-steps ol:where(.cell-stage > :not([data-list="aside"])):where(:not(
 }
 /* A number takes the label face too, unless a finish gives numerals their own
  * (sketch: the hand display face). */
-section.cards-grid > .cell-stage > ol > li::before,
+section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.cards-grid .cards-grid-inner--ordered > .card::before,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.cards-stack > .cell-stage > ol > li::before,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.cards-stack .cards-stack-inner--ordered > .card::before {
   font-family: var(--card-tag-num-font);
 }
 
 /* ── Placement: corner — flush into the card's top-left corner ── */
-section.cards-grid > .cell-stage > ol > li::before,
+section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.cards-grid .cards-grid-inner--ordered > .card::before,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.cards-stack > .cell-stage > ol > li::before,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.cards-stack .cards-stack-inner--ordered > .card::before,
-section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
 section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
 section.split-compare .verdict::before {
   position: absolute;
@@ -144,13 +144,13 @@ section.split-compare .verdict::before {
   box-shadow: var(--card-tag-edge);
 }
 /* The card clears the tag: the equalized tag height (at least one line of tag), then the gap. */
-section.cards-grid > .cell-stage > ol > li,
+section.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.cards-grid .cards-grid-inner--ordered > .card,
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
-section.cards-stack > .cell-stage > ol > li,
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.cards-stack .cards-stack-inner--ordered > .card,
-section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child),
+section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child),
 section.compare-prose .compare-prose-inner .card:has(> strong:first-child),
 section.split-compare .verdict {
   position: relative;
@@ -263,26 +263,26 @@ section:is(.tag-corner, .tag-band, .banner-tag:not(.tag-foot, .tag-notch, .tag-i
 }
 
 /* foot */
-section.tag-foot.cards-grid > .cell-stage > ol > li::before,
+section.tag-foot.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.tag-foot.cards-grid .cards-grid-inner--ordered > .card::before,
-section.tag-foot.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.tag-foot.cards-stack > .cell-stage > ol > li::before,
+section.tag-foot.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
+section.tag-foot.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.tag-foot.cards-stack .cards-stack-inner--ordered > .card::before,
-section.tag-foot.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-foot.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.tag-foot.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
+section.tag-foot.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
 section.tag-foot.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
 section.tag-foot.split-compare .verdict::before,
 section.tag-foot.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])):where(:not([data-ordered="false"])) > li::before {
   top: auto;
   bottom: 0;
 }
-section.tag-foot.cards-grid > .cell-stage > ol > li,
+section.tag-foot.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.tag-foot.cards-grid .cards-grid-inner--ordered > .card,
-section.tag-foot.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
-section.tag-foot.cards-stack > .cell-stage > ol > li,
+section.tag-foot.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.tag-foot.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.tag-foot.cards-stack .cards-stack-inner--ordered > .card,
-section.tag-foot.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.tag-foot.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.tag-foot.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child),
+section.tag-foot.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child),
 section.tag-foot.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child),
 section.tag-foot.split-compare .verdict,
 section.tag-foot.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])):where(:not([data-ordered="false"])) > li {
@@ -291,13 +291,13 @@ section.tag-foot.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where
 }
 
 /* notch */
-section.tag-notch.cards-grid > .cell-stage > ol > li::before,
+section.tag-notch.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.tag-notch.cards-grid .cards-grid-inner--ordered > .card::before,
-section.tag-notch.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.tag-notch.cards-stack > .cell-stage > ol > li::before,
+section.tag-notch.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
+section.tag-notch.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.tag-notch.cards-stack .cards-stack-inner--ordered > .card::before,
-section.tag-notch.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-notch.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.tag-notch.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
+section.tag-notch.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
 section.tag-notch.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
 section.tag-notch.split-compare .verdict::before,
 section.tag-notch.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])):where(:not([data-ordered="false"])) > li::before {
@@ -305,13 +305,13 @@ section.tag-notch.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:wher
   left: var(--sp-md);
   transform: translateY(-50%);
 }
-section.tag-notch.cards-grid > .cell-stage > ol > li,
+section.tag-notch.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.tag-notch.cards-grid .cards-grid-inner--ordered > .card,
-section.tag-notch.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
-section.tag-notch.cards-stack > .cell-stage > ol > li,
+section.tag-notch.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.tag-notch.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.tag-notch.cards-stack .cards-stack-inner--ordered > .card,
-section.tag-notch.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.tag-notch.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.tag-notch.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child),
+section.tag-notch.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child),
 section.tag-notch.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child),
 section.tag-notch.split-compare .verdict,
 section.tag-notch.list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])):where(:not([data-ordered="false"])) > li {
@@ -337,13 +337,13 @@ section.tag-notch.tag-bare .card > strong:first-child {
 }
 
 /* band */
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid > .cell-stage > ol > li::before,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid .cards-grid-inner--ordered > .card::before,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-stack > .cell-stage > ol > li::before,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).cards-stack .cards-stack-inner--ordered > .card::before,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
+section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
 section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
 section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).split-compare .verdict::before,
 section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-inline)).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])):where(:not([data-ordered="false"])) > li::before {
@@ -352,13 +352,13 @@ section:is(.tag-band, .banner-tag:not(.tag-corner, .tag-foot, .tag-notch, .tag-i
 }
 
 /* inline */
-section.tag-inline.cards-grid > .cell-stage > ol > li::before,
+section.tag-inline.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.tag-inline.cards-grid .cards-grid-inner--ordered > .card::before,
-section.tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section.tag-inline.cards-stack > .cell-stage > ol > li::before,
+section.tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
+section.tag-inline.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section.tag-inline.cards-stack .cards-stack-inner--ordered > .card::before,
-section.tag-inline.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section.tag-inline.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.tag-inline.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
+section.tag-inline.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
 section.tag-inline.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
 section.tag-inline.split-compare .verdict::before {
   position: static;
@@ -366,21 +366,21 @@ section.tag-inline.split-compare .verdict::before {
   flex: 0 0 auto;
   order: -2;
 }
-section.tag-inline.cards-grid > .cell-stage > ol > li,
+section.tag-inline.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.tag-inline.cards-grid .cards-grid-inner--ordered > .card,
-section.tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li,
-section.tag-inline.cards-stack > .cell-stage > ol > li,
+section.tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li,
+section.tag-inline.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li,
 section.tag-inline.cards-stack .cards-stack-inner--ordered > .card,
-section.tag-inline.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-section.tag-inline.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.tag-inline.decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child),
+section.tag-inline.compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child),
 section.tag-inline.compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child),
 section.tag-inline.split-compare .verdict {
   padding-top: var(--card-tag-rest);
 }
-section.tag-inline.cards-grid > .cell-stage > ol > li::after,
+section.tag-inline.cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::after,
 section.tag-inline.cards-grid .cards-grid-inner--ordered > .card::after,
-section.tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::after,
-section.tag-inline.cards-stack > .cell-stage > ol > li::after,
+section.tag-inline.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::after,
+section.tag-inline.cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::after,
 section.tag-inline.cards-stack .cards-stack-inner--ordered > .card::after {
   content: '';
   order: -1;
@@ -399,13 +399,13 @@ section.tag-inline.split-compare .verdict {
 section.tag-start { --card-tag-lead: 0; --card-tag-align: start; }   /* beats a native center (capsule) */
 section.tag-center { --card-tag-lead: 0.5; --card-tag-align: center; }
 section.tag-end { --card-tag-lead: 1; --card-tag-align: end; }
-section:is(.tag-start, .tag-center, .tag-end).cards-grid > .cell-stage > ol > li::before,
+section:is(.tag-start, .tag-center, .tag-end).cards-grid > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section:is(.tag-start, .tag-center, .tag-end).cards-grid .cards-grid-inner--ordered > .card::before,
-section:is(.tag-start, .tag-center, .tag-end).cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before,
-section:is(.tag-start, .tag-center, .tag-end).cards-stack > .cell-stage > ol > li::before,
+section:is(.tag-start, .tag-center, .tag-end).cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
+section:is(.tag-start, .tag-center, .tag-end).cards-stack > .cell-stage > ol:where(:not([data-list="aside"])) > li::before,
 section:is(.tag-start, .tag-center, .tag-end).cards-stack .cards-stack-inner--ordered > .card::before,
-section:is(.tag-start, .tag-center, .tag-end).decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-section:is(.tag-start, .tag-center, .tag-end).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section:is(.tag-start, .tag-center, .tag-end).decision > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
+section:is(.tag-start, .tag-center, .tag-end).compare-prose:not(.axis):not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):where(:not([data-list="aside"])) > li:has(> strong:first-child) > strong:first-child,
 section:is(.tag-start, .tag-center, .tag-end).compare-prose:not(.axis) .compare-prose-inner .card:has(> strong:first-child) > strong:first-child,
 section:is(.tag-start, .tag-center, .tag-end).split-compare .verdict::before,
 section:is(.tag-start, .tag-center, .tag-end).list-steps:not(.timeline, .chevron, .converge, .ghost) ol:where(.cell-stage > :not([data-list="aside"])):where(:not([data-ordered="false"])) > li::before {

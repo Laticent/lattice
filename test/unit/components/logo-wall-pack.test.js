@@ -7,7 +7,8 @@ const path = require('node:path');
 const { planWall, stampWall, aspectOfMarkHtml, stageShare, captionShare, EYEBROW, LOGO_BAND, SP_2XL, SP_XL, LOGO_COLS, MIN_AREA_SHARE, COMPACT_SPACING } = require('../../../lib/core/logo-wall-pack');
 const { familyFor, canvasScaleFor } = require('../../../lib/adaptive/families');
 
-const CSS = fs.readFileSync(path.join(__dirname, '../../../lib/components/inventory/logo-wall/logo-wall.styles.css'), 'utf8');
+// The aside exclusion on every stage-list rule (list contract, #3330) is cut: these tests read the rest.
+const CSS = fs.readFileSync(path.join(__dirname, '../../../lib/components/inventory/logo-wall/logo-wall.styles.css'), 'utf8').replaceAll(':where(:not([data-list="aside"]))', '');
 const areas = (plan) => plan.result.rects.map((r) => r.w * r.h);
 
 test('the band and column counts are the ones the stylesheet uses', () => {

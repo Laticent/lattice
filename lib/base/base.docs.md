@@ -722,13 +722,16 @@ from the slide before.
 
 What stays exactly as you wrote it, on every layout:
 
-- **A list nested deeper than the layout reads.** A numbered list inside a card's body keeps its
-  numbers (and a screen reader hears them). On `agenda`, which reads only its section titles, a
-  list under a title sits on its own line beneath it, indented to the title.
+- **A list nested deeper than the layout reads.** A numbered list under a card's body line keeps
+  its numbers, inside the text column (and a screen reader hears them). A card's body is itself a
+  level the card layouts read (`cards-grid`, `actors`, `statute-stack`, …): written `1.` or `-`, it
+  draws the same plain lines. On `agenda`, which reads only its section titles, a list under a
+  title sits on its own line beneath it, indented to the title.
 - **An aside**: a list after a line of prose ("Open risks:") with no heading in between. Lists
   separated only by a heading (`### Added`, `### Amended`) are all the layout's. An aside is
-  stamped `data-list="aside"`, no layout styles it as its own, and it draws plain bullets or
-  numbers in the text column.
+  stamped `data-list="aside"`; no layout draws it as its own cards, tiles or steps, and it shows
+  plain bullets or numbers in the text column. Where it sits is the layout's: `premise` places it
+  beside the ledger, `math` in the legend column.
 - **A list inside a blockquote** (a Key Insight callout) **or inside raw HTML** (`<div>` … `</div>`).
 
 A deck-wide `class:` in front matter counts like a slide's own: `class: steps` makes every

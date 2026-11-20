@@ -230,12 +230,12 @@ section.list-steps.timeline > .cell-stage > p { text-align:var(--headline-align,
  * the chrome size (--fs-meta), so at a larger venue a three-word line wrapped to a word a line
  * while most of the width sat empty. The text reads at --fs-body (the one reading size,
  * typography.md §7) and each stage takes an equal share of the row. */
-section.list-steps.timeline > .cell-stage > :is(ol,ul) {
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) {
   display:flex; align-items:flex-start;
   width:100%; position:relative; flex:0 1 auto;
   padding:0 var(--sp-xl); gap:0; box-sizing:border-box; margin:0;
 }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li {
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) > li {
   flex:1 1 0; min-width:0; box-sizing:border-box;
   display:flex; flex-direction:column; align-items:center;
   text-align:center; position:relative; z-index:1;
@@ -246,35 +246,35 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) > li {
  * `spectrum-trim` gradient runs once across it. With N equal columns inside the list's
  * `--sp-xl` padding, the first and last dots sit half a column in from each end. N comes from
  * the list's own length (2 to 10 stages; more reads as 10). */
-section.list-steps.timeline > .cell-stage > :is(ol,ul) { --ls-stages:1; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(2)) { --ls-stages:2; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(3)) { --ls-stages:3; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(4)) { --ls-stages:4; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(5)) { --ls-stages:5; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(6)) { --ls-stages:6; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(7)) { --ls-stages:7; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(8)) { --ls-stages:8; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(9)) { --ls-stages:9; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul):has(> li:nth-child(10)) { --ls-stages:10; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) { --ls-stages:1; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])):has(> li:nth-child(2)) { --ls-stages:2; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])):has(> li:nth-child(3)) { --ls-stages:3; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])):has(> li:nth-child(4)) { --ls-stages:4; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])):has(> li:nth-child(5)) { --ls-stages:5; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])):has(> li:nth-child(6)) { --ls-stages:6; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])):has(> li:nth-child(7)) { --ls-stages:7; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])):has(> li:nth-child(8)) { --ls-stages:8; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])):has(> li:nth-child(9)) { --ls-stages:9; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])):has(> li:nth-child(10)) { --ls-stages:10; }
 /* --ls-disc is the step marker's diameter. A numbered disc (ol) carries an --fs-meta
    numeral, so it is sized off that role — 2.03125cqi over 1.17, the landscape meta
    coefficient, so laptop landscape keeps 2.03125cqi exactly while hall grows it with the
    numeral it holds (followups.d/2419-p3-rail-and-status-pill-boxes-at-hall.md). A bare
    dot (ul) has no text to hold and stays the fixed 2.03125cqi. The spine reads the same
    token, so it stays on the discs' center line. */
-section.list-steps.timeline > .cell-stage > :is(ol,ul) { --ls-disc:2.03125cqi; }
-section.list-steps.timeline > .cell-stage > ol { --ls-disc:calc(var(--fs-meta) * 2.03125 / 1.17); }
-section.list-steps.timeline > .cell-stage > :is(ol,ul)::before {
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) { --ls-disc:2.03125cqi; }
+section.list-steps.timeline > .cell-stage > ol:where(:not([data-list="aside"])) { --ls-disc:calc(var(--fs-meta) * 2.03125 / 1.17); }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"]))::before {
   --ls-inset:calc(var(--sp-xl) + (100% - 2 * var(--sp-xl)) / (2 * var(--ls-stages)));
   content:''; position:absolute; top:calc(var(--ls-disc) / 2);
   left:var(--ls-inset); right:var(--ls-inset);
   height:3px; background:var(--spectrum-structure); border-radius:2px;
 }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li:not(:last-child)::after { content:none; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) > li:not(:last-child)::after { content:none; }
 /* Seeded from `--lat-split-offset` for the same reason as `step-counter` above — the
    `.timeline` modifier added its own counter later and did not inherit the note. */
-section.list-steps.timeline > .cell-stage > ol { counter-reset:ls-timeline-counter var(--lat-split-offset, 0); }
-section.list-steps.timeline > .cell-stage > ol > li::before {
+section.list-steps.timeline > .cell-stage > ol:where(:not([data-list="aside"])) { counter-reset:ls-timeline-counter var(--lat-split-offset, 0); }
+section.list-steps.timeline > .cell-stage > ol:where(:not([data-list="aside"])) > li::before {
   counter-increment:ls-timeline-counter;
   content:counter(ls-timeline-counter);
   display:flex; align-items:center; justify-content:center;
@@ -284,15 +284,15 @@ section.list-steps.timeline > .cell-stage > ol > li::before {
   flex-shrink:0;
 }
 /* A `-` timeline (the list contract, R2: `-` leaves the numbers off) keeps its dots, unnumbered. */
-section.list-steps.timeline > .cell-stage > ol[data-ordered="false"] > li::before {
+section.list-steps.timeline > .cell-stage > ol:where(:not([data-list="aside"]))[data-ordered="false"] > li::before {
   content:''; display:block; width:var(--ls-disc); height:var(--ls-disc); border-radius:50%;
   background:var(--accent); border:3px solid var(--bg);
   box-shadow:0 0 0 1px var(--border); flex-shrink:0;
 }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > strong { display:block; padding-top:1.09375cqi; padding-bottom:0.3125cqi; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) { list-style:none; padding:0; margin:0; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li { font-weight:400; }
-section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); font-style:normal; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) > li > strong { display:block; padding-top:1.09375cqi; padding-bottom:0.3125cqi; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) > li > :is(ul,ol) { list-style:none; padding:0; margin:0; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) > li > :is(ul,ol) > li { font-weight:400; }
+section.list-steps.timeline > .cell-stage > :is(ol,ul):where(:not([data-list="aside"])) > li > :is(ul,ol) > li em { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); font-style:normal; }
 
 /* ── chevron · converge · ghost — vertical staged-flow variants ──
  * Three looks for a labeled argument cascading DOWN the frame (Problem →
@@ -430,7 +430,7 @@ section.list-steps > .cell-stage {
  * hugging the top edge of a now page-tall box. The generic rule sets `align-content`, which
  * answers the WRAP-row cards (cards-grid, actors); a step card is a flex COLUMN, so its
  * equivalent is `justify-content`. Only ever a lone card. */
-section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child {
+section.list-steps.lat-split-native > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li:only-child {
   justify-content: center;
 }
 /* …and the body must stop absorbing the free space, or there IS none to center with: the
@@ -438,7 +438,7 @@ section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child 
  * cards fills its share, which on a page-tall lone card expanded the body to 716px of a 922px
  * box and left the text pinned to its top edge — `justify-content` had nothing to distribute
  * (measured on the real render). Content-height here, so the group centers. */
-section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child > :is(ul, p) {
+section.list-steps.lat-split-native > .cell-stage > :is(ol, ul):where(:not([data-list="aside"])) > li:only-child > :is(ul, p) {
   flex: 0 0 auto;
 }
 
@@ -449,13 +449,13 @@ section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child 
  * `capsule` is already content height (`flex: 0 1 auto`), so the register has nothing to move.
  * A split page (`lat-split-native`) is left to the generic lone-member rule, whose lone card
  * fills the stage; this rule outweighs it, so it must step aside. */
-section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol {
+section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol:where(:not([data-list="aside"])) {
   flex-wrap: wrap; align-content: var(--cards-align);
 }
 /* `min-width: 0` so a long word or a wide badge can never force a step onto a second line;
  * the row stays one line exactly as it was before it could wrap. `max-height: 100%` keeps
  * that line inside the stage when a dense step outgrows it, as the one-line row did. */
-section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li {
+section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol:where(:not([data-list="aside"])) > li {
   min-width: 0; max-height: 100%; box-sizing: border-box;
 }
 
@@ -465,11 +465,11 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
  * the form a tall deck gets. The variants with a shape of their own (timeline, chevron,
  * converge, ghost) keep it. */
 @container lat-cards (width < 36em) {
-  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) > .cell-stage > ol:not(.lat-reflow-held) {
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) {
     flex-direction: column; flex-wrap: nowrap; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto; --lat-narrow: 1;
   }
-  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 0 auto; }
-  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) > .cell-stage > ol:not(.lat-reflow-held) > li:not(:last-child)::after {
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li { flex: 0 0 auto; }
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) > .cell-stage > ol:where(:not([data-list="aside"])):not(.lat-reflow-held) > li:not(:last-child)::after {
     inset-inline-end: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
     transform: translate(50%, 50%);
     border-top: 10px solid var(--border); border-bottom: none;
@@ -480,8 +480,8 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
  * type, so in a narrow pane the label clipped at the tab's edges. Below 36em the tab column takes
  * its label's own width (wrapping only between words) and the description keeps the rest. */
 @container lat-cards (width < 36em) {
-  section.list-steps.list-steps.chevron > .cell-stage > ol > li { grid-template-columns: min-content 1fr; }
-  section.list-steps.list-steps.chevron > .cell-stage > ol > li > strong { padding-inline: var(--sp-xs); }
+  section.list-steps.list-steps.chevron > .cell-stage > ol:where(:not([data-list="aside"])) > li { grid-template-columns: min-content 1fr; }
+  section.list-steps.list-steps.chevron > .cell-stage > ol:where(:not([data-list="aside"])) > li > strong { padding-inline: var(--sp-xs); }
 }
 
 /* ── `-` steps: the same cards, no number tag ──
