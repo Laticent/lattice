@@ -24,7 +24,7 @@ Add `bleed` to the slide, and its one picture fills it
 
 ## The photo is the slide's background.
 
-<!-- On a `bleed` slide, the one picture alone on its line is the slide's background, cropped to fill it. Marp's old `![bg]` keyword is retired: `lint:deck --fix` writes this form. -->
+<!-- @note{On a `bleed` slide, the one picture alone on its line is the slide's background, cropped to fill it. Marp's old `![bg]` keyword is retired: `lint:deck --fix` writes this form.} -->
 
 ---
 
@@ -36,7 +36,7 @@ Add `bleed` to the slide, and its one picture fills it
 
 ## It covers the canvas, centered.
 
-<!-- Pair a background with `dark` so the type reads in light ink. -->
+<!-- @note{Pair a background with `dark` so the type reads in light ink.} -->
 
 ---
 
@@ -58,7 +58,7 @@ On an `image` slide the same picture sits next to the words; `image mirror` puts
 
 ## Every export agrees.
 
-<!-- The player embeds the picture, so the file you send still shows it. -->
+<!-- @note{The player embeds the picture, so the file you send still shows it.} -->
 
 ---
 

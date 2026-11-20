@@ -6,9 +6,9 @@ paginate: true
 header: "Lattice · tone-edge on story split pages"
 ---
 
-<!-- A `size: story` deck auto-splits `split-panel` into a cover page and body pages. A semantic
+<!-- @note{A `size: story` deck auto-splits `split-panel` into a cover page and body pages. A semantic
      `tone-edge` draws the tone color as the top bar on every page of the run, as on a landscape slide.
-     Before the fix each page kept the deck's rainbow bar. -->
+     Before the fix each page kept the deck's rainbow bar.} -->
 
 <!-- _class: split-panel tone-fail tone-edge -->
 

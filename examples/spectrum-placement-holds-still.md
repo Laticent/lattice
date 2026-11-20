@@ -6,11 +6,11 @@ header: "Lattice · spectrum placement"
 footer: "Placement never moves the slide"
 ---
 
-<!-- The spectrum bar sits in the slide's edge, so choosing `top`, `left`, `right`, `bottom` or no bar
+<!-- @note{The spectrum bar sits in the slide's edge, so choosing `top`, `left`, `right`, `bottom` or no bar
      must not move anything else. Each slide below is the same `content` slide with a different
      `spectrum-edge-*` class (top is the default and carries none). Flip through them: the heading,
      list, header, footer and page number hold still, light and dark.
-     `npm run check:edge-shift` measures the same thing across every component. -->
+     `npm run check:edge-shift` measures the same thing across every component.} -->
 
 <!-- _class: content -->
 
