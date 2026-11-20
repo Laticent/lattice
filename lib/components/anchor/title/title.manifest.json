@@ -101,7 +101,7 @@
     },
     {
       "mistake": "Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.",
-      "fix": "Every top-level `hr` token in a slide body is Marp's slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated."
+      "fix": "Every top-level `hr` token in a slide body is the slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated."
     }
   ],
   "variantDocs": {

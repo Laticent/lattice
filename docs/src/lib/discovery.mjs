@@ -92,22 +92,30 @@ export function robotsTxt({ site, index }) {
  * site builds, and `scripts/check-discovery.mjs` fails the build when one is not.
  */
 export const LLMS_LINKS = Object.freeze({
-	Start: [
+	// The agent pack: tools/build-agent-kit.mjs's dist/agent-kit/, staged at /agents/ by
+	// scripts/sync-portal.mjs. Files, not pages, so they are linked as they are
+	// (engineering/decisions/2026-11-17-agent-pack.md).
+	'Write a deck': [
+		['/agents/start.md', 'Write a Lattice deck', 'Start here. What a good deck is, the rules, every layout in one line, the common skeletons, how to check and render. One file', { file: true }],
+		['/agents/components/README.md', 'Layouts', 'One file per layout: how much it holds, its variants, its skeleton, the mistakes reviewers flag. Read one for each layout you use', { file: true }],
+		['/agents/skills/README.md', 'Craft guides', 'Edit or restyle a deck, chart from data, speaker notes, fix lint findings, diagrams, math, import', { file: true }],
+		['/agents/render/lattice-render-a-deck.md', 'Render and check', '`npx @laticent/lattice deck.md deck.pdf`, the Studio, and the checker at /agents/review/check.mjs', { file: true }],
+		['/agents/paste/lattice-instructions-solo.md', 'For a small model', '19 layouts in one self-contained file, for a 4k-token context', { file: true }],
+	],
+	Docs: [
 		['/introduction/', 'Introduction', 'What Lattice is and the model behind it'],
 		['/getting-started/', 'Getting started', 'Install, write a first deck, render a PDF'],
 		['/guides/authoring/', 'Authoring guide', 'How to write a deck: front matter, slides, layouts'],
-	],
-	Reference: [
-		['/components/', 'Component reference', 'Every slide layout (`_class:`) with its slots and variants; each component also has its own page and `.md` copy under /components/<bucket>/<name>/'],
 		['/reference/front-matter/', 'Front matter', 'Every deck-level front-matter key'],
 		['/reference/cli/', 'CLI reference', 'The `lattice` command line: render, export, lint'],
 		['/guides/themes/', 'Themes', 'Palettes and color modes'],
+		['/spec/lfm/', 'LFM specification', 'The Lattice Flavored Markdown specification'],
 	],
 	Optional: [
+		['/components/', 'Full component reference', 'Every layout in one very large file (hundreds of KB). Prefer one file per layout above'],
 		// A card-grid catalog, not an article, so it has no .md copy: linked as the page.
 		['/features/', 'Features', 'The full capability list', { page: true }],
 		['/comparison/', 'Comparison', 'Lattice against AI generators, Office, code engines and design tools'],
-		['/spec/lfm/', 'LFM specification', 'The Lattice Flavored Markdown specification'],
 	],
 });
 
@@ -144,14 +152,16 @@ export function llmsTxt({ site }) {
 		'',
 		'> A slide-deck engine that renders boardroom-ready PDF, PPTX and HTML decks from plain Markdown. Each slide picks a layout with `<!-- _class: name -->`; a theme supplies the palette. Open source (AGPL-3.0), runs offline.',
 		'',
-		`Source: ${REPO_URL}. An agent writing decks should start from the agent kit (${AGENT_KIT_URL}), which carries a one-line-per-layout picker and the authoring rules.`,
+		'To write a deck, read /agents/start.md first, then the file for each layout you use. Everything an agent needs is on this domain, in plain Markdown.',
 		'',
-		'Every docs, component and catalog page has a plain-Markdown copy at its own path plus `.md` (`/guides/cli/` → `/guides/cli.md`), linked from the page as `<link rel="alternate" type="text/markdown">`. The links below point at those copies.',
+		`Source: ${REPO_URL}. The same agent pack is mirrored to ${AGENT_KIT_URL} for products that take uploaded files.`,
+		'',
+		'Every docs, component and catalog page also has a plain-Markdown copy at its own path plus `.md` (`/guides/cli/` → `/guides/cli.md`), linked from the page as `<link rel="alternate" type="text/markdown">`. The Docs links below point at those copies.',
 		'',
 	];
 	for (const [section, links] of Object.entries(LLMS_LINKS)) {
 		out.push(`## ${section}`, '');
-		for (const [p, title, note, opts] of links) out.push(`- [${title}](${abs(p.endsWith('/') && !opts?.page ? twinPath(p) : p)}): ${note}`);
+		for (const [p, title, note, opts] of links) out.push(`- [${title}](${abs(p.endsWith('/') && !opts?.page && !opts?.file ? twinPath(p) : p)}): ${note}`);
 		out.push('');
 	}
 	return out.join('\n');

@@ -117,7 +117,7 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   heading inside a pane, use `####`. The exception is a component whose own anatomy uses `###`
   (`team-profile sides`, its roster labels): a pane of it keeps every `###` it holds.
 - **A marker names the component, then its modifiers, then `no-title`:**
-  `<!-- _pane: team-profile sides -->`, `<!-- _pane: list numbered no-title -->`. The modifiers
+  `<!-- _pane: team-profile sides -->`, `<!-- _pane: list takeaway no-title -->`. The modifiers
   reach the pane as a slide's `_class` would carry them.
 - **The pane title is optional**, but write one: it says what the pane is for. It is set in the
   eyebrow's voice, as a label: the slide's `##` makes the point, and each pane names what it holds
@@ -356,12 +356,16 @@ audience should remember from a card-grid slide.
 
 ## The framework has four components.
 
-- **Signal Intake.** Body text.
-- **Scoring Model.** Body text.
-- **Decision Log.** Body text.
-- **Calibration Loop.** Body text.
+- Signal Intake
+  - Every request is logged with its source.
+- Scoring Model
+  - Each signal gets a weight and a score.
+- Decision Log
+  - The call, the owner and the reason, in one place.
+- Calibration Loop
+  - Outcomes feed back into the weights.
 
-> Key insight: signals without decisions are noise.
+> Signals without decisions are noise.
 ```
 
 **Supported layouts: almost all of them — this block is OPT-OUT.** A layout renders
@@ -1122,8 +1126,8 @@ break.
 <!-- _class: title silent -->
 ```
 
-Equivalent to `no-pagination` plus `no-progress`, `<!-- _header: "" -->` and
-`<!-- _footer: "" -->`, in one token.
+Equivalent to `no-header no-footer no-pagination no-progress`, in one
+token (`SILENCED_NAMES` in `lib/core/switches.mjs`).
 
 ### `sketch`
 
@@ -1251,15 +1255,14 @@ token for that).
 | `scale-xl`  | ×1.3  | ~21 pt |
 | `scale-2xl` | ×1.5  | 24 pt  |
 
-Scope is native Marp class scoping — the same class does both:
+Scope works like every other class: `_class:` scopes it to one slide, front-matter `class:` to the whole deck.
 
 ```markdown
-<!-- _class: cards-grid scale-xl -->   <!-- this slide only -->
+<!-- _class: cards-grid scale-xl -->
 ```
 
 ```yaml
 ---
-marp: true
 class: scale-xl                        # whole deck (front-matter directive)
 ---
 ```

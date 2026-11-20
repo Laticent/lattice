@@ -238,7 +238,6 @@ A starter deck to paste into "New deck" (lint-clean):
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: laguna
 paginate: true
