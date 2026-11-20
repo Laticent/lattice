@@ -386,6 +386,17 @@ describe('lint-core: lintTextWith rules', () => {
     assert.equal(ruleFor(`${FM}<!-- _class: list -->\n\n## H\n\n1. Hold — wait a beat\n`, 'list-steps-inline-body'), undefined);
   });
 
+  // examples/meta.md shipped steps written as one sentence each (PR 3351): no dash to split on, so the rule missed them,
+  // and every card rendered as one bold block with no body.
+  test('rule 2c — a whole sentence on the `1.` line with no body is flagged too, with no autofix', () => {
+    const steps = (body) => `${FM}<!-- {layout=list-steps} -->\n\n## H\n\n${body}`;
+    const f = ruleFor(steps('1. The door finds each own-line record before anything reads the deck.\n2. It checks every field.\n'), 'list-steps-inline-body');
+    assert.ok(f, 'a sentence standing in for title and body must be flagged');
+    assert.equal(f.autofixable, false, 'there is no split point, so no fix is offered');
+    assert.equal(ruleFor(steps('1. Find\n   - The door finds each own-line record before anything reads the deck.\n'), 'list-steps-inline-body'), undefined, 'a title with a nested body is right');
+    assert.equal(ruleFor(steps('1. Find the record.\n2. Check it.\n'), 'list-steps-inline-body'), undefined, 'a short label ending in a period is a title');
+  });
+
   // The maker-checker review of #3305 (2026-11-19) drove each of these through the rule.
   test('rule 2c — speaker notes, code spans, mixed case and a shallow indent', () => {
     const steps = (body) => `${FM}<!-- _class: list-steps -->\n\n## H\n\n${body}`;
