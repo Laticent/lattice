@@ -1,0 +1,1 @@
+- **Studio:** Present's Play no longer sticks on the first slide when no voice has been chosen yet, which is how every phone starts: the voice check threw on the empty selection before the captions could start.

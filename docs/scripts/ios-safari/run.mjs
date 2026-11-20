@@ -7,7 +7,8 @@
  * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
  * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
  * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
- * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), or chart detail cards in an
+ * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js), plays Present with
+ * narration (PROBE=present-narration, present-narration.mjs and present-narration-probe.js), or chart detail cards in an
  * exported HTML player, opened and closed by real taps (PROBE=player-charts, player-charts.mjs). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
@@ -156,7 +157,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'present-narration' ? await runPresentNarrationProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -658,6 +659,151 @@ async function runPresentMemoryProbe(id) {
 	const steps = presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac });
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: a.ua, width: a.width, deckBytes: deck.bytes.length, arms, steps };
+}
+
+/**
+ * The Present narration probe (PROBE=present-narration): the owner's iPhone reloaded the tab when Present played a 4K deck
+ * with narration and Guide on, and not with narration off (2026-11-17). present-narration.mjs builds a deck of that shape;
+ * present-narration-probe.js imports it, installs a stand-in cloud voice that answers in the page (no key spent, HARD
+ * RULE #24): NARRATION_VOICE=openrouter-gemini (the default, the owner's: Gemini 3.1 Flash TTS through OpenRouter,
+ * headerless PCM), openrouter (Kokoro, WAV) or gemini (Gemini's own API, JSON with base64 WAV inside). Then it opens
+ * Present on slide 1 with Guide on and presses Play: on the simulator only a script click reaches the page, so audio stays
+ * suspended and the probe walks the deck with Next (see the loop below). Two arms on one fresh Studio each: voice ON for
+ * NARRATION_PLAY_S (judged), then voice OFF for NARRATION_SILENT_S (reported, so the difference is the narration's).
+ * Every 30 s the probe reads where Present is, the narration audio the page has decoded and still holds, and the
+ * simulator's WebKit footprint (photo-memory.mjs). The verdict is present-narration.mjs `narrationChecks`: work, not time
+ * (HARD RULE #32). A simulator has no memory limit, so it shows the cost an iPhone weighs, not the reload itself.
+ */
+async function runPresentNarrationProbe(id) {
+	const { buildNarrationDeck, NARRATION_TITLE, narrationChecks } = await import('./present-narration.mjs');
+	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
+	const CAP_MB = Number(process.env.NARRATION_MEMORY_CAP_MB || 300);
+	const AUDIO_CAP_MB = Number(process.env.NARRATION_AUDIO_CAP_MB || 40);
+	const PLAY_S = Number(process.env.NARRATION_PLAY_S || 360);
+	const SILENT_S = Number(process.env.NARRATION_SILENT_S || 90);
+	const SAMPLE_S = 30;
+	const STEP_S = Number(process.env.NARRATION_STEP_S || 10);
+	// The owner's voice by default: Gemini 3.1 Flash TTS through OpenRouter, where the reload happens; not with Kokoro.
+	const VOICE = process.env.NARRATION_VOICE || 'openrouter-gemini';
+	const deck = await buildNarrationDeck();
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const source = fs.readFileSync(path.join(here, 'present-narration-probe.js'), 'utf8');
+	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+	const mac = UDID === 'mac';
+	const readMB = async () => (mac ? new Map() : simulatorWebContentMB());
+	const failIf = (r, what) => {
+		if (r?.error) throw new Error(`${what}: ${r.error}`);
+		return r;
+	};
+	// NARRATION_ARMS picks the arms: comma-separated `voice:captions:guide` triples of on/off, each run for PLAY_S, e.g.
+	// `off:on:on,off:off:off`. Unset, the probe runs its two arms: voice on, then voice off, with captions and Guide on.
+	const armSpec = (process.env.NARRATION_ARMS || '').split(',').map((t) => t.trim()).filter(Boolean).map((t) => t.split(':').map((v) => v === 'on'));
+	const arm = async (voice, seconds, guide = true, captions = true) => {
+		const out = { arm: `voice ${voice ? 'on' : 'off'}, captions ${captions ? 'on' : 'off'}, Guide ${guide ? 'on' : 'off'}`, voice, samples: [] };
+		try {
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+			await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+			failIf(await call(`latticeNarrationReceive(${JSON.stringify(b64)}, 0, 1)`), 'sending the deck');
+			const imported = failIf(await call(`latticeNarrationImport(${JSON.stringify(NARRATION_TITLE)})`), 'importing the deck');
+			Object.assign(out, { importMs: imported.importMs, ua: imported.ua, width: imported.width });
+			failIf(await call(`latticeNarrationVoice(${JSON.stringify(VOICE)})`), 'installing the stand-in voice');
+			// A settle time, as runPresentMemoryProbe reads: memory has no "settled" event.
+			await sleep(8000);
+			const m0 = await readMB();
+			const played = failIf(await call(`latticeNarrationReady(${voice}, ${guide}, ${captions})`), 'opening Present');
+			out.total = played.total;
+			// A real touch on Play, as a presenter's: iOS unlocks audio only for one (the first run's scripted click left
+			// the voice arm on slide 1 for its whole eight minutes). composeTouchTap delivers its taps the same way.
+			// PRESS PLAY THE WAY A PERSON DOES. Play's handler resumes Present's AudioContext (Suono `unlock()`), and iOS only
+			// allows that inside a real user gesture: a scripted click() started Present with audio suspended, so narration
+			// never began (run 43993979079); a WebDriver touch action never reached Play's click handler at all (44000481706,
+			// 44007265415). A WebDriver ELEMENT click is a native click Safari counts as a gesture. The ladder is the one the
+			// focus-sync probe uses (element click, touch tap, mouse click), and the way that worked is logged.
+			const release = () => wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			const pointer = (type, extra = []) => async () =>
+				wd('POST', `/session/${id}/actions`, {
+					actions: [{ type: 'pointer', id: type === 'touch' ? 'finger' : 'mouse', parameters: { pointerType: type }, actions: [{ type: 'pointerMove', duration: 0, x: played.x, y: played.y }, { type: 'pointerDown', button: 0 }, ...extra, { type: 'pointerUp', button: 0 }] }],
+				});
+			const ways = [
+				[
+					'element click',
+					async () => {
+						const el = await wd('POST', `/session/${id}/execute/sync`, { script: `${source}\nreturn latticeNarrationPlayButton();`, args: [] });
+						const ref = el?.['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(el || {})[0];
+						if (!ref) throw new Error('no Play button to click');
+						await wd('POST', `/session/${id}/element/${ref}/click`, {});
+					},
+				],
+				['touch tap', pointer('touch', [{ type: 'pause', duration: 80 }])],
+				['mouse click', pointer('mouse', [{ type: 'pause', duration: 50 }])],
+				// Last: a scripted click, which run 43993979079 showed DOES start Present. iOS does not count it as a gesture,
+				// so audio stays suspended, and the 'played with audio running' check says so instead of passing on silence.
+				['script click', async () => failIf(await call('latticeNarrationScriptClick()'), 'the scripted click')],
+			];
+			let started = null;
+			const tried = [];
+			await call('latticeNarrationEvents()');
+			for (const [name, press] of ways) {
+				await release();
+				await call('latticeNarrationEvents()');
+				try {
+					await press();
+				} catch (e) {
+					tried.push(`${name} threw ${String(e.message || e).slice(0, 120)}`);
+					continue;
+				}
+				await release();
+				started = await call('latticeNarrationStarted(5000)');
+				// What the page saw of this press, and what the dock reads after it: a failure names its own cause.
+				const seen = await call('latticeNarrationEvents()');
+				const dock = await call('latticeNarrationDock()');
+				tried.push(`${name}: ${started?.error ? 'not playing' : 'playing'} (events ${JSON.stringify(seen)}, dock ${JSON.stringify(dock)})`);
+				if (!started?.error) {
+					out.pressedWith = name;
+					break;
+				}
+			}
+			console.log(`${LABEL}: narration ${out.arm}: pressing Play: ${tried.join('; ')}`);
+			if (!out.pressedWith) throw new Error(`Present never started: ${tried.join('; ')}`);
+			const t0 = Date.now();
+			let peak = 0;
+			// WALK THE DECK. On the iOS Simulator no WebDriver press reaches the page (run 44017516008 logged no events for an
+			// element click, a touch tap or a mouse click), so only a script click starts Present, and iOS keeps audio suspended
+			// after one: narration stays on its first sentence. The memory under test is the narration the page fetches and
+			// keeps, and that is fetched per slide on navigation whether or not audio runs. So the probe presses Next every
+			// STEP_S, as a presenter would, and reads the page and the footprint every SAMPLE_S.
+			let nextSample = SAMPLE_S;
+			while (Date.now() - t0 < seconds * 1000) {
+				// STEP_S 0: no Next. Present advances on its own, as it does for a presenter who only pressed Play.
+				await sleep((STEP_S || SAMPLE_S) * 1000);
+				if (STEP_S) await call('latticeNarrationNext()');
+				if ((Date.now() - t0) / 1000 < nextSample) continue;
+				nextSample += SAMPLE_S;
+				const s = await call('latticeNarrationSample()');
+				const g = growthMB(m0, await readMB());
+				peak = Math.max(peak, g.grew);
+				out.samples.push({ t: Math.round((Date.now() - t0) / 1000), grewMB: g.grew, ...s });
+				out.baseMB = g.baseMB;
+				console.log(`${LABEL}: narration ${out.arm} +${out.samples.at(-1).t}s: slide ${s?.slide}, audio ${s?.audio}, ${s?.speech} spoken (${s?.pcm} as PCM), ${s?.liveMB} MB audio held of ${s?.decodedMB} MB decoded, WebKit +${g.grew} MB above ${g.baseMB} MB${s?.mark === played.mark ? '' : ', THE PAGE RELOADED'}`);
+				if (s?.mark !== played.mark) break;
+			}
+			out.playedS = Math.round((Date.now() - t0) / 1000);
+			out.peakGrewMB = peak;
+			out.alive = out.samples.at(-1)?.mark === played.mark;
+		} catch (e) {
+			out.error = String(e.message || e).slice(0, 300);
+			console.log(`${LABEL}: narration ${out.arm}: ERROR ${out.error}`);
+		}
+		return out;
+	};
+	const arms = [];
+	if (armSpec.length) for (const [v, c, g] of armSpec) arms.push(await arm(v, PLAY_S, g, c));
+	else arms.push(await arm(true, PLAY_S), await arm(false, SILENT_S));
+	const steps = narrationChecks(arms, { slides: deck.slides, capMB: CAP_MB, audioCapMB: AUDIO_CAP_MB, memory: !mac });
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: arms[0].ua, width: arms[0].width, voice: VOICE, deckBytes: deck.bytes.length, arms, steps };
 }
 
 /**

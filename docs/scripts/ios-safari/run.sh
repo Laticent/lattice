@@ -7,7 +7,8 @@
 # simulators and then in the Mac's own Safari. PROBE=chat-storage checks that chats move from localStorage to IndexedDB
 # across a reload, and measures the localStorage allowance (chat-storage-probe.js), against the site in both simulators. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
 # cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
-# photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=codec-support decodes and round-trips the narration codec fixtures on a blank page (codec-probe.js).
+# photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=codec-support decodes and round-trips the narration codec fixtures on a blank page (codec-probe.js). PROBE=present-narration plays a 4K deck in Present with Guide on,
+# voice on and then off, reading the WebKit footprint as it plays (present-narration.mjs).
 # PROBE=player-charts
 # exports two decks to HTML players and taps their chart detail cards open and shut (player-charts.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
@@ -148,6 +149,8 @@ families='iPad iPhone'
 [ "$PROBE" = present-memory ] && families='iPhone'
 # The narration codec probe answers for the owner's iPhone: what Apple's media stack decodes and encodes.
 [ "$PROBE" = codec-support ] && families='iPhone'
+# The Present narration probe stands in for the owner's iPhone too, where Present with narration reloaded the tab.
+[ "$PROBE" = present-narration ] && families='iPhone'
 # DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
 # each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
 # twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest

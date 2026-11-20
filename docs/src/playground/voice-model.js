@@ -290,6 +290,12 @@ function cacheKeyFor(rungName, modelId, voice, speed, text) {
 // session's real working set (a few dozen sentences × one voice/model/speed
 // combo at a time) sits well under this.
 const AUDIO_CACHE_LIMIT = 200;
+// AND a byte budget, because the count alone was sized for MP3. A Gemini voice answers uncompressed 24 kHz PCM, ten
+// times the bytes a second: 200 such clips are about 95 MB. A safety limit, NOT the fix for the iPhone reload during
+// narrated Present: the iOS Simulator grew about the same with and without it (PROBE=present-narration, runs
+// 44025172449 and 44024954648). 24 MB still holds minutes of PCM, far past the slide being read and the ones warmed
+// ahead of it; an evicted clip is synthesized again only if it is played again.
+export const AUDIO_CACHE_MAX_BYTES = 24 * 1024 * 1024;
 
 // warm()'s prefetch cap. Bounded, not unbounded fire-all: a long deck shouldn't
 // spike into dozens of simultaneous OpenRouter requests (rate limit / cost /
@@ -386,6 +392,11 @@ function wavLike(buf) {
   // in a real browser. A real Blob's own `.arrayBuffer()` already re-reads fresh
   // bytes per call for exactly this reason; `.slice(0)` gives this duck-typed
   // stand-in the same replay safety.
+  // A REAL Blob wherever the engine has one that reads back (every browser): the browser may keep a Blob's bytes
+  // outside the page's memory, where an ArrayBuffer held in a cache always counts against it, and a Gemini voice's
+  // uncompressed clips are the large ones (2026-11-17; not shown to be the iPhone reload). jsdom's Blob cannot read back
+  // (no `.arrayBuffer()`), so the tests keep the duck-typed shape with the same replay safety.
+  if (typeof Blob === 'function' && typeof Blob.prototype.arrayBuffer === 'function') return new Blob([buf], { type: 'audio/wav' });
   return { size: buf.byteLength, type: 'audio/wav', arrayBuffer: async () => buf.slice(0) };
 }
 
@@ -1034,12 +1045,19 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // (2026-07-09-studio-cloud-ondevice-config-split.md) rather than sharing one
   // cache across surfaces.
   const audioCache = new Map(); // cacheKeyFor(...) → Blob
+  let audioCacheBytes = 0;
   function cacheSet(key, blob) {
-    if (!audioCache.has(key) && audioCache.size >= AUDIO_CACHE_LIMIT) {
-      const oldest = audioCache.keys().next().value;
-      if (oldest !== undefined) audioCache.delete(oldest);
-    }
+    const had = audioCache.get(key);
+    if (had) audioCacheBytes -= had.size || 0;
     audioCache.set(key, blob);
+    audioCacheBytes += blob?.size || 0;
+    // Oldest first, until under BOTH the count and the byte budget, never the clip just stored.
+    while (audioCache.size > 1 && (audioCache.size > AUDIO_CACHE_LIMIT || audioCacheBytes > AUDIO_CACHE_MAX_BYTES)) {
+      const oldest = audioCache.keys().next().value;
+      if (oldest === undefined || oldest === key) break;
+      audioCacheBytes -= audioCache.get(oldest)?.size || 0;
+      audioCache.delete(oldest);
+    }
   }
   // In-flight synth de-dup: two IDENTICAL sentences scheduled in the same
   // concurrency batch (a slide repeating a phrase across two bullets) used to
@@ -2020,6 +2038,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     async prepareSelectedVoice() {
       if (injected || !selection) return true;
       const s = selection.read();
+      // Nothing chosen yet: nothing to make ready, and the key store throws on a provider it does not know (`''` is
+      // one). The read awaits this before it starts the read-along, so a throw here left Present's Play stuck.
+      if (!s.provider) return false;
       if (s.provider === 'kokoro') {
         if (!kokoroSupported()) return false;
         if (kokoro.ready()) return true;
