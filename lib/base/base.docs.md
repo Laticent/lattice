@@ -418,7 +418,11 @@ place it somewhere other than the band, and both are declared:
 - **Every chart kind** (`coda: { caption: true }`). The note IS the chart's caption:
   the kernel takes it like any note, and the chart draws it inside the figure as its
   caption, so the key insight stays the slide's panel below. One paragraph after the
-  data is the caption; captions stay optional.
+  data is the caption; captions stay optional. **Both beats together take roughly a
+  sixth of the stage.** Most charts scale into what is left; `gantt`, `journey`,
+  `matrix-grid` and `roadmap` deliberately do not shrink their drawing, so at their
+  gallery density a key insight AND a caption overflow and the engine reports
+  "Content clipped" by name. Trim the plan, or keep one of the two beats.
 - **`quote`** (`coda: { anatomy: ["trailing-paragraph"] }`). The first paragraph
   after the quotation is its attribution; a SECOND paragraph is the note.
 

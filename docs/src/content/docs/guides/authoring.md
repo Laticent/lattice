@@ -128,7 +128,9 @@ ordinary body text, so prose never turns into a footnote by accident; `no-note`
 on a slide keeps a closing sentence as body text.
 
 **Where it lands depends on the layout.** On a chart, `diagram` or `video`, the
-note is the figure's **caption**, drawn under the figure. On a `quote`, the first
+note is the figure's **caption**, drawn under the figure. Both beats together take
+about a sixth of the slide; a dense `gantt`, `journey`, `matrix-grid` or `roadmap`
+will not shrink to make room, so Lattice flags it as clipped. Trim it, or keep one beat. On a `quote`, the first
 line after the quotation is the attribution and a second one is the note. On the
 split layouts it closes the supporting column. A few layouts use the element for
 their own anatomy and do not take it: `math` and the QR posters take neither,

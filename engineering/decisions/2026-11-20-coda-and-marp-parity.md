@@ -272,3 +272,26 @@ tail scan stopped at them (it now steps over them as it does over Marp's `<foote
 with BOTH a key insight and a caption fits only just: the engine's fit check flags a few pixels on the
 gallery sample. The runtime-off notice is verified on a modeled VS Code page (marp-core with the
 preview's options), not yet in a real VS Code.
+
+## 8. Verified on every surface (2026-11-20)
+
+A 41-slide board deck using all 39 layouts that gained a beat, rendered and inspected slide by slide on:
+the Lattice PDF; the HTML player (stepped through with the keyboard); PPTX and ODP, default and
+`--editable`, opened in LibreOffice with the deck's own fonts installed; the copy-and-go kit through
+real `marp --pdf`; an Export-to-Marp bundle through real `marp --pdf`; and the modeled VS Code preview,
+scripts on and off. **Every gained beat renders on every surface.** What the pass found, none of it new
+to this change:
+
+- `gantt`, `journey`, `matrix-grid` (and `roadmap` before trimming) at gallery density overflow with a
+  key insight AND a caption, and say so ("Content clipped"). Gantt refuses to shrink by design
+  (`gantt.styles.css`); the docs now tell authors to trim or keep one beat.
+- Editable PPTX: on the title slide the key-insight text runs a few pixels past its shrink-wrapped
+  panel in LibreOffice; LibreOffice was still substituting one font weight, so this wants a look in
+  PowerPoint.
+- The kit flags both split slides because the running footer is truncated in the narrow dark panel (the
+  Lattice PDF truncates it too and does not flag it); a footer-width question, not the coda.
+- A kit deck that names a palette the kit does not ship (`theme: indaco`) renders unstyled with no
+  warning.
+
+Not reached: a real VS Code (its download host is blocked here), real PowerPoint or Keynote, and the
+player's article view.
