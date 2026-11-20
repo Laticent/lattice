@@ -1,4 +1,3 @@
-'use strict';
 /**
  * The fleet and desk skills tell an agent to read a doc "by section": `§Desks`,
  * `§Merge queue — the facts`, `§5`. A renamed heading makes that lookup return
