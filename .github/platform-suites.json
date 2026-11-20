@@ -424,7 +424,7 @@
         "examples/backdrop-vector-export.md"
       ],
       "run": "node tools/pdfkit-check/check.mjs",
-      "why": "Apple PDFKit draws every PDF opened in Preview or on an iPhone, the owner's viewer, and Linux has nothing that runs it. The shared PDF writer draws a finish's backdrop with an image soft mask, a /Interpolate picture and paths (engineering/decisions/2026-11-20-backdrop-gradient-fidelity.md); this draws the demo deck's PDF through PDFKit and fails when any 32 px tile is more than 12 levels from Chrome's screen, the mark of a dropped mask or a missing fade. Pages and report under platform-suite-artifacts/pdf-pdfkit/."
+      "why": "Apple PDFKit draws every PDF opened in Preview or on an iPhone, the owner's viewer, and Linux has nothing that runs it. The shared PDF writer draws a finish's backdrop with an image soft mask, a /Interpolate picture and paths (engineering/decisions/2026-11-20-backdrop-gradient-fidelity.md); this draws the demo deck's PDF through PDFKit, and a control with the backdrop photographed whole as before, and fails when any 32 px tile of the drawn page is more than 8 levels further from Chrome's screen than the control's: the mark of a dropped mask or a missing fade. PDFKit's own text rendering is in both and cancels. Pages and report under platform-suite-artifacts/pdf-pdfkit/."
     }
   ]
 }

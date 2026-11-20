@@ -9,6 +9,37 @@
 export const TILE = 32;
 
 /**
+ * The gate: the worst tile by how much FURTHER from the screen the drawn page is than the control (the same deck with
+ * its backdrop photographed whole, as before the writer drew it), both drawn by the same viewer. What the viewer does
+ * to everything else on the slide (text weight, color management) is in both and cancels; a tile where the drawing is
+ * closer to the screen than the photo counts below zero. A dropped soft mask or a missing fade is over 100.
+ * @returns {{ worst: number, x: number, y: number, drawnErr: number, photoErr: number }}
+ */
+export function worstRegression(drawn, photo, screen, tile = TILE) {
+	const w = Math.min(drawn.width, photo.width, screen.width), h = Math.min(drawn.height, photo.height, screen.height);
+	const mean = (img, tx, ty) => {
+		const sum = [0, 0, 0];
+		for (let y = ty; y < ty + tile; y++) {
+			for (let x = tx; x < tx + tile; x++) {
+				const i = (y * img.width + x) * 4;
+				for (let k = 0; k < 3; k++) sum[k] += img.data[i + k];
+			}
+		}
+		return sum.map((v) => v / (tile * tile));
+	};
+	const err = (m, ms) => Math.max(...m.map((v, k) => Math.abs(v - ms[k])));
+	let best = null;
+	for (let ty = 0; ty + tile <= h; ty += tile) {
+		for (let tx = 0; tx + tile <= w; tx += tile) {
+			const ms = mean(screen, tx, ty);
+			const drawnErr = err(mean(drawn, tx, ty), ms), photoErr = err(mean(photo, tx, ty), ms);
+			if (!best || drawnErr - photoErr > best.worst) best = { worst: drawnErr - photoErr, x: tx, y: ty, drawnErr, photoErr };
+		}
+	}
+	return best || { worst: 0, x: 0, y: 0, drawnErr: 0, photoErr: 0 };
+}
+
+/**
  * Where `worstTile` is, for the log: the tile's corner, both images' mean color in it, its difference, and the mean SIGNED
  * difference (a minus b) per channel over the whole image. A color-management shift moves every tile one way; a dropped
  * mask moves one region.

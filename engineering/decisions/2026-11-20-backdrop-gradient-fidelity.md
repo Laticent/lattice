@@ -171,9 +171,18 @@ glow picture; the clear-panel deck's draw-time cost.
 - **Apple PDFKit (Preview, iOS)**, the owner's viewer: not reachable from the build sandbox. The owner
   chose a platform suite for it (2026-11-20): `pdf-pdfkit` (`.github/platform-suites.json`,
   `tools/pdfkit-check/`) draws the demo deck's PDF through PDFKit on a macOS runner, on every PR that
-  touches the writer and nightly, and fails when any 32 px tile is more than 12 levels from Chrome's screen.
-  Calibrated on Linux with poppler standing in: today's deck 4.6 to 8.7 levels, a dropped soft mask 16 to
-  29. It does not gate on blockiness: a glow changes by under a level every 4 px, so a viewer ignoring
+  touches the writer and nightly. It also exports a CONTROL, the same deck with the backdrop photographed
+  whole as `main` did, and fails when any 32 px tile of the drawn page is more than 8 levels further from
+  Chrome's screen than the control's, both drawn by PDFKit.
+  **Its first PDFKit run failed, and the control says why** (2026-11-20). The gate then compared the
+  drawn page with the screen directly (fail over 12 levels), and three glow slides missed by 14 to 17. The
+  photographed control missed by the same amount, at the same tile, with the same colors: slide 1, 16.43
+  against 16.37 at 576,288; slide 5, 16.68 against 16.68 at 96,96. Every worst tile was a heading, light
+  text on a dark slide: PDFKit draws it heavier than Chrome, on today's exports as much as on the new
+  ones. It is not the backdrop's. So the gate measures what the backdrop changes: what the viewer does
+  to the rest of the slide is in both arms and cancels. Calibrated with poppler: the drawn backdrop at
+  most 4.2 levels further than the photo; with the fade's soft mask dropped, 11 to 22 (slides 4 to 6
+  fail). The raw distance from the screen stays in the log. It does not gate on blockiness: a glow changes by under a level every 4 px, so a viewer ignoring
   `/Interpolate` would draw stairs of a level at most, which no gate can tell from rounding.
 - **The Studio's PDF download** is driven for real by `docs/e2e/studio-pdf-backdrop.spec.ts` (Chromium,
   10 runs alone and 5 under load, green). Driving it found the Studio's dark slide drawn as opacity maps

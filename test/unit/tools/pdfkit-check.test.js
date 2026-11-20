@@ -54,3 +54,22 @@ test('worstTileAt: a local fault is found where it is; a color shift moves the s
 	assert.deepEqual(s.meanDiff.map(Math.round), [-10, -10, -10]);
 	assert.ok(Math.abs(at.meanDiff[0]) < at.worst / 5, `a local box moves the slide mean ${at.meanDiff[0].toFixed(1)}, far less than its own ${at.worst.toFixed(1)}`);
 });
+
+test('worstRegression: text drawn differently in both arms cancels; a dropped mask in the drawing does not', () => {
+	const glow = (x) => [40 + Math.round(x / 20), 60, 90];
+	const screen = picture(320, 192, glow);
+	// The viewer draws a heading heavier than the screen, in BOTH arms (PDFKit's text, measured 14 to 17 levels).
+	const heavy = (x, y) => (y >= 32 && y < 64 && x >= 32 && x < 160 ? [glow(x)[0] + 16, 76, 106] : glow(x));
+	const photo = picture(320, 192, heavy);
+	const drawn = picture(320, 192, heavy);
+	assert.ok(m.worstTile(drawn, screen) > 12, 'the raw distance fails on the text');
+	assert.equal(m.worstRegression(drawn, photo, screen).worst, 0, 'the regression does not');
+	// The drawing closer to the screen than the photo (an old photo's vignette corner) counts below zero.
+	const offCorner = picture(320, 192, (x, y) => (x < 32 && y < 32 ? [10, 30, 60] : heavy(x, y)));
+	assert.ok(m.worstRegression(drawn, offCorner, screen).worst <= 0);
+	// A dropped soft mask in the drawing only: a solid box where both the screen and the photo show the glow.
+	const box = picture(320, 192, (x, y) => (x >= 192 && x < 256 && y >= 96 && y < 160 ? [200, 190, 180] : heavy(x, y)));
+	const r = m.worstRegression(box, photo, screen);
+	assert.ok(r.worst > 100, `a dropped mask: ${r.worst.toFixed(1)}`);
+	assert.ok(r.x >= 192 && r.x < 256 && r.y >= 96 && r.y < 160, `found at ${r.x},${r.y}`);
+});
