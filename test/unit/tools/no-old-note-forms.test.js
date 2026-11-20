@@ -55,8 +55,10 @@ const sanctioned = (file) => [...SANCTIONED.keys()].some((k) => (k.endsWith('/')
 const OLD_COMMENT = /<!-{2,}[ \t]*(?:say|reader|note|[Dd][Ee][Ss][Cc][Rr][Ii][Bb][Ee])[ \t]*:/;
 // A record's note field: `<!-- {…, note="…"} -->` or a `note: |` line inside a record comment.
 const OLD_RECORD_FIELD = /<!--[ \t]*(?:@meta)?\{[^}\n]*\b(?:note|say|describe|reader)[ \t]*=/;
-// A front-matter `say:` / `captions:` map: the key at column 0 inside a deck's opening `---` block.
-const OLD_SAY_MAP = /^﻿?---\r?\n(?:[^\n]*\n)*?(?:say|captions)[ \t]*:[ \t]*\r?\n[ \t]+\d+[ \t]*:/;
+// A front-matter `say:` / `captions:` map: the key at column 0 with a numbered entry under it, ANYWHERE in the file,
+// because a test writes its deck inside a template string, where the deck's front matter does not open the file
+// (docs/e2e/hidden-slides-surfaces.spec.ts did, on PR 3351).
+const OLD_SAY_MAP = /^(?:say|captions)[ \t]*:[ \t]*\r?\n[ \t]+\d+[ \t]*:/m;
 
 /**
  * Every old form in one file's text, as `line: excerpt`.
@@ -101,5 +103,6 @@ test('the scanner finds each old form (the failing arm)', () => {
   assert.equal(oldForms('<!-- note: mine -->').length, 1);
   assert.equal(oldForms('<!-- {layout=cards, note="x"} -->').length, 1);
   assert.equal(oldForms('---\ntheme: indaco\nsay:\n  3: Hello.\n---\n\n# A\n').length, 1);
+  assert.equal(oldForms('const DECK = `---\ntheme: indaco\nsay:\n  1: Alpha.\n---\n`;').length, 1, 'a deck inside a template string');
   assert.deepEqual(oldForms('<!-- @say{hello} -->\n<!-- Say: a private note -->\n<!-- {layout=cards} -->\n---\nsay:\n'), []);
 });
