@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { pictureStill } from './barriers';
-import { expect, gotoStudio, livePreview, setEditorContent, shareExport, test, toastText } from './studio-fixture';
+import { expect, gotoStudio, LIVE_PREVIEW, livePreview, SHARE_EXPORTS, setEditorContent, shareExport, test, toastText } from './studio-fixture';
 
 // ── Host slots and a plugin's own stylesheet, in the real Studio (owner, 2026-10-20; HARD RULE #23) ──
 //
@@ -11,12 +11,14 @@ import { expect, gotoStudio, livePreview, setEditorContent, shareExport, test, t
 // slots and returns the values for them. Imported through the REAL Library, listed in a deck, approved from the
 // notice above the preview and run in the real sandbox frame:
 //
+//   0. UNAPPROVED the print preview shows the placeholder the PDF prints, not the block's source
 //   1. FILLED     the badge holds the returned word, the title the returned text, the detail a table the host
 //                 rendered from returned markdown; no `${` is left on the slide
 //   2. STYLED     the plugin's own `styles.css` reached the preview, scoped to its root: the badge has a fill, and a
 //                 heading outside the plugin's root is untouched
-//   3. SHARE → PDF the export draws the same deck through the same door and downloads a PDF
+//   3. SHARE → PDF the export draws the same deck through the same door and downloads a PDF; the print preview draws it too
 //   4. THREE WIDTHS the card fits 1440, 820 and 390 px (screenshots when LATTICE_EVIDENCE_DIR is set)
+//   5. RELOAD     with the plugin approved, no frame of the new page paints the badge's words without its fill (#3292)
 
 test.describe.configure({ timeout: 300_000 });
 
@@ -61,6 +63,62 @@ title: Q3 launch readiness
 \`\`\`
 `;
 
+type BadgeWatch = { __badgeWatch: { bare: string[]; filled: number; done: boolean } };
+
+/**
+ * Watch every painted frame (#3292): a `requestAnimationFrame` loop in the Studio page reads the live preview frame (a
+ * same-origin srcdoc, so the parent can read it on every engine; an init script does not reach it in Chromium) and
+ * records each frame where the badge shows its text with no fill. It stops after 60 filled frames in a row. Installed
+ * before Approve (`page.evaluate`) and before a reload (`page.addInitScript`, the top page only).
+ * Before the fix, after Approve it saw the bare frame in 2 of 40 Chromium and 3 of 40 WebKit runs under 4 workers;
+ * after a reload with the plugin approved, in 3 of 6 Chromium and 3 of 8 Gecko runs. With it, 0 of 120 for each.
+ */
+function installBadgeWatch({ sel, name }: { sel: string; name: string }) {
+	if (window.top !== window) return;
+	const w = { bare: [] as string[], filled: 0, done: false };
+	(window as unknown as BadgeWatch).__badgeWatch = w;
+	let frame = 0;
+	const tick = () => {
+		frame++;
+		for (const f of document.querySelectorAll<HTMLIFrameElement>(sel)) {
+			const badge = f.contentDocument?.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
+			if (!badge || badge.textContent?.trim() !== 'at-risk' || !badge.getClientRects().length) continue;
+			const fill = f.contentWindow?.getComputedStyle(badge).backgroundColor ?? '';
+			if (/^rgba\(0, 0, 0, 0\)$|^transparent$/.test(fill)) {
+				w.bare.push(`frame ${frame}: ${fill}`);
+				w.filled = 0;
+			} else w.filled++;
+		}
+		if (w.filled >= 60) w.done = true;
+		else requestAnimationFrame(tick);
+	};
+	requestAnimationFrame(tick);
+}
+
+/** The watcher's verdict: wait for its 60 filled frames, then no frame may have painted the text without the fill. */
+async function expectNoBareFrame(page: Parameters<typeof gotoStudio>[0], when: string) {
+	await expect.poll(() => page.evaluate(() => (window as unknown as BadgeWatch).__badgeWatch?.done ?? false), { timeout: 60_000 }).toBe(true);
+	const watch = await page.evaluate(() => (window as unknown as BadgeWatch).__badgeWatch);
+	expect(watch.bare, `no frame painted the badge text without the plugin fill ${when}`).toEqual([]);
+}
+
+/** What each print-preview thumbnail in the Share sheet shows for the plugin's block: `drawn <fill>`, `placeholder` or `source`. */
+async function printPreview(sheet: import('@playwright/test').Locator): Promise<string[]> {
+	const seen: string[] = [];
+	for (const el of await sheet.locator('iframe').elementHandles()) {
+		const s = await (await el.contentFrame())
+			?.evaluate((name) => {
+				const badge = document.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
+				if (badge) return `drawn ${getComputedStyle(badge).backgroundColor}`;
+				if (document.querySelector(`[data-lattice-plugin-off="${name}"]`)) return 'placeholder';
+				return [...document.querySelectorAll('pre code')].some((c) => /status: at-risk/.test(c.textContent ?? '')) ? 'source' : '';
+			}, NAME)
+			.catch(() => '');
+		if (s) seen.push(s);
+	}
+	return seen;
+}
+
 // All three engines, as plugin-fence.spec.ts runs them: `@gecko` runs on the desktop (Chromium) project and the gecko one;
 // the `@webkit-tablet` twin runs on WebKit (the desktop project skips a title naming @webkit).
 for (const tag of [' @gecko', ' @webkit-tablet']) {
@@ -75,6 +133,15 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		const notice = page.locator('[data-slot="code-packages"]');
 		await setEditorContent(page, DECK);
 		await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
+		// 0. NOT YET APPROVED, the print preview shows the placeholder the PDF prints, never the block's source (#3292).
+		await page.getByRole('button', { name: 'Share', exact: true }).click();
+		const unapprovedSheet = page.getByRole('dialog');
+		await unapprovedSheet.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
+		await expect.poll(async () => (await printPreview(unapprovedSheet)).includes('placeholder'), { timeout: 60_000 }).toBe(true);
+		expect(await printPreview(unapprovedSheet), 'the print preview of an unapproved plugin shows its placeholder only').not.toContainEqual(expect.stringMatching(/^(source|drawn )/));
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog')).toHaveCount(0);
+		await page.evaluate(installBadgeWatch, { sel: LIVE_PREVIEW, name: NAME });
 		await notice.getByRole('button', { name: `Approve the code of ${NAME}` }).click();
 
 		const root = preview.locator(`[data-lattice-plugin="${NAME}"]`);
@@ -87,8 +154,13 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await expect(preview.locator(`section[data-returned-${NAME}--status="at-risk"]`)).toHaveCount(1);
 
 		// 2. STYLED, and scoped: the badge has a fill from the plugin's sheet; a heading outside the root is not touched by it.
+		// Never polled, on purpose: the badge's text and the plugin's sheet come from the same render (code-packages/door.ts
+		// `approvalsInStamp`, #3292), so the first frame with the text has the fill. A transparent read, here or on any frame
+		// `installBadgeWatch` saw, is that promise broken, which CI caught once before the fix (run 44098310773), not a race to wait out.
 		const fill = await root.locator('.lp-status-card-badge').evaluate((el) => getComputedStyle(el).backgroundColor);
 		expect(fill, 'the badge carries the plugin stylesheet fill').not.toMatch(/^rgba\(0, 0, 0, 0\)$|^transparent$/);
+		// And every frame before this read: the watcher saw the badge's text on 60 frames in a row with its fill, and never without it.
+		await expectNoBareFrame(page, 'after Approve');
 		const bordered = await root.locator('.lp-status-card-card').evaluate((el) => getComputedStyle(el).borderTopWidth);
 		expect(bordered).toBe('1px');
 		const heading = await preview.locator('h2').first().evaluate((el) => getComputedStyle(el).borderTopWidth);
@@ -107,6 +179,16 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		if (evidence) fs.copyFileSync(pdfPath, `${evidence}/plugin-slots-share-${browserName}.pdf`);
 		await page.keyboard.press('Escape');
 
+		// 3b. PRINT PREVIEW: its thumbnails render with the export's CSS, which carries the plugin's sheet under a stamp with no
+		// nonce, so the door draws the plugin by the live approval (door-run.ts `unstamped`, #3292). A rule that read every
+		// stamp-less CSS as "draw no plugin" showed the block's source here, while the printed PDF drew it.
+		await page.getByRole('button', { name: 'Share', exact: true }).click();
+		const sheet = page.getByRole('dialog');
+		await sheet.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
+		await expect.poll(async () => (await printPreview(sheet)).some((s) => s.startsWith('drawn ')), { timeout: 60_000 }).toBe(true);
+		expect(await printPreview(sheet), 'the print preview draws the plugin with its fill, never its source or a placeholder').not.toContainEqual(expect.stringMatching(/^(source|placeholder)$|rgba\(0, 0, 0, 0\)/));
+		await page.keyboard.press('Escape');
+
 		// 4. THREE WIDTHS
 		for (const [width, height] of [
 			[1440, 900],
@@ -119,5 +201,12 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			await pictureStill(page);
 			await shot(String(width));
 		}
+
+		// 5. RELOAD, the plugin approved in the session before: from the first frame of the new page, the badge never shows
+		// its words without its fill. A render can begin before the Studio's stamp holds the plugins (door-run.ts `unstamped`).
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await page.addInitScript(installBadgeWatch, { sel: LIVE_PREVIEW, name: NAME });
+		await page.reload();
+		await expectNoBareFrame(page, 'after a reload');
 	});
 }

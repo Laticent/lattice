@@ -222,9 +222,10 @@ async function runStudioProbe(id) {
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
 	const focus = await shotIfFailed('sheet-focus', await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe'));
 	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
-	const compose = await shotIfFailed('compose', await studioPage(id, 'compose-probe.js', 'latticeComposeProbe', { seed: false }));
-	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
-	// which never shows the keyboard or runs Safari's own tap-to-focus path.
+	const compose = await shotIfFailed('compose', await composeProbePage(id));
+	// Then a real touch tap on a Compose paragraph, on that page, from a blurred editor. The probe above taps only its first
+	// stop (the one that focuses the editor) and places its later carets through the Selection API, which never shows the
+	// keyboard.
 	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
 	// Then the empty deck, on that page: a real touch on the start grid's canvas gives Compose's empty line the caret, the
 	// "tap here to start writing" hint's promise (empty-deck-probe.js; 2026-11-17-compose-empty-deck.md).
@@ -281,6 +282,104 @@ function summarizeTapLog(log) {
 	const held = ts && te ? `${te.type === 'touchcancel' ? 'touchcancel' : 'touchend'} ${te.t - ts.t} ms after touchstart` : 'no touchstart/touchend pair';
 	const parts = ev.map((e) => (e.type === 'selectionchange' ? `selectionchange@${e.t}${e.collapsed ? ' caret' : ` "${String(e.text).replace(/\s+/g, ' ').trim()}"`} in ${e.target}` : `${e.type}@${e.t}${e.lag ? `(+${e.lag})` : ''} ${e.x},${e.y} ${e.target}`));
 	return `${held}; ${parts.slice(0, 14).join(' | ')}${parts.length > 14 ? ` | +${parts.length - 14} more` : ''}`;
+}
+
+/**
+ * One finger touch at `at`, as a tap is: down then up with NO pause between them (a forced hold only for the long-press
+ * control). The simulator stretches any hold it is sent: 150 ms arrived as 345 and 300 as 632 (dispatch 43798678775),
+ * while taps with no pause arrived as 29-43 ms. Returns the gesture's WebDriver time in ms.
+ */
+async function touchAt(id, at, forcedHold = 0) {
+	await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+	const t = Date.now();
+	await wd('POST', `/session/${id}/actions`, {
+		actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, ...(forcedHold ? [{ type: 'pause', duration: forcedHold }] : []), { type: 'pointerUp', button: 0 }] }],
+	});
+	const ms = Date.now() - t;
+	await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+	return ms;
+}
+
+/**
+ * The tap the Compose probe asks for at the stop that focuses the editor (compose-probe.js `tapInto`, #3291): delivered with
+ * the same long-press guard as `composeTouchTap` (tap-guard.mjs), and judged by whether a caret landed in the block the
+ * tapped point holds, with the editor focused. Returns the verdict the probe records as a step.
+ */
+async function probeTap(id, at) {
+	const run = (script) => wd('POST', `/session/${id}/execute/sync`, { script, args: [] });
+	const tries = [];
+	for (let n = 1; n <= 2; n++) {
+		if (n > 1) {
+			// The multi-tap window: a second tap inside it is a double tap, which selects a word.
+			await new Promise((r) => setTimeout(r, 1000));
+			await run('document.activeElement?.blur?.(); getSelection()?.removeAllRanges();');
+		}
+		await run(tapLogInstall());
+		const tapMs = await touchAt(id, at);
+		const seen = await wd('POST', `/session/${id}/execute/async`, {
+			args: [],
+			script: `const done = arguments[arguments.length - 1];
+				const t0 = performance.now();
+				const read = () => {
+					const sel = getSelection();
+					const node = sel && sel.anchorNode;
+					// The block under the tap point: the probe does not mark its target (a marked node is one ProseMirror redraws).
+					const under = document.elementFromPoint(${at.x}, ${at.y});
+					const block = under && under.closest('h1, h2, h3, h4, h5, h6, p, li');
+					const inAim = !!(block && node && block.contains(node));
+					const caret = !!(sel && sel.isCollapsed);
+					const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
+					if ((inAim && caret && focused) || performance.now() - t0 > 4000) done({ inAim, caret, focused, picked: sel ? String(sel).slice(0, 40) : '', log: window.__tapLog || null });
+					else requestAnimationFrame(read);
+				};
+				read();`,
+		});
+		const hold = tapHold(seen.log);
+		const selected = pressSelected(seen.log);
+		const decision = tapVerdict({ caret: seen.inAim && seen.caret && seen.focused, hold, selected, delivery: n });
+		tries.push({ n, tapMs, hold, seen, decision });
+		console.log(`${LABEL}: compose probe tap ${n} at ${at.x},${at.y} (${at.what}): gesture ${tapMs} ms; hold ${hold ?? 'none'} ms; ${decision}; page saw ${summarizeTapLog(seen.log)}`);
+		if (decision !== 'redeliver') break;
+	}
+	const last = tries.at(-1);
+	const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
+	const detail = `sent ${at.x},${at.y}; hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}`;
+	if (last.decision === 'pass') return { ok: true, detail };
+	const why = last.decision === 'fail-long-press' ? 'the simulator delivered a long press both times' : `${last.seen.caret ? 'a caret' : `a SELECTION "${last.seen.picked}"`}${last.seen.inAim ? '' : ' outside the block'}${last.seen.focused ? '' : ', editor not focused'}`;
+	return { ok: false, detail: `${detail}; ${why}` };
+}
+
+/**
+ * The first-visit Compose probe (compose-probe.js) on a fresh page with nothing stored, with a tap runner: the probe is
+ * started without waiting for it, and each tap it asks for (`__latticeTapRequest`) is delivered over WebDriver actions by
+ * `probeTap` and answered through `__latticeTapDone`, until the probe's result is in.
+ */
+async function composeProbePage(id) {
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+	await wd('POST', `/session/${id}/execute/sync`, { script: "try { localStorage.removeItem('lattice-studio-settings'); } catch {}", args: [] });
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+	const probe = withEditorHelper(fs.readFileSync(path.join(here, 'compose-probe.js'), 'utf8'));
+	await wd('POST', `/session/${id}/execute/sync`, {
+		script: `${probe}\nwindow.__latticeTapBridge = true; window.__latticeTapRequest = null; window.__composeResult = null;\nlatticeComposeProbe().then((r) => { window.__composeResult = r; }, (e) => { window.__composeResult = { ok: false, error: String(e), steps: [] }; });\nreturn true;`,
+		args: [],
+	});
+	for (;;) {
+		// One wait per message from the probe, bounded by the session's script timeout (360 s), as the probe's single call was.
+		const next = await wd('POST', `/session/${id}/execute/async`, {
+			args: [],
+			script: `const done = arguments[arguments.length - 1];
+				const look = () => {
+					const req = window.__latticeTapRequest;
+					if (window.__composeResult) done({ result: window.__composeResult });
+					else if (req && !req.taken) { req.taken = true; done({ tap: { x: req.x, y: req.y, what: req.what } }); }
+					else setTimeout(look, 100);
+				};
+				look();`,
+		});
+		if (next.result) return next.result;
+		const verdict = await probeTap(id, next.tap);
+		await wd('POST', `/session/${id}/execute/sync`, { script: 'window.__latticeTapDone(arguments[0]); return true;', args: [verdict] });
+	}
 }
 
 /** The WebDriver round trip for a no-op script, the baseline the tap's gesture time is read against (median of three). */
@@ -390,12 +489,7 @@ async function composeTouchTap(id) {
 			// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
 			// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
 			// selected the word under the finger, so the paragraph held a range, not a caret, and correctly got no caret-line mark.
-			const tapStart = Date.now();
-			await wd('POST', `/session/${id}/actions`, {
-				actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, ...(forcedHold ? [{ type: 'pause', duration: forcedHold }] : []), { type: 'pointerUp', button: 0 }] }],
-			});
-			const tapMs = Date.now() - tapStart;
-			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			const tapMs = await touchAt(id, at, forcedHold);
 			const seen = await wd('POST', `/session/${id}/execute/async`, {
 				args: [],
 				script: `const done = arguments[arguments.length - 1];

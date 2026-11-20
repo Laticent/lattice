@@ -23,7 +23,7 @@ describe('the code-package door loads on the first package', () => {
 
 	it('a package loads the door, which stamps it and takes the render', async () => {
 		await setCodePackages([{ name: 'acme', code }]);
-		expect(codePackagesStamp()).toMatch(/^\/\* lattice code packages: acme@[0-9a-f]{16}- \*\/$/);
+		expect(codePackagesStamp()).toMatch(/^\/\* lattice code packages [0-9a-z]+: acme@[0-9a-f]{16}- \*\/$/);
 		const opts: unknown[] = [];
 		const PG = {
 			render: (_s: string, _t: string, o?: Record<string, unknown>) => {

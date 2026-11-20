@@ -8,6 +8,13 @@
 import type { Renderer } from './door';
 
 type Door = typeof import('./door');
+
+/**
+ * The localStorage key that holds this browser's code-package and plugin approvals (door.ts). Here, in the eager entry,
+ * so the Studio shell can hear an approval given in another tab (a `storage` event) without loading the door, and
+ * without a chunk of its own on the Studio's first load (the route budget).
+ */
+export const CODE_APPROVALS_KEY = 'lattice-code-package-approvals';
 let door: Door | null = null;
 let loading: Promise<Door> | null = null;
 const load = () => {
@@ -53,12 +60,12 @@ export function codePackagesStamp(): string {
 	return door ? door.codePackagesStamp() : '';
 }
 
-/** door.ts `renderWithCodePackages`; before the door loads, the engine's render without the door's flag. */
+/** door.ts `renderWithCodePackages`; before the door loads, the engine's render without the door's flags. */
 export async function renderWithCodePackages<R extends { html: string }>(PG: Renderer, source: string, theme: string, opts: Record<string, unknown> | undefined): Promise<R> {
 	if (door) return door.renderWithCodePackages<R>(PG, source, theme, opts);
 	let engineOpts = opts;
-	if (opts && 'codeStatus' in opts) {
-		const { codeStatus: _flag, ...rest } = opts;
+	if (opts && ('codeStatus' in opts || 'codeApproval' in opts)) {
+		const { codeStatus: _status, codeApproval: _approval, ...rest } = opts;
 		engineOpts = rest;
 	}
 	return PG.render(source, theme, engineOpts) as R;

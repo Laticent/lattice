@@ -37,6 +37,15 @@ import type { OverflowMarker } from './studio-store';
 import type { StudioTheme } from './theme-library';
 import { MAX_EMBEDDED_MEDIA_BYTES, MAX_LATTICE_MEDIA_BYTES } from './zip-limits';
 
+/**
+ * The extra CSS as an export writes it: the code-package stamp's per-page nonce taken out (code-packages/door.ts
+ * `STAMP_NONCE`), so the same deck exports the same text after a reload (#3292). The nonce only tells a preview render
+ * its own stamp from look-alike text; nothing reads it in an exported file.
+ */
+export function withoutStampNonce(css: string): string {
+	return css.replace(/\/\* lattice code packages [0-9a-z]+: /g, '/* lattice code packages: ');
+}
+
 // The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated detector
 // table, never by importing the plugin's folder (tools/structure.js holds that line).
 const sourceHasMath = MATH_DETECT.detect as (src: string) => boolean;
@@ -189,7 +198,7 @@ export async function buildDeckRender(
 		hidden: shown.hidden,
 		// Saved local-component CSS (extraCss) rides last so the deck's `.<name>`
 		// slides export with their styles — same composition as the live preview.
-		css: out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : ''),
+		css: out.css + (extraCss ? `\n/* studio-local-components */\n${withoutStampNonce(extraCss)}` : ''),
 		mode,
 		geom: { w: out.width || 1280, h: out.height || 720 },
 		runtimeUrl: options.runtimeUrl,
@@ -197,7 +206,7 @@ export async function buildDeckRender(
 		dagreUrl: options.dagreUrl,
 		webOrigins: options.webOrigins ?? [],
 		...(out.flatCss !== undefined
-			? { flatCss: unwrapFlatSheet(out.flatCss) + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '') }
+			? { flatCss: unwrapFlatSheet(out.flatCss) + (extraCss ? `\n/* studio-local-components */\n${withoutStampNonce(extraCss)}` : '') }
 			: {}),
 	};
 }
@@ -657,7 +666,7 @@ export async function shareHtmlPlayer(
 		const ex = await exporters();
 		const result = await ex.bakeDeckSections({
 			html: playerHtml,
-			css: out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : ''),
+			css: out.css + (extraCss ? `\n/* studio-local-components */\n${withoutStampNonce(extraCss)}` : ''),
 			mode: 'light', // the render's own mode (above); the frame forces no scheme on the slides
 			geom: { w: out.width || 1280, h: out.height || 720 },
 			runtimeUrl: options.runtimeUrl,
@@ -899,7 +908,7 @@ export async function shareHtmlPlayer(
 	// shipped as written — see `packSelector` in lib/engine/css.js. `?? out.css` keeps an
 	// engine bundle that predates the `styles` option exporting what it did before.
 	const deckCss = unwrapFlatSheet(out.flatCss ?? out.css);
-	const css = deckCss + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '');
+	const css = deckCss + (extraCss ? `\n/* studio-local-components */\n${withoutStampNonce(extraCss)}` : '');
 	const fmText = (source.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] ?? '';
 	const deckStyle = sanitizeStyleText(coreMod.exportDeckStyleText({ w, h, deckCss: css, globalCss: coreMod.exportGlobalCss(fmText, slides) }));
 	const docHtml = buildSelfContainedDoc({

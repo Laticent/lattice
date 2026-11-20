@@ -75,6 +75,10 @@ export type RenderMarkdownOpts = {
 	/** This is the preview's own render: the code-package notice hears which packages failed in
 	 *  it (code-packages/door.ts). A scan, a gate or an export rendering on the side leaves it unset. */
 	codeStatus?: boolean;
+	/** The extra CSS this render will paint with. When it carries the code-package stamp, the door draws a package
+	 *  or a plugin as approved only if that stamp says so, so the markup and the plugin's sheet match
+	 *  (code-packages/door.ts `approvalsInStamp`, #3292). Unset: the live approvals. */
+	codeApproval?: string;
 	/** The default plugin set for THIS render (engine `render(…, { pluginDefaults })`). A slide
 	 *  rendered alone passes the whole deck's admission (`PG.pluginAdmission`): it is deck-wide. */
 	pluginDefaults?: string[];
