@@ -125,10 +125,10 @@ async function latticeComposeProbe() {
 			const slide = el.closest('.cs-slide');
 			if (!pm().contains(document.activeElement)) {
 				// THE STOP THAT FOCUSES THE EDITOR IS A REAL TAP (#3291). Focusing an unfocused editor from script and setting a
-				// caret in the same task raced prosemirror-view 1.42.8's 20 ms focus timer, which wrote its own selection back before
-				// a slow engine reported the caret (iOS Simulator, run 44119244333; 1.42.9 fixed the timer upstream). A person taps,
-				// so this stop asks the runner for one. Every later stop finds the editor focused, fires no focus event, and places
-				// its caret from script.
+				// caret in the same task races prosemirror-view's 20 ms focus timer, which writes its own selection back before a
+				// slow engine reports the caret (iOS Simulator, run 44119244333). A person taps, and a tap that focuses Compose is
+				// what pointer-focus-caret.ts covers, so this stop asks the runner for one. Every later stop finds the editor
+				// focused, fires no focus event, and places its caret from script.
 				await tapInto(el, what);
 			} else {
 				pm().focus();
