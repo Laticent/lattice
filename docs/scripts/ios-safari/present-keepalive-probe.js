@@ -63,6 +63,21 @@ async function latticeKeepalivePresentAt() {
 	return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
 }
 
+/** Log what the page sees of the next touch (touchstart/touchend times), as tap-guard.mjs reads it. */
+function latticeKeepaliveArmTap() {
+	window.__kaTap = { events: [] };
+	for (const type of ['touchstart', 'touchend', 'touchcancel', 'click'])
+		window.addEventListener(type, (e) => window.__kaTap?.events.push({ type, t: e.timeStamp }), { capture: true });
+	return true;
+}
+
+/** Did the tap open Present? Waits up to `ms`, then returns the touch log either way. */
+async function latticeKeepaliveOpened(ms) {
+	const h = latticeKeepaliveHelpers();
+	const open = await h.until(() => h.dialog() && h.counter(), ms, 'Present').then(() => true, () => false);
+	return { open, log: window.__kaTap || null };
+}
+
 async function latticeKeepaliveOpen() {
 	const h = latticeKeepaliveHelpers();
 	await h.until(() => h.dialog() && h.counter(), 30000, 'the Present dialog and its counter (after the tap on Present)');
@@ -135,7 +150,7 @@ async function latticeKeepaliveClose() {
 /** The verdict, shared by run.mjs and probe.selftest.mjs. It judges states reached, never durations (HARD RULE #32). */
 function latticeKeepaliveChecks(r, { realSafari }) {
 	return [
-		{ name: 'Present holds a screen wake lock', pass: r.open?.wake === 'held', detail: `data-wake=${r.open?.wake}, navigator.wakeLock ${r.open?.hasApi ? 'present' : 'absent'}` },
+		{ name: 'Present holds a screen wake lock', pass: r.open?.wake === 'held', detail: `data-wake=${r.open?.wake}, navigator.wakeLock ${r.open?.hasApi ? 'present' : 'absent'}${r.taps ? `; Present opened by a touch held ${r.taps}` : ''}` },
 		{ name: 'Fullscreen turns on the immersive layout, and its chrome fades', pass: r.immersive?.immersive === true, detail: `${realSafari ? 'real full screen ' + (r.immersive?.realFullscreen ? 'granted' : 'refused') : ''} slide ${r.immersive?.frame?.join('x')}` },
 		{ name: 'a touch tap on the slide brings the chrome back', pass: r.shown?.shown === true, detail: `top bar opacity ${r.shown?.opacity}` },
 		{ name: 'the captions ride inside the slide and their highlight walks the words', pass: r.play?.inside === true && r.play?.lit > 1, detail: `"${r.play?.caption}" ${r.play?.lit} lit, ${r.play?.fontPx}px on a ${r.play?.frameW}px slide` },
@@ -144,4 +159,4 @@ function latticeKeepaliveChecks(r, { realSafari }) {
 	];
 }
 
-Object.assign(globalThis, { latticeKeepalivePresentAt, latticeKeepaliveOpen, latticeKeepaliveImmersive, latticeKeepaliveShown, latticeKeepalivePlay, latticeKeepaliveNext, latticeKeepaliveClose, latticeKeepaliveChecks });
+Object.assign(globalThis, { latticeKeepaliveArmTap, latticeKeepaliveOpened, latticeKeepalivePresentAt, latticeKeepaliveOpen, latticeKeepaliveImmersive, latticeKeepaliveShown, latticeKeepalivePlay, latticeKeepaliveNext, latticeKeepaliveClose, latticeKeepaliveChecks });
