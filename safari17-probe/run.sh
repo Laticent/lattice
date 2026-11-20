@@ -27,8 +27,9 @@ if [ -z "$runtime" ]; then
   runtime=$(xcrun simctl list runtimes --json | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable and (.version | startswith("17.")))] | last | .identifier // empty')
 fi
 [ -z "$runtime" ] && { echo 'still no iOS 17 runtime' | tee -a "$OUT/env.txt"; exit 0; }
-dtype=$(xcrun simctl list devicetypes --json | jq -r '[.devicetypes[] | select(.name | test("^iPad Pro .*13|^iPad Pro .*12.9"))] | last | .identifier // empty')
-[ -z "$dtype" ] && dtype=com.apple.CoreSimulator.SimDeviceType.iPad-Air-5th-generation
+# A device the runtime itself lists as supported: an iPad Pro if it has one, else its last iPad, else its last device.
+dtype=$(xcrun simctl list runtimes --json | jq -r --arg rt "$runtime" '[.runtimes[] | select(.identifier == $rt) | .supportedDeviceTypes[]] as $d | ([$d[] | select(.name | test("^iPad Pro"))] | last) // ([$d[] | select(.productFamily == "iPad")] | last) // ($d | last) | .identifier')
+echo "device type: $dtype" | tee -a "$OUT/env.txt"
 udid=$(xcrun simctl create s17probe "$dtype" "$runtime") || exit 0
 xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b
 echo "device: $dtype $udid" | tee -a "$OUT/env.txt"
