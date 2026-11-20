@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const YAML = require('yaml');
-const { renderCard, displayWidth, WIDTH } = require('../../../tools/agent-card');
+const { renderCard, renderFleetTable, displayWidth, WIDTH } = require('../../../tools/agent-card');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EXAMPLES = path.join(ROOT, 'engineering', 'card-examples');
@@ -288,4 +288,35 @@ test('fleet board: with no actions there is no reply line, and no 🔴 says NOTH
   assert.equal(r.ok, true, r.errors.join('; '));
   assert.doesNotMatch(r.text, /reply: go/);
   assert.match(r.text, /needs you\n {4}NOTHING/);
+});
+
+test('fleet table: a row per session, loudest first, children under their parent, done last', () => {
+  const r = renderFleetTable(load('fleet'));
+  assert.equal(r.ok, true, r.errors.join('; '));
+  const rows = r.lines.filter((l) => /^\| (🔴|🟠|🟢|🔵|✅) \|/u.test(l));
+  assert.deepEqual(
+    rows.map((l) => l.split(' | ')[1].replace(/\]\(.*$/, '').replace('[', '')),
+    ['CSP stage 2', 'Universal Coda audit', 'Studio presets', '· P0 plumbing', '· WP-cover', 'rename-toast test'],
+  );
+  assert.match(rows[0], /\[#3307\]\(https:\/\/github\.com\/Laticent\/lattice\/pull\/3307\) \| \[run\]\(https:\/\/github\.com\//);
+  assert.match(rows[0], /\*\*needs:\*\* merge decision \|$/);
+});
+
+test('fleet table: a | in a value cannot split the row, and a non-fleet card is refused', () => {
+  const card = load('fleet');
+  card.items[1].state = 'ci red | lint';
+  const row = renderFleetTable(card).lines.find((l) => l.includes('CSP stage 2'));
+  assert.equal(row.split(/(?<!\\)\|/).length, 7, 'six cells, so seven pieces around the bars');
+  assert.match(renderFleetTable(load('standup')).errors.join(''), /only on a fleet card/);
+  card.items[1].level = 'urgent';
+  assert.equal(renderFleetTable(card).ok, false, 'the table shares the cards\' validation');
+});
+
+test('CLI: --table prints the fleet board as a markdown table', () => {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'card.js'), '--table', path.join(EXAMPLES, 'fleet.yml')], {
+    encoding: 'utf8',
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^🛰️ \*\*Fleet\*\*/u);
+  assert.match(r.stdout, /\n\| \| Session \| PR \| CI \| State \|\n/);
 });

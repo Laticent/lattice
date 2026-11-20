@@ -2536,6 +2536,15 @@ fence, because a link inside a fence cannot be clicked. Paste the output
 verbatim. The board lives in the command center's chat; it is not posted on a
 PR, because it is about many PRs and each PR's own cards are already the record.
 
+**The table view: `npm run card -- --table <file>`.** The same YAML prints as
+one markdown table instead: a status column, the session name linked to its
+session, the PR, the CI run and the state. Rows are sorted loudest first, child
+sessions sit under their parent, and done rows come last. Use it for a roster of
+the whole fleet, and use the cards when the 🔴 and 🟠 items need their reasons
+laid out. Both views come from one file and one validation, so they cannot
+disagree. A table is wider than 38 columns, so on a phone it scrolls sideways;
+the cards do not.
+
 *(discipline. The test is whether the owner can act on every 🔴 card from the
 board alone, without opening the session first.)*
 

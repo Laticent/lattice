@@ -727,6 +727,44 @@ function renderFleet(d, page) {
   page.lines = page.blocks.flatMap((b) => b.lines);
 }
 
+/** A table cell: one line, with a literal `|` escaped so it cannot split the row. */
+const cell = (text) => String(text).replace(/\|/g, '\\|');
+
+/**
+ * The fleet board as one markdown table: a row per session, loudest first,
+ * child sessions right under their parent, done rows last. Same YAML and the
+ * same validation as the cards, so the two views cannot disagree. Markdown,
+ * not fenced, so every link can be clicked.
+ */
+function renderFleetTable(card) {
+  const cards = renderCard(card);
+  if (!cards.ok) return cards;
+  if (card.card !== 'fleet') {
+    return { ok: false, errors: ['--table works only on a fleet card'], lines: [], text: '' };
+  }
+  const order = card.items
+    .map((x, i) => ({ x, i }))
+    .sort((a, b) => fleetRank(a.x.level) - fleetRank(b.x.level) || a.i - b.i);
+  const lines = [
+    `🛰️ **Fleet** · ${cell(card.as_of)}`,
+    '',
+    '| | Session | PR | CI | State |',
+    '|:-:|---|---|---|---|',
+  ];
+  const row = (x, child) => {
+    const name = cell(x.title);
+    const named = x.session ? `[${name}](https://claude.ai/code/${x.session})` : name;
+    lines.push(
+      `| ${fleetIcon(x.level)} | ${child ? '· ' : ''}${named} | ${x.pr ? `[#${x.pr}](${REPO_URL}/pull/${x.pr})` : ''} | ${x.build ? `[run](${x.build})` : ''} | ${cell(x.state)}${x.needs ? ` — **needs:** ${cell(x.needs)}` : ''} |`,
+    );
+  };
+  for (const { x } of order) {
+    row(x, false);
+    for (const k of x.children || []) row(k, true);
+  }
+  return { ok: true, errors: [], lines, text: lines.join('\n') };
+}
+
 const RENDERERS = {
   'pre-merge': renderPreMerge,
   standup: renderStandup,
@@ -762,4 +800,4 @@ function renderCard(card) {
   return { ok: true, errors: [], lines: page.lines, text };
 }
 
-module.exports = { renderCard, schemaErrors, displayWidth, WIDTH, SCHEMAS };
+module.exports = { renderCard, renderFleetTable, schemaErrors, displayWidth, WIDTH, SCHEMAS };

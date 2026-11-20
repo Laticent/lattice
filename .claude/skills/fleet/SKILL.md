@@ -26,7 +26,9 @@ summary.
    parent. Open a transcript (`list_events`, `kinds: [assistant, result]`) only for 🔴
    and 🟠 rows, to fill `needs` and `why`.
 4. **Write** the YAML in the scratchpad from `engineering/card-examples/fleet.yml`, run
-   `npm run card -- <file>`, and paste the output verbatim.
+   `npm run card -- <file>`, and paste the output verbatim. When the owner asks for
+   the table, or a roster of every session, run `npm run card -- --table <file>`
+   instead; it reads the same file.
 5. **Act only on `go`.** For `go A2`, carry out exactly A2: `send_message`,
    `create_session` (tag a flaky fix `flaky-test` and `origin:pr-<N>`) or
    `interrupt_session`. Then report what you did in one line per action.
