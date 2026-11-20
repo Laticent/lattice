@@ -339,9 +339,36 @@ function docOrMount(fr: HTMLIFrameElement, host: HTMLElement, build: () => strin
 	try {
 		return build();
 	} catch (e) {
-		if (!fr.parentNode) host.appendChild(fr);
+		if (!fr.parentNode) frameSlot(host).appendChild(fr);
 		throw e;
 	}
+}
+
+/**
+ * The display-sized box the live frame sits in, and the thing that FADES. The frame itself never animates: an opacity
+ * animation on the iframe makes WebKit give it a compositing layer sized by the frame's own box, and the frame's box is
+ * the slide's (3840x2160 for a 4K deck) shrunk by a transform, so on an iPhone at 3x one fade cost a 4K buffer (about
+ * 300 MB) and Present reloaded the tab (2026-11-20; engineering/gotchas/memory-profiling.md). The slot is the host's own
+ * size, so its fade costs a display-sized layer. The frame keeps `opacity` as its revealed flag (0 hidden, 1 shown), set
+ * in one step, which DeckPreview and the reveal gate read.
+ */
+function frameSlot(host: HTMLElement): HTMLElement {
+	const h = host as HTMLElement & { __latticeFrameSlot?: HTMLElement };
+	let slot = h.__latticeFrameSlot;
+	if (slot && slot.parentNode === host) return slot;
+	slot = host.ownerDocument.createElement('span');
+	slot.className = 'lat-frame-slot';
+	slot.style.cssText = 'position:absolute;inset:0;display:block;overflow:hidden;';
+	host.appendChild(slot);
+	h.__latticeFrameSlot = slot;
+	return slot;
+}
+
+/** Fade the frame's slot in over the reveal ease. A no-op where the frame has no slot or Web Animations are missing. */
+function fadeInSlot(fr: HTMLIFrameElement): void {
+	const slot = fr.parentElement;
+	if (!slot || slot.className !== 'lat-frame-slot' || typeof slot.animate !== 'function') return;
+	slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
 }
 
 function frameHasPainted(fr: HTMLIFrameElement): boolean {
@@ -1416,10 +1443,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// which iOS Safari paints as an OPAQUE WHITE document ON TOP OF the element's
 		// CSS `background` — so a cold load flashed a white slide card. `opacity:0`
 		// makes the whole element (white content included) transparent, so the dark
-		// pane behind covers that window — AND, unlike `visibility`, opacity animates,
-		// so the reveal is a quick fade-in (transition below) instead of a hard pop.
+		// pane behind covers that window. The reveal flips it to 1 in one step and fades the frame's SLOT instead
+		// (`frameSlot`, `fadeInSlot`): an animated opacity on the frame itself costs a slide-sized compositing layer.
 		fr.style.opacity = '0';
-		fr.style.transition = 'opacity 180ms ease-out';
 		// An opacity:0 element is still HIT-TESTABLE (unlike visibility:hidden, which the
 		// reveal used to be) — so while hidden the frame would intercept scroll/clicks meant
 		// for what's behind it (e.g. the landing hero preview) during the load window. Hold
@@ -1514,7 +1540,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			liveHost.__latticePendingLoad = true;
 			liveHost.__latticeShownSlide = bake.host.shownSlide;
 			// writeSrcdoc, not `fr.srcdoc =`: a rewrite keeps Firefox's service worker serving the frame (lib/srcdoc-write.js).
-			writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss)), host);
+			writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss)), frameSlot(host));
 			scaleFrame(host);
 			// The same content-driven reveal poll a full write arms, for the same reason: iOS drops srcdoc `onload`.
 			let ticks = 0;
@@ -1581,7 +1607,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// frame stuck hidden forever (rev:NO on-device — the "blank"). Content-presence is
 			// onload-independent AND closes the white about:blank window (about:blank has no
 			// `.lattice`, so the pre-load scaleFrame below can't reveal a blank white frame).
-			// Reveal by fading OPACITY 0→1 (a quick ~180ms transition set on the element) rather
+			// Reveal by flipping the frame's OPACITY 0→1 and fading its slot in over ~180ms (`fadeInSlot`) rather
 			// than a hard visibility cut, so the slide eases in over the loader instead of
 			// popping — no flicker. opacity:0 hides the about:blank white just as well.
 			// …AND (c) the document's own faces have landed. Every engine `@font-face` is
@@ -1598,6 +1624,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// without the gate behaving exactly as it did before.
 			if (fr.style.opacity === '0' && frameHasPainted(fr) && facesReady(fr, host)) {
 				fr.style.opacity = '1';
+				fadeInSlot(fr);
 				// Restore hit-testing on reveal — an opacity:0 iframe is still hit-testable, so it was
 				// held `pointer-events:none` (below) to not swallow scroll/clicks during the load window.
 				fr.style.pointerEvents = '';
@@ -1623,17 +1650,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			const win = fr.contentWindow as (Window & { __latticeLateArmed?: boolean }) | null;
 			if (!win || win.__latticeLateArmed) return;
 			win.__latticeLateArmed = true;
+			// Through the SLOT, from transparent, for the frame the new layout paints in; the frame stays revealed.
 			const fadeThrough = () => {
 				if (disposed || fr.style.opacity !== '1') return;
-				const transition = fr.style.transition;
-				fr.style.transition = 'none';
-				fr.style.opacity = '0';
-				requestAnimationFrame(() =>
-					requestAnimationFrame(() => {
-						fr.style.transition = transition;
-						fr.style.opacity = '1';
-					}),
-				);
+				fadeInSlot(fr);
 			};
 			win.addEventListener('lattice:fonts-late', fadeThrough);
 		} catch {
@@ -2668,7 +2688,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				captureWrite?.({ html: out.html, css: out.css, mode, drawn, geom, extraCss: extraCss || '' });
 				// writeSrcdoc, not `fr.srcdoc =`: on Firefox a srcdoc set on a frame already in the page loses the service worker, so offline the
 				// runtime, fonts and Mermaid fail to load after the first edit (lib/srcdoc-write.js).
-				writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(out.html, out.css, mode, drawn, geom, extraCss)), host);
+				writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(out.html, out.css, mode, drawn, geom, extraCss)), frameSlot(host));
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;

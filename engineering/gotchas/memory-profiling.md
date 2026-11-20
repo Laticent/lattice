@@ -83,6 +83,29 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Commits** — deep dive:
   `engineering/decisions/2026-09-13-gallery-preview-memory.md` §4c.
 
+## A 4K slide frame costs memory at its own size, not its on-screen size (WebKit)
+
+- **Symptom** — Present on a `size: 4k` deck reloads the iPhone tab, at once on Play with captions and Guide on.
+  Chromium shows a fraction of the cost, and Linux WebKit never reaches a limit.
+- **Cause** — a slide frame is laid out at the slide's own box (3840x2160) and shrunk with `transform: scale()`
+  (`single-slide-render.ts` `scaleFrame`). Drawing the frame flat costs about what an HD frame does. But WebKit gives
+  anything COMPOSITED inside or on that frame (an opacity animation, `will-change`, the frame's own fade) a buffer sized
+  by the frame's own box times the screen's pixel density: about 300 MB at 3x. Measured in Playwright WebKit (WPE, one
+  browser's own processes, DPR 3): one `will-change` element inside a 4K frame +123 MB, in a 1920x1080 or 1280x720 frame
+  about 0; an opacity animation on the iframe element +40 MB; the same animation on a display-sized wrapper 0. WPE does
+  not accelerate opacity transitions INSIDE a frame and iOS does, so `will-change` is WPE's stand-in for an iOS fade.
+  `zoom` on the iframe element instead of `transform` is no fix: WebKit lays the child out in a 393px viewport and the
+  frame keeps its 3840px box in the page, unlike Chromium and Firefox.
+- **Mitigation** — keep compositing out of slide frames. The frame fades through its display-sized slot
+  (`frameSlot`, `fadeInSlot`), with its own opacity set in one step; Present hides the editor's preview
+  (`display: none`, StudioShell `presentOpen`), so one frame is drawn. `docs/e2e/present-frame-memory.spec.ts` holds both.
+  Measure WebKit memory per browser (`launchServer` and its child processes), never with a machine-wide `pgrep`: another
+  session's WebKit swings a sum by hundreds of MB.
+- **Triggered by** — anything animated or `will-change` inside a slide document, or on the slide's iframe, on a deck
+  larger than the screen.
+- **Removable when** — WebKit sizes a transformed subframe's layers by their on-screen size.
+- **Commits** — PR #3304 (2026-11-20).
+
 ## Moving a rendered iframe in the DOM blanks it
 
 - **Symptom** — a preview iframe that was painting goes blank (and re-renders from cold)
