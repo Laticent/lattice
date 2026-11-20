@@ -95,10 +95,28 @@ function runDuplication() {
   };
 }
 
+/**
+ * knip's JSON from one run, or a thrown error. knip exits 0 (clean) or 1 (found issues) and prints
+ * JSON either way; any other exit, a signal, or output that is not knip's report means knip did not
+ * run, and the dead-code ratchet must then FAIL, not read the silence as zero issues.
+ */
+function parseKnipResult(result) {
+  const why = String(result.stderr || '').trim().split('\n').slice(-3).join(' | ');
+  if (result.signal || (result.status !== 0 && result.status !== 1)) {
+    throw new Error(`knip did not run (exit ${result.status ?? result.signal}): ${why || 'no output'}`);
+  }
+  let data;
+  try {
+    data = JSON.parse(result.stdout);
+  } catch {
+    throw new Error(`knip printed no JSON report (exit ${result.status}): ${why || String(result.stdout).slice(0, 200) || 'no output'}`);
+  }
+  if (!data || !Array.isArray(data.issues)) throw new Error('knip printed JSON without an `issues` list');
+  return data;
+}
+
 function runDeadCode() {
-  const result = runBin('knip', ['--reporter', 'json']);
-  // knip exits 1 when it finds any issue — expected, not a tool failure.
-  const data = JSON.parse(result.stdout || '{"issues":[]}');
+  const data = parseKnipResult(runBin('knip', ['--reporter', 'json']));
   const totals = { files: 0, exports: 0, types: 0, unusedDependencies: 0, unlistedDependencies: 0, binaries: 0, unresolved: 0 };
   for (const issue of data.issues) {
     totals.files += issue.files?.length || 0;
@@ -276,4 +294,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { assess, toMetrics, deadCodeMetrics, runDeadCode };
+module.exports = { assess, toMetrics, deadCodeMetrics, runDeadCode, parseKnipResult };

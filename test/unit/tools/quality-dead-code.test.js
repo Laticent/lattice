@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { deadCodeMetrics } = require('../../../tools/quality-assessment');
+const { deadCodeMetrics, parseKnipResult } = require('../../../tools/quality-assessment');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const TOOL = path.join(ROOT, 'tools', 'quality-assessment.js');
@@ -38,4 +38,12 @@ test('knip.jsonc: every entry that names one file points at a file that exists',
   const plain = config.entry.filter((e) => !/[*{]/.test(e));
   assert.ok(plain.length > 5);
   for (const e of plain) assert.ok(fs.existsSync(path.join(ROOT, e)), `knip.jsonc entry ${e} does not exist`);
+});
+
+test('when knip cannot run, the ratchet fails instead of reading silence as zero issues', () => {
+  assert.throws(() => parseKnipResult({ status: 2, stdout: '', stderr: 'Error: Cannot find module' }), /knip did not run \(exit 2\)/);
+  assert.throws(() => parseKnipResult({ status: null, signal: 'SIGKILL', stdout: '' }), /knip did not run/);
+  assert.throws(() => parseKnipResult({ status: 0, stdout: '' }), /no JSON report/);
+  assert.throws(() => parseKnipResult({ status: 1, stdout: '{"files":[]}' }), /without an `issues` list/);
+  assert.deepEqual(parseKnipResult({ status: 1, stdout: '{"issues":[]}' }), { issues: [] });
 });
