@@ -279,6 +279,29 @@ describe('Present — the phone stays awake and answers its media keys', () => {
 		}
 	});
 
+	it('asks again from inside a tap when the browser refused the lock outside a gesture (WebKit)', async () => {
+		const release = vi.fn(async () => {});
+		let gesture = false;
+		const request = vi.fn(async () => {
+			if (!gesture) throw new DOMException('Not allowed outside a user gesture', 'NotAllowedError');
+			return { release, addEventListener() {} };
+		});
+		Object.defineProperty(navigator, 'wakeLock', { value: { request }, configurable: true });
+		try {
+			render(<PresentOverlay open onClose={() => {}} options={options} slides={deck} />);
+			await step(0);
+			const dialog = screen.getByRole('dialog', { name: 'Present' });
+			expect(dialog.getAttribute('data-wake'), 'the refused request was reported as held').toBe('not held');
+			gesture = true;
+			fireEvent.pointerDown(dialog);
+			await step(0);
+			expect(request).toHaveBeenCalledTimes(2);
+			expect(dialog.getAttribute('data-wake'), 'a tap did not take the lock').toBe('held');
+		} finally {
+			Reflect.deleteProperty(navigator, 'wakeLock');
+		}
+	});
+
 	it('drives the deck from the lock screen / headset (Media Session) and unbinds on close', async () => {
 		const handlers = new Map<string, (() => void) | null>();
 		const mediaSession = { setActionHandler: (a: string, h: (() => void) | null) => handlers.set(a, h), playbackState: 'none', metadata: null };

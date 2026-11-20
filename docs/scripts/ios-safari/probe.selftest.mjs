@@ -153,6 +153,8 @@ if (process.env.PROBE === 'present-keepalive') {
 	let error = '';
 	try {
 		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		const at = await call('latticeKeepalivePresentAt()');
+		await page.touchscreen.tap(at.x, at.y);
 		r.open = await call('latticeKeepaliveOpen()');
 		r.immersive = await call('latticeKeepaliveImmersive()');
 		await page.touchscreen.tap(r.immersive.x, r.immersive.y);

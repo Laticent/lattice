@@ -2214,13 +2214,24 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// The lock's state is PUBLISHED on the dialog (`data-wake`), because nothing outside can see it: the iOS Simulator
 	// suite (ios-safari-present-keepalive) reads it to prove real Mobile Safari granted the lock.
 	const [wakeState, setWakeState] = React.useState<'held' | 'not held' | 'unsupported'>('not held');
+	// WebKit grants the lock only inside a user gesture (found by the iOS Simulator suite: a scripted open was refused,
+	// a real tap was not). So the request on open can fail, and so can the re-request when the page comes back to the
+	// front, which has no gesture behind it. Any tap or key press inside Present while the lock is not held asks again,
+	// from inside that gesture, which Safari can grant.
 	React.useEffect(() => {
 		if (!open) return;
 		const keeper = new WakeKeeper();
 		keeper.onChange = setWakeState;
 		setWakeState(keeper.state);
 		keeper.keep(true);
+		const retry = () => {
+			if (keeper.state === 'not held') keeper.keep(true);
+		};
+		window.addEventListener('pointerdown', retry, true);
+		window.addEventListener('keydown', retry, true);
 		return () => {
+			window.removeEventListener('pointerdown', retry, true);
+			window.removeEventListener('keydown', retry, true);
 			keeper.onChange = null;
 			keeper.keep(false);
 		};

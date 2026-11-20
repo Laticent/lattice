@@ -3,7 +3,8 @@
  * probe.selftest.mjs runs the same steps in Playwright's WebKit. It proves, on the surface the owner presents from, what
  * PR #3333 claims and jsdom cannot show:
  *
- *   latticeKeepaliveOpen()        open Present; the screen wake lock is HELD (Present publishes it as `data-wake`)
+ *   latticeKeepalivePresentAt()   where the driver's real touch opens Present (a scripted click is no user gesture)
+ *   latticeKeepaliveOpen()        Present is open; the screen wake lock is HELD (Present publishes it as `data-wake`)
  *   latticeKeepaliveImmersive()   press Fullscreen: on iPhone Safari it cannot go full screen, so Present turns on its
  *                                 immersive layout instead; wait until the chrome FADES; return where to tap the slide
  *   latticeKeepaliveShown()       after the driver's real touch tap: the chrome came back
@@ -52,11 +53,19 @@ function latticeKeepaliveHelpers() {
 	return { sleep, until, dialog, counter, button, opacity, top, frame, band, walked, playing, presentButton };
 }
 
+/** Where to tap the Studio's Present button. The DRIVER taps it with a real touch: WebKit grants the screen wake lock only
+ *  inside a user gesture, and a scripted click() is not one (the first iOS run, opened that way, was refused the lock). */
+async function latticeKeepalivePresentAt() {
+	const h = latticeKeepaliveHelpers();
+	const b = await h.until(() => h.presentButton(), 150000, 'the Present button');
+	b.scrollIntoView({ block: 'center' });
+	const r = b.getBoundingClientRect();
+	return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+}
+
 async function latticeKeepaliveOpen() {
 	const h = latticeKeepaliveHelpers();
-	const present = await h.until(() => h.presentButton(), 150000, 'the Present button');
-	present.click();
-	await h.until(() => h.dialog() && h.counter(), 30000, 'the Present dialog and its counter');
+	await h.until(() => h.dialog() && h.counter(), 30000, 'the Present dialog and its counter (after the tap on Present)');
 	// The lock is asked for on open and arrives asynchronously; `unsupported` or `not held` after the wait is the finding.
 	const wake = await h.until(() => (h.dialog()?.getAttribute('data-wake') === 'held' ? 'held' : null), 10000, 'the screen wake lock').catch(() => h.dialog()?.getAttribute('data-wake') || 'no attribute');
 	return { ua: navigator.userAgent, width: innerWidth, total: h.counter()[1], wake, hasApi: 'wakeLock' in navigator };
@@ -135,4 +144,4 @@ function latticeKeepaliveChecks(r, { realSafari }) {
 	];
 }
 
-Object.assign(globalThis, { latticeKeepaliveOpen, latticeKeepaliveImmersive, latticeKeepaliveShown, latticeKeepalivePlay, latticeKeepaliveNext, latticeKeepaliveClose, latticeKeepaliveChecks });
+Object.assign(globalThis, { latticeKeepalivePresentAt, latticeKeepaliveOpen, latticeKeepaliveImmersive, latticeKeepaliveShown, latticeKeepalivePlay, latticeKeepaliveNext, latticeKeepaliveClose, latticeKeepaliveChecks });

@@ -740,19 +740,20 @@ async function runPresentKeepaliveProbe(id) {
 		if (r?.error) throw new Error(`${expr}: ${r.error}`);
 		return r;
 	};
+	const touchTap = (x, y) => wd('POST', `/session/${id}/actions`, { actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }] }).then(() => wd('DELETE', `/session/${id}/actions`).catch(() => {}));
 	const r = {};
 	let error = '';
 	try {
 		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
 		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		// Present opens from a REAL touch: WebKit grants the wake lock only inside a user gesture.
+		const at = await call('latticeKeepalivePresentAt()');
+		await touchTap(at.x, at.y);
 		r.open = await call('latticeKeepaliveOpen()');
 		r.immersive = await call('latticeKeepaliveImmersive()');
 		// A real finger: a WebDriver touch at the slide, as the owner taps it.
-		await wd('POST', `/session/${id}/actions`, {
-			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: r.immersive.x, y: r.immersive.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
-		});
-		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		await touchTap(r.immersive.x, r.immersive.y);
 		r.shown = await call('latticeKeepaliveShown()');
 		r.play = await call('latticeKeepalivePlay()');
 		r.next = await call('latticeKeepaliveNext()');

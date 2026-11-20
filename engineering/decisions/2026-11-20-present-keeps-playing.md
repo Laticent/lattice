@@ -81,6 +81,16 @@ read waits up to `PREPARE_WAIT_MS` (2.5 s); past that the slide is read on capti
 next slide's play once it is ready. It never joins mid-slide, which would be the race-ahead-then-snap-back the
 deferred start exists to prevent (`2026-07-09-cadenza-narration-quality.md`).
 
+### The wake lock needs a gesture in WebKit (iOS Simulator suite, first run)
+
+The first `ios-safari-present-keepalive` run (on `efb3797`) passed everything but the lock: real Mobile Safari reported
+`navigator.wakeLock` and did not grant it. WebKit grants the screen lock only inside a user gesture, and the probe had
+opened Present with a scripted `click()`. On the owner's phone a real tap opened it, which is why the screen stayed on.
+It still exposed a product gap: the re-request when the page comes back to the front has no gesture behind it, so
+Safari refuses it. Now any tap or key press inside Present while the lock is not held asks again from inside that
+gesture (unit test with a lock that refuses outside a gesture, mutated red), and the probe opens Present with a real
+WebDriver touch.
+
 ### Two caption modes (owner, iPhone, 2026-11-20)
 
 The owner set the two caption surfaces apart:
