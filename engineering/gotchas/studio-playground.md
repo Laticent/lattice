@@ -2234,7 +2234,9 @@ never turn "passed in headless" into "works on iOS."
   (here the photo-format sizes, measured by the import's encoder) moves the footer down by half the growth. Playwright
   hit-tests the button, then sends the press at the point it measured; when the sizes land in between, that point is
   above the button's new top edge (measured: 18.5 px of movement against a 32 px button). A person aiming at the button
-  as the numbers land misses it the same way.
+  as the numbers land misses it the same way. **This is the suspected cause of the :148 run, not a proven one:** a
+  deterministic replay of :148 on the build before the fix (aim while the encoder is held, let the sizes land, then
+  press the aimed point) still hit the button, so if this test times out again with the fix in place, look elsewhere.
 - **Fix** — reserve the late content's space from the first frame: draw the empty bar track and give the summary line
   its full height while measuring (`PhotoFormatDialog.tsx`). `e2e/library-images.spec.ts` holds the encoder and checks
   the dialog's height and the button's row before and after the sizes land, and that the old aim point is still the

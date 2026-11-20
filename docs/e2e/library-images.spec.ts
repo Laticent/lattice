@@ -423,8 +423,9 @@ for (const engine of [' @gecko', ' @webkit-tablet']) test(`@smoke adding a photo
 // THE DIALOG HOLDS ITS PLACE WHILE THE SIZES LAND. The dialog is centered on both axes, and each option's size, bar
 // and the summary line arrive after it opens, measured by the import's own encoder. When those grew the dialog, its
 // "Add" button moved 18.5 px down under a pointer already aimed at it (desktop, one 1800x600 PNG), so a press made as
-// the numbers landed hit the space above the button and the dialog stayed open. The full Chromium run lost
-// library-images-render.spec.ts:148 that way on a loaded machine (2026-11-19), and a person can lose a tap the same way.
+// the numbers landed hit the space above the button and the dialog stayed open. That is the suspected (not reproduced)
+// cause of library-images-render.spec.ts:148's loss in a loaded full Chromium run (2026-11-19); a person can lose a tap
+// the same way.
 // The encoder is HELD here, so "before the sizes land" is a state the test chooses rather than a race it hopes to win.
 for (const engine of [' @gecko', ' @webkit-tablet'])
 	for (const width of [1440, 390])
