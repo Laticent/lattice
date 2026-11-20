@@ -209,6 +209,12 @@ test('the AI is told what the author did with its card on the next message', asy
 	await expect.poll(() => bodies.length).toBeGreaterThan(before);
 	const sent = bodies[bodies.length - 1].messages.map((m) => text(m.content)).join('\n');
 	expect(sent).toContain('[The author applied slide 2; discarded slide 3; has not decided on new slide.]');
+	// …and the deck as it is now, so a slide number from the earlier turn is not taken on trust (#3208 items 5, 27).
+	expect(sent).toMatch(/The deck has \d+ slides? now, so slide numbers from earlier turns may name other slides/);
+	// On the NEWEST author message only, never an earlier one: the cached prompt before it stays byte-identical.
+	const users = bodies[bodies.length - 1].messages.filter((m) => m.role === 'user').map((m) => text(m.content));
+	expect(users.at(-1)).toContain('go by the deck as it is now.)');
+	expect(users.slice(0, -1).some((u) => u.includes('go by the deck as it is now.)'))).toBe(false);
 });
 
 test('preview shows the change rendered in the Studio, applies nothing, and leaves on Esc', async ({ page }) => {

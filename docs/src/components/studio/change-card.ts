@@ -254,6 +254,19 @@ export function toldLine(edits: ChatProposal[], states: RowState[], auto = false
 	return `[The author ${[say('applied', 'applied'), say('discarded', 'discarded'), say('undone', 'undid'), say('waiting', 'has not decided on')].filter(Boolean).join('; ')}.]`;
 }
 
+/**
+ * The note the NEWEST author message carries about earlier cards (#3208 items 5 and 27): what happened to each, oldest
+ * first (`toldLine`), then the deck as it stands. Cards insert and delete slides, and the author edits between turns, so
+ * the slide numbers in earlier turns may name other slides now; the model re-reads rather than trusting them. Empty
+ * when no earlier card has an outcome yet, so a turn with nothing to report adds nothing. It goes at the END of the
+ * last message so the cached prompt before it is untouched (readiness note §8).
+ */
+export function toldNote(told: readonly string[], slides: number): string {
+	const lines = told.filter(Boolean);
+	if (!lines.length) return '';
+	return `\n\n(What happened to the edits you proposed earlier, oldest first: ${lines.join(' ')} The deck has ${slides} slide${slides === 1 ? '' : 's'} now, so slide numbers from earlier turns may name other slides; go by the deck as it is now.)`;
+}
+
 // The shell-facing pieces (ChatApplyOpts, NO_ENTRY, ChatDraft) live in change-card-types.ts, which imports nothing,
 // so the Studio shell can use them without pulling this module, and the slide helpers, into its first load.
 export { type ChatApplyOpts, type ChatDraft, NO_ENTRY } from './change-card-types';
