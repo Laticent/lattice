@@ -656,6 +656,14 @@ describe('killBrowserTree: the whole browser, on every platform', () => {
     assert.deepEqual(killed, []);
   });
 
+  test('on Windows, the sweep lists and stops again until a pass finds nothing, and the passes are capped', () => {
+    // One pass left a helper the live browser started mid-sweep (windows-2025 run 44789928753). The real race runs in
+    // os-sandbox-measure's REAPED, SPAWNING arm; this pins the shape that answers it, in ONE PowerShell process.
+    const { ran } = record('win32', DIR);
+    assert.equal(ran.length, 1);
+    assert.match(ran[0].at(-1), /^\$n = 0; do \{ \$n\+\+; \$p = @\(Get-CimInstance .* \} while \(\$p\.Count -gt 0 -and \$n -lt 8\)$/);
+  });
+
   test('on Windows, a sweep that cannot run falls back to the pid, and no `-pid`, which throws there', () => {
     for (const result of [{ status: 1 }, { error: new Error('ENOENT') }, { status: null }]) {
       const { killed, how } = record('win32', DIR, result);
