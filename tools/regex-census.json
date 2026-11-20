@@ -318,6 +318,7 @@
     "/(?:^|[;\\s])font\\s*:/i": "safe",
     "/(?:^|[;{\\s])font\\s*:([^;}]*)/gi": "safe",
     "/(?:^|[\\n;])\\s*click\\s/i": "polynomial",
+    "/(?:^|[\\s\"'])marks-tone(?![\\w-])/m": "safe",
     "/(?:^|[\\s([|,;&])/": "safe",
     "/(?:^|[\\s>+~,(])h3\\b/": "safe",
     "/(?:^|[\\s>,(+~])(?:table|thead|tbody|tr|td|th)(?![\\w-])/": "safe",
