@@ -42,7 +42,7 @@ model, see `design/concepts.md`.
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`marks:`](#the-marks-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `pigment muted` |
+| [`marks:`](#the-marks-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid; and, under tone, the hue it draws in: ink or accent | `pigment muted` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
@@ -957,7 +957,7 @@ and so does one that names a word that is not a finish (`unknown-marks` catches 
 | `marks:` value | Token | Identity lives in | Choose it for |
 |---|---|---|---|
 | `pigment` | `marks-pigment` | the body's hue: flat, full-strength color. **The default** (omit the key). | a colorful deck |
-| `etch` | `marks-etch` | the line: a whisper of color under a doubled edge | a modern look |
+| `etch` | `marks-etch` | the line: a whisper of color under a doubled edge (on a dark slide the body is stronger, so it clears 3:1 against the slide) | a modern look |
 | `tone` | `marks-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
 
 ```markdown
@@ -983,6 +983,29 @@ marks: pigment vivid
 ---
 ```
 
+**Under `tone`, a source: `ink` or `accent`.** Tone draws one hue in eight steps, and that hue is
+chart color one unless the deck names a third word. `ink` draws every chart in the deck's heading
+ink, so a chart reads as one ink in stepped shades, dark on a light slide and light on a dark one.
+`accent` draws it in the theme's accent. Either way the names and edges are drawn in the same
+color, which every built-in palette holds at 4.5:1 or better against the slide, in both modes, and
+the strongest step clears 3:1. Status colors keep their own hues, as under every finish.
+
+| Third word | Token | Tone draws in |
+|---|---|---|
+| *(none)* | *(none)* | chart color one. **The default** (omit the word). |
+| `ink` | `marks-ink` | the heading ink (`--text-heading`) |
+| `accent` | `marks-accent` | the theme's accent (`--accent`) |
+
+```markdown
+---
+marks: tone ink
+---
+```
+
+A source means something only under `tone`: pigment and etch draw every category in its own
+hue, so `marks: etch ink` draws nothing differently, and `lint:deck` says so (`marks-source-needs-tone`).
+The three words go in any order, one per axis.
+
 Each theme curates both sets (`--pass-mark` … and `--pass-vivid-mark` …). On a light slide every
 fill clears 4.5:1 against everything it sits on (the slide, a card, its own row tint), and its text
 is the slide's paper; on a dark slide text on every fill clears 4.6:1. For a reader who is colorblind,
@@ -992,7 +1015,8 @@ in both intensities.
 **Per slide.** `<!-- _class: bar marks-etch -->` gives one chart its own finish, and
 `<!-- _class: bar marks-pigment -->` asks for the default inside a `tone` deck. The slide
 token replaces the deck's; it never stacks with it. The two axes are separate:
-`<!-- _class: bar marks-vivid -->` changes only the intensity and keeps the deck's finish.
+`<!-- _class: bar marks-vivid -->` changes only the intensity and keeps the deck's finish, and
+`<!-- _class: bar marks-accent -->` changes only tone's source.
 Every slide is stamped, including a chart
 in a pane of a `columns` slide, so a finish never depends on where the chart sits.
 

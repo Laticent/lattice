@@ -85,6 +85,45 @@ describe('marks: the intensity axis', () => {
   });
 });
 
+describe('marks: tone\'s source axis', () => {
+  const { MARKS_SOURCES, MARKS_SOURCE_TOKENS, marksClasses, withMarksClasses, isMarksSourceToken, parseMarks } = require('../../../lib/core/resolve-marks');
+  test('two sources, no stamped default: a deck that names none renders exactly as before', () => {
+    assert.deepEqual([...MARKS_SOURCES], ['ink', 'accent']);
+    assert.deepEqual([...MARKS_SOURCE_TOKENS], ['marks-ink', 'marks-accent']);
+    assert.deepEqual(marksClasses('tone'), ['marks-tone', 'marks-muted']);
+    assert.deepEqual(marksClasses('tone ink'), ['marks-tone', 'marks-muted', 'marks-ink']);
+    assert.deepEqual(marksClasses('accent vivid tone'), ['marks-tone', 'marks-vivid', 'marks-accent']);
+    assert.deepEqual(parseMarks('tone ink accent').duplicate, ['accent'], 'one word per axis');
+    assert.ok(isKnownMarks('tone ink') && isKnownMarks('tone accent vivid') && !isKnownMarks('tone ink accent'));
+  });
+  test('a slide\'s own source keeps it; a slide with none takes the deck\'s', () => {
+    assert.deepEqual(withMarksClasses(['bar', 'marks-accent'], 'tone ink'), ['bar', 'marks-accent', 'marks-tone', 'marks-muted']);
+    assert.deepEqual(withMarksClasses(['bar'], 'tone'), ['bar', 'marks-tone', 'marks-muted'], 'no source token when the deck names none');
+    assert.ok(isMarksSourceToken('marks-ink') && !isMarksToken('marks-ink') && !isMarksSourceToken('marks-tone'));
+  });
+  test('the engine stamps it on every slide, and a slide may name the other', () => {
+    const md = '---\nmarp: true\nmarks: tone ink\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n\n---\n\n<!-- _class: bar marks-accent -->\n\n## B\n\n- A `3`\n';
+    const [a, b] = classesOf(md);
+    assert.deepEqual(a.filter(isMarksSourceToken), ['marks-ink']);
+    assert.deepEqual(b.filter(isMarksSourceToken), ['marks-accent']);
+    assert.deepEqual(finishesOn(a), ['marks-tone']);
+    const [plain] = classesOf('---\nmarp: true\nmarks: tone\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n');
+    assert.deepEqual(plain.filter(isMarksSourceToken), []);
+  });
+  test('the runtime stamps the source too, per axis', () => {
+    assert.match(read('lib/runtime/index.js'), /tokens\[2\] && !cur\.some\(isMarksSourceToken\)/);
+  });
+  test('deck-lint names a source under a finish it means nothing to, and accepts it under tone', () => {
+    const rules = (v) => lint(`---\nmarks: ${v}\n---\n\n## A\n\ntext\n`).findings.filter((f) => /^(unknown-marks|marks-source-needs-tone)$/.test(f.rule));
+    assert.equal(rules('tone ink').length, 0);
+    assert.equal(rules('accent tone vivid').length, 0);
+    const [etch] = rules('etch ink');
+    assert.equal(etch.rule, 'marks-source-needs-tone');
+    assert.match(etch.message, /'ink' picks the one hue `tone` draws in.*'etch'/);
+    assert.match(rules('accent')[0].message, /the default, pigment/);
+  });
+});
+
 describe('marks: both render paths', () => {
   test('the markdown-it plugin and the runtime stamp through the kernel, in a pass of their own', () => {
     // HARD RULE #1: each path stamps its own sections, so a register wired into one renders
