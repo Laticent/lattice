@@ -345,6 +345,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	focusModeRef.current = focusMode;
 	const immersiveRef = React.useRef(immersive);
 	immersiveRef.current = immersive;
+	// How far the over-the-slide captions rise while the floating dock shows: the part of the dock that overlaps the
+	// slide, measured, so they sit just above it and come back down when it fades.
+	const dockRef = React.useRef<HTMLDivElement>(null);
+	const [ccLift, setCcLift] = React.useState(0);
 	const [showHint, setShowHint] = React.useState(false);
 	// Chart mark-detail reveal on the delivery slide. Present's card is pointer-events-none (a swipe
 	// surface), so the reveal runs in PINNED mode — a parent hit-surface (pointer-events:auto) over the
@@ -2526,6 +2530,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		if (!open) setOverviewOpen(false);
 	}, [open]);
 
+	React.useLayoutEffect(() => {
+		const measure = () => {
+			const dock = dockRef.current;
+			const card = cardRef.current;
+			if (!open || !immersive || !revealed || !dock || !card) return setCcLift(0);
+			setCcLift(Math.max(0, Math.round(card.getBoundingClientRect().bottom - dock.getBoundingClientRect().top + 4)));
+		};
+		measure();
+		window.addEventListener('resize', measure);
+		return () => window.removeEventListener('resize', measure);
+	}, [open, immersive, revealed]);
 	if (!open) return null;
 	// The caption band reserves space only while it's actually crawling (playing) — so
 	// pressing Play BLOOMS it in and the slide shrinks to fit, and Pause folds it back
@@ -2854,6 +2869,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 							<DeckPreview focused options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} paneCounts={paneCounts} pageIndex={paneCounts ? page : undefined} slideMarkdown={presentSlideAlone} step={shownStep} onSteps={onSteps} drawn={presentDrawn} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce chromeless className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
+							{/* IMMERSIVE CAPTIONS ride ON the slide, as subtitles, sized by the slide (`.latt-cc-over`); docked
+							    below it they would float mid-slide once the dock floats. Lifted clear of the controls while
+							    they show. */}
+							{immersive && !stageHost && (
+								<div className="latt-cc-over" data-present-cc-over style={ccLift ? { transform: `translateY(-${ccLift}px)` } : undefined}>
+									{captionBand}
+								</div>
+							)}
 							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={!guidePlaying} />
 						</div>
 					)}
@@ -2906,9 +2929,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 					// Keeping the hide meant a reduced-motion presenter paid the reserved band
 					// for an invisible pill AND could never clear it, because the dismiss button
 					// lives inside the element being hidden.
-					// In immersive the tip sits where the floating dock appears, so it shows only while the dock is away
-					// (and says how to call it back) rather than drawing underneath it.
-					<div className={cn('pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4', immersive && cn('transition-opacity duration-300 motion-reduce:transition-none', chromeHidden ? 'opacity-100' : 'invisible opacity-0'))}>
+					// In immersive the tip moves to the TOP (the slide's bottom edge carries the captions) and shows only while
+					// the floating chrome is away, saying how to call it back.
+					<div className={cn('pointer-events-none absolute inset-x-0 flex justify-center px-4', immersive ? 'top-3' : 'bottom-3', immersive && cn('transition-opacity duration-300 motion-reduce:transition-none', chromeHidden ? 'opacity-100' : 'invisible opacity-0'))}>
 						<span className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-border bg-card/90 py-1.5 pl-3.5 pr-1.5 text-[12px] font-medium text-muted-foreground shadow-[0_6px_20px_rgba(10,22,40,.12)] backdrop-blur">
 							{immersive ? 'Swipe to move · tap for controls' : 'Swipe or use ← → to move · controls reveal as you go'}
 							<button type="button" onClick={dismissHint} aria-label="Dismiss this tip" className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><X className="size-3.5" /></button>
@@ -2956,6 +2979,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			    when there is none. What is left here is presenter transport. */}
 			<div
 				className={cn('flex w-full max-w-[760px] flex-col items-center gap-2 pt-1', immersive ? cn('absolute inset-x-0 bottom-0 z-10 mx-auto pb-[max(0.5rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]', chromeHidden ? 'pointer-events-none' : 'pointer-events-auto') : 'pointer-events-auto px-3 pb-6 sm:pb-8')}
+				ref={dockRef}
 				data-present-chrome="dock"
 				onPointerEnter={() => { pinnedRef.current = true; setRevealed(true); }}
 				onPointerLeave={() => { pinnedRef.current = false; wake(); }}
@@ -2968,7 +2992,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				}}
 				onBlurCapture={() => { pinnedRef.current = false; wake(); }}
 			>
-				{stageHost ? null : captionBand}
+				{stageHost || immersive ? null : captionBand}
 
 				{/* Controls row (middle). The transport pill is always-on and hugs its content
 				    (Play + position); the CC / Voice cluster BLOOMS beside it — collapsing to zero

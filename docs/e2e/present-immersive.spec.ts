@@ -34,9 +34,32 @@ test('@webkit-phone a sideways phone gives Present the whole screen, with chrome
 	// …and while it shows, the transport works (Play is reachable over the slide).
 	await dock.getByRole('button', { name: 'Play the presentation' }).tap();
 	await expect(dock.getByRole('button', { name: 'Pause' })).toBeVisible();
+	// The captions ride ON the slide as subtitles, inside its frame, sized by the slide: the type is a fixed share of
+	// the slide's width, so a bigger slide gets bigger captions (they used to float mid-slide at a fixed 18px).
+	const cc = frame.locator('[data-present-cc-over] .latt-cc-band[data-shown="1"]');
+	await expect(cc).toBeVisible({ timeout: 15000 });
+	// The band blooms open (a max-height transition); wait for it to finish, not a duration.
+	await expect.poll(async () => (await cc.boundingBox())?.height ?? 0).toBeGreaterThan(40);
+	// Lifted clear of the floating controls while they show.
+	const dockTop = (await dialog.locator('[data-present-chrome="dock"]').boundingBox())?.y ?? 0;
+	await expect.poll(async () => { const b = await cc.boundingBox(); return (b?.y ?? 0) + (b?.height ?? 0); }).toBeLessThanOrEqual(dockTop + 1);
+	await page.screenshot({ path: test.info().outputPath('immersive-captions-revealed.png') });
+	const ratio = async () => {
+		const f = await frame.boundingBox();
+		const c = await cc.boundingBox();
+		const px = await cc.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+		expect(c && f && c.y >= f.y - 1 && c.y + c.height <= f.y + f.height + 1, 'the caption left the slide').toBe(true);
+		return px / (f?.width ?? 1);
+	};
+	const small = await ratio();
+	expect(small).toBeGreaterThan(0.02);
+	expect(small).toBeLessThan(0.03);
+	await page.setViewportSize({ width: 932, height: 430 });
+	await expect.poll(ratio).toBeCloseTo(small, 3);
 	// A second tap on the slide hides it again at once.
-	await page.touchscreen.tap(426, 196);
+	await page.touchscreen.tap(466, 215);
 	await expect(top).toHaveCSS('opacity', '0');
+	await page.screenshot({ path: test.info().outputPath('immersive-captions-faded.png') });
 	// Turning back to portrait restores the docked layout.
 	await page.setViewportSize({ width: 393, height: 852 });
 	await expect(stage).toHaveCount(0);

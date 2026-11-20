@@ -45,6 +45,16 @@ export const STAGE_CHROME_CSS = `
 .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:var(--accent);}
 .latt-cc--still .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken]{color:var(--text-muted);}
 @media (min-width:640px){.latt-cc-line{font-size:18px;}}
+/* OVER THE SLIDE — Present's immersive (landscape-phone) layout. The crawl is a subtitle on the slide's bottom edge,
+   sized as a share of the SLIDE's width (the wrapper is an inline-size container), so it grows and shrinks with the
+   slide instead of holding a fixed 16-18px against whatever size the slide happens to be. Every length is in em.
+   The backing is the chrome's own --bg, near-solid behind the lines: the ink is the chrome's --text-heading, so the
+   pair keeps its contrast whatever the slide underneath is (a fade-to-clear wash left the top line on the slide). */
+.latt-cc-over{position:absolute;left:0;right:0;bottom:0;z-index:2;container-type:inline-size;pointer-events:none;transition:transform .3s cubic-bezier(.22,.61,.36,1);}
+.latt-cc-over .latt-cc-band{font-size:clamp(11px,2.5cqw,40px);padding:0 4% 2.5%;background:linear-gradient(to top,color-mix(in srgb,var(--bg) 92%,transparent) 0,color-mix(in srgb,var(--bg) 92%,transparent) 72%,transparent);}
+.latt-cc-over .latt-cc-band[data-shown="1"]{max-height:6em;}
+.latt-cc-over .latt-cc{height:3.4em;max-width:none;padding:0;}
+.latt-cc-over .latt-cc-line{font-size:1em;padding:.1em .4em;}
 /* ── the progress rail ───────────────────────────────────────────────────── */
 .latt-rail{display:flex;min-width:0;flex-direction:column;align-items:stretch;gap:.375rem;width:100%;}
 .latt-rail-title{height:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;line-height:1;letter-spacing:.16em;color:var(--text-muted);}
@@ -73,7 +83,7 @@ export const STAGE_CHROME_CSS = `
 .latt-rail-hit{position:absolute;left:-2px;right:-2px;top:-10px;bottom:-10px;}
 @keyframes latt-fade-rise{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 @media (prefers-reduced-motion:reduce){
-.latt-cc-band,.latt-cc-track,.latt-cc-line,.latt-rail-fill{transition:none!important;}
+.latt-cc-band,.latt-cc-track,.latt-cc-line,.latt-cc-over,.latt-rail-fill{transition:none!important;}
 .latt-rail-title>span{animation:none!important;}
 }
 `;

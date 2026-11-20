@@ -49,6 +49,17 @@ responsive `sm:px-5` comes later in the stylesheet and would win on every landsc
 notch. Taps are read on the slide row as well as the backdrop (a chart's detail layer takes pointer events over its box),
 and a second finger makes the touch a pinch, never a tap.
 
+**Captions in immersive ride on the slide.** Docked, the caption crawl sits in the dock under the slide at a fixed
+16-18px. Once the dock floats, that left the captions hanging mid-slide over the slide's own text (owner's iPhone
+screenshots). In immersive the crawl renders INSIDE the slide frame as a subtitle on its bottom edge
+(`.latt-cc-over` in `present/stage-chrome.js`): an inline-size container whose type is `2.5cqw` of the slide's width
+(clamped 11-40px), every other length in `em`, so it grows and shrinks with the slide. Its backing is the chrome's own
+`--bg`, near-solid behind the lines, because the ink is the chrome's `--text-heading` and the pair must keep its
+contrast over any slide. While the controls show, it rises just clear of them (measured: the dock's overlap of the
+slide), and drops back when they fade. Docked layouts keep the fixed reading size: there the caption is outside the
+slide. The landscape slide also keeps the Studio preview's 12px frame above and below (`py-3`), and its bottom clears
+the home indicator.
+
 A touch browser can leave a tapped button focused, and the dock pins the bloom open on focus. In
 immersive that pin would hold the chrome on screen for good, so there only keyboard focus
 (`:focus-visible`) pins.
