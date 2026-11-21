@@ -10,7 +10,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const core = require('../../../lib/authoring/notes-core');
-const { charReads } = require('../../helpers/work-count');
+const { charReads, scanWork } = require('../../helpers/work-count');
 const { assertLinearRegexes, normalKey } = require('../../helpers/regex-trace');
 
 // Work, not milliseconds (HARD RULE #32). A malformed-input guard here makes two checks: every regex the call runs is
@@ -2151,7 +2151,12 @@ describe('notes-core: the red team on the four notes', () => {
     const work = { n: 0 };
     core.maskCodeRegions(src, work);
     assert.ok(work.n <= src.length, `${work.n} characters restored for ${src.length}`);
-    assert.ok(!core.stripChannelsFromSource(src, { notes: true }).includes('<!--'), 'the one comment is scrubbed');
+    // The rest of the scrub (the fence and line scan, CommentScan, the live-opener read) is string search, which
+    // `scanWork` counts: about 55 characters per input character today; a search from every opener to the end of the
+    // text covers about n / 2 per character, 100,000 and up (the bound the lint linearity test uses).
+    const { result: out, scanned } = scanWork(() => core.stripChannelsFromSource(src, { notes: true }));
+    assert.ok(!out.includes('<!--'), 'the one comment is scrubbed');
+    assert.ok(scanned <= 1500 * src.length, `${scanned} characters scanned for ${src.length}`);
   });
 
   test('prose shaped like a pane marker is private; a real pane marker is structure', () => {
