@@ -156,6 +156,19 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             `filo-compose`'s 16 ms undo budget is now a work count (one slide replaced, a sixteenth of the deck read)
             with the time in `npm run bench`. Left in `docs/e2e` for the session that owns it: `workspace-backup-size`'s
             one sanctioned wait (#3153).
+            2026-11-21 (flake desk, non-e2e backlog): the baseline goes from 9 files to 1. Rewritten, each with a
+            failing arm, five runs alone and four concurrent: structure.test.js's tree-write (`isSeam` takes a `root`,
+            and the test plants its files in a `mkdtemp` copy of the three tools it reads; arm: a base-name match in
+            `namesPath`), the env-skips in code-line-width and trama/serialization (`skipWithoutChrome` /
+            `skipUnlessCI`; arm: CI with no Chromium, or no `dist/lattice.js`, now fails where it skipped), and
+            mermaid-unavailable's fixed delay. That delay became a held reply the test releases once the runtime
+            has decided, so a wrong give-up always fires before Mermaid lands. Arms: the old `readyState`
+            predicate, and the payload request without the host-tag guard. The `clock-resume` in present-guide,
+            present-guide-handles, vetrina-cursor-caption and segno-playground is gone: the clock stays paused, and
+            present-guide steps the Guide-off teardown frame by frame. Arms: segno's limit at 1.6 s, a caption dwell
+            at a third, the team card's name handle, and a Guide that never tears down. Evidence: `--repeat-each=10`
+            alone, then `--workers=4 --repeat-each=5`, on desktop. LEFT: `docs/e2e/present-emphasis.spec.ts`
+            (`clock-resume` 1), held for #3278, which rewrites that spec.
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; and the F3-F9 sweep's findings are fixed. (The retries half is done: PR #3144 set
             `docs/playwright.config.ts` to `retries: 0` on the owner's 2026-11-12 order, held by `checkPlaywrightRetries`,
