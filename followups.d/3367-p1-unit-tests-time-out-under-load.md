@@ -12,10 +12,12 @@ source: https://github.com/Laticent/lattice/pull/3367#issuecomment-7057507711
 # About 27 Studio and Compose unit tests time out when the box is under load
 
 why now   — `npx vitest run src/lib/compose src/components/studio` (docs/) is green alone (374 files, 6591 tests) but
-            failed about 27 tests every time it ran beside a 4-worker Playwright run. Nearly all failures hit the 20 s
-            `testTimeout` (docs/vitest.config); one is a Testing Library `findBy` wait. Measured 2026-11-21: 27 failed in 7
-            files on prosemirror-view 1.42.9, 27 failed in 25 files (242 skipped) on 1.42.8 under the same load, 29 in 3
-            files in a first run whose names were lost. So no dependency bump causes it; it is a load sensitivity on `main`
+            failed about 27 tests every time it ran beside a 4-worker Playwright run. Measured 2026-11-21 under the same
+            load: on prosemirror-view 1.42.9, 27 failed in 7 files (26 test timeouts at the 20 s `testTimeout` in
+            docs/vitest.config, 1 hook timeout, 1 Testing Library `findBy` miss); on 1.42.8, 27 failed in 25 files with
+            242 skipped (24 test timeouts, 9 hook timeouts at 10 s and 30 s, 3 `findBy` misses). A first loaded run
+            reported 29 failed in 3 files; only its summary line was kept, so those names are unrecorded. So no dependency
+            bump causes it; it is a load sensitivity on `main`
             (HARD RULE #32: a test passes or fails on the code alone, never on the machine's load).
 where     — on 1.42.9: `studio.controls.test.tsx` (13), `studio.theme-depth.test.tsx` (6), `StudioShell.test.tsx` (5),
             `WorkspaceSheet.test.tsx`, `studio.coach-profile.test.tsx`, `studio.fuzz.test.tsx`, and
