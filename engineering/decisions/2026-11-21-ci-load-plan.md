@@ -384,6 +384,11 @@ find Chrome in the `calco-focus-column` hook, and the re-run went green; it is f
 render tier on PRs does catch things. Once it moves to the queue, those 15 legs become queue ejections unless the
 session runs the affected render tests before the merge ask, which is the second half of D2's precondition.
 
+**Round 2 (about 17:25 UTC, relayed the same way: "Q1 A Q2 A Q3 A").** The cache pilot (D5) is dropped. The weekly
+C#/Python scan stays as #3391 builds it: a red weekly run with annotations, no Security-tab alerts. The owner reviews
+#3275, the Chrome-download fix that clears D2's one flake. When D2's `ci.yml` PR is written, after #3275, it also
+writes the rule that a session runs the affected render tests before its merge ask.
+
 **D4 steps, for the owner.** On GitHub: Settings → Rules → Rulesets → `Main Merge Queue` → the merge-queue rule →
 "Maximum pull requests to build" from 5 to 3 → Save changes. Leave every other value as it is (§ "Merge queue —
 the facts" in `workflow.md` lists them). Undo: set it back to 5. Then update the `max_entries_to_build` row in
