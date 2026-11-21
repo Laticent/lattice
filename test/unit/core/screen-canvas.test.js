@@ -26,6 +26,7 @@ test('screenCanvas', async (t) => {
 		assert.equal(screenCanvas('4k', 3840, 1), null);
 		assert.equal(screenCanvas('4K', 1920, 2), null); // 4K at 200% scaling
 		assert.equal(screenCanvas(' 4k ', 1512, 2), null); // a 14" laptop, full screen: 3,024
+		assert.equal(screenCanvas('4k', 1376, 2), null); // a 13" iPad in landscape, full width: 2,752
 	});
 
 	await t.test('the boundary is strictly above FOUR_K_FROM device px', () => {
