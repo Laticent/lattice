@@ -26,19 +26,19 @@ async function openStudio(page: Page) {
 	await expect(page.locator('.cs-host .ProseMirror')).toBeVisible();
 }
 
-test('@gecko @webkit-tablet Studio: a mouse wheel over the slide pills scrolls them sideways', async ({ page }) => {
+test('@gecko Studio: a mouse wheel over the slide pills scrolls them sideways', async ({ page }) => {
 	await openStudio(page);
 	await wheelMidStrip(page, page.locator('nav[data-strip="pills"]'));
 });
 
-test('@gecko @webkit-tablet Studio: a mouse wheel over the horizontal slide map scrolls it sideways', async ({ page }) => {
+test('@gecko Studio: a mouse wheel over the horizontal slide map scrolls it sideways', async ({ page }) => {
 	await openStudio(page);
 	await page.getByRole('button', { name: 'Slide map' }).first().click();
 	const scroller = page.locator('.overflow-x-scroll').filter({ has: page.locator('button') }).first();
 	await wheelMidStrip(page, scroller);
 });
 
-test('@gecko @webkit-tablet Studio: the slide map shows no scrollbar, even with classic scrollbars', async ({ page }) => {
+test('@gecko Studio: the slide map shows no scrollbar, even with classic scrollbars', async ({ page }) => {
 	await openStudio(page);
 	await page.getByRole('button', { name: 'Slide map' }).first().click();
 	const scroller = page.locator('[data-map-rail] [data-scrollbar="none"]').first();
