@@ -125,7 +125,17 @@ async function latticeStudioProbe() {
 	try {
 		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
 		// editor only when its pane is shown, which setDeck does through latticeShowDeckEditor (#2911).
-		await until(() => window.__latticeRenderMetrics, 150000, "the Studio's first render (its render metrics)");
+		// A timeout here (iPhone, dispatch 44880480869) means the module that sets `__latticeRenderMetrics` never loaded: the
+		// page's own scripts stalled before any render. Say how far the page got (followups.d/3368-p1 tracks the stall).
+		await until(() => window.__latticeRenderMetrics, 150000, "the Studio's first render (its render metrics)").catch((e) => {
+			let finished = 'unreadable';
+			try {
+				const done = performance.getEntriesByType('resource').map((r) => r.name);
+				finished = `${done.length} resources; ${['/_astro/', 'esm/engine.js', 'lattice.css'].map((f) => `${f} ${done.some((n) => n.includes(f)) ? 'yes' : 'NO'}`).join(', ')}`;
+			} catch {}
+			const sw = navigator.serviceWorker?.controller;
+			throw new Error(`${e.message} (page ${document.readyState}; ${previewState()}; engine ${window.LatticePlayground ? 'loaded' : 'NOT loaded'}; finished: ${finished}; controlled ${sw ? sw.state : 'no'})`);
+		});
 		// THE NEWCOMER BAKE on Safari (single-slide-render.ts `adoptBake`, PR #3102). This page is a first visit (only the
 		// settings key is seeded), so the head fetched the bake and the editing preview answered it: `adopted`, or
 		// `refused:written` when the engine wrote first (a race, so a speed question, not a fault). Any other refusal means
