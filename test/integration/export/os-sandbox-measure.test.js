@@ -353,3 +353,68 @@ test(`REAPED, SPAWNING: reap ends a browser that starts helpers while it is swep
     fs.rmSync(scratch, { recursive: true, force: true });
   }
 });
+
+// SWEEP ERRORS, on real PowerShell: the decision between 'sweep' and the pid fallback rests on the script's own
+// `swept` line, because its exit code cannot tell a failed query (#3358's maker-checker, finding 1). The unit tests
+// pin it with faked output; this arm runs the real script with a fault injected through `run`. (1) The FIRST query
+// fails (a WMI class that does not exist): exit 3, no `swept`, so the pid fallback runs. (2) A LATER query fails: pass 1
+// stops a live process naming the profile and prints `swept`, pass 2 throws, the loop ends, and the answer stays
+// 'sweep' with the pid untouched. Off Windows there is no PowerShell, so the arm checks only the first case's outcome.
+test(`SWEEP ERRORS: a failed query decides sweep or pid by what ran, on ${process.platform}`, { timeout: TIMEOUT }, async (t) => {
+  const { fs, os, path, processesLeft } = reapHarness();
+  const { spawn, spawnSync } = require('node:child_process');
+  const { killBrowserTree } = require('../../../lib/cli/code-door.js');
+  const STALE = 4242;
+  /** Run killBrowserTree with `rewrite` applied to the script, and the kill recorded instead of sent. */
+  const attempt = (dir, rewrite) => {
+    const killed = [];
+    let result = null;
+    const how = killBrowserTree(STALE, dir, {
+      platform: 'win32',
+      run: (cmd, args, opts) => {
+        result = spawnSync(cmd, [...args.slice(0, -1), rewrite(args.at(-1))], opts);
+        return result;
+      },
+      kill: (p, s) => killed.push([p, s]),
+    });
+    return { how, killed, status: result?.status ?? null, stdout: String(result?.stdout || '').trim() };
+  };
+
+  const first = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-sandbox-'));
+  try {
+    const r = attempt(first, (script) => script.replace('Get-CimInstance Win32_Process', 'Get-CimInstance Win32_NoSuchClass'));
+    t.diagnostic(`first query fails: status ${r.status}, stdout ${JSON.stringify(r.stdout)}, answer ${r.how}`);
+    assert.equal(r.how, 'pid', 'no pass ran, so the pid fallback must');
+    assert.deepEqual(r.killed, [[STALE, 'SIGKILL']]);
+    if (process.platform === 'win32') {
+      assert.equal(r.status, 3, 'the script exits 3 when its first query throws');
+      assert.equal(r.stdout, '');
+    }
+  } finally {
+    fs.rmSync(first, { recursive: true, force: true });
+  }
+
+  if (process.platform !== 'win32') return;
+  const later = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-code-sandbox-'));
+  const name = path.basename(later);
+  // A live process naming the profile, for pass 1 to find and stop. It only waits; a red run's leak is bounded.
+  const helper = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 240000)', later], { stdio: 'ignore' });
+  const exited = new Promise((resolve) => helper.once('exit', resolve));
+  try {
+    await new Promise((resolve, reject) => {
+      helper.once('spawn', resolve);
+      helper.once('error', reject);
+    });
+    const r = attempt(later, (script) => script.replace('Get-CimInstance Win32_Process', "Get-CimInstance $(if ($n -eq 1) { 'Win32_Process' } else { 'Win32_NoSuchClass' })"));
+    t.diagnostic(`later query fails: status ${r.status}, stdout ${JSON.stringify(r.stdout)}, answer ${r.how}`);
+    assert.equal(r.how, 'sweep', 'a pass ran, so the answer is sweep');
+    assert.deepEqual(r.killed, [], 'after a pass ran, the pid must never be killed');
+    assert.equal(r.status, 0, 'a later failed query ends the loop, not the script');
+    assert.equal(r.stdout, 'swept');
+    assert.deepEqual(processesLeft(name), [], 'pass 1 did not stop the live process naming the profile');
+  } finally {
+    if (helper.exitCode === null && helper.signalCode === null) helper.kill('SIGKILL');
+    await exited;
+    fs.rmSync(later, { recursive: true, force: true });
+  }
+});
