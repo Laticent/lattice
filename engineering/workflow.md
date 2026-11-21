@@ -2733,9 +2733,9 @@ all four hold, and names the failing check for every session that stays:
 3. **Nothing unpushed.** The session reports a clean tree and no local commits ahead
    of its remote (`git status -sb`), answered in its own reply, not inferred from an
    old status line. No answer, or changes, means it stays.
-4. **No live desk or scheduled task depends on it.** A desk session, a session that
-   is working now, and a session a scheduled task wakes (`list_triggers`,
-   `persistent_session_id`) stay.
+4. **No live desk or scheduled task depends on it.** The command center, a desk
+   session (both tagged `ui:pinned`), a session that is working now, and a session a
+   scheduled task wakes (`list_triggers`, `persistent_session_id`) stay.
 
 The owner's `go` on the board's numbered action archives exactly the sessions that
 passed. The audit is read-only and can run as one subagent; it never archives.

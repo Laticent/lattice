@@ -207,7 +207,6 @@ function main() {
     const result = { ...orderMerges(prs, conflicts, dirty), unmeasured };
     if (result.unordered.length || unmeasured.length) process.exitCode = 1;
     if (json) return console.log(JSON.stringify(result, null, 2));
-    for (const u of unmeasured) console.log(`unmeasured: #${u.number} left out (${u.why}); check it by hand`);
     for (const [i, o] of result.order.entries()) console.log(`${i + 1}. #${o.number}  ${o.why.join('; ')}`);
     for (const n of result.dirty) console.log(`rebase first: #${n} conflicts with main`);
     for (const h of result.held) console.log(`held: #${h.number} ${h.why}`);
@@ -215,6 +214,7 @@ function main() {
       const what = result.onCycle.includes(n) ? 'is on a dependency cycle' : 'is built on a PR in a dependency cycle';
       console.log(`unordered: #${n} ${what}; order it by hand`);
     }
+    for (const u of unmeasured) console.log(`unmeasured: #${u.number} left out (${u.why}); check it by hand`);
     for (const p of prs.filter((x) => !x.created_at)) console.log(`warning: #${p.number} has no created_at; it sorts after every dated PR`);
     for (const d of result.dropped) console.log(`note: #${d.first} and #${d.second} conflict, but a dependency fixes their order`);
   } catch (err) {
