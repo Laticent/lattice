@@ -314,10 +314,12 @@ unless the wave says why they did. The tool's header describes each gate.
 have not seen an earlier round, the study's scores or each other's work. Each gets the contact
 sheets (`sheet-<row>-png.png` and `sheet-<row>-pdf.png` per preset) and the full-resolution PNGs,
 and nothing else: not this note, not the maker's notes, not the floor. A judge who knows the
-floor is 8.5 grades toward it. Copy the sheets into a packet under neutral letters (look A to D)
-and **keep the letter-to-preset key off disk until both judges report**: a judge can read any
-file, and in the first round both judges found a key saved beside the packet and named the
-presets.
+floor is 8.5 grades toward it. Build the packet with `--packet <dir>` on the gate run: it holds
+the presets that passed plus the two anchors, under shuffled letters, with untitled sheets, and it
+**prints the letter-to-preset key instead of writing it**. Keep that key out of every file a judge
+can reach until both have reported, and do not hand judges the run's own sheets, which carry the
+preset's name in their title strip. In the first round both judges named the presets: the sheets
+were the run's titled ones, and a key file sat beside the packet.
 
 **3. Calibration anchors in the same batch.** Classic and today's Editorial are judged in the
 same batch as the candidates, not labeled as anchors. Their scores calibrate the batch: if the
@@ -372,7 +374,8 @@ What the round taught, beyond the scores:
 - **The anchors calibrate.** Editorial scored 7 and 6 here, against Judge A's earlier 7 on the
   four-slide deck (§3); the study never scored Classic, so 7 and 5 are its first numbers. Read a
   wave's candidates against the anchors in their own batch, not against the study's numbers.
-- **The key leaked** (step 2 above, now fixed in the procedure).
+- **The key leaked**, through the titled sheets and a key file (step 2 above; `--packet` now
+  builds the packet so neither can happen).
 
 ### What the trio corrected
 

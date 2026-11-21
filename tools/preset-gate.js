@@ -52,6 +52,8 @@
  *   --against DIR     an earlier run's --out, for the pixel gate
  *   --no-jank         skip the jank sweeps (each is ~4 s; listed in the summary as skipped)
  *   --keep-going      run every gate even after one fails
+ *   --packet DIR      also write the judge packet (writePacket): the passing presets and the two
+ *                     anchors under shuffled letters, untitled sheets, the key printed only
  *   --json            print the summary JSON instead of the table
  *
  * ROWS ON TODAY'S PRESETS. The four shipped presets set no palette or mode, so their own and house
@@ -102,7 +104,7 @@ const fault = (msg) => { throw new GateError(msg); };
 
 // ── arguments ────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
-  const o = { presets: [], recipes: [], rows: ROWS, out: null, against: null, jank: true, keepGoing: false, json: false };
+  const o = { presets: [], recipes: [], rows: ROWS, out: null, against: null, packet: null, jank: true, keepGoing: false, json: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const val = () => { if (i + 1 >= argv.length) die(`${a} needs a value`); return argv[++i]; };
@@ -113,6 +115,7 @@ function parseArgs(argv) {
     else if (a === '--against') o.against = val();
     else if (a === '--no-jank') o.jank = false;
     else if (a === '--keep-going') o.keepGoing = true;
+    else if (a === '--packet') o.packet = val();
     else if (a === '--json') o.json = true;
     else if (a === '--help' || a === '-h') { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
     else die(`unknown argument ${a} (--help lists them)`);
@@ -431,10 +434,12 @@ function pixel(prevPdf, curPdf, label) {
 }
 
 // ── contact sheets ───────────────────────────────────────────────────────────
+// `title` null draws no title strip: a judge's sheet must not carry the preset's name (see writePacket).
 function sheet(pngs, outPng, title) {
   if (!pngs.length) return null;
+  const titleArgs = title ? ['-title', title, '-pointsize', '28'] : [];
   const r = spawnSync('montage', [...pngs, '-tile', '6x', '-geometry', '640x360+6+6', '-background', '#777',
-    '-title', title, '-pointsize', '28', outPng], { encoding: 'utf8' });
+    ...titleArgs, outPng], { encoding: 'utf8' });
   return r.status === 0 ? outPng : null;
 }
 
@@ -545,12 +550,50 @@ async function main() {
     await browser.close();
   }
   fs.writeFileSync(path.join(out, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`);
+  if (o.packet) writePacket(summary, out, path.resolve(o.packet), o.rows);
   const md = table(summary);
   fs.writeFileSync(path.join(out, 'summary.md'), md);
   if (o.json) console.log(JSON.stringify(summary, null, 2));
   else console.log(`\n${md}\nsummary: ${path.relative(ROOT, path.join(out, 'summary.json'))}`);
   if (summary.presets.some((p) => p.verdict === 'error')) process.exit(2);
   process.exit(summary.presets.every((p) => p.verdict === 'pass') ? 0 : 1);
+}
+
+/**
+ * THE JUDGE PACKET (study note §8, "The judge protocol"). The presets that passed every machine gate,
+ * plus the calibration anchors (Classic, Editorial) whatever their verdict, copied under shuffled
+ * letters: per row an untitled PNG sheet, an untitled sheet of the rasterized PDF, and the slides at
+ * full resolution. Nothing in the packet names a preset, and the letter-to-preset key is PRINTED,
+ * never written: the first round of the protocol was not blind, because the run's own sheets carry
+ * the preset's name in their title strip and a key file sat beside the packet, and both judges named
+ * the presets. Keep the printed key out of every file a judge can reach until both have reported.
+ */
+const ANCHORS = ['classic', 'editorial'];
+function writePacket(summary, out, dir, rows) {
+  const crypto = require('node:crypto');
+  if (fs.existsSync(dir) && fs.readdirSync(dir).length) die(`--packet ${dir} is not empty; a stale look would mix rounds`);
+  fs.mkdirSync(dir, { recursive: true });
+  const picked = summary.presets.filter((p) => p.verdict === 'pass' || ANCHORS.includes(p.name));
+  const missing = ANCHORS.filter((a) => !summary.presets.some((p) => p.name === a));
+  if (missing.length) console.error(`preset-gate: the packet has no ${missing.join(' or ')} anchor; add --preset ${missing.join(',')} to the run`);
+  for (let i = picked.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [picked[i], picked[j]] = [picked[j], picked[i]]; }
+  const key = [];
+  picked.forEach((p, i) => {
+    const letter = String.fromCharCode(65 + i);
+    key.push(`${letter}=${p.name}`);
+    const look = path.join(dir, `look-${letter}`);
+    for (const row of rows) {
+      const src = path.join(out, p.name, row);
+      const slides = fs.readdirSync(src).filter((f) => /^deck\.\d+\.png$/.test(f)).sort();
+      fs.mkdirSync(path.join(look, row), { recursive: true });
+      for (const f of slides) fs.copyFileSync(path.join(src, f), path.join(look, row, `slide-${f.split('.')[1]}.png`));
+      sheet(slides.map((f) => path.join(src, f)), path.join(look, `sheet-${row}-png.png`), null);
+      const pdfPngs = rasterizePdf(path.join(src, 'deck.pdf'), path.join(src, 'packetpage'));
+      sheet(pdfPngs, path.join(look, `sheet-${row}-pdf.png`), null);
+      for (const f of pdfPngs) fs.rmSync(f);
+    }
+  });
+  console.log(`\njudge packet: ${dir} (${picked.length} looks)\npacket key, printed and NOT written anywhere: ${key.join(' ')}`);
 }
 
 /** The PR-body table: one line per preset and row. */
@@ -578,4 +621,4 @@ function table(s) {
 
 if (require.main === module) main().catch((e) => die(e.stack || e.message));
 
-module.exports = { rowValues, deckFor, readRecipe, table, markContrast, contrastRatio, lostPages };
+module.exports = { rowValues, deckFor, readRecipe, table, markContrast, contrastRatio, lostPages, writePacket };

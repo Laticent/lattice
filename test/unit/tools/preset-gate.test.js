@@ -133,3 +133,55 @@ test('the overflow gate reads all three of the CLI\'s lost-content lines, and a 
   assert.deepEqual(lostPages(log), [3, 14, 17, 21, 26]);
   assert.deepEqual(lostPages('PNG: 30 slides → deck.NNN.png\n'), []);
 });
+
+test('the judge packet names no preset anywhere, keeps the anchors, drops a failing candidate, and only prints its key', () => {
+  const { writePacket } = require(path.join(ROOT, 'tools', 'preset-gate.js'));
+  const { PNG } = require('pngjs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'preset-packet-'));
+  const out = path.join(tmp, 'run');
+  const dir = path.join(tmp, 'packet');
+  const png = PNG.sync.write(new PNG({ width: 4, height: 3 }));
+  const names = ['classic', 'editorial', 'earnings', 'riso'];
+  for (const n of names) {
+    fs.mkdirSync(path.join(out, n, 'own'), { recursive: true });
+    fs.writeFileSync(path.join(out, n, 'own', 'deck.001.png'), png);
+  }
+  // editorial (an anchor) failed and still goes in; riso failed and stays out
+  const summary = { presets: [
+    { name: 'classic', verdict: 'pass' }, { name: 'editorial', verdict: 'fail' },
+    { name: 'earnings', verdict: 'pass' }, { name: 'riso', verdict: 'fail' },
+  ] };
+  const logged = [];
+  const orig = console.log;
+  console.log = (...a) => logged.push(a.join(' '));
+  try {
+    writePacket(summary, out, dir, ['own']);
+  } finally {
+    console.log = orig;
+  }
+  try {
+    const files = [];
+    const walk = (d) => { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p); else files.push(p); } };
+    walk(dir);
+    assert.deepEqual(fs.readdirSync(dir).sort(), ['look-A', 'look-B', 'look-C']);
+    for (const f of files) {
+      for (const n of names) {
+        assert.ok(!path.relative(dir, f).includes(n), `${f} names ${n} in its path`);
+        assert.ok(!fs.readFileSync(f).includes(Buffer.from(n)), `${f} carries the bytes "${n}"`);
+      }
+    }
+    // A NAME DRAWN INTO A SHEET is pixels, not bytes, and is how the first round leaked: the run's
+    // sheets carry `<preset> · <row>` in a title strip. An untitled one-row sheet is exactly one tile
+    // plus its border tall (360 + 6 each side); a title strip makes it taller.
+    if (require('node:child_process').spawnSync('which', ['montage']).status === 0) {
+      for (const L of ['A', 'B', 'C']) {
+        const sheetPng = PNG.sync.read(fs.readFileSync(path.join(dir, `look-${L}`, 'sheet-own-png.png')));
+        assert.equal(sheetPng.height, 372, `look-${L}'s sheet has a title strip`);
+      }
+    }
+    const key = logged.join('\n').match(/packet key[^:]*: (.+)$/m)[1].split(' ').map((kv) => kv.split('=')[1]).sort();
+    assert.deepEqual(key, ['classic', 'earnings', 'editorial']);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
