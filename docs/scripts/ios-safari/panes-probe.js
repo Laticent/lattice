@@ -143,7 +143,21 @@ async function latticePanesProbe() {
 			`iframes ${frames.map((f) => `[${f.className || '-'} ${Math.round(f.getBoundingClientRect().width)}w, opacity ${getComputedStyle(f).opacity}]`).join(' ') || 'none'}`,
 			`live frame ${live ? `${live.isConnected ? 'connected' : 'detached'}, srcdoc ${live.srcdoc.length} chars` : 'absent'}`,
 			`live doc ${doc ? `${doc.readyState}, ${doc.URL.slice(0, 20)}, ${doc.querySelectorAll('.lattice').length} .lattice, ${doc.querySelectorAll('section').length} sections, body ${doc.body?.childElementCount ?? 'none'} children` : 'unreadable'}`,
-			`controlled ${!!navigator.serviceWorker?.controller}`,
+			`controlled ${!!navigator.serviceWorker?.controller}${navigator.serviceWorker?.controller ? ` (${navigator.serviceWorker.controller.state})` : ''}`,
+			// WHICH GATE A FIRST RENDER STALLED AT (#3368: twice, box present, no frame, no sample, no alert). The engine global
+			// is set once its ESM import settles; the bake attribute says whether the head seed's frame was offered. A resource
+			// entry is written only when its response ENDS, so an engine or theme file that never finished (each goes through the
+			// service worker) is one missing here.
+			`engine ${window.LatticePlayground ? 'loaded' : 'NOT loaded'}`,
+			`bake ${box?.getAttribute('data-lattice-bake') ?? 'none'}`,
+			`finished: ${(() => {
+				try {
+					const done = performance.getEntriesByType('resource').map((e) => e.name);
+					return ['esm/engine.js', 'lattice.css'].map((f) => `${f} ${done.some((n) => n.includes(f)) ? 'yes' : 'NO'}`).join(', ');
+				} catch {
+					return 'unreadable';
+				}
+			})()}`,
 			`alert ${alert ? `"${alert}"` : 'none'}`,
 			`last render ${sample}`,
 		].join('; ');
