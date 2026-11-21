@@ -67,6 +67,16 @@ also      — 2026-11-10, same PR: collage-lightbox.spec.ts:395 on gecko
             and gecko at 3), recorded nowhere before: back-gesture.spec.ts:183 (webkit-phone), switch-controls.spec.ts:97
             (webkit-tablet) and table-reflow-preview.spec.ts:71 (webkit-tablet; then 8 of 8 at 4 workers). Each failed once in its full run and passed 3 of 3 alone. Not
             compared against main; not investigated.
+fixed     — 2026-11-21, branch claude/orphan-flake-ports (ported from orphaned PR #3278), each at its cause:
+            - playground-deck-settings.spec.ts:110 (test-only): the Theme list is an item-aligned Radix Select that grows
+              on each scroll event. click() checked the option held still, scrolled it into view, then pressed where it
+              had measured, so the growth moved the list under the press (trace: press at y 55, Auto at y 31 after).
+              The test now scrolls first, so click()'s frame-based stability check waits for the growth. main: 1 of 30
+              red at four workers over three projects. Arm (300 ms press): old 6 of 10 red, new 10 of 10.
+            - back-gesture.spec.ts:183 (now :172, webkit-phone): a product defect. Radix arms a sheet's outside-tap
+              listener a moment after mount, and a lazy panel's real sheet replaces its loading sheet in place, so a
+              scrim tap in that gap did nothing. components/ui/sheet.tsx reads the tap from the pointer. main: 3 of
+              100 red at four workers; with the fix 100 of 100.
 where     — the specs named above that the "fixed" entry does not name.
 done when — each failure is reproduced under full-project load and fixed at its cause, or 10 full
             mobile-project runs on main pass and this file is deleted with that evidence.
