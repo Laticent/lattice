@@ -337,6 +337,17 @@ now wins over the bare wide-family tightening (inventory's wide hard 5 had erase
 nothing), the deck's claim is read by the engine's own `frontMatterName` (a trailing `# comment` hid it) and from a
 deck-wide `class: claim-*`.
 
+**Adversarial trio (2026-11-21, on `a820bd1`).** Red team, Munger inversion and an independent checker, each on what
+will ship. Fixed in this PR: `split-panel pullquote` lost its quotation to the coda when it followed the list (a
+regression; now `coda.variants.pullquote.anatomy`, the first blockquote and the cite after it are the panel's); a
+`topic` slide's other text was dark on dark; grace forwarded only `--css` and re-rendered the deck instead of using the
+export's verdict, read directives inside code fences, lost a BOM deck's front matter, counted pages against hidden
+slides, and advised a claim on `claim-framed`; the anchor lint read `>` inside speaker notes; `blockquoteCount` missed
+an indented second blockquote and one after a list item; per-component docs (title, closing, divider, topic, stats,
+diagram) now say what changed. Put to the owner: deck-wide `claim: hero` advice (it drops header and footer on every
+slide, checked only on the clipped ones) and `quote` with a two-paragraph attribution (the role line now becomes the
+note).
+
 **Budgets as built.** Fourteen components measured more room under a claim than their bare budget, and thirteen now
 declare it: agenda, cards-grid, cards-stack, checklist, inventory, list-steps, policy-recommendation, pricing, q-and-a,
 roadmap, statute-stack, table and verdict-grid (`capacity.withClaim.<quiet|hero>.{soft,hard}`). `lint-core` takes the
