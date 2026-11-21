@@ -44,7 +44,7 @@ function oldTopLevelBlocks(html) {
 }
 
 const PIECES = ['<p>', '</p>', '<div class="a">', '</div>', '<br>', '<br/>', '<img src="x">', '<p/>', '<a', '<a-', '<a->',
-  '<a_b>', '</a_b>', '<!--', '-->', '<!-- c -->', '<!--->', '"', "'", '>', '<', '/', ' ', '\n', 'x', '<pre>', '</pre>',
+  '<a_b>', '</a_b>', '<!--', '-->', '<!-- c -->', '<!--->', '<!-->', '<!---->', '"', "'", '>', '<', '/', ' ', '\n', 'x', '<pre>', '</pre>',
   '<blockquote>', '</blockquote>', '<p title=">">', "<p title='a\"b'>", '<1>', '<P>', '</P>'];
 const draw = (rand, n) => {
   let s = '';

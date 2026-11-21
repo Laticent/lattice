@@ -53,7 +53,7 @@ const OLD = {
 // The tag fragments the walkers reason about, and their edges: a name that runs on (`<trx`, `<tdata`), a close of the
 // other cell kind, a `>` inside an attribute, an unclosed open, nested tables.
 const PIECES = ['<', '>', '/', '<tr', '<tr>', '</tr>', '<td', '<td>', '</td>', '<th', '<th>', '</th>', '<thead>', '</thead>',
-  '<tbody>', '</tbody>', '<table', '<table>', '</table>', '<trx>', '<tdata>', ' a="1"', ' ', 'x', '\n', '<th class="c">', '_'];
+  '<tbody>', '</tbody>', '<table', '<table>', '</table>', '<trx>', '<tdata>', ' a="1"', ' ', 'x', '\n', '<th class="c">', '_', '<tr-', '<td_', '<th->'];
 
 function draw(rand, n) {
   let s = '';

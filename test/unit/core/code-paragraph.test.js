@@ -20,7 +20,9 @@ const all = (re, s) => [...s.matchAll(re)].map((m) => ({ index: m.index, end: m.
 const PIECES = ['<p>', '<p', '<pre>', '<p class="x">', '<px>', '>', '<', '<code>', '<code class="y">', '<code', '<codex>',
   '</code>', '</p>', '</pre>', ' ', '\n', '\u00a0', 'a', '{1}', '`', '/', '<h2>', '</h2>',
   // Whole paragraphs, so the trailing reading's edges (an empty body, a `<` inside it) come up often.
-  '<p><code></code></p>', '<p><code>x</code></p>', '<p><code>a<b</code></p>', '<p> <code>y</code> </p>'];
+  '<p><code></code></p>', '<p><code>x</code></p>', '<p><code>a<b</code></p>', '<p> <code>y</code> </p>',
+  // The checker's edges: blanks `\s` reads that a narrower test would not, and `<p` run into a word or `-` character.
+  '\ufeff', '\u2028', '<p_>', '<p1>', '<p->'];
 const draw = (rand, n) => {
   let s = '';
   const len = Math.floor(rand() * n);
@@ -81,6 +83,9 @@ describe('the code-paragraph walkers are linear on the markup the regexes choked
     'many `<p` and one `>` at the end': (n) => `${'<p'.repeat(n)}>`,
     'many `<p><code` and one `>` at the end': (n) => `${'<p> <code'.repeat(n)}>`,
     'many code paragraphs and one `</p>` far away': (n) => `${'<p><code>x</code> '.repeat(n)}</p>`,
+    // Many starts sharing one `>`, or one `</code>`, and the long blank run after it (the maker-checker's two shapes).
+    'many `<p`, one `>`, then a long blank run': (n) => `${'<p'.repeat(n)}>${' '.repeat(n)}x`,
+    'many `<p><code>`, one `</code>`, then a long blank run': (n) => `${'<p><code>'.repeat(n)}</code>${' '.repeat(n)}x`,
   };
   for (const [label, make] of Object.entries(hostile)) {
     test(`${label}: four times the markup costs about four times the work`, () => {
