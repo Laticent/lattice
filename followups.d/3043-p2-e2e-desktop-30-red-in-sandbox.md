@@ -58,7 +58,7 @@ also red  — 2026-11-11, PR #3141's WebKit and Gecko run (the raise loop's evid
             playground-tab-switch:211. Sandbox note: the export specs need the `chromium-1194` path the docs' pinned
             Playwright names; this sandbox ships build 1243, so they fail with "Browser was not found" until that path
             points at a Chrome (a symlink made them pass, 16 of 18 with the two above).
-triaged   — 2026-11-21, every WebKit and Gecko row above, on main 450df6d (one `npm run build:e2e`, --retries=0): each
+triaged   — 2026-11-21, every WebKit and Gecko row above but library-header-search:19 (fixed, above), on main 450df6d (one `npm run build:e2e`, --retries=0): each
             test alone on its own project (--workers=1 --repeat-each=5), then under load (--workers=3 --repeat-each=8).
             None is red any more; every row below passed every run, so each is STALE and closes here:
             - studio-read-article-charts.spec.ts:62 (the old :60, webkit-phone, light and dark): 10 of 10 alone, 16 of 16 loaded.
