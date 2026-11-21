@@ -148,3 +148,11 @@ test('a reply names the code that ran: a job that moved HEAD or edited a tracked
   assert.equal(commitLabel(head, head), '`aaaaaaa`');
   assert.equal(commitLabel(head, 'c'.repeat(40)), '`aaaaaaa` (dist/ built at `ccccccc`)', 'after --no-build or a failed build');
 });
+
+test('--on=<os> names the one harness a command is for, wherever it sits on the first line', () => {
+  // One harness per OS can serve the same PR (owner, 2026-11-21), so a command reaches both unless it names one.
+  assert.deepEqual(parseCommand('/harness --on=windows-2025 status'), { verb: 'status', noBuild: false, on: 'windows-2025' });
+  assert.deepEqual(parseCommand('/harness suite x --on=macos-26 DEBUG=1'), { verb: 'suite', noBuild: false, suite: 'x', env: { DEBUG: '1' }, on: 'macos-26' });
+  assert.equal(parseCommand('/harness sh --on=macos-26\n```bash\necho --on=x\n```').script, 'echo --on=x\n', 'only the first line is read');
+  assert.equal(parseCommand('/harness status').on, undefined, 'no target: every harness');
+});

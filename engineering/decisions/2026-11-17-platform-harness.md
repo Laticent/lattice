@@ -48,7 +48,10 @@ build once and submit jobs to" (2026-11-17), and chose this design and the PR th
 - **One at a time per OS, bounded.** Job-level `concurrency: platform-harness-<os>` without cancel: a second dispatch for
   the same OS waits, so a harness never takes a second macOS slot from the nightly (GitHub keeps one waiting job per
   group, so a third dispatch replaces the second). Per OS since 2026-11-21 (owner): one group for both let a Windows
-  harness block a macOS one, and Windows never competed for the nightly's macOS slots. The 90-minute deadline counts from the job's first step; a running job is killed at it (its whole
+  harness block a macOS one, and Windows never competed for the nightly's macOS slots. Two harnesses can then serve one
+  pull request, so each runs every command unless its first line names one with `--on=<os>`, and every reply starts
+  with the OS that wrote it (the first real pair, runs 44925558567 and the Windows run beside it, both answered one
+  command with no way to tell them apart). The 90-minute deadline counts from the job's first step; a running job is killed at it (its whole
   process group on macOS; its process tree through `taskkill /T` on Windows; a job that detaches itself escapes both
   and dies with the runner at the 105-minute timeout), and the loop ends a minute before it, leaving 15 of the job's 105 minutes for the artifact upload. It
   also stops after 15 idle minutes or on `/harness stop`. A `/harness stop` waits for the running job to end: commands

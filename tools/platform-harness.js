@@ -22,7 +22,8 @@
  *   /harness watch on|off                   re-run the last job when a new commit lands (default on)
  *   /harness status                         reply with the commit, the job count and the time left
  *   /harness stop                           end the session; the workflow then uploads every job's artifacts
- * Any command may add `--no-build` after the verb to skip the rebuild a new commit would trigger.
+ * Any command may add `--no-build` after the verb to skip the rebuild a new commit would trigger, and `--on=<os>`
+ * (`--on=macos-26`) so that only that OS's harness acts on it; without it, every harness serving the PR does.
  *
  * Contract and threat model: engineering/decisions/2026-11-17-platform-harness.md. The runner holds no secrets. The token
  * that reads and writes comments is kept out of a job's environment, out of `.git/config` (the workflow checks out with
@@ -63,6 +64,17 @@ const COMMENT_LIMIT = 60000; // GitHub's ceiling is 65536 characters
  *   watch?: boolean, error?: string}}
  */
 function parseCommand(body) {
+  if (typeof body !== 'string') return null;
+  // `--on=<os>` sends a command to one harness when a macOS and a Windows harness serve the same pull request.
+  const first = body.replace(/\r\n?/g, '\n').split('\n', 1)[0];
+  const on = (first.match(/[ \t]--on=(\S+)/) || [])[1];
+  const cmd = parseVerb(on ? body.replace(/[ \t]--on=\S+/, '') : body);
+  if (cmd && on) cmd.on = on;
+  return cmd;
+}
+
+/** The command without its `--on` target. */
+function parseVerb(body) {
   if (typeof body !== 'string') return null;
   const text = body.replace(/\r\n?/g, '\n');
   const first = text.split('\n', 1)[0].trim();
@@ -292,7 +304,8 @@ async function main() {
 
   const reply = async (text) => {
     try {
-      await api('POST', `/repos/${REPO}/issues/${PR}/comments`, { body: `${MARK}\n${redact(text, GH_TOKEN)}` });
+      // Name the OS first: two harnesses (one per OS) can serve the same pull request and answer the same command.
+      await api('POST', `/repos/${REPO}/issues/${PR}/comments`, { body: `${MARK}\n\`${os}\` ${redact(text, GH_TOKEN)}` });
     } catch (e) {
       console.error(`reply failed: ${e.message}`);
     }
@@ -414,6 +427,7 @@ async function main() {
         if (notice) await reply(notice);
         continue;
       }
+      if (cmd.on && cmd.on !== os) continue;
       if (cmd.verb === 'invalid') { await reply(`**harness**: ${cmd.error}.`); continue; }
       if (cmd.verb === 'stop') return 'stop';
       if (cmd.verb === 'status') {
