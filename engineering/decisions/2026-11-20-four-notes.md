@@ -140,3 +140,13 @@ comments.
 - **LFM 2.0 starts here.** No 2.0 draft existed; `spec/LFM-2.0.md` is written as changes against 1.1, with §3.5 in
   full and the shared case `spec/conformance/lfm/four-notes`. A case pinning 1.x behavior that 2.0 changed carries
   `until: LFM-2.0`, and the reference runner skips it.
+- **The adversarial trio (PR 3351).** The red team found four shapes that did not match main: prose shaped like a pane
+  marker (`<!-- pane: needs a better chart -->`, `<!-- panes: remember … -->`) was neither scrubbed nor migrated, because
+  every pane-shaped comment counted as structure; now only what the carve reads does (`isPaneStructure`). An
+  `@word{…}` that is no note name was a speaker note on main and now migrates to `@note`; a public note already in a
+  migrated deck stays as written and is named for review, because a second run must change nothing. A comment that
+  opens in the front matter is part of a YAML value and is never scrubbed, migrated or audited. The Marp bridge labels a
+  note that opens with a quoted key, which Marp would apply as a directive. The inversion found the change's silent
+  failure, an old deck exporting with no notes, now told by lint (`plain-comment-notes`, with the migration as its fix)
+  and by every CLI export.
+

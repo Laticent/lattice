@@ -15,11 +15,14 @@ source: https://github.com/Laticent/lattice/pull/3351
   P3 · four shapes the source scrub does not handle, measured identical on origin/main
        why now   — The four-notes checker probed the scrub and found these on BOTH main and the PR, so
                    they are not regressions, and none is on the four-notes path:
-                   1. `<!-- SECRET --!> visible? -->`: a browser ends the comment at `--!>`, the scrub
-                      at `-->`, so the embedded source keeps ` visible? -->`, which re-imports as slide text.
-                   2. `<span title="<!-- x -->">`: the scrub empties the attribute value.
-                   3. `<!-- {TODO secret} -->`: record-shaped, so it is kept as a record (lint reports it
-                      as a record that does not read).
+                   1. `<!-- SECRET --!> visible? -->`: the scrub ends the comment at `--!>`, as a browser does, so
+                      ` visible? -->` (already visible on the slide) stays; no leak, but the shape check then fails
+                      and the "could not remove … AS WRITTEN" warning reads as if the text stayed.
+                   2. `<span title="<!-- x -->">`: the scrub empties the attribute, as the engine's render already
+                      does on every path; no leak (red team, PR 3351).
+                   3. `<!-- {TODO secret} -->` (and `<!-- {layout=cards}\nSECRET -->`): record-shaped, so the scrub
+                      keeps it and the audit, which skips records, says nothing. Lint reports each as a record that
+                      does not read; none was a note on main. The red team on PR 3351 re-confirmed it.
                    4. A Marp bundle keeps `<!-- stress-slide -->`, which Marp shows as a speaker note.
        where     — lib/authoring/notes-core.js `removeCommentSpans` / `isPrivateComment`;
                    lib/authoring/notes-core.js `notesToMarp` (4).

@@ -132,6 +132,29 @@ describe('a converted comment that reads like the author\'s own is named for rev
   });
 });
 
+describe('the red team on the four notes', () => {
+  test('an @word{…} that is no note name was a speaker note: it becomes @note, named for review', () => {
+    const r = migrateNotesSource('# A\n\n<!-- @john{please check churn} -->\n<!-- plain one -->\n');
+    assert.match(r.source, /<!-- @note\{@john\{please check churn\}\} -->/);
+    assert.ok(r.review.includes('@john{please check churn}'));
+  });
+  test('a public note already in a migrated deck stays as written and is named: it was a speaker note before', () => {
+    const r = migrateNotesSource('# B\n\n<!-- @say{already new} -->\n<!-- say: old say -->\n');
+    assert.match(r.source, /<!-- @say\{already new\} -->/);
+    assert.ok(r.review.some((x) => x.startsWith('already @say')), r.review.join(' | '));
+    assert.equal(migrateNotesSource(r.source).source, r.source, 'a second run changes nothing');
+  });
+  test('a comment inside the front matter is part of a YAML value and is left alone', () => {
+    const src = '---\ntitle: "Q3 <!-- draft --> review"\n---\n\n# A\n';
+    assert.equal(migrateNotesSource(src).source, src);
+  });
+  test('prose shaped like a pane marker was a speaker note: it becomes @note; a real marker stays', () => {
+    const r = migrateNotesSource('# A\n\n<!-- pane: Pane two needs a better chart -->\n<!-- _pane: bar -->\n');
+    assert.match(r.source, /<!-- @note\{pane: Pane two needs a better chart\} -->/);
+    assert.match(r.source, /<!-- _pane: bar -->/);
+  });
+});
+
 describe('what the migration never touches', () => {
   test('directives, pane markers, records, pragmas, markers, an @name note and code are left as written', () => {
     const src = [
