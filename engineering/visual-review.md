@@ -127,6 +127,16 @@ worker, html-to-image usage, fonts embedding):
 3. "It downloaded and the toast fired" is a presence check, not fidelity —
    never accept it as verification of a rendering change.
 
+## Judging a deck preset
+
+A preset is not reviewed slide by slide like a gallery. It is gated on the fixed 30-slide
+corpus deck (`test/fixtures/preset-corpus.md`) by `node tools/preset-gate.js`, which renders own,
+flip and house rows as PNG and as the exported PDF and runs overflow, text and mark-fill
+contrast, `check-jank` and `pixel-check` before any agent looks. Only a preset that passes goes
+to two fresh judges, who score its worst slide beside the Classic and Editorial anchors. The
+procedure is "The judge protocol" in
+`engineering/decisions/2026-11-20-deck-preset-study.md` §8; follow it there.
+
 ## Output
 
 Fold the checker-adjudicated findings into one prioritized list and fix what's
