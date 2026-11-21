@@ -1,0 +1,10 @@
+[Unit]
+Description=Rebuild the lattice-runner image
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/lattice-runner/build-image.sh
+# No restart needed: every job starts a new container from lattice-runner:latest, so the next
+# job after the rebuild runs on the new image and in-flight jobs are never interrupted.

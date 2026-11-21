@@ -13585,6 +13585,9 @@ const NUL_TEXT_EXTENSIONS = [
   // The office probe's test app around Apple's Quick Look viewer (docs/scripts/ios-safari/QLProbe.swift) and its
   // Info.plist — plain text source.
   '.swift', '.plist',
+  // The self-hosted CI runner kit (tools/runners/): PowerShell scripts, systemd units and the
+  // runner.env.example template. All plain text.
+  '.ps1', '.service', '.timer', '.example',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list
