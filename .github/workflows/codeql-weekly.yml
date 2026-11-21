@@ -15,9 +15,6 @@ name: CodeQL weekly (C# and Python)
 # No push or pull_request trigger, on purpose: this must never add a job to a PR or the merge queue.
 
 on:
-  # TEMPORARY: one real run on this branch before merge (the card's raise). Removed in the next commit.
-  push:
-    branches: [desk-optimize/codeql-weekly]
   schedule:
     - cron: '43 3 * * 1' # Mondays 03:43 UTC, away from the daytime runner peak
   workflow_dispatch:
