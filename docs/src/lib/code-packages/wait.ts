@@ -26,6 +26,13 @@ function stored<T>(key: string): Record<string, T> {
 	}
 }
 const registry = () => stored<Entry>(REG_KEY);
+/** The Library holds no plugin, or could not be read: drop the fence registry, or a wait would stand where nothing
+ *  will draw (StudioShell, after the Library read; never on the empty list a reload starts from). */
+export function forgetWaits(): void {
+	try {
+		localStorage.removeItem(REG_KEY);
+	} catch {}
+}
 
 // The deck text is already LF: the Studio folds line endings where it reads a deck in (normalizeSourceText).
 const norm = (body: string) => body.trim();

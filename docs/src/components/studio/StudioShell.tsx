@@ -32,7 +32,7 @@ import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
 import { CODE_APPROVALS_KEY, codePackagesStamp, PREVIEW_PAINTED, setCodePackages, setPlugins, setWaits } from '@/lib/code-packages/entry';
-import { waitKey, waitMarkup, withWaits } from '@/lib/code-packages/wait';
+import { forgetWaits, waitKey, waitMarkup, withWaits } from '@/lib/code-packages/wait';
 
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
@@ -1767,8 +1767,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// decides "unchanged": a re-import that keeps the code but widens its returns, kinds or placeholder replaces the
 		// record under the same id, and comparing only id, code and fence kept the old declaration live until a reload.
 		listStudioPlugins()
-			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list)))
-			.catch(() => setLocalPlugins((prev) => (prev.length ? [] : prev)));
+			.then((list) => {
+				// No plugin in the Library: no wait may stand in for one (code-packages/wait.ts).
+				if (!list.length) forgetWaits();
+				setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list));
+			})
+			.catch(() => {
+				forgetWaits();
+				setLocalPlugins((prev) => (prev.length ? [] : prev));
+			});
 	}, []);
 	React.useEffect(() => { refreshComponents(); }, [refreshComponents]);
 	// CODE PACKAGES: every saved component carrying a transform is one the renders may run, each only

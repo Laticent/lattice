@@ -4,7 +4,7 @@ import MarkdownIt from 'markdown-it';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { renderWithCodePackages, setPlugins, setWaits } from './entry';
-import { AFTER_KEY, REG_KEY, waitKey, waitMarkup, withWaits } from './wait';
+import { AFTER_KEY, forgetWaits, REG_KEY, waitKey, waitMarkup, withWaits } from './wait';
 
 const keyed = (body: string) => JSON.stringify({ [waitKey(SHA, body)]: { w: 800, h: 300, b: [[1, 2, 3, 4, 1]] } });
 
@@ -115,12 +115,21 @@ describe('a wait is for previews only, and only while a plugin can still draw', 
 		setWaits({ withWaits, waitMarkup, waitKey });
 		const exported = await renderWithCodePackages(PG, DECK_SHOWN, 'indaco', { baseUrl: 'b/' });
 		const preview = await renderWithCodePackages(PG, DECK_SHOWN, 'indaco', { codeStatus: true });
+		// The slide-alone preview carries only the approval CSS (single-slide-render.ts), and is a preview too.
+		const alone = await renderWithCodePackages(PG, DECK_SHOWN, 'indaco', { codeApproval: '' });
 		expect(exported.html).not.toContain('data-lattice-plugin-wait');
 		expect(preview.html).toContain('data-lattice-plugin-wait');
+		expect(alone.html).toContain('data-lattice-plugin-wait');
 	});
 
-	it('an empty Library drops the fence registry, so no wait stands where nothing will draw', async () => {
+	it('the empty plugin list a reload starts from keeps the registry: the Library has not been read yet', async () => {
 		await setPlugins([]);
+		expect(localStorage.getItem(REG_KEY)).not.toBeNull();
+		expect(withWaits(DECK_SHOWN)).toContain('data-lattice-plugin-wait');
+	});
+
+	it('an empty or unreadable Library drops the registry, so no wait stands where nothing will draw', () => {
+		forgetWaits();
 		expect(localStorage.getItem(REG_KEY)).toBeNull();
 		expect(withWaits(DECK_SHOWN)).toBe(DECK_SHOWN);
 	});
