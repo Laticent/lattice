@@ -5,62 +5,38 @@ recorded: 2026-11-08
 area: website
 severity: low
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md
-deferred: large — about ten load-only failures, each its own investigation; the ones PR #3102 measured against main fail there at a similar rate
+deferred: large — the WebKit and Gecko items each need their own investigation, and another session owns those projects
 source: https://github.com/Laticent/lattice/pull/3087
-updated: 2026-11-10, the Studio startup PR (demo-mobile, collage-lightbox and model-spine fixed at their causes; the rest stay)
+updated: 2026-11-21, the Chromium flake triage (every Chromium item cleared or owned elsewhere; WebKit, Gecko and iOS stay)
 ---
 
-# Mobile specs that fail only under full-project load, on main and on PR 3087 alike
+# Specs that fail only under full-project load: what is left after the Chromium triage
 
-why now   — PR 3087 ran the full `--project=mobile` suite (4 workers, --retries=0) five times: three on its
-            final build, two on main d1a4704's. Besides the known reds (ios-zoom:65, visual:37,
-            plugin-inline-ui:170, all in or beside followups.d/3043-…), each run lost a different 0-3
-            specs that pass alone, on both builds:
-            - main: compose-soft-break.spec.ts:22 and :50, logo-wall-first-visit.spec.ts:74.
-            - PR build: logo-wall-first-visit.spec.ts:74, playground-tab-switch.spec.ts:211,
-              playground-deck-settings.spec.ts:110, plugin-inline-ui.spec.ts:136,
-              settings-reopen.spec.ts:81, collage-lightbox.spec.ts:314.
-            Counts per run: main 0 and 3; the PR's final build 3, 2 and 3. Every one tried alone passed 3 of 3
-            on both builds. (demo-mobile.spec.ts:535 also failed once, on the PR's build BEFORE its quiet
-            gate; it passed all three full runs after, so it is not listed.)
-            A test that fails only under load still fails in CI's merge train (HARD RULE #32).
-update    — PR #3102 ran the full `--project=mobile` suite once (4 workers, --retries=0) on its build:
-            314 passed, 6 failed. Two are the known reds (ios-zoom:65, visual:37). The other four, alone,
-            three runs each: collage-lightbox.spec.ts:348 and :385 (@smoke) 3/3, model-spine.spec.ts:155
-            3/3, demo-mobile.spec.ts:535 2/3. So collage-lightbox:348/:385 and model-spine:155 join the
-            list above. demo-mobile:535 was then run 24 times under load (repeat-each, 4 workers) against
-            each build: main 3 failed, PR #3102 4 failed; 5/5 alone on both. Its failure: "the tail was
-            2018px off screen for 20+ consecutive frames while typing (scrollTop 0 of 2338)", that is,
-            Compose never scrolled to follow the tour's typing while the CPU was contended. That points
-            at the follow mechanism starving under load, not at the test's thresholds.
-            The other three, 8 runs each under the same load: main failed collage-lightbox:348 once and
-            :385 once (2 of 24); PR #3102 failed collage-lightbox:348 twice and model-spine:155 once (3 of
-            24). collage-lightbox is a load flake on main. model-spine:155, 16 more runs a side: 1 failed on each
-            (main a `locator.check` timeout, PR #3102 a `toHaveText`), so 1 of 24 against 2 of 24: a load
-            flake on main as well.
-desktop   — PR #3102 then ran the full `--project=desktop` suite once (4 workers, --retries=0): 1296 passed,
-            30 failed. 15 tests failed again alone, three runs each, and every one fails on main 756c1ff too.
-            The other 11 pass alone: they fail only under load. Run 4 times each at 4 workers, the 10 that
-            are not this PR's own spec failed 3 of 40 on main and 5 of 40 on the PR's build, on the same
-            tests (gallery-preview-metamorphic:370, lenses-landing:33, chart-detail-reveal:269 on main;
-            model-spine:155 once on the PR). Load-only on desktop, then:
-            compose-soft-break:22, fabricate:311, filo-undo:157, gallery-preview-metamorphic:370,
-            model-spine:155, panel-shells:138, stage-window:168, status-pill:24.
-fixed     — 2026-11-10, the Studio startup PR, each at its cause, 24 loaded runs per test (--project=mobile,
-            --repeat-each=24, --workers=4, --retries=0), main 50f6f4a against the fix:
-            - demo-mobile.spec.ts:535 (now :543), 8 failed on main, 0 after. The test's own sampler counted the
-              ProseMirror view's ARRIVAL (no editor, then the whole 1,252-character welcome deck) as typing, because it
-              keyed a remount on the host and the view mounts inside an existing host, later under load. It measured an
-              untouched document about 17 s before the tour typed. It now keys on the view, as the CodeMirror sampler
-              does. Compose's follow itself was right in every logged run.
-            - collage-lightbox.spec.ts:348 and :385 (now :358 and :395), 3 and 3 failed on main, 0 and 0 after. A resize
-              to a phone mounts a fresh preview frame, hidden until it reveals; the test clicked it before the reveal,
-              and `tapCollageAt` rightly ignores a hidden frame. It now waits for the reveal.
-            - model-spine.spec.ts:155, 1 failed on main (2 of 48 in a second run), 0 after. Two causes. An app defect:
-              the chat chip named a picked OpenRouter model from the catalog once, at status read, and a catalog that
-              landed later was never read again, so the chip said "Model" until opened (architect.ts
-              `useArchitectStatus` now waits for the same prefetched catalog). And a test race: picking a model closes
-              the popover, so `check()` could not read the radio back; it clicks and asserts the chip.
+why now   — A test that fails only under load still fails in CI's merge train (HARD RULE #32). This note began as
+            ten-odd mobile and desktop specs that passed alone and failed in full 4-worker runs (PR 3087, PR #3102,
+            PR #3228, the docs-perf PR). The Chromium half is now settled; what is still open is listed here.
+open      — Chromium items another branch owns, not re-run by the triage:
+            - playground-deck-settings.spec.ts:110 (mobile): PR #3278's (see its entry below).
+            - fabricate.spec.ts:311 (desktop): #3357.
+            - journeys/chart-export.spec.ts:124 (desktop; 1 of 24 under load on main af00ca3, 2026-11-16): #3307.
+            WebKit, Gecko and the iOS Simulator: the entries below.
+cleared   — 2026-11-21, branch claude/chromium-e2e-flake-triage, on main 450df6d with a fresh `build:e2e`, all three
+            Chromium projects (desktop, tablet, mobile), --retries=0, whole spec files: 4 workers x2 (550 passed, 0
+            failed), 4 workers x8 (2,199 passed, 1 failed: present-beat, below), and 1 worker x5 (1,369 passed; six
+            runs lost a trace file to a concurrent run's cleanup of test-results/, and those six went 30 of 30 when
+            re-run alone). Nothing failed alone. Every Chromium item this note listed is stale, at least 10 load runs and
+            5 alone runs each with no failure:
+            logo-wall-first-visit:74, playground-tab-switch:211, plugin-inline-ui:136, settings-reopen:81,
+            collage-lightbox:314, :348, :385 and :483, filo-undo:157, gallery-preview-metamorphic:370, model-spine:155,
+            panel-shells:138, stage-window:168, status-pill:24, compose-soft-break:22 and :50, library-voice-spine:140
+            and :151, compose-note-motion:260, compose-stress:538, studio-export-offline:114.
+            present-beat.spec.ts:49 is the one real load failure: a test timeout with every assertion passing, because
+            walking eight slides one fake-clock frame at a time took 55 to 64 s under load against a 60 s limit (shape
+            F4). The same branch steps the stretches where nothing is measured in 250 ms chunks: 48 of 48 at 4 workers
+            x12, and the measured hold still fails when the product's beat is shortened. Evidence in that PR.
+            The earlier fixes (demo-mobile:535, collage-lightbox:348/:385 and model-spine:155 on 2026-11-10;
+            compose-soft-break, chart-detail-reveal and lenses-landing on 2026-11-12; demo-mobile:437 and
+            library-images-render:152 in the flaky-e2e touch PR) are recorded in those PRs.
 also      — 2026-11-10, same PR: collage-lightbox.spec.ts:395 on gecko
             failed once in a 3-worker mixed run and passed 6 of 6 alone at 3 workers.
             Four more from the same PR's full runs on its build (tablet + mobile at 4 workers; webkit-phone, webkit-tablet
@@ -73,40 +49,10 @@ done when — each failure is reproduced under full-project load and fixed at it
 evidence  — per spec, runs and outcomes under load, before and after.
 verify    — npx playwright test --project=mobile --retries=0, repeated.
 
-2026-11-09 — the docs-perf PR's final build lost `collage-lightbox.spec.ts:483` (`@mobile`, the trackpad-pinch zoom) once in a 220-pass,
-15-file, 3-project, 4-worker run; it passed 3 of 3 alone. The lightbox lives in the slide runtime and shares no code
-with what that PR changed (Studio mount timing, `ui/sheet.tsx` focus return).
-PR #3140 (2026-11-11) saw `model-spine.spec.ts:155` (`@crosswidth … picking in the chip is the global selection`) fail on
-`mobile` again, after the 2026-11-10 fix: a 15 s click timeout in an 8-file, 3-project (desktop, tablet, mobile) run while
-a commit hook ran the full unit suite beside it (44 passed, 1 failed). It passed 2 of 2 alone on the same build, and 1 of 1
-on main. That PR changes narration export and the voice request path, not the chip.
 
-2026-11-12 — compose-soft-break.spec.ts:22 and :50 fixed at their cause on `claude/compose-e2e-flakes`: the caret was set
-            through the DOM and keys sent before ProseMirror heard the `selectionchange`; each now waits for
-            `caretSettled`. Desktop and mobile, 12 runs each: 15 of 48 failed before, 0 of 48 after.
-2026-11-12 — chart-detail-reveal:269 and lenses-landing:33 fixed at their causes on branch claude/flaky-e2e-render
-(a Playground walk race that showed a gallery over the draft; Present's keyboard attached after paint); removed above.
-
-2026-11-12 — fixed at their causes in the flaky-e2e touch PR (claude/flaky-e2e-touch): demo-mobile.spec.ts:437 (its
-guard counted animation frames, which a loaded WebKit paints about a third as often; it now counts edits) and
-library-images-render.spec.ts:152 (one read of four tiles before they had loaded and packed; now one read of the
-revealed frame, polled). The evidence is in that PR.
-
-2026-11-16 — PR #3228 (the front-matter island) lost two more desktop specs only under load, each passing alone:
-            present-beat.spec.ts:49 (failed in a 4-worker full Chromium run and in a 3-worker 47-file run; 1 of 1 alone)
-            and library-voice-spine.spec.ts:140 (failed in the 4-worker full run; 1 of 1 alone). Then 8 runs each at 4
-            workers (--repeat-each=8, --retries=0): PR build 16 of 16; main 72bd2d9 15 of 16, the failure
-            library-voice-spine:140. gallery-preview-metamorphic:370 also failed under load on the PR build; with nothing
-            else running it went 12 of 12 on main and 12 of 12 on the PR. Not investigated past that.
-2026-11-16 — the same PR's clean full Chromium run (desktop, tablet, mobile; 4 workers, --retries=0; 1,903 passed, 4
-            failed, 63 skipped) lost compose-note-motion.spec.ts:260 and journeys/chart-export.spec.ts:124 besides
-            filo-undo:157 and present-beat:49 (both listed above). All four then passed alone, 2 of 2 each. The two new
-            ones were not compared against main under load.
-2026-11-16 — the same PR's full Chromium run on 635ba64 (4 workers, --retries=0; 1,912 passed, 5 failed) lost
-            compose-stress.spec.ts:538, studio-export-offline.spec.ts:114 (desktop), library-voice-spine.spec.ts:140
-            and :151 (mobile) and present-beat.spec.ts:49; all passed alone (8 of 8 across desktop and mobile). Then
-            compose-note-motion:260, journeys/chart-export:124, compose-stress:538 and studio-export-offline:114, 6 runs
-            each at 4 workers on desktop: PR build 24 of 24; main af00ca3 23 of 24, the failure journeys/chart-export:124.
+2026-11-11 — PR #3140 saw model-spine.spec.ts:155 fail on mobile once, after its fix, while a commit hook ran the unit
+            suite beside the e2e run. The 2026-11-21 triage ran it 15 more times (10 under load, 5 alone) on all three
+            Chromium projects with no failure, so it is cleared with the rest.
 2026-11-17 — the iOS Simulator Studio probe's Menu tap (docs/scripts/ios-safari/run.mjs `deckTapLeavesLibrary`, iPhone)
             opened no menu in about 1 rep in 10 during PR #3278's counts (runs 44052932291, 44052943412, 44052948172),
             with the sheet fix in and without it, so the sheet change does not cause it. The run ended "timed out waiting
@@ -114,3 +60,16 @@ revealed frame, polled). The evidence is in that PR.
             events on that timeout. Since then it has not come back: 15 of 15 Menu taps opened the menu across runs
             44059959611 and 44135586134. Not fixed, because there is no failing run to read a cause from; the next red
             prints the Menu tap's events in its job log.
+2026-11-21 — the WebKit and Gecko rows above, triaged on main 450df6d (one `npm run build:e2e`, --retries=0): each test
+            alone on its own project (--workers=1 --repeat-each=5), then under load (--workers=3 --repeat-each=8).
+            - switch-controls.spec.ts:97 (webkit-tablet): 5 of 5 alone, 8 of 8 loaded. STALE.
+            - table-reflow-preview.spec.ts:47 (the old :71, webkit-tablet): 5 of 5 alone, 8 of 8 loaded. STALE.
+            - collage-lightbox.spec.ts:395 (gecko): the test at that line is not tagged `@gecko` today, so all four gecko
+              tests in the file ran: 20 of 20 alone, 32 of 32 loaded. STALE.
+            - back-gesture.spec.ts:172 (the old :183, webkit-phone): 5 of 5 alone, 1 of 8 RED loaded (the deck-band tap
+              left the Library open, back stack `1/1/0`). Load-only, and its fix is the sheet-scrim change in #3278
+              (by #3278's own count, 3 to 6 red in 100 on main before it, 100 of 100 at 4 workers after); it stays with
+              that PR.
+            Then the three projects whole (--workers=4, --retries=0, one run each): webkit-phone 285 passed (back-gesture
+            included), webkit-tablet 411 of 412, gecko 424 of 424; none of these rows failed.
+            The three STALE rows close here; back-gesture closes when #3278 lands.

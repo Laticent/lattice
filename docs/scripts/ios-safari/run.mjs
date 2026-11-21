@@ -25,6 +25,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
 import { LONG_PRESS_MS, pressSelected, tapHold, tapVerdict } from './tap-guard.mjs';
@@ -159,7 +160,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -832,6 +833,98 @@ async function runPresentMemoryProbe(id) {
 }
 
 /**
+ * The Present keep-alive probe (PROBE=present-keepalive, PR #3333): what keeps a playing deck playing on an iPhone, in
+ * real Mobile Safari. Present opens on the Studio's own deck and must hold a screen wake lock; Fullscreen, which iPhone
+ * Safari cannot grant, turns on the immersive layout and its chrome fades; a REAL WebDriver touch tap on the slide brings
+ * the chrome back; Play puts the captions on the slide with a moving highlight; Next while playing plays the next slide
+ * on its own with the lock still held; closing stops the narration. The verdict is present-keepalive-probe.js
+ * `latticeKeepaliveChecks`: states reached, never durations (HARD RULE #32).
+ */
+async function runPresentKeepaliveProbe(id) {
+	const source = fs.readFileSync(path.join(here, 'present-keepalive-probe.js'), 'utf8');
+	const call = async (expr) => {
+		const r = await wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+		if (r?.error) throw new Error(`${expr}: ${r.error}`);
+		return r;
+	};
+	const touchTap = (x, y) => wd('POST', `/session/${id}/actions`, { actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x, y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }] }).then(() => wd('DELETE', `/session/${id}/actions`).catch(() => {}));
+	// WebDriver's ELEMENT click: a real user gesture to Safari (it grants activation, so the wake lock), with no finger hold
+	// for a slow simulator to stretch into a long press. Scripted touches did exactly that on three of four macOS runs
+	// (holds of 406 to 25318 ms). The element comes back from a sync script as a WebDriver reference, as focus-sync does.
+	const elementClick = async (expr) => {
+		const el = await wd('POST', `/session/${id}/execute/sync`, { script: `${source}\nreturn ${expr};`, args: [] });
+		const ref = el?.['element-6066-11e4-a52e-4f735466cecf'] ?? (el ? Object.values(el)[0] : null);
+		if (!ref) throw new Error(`no element for ${expr}`);
+		await wd('POST', `/session/${id}/element/${ref}/click`, {});
+	};
+	const r = {};
+	let error = '';
+	try {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		// Present opens from a REAL touch: WebKit grants the wake lock only inside a user gesture.
+		// A slow simulator can stretch a WebDriver tap into a long press, which iOS never turns into a click (tap-guard.mjs,
+		// followups.d/3223-p1). Read the hold the page saw; a long press is delivered again ONCE, the shape tap-guard uses.
+		await call('latticeKeepalivePresentAt()');
+		const holds = [];
+		let opened = false;
+		await call('latticeKeepaliveArmTap()');
+		await elementClick('latticeKeepaliveHelpers().presentButton()');
+		// A slow simulator can take well past 8 s to open Present from a click (run 44774104460: Safari took 175 s to launch).
+		// Wait for the state with a wide bound, and never touch the button's spot once Present is up: the dialog covers it.
+		const clicked = await call('latticeKeepaliveOpened(30000)');
+		opened = clicked.open;
+		holds.push(opened ? 'an element click' : `an element click that opened nothing (the page saw: ${(clicked.log?.events || []).map((e) => e.type).join(' ') || 'no event'})`);
+		for (let attempt = 0; attempt < 2 && !opened; attempt++) {
+			// Measured again each time: the element click scrolls the button into view, so an earlier position is stale.
+			const at = await call('latticeKeepalivePresentAt()');
+			await call('latticeKeepaliveArmTap()');
+			await touchTap(at.x, at.y);
+			const o = await call('latticeKeepaliveOpened(8000)');
+			const hold = tapHold(o.log);
+			holds.push(hold === null ? 'a touch the page never saw' : `a touch held ${hold} ms`);
+			opened = o.open;
+			if (hold !== null && hold < LONG_PRESS_MS) break;
+		}
+		r.taps = holds.join(', then ');
+		r.open = await call('latticeKeepaliveOpen()');
+		r.immersive = await call('latticeKeepaliveImmersive()');
+		// A real finger: a WebDriver touch at the slide, as the owner taps it, re-delivered ONCE if iOS read it as a long press
+		// (no click follows a long press, so the tap rule never sees it): the same guard as the Present tap above.
+		const slideHolds = [];
+		await call('latticeKeepaliveArmTap()');
+		await elementClick('latticeKeepaliveHelpers().backdrop()');
+		r.shown = await call('latticeKeepaliveShown()');
+		slideHolds.push(r.shown.shown ? 'an element click' : 'an element click that showed nothing');
+		for (let attempt = 0; attempt < 2 && !r.shown.shown; attempt++) {
+			await call('latticeKeepaliveArmTap()');
+			await touchTap(r.immersive.x, r.immersive.y);
+			r.shown = await call('latticeKeepaliveShown()');
+			const hold = tapHold(await call('({ events: (window.__kaTap || { events: [] }).events })'));
+			slideHolds.push(hold === null ? 'a touch the page never saw' : `a touch held ${hold} ms`);
+			if (hold !== null && hold < LONG_PRESS_MS) break;
+		}
+		r.slideTaps = slideHolds.join(', then ');
+		r.wakeAfterTap = await call('latticeKeepaliveWake()');
+		r.play = await call('latticeKeepalivePlay()');
+		r.next = await call('latticeKeepaliveNext()');
+		r.close = await call('latticeKeepaliveClose()');
+	} catch (e) {
+		error = String(e.message || e).slice(0, 300);
+	}
+	// The verdict runs in Node from the same source the page ran (its functions touch no DOM at definition).
+	const sandbox = {};
+	vm.createContext(sandbox);
+	vm.runInContext(source, sandbox);
+	const steps = sandbox.latticeKeepaliveChecks(r, { realSafari: true });
+	if (error) steps.push({ name: 'the probe ran to the end', pass: false, detail: error });
+	console.log(`${LABEL}: present keep-alive: ${steps.map((s) => `${s.pass ? 'ok' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`).join(' | ')}`);
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: r.open?.ua, width: r.open?.width, steps };
+}
+
+/**
  * The font cache probe (font-cache-probe.js, PROBE=font-cache): the control arm on STUDIO_URL, where font-cache-server.mjs
  * refuses the warm-up, then the warm arm on WARM_URL, each a fresh Studio on its own origin so each starts with a cold
  * cache. Both arms must pass: the control proves the probe can see a miss, the warm arm is the finding.
@@ -844,11 +937,16 @@ async function runFontCacheProbe(id) {
 		['control', BASE],
 		['warm', process.env.WARM_URL || 'http://localhost:4322'],
 	]) {
-		await wd('POST', `/session/${id}/url`, { url: `${origin}/` });
+		// Seeded on the server's blank page, not the landing page: the landing page's slide previews fetch faces (8 at the
+		// iPad's width), and on the warm port the Studio then read those from the cache, so the server never saw them and the
+		// warm arm could not prove the Studio warmed all 31 itself (#3095). `since` is stamped before the first page of this
+		// origin, so the probe can check that nothing before the Studio fetched a face.
+		const since = Date.now();
+		await wd('POST', `/session/${id}/url`, { url: `${origin}/__probe/blank` });
 		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 		await wd('POST', `/session/${id}/url`, { url: `${origin}/studio/` });
 		last = await wd('POST', `/session/${id}/execute/async`, {
-			script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeFontCacheProbe(${JSON.stringify(arm)}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+			script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeFontCacheProbe(${JSON.stringify(arm)}, ${since}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
 			args: [],
 		});
 		steps.push(...(last.steps || []).map((s) => ({ ...s, name: `${arm} · ${s.name}` })));

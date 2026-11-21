@@ -41,7 +41,7 @@ skill. The others are authorable end-to-end from the file.
 | [`component-showcase`](./component-showcase.md) | Use when writing the gallery slides that teach one component: word budgets per slide form, sized before you render. | 2.1k |
 | [`component`](./component.md) | Use when adding a new `_class:` layout to the catalog: manifest, palette-blind CSS, optional transform, generated docs. | 3.7k |
 | [`deck`](./deck.md) | Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist. | 3.3k |
-| [`finish`](./finish.md) | Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content. | 3.8k |
+| [`finish`](./finish.md) | Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content. | 3.9k |
 | [`lens`](./lens.md) | Use when defining a reader lens (Lente): an approved subset of a deck's slides, projected for another audience without editing it. | 4.7k |
 | [`speaker-notes`](./speaker-notes.md) | Use when writing speaker notes, say: lines, review comments or captions, or when reviewing a deck against the notes rubric. | 5.6k |
 | [`theme`](./theme.md) | Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes. | 5.9k |

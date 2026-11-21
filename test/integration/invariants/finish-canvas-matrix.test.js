@@ -37,7 +37,10 @@ const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
 const ROOT = path.join(__dirname, '..', '..', '..');
 
 // The canvas modifiers a slide can carry alongside a component class. `''` = none.
-const MODIFIERS = ['', 'dark', 'light', 'print', 'color-light', 'color-system'];
+// `cover-light` is the light cover (`cover: light`, lib/core/resolve-cover.js): unlike `light` it
+// REPLACES the title and closing canvas with `var(--bg)`, as `divider light` does. Its pairs with the
+// scheme registers are listed so a dark deck's light cover is measured too.
+const MODIFIERS = ['', 'dark', 'light', 'print', 'color-light', 'color-system', 'cover-light', 'cover-light dark', 'cover-light print', 'cover-light color-system'];
 // The three inverse bookends plus an ordinary prose control that must never move.
 const COMPONENTS = ['title', 'closing', 'divider', 'content'];
 
@@ -105,6 +108,9 @@ describe('--fin-canvas resolves to the painted surface, on every bookend × canv
     assert.notEqual(byCls.closing, byCls.content, 'a plain closing must NOT composite against the deck canvas');
     assert.notEqual(byCls.divider, byCls.content, 'a plain divider must NOT composite against the deck canvas');
     assert.equal(byCls['divider light'], byCls.content, 'a light divider DOES take the deck canvas');
+    assert.equal(byCls['title cover-light'], byCls.content, 'a light title cover DOES take the deck canvas');
+    assert.equal(byCls['closing cover-light'], byCls.content, 'a light closing cover DOES take the deck canvas');
+    assert.notEqual(byCls['title light'], byCls.content, '`title light` keeps its inverse panel — its meaning is unchanged');
   });
 });
 

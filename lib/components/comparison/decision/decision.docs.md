@@ -20,6 +20,7 @@ Use after a comparison slide to land the decision. The justifications render as 
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading framing the decision. |
 | `options` | a list | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
+| `body` | a list nested 1 level under an item | no | The option's body lines, nested under its title. `-` or `1.` read the same here: the layout styles them as the card body. |
 
 ### Variant decision rule
 

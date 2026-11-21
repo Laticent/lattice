@@ -20,8 +20,11 @@ import { takePendingSelection } from './pending-selection';
  *
  * If a prosemirror-view upgrade changes that timer, pointer-focus-caret.test.ts fails and says to re-check this.
  *
- * prosemirror-view 1.42.9 fixes this upstream: its timer writes back only if the DOM caret has not moved since the focus,
- * and a click moves it. Once the dependency bump lands (#3295), check the real-click probe and delete this module
+ * prosemirror-view 1.42.9 fixes this for WebKit only. Its timer now writes back only if the DOM caret has not moved since
+ * the focus. WebKit fires `focus` before a click moves the caret, so the check sees the move. GECKO fires `focus` with the
+ * caret already at the click, so the check sees no move and the timer still writes the old caret back whenever Firefox's
+ * `selectionchange` comes after 20 ms. Measured on 1.42.9 with this module unwired (real clicks, the 134 KB deck, 4
+ * workers): WebKit 0/192, Gecko 1/192 misplaced at the top of the deck. So this module stays
  * (followups.d/3291-p2-drop-pointer-focus-workaround.md).
  */
 export function pointerFocusCaret(): { mousedown: (view: EditorView) => boolean; focus: (view: EditorView) => boolean } {

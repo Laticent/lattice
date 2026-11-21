@@ -94,8 +94,9 @@ async function captionSpans(page: Page, enough: (spans: { text: string; ms: numb
 		Math.ceil(45_000 / FRAME_MS),
 		30,
 	);
+	// The clock stays paused: the callers read what was recorded and nothing after needs time to pass. A `resume()`
+	// stood here, and a resumed clock lets a frame born later run ahead of this one (testing.md §fake clock).
 	const { __spans } = await read();
-	await page.clock.resume();
 	return { spans: __spans.filter((x) => x.text.length > 0) };
 }
 

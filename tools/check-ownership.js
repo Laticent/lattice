@@ -4903,6 +4903,18 @@ function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefa
  * contract the read needs. `--cat-N-ink`'s did not — that is the whole lesson.
  */
 const SANCTIONED_FALLBACK_READS = [
+  ...[['ramp-hue', 'chart-cat-1-hue'], ['ramp-ink', 'chart-cat-1-ink']].map(([token, fallback]) => ({
+    token,
+    fallback,
+    why:
+      'a sequential ramp\'s hue and ink (heatmap, map choropleth), OPTIONAL by design: a palette names one only when it ' +
+      'wants its ramps on a hue other than its first category. Without one the read lands on the first category\'s ' +
+      'own hue or ink, which is exactly what every ramp painted before the hook existed, so a palette that does not ' +
+      'name one (and a Studio-generated theme) keeps its behavior; tools/derive-chart-cat-ink.js solves the heatmap ' +
+      'step inks against the same pole. Carbone names its green (#3360 D2: its chart cycle leads with blue so "no ' +
+      'status" does not read as on track; its ramps keep the 6.53:1 light top step they were tuned for). Held by ' +
+      'chart-finish-reach --check.',
+  })),
   {
     token: 'risk-critical-step-ink',
     fallback: 'fail-on-mark',
@@ -10054,8 +10066,12 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     if ('docs_site' in s && typeof s.docs_site !== 'boolean') {
       errors.push(`${at}: \`docs_site\` must be true or false (true: the workflow's docs-site job builds the site this suite serves).`);
     }
-    if (s.docs_site === true && !(typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run))) {
-      errors.push(`${at}: only an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) serves the docs site, so only one can set \`"docs_site": true\`.`);
+    // Two kinds of suite serve the prebuilt docs site: an iOS Simulator suite (docs/scripts/ios-safari/run.sh), and a
+    // Playwright suite that serves it with E2E_PREBUILT=1 (docs/playwright.config.ts then skips its own build). The second
+    // exists because the docs site does not build on Windows (`bake-newcomer-frame`: `module is not defined` in
+    // lib/core/content-policy.js, platform-suites run 44853144110), so a Windows suite must take the Linux build (#3345).
+    if (s.docs_site === true && !(typeof s.run === 'string' && (/docs\/scripts\/ios-safari\/run\.sh/.test(s.run) || /\bE2E_PREBUILT=1\b/.test(s.run)))) {
+      errors.push(`${at}: only a suite that serves the prebuilt docs site can set \`"docs_site": true\`: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) or a Playwright suite whose \`run\` sets E2E_PREBUILT=1.`);
     }
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
       errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
@@ -13573,6 +13589,8 @@ const NUL_TEXT_EXTENSIONS = [
   '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.css', '.scss', '.md', '.mdx',
   '.json', '.jsonc', '.yml', '.yaml', '.html', '.svg', '.sh', '.txt', '.toml', '.py',
   '.vtt', '.webmanifest', '.patch', '.gitignore', '.gitattributes', '.nvmrc', '.cmd',
+  // The root search-tool ignore file (ripgrep's .ignore), which re-includes the code map.
+  '.ignore',
   // Peggy grammar source (tools/parser-bakeoff/grammars/peggy/) — plain text.
   '.peggy',
   // A vendored library's license text, beside its copy (lib/plugins/<name>/vendor/*.LICENSE).
@@ -14596,6 +14614,15 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
   { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
   { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },
+  // The preset hooks (deck-preset study §8 WP-tokens, decision D10). Nothing in the engine writes
+  // them; a preset's stamped class (Phase 0) or a deck `style:` block sets them on a section, and
+  // every read carries today's value as its fallback, so unset they render byte-for-byte as before.
+  // Contract: the comment beside `--radius-*` in lib/base/base.tokens.css.
+  { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
+  { token: 'rule-style', why: 'heading-rule border style on the same border-drawn rules. Fallback solid.' },
+  { token: 'rule-mark', why: 'heading-rule ink on the same rules (rule-accent keeps --accent). Fallback var(--border).' },
+  { token: 'rail-w', why: 'spectrum-card rail thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
+  { token: 'radius-card', why: 'card corner: every tile that can carry a card tag (cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list, actors, decision, compare-prose, split-compare options/verdict, split-panel proof/watermark, citation-card triptych, statute-stack) and the tag itself. Fallback var(--radius-md); never --radius-full, quote panels, diagram tiles or corners:.' },
 ]);
 
 /**

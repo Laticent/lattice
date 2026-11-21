@@ -215,7 +215,7 @@
       "docs_site": true
     },
     {
-      "name": "ios-safari-photo-memory",
+      "name": "ios-safari-photo-memory-ipad",
       "os": [
         "macos-26"
       ],
@@ -226,8 +226,24 @@
         "docs/src/lib/preview-image-scale.ts",
         "lib/core/remote-ref.js"
       ],
-      "run": "PROBE=photo-memory bash docs/scripts/ios-safari/run.sh",
-      "why": "Measures what ten 12MP photos cost real Mobile Safari, in an iPad and an iPhone iOS Simulator, shown by their own addresses and through the Studio's preview-sized copies (docs/src/lib/preview-image-scale.ts, #2998): the physical footprint of the simulator's WebKit processes, read on the Mac with vmmap. It fails when the originals cost under 60 MB (the reader is not reading Safari) or the copies cost more than 60% of them; CI has read 86 to 117 MB against 17 to 34 MB. It was part of ios-safari-studio until it took that job to 27.6 of its 30 minutes. A simulator has no memory limit, so it shows the cost, not the tab reload.",
+      "run": "PROBE=photo-memory DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+      "why": "Measures what ten 12MP photos cost real Mobile Safari, in an iPad iOS Simulator, shown by their own addresses and through the Studio's preview-sized copies (docs/src/lib/preview-image-scale.ts, #2998): the physical footprint of the simulator's WebKit processes, read on the Mac with vmmap. It fails when the originals cost under 60 MB (the reader is not reading Safari) or the copies cost more than 60% of them; CI has read 86 to 117 MB against 17 to 34 MB. It was part of ios-safari-studio until it took that job to 27.6 of its 30 minutes. A simulator has no memory limit, so it shows the cost, not the tab reload. One device per job (DEVICES), as the undo and Studio suites run: in the 14 nightlies to 2026-11-20 the two-device ios-safari-photo-memory job was cancelled at its 30-minute limit once with no test failed, so each device now has the whole limit.",
+      "on_pull_request": false
+    },
+    {
+      "name": "ios-safari-photo-memory-iphone",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/photo-memory.mjs",
+        "docs/src/lib/preview-image-scale.ts",
+        "lib/core/remote-ref.js"
+      ],
+      "run": "PROBE=photo-memory DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+      "why": "Measures what ten 12MP photos cost real Mobile Safari, in an iPhone iOS Simulator, shown by their own addresses and through the Studio's preview-sized copies (docs/src/lib/preview-image-scale.ts, #2998): the physical footprint of the simulator's WebKit processes, read on the Mac with vmmap. It fails when the originals cost under 60 MB (the reader is not reading Safari) or the copies cost more than 60% of them; CI has read 86 to 117 MB against 17 to 34 MB. It was part of ios-safari-studio until it took that job to 27.6 of its 30 minutes. A simulator has no memory limit, so it shows the cost, not the tab reload. One device per job (DEVICES), as the undo and Studio suites run: in the 14 nightlies to 2026-11-20 the two-device ios-safari-photo-memory job was cancelled at its 30-minute limit once with no test failed, so each device now has the whole limit.",
       "on_pull_request": false
     },
     {
@@ -255,22 +271,25 @@
       "docs_site": true
     },
     {
-      "name": "ios-safari-codec-support",
+      "name": "ios-safari-present-keepalive",
       "os": [
         "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
         "docs/scripts/ios-safari/run.mjs",
-        "docs/scripts/ios-safari/codec-probe.js",
-        "docs/scripts/ios-safari/codecs.mjs",
-        "docs/scripts/ios-safari/codec-fixtures/**",
-        "docs/src/lib/suono/ogg-opus.ts",
-        "docs/src/lib/suono/opus.ts"
+        "docs/scripts/ios-safari/present-keepalive-probe.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/PresentOverlay.tsx",
+        "docs/src/components/studio/live/live-wake.ts",
+        "docs/src/components/studio/present/stage-chrome.js",
+        "docs/src/components/studio/read-aloud.ts",
+        "docs/src/lib/fullscreen.ts"
       ],
-      "run": "PROBE=codec-support bash docs/scripts/ios-safari/run.sh",
-      "why": "The iOS arm of the narration codec bake-off: what real Mobile Safari, in an iPhone iOS Simulator, decodes and encodes. The streaming narration design keeps audio compressed in browser storage, so the codec must decode on an iPhone, encode in the page, and add no lead-in silence; Linux WebKit decodes with GStreamer, not Apple's media stack, so only an iOS run answers for an iPhone. On a blank page it decodes every file in codec-fixtures/ (Opus in Ogg, WebM, MP4 and CAF; AAC in MP4 and ADTS; MP3 from LAME with and without a gapless tag; FLAC; Vorbis; the 2 s WAV source) with decodeAudioData at 48 kHz and reports the added length, reads WebCodecs' AudioEncoder and AudioDecoder support, and round-trips the source through AudioEncoder and AudioDecoder (Opus at 24 and 32 kbps, AAC at 64). It fails when Opus does not decode from Ogg or WebM, adds 20 ms or more of lead-in, or does not round-trip through WebCodecs; the rest is reported (codecs.mjs). No docs build, about 8 minutes, mostly the simulator's boot.",
-      "on_pull_request": false
+      "run": "PROBE=present-keepalive bash docs/scripts/ios-safari/run.sh",
+      "why": "What keeps a playing deck playing on an iPhone, in real Mobile Safari in an iPhone iOS Simulator (present-keepalive-probe.js, #3333). Present must hold a screen wake lock (published as data-wake); Fullscreen, which iPhone Safari cannot grant, must turn on the immersive layout and its chrome must fade; a real WebDriver touch tap on the slide must bring the chrome back; Play must put the captions inside the slide with a moving highlight; Next while playing must play the next slide on its own with the lock still held; closing must stop the narration. Playwright's WebKit on Linux is not iOS Safari: it sends a tap as a bare click, and the first tap rule passed Chromium and failed there. The checks judge states reached, never durations (HARD RULE #32). A simulator does not auto-lock, so this proves the lock is granted and held, not that a real screen stays awake.",
+      "on_pull_request": false,
+      "docs_site": true
     },
     {
       "name": "ios-safari-undo-ipad",
@@ -327,7 +346,7 @@
       "docs_site": true
     },
     {
-      "name": "ios-safari-chat-storage",
+      "name": "ios-safari-chat-storage-ipad",
       "os": [
         "macos-26"
       ],
@@ -340,13 +359,32 @@
         "docs/src/components/studio/local-quota.ts",
         "docs/src/components/studio/storage-notices.ts"
       ],
-      "run": "PROBE=chat-storage bash docs/scripts/ios-safari/run.sh",
+      "run": "PROBE=chat-storage DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
       "on_pull_request": false,
       "docs_site": true,
-      "why": "Studio chats in real Mobile Safari, in an iPad and an iPhone iOS Simulator (#3138, engineering/decisions/2026-11-11-studio-storage-pointer-records.md §11): threads an earlier build left in localStorage move to IndexedDB across a real reload, whole, including a deck never opened, and the localStorage allowance is what local-quota.ts assumes for WebKit (about 5.24 M Latin-1 characters, half once a value is non-Latin-1), which the fill warning's arithmetic rests on. Playwright's WebKit on Linux is not iOS Safari. Nightly and on dispatch only (on_pull_request false, the owner's call on #3138): no per-PR macOS job. The probe is proved first by `PROBE=chat-storage node docs/scripts/ios-safari/probe.selftest.mjs` on WebKit, and fails against a build without the migration."
+      "why": "Studio chats in real Mobile Safari, in an iPad iOS Simulator (#3138, engineering/decisions/2026-11-11-studio-storage-pointer-records.md §11): threads an earlier build left in localStorage move to IndexedDB across a real reload, whole, including a deck never opened, and the localStorage allowance is what local-quota.ts assumes for WebKit (about 5.24 M Latin-1 characters, half once a value is non-Latin-1), which the fill warning's arithmetic rests on. Playwright's WebKit on Linux is not iOS Safari. Nightly and on dispatch only (on_pull_request false, the owner's call on #3138): no per-PR macOS job. The probe is proved first by `PROBE=chat-storage node docs/scripts/ios-safari/probe.selftest.mjs` on WebKit, and fails against a build without the migration. One device per job (DEVICES), as the undo and Studio suites run: in the 14 nightlies to 2026-11-20 the two-device ios-safari-chat-storage job was cancelled at its 30-minute limit once with no test failed, so each device now has the whole limit."
     },
     {
-      "name": "ios-safari-photo",
+      "name": "ios-safari-chat-storage-iphone",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/chat-storage-probe.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/chat-store.ts",
+        "docs/src/components/studio/local-quota.ts",
+        "docs/src/components/studio/storage-notices.ts"
+      ],
+      "run": "PROBE=chat-storage DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+      "on_pull_request": false,
+      "docs_site": true,
+      "why": "Studio chats in real Mobile Safari, in an iPhone iOS Simulator (#3138, engineering/decisions/2026-11-11-studio-storage-pointer-records.md §11): threads an earlier build left in localStorage move to IndexedDB across a real reload, whole, including a deck never opened, and the localStorage allowance is what local-quota.ts assumes for WebKit (about 5.24 M Latin-1 characters, half once a value is non-Latin-1), which the fill warning's arithmetic rests on. Playwright's WebKit on Linux is not iOS Safari. Nightly and on dispatch only (on_pull_request false, the owner's call on #3138): no per-PR macOS job. The probe is proved first by `PROBE=chat-storage node docs/scripts/ios-safari/probe.selftest.mjs` on WebKit, and fails against a build without the migration. One device per job (DEVICES), as the undo and Studio suites run: in the 14 nightlies to 2026-11-20 the two-device ios-safari-chat-storage job was cancelled at its 30-minute limit once with no test failed, so each device now has the whole limit."
+    },
+    {
+      "name": "ios-safari-photo-ipad",
       "os": [
         "macos-26"
       ],
@@ -365,13 +403,38 @@
         "lib/core/card-ink-policy.mjs",
         "lib/core/card-ink.mjs"
       ],
-      "run": "PROBE=photo bash docs/scripts/ios-safari/run.sh",
-      "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, checks the Studio's photo verdict (#2942): the Coach's photo finding and the editor's warning agree word for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide. It was part of ios-safari-studio until that one job ran out of its 30 minutes on a slow runner (#2961); as its own suite it runs when the photo code changes, not when the sanitizer does. A simulator runs on the Mac's hardware, so it is not a physical device.",
+      "run": "PROBE=photo DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+      "why": "Real Mobile Safari, in an iPad iOS Simulator, checks the Studio's photo verdict (#2942): the Coach's photo finding and the editor's warning agree word for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide. It was part of ios-safari-studio until that one job ran out of its 30 minutes on a slow runner (#2961); as its own suite it runs when the photo code changes, not when the sanitizer does. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job (DEVICES), as the undo and Studio suites run: in the 14 nightlies to 2026-11-20 the two-device ios-safari-photo job was cancelled at its 30-minute limit once, before the iPhone could run (its iPad had failed on the editor-lint wait that #3326 then fixed), so each device now has the whole limit.",
       "on_pull_request": false,
       "docs_site": true
     },
     {
-      "name": "ios-safari-jpeg",
+      "name": "ios-safari-photo-iphone",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/photo-probe.js",
+        "docs/scripts/ios-safari/show-editor.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/coach/photo-contrast-watch.ts",
+        "docs/src/components/studio/photo-verdict.ts",
+        "docs/src/components/studio/photo-ink-read.ts",
+        "docs/src/components/studio/thin-card-fix.ts",
+        "docs/src/components/studio/card-ink-sampler.ts",
+        "lib/core/photo-contrast.mjs",
+        "lib/core/card-ink-policy.mjs",
+        "lib/core/card-ink.mjs"
+      ],
+      "run": "PROBE=photo DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+      "why": "Real Mobile Safari, in an iPhone iOS Simulator, checks the Studio's photo verdict (#2942): the Coach's photo finding and the editor's warning agree word for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide. It was part of ios-safari-studio until that one job ran out of its 30 minutes on a slow runner (#2961); as its own suite it runs when the photo code changes, not when the sanitizer does. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job (DEVICES), as the undo and Studio suites run: in the 14 nightlies to 2026-11-20 the two-device ios-safari-photo job was cancelled at its 30-minute limit once, before the iPhone could run (its iPad had failed on the editor-lint wait that #3326 then fixed), so each device now has the whole limit.",
+      "on_pull_request": false,
+      "docs_site": true
+    },
+    {
+      "name": "ios-safari-jpeg-ipad",
       "os": [
         "macos-26"
       ],
@@ -381,8 +444,23 @@
         "docs/scripts/ios-safari/run.mjs",
         "docs/scripts/ios-safari/jpeg-probe.js"
       ],
-      "run": "PROBE=jpeg bash docs/scripts/ios-safari/run.sh",
-      "why": "Every export JPEG goes through the shared encoder (docs/src/lib/lastra/jpeg.ts, `@laticent/lastra`) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (iPad and iPhone iOS Simulators): its bytes must equal Node's and its luma stay above 38 dB; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's.",
+      "run": "PROBE=jpeg DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+      "why": "Every export JPEG goes through the shared encoder (docs/src/lib/lastra/jpeg.ts, `@laticent/lastra`) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (an iPad iOS Simulator): its bytes must equal Node's and its luma stay above 38 dB; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's. One device per job (DEVICES), as the undo and Studio suites run: in the 14 nightlies to 2026-11-20 the two-device ios-safari-jpeg job was cancelled at its 30-minute limit 3 times with no test failed, so each device now has the whole limit.",
+      "on_pull_request": false
+    },
+    {
+      "name": "ios-safari-jpeg-iphone",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/src/lib/lastra/jpeg.ts",
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/jpeg-probe.js"
+      ],
+      "run": "PROBE=jpeg DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+      "why": "Every export JPEG goes through the shared encoder (docs/src/lib/lastra/jpeg.ts, `@laticent/lastra`) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (an iPhone iOS Simulator): its bytes must equal Node's and its luma stay above 38 dB; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's. One device per job (DEVICES), as the undo and Studio suites run: in the 14 nightlies to 2026-11-20 the two-device ios-safari-jpeg job was cancelled at its 30-minute limit 3 times with no test failed, so each device now has the whole limit.",
       "on_pull_request": false
     },
     {
@@ -436,6 +514,57 @@
       ],
       "run": "node tools/quality-assessment.js --check --only dead-code && node --test test/unit/tools/quality-dead-code.test.js && p=tools/lib/zz-dead-probe && echo 'module.exports = 1;' > \"$p.js\" && ! node tools/quality-assessment.js --check --only dead-code && rm \"$p.js\"",
       "why": "The dead-code pre-push job (owner's D1) runs on every contributor's machine. It starts knip through node (process.execPath plus node_modules/knip/bin/knip.js) because Windows cannot spawn the extensionless node_modules/.bin shim without a shell. This proves on a real Windows runner that the check runs and passes on the tree, that its unit tests pass, and, with a planted unused file, that it fails."
+    },
+    {
+      "name": "pdf-pdfkit",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "lib/core/pdf-compose/*",
+        "tools/pdfkit-check/*",
+        "examples/backdrop-vector-export.md"
+      ],
+      "run": "node tools/pdfkit-check/check.mjs",
+      "why": "Apple PDFKit draws every PDF opened in Preview or on an iPhone, the owner's viewer, and Linux has nothing that runs it. The shared PDF writer draws a finish's backdrop with an image soft mask, a /Interpolate picture and paths (engineering/decisions/2026-11-20-backdrop-gradient-fidelity.md); this draws the demo deck's PDF through PDFKit, and a control with the backdrop photographed whole as before, and fails when any 32 px tile of the drawn page is more than 8 levels further from Chrome's screen than the control's: the mark of a dropped mask or a missing fade. PDFKit's own text rendering is in both and cancels. Pages and report under platform-suite-artifacts/pdf-pdfkit/."
+    },
+    {
+      "name": "docs-scrollbars-windows",
+      "os": [
+        "windows-2025"
+      ],
+      "paths": [
+        "docs/src/styles/native-widgets.css",
+        "docs/src/styles/lattice.css",
+        "docs/src/components/ui/quick-scroll.tsx",
+        "docs/src/lib/quick-scroll.ts",
+        "docs/src/lib/wheel-sideways.ts",
+        "docs/src/components/map-rail/MapRail.tsx",
+        "docs/src/components/studio/SlideRail.tsx",
+        "docs/e2e/scrollbar-width.spec.ts",
+        "docs/e2e/wheel-sideways.spec.ts"
+      ],
+      "run": "cd docs && npm ci && npx playwright install chromium firefox && E2E_PREBUILT=1 E2E_RECORD=off npx playwright test e2e/scrollbar-width.spec.ts e2e/wheel-sideways.spec.ts --project=desktop --project=gecko --trace off",
+      "why": "Windows draws CLASSIC scrollbars that take layout space, which is where the owner saw inner panes keep the thick OS default (15-17px) because `scrollbar-width` is not inherited (#3345). scrollbar-width.spec.ts measures the Compose pane's bar against an `auto` control in Chromium and in a HEADED Firefox (Playwright's headless Firefox reports `scrollbar-width: none` for every element; Linux has no display for it, and its GTK bars are overlay anyway) and writes the widths to platform-suite-artifacts/. wheel-sideways.spec.ts checks a mouse wheel scrolls the slide pills and the slide map sideways, the owner's Windows report. Added at the owner's request (2026-11-21, \"raise it\") to verify on the platform the bug was reported on. It serves the docs site built on Linux by the workflow's docs-site job (E2E_PREBUILT=1): the site does not build on Windows (bake-newcomer-frame: `module is not defined` in lib/core/content-policy.js, run 44853144110; followups.d/3345-p3-docs-build-on-windows.md).",
+      "docs_site": true
+    },
+    {
+      "name": "ios-safari-codec-support",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/codec-probe.js",
+        "docs/scripts/ios-safari/codecs.mjs",
+        "docs/scripts/ios-safari/codec-fixtures/**",
+        "docs/src/lib/suono/ogg-opus.ts",
+        "docs/src/lib/suono/opus.ts"
+      ],
+      "run": "PROBE=codec-support bash docs/scripts/ios-safari/run.sh",
+      "why": "The iOS arm of the narration codec bake-off: what real Mobile Safari, in an iPhone iOS Simulator, decodes and encodes. The streaming narration design keeps audio compressed in browser storage, so the codec must decode on an iPhone, encode in the page, and add no lead-in silence; Linux WebKit decodes with GStreamer, not Apple's media stack, so only an iOS run answers for an iPhone. On a blank page it decodes every file in codec-fixtures/ (Opus in Ogg, WebM, MP4 and CAF; AAC in MP4 and ADTS; MP3 from LAME with and without a gapless tag; FLAC; Vorbis; the 2 s WAV source) with decodeAudioData at 48 kHz and reports the added length, reads WebCodecs' AudioEncoder and AudioDecoder support, and round-trips the source through AudioEncoder and AudioDecoder (Opus at 24 and 32 kbps, AAC at 64). It fails when Opus does not decode from Ogg or WebM, adds 20 ms or more of lead-in, or does not round-trip through WebCodecs; the rest is reported (codecs.mjs). No docs build, about 8 minutes, mostly the simulator's boot.",
+      "on_pull_request": false
     }
   ]
 }

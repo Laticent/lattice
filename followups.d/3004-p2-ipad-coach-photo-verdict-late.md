@@ -24,4 +24,4 @@ done when — the cause is named (the sampler never ran, ran and failed, or its 
             slide-2 verdict arrives on the iPad in every one of 5 dispatched runs; or, if the measurement is
             legitimately slow there, the Coach says it is still measuring and the probe waits on that state.
 evidence  — five green dispatches of ios-safari-photo on the iPad, and the cause in the PR body.
-verify    — platform-suites.yml dispatch, suites=ios-safari-photo; node docs/scripts/ios-safari/probe.selftest.mjs
+verify    — platform-suites.yml dispatch, suites=ios-safari-photo-ipad; node docs/scripts/ios-safari/probe.selftest.mjs

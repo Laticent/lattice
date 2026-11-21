@@ -19,7 +19,7 @@ why now   — step 3 moved the engine's own readers onto the front-matter island
 where     — on the render path: lib/core/resolve-{preset,pace,motion,bookends,narration}.{js,mjs},
             lib/core/{settings-block-fold,deck-front-matter,delivery-names,renumber-say,glossary-auto}.{js,mjs},
             lib/core/resolve-color-mode.js `FRONT_MATTER_FENCE`; the Marp export: lib/export/{marp-bundle,
-            marp-bleed-ink}.js; authoring: lib/authoring/{review-core,fact-check-core,deck-profiles,slide-split,
+            marp-bleed-ink}.js; authoring: lib/authoring/{review-core,deck-profiles,slide-split,
             code-format/plan}.{js,mjs}, lib/diagnostics/slice-equivalence-core.mjs; and docs/src (the Studio's
             docs/src/lib/front-matter.ts with nine writers is followups.d/3042-p3) and tools/. lint-core.js and
             squadra/bridge.js are out: steps 4 and 6 of the rewrite delete them.
@@ -51,10 +51,10 @@ and lone `\r` folded). A reader that WRITES back into the raw text (deck-profile
 writer) cannot use the folded offsets directly; it maps them back, as `frontMatterFence` already does for CRLF, plus
 one for a BOM.
 
-Three readers move only together with lint-core: `splitTopLevel` (lib/authoring/slide-split.js), `firstSlideIndex`
-(review-core.js) and `fmChunks` (fact-check-core.js) all count the front matter as two chunks of a `^---$` split, and
+Two readers move only together with lint-core (a third, fact-check-core.js, was deleted 2026-11-20): `splitTopLevel`
+(lib/authoring/slide-split.js) and `firstSlideIndex` (review-core.js) both count the front matter as two chunks of a `^---$` split, and
 lint-core's own `fmChunks` (lint-core.js `FRONT_MATTER`) does the same against `splitTopLevel`'s chunks. Moving the
-three alone would shift lint-core's slide numbers by two on a deck whose closer is `---x` or whose line ends are a lone
+two alone would shift lint-core's slide numbers by two on a deck whose closer is `---x` or whose line ends are a lone
 `\r`. They move in step 6, when lint-core goes, or with a matching edit to lint-core's fence in the same commit.
 
 What can move first, with no export bytes and no interlock: lib/authoring/deck-profiles.js (reads `profile:`; its writer

@@ -54,3 +54,10 @@ redesign anything.
   symptom. If you did not fix it, say exactly what is blocking you.
 - **Verification** — the gates you ran and their real results. If something is
   still red, say so with its output. Never report green you did not see.
+
+## Finding your way
+
+To learn **which folder** holds something, grep `dist/engineering/codemap.md`
+first: one line per folder, code part, plugin and workspace library, with its
+purpose and layer. It stops at folders, so grep inside the folder it names. If
+the file is missing, `npm run codemap:build` writes it.

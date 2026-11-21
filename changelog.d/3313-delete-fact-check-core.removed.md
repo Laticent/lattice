@@ -1,0 +1,1 @@
+- Removed `lib/authoring/fact-check-core.js`, the unused first half of a deck fact-check feature that was never built. Nothing in Lattice called it; `engineering/decisions/2026-06-16-deck-fact-checking.md` records why it went and how to restore it.

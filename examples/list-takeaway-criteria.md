@@ -2,20 +2,20 @@
 marp: true
 theme: indaco
 paginate: true
-header: "Lattice · list takeaway numbered"
+header: "Lattice · list takeaway over 1."
 ---
 
 <!-- _class: title -->
 
 # Criteria live in `list` now
 
-`list takeaway numbered · absorbs list-criteria`
+`list takeaway over 1. · absorbs list-criteria`
 
 A nested gloss under each item stacks a muted reason line under a bold lead, and the number keeps one size.
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- _footer: "Four criteria · the common case" -->
 
 ## Every "verified" names the surface it ran on and carries proof from it.
@@ -31,7 +31,7 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- _footer: "Three criteria · the number stays the same size" -->
 
 ## Criteria are gates: clear them in order.
@@ -45,7 +45,7 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- _footer: "Five criteria at the density ceiling · the gloss wraps" -->
 
 ## Five gates is the most one decision should clear.
@@ -63,19 +63,19 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway numbered -->
-<!-- _footer: "Bullet source (-) renders the same as numbered source (1.)" -->
+<!-- _class: list takeaway -->
+<!-- _footer: "Numbered by the 1. marker, not by a class" -->
 
 ## Four requirements every decision system must meet.
 
-- Speed
-  - Decisions close inside their window.
-- Auditability
-  - Every decision above the threshold carries a traceable rationale.
-- Adoption
-  - Weekly use, or calibration never runs.
-- Calibration
-  - It has to improve over time.
+1. Speed
+   - Decisions close inside their window.
+1. Auditability
+   - Every decision above the threshold carries a traceable rationale.
+1. Adoption
+   - Weekly use, or calibration never runs.
+1. Calibration
+   - It has to improve over time.
 
 ---
 
@@ -93,7 +93,7 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway numbered dark -->
+<!-- _class: list takeaway dark -->
 <!-- _footer: "Composition: dark" -->
 
 ## Criteria are gates: clear them in order.
@@ -107,7 +107,7 @@ A nested gloss under each item stacks a muted reason line under a bold lead, and
 
 ---
 
-<!-- _class: list takeaway numbered compact -->
+<!-- _class: list takeaway compact -->
 <!-- _footer: "Composition: compact" -->
 
 ## Criteria are gates: clear them in order.

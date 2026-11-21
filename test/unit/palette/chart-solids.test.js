@@ -91,3 +91,24 @@ describe('chart solids: text on every solid clears its bar, and every solid has 
     }
   }
 });
+
+// THE FIRST CATEGORY IS ALSO "NO STATUS". A chart paints an unstatused mark (a state tile, a gantt bar) in the theme's
+// first category, so a first category close to the on-track fill reads as on track. Carbone led with its electric
+// green, 0.075 / 0.053 OKLab from on-track (under check:glance's 0.08 "merges" line), and the owner chose to re-hue it
+// (2026-11-21, #3360 D2): blue leads, green is second. Ardesia's light face and a11y-protanopia's dark face also sit
+// under the line; they wait on their own brand calls (followups.d/3232-p9-first-category-near-on-track.md), so this
+// pins carbone rather than every palette.
+describe('the first category stands off the on-track fill', () => {
+  test('carbone: --chart-cat1 sits at least 0.08 OKLab from --pass-mark on both faces', () => {
+    const { mergedVars } = require('../../../tools/composed-contrast.js');
+    const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
+    const { oklabDistance } = require('../../../lib/core/color.js');
+    // carbone-dark only imports carbone and sets color-scheme, so the two faces of carbone cover both themes.
+    const V = mergedVars('carbone');
+    for (const dark of [false, true]) {
+      const hex = (expr) => String(resolveTokenExpr(expr, V, dark)).trim();
+      const d = oklabDistance(hex('var(--chart-cat1)'), hex('var(--pass-mark)'));
+      assert.ok(d >= 0.08, `carbone ${dark ? 'dark' : 'light'}: the first category sits ${d.toFixed(3)} from on-track (floor 0.08)`);
+    }
+  });
+});

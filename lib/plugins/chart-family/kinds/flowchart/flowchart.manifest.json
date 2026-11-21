@@ -129,6 +129,7 @@
       }
     }
   },
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
@@ -177,6 +178,12 @@
       "match": { "kind": "paragraph" },
       "required": false,
       "description": "An italic paragraph below becomes the chart caption."
+    },
+    "group-connections": {
+      "selector": "li > ul > li > ul > li",
+      "match": { "kind": "list", "depth": 3, "marker": "any" },
+      "required": false,
+      "description": "A connection from a shape inside a group, written under that shape (`=> Target`, `-label-> Target`)."
     }
   },
   "skeleton": "<!-- _class: flowchart -->\n\n## The flow in one line.\n\n- Start `pill` => Check => Decide?\n- Decide? `diamond`\n  - -yes-> Ship\n  - -no-> Fix -> Check\n",

@@ -203,6 +203,19 @@ Every new test, and every test whose assertion or wait changed, carries three th
 
 A rename or a selector-only edit owes only the failing arm.
 
+**From CI, when you cannot run the suite locally.** Dispatch `studio-e2e-nightly.yml` on your branch
+with `spec`, and `repeat` and `workers` for the two runs:
+
+```bash
+gh workflow run studio-e2e-nightly.yml --ref <branch> -f spec=e2e/<name>.spec.ts -f repeat=10
+gh workflow run studio-e2e-nightly.yml --ref <branch> -f spec=e2e/<name>.spec.ts -f repeat=5 -f workers=4
+```
+
+Send the second once the first has started: the workflow keeps one pending run per branch, so a
+dispatch made while another is still pending replaces it. Each runs the test on
+every project its tags reach. `repeat` (1 to 20) and `workers` (1 to 8) need a `spec`; the step
+refuses anything else before Playwright starts.
+
 A failing arm must go red on the old code and green on the new. If the race is too rare to hit by
 load, inject the stall directly, as #3250 did with a temporary 2.5 s wait. List any arm that stayed
 green on both in the PR body, so nobody repeats it.
@@ -253,6 +266,24 @@ and the pause was refused.
 Every frame, including one born later, then sits at the same time (#3250).
 
 **Gated.** `checkFlakyTests` counts every `<page>.clock.resume()` as the `clock-resume` shape, held to `tools/flaky-test-baseline.json`. A resume that is right where it is takes `// flaky-ok: <why>`.
+
+## Playwright's fake clock: a frame-by-frame walk outruns the test's limit, and a chunk can commit late
+
+**Trap.** Stepping the fake clock one 16 ms frame at a time costs two round trips a frame
+(`frame-clock.ts` `stepFrame`). Under four workers that is about 110 ms a frame, so a walk of a
+few hundred frames crosses a 60 s test limit with every assertion passing (F4). A bigger step
+(`runFor(250)`) is cheap, and usually exact, because the clock awaits a real task after each
+timer and React commits there. But not always: React can commit a timer's state a frame or two
+after the timer fired, so a hold that starts inside a chunk can read up to 32 ms short.
+
+**Example.** `present-beat.spec.ts`, "every handoff holds the finished slide", stepped about 390
+frames and ran at a median of 55 s against 60 s at `--workers=4` (1 timeout in 8). Moved wholly
+to 250 ms chunks, its 400 ms leave beat read 368 ms in 2 of 10 runs alone.
+
+**Do instead.** Chunk where nothing is measured, and step frame by frame only across the window
+the assertion reads, with a page-side frame sampler doing the timing. The test there chunks
+until a slide's read passes 60% on the rail, then steps frames to the flip, and fails loudly if
+a hold began too soon after the switch for the chunks to be ruled out (2026-11-21).
 
 ## The device tier drops to Lite under load
 

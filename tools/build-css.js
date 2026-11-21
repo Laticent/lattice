@@ -705,6 +705,16 @@ function assemble() {
     parts.push('/* === generated: Form per-family slicing (frame manifests `slicing`) === */');
     parts.push(slicing);
   }
+  // Generated: the PRESET TOKENS (engineering/decisions/2026-11-20-deck-preset-study.md §5 D10) — one
+  // `section.preset-<name> { --token: value }` rule per preset that sets internal tokens, from the preset
+  // table itself (lib/core/resolve-preset.js `presetTokensCss`, which validates every name and value).
+  // No shipped preset sets a token yet, so this adds nothing and the bundle is byte-identical.
+  const presetTokens = require('../lib/core/resolve-preset').presetTokensCss();
+  if (presetTokens) {
+    mark('generated:preset-tokens', null);
+    parts.push('/* === generated: preset tokens (lib/core/front-matter-key.js PRESETS[*].tokens) === */');
+    parts.push(presetTokens);
+  }
   // Distribute leading `:is()` LAST, over the assembled bundle — so `bundle()`
   // is the single definition of what dist/lattice.css should contain, which is
   // what the freshness gate (test/unit/cli/build-css.test.js) compares against.

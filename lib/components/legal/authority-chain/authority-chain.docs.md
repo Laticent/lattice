@@ -21,7 +21,8 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `heading` | a `## ` heading | yes | Slide heading naming the rule whose chain is being walked. |
-| `tiers` | a list | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
+| `tiers` | a list | yes | A list of authority tiers (`1.` or `-`) (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 ### Variant decision rule
 
@@ -44,7 +45,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 ## When NOT to use
 
-- **Flat list of citations.** If the rows have no tier hierarchy, use `list takeaway numbered` or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point.
+- **Flat list of citations.** If the rows have no tier hierarchy, use `list takeaway` over a `1.` list or `regulatory-update`. authority-chain earns its chrome only when the descent from statute to case is the point.
 - **Missing citation chip.** The inline-code citation is the row's anchor; without it the gloss reads as opinion. Always cite, even for guidance and case rows.
 - **Out-of-order tiers.** The chain reads as a descent: statute first, case last. Reversing it or skipping a tier breaks the metaphor the audience is using to follow you.
 
@@ -180,7 +181,7 @@ Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) com
 ## Related components
 
 - [`regulatory-update`](../../legal/regulatory-update/regulatory-update.docs.md) — period-bounded changelog rather than a single rule's lineage
-- [`list`](../../inventory/list/list.docs.md) — `takeaway numbered`: flat enumeration of requirements without tier hierarchy
+- [`list`](../../inventory/list/list.docs.md) — `list takeaway` over a `1.` list: flat enumeration of requirements without tier hierarchy
 - [`list-steps`](../../progression/list-steps/list-steps.docs.md) — the rows are procedural steps rather than authority tiers
 
 ## Demo deck

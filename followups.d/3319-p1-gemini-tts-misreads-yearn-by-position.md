@@ -53,3 +53,5 @@ done when — a measured way to make Gemini Flash-Lite (direct) say a term the s
 evidence  — the four WAVs sent on #3319 (`.scratch/signoff/gemini/`); the harness is a short script that
             posts `geminiSpeechBody(text)` and transcribes the PCM with Whisper.
 verify    — the owner's deck in the Studio, on the model it picks, heard as "yearn" in every sentence across five plays; a machine judge only once one is shown to agree with a human ear on this voice.
+
+Not moved 2026-11-20 (terms-registry continuation session): the cloud sandbox holds no Gemini or OpenRouter key, and the owner was away, so no candidate could be generated or heard. Both items still need a session with the owner present and a key on the environment.

@@ -26,6 +26,7 @@ Use for a process or decision flow, an org chart, a data flow or a system map: a
 | `detail` | a `>` blockquote inside an item | no | A `>` blockquote under a shape is its HIDDEN DETAIL, the house style both graph charts share: the slide never shows it. It appears when the shape is hovered or tapped in Present, Practice and Preview (the shape carries `data-mark`, the text rides an inert `<template class="chart-detail">`), and it is folded into the slide's speaker note. A PDF does not show it: text the page must carry belongs in a caption. |
 | `key` | a line of `inline code` | no | The chart derives its own key from what it uses. One bracketed span right below the list renames entries by the word you typed: `` `[{"=>", Happy path}, {dotted, Later}]` ``. It only renames; it never hides or adds an entry. |
 | `caption` | a paragraph | no | An italic paragraph below becomes the chart caption. |
+| `group-connections` | a list nested 2 levels under an item | no | A connection from a shape inside a group, written under that shape (`=> Target`, `-label-> Target`). |
 
 ### Variant decision rule
 
