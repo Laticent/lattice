@@ -62,7 +62,12 @@ jobs:
           python3 - <<'PY'
           import json, pathlib, sys
           found = 0
-          for f in sorted(pathlib.Path('sarif-results').glob('*.sarif')):
+          files = sorted(pathlib.Path('sarif-results').glob('*.sarif'))
+          if not files:
+              # No SARIF means the analysis did not report, not that it found nothing.
+              print('::error::no SARIF file in sarif-results/, so the scan cannot be read')
+              sys.exit(1)
+          for f in files:
               for run in json.loads(f.read_text()).get('runs', []):
                   for r in run.get('results', []):
                       found += 1
