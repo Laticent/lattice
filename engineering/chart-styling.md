@@ -241,8 +241,11 @@ out of the generated CSS and holds every slot.
 (`--chart-cat-1-hue` / `-ink`). A source re-points those two tokens, and nothing else, on the slide and on every
 chart frame, under `section.marks-tone.marks-<source>`, so every tone rule follows without a rule of its own. It
 does not re-point `--chart-cat-1-hue` itself: the palette gates read the bundle as one flat list of declarations,
-where a scoped override would read as the palette's own slot one. A mark no finish reaches keeps its own paint. One color is both the hue and the ink, so the
-source must read as text: `--text-heading` and `--accent` hold 4.5:1 or better against the slide on every
+where a scoped override would read as the palette's own slot one. A sequential ramp (heatmap, map) reads
+`--chart-ramp-hue` / `-ink` instead, which the chart declares from the palette's optional `--ramp-hue` / `--ramp-ink`
+hook (carbone names its green there), else chart color one. The source sets that hook in the same block, so a ramp
+follows the source the way it follows a palette that names one. A mark no finish reaches keeps its own paint. One
+color is both the hue and the ink, so the source must read as text: `--text-heading` and `--accent` hold 4.5:1 or better against the slide on every
 built-in palette in both modes, and the strongest step clears 3:1 (the same test). Both classes are in the
 selector because a source means nothing under pigment or etch, which draw each category in its own hue;
 deck-lint names one there (`marks-source-needs-tone`). A deck that names no source stamps no class, so its render does
