@@ -141,3 +141,40 @@ export async function pictureStill(page: Page, timeout = 15_000): Promise<void> 
 		)
 		.toBe(true);
 }
+
+/**
+ * A page has SETTLED: no request in flight AND the main thread idle (`requestIdleCallback`, which fires only when no
+ * task is queued; two animation frames on WebKit, which lacks it), twice in a row, so work spawned in stages is waited
+ * out. The in-flight count comes from Playwright's own request events, counted from the moment this is called, so call
+ * it once per page, before the navigations it will wait on.
+ *
+ * Why not `waitUntil: 'networkidle'`: it is Playwright's lifecycle event, and under load it can fail to fire with no
+ * request open at all (measured on /studio/, 4 cores pinned, 8 contexts: a 40 s timeout with zero page and zero
+ * service-worker requests in flight), and on a page that was already idle it returns at once (found by review in
+ * site-csp.spec.ts, #3277). Moved here unchanged from site-csp.spec.ts, which now imports it. Puppeteer's
+ * `networkidle0` is the same kind of quiet period (engineering/gotchas/browser-engine.md, "`setContent(…, { waitUntil:
+ * 'networkidle0' })` times out on a document that fetches nothing").
+ */
+export function pageSettler(page: Page): () => Promise<void> {
+	let inFlight = 0;
+	page.on('request', () => inFlight++);
+	page.on('requestfinished', () => inFlight--);
+	page.on('requestfailed', () => inFlight--);
+	const idle = () =>
+		page.evaluate(
+			() =>
+				new Promise<void>((done) => {
+					const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void };
+					if (w.requestIdleCallback) w.requestIdleCallback(() => done(), { timeout: 10_000 });
+					else requestAnimationFrame(() => requestAnimationFrame(() => done()));
+				}),
+		);
+	return async () => {
+		let quiet = 0;
+		while (quiet < 2) {
+			await expect.poll(() => inFlight, { timeout: 60_000 }).toBe(0);
+			await idle();
+			quiet = inFlight === 0 ? quiet + 1 : 0;
+		}
+	};
+}
