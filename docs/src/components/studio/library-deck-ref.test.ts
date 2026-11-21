@@ -212,6 +212,13 @@ describe('pptxReferenceText', () => {
 });
 
 describe('readLibraryReference — a reference file stays one, and gains "Open as deck" where the importer reads it', () => {
+	it('a .lattice handed straight to it (the chat paperclip sends every file) is read as the deck it is', async () => {
+		const r = await readLibraryReference(file(await lattice(), 'Halcyon.lattice'));
+		expect(r.deck).toBeTruthy();
+		expect(r.doc.text).toContain('Speaker notes: Open with the retention number.');
+		expect(r.doc.text).not.toContain('ninety-four');
+	});
+
 	it('keeps a .md as plain reference with no second copy, and marks it openable only when the text is the file', async () => {
 		const r = await readLibraryReference(file('# Brief\n\nThree points.', 'brief.md', 'text/markdown'));
 		expect(r.doc).toMatchObject({ name: 'brief.md', kind: 'text', text: '# Brief\n\nThree points.' });

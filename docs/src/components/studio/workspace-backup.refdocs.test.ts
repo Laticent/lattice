@@ -30,7 +30,7 @@ vi.hoisted(() => {
 });
 
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { listRefDocs, MAX_DECK_REF_BYTES, refDocDeckFile, saveRefDoc } from './reference-doc-store';
+import { listRefDocs, MAX_DECK_REF_BYTES, type RefDocRecord, refDocDeckFile, saveRefDoc } from './reference-doc-store';
 import { exportStudioState, importStudioState, loadSource, saveSource } from './studio-store';
 import { backupRestoreGaps, type PackReport, packWorkspace, restoreWorkspace } from './workspace-backup';
 import { MAX_INFLATED_BYTES } from './zip-limits';
@@ -147,6 +147,44 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 });
 
 describe('restoreWorkspace — a deck kept as reference', () => {
+	it('a deck file the browser cannot read at backup time costs only "Open as deck": the row keeps its text and is named', async () => {
+		const deck = Buffer.from(seededBytes(777)); // a size no other stored Blob here has, so only its read fails
+		await saveRefDoc({ name: 'lost.lattice', kind: 'text', text: 'Slide 1\nRetention held', bytes: 22 }, T0, { deck: new Blob([deck]) });
+		await saveRefDoc({ name: 'kept.lattice', kind: 'text', text: 'Slide 1\nPipeline', bytes: 18 }, T0 + 1, { deck: new Blob([Buffer.from(seededBytes(512))]) });
+		// IndexedDB lost the file behind one deck's Blob: reading it rejects.
+		const real = Blob.prototype.arrayBuffer;
+		Blob.prototype.arrayBuffer = function (this: Blob) {
+			return this.size === 777 ? Promise.reject(new DOMException('gone', 'NotReadableError')) : real.call(this);
+		};
+		const report: PackReport = { refdocsBytes: 0 };
+		let packed: Blob;
+		try {
+			packed = await packWorkspace(T0, report);
+		} finally {
+			Blob.prototype.arrayBuffer = real;
+		}
+		expect(report.refdocsUnreadable).toEqual(['lost.lattice']);
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(new Uint8Array(await packed.arrayBuffer()));
+		const rows = JSON.parse(await (zip.file('refdocs.json') as { async: (t: 'string') => Promise<string> }).async('string')) as Array<Record<string, unknown>>;
+		const lost = rows.find((r) => r.name === 'lost.lattice') as Record<string, unknown>;
+		const kept = rows.find((r) => r.name === 'kept.lattice') as Record<string, unknown>;
+		expect(lost.text).toBe('Slide 1\nRetention held'); // the reference text survives
+		expect(lost.deckFile).toBeUndefined(); // no entry named for a file that was not written
+		expect(kept.deckFile).toMatch(/^refdoc-decks\/d\d+\.bin$/); // the readable deck is unaffected
+		expect(Object.keys(zip.files).filter((f) => f.startsWith('refdoc-decks/') && !zip.files[f].dir)).toHaveLength(1);
+
+		// The backup restores both rows: the lost one as reference text without "Open as deck", the other whole.
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(new Uint8Array(await packed.arrayBuffer()) as unknown as Blob, T0 + 9);
+		expect(summary.refused).toEqual([]);
+		const back = await listRefDocs();
+		const named = (n: string) => back.find((r) => r.name === n) as RefDocRecord;
+		expect(named('lost.lattice').text).toBe('Slide 1\nRetention held');
+		expect(refDocDeckFile(named('lost.lattice'))).toBeNull();
+		expect(refDocDeckFile(named('kept.lattice'))).not.toBeNull();
+	});
+
 	it('carries the deck file as a binary entry, not base64 in refdocs.json, brings it back, and names a row it cannot', async () => {
 		const deck = Buffer.from(seededBytes(2048));
 		await saveRefDoc({ name: 'q3.lattice', kind: 'text', text: 'Slide 1\nRetention held', bytes: 22 }, T0, { deck: new Blob([deck]) });

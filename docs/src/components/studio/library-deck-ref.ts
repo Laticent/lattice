@@ -198,8 +198,13 @@ export async function readDeckReference(file: File): Promise<LibraryReference> {
  * - A Markdown file stays plain reference, as before: no second copy, no DECK badge, when its stored text is byte for
  *   byte the file (`sourceExact`): its card offers "Open as deck", rebuilding the file from that text. When the text is
  *   not the file (cut at the reference cap, CRLF, a BOM), a copy of the file is kept instead, so it still opens. A `.txt` stays plain reference: it is notes far more often than a deck.
+ * - A ZIP (a `.lattice`, a PowerPoint) is a deck or nothing: it goes to `readDeckReference`, which keeps it for "Open
+ *   as deck" or says why it cannot. The Library sorts zips out by their bytes before it calls here (`routeByBytes`),
+ *   but the chat's paperclip (reference-doc-ui.tsx `addOne`) sends every file it is handed, so a `.lattice` attached
+ *   there used to reach the text reader and fail.
  */
 export async function readLibraryReference(file: File): Promise<LibraryReference> {
+	if (isZipHead(await head(file))) return readDeckReference(file);
 	const ext = extOf(file.name);
 	if (ext === '.pdf' || isPdfHead(await head(file, 5))) {
 		// Over the deck cap a PDF is neither kept as a deck nor as a reference (5 MB), whichever it is; say both.

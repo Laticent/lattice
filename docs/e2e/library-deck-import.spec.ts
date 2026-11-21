@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import type { Page, TestInfo } from '@playwright/test';
 import JSZip from 'jszip';
-import { CHROME, expect, gotoStudio, isPhone, openSection, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, isPhone, openChatAtWidth, openSection, test } from './studio-fixture';
 
 // A deck imported through the Library (2026-11-20). On a real iPhone, "Import deck…" showed every
 // `.lattice` grayed out in Files: iOS grays out what an `accept` list does not name and has no type
@@ -121,6 +121,38 @@ test('a .lattice imported through the Library lands on Files and opens as a deck
 	// Library flow in WebKit, not the picker fix (the `@gecko` arm is the one the old code fails).
 	expect(await page.evaluate(() => navigator.userAgent)).toContain('iPhone');
 	await importsADeck(page, testInfo);
+});
+
+/**
+ * A deck ATTACHED TO THE CHAT is read and kept exactly as the Library keeps one: the chat's paperclip saves through the
+ * same reader (reference-doc-ui.tsx `addOne` → library-deck-ref.ts `readLibraryReference`), so the reference text is
+ * the slide words and the `@note`, the file is kept, and the Library's "Open as deck" opens it as itself. Two files
+ * through the paperclip's own input: a Markdown deck, which its picker offers, and a `.lattice`, which a desktop
+ * picker offers under "All files" (the paperclip's `accept` names no `.lattice`).
+ */
+test('a deck attached to the chat is kept like a Library import, and opens as a deck @gecko', async ({ page }) => {
+	const bytes = await latticeBytes();
+	await gotoStudio(page);
+	await openChatAtWidth(page, 1440);
+	const device = page.getByLabel('Attach from this device');
+	await device.setInputFiles([
+		{ name: 'Halcyon.md', mimeType: 'text/markdown', buffer: Buffer.from(DECK) },
+		{ name: 'Halcyon.lattice', mimeType: 'application/octet-stream', buffer: bytes },
+	]);
+	const text = 'Deck: Halcyon quarterly\n\nSlide 1\n# Halcyon quarterly\n\nSlide 2\n## Retention held\n\n- 94% of accounts renewed.\nSpeaker notes: Open with the retention number.';
+	await expect.poll(() => storedRef(page, 'Halcyon.lattice'), { timeout: 30_000 }).toEqual({ text, deckBytes: bytes.length });
+	// A Markdown deck whose stored text is the file byte for byte keeps no second copy (`sourceExact`): "Open as deck"
+	// rebuilds it from that text, so it stores no deck bytes, and its card still offers the action (below).
+	// Its text is the file itself, plain reference as before this PR, `@note` included.
+	await expect.poll(() => storedRef(page, 'Halcyon.md'), { timeout: 30_000 }).toEqual({ text: DECK, deckBytes: 0 });
+
+	// Both wait in the Library with the action to open them; the .lattice opens as itself.
+	await page.keyboard.press('Escape');
+	await openLibrary(page);
+	await page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Files', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Open Halcyon.md as a deck' })).toBeVisible({ timeout: 30_000 });
+	await page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' }).click();
+	await expect.poll(() => activeSource(page), { timeout: 30_000 }).toBe(DECK);
 });
 
 /**

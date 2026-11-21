@@ -73,8 +73,8 @@ function fmtDate(ts: number): string {
 // grays out whatever matches none, and it has no type for `.lattice`, so any list kept a deck out of reach on an
 // iPhone (2026-11-20). A device sniff to drop the list only there did not hold on the owner's phone, so there is no
 // sniff and no list: the bytes decide where a file goes (`classifyDropped`, then library-deck-ref.ts `routeByBytes`),
-// and a file nothing takes is named in the toast. What a phone's own sheet offers with no `accept` (whether Photo
-// Library and Take Photo still appear beside Choose Files) has not been checked on a device: UNVERIFIED.
+// and a file nothing takes is named in the toast. With no `accept`, an iPhone's own sheet still offers Photo Library,
+// Take Photo or Video, and Choose Files (owner's iPhone, 2026-11-21).
 
 /** The reference-file extensions the picker accepts, as a lower-cased set. */
 const REF_DOC_EXTS = new Set(
