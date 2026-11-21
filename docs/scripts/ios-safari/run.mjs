@@ -273,7 +273,7 @@ function tapLogInstall() {
 			if (!L) return;
 			const sel = getSelection();
 			const node = sel && sel.anchorNode;
-			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) });
+			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) + (sel && !sel.isCollapsed && sel.focusNode ? ' .. focus in ' + name(sel.focusNode.nodeType === 3 ? sel.focusNode.parentElement : sel.focusNode) + ' @' + sel.focusOffset : '') });
 		}, { capture: true, passive: true });
 	}`;
 }
@@ -296,11 +296,11 @@ function summarizeTapLog(log) {
  * control). The simulator stretches any hold it is sent: 150 ms arrived as 345 and 300 as 632 (dispatch 43798678775),
  * while taps with no pause arrived as 29-43 ms. Returns the gesture's WebDriver time in ms.
  */
-async function touchAt(id, at, forcedHold = 0) {
+async function touchAt(id, at, forcedHold = 0, liftAt = null) {
 	await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 	const t = Date.now();
 	await wd('POST', `/session/${id}/actions`, {
-		actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, ...(forcedHold ? [{ type: 'pause', duration: forcedHold }] : []), { type: 'pointerUp', button: 0 }] }],
+		actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, ...(forcedHold ? [{ type: 'pause', duration: forcedHold }] : []), ...(liftAt ? [{ type: 'pointerMove', duration: 0, x: liftAt.x, y: liftAt.y }] : []), { type: 'pointerUp', button: 0 }] }],
 	});
 	const ms = Date.now() - t;
 	await wd('DELETE', `/session/${id}/actions`).catch(() => {});
@@ -489,14 +489,14 @@ async function composeTouchTap(id) {
 		// and mouse event (time, clientX/clientY, target) and of each selectionchange and contextmenu, read back beside the point
 		// WebDriver was sent. Its hold (touchstart to touchend) is logged on every delivery (followups.d/3223-p1).
 		const rtt = await wdRoundTrip(id);
-		const deliver = async (n, forcedHold = 0) => {
+		const deliver = async (n, forcedHold = 0, liftAt = null) => {
 			await run('document.activeElement?.blur?.(); getSelection()?.removeAllRanges();');
 			await run(tapLogInstall());
 			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 			// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
 			// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
 			// selected the word under the finger, so the paragraph held a range, not a caret, and correctly got no caret-line mark.
-			const tapMs = await touchAt(id, at, forcedHold);
+			const tapMs = await touchAt(id, at, forcedHold, liftAt);
 			const seen = await wd('POST', `/session/${id}/execute/async`, {
 				args: [],
 				script: `const done = arguments[arguments.length - 1];
@@ -562,6 +562,11 @@ async function composeTouchTap(id) {
 			await run('window.__qce = window.__qce || document.queryCommandEnabled; document.queryCommandEnabled = () => true;');
 			const quiet = await deliver('control-3-no-doorbell', 500);
 			await run('if (window.__qce) document.queryCommandEnabled = window.__qce;');
+			// DIAGNOSTIC (#3241): the same long press, the finger moved back onto its own point just before it lifts. Every logged
+			// pointerup reaches the page at 0,0: if the legend comes from a lift at the screen's corner, this one keeps the word.
+			await new Promise((r) => setTimeout(r, 1000));
+			const lifted = await deliver('control-4-lift-in-place', 500, at);
+			step('diagnostic: the forced long press, lifted where it pressed (detail only)', true, `hold ${lifted.hold ?? 'no touch'} ms -> ${lifted.seen.caret ? 'caret' : `SELECTED "${lifted.seen.picked}"`} in ${lifted.seen.where}`);
 			step('diagnostic: the forced long press with the undo doorbell silenced (detail only)', true, `hold ${quiet.hold ?? 'no touch'} ms -> ${quiet.seen.caret ? 'caret' : `SELECTED "${quiet.seen.picked}"`} in ${quiet.seen.where}`);
 		} catch (e) {
 			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `not run: ${String(e.message || e).slice(0, 200)}`);
