@@ -133,8 +133,9 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko Fix all names a fix it ref
 	// Frames the page paints, counted from here on. This deck needs the fix driver's 500 passes, which once ran inside
 	// the click and froze the page until the last (8.4 s measured in WebKit; past Playwright's 15 s click deadline under
 	// load). Now each pass is a task of its own (lint-core `fixAllDetailedAsync`), so the click returns and the page
-	// keeps painting while Fix all works. Counted, not timed (HARD RULE #32): a frozen page paints at most one frame
-	// in that span, and 500 passes are hundreds of frames of work on any machine.
+	// keeps painting while Fix all works. Counted, not timed (HARD RULE #32): at least one frame per ten passes. Measured
+	// 2026-11-21: the run painted 128 to 525 frames (gecko the fewest, WebKit under 4 workers 479 to 503); with the passes
+	// put back inside the click it painted 5 to 8, the frames before the freeze while the fix driver's chunk loaded.
 	await page.evaluate(() => {
 		const w = window as unknown as { __frames: number };
 		w.__frames = 0;
@@ -148,7 +149,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko Fix all names a fix it ref
 	await runFixAllFromPalette(page);
 	const atClick = await frames();
 	await expect(page.getByText('Fixed 500 issues. 1 fix was not applied.')).toBeVisible({ timeout: 60_000 });
-	expect(await frames(), 'the page kept painting while Fix all ran').toBeGreaterThan(atClick + 10);
+	expect(await frames(), 'the page kept painting while Fix all ran').toBeGreaterThan(atClick + 50);
 	await expect(page.getByText('Slide 2, card-style-inline-title: Fix all stopped before reaching it; press Fix all again.')).toBeVisible();
 	await expect.poll(() => storedDeck(page)).toContain('- Bet 0\n  - body 0');
 	const afterFirst = await storedDeck(page);
