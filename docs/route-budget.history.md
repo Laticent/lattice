@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-21 — measured on the built tree at 03dce9a9
+
+lint-core grew to the ceiling (#3351 raised it by hand to 165.9KB with 11 B left); #3362's coda and claim-budget rules add ~0.9KB. Standard 10% ceiling raise from the 165.9KB measurement.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 169910 | +17759 | 186901 |
+
 ### 2026-11-21 — the owner raised one ceiling by hand, for PR 3351: studio lintCoreGz to 165.9 KB
 
 Owner OK 2026-11-21, in PR 3351's session, in two steps. First "Lazy fix, +0.6KB", over keeping the migration inside the lint core (+2.1 KB), dropping the Studio's one-click migration (+0.4 KB, and a Studio-only author could not migrate an old deck), or cutting unrelated lint code. PR 3351 (the four notes) adds the `note-key-retired`, `note-malformed` and `plain-comment-notes` rules; the last one's fix runs the whole-deck notes migration, which loads on demand with the fix driver and takes the parser, notes-core and note-grammar from the lint core rather than importing them, so its chunk shares nothing new with `esm/lint.js`. Then "Raise to 1KB total", after PR 3330 (one list contract) grew `main`'s own lint chunk by about 400 B while PR 3351 was open, over raising by exactly what it needed (0 B left), trimming the three rules' messages, or holding the PR.
