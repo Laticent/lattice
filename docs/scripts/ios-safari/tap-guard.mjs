@@ -5,7 +5,9 @@
  * tapped paragraph. A slow iOS Simulator stretches that hold: in dispatch 43798678775 a 300 ms hold reached the page as 632 ms,
  * and Safari read it as a long press. It selected the word under the finger ("point") and, on release, the Studio's
  * screen-reader-only legend ("Workspace stop"). Those are the exact messages of every red iPad run. Where the finger landed
- * was never wrong: on all 26 logged taps the page saw the point WebDriver sent.
+ * was never wrong: on all 26 logged taps the page saw the point WebDriver sent. The jump to the legend is the simulator's long
+ * press, not the Studio: on a bare page with no Studio code, the same WebDriver long press moved its selection on release to
+ * the text above and left of the finger (dispatch 44856765533, #3241), and in the Studio that text is the hidden legend.
  *
  * So the probe reads the hold from the page's own event log, and a gesture held for LONG_PRESS_MS or more was not the
  * stimulus the step tests. It is delivered again ONCE. That re-delivery checks the precondition, not the assertion: a short
@@ -33,33 +35,70 @@ export function tapHold(log) {
 
 /**
  * Did Safari ACT on a long press? True when the log holds a selection that is not a caret (a word, or the legend a long press
- * jumps to) after the first touchstart. A long hold alone does not show it: the page's touch times include the time a
- * stalled simulator took to dispatch them, and real taps that placed the caret showed holds of 1018 ms, 6335 ms and 25154 ms
- * (dispatches 43817085692, 43811508778, 43851595030). Every forced or swept long press selected text about 650 to 720 ms in.
+ * jumps to) after the first touchstart, or a selection that left every editor after the lift. A long hold alone does not
+ * show it: the page's touch times include the time a stalled simulator took to dispatch them, and real taps that placed the
+ * caret showed holds of 1018 ms, 6335 ms and 25154 ms (dispatches 43817085692, 43811508778, 43851595030). Every forced or swept long press selected text about 650 to 720 ms in.
  * Events are taken in log order, not by time, because selectionchange is stamped at listener time and touches at event time.
- * @param {{ events?: Array<{ type: string, collapsed?: boolean, text?: string }> } | null | undefined} log
+ * @param {{ events?: Array<{ type: string, collapsed?: boolean, text?: string, inEditor?: boolean }> } | null | undefined} log
  * @returns {boolean}
  */
 export function pressSelected(log) {
 	const events = log?.events || [];
 	const start = events.findIndex((e) => e.type === 'touchstart');
 	if (start < 0) return false;
-	return events.slice(start + 1).some((e) => e.type === 'selectionchange' && e.collapsed === false && !!e.text);
+	const after = events.slice(start + 1);
+	if (after.some((e) => e.type === 'selectionchange' && e.collapsed === false && !!e.text)) return true;
+	// OR, after the lift, Safari moved the selection out of every editor: the long press's release moving it to the text above
+	// and left of the finger, which in the Studio is the hidden legend or heading (nightly 44744978068 put a CARET there, so
+	// the clause above missed it, #3241). A stalled tap leaves its caret in the editor, so this never reads one as a press.
+	const end = after.findIndex((e) => e.type === 'touchend' || e.type === 'touchcancel');
+	return end >= 0 && after.slice(end + 1).some((e) => e.type === 'selectionchange' && e.inEditor === false);
+}
+
+/** A hold this far past the tap budget, with the page's listeners this late, is the simulator stalling (see `tapVerdict`). */
+export const SIM_STALL_HOLD_MS = 2000;
+export const SIM_STALL_LAG_MS = 1000;
+
+/**
+ * How late the page's touch listeners ran, in ms: the largest `lag` on a touchstart or touchend (run.mjs records each event's
+ * own time and how long after it the listener ran). Seconds of lag mean the simulator's page was not running, not a finger.
+ * @param {{ events?: Array<{ type: string, lag?: number }> } | null | undefined} log
+ * @returns {number}
+ */
+export function tapLag(log) {
+	return Math.max(0, ...(log?.events || []).filter((e) => /^touch(start|end|cancel)$/.test(e.type)).map((e) => e.lag || 0));
+}
+
+/**
+ * Whether Safari synthesized a click after the lift, its own sign that it read the gesture as a tap. Reported only: a missing
+ * click never re-delivers, because a real defect that eats taps (an overlay, `touch-action`) also leaves none.
+ * @param {{ events?: Array<{ type: string }> } | null | undefined} log
+ * @returns {boolean}
+ */
+export function tapClicked(log) {
+	const events = log?.events || [];
+	const end = events.findIndex((e) => e.type === 'touchend' || e.type === 'touchcancel');
+	return end >= 0 && events.slice(end + 1).some((e) => e.type === 'click');
 }
 
 /**
  * What the probe does after one delivered tap.
  * - `pass`: the caret is in the tapped paragraph.
  * - `redeliver`: no caret, and on the FIRST delivery the page saw a long press that Safari acted on (held LONG_PRESS_MS or
- *   more AND a non-caret selection, see `pressSelected`): the stimulus was not a tap.
+ *   more AND a non-caret selection, or a selection moved out of every editor after the lift, see `pressSelected`): the
+ *   stimulus was not a tap.
  * - `fail-long-press`: no caret, and the re-delivery was such a long press too. The step fails, naming the hold.
+ * - `fail-sim-stall`: no caret, no long press Safari acted on, a hold of SIM_STALL_HOLD_MS or more AND listeners running
+ *   SIM_STALL_LAG_MS or more late. Still a failure, never re-delivered; its own name only so triage reads it as the simulator
+ *   stalling (the lab's iPhone run 44856765533: a 9313 ms hold, 3.8 s of lag, no click after the lift).
  * - `fail`: no caret after anything else: a short hold, a long hold with no selection (a stall, not a press), or no touch
  *   seen at all. A real failure, never re-delivered.
- * @param {{ caret: boolean, hold: number | null, selected: boolean, delivery: number }} r  `delivery` counts from 1
- * @returns {'pass' | 'redeliver' | 'fail-long-press' | 'fail'}
+ * @param {{ caret: boolean, hold: number | null, selected: boolean, delivery: number, lag?: number }} r  `delivery` counts from 1
+ * @returns {'pass' | 'redeliver' | 'fail-long-press' | 'fail-sim-stall' | 'fail'}
  */
-export function tapVerdict({ caret, hold, selected, delivery }) {
+export function tapVerdict({ caret, hold, selected, delivery, lag = 0 }) {
 	if (caret) return 'pass';
-	if (hold === null || hold < LONG_PRESS_MS || selected !== true) return 'fail';
-	return delivery === 1 ? 'redeliver' : 'fail-long-press';
+	if (hold !== null && hold >= LONG_PRESS_MS && selected === true) return delivery === 1 ? 'redeliver' : 'fail-long-press';
+	if (hold !== null && hold >= SIM_STALL_HOLD_MS && lag >= SIM_STALL_LAG_MS) return 'fail-sim-stall';
+	return 'fail';
 }
