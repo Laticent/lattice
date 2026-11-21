@@ -270,19 +270,31 @@ for (const width of [1440, 390]) {
 	});
 }
 
-// A phone draws the parked preview and loads the photo far slower than a desktop. Hold the photo back for longer than the old
-// 3 s window: the tooltip must say it is reading, then offer the one ink, and never fall back to both on the way.
+// A phone draws the parked preview and loads the photo far slower than a desktop. While the photo is still being read the
+// tooltip must say so, then offer the one ink, and never fall back to both on the way.
 test('a slow photo read shows "Checking the photo…" and still lands on the single ink @webkit-phone @crosswidth', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
-	// Slow EVERY photo read the Studio page makes, from the first script on: each image `onload` fires 3.5 s late. The
-	// measured verdict for the slide on screen (which the tooltip shows at once when it has it) is then not ready when the
-	// tooltip opens, so this exercises the slow path. (A network delay would not do: the preview already loaded this photo,
-	// so the read is a memory-cache hit.)
+	// HOLD every photo read the Studio page makes, from the first script on, until the test releases it: each image `onload`
+	// waits for `__releasePhotos()`. The measured verdict for the slide on screen (which the tooltip shows at once when it has
+	// it) is then not ready when the tooltip opens, so this exercises the slow path. It used to delay each read a fixed
+	// 3.5 s, which raced the test's own steps: on Playwright 1.65.1's WebKit under four workers the hover came after the
+	// 3.5 s, the verdict was already in, and "Checking" never showed (2 of 5, 0 of 10 on 1.56.1). A held read cannot finish
+	// first. (A network delay would not do: the preview already loaded this photo, so the read is a memory-cache hit.)
 	await page.addInitScript(() => {
+		const held: (() => void)[] = [];
+		let open = false;
+		(window as unknown as { __releasePhotos: () => void }).__releasePhotos = () => {
+			open = true;
+			for (const run of held.splice(0)) run();
+		};
 		Object.defineProperty(HTMLImageElement.prototype, 'onload', {
 			configurable: true,
 			set(fn: (e: Event) => void) {
-				this.addEventListener('load', (e: Event) => setTimeout(() => fn.call(this, e), 3500));
+				this.addEventListener('load', (e: Event) => {
+					const run = () => fn.call(this, e);
+					if (open) run();
+					else held.push(run);
+				});
 			},
 		});
 	});
@@ -298,6 +310,7 @@ test('a slow photo read shows "Checking the photo…" and still lands on the sin
 	});
 	await page.locator('.cm-lintRange-warning').first().hover();
 	await expect(page.getByText('Checking the photo…')).toBeVisible({ timeout: 5000 });
+	await page.evaluate(() => (window as unknown as { __releasePhotos: () => void }).__releasePhotos());
 	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Set card ink light' })).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByText('Checking the photo…')).toHaveCount(0);
 	expect(await page.evaluate(() => (window as unknown as { __jank: unknown }).__jank)).toEqual({ dark: false });
