@@ -323,7 +323,7 @@ Improvement costs what it costs to change one thing. In a glued shoe the sole *i
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Your practice · This week`
 

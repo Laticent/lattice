@@ -96,6 +96,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p:first-child > code",
@@ -154,7 +155,7 @@
     },
     {
       "title": "Ordered steps",
-      "body": "If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight."
+      "body": "If sequence carries meaning, use list-steps or `list takeaway` over a `1.` list. inventory entries are parallel, of similar weight."
     },
     {
       "title": "Nested-bullet authoring",

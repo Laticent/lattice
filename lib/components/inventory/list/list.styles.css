@@ -75,8 +75,7 @@ section.list[data-cards-coda]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { ali
 section.list[data-cards-coda="center"]:has(> .cell-coda) > .cell-stage > :is(ul,ol) { align-content:safe center; }
 /* A counter row's one line is as tall as the counter when the counter is the taller of the two
    (principles). Only rows that PAINT a counter count it. */
-section.list:not(.takeaway) > .cell-stage > ol,
-section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { --list-ord-h: var(--list-ord-fs); }
+section.list > .cell-stage > ol { --list-ord-h: var(--list-ord-fs); }
 /* A member ALONE on a split page fills that page (base.modifiers.css § Split BODY pages). That
    rule grows the row with `flex` and `align-content: stretch`, neither of which reaches a
    capped grid track, so the lone member lifts the ceiling itself. Without this, every list at
@@ -100,7 +99,10 @@ section.list > .cell-stage > ul > li {
    (owner ruling 2026-09-29, 2026-09-29-one-reading-size-per-venue.md §4 E7), as content's
    sub-bullets and split-panel's supporting lines are. */
 section.list > .cell-stage > ul > li > ul { list-style:none; margin:0; padding:0; }
-section.list > .cell-stage > ul > li > ul > li {
+/* A nested `1.` keeps its numbers (a prose register renders the author's marker), inside the pill's
+   text column rather than hanging off its left edge, and in the same compact face as a `-` line. */
+section.list > .cell-stage > ul > li > ol { margin:0; padding:0; list-style-position:inside; }
+section.list > .cell-stage > ul > li > :is(ul, ol) > li {
   font-size:var(--fs-body-compact); color:var(--text-label);
   line-height:var(--lh-snug); background:none; border:none; padding:0;
 }
@@ -115,8 +117,7 @@ section.list > .cell-stage > ol > li {
   gap:var(--sp-md);
 }
 /* Every counter, in every register, is this box. */
-section.list > .cell-stage > ol > li::before,
-section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
+section.list > .cell-stage > ol > li::before {
   flex:0 0 var(--list-ord-w);
   font-family:var(--font-label); font-size:var(--list-ord-fs); font-weight:700;
   font-variant-numeric:tabular-nums; letter-spacing:0.02em;
@@ -125,8 +126,9 @@ section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
 section.list > .cell-stage > ol > li::before { content:counter(list-counter, decimal-leading-zero); }
 
 /* ── takeaway register — former `tldr` component (inventory.list.takeaway) ──
- * Hairline-ruled single lines, no pill chrome. `numbered` adds the accent counter on
- * the same centreline. Merged 2026-06-07. */
+ * Hairline-ruled single lines, no pill chrome. A `1.` list adds the accent counter on the same
+ * centerline, and a `-` list has none: the marker decides (the list contract, R1,
+ * lib/core/list-contract.js), not a class. Merged 2026-06-07. */
 /* A ruled row has no box around its air, so the air IS the rhythm between hairlines. */
 section.list.takeaway { --list-air: var(--sp-md); }
 /* A ruled row's floor is no padding at all: the line height's own half-leading (a quarter of
@@ -139,13 +141,9 @@ section.list.takeaway > .cell-stage > :is(ul,ol) > li {
   padding:var(--list-pad) var(--sp-xs);
   font-weight:500; color:var(--text-heading);
 }
-section.list.takeaway > .cell-stage > :is(ul,ol) > li::before { content:none; }
+section.list.takeaway > .cell-stage > ul > li::before { content:none; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li::marker { content:''; }
-section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { counter-reset:list-take-counter var(--lat-split-offset, 0); }
-section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li { counter-increment:list-take-counter; gap:var(--sp-md); }
-section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
-  content:counter(list-take-counter, decimal-leading-zero);
-}
+section.list.takeaway > .cell-stage > ol > li { gap:var(--sp-md); }
 /* Lead + gloss — an item with a nested gloss bullet stacks a bold lead over a muted gloss
  * line (the former `list-criteria` row, absorbed 2026-09-25). The lead keeps the row size,
  * one step above its gloss, so it outranks the gloss by size as well as weight; the counter
@@ -164,10 +162,10 @@ section.list.takeaway > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li {
   display:block; align-content:center;
   font-weight:700; line-height:var(--lh-snug);
 }
-section.list.takeaway.numbered > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li {
+section.list.takeaway > .cell-stage > ol:has(> li > :is(ul,ol)) > li {
   position:relative; padding-left:calc(var(--sp-xs) + var(--list-ord-w) + var(--sp-md));
 }
-section.list.takeaway.numbered > .cell-stage > :is(ul,ol):has(> li > :is(ul,ol)) > li::before {
+section.list.takeaway > .cell-stage > ol:has(> li > :is(ul,ol)) > li::before {
   position:absolute; left:var(--sp-xs); top:0; bottom:0; width:var(--list-ord-w);
   display:flex; align-items:center;
 }
@@ -186,8 +184,10 @@ section.list.takeaway > .cell-stage > :is(ul,ol) > li > :is(ul,ol) > li {
 section.list.takeaway > .cell-stage > :is(ul,ol) > li > :is(ul,ol) > li::before { content:none; }
 
 /* ── principles register — former `principles` component (inventory.list.principles) ──
- * Display-weight declarations with the accent counter. ol only;
- * lettered/roman/bullet switch the counter format. Merged 2026-06-07. */
+ * Display-weight declarations with the accent counter; lettered/roman/bullet switch the counter
+ * format. The list contract hands it an `ol` either way (lib/core/list-contract.js): a `-` list
+ * arrives as `ol[data-ordered="false"]` and draws a dot instead of a number (rule at the end of
+ * the register). Merged 2026-06-07. */
 section.list.principles > .cell-stage > ol { counter-reset:list-principle-counter var(--lat-split-offset, 0); gap:0; }
 section.list.principles > .cell-stage > ol > li {
   counter-increment:list-principle-counter;
@@ -201,6 +201,8 @@ section.list.principles > .cell-stage > ol > li::before { content:counter(list-p
 section.list.principles.lettered > .cell-stage > ol > li::before { content:counter(list-principle-counter, upper-alpha); }
 section.list.principles.roman > .cell-stage > ol > li::before { content:counter(list-principle-counter, upper-roman); }
 section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
+/* A `-` principles list: a dot, whatever counter format is asked for (the marker decides, R1). */
+section.list.principles > .cell-stage > ol[data-ordered="false"] > li::before { content:'·'; }
 
 /* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): open the rhythm
    so the content-height rows breathe down the long frame instead of clustering. Where the
@@ -223,7 +225,7 @@ section.list:is(.takeaway, .principles) {
   --list-rule: color-mix(in srgb, var(--border) 55%, transparent);
   --list-rule-inset: 0px;
 }
-section.list.takeaway.numbered { --list-rule-inset: calc(var(--sp-xs) + var(--list-ord-w) + var(--sp-md)); }
+section.list.takeaway:has(> .cell-stage > ol) { --list-rule-inset: calc(var(--sp-xs) + var(--list-ord-w) + var(--sp-md)); }
 section.list.principles { --list-rule-inset: calc(var(--list-ord-w) + var(--sp-md)); }
 section.list:is(.takeaway, .principles) > .cell-stage > :is(ul,ol) > li:not(:last-child) {
   background:linear-gradient(var(--list-rule), var(--list-rule))

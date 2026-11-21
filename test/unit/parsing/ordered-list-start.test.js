@@ -12,7 +12,7 @@ const html = (md) => String(render(`---\nmarp: true\n---\n\n${md}`).html);
 
 test('a list starting at 4 carries offset 3 on its own <ol>', () => {
   const out = html('<!-- _class: list-steps -->\n\n## H.\n\n4. A\n   - x\n5. B\n   - y\n');
-  assert.match(out, /<ol start="4" style="--lat-split-offset:3;">/);
+  assert.match(out, /<ol start="4"[^>]* style="--lat-split-offset:3;">/);
 });
 
 test('a list starting at 1 is untouched', () => {

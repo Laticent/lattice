@@ -114,6 +114,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p:first-child > code",

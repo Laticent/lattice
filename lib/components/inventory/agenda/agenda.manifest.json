@@ -76,6 +76,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
@@ -87,7 +88,7 @@
       "selector": "ol > li",
       "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": false,
-      "description": "Ordered list of section titles. Leave it out and the agenda fills itself from the deck's `divider` headings."
+      "description": "A list of section titles (`1.` or `-`; the ledger numbers itself). Leave it out and the agenda fills itself from the deck's `divider` headings."
     }
   },
   "skeleton": "<!-- _class: agenda -->\n\n## What this deck covers.\n\n1. First section title\n2. Second section title\n3. Third section title\n4. Fourth section title\n",
@@ -125,8 +126,8 @@
       "body": "The agenda is a wayfinder, not a treatment. If a section needs decomposition, that belongs on a section divider when the section opens — not here."
     },
     {
-      "title": "Unnumbered list",
-      "body": "Authoring with `-` instead of `1.` loses the numbered chrome the layout depends on. Always use ordered list syntax."
+      "title": "Typing the section numbers",
+      "body": "Do not write `01`, `02` into the items: the ledger numbers itself. Either list marker works (`1.` or `-`, the list contract renders both the same), so pick the one you type fastest and let the layout count."
     },
     {
       "title": "Single-section decks",
