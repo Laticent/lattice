@@ -6,15 +6,15 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
-### 2026-11-21 — the owner raised one ceiling by hand, for PR 3351: studio lintCoreGz to 165.5 KB
+### 2026-11-21 — the owner raised one ceiling by hand, for PR 3351: studio lintCoreGz to 165.9 KB
 
-Owner OK 2026-11-21, in PR 3351's session: "Lazy fix, +0.6KB", over keeping the migration inside the lint core (+2.1 KB), dropping the Studio's one-click migration (+0.4 KB, and a Studio-only author could not migrate an old deck), or cutting unrelated lint code. PR 3351 (the four notes) adds the `note-key-retired`, `note-malformed` and `plain-comment-notes` rules; the last one's fix runs the whole-deck notes migration, which now loads on demand with the fix driver and takes the parser, notes-core and note-grammar from the lint core rather than importing them, so its chunk shares nothing new with `esm/lint.js`.
+Owner OK 2026-11-21, in PR 3351's session, in two steps. First "Lazy fix, +0.6KB", over keeping the migration inside the lint core (+2.1 KB), dropping the Studio's one-click migration (+0.4 KB, and a Studio-only author could not migrate an old deck), or cutting unrelated lint code. PR 3351 (the four notes) adds the `note-key-retired`, `note-malformed` and `plain-comment-notes` rules; the last one's fix runs the whole-deck notes migration, which loads on demand with the fix driver and takes the parser, notes-core and note-grammar from the lint core rather than importing them, so its chunk shares nothing new with `esm/lint.js`. Then "Raise to 1KB total", after PR 3330 (one list contract) grew `main`'s own lint chunk by about 400 B while PR 3351 was open, over raising by exactly what it needed (0 B left), trimming the three rules' messages, or holding the PR.
 
-Measured with the gate's own closure on `esm/lint.js` after `tools/build-playground.js` and a full docs build, rebased on `main` at 450df6d: `main` is 164.1 KB in CI, PR 3351 with the migration imported statically was 170,998 B, and with it loaded on demand 169,512 B (169,515 B rebased on `main` at 8a66831c). The ceiling rises 168902 -> 169516 (+614 B, the 0.6 KB approved), which leaves 1 B after PR 3351. The soft target is unchanged. Set by hand, as the entries below are.
+Measured with the gate's own closure on `esm/lint.js` after `tools/build-playground.js`: `main` at e95ff1bf is 168,454 B; PR 3351 rebased on it is 169,915 B, 1,461 B over `main` (the same delta as on 450df6d, where the migration imported statically had cost 170,998 B). The ceiling rises 168902 -> 169926 (+1,024 B), which leaves 11 B after PR 3351. The soft target is unchanged. Set by hand, as the entries below are.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
-| studio | lintCoreGz | 152151 | 152151 | +0 | 169516 |
+| studio | lintCoreGz | 152151 | 152151 | +0 | 169926 |
 
 ### 2026-11-20 — measured on the built tree at ade41e4f
 
