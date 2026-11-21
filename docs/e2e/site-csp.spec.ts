@@ -317,17 +317,37 @@ test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko the Playground prev
 	// preview the Playground builds for an author's own deck (deck-preview.js buildSrcdoc) first appears in
 	// the editing view, so check that one too: an inline script patched into the built builder passed the
 	// bake-only check above in Chromium and Gecko.
+	// Every load of the agents file, frames included, so a missing mark says whether the file arrived.
+	const agentLoads: string[] = [];
+	page.on('response', (r) => {
+		if (r.url().endsWith('/lattice-frame-agents.js')) agentLoads.push(`${r.status()} ${r.url()}`);
+	});
+	page.on('requestfailed', (r) => {
+		if (r.url().endsWith('/lattice-frame-agents.js')) agentLoads.push(`failed (${r.failure()?.errorText}) ${r.url()}`);
+	});
 	await page.goto('/playground/?view=edit');
+	const liveFrame = page.locator('iframe[title]:not([data-pg-bake])').first();
 	const live = page.frameLocator('iframe[title]:not([data-pg-bake])').first();
 	// The mark is what proves the agents ran: lattice-frame-agents.js sets it, and so does the inline
 	// fallback, which the policy refuses. It holds at every width.
-	await expect(live.locator('html:not([data-pg-bake])[data-latt-agents]')).toHaveCount(1, { timeout: 30_000 });
+	try {
+		await expect(live.locator('html:not([data-pg-bake])[data-latt-agents]')).toHaveCount(1, { timeout: 30_000 });
+	} catch (err) {
+		throw new Error(`the live frame never ran lattice-frame-agents.js; its loads: ${JSON.stringify(agentLoads)}\n${err}`);
+	}
 	await expect(live.locator('.lattice > section').first()).toBeAttached();
-	// On a phone the edit view gives the editor the whole screen and the preview frame 0 x 0, so the
-	// fit agent has nothing to fit into and keeps the slides hidden (measured 2026-11-21, 390 px, in
-	// Chromium and WebKit). Visibility is only a claim where the frame has a size.
-	const liveBox = await page.locator('iframe[title]:not([data-pg-bake])').first().boundingBox();
-	if (liveBox && liveBox.width > 0 && liveBox.height > 0) {
+	// On a phone the edit view gives the editor the whole screen and the preview frame 0 x 0, so the fit
+	// agent has nothing to fit into and keeps the slides hidden (measured 2026-11-21 at 390 px in Chromium
+	// and WebKit). Every wider project shows the preview beside the editor, so there the frame must have a
+	// size and its slides must be visible. Keyed on the width, not on the box, so a regression that
+	// collapses the frame on a tablet or desktop fails here instead of skipping the check.
+	if ((page.viewportSize()?.width ?? 0) >= 600) {
+		await expect
+			.poll(async () => {
+				const box = await liveFrame.boundingBox();
+				return box ? Math.min(box.width, box.height) : 0;
+			}, { message: 'the edit view shows its preview beside the editor', timeout: 30_000 })
+			.toBeGreaterThan(0);
 		await expect(live.locator('.lattice')).toHaveCSS('visibility', 'visible', { timeout: 30_000 });
 	}
 	expect(await violations()).toEqual([]);
