@@ -64,6 +64,76 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
+<!-- _class: closing silent cover-masthead -->
+<!-- _footer: "cover-masthead · closing cover-masthead — A heavy rule over the title, set left." -->
+
+## The back cover composes as a masthead.
+
+`anchor · closing · cover-masthead`
+
+
+---
+
+<!-- _class: closing silent cover-ledger -->
+<!-- _footer: "cover-ledger · closing cover-ledger — A small-caps title over a double rule." -->
+
+## The back cover composes as a ledger.
+
+`anchor · closing · cover-ledger`
+
+
+---
+
+<!-- _class: closing silent cover-column -->
+<!-- _footer: "cover-column · closing cover-column — An accent column at the right edge, the title set left." -->
+
+## The back cover composes as a column.
+
+`anchor · closing · cover-column`
+
+
+---
+
+<!-- _class: closing silent cover-label -->
+<!-- _footer: "cover-label · closing cover-label — A gallery wall label: a smaller title low on the left under a hairline." -->
+
+## The back cover composes as a label.
+
+`anchor · closing · cover-label`
+
+
+---
+
+<!-- _class: closing silent cover-stage -->
+<!-- _footer: "cover-stage · closing cover-stage — A stage-size centered title." -->
+
+## Thank you.
+
+`anchor · closing · cover-stage`
+
+
+---
+
+<!-- _class: closing silent cover-frame -->
+<!-- _footer: "cover-frame · closing cover-frame — The title boxed in a keyline." -->
+
+## The back cover composes as a frame.
+
+`anchor · closing · cover-frame`
+
+
+---
+
+<!-- _class: closing silent cover-poster -->
+<!-- _footer: "cover-poster · closing cover-poster — A giant title set left." -->
+
+## Make it yours.
+
+`anchor · closing · cover-poster`
+
+
+---
+
 <!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · closing" -->
 
