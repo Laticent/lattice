@@ -761,4 +761,5 @@ gate in this repo can see. Measured per slide, 26 of 27 quadrant slides could ru
 60–110% larger today; one 14-item slide pins the global constant for all of them.
 What this change contributes is a **multiplier** (the bar drops from 16.1 units to
 13.5), not the lever — and with per-slide sizing it moves the count of slides
-clearing `--fs-meta` from 12 of 26 to 22 of 26.
+clearing `--fs-meta` from 12 of 26 to 22 of 26. (#1605 counts the 26 slides other than the 14-item
+stress slide, which is the one that pins the constant.)
