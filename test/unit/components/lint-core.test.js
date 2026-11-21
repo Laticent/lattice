@@ -1229,6 +1229,17 @@ describe('lint-core: block-unsupported', () => {
     assert.deepEqual(run('## S\n\n> Held void.\n- item\n> Renegotiate.\n'), []);
   });
 
+  test('quote: two paragraphs after the quotation warn that the second is a note (owner, D2 on #3362)', () => {
+    const v = { ...bVocab };
+    const q = (body) => core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: quote -->\n\n${body}`, v).filter((f) => f.rule === 'quote-note');
+    assert.equal(q('> We bought it for day one.\n\n— Jane Doe\n\nHead of Product, Pilot Team 3\n').length, 1);
+    assert.deepEqual(q('> We bought it for day one.\n\n— Jane Doe, Head of Product\n'), []);
+    // A sentence after the attribution is the note the rule exists for (the PR's own demo deck).
+    assert.deepEqual(q('> We bought it for day one.\n\n— Jane Doe\n\nInterview conducted in March.\n'), []);
+    // A lazy second line of the quotation, a note in speaker notes, and code are not paragraphs after it.
+    assert.deepEqual(q('> We bought it\nfor day one.\n\n— Jane Doe\n\n<!--\nsay this slowly\n-->\n'), []);
+  });
+
   test('says nothing about a correctly-authored quote carrying no modifier', () => {
     assert.deepEqual(bu('quote', '> A quotation.\n\n— Someone\n'), []);
     assert.deepEqual(bu('quote bare', '> A quotation.\n\n— Someone\n'), []);
