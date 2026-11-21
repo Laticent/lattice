@@ -334,6 +334,16 @@ export function DeckPreview({
 	// engine loaded): the card then sits as a bar along the slide's foot instead of covering it, and the slide stays in
 	// the accessibility tree. Only the engine-load failure sets it; any other failure covers a frame that never painted.
 	const [failedOverSlide, setFailedOverSlide] = React.useState(false);
+	// The failure is the ENGINE's (its import failed), not one render's. Kept so a slide that reveals after the failure
+	// (the bake, landing late) turns the full card into the bar instead of being covered by it.
+	const [engineFailed, setEngineFailed] = React.useState(false);
+	// The engine failed again after the author pressed Retry. An in-page retry imports the entry under a fresh URL, but
+	// the entry's own sub-files keep theirs. Chromium and Gecko replay a failed sub-file until the page reloads, so
+	// Reload recovers there. WebKit (measured on Playwright's build) keeps the failure across a reload and a navigation too, and only a
+	// new tab recovers, so the text names both (PR #3385). Sticky until the engine loads. The Studio writes the deck on
+	// `pagehide` (studio-filo-persist.ts), so a reload or a new tab keeps the author's edits.
+	const [reloadNeeded, setReloadNeeded] = React.useState(false);
+	const retriedRef = React.useRef(false);
 	// One renderer instance for this host (holds the theme + font caches).
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
@@ -560,14 +570,21 @@ export function DeckPreview({
 	// this feature replaced. So while `failed`, watch the frame's opacity (the SAME signal the loader
 	// hand-off uses) and drop the failure as soon as it reveals. Runs only while failed (rare), so it
 	// adds no observer on the healthy path.
+	// An ENGINE failure is different on every host: a slide that reveals then is one the engine did not draw (the
+	// newcomer bake), and the engine is still missing, so the failure stays and becomes the bar along that slide's foot.
 	React.useEffect(() => {
-		if (loader || !failed) return;
+		if (!failed || (loader && !engineFailed)) return;
 		const host = stageRef.current;
 		if (!host) return;
 		const clearOnReveal = () => {
 			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
 			if (fr?.style.opacity && fr.style.opacity !== '0') {
+				if (engineFailed) {
+					setFailedOverSlide(true);
+					return true;
+				}
 				setFailed(false);
+				setFailedOverSlide(false);
 				setFailedWhy('');
 				return true;
 			}
@@ -579,7 +596,7 @@ export function DeckPreview({
 		});
 		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
 		return () => mo.disconnect();
-	}, [loader, failed]);
+	}, [loader, failed, engineFailed]);
 
 	// #1164 a11y — while the failure card owns the surface, hide the PARKED opacity:0 `iframe.live`
 	// from the accessibility tree. Opacity doesn't remove an element from that tree, so without this a
@@ -821,6 +838,12 @@ export function DeckPreview({
 			// and revealed when the import failed, and the full card hid a good slide (PR #3385).
 			const shown = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 			setFailedOverSlide(!!(shown?.style.opacity && shown.style.opacity !== '0'));
+			// A render an edit scheduled also lands here while the engine is down; only a failure after the author's
+			// own Retry turns the card to Reload, and it stays Reload until the engine loads.
+			const afterRetry = retriedRef.current;
+			retriedRef.current = false;
+			setEngineFailed(true);
+			setReloadNeeded((was) => was || afterRetry);
 			setFailed(true);
 			setFailedWhy('the slide engine did not load; check the connection, then Retry');
 			return undefined;
@@ -856,6 +879,10 @@ export function DeckPreview({
 			setFailed(isFailure);
 			setFailedOverSlide(false);
 			setFailedWhy(isFailure ? String(status.error ?? '') : '');
+			// A render ran, so the engine is loaded.
+			retriedRef.current = false;
+			setEngineFailed(false);
+			setReloadNeeded(false);
 		}
 		// (Re)hydrate any live scene on the freshly rendered slide. `bindAnima` self-guards to
 		// attach the load listener once; `syncAnima` covers the in-place patch path (no `load`).
@@ -1039,11 +1066,14 @@ export function DeckPreview({
 	// current sample (still backpressured through the scheduler). A persistent engine error will
 	// simply fail again; the point is to give the user agency instead of a dead blank box.
 	const retry = React.useCallback(() => {
+		retriedRef.current = true;
 		setFailed(false);
 		setFailedOverSlide(false);
 		setFailedWhy('');
 		schedulerRef.current?.schedule();
 	}, []);
+	// The engine failed again after Retry: only a reload clears a sub-file the browser cached as failed (`reloadNeeded`).
+	const reload = React.useCallback(() => window.location.reload(), []);
 
 	// `m-0` neutralizes the `<figure>` UA default margin (`0 40px`) — Tailwind
 	// preflight doesn't reach inside the studio island, and that 40px inline margin
@@ -1104,15 +1134,19 @@ export function DeckPreview({
 				// live-region update (which reads confusingly). Container is a block-level div.
 				<div className={cn('nacre-failed', failedOverSlide && 'nacre-failed--bar')}>
 					<span className="nacre-failed__text" role="status">
-						{failedOverSlide
-							? // The slide on screen is correct; what fails is everything after it. Short, so the bar stays one row.
-								'The slide engine did not load, so edits will not show here.'
-							: failedWhy
-								? `This preview couldn’t render — ${failedWhy}.`
-								: 'This preview couldn’t render.'}
+						{reloadNeeded
+							? failedOverSlide
+								? 'The slide engine still did not load. Reload, or open the page in a new tab.'
+								: 'This preview couldn’t render — the slide engine still did not load; reload, or open the page in a new tab.'
+							: failedOverSlide
+								? // The slide on screen is correct; what fails is everything after it. Short, so the bar stays one row.
+									'The slide engine did not load, so edits will not show here.'
+								: failedWhy
+									? `This preview couldn’t render — ${failedWhy}.`
+									: 'This preview couldn’t render.'}
 					</span>
-					<button type="button" className="nacre-failed__retry" onClick={retry}>
-						Retry
+					<button type="button" className="nacre-failed__retry" onClick={reloadNeeded ? reload : retry}>
+						{reloadNeeded ? 'Reload' : 'Retry'}
 					</button>
 				</div>
 			)}

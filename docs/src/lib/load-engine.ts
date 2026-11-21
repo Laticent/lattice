@@ -90,7 +90,10 @@ export function ensureEngine(url: string): Promise<void> {
 		// A FAILED import() IS CACHED BY THE BROWSER for the page's lifetime (the module map keeps the failure), so
 		// importing the same URL again rejects at once without a fetch: measured on Chromium, WebKit and Gecko, the
 		// preview's Retry made no request at all (PR #3385). So a retry asks for a URL the module map has not seen:
-		// `?retry=N` on the entry. The engine's own chunk imports resolve relative to it, so they are unaffected.
+		// `?retry=N` on the entry. That recovers a failed ENTRY on every engine. It does not recover a failed SUB-FILE
+		// (the entry's static chunk imports keep their URLs): Chromium and Gecko replay that failure until the page
+		// reloads, and WebKit until a new tab, so after a failed Retry the preview offers Reload and names a new tab
+		// (DeckPreview `reloadNeeded`). All measured on PR #3385.
 		const failures = failedImports.get(url) ?? 0;
 		const src = failures ? `${safeSrc}${safeSrc.includes('?') ? '&' : '?'}retry=${failures}` : safeSrc;
 		const m = importModule(src).then(() => {

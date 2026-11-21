@@ -390,7 +390,45 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
 		expect(container.querySelector('.nacre-failed')?.classList.contains('nacre-failed--bar')).toBe(false);
 		await waitFor(() => expect(fr.getAttribute('aria-hidden')).toBe('true'));
+		// The newcomer bake can land AFTER the failure: that slide is correct, so the cover becomes the bar over it and the
+		// frame leaves aria-hidden (the checker on PR #3385 saw the full card over a revealed slide in 3 of 4 desktop runs).
+		fr.style.opacity = '1';
+		await waitFor(() => expect(container.querySelector('.nacre-failed')?.classList.contains('nacre-failed--bar')).toBe(true));
+		expect(container.querySelector('.nacre-failed__text')?.textContent).toBe('The slide engine did not load, so edits will not show here.');
+		await waitFor(() => expect(fr.hasAttribute('aria-hidden')).toBe(false));
 		warn.mockRestore();
+	});
+
+	it('an engine that fails AGAIN after Retry offers Reload: an in-page retry cannot fetch a sub-file the browser cached as failed', async () => {
+		// Every engine keeps a failed engine SUB-FILE's error in the page, and `?retry=N` renames only the entry, so a second
+		// in-page retry fails the same way (measured, PR #3385). A reload recovers on Chromium and Gecko; WebKit needs a new tab.
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const reload = vi.fn();
+		const realLocation = window.location;
+		Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, reload } });
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { container, getByText, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
+			fireEvent.click(getByText('Retry'));
+			await waitFor(() => expect(getByText('Reload')).toBeTruthy());
+			expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('the slide engine still did not load; reload, or open the page in a new tab');
+			// An edit schedules another render, which fails too: the card stays Reload (it is sticky until the engine loads).
+			const calls = whenReady.mock.calls.length;
+			rerender(<DeckPreview options={opts} sample="# B" drawn={false} loader aria-label="p" />);
+			await waitFor(() => expect(whenReady.mock.calls.length).toBeGreaterThan(calls));
+			await waitFor(() => expect(getByText('Reload')).toBeTruthy());
+			fireEvent.click(getByText('Reload'));
+			expect(reload).toHaveBeenCalledTimes(1);
+			// The engine arriving (an edit's render succeeding) clears it all.
+			whenReady.mockImplementation(() => Promise.resolve());
+			rerender(<DeckPreview options={opts} sample="# C" drawn={false} loader aria-label="p" />);
+			await waitFor(() => expect(renderInto).toHaveBeenCalled());
+			await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
+		} finally {
+			Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+			warn.mockRestore();
+		}
 	});
 
 	it('a transient "renderer disposed" (host detached mid-render) does NOT trip the failure affordance', async () => {
