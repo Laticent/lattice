@@ -60,7 +60,10 @@ summary.
    Group sessions tagged `desk:<lane>` under their desk as one line of work.
 3. **Grade** each line of work with the five levels. Nest child sessions under their
    parent. Open a transcript (`list_events`, `kinds: [assistant, result]`) only for 🔴
-   and 🟠 rows, to fill `needs` and `why`.
+   and 🟠 rows, to fill `needs` and `why`. A ✅ or idle session goes into the board's
+   numbered actions as an archive candidate only when it passes all four checks in
+   `engineering/workflow.md` §Desks, "When a session can be archived". Name the
+   failing check for any that stays.
 4. **Write** the YAML in the scratchpad from `engineering/card-examples/fleet.yml`, run
    `npm run card -- <file>`, and paste the output verbatim. When the owner asks for
    the table, or a roster of every session, run `npm run card -- --table <file>`
