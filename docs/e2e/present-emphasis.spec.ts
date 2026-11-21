@@ -64,6 +64,11 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 	await page.clock.pauseAt(pauseAt);
 	await page.getByRole('button', { name: 'Play the presentation' }).click();
 	await expect(dialog.getByRole('button', { name: /Pause/ })).toBeVisible();
+	// Play decides its voice on real async work before the reader's loop is armed, and the paused clock does not
+	// move that work. Wait for the decision to land (the overlay publishes it) before running virtual time. Through
+	// Playwright 1.64 `runFor` spent seconds of real time and covered this gap by accident; 1.65 yields through a
+	// MessageChannel instead, raced past it, and the captions stalled after one or three cues.
+	await expect(dialog).toHaveAttribute('data-reader-rung', /.+/);
 	// The sampler runs on the paused clock too, so it samples virtual time at a fixed TICK.
 	const marks = page.evaluate((tick) => {
 		const out: number[] = [];
