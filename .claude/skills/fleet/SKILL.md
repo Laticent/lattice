@@ -14,7 +14,10 @@ argument-hint: "[table | loud | go A1 A3 | desk <lane> | <name>]"
 
 Tag this session `command-center` and `ui:pinned` (`set_session_tags`) the first
 time it builds a board: desks find it by the first tag, and the second pins it in
-the owner's sidebar.
+the owner's sidebar. On every `/fleet`, also set the title (`set_session_title`) to
+`🛰️ Command Center · YYYY-MM-DD`, today's date in US Eastern time
+(`TZ=America/New_York date +%F`), so the owner can tell today's command center from
+yesterday's at a glance. Skip the call when the title already reads that.
 
 ## Arguments — `/fleet <what>`
 
