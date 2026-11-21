@@ -1,11 +1,12 @@
-# Rebuild the runner image weekly so the actions/runner version never falls behind what GitHub
-# accepts (about 30 days). Pairs with lattice-runner-image.service.
+# Rebuild the runner image daily: a new actions/runner release then reaches jobs within a day
+# (otherwise every job self-updates the runner first), and build-image.sh forces a full rebuild
+# with fresh Ubuntu and Node packages once a week. Pairs with lattice-runner-image.service.
 # Install: sudo cp lattice-runner-image.{service,timer} /etc/systemd/system/ && sudo systemctl enable --now lattice-runner-image.timer
 [Unit]
-Description=Weekly rebuild of the lattice-runner image
+Description=Daily rebuild of the lattice-runner image
 
 [Timer]
-OnCalendar=Sun 04:30
+OnCalendar=*-*-* 04:30
 Persistent=true
 
 [Install]

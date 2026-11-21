@@ -11,7 +11,8 @@ Type=simple
 ExecStart=/opt/lattice-runner/runner-supervisor.sh
 Restart=always
 RestartSec=10
-# Let running jobs finish their current step before a stop kills them.
+# On stop, the supervisor gives each running container 30 s and then kills it: a job in flight
+# is cancelled and shows as failed on GitHub. Stop the service between jobs where you can.
 TimeoutStopSec=60
 KillMode=mixed
 

@@ -64,9 +64,16 @@ Set this up on your router before anything else.
 4. **Open no inbound ports and forward nothing.** Runners only make outbound HTTPS connections:
    they long-poll `github.com` for work.
 
-The Linux supervisor adds a second wall on the host (`tools/runners/linux/firewall.sh`): job
-containers get `REJECT` on every private range, including Tailscale's `100.64.0.0/10`, so they
-stay isolated even if the VLAN is misconfigured.
+**The router cannot separate two machines on the same VLAN.** Traffic between them is switched
+and never reaches the router's firewall. So each machine adds its own wall:
+
+- **Linux** (`tools/runners/linux/firewall.sh`): job containers get `REJECT` on every private
+  range, including the other CI machines and Tailscale's `100.64.0.0/10`, and cannot open a
+  connection to their own host (its sshd, anything on `0.0.0.0`). Containers also cannot reach
+  each other. Jobs resolve names through public DNS (`1.1.1.1`, `9.9.9.9`), because the router's
+  resolver is a private address the wall blocks.
+- **Windows VM** (`guest-setup.ps1`): an outbound Windows Firewall rule blocks the same private
+  ranges, and DNS points at the same public resolvers. Both are baked into the `clean` checkpoint.
 
 **Bandwidth.** In the image test, `npm ci` took 89 s through a proxy. Thirteen jobs starting at
 once all download packages and GitHub cache entries over the same 200 Mbps. If job logs show
@@ -109,9 +116,23 @@ the numbers show that, don't.
    GitHub → Settings → Actions → Runners should now list 8 idle runners named `precision-N-…`.
    They disappear as they take jobs and reappear as fresh ones.
 
-`lattice-runner-image.timer` rebuilds the image every Sunday at 04:30. GitHub refuses runners
-about 30 days behind its latest release, and the rebuild also picks up Node and Ubuntu security
-fixes. Each new job uses the new image; jobs already running are not touched.
+   **Stopping the service cancels running jobs** after 30 seconds, and GitHub shows them as
+   failed. Stop it when the runner list shows no busy runners.
+
+   **A container lives at most 180 minutes** (`LATTICE_MAX_CONTAINER_MINUTES`). That includes
+   the idle wait for a job, so an idle slot re-registers every three hours. The limit means a
+   job that wedges its own runner cannot hold a slot forever.
+
+`lattice-runner-image.timer` rebuilds the image every day at 04:30. GitHub stops sending jobs to
+a runner that is more than about 30 days behind its latest release. A new release therefore
+reaches jobs within a day, so jobs don't spend their first minute self-updating the runner, and a
+forced full rebuild every ISO week picks up Ubuntu and Node security fixes. Each new job uses the
+new image; jobs already running are not touched. The script also deletes old image tags and keeps
+Docker's build cache under 20 GB.
+
+**Disk.** One image is about 5 GB, and a job's writes have no quota: a job that fills the disk
+stops every slot until it ends. Put `/var/lib/docker` on its own partition (200 GB or more), so a
+full Docker disk cannot take the operating system down with it.
 
 **RAM is the Precision's limit, not cores.** Lattice jobs launch Chromium and render PDFs.
 Going to 128 GB (used DDR4 ECC RDIMMs are cheap) and setting `LATTICE_SLOTS=16` doubles its
@@ -126,7 +147,14 @@ Pro is a paid key.
    Never, `powercfg /h off`. Windows Update: set active hours and pause feature updates, then patch
    on your own schedule. Install Tailscale.
 2. **Hyper-V:** `Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All`, then
-   reboot. Create an **External** virtual switch on the wired NIC (CI VLAN).
+   reboot. Create an **External** virtual switch on the wired NIC.
+   **Keep the Alienware host itself off the CI VLAN.** It is your personal machine, so only the
+   VMs belong on the CI VLAN:
+   - make the switch port a trunk carrying your home LAN untagged and the CI VLAN tagged;
+   - tag each CI VM's adapter: `Set-VMNetworkAdapterVlan -VMName lattice-win-ci -Access -VlanId 50`
+     (the same for `lattice-linux-ci`).
+
+   The host then stays on the home LAN, where the router's CI-to-LAN deny rule protects it.
 3. **Linux VM** (`lattice-linux-ci`): 12 vCPUs, 22 GB fixed RAM (dynamic memory off), Ubuntu
    Server 24.04. Inside it, follow §2 steps 2–7 with `LATTICE_SLOTS=4`,
    `LATTICE_MEMORY_PER_JOB=5000m`, `LATTICE_HOST_LABEL=alienware`. In Hyper-V, set the VM's
@@ -134,8 +162,21 @@ Pro is a paid key.
 4. **Windows VM** (`lattice-win-ci`): 4 vCPUs, 6 GB, Generation 2. GitHub's `windows-2025` image
    is Windows Server 2025, so that is the closest guest. A Windows 11 Pro guest also works. **The
    guest needs its own license**, and an evaluation copy is for evaluation, not ongoing CI.
-   1. Inside the VM, as Administrator, run `tools/runners/windows/guest-setup.ps1`.
+   1. Inside the VM, as Administrator, run
+      `tools/runners/windows/guest-setup.ps1 -RunnerVersion <x.y.z> -NodeVersion <22.x.y>`,
+      taking the current versions from github.com/actions/runner/releases and nodejs.org.
    2. Shut the VM down. On the host: `Checkpoint-VM -Name lattice-win-ci -SnapshotName clean`.
+   3. **Refresh the checkpoint monthly.** Every job rolls the VM back, so it never gets Windows
+      updates, Defender signatures or a new runner on its own. Once a month, and whenever
+      actions/runner ships a release: stop the scheduled task, then restore `clean` and boot it.
+      Run Windows Update, replace `C:\actions-runner` with the new runner zip, shut the VM down,
+      run `Remove-VMCheckpoint -VMName lattice-win-ci -Name clean` followed by
+      `Checkpoint-VM -Name lattice-win-ci -SnapshotName clean`, and start the task.
+
+   The job runs as the VM's administrator account through a PowerShell Direct session, with no
+   interactive desktop. That is what lets the host drive it without any network path, and the
+   rollback and the guest firewall are what contain it. A job that needs a logged-in desktop
+   would behave differently from GitHub's `windows-2025`; none of today's Windows suites does.
 5. **Windows supervisor** (host, as Administrator):
    ```powershell
    New-Item -ItemType Directory C:\lattice-runner
@@ -144,7 +185,9 @@ Pro is a paid key.
    .\tools\runners\windows\install-windows-task.ps1
    ```
    The scheduled task starts at boot. For each job it rolls the VM back to `clean`, boots it, runs
-   one job through PowerShell Direct and powers the VM off. Log: `C:\lattice-runner\supervisor.log`.
+   one job through PowerShell Direct and powers the VM off. A VM still running after 180 minutes
+   is powered off. Log: `C:\lattice-runner\supervisor.log` (rotated at 10 MB). For monitoring,
+   put a healthchecks.io URL in `C:\lattice-runner\healthcheck-url.txt`.
 
 Memory budget on 32 GB: about 4 GB for Windows, 22 GB for the Linux VM, 6 GB for the Windows VM.
 Gaming on the Alienware while CI is busy will be slow; stop the Linux VM first if you need the RAM.
@@ -162,10 +205,14 @@ Gaming on the Alienware while CI is busy will be slow; stop the Linux VM first i
 
 ## 5. Monitoring
 
-Create two free checks at healthchecks.io (one per machine, period 1 minute, grace 5 minutes)
-and put each URL in `LATTICE_HEALTHCHECK_URL`. The Linux supervisor pings every minute; the
-service alerts your phone when the pings stop. GitHub's runner list also shows which runners are
-online.
+Create three free checks at healthchecks.io, one per supervisor: the Precision, the Alienware's
+Linux VM and the Windows supervisor. Use a period of 2 minutes and a grace of 10. Put the Linux
+URLs in `LATTICE_HEALTHCHECK_URL` and the Windows one in `C:\lattice-runner\healthcheck-url.txt`.
+
+A supervisor pings only while it can still serve jobs: its token works (it makes an
+authenticated API read each time) and the image, network or VM exists. Otherwise it pings
+`<url>/fail`. So an expired token or a broken Docker shows up as an alert on your phone, not as a
+silent dead host. GitHub's runner list also shows which runners are online.
 
 ## 6. Moving jobs to the runners (not done yet)
 
@@ -206,5 +253,9 @@ Two things to watch on the first runs:
 | Shell scripts are lint-clean | shellcheck | clean |
 | Supervisor registers JIT runners and takes jobs | **UNVERIFIED** | needs the owner's token and machine |
 | `firewall.sh` blocks private ranges | Docker + iptables in the cloud sandbox, a container on `lattice-ci` connecting to `10.0.0.1:443` | without the rules: connects; with them: `Network is unreachable`; running it twice adds no duplicate rules |
+| A job container can still resolve names with the wall up | same, `--dns 1.1.1.1 --dns 9.9.9.9` | resolves; through a private resolver (`--dns 10.99.0.1`, the bug this fixes) it fails |
+| A job container cannot connect to its own host, or to another job | same, a listener on the host and one in a second container | host: refused with the INPUT rule, connects without it; container to container: `Network is unreachable` (`enable_icc=false`); public HTTPS still connects |
+| A runner that dies at once backs off instead of looping | the real `runner-supervisor.sh` and Docker, a stand-in GitHub API handing out an invalid JIT config | 4 registrations in 45 s (5, 10, 20, 40 s apart); the token never on a command line; temporary config files removed; the stop trap ran |
+| The weekly rebuild really rebuilds | `docker build` twice with one `CACHE_EPOCH`, then a new one | same week: every step cached; new week: everything after the base rebuilt |
 | Firewall rules on Ubuntu 24.04's nftables-backed iptables | **UNVERIFIED** | the sandbox is not Ubuntu 24.04; check `sudo iptables -S DOCKER-USER` on the Precision |
 | Every Windows script | **UNVERIFIED** | needs Hyper-V; nothing Windows ran here |

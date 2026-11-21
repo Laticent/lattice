@@ -3,7 +3,11 @@
 #
 # The supervisor (runner-supervisor.sh) asks GitHub for a JIT config and passes it in
 # LATTICE_JIT_CONFIG. A JIT runner registers itself, takes one job and deregisters, so no
-# long-lived registration token ever enters the container.
+# reusable registration token ever enters the container.
+#
+# The config is NOT secret from the job: it ends up on run.sh's command line, which the job can
+# read from /proc. That is acceptable because it is single-use and only registers the runner the
+# job is already running on. Unsetting it just keeps it out of the job's environment variables.
 set -euo pipefail
 
 if [[ -z "${LATTICE_JIT_CONFIG:-}" ]]; then
@@ -12,7 +16,6 @@ if [[ -z "${LATTICE_JIT_CONFIG:-}" ]]; then
 fi
 
 cd /home/runner/actions-runner
-# Hide the config from the job's environment: steps inherit this process's env otherwise.
 jit="$LATTICE_JIT_CONFIG"
 unset LATTICE_JIT_CONFIG
 exec ./run.sh --jitconfig "$jit"

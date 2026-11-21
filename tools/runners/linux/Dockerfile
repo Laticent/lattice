@@ -13,6 +13,9 @@ FROM ubuntu:24.04
 ARG RUNNER_VERSION
 ARG NODE_MAJOR=22
 ARG PLAYWRIGHT_VERSION=1.56.1
+# build-image.sh passes the ISO week, so the first RUN (and every layer after it) rebuilds at
+# least weekly with current Ubuntu packages and Node.
+ARG CACHE_EPOCH=unset
 
 # Every RUN fails on the first failing command, including inside a pipe.
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
@@ -21,13 +24,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
     TZ=Etc/UTC \
     PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
-    ImageOS=ubuntu24 \
-    RUNNER_ALLOW_RUNASROOT=0
+    ImageOS=ubuntu24
 
 # Tools the hosted image ships that ci.yml and its actions call (git, jq, zsh, curl, unzip, xz,
 # python3, sudo), plus the packages ci.yml installs through `.github/actions/apt-cached`
 # (zsh; poppler-utils imagemagick fonts-noto-color-emoji).
-RUN apt-get update \
+RUN echo "cache epoch $CACHE_EPOCH" \
+ && apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates curl wget git git-lfs gnupg jq zsh unzip zip xz-utils sudo \
       python3 python3-pip build-essential pkg-config \
@@ -36,6 +39,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # Node from nodejs.org, newest release of NODE_MAJOR, checked against the published SHA-256 list.
+# The list comes from the same server, so this catches a corrupted download, not a tampered one.
 RUN base="https://nodejs.org/dist/latest-v${NODE_MAJOR}.x" \
  && file=$(curl -fsSL "$base/SHASUMS256.txt" | grep -oE "node-v[0-9.]+-linux-x64\.tar\.xz" | head -n1) \
  && curl -fsSLO "$base/$file" \
