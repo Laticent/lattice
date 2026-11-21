@@ -140,31 +140,41 @@ ranking is shown under a second weighting too.
 | Nothing moves (20%) | 1 | 10 | 5 | 5 | 10 |
 | Slide paints at once (20%) | 10 | 4 | 9 | 10 | 10 |
 | What the wait tells the reader (10%) | 1 | 5 | 4 | 7 | 9 |
-| Startup bytes (15%) | 10 | 9 | 5 | 4 | 3 as built, ~8 with the capture lazy |
+| Startup bytes (15%) | 10 | 9 | 5 | 4 | 3 as first built; 4 as shipped (1,558 B, measured) |
 | Complexity and risk (10%) | 10 | 7 | 7 | 6 | 4 |
-| **Weighted** | **5.1** | **7.9** | **7.2** | **7.4** | **8.3**, ~9.0 with the capture lazy |
+| **Weighted** | **5.1** | **7.9** | **7.2** | **7.4** | **8.3** as first built; **8.4** as shipped |
 
-With bytes at 40% instead of 15%, A overtakes C+ as first built, but not C+ with the capture lazy.
+With bytes at 40% instead of 15%, A overtakes C+. The pick was made on an estimate of about 9.0 for C+ (580 B); the shipped measure is 8.4, still first at the stated weights.
 
 ## What shipped
 
 **C+**, in two halves:
 
-- `docs/src/lib/code-packages/wait.ts`, on the Studio's first load: the registry of each plugin's
-  fence (`lattice-plugin-waits`), `withWaits` (the deck with each listed plugin's block swapped for
-  its wait before the eager render), `waitMarkup` (the afterimage, else the skeleton), and
-  `previewPainted`, which holds the last few painted preview documents until the recorder loads.
+- `docs/src/lib/code-packages/wait.ts`, on the Studio's first load only: the registry of each
+  plugin's fence (`lattice-plugin-waits`), `withWaits` (the deck with each listed plugin's block
+  swapped for its wait before the eager render), `waitMarkup` (the afterimage, else the skeleton)
+  and `waitKey`. `StudioShell.tsx` hands the three to `entry.ts` `setWaits`; the door chunks reach
+  them through `getWaits`, so no other route and no door chunk carries them.
 - `docs/src/lib/code-packages/wait-capture.ts`, loaded with the door: `rememberWaits` writes the
-  registry, and `watchAfterimages` measures each drawn block after a paint and stores its boxes as
-  numbers (`lattice-plugin-afterimages`, 100 blocks, 150 boxes each). `door.ts` hands it the
-  documents through `setPreviewWatcher` when the door loads; a Studio with no plugin never loads it.
+  registry, and each preview's `lattice-preview-painted` event (fired by `single-slide-render.ts`
+  and `StudioShell.tsx` `onLivePreviewPaint`) hands its document to a recorder that measures each
+  drawn block and stores its boxes as numbers (`lattice-plugin-afterimages`, 100 blocks, 150 boxes
+  each). A Studio with no plugin never loads it.
 - `door-run.ts` stamps each drawn block with `data-lattice-wait-key` and, in the stamp-less
   override, draws the block's wait instead of the engine's code block.
 
 Every stored value is forced to a whole number (`n`) before it is written into the SVG, so nothing in
-browser storage reaches a slide as markup (HARD RULE #22).
+browser storage reaches a slide as markup (HARD RULE #22; `wait.test.ts` plants markup and fails
+without the coercion).
 
-**Bytes.** BYTES_TBD
+**Bytes, measured against `main`** (both built here, `check-route-budget.mjs`): Studio +1,558 bytes
+of startup JavaScript (`wait.ts` is 1,463 of them), home +102, Playground +58, declared in
+`docs/route-budget.d/3337-plugin-reload-afterimage.md`. The Studio stays under its ceiling with about
+0.4 KB left. **The estimate behind the pick was wrong:** "about 580 B once the capture loads with the
+door" subtracted the capture from a stub build, but the drawing code itself costs about 1.5 KB
+wherever it lands. Compacting the SVG writer saved 80 bytes; the rest is reading the deck's
+`plugins:` list and its fences, which correctness needs. Re-scored with the measured bytes, C+'s
+bytes score is 4 rather than 8 and its weighted score about 8.4, still first (A 7.9).
 
 **Test.** `docs/e2e/plugin-slots.spec.ts` step 5 now also fails on any frame after a reload that
 shows the plugin's fence as its source, on a wait that is not the afterimage, and on a wait whose
