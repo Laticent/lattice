@@ -13,13 +13,18 @@ import type { Entry, Shot } from './wait';
 const REG_KEY = 'lattice-plugin-waits';
 const AFTER_KEY = 'lattice-plugin-afterimages';
 const n = (v: number) => Math.round(v);
+// The store, read once and kept in memory: a capture runs after every paint of the live preview, and parsing the whole
+// store each time (about 275 KB at the cap) would cost milliseconds per keystroke.
+let store: Record<string, Shot> | null = null;
 function afterimages(): Record<string, Shot> {
+	if (store) return store;
 	try {
 		const v = JSON.parse(localStorage.getItem(AFTER_KEY) || '{}');
-		return v && typeof v === 'object' ? v : {};
+		store = v && typeof v === 'object' ? v : {};
 	} catch {
-		return {};
+		store = {};
 	}
+	return store as Record<string, Shot>;
 }
 
 const AFTER_MAX = 100;
@@ -80,8 +85,12 @@ function capture(doc: Document): void {
 		const median = lums[lums.length >> 1] ?? 0;
 		for (const x of shapes) boxes.push([...x.box, Math.abs(x.lum - median) > 0.15 ? 2 : 1]);
 		const key = root.getAttribute('data-lattice-wait-key') as string;
-		all[key] = { w: n(rr.width), h: n(rr.height), b: boxes };
-		changed = true;
+		const shot = { w: n(rr.width), h: n(rr.height), b: boxes };
+		const same = JSON.stringify(all[key]) === JSON.stringify(shot);
+		// Most recently drawn last, so the cap below drops the blocks drawn longest ago.
+		delete all[key];
+		all[key] = shot;
+		if (!same) changed = true;
 	}
 	if (!changed) return;
 	const keys = Object.keys(all);
@@ -92,7 +101,7 @@ function capture(doc: Document): void {
 }
 
 const watched = new WeakSet<Document>();
-/** Keep the afterimages of a preview document's drawings current while it is shown (each preview's PREVIEW_PAINTED event). */
+/** Keep the afterimages of a preview document's drawings current while it is shown (the live preview's PREVIEW_PAINTED event, StudioShell `onLivePreviewPaint`). */
 function watchAfterimages(doc: Document | null | undefined): void {
 	if (!doc?.documentElement || watched.has(doc)) return;
 	watched.add(doc);
@@ -122,7 +131,8 @@ function watchAfterimages(doc: Document | null | undefined): void {
 // door has loaded, so nothing earlier needs recording.
 if (typeof window !== 'undefined') {
 	window.addEventListener(PREVIEW_PAINTED, (e) => watchAfterimages((e as CustomEvent<Document | null>).detail));
-	for (const f of document.querySelectorAll('iframe')) {
+	// The live preview only: a thumbnail draws the same block at another scale, and would overwrite its afterimage.
+	for (const f of document.querySelectorAll<HTMLIFrameElement>('[aria-label="Live deck preview"] iframe.live')) {
 		try {
 			watchAfterimages(f.contentDocument);
 		} catch {}

@@ -395,7 +395,7 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	const engineOpts = withoutDoorFlags(opts);
 	if (!packages.size && !plugins.size) {
 		if (reporting) report({ unapproved: [], failed: [] });
-		const waits = getWaits();
+		const waits = reporting ? getWaits() : null;
 		return PG.render(waits ? waits.withWaits(source) : source, theme, engineOpts) as R;
 	}
 	// Everything past this point loads only when the Library holds a code package: the kernel,

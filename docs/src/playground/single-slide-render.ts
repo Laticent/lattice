@@ -2590,8 +2590,6 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// The frame is live: measure the deck's other photos through it, so the next slide
 					// the reader turns to is stamped final before it paints.
 					prefetchImages(fr);
-					// Record this document's plugin drawings for the next reload's wait (code-packages/wait.ts).
-					window.dispatchEvent(new CustomEvent('lattice-preview-painted', { detail: fr.contentDocument }));
 					const now = performance.now();
 					const rec = recordRenderSample({
 						engineMs,

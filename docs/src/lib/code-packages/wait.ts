@@ -14,6 +14,7 @@
 export const REG_KEY = 'lattice-plugin-waits';
 export const AFTER_KEY = 'lattice-plugin-afterimages';
 
+
 export type Entry = { name: string; placement: string; aspect?: string; sha: string };
 /** A stored JSON object, or {} when it is missing or unreadable. */
 function stored<T>(key: string): Record<string, T> {
@@ -98,55 +99,86 @@ export function waitMarkup(e: Entry, body: string): string | null {
 	return `<div data-lattice-plugin-wait="${name}" data-wait-shape="${drawn ? 'afterimage' : 'skeleton'}" data-placement="${e.placement === 'stage' ? 'stage' : 'figure'}" role="img" aria-busy="true" aria-label="${name} is loading" style="${style};color:var(--text-muted)">${drawn ? afterimage(shot as Shot) : skeleton()}</div>`;
 }
 
-/** The deck's `plugins:` list, read from its front matter (flow or block form). */
-function listedPlugins(source: string): Set<string> {
-	const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
-	const out = new Set<string>();
-	if (!m) return out;
-	const flow = /^plugins:\s*\[([^\]]*)\]/m.exec(m[1]);
-	if (flow) for (const x of flow[1].split(',')) out.add(x.trim().replace(/^['"]|['"]$/g, ''));
-	const block = /^plugins:\s*\n((?:[ \t]+-[^\n]*\n?)+)/m.exec(m[1]);
-	if (block) for (const line of block[1].split('\n')) {
-		const v = /-\s*(\S+)/.exec(line)?.[1];
-		if (v) out.add(v.replace(/^['"]|['"]$/g, ''));
-	}
+/**
+ * The deck's `plugins:` list. lib/core/deck-plugins.mjs `deckPluginList` is the reader of record, but importing it would
+ * put about 2.2 KB on the Studio's first load (it brings plugin admission with it), so this is a small copy of its rules:
+ * the LAST top-level `plugins:` key wins; a flow list, a scalar, or a block list (comment lines skipped, items at any
+ * indent). wait.test.ts holds it to `deckPluginList` case by case. A miss only costs the old source flash, and a false
+ * hit a wait the door then replaces with its "not listed" placeholder.
+ */
+function deckPluginList(source: string): string[] {
+	const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---/.exec(source);
+	if (!m) return [];
+	const lines = m[1].split(/\r?\n/);
+	let at = -1;
+	for (let i = 0; i < lines.length; i++) if (/^plugins:/.test(lines[i])) at = i;
+	if (at < 0) return [];
+	const out: string[] = [];
+	const add = (x: string) => {
+		const t = x.trim().replace(/^['"]|['"]$/g, '');
+		if (t && !out.includes(t)) out.push(t);
+	};
+	const v = lines[at].slice(8).replace(/\s+#.*$/, '').trim();
+	if (v.startsWith('[')) for (const x of v.slice(1).replace(/\].*$/, '').split(',')) add(x);
+	else if (v) add(v);
+	else
+		for (const l of lines.slice(at + 1)) {
+			if (/^\s*(#|$)/.test(l)) continue;
+			const item = /^\s*-\s+([^\s#]+)/.exec(l);
+			if (!item) break;
+			add(item[1]);
+		}
 	return out;
 }
 
 /**
- * The deck with each block of a plugin it lists, whose fence the registry knows, replaced by its placeholder: what the
- * engine renders BEFORE the door holds the plugins (code-packages/entry.ts, door.ts fast paths). Unchanged for a deck
- * that lists no plugin the registry knows.
+ * The deck with each block of a plugin it lists, whose fence the registry knows, replaced by its wait: what the engine
+ * renders BEFORE the door holds the plugins (code-packages/entry.ts, door.ts fast paths), for a PREVIEW only (an export
+ * never draws a wait). Unchanged for a deck that lists no plugin the registry knows.
+ *
+ * Every fence's body is skipped, so a sample inside another code block is left alone, and a fence under `>` or a list
+ * marker is found. (lib/core/fence-languages.js `scanFences` walks fences the same way, but it ships in a lazy chunk with
+ * its shell heuristics, about 850 bytes this first load cannot spend.) The wait keeps that line's prefix,
+ * so the block stays where the engine would put it, and the body is dedented by the fence's indent, as markdown-it does,
+ * so its key matches the one door-run.ts stamps on the drawing.
  */
 export function withWaits(source: string): string {
-	const r = registry();
-	if (!Object.keys(r).length) return source;
-	const listed = listedPlugins(source);
+	const reg = registry();
+	if (!Object.keys(reg).length) return source;
+	const listed = new Set(deckPluginList(source));
 	if (!listed.size) return source;
 	const lines = source.split('\n');
-	const out: string[] = [];
-	for (let i = 0; i < lines.length; i++) {
-		const open = /^ {0,3}(`{3,}|~{3,})\s*([^\s`]+)?/.exec(lines[i]);
-		const e = open?.[2] ? r[open[2]] : undefined;
-		if (!open || !e || !listed.has(e.name)) {
-			out.push(lines[i]);
-			continue;
-		}
-		const fence = open[1];
-		let j = i + 1;
-		const closes = (line: string) => {
-			const t = line.trim();
-			return t.length >= fence.length && t === fence[0].repeat(t.length);
+	// Quote markers removed, a list marker turned into spaces: the column a fence's content starts at is kept.
+	const quote = (l: string) => /^(?:[ \t]*>)+[ \t]?/.exec(l)?.[0] ?? '';
+	const flat = lines.map((l) => l.slice(quote(l).length).replace(/^([ \t]*)([-*+]|\d{1,9}[.)])([ \t]+)(?=`{3,}|~{3,})/, (_m, a, b, c) => a + ' '.repeat(b.length + c.length)));
+	const out = lines.slice();
+	const GONE = '\u0000';
+	for (let o = 0; o < flat.length; o++) {
+		const open = /^( *)(`{3,}|~{3,})\s*([^\s`]*)/.exec(flat[o]);
+		if (!open) continue;
+		const ch = open[2][0];
+		const closes = (l: string) => {
+			const t = l.trim();
+			return t.length >= open[2].length && t === ch.repeat(t.length);
 		};
-		while (j < lines.length && !closes(lines[j])) j++;
-		const body = lines.slice(i + 1, j).join('\n');
-		const html = waitMarkup(e, body);
-		if (html === null) {
-			out.push(lines[i]);
-			continue;
+		let j = o + 1;
+		while (j < flat.length && !closes(flat[j])) j++;
+		// An unclosed fence runs to the end of the deck in the engine too: the rest is code, left as it is.
+		if (j >= flat.length) break;
+		const e = reg[open[3].toLowerCase()];
+		const html = e && listed.has(e.name) ? waitMarkup(e, flat.slice(o + 1, j).map((l) => l.replace(new RegExp(`^ {0,${open[1].length}}`), '')).join('\n')) : null;
+		if (html !== null) {
+			// The opener's own prefix (quote, list marker, indent) carries the wait; the fence's other lines go.
+			const q = quote(lines[o]);
+			const rest = lines[o].slice(q.length);
+			out[o] = q + rest.slice(0, rest.indexOf(open[2])) + html;
+			for (let k = o + 1; k <= j; k++) out[k] = GONE;
+			// A raw HTML block runs to the next blank line: when text follows the fence at once, the closing line becomes
+			// that blank line, inside the same quote.
+			if (j + 1 < lines.length && lines[j + 1].slice(quote(lines[j + 1]).length).trim()) out[j] = q.trimEnd();
 		}
-		out.push('', html, '');
-		i = j;
+		// Every fence's body is skipped, so a fence quoted inside another code block is never read as one.
+		o = j;
 	}
-	return out.join('\n');
+	return out.filter((l) => l !== GONE).join('\n');
 }

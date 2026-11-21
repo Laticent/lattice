@@ -475,7 +475,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	// under a stamp with no nonce draws it. Judged by the CSS the render paints with, so a render begun with older CSS
 	// cannot race the shell.
 	// Each drawn block carries the key its afterimage is kept under (wait-capture.ts records it; wait.ts draws it).
-	const waits = getWaits();
+	// A preview only (`reporting`): an export never carries a wait or its key.
+	const waits = reporting ? getWaits() : null;
 	for (const c of waits ? capFences.claims : []) {
 		const p = offered.get(c.pkg);
 		if (!waits || !p || (c as { inline?: string }).inline) continue;

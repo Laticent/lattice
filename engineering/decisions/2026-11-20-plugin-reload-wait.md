@@ -167,17 +167,38 @@ Every stored value is forced to a whole number (`n`) before it is written into t
 browser storage reaches a slide as markup (HARD RULE #22; `wait.test.ts` plants markup and fails
 without the coercion).
 
-**Bytes, measured against `main`** (both built here, `check-route-budget.mjs`): Studio +1,558 bytes
-of startup JavaScript (`wait.ts` is 1,463 of them), home +102, Playground +58, declared in
+**Bytes, measured against `main`** (both built here, `check-route-budget.mjs`): Studio +1,854 bytes
+of startup JavaScript (`wait.ts` is about 1,740 of them), home +124, Playground +116, declared in
 `docs/route-budget.d/3337-plugin-reload-afterimage.md`. The Studio stays under its ceiling with about
-0.4 KB left. **The estimate behind the pick was wrong:** "about 580 B once the capture loads with the
+0.2 KB left. **The estimate behind the pick was wrong:** "about 580 B once the capture loads with the
 door" subtracted the capture from a stub build, but the drawing code itself costs about 1.5 KB
-wherever it lands. Compacting the SVG writer saved 80 bytes; the rest is reading the deck's
-`plugins:` list and its fences, which correctness needs. Re-scored with the measured bytes, C+'s
-bytes score is 4 rather than 8 and its weighted score about 8.4, still first (A 7.9).
+wherever it lands, and the checker's fixes below added about 300 bytes. Compacting the SVG writer
+saved 80 bytes. Re-scored with the measured bytes, C+'s bytes score is 4 rather than 8 and its
+weighted score about 8.4, still first (A 7.9).
+
+**Shared readers not reused, and why (HARD RULE #15).** `lib/core/deck-plugins.mjs` `deckPluginList`
+and `lib/core/fence-languages.js` `scanFences` are the readers of record for the `plugins:` list and
+for fences. Both ship in chunks the Studio loads lazily; importing them here measured +2.2 KB on the
+first load, which the route cannot hold. `wait.ts` keeps a small copy of each rule (the last
+`plugins:` key wins; every fence body is skipped, so a fence quoted in another code block is never
+read as one), and `wait.test.ts` holds the plugins reader to `deckPluginList` case by case.
+
+**What the checker found, and what changed** (maker-checker, one `checker` agent on the diff):
+
+| Finding | Fix |
+|---|---|
+| An export taken before the door loaded printed the wait; the door-run key attribute reached Studio exports | Waits and their key apply to previews only (`codeStatus`, the door's `reporting`); `wait.test.ts` renders an export and a preview |
+| A door that never loads, or an unreadable Library, left a stale registry and a skeleton for the page | `entry.ts` `setPlugins([])` clears the registry; a failed door load drops the waits |
+| A plugin fence quoted inside another code block was rewritten | Every fence body is skipped |
+| A fence in a list item broke the list, and its afterimage key never matched | The wait keeps the line's marker; the body is dedented as markdown-it does (tested against markdown-it's own token) |
+| A fence under `>` was not found | Quote markers are read through |
+| The `plugins:` reader disagreed with `deckPluginList` (scalar, comments, column-0 items, a repeated key) | A copy of its rules, held to it by a test |
+| The recorder re-parsed the whole store on every mutation, in every preview, and thumbnails overwrote the live preview's afterimage | The live preview only; the store is kept in memory, written only when a drawing changed, least recently drawn evicted first |
+| The e2e wait checks could pass without a wait ever painting | The reload step holds the door chunk until a wait frame is seen (a signal, not a timer), then requires it |
 
 **Test.** `docs/e2e/plugin-slots.spec.ts` step 5 now also fails on any frame after a reload that
-shows the plugin's fence as its source, on a wait that is not the afterimage, and on a wait whose
-box differs from the drawing's by more than 2 px. With `withWaits` and `waitMarkup` turned off it
-fails on Chromium, WebKit and Gecko (3 to 9 source frames per reload); restored, it passes on all
-three. The follow-up `3292-p1-plugin-reload-code-block` is closed by this change.
+shows the plugin's fence as its source, on a reload where no frame shows the wait, on a wait that is
+not the afterimage, and on a wait whose box differs from the drawing's by more than 2 px.
+`wait.test.ts` covers the fence and front-matter cases, the export gate and the stored-value
+coercion; each of its tests fails on the code the checker reviewed. The e2e failing arm and repeat
+runs are in the PR body. The follow-up `3292-p1-plugin-reload-code-block` is closed by this change.

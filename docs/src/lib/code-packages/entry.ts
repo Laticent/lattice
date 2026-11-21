@@ -65,8 +65,21 @@ export async function setCodePackages(list: { name: string; code: string; facts?
  * list loads nothing unless a load is under way, so the latest list always wins.
  */
 export async function setPlugins(list: { name: string; fence: string; code: string; placeholder?: { placement?: string; aspect?: string; size?: string }; returns?: unknown; css?: string }[]): Promise<void> {
-	if (!list.length && !door && !loading) return;
-	await (await load()).setPlugins(list);
+	if (!list.length && !door && !loading) {
+		// No plugin (or a Library that could not be read): the fence registry the waits read is stale, so drop it, or a
+		// wait would stand where the door will never draw.
+		try {
+			localStorage.removeItem('lattice-plugin-waits');
+		} catch {}
+		return;
+	}
+	try {
+		await (await load()).setPlugins(list);
+	} catch (e) {
+		// The door did not load (offline, a renamed chunk): no plugin can draw on this page, so no wait may stand in for one.
+		waits = null;
+		throw e;
+	}
 }
 
 /** door.ts `codePackagesStamp`: empty until the door has loaded, as it is with no package. */
@@ -82,6 +95,7 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 		const { codeStatus: _status, codeApproval: _approval, ...rest } = opts;
 		engineOpts = rest;
 	}
-	// A listed plugin's block shows its wait (wait.ts), not its fence source, before the door holds the plugins.
-	return PG.render(waits ? waits.withWaits(source) : source, theme, engineOpts) as R;
+	// A listed plugin's block shows its wait (wait.ts), not its fence source, before the door holds the plugins: in a
+	// preview only (`codeStatus`), so an export taken before the door loads never prints a wait.
+	return PG.render(waits && opts?.codeStatus === true ? waits.withWaits(source) : source, theme, engineOpts) as R;
 }
