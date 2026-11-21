@@ -93,6 +93,8 @@ test('the action fails its step when the download fails, and tries three times',
 test('the self-test proves the action fails on a real runner of each OS, and runs when the action changes', () => {
   const wf = YAML.parse(fs.readFileSync(path.join(WORKFLOWS, 'puppeteer-chrome-selftest.yml'), 'utf8'));
   assert.ok(wf.on.pull_request.paths.includes('.github/actions/puppeteer-chrome/**'), 'runs when the action changes');
+  // The action relies on puppeteer's CLI exiting non-zero on a failed download, so an upgrade must run it too.
+  assert.ok(wf.on.pull_request.paths.includes('package-lock.json'), 'runs when dependencies change');
   const job = wf.jobs['fails-by-name'];
   assert.deepEqual(job.strategy.matrix.os.map((o) => o.split('-')[0]).sort(), ['macos', 'ubuntu', 'windows']);
   const steps = job.steps;

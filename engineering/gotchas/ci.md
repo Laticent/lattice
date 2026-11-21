@@ -986,4 +986,4 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   Chrome" in a job where this step passed are a different defect: find it, do not re-run them.
 - **Proof the step fails:** `.github/workflows/puppeteer-chrome-selftest.yml` runs the action on Linux, Windows and
   macOS with `PUPPETEER_CACHE_DIR` below a regular file, and passes only when the action fails. It runs on any PR that
-  changes the action, and on demand.
+  changes the action or `package-lock.json` (a puppeteer upgrade could change the exit code it relies on), and on demand.
