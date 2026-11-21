@@ -57,9 +57,9 @@ function violation(steps) {
 
 test('every job that restores ~/.cache/puppeteer installs Chrome by name after npm ci', () => {
   const covered = jobs().filter((j) => j.steps.some(isPuppeteerCache));
-  // Today: ci.yml's integration, golden-diff and player-webkit, plus six scheduled workflows. A floor, so a parse
+  // Today: ci.yml's integration, golden-diff and player-webkit, plus seven scheduled workflows. A floor, so a parse
   // that finds nothing cannot pass vacuously.
-  assert.ok(covered.length >= 9, `expected at least 9 jobs that cache puppeteer, found ${covered.length}`);
+  assert.ok(covered.length >= 10, `expected at least 10 jobs that cache puppeteer, found ${covered.length}`);
   const bad = covered.map((j) => [j.where, violation(j.steps)]).filter(([, v]) => v);
   assert.deepEqual(bad, [], bad.map(([w, v]) => `${w}: ${v}`).join('\n'));
 });
