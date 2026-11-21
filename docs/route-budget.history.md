@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-21 — the owner raised one ceiling by hand, for PR 3362: playground htmlRaw to 508.4 KB
+
+Owner OK 2026-11-21, in PR 3362's session: "Small raise in #3386", chosen over the standard 10% rebaseline (ceiling ~554 KB) and over trimming PR 3362's new playground samples.
+
+Measured locally with fresh root and docs builds: `main` (with this PR) is 515,721 B, 3,313 B under the 519,034 B ceiling. PR 3362 at 9bf60bc measures 519,814 B, 780 B over. It adds 4,093 B, all inlined in the playground island's props: the `panel-narrow` / `panel-wide` variants of `split-panel` and `split-compare` in the catalog (+2,296 B), and the claim budgets (`capacity.withClaim`) that the in-browser lint reads (+1,347 B). The ceiling rises 519034 -> 520570 (+1,536 B), 756 B over PR 3362's measurement. The soft target is unchanged. Set by hand, as the entries below are. The lasting fix is to stop inlining the catalog into the page HTML (followups.d/3386-p1-playground-catalog-inline.md).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| playground | htmlRaw | 471849 | 471849 | +0 | 520570 |
+
 ### 2026-11-21 — measured on the built tree at 03dce9a9
 
 lint-core grew to the ceiling (#3351 raised it by hand to 165.9KB with 11 B left); #3362's coda and claim-budget rules add ~0.9KB. Standard 10% ceiling raise from the 165.9KB measurement.
