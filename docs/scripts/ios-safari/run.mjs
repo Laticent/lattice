@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 import { PLAYER_CHARTS_SOURCE, runPlayerCharts } from './player-charts.mjs';
-import { LONG_PRESS_MS, pressSelected, tapClicked, tapHold, tapLag, tapVerdict } from './tap-guard.mjs';
+import { inEditorOf, LONG_PRESS_MS, pressSelected, tapClicked, tapHold, tapLag, tapVerdict } from './tap-guard.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = process.env.WEBDRIVER_URL || 'http://localhost:4444';
@@ -247,6 +247,7 @@ async function runStudioProbe(id) {
 function tapLogInstall() {
 	return `
 	const log = (window.__tapLog = { t0: performance.now(), events: [] });
+	const inEditorOf = ${inEditorOf.toString()};
 	const name = (el) => (el && el.nodeType === 1 ? el.tagName + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + (el.textContent ? ' "' + el.textContent.trim().slice(0, 20) + '"' : '') : String(el && el.nodeName));
 	if (!window.__tapLogOn) {
 		window.__tapLogOn = true;
@@ -268,7 +269,7 @@ function tapLogInstall() {
 				const L = window.__tapLog;
 				const el = e.target && e.target.nodeType === 1 ? e.target : null;
 				const doorbell = !!(el && el.closest('[data-undo-doorbell]'));
-				if (L) L.events.push({ type, t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, inEditor: el ? !!el.closest('.ProseMirror') : null, doorbell, target: name(e.target) + (doorbell ? ' [undo doorbell]' : '') });
+				if (L) L.events.push({ type, t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, inEditor: inEditorOf(el), doorbell, target: name(e.target) + (doorbell ? ' [undo doorbell]' : '') });
 			}, { capture: true, passive: true });
 		}
 		document.addEventListener('selectionchange', () => {
@@ -277,7 +278,7 @@ function tapLogInstall() {
 			const sel = getSelection();
 			const node = sel && sel.anchorNode;
 			const host = node && (node.nodeType === 3 ? node.parentElement : node);
-			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), inEditor: host ? !!(host.closest && host.closest('.ProseMirror')) : null, text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) + (sel && !sel.isCollapsed && sel.focusNode ? ' .. focus in ' + name(sel.focusNode.nodeType === 3 ? sel.focusNode.parentElement : sel.focusNode) + ' @' + sel.focusOffset : '') });
+			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), inEditor: inEditorOf(host), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) + (sel && !sel.isCollapsed && sel.focusNode ? ' .. focus in ' + name(sel.focusNode.nodeType === 3 ? sel.focusNode.parentElement : sel.focusNode) + ' @' + sel.focusOffset : '') });
 		}, { capture: true, passive: true });
 	}`;
 }

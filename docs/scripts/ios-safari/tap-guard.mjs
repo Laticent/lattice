@@ -15,6 +15,18 @@
  * The flaky-test coordinator approved exactly this shape on 2026-11-16 (quoted in the PR that added it).
  */
 
+/**
+ * Where a logged selection or focus target sits, for run.mjs's tap log (`inEditor`): true inside a Compose editor
+ * (`.ProseMirror`), false outside every editor, and null when there is no node at all (a cleared selection has no anchor).
+ * null never counts as "outside" (see `pressSelected`), so a dropped selection is not read as a moved one. run.mjs embeds
+ * this function's own source in the page script, so the page and this test run the same code.
+ * @param {{ closest?: (sel: string) => unknown } | null | undefined} el  an element, or the anchor's parent element
+ * @returns {boolean | null}
+ */
+export function inEditorOf(el) {
+	return el ? !!el.closest?.('.ProseMirror') : null;
+}
+
 /** iOS reads a touch held this long as a long press (UIKit's default minimum press duration is 0.5 s). */
 export const LONG_PRESS_MS = 500;
 
