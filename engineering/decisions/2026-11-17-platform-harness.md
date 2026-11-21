@@ -141,4 +141,7 @@ failed rebuild retried, status and stop) before the first real run.
   syncs and rebuilds in 2m 31s (`npm run build` and the docs `build:e2e`); one that touches only an inert path
   (`changelog.d/`) syncs in 0s, and watch re-ran the suite on it by itself (run 44928152244). The deadline kill ended a
   job's whole process tree on Windows at 90 minutes (run 44937679226).
-- **Do the replies reach a subscribed session as events?** Being tested in the pull request that adds this line; the answer replaces this sentence before it merges.
+- **Do the replies reach a subscribed session as events?** Yes (PR #3396, 2026-11-21). A session subscribed to the PR (`subscribe_pr_activity`) got each
+  bot reply as an `issue_comment.created` event about 3 seconds after GitHub created it: the `harness ready` comment
+  (created 21:43:49, queued 21:43:52) and the reply to `/harness status`. So a session can post a command and end its
+  turn, and the result wakes it; it needs no polling. Its own command comments did not come back as events.
