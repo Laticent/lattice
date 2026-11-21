@@ -44,6 +44,7 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 
 - **Expecting it to autoplay in the PDF.** A PDF is paper — it can't play video, and the engine bars iframes for security. `video` is a poster + scannable link by design. If you need in-app playback, that's a separate interactive surface, not a boardroom deck.
 - **A wall of caption.** The caption is one line — 'Scan to watch', a title, a runtime. If you're writing a paragraph about the video, put it in a `content` slide and drop the clip in as a supporting `video`.
+- **A key insight AND a caption on qr, gallery or companion qr.** The poster shrinks to make room for a caption, so on `video` and `companion` both beats fit. The QR column and the gallery placard cannot give: with both beats `qr` fits under `claim-quiet`, `gallery` under `claim-hero`, and `companion qr` does not fit at all. The export says so and names the claim. Keep one beat there.
 - **Instagram with no poster.** Instagram's public thumbnails aren't fetchable, so an Instagram `video` with no `poster=` word falls back to a plain placeholder tile. Author a `poster` for a real still.
 
 ## Authoring
