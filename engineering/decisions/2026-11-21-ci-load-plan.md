@@ -103,7 +103,7 @@ catches and flakes.
 | 4 | C7 | skip `prepare`'s partial build where a full build follows | about 470 min (*estimate*) | low | do |
 | 5 | C2 | render tier on the queue only | 4,043 min, 311 jobs | medium: ejections | do, after the flake fix |
 | 6 | C11 | fix the flakes that get re-run | 279 min in discarded attempts, plus ejections | none | do (it is #33 anyway) |
-| 7 | C9 | cache the build by its inputs (one-job pilot) | about 270–450 min (*estimate*) | low-medium: a wrong key gives a stale build | pilot |
+| 7 | C9 | cache the build by its inputs (one-job pilot) | about 270–410 min (*estimate*) | low-medium: a wrong key gives a stale build | pilot |
 | 8 | C4 | `max_entries_to_build` 5 → 3 | up to 830 min | low: a long queue drains slower | do once Team is live |
 | 9 | C8 | node 24 unit leg to the nightly | 225 min, 28 jobs | low | owner's taste |
 | 10 | C10 | fail fast: heavy jobs wait on lint and unit | up to about 530 min | medium: +9 min and one more runner wait per PR run | not now |
@@ -220,9 +220,9 @@ The build's inputs are the engine (`lib/`, `themes/`, `assets/fonts/`, `kit/`), 
 57% of November's merged PRs did not touch the engine (§3), so most of their pushes rebuild a `dist/` that an
 earlier run on `main` already built. Restoring `dist/` from GitHub's own cache (`actions/cache`, keyed on a hash of
 those paths) instead of building it would skip the 75 s build and about 36 s of `prepare` on those runs. Merged PRs
-that did not touch the engine used 24% of PR job-minutes, and unmerged branches (not classified) another 16%. The
-PR-side build and `prepare` cost about 1,125 job-minutes a day, so the saving is about 0.24–0.40 × 1,125 ≈
-**270–450 job-minutes a day (*estimate*)**.
+that did not touch the engine used 24% of PR job-minutes, and unmerged branches (not classified) another 12–16%. The
+PR-side build and `prepare` cost about 1,125 job-minutes a day, so the saving is about 0.24–0.37 × 1,125 ≈
+**270–410 job-minutes a day (*estimate*)**.
 
 The risk is a key that misses an input: a stale `dist/` and a false green. `build:check:all` in the unit job checks
 the built tree against every generator, so the pilot keeps that step uncached; a wrong key fails there. Nothing
@@ -241,8 +241,9 @@ the largest heavy job from PRs anyway.
 
 ### C11. Flakes as a CI cost
 
-This month 48 `ci.yml` runs were re-run by hand. 35 of them ended green after a failed attempt, which is the
-pattern of a flake re-run until it passes (HARD RULE #33 forbids exactly that). The failed earlier attempts held 33
+This month 48 `ci.yml` runs were re-run by hand and 35 of them ended green. 29 of those 35 had a failed job in an
+earlier attempt, which is the pattern of a flake re-run until it passes (HARD RULE #33 forbids exactly that). Across
+all 48, the failed earlier attempts held 33
 `integration` legs, 14 `studio-smoke`, 7 `golden-diff`, 4 `docs-build` and 2 `unit` failures, and the discarded
 attempts used **279 job-minutes a day**. In the queue, 19 of 390 groups failed: `unit` node 24 was red in 10 of
 them, `docs-build` in 8, `unit` node 22 in 5 and `integration` in 4. Each failure re-runs every entry behind it.
@@ -281,13 +282,14 @@ are gone from `main`. Disabling them in the Actions tab is tidying only.
 
 | What the PR touched | PRs | Share | Its PR-run job-minutes this month | What an affected-only run could skip |
 |---|---|---|---|---|
-| The engine (`lib/`, `themes/`, fonts, `kit/`, `package.json`) | 134 | 43% | 121,263 (60%) | almost nothing: every package and test reads the engine |
+| The engine (`lib/`, `themes/`, fonts, `kit/`, `package.json`) | 134 | 43% | 121,263–127,545 (60–64%) | almost nothing: every package and test reads the engine |
 | The docs site and its workspaces only | 98 | 31% | 18,456 (9%) | most of `unit` (7,112); `integration` already skips |
 | Prose, `backlog.d/` or CI config only | 37 | 12% | 2,158 (1%) | `unit` and the stray `integration` runs |
 | Tools and tests only | 15 | 5% | 4,598 (2%) | the render tests the change does not reach |
 | A non-engine mix (site, tools, tests, `.github`) | 28 | 9% | 21,891 (11%) | part of `integration` (9,709) and `unit` (4,084) |
 
-Unmerged branches used the other 32,511 minutes (16%). Adding up what each row could skip (every job but `lint` in
+Unmerged branches used the other 25,188–32,511 minutes (12–16%). The ranges come from two ways of matching a run
+to its PR by branch name; they disagree on about 7,300 minutes, and the other rows agree to within 3%. Adding up what each row could skip (every job but `lint` in
 the prose and tools rows, `unit` in the site row, `integration` and `unit` in the mix row) gives at most about
 27,200 job-minutes over 20.6 days, **about 1,300 a day: a ceiling, not a forecast.** The `changes` job's path
 filters already take the easy part (a docs-only PR skips `integration`).
