@@ -1,0 +1,75 @@
+name: CodeQL weekly (C# and Python)
+
+# The weekly half of the owner's D1 on PR #3388 (engineering/decisions/2026-11-21-ci-load-plan.md §6).
+# GitHub's default setup scans JavaScript/TypeScript and Actions on every push. C# (one file,
+# tools/office-conformance/openxml-check/Program.cs) and Python (six helper scripts) were 731 of
+# CodeQL's 1,279 jobs a day; they move here, once a week.
+#
+# WHY IT UPLOADS NOTHING. While default setup is on, GitHub rejects SARIF that the CodeQL action or
+# CLI uploads, for every language in the repository, not only the ones default setup scans
+# (docs.github.com: code-scanning/sarif-files/troubleshoot-sarif-uploads/default-setup-enabled). So
+# this job analyzes with `upload: never`, keeps the SARIF as an artifact, and FAILS when it finds
+# anything: a red weekly run is the alert. Moving the whole repository to advanced setup would put
+# these alerts in the Security tab instead; that is the owner's call, not this file's.
+#
+# No push or pull_request trigger, on purpose: this must never add a job to a PR or the merge queue.
+
+on:
+  schedule:
+    - cron: '43 3 * * 1' # Mondays 03:43 UTC, away from the daytime runner peak
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-weekly
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # build-mode none: both languages are analyzed from source, with no build to run.
+        language: [csharp, python]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+      - name: Analyze, keeping the results here
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
+          upload: never
+          output: sarif-results
+      - name: Keep the SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-${{ matrix.language }}-sarif
+          path: sarif-results
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Fail on any finding
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, sys
+          found = 0
+          for f in sorted(pathlib.Path('sarif-results').glob('*.sarif')):
+              for run in json.loads(f.read_text()).get('runs', []):
+                  for r in run.get('results', []):
+                      found += 1
+                      loc = (r.get('locations') or [{}])[0].get('physicalLocation', {})
+                      path = loc.get('artifactLocation', {}).get('uri', '?')
+                      line = loc.get('region', {}).get('startLine', '?')
+                      print(f"::error file={path},line={line}::{r.get('ruleId')}: {r.get('message', {}).get('text', '')}")
+          print(f'{found} finding(s)')
+          sys.exit(1 if found else 0)
+          PY
