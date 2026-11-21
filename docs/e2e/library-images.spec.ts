@@ -456,7 +456,7 @@ for (const engine of [' @gecko', ' @webkit-tablet'])
 				};
 				const dt = new DataTransfer();
 				dt.items.add(new File([blob], 'pano.png', { type: 'image/png' }));
-				const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
+				const input = document.querySelector('[data-testid="library-import-input"]') as HTMLInputElement;
 				input.files = dt.files;
 				input.dispatchEvent(new Event('change', { bubbles: true }));
 			});

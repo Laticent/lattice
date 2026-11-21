@@ -21,9 +21,11 @@ import { CHROME, expect, gotoStudio, isPhone, openSection, test } from './studio
 
 test.describe.configure({ timeout: 180_000 });
 
+// The speaker note is an `@note{…}` (engineering/decisions/2026-11-20-four-notes.md): a plain comment is the author's own
+// and never a note, so it would not reach the reference text.
 const DECK = [
 	'# Halcyon quarterly',
-	'## Retention held\n\n- 94% of accounts renewed.\n\n<!-- Open with the retention number. -->',
+	'## Retention held\n\n- 94% of accounts renewed.\n\n<!-- @note{Open with the retention number.} -->',
 ].join('\n\n---\n\n');
 
 /** A `.lattice` from the kernel both writers use (lib/core/reopenable.js), as a recipient would get it. */
