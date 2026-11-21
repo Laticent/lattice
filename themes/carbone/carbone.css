@@ -73,9 +73,11 @@
  *   next hue over, so series 1-2-3 read as three greens and a flowchart as mint on
  *   mint. The closest adjacent pair measured 0.056 OKLab on the diagram marks and
  *   0.094 on the chart cycle, where indaco and cuoio -- which alternate warm and
- *   cool -- hold 0.105+. The same hues now run most-distinct-first, lime-green
- *   leading as the brand anchor: 0.196 / 0.250 on the marks (light / dark) and
- *   0.198 on the chart cycle. The light fills also moved from near-white (L 0.97,
+ *   cool -- hold 0.105+. The same hues now run most-distinct-first: lime-green
+ *   leads the diagram marks as the brand anchor (0.196 / 0.250, light / dark), and
+ *   blue leads the chart cycle with the green second, because a chart paints "no
+ *   status" in its first category (#3360 D2). Chart cycle: 0.195 / 0.188, the
+ *   closest adjacent pair by lib/core/color.js oklabDistance over the first six. The light fills also moved from near-white (L 0.97,
  *   invisible on the canvas) to the wash band indaco uses (L 0.89). *
  * WHAT THIS FILE USED TO SAY, AND WHY IT WAS WRONG
  * ───────────────────────────────────────────────
@@ -445,13 +447,18 @@
  * also what a chart paints as "no status", and green there sat 0.075 / 0.053 OKLab
  * from the on-track fill, under the 0.08 "merges" line, so an unstatused mark read
  * as on track. The electric green stays the brand's, second in the cycle.
- * Minimum adjacent distance over the working six: 0.198 OKLab light, 0.247 dark. */
+ * Minimum adjacent distance over the working six: 0.195 OKLab light, 0.188 dark
+ * (lib/core/color.js oklabDistance, re-measured after blue moved to slot 1). */
 :root {
   /* Categorical spectrum — carbone's own vivid dark-canvas pigments, most-
-   * distinct-first, anchored to the electric-green identity. All clear ≥3:1
-   * on --bg #1A1A1C. */
+   * distinct-first. Blue leads and the electric-green identity is second, so a
+   * chart's "no status" (the first category) does not read as on track. All
+   * clear ≥3:1 on --bg #1A1A1C. */
   --chart-cat1: light-dark(#0E50BE, #3070E1);  /* bright blue    -- cool complement 4.74 / 5.37 */
   --chart-cat2: light-dark(#114D1B, #48814C);  /* electric green -- brand anchor   4.83 / 8.26 */
+  /* The heatmap keeps the green it was tuned for (heatmap.styles.css --heatmap-hue): blue as its pole cut the light
+   * top step from 6.53:1 to 4.79:1 against an empty cell. */
+  --heatmap-hue: var(--chart-cat2);
   --chart-cat3: light-dark(#973A00, #B9592B);  /* vivid orange   -- warm opposite   4.77 / 6.18 */
   --chart-cat4: light-dark(#603EC2, #7B5EE4);  /* vivid indigo                      4.63 / 4.66 */
   --chart-cat5: light-dark(#00606E, #317F8E);  /* vivid cyan                        4.76 / 8.71 */
@@ -490,11 +497,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#2D3033, #DCDCD7);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#292C2E, #FEFEF8);
+  --heatmap-step3-ink: light-dark(#1B1D20, #FCFCF6);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#090B0D, #272623);
+  --heatmap-step4-ink: light-dark(#EAEEF2, #272623);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#DDE1E4, #3F3E3A);
+  --heatmap-step5-ink: light-dark(#BEC2C5, #3F3E3A);
   /* ── end heatmap ramp ── */
 
   /* Semantic spectrum — charts that encode meaning (gantt bars, progress,

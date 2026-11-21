@@ -103,13 +103,12 @@ describe('the first category stands off the on-track fill', () => {
     const { mergedVars } = require('../../../tools/composed-contrast.js');
     const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
     const { oklabDistance } = require('../../../lib/core/color.js');
-    for (const theme of ['carbone', 'carbone-dark']) {
-      const V = mergedVars(theme);
-      for (const dark of [false, true]) {
-        const hex = (expr) => String(resolveTokenExpr(expr, V, dark)).trim();
-        const d = oklabDistance(hex('var(--chart-cat1)'), hex('var(--pass-mark)'));
-        assert.ok(d >= 0.08, `${theme} ${dark ? 'dark' : 'light'}: the first category sits ${d.toFixed(3)} from on-track (floor 0.08)`);
-      }
+    // carbone-dark only imports carbone and sets color-scheme, so the two faces of carbone cover both themes.
+    const V = mergedVars('carbone');
+    for (const dark of [false, true]) {
+      const hex = (expr) => String(resolveTokenExpr(expr, V, dark)).trim();
+      const d = oklabDistance(hex('var(--chart-cat1)'), hex('var(--pass-mark)'));
+      assert.ok(d >= 0.08, `carbone ${dark ? 'dark' : 'light'}: the first category sits ${d.toFixed(3)} from on-track (floor 0.08)`);
     }
   });
 });

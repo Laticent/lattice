@@ -1084,6 +1084,9 @@ section.print {
   --chart-cat3: var(--print-chart-3); --chart-cat4: var(--print-chart-4);
   --chart-cat5: var(--print-chart-5); --chart-cat6: var(--print-chart-6);
   --chart-cat7: var(--print-chart-7); --chart-cat8: var(--print-chart-8);
+  /* A palette's heatmap hue (--heatmap-hue, carbone) is resolved on :root, so it would carry the screen color past
+   * the remap above; reset it so the printed ramp falls back to --chart-cat-1-hue, the print gray, as it did before. */
+  --heatmap-hue: initial;
   /* …and the chart cycle's INK follows the band for the same reason the --cat-N-ink
    * block above does. It used to ride along for free, being derived from
    * --chart-cat-N-hue; it is a committed per-theme token now (#1536), so it must be

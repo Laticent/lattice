@@ -363,8 +363,12 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
 - The Studio's theme generator (`lib/theme/derive.js`) still derives the one-ink pair, so a generated theme keeps the
   one ink on both faces: correct and readable, but not the light-face triplet. `followups.d/3232-p2-derive-status-triplets.md`.
 - Fixed 2026-11-21 (the owner's call, #3360 D2 A): carbone's first category was its electric green, so an unstatused
-  mark read close to on-track (light 0.075, dark 0.053 OKLab from the pass fill, under check:glance's 0.08). Carbone's
-  chart cycle now leads with its blue and keeps the green second: 0.224 light, 0.233 dark. The triplet contract still
+  mark read close to on-track (light 0.075, dark 0.053 OKLab from the on-track solid, `--pass-mark`, under
+  check:glance's 0.08). Carbone's chart cycle now leads with its blue and keeps the green second: 0.224 light, 0.233
+  dark. Everything else that reads the first chart color follows it (single-series bars, icon and avatar defaults, the
+  spectrum bar's first stop); the heatmap does not, through a new optional `--heatmap-hue` (heatmap.styles.css,
+  sanctioned in SANCTIONED_FALLBACK_READS), because blue as its pole cut the light top step from 6.53:1 to 4.79:1
+  (chart-finish-reach). The print band resets that token so a printed heatmap keeps its gray ramp. The triplet contract still
   holds (`curate-status-triplets.js carbone --check`), and `chart-solids.test.js` pins the 0.08 floor for carbone.
   Ardesia's light face (0.068) and a11y-protanopia's dark face (0.067) sit under the line too and wait on their own
   brand calls: `followups.d/3232-p9-first-category-near-on-track.md`.

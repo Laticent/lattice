@@ -4904,6 +4904,17 @@ function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefa
  */
 const SANCTIONED_FALLBACK_READS = [
   {
+    token: 'heatmap-hue',
+    fallback: 'chart-cat-1-hue',
+    why:
+      'the heatmap ramp\'s hue, OPTIONAL by design: a palette names one only when it wants its magnitude ramp on a ' +
+      'hue other than its first category. Without one the read lands on --chart-cat-1-hue, which is exactly what every ' +
+      'palette\'s heatmap painted before the hook existed, so a palette that does not name one (and a Studio-generated ' +
+      'theme) keeps its behavior; tools/derive-chart-cat-ink.js solves the step inks against the same pole either way. ' +
+      'Carbone names its green (#3360 D2: its chart cycle now leads with blue so "no status" does not read as on ' +
+      'track, and the heatmap keeps the 6.53:1 light top step it was tuned for). Held by chart-finish-reach --check.',
+  },
+  {
     token: 'risk-critical-step-ink',
     fallback: 'fail-on-mark',
     why:

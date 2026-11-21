@@ -25,5 +25,6 @@ source: https://github.com/Laticent/lattice/pull/3360
                    the cycle's first two slots), push pass off it, or accept it. Then extend the
                    carbone pin in test/unit/palette/chart-solids.test.js ("the first category
                    stands off the on-track fill") to every palette.
-       verify    — that test, and wk17/measure.mjs's rendered state-tile distance on both faces.
+       verify    — that test; and on a render, the OKLab distance between an unstatused
+                   .state-node's background and an on-track one's, on both faces.
 ```

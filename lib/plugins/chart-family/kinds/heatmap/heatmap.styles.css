@@ -39,8 +39,10 @@
    * (white text clears it at 4.6:1, so it stands off the slide), and a ramp that tops out there barely clears its
    * own empty cell (carbone's dark top step fell to 2.87:1), so the dark ramp climbs toward the solid lifted halfway
    * to white: dark canvas to bright, the way a dark-slide magnitude reads. tools/derive-chart-cat-ink.js solves
-   * every step's ink against this same pole. */
-  --heatmap-pole: light-dark(var(--chart-cat-1-hue), color-mix(in oklab, var(--chart-cat-1-hue) 50%, white));
+   * every step's ink against this same pole. A palette may name the ramp's hue with `--heatmap-hue` (the first category
+   * by default): carbone leads its chart cycle with blue so "no status" does not read as on track, and keeps its
+   * heatmap on the green it was tuned for (6.53:1 top step against an empty cell on light; blue gave 4.79:1). */
+  --heatmap-pole: light-dark(var(--heatmap-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6))), color-mix(in oklab, var(--heatmap-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6))) 50%, white));
 }
 
 /* Also on the SVG itself, not just the figure: Read·Article re-hosts the bare
@@ -49,7 +51,7 @@
  * same reason. */
 :is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-svg {
   --heatmap-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
-  --heatmap-pole: light-dark(var(--chart-cat-1-hue), color-mix(in oklab, var(--chart-cat-1-hue) 50%, white));
+  --heatmap-pole: light-dark(var(--heatmap-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6))), color-mix(in oklab, var(--heatmap-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6))) 50%, white));
 }
 
 /* THE `:not(.journey)` GUARD, and why a zero-leak collision still gets one.

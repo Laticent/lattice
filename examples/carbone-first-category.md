@@ -81,6 +81,21 @@ footer: "Blue leads; green is second"
 
 ---
 
+<!-- _class: heatmap -->
+
+`Retention · 2026 cohorts`
+
+## The heatmap keeps carbone's green: retention decays fastest in month two.
+
+|  | M0 | M1 | M2 | M3 |
+| --- | --: | --: | --: | --: |
+| Jan 2026 | 100 | 62 | 48 | 44 |
+| Feb 2026 | 100 | 58 | 44 | 41 |
+| Mar 2026 | 100 | 71 | 59 | 55 |
+| Apr 2026 | 100 | 69 | 57 |  |
+
+---
+
 <!-- _class: title -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
