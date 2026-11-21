@@ -203,7 +203,7 @@ jobs:
           git fetch --no-tags --depth=1 origin "$BASE"
           # Fail loudly if the base is still missing: a diff error inside the `if` below would read as "no player files".
           git cat-file -e "$BASE^{commit}"
-          if git diff --name-only "$BASE" "$HEAD" | grep -qE '^(lib/export/|test/integration/export/player-no-js\.test\.js$|\.github/workflows/ci\.yml$)'; then
+          if git diff --name-only "$BASE" "$HEAD" | grep -qE '^(lib/export/|test/integration/export/player-no-js\.test\.js$|\.github/workflows/ci\.yml$|\.github/actions/)'; then
             echo "player=true" >> "$GITHUB_OUTPUT"
           else
             echo "player=false" >> "$GITHUB_OUTPUT"
@@ -241,7 +241,7 @@ jobs:
               - 'package-lock.json'
               - '.github/workflows/ci.yml'
               # The composite actions these jobs run (puppeteer-chrome, apt-cached): an action-only
-              # change must run the jobs that use it before the queue does.
+              # change runs integration and golden-diff on its PR, not first in the queue.
               - '.github/actions/**'
             docs:
               - 'docs/**'
@@ -258,6 +258,9 @@ jobs:
               - 'lib/export/**'
               - 'test/integration/export/player-no-js.test.js'
               - '.github/workflows/ci.yml'
+              # player-webkit runs puppeteer-chrome and playwright-browsers, and the queue does not
+              # force this job on, so an action-only change would otherwise never run it before merge.
+              - '.github/actions/**'
 
   # ── Lint — ALWAYS runs (incl. docs-only) ───────────────────────────────
   # Node-agnostic and browser-free: source lint + author-facing deck lint.
