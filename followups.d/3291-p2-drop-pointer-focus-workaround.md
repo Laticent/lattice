@@ -16,7 +16,7 @@ why now   — `docs/src/lib/compose/pointer-focus-caret.ts` (PR 3291, fix B) rea
             not fix Gecko, which fires `focus` with the caret already at the click (instrumented: `focus@5` before the
             first `selectionchange`, against WebKit's `focus@0`), so the check sees no move and the timer still writes
             back when Firefox's `selectionchange` arrives after 20 ms.
-measured  — real-click first-click probe, the 134 KB deck, 4 workers, module unwired (2026-11-20, the PR that took 1.42.9):
+measured  — real-click first-click probe, the 134 KB deck, 4 workers, module unwired (2026-11-20, PR #3367):
             1.42.8 WebKit 45/96, Gecko 2/96; 1.42.9 WebKit 0/192, Gecko 1/192. Every miss landed at the top of the deck.
 where     — `docs/src/lib/compose/pointer-focus-caret.ts`, its test, the two `handleDOMEvents` lines in
             `docs/src/components/studio/ComposeView.tsx`, and the gotcha's mitigation paragraph in
