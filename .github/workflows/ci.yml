@@ -437,11 +437,17 @@ jobs:
       # dist/lattice.css against bundle() on whatever the developer last built —
       # vacuous in CI, and spuriously red locally after a rebase (#1783).
       #
-      # COST: ~12s, of which ~7s re-runs the ownership guard and preflight gates
-      # that `npm run build` above already ran (build.js runs them unconditionally
-      # under --check; there is no flag to skip). ~5s is new verification. Doubled
-      # in the merge queue, where the node 24 leg runs too.
+      # COST: 77 s p50 over 1,495 runs (2026-11-16..21), not the ~12 s this note used
+      # to say; part of it re-runs the ownership guard and preflight gates that
+      # `npm run build` above already ran (build.js runs them unconditionally under
+      # --check; there is no flag to skip).
+      #
+      # SHARD 1 ONLY. Both node 22 shards build the same tree from the same commit, so
+      # the check gives the same answer on each; running it twice cost ~197 job-minutes
+      # a day (C6, engineering/decisions/2026-11-21-ci-load-plan.md). The node 24 queue
+      # leg is matrix shard 1 too, so it still runs there.
       - name: Generated artifacts match their generators (post-build, end-to-end)
+        if: matrix.shard == 1
         run: npm run build:check:all
       # REMOVED: the playground-bundle byte-diff gate. It asked "is the COMMITTED
       # bundle stale?" — a question with no meaning now that the bundle is built

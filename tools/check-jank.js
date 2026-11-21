@@ -792,6 +792,15 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       return;
     }
     if (el.hasAttribute('data-lattice-berth')) return;
+    // A FINISH IS THE PAGE, NOT THE INK. A deck `finish:` injects `<div class="backdrop"
+    // aria-hidden="true">` (lib/core/backdrop.js) as a full-bleed child of the section: the
+    // slide's atmosphere, painted behind everything. It paints its own surface, so the walk
+    // took it for content — and a 1280x720 box of "ink" swallows every step. Under any preset
+    // with a finish (`editorial`'s ledger, `brand`'s strata) the ink sat at 0..720 on every
+    // step, CROWDING fired at -88px on step 1, and the vacuity warning ended the run with
+    // every verdict meaningless. Only the section's own backdrop is skipped, never a
+    // component's element that merely shares the class name.
+    if (el.classList.contains('backdrop') && el.parentElement && el.parentElement.tagName === 'SECTION') return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden' || num(cs.opacity) === 0) return;
 

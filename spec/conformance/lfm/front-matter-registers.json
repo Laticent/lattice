@@ -947,6 +947,28 @@
    }
   },
   {
+   "name": "cover: light column",
+   "source": "---\ncover: light column\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: poster (composition alone)",
+   "source": "---\ncover: poster\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: masthead light (either order)",
+   "source": "---\ncover: masthead light\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+
+  {
    "name": "logo-finish: bottom-center accent-ink lg",
    "source": "---\nlogo-finish: bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {

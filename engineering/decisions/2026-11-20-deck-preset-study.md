@@ -231,7 +231,9 @@ corrections are listed at the end.
   long-heading stress slides), in own, flip and house, **and in the exported PDF**. Machine gates
   run first: contrast, `tools/pixel-check.js`, `npm run check:jank` and overflow. Then two fresh
   judges, who have not seen earlier rounds, score the **worst slide**, with Classic and today's
-  Editorial in the same batch as calibration anchors. The floor is 8.5 (D5).
+  Editorial in the same batch as calibration anchors. The floor is 8.5 (D5). The corpus is
+  `test/fixtures/preset-corpus.md`, the machine half is `node tools/preset-gate.js`, and the
+  judges follow "The judge protocol" below.
 - **The simplicity budget (D10).** No step adds a Basic-tier control or a picker tile beyond the
   five-in-view limit.
 
@@ -287,6 +289,119 @@ construction; rebase on that real conflict (HARD RULE #16).
 
 Each wave's PR adds its presets to `PRESETS` (whose "four, on purpose" comment is rewritten for
 the grouped picker), passes the overflow guard and the judging gate, and launches together.
+
+### The judge protocol
+
+Every wave PR runs this and records the result in its body. It is the procedure behind V5 and
+the judging-gate rule above.
+
+**1. Machine gates first.** Gate the wave's presets and the two calibration anchors in one run,
+with the previous wave's run as the pixel baseline:
+
+```
+node tools/preset-gate.js --recipe <wave>/earnings.yml … --preset classic,editorial \
+  --against .scratch/preset-gate/<previous run>
+```
+
+The tool renders the corpus deck in own, flip and house, as PNG and as the exported PDF, and runs
+overflow (all three of the CLI's lost-content lines), text contrast (4.5:1), chart-mark fill
+contrast (3:1, sampled from pixels), `check-jank` on the bookends and a card grid with the
+running header or footer as the anchor, and `pixel-check` against the baseline. A preset that fails any of
+them is fixed and re-run; it never reaches a judge. The anchors must pass and must not move,
+unless the wave says why they did. The tool's header describes each gate.
+
+**2. Two fresh judges.** One `checker` and one `red-team` agent, spawned for this wave only, who
+have not seen an earlier round, the study's scores or each other's work. Each gets the contact
+sheets (`sheet-<row>-png.png` and `sheet-<row>-pdf.png` per preset) and the full-resolution PNGs,
+and nothing else: not this note, not the maker's notes, not the floor. A judge who knows the
+floor is 8.5 grades toward it. Build the packet with `--packet <dir>` on the gate run: it holds
+the presets that passed plus the two anchors, under shuffled letters, with untitled sheets, and it
+**prints the letter-to-preset key instead of writing it**. Keep that key out of every file a judge
+can reach until both have reported, and do not hand judges the run's own sheets, which carry the
+preset's name in their title strip. In the first round both judges named the presets: the sheets
+were the run's titled ones, and a key file sat beside the packet.
+
+**3. Calibration anchors in the same batch.** Classic and today's Editorial are judged in the
+same batch as the candidates, not labeled as anchors. Their scores calibrate the batch: if the
+judges score Classic far from its earlier 7 to 8, the batch reads high or low, and the
+candidates' scores are read against the anchors, not as absolutes.
+
+**4. The rubric (§1), scored on the worst slide.** Judge A's five axes (Boardroom, Craft,
+Readability, Robustness, Distinctness; a 10 needs no axis below 8; a fatal flaw caps the score
+at 6) and Judge B's attack (contrast, pattern noise, hierarchy, distinctness, fit to purpose).
+Each judge names the preset's worst slide in each row and in the PDF, and scores that slide,
+not the average: a preset is as good as the slide a board member stops on. Contrast is measured
+from full-resolution pixels, never estimated from a thumbnail.
+
+**5. The verdict.** A preset ships when both judges score its worst slide at 8.5 or above (D5).
+A split goes to the owner with both judges' worst slides attached. Judges score; they never fix.
+The maker's fixes go to a new pair of judges, since a judge who saw the fix is no longer fresh.
+
+**Cost.** Two agents per wave, counted toward the session's total (HARD RULE #25). The machine
+gates cost no agents. A run over the four shipped presets, three rows each, took 14.5 minutes on the
+cloud sandbox (866 s, 2026-11-21).
+
+**The baseline (2026-11-21, the four shipped presets, `--keep-going`).** Classic, Editorial and
+Minimal pass every machine gate in every row. Brand-forward fails text contrast in all three
+rows: the running header and footer on its dark bookends (title, divider, closing) and the
+split-panel lede measure 4.0 to 4.08:1, because its `strata` finish lifts the navy under them;
+on Classic the same chrome measures 4.58:1. The engine fix is not part of the gate, so Brand-forward
+goes to wave 2 as a known failure (it is raised there anyway, §3).
+
+### The first round (2026-11-21, the four shipped presets)
+
+Run on the baseline sheets above, at the owner's request, to exercise the protocol. Not a wave:
+no candidate was judged, only the shipped presets, Classic and Editorial among them.
+
+| Preset | Judge A (`checker`) | Judge B (`red-team`) | Worst slide, in both judges' words |
+|---|---|---|---|
+| Minimal | 7 | 7 | split-panel (5): the lede ends 22 to 26 px above the footer |
+| Classic (anchor) | 7 | 5 | the same, and it "collapses into" Minimal: content slides differ on about 1% of pixels |
+| Brand-forward | 7.5 | 5 | title (1): the footer at 4.09:1 on the dotted navy, in every row; the dot grid behind data |
+| Editorial (anchor) | 7 | 6 | ruled lines strike through the kpi line and the footer; the corner glow reads as a smudge |
+
+What the round taught, beyond the scores:
+
+- **The judges agree with the machine gate where both measure.** Judge B measured Brand-forward's
+  title footer at 4.09:1, the gate at 4.08:1; both found every other text run and mark above
+  the floor (judge B's lowest dark-mode mark 3.21:1, the gate's 3:1 floor).
+- **The judges see what no gate measures.** Distinctness (Classic and Minimal are one look on
+  content slides, D1's finding again), texture striking text (Editorial's rules), and the one
+  slide that caps every look the same way: `split-panel` bottom-anchors its panel, so the lede
+  sits about 3.5 px (CSS) above the footer whatever its length, and `check-jank` reports it only
+  as advisory crowding. That is an engine defect, not a corpus one (shortening the copy moved
+  nothing), so it is a follow-up, and it caps every preset equally until it is fixed.
+- **The anchors calibrate.** Editorial scored 7 and 6 here, against Judge A's earlier 7 on the
+  four-slide deck (§3); the study never scored Classic, so 7 and 5 are its first numbers. Read a
+  wave's candidates against the anchors in their own batch, not against the study's numbers.
+- **The key leaked**, through the titled sheets and a key file (step 2 above; `--packet` now
+  builds the packet so neither can happen).
+
+### The second round (2026-11-21, blind)
+
+The first round's grade asked for a round that was blind to identity. The packet came from
+`--packet` (untitled sheets, the key printed and never written), and the run's named folders were
+moved out of the judges' reach. Two new judges, who had seen neither round, both ended with
+"Identity: unknown". Per the protocol, only the presets that passed every gate, plus the anchors,
+went in, so Brand-forward was left out.
+
+| Preset | Judge A (`checker`) | Judge B (`red-team`) | Worst slide, in the judges' words |
+|---|---|---|---|
+| Editorial (anchor) | 7.5 | 7 | split-panel (5) on the footer; ruled lines against the chart grids (17, 19, 20) |
+| Minimal | 6.5 | 6.5 | the lone "rest." of the donut heading (18); old-style figures make "14.2%" read low (14) |
+| Classic (anchor) | 6.5 | 7.5 | the same as Minimal, from which it differs by about 1% of pixels outside the bookends |
+
+- **Blind judging works**, and it moved the scores. Editorial went from last (round 1, 7 and 6) to
+  first, and Classic and Minimal fell to 6.5. Judges who could read the names graded the names.
+- **Both rounds agree on the defects**: split-panel's lede on the footer (both rounds, all four
+  judges), Classic and Minimal as one look, Editorial's texture against chart grids, scatter
+  labels on gridlines. New in this round: old-style figures in a hero number, an orphaned word in
+  a wrapped heading (18), and the stacked-bar legend's year label sitting on its first series name
+  (17).
+- **Checked and dismissed:** Judge B reported black 11 px notches in every corner of Minimal's
+  PNG slides. Its pixel reader dropped the alpha channel: the corners are transparent (`0,0,0,0`
+  at pixel 1,1, RGBA), as §2 records for rounded slides.
+- **own and house are the same deck for all three**, as the gate's header says. Both judges saw it.
 
 ### What the trio corrected
 
