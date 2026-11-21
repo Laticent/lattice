@@ -748,13 +748,17 @@ async function runPhotoProbe(id) {
  * the cost an iPhone would weigh, not the reload itself.
  */
 async function runPresentMemoryProbe(id) {
-	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
+	const { buildPresentDeck, PRESENT_TITLE, PRESENT_TITLE_4K, presentChecks } = await import('./present-memory.mjs');
 	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
 	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 300);
-	const deck = await buildPresentDeck();
-	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const PIECE = 4_000_000;
-	const pieces = Math.ceil(b64.length / PIECE);
+	const fixture = async (deckSize, title) => {
+		const deck = await buildPresentDeck(undefined, undefined, deckSize, title);
+		const b64 = Buffer.from(deck.bytes).toString('base64');
+		return { deck, b64, pieces: Math.ceil(b64.length / PIECE), title };
+	};
+	const hd = await fixture('', PRESENT_TITLE);
+	const deck = hd.deck;
 	const source = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
 	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -764,20 +768,20 @@ async function runPresentMemoryProbe(id) {
 		if (r?.error) throw new Error(`${what}: ${r.error}`);
 		return r;
 	};
-	const arm = async (name, base) => {
-		const out = { arm: name, base };
+	const arm = async (name, base, { b64, pieces, title, deck: armDeck } = hd) => {
+		const out = { arm: name, base, wantHeading: `${title}.` };
 		try {
 			await wd('POST', `/session/${id}/url`, { url: `${base}/` });
 			await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
 			for (let i = 0; i < pieces; i++) failIf(await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${pieces})`), 'sending the deck');
-			const imported = failIf(await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE)}, ${deck.slides})`), 'importing the deck');
+			const imported = failIf(await call(`latticePresentImport(${JSON.stringify(title)}, ${armDeck.slides})`), 'importing the deck');
 			out.importMs = imported.importMs;
 			out.ua = imported.ua;
 			out.width = imported.width;
 			// A fresh page: the deck comes back from the browser's store, and nothing the import held is still in memory.
 			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
-			failIf(await call('latticePresentReady()'), 'the deck after the reload');
+			failIf(await call(`latticePresentReady(${JSON.stringify(title)})`), 'the deck after the reload');
 			// Settle times, not waits for a signal: memory has no "settled" event. runPhotoMemory reads the same way, and the
 			// margin is wide (102-124 MB read against the 300 MB cap), so a slow runner shifts a reading, not the verdict.
 			await sleep(8000);
@@ -785,6 +789,8 @@ async function runPresentMemoryProbe(id) {
 			const opened = failIf(await call('latticePresentOpen()'), 'opening Present');
 			out.openMs = opened.openMs;
 			out.slides = opened.total;
+			out.heading = opened.heading;
+			out.box = opened.box;
 			await sleep(3000);
 			const m1 = await readMB();
 			const stepped = failIf(await call('latticePresentStep(6)'), 'stepping through Present');
@@ -803,17 +809,24 @@ async function runPresentMemoryProbe(id) {
 		} catch (e) {
 			out.error = String(e.message || e).slice(0, 300);
 		}
-		console.log(`${LABEL}: present arm ${name}: ${out.error ? `ERROR ${out.error}` : `opened in ${out.openMs} ms, steps ${out.stepsMs.join('/')} ms, ${out.grewMB} MB above ${out.baseMB} MB (Present alone ${out.openGrewMB} MB), photos ${out.schemes}, ${out.alive ? 'no reload' : 'THE PAGE RELOADED'}`}`);
+		console.log(`${LABEL}: present arm ${name}: ${out.error ? `ERROR ${out.error}` : `slide laid out ${out.box} wide, opened in ${out.openMs} ms, steps ${out.stepsMs.join('/')} ms, ${out.grewMB} MB above ${out.baseMB} MB (Present alone ${out.openGrewMB} MB), photos ${out.schemes}, ${out.alive ? 'no reload' : 'THE PAGE RELOADED'}`}`);
 		return out;
 	};
-	const arms = [await arm('this build', BASE)];
+	// The 4K arm (#3304): the same photos on a `size: 4k` deck, judged like the first arm and on one more check, that the
+	// presented slide is laid out at HD's 1280 px. A 4K frame is the one WebKit paid for at 3840x2160 times the density
+	// squared, and an iPhone reloaded the tab presenting one (owner, 2026-11-20).
+	const k4 = await fixture('4k', PRESENT_TITLE_4K);
+	const arms = [await arm('this build', BASE), await arm('this build, 4K deck', BASE, k4)];
 	const baseline = process.env.PRESENT_BASELINE_URL;
 	// The baseline is reported, never judged, so a slow production Studio must not spend the job's 30 minutes: past its
 	// budget it is recorded as over budget and the job ends (process.exit below drops the call still in flight).
 	const BASELINE_BUDGET_MS = Number(process.env.PRESENT_BASELINE_BUDGET_MS || 6 * 60_000);
 	if (baseline) arms.push(await Promise.race([arm('baseline', baseline.replace(/\/$/, '')), sleep(BASELINE_BUDGET_MS).then(() => ({ arm: 'baseline', error: `over its ${BASELINE_BUDGET_MS / 1000} s budget` }))]));
 	const a = arms[0];
-	const steps = presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac });
+	const steps = [
+		...presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac }),
+		...presentChecks(arms[1], { slides: k4.deck.slides, capMB: CAP_MB, memory: !mac, box: '1280px' }).map((c) => ({ ...c, name: `4K deck · ${c.name}` })),
+	];
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: a.ua, width: a.width, deckBytes: deck.bytes.length, arms, steps };
 }

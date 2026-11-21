@@ -174,13 +174,17 @@ if (process.env.PROBE === 'present-memory') {
 	// The Present probe, as run.mjs runs it, minus the footprint (only the Mac can read the simulator's): send the deck,
 	// import it, reload, open Present, step six slides. iPhone-sized only, as the suite runs it. BASELINE_URL adds a second
 	// arm that is reported and not judged, as PRESENT_BASELINE_URL does on the Mac.
-	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
+	const { buildPresentDeck, PRESENT_TITLE, PRESENT_TITLE_4K, presentChecks } = await import('./present-memory.mjs');
 	const PRESENT = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
-	const deck = await buildPresentDeck();
-	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const PIECE = 4_000_000;
-	const arm = async (name, base) => {
-		const out = { arm: name };
+	const fixture = async (deckSize, title) => {
+		const deck = await buildPresentDeck(undefined, undefined, deckSize, title);
+		return { deck, b64: Buffer.from(deck.bytes).toString('base64'), title };
+	};
+	const hd = await fixture('', PRESENT_TITLE);
+	const k4 = await fixture('4k', PRESENT_TITLE_4K);
+	const arm = async (name, base, { deck, b64, title } = hd) => {
+		const out = { arm: name, wantHeading: `${title}.` };
 		const context = await browser.newContext(shapes.at(-1).options);
 		const page = await context.newPage();
 		await page.addInitScript(SEED);
@@ -189,12 +193,12 @@ if (process.env.PROBE === 'present-memory') {
 			await page.goto(`${base}/studio/`, { waitUntil: 'domcontentloaded' });
 			const n = Math.ceil(b64.length / PIECE);
 			for (let i = 0; i < n; i++) await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${n})`);
-			const imported = await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE)}, ${deck.slides})`);
+			const imported = await call(`latticePresentImport(${JSON.stringify(title)}, ${deck.slides})`);
 			Object.assign(out, { importMs: imported.importMs, width: imported.width });
 			await page.goto(`${base}/studio/`, { waitUntil: 'domcontentloaded' });
-			await call('latticePresentReady()');
+			await call(`latticePresentReady(${JSON.stringify(title)})`);
 			const opened = await call('latticePresentOpen()');
-			Object.assign(out, { openMs: opened.openMs, slides: opened.total });
+			Object.assign(out, { openMs: opened.openMs, slides: opened.total, heading: opened.heading, box: opened.box });
 			const stepped = await call('latticePresentStep(6)');
 			Object.assign(out, { stepsMs: stepped.steps.map((s) => s.ms), photos: stepped.steps.every((s) => s.photo), alive: (await call('latticePresentAlive()')).mark === opened.mark });
 		} catch (e) {
@@ -204,7 +208,11 @@ if (process.env.PROBE === 'present-memory') {
 		return out;
 	};
 	const mine = await arm('this build', BASE);
-	const steps = presentChecks(mine, { slides: deck.slides, memory: false });
+	const mine4k = await arm('this build, 4K deck', BASE, k4);
+	const steps = [
+		...presentChecks(mine, { slides: hd.deck.slides, memory: false }),
+		...presentChecks(mine4k, { slides: k4.deck.slides, memory: false, box: '1280px' }).map((c) => ({ ...c, name: `4K deck · ${c.name}` })),
+	];
 	report('iPhone-sized', 'present-memory-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: mine.width, steps });
 	if (process.env.BASELINE_URL) {
 		const b = await arm('baseline', process.env.BASELINE_URL.replace(/\/$/, ''));
