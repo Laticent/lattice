@@ -1291,7 +1291,9 @@ The contract, and its limits — be precise about what it does and doesn't cover
   2026-11-20). A session still posts its 🚦 card on its PR, but does not ask the
   owner in chat; `/desk-merge` sends one digest of every ready PR, each at its head
   commit. The owner answers in the command center, and the command center merges each
-  named PR whose head still matches; a moved head is asked again. With no live
+  named PR whose head still matches; a moved head is asked again. After each merge
+  the command center tells that PR's session, which posts its 📋 standup and 🎯
+  brief as after any merge. With no live
   `desk:merge` session, each session asks as below.
 - **Batch the ask when more than one PR is green.** The authorization itself does
   not change — a human still authorizes every merge, and one PR's approval is
