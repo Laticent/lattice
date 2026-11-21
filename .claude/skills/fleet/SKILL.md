@@ -50,8 +50,11 @@ summary.
    `list_pull_requests` call with `sort: created`, `direction: desc`,
    `perPage: <how many open PR numbers are above the last board's highest>`,
    `fields: [number, title, head]` returns
-   exactly them. No new PR: no call. A new session with no new PR joins by the PR
-   comment that names it. Read the newest comments (`pull_request_read` `get_comments`) only for
+   exactly them. No new PR: no call. A session still unjoined after that (its PR
+   was reopened, or is older than the last board and appears on it for the first
+   time) joins by the PR comment that names it; failing that, put the session on the
+   board without a PR and say so in its `state`, rather than fetching `head` for
+   every PR again. Read the newest comments (`pull_request_read` `get_comments`) only for
    PRs whose session is review-ready or blocked: they hold the 🚦 level and the CI run link.
    Group sessions tagged `desk:<lane>` under their desk as one line of work.
 3. **Grade** each line of work with the five levels. Nest child sessions under their
