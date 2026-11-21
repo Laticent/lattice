@@ -673,6 +673,10 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			// the await, so compute the fix against the CURRENT document, not a stale one.
 			const cur = view.state.doc.toString();
 			if (!readFrontMatter(cur).validate) return;
+			// Marks the page from the moment the run has read the deck it fixes until it ends: what an e2e waits on before it
+			// types "during the run" (HARD RULE #32), since the driver's chunk loads first and a keystroke before the read is kept.
+			document.documentElement.dataset.fixAllRunning = '';
+
 			followAdmission(cur);
 			// One task per driver pass (lint-core `fixAllDetailed` with a pause), so the page keeps painting; the author may
 			// type meanwhile, so the result is written only onto the text it was computed from.
@@ -688,6 +692,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			(await import('../lib/fix-all-notice')).announceFixAllByEvent({ applied: res.applied.length, skipped: res.skipped, stale });
 		})().finally(() => {
 			fixAllRunning = false;
+			delete document.documentElement.dataset.fixAllRunning;
 		});
 		return true;
 	};

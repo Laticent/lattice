@@ -90,6 +90,9 @@ export async function fixAllText(read: () => string, sets: VocabSets): Promise<{
 	// The fix driver is a chunk of its own, fetched on the first press (lint-core `loadFixDriver`).
 	await c.loadFixDriver();
 	const before = read();
+	// Marks the page from the moment the run has read the deck it fixes until it ends: what an e2e waits on before it
+	// types "during the run" (HARD RULE #32), since the driver's chunk loads first and a keystroke before the read is kept.
+	document.documentElement.dataset.fixAllRunning = '';
 	// One task per driver pass (lint-core `fixAllDetailed` with a pause), so the page is not frozen while it runs.
 	const res = await c.fixAllDetailed(before, sets, true);
 	return { before, text: res.text, applied: res.applied.length, skipped: res.skipped };
@@ -123,6 +126,7 @@ export async function fixAllCompose(read: () => string, lintVocab: LintVocab, ex
 		await fixAllComposeOnce(read, lintVocab, extras, apply, notify);
 	} finally {
 		composeFixRunning = false;
+		delete document.documentElement.dataset.fixAllRunning;
 	}
 }
 

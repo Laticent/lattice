@@ -959,6 +959,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 					await core.loadFixDriver();
 					// Read the document AFTER the await, so a keystroke typed while it loaded is kept.
 					const cur = docString(v.state.doc);
+					// Marks the page from the moment the run has read the deck it fixes until it ends: what an e2e waits on before it
+					// types "during the run" (HARD RULE #32), since the driver's chunk loads first and a keystroke before the read is kept.
+					document.documentElement.dataset.fixAllRunning = '';
 					// The passes run one task each (lint-core `fixAllDetailed` with a pause), so the click returns at once and
 					// the page keeps painting: the synchronous call froze the Studio for 8.4 s on a deck that needs
 					// the driver's 500 passes (editor-lint.spec.ts). The author can type meanwhile, so the result is
@@ -974,6 +977,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					(await import('@/lib/fix-all-notice')).announceFixAll({ applied: res.applied.length, skipped: res.skipped, stale }, notify);
 				})().finally(() => {
 					fixAllRunningRef.current = false;
+					delete document.documentElement.dataset.fixAllRunning;
 				});
 				return;
 			}

@@ -100,6 +100,9 @@ test('@crosswidth @gecko @webkit-tablet typing in Compose while Fix all runs kee
 	const fix = page.getByRole('button', { name: 'Fix all issues', exact: true });
 	await expect(fix).toBeEnabled({ timeout: 60_000 });
 	await fix.click();
+	// Type only once the run has read the deck: before that, the typing is part of what it fixes (the driver's chunk
+	// loads first; 50 ms of margin in Chromium, measured). Editor.tsx, deck-lint.ts and editor.js mark the run.
+	await expect(page.locator('html[data-fix-all-running]')).toBeAttached({ timeout: 30_000 });
 	// The run is going: type at the end of the last card.
 	const last = page.locator('#studio-pane-editor .ProseMirror li', { hasText: 'body 500' }).last();
 	await last.click();

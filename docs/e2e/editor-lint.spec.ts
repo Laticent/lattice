@@ -206,6 +206,9 @@ test('@webkit-tablet @gecko typing while Fix all runs keeps the typing, writes n
 	test.setTimeout(240_000);
 	await setEditorContent(page, REFUSED_DECK);
 	await runFixAllFromPalette(page);
+	// Type only once the run has read the deck: before that, the typing is part of what it fixes (the driver's chunk
+	// loads first; 50 ms of margin in Chromium, measured). Editor.tsx, deck-lint.ts and editor.js mark the run.
+	await expect(page.locator('html[data-fix-all-running]')).toBeAttached({ timeout: 30_000 });
 	// The run is going: type at the end of the deck. The palette closed on the click.
 	await page.getByLabel('Deck source').click();
 	await page.keyboard.press('ControlOrMeta+End');

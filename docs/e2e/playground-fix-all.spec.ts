@@ -57,6 +57,9 @@ test('@crosswidth @webkit-tablet @gecko typing while Alt-Shift-F runs keeps the 
 	test.setTimeout(150_000);
 	const editor = await loadRefusedDeck(page);
 	await page.keyboard.press('Alt+Shift+F');
+	// Type only once the run has read the deck: before that, the typing is part of what it fixes (the driver's chunk
+	// loads first; 50 ms of margin in Chromium, measured). Editor.tsx, deck-lint.ts and editor.js mark the run.
+	await expect(page.locator('html[data-fix-all-running]')).toBeAttached({ timeout: 30_000 });
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.type('TYPED');
 	await expect(page.getByText(STALE)).toBeVisible({ timeout: 90_000 });
