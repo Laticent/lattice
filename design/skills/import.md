@@ -87,7 +87,23 @@ does not read. `lint:deck` names each one.
 
 - **Studio**: "Import deck…" (⌘K / Ctrl+K, or the deck switcher); drag a file
   onto the Studio. Pasting into the editor also works: the editor normalizes
-  line endings on paste.
+  line endings on paste. Neither file picker filters by type, on any device:
+  iOS grays out a `.lattice` under any `accept` list, so the reader sniffs the
+  bytes instead and names a file that is not a deck.
+- **Library**: its one Import (or a drop on the Library) takes a deck too:
+  `.lattice`, a deck saved as `.zip`, `.pptx`, a Lattice webpage (`.html`,
+  `.htm`), `.mdx` and a Lattice PDF. The deck lands on the Files tab as
+  reference material, its slide text and speaker notes, so the chat can read it.
+  Its card's "Open as deck" opens it through the same reader as "Import deck…".
+  A `.zip` that holds a package still imports as a package; the bytes decide
+  which. A webpage that holds no Lattice deck is refused with the reader's own
+  message. The Library keeps a copy of a deck up to 50 MB; a bigger one is
+  refused with a pointer to "Import deck…". A `.md` stays a plain reference
+  file and gets "Open as deck": rebuilt from its stored text when that text is
+  the file byte for byte, else from a copy of the file the Library keeps (a long
+  deck cut at the reference cap, CRLF, a BOM). A plain PDF, and a PowerPoint made
+  elsewhere, land as reference only; a PowerPoint's pictures and audio never
+  count toward the limit, since only its slides and notes are read.
 - **CLI**: `npx @laticent/lattice deck.md deck.pdf` reads a Markdown file and strips a
   BOM and CRLF/CR line endings on the way in (`readFileOrDie` in `lattice.js`).
 - **Lint**: `npm run lint:deck -- <file>`; `--fix` applies the machine fixes.
@@ -298,7 +314,8 @@ four and the buddy detail.
 
 - `docs/src/components/studio/deck-import.ts` — what "Import deck…" reads and
   refuses, and why.
-- `docs/src/components/studio/deck-import-accept.ts` — the file picker's list.
+- `docs/src/components/studio/library-deck-ref.ts` — how the Library keeps a
+  deck as reference text and opens it with "Open as deck".
 - `engineering/decisions/2026-08-04-line-endings-lf-boundaries.md` — LF, BOM
   and the ingest boundary list.
 - `engineering/decisions/2026-10-05-reopenable-exports.md` — how a Lattice PDF

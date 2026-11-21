@@ -107,7 +107,7 @@
       "description": "Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3123
+      "tokens": 3454
     },
     {
       "name": "lens",
@@ -152,7 +152,7 @@
       "description": "Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do.",
       "kind": "operate",
       "studio": true,
-      "tokens": 4681
+      "tokens": 4716
     },
     {
       "name": "theme",

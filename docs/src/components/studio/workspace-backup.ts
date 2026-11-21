@@ -31,7 +31,7 @@ import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
 import { LIBRARY_SCOPE } from './media-store';
 import { blobToDataUrl, dataUrlToBlob, MAX_DOC_BYTES } from './reference-doc';
-import { listRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
+import { listRefDocs, MAX_DECK_REF_BYTES, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene, unreadableSceneShelf } from './scene-library';
 import { exportStudioState, type ImportSummary, importStudioState, loadSource, mapCheckpointSources, requestSourceFlush, resolvedSources, type StudioExport, saveSource, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
@@ -94,8 +94,10 @@ export type PackReport = {
 	refdocsBytes: number;
 	/** Rows in it, one per reference doc. */
 	refdocRows?: number;
-	/** Names of saved PDFs this browser could not read back, so they are not in the file. */
+	/** Names of saved PDFs and deck files this browser could not read back, so they are not in the file. */
 	refdocsUnreadable?: string[];
+	/** Bytes of the deck files written to `refdoc-decks/` (a deck kept in the Library as reference). */
+	refdocDeckBytes?: number;
 	/** Bytes and entries of the nested `library.zip`, and what its files inflate to. */
 	libraryBytes?: number;
 	libraryEntries?: number;
@@ -180,8 +182,28 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 		// deflates back to about the PDF's size. A PDF the browser can no longer read (IndexedDB lost the file behind
 		// the Blob) is left out and named in the report: it must not cost the whole backup.
 		const rows: unknown[] = [];
+		let deckNo = 0;
+		let deckBytes = 0;
 		for (const r of refdocs) {
-			const { blob: _blob, data: _data, ...rest } = r;
+			const { blob: _blob, data: _data, deck: _deck, deckData: _deckData, ...bare } = r;
+			// A deck kept as reference (library-deck-ref.ts) carries its FILE as a binary entry under `refdoc-decks/`, the
+			// way photos ride under `media/`, never as base64 in this JSON: a 50 MB deck would be 70 MB of text, a few would
+			// push the lane past what a restore reads (and lose every doc in it), and a few more past the longest string
+			// the browser can build. The row names its entry. A file the browser cannot read costs only "Open as deck": the
+			// row keeps its reference text, and the file is named in the report.
+			let rest: typeof bare & { deckFile?: string } = bare;
+			if (r.deck) {
+				try {
+					const data = new Uint8Array(await r.deck.arrayBuffer());
+					const deckFile = `${REFDOC_DECKS_DIR}d${++deckNo}.bin`;
+					// STORED: a `.lattice`, a PowerPoint and a PDF are already compressed.
+					zip.file(deckFile, data, { compression: 'STORE' });
+					deckBytes += data.byteLength;
+					rest = { ...bare, deckFile };
+				} catch {
+					if (report) (report.refdocsUnreadable ??= []).push(r.name);
+				}
+			}
 			if (r.dataUrl) {
 				rows.push({ ...rest, dataUrl: r.dataUrl });
 				continue;
@@ -204,6 +226,7 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 		if (report) {
 			report.refdocsBytes = utf8Length(json);
 			report.refdocRows = refdocs.length;
+			if (deckBytes) report.refdocDeckBytes = deckBytes;
 		}
 	}
 
@@ -228,15 +251,24 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 	if (report) report.stateBytes = (report.stateBytes ?? 0) + utf8Length(manifestJson);
 	zip.file(
 		'README.md',
-		`# Lattice workspace backup\n\nExported ${manifest.exportedAt}. ${manifest.counts.decks} deck(s), ${manifest.counts.themes} theme(s), ${manifest.counts.components} component(s), ${manifest.counts.finishes} finish(es), ${scenes.length} scene(s), ${refdocs.length} reference doc(s), ${media.rows} photo(s).\n\n- \`decks/*.md\` — your decks, readable anywhere.\n- \`media/\` + \`media.json\` — your Library photos (a deck names one as \`asset:<name>\`).\n- \`workspace.json\` + \`library.zip\` + \`refdocs.json\` — the full workspace; restore via Studio → Workspace → General → Restore backup.\n${unreadableScenes.length ? `- \`library-unreadable-scenes.json\` — ${unreadableScenes.length} saved scene(s) this version could not read. They are kept here exactly as stored, and a restore puts them back untouched. Nothing was discarded.\n` : ''}${scenesUnavailable ? `\n**Scenes are not in this backup.** The scene shelf could not be read when this file was written, so this backup makes no claim about your saved scenes — it does not mean you have none. Take another backup once the Studio opens normally.\n` : ''}\nYour OpenRouter connection is deliberately NOT in this file — reconnect with one click after a restore.\n`,
+		`# Lattice workspace backup\n\nExported ${manifest.exportedAt}. ${manifest.counts.decks} deck(s), ${manifest.counts.themes} theme(s), ${manifest.counts.components} component(s), ${manifest.counts.finishes} finish(es), ${scenes.length} scene(s), ${refdocs.length} reference doc(s), ${media.rows} photo(s).\n\n- \`decks/*.md\` — your decks, readable anywhere.\n- \`media/\` + \`media.json\` — your Library photos (a deck names one as \`asset:<name>\`).\n- \`workspace.json\` + \`library.zip\` + \`refdocs.json\` + \`refdoc-decks/\` — the full workspace; restore via Studio → Workspace → General → Restore backup.\n${unreadableScenes.length ? `- \`library-unreadable-scenes.json\` — ${unreadableScenes.length} saved scene(s) this version could not read. They are kept here exactly as stored, and a restore puts them back untouched. Nothing was discarded.\n` : ''}${scenesUnavailable ? `\n**Scenes are not in this backup.** The scene shelf could not be read when this file was written, so this backup makes no claim about your saved scenes — it does not mean you have none. Take another backup once the Studio opens normally.\n` : ''}\nYour OpenRouter connection is deliberately NOT in this file — reconnect with one click after a restore.\n`,
 	);
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
+/** Where a backup keeps the files of decks saved in the Library as reference, one binary entry each. */
+export const REFDOC_DECKS_DIR = 'refdoc-decks/';
+const REFDOC_DECK_FILE = /^refdoc-decks\/d[1-9][0-9]{0,5}\.bin$/;
+/** The most deck-file bytes a restore reads in total, the budget photos get (workspace-media.ts): at the 50 MB a
+ *  Library keeps per deck, twenty full-size decks. A row whose file would pass it comes back as its text alone. */
+export const MAX_REFDOC_DECKS_RESTORE_BYTES = 1024 * 1024 * 1024;
+
 /**
- * The most `refdocs.json` may inflate to. Reference docs are the one part of a backup that is
- * legitimately large: a PDF is capped at 5 MB (`reference-doc.ts`) but the Library holds any
- * number, and a 5 MB PDF rides as a 6.7 MiB data URL. Measured (2026-09-25, Node, random-byte
+ * The most `refdocs.json` may inflate to. It holds TEXT only: a reference doc's text, and a PDF's
+ * bytes as base64 (the format older versions read). A deck's file is NOT here: it rides as a binary
+ * entry under `refdoc-decks/` with its own budget (`MAX_REFDOC_DECKS_RESTORE_BYTES`), so a deck saved
+ * in the Library adds only its capped text to this lane. A PDF is capped at 5 MB (`reference-doc.ts`)
+ * but the Library holds any number, and a 5 MB PDF rides as a 6.7 MiB data URL. Measured (2026-09-25, Node, random-byte
  * PDFs): 8 of them make a 53 MiB file, 36 make 240 MiB and take about 6 s and 1.8 GB to read
  * and parse. 256 MiB keeps 38 maximum-size docs (far more typical ones) and is half of
  * Chrome's longest string (about 512 MiB), above which the export could not write the file at
@@ -269,6 +301,52 @@ async function readLane(entry: object | null, max: number, what: string, parseJs
 	// a million of them.
 	if (rows.length > MAX_BACKUP_ROWS) return skip(`more than ${MAX_BACKUP_ROWS.toLocaleString('en-US')} rows`);
 	return rows;
+}
+
+/**
+ * A deck file a `refdocs.json` row names, read from its binary entry, or null (and `refuse(why)` when the row named one
+ * that cannot come back). The row is untrusted: the path must be one `packWorkspace` writes, the entry must declare no
+ * more than one deck may be, and the shared `budget` stops the lane's total. A row with no `deckFile` is a plain doc.
+ */
+async function readDeckEntry(zip: { file: (path: string) => object | null }, deckFile: unknown, total: { used: number; max: number }, refuse: (why: string) => void): Promise<Blob | null> {
+	if (deckFile === undefined) return null;
+	if (typeof deckFile !== 'string' || !REFDOC_DECK_FILE.test(deckFile)) {
+		refuse('its path is not one Lattice writes');
+		return null;
+	}
+	const entry = zip.file(deckFile);
+	if (!entry) {
+		refuse('the file is missing from the backup');
+		return null;
+	}
+	if (declaredInflatedBytes(entry) > MAX_DECK_REF_BYTES) {
+		refuse(`over the ${Math.floor(MAX_DECK_REF_BYTES / 1_048_576)} MB the Library keeps for one deck`);
+		return null;
+	}
+	// Two budgets. This entry's own, so one that understates its size stops at one deck's cap, not at the restore's whole
+	// deck budget; and the restore's total, charged with what this entry actually held.
+	const perDeck = `over the ${Math.floor(MAX_DECK_REF_BYTES / 1_048_576)} MB the Library keeps for one deck`;
+	const totalLimit = `over the ${Math.floor(total.max / 1_048_576)} MB of deck files a restore reads`;
+	if (total.used >= total.max) {
+		refuse(totalLimit);
+		return null;
+	}
+	try {
+		const read = readBytesBudget(perDeck, MAX_DECK_REF_BYTES);
+		const bytes = await read(entry as Parameters<typeof read>[0]);
+		if (!bytes) return null;
+		total.used += bytes.byteLength;
+		if (total.used > total.max) {
+			refuse(totalLimit);
+			return null;
+		}
+		return new Blob([bytes]);
+	} catch (e) {
+		const why = (e as Error).message;
+		// The budget's own refusal reads as it is; anything else (JSZip's "uncompressed data size mismatch") is a damaged entry.
+		refuse(why === perDeck ? why : 'the file in the backup is damaged');
+		return null;
+	}
 }
 
 /** UTF-8 length of `s` without encoding it (a backup's refdocs can be hundreds of MB). */
@@ -313,7 +391,8 @@ export function backupRestoreGaps(report: PackReport): string[] {
 	if ((report.stateBytes ?? 0) > MAX_INFLATED_BYTES) gaps.push(`your decks, chats and settings (${mb(report.stateBytes ?? 0)}) are over the ${limit(MAX_INFLATED_BYTES)} a restore reads, so this backup will not restore at all`);
 	if (report.refdocsBytes > MAX_REFDOCS_BYTES) gaps.push(`your reference docs (${mb(report.refdocsBytes)}) are over the ${limit(MAX_REFDOCS_BYTES)} a restore reads, so they will not come back from it`);
 	else if ((report.refdocRows ?? 0) > MAX_BACKUP_ROWS) gaps.push(`you have more than ${MAX_BACKUP_ROWS.toLocaleString('en-US')} reference docs, more than a restore reads, so they will not come back from it`);
-	if (report.refdocsUnreadable?.length) gaps.push(`${report.refdocsUnreadable.length} saved PDF${report.refdocsUnreadable.length === 1 ? '' : 's'} (${report.refdocsUnreadable.slice(0, 3).join(', ')}) could not be read from this browser, so ${report.refdocsUnreadable.length === 1 ? 'it is' : 'they are'} not in this file`);
+	if ((report.refdocDeckBytes ?? 0) > MAX_REFDOC_DECKS_RESTORE_BYTES) gaps.push(`the decks saved in your Library (${mb(report.refdocDeckBytes ?? 0)}) are over the ${limit(MAX_REFDOC_DECKS_RESTORE_BYTES)} a restore reads, so some will come back as reference text without "Open as deck"`);
+	if (report.refdocsUnreadable?.length) gaps.push(`${report.refdocsUnreadable.length} saved file${report.refdocsUnreadable.length === 1 ? '' : 's'} (${report.refdocsUnreadable.slice(0, 3).join(', ')}) could not be read from this browser, so ${report.refdocsUnreadable.length === 1 ? 'it is' : 'they are'} not in this file`);
 	if (report.mediaUnreadable?.length) gaps.push(`${report.mediaUnreadable.length} of your photos or videos (${report.mediaUnreadable.slice(0, 3).join(', ')}) could not be read from this browser, so ${report.mediaUnreadable.length === 1 ? 'it is' : 'they are'} not in this file`);
 	if ((report.mediaSkipped ?? 0) > 0) gaps.push(`${report.mediaSkipped} of your photos are in a type a backup does not carry, so they are not in this file`);
 	if ((report.mediaBytes ?? 0) > MAX_MEDIA_RESTORE_BYTES) gaps.push(`your photos (${mb(report.mediaBytes ?? 0)}) are over the ${limit(MAX_MEDIA_RESTORE_BYTES)} a restore reads, so some will not come back from it`);
@@ -509,6 +588,7 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		}
 	}
 
+	const deckBudget = { used: 0, max: MAX_REFDOC_DECKS_RESTORE_BYTES };
 	for (const rec of refdocRecords as RefDocRecord[]) {
 		// A row that is not a named record is junk, not a doc: skip it without a write.
 		if (!rec || typeof rec !== 'object' || typeof rec.name !== 'string' || !rec.name) continue;
@@ -519,8 +599,12 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 			summary.refused.push({ name: `reference doc ${rec.name.slice(0, 60)}`, why: 'its PDF is not readable base64 data, or is over the size a reference doc may be' });
 			continue;
 		}
+		// A deck's file comes back only from a `refdoc-decks/` entry this backup holds, within one deck's cap and the
+		// lane's running budget; otherwise the doc returns as its reference text alone, which is what it grounds a call
+		// in either way, and the restore names what it left out.
+		const deck = await readDeckEntry(zip, (rec as { deckFile?: unknown }).deckFile, deckBudget, (why) => summary.refused.push({ name: `deck file of ${rec.name.slice(0, 60)}`, why }));
 		// saveRefDoc upserts by name — the same path Library import uses; it stores the PDF as binary.
-		await saveRefDoc({ id: rec.id, name: rec.name, kind: pdf ? 'pdf' : 'text', text: rec.text, dataUrl: rec.dataUrl, bytes: rec.bytes }, rec.addedAt ?? now);
+		await saveRefDoc({ id: rec.id, name: rec.name, kind: pdf ? 'pdf' : 'text', text: rec.text, dataUrl: rec.dataUrl, bytes: rec.bytes }, rec.addedAt ?? now, { deck, sourceExact: (rec as { sourceExact?: unknown }).sourceExact === true });
 		summary.refdocs++;
 	}
 

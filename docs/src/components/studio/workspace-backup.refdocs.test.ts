@@ -30,12 +30,29 @@ vi.hoisted(() => {
 });
 
 import { deleteAsset, listAssets } from './library/asset-store.js';
-import { listRefDocs, saveRefDoc } from './reference-doc-store';
+import { listRefDocs, MAX_DECK_REF_BYTES, refDocDeckFile, saveRefDoc } from './reference-doc-store';
 import { exportStudioState, importStudioState, loadSource, saveSource } from './studio-store';
 import { backupRestoreGaps, type PackReport, packWorkspace, restoreWorkspace } from './workspace-backup';
 import { MAX_INFLATED_BYTES } from './zip-limits';
 
 const T0 = 1_700_000_000_000;
+
+// Every random byte comes from one seeded draw (HARD RULE #32), printed so a failure reproduces: LATTICE_TEST_SEED=<n>.
+const SEED = Number(process.env.LATTICE_TEST_SEED ?? 0x5eed2026);
+console.log(`workspace-backup.refdocs.test seed: ${SEED}`);
+let state = SEED >>> 0;
+/** mulberry32, the suite's small seeded PRNG (test/helpers/regex-differential.js). */
+function seededBytes(n: number): Uint8Array {
+	const out = new Uint8Array(n);
+	for (let i = 0; i < n; i++) {
+		state = (state + 0x6d2b79f5) >>> 0;
+		let t = state;
+		t = Math.imul(t ^ (t >>> 15), t | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		out[i] = ((t ^ (t >>> 14)) >>> 0) & 0xff;
+	}
+	return out;
+}
 
 beforeEach(async () => {
 	for (const a of await listAssets()) await deleteAsset(a.id);
@@ -49,7 +66,7 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		state.index.push({ id: 'deck-aaa', title: 'Quarterly plan', builtin: false });
 		importStudioState(state, T0);
 		// Ten maximum-size PDFs: 6.7 MiB each as a data URL, 67 MiB of refdocs.json.
-		const chunk = Buffer.from(crypto.getRandomValues(new Uint8Array(65536)));
+		const chunk = Buffer.from(seededBytes(65536));
 		const pdf = `data:application/pdf;base64,${Buffer.concat(Array(80).fill(chunk)).toString('base64')}`; // 5 MiB of real bytes, so it decodes
 		for (let i = 0; i < 10; i++) await saveRefDoc({ name: `brand-${i}.pdf`, kind: 'pdf', dataUrl: pdf, bytes: 5 * 1024 * 1024 }, T0 + i);
 		const packed = await packWorkspace(T0);
@@ -68,7 +85,7 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 	}, 120_000);
 
 	it('writes a binary-stored PDF as base64 rows, restores it in the default format, and skips a row that is not base64 or is over the cap', async () => {
-		const bytes = Buffer.from(crypto.getRandomValues(new Uint8Array(4096)));
+		const bytes = Buffer.from(seededBytes(4096));
 		await saveRefDoc({ name: 'good.pdf', kind: 'pdf', dataUrl: `data:application/pdf;base64,${bytes.toString('base64')}`, bytes: 4096 }, T0, { binary: true });
 		expect(((await listAssets('refdoc')) as Array<{ dataUrl?: string; blob?: Blob }>).map((r) => [typeof r.dataUrl, r.blob instanceof Blob])).toEqual([['undefined', true]]);
 		const { default: JSZip } = await import('jszip');
@@ -127,4 +144,61 @@ describe('restoreWorkspace — a backup with reference PDFs', () => {
 		expect(summary.refdocs).toBe(2);
 		expect((await listRefDocs()).map((r) => r.name).sort()).toContain('empty.pdf');
 	});
+});
+
+describe('restoreWorkspace — a deck kept as reference', () => {
+	it('carries the deck file as a binary entry, not base64 in refdocs.json, brings it back, and names a row it cannot', async () => {
+		const deck = Buffer.from(seededBytes(2048));
+		await saveRefDoc({ name: 'q3.lattice', kind: 'text', text: 'Slide 1\nRetention held', bytes: 22 }, T0, { deck: new Blob([deck]) });
+		await saveRefDoc({ name: 'brief.md', kind: 'text', text: '# Brief', bytes: 7 }, T0 + 1, { sourceExact: true });
+		const { default: JSZip } = await import('jszip');
+		const report: PackReport = { refdocsBytes: 0 };
+		const zip = await JSZip.loadAsync(new Uint8Array(await (await packWorkspace(T0, report)).arrayBuffer()));
+		const json = await (zip.file('refdocs.json') as { async: (t: 'string') => Promise<string> }).async('string');
+		const rows = JSON.parse(json) as Array<Record<string, unknown>>;
+		const q3 = rows.find((r) => r.name === 'q3.lattice') as Record<string, unknown>;
+		expect(q3.deck).toBeUndefined();
+		expect(json).not.toContain('base64');
+		expect(q3.deckFile).toMatch(/^refdoc-decks\/d\d+\.bin$/);
+		expect(Buffer.from(await (zip.file(q3.deckFile as string) as { async: (t: 'nodebuffer') => Promise<Buffer> }).async('nodebuffer')).equals(deck)).toBe(true);
+		expect(report.refdocDeckBytes).toBe(2048);
+		// Three hostile rows: a path Lattice never writes, a missing entry, and an entry over one deck's cap.
+		// Zeros deflate to almost nothing, so the entry is small on disk and declares one byte over the cap.
+		zip.file('refdoc-decks/d9.bin', new Uint8Array(MAX_DECK_REF_BYTES + 1), { compression: 'DEFLATE' });
+		zip.file('refdocs.json', JSON.stringify([...rows, { ...q3, name: 'escape.lattice', deckFile: '../evil.bin' }, { ...q3, name: 'gone.lattice', deckFile: 'refdoc-decks/d7.bin' }, { ...q3, name: 'huge.lattice', deckFile: 'refdoc-decks/d9.bin' }]));
+		const blob = (await zip.generateAsync({ type: 'uint8array' })) as unknown as Blob;
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(blob, T0 + 2);
+		expect(summary.refdocs).toBe(5);
+		const back = await listRefDocs();
+		const named = (n: string) => back.find((d) => d.name === n) as NonNullable<(typeof back)[number]>;
+		expect(Buffer.from(await (refDocDeckFile(named('q3.lattice')) as File).arrayBuffer()).equals(deck)).toBe(true);
+		expect(refDocDeckFile(named('brief.md'))?.name).toBe('brief.md');
+		for (const n of ['escape.lattice', 'gone.lattice', 'huge.lattice']) {
+			expect(named(n).text).toBe('Slide 1\nRetention held');
+			expect(refDocDeckFile(named(n))).toBeNull();
+		}
+		expect(summary.refused.map((r) => r.name).sort()).toEqual(['deck file of escape.lattice', 'deck file of gone.lattice', 'deck file of huge.lattice']);
+	});
+
+	it('several maximum-size decks no longer crowd the other reference docs out of a restore', async () => {
+		// Four 50 MB decks. As base64 inside refdocs.json they made about 270 MiB of JSON, over the lane's 256 MiB, and the
+		// restore dropped the WHOLE lane: every reference doc, not only the decks.
+		const big = new Uint8Array(MAX_DECK_REF_BYTES);
+		big.set(seededBytes(4096));
+		for (let i = 0; i < 4; i++) await saveRefDoc({ name: `deck-${i}.lattice`, kind: 'text', text: `Deck ${i}`, bytes: 6 }, T0 + i, { deck: new Blob([big]) });
+		await saveRefDoc({ name: 'brand.md', kind: 'text', text: '# Brand guide', bytes: 13 }, T0 + 10);
+		const report: PackReport = { refdocsBytes: 0 };
+		const backup = await packWorkspace(T0, report);
+		expect(report.refdocsBytes).toBeLessThan(64 * 1024);
+		expect(report.refdocDeckBytes).toBe(4 * MAX_DECK_REF_BYTES);
+		expect(backupRestoreGaps(report)).toEqual([]);
+		for (const a of await listAssets()) await deleteAsset(a.id);
+		const summary = await restoreWorkspace(new Uint8Array(await backup.arrayBuffer()) as unknown as Blob, T0 + 20);
+		expect(summary.refused).toEqual([]);
+		expect(summary.refdocs).toBe(5);
+		const back = await listRefDocs();
+		expect(back.map((d) => d.name).sort()).toEqual(['brand.md', 'deck-0.lattice', 'deck-1.lattice', 'deck-2.lattice', 'deck-3.lattice']);
+		for (const d of back.filter((x) => x.name.endsWith('.lattice'))) expect(d.deck?.size).toBe(MAX_DECK_REF_BYTES);
+	}, 180_000);
 });

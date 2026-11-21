@@ -139,7 +139,7 @@ test('a .lattice project carries its saved theme and component to another Studio
 		});
 		expect(before).not.toBe(origin.accent);
 		// By name: Playwright's download path has no extension, and the Studio picks the reader by it.
-		await p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: fs.readFileSync(file) });
+		await p2.locator('[data-testid="deck-import-input"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer: fs.readFileSync(file) });
 		await expect(p2.getByText(/Added the deck's 1 theme\(s\) \+ 1 component\(s\) to your Library/).first()).toBeVisible({ timeout: 30_000 });
 		// The oracle is the render. The component's rule outlines the section (nothing else in the engine sets `outline`); the
 		// theme's accent must match the origin's, and it is not the site palette's (the
@@ -150,7 +150,7 @@ test('a .lattice project carries its saved theme and component to another Studio
 		// Opening a file is not asking to change your Library. The same file again writes
 		// nothing; a copy whose theme DIFFERS from the saved one lands under a new name and the
 		// opened deck follows it, so the theme B already had is left as it was.
-		const reopen = async (buffer: Buffer) => p2.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer });
+		const reopen = async (buffer: Buffer) => p2.locator('[data-testid="deck-import-input"]').setInputFiles({ name: 'probe.lattice', mimeType: 'application/zip', buffer });
 		await reopen(fs.readFileSync(file));
 		await expect(p2.getByText(/already in your Library, unchanged/).first()).toBeVisible({ timeout: 30_000 });
 		const tampered = await JSZip.loadAsync(fs.readFileSync(file));
