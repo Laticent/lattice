@@ -16,7 +16,12 @@ let migrateNotesSource;
 let migrateNotesText;
 let main;
 test.before(async () => {
-  ({ migrateNotesSource } = await import('../../../lib/authoring/notes-migrate.mjs'));
+  const boundaries = await import('../../../lib/core/slide-boundaries.mjs');
+  const grammar = await import('../../../lib/core/note-grammar.mjs');
+  const notesCore = require('../../../lib/authoring/notes-core.js');
+  const m = await import('../../../lib/authoring/notes-migrate.mjs');
+  const kit = m.makeNotesKit(boundaries, notesCore, grammar);
+  migrateNotesSource = (source) => m.migrateNotesSource(source, kit);
   ({ migrateNotesText, main } = await import('../../../lib/cli/migrate-notes.mjs'));
 });
 
