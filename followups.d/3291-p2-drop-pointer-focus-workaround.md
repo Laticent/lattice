@@ -22,7 +22,11 @@ where     — `docs/src/lib/compose/pointer-focus-caret.ts`, its test, the two `
             `docs/src/components/studio/ComposeView.tsx`, and the gotcha's mitigation paragraph in
             `engineering/gotchas/studio-playground.md`.
 unblocks  — a prosemirror-view release whose focus timer also stands down when the DOM caret already differs from
-            ProseMirror's selection at focus time because of a pointer (an upstream report would need the owner's OK).
+            ProseMirror's selection at focus time because of a pointer.
+next      — (1) Re-run the probe on Playwright 1.65.1 (Firefox 159, WebKit 2388) once #3366 is on `main`: the Gecko miss
+            above was measured on Firefox 142, and the probe spec is described in #3367's body (Tests). (2) Report the Gecko
+            order to prosemirror-view: decision D1 on #3367, open with the owner (pick A: search the forum and tracker for
+            an existing report first, then file; default B: nothing is posted without the owner's OK).
 done when — on that release, the real-click probe (WebKit and Gecko, 4 workers, the 134 KB deck) shows 0 misplaced first
             clicks with the module removed, and the module, its test and its wiring are deleted.
 evidence  — the probe counts with the module removed, against the 1.42.8 and 1.42.9 counts above.
