@@ -21,9 +21,16 @@ facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
    current head (a card older than the head is stale; ask the session to regrade),
    and GitHub's merge state `clean` (treat `unknown` as unchecked, and `dirty` as a
    conflict). Each session runs `npm run queue:precheck` itself before its ask.
-3. **Order.** When one PR's card says another must land first (e.g. "merge #3353
-   first, it unblocks #3347"), check it: the later PR's base or a `git merge-tree`
-   conflict must confirm the dependency. Order by confirmed dependencies only.
+3. **Order with `npm run merge:order`, never by hand.** Pipe it the ready PRs as JSON
+   (`[{number, head, base, created_at}]`; it measures each PR's size from git). It
+   checks every pair the way GitHub merges and orders the digest: a PR built on
+   another digest PR's branch after it; of two PRs that conflict with EACH OTHER,
+   the smaller first; otherwise oldest first. Copy its reason for each row into the
+   digest. A PR it lists as "rebase first" (it conflicts with `main`) stays out of
+   the digest: message its session to rebase (HARD RULE #16, a real conflict). For a
+   pair it orders, message the second PR's session after the first lands: "#A
+   landed, rebase #B on main" (also a real conflict). A card that says "merge #X
+   first" is a claim; the tool's order is the check.
 4. **The digest IS the ask.** While you are live, each PR's session posts its 🚦 card
    on its PR and does not ask in chat (CLAUDE.md DEFAULT OPERATING MODE rule 7). You
    build the digest from those PR cards, as plain text: NOT in a code fence and NOT
