@@ -109,8 +109,9 @@ function stringArm(md, size) {
 // every arm that needs a DOM (the DOM arm, and the `--steps` arm's expanded deck and its string twin) takes its
 // document from `deckDoc`, never from `new JSDOM`. A JSDOM per deck kept about 3.5 MB each past garbage collection
 // (1 MB even with `window.close()`), so the 573-deck walk ended near Node's 2 GB default heap and one more committed
-// deck ran it out of memory. The whole document element is replaced, not just the deck's div, so nothing a
-// transformer or a step expansion adds to <html>, <head> or <body> reaches the next deck (F7, shared state).
+// deck ran it out of memory. Per deck, <html> loses every attribute and everything inside it is replaced, not
+// just the deck's div, so nothing a transformer or a step expansion adds to <html>, <head> or <body> reaches the
+// next deck (F7, shared state).
 const DECK_DOCS = new Map();
 function deckDoc(role, html) {
   if (!DECK_DOCS.has(role)) DECK_DOCS.set(role, new JSDOM('<!doctype html><html><head></head><body></body></html>').window.document);
