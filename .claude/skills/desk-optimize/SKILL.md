@@ -13,7 +13,7 @@ argument-hint: "[engine | ci | spend | quality]"
 
 Read first, by section: `engineering/workflow.md` §Desks and §Performance (HARD RULE #19),
 `engineering/quality-assessment.md` §Running it and §Reading the results, and
-`engineering/gotchas/ci.md` for the route budget. Tag this session `desk:optimize`.
+`engineering/gotchas/ci.md` for the route budget. Tag this session `desk:optimize` and `ui:pinned`.
 **Measure first:** a win with no reproducible number is not a win, and a guess
 ("~5s") is not a measurement.
 

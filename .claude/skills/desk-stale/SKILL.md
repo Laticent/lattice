@@ -13,7 +13,7 @@ argument-hint: "[sweep | <#PR>]"
 
 Read first, by section: `engineering/workflow.md` §Desks, §Keeping an open PR mergeable
 while it waits, §Session branch ownership and §The handoff issue. Tag this session
-`desk:stale`.
+`desk:stale` and `ui:pinned`.
 
 ## The pass
 

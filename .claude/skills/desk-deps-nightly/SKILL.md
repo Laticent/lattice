@@ -11,7 +11,7 @@ argument-hint: "[deps | nightly | <#PR or run URL>]"
 # 📦 Dependency + nightly desk
 
 Read first, by section: `engineering/workflow.md` §Desks and §Dependency updates — where
-the line is drawn, then `engineering/gotchas/ci.md`. Tag this session `desk:deps-nightly`.
+the line is drawn, then `engineering/gotchas/ci.md`. Tag this session `desk:deps-nightly` and `ui:pinned`.
 
 ## Dependencies
 

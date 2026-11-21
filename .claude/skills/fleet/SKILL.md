@@ -12,8 +12,9 @@ argument-hint: "[table | loud | go A1 A3 | desk <lane> | <name>]"
 
 # Fleet board
 
-Tag this session `command-center` (`set_session_tags`) the first time it builds a
-board, so desks can find it.
+Tag this session `command-center` and `ui:pinned` (`set_session_tags`) the first
+time it builds a board: desks find it by the first tag, and the second pins it in
+the owner's sidebar.
 
 ## Arguments — `/fleet <what>`
 

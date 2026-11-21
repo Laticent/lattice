@@ -2695,6 +2695,13 @@ it itself under HARD RULE #33, or asks the command center to start a flake desk.
 **Where a desk's ❓ card goes.** To the command center, and as a comment on the PR
 it concerns, opening with the desk's name, so the owner sees it in either place.
 
+**Pinned, never self-archived.** The command center and every desk add the tag
+`ui:pinned` to their own session when they start, which pins it in the owner's
+sidebar. No session archives itself or another on its own: `archive_session` is
+for after a human has said the session is done, and an archived desk cannot be
+messaged. The command center proposes archiving finished worker sessions as a
+numbered action; the owner's `go` is that acknowledgment.
+
 **Finding each other.** The command center tags itself `command-center`; a desk
 reports to the newest live session with that tag. Before starting, a desk checks
 for a live session already tagged with its lane and, if there is one, stops and

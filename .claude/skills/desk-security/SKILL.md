@@ -14,7 +14,7 @@ argument-hint: "[sweep | codeql | deps | <alert or #PR>]"
 Read first, by section: `engineering/workflow.md` §Desks; for sanitizers,
 `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9 and
 `2026-08-18-post-sanitize-injection-queue.md`; for the API key, `engineering/workflow.md`
-§OpenRouter budget. Tag this session `desk:security`.
+§OpenRouter budget. Tag this session `desk:security` and `ui:pinned`.
 
 ## The pass
 

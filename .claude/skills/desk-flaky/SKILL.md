@@ -13,7 +13,7 @@ argument-hint: "[census | assign <test> | status]"
 
 Read first, by section: `engineering/workflow.md` §Desks (your powers and budget), then
 `engineering/decisions/2026-11-06-flaky-tests.md` §What a flaky test is and §HARD RULES
-#33 and #34. Tag this session `desk:flaky` (`set_session_tags`).
+#33 and #34. Tag this session `desk:flaky` and `ui:pinned` (`set_session_tags`).
 
 ## The pass
 

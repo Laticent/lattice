@@ -13,7 +13,7 @@ argument-hint: "[followups | rank | dispatch | <#issue>]"
 
 Read first, by section: `engineering/workflow.md` §Desks and §Work queue — the kanban
 board, `followups.d/README.md`, and the `queue-triage` skill (its ranking method is
-yours; do not invent another). Tag this session `desk:backlog`.
+yours; do not invent another). Tag this session `desk:backlog` and `ui:pinned`.
 
 ## The pass
 

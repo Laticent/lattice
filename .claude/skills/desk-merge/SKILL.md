@@ -11,7 +11,7 @@ argument-hint: "[round | order | ejected]"
 # 🚦 Merge desk
 
 Read first, by section: `engineering/workflow.md` §Desks, §Merging, §Merge queue — the
-facts, and §🚦 Pre-merge card. Tag this session `desk:merge`.
+facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
 
 ## The pass
 
