@@ -809,8 +809,11 @@ export function DeckPreview({
 		} catch (err) {
 			setSplitPage(null);
 			if (issuedRef.current) onSplitPageRef.current?.({ ...issuedRef.current, canSplit: false, page: null });
+			// The card says WHAT failed in words an author can act on; the browser's own message (a module URL, often
+			// wider than a phone, which clipped it on both sides) goes to the console for whoever debugs it.
+			console.warn('[preview] the slide engine did not load:', err);
 			setFailed(true);
-			setFailedWhy(`the slide engine did not load (${err instanceof Error ? err.message : String(err)})`);
+			setFailedWhy('the slide engine did not load; check the connection, then Retry');
 			return undefined;
 		}
 		const docBefore = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument ?? null;

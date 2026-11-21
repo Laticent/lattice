@@ -337,10 +337,15 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 	it('an engine that did not load shows the failure card with its reason on a LOADER host, and Retry imports again', async () => {
 		// The Studio's preview is a loader host. whenReady() rejecting used to throw into the frame scheduler's
 		// `.catch`, which swallowed it: no card, and the skeleton spun for good (PR #3368's first-render notes).
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
 		const { container, getByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
 		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
-		expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('the slide engine did not load (Importing a module script failed.)');
+		expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('the slide engine did not load; check the connection, then Retry');
+		// The browser's message (a module URL, wider than a phone) is the console's, not the card's.
+		expect(container.querySelector('.nacre-failed__text')?.textContent).not.toContain('Importing a module script failed');
+		expect(warn).toHaveBeenCalledWith('[preview] the slide engine did not load:', expect.any(Error));
+		warn.mockRestore();
 		expect(container.querySelector('.nacre-loader')).toBeNull();
 		expect(renderInto).not.toHaveBeenCalled();
 		// The engine loads on Retry (load-engine drops a rejected import, so it really imports again): the slide renders.
