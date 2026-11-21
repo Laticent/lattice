@@ -293,14 +293,20 @@ function summarizeTapLog(log) {
 
 /**
  * One finger touch at `at`, as a tap is: down then up with NO pause between them (a forced hold only for the long-press
- * control). The simulator stretches any hold it is sent: 150 ms arrived as 345 and 300 as 632 (dispatch 43798678775),
+ * check). The simulator stretches any hold it is sent: 150 ms arrived as 345 and 300 as 632 (dispatch 43798678775),
  * while taps with no pause arrived as 29-43 ms. Returns the gesture's WebDriver time in ms.
+ *
+ * THE FINGER LIFTS WHERE IT PRESSED (#3241). A bare `pointerUp` lifts it at the screen's corner: every pointerup the page
+ * logged reached it at 0,0. A tap does not care, but a hold the simulator stretched into a long press does: iOS moved the
+ * long-press selection to the text nearest that corner, the Studio's screen-reader-only legend ("Workspace stop") on the
+ * iPad and its hidden "Lattice Studio" heading on the iPhone. With a move back onto the point just before the lift, the
+ * same long press kept its word on both (dispatch 44841015483). A real finger lifts where it is.
  */
-async function touchAt(id, at, forcedHold = 0, liftAt = null) {
+async function touchAt(id, at, forcedHold = 0) {
 	await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 	const t = Date.now();
 	await wd('POST', `/session/${id}/actions`, {
-		actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, ...(forcedHold ? [{ type: 'pause', duration: forcedHold }] : []), ...(liftAt ? [{ type: 'pointerMove', duration: 0, x: liftAt.x, y: liftAt.y }] : []), { type: 'pointerUp', button: 0 }] }],
+		actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, ...(forcedHold ? [{ type: 'pause', duration: forcedHold }] : []), { type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerUp', button: 0 }] }],
 	});
 	const ms = Date.now() - t;
 	await wd('DELETE', `/session/${id}/actions`).catch(() => {});
@@ -352,8 +358,13 @@ async function probeTap(id, at) {
 	const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
 	const detail = `sent ${at.x},${at.y}; hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}`;
 	if (last.decision === 'pass') return { ok: true, detail };
-	const why = last.decision === 'fail-long-press' ? 'the simulator delivered a long press both times' : `${last.seen.caret ? 'a caret' : `a SELECTION "${last.seen.picked}"`}${last.seen.inAim ? '' : ' outside the block'}${last.seen.focused ? '' : ', editor not focused'}`;
+	const why = last.decision === 'fail-long-press' ? 'the simulator delivered a long press both times' : `${last.seen.caret ? 'a caret' : `a SELECTION "${last.seen.picked}"`}${last.seen.inAim ? '' : ' outside the block'}${last.seen.focused ? '' : ', editor not focused'}${overBudget(last.hold)}`;
 	return { ok: false, detail: `${detail}; ${why}` };
+}
+
+/** Said beside a failed tap held past the tap budget, so the report names a long press instead of passing for a tap's result. */
+function overBudget(hold) {
+	return hold !== null && hold >= LONG_PRESS_MS ? `; held ${hold} ms, over the ${LONG_PRESS_MS} ms tap budget, so Safari may have read a long press` : '';
 }
 
 /**
@@ -489,14 +500,14 @@ async function composeTouchTap(id) {
 		// and mouse event (time, clientX/clientY, target) and of each selectionchange and contextmenu, read back beside the point
 		// WebDriver was sent. Its hold (touchstart to touchend) is logged on every delivery (followups.d/3223-p1).
 		const rtt = await wdRoundTrip(id);
-		const deliver = async (n, forcedHold = 0, liftAt = null) => {
+		const deliver = async (n, forcedHold = 0) => {
 			await run('document.activeElement?.blur?.(); getSelection()?.removeAllRanges();');
 			await run(tapLogInstall());
 			await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 			// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
 			// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
 			// selected the word under the finger, so the paragraph held a range, not a caret, and correctly got no caret-line mark.
-			const tapMs = await touchAt(id, at, forcedHold, liftAt);
+			const tapMs = await touchAt(id, at, forcedHold);
 			const seen = await wd('POST', `/session/${id}/execute/async`, {
 				args: [],
 				script: `const done = arguments[arguments.length - 1];
@@ -509,7 +520,8 @@ async function composeTouchTap(id) {
 						const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
 						const marked = !!(p && p.classList.contains('cs-active-line'));
 						const caret = !!(sel && sel.isCollapsed);
-						if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className, where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing', log: window.__tapLog || null });
+						const focusInP = !!(p && sel && sel.focusNode && p.contains(sel.focusNode));
+						if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, focusInP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className, where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing', log: window.__tapLog || null });
 						else requestAnimationFrame(read);
 					};
 					read();`,
@@ -536,40 +548,30 @@ async function composeTouchTap(id) {
 		const why =
 			decision === 'fail-long-press'
 				? `, but the simulator delivered a long press, not a tap, on both deliveries (holds ${holds}; iOS reads ${LONG_PRESS_MS} ms or more as a long press)`
-				: `${seen.caret ? '' : `, but it SELECTED "${seen.picked}"`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}`;
+				: `${seen.caret ? '' : `, but it SELECTED "${seen.picked}"`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}${overBudget(tries.at(-1).hold)}`;
 		step('a touch tap puts the caret in the tapped paragraph', decision === 'pass', `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms, hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}${decision === 'pass' ? '' : why}`);
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
 		step('what the page saw of the tap (detail only)', true, tries.map((t, i) => `delivery ${i + 1}: sent ${at.x},${at.y}; ${t.landed}`).join(' || '));
-		// A POSITIVE CONTROL for the guard, after the verdict and deciding nothing: one long press made on purpose (a 500 ms hold,
-		// which the simulator stretches further), then the re-delivery the guard asks for. It shows, on the real simulator, that
-		// the page's log reads a long press as one and that the tap delivered after it puts the caret back. It costs 9 to 14 s
-		// a device (dispatch 43804038465), and its own try: a WebDriver error inside it is recorded here, never a red job.
-		try {
+		// A LONG PRESS KEEPS ITS WORD (#3241, followups.d/3241-p1). One long press made on purpose (an 800 ms hold, which the
+		// simulator only stretches) on the same paragraph: Safari selects the word under the finger, and after the lift the
+		// word must still be the selection, both ends in the paragraph, read once the page has had 4 s to move it. With the
+		// lift at the screen's corner (touchAt says why) the selection ended in the Studio's hidden legend on every run.
+		// Then the re-delivery the guard asks for (tap-guard.mjs), as a detail: the tap after a long press puts the caret back.
+		await new Promise((r) => setTimeout(r, 1000));
+		const press = await deliver('long-press', 800);
+		const kept = !press.seen.caret && !!press.seen.picked && press.seen.inP && press.seen.focusInP;
+		step(
+			'a long press selects the word under the finger, and the word stays selected after the lift',
+			kept,
+			`hold ${press.hold ?? 'no touch'} ms -> ${press.seen.caret ? 'a caret, no word' : `SELECTED "${press.seen.picked}"`} in ${press.seen.where}${press.seen.inP && !press.seen.focusInP ? ', running out of the paragraph' : ''}${press.hold !== null && press.hold < LONG_PRESS_MS ? `; held under ${LONG_PRESS_MS} ms, so Safari saw a tap, not a long press` : ''}`,
+		);
+		const pressCall = tapVerdict({ caret: press.seen.inP && press.seen.caret, hold: press.hold, selected: press.selected, delivery: 1 });
+		if (pressCall === 'redeliver') {
 			await new Promise((r) => setTimeout(r, 1000));
-			const forced = await deliver('control-1', 500);
-			const forcedCall = tapVerdict({ caret: forced.seen.inP && forced.seen.caret, hold: forced.hold, selected: forced.selected, delivery: 1 });
-			let recovered = null;
-			if (forcedCall === 'redeliver') {
-				await new Promise((r) => setTimeout(r, 1000));
-				recovered = await deliver('control-2');
-			}
-			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `forced hold ${forced.hold ?? 'no touch'} ms -> ${forcedCall}${recovered ? `; re-delivered hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}` : ''}`);
-			// DIAGNOSTIC (#3241): the same long press with the undo doorbell silenced. Its arm() rings only while WebKit reports no
-			// undo, so reporting one stops every ring without touching the product.
-			await new Promise((r) => setTimeout(r, 1000));
-			await run('window.__qce = window.__qce || document.queryCommandEnabled; document.queryCommandEnabled = () => true;');
-			const quiet = await deliver('control-3-no-doorbell', 500);
-			await run('if (window.__qce) document.queryCommandEnabled = window.__qce;');
-			// DIAGNOSTIC (#3241): the same long press, the finger moved back onto its own point just before it lifts. Every logged
-			// pointerup reaches the page at 0,0: if the legend comes from a lift at the screen's corner, this one keeps the word.
-			await new Promise((r) => setTimeout(r, 1000));
-			const lifted = await deliver('control-4-lift-in-place', 500, at);
-			step('diagnostic: the forced long press, lifted where it pressed (detail only)', true, `hold ${lifted.hold ?? 'no touch'} ms -> ${lifted.seen.caret ? 'caret' : `SELECTED "${lifted.seen.picked}"`} in ${lifted.seen.where}`);
-			step('diagnostic: the forced long press with the undo doorbell silenced (detail only)', true, `hold ${quiet.hold ?? 'no touch'} ms -> ${quiet.seen.caret ? 'caret' : `SELECTED "${quiet.seen.picked}"`} in ${quiet.seen.where}`);
-		} catch (e) {
-			step('the long-press guard: a forced long press, then its re-delivery (detail only)', true, `not run: ${String(e.message || e).slice(0, 200)}`);
+			const recovered = await deliver('after-long-press');
+			step('the long-press guard: the tap after a long press (detail only)', true, `hold ${recovered.hold ?? 'no touch'} ms -> ${recovered.seen.inP && recovered.seen.caret ? 'caret in the paragraph' : `no caret (SELECTED "${recovered.seen.picked}" in ${recovered.seen.where})`}`);
 		}
 		return { ok: steps.every((x) => x.pass), steps };
 	} catch (e) {
