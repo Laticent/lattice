@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   A measured plan to cut CI load. ci.yml and CodeQL use about 16,900 job-minutes and 3,081 jobs a day. CodeQL is
   42% of the jobs, over half of those for 7 C# and Python files; 38% of PR job-minutes go to runs a newer push
@@ -344,6 +344,35 @@ and the `changes` job's filters do that inside one repo, without 40% of changes 
 5. C9: the one-job build-cache pilot, measured for a week.
 6. C4 once the Team limit is confirmed in effect; C8 at the owner's taste.
 7. C5, C10 and C12 stay parked until runner waits fall.
+
+## 6. The owner's answers (2026-11-21)
+
+The owner answered in the command-center session at about 16:35 UTC ("D1 Weekly / D2 A / D3 A / D4 A / D5 A"),
+relayed here. The D-numbers are the ❓ card's on PR #3388.
+
+| Card | Candidate | Answer | Who does what |
+|---|---|---|---|
+| D1 | C1 | **weekly**: drop C# and Python from both CodeQL setups, and scan them once a week instead | The owner changes both setups in Settings. A session adds the weekly scan, which runs into the limit below |
+| D2 | C2 | **A**, after the flakes are fixed | A session reads the failed `integration` legs and files each flake with the flake desk; the `ci.yml` move waits for the fixes |
+| D3 | C6, C7 | **A** | One PR: `build:check:all` on unit shard 1, and an opt-out for `prepare`'s partial build in the four jobs that build in full |
+| D4 | C4 | **A** | The owner sets `max_entries_to_build` to 3 once the Team plan's limit is live (steps below) |
+| D5 | C9 | **A** | One PR: the `dist/` cache pilot in the `unit` job, measured for a week |
+| W1–W5 | C5, C3, C10, C13, C8 | defaults stand | Nothing changes |
+
+**D1 runs into one limit.** GitHub rejects SARIF results that the CodeQL action or CLI uploads while default setup
+is on ([default setup enabled](https://docs.github.com/en/code-security/reference/code-scanning/sarif-files/troubleshoot-sarif-uploads/default-setup-enabled)),
+and turning on default setup disables any CodeQL workflow
+([two CodeQL workflows](https://docs.github.com/en/code-security/reference/code-scanning/troubleshoot-analysis-errors/two-codeql-workflows)).
+The rule is per repository, not per language. So a weekly C#/Python workflow cannot put alerts in the Security tab
+while default setup scans JS/TS and Actions. It can analyze without uploading (`upload: never`) and fail the run
+when it finds anything, so a red weekly run is the alert. Moving the whole repository to advanced setup would put
+the alerts back in the Security tab, but it replaces GitHub-managed per-push scanning with a workflow the repo
+owns. That choice goes back to the owner.
+
+**D4 steps, for the owner.** On GitHub: Settings → Rules → Rulesets → `Main Merge Queue` → the merge-queue rule →
+"Maximum pull requests to build" from 5 to 3 → Save changes. Leave every other value as it is (§ "Merge queue —
+the facts" in `workflow.md` lists them). Undo: set it back to 5. Then update the `max_entries_to_build` row in
+that `workflow.md` table in the same week, so the doc matches the live ruleset.
 
 ## Not measured
 
