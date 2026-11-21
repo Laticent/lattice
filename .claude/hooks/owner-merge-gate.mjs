@@ -23,8 +23,17 @@
  */
 import fs from 'node:fs';
 
-const MERGE_WORDS = /\b(merge|merged|ship|squash|go|yes|approve|approved|lgtm)\b/i;
-const ALL_WORDS = /\ball\b/i;
+// The owner's word is read by an exact, whole-message grammar, never by word-spotting:
+// a loose match let "do not merge #3359" and "hold all" through (card grader, #3359).
+// Extra words, a negation or a hedge make a message fail to parse, so it is denied.
+const PR_LIST = String.raw`#?\d+(?:\s*(?:,|and|&)?\s*#?\d+)*`;
+const MERGE_FORM = new RegExp(String.raw`^(?:squash[- ]?)?merge\s+(${PR_LIST})$`, 'i');
+const ALL_FORM = new RegExp(String.raw`^all(?:\s+but\s+(${PR_LIST}))?$`, 'i');
+/** The fixed header a merge digest starts with (`/desk-merge` step 4, `/fleet` step 6). */
+export const DIGEST_MARKER = '🚦 Merge digest';
+
+const numbers = (list) => new Set((list || '').match(/\d+/g)?.map(Number) || []);
+const normalize = (text) => text.trim().replace(/[.!]+$/, '').replace(/\s+/g, ' ');
 
 function textOf(row) {
   const c = row?.message?.content;
@@ -38,6 +47,46 @@ function textOf(row) {
 
 const isToolResult = (row) =>
   Array.isArray(row?.message?.content) && row.message.content.some((x) => x?.type === 'tool_result');
+
+/**
+ * The text of a Bash command that would RUN: heredoc bodies are removed, because
+ * they are data written to a file or fed to a program (a test that mentions a merge
+ * route is not a merge). The first version of this gate blocked its own test file.
+ */
+export function runnableText(command) {
+  const lines = command.split('\n');
+  const out = [];
+  let tag = null;
+  for (const line of lines) {
+    if (tag !== null) {
+      if (line.trim() === tag) tag = null;
+      continue;
+    }
+    out.push(line);
+    const m = /<<-?\s*(['"]?)([A-Za-z_][\w]*)\1/.exec(line);
+    if (m) tag = m[2];
+  }
+  return out.join('\n');
+}
+
+/**
+ * The merge routes a Bash command can take, and the PR each names. A REST route
+ * counts only on a line that calls `gh api` or `curl`; `gh pr merge` only where a
+ * command starts. A merge with no readable PR number (a GraphQL merge mutation, or
+ * `gh pr merge` with none) returns pr NaN, which is denied.
+ */
+export function bashMergeRoute(command) {
+  for (const line of runnableText(command).split('\n')) {
+    if (/\b(?:gh\s+api|curl)\b/.test(line)) {
+      const rest = /pulls\/(\d+)\/(?:merge|(?:ccr\/)?auto_merge)\b/.exec(line);
+      if (rest) return { pr: Number(rest[1]) };
+      if (/\b(?:mergePullRequest|enablePullRequestAutoMerge)\b/.test(line)) return { pr: Number.NaN };
+    }
+    const cli = /(?:^|[;&|(]|\$\()\s*gh\s+pr\s+merge\b(?:\s+(?:--?\S+\s+)*#?(\d+))?/.exec(line);
+    if (cli) return { pr: Number(cli[1]) };
+  }
+  return null;
+}
 
 /** Decide one call. Returns { allow, reason }. Pure, so the test drives it directly. */
 export function decide(rows, pr) {
@@ -55,22 +104,31 @@ export function decide(rows, pr) {
   if (/^\s*\[from desk:/i.test(said)) {
     return { allow: false, reason: "the latest 'human' turn is a desk brief, not the owner's word" };
   }
-  const named = new RegExp(`(^|[^\\d])#?${pr}(?!\\d)`).test(said);
-  const excluded = new RegExp(`\\bbut\\b[^\\n]*#?${pr}(?!\\d)`, 'i').test(said);
-  if (named && !excluded && MERGE_WORDS.test(said)) return { allow: true, reason: `the owner said to merge #${pr}` };
-  if (ALL_WORDS.test(said) && !excluded) {
+  const said2 = normalize(said);
+  const merge = MERGE_FORM.exec(said2);
+  if (merge) {
+    return numbers(merge[1]).has(pr)
+      ? { allow: true, reason: `the owner typed "merge #${pr}"` }
+      : { allow: false, reason: `the owner said to merge other PRs, not #${pr}` };
+  }
+  const all = ALL_FORM.exec(said2);
+  if (all) {
+    if (numbers(all[1]).has(pr)) return { allow: false, reason: `the owner excluded #${pr} ("all but")` };
+    // The digest is the newest assistant message with text before the owner's turn.
     for (let i = h - 1; i >= 0; i--) {
-      const r = rows[i];
-      if (r?.type !== 'assistant') continue;
-      if (new RegExp(`#${pr}(?!\\d)`).test(textOf(r))) {
-        return { allow: true, reason: `the owner answered "all" to a digest that listed #${pr}` };
-      }
-      break;
+      if (rows[i]?.type !== 'assistant') continue;
+      const text = textOf(rows[i]);
+      if (!text.trim()) continue;
+      if (!text.includes(DIGEST_MARKER)) return { allow: false, reason: `"all" answered a message that is not a merge digest` };
+      return new RegExp(`#${pr}(?!\\d)`).test(text)
+        ? { allow: true, reason: `the owner answered "all" to a merge digest that listed #${pr}` }
+        : { allow: false, reason: `the merge digest the owner answered did not list #${pr}` };
     }
+    return { allow: false, reason: '"all" with no merge digest before it' };
   }
   return {
     allow: false,
-    reason: `the owner's latest message does not authorize merging #${pr}; ask the owner, in this session, to merge it`,
+    reason: `the owner's latest message is not "merge #${pr}" or "all" after a merge digest; ask the owner to type that, in this session`,
   };
 }
 
@@ -82,7 +140,14 @@ function main() {
     return deny('the hook could not read its input');
   }
   const ti = input.tool_input || {};
-  const pr = Number(ti.pullNumber ?? ti.pull_number ?? ti.number);
+  let pr;
+  if (input.tool_name === 'Bash') {
+    const route = bashMergeRoute(String(ti.command || ''));
+    if (!route) return; // not a merge: the Bash prefilter's false alarm, allow silently
+    pr = route.pr;
+  } else {
+    pr = Number(ti.pullNumber ?? ti.pull_number ?? ti.number);
+  }
   let rows;
   try {
     rows = fs

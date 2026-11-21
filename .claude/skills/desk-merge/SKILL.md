@@ -26,9 +26,11 @@ facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
    conflict must confirm the dependency. Order by confirmed dependencies only.
 4. **The digest IS the ask.** While you are live, each PR's session posts its 🚦 card
    on its PR and does not ask in chat (CLAUDE.md DEFAULT OPERATING MODE rule 7). You
-   build the digest from those PR cards: `#N — head <sha> — one line — check state —
-   card level`, in merge order, linking each card, and send it to the command center,
-   so the owner can answer "all" or "all but #N" there (§Merging, batch the ask).
+   build the digest from those PR cards. Its first line is exactly `🚦 Merge digest`
+   (the merge gate keys on it); then one line per PR, `#N — head <sha> — one line —
+   check state — card level`, in merge order, linking each card. Send it to the
+   command center, which shows it to the owner as its own message, so the owner can
+   answer exactly "all" or "all but #N" there (§Merging, batch the ask).
 5. **Who merges.** The owner's own typed answer in the command center is the owner's
    word, so the command center carries it out: for each PR named, it re-reads the head
    and merges (squash) only if the head still matches the digest; a moved head is
