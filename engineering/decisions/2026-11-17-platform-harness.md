@@ -135,5 +135,10 @@ failed rebuild retried, status and stop) before the first real run.
 
 ## Open
 
-- **First real use.** Record how long a round takes after the first (sync + rebuild + suite), and whether the reply
-  comments reach a subscribed session as events.
+- **First real use (measured on PR #3302, 2026-11-21).** A cold macOS dispatch waited 14m 08s to 42m 03s for a runner,
+  then 5m 34s of setup before the harness was ready. After that, a round costs the job alone: `ios-safari-undo-iphone`
+  took 10m 48s from the command comment to its reply on a rerun (run 44849877064). A push that changes built code
+  syncs and rebuilds in 2m 31s (`npm run build` and the docs `build:e2e`); one that touches only an inert path
+  (`changelog.d/`) syncs in 0s, and watch re-ran the suite on it by itself (run 44928152244). The deadline kill ended a
+  job's whole process tree on Windows at 90 minutes (run 44937679226).
+- **Do the replies reach a subscribed session as events?** Being tested in the pull request that adds this line; the answer replaces this sentence before it merges.
