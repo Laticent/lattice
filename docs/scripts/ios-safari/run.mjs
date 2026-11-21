@@ -266,7 +266,9 @@ function tapLogInstall() {
 		for (const type of ['focusin', 'focusout']) {
 			window.addEventListener(type, (e) => {
 				const L = window.__tapLog;
-				if (L) L.events.push({ type, t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, target: name(e.target) + (e.target && e.target.closest && e.target.closest('[data-undo-doorbell]') ? ' [undo doorbell]' : '') });
+				const el = e.target && e.target.nodeType === 1 ? e.target : null;
+				const doorbell = !!(el && el.closest('[data-undo-doorbell]'));
+				if (L) L.events.push({ type, t: Math.round(performance.now() - L.t0), lag: 0, x: 0, y: 0, inEditor: el ? !!el.closest('.ProseMirror') : null, doorbell, target: name(e.target) + (doorbell ? ' [undo doorbell]' : '') });
 			}, { capture: true, passive: true });
 		}
 		document.addEventListener('selectionchange', () => {
@@ -275,7 +277,7 @@ function tapLogInstall() {
 			const sel = getSelection();
 			const node = sel && sel.anchorNode;
 			const host = node && (node.nodeType === 3 ? node.parentElement : node);
-			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), inEditor: !!(host && host.closest && host.closest('.ProseMirror')), text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) + (sel && !sel.isCollapsed && sel.focusNode ? ' .. focus in ' + name(sel.focusNode.nodeType === 3 ? sel.focusNode.parentElement : sel.focusNode) + ' @' + sel.focusOffset : '') });
+			L.events.push({ type: 'selectionchange', t: Math.round(performance.now() - L.t0), collapsed: !!(sel && sel.isCollapsed), inEditor: host ? !!(host.closest && host.closest('.ProseMirror')) : null, text: sel ? String(sel).slice(0, 24) : '', target: name(node && node.nodeType === 3 ? node.parentElement : node) + (sel && !sel.isCollapsed && sel.focusNode ? ' .. focus in ' + name(sel.focusNode.nodeType === 3 ? sel.focusNode.parentElement : sel.focusNode) + ' @' + sel.focusOffset : '') });
 		}, { capture: true, passive: true });
 	}`;
 }
@@ -353,7 +355,7 @@ async function probeTap(id, at) {
 	}
 	const last = tries.at(-1);
 	const holds = tries.map((t) => `${t.hold ?? 'no touch'} ms`).join(', then ');
-	const detail = `sent ${at.x},${at.y}; hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}`;
+	const detail = `sent ${at.x},${at.y}; hold ${holds}${tries.length > 1 ? ` (the first was a long press, so the tap was delivered again: ${redeliverWhy(tries[0].seen.log)})` : ''}`;
 	if (last.decision === 'pass') return { ok: true, detail };
 	const why = last.decision === 'fail-long-press' ? 'the simulator delivered a long press both times' : last.decision === 'fail-sim-stall' ? simStall(last.seen.log) : `${last.seen.caret ? 'a caret' : `a SELECTION "${last.seen.picked}"`}${last.seen.inAim ? '' : ' outside the block'}${last.seen.focused ? '' : ', editor not focused'}${overBudget(last.hold)}`;
 	return { ok: false, detail: `${detail}; ${why}` };
@@ -366,9 +368,9 @@ function redeliverWhy(log) {
 	return last ? `Safari acted on a long press: ${last.collapsed ? 'a caret' : `"${String(last.text).trim()}"`} in ${last.target}${last.inEditor === false ? ', outside every editor' : ''}` : 'Safari acted on a long press';
 }
 
-/** A failed tap the guard reads as the simulator stalling (tap-guard.mjs `fail-sim-stall`): the hold, the lag, the click. */
+/** A failed tap the guard reads as a stall (tap-guard.mjs `fail-sim-stall`): the hold, the lag, the click. It names no culprit. */
 function simStall(log) {
-	return `the SIMULATOR STALLED, not a product verdict: held ${tapHold(log)} ms with the page's listeners ${tapLag(log)} ms late, and ${tapClicked(log) ? 'a' : 'NO'} click after the lift`;
+	return `a STALLED tap (still a failure): held ${tapHold(log)} ms with the page's touch listeners ${tapLag(log)} ms late, and ${tapClicked(log) ? 'a' : 'NO'} click after the lift; the simulator or a long task on the page held it up`;
 }
 
 /** Said beside a failed tap held past the tap budget, so the report names a long press instead of passing for a tap's result. */
@@ -541,7 +543,7 @@ async function composeTouchTap(id) {
 			const hold = tapHold(seen.log);
 			const selected = pressSelected(seen.log);
 			const landed = summarizeTapLog(seen.log);
-			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? ', with a long-press selection' : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
+			console.log(`${LABEL}: compose tap delivery ${n}: sent ${at.x},${at.y}; gesture ${tapMs} ms (WebDriver round trip ${rtt} ms); hold the page saw ${hold ?? 'none'} ms${selected ? (hold !== null && hold >= LONG_PRESS_MS ? ', which Safari answered as a long press' : ', a selection that left the editor (a short hold, so not a long press)') : ''}; page saw ${landed}; result ${seen.caret ? 'caret' : `SELECTED "${seen.picked}"`} in ${seen.where}`);
 			return { seen, tapMs, hold, selected, landed };
 		};
 		// THE PRECONDITION, NOT A RETRY (tap-guard.mjs; the flaky-test coordinator's approval, 2026-11-16). A gesture the page saw
@@ -564,7 +566,7 @@ async function composeTouchTap(id) {
 				: decision === 'fail-sim-stall'
 					? `; ${simStall(tries.at(-1).seen.log)}`
 					: `${seen.caret ? '' : `, but it SELECTED "${seen.picked}"`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}${overBudget(tries.at(-1).hold)}`;
-		step('a touch tap puts the caret in the tapped paragraph', decision === 'pass', `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms, hold ${holds}${tries.length > 1 ? ' (the first was a long press, so the tap was delivered again)' : ''}${decision === 'pass' ? '' : why}`);
+		step('a touch tap puts the caret in the tapped paragraph', decision === 'pass', `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms, hold ${holds}${tries.length > 1 ? ` (the first was a long press, so the tap was delivered again: ${redeliverWhy(tries[0].seen.log)})` : ''}${decision === 'pass' ? '' : why}`);
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);

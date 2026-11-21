@@ -162,3 +162,34 @@ test('a long hold during a simulator stall still fails, under its own name, and 
   const tapped = { events: [{ type: 'touchstart', t: 1 }, { type: 'touchend', t: 40 }, { type: 'mousedown', t: 80 }, { type: 'click', t: 90 }] };
   assert.equal(tapClicked(tapped), true);
 });
+
+// The maker-checker's two exposures in the out-of-editor clause (PR #3368): it must not re-deliver a selection that was
+// CLEARED (no anchor), nor one that left the editor because the page moved FOCUS out of it, which is a product's doing.
+test('a cleared selection, or focus taken by the page, is never read as a long press; the undo doorbell does not count', async () => {
+  const { pressSelected, tapVerdict, tapHold } = await load();
+  const withAfter = (...extra) => ({
+    events: [
+      { type: 'touchstart', t: 0 },
+      { type: 'selectionchange', t: 700, collapsed: true, text: '', inEditor: true },
+      { type: 'touchend', t: 900 },
+      ...extra,
+    ],
+  });
+  // Cleared: run.mjs logs inEditor null when the selection has no anchor.
+  const cleared = withAfter({ type: 'selectionchange', t: 950, collapsed: true, text: '', inEditor: null });
+  assert.equal(pressSelected(cleared), false);
+  assert.equal(tapVerdict({ caret: false, hold: tapHold(cleared), selected: pressSelected(cleared), delivery: 1 }), 'fail');
+  // Focus stolen: a field outside the editor took focus after the touch, and the selection went with it.
+  const stolen = withAfter({ type: 'focusin', t: 920, inEditor: false, doorbell: false }, { type: 'selectionchange', t: 950, collapsed: true, text: '', inEditor: false });
+  assert.equal(pressSelected(stolen), false);
+  assert.equal(tapVerdict({ caret: false, hold: tapHold(stolen), selected: pressSelected(stolen), delivery: 1 }), 'fail');
+  // The undo doorbell's ring takes focus and hands it back on ordinary taps: it does not block the re-delivery.
+  const rang = withAfter({ type: 'focusin', t: 920, inEditor: false, doorbell: true }, { type: 'focusin', t: 940, inEditor: true, doorbell: false }, { type: 'selectionchange', t: 950, collapsed: true, text: '', inEditor: false });
+  assert.equal(pressSelected(rang), true);
+  // Focus back INTO the editor (it took the tap's focus) is not a steal either.
+  const focused = withAfter({ type: 'focusin', t: 920, inEditor: true, doorbell: false }, { type: 'selectionchange', t: 950, collapsed: true, text: '', inEditor: false });
+  assert.equal(pressSelected(focused), true);
+  // A long press Safari answered with a WORD still counts, whatever focus did: that clause is unchanged.
+  const word = withAfter({ type: 'focusin', t: 920, inEditor: false, doorbell: false }, { type: 'selectionchange', t: 950, collapsed: false, text: 'point', inEditor: true });
+  assert.equal(pressSelected(word), true);
+});
