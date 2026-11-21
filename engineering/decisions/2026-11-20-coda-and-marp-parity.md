@@ -321,7 +321,8 @@ list-steps, table, kpi, bar, agenda and glossary. On the showcase deck, `claim-q
 reads the export's own verdict (`LATTICE_FIT_REPORT`) so a suggestion can never disagree with the warning, then renders
 the clipped slides under each claim. The export prints it under its overflow warnings; `npm run fit:grace` and
 `lint:deck --fit` print it on demand. (2) Deck-wide: three or more clipped slides and one claim fits them all,
-`quiet` before `hero`, always with the per-slide alternative. (3) Budgets follow the claim: lint judges a slide that
+`quiet` only since D1 below (a deck-wide `hero` drops the header and footer on every slide), always with the
+per-slide alternative. (3) Budgets follow the claim: lint judges a slide that
 carries a claim by that claim's measured budget (`capacity.withClaim`, calibrated with
 `tools/calibrate-capacity.js --variant claim-…`), and names the claim as a fix for a bare slide it would hold.
 
@@ -347,6 +348,13 @@ an indented second blockquote and one after a list item; per-component docs (tit
 diagram) now say what changed. Put to the owner: deck-wide `claim: hero` advice (it drops header and footer on every
 slide, checked only on the clipped ones) and `quote` with a two-paragraph attribution (the role line now becomes the
 note).
+
+**Owner decisions on the trio's calls (2026-11-21).** D1: grace suggests a deck-wide `claim: quiet` only, never a
+deck-wide `claim: hero` (it drops the header and footer on every slide, and only the clipped slides were checked);
+`hero` stays a per-slide suggestion. D2: `quote` keeps "the second paragraph is the note", and `lint:deck` warns
+(`quote-note`) when that second paragraph reads as a role line (no sentence-ending mark), the shape of a two-line
+attribution; a sentence there is a note and stays silent. D3: the export skips grace when `CI` is set. D4: the last
+`present-emphasis` flake goes to its own branch from main, after checking with the flaky-test coordination session.
 
 **Budgets as built.** Fourteen components measured more room under a claim than their bare budget, and thirteen now
 declare it: agenda, cards-grid, cards-stack, checklist, inventory, list-steps, policy-recommendation, pricing, q-and-a,
