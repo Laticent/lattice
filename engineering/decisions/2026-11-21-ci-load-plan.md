@@ -10,8 +10,8 @@ summary: >
 
 # CI load: a measured plan (2026-11-21)
 
-**Answer.** Three changes cut about a third of the daily load, and none of them drops a check that caught
-anything in the windows measured:
+**Answer.** Three changes cut about a third of the daily load. None of them drops a check: C2 moves the render tier,
+which caught 15 real failures in the 5-day window (§6), from PRs to the merge queue.
 
 | # | Change | Jobs a day | Job-minutes a day | Coverage that moves |
 |---|---|---|---|---|
@@ -23,7 +23,7 @@ anything in the windows measured:
 The rest of the list is smaller or riskier; §2 ranks all fourteen. Dependency-graph tools (Nx, Turborepo) would
 save little here, because 43% of merged PRs touch the engine, which every other part depends on (§3). Splitting
 the repo would make 40% of merged PRs cross a repo boundary (§4). The recommendation is to keep one repo. An input-keyed build cache
-looked promising and measured at about 30 minutes a day, because the build reads most of the repo (§2, C9).
+looked promising and measured at close to nothing, because the build reads almost the whole repo (§2, C9).
 
 Nothing in this note changes a workflow, a hook, a ruleset or a CodeQL setting: each row is a proposal for the
 owner (CLAUDE.md's second filter, row 2). The decision card is at the end of the PR.
@@ -103,11 +103,11 @@ catches and flakes.
 | — | C7 | skip `prepare`'s partial build where a full build follows | 0 (measured after the estimate) | — | dropped |
 | 5 | C2 | render tier on the queue only | 4,043 min, 311 jobs | medium: ejections | do, after the flake fix |
 | 6 | C11 | fix the flakes that get re-run | 279 min in discarded attempts, plus ejections | none | do (it is #33 anyway) |
-| — | C9 | cache the build by its inputs | about 30 min (*estimate*, after measuring) | a wrong key gives a stale build | re-asked: drop |
+| — | C9 | cache the build by its inputs | about 3 min (*estimate*, after measuring) | a wrong key gives a stale build | re-asked: drop |
 | 8 | C4 | `max_entries_to_build` 5 → 3 | up to 830 min | low: a long queue drains slower | do once Team is live |
 | 9 | C8 | node 24 unit leg to the nightly | 225 min, 28 jobs | low | owner's taste |
 | 10 | C10 | fail fast: heavy jobs wait on lint and unit | up to about 530 min | medium: +9 min and one more runner wait per PR run | not now |
-| 11 | C12 | affected-only test selection | up to about 1,300 min (ceiling) | medium-high: missed coverage | not now; C9 first |
+| 11 | C12 | affected-only test selection | up to about 1,300 min (ceiling) | medium-high: missed coverage | not now |
 | 12 | C5 | build once per run, share it | about 850–1,270 min (*estimate*) | medium: +1 serial job per run | not now |
 | — | C13 | merge-queue batching (bigger groups) | 0 | — | drop: GitHub runs one CI per entry |
 | — | C14 | split or trim the slowest suites | 0 job-minutes (wall time only) | — | drop as a load lever |
@@ -145,8 +145,8 @@ render tier's flakes first, and have the session run the affected render tests b
   `integration` failure; each would have surfaced as a queue ejection instead. One ejection costs its own queue
   run (101 job-minutes p50) plus up to four rebuilt entries behind it: at most 16 × 5 × 101 ≈ 8,100 job-minutes
   over the window, 1,650 a day (*upper bound*; most red PR runs are fixed before the merge ask).
-- **Not measured here:** this window's flake share. The 2026-10-30 note found half of test-level render failures
-  were flakes. C11 is the step before C2.
+- **Flake share, measured since (§6):** 1 of the 16 legs that failed in their tests was a flake; the other 15 were
+  real catches. The 2026-10-30 note had found half. C11 is still the step before C2.
 
 `golden-diff` and `studio-smoke` stay on PRs. They already skip the queue, so moving them there would add queue
 load, and `golden-diff`'s before/after images are a review artifact that only makes sense on the PR.
@@ -203,7 +203,8 @@ job-minutes a day** (the step's measured time on shard 2) and loses nothing. Sha
 The estimate assumed the full `npm run build` redoes everything `prepare` built. It does not: `tools/build.js`
 leaves current outputs alone, and on a tree with no `dist/` it bootstraps the same partial build itself before the
 rest (its "cold tree" step). Measured in this sandbox, from no `dist/`: `prepare` then a full build took 198 s and
-175 s on two runs; skipping `prepare` and building cold took 203 s. The 470 a day was an artifact of the estimate,
+175 s on two runs; skipping `prepare` and building cold took 203 s and 167 s on two runs (paired differences +5 s
+and −8 s). The 470 a day was an artifact of the estimate,
 so C7 is dropped and the D3 PR carries C6 alone.
 
 ### C8. Node 24 unit leg in the queue
@@ -219,14 +220,14 @@ while building the pilot, undo it:
 
 - **The build reads far more than the engine.** `tools/build.js` and its steps read `docs/` (Studio and playground
   sources, spec pages), `design/` (the agent kit), `engineering/` (the decision and gotcha indexes), `examples/`,
-  `exemplars/`, `changelog.d/` and the root docs. A key that covers every input, which a cache must or it hands out a
-  stale `dist/`, changes on almost every PR: only 20 of November's 312 merged PRs (6%: `backlog.d/` mirror updates,
-  `followups.d/` notes, three test-only PRs) touched none of them.
+  `exemplars/`, `changelog.d/`, the root docs, and even `test/`, `backlog.d/` and `followups.d/`, whose files the
+  code map counts (`tools/build-codemap.js`). A key that covers every input, which a cache must or it hands out a
+  stale `dist/`, changes on almost every PR: about 2 of November's 312 merged PRs touched none of them.
 - **A restored `dist/` does not make the build fast.** On a tree that is already current, `prepare` took 54 s and
   `npm run build` 108 s in this sandbox; most steps rebuild whether or not their output is current. So a cache hit
   saves time only if the job skips the build step outright, which makes a complete key essential.
 
-At a 6% hit rate on the two unit shards, the saving is about 30 job-minutes a day (*estimate*). It does not pay for a
+At a hit rate under 1% on the two unit shards, the saving is about 3 job-minutes a day (*estimate*). It does not pay for a
 cache key that must track every build input. Same-tree re-runs, the other half of "cache by input", pay even less: 3
 PR runs this month re-ran a head that already had a green run (76 min in all), because HARD RULE #16 already stops
 no-op rebases. The owner's D5 was answered on the first estimate, so it goes back to the owner (§6).
@@ -318,8 +319,8 @@ because the ceiling is set by the repo's shape, not the tool. Extending the `cha
 already runs (`dorny/paths-filter`, `actions/cache`), so it is not reinvention either.
 
 **Recommendation: none of the three, for now.** The first version of this section recommended a homegrown build-cache
-pilot (C9). Measuring it showed the build reads most of the repository, so a safe cache would hit on about 6% of
-PRs (§2, C9). Nx and Turborepo would meet the same wall, one level up: their input hashes would have to cover the
+pilot (C9). Measuring it showed the build reads most of the repository, so a safe cache would hit on about 2 of
+312 PRs (§2, C9). Nx and Turborepo would meet the same wall, one level up: their input hashes would have to cover the
 same paths. The savings that remain are the ones that do not depend on the graph: C1, C2, C3 and C6. If the build
 is ever split so the engine's `dist/` no longer reads `docs/`, `design/` and `engineering/`, re-measure the hit rate
 first; that split, not a tool, is what would make caching pay.
@@ -337,8 +338,9 @@ imports the engine from source. CLAUDE.md's "develop, never consume" rule means 
 a published engine package anyway, so it would need the engine's source beside it, which is a monorepo again. The
 desktop app is also planned for this repo.
 
-**The CI saving a split promises comes cheaper in place.** A split saves CI by running fewer tests per change. C9
-and the `changes` job's filters do that inside one repo, without 40% of changes paying for two PRs and a release.
+**The CI saving a split promises comes cheaper in place.** A split saves CI by running fewer tests per change. The
+`changes` job's path filters already do that inside one repo, and C2 and C3 cut more, without 40% of changes paying
+for two PRs and a release.
 
 ## 5. Order, if the owner takes all of it
 
@@ -361,7 +363,7 @@ relayed here. The D-numbers are the ❓ card's on PR #3388.
 | D2 | C2 | **A**, after the flakes are fixed | A session reads the failed `integration` legs and files each flake with the flake desk; the `ci.yml` move waits for the fixes |
 | D3 | C6, C7 | **A** | One PR: `build:check:all` on unit shard 1. C7 measured no saving and is dropped (§2) |
 | D4 | C4 | **A** | The owner sets `max_entries_to_build` to 3 once the Team plan's limit is live (steps below) |
-| D5 | C9 | **A**, re-asked | Measured before building: a safe key hits about 6% of PRs, about 30 min a day (§2, C9). Back to the owner: recommend dropping D5 |
+| D5 | C9 | **A**, re-asked | Measured before building: a safe key hits about 2 of 312 PRs, about 3 min a day (§2, C9). Back to the owner: recommend dropping D5 |
 | W1–W5 | C5, C3, C10, C13, C8 | defaults stand | Nothing changes |
 
 **D1 runs into one limit.** GitHub rejects SARIF results that the CodeQL action or CLI uploads while default setup
