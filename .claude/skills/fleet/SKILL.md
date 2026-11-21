@@ -44,10 +44,14 @@ summary.
    done before the last board, unless they belong in HINDSIGHT. If the last board's
    YAML is still in the scratchpad, start from it and change only the rows that moved.
 2. **Join** each session to its PR by head branch, or by a PR comment that names the
-   session ID. The last board already joins its rows; fetch `head` (one
-   `list_pull_requests` call with `fields: [number, title, head]`) only when a PR or
-   session is new since then, because every `head` repeats the repository's
-   description, about 400 characters per PR. Read the newest comments (`pull_request_read` `get_comments`) only for
+   session ID. The last board already joins its rows; fetch `head` only for PRs that
+   are new since then, because every `head` repeats the repository's description,
+   about 400 characters per PR. New PRs are the newest created, so one
+   `list_pull_requests` call with `sort: created`, `direction: desc`,
+   `perPage: <how many open PR numbers are above the last board's highest>`,
+   `fields: [number, title, head]` returns
+   exactly them. No new PR: no call. A new session with no new PR joins by the PR
+   comment that names it. Read the newest comments (`pull_request_read` `get_comments`) only for
    PRs whose session is review-ready or blocked: they hold the 🚦 level and the CI run link.
    Group sessions tagged `desk:<lane>` under their desk as one line of work.
 3. **Grade** each line of work with the five levels. Nest child sessions under their
