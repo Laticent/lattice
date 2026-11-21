@@ -1546,6 +1546,7 @@
     "/\\uE000/g": "safe",
     "/\\uFFFD+$/": "polynomial",
     "/\\udb40[\\udc00-\\udc7f]/g": "safe",
+    "/\\w/": "safe",
     "/\\{([^{}\\s]*)\\}/g": "safe",
     "/\\{(\\w)\\}/g": "safe",
     "/\\{(\\w+)\\}/g": "safe",
