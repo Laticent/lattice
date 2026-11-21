@@ -15,6 +15,9 @@ name: CodeQL weekly (C# and Python)
 # No push or pull_request trigger, on purpose: this must never add a job to a PR or the merge queue.
 
 on:
+  # TEMPORARY: one real run on this branch before merge (the card's raise). Removed in the next commit.
+  push:
+    branches: [desk-optimize/codeql-weekly]
   schedule:
     - cron: '43 3 * * 1' # Mondays 03:43 UTC, away from the daytime runner peak
   workflow_dispatch:
@@ -38,13 +41,13 @@ jobs:
         language: [csharp, python]
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: none
           queries: security-extended
       - name: Analyze, keeping the results here
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}
           upload: never
@@ -74,7 +77,8 @@ jobs:
                       loc = (r.get('locations') or [{}])[0].get('physicalLocation', {})
                       path = loc.get('artifactLocation', {}).get('uri', '?')
                       line = loc.get('region', {}).get('startLine', '?')
-                      print(f"::error file={path},line={line}::{r.get('ruleId')}: {r.get('message', {}).get('text', '')}")
+                      text = ' '.join(r.get('message', {}).get('text', '').split())
+                      print(f"::error file={path},line={line}::{r.get('ruleId')}: {text}")
           print(f'{found} finding(s)')
           sys.exit(1 if found else 0)
           PY
