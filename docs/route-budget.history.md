@@ -10,7 +10,7 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 Owner OK 2026-11-21, in PR 3351's session: "Lazy fix, +0.6KB", over keeping the migration inside the lint core (+2.1 KB), dropping the Studio's one-click migration (+0.4 KB, and a Studio-only author could not migrate an old deck), or cutting unrelated lint code. PR 3351 (the four notes) adds the `note-key-retired`, `note-malformed` and `plain-comment-notes` rules; the last one's fix runs the whole-deck notes migration, which now loads on demand with the fix driver and takes the parser, notes-core and note-grammar from the lint core rather than importing them, so its chunk shares nothing new with `esm/lint.js`.
 
-Measured with the gate's own closure on `esm/lint.js` after `tools/build-playground.js` and a full docs build, rebased on `main` at 450df6d: `main` is 164.1 KB in CI, PR 3351 with the migration imported statically was 170,998 B, and with it loaded on demand 169,512 B. The ceiling rises 168902 -> 169516 (+614 B, the 0.6 KB approved), which leaves 4 B after PR 3351. The soft target is unchanged. Set by hand, as the entries below are.
+Measured with the gate's own closure on `esm/lint.js` after `tools/build-playground.js` and a full docs build, rebased on `main` at 450df6d: `main` is 164.1 KB in CI, PR 3351 with the migration imported statically was 170,998 B, and with it loaded on demand 169,512 B (169,515 B rebased on `main` at 8a66831c). The ceiling rises 168902 -> 169516 (+614 B, the 0.6 KB approved), which leaves 1 B after PR 3351. The soft target is unchanged. Set by hand, as the entries below are.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
