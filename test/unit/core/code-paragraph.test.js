@@ -6,7 +6,9 @@
  */
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { codeParagraphs, trailingCodeParagraph } = require('../../../lib/core/code-paragraph');
+const { codeParagraphs, codeParagraphAt, trailingCodeParagraph } = require('../../../lib/core/code-paragraph');
+const { findTopLevelTag } = require('@laticent/markup');
+const { __findTopLevelEyebrowForTest: findTopLevelEyebrow } = require('../../../lib/forms/cell/masthead/masthead.transform');
 const { mulberry32 } = require('../../helpers/regex-differential');
 const { charReads } = require('../../helpers/work-count');
 const { assertLinearRegexes } = require('../../helpers/regex-trace');
@@ -15,6 +17,15 @@ const { assertLinearRegexes } = require('../../helpers/regex-trace');
 const LOOSE = /<p[^>]*>\s*<code[^>]*>([\s\S]*?)<\/code>\s*<\/p>/g;
 const TIGHT = /<p\b[^>]*>\s*<code[^>]*>((?:(?!<\/code>)[\s\S])*)<\/code>\s*<\/p>/g;
 const TRAILING = /<p[^>]*>\s*<code>([^<]+?)<\/code>\s*<\/p>\s*$/;
+// The masthead's eyebrow scan as it was: the regex anchored at each top-level `<p`, in order.
+const AT = /^<p[^>]*>\s*<code[^>]*>[\s\S]*?<\/code>\s*<\/p>/;
+const oldEyebrow = (scope) =>
+  findTopLevelTag(scope, 'p', ({ start }) => {
+    const pm = scope.slice(start).match(AT);
+    return pm ? { start, text: pm[0] } : null;
+  });
+// Every `<p` start, left to right: the anchored reading against `codeParagraphAt`.
+const starts = (s) => [...s.matchAll(/<p/g)].map((m) => m.index);
 const all = (re, s) => [...s.matchAll(re)].map((m) => ({ index: m.index, end: m.index + m[0].length, inner: m[1] }));
 
 const PIECES = ['<p>', '<p', '<pre>', '<p class="x">', '<px>', '>', '<', '<code>', '<code class="y">', '<code', '<codex>',
@@ -22,7 +33,9 @@ const PIECES = ['<p>', '<p', '<pre>', '<p class="x">', '<px>', '>', '<', '<code>
   // Whole paragraphs, so the trailing reading's edges (an empty body, a `<` inside it) come up often.
   '<p><code></code></p>', '<p><code>x</code></p>', '<p><code>a<b</code></p>', '<p> <code>y</code> </p>',
   // The checker's edges: blanks `\s` reads that a narrower test would not, and `<p` run into a word or `-` character.
-  '\ufeff', '\u2028', '<p_>', '<p1>', '<p->'];
+  '\ufeff', '\u2028', '<p_>', '<p1>', '<p->',
+  // An upper-case `<P>`: the masthead walk names it `p`, and the case-sensitive anchored regex refused it.
+  '<P>', '<P><code>z</code></p>'];
 const draw = (rand, n) => {
   let s = '';
   const len = Math.floor(rand() * n);
@@ -35,6 +48,9 @@ describe('the code-paragraph walkers answer as the regexes they replaced (seeded
     ['loose', (s) => codeParagraphs(s), (s) => all(LOOSE, s)],
     ['tight', (s) => codeParagraphs(s, { tight: true }), (s) => all(TIGHT, s)],
     ['loose, first only', (s) => codeParagraphs(s, { limit: 1 })[0] ?? null, (s) => all(LOOSE, s)[0] ?? null],
+    ['anchored at each `<p`', (s) => { const at = codeParagraphAt(s); return starts(s).map((i) => at(i)?.end ?? null); },
+      (s) => starts(s).map((i) => { const m = s.slice(i).match(AT); return m ? i + m[0].length : null; })],
+    ['the masthead eyebrow', (s) => findTopLevelEyebrow(s), oldEyebrow],
     ['trailing', (s) => trailingCodeParagraph(s), (s) => { const m = TRAILING.exec(s); return m ? { index: m.index, inner: m[1] } : null; }],
   ];
   for (const [name, neu, old] of cases) {
@@ -93,6 +109,8 @@ describe('the code-paragraph walkers are linear on the markup the regexes choked
     // Many starts sharing one `>`, or one `</code>`, and the long blank run after it (the maker-checker's two shapes).
     'many `<p`, one `>`, then a long blank run': (n) => `${'<p'.repeat(n)}>${' '.repeat(n)}x`,
     'many `<p><code>`, one `</code>`, then a long blank run': (n) => `${'<p><code>'.repeat(n)}</code>${' '.repeat(n)}x`,
+    // The masthead's eyebrow scan read each top-level `<p><code>` to the end of the section (the card checker's render).
+    'many top-level `<p><code>` with no `</code>`': (n) => '<p><code>x'.repeat(n),
   };
   for (const [label, make] of Object.entries(hostile)) {
     test(`${label}: four times the markup costs about four times the work`, () => {
@@ -103,6 +121,7 @@ describe('the code-paragraph walkers are linear on the markup the regexes choked
           codeParagraphs(src);
           codeParagraphs(src, { tight: true });
           trailingCodeParagraph(src);
+          findTopLevelEyebrow(src);
         }));
         return reads + scanned;
       };
