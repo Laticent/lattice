@@ -52,7 +52,8 @@ summary.
    `fields: [number, title, head]` returns
    exactly them. No new PR: no call. A session still unjoined after that (its PR
    was reopened, or is older than the last board and appears on it for the first
-   time) joins by the PR comment that names it; failing that, put the session on the
+   time) joins by its `origin:pr-<N>` session tag, then by the PR comment that names
+   it; failing both, put the session on the
    board without a PR and say so in its `state`, rather than fetching `head` for
    every PR again. Read the newest comments (`pull_request_read` `get_comments`) only for
    PRs whose session is review-ready or blocked: they hold the 🚦 level and the CI run link.
