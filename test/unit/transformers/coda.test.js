@@ -129,6 +129,23 @@ describe('coda — claims', () => {
     for (const out of [last.html, last.dom]) assert.doesNotMatch(out, /cell-coda/);
   });
 
+  test('a VARIANT may change the anatomy: split-panel pullquote keeps its quotation and cite, wherever they sit', () => {
+    // The adversarial checker on #3362: with split-panel claiming nothing, a pull quote AFTER the list was taken as a
+    // Key Insight and the panel rendered empty. `coda.variants.pullquote.anatomy` keeps the first blockquote and the
+    // line after it, the way `quote` does; a later paragraph is the note and a later blockquote the insight.
+    const last = bothArms('split-panel pullquote', '<ul><li>a</li></ul><blockquote><p>q</p></blockquote><p><code>— Jane</code></p>');
+    for (const out of [last.html, last.dom]) assert.doesNotMatch(out, /cell-coda/, 'the quotation and cite stay in the body');
+    const full = bothArms('split-panel pullquote', '<ul><li>a</li></ul><blockquote><p>q</p></blockquote><p>cite</p><blockquote><p>k</p></blockquote><p>note</p>');
+    for (const out of [full.html, full.dom]) {
+      assert.match(out, /^<ul>[\s\S]*<blockquote><p>q<\/p><\/blockquote><p>cite<\/p><div class="cell-coda"/);
+      assert.match(out, /<div class="cell-coda"[^>]*><blockquote><p>k<\/p><\/blockquote><div class="below-note"><p>note<\/p><\/div>/);
+    }
+    assert.equal(norm(full.html), norm(full.dom));
+    // Without the variant, split-panel takes both beats as before.
+    const plain = bothArms('split-panel', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>');
+    for (const out of [plain.html, plain.dom]) assert.match(out, /cell-coda[^>]*><blockquote><p>k<\/p>/);
+  });
+
   test('the `no-note` opt-out withholds the note and keeps the insight', () => {
     const { html, dom } = bothArms('list no-note', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote><p>note</p>');
     for (const out of [html, dom]) {
