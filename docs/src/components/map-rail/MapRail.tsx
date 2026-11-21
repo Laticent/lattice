@@ -20,6 +20,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronsDown, ChevronsLeft, Che
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { createVeduta, type Tier } from '@/lib/veduta';
+import { wheelSideways } from '@/lib/wheel-sideways';
 import type { Block, Wire } from './wireframe';
 
 export type RailStep = 'first' | 'prev' | 'next' | 'last';
@@ -255,10 +256,19 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 
 
 	// Measure the rail's thickness (the axis the tiles scale to) and re-ask when it changes.
-	// The scroller always carries its scrollbar track (`overflow-*-scroll`), so the thickness read here cannot
-	// change when the tiles start to overflow: a scrollbar that came and went with the content made the tiles
-	// shrink and grow in a loop (React #185 wherever scrollbars take space). `refresh` is read through a ref so
+	// The scroller shows NO scrollbar (`data-scrollbar="none"`, native-widgets.css), so the thickness read here
+	// cannot change when the tiles start to overflow: a scrollbar that came and went with the content made the
+	// tiles shrink and grow in a loop (React #185 wherever scrollbars take space). It used to reserve a permanent
+	// track (`overflow-*-scroll`) for the same reason, an empty strip whenever nothing scrolled; the owner chose no
+	// bar at all (2026-11-21). The wheel (lib/wheel-sideways.ts), the first/last chevrons and the keys navigate it. `refresh` is read through a ref so
 	// this effect does not re-run, and so re-measure, every time it changes.
+	// A horizontal rail scrolls sideways under a mouse wheel (lib/wheel-sideways.ts); a vertical rail scrolls natively.
+	React.useEffect(() => {
+		const el = scrollerRef.current;
+		if (!el || vertical) return;
+		return wheelSideways(el);
+	}, [vertical]);
+
 	const refreshRef = React.useRef(refresh);
 	refreshRef.current = refresh;
 
@@ -525,7 +535,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 			{/* `data-ramp`: "on" while the ramp is still promoting tiles, "done" once the window holds what it asks for (or with no
 			    ramp). A test that counts a full map's frames waits for "done" (docs/e2e/studio-map.spec.ts `poolFilled`). */}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: the arrow keys are the roving-tabindex pattern over the tile buttons inside it; the buttons are the interactive elements */}
-			<div ref={scrollerRef} data-ramp={liveOn && Number.isFinite(rampLive) ? 'on' : 'done'} onScroll={onScroll} onKeyDown={onKeyDown} className={cn('min-h-0 min-w-0 flex-1', vertical ? 'overflow-y-scroll overflow-x-hidden' : 'overflow-x-scroll overflow-y-hidden')}>
+			<div ref={scrollerRef} data-scrollbar="none" data-ramp={liveOn && Number.isFinite(rampLive) ? 'on' : 'done'} onScroll={onScroll} onKeyDown={onKeyDown} className={cn('min-h-0 min-w-0 flex-1', vertical ? 'overflow-y-scroll overflow-x-hidden' : 'overflow-x-scroll overflow-y-hidden')}>
 				{wrap ? wrap(tiles, report) : tiles}
 			</div>
 		</nav>

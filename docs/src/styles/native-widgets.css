@@ -55,6 +55,18 @@
 	scrollbar-width: thin;
 }
 
+/* A scroller that shows NO bar: `data-scrollbar="none"` on the element. An attribute here, unlayered, rather
+ * than a Tailwind `[scrollbar-width:none]` utility, which sits in @layer utilities and would lose to the `*`
+ * rule above at any specificity. `::-webkit-scrollbar` covers Safari before 18.2, which has no
+ * `scrollbar-width`. Used by the slide map (MapRail), which the wheel, its first/last chevrons and the keys
+ * navigate, and whose bar caused a resize loop whenever it took space (owner's call, 2026-11-21). */
+[data-scrollbar='none'] {
+	scrollbar-width: none;
+}
+[data-scrollbar='none']::-webkit-scrollbar {
+	display: none;
+}
+
 /* Mobile: the tap flash on any tappable element. Inherited, so setting it
  * once at the root tints every touch highlight to a faint accent instead of
  * the OS gray/blue box. Touch-only — no effect on pointer devices. Only where color-mix()
