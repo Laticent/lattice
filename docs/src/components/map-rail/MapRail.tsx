@@ -260,7 +260,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	// cannot change when the tiles start to overflow: a scrollbar that came and went with the content made the
 	// tiles shrink and grow in a loop (React #185 wherever scrollbars take space). It used to reserve a permanent
 	// track (`overflow-*-scroll`) for the same reason, an empty strip whenever nothing scrolled; the owner chose no
-	// bar at all (2026-11-21). The wheel (lib/wheel-sideways.ts), the first/last chevrons and the keys navigate it. `refresh` is read through a ref so
+	// bar at all (2026-11-21). The wheel (lib/wheel-sideways.ts), a trackpad swipe and the keys navigate it; only a rail with `controls` also has first/last chevrons. `refresh` is read through a ref so
 	// this effect does not re-run, and so re-measure, every time it changes.
 	// A horizontal rail scrolls sideways under a mouse wheel (lib/wheel-sideways.ts); a vertical rail scrolls natively.
 	React.useEffect(() => {
