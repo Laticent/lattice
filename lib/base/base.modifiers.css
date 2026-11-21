@@ -374,7 +374,10 @@ section video[data-lattice-web-src] {
  * is loading and stops for reduced motion; the one-off sweep is a clip. */
 section [data-lattice-painting] {
   /* Nacre's three tones: the accent, and two hue-shifted relatives (+34° and −28°, Nacre's own
-     offsets). A browser without relative colors keeps plain token mixes. */
+     offsets). A browser without relative colors keeps plain token mixes. The guard is the rule's
+     own shape: a light-dark() origin, as `--accent` is, and a calc() in the hue channel. WebKit 17.4
+     (Safari 17.5-17.6) passed a bare `oklch(from red l c h)` but rejects both, so --lp-b and --lp-c
+     went invalid and the canvas lost its whole background-image; it now keeps the plain mixes. */
   --lp-a: var(--accent);
   --lp-b: color-mix(in oklab, var(--accent) 70%, var(--text-heading));
   --lp-c: color-mix(in oklab, var(--accent) 60%, var(--bg-alt, var(--bg)));
@@ -382,7 +385,7 @@ section [data-lattice-painting] {
   isolation: isolate;
   background-color: var(--bg-alt, var(--bg));
 }
-@supports (color: oklch(from red l c h)) {
+@supports (color: oklch(from light-dark(red, red) l c calc(h + 34))) {
   section [data-lattice-painting] {
     --lp-b: oklch(from var(--accent) l c calc(h + 34));
     --lp-c: oklch(from var(--accent) l c calc(h - 28));
@@ -547,7 +550,7 @@ section :is(div, span)[data-lattice-plugin-off] {
     radial-gradient(50% 140% at 100% 10%, color-mix(in oklab, var(--lp-c) 36%, transparent), transparent 72%),
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 7%, transparent) 0 1px, transparent 1px 5px);
 }
-@supports (color: oklch(from red l c h)) {
+@supports (color: oklch(from light-dark(red, red) l c calc(h + 34))) {
   section :is(div, span)[data-lattice-plugin-off] {
     --lp-b: oklch(from var(--accent) l c calc(h + 34));
     --lp-c: oklch(from var(--accent) l c calc(h - 28));
@@ -1081,6 +1084,10 @@ section.print {
   --chart-cat3: var(--print-chart-3); --chart-cat4: var(--print-chart-4);
   --chart-cat5: var(--print-chart-5); --chart-cat6: var(--print-chart-6);
   --chart-cat7: var(--print-chart-7); --chart-cat8: var(--print-chart-8);
+  /* A palette's ramp hue and ink (--ramp-hue / --ramp-ink, carbone) resolve on :root, so they would carry the screen
+   * color past the remap above; reset them so a printed ramp falls back to the first category's print gray, as before. */
+  --ramp-hue: initial;
+  --ramp-ink: initial;
   /* …and the chart cycle's INK follows the band for the same reason the --cat-N-ink
    * block above does. It used to ride along for free, being derived from
    * --chart-cat-N-hue; it is a committed per-theme token now (#1536), so it must be
