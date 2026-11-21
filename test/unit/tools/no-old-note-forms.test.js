@@ -45,6 +45,7 @@ const SANCTIONED = new Map([
   ['test/unit/components/lint-core.test.js', 'the `note-key-retired` rule test feeds it the old keys'],
   ['test/unit/authoring/notes-core.test.js', 'the retired-scrub and not-a-note tests feed it the old forms'],
   ['test/unit/core/meta-door.test.js', 'the `meta-note-field` and retired-field scrub tests feed records the old fields'],
+  ['docs/e2e/editor-lint.spec.ts', 'the Studio Fix-all e2e types an LFM 1.x deck and migrates it'],
   ['test/unit/export/marp-directives.test.js', 'the Marp bridge test proves a retired `note=` field is reported and dropped'],
 ]);
 

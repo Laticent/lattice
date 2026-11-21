@@ -770,8 +770,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					const fixOpts = {
 						// biome-ignore lint/suspicious/noExplicitAny: lint-core finding + CM view.
 						onFix: (v: any, f: any) => {
-							const out = core.applyFix(docString(v.state.doc), f);
-							if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out }, annotations: editAs.of({ label: 'Quick fix', origin: 'lint' }) });
+							// A whole-deck fix (the notes migration) loads first; a keystroke typed meanwhile wins, and the fix is dropped.
+							const doc = v.state.doc;
+							void core.applyFixWhenReady(docString(doc), f).then((out: string | null) => {
+								if (out != null && v.state.doc === doc) v.dispatch({ changes: { from: 0, to: doc.length, insert: out }, annotations: editAs.of({ label: 'Quick fix', origin: 'lint' }) });
+							});
 						},
 					};
 					// Measured, not linted: sparks the preview found too big for their space. Only the
