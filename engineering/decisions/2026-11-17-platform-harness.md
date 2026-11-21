@@ -54,6 +54,14 @@ build once and submit jobs to" (2026-11-17), and chose this design and the PR th
   are read between jobs.
 - **A transient error does not end the session.** A failed poll, reply or fetch is logged and the loop carries on; five
   failures in a row end it with a reply.
+- **`/harness sh` stays, and CodeQL's alert on it is dismissed (owner, 2026-11-21).** CodeQL flags the `bash -c` spawn
+  as an uncontrolled command line (alert #1011, `js/command-line-injection`). The alert is accurate: running the
+  dispatcher's bash is the feature. It was dismissed as won't-fix on the strength of §Threat model, after the red-team
+  fixes there. Two alternatives were weighed and refused. Dropping `sh` would very likely clear the alert, but every
+  ad-hoc check would then need a commit (the commit hook took 8 to 13 minutes per commit that session), and who can
+  run code would not change: the dispatcher still controls `suite` and pushes. Gating `sh` behind a dispatch input
+  would leave the alert in place, because CodeQL cannot see the input. If a later change moves the spawn line and
+  CodeQL raises the alert again, dismiss it the same way and link this bullet.
 
 ## Threat model
 
