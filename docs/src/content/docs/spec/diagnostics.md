@@ -167,6 +167,7 @@ distinct, stable ID.
 | `map-highlight-implied` | info | — | A `map highlight` slide whose values are labels (or absent), so the data already fills it by category and the class says nothing. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
+| `cover-heading-long` | warning | — | On a `title` or `closing` composed as `cover-stage` or `cover-poster` (by its class or the deck's `cover:`), a heading over 60 characters: the display size holds three lines, and a fourth or fifth climbs into the header and footer bands. |
 | `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
 | `empty-section` | warning | — | A divider straight after another divider, so the section before it holds no slide, its mark on the section rail never lights, and the first rail a reader sees can say `2 / 4`. |
 | `label-set-above-body` | warning | — | A label list naming key entries, placed above the chart: there it names the axes instead of relabeling the key, or shows as text if it has more items than the chart has axes. |

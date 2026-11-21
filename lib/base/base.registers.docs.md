@@ -46,7 +46,7 @@ model, see `design/concepts.md`.
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
-| [`cover:`](#the-cover-front-matter-register-the-front-and-back-cover) | The surface of the title and closing slides: the dark inverse panel or the deck's light canvas | `inverse` |
+| [`cover:`](#the-cover-front-matter-register-the-front-and-back-cover) | The title and closing slides: their surface (the dark inverse panel or the deck's light canvas) and their composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`) | `inverse plain` |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
 | [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
@@ -1283,11 +1283,14 @@ Full catalog of the classes: `lib/components/imagery/image/image.docs.md`.
 ## The `cover:` front-matter register (the front and back cover)
 
 The `title` and `closing` slides are the deck's covers, and by default both paint the dark
-inverse panel. `cover:` sets that surface for both at once:
+inverse panel with a centered heading. `cover:` sets both covers at once, with up to two words in
+either order: a **surface** and a **composition**.
 
 ```yaml
-cover: light
+cover: light column
 ```
+
+### Surface
 
 | Deck value | Per-slide class | Effect |
 |---|---|---|
@@ -1310,8 +1313,38 @@ cover in a deck without the key.
 nothing, so `title light` keeps its inverse panel. That meaning is unchanged; `cover-light` is
 the word that repaints. Under `color-mode: print` a cover is paper either way.
 
-The register is `lib/core/resolve-cover.js`. It has no Studio control on purpose: presets
-will set it, and the Studio's Basic tier gains no new controls for the ingredients presets use.
+### Composition
+
+How the heading block sits on the surface. Each one is a variant of the `title` and `closing`
+components, so a slide can also name it in `_class:` (`_class: title cover-poster`).
+
+| Deck value | Per-slide class | Effect |
+|---|---|---|
+| `plain` | `cover-plain` | Today's centered block. **Default**: a deck value of `plain` stamps nothing. On one slide it keeps the centered block inside a deck that sets a composition |
+| `masthead` | `cover-masthead` | A heavy rule over the heading, set left. The rule spans the heading's measure, so it does not change length with the words |
+| `ledger` | `cover-ledger` | Small capitals over a double rule, centered |
+| `column` | `cover-column` | An accent column at the right edge, the heading set left. The column runs between the header and footer bands, so it never sits under the footer or a top-right logo, and a long heading wraps short of it |
+| `label` | `cover-label` | A gallery wall label: the heading at the slide-title size (`--fs-h2`), low on the left under a hairline, with the subtitle at the reading size |
+| `stage` | `cover-stage` | The heading at the display size (`--fs-hero`), centered |
+| `frame` | `cover-frame` | The heading boxed in a keyline. The keyline follows the `--rule-w` and `--rule-style` preset hooks |
+| `poster` | `cover-poster` | The heading at the display size, heavy and tight, set left |
+
+**Every composition works on both surfaces.** Rules, boxes and the column are drawn in the
+heading's ink or the accent, which `cover-light` repoints for the light canvas, so `cover: light
+ledger` and `cover: ledger` both read in either color mode, with or without a `finish:`.
+
+**A `headline:` register still wins.** The four left-set compositions (`masthead`, `column`,
+`label`, `poster`) only change the default alignment, so `headline: center` centers them.
+
+**Keep a `stage` or `poster` heading to about 60 characters.** The display size holds three lines
+of about twenty characters with the eyebrow and a subtitle. A fourth line reaches into the band
+padding and a fifth runs into the footer, and the slide does not overflow, so nothing else would
+say so. `lint:deck` warns (`cover-heading-long`); shorten the heading or add `cover-plain` to that
+slide.
+
+The register is `lib/core/resolve-cover.js`. It has no Studio control on purpose: presets set it
+(deck-preset study, decision D10), and the Studio's Basic tier gains no new controls for the
+ingredients presets use.
 
 ## The `spark:` front-matter register (inline sparks)
 

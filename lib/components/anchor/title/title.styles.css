@@ -108,3 +108,106 @@ section.title.spectrum::before {
   background-clip: content-box;
   border-radius: 2px;
 }
+
+/* ── COVER COMPOSITIONS — `cover-masthead` … `cover-poster` (component variants) ─────────────
+ * How the heading block sits on the cover. The deck writes them through the `cover:` register's
+ * composition axis (`cover: light column`, lib/core/resolve-cover.js), which stamps the class on
+ * title and closing alike; a slide may also name one in `_class:`. closing.styles.css mirrors this
+ * block rule for rule, so the front and back cover always compose the same way.
+ *
+ * WHY VARIANTS AND NOT MODIFIERS. `stage` and `poster` set the heading in `--fs-hero` and `label`
+ * in `--fs-h2`. A cross-component modifier may never change a type role's size, but a component's
+ * own variant may assign its elements to roles (engineering/typography.md, "One size across
+ * modifiers"), so these are declared in title.manifest.json and `checkTypeSizeModifiers` passes
+ * them. Every size here is a role token, never a length (HARD RULE #4).
+ *
+ * PALETTE-BLIND AND SURFACE-BLIND. Every rule and bar is drawn in `--text-display` (the heading's
+ * own ink) or `--accent`, both of which `cover-light` repoints for the light canvas
+ * (base.modifiers.css, the light-cover block), so each composition reads on either surface in
+ * either color mode without a rule of its own.
+ *
+ * ALIGNMENT IS A DEFAULT, NOT AN ORDER. A left-set composition sets the `headline:` seam's two
+ * tokens inside `:where()`, at (0,0,1), so the deck's `headline:` register (`section.head-center`,
+ * (0,1,1)) still wins: `headline: center` centers a masthead. No margin (HARD RULE #20): every gap
+ * is padding. */
+/* The four left-set compositions. */
+section:where(.title.cover-masthead), section:where(.title.cover-column), section:where(.title.cover-label), section:where(.title.cover-poster) { --headline-align: left; --headline-justify: flex-start; }
+
+/* masthead — a heavy rule over the title, set left, the rule as wide as the heading's measure so
+ * it does not grow and shrink with the words. */
+section.title.cover-masthead h1 {
+  align-self: stretch;
+  border-top: calc(var(--_sec-1cqi, 1cqi) * 0.55) solid var(--text-display);
+  padding-top: var(--sp-md);
+}
+
+/* ledger — a small-caps title over a double rule, centered. The rule needs three device pixels or
+ * more to draw as two lines; 0.47cqi is 6px at the 1280px slide. */
+section.title.cover-ledger h1 {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.06em;
+  border-bottom: calc(var(--_sec-1cqi, 1cqi) * 0.47) double var(--text-display);
+  padding-bottom: var(--sp-sm);
+}
+
+/* column — an accent column at the right edge. It runs between the two chrome bands rather than
+ * edge to edge, so it never sits under the footer, the header or a top-right logo, and the
+ * section gives up its width on the right so a long title wraps short of it. Drawn on the
+ * heading's `::after`, never the section's: `section::after` is the page number that `silent`
+ * nulls, and `section::before` is the `spectrum` bar and the state stamps. */
+section.title.cover-column {
+  --_cover-col-w: calc(var(--_sec-1cqi, 1cqi) * 8);
+  padding-inline-end: calc(var(--_inline-inset) - var(--_bar-r, 0px) + var(--_cover-col-w) + var(--sp-xl));
+}
+section.title.cover-column h1::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--_sec-1cqi, 1cqi) * 6.875);
+  bottom: calc(var(--_sec-1cqi, 1cqi) * 6.875);
+  inset-inline-end: 0;
+  width: var(--_cover-col-w);
+  background: var(--accent);
+  pointer-events: none;
+}
+
+/* label — a gallery wall label: a smaller title low on the left under a hairline, with a quiet
+ * caption. The heading takes the slide-title role and the subtitle the reading role, so the
+ * eyebrow steps down with them. */
+section.title.cover-label { justify-content: flex-end; }
+section.title.cover-label h1 {
+  font-size: var(--fs-h2);
+  border-top: max(1px, calc(var(--_sec-1cqi, 1cqi) * 0.08)) solid var(--text-display);
+  padding-top: var(--sp-sm);
+}
+section.title.cover-label h1 ~ p { font-size: var(--fs-body); }
+section.title.cover-label h1 + p:has(> code:only-child):not(:where([data-prose])) > code {
+  font-size: max(var(--fs-meta), calc(var(--fs-h2) * var(--eyebrow-anchor-scale)));
+}
+
+/* stage — the title at stage size, centered: the display role, set tight. */
+section.title.cover-stage h1 {
+  font-size: var(--fs-hero);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+}
+
+/* frame — the title boxed in a keyline. The box follows the preset's rule hooks (weight and
+ * style), drawn in the heading's ink. */
+section.title.cover-frame h1 {
+  border: max(1px, var(--rule-w, calc(var(--_sec-1cqi, 1cqi) * 0.16))) var(--rule-style, solid) var(--text-display);
+  padding: var(--sp-md) var(--sp-lg);
+}
+
+/* poster — a giant title set left: the display role, heavy and tight. */
+section.title.cover-poster h1 {
+  font-size: var(--fs-hero);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  max-width: 11em;
+}
+
+/* The subtitle under a ruled, boxed or poster heading: title's subtitle sits flush (padding-top 0,
+ * above), which reads as crowding once the heading carries a rule or a box. The eyebrow keeps its
+ * own zero: its rule (0,2,4) outweighs this (0,2,3). */
+section.title:is(.cover-ledger, .cover-frame, .cover-poster) h1 ~ p { padding-top: var(--sp-md); }

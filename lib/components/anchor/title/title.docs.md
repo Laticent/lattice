@@ -6,7 +6,7 @@
 
 **Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
 
-First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover).
+First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters (`cover-heading-long`).
 
 ## Agent contract
 
@@ -79,6 +79,104 @@ A generated gradient bar below the subtitle, in the theme's own six-step palette
 `Six stages, six colors`
 
 The title echoes the same six-step story the deck's own components carry.
+```
+
+### `cover-masthead` — cover-masthead
+
+A heavy rule over the title, set left.
+
+```markdown
+<!-- _class: title silent cover-masthead -->
+
+# The cover composes as a masthead.
+
+`anchor · title · cover-masthead`
+
+The heading sits under a heavy rule as wide as its measure.
+```
+
+### `cover-ledger` — cover-ledger
+
+A small-caps title over a double rule.
+
+```markdown
+<!-- _class: title silent cover-ledger -->
+
+# The cover composes as a ledger.
+
+`anchor · title · cover-ledger`
+
+Small capitals over a double rule, centered.
+```
+
+### `cover-column` — cover-column
+
+An accent column at the right edge, the title set left.
+
+```markdown
+<!-- _class: title silent cover-column -->
+
+# The cover composes as a column.
+
+`anchor · title · cover-column`
+
+The accent column runs between the header and footer bands.
+```
+
+### `cover-label` — cover-label
+
+A gallery wall label: a smaller title low on the left under a hairline.
+
+```markdown
+<!-- _class: title silent cover-label -->
+
+# The cover composes as a label.
+
+`anchor · title · cover-label`
+
+A quiet caption sits under the hairline, the way a museum labels a work.
+```
+
+### `cover-stage` — cover-stage
+
+A stage-size centered title.
+
+```markdown
+<!-- _class: title silent cover-stage -->
+
+# The cover composes as a stage.
+
+`anchor · title · cover-stage`
+
+One short line, sized for the back of the hall.
+```
+
+### `cover-frame` — cover-frame
+
+The title boxed in a keyline.
+
+```markdown
+<!-- _class: title silent cover-frame -->
+
+# The cover composes as a frame.
+
+`anchor · title · cover-frame`
+
+The keyline follows the deck's rule weight.
+```
+
+### `cover-poster` — cover-poster
+
+A giant title set left.
+
+```markdown
+<!-- _class: title silent cover-poster -->
+
+# The cover composes as a poster.
+
+`anchor · title · cover-poster`
+
+A poster headline, heavy, tight and set left.
 ```
 
 ## Universal modifiers
