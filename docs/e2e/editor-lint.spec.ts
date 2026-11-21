@@ -217,9 +217,23 @@ test('@webkit-tablet @gecko a second press while Fix all runs starts nothing', a
 				requestAnimationFrame(tick);
 			}),
 	);
-	// One run, one notice: no second "Fixed" and no stale notice from a second run racing the first.
-	await expect(page.getByText(/^Fixed \d+ issue/)).toHaveCount(1);
+	// One run, one notice. The status pill is rewritten in place (lib/notify.ts), so a second run racing the first would
+	// replace the first run's notice with its own (a stale one, or "Fixed 1 issue." if it began after the first ended):
+	// the first run's exact words must still be the one notice showing.
+	await expect(page.getByText('Fixed 500 issues. 1 fix was not applied.')).toHaveCount(1);
 	await expect(page.getByText(STALE)).toHaveCount(0);
+});
+
+test('@webkit-tablet @gecko switching to Compose while Fix all runs writes nothing and says so', async ({ page }) => {
+	test.setTimeout(240_000);
+	await setEditorContent(page, REFUSED_DECK);
+	await runFixAllFromPalette(page);
+	// Compose unmounts the Source editor (Editor.tsx's teardown destroys its view). A destroyed view keeps its old text
+	// and takes a dispatch without a word, so the run must count as stale rather than announce fixes it never wrote.
+	await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
+	await expect(page.getByText(STALE)).toBeVisible({ timeout: 60_000 });
+	await expect(page.getByText(/^Fixed \d+ issue/)).toHaveCount(0);
+	expect(await storedDeck(page)).toContain('- **Bet 0.** body 0');
 });
 
 // ── The render-target squiggle lands on the OFFENDING line ─────────────────
