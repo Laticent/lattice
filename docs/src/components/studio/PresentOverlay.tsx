@@ -2785,6 +2785,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				data-beat={holding ? 'hold' : undefined}
 				data-settling={settling ? '' : undefined}
 				data-wake={wakeState}
+				// WHICH TEXT the captions read, as observable state: `projected` once the DOM projection for
+				// this set has landed (it alone carries the emphasis spans and the scene refs), `flatten` until
+				// then. The projection renders the deck asynchronously, so a test that presses Play first can
+				// time the flatten's cues and see no emphasis hold at all (present-emphasis.spec.ts, 1 in 10
+				// under 4 workers). Publish it rather than guess at it, as `data-beat` does.
+				data-narration={projected.set === set ? 'projected' : 'flatten'}
 				className="lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden"
 			>
 			<div
