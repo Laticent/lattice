@@ -1305,7 +1305,9 @@ locally from `docs/`:
   building the base (`docs/scripts/measure-route-base.sh`, about a minute); a local
   `check:route-budget` reports it as not checked. Numbers move only through
   `npm run route-budget:rebaseline` in its own PR, and raising one needs the owner's OK
-  (`decisions/2026-09-29-route-budget-soft-hard.md`).
+  (`decisions/2026-09-29-route-budget-soft-hard.md`). `--metric` and `--route` narrow a reset
+  to the metrics and routes the OK covers, so an OK for one route moves no other route that
+  also sits above its soft target.
 
 These live in `docs/package.json` (a separate package), so they are **not** in
 the root capability index that `tools/build-capabilities.js` generates.
