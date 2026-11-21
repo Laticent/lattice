@@ -58,6 +58,10 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 	if ((await cc.getAttribute('aria-pressed')) !== 'true') await cc.click();
 	await page.keyboard.press('ArrowRight'); // onto the content slide
 	await expect(dialog.getByText('2 / 2')).toBeVisible(); // the nav landed — a state wait, not a sleep
+	// The captions read the DOM projection, which alone carries the emphasis spans, only once it has landed;
+	// until then Present reads a plain flatten with no hold. Under load the projection landed after Play, so the
+	// `**` drive timed the flatten and showed no hold (1 in 10 at 4 workers). Wait for the signal, not a duration.
+	await expect(dialog).toHaveAttribute('data-narration', 'projected');
 	// From here time moves only when the test moves it.
 	const pageNow = await page.evaluate(() => Date.now());
 	const pauseAt = Math.max(pageNow, clockMark.at + (Date.now() - clockMark.resumedAt)) + 1_000;
