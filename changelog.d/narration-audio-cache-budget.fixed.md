@@ -1,0 +1,1 @@
+- **Studio:** narration audio kept in memory is now limited to 24 MB, not only 200 clips, and a Gemini clip is kept as a `Blob` the browser can store outside the page. The 200-clip limit was sized for MP3: Gemini voices answer uncompressed audio, about ten times larger. This is a safety limit, not the fix for the iPhone reload during narrated Present, which is still open.
