@@ -70,4 +70,6 @@ verify    — npx playwright test --project=mobile --retries=0, repeated.
               left the Library open, back stack `1/1/0`). Load-only, and its fix is the sheet-scrim change in #3278
               (by #3278's own count, 3 to 6 red in 100 on main before it, 100 of 100 at 4 workers after); it stays with
               that PR.
+            Then the three projects whole (--workers=4, --retries=0, one run each): webkit-phone 285 passed (back-gesture
+            included), webkit-tablet 411 of 412, gecko 424 of 424; none of these rows failed.
             The three STALE rows close here; back-gesture closes when #3278 lands.
