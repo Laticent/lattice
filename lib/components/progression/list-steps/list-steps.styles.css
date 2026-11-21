@@ -26,7 +26,7 @@ section.list-steps > .cell-stage { display:flex; flex-direction:column; min-heig
  * right channel. Landscape (hd/4k) hits it first: a 16:9 stage is the shortest one a
  * four-column strip has to fit into. */
 section.list-steps ol { list-style:none; counter-reset:step-counter var(--lat-split-offset, 0); display:flex; gap:var(--sp-xl); flex:1; min-height:0; padding:0; margin:0; align-items:stretch; }
-section.list-steps ol > li { counter-increment:step-counter; flex:1; background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); position:relative; font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading); }
+section.list-steps ol > li { counter-increment:step-counter; flex:1; background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-card, var(--radius-md)); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); position:relative; font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading); }
 section.list-steps ol > li:not(:last-child)::after {
   content:'';
   position:absolute;
