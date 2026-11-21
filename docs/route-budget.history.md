@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-21 — the owner raised one ceiling by hand, for PR 3349: studio lintCoreGz to 167.9 KB
+
+Owner OK 2026-11-21, in PR 3349's session, in two steps. First "Raise the ceiling, own PR", over dropping PR 3349's `marks-source-needs-tone` warning (it would land 2 B under the ceiling, and `marks: etch accent` would do nothing with no hint) or finding the bytes elsewhere in the lint core. Then "Hand-set ceiling +2 KB", over the rebaseline tool's standard raise (soft to the measured size and the ceiling 10% above it, about +17 KB), so the gate keeps catching lint-core growth. Trimming the warning's message was measured and does not fit: the shortest wording still lands 90 B over.
+
+Measured with the gate's own closure on `esm/lint.js` after `tools/build-playground.js`, hashes fixed as the gate fixes them: `main` at 65b2432f is 169,914 B, 12 B under the 169,926 B ceiling. PR 3349 rebased on it is 170,060 B (CI read the same, 166.1 KB, 134 B past the ceiling), 146 B over `main`: the warning itself costs 136 B. The ceiling rises 169926 -> 171974 (+2,048 B), which leaves 1,914 B after PR 3349. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 171974 |
+
 ### 2026-11-21 — the owner raised one ceiling by hand, for PR 3378: studio chartKernelsGz to 261.7 KB
 
 Owner OK 2026-11-21, relayed by the flake desk: raise studio chartKernelsGz's ceiling by about 0.5 KB in its own PR, chosen over dropping PR 3378's table walkers (the heatmap kernel's tables would stay quadratic on unclosed `<tr`/`<td`), sharing a reader across the plugin boundary (a new plugin-to-core import, and still short), or holding PR 3378.
