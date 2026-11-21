@@ -84,6 +84,9 @@ test('the action fails its step when the download fails, and tries three times',
   assert.equal(action.runs.using, 'composite');
   assert.match(run, /npx --no-install puppeteer browsers install chrome/);
   assert.match(run, /for try in 1 2 3/);
+  // The step must NAME the cause, not only go red: the warning per retry and the error that says what failed.
+  assert.match(run, /::warning::Chrome download failed \(try \$try of 3\)/);
+  assert.match(run, /::error::puppeteer could not download its Chrome/);
   assert.match(run, /exit 1\s*$/);
 });
 
