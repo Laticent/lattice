@@ -187,6 +187,10 @@ glow picture; the clear-panel deck's draw-time cost.
 - **The Studio's PDF download** is driven for real by `docs/e2e/studio-pdf-backdrop.spec.ts` (Chromium,
   10 runs alone and 5 under load, green). Driving it found the Studio's dark slide drawn as opacity maps
   (its hairline reached the drawing as a section strip); a section strip now goes above the glow picture.
-- WebKit on screen: the browser download was refused by this sandbox's network policy.
-- The Studio's own PDF download runs the same writer through html-to-image; it was not driven here.
+  The same spec later ran on every project its tags target (Chromium desktop, WebKit tablet, Firefox:
+  4 passed, 2026-11-21), so WebKit's Studio download is driven too.
+- The iOS Simulator and macOS platform suites the change reaches ran on the PR head (run 44793081151):
+  13 of 15 passed. `ios-safari-font-cache` failed on the iPad warm arm, the stall recorded in
+  `followups.d/3095-p3-ipad-font-cache-warm-stall.md` that also fails on `main`; font warming is not in
+  this change. `ios-safari-present-memory` reports its job cancelled after its suite step passed.
 - 4K slides (the photo cap) and the editable `.pptx` (option A's follow-on) were not touched.
