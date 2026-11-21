@@ -308,7 +308,7 @@ async function readLane(entry: object | null, max: number, what: string, parseJs
  * that cannot come back). The row is untrusted: the path must be one `packWorkspace` writes, the entry must declare no
  * more than one deck may be, and the shared `budget` stops the lane's total. A row with no `deckFile` is a plain doc.
  */
-async function readDeckEntry(zip: { file: (path: string) => object | null }, deckFile: unknown, budget: ReturnType<typeof readBytesBudget>, refuse: (why: string) => void): Promise<Blob | null> {
+async function readDeckEntry(zip: { file: (path: string) => object | null }, deckFile: unknown, total: { used: number; max: number }, refuse: (why: string) => void): Promise<Blob | null> {
 	if (deckFile === undefined) return null;
 	if (typeof deckFile !== 'string' || !REFDOC_DECK_FILE.test(deckFile)) {
 		refuse('its path is not one Lattice writes');
@@ -323,11 +323,28 @@ async function readDeckEntry(zip: { file: (path: string) => object | null }, dec
 		refuse(`over the ${Math.floor(MAX_DECK_REF_BYTES / 1_048_576)} MB the Library keeps for one deck`);
 		return null;
 	}
+	// Two budgets. This entry's own, so one that understates its size stops at one deck's cap, not at the restore's whole
+	// deck budget; and the restore's total, charged with what this entry actually held.
+	const perDeck = `over the ${Math.floor(MAX_DECK_REF_BYTES / 1_048_576)} MB the Library keeps for one deck`;
+	const totalLimit = `over the ${Math.floor(total.max / 1_048_576)} MB of deck files a restore reads`;
+	if (total.used >= total.max) {
+		refuse(totalLimit);
+		return null;
+	}
 	try {
-		const bytes = await budget(entry as Parameters<typeof budget>[0]);
-		return bytes ? new Blob([bytes]) : null;
+		const read = readBytesBudget(perDeck, MAX_DECK_REF_BYTES);
+		const bytes = await read(entry as Parameters<typeof read>[0]);
+		if (!bytes) return null;
+		total.used += bytes.byteLength;
+		if (total.used > total.max) {
+			refuse(totalLimit);
+			return null;
+		}
+		return new Blob([bytes]);
 	} catch (e) {
-		refuse((e as Error).message);
+		const why = (e as Error).message;
+		// The budget's own refusal reads as it is; anything else (JSZip's "uncompressed data size mismatch") is a damaged entry.
+		refuse(why === perDeck ? why : 'the file in the backup is damaged');
 		return null;
 	}
 }
@@ -571,7 +588,7 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		}
 	}
 
-	const deckBudget = readBytesBudget(`over the ${Math.floor(MAX_REFDOC_DECKS_RESTORE_BYTES / 1_048_576)} MB of deck files a restore reads`, MAX_REFDOC_DECKS_RESTORE_BYTES);
+	const deckBudget = { used: 0, max: MAX_REFDOC_DECKS_RESTORE_BYTES };
 	for (const rec of refdocRecords as RefDocRecord[]) {
 		// A row that is not a named record is junk, not a doc: skip it without a write.
 		if (!rec || typeof rec !== 'object' || typeof rec.name !== 'string' || !rec.name) continue;

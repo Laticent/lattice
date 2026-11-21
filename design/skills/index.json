@@ -107,7 +107,7 @@
       "description": "Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3396
+      "tokens": 3454
     },
     {
       "name": "lens",

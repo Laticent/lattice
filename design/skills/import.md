@@ -99,8 +99,11 @@ does not read. `lint:deck` names each one.
   which. A webpage that holds no Lattice deck is refused with the reader's own
   message. The Library keeps a copy of a deck up to 50 MB; a bigger one is
   refused with a pointer to "Import deck…". A `.md` stays a plain reference
-  file; it gets "Open as deck" only when its stored text is the file byte for
-  byte. A plain PDF, and a PowerPoint made elsewhere, land as reference only.
+  file and gets "Open as deck": rebuilt from its stored text when that text is
+  the file byte for byte, else from a copy of the file the Library keeps (a long
+  deck cut at the reference cap, CRLF, a BOM). A plain PDF, and a PowerPoint made
+  elsewhere, land as reference only; a PowerPoint's pictures and audio never
+  count toward the limit, since only its slides and notes are read.
 - **CLI**: `npx @laticent/lattice deck.md deck.pdf` reads a Markdown file and strips a
   BOM and CRLF/CR line endings on the way in (`readFileOrDie` in `lattice.js`).
 - **Lint**: `npm run lint:deck -- <file>`; `--fix` applies the machine fixes.

@@ -104,12 +104,19 @@ export async function pptxReferenceText(file: File): Promise<string> {
 	// An untrusted archive, read like every other: entry count and declared size checked before anything inflates,
 	// then one running budget across every part read, so a crafted slide cannot inflate past it.
 	const tooBig = 'That PowerPoint is too large to read as reference text.';
-	assertZipWithinLimits(zip, tooBig);
-	const read = readBudget(tooBig);
 	const slideNo = (p: string) => Number(/slide(\d+)\.xml$/.exec(p)?.[1] ?? 0);
 	const slides = Object.keys(zip.files)
 		.filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p))
 		.sort((a, b) => slideNo(a) - slideNo(b));
+	// Only the parts this reads count toward the declared size: the slides, their relationships and the notes pages. A deck's
+	// pictures, fonts and audio are never inflated here, so a PowerPoint with heavy media is still read, not refused.
+	const reads = [
+		...slides,
+		...slides.map((p) => p.replace(/slides\/(slide\d+\.xml)$/, 'slides/_rels/$1.rels')),
+		...Object.keys(zip.files).filter((p) => /^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(p)),
+	];
+	assertZipWithinLimits(zip, tooBig, reads);
+	const read = readBudget(tooBig);
 	const out: string[] = [];
 	for (const [i, path] of slides.entries()) {
 		const words = runs((await read(zip.file(path))) ?? '');
@@ -188,14 +195,16 @@ export async function readDeckReference(file: File): Promise<LibraryReference> {
  *   copy of the PDF for "Open as deck". Any other PDF stays a PDF reference. Size decides first: over the deck cap is
  *   refused unread; between reference-doc.ts's 5 MB and the deck cap, only a Lattice PDF is kept (a PDF can hide its
  *   attachment in a compressed object stream, so there is no cheap marker: it is parsed, within the deck cap).
- * - A Markdown file stays plain reference, as before: no second copy, no DECK badge. Its card offers "Open as deck"
- *   only when the stored text is byte for byte the file (`sourceExact`), since the importer opens any Markdown and
- *   the file is rebuilt from that text. A `.txt` stays plain reference: it is notes far more often than a deck.
+ * - A Markdown file stays plain reference, as before: no second copy, no DECK badge, when its stored text is byte for
+ *   byte the file (`sourceExact`): its card offers "Open as deck", rebuilding the file from that text. When the text is
+ *   not the file (cut at the reference cap, CRLF, a BOM), a copy of the file is kept instead, so it still opens. A `.txt` stays plain reference: it is notes far more often than a deck.
  */
 export async function readLibraryReference(file: File): Promise<LibraryReference> {
 	const ext = extOf(file.name);
 	if (ext === '.pdf' || isPdfHead(await head(file, 5))) {
-		if (file.size > MAX_DECK_REF_BYTES) throw new Error(tooLargeToKeep(file.name));
+		// Over the deck cap a PDF is neither kept as a deck nor as a reference (5 MB), whichever it is; say both.
+		if (file.size > MAX_DECK_REF_BYTES)
+			throw new Error(`${file.name} is ${(file.size / 1_048_576).toFixed(1)} MB. The Library keeps a reference PDF up to 5 MB and a Lattice deck up to ${Math.floor(MAX_DECK_REF_BYTES / 1_048_576)} MB; a PDF exported from Lattice opens with Import deck….`);
 		// The deck importer decides, as it does for "Import deck…". A PDF it cannot open (no deck inside, or a
 		// damaged one) is still the reference PDF it always was, within the reference size.
 		const { readDeckFile } = await import('./deck-import');
@@ -203,7 +212,11 @@ export async function readLibraryReference(file: File): Promise<LibraryReference
 		if (deck) return deckRef(file, await deckReferenceText(deck.source, deck.title));
 	}
 	const doc = await readReferenceDoc(file);
-	const exact = (ext === '.md' || ext === '.markdown') && doc.kind === 'text' && sameBytes(new TextEncoder().encode(doc.text ?? ''), new Uint8Array(await file.arrayBuffer()));
+	const md = ext === '.md' || ext === '.markdown';
+	const exact = md && doc.kind === 'text' && sameBytes(new TextEncoder().encode(doc.text ?? ''), new Uint8Array(await file.arrayBuffer()));
+	// A Markdown file whose stored text is not the file (cut at the reference text cap, CRLF, a BOM) keeps a copy of the
+	// file instead, within the deck cap, so a long Markdown deck still opens as a deck. Never turn down a deck.
+	if (md && !exact && doc.kind === 'text' && file.size <= MAX_DECK_REF_BYTES) return { doc, deck: new Blob([await file.arrayBuffer()], { type: file.type || 'text/markdown' }) };
 	return { doc, deck: null, ...(exact ? { sourceExact: true } : {}) };
 }
 

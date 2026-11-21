@@ -199,6 +199,15 @@ describe('pptxReferenceText', () => {
 		for (let n = 1; n <= 2001; n++) zip.file(`ppt/slides/slide${n}.xml`, '<a:p><a:t>x</a:t></a:p>');
 		await expect(pptxReferenceText(file(await zip.generateAsync({ type: 'blob' }), 'x.pptx'))).rejects.toThrow(/too large to read as reference text/);
 	});
+
+	it('counts only the parts it reads: a PowerPoint with media past the inflate limit is still read', async () => {
+		const zip = new JSZip();
+		zip.file('ppt/slides/slide1.xml', '<a:p><a:t>Hello</a:t></a:p>');
+		// 70 MB of picture, over the 64 MB the read budget allows, never inflated by this reader.
+		zip.file('ppt/media/image1.bmp', new Uint8Array(70 * 1_048_576), { compression: 'DEFLATE' });
+		const text = await pptxReferenceText(file(await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }), 'heavy.pptx'));
+		expect(text).toBe('Slide 1\nHello');
+	});
 });
 
 describe('readLibraryReference — a reference file stays one, and gains "Open as deck" where the importer reads it', () => {
@@ -207,12 +216,17 @@ describe('readLibraryReference — a reference file stays one, and gains "Open a
 		expect(r.doc).toMatchObject({ name: 'brief.md', kind: 'text', text: '# Brief\n\nThree points.' });
 		expect(r.deck).toBeNull();
 		expect(r.sourceExact).toBe(true);
-		// A byte-order mark is dropped when the text is read, so the text is no longer the file: no "Open as deck".
-		const bom = await readLibraryReference(file(new Uint8Array([0xef, 0xbb, 0xbf, 0x23, 0x20, 0x41]), 'bom.md', 'text/markdown'));
+		// A byte-order mark is dropped when the text is read, so the text is no longer the file: a copy of the file is kept
+		// instead, so it still opens as a deck (never turn down a deck).
+		const bomBytes = new Uint8Array([0xef, 0xbb, 0xbf, 0x23, 0x20, 0x41]);
+		const bom = await readLibraryReference(file(bomBytes, 'bom.md', 'text/markdown'));
 		expect(bom.sourceExact).toBeUndefined();
-		// Nor when the text was cut at the reference cap.
-		const long = await readLibraryReference(file(`# Long\n\n${'x'.repeat(41_000)}`, 'long.md', 'text/markdown'));
+		expect(new Uint8Array(await (bom.deck as Blob).arrayBuffer())).toEqual(bomBytes);
+		// The same when the text was cut at the reference cap: a long Markdown deck keeps its whole file for "Open as deck".
+		const longSrc = `# Long\n\n${'x'.repeat(41_000)}`;
+		const long = await readLibraryReference(file(longSrc, 'long.md', 'text/markdown'));
 		expect(long.sourceExact).toBeUndefined();
+		expect(await (long.deck as Blob).text()).toBe(longSrc);
 	});
 
 	it('keeps a .txt as plain reference, with no deck', async () => {
@@ -238,7 +252,7 @@ describe('readLibraryReference — a reference file stays one, and gains "Open a
 
 	it('checks a PDF\'s size first: over the deck cap it is refused unread', async () => {
 		const pdfHead = new TextEncoder().encode('%PDF-1.7');
-		await expect(readLibraryReference(claimsSize('huge.pdf', MAX_DECK_REF_BYTES + 1, pdfHead))).rejects.toThrow(/over the 50 MB/);
+		await expect(readLibraryReference(claimsSize('huge.pdf', MAX_DECK_REF_BYTES + 1, pdfHead))).rejects.toThrow(/50\.0 MB\. The Library keeps a reference PDF up to 5 MB and a Lattice deck up to 50 MB/);
 	});
 
 	it('keeps the 5 MB reference limit for a PDF that holds no deck', async () => {
