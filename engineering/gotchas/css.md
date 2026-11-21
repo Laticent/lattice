@@ -783,6 +783,25 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `npm run css:values` catches this class by substituting the values our own CSS
   actually declares for each token — see its DECLARED pass.
 
+## Scrollbars are thin on the page and thick in every panel — `scrollbar-width` is not inherited
+
+- **Symptom:** the page's own scrollbar is thin and palette-tinted, but the Studio's Compose pane, its
+  filmstrip and other inner panels draw a thick OS scrollbar, tinted correctly. Invisible on macOS and
+  phones (overlay scrollbars); obvious on Windows, worst in Firefox, and on any desktop with classic
+  scrollbars pinned on.
+- **Cause:** `scrollbar-color` is an inherited property and `scrollbar-width` is not (CSS Scrollbars
+  Level 1). A `:root { scrollbar-color: …; scrollbar-width: thin }` rule therefore tints every scroller on
+  the page but thins only the document's own. Measured in Chromium with classic scrollbars: an inner panel
+  under the `:root`-only rule computed `auto` and reserved 15px; with `thin` it reserves 10px.
+- **Mitigation:** `docs/src/styles/native-widgets.css` sets `* { scrollbar-width: thin }` beside the
+  `:root` color. It is unlayered with zero specificity, so a scroller that states its own width keeps it,
+  but only if that rule is unlayered too (unlayered beats layered at any specificity,
+  `engineering/cascade.md`). A preview frame is its own document and gets its thin bar from `docStyleText`
+  (`docs/src/playground/deck-preview.js`). The Playground editor used to state its own width with a comment
+  blaming "an ancestor reset"; the real cause was this one, and the per-scroller copy is gone.
+- **Triggered by:** any `overflow: auto` panel on the docs site, viewed with classic scrollbars.
+- **Removable when:** never; it is the property's specified behavior.
+
 ## A `visibility: hidden` measuring element makes its scroll container scroll SIDEWAYS
 
 - **Symptom:** a panel that has no business scrolling horizontally does. (Two causes wear

@@ -7,6 +7,7 @@ import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, ChangeSet, EditorSelection as CmSelection, Compartment, EditorState, type Extension, StateEffect, type Text, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
+import { QuickScroll } from '@/components/ui/quick-scroll';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
@@ -1422,5 +1423,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 			/>
 		);
 	}
-	return <div ref={hostRef} data-filo-owned="" className={className} style={{ height: '100%', overflow: 'auto' }} />;
+	return (
+		<>
+			<div ref={hostRef} data-filo-owned="" className={className} style={{ height: '100%', overflow: 'auto' }} />
+			{/* Whichever of the host or `.cm-scroller` scrolls on this engine, the capturing listener finds it. */}
+			<QuickScroll root={hostRef} label="source" />
+		</>
+	);
 });
