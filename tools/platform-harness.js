@@ -199,7 +199,11 @@ function run(script, env, log, limitMs = Infinity) {
     const timer = Number.isFinite(limitMs) ? setTimeout(() => {
       timedOut = true;
       out += `\n[harness] killed after ${minutes(limitMs)}: the session deadline\n`;
-      try { posix ? process.kill(-child.pid, 'SIGKILL') : child.kill('SIGKILL'); } catch { /* already gone */ }
+      // Windows has no process groups: `child.kill` would end bash and leave its children running, so kill the tree.
+      try {
+        if (posix) process.kill(-child.pid, 'SIGKILL');
+        else execFileSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      } catch { /* already gone */ }
     }, Math.max(0, limitMs)) : null;
     child.on('error', (e) => { if (timer) clearTimeout(timer); resolve({ code: 127, out: `${out}\n[harness] could not start bash: ${e.message}\n`, timedOut }); });
     const take = (chunk) => {

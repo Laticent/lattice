@@ -4,8 +4,8 @@ summary: >
   A warm harness for the macOS and Windows platform suites. A dispatch of platform-suites.yml with `harness=<PR>` gets one
   runner that installs and builds once, then takes `/harness` commands from that pull request's comments (a registry suite,
   a bash block, a re-run), syncs each new push with an incremental rebuild, and replies with the result. It removes the
-  ~17 minutes of queue wait and setup an iOS dispatch pays per round. Only the dispatching login's comments run; no token
-  reaches a job. It is a mode of the existing workflow, not a new one, so a branch can prove it before it merges.
+  ~17 minutes of queue wait and setup an iOS dispatch pays per round. Only the dispatching login's comments run; the token
+  is kept out of a job's environment and out of every reply (a hostile job could still reach it; see §Threat model). It is a mode of the existing workflow, not a new one, so a branch can prove it before it merges.
 builds-on:
   - 2026-10-18-platform-suites.md
   - 2026-11-04-ci-flake-audit.md
@@ -48,7 +48,8 @@ build once and submit jobs to" (2026-11-17), and chose this design and the PR th
 - **One at a time, bounded.** Job-level `concurrency: platform-harness` without cancel: a second dispatch waits, so a
   harness never takes a second macOS slot from the nightly (GitHub keeps one waiting job per group, so a third dispatch
   replaces the second). The 90-minute deadline counts from the job's first step; a running job is killed at it (its whole
-  process group), and the loop ends a minute before it, leaving 15 of the job's 105 minutes for the artifact upload. It
+  process group on macOS; its process tree through `taskkill /T` on Windows; a job that detaches itself escapes both
+  and dies with the runner at the 105-minute timeout), and the loop ends a minute before it, leaving 15 of the job's 105 minutes for the artifact upload. It
   also stops after 15 idle minutes or on `/harness stop`. A `/harness stop` waits for the running job to end: commands
   are read between jobs.
 - **A transient error does not end the session.** A failed poll, reply or fetch is logged and the loop carries on; five
@@ -66,16 +67,20 @@ The repository is public, and the harness executes comment text as shell. What k
    org member as CONTRIBUTOR, which is how the first command on a real runner (run 44163967462) was ignored.
 2. **Which PR.** At start the harness checks that the PR's head is this repository and this branch. A fork PR, or another
    branch's PR, is refused, so one branch's code never reports into another's thread.
-3. **No secrets, and the token stays with the poller.** The job is given no repository secrets. Its token
+3. **No secrets, and the token kept out of a job's way.** The job is given no repository secrets. Its token
    (`contents: read`, `issues: write`, `pull-requests: write`, which commenting on a PR through the issues API needs) is a short-lived `GITHUB_TOKEN` that could edit any comment
-   in the repository, including a fresh `/harness` command before the poll reads it, so it must not leak. Three guards:
+   in the repository, including a fresh `/harness` command before the poll reads it, so it must not leak by accident. Three guards:
    the checkout uses `persist-credentials: false`, so it is not in `.git/config` (checkout's default writes it there, where
    any job could read it, as the review of this change found); `jobEnv` strips every `*TOKEN*`, `*SECRET*` and `ACTIONS_*`
-   variable, and `GITHUB_ENV`/`GITHUB_PATH`/`GITHUB_OUTPUT`/`GITHUB_STATE`, so a job cannot plant `NODE_OPTIONS` in the
-   later upload and cache steps that hold the runtime token; and `redact` removes the token, raw and in its base64 forms,
+   variable, and `GITHUB_ENV`/`GITHUB_PATH`/`GITHUB_OUTPUT`/`GITHUB_STATE`, so a job does not plant `NODE_OPTIONS` in the
+   later upload and cache steps that hold the runtime token by following the usual variables; and `redact` removes the token, raw and in its base64 forms,
    from every reply, because a comment posted through the API bypasses the Actions log's masking. A `/harness suite` also
    refuses `PATH`, `NODE_OPTIONS`, `BASH_ENV` and similar, but that list is hygiene, not a boundary: `/harness sh` runs
    any bash the dispatcher writes.
+   **These guards stop an accident, not a hostile job.** A job runs as the same OS user as the poller and the runner, so
+   a job written to do harm can read the poller's environment (`ps eww`, which holds `GH_TOKEN`) and write the runner's
+   `RUNNER_TEMP/_runner_file_commands/` files directly. That is why guard 1 matters: the only person who can write a job
+   already has write access, which is more than this token grants, and could do the same with a commit.
 4. **Its own replies never run.** A comment carrying the marker is ignored, so an echoed log cannot become a command, and a
    reply's code fence cannot be closed by the log (`tail` breaks every ```` ``` ````).
 
