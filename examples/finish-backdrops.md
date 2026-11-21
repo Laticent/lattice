@@ -8,11 +8,11 @@ logo: sample:logo-acme-mark.svg
 logo-finish: bottom-center title
 ---
 
-<!-- A glyph-mark (monogram / numeral) is ALWAYS author-personalized — it NEVER
+<!-- @note{A glyph-mark (monogram / numeral) is ALWAYS author-personalized — it NEVER
      appears in a finish by default (a deck-wide `finish:` paints no glyph). To
      SHOWCASE the movable mark, this demo sets an explicit glyph on the three
      slides that carry a mark-bearing finish, scoped to each finish class. Remove
-     these and the marks vanish — proving the clean no-glyph default. -->
+     these and the marks vanish — proving the clean no-glyph default.} -->
 
 <style>
 section.finish-meridian { --fin-mark-text: "Q3"; }

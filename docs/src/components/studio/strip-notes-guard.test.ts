@@ -61,8 +61,8 @@ describe('stripNotesCut', () => {
 	it('takes the PRESERVE cut when the comment was the block boundary', async () => {
 		// Delete the line outright and `Some text\n---` becomes a setext heading, so the deck
 		// loses a slide. Leaving a blank line in its place reproduces it.
-		const src = 'Some text\n<!-- a note -->\n\n---\n\nMore text\n';
-		const cut = await stripNotesCut(src, notesCore, new Set(['a note']), await authoredOf(src), sectionsOf, render);
+		const src = 'Some text\n<!-- @note{a note} -->\n\n---\n\nMore text\n';
+		const cut = await stripNotesCut(src, notesCore, await authoredOf(src), sectionsOf, render);
 
 		expect(cut.warning).toBeUndefined();
 		expect(cut.out).toBeDefined();
@@ -76,7 +76,7 @@ describe('stripNotesCut', () => {
 		// Text on both sides with no blank line anywhere: preserve inserts one and splits the
 		// paragraph in two, drop reproduces the single paragraph.
 		const src = 'first line\n<!-- a note -->\nsecond line\n';
-		const cut = await stripNotesCut(src, notesCore, new Set(['a note']), await authoredOf(src), sectionsOf, render);
+		const cut = await stripNotesCut(src, notesCore, await authoredOf(src), sectionsOf, render);
 
 		expect(cut.warning).toBeUndefined();
 		expect(cut.sections).toHaveLength(1);
@@ -91,7 +91,7 @@ describe('stripNotesCut', () => {
 		try {
 			// Authored sections that no scrub of this source can reproduce, so both cuts miss.
 			const src = 'first line\n<!-- a note -->\nsecond line\n';
-			const cut = await stripNotesCut(src, notesCore, new Set(['a note']), ['<section>impossible</section>'], sectionsOf, render);
+			const cut = await stripNotesCut(src, notesCore, ['<section>impossible</section>'], sectionsOf, render);
 
 			expect(cut.out).toBeUndefined();
 			expect(cut.sections).toBeUndefined();
@@ -111,15 +111,28 @@ describe('stripNotesCut', () => {
 		}
 	});
 
-	it('short-circuits a deck with no notes — no cut, and no second render', async () => {
-		const src = '# Just a deck\n\nNo notes here.\n';
+	it('short-circuits a deck with nothing private — no cut, and no second render', async () => {
+		// The public notes ship: `@say`, `@alt` and `@handout` are not what `--strip-notes` removes.
+		const src = '# Just a deck\n\nNo notes here.\n\n<!-- @say{Read this aloud.} -->\n<!-- @alt{A plain slide.} -->\n<!-- @handout{For later.} -->\n';
 		const spy = vi.fn(render);
-		const cut = await stripNotesCut(src, notesCore, new Set(), await authoredOf(src), sectionsOf, spy);
+		const cut = await stripNotesCut(src, notesCore, await authoredOf(src), sectionsOf, spy);
 
 		expect(spy).not.toHaveBeenCalled();
 		expect(cut.source).toBe(src);
 		expect(cut.out).toBeUndefined();
 		expect(cut.warning).toBeUndefined();
+	});
+
+	it('scrubs a plain comment as well as a speaker note, classified from the source', async () => {
+		// No render lifts a body to match any more: the comment says what it is. A plain comment is the author's own and
+		// goes with the speaker note; the public notes and the directive stay.
+		const src = '<!-- _class: lead -->\n\n# Title\n\n<!-- @note{Pause here.} -->\n\n<!-- remember the Q3 number -->\n\n<!-- @say{The title.} -->\n';
+		const cut = await stripNotesCut(src, notesCore, await authoredOf(src), sectionsOf, render);
+
+		expect(cut.source).not.toContain('Pause here.');
+		expect(cut.source).not.toContain('remember the Q3 number');
+		expect(cut.source).toContain('<!-- @say{The title.} -->');
+		expect(cut.source).toContain('<!-- _class: lead -->');
 	});
 
 	it('reads the candidate cuts from the kernel, in the kernel order', async () => {
@@ -130,13 +143,13 @@ describe('stripNotesCut', () => {
 		const authored = await authoredOf(src);
 		const reversed = { ...notesCore, SCRUB_BOUNDARIES: ['drop', 'preserve'] };
 
-		expect((await stripNotesCut(src, notesCore, new Set(['a note']), authored, sectionsOf, render)).source)
-			.toBe((await stripNotesCut(src, reversed, new Set(['a note']), authored, sectionsOf, render)).source);
+		expect((await stripNotesCut(src, notesCore, authored, sectionsOf, render)).source)
+			.toBe((await stripNotesCut(src, reversed, authored, sectionsOf, render)).source);
 		// …and on a deck where BOTH cuts reproduce it, order decides. `preserve` first is the
 		// kernel's conservative default.
 		const both = 'para one\n\n<!-- a note -->\n\npara two\n';
 		const bothAuthored = await authoredOf(both);
-		const first = await stripNotesCut(both, notesCore, new Set(['a note']), bothAuthored, sectionsOf, render);
+		const first = await stripNotesCut(both, notesCore, bothAuthored, sectionsOf, render);
 		expect(first.warning).toBeUndefined();
 		expect(first.source).not.toContain('a note');
 	});

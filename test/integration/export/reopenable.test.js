@@ -40,7 +40,7 @@ const DECK = [
   '# Halcyon quarterly — revue', '',
   '---', '',
   '## Retention held', '',
-  `<!-- ${NOTE} -->`, '',
+  `<!-- @note{${NOTE}} -->`, '',
   '- 94% of accounts renewed.', '',
 ].join('\n');
 
@@ -163,7 +163,7 @@ describe('--reopenable (CLI)', () => {
   });
 
   test('PPTX: --strip-notes --strip-say scrub the embedded deck', { timeout: TIMEOUT }, async () => {
-    const deck = DECK.replace('- 94%', '<!-- say: private narration 7c2a -->\n\n- 94%');
+    const deck = DECK.replace('- 94%', '<!-- @say{private narration 7c2a} -->\n\n- 94%');
     const { bytes } = exportDeck(path.join(tmp(), 'deck.pptx'), ['-q', '--strip-notes', '--strip-say'], {}, deck);
     const { source } = await readLattice(await pptxPayload(bytes));
     assert.ok(!source.includes(NOTE) && !source.includes('private narration 7c2a'), source);

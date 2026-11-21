@@ -1,6 +1,5 @@
 import { buildDeckIndex, type DeckIndex } from '@/lib/deck-outline';
 import { unitText } from '@/lib/fuoco/outline';
-import { renumberFrontMatterSay } from '../../../../lib/core/renumber-say.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { frontMatterBlock } from '../../lib/front-matter';
 
@@ -16,8 +15,7 @@ import { frontMatterBlock } from '../../lib/front-matter';
 // a 30-slide deck rewrote 557 of its 595 characters.)
 //
 // Every op returns the new source, the slot the caller should make active, and `moved`: for each old
-// slot, its index in the new deck, or -1 if the op removed it. The front-matter `say:` narration, keyed by slide
-// number, is renumbered to match, so each entry stays with its slide (§8).
+// slot, its index in the new deck, or -1 if the op removed it.
 
 /** Default body for a freshly-added slide. */
 export const NEW_SLIDE = '<!-- _class: content -->\n\n## New slide\n\nReplace this with your point.';
@@ -34,8 +32,7 @@ export type DeckOpResult = { source: string; active: number; moved?: number[] };
 // content (an indented first line is a code block) and so never pass to other content. `touched` marks a slot whose
 // content an op changed; `sealed` one an op put before a separator it did not sit before.
 type Slot = { lead: string; indent: string; content: string; trail: string; touched?: boolean; sealed?: boolean };
-// `src` is the source the deck was read from.
-type Deck = { src: string; head: string; pre: string; slots: Slot[]; seps: string[] };
+type Deck = { head: string; pre: string; slots: Slot[]; seps: string[] };
 
 /** Read `source` as front matter, slots and the separators between them, byte for byte. */
 function read(source: string): Deck {
@@ -51,7 +48,7 @@ function read(source: string): Deck {
 		return { lead: ws.slice(0, cut), indent: ws.slice(cut), content, trail: raw.slice(ws.length + content.length) };
 	});
 	const seps = units.slice(1).map((u, k) => source.slice(units[k].end, u.from));
-	return { src: source, head, pre, slots, seps };
+	return { head, pre, slots, seps };
 }
 function write(d: Deck): string {
 	const st = style(d);
@@ -88,44 +85,15 @@ function style(d: Deck): { lead: string; trail: string; sep: string } {
 }
 const identity = (n: number) => Array.from({ length: n }, (_, k) => k);
 /** Write `d` and settle the result: the engine drops a BLANK first slide, so an op that leaves one first has a deck one
- *  slide shorter than its slots, and `moved` and `active` shift down with it. `copies` lists the new slots that repeat
- *  an old one (a duplicate), as [old, new], so its `say:` entry is copied too. */
-function done(d: Deck, active: number, moved: number[], copies: [number, number][] = []): DeckOpResult {
+ *  slide shorter than its slots, and `moved` and `active` shift down with it. */
+function done(d: Deck, active: number, moved: number[]): DeckOpResult {
 	const source = write(d);
 	const drop = d.slots.length - read(source).slots.length;
 	const shift = (m: number) => (m < 0 ? m : m - drop < 0 ? -1 : m - drop);
 	const out = drop <= 0 ? moved : moved.map(shift);
-	return { source: carrySay(d.src, source, out, drop <= 0 ? copies : copies.map(([a, b]) => [a, shift(b)])), active: drop <= 0 ? active : Math.max(0, active - drop), moved: out };
+	return { source, active: drop <= 0 ? active : Math.max(0, active - drop), moved: out };
 }
 
-/**
- * Carry the front-matter `say:` narration through a structural edit from `before` to `after`. Its keys are rendered
- * slide numbers: slide `n` is part `k` of some block, and after the edit it is part `k` of wherever `moved` sent that
- * block (and of each copy `copies` lists, as [old, new]). A deleted block's entries go, and so does a part past the end
- * of its block's new parts (an edit that rewrote the block shorter). A number with no slide behind it is left alone.
- * Exported for Compose, whose own add and delete rebuild the deck without these ops.
- */
-export function carrySay(before: string, after: string, moved: readonly number[], copies: readonly [number, number][] = []): string {
-	if (!/^say[ \t]*:[ \t]*$/m.test(frontMatterBlock(after))) return after; // `say :` is the same key (#3050, D1)
-	const was = buildDeckIndex(before).units.map((u) => u.parts.length);
-	const now = buildDeckIndex(after).units.map((u) => u.parts.length);
-	if (was.length !== moved.length) return after;
-	const base = (parts: number[]) => {
-		const out: number[] = [];
-		for (let k = 0, at = 0; k < parts.length; at += parts[k++]) out.push(at);
-		return out;
-	};
-	const wasAt = base(was);
-	const nowAt = base(now);
-	return renumberFrontMatterSay(after, (n: number) => {
-		const flat = n - 1;
-		const i = wasAt.findLastIndex((b) => b <= flat);
-		if (i < 0 || flat >= wasAt[i] + was[i]) return [n];
-		const k = flat - wasAt[i];
-		const to = [moved[i], ...copies.filter(([a]) => a === i).map(([, b]) => b)];
-		return to.filter((t) => t !== undefined && t >= 0 && t < now.length && k < now[t]).map((t) => nowAt[t] + k + 1);
-	});
-}
 const clampIndex = (i: number, len: number) => Math.max(0, Math.min(i, len - 1));
 
 /** Put a new slot with `content` at position `at` (0…n), wiring separators and the deck's edge whitespace. */
@@ -178,7 +146,7 @@ export function duplicateSlide(source: string, index: number): DeckOpResult {
 	if (!n) return { source, active: 0, moved: [] };
 	const i = clampIndex(index, n);
 	insertAt(d, i + 1, d.slots[i].content);
-	return done(d, i + 1, identity(n).map((k) => (k <= i ? k : k + 1)), [[i, i + 1]]);
+	return done(d, i + 1, identity(n).map((k) => (k <= i ? k : k + 1)));
 }
 
 /** Delete slide `index`. The last slide is never deleted (a deck needs ≥1). */

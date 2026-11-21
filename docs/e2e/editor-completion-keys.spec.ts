@@ -175,7 +175,7 @@ test('Ctrl-Space on a blank body line offers what a line starts with, and a layo
 	await watchMenuOpen(page);
 	await page.keyboard.press('Control+Space');
 	await expect(menu(page).getByRole('option', { name: /^<!-- _class: -->/ })).toBeVisible();
-	await expect(menu(page).getByRole('option', { name: /^<!-- say: -->/ })).toBeVisible();
+	await expect(menu(page).getByRole('option', { name: /^<!-- @say\{\} -->/ })).toBeVisible();
 	await acceptCompletion(page);
 	await expect(editorText(page)).toContainText('<!-- _class:  -->');
 	// The layout names follow at once, with the caret inside the directive.
@@ -207,7 +207,7 @@ test('math completes TeX commands, and a command with arguments puts the caret i
 	await expect(editorText(page)).toContainText('$r = \\frac{a}{}');
 });
 
-test('a slide directive completes its values, and <!-- offers the note channels @crosswidth @webkit-phone @gecko', async ({ page }) => {
+test('a slide directive completes its values, and <!-- @ offers the four notes @crosswidth @webkit-phone @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, '---\ntitle: Directives\n---\n\n# A\n\n<!-- _paginate: ');
 	await page.keyboard.press('Control+Space');
@@ -215,10 +215,12 @@ test('a slide directive completes its values, and <!-- offers the note channels 
 	await page.keyboard.press('Escape');
 	await setEditorContent(page, '---\ntitle: Directives\n---\n\n# A\n\n');
 	await watchMenuOpen(page);
-	await appendToEditor(page, '<!-- sa');
-	await expect(menu(page).getByRole('option', { name: /^say/ })).toBeVisible();
+	await appendToEditor(page, '<!-- @sa');
+	await expect(menu(page).getByRole('option', { name: /^@say\{/ })).toBeVisible();
 	await acceptCompletion(page);
-	await expect(editorText(page)).toContainText('<!-- say: ');
+	// Both braces are written and the caret waits between them, so the words land inside the note.
+	await page.keyboard.type('Hi');
+	await expect(editorText(page)).toContainText('<!-- @say{Hi}');
 });
 
 test('an image reference completes Lattice’s sample art, from the list the site serves @crosswidth @webkit-phone @gecko', async ({ page }) => {

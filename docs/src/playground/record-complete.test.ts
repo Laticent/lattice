@@ -30,9 +30,11 @@ describe('recordCompletion: where the cursor sits in a record', () => {
 });
 
 describe('recordOptions: what it offers', () => {
-	it('fields: the typed class fields, the registers, the directive keys and the channels, minus those set', () => {
+	it('fields: the typed class fields, the registers, the directive keys and the pane fields, minus those set', () => {
 		const all = labels(recordOptions(recordCompletion('<!-- {'), CATALOG, []));
-		for (const f of ['layout', 'variant', 'finish', 'headline', 'icon', 'footer', 'focus-style', 'note', 'say', 'pane', 'carry']) expect(all).toContain(f);
+		for (const f of ['layout', 'variant', 'finish', 'headline', 'icon', 'footer', 'focus-style', 'pane', 'carry']) expect(all).toContain(f);
+		// A record holds settings only; the notes are their own comments (engineering/decisions/2026-11-20-four-notes.md).
+		for (const f of ['note', 'say', 'describe', 'reader', 'alt', 'handout']) expect(all).not.toContain(f);
 		expect(labels(recordOptions(recordCompletion('<!-- {layout=cards, '), CATALOG, []))).not.toContain('layout');
 		expect(all).toHaveLength(new Set(RECORD_FIELDS.map((f) => f.name)).size);
 	});

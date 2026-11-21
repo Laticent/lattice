@@ -6,9 +6,9 @@ paginate: true
 header: "Lattice · spectrum overrides"
 ---
 
-<!-- The deck sets `spectrum: duo`, so every slide carries the blue-to-green bar. A slide that
+<!-- @note{The deck sets `spectrum: duo`, so every slide carries the blue-to-green bar. A slide that
      makes its own explicit choice -- `accent`, or a semantic tone with `tone-edge` -- keeps its
-     own bar, as it does in a default-rainbow deck. -->
+     own bar, as it does in a default-rainbow deck.} -->
 
 <!-- _class: title silent -->
 

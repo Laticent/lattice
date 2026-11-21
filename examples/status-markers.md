@@ -7,12 +7,12 @@ paginate: true
 header: "Lattice · status markers"
 ---
 
-<!-- Status markers are a SHAPE SYSTEM. A state marker (confidential / wip / …) sets a
+<!-- @note{Status markers are a SHAPE SYSTEM. A state marker (confidential / wip / …) sets a
      label + palette color; a tone marker (tone-pass / …) sets a color. The deck-wide
      `stamp:` / `tone:` registers pick the SHAPE both render in — once, for the whole
      deck — and a per-slide `stamp-*` / `tone-*` token overrides. This deck seals its
      state markers and rails its tones by default, then overrides a few slides to show
-     the range. Every color is a palette token, so the markers are on-brand by theme. -->
+     the range. Every color is a palette token, so the markers are on-brand by theme.} -->
 
 <!-- _class: title pinned -->
 

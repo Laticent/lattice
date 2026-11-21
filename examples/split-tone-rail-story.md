@@ -6,9 +6,9 @@ paginate: true
 header: "Lattice · tone rail on story split pages"
 ---
 
-<!-- A `size: story` deck auto-splits `cards-grid` and `decision` into a cover, body pages and a closing
+<!-- @note{A `size: story` deck auto-splits `cards-grid` and `decision` into a cover, body pages and a closing
      page. A semantic tone draws its rail on every page of the run, as on a landscape slide. Before the
-     fix the cover, the closing page and every `decision` page had no rail. -->
+     fix the cover, the closing page and every `decision` page had no rail.} -->
 
 <!-- _class: cards-grid tone-warn -->
 

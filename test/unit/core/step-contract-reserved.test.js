@@ -31,7 +31,9 @@ const USE = /data-step(?![\w-])\s*=|['"`]data-step['"`]|\[data-step(?![\w-])|\bd
 
 const files = execFileSync('git', ['ls-files', '--', 'lib', 'docs/src', 'themes'], { cwd: ROOT, encoding: 'utf8' })
   .split('\n')
-  .filter((f) => /\.(m?js|cjs|tsx?|css)$/.test(f) && !/\.test\.|generated|\/dist\//.test(f));
+  .filter((f) => /\.(m?js|cjs|tsx?|css)$/.test(f) && !/\.test\.|generated|\/dist\//.test(f))
+  // The index lists a file deleted in the working tree until the deletion is committed; it holds nothing to scan.
+  .filter((f) => fs.existsSync(path.join(ROOT, f)));
 
 test('the scan covers the engine, the docs site and the themes (a scan that reads nothing proves nothing)', () => {
   assert.ok(files.length > 500, `expected the source tree, found ${files.length} files`);

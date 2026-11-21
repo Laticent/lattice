@@ -53,7 +53,7 @@ test('nothing to say → empty string', () => {
 // That single line-prefix test was the channel behind three leaks measured on real
 // exported bytes (2026-08-24-stage-console-split.md §10): a note in the `.vtt` with
 // default flags on a chart slide, a note in the `.vtt` under `--strip-notes`, and a
-// multi-line `<!-- say: -->` surviving `--strip-say`. The ladder cells all
+// multi-line say line surviving `--strip-say`. The ladder cells all
 // passed throughout, because every note in them was single-line.
 //
 // These are the shapes, at the kernel. The integration cells in
@@ -65,15 +65,15 @@ test('a MULTI-LINE speaker note is not spoken — no continuation line survives'
   assert.equal(out, 'Title. Body sentence here.');
 });
 
-test('the `note:` form the Studio writes is not spoken either', () => {
-  const out = slideToSpeech('# Title\n\n<!-- note:\nPRIVATE Ohio number\n-->\n\nBody sentence here.');
+test('a multi-line `@note{…}` is not spoken either', () => {
+  const out = slideToSpeech('# Title\n\n<!-- @note{\nPRIVATE Ohio number\n} -->\n\nBody sentence here.');
   assert.equal(out, 'Title. Body sentence here.');
 });
 
 test('a note TRAILING a content line is dropped without eating the content', () => {
   // The other half of the line-prefix bug: `/^<!--/` never fired here at all, so the
   // whole line went through with its comment markup intact.
-  const out = slideToSpeech('# Title\n\nBody here. <!-- note: PRIVATE trailing -->');
+  const out = slideToSpeech('# Title\n\nBody here. <!-- @note{PRIVATE trailing} -->');
   assert.equal(out, 'Title. Body here.');
 });
 
@@ -94,7 +94,7 @@ test('blankHtmlComments preserves the LINE COUNT — speakLeftover indexes by li
   // `consumed` Set of ORIGINAL line indices. Deleting lines here would shift every
   // index and silently mis-drop real authored content.
   const { blankHtmlComments } = require('../../../lib/core/slide-speech.js');
-  const src = '# H\n\n<!-- note:\nPRIVATE\n-->\n\n- item one\n- item two';
+  const src = '# H\n\n<!-- @note{\nPRIVATE\n} -->\n\n- item one\n- item two';
   assert.equal(blankHtmlComments(src).split('\n').length, src.split('\n').length);
   assert.equal(blankHtmlComments(src).includes('PRIVATE'), false);
   assert.ok(blankHtmlComments(src).includes('- item two'), 'real content is untouched');

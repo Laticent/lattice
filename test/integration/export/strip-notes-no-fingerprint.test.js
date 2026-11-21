@@ -69,8 +69,8 @@ describe('strip-notes: no whitespace fingerprint', () => {
   const TWIN = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-no-notes.md');
   // A deck whose notes sit where a comment line is load-bearing — no blank line on either side.
   const BOUNDARY = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-boundary.md');
-  // The say channel's three (#2003). WITH_SAY carries an inline say line on slide 1, a
-  // front-matter `say:` entry for slide 3 and a speaker note on slide 2 — so the two flags
+  // The say channel's three (#2003). WITH_SAY carries a say line on slides 1, 2 and 3 (slide 3's was a
+  // front-matter `say:` entry until the map was removed, 2026-11-20) and a speaker note on slide 2 — so the two flags
   // can be measured apart. NO_SAY is the same deck with the say material never typed
   // and the note kept; BARE has neither channel.
   const WITH_SAY = path.join(ROOT, 'test', 'fixtures', 'strip-say-deck.md');

@@ -2,13 +2,13 @@
 theme: indaco
 ---
 
-<!-- Fixture, not a shipped deck. Two charts authored PAST what their geometry can
+<!-- @note{Fixture, not a shipped deck. Two charts authored PAST what their geometry can
      hold, so the family's two drop mechanisms both fire on one render — the arm
      that proves the label-drop warning (#2171) can actually fire end to end.
      Both shapes are the ones test/unit/components/chart-label-drop-census.test.js
      already documents as unlayoutable, so this fixture and that census agree by
      construction rather than by coincidence. Do not "fix" the density: the whole
-     point is that it does not fit. -->
+     point is that it does not fit.} -->
 
 <!-- _class: quadrant -->
 

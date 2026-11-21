@@ -1,7 +1,7 @@
 import type MarkdownIt from 'markdown-it';
 import type { NodeSpec } from 'prosemirror-model';
 import { readMarker } from '../../../../lib/core/meta-record.mjs';
-import { isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody } from '../slide-directives';
+import { isDirectiveBody, isPaneMarkerBody, type NoteName, noteName, readNoteBody } from '../slide-directives';
 import { CLIP_ORIGIN } from './clip-origin';
 
 // An authoring COMMENT, modeled as a real schema node instead of falling through as prose.
@@ -115,26 +115,22 @@ export function readCommentText(raw: string | null, origin?: string | null): { t
 	return { text: raw };
 }
 
-// ── What CHANNEL is this comment on? ─────────────────────────────────────────
-// Not every `<!-- … -->` is a speaker note, and labeling them all "note" is wrong on the slide's
-// own terms: `say:` is the text the slide NARRATES and `describe:` is its WCAG text
-// alternative — different channels with different sinks, neither a note.
+// ── Which NOTE is this comment, if any? ──────────────────────────────────────
+// A comment whose whole body is `@note{…}`, `@say{…}`, `@alt{…}` or `@handout{…}` is one of the slide's four notes,
+// each with its own destination (engineering/decisions/2026-11-20-four-notes.md). Any other comment is the author's
+// own, like a code comment, and reaches nothing: its kind is `comment`. The test is the engine's own grammar
+// (lib/core/note-grammar.mjs, through `slide-directives.ts`), so the pill never disagrees with the export.
 //
-// The two predicates are REUSED from `slide-directives.ts`, which is the Studio's existing mirror
-// of `notes-core.isSayComment` / `isDescriptionComment` (HARD RULE #15 — this module had its
-// own third copy until a review pointed at the two that already existed).
-//
-// THERE IS DELIBERATELY NO "pragma" CHANNEL. A first version added one with a hand-written prefix
+// THERE IS DELIBERATELY NO "pragma" KIND. A first version added one with a hand-written prefix
 // regex and a docblock claiming it mirrored the kernel. It did not: measured against the real
-// `notes-core`, it disagreed on 22 of 32 probed bodies IN BOTH DIRECTIONS — missing every real
-// remark pragma (the kernel's is `lint disable`, with a space; the regex had `lint-`), inventing
-// `fit:` and `scrub:` which are not pragmas anywhere in the repo, and labeling ordinary author
-// prose as machinery ("tier: enterprise customers churn faster", "color-mode: we should discuss
-// the palette" — strings the kernel's own docblock names as the cases its value constraints exist
-// to get right). The kernel needs 15 value-constrained matchers to make that call; a label on a
-// pill does not earn that surface. A pragma now reads as a note, which is honest — it IS a comment
-// the author wrote — instead of confidently wrong.
-export type CommentKind = 'say' | 'describe' | 'note';
+// `notes-core`, it disagreed on 22 of 32 probed bodies IN BOTH DIRECTIONS. The kernel needs 15
+// value-constrained matchers to make that call; a label on a pill does not earn that surface. A
+// pragma reads as a comment, which is honest — it IS a comment the author wrote.
+export type CommentKind = NoteName | 'comment';
+
+/** The `@name{` that opens a note's body and the `}` that closes it: the frame around the words. */
+const NOTE_OPEN = /^\s*@[a-z]+\{/;
+const NOTE_CLOSE = /\}\s*$/;
 
 /** The comment's body — its text with the fence removed and trimmed.
  *
@@ -150,7 +146,7 @@ export function commentInner(text: string): string {
 		.replace(/-*!?>$/, '');
 }
 
-/** The same, trimmed — what the channel predicates and the pill label read. Callers that care
+/** The same, trimmed — what the note grammar and the pill label read. Callers that care
  *  about the note's INDENTATION (the panel's layout) must use `commentInner`: the trim here eats
  *  the first line's leading space, which a dedent would then read as a zero baseline and render
  *  every following line as if it were nested. */
@@ -158,30 +154,25 @@ export function commentBody(text: string): string {
 	return commentInner(text).trim();
 }
 
-/** Which channel this comment belongs to. Drives the pill's LABEL only — the bytes are untouched. */
+/** Which note this comment is, or `comment` when it is none. Drives the pill's LABEL only — the bytes are untouched. */
 export function commentKind(text: string): CommentKind {
-	const body = commentBody(text);
-	if (isSayBody(body)) return 'say';
-	if (isDescriptionBody(body)) return 'describe';
-	return 'note';
+	return noteName(commentBody(text)) ?? 'comment';
 }
 
-/** Drop the channel prefix from an already-extracted body. ONE implementation, because
+/** Drop a note's `@name{…}` frame from an already-extracted body. ONE implementation, because
  *  `commentText` (the pill's title) and `readableNote` (the panel's layout) both need it and a
  *  second copy is how `commentKind` and the strip could disagree — the pill saying "say" while
- *  the panel still showed `say:` to the reader.
- *
- *  The prefix is removed by SHAPE (`word:`) rather than by re-spelling the channel matchers: this
- *  runs only when `commentKind` already said the body starts with `say:`/`describe:`, so the
- *  greedy `[A-Za-z]+` can land on nothing else. */
+ *  the panel still showed `@say{` to the reader. It runs only when `commentKind` already said the
+ *  comment is a note, so the frame is there to drop. */
 export function stripChannelPrefix(body: string, text: string): string {
-	return commentKind(text) === 'note' ? body : body.replace(/^[A-Za-z]+\s*:/, '').trim();
+	return commentKind(text) === 'comment' ? body : body.replace(NOTE_OPEN, '').replace(NOTE_CLOSE, '').trim();
 }
 
-/** The words to SHOW for a comment — its body with the channel prefix stripped, because
- *  "say: " is the syntax that selects the channel, not part of what the author wrote. */
+/** The words to SHOW for a comment — a note's text without its `@name{…}` frame, because the frame
+ *  is the syntax that names the note, not part of what the author wrote. */
 export function commentText(text: string): string {
-	return stripChannelPrefix(commentBody(text), text);
+	const body = commentBody(text);
+	return readNoteBody(body)?.text ?? body;
 }
 
 /** The indent every later line of a note's words shares (the hanging indent an author lines a note up with). The panel shows the words
@@ -194,10 +185,10 @@ function hangingIndent(words: string): string {
 
 function noteWords(text: string): string {
 	const inner = commentInner(text);
-	return (commentKind(text) === 'note' ? inner : inner.replace(/^\s*[A-Za-z]+\s*:/, '')).trim();
+	return (commentKind(text) === 'comment' ? inner : inner.replace(NOTE_OPEN, '').replace(NOTE_CLOSE, '')).trim();
 }
 
-/** The comment's words as the author wrote them, for EDITING: the channel prefix, the space around the words and their shared hanging indent
+/** The comment's words as the author wrote them, for EDITING: a note's `@name{…}` frame, the space around the words and their shared hanging indent
  *  are set aside, and every line break inside them is kept, so changing one word writes back one word and nothing else (`readableNote` joins
  *  wrapped lines, which is right for reading and wrong for writing). */
 export function editableNote(text: string): string {
@@ -213,13 +204,14 @@ const NOTE_MAX = 8192;
 /**
  * The comment with its words replaced, or null when the result would not be the same kind of comment.
  *
- * Only the words change. The opener (`<!--`, or a longer dash run), the closer and the channel prefix
- * (`say:`, `describe:`) stay as the author wrote them, so a note that is never edited is never touched. The
+ * Only the words change. The opener (`<!--`, or a longer dash run), the closer and a note's `@name{…}` frame
+ * stay as the author wrote them, so a note that is never edited is never touched. The
  * result is refused (null) when it:
  *   · is empty (Remove is the way to delete a note);
  *   · ends the comment early, or is not one well-formed inert comment (`COMMENT_SHAPE`, the paste gate's own test);
  *   · reads as a directive (`_class: …`, or the bare `footer: …` the engine also obeys), or opens a second comment, which would be hoisted out of the prose and set a slide attribute;
- *   · changes channel (a note that now starts `say:` would narrate), or exceeds `NOTE_MAX`.
+ *   · changes kind (a plain comment that now reads `@say{…}` would narrate; a note whose braces no longer
+ *     balance would stop being a note), or exceeds `NOTE_MAX`.
  * A caller that gets null says why; it never writes a guess.
  */
 export function writeNote(text: string, words: string): string | null {
@@ -228,16 +220,17 @@ export function writeNote(text: string, words: string): string | null {
 	const body = String(words).trim();
 	if (!body || body.includes('<!--')) return null;
 	// The engine also obeys the bare spelling (`footer: …`, `class: lead`), not only `_class:`: those words are a directive, not a note.
-	// On the say and describe channels the comment's first key is `say`/`describe`, so only a plain note can open with a directive word.
-	if (commentKind(text) === 'note' && (isDirectiveBody(body) || isPaneMarkerBody(body) || readMarker(`<!-- ${body} -->`))) return null;
+	// Inside a note's braces the words are prose, so only a plain comment can turn into a directive.
+	const plain = commentKind(text) === 'comment';
+	if (plain && (isDirectiveBody(body) || isPaneMarkerBody(body) || readMarker(`<!-- ${body} -->`))) return null;
 	const opener = /^<!-{2,}/.exec(text)?.[0];
 	const closer = /-*!?>$/.exec(text)?.[0];
 	if (!opener || closer === undefined) return null;
-	// Everything around the words keeps its bytes: the space or line break after the opener, the channel prefix as written, and the space or
-	// line break before the closer. Only the words between them change.
+	// Everything around the words keeps its bytes: the space or line break after the opener, a note's `@name{` frame as written, and the
+	// space or line break before the closer. Only the words between them change.
 	const inner = commentInner(text);
-	let lead = (commentKind(text) === 'note' ? /^\s*/ : /^\s*[A-Za-z]+\s*:\s*/).exec(inner)?.[0] ?? '';
-	let trail = /\s*$/.exec(inner)?.[0] ?? '';
+	let lead = (plain ? /^\s*/ : /^\s*@[a-z]+\{\s*/).exec(inner)?.[0] ?? '';
+	let trail = (plain ? /\s*$/ : /\s*\}\s*$/).exec(inner)?.[0] ?? '';
 	// A comment written with no space (`<!--x-->`) gets one where the words would otherwise run into the opener or closer: a leading `-` or
 	// `>`, or a trailing `-`, would be read as part of them and drop out of the words.
 	if (!/\s$/.test(lead) && /^[->]/.test(body)) lead += ' ';
