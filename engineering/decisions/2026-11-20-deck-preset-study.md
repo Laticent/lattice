@@ -377,6 +377,32 @@ What the round taught, beyond the scores:
 - **The key leaked**, through the titled sheets and a key file (step 2 above; `--packet` now
   builds the packet so neither can happen).
 
+### The second round (2026-11-21, blind)
+
+The first round's grade asked for a round that was blind to identity. The packet came from
+`--packet` (untitled sheets, the key printed and never written), and the run's named folders were
+moved out of the judges' reach. Two new judges, who had seen neither round, both ended with
+"Identity: unknown". Per the protocol, only the presets that passed every gate, plus the anchors,
+went in, so Brand-forward was left out.
+
+| Preset | Judge A (`checker`) | Judge B (`red-team`) | Worst slide, in the judges' words |
+|---|---|---|---|
+| Editorial (anchor) | 7.5 | 7 | split-panel (5) on the footer; ruled lines against the chart grids (17, 19, 20) |
+| Minimal | 6.5 | 6.5 | the lone "rest." of the donut heading (18); old-style figures make "14.2%" read low (14) |
+| Classic (anchor) | 6.5 | 7.5 | the same as Minimal, from which it differs by about 1% of pixels outside the bookends |
+
+- **Blind judging works**, and it moved the scores. Editorial went from last (round 1, 7 and 6) to
+  first, and Classic and Minimal fell to 6.5. Judges who could read the names graded the names.
+- **Both rounds agree on the defects**: split-panel's lede on the footer (both rounds, all four
+  judges), Classic and Minimal as one look, Editorial's texture against chart grids, scatter
+  labels on gridlines. New in this round: old-style figures in a hero number, an orphaned word in
+  a wrapped heading (18), and the stacked-bar legend's year label sitting on its first series name
+  (17).
+- **Checked and dismissed:** Judge B reported black 11 px notches in every corner of Minimal's
+  PNG slides. Its pixel reader dropped the alpha channel: the corners are transparent (`0,0,0,0`
+  at pixel 1,1, RGBA), as §2 records for rounded slides.
+- **own and house are the same deck for all three**, as the gate's header says. Both judges saw it.
+
 ### What the trio corrected
 
 - F2 redefined `light`: a decided, test-pinned contract (`finish-canvas-matrix.test.js:19-20`,
