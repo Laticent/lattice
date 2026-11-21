@@ -15,7 +15,7 @@ footer: "Laticent · Studio Present"
 
 Sections become a progress rail, your speaker notes sit beside the slide, and the narration reads itself aloud — the same source you authored, now a live talk.
 
-<!-- note: Open by naming what they're about to see: this is one Markdown deck, presented. Nothing here was staged for the demo — the rail, the notes, and the read-aloud all come from the source. -->
+<!-- @note{Open by naming what they're about to see: this is one Markdown deck, presented. Nothing here was staged for the demo — the rail, the notes, and the read-aloud all come from the source.} -->
 
 ---
 
@@ -27,7 +27,7 @@ Sections become a progress rail, your speaker notes sit beside the slide, and th
 
 ## Framing
 
-<!-- note: We're in the first section — "Framing". Notice the rail below the slide groups by section, and this heading is the one the presenter and the audience both track. -->
+<!-- @note{We're in the first section — "Framing". Notice the rail below the slide groups by section, and this heading is the one the presenter and the audience both track.} -->
 
 ---
 
@@ -48,7 +48,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
   - Notes sit beside the slide, for you
   - The section rail shows the whole shape
 
-<!-- note: The insight: presenting is not just reading bigger. It needs a talk track, a clock, and a sense of place. That's what this redesign adds without changing a single line of your deck. -->
+<!-- @note{The insight: presenting is not just reading bigger. It needs a talk track, a clock, and a sense of place. That's what this redesign adds without changing a single line of your deck.} -->
 
 ---
 
@@ -66,7 +66,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
    - talk tracks that survive export
    - lost in the author's head `{Gap}`
 
-<!-- note: Land the numbers slowly. Twelve hours a deck, forty percent reused badly, and zero of the speaker's actual talk track surviving. The waste is real, and it compounds every quarter. -->
+<!-- @note{Land the numbers slowly. Twelve hours a deck, forty percent reused badly, and zero of the speaker's actual talk track surviving. The waste is real, and it compounds every quarter.} -->
 
 ---
 
@@ -78,7 +78,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 ## The model
 
-<!-- note: New section — "The model". Watch the rail: the group advances and the heading cross-fades. This is where we explain the one idea behind the redesign. -->
+<!-- @note{New section — "The model". Watch the rail: the group advances and the heading cross-fades. This is where we explain the one idea behind the redesign.} -->
 
 ---
 
@@ -95,7 +95,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 - Stage.
   - A chrome-free window for the room: the deck, the captions, the rail.
 
-<!-- note: This is the spine of the talk. Four capabilities, one source file. Don't rush — each card is a beat, and the audience should feel how little you had to do to get all of it. -->
+<!-- @note{This is the spine of the talk. Four capabilities, one source file. Don't rush — each card is a beat, and the audience should feel how little you had to do to get all of it.} -->
 
 ---
 
@@ -105,7 +105,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 — The design brief
 
-<!-- note: A breath. Read the quote, then connect it back: everything we added is meant to disappear in use. Quiet at rest, present when you reach for it. -->
+<!-- @note{A breath. Read the quote, then connect it back: everything we added is meant to disappear in use. Quiet at rest, present when you reach for it.} -->
 
 ---
 
@@ -117,7 +117,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 ## In the room
 
-<!-- note: Final section — "In the room". Shift tone from what it is to how it feels to actually give the talk. -->
+<!-- @note{Final section — "In the room". Shift tone from what it is to how it feels to actually give the talk.} -->
 
 ---
 
@@ -132,7 +132,7 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 3. Move
    - *Swipe, wheel, or arrow through; the rail tracks each step.*
 
-<!-- note: Walk the arc: open, speak, move. Emphasize that the controls bloom in when you reach for them and fold away when you don't, so the slide always owns the screen. -->
+<!-- @note{Walk the arc: open, speak, move. Emphasize that the controls bloom in when you reach for them and fold away when you don't, so the slide always owns the screen.} -->
 
 ---
 
@@ -144,4 +144,4 @@ Both show the slide. Only one carries the talk track, the pacing, and a window f
 
 `Present · ready when you are`
 
-<!-- note: Close on the promise and pause. One source file became a document, a narrated deck, and a live talk — you wrote the substance, the engine carried the rest. Then stop and take questions. -->
+<!-- @note{Close on the promise and pause. One source file became a document, a narrated deck, and a live talk — you wrote the substance, the engine carried the rest. Then stop and take questions.} -->

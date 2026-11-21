@@ -37,7 +37,9 @@
 // diverge, which is the failure class this whole area exists to close.
 
 type NotesKernel = {
-	stripNotesFromSource: (source: string, noteBodies: Set<string>, o?: { boundary?: string }) => string;
+	/** The scrub, classified from the source: every `@note{…}` and every plain comment goes; directives, records,
+	 *  pragmas and the public notes (`@say`, `@alt`, `@handout`) stay (lib/authoring/notes-core.js `isPrivateComment`). */
+	stripChannelsFromSource: (source: string, o: { notes?: boolean; say?: boolean; boundary?: string }) => string;
 	/** Same deck? Same slide count, same markup per slide, whitespace ignored. Read from the
 	 *  kernel rather than re-typed here — a hand-written copy of THIS measurement in the browser
 	 *  runtime is how the CLI and the Studio diverged in the first place (#2003). */
@@ -76,7 +78,6 @@ export type StrippedCut<R> = {
  *
  * @param src        the deck as the author wrote it
  * @param notes      the shared note kernel (`notesCore`)
- * @param bodies     every note body on the deck, lifted from the render pre-bake
  * @param authored   the authored render's sections, to reproduce
  * @param sectionsOf the caller's depth-aware section splitter
  * @param render     renders one markdown source with the export's engine and theme
@@ -84,17 +85,17 @@ export type StrippedCut<R> = {
 export async function stripNotesCut<R extends { html: string }>(
 	src: string,
 	notes: NotesKernel,
-	bodies: Set<string>,
 	authored: string[],
 	sectionsOf: (html: string) => string[],
 	render: (source: string) => Promise<R>,
 ): Promise<StrippedCut<R>> {
-	// Nothing to scrub — no cut, and no second render. The CLI short-circuits here too
-	// (`strippedSlidesOrAuthored`); without it a note-free deck exported with the flag on paid a
-	// whole extra render on the browser's main thread to arrive at the source it started with.
-	if (bodies.size === 0) return { source: src };
+	const scrub = (boundary?: string) => notes.stripChannelsFromSource(src, { notes: true, boundary });
 	for (const boundary of notes.SCRUB_BOUNDARIES) {
-		const source = notes.stripNotesFromSource(src, bodies, { boundary });
+		const source = scrub(boundary);
+		// Nothing to scrub — no cut, and no second render. The CLI short-circuits here too
+		// (`strippedSlidesOrAuthored`); without it a deck with no private comment exported with the flag on paid a
+		// whole extra render on the browser's main thread to arrive at the source it started with.
+		if (source === src) return { source: src };
 		const out = await render(source);
 		const sections = sectionsOf(out.html);
 		if (!notes.sameSlideShape(sections, authored)) continue;
@@ -120,7 +121,7 @@ export async function stripNotesCut<R extends { html: string }>(
 			+ 'block boundary changed.',
 	);
 	return {
-		source: notes.stripNotesFromSource(src, bodies),
+		source: scrub(),
 		warning:
 			'a note comment was acting as a block boundary, so the export does not hide which slides carried one',
 	};

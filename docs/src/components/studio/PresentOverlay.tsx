@@ -13,7 +13,7 @@ import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, 
 import { deckPluginsOff } from '@/lib/plugin-admission';
 import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
 import { DELIVERY_STYLES, frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
-import { frontMatterLang, frontMatterSayMap, termsSpokenMap } from '@/lib/resolve-narration';
+import { frontMatterLang, termsSpokenMap } from '@/lib/resolve-narration';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import { CHROME_CHANGE_EVENT } from '@/lib/site-chrome';
 import { slideFrameStyle } from '@/lib/slide-frame';
@@ -55,8 +55,7 @@ type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
 import { notify } from '@/lib/notify';
 import { mergeReadiness, readinessWindow } from './readiness-window';
 import { SlideOverview } from './SlideOverview';
-import { getNote } from './slide-notes';
-import { getSayLine } from './slide-say';
+import { getSlideNote } from './slide-notes';
 import { hasDrawnFence } from './slide-thumb';
 import { buildStageDocument } from './studio-stage';
 
@@ -78,8 +77,8 @@ function sameFractions(a: number[], b: number[]): boolean {
 	return true;
 }
 
-// The narration-source priority read-aloud speaks: an author's inline `<!-- say: … -->`
-// — else the front-matter `say:` entry for the slide — else a recognized chart's
+// The narration-source priority read-aloud speaks: an author's `<!-- @say{…} -->`
+// — else a recognized chart's
 // computed facts — else the component-aware DOM projection (`projectDeckSpeech`, the SAME
 // shared kernel the CLI export narrates, run in-browser) — else, until that projection is
 // ready, the generic markdown flatten. The projection is the unification: it makes live
@@ -361,14 +360,6 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	);
 	// Deck sections (from `divider` slides) — the grouping the single progress rail uses.
 	const sections = React.useMemo(() => sectionsFromSlides(set), [set]);
-	// The ORIGINAL author slide index of each presented slide, positionally aligned with `set`.
-	// A front-matter `say:` map is keyed by author slide NUMBER, so under a filtered reader lens
-	// (which drops slides) we resolve it through the original index, not the
-	// position in the filtered set — else a say line would bind to the wrong slide.
-	const setIndices = React.useMemo(() => (projection.status === 'ok' ? projection.pairs.map((p) => p.index) : []), [projection]);
-	// Front-matter `say:` (Layer 1, §16) — slide NUMBER (1-based) → read-as text. Memoized on
-	// the front matter, symmetric with the acronym registry memo below.
-	const fmSayMap = React.useMemo(() => frontMatterSayMap(frontMatter), [frontMatter]);
 	const count = set.length;
 	const clamped = Math.min(idx, Math.max(0, count - 1));
 	const cur = set[clamped] ?? '';
@@ -557,8 +548,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	}, [open, set, frontMatter, paletteOverride, extraTheme?.name, modeOverride, extraCss, options]);
 
 	// Resolve a slide's narration by its index in the presented set, through the ONE shared
-	// precedence ladder (`narration-resolve.ts`): inline say line → front-matter say: map →
-	// chart facts → DOM projection. NO note rung. Index-based (not text-based) because the
+	// precedence ladder (`narration-resolve.ts`): the slide's `@say` line → chart facts → DOM projection. NO note rung. Index-based (not text-based) because the
 	// projection is index-aligned to `set`.
 	//
 	// The ladder is shared with the exports because a mismatch there does not degrade, it
@@ -581,8 +571,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// `set[i]` does not carry; the narrator reads them from here (narration-resolve.ts `narrationDeck`).
 			const script = narrateChartScript(md, chartDeck);
 			const text = resolveNarration({
-				say: getSayLine(md),
-				fmSay: fmSayMap.get((setIndices[i] ?? i) + 1), // front-matter say[author slide number]
+				say: getSlideNote(md, 'say'),
 				// NO NOTE RUNG. A note is the presenter's, and it reaches the presenter's own
 				// panel below — never this, which is what the room hears and reads.
 				chart: script?.text ?? null,
@@ -601,7 +590,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			const refs = script?.refs.length && text === script.text ? script.refs : isProjected && projected.refs[i]?.length ? projected.refs[i] : undefined;
 			return { text, emphasis, refs };
 		},
-		[set, setIndices, fmSayMap, projected, chartDeck],
+		[set, projected, chartDeck],
 	);
 	const narrationAtRef = React.useRef(narrationAt);
 	narrationAtRef.current = narrationAt;
@@ -1895,7 +1884,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// Paragraphs, split on blank lines — the shape the popup's notes pane used, kept so a
 	// deck's notes read the same way they always have.
 	const notePara = React.useMemo(() => {
-		const raw = unavailable ? '' : getNote(cur) || '';
+		const raw = unavailable ? '' : getSlideNote(cur, 'note');
 		return raw ? raw.split(/\n{2,}/).map((t) => t.trim()).filter(Boolean) : [];
 	}, [cur, unavailable]);
 

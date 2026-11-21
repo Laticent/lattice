@@ -376,7 +376,7 @@ describe('stacked-bar kernel', () => {
         ['FY24', [['Licenses', '19.1']]],
       ]);
       assert.match(withDetail, /<template class="chart-detail" data-mark="0">/);
-      assert.match(withDetail, /<!-- FY23: Won three renewals early -->/);
+      assert.match(withDetail, /<!-- @note\{FY23: Won three renewals early\} -->/);
       // The chart itself is unchanged by detail: no mark gains or loses paint.
       assert.equal((plain.match(/sbar-seg/g) || []).length, 3 * 3);
     });

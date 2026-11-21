@@ -201,10 +201,10 @@ describe('what the fourth checker found', () => {
 	const brCount = (md: string) => (rendered(md).match(/<br/g) ?? []).length;
 
 	it('a comment under a list item stays editable and comes back hidden, as it was written', () => {
-		for (const prose of ['- Revenue up\n  <!-- say: 12% -->\n- Costs', '1. step\n   <!-- speaker note -->', '> a\n> <!-- x -->']) {
+		for (const prose of ['- Revenue up\n  <!-- @say{12%} -->\n- Costs', '1. step\n   <!-- speaker note -->', '> a\n> <!-- x -->']) {
 			expect(hasLossyConstruct(prose)).toBe(false);
 		}
-		expect(rt('- Revenue up\n  <!-- say: 12% -->\n- Costs')).toBe('- Revenue up\n  <!-- say: 12% -->\n- Costs');
+		expect(rt('- Revenue up\n  <!-- @say{12%} -->\n- Costs')).toBe('- Revenue up\n  <!-- @say{12%} -->\n- Costs');
 		// The comment atom writes itself as a block of its own: the same bytes as main, and the same quote.
 		expect(rt('> a\n> <!-- x -->\n> b')).toBe('> a\n>\n> <!-- x -->\n>\n> b');
 	});
@@ -257,7 +257,7 @@ describe('what the fifth checker found: HTML Compose does not model is written a
 
 	it('a list item that opens with HTML, a comment or `$$` comes back byte for byte', () => {
 		for (const prose of ['- <!-- c -->', '- <img src="a.png">', '- <div>x</div>', '1. <p>hi</p>', '- a\n- <!-- c -->\n- b', '> - <!-- c -->',
-			'1. <!-- note: speaker -->', '- $$x$$', '- <!-- c -->\n  b', '> - a\n>   <!-- c -->', '- Revenue up\n  <!-- say: 12% -->\n- Costs']) {
+			'1. <!-- @note{speaker} -->', '- $$x$$', '- <!-- c -->\n  b', '> - a\n>   <!-- c -->', '- Revenue up\n  <!-- @say{12%} -->\n- Costs']) {
 			expect(studio(prose)).toBe(deck(prose).trim());
 			expect(rendered(rt(prose)), prose).toBe(rendered(prose));
 		}

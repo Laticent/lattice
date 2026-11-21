@@ -105,7 +105,7 @@ test('"Check my deck" opens Coach when the user waits', async ({ page }) => {
 test('"Speaker notes" opens the notes field of the slide when the user waits', async ({ page }) => {
 	await search(page, 'notes');
 	await page.getByRole('option', { name: 'How do I add speaker notes?', exact: true }).click();
-	await expect(page.getByLabel('Speaker note for this slide').filter({ visible: true })).toBeVisible({ timeout: 40_000 });
+	await expect(page.getByLabel('Speaker notes for this slide').filter({ visible: true })).toBeVisible({ timeout: 40_000 });
 	await expect(page.locator(STAGE)).toContainText('saves with the deck', { timeout: 20_000 });
 });
 

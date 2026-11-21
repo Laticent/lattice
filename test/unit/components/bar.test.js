@@ -379,7 +379,7 @@ describe('bar kernel', () => {
         '<li>Q1 <code>4.2</code><ul><li>Two renewals landed</li></ul></li>' +
         '<li>Q2 <code>5.1</code></li>'), ctx());
       assert.match(withDetail, /<template class="chart-detail" data-mark="0">/);
-      assert.match(withDetail, /<!-- Q1 \(4\.2\): Two renewals landed -->/);
+      assert.match(withDetail, /<!-- @note\{Q1 \(4\.2\): Two renewals landed\} -->/);
       const without = buildBar(parseBar(ul([['Q1', '4.2'], ['Q2', '5.1']])), ctx());
       assert.doesNotMatch(without, /chart-detail|<!--/);
     });

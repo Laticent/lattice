@@ -1299,7 +1299,7 @@ test('the player ships the Marp-equivalent chrome CSS (pagination + notes hide +
 	// for every host, CLI included, instead of leaving the CLI's copy as the only one.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /section\[data-lattice-pagination\]::after\{content:attr\(data-lattice-pagination\)\}/, 'page numbers render even when the host docHtml carries no pagination CSS of its own');
-	assert.match(html, /aside\.lattice-notes,aside\.lattice-reader\{display:none!important\}/, 'speaker-note and reader-note asides stay hidden regardless of host docHtml');
+	assert.match(html, /aside\.lattice-notes,aside\.lattice-handout\{display:none!important\}/, 'speaker-note and handout asides stay hidden regardless of host docHtml');
 	assert.match(html, /\.lattice-description\{position:absolute!important/, 'the accessible description is sr-only, never a visible extra paragraph on the slide');
 });
 
@@ -1834,7 +1834,10 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// not to the pointerup's own point. Mobile Safari reported (0, 0) on every touch pointerup (iOS 26.5 simulator,
 	// platform suite run 44013499171), so a tap read as a drag to the page corner and could turn the slide. Script
 	// only: one pointermove listener and two variables; the one-finger swipe and the pinch guard behave as before.
-	assert.equal(sha, '948e030ec4f6994e09112b43f4a4d2c12b59fca87abda55019fae693f7b2bd1e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed 2026-11-20 (four notes, engineering/decisions/2026-11-20-four-notes.md): the reader note became the
+	// handout, so the notes-hide rule reads `aside.lattice-notes,aside.lattice-handout{display:none!important}`, and the
+	// Read article gains one `.lp-handout` rule set, where each slide's handout now prints. CSS only.
+	assert.equal(sha, 'fc309e1704feba11ea205d61e9f9a570fe5e2ba4565531a75dc60651f5b49b9b', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

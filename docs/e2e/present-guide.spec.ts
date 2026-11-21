@@ -195,7 +195,7 @@ test('with nothing on the slide to point at, the cursor hides and the real point
 			'',
 			'## Margins expanded across every region.',
 			'',
-			'<!-- note: The commentary for this slide lives only in the speaker notes and appears nowhere on the slide itself. -->',
+			'<!-- @note{The commentary for this slide lives only in the speaker notes and appears nowhere on the slide itself.} -->',
 			'',
 		].join('\n'),
 	);

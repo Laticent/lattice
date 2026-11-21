@@ -835,7 +835,7 @@ export function findFigureTarget(root: Document | Element | null, text: string):
 
 // ── THE PARAPHRASE TIER — an authored say line that SAYS the slide in other words ─────────────
 //
-// A `<!-- say: -->` is written to be heard, and the slide is written to be read, so the two
+// An `@say` line is written to be heard, and the slide is written to be read, so the two
 // rarely share a sentence. "First, we announce to customers in November with twelve months'
 // notice." narrates the list item "Announce — November, with twelve months' notice to every SMB
 // account." No block CONTAINS the cue, so every tier above returned null and the pointer hid —

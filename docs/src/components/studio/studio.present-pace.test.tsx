@@ -34,7 +34,7 @@ vi.mock('@/playground/voice-model.js', () => ({
 vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const slides = ['<!-- _class: title -->\n\n# One\n\n<!-- note: First. -->', '<!-- _class: title -->\n\n# Two\n\n<!-- note: Second. -->'];
+const slides = ['<!-- _class: title -->\n\n# One\n\n<!-- @note{First.} -->', '<!-- _class: title -->\n\n# Two\n\n<!-- @note{Second.} -->'];
 const fm = (pace?: string) => `---\ntheme: cuoio${pace ? `\npace: ${pace}` : ''}\n---\n`;
 
 /** Is the deck holding — arrived on a slide, not yet speaking? Published as state by the
