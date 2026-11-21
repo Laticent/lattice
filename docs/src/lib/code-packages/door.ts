@@ -30,7 +30,11 @@ import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins, scopePluginCss } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import { CODE_APPROVALS_KEY } from './entry';
-import { rememberWaits, withWaits } from './wait';
+import { setPreviewWatcher, withWaits } from './wait';
+import { rememberWaits, watchAfterimages } from './wait-capture';
+
+// The door has loaded, so a plugin may draw: record what each preview paints from now on (wait-capture.ts).
+if (typeof window !== 'undefined') setPreviewWatcher(watchAfterimages);
 
 /** The `class` slice of the directive vocabulary: `unapprovedIn` asks one key (lib/core/comment-directive.mjs). */
 
@@ -221,8 +225,8 @@ export async function setPlugins(list: { name: string; fence: string; code: stri
 	if (mine !== setPluginsSeq) return;
 	plugins.clear();
 	for (const [k, v] of next) plugins.set(k, v);
-	// The D1 benchmark (wait.ts): each plugin's fence and placement, kept so the next page load can draw a placeholder
-	// before this door has loaded.
+	// Each plugin's fence and placement, kept so the next page load can draw its wait before this door has loaded
+	// (wait.ts, D1).
 	rememberWaits([...next.values()].map((p) => ({ fence: p.fence, name: p.name, placement: p.placeholder?.placement, aspect: rememberedAspect(p.sha256) ?? p.placeholder?.aspect, sha256: p.sha256 })));
 }
 

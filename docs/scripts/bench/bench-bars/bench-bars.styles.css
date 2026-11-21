@@ -1,7 +1,0 @@
-/* The D1 benchmark plugin's sheet, token-only. Without it the bars are black: the "bare" frame the benchmark counts. */
-.lp-bench-bars-chart { display: block; width: 100%; height: auto; }
-.lp-bench-bars-bar { fill: color-mix(in oklab, var(--accent) 45%, var(--bg)); }
-.lp-bench-bars-top { fill: var(--accent); }
-.lp-bench-bars-axis { stroke: var(--border); stroke-width: 2; }
-.lp-bench-bars-value { fill: var(--text-heading); font: 600 26px var(--font-label); }
-.lp-bench-bars-label { fill: var(--text-muted); font: 24px var(--font-label); }

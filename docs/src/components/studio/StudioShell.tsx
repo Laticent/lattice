@@ -32,7 +32,7 @@ import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
 import { CODE_APPROVALS_KEY, codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
-import { holdsPreview, waitArm, watchAfterimages } from '@/lib/code-packages/wait';
+import { previewPainted } from '@/lib/code-packages/wait';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
@@ -1748,8 +1748,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [localComponents, setLocalComponents] = React.useState<StudioComponent[]>([]);
 	// Zip plugins (plugin-library.ts): kept in this browser only, run by the same door once approved.
 	const [localPlugins, setLocalPlugins] = React.useState<StudioPluginRecord[]>([]);
-	// The D1 benchmark, arm a (code-packages/wait.ts `holdsPreview`): the Library has been read once.
-	const [libraryRead, setLibraryRead] = React.useState(false);
 	// What Compose draws a panel from for an installed plugin's `@kind{…}` span (its manifest's slot).
 	const composePluginKinds = React.useMemo(() => pluginKindEntries(localPlugins), [localPlugins]);
 	const refreshComponents = React.useCallback(() => {
@@ -1766,8 +1764,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// record under the same id, and comparing only id, code and fence kept the old declaration live until a reload.
 		listStudioPlugins()
 			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list)))
-			.catch(() => setLocalPlugins((prev) => (prev.length ? [] : prev)))
-			.finally(() => setLibraryRead(true));
+			.catch(() => setLocalPlugins((prev) => (prev.length ? [] : prev)));
 	}, []);
 	React.useEffect(() => { refreshComponents(); }, [refreshComponents]);
 	// CODE PACKAGES: every saved component carrying a transform is one the renders may run, each only
@@ -1804,28 +1801,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const onCodeApproved = React.useCallback(() => setCodeStamp(codePackagesStamp()), []);
 	// An approval given or withdrawn in another tab of this browser: the stamp decides what this tab's previews draw
 	// (code-packages/door.ts `approvalsInStamp`, #3292), so it must hear the change, or it keeps drawing the old answer.
-	// The D1 benchmark, arm a: the live preview stays hidden until a listed plugin's block has drawn, at most 3 s.
-	const [previewHeld, setPreviewHeld] = React.useState(() => waitArm() === 'a');
-	const holdSource = React.useRef('');
-	React.useEffect(() => {
-		if (!previewHeld) return;
-		let raf = 0;
-		const until = setTimeout(() => setPreviewHeld(false), 3000);
-		const tick = () => {
-			const fr = previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-			let doc: Document | null = null;
-			try {
-				doc = fr?.contentDocument ?? null;
-			} catch {}
-			if (!holdsPreview(doc, holdSource.current, libraryRead)) setPreviewHeld(false);
-			else raf = requestAnimationFrame(tick);
-		};
-		raf = requestAnimationFrame(tick);
-		return () => {
-			cancelAnimationFrame(raf);
-			clearTimeout(until);
-		};
-	}, [previewHeld, libraryRead]);
 	React.useEffect(() => {
 		const heard = (e: StorageEvent) => {
 			if (approvalsMayHaveChanged(e.key)) setCodeStamp(codePackagesStamp());
@@ -3193,8 +3168,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Skipped entirely until a deck names a photo or the Library has been used, so a deck without
 	// one never reads the shelf.
 	const deckUsesAssets = React.useMemo(() => /\basset:[a-z0-9]/i.test(source), [source]);
-	// The D1 benchmark, arm a: what the hold reads to know which plugins the deck lists.
-	holdSource.current = source;
 	React.useEffect(() => {
 		if (!deckUsesAssets && !assetsTouched.current) return;
 		assetsTouched.current = true;
@@ -5416,13 +5389,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// read on the commit could still see the old slide (DeckPreview `firePaint`).
 	const onLivePreviewPaint = React.useCallback(() => {
 		for (const listener of previewPaintListeners.current) listener();
-		// The D1 benchmark, arm cplus (code-packages/wait.ts): keep the boxes of the live preview's plugin drawings, on
-		// every paint path (a full write, a patch, an adopted bake), not only the one onFrameLoad sees.
-		if (waitArm() === 'cplus') {
-			try {
-				watchAfterimages(previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument);
-			} catch {}
-		}
+		// Record the live preview's plugin drawings for the next reload's wait (code-packages/wait.ts), on every paint
+		// path (a full write, a patch, an adopted bake), not only the one onFrameLoad sees.
+		try {
+			previewPainted(previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument);
+		} catch {}
 	}, []);
 	// The holder element itself, for the live pointer layer (which reads pointer moves on it).
 	const previewHolderElRef = React.useRef<HTMLDivElement | null>(null);
@@ -7994,7 +7965,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className={previewHeld ? "size-full invisible" : "size-full"} aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onPaint={onLivePreviewPaint} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
 					</ErrorBoundary>
 					{/* AN EMPTY DECK previews as empty, not as a blank slide numbered 1 (2026-11-17-compose-empty-deck.md). The
 					    preview stays mounted and warm under it, so the first slide paints without a cold start. */}
