@@ -35,3 +35,8 @@ miss, ffce3e5d), and two more dispatches at that commit caught no miss: 43259077
 preview frames removed. The next miss the nightly records names the writer.
 
 done when — the probe names what Filo undid at a miss, and the cause is fixed or shown to be the probe's own wait.
+
+2026-11-21 — still no miss to read. The nightly at 44537284132 (2026-11-19, main) landed every row on the iPhone: 8 of 8
+type → WebKit undo cycles and 3 of 3 doorbell rows, each `historyUndo` prevented and the word undone. Playwright's
+WebKit does not reach it either: filo-undo.spec.ts:65 (the same `historyUndo` through `execCommand('undo')`,
+webkit-tablet) went 40 of 40 at --workers=4 on main 450df6d. The probe's miss log is still the way to a cause.
