@@ -42,10 +42,23 @@ describe('readRecord: one record comment body', () => {
     assert.deepEqual(r.markers, ['stress-slide']);
   });
 
-  test('note, reader, say and describe go to the notes channel, never to `d`', () => {
+  test('a retired note field (note, say, describe, reader) applies nothing and names the note that replaced it', () => {
+    // A record holds settings only (engineering/decisions/2026-11-20-four-notes.md N4); a note is its own comment.
     const r = door.readRecord(' {layout=list, note="Open cold.", say="Hello"}\nreader: |\n  For you.\n\n  Second.\ndescribe: A chart.\n');
+    assert.equal(r.ok, true);
     assert.deepEqual(r.d, { class: 'list' });
-    assert.deepEqual(r.notes, { note: ['Open cold.'], say: ['Hello'], reader: ['For you.\n\nSecond.'], describe: ['A chart.'] });
+    assert.equal(Object.hasOwn(r, 'notes'), false, 'a record carries no notes channel');
+    assert.deepEqual(
+      r.diagnostics.map((d) => [d.code, /`<!-- @(\w+)\{/.exec(d.message)?.[1]]),
+      [['meta-note-field', 'note'], ['meta-note-field', 'say'], ['meta-note-field', 'handout'], ['meta-note-field', 'alt']],
+    );
+    assert.deepEqual({ ...door.RETIRED_NOTE_FIELDS }, { note: 'note', say: 'say', describe: 'alt', reader: 'handout' });
+  });
+
+  test('a retired note field holding `-->` is reported as retired, not as an unsafe value', () => {
+    const r = door.readRecord(' {footer=x, note="a --\\> b"} ');
+    assert.deepEqual(r.d, { footer: 'x' });
+    assert.deepEqual(r.diagnostics.map((d) => d.code), ['meta-note-field']);
   });
 
   test('deck-only keys, unknown keys and non-scalar values are dropped and reported', () => {
@@ -77,7 +90,8 @@ describe('readRecord: one record comment body', () => {
 describe('the carrier escape (§10)', () => {
   test('`--\\>` is `-->`, `--!\\>` is `--!>`, each further backslash a literal one', () => {
     assert.equal(door.decodeCommentText('a --\\> b --!\\> c --\\\\> d'), 'a --> b --!> c --\\> d');
-    assert.deepEqual(door.readRecord(' {note="x --\\> y"} ').notes.note, ['x --> y']);
+    // A note body uses the same escape, undone where a person reads it.
+    assert.equal(notes.notesFromHtml('<section><!-- @note{x --\\> y} --></section>'), 'x --> y');
   });
 
   test('encode and decode are inverse, and an encoded text never ends a comment (seed 2772)', () => {
@@ -108,7 +122,7 @@ describe('compileMetaSource: the door', () => {
   });
 
   test('`<` and `>` in a value never reach the comment raw', () => {
-    const out = door.compileMetaSource('<!-- {footer="a <b>bold</b>", note="x --\\> y"} -->\n').source;
+    const out = door.compileMetaSource('<!-- {footer="a <b>bold</b>", header="x --\\> y"} -->\n').source;
     assert.equal(out.indexOf('-->'), out.length - 4);
     assert.equal(/<b>/.test(out), false);
     assert.deepEqual(readDirectiveEntries(out.trim(), { known: new Set(['footer']) }), [{ spot: true, key: 'footer', value: 'a <b>bold</b>' }]);
@@ -237,11 +251,14 @@ describe('the render: a record writes the same <section> as the comments it repl
   );
   pair('a hidden slide', '<!-- hide -->', '<!-- {hide} -->');
 
-  test('a record’s note is the speaker note whatever its words; its reader note is its own channel', () => {
-    const out = html('# A\n\n<!-- {layout=cards}\nnote: |\n  footer: not a directive\nreader: For whoever opens it.\n-->\n\n- x\n');
-    assert.doesNotMatch(out, /data-footer/);
-    const sec = out.match(/<section[\s\S]*?<\/section>/)[0];
-    assert.equal(notes.readerFromHtml(sec), 'For whoever opens it.');
+  test('a record’s retired note fields reach no channel and set nothing; a named note beside it does', () => {
+    const src = '# A\n\n<!-- {layout=cards}\nnote: |\n  footer: not a directive\nreader: Old reader.\n-->\n\n<!-- @handout{For whoever opens it.} -->\n\n- x\n';
+    const r = engine.render(src);
+    assert.doesNotMatch(r.html, /data-footer/);
+    const sec = r.html.match(/<section[\s\S]*?<\/section>/)[0];
+    assert.equal(notes.handoutFromHtml(sec), 'For whoever opens it.');
+    assert.equal(notes.notesFromHtml(sec), null);
+    assert.deepEqual(r.diagnostics.filter((d) => /meta-note-field/.test(d.message)).map((d) => d.message.slice(0, 7)), ['line 3:', 'line 3:']);
   });
 
   test('a bad record reports through the render’s diagnostics and is never a note', () => {
@@ -270,26 +287,44 @@ describe('the rule order: the expansion runs before every rule that reads a dire
   });
 });
 
-describe('notes: the reader channel and the privacy strips', () => {
-  test('the export notes carry `Reader:` after the speaker note', () => {
-    assert.deepEqual(notes.withReaderNotes(['Note.', null, null], ['Read.', 'Only.', null]), ['Note.\n\nReader: Read.', 'Reader: Only.', null]);
+describe('notes: the handout channel and the privacy strips', () => {
+  test('the export notes carry `Handout:` after the speaker note', () => {
+    assert.deepEqual(notes.withHandoutNotes(['Note.', null, null], ['Read.', 'Only.', null]), ['Note.\n\nHandout: Read.', 'Handout: Only.', null]);
   });
 
-  test('--strip-notes removes a record’s note field and keeps its reader; --strip-say removes say', () => {
-    const s = '<!-- {layout=cards, note="secret", say="Hi"}\nnote: |\n  More secret.\nreader: Public.\n-->\n';
-    const stripped = notes.stripChannelsFromSource(s, { noteBodies: ['secret'], say: true });
-    assert.doesNotMatch(stripped, /secret|Hi/);
-    assert.match(stripped, /reader: Public\./);
+  test('--strip-notes removes @note and plain comments and keeps the record and @handout; --strip-say removes @say', () => {
+    const s = '<!-- {layout=cards, footer=F} -->\n<!-- @note{secret} -->\n<!-- my own todo -->\n<!-- @say{Hi} -->\n<!-- @handout{Public.} -->\n\n# A\n';
+    const stripped = notes.stripChannelsFromSource(s, { notes: true, say: true });
+    // The default cut leaves one empty line where the removed run sat between two kept lines (`SCRUB_BOUNDARIES`).
+    assert.equal(stripped, '<!-- {layout=cards, footer=F} -->\n\n<!-- @handout{Public.} -->\n\n# A\n');
+    assert.equal(notes.stripChannelsFromSource(s, { notes: true, say: true, boundary: 'drop' }), '<!-- {layout=cards, footer=F} -->\n<!-- @handout{Public.} -->\n\n# A\n');
+    assert.equal(notes.stripChannelsFromSource(s, { notes: true }), '<!-- {layout=cards, footer=F} -->\n\n<!-- @say{Hi} -->\n<!-- @handout{Public.} -->\n\n# A\n');
+  });
+
+  test('an unmigrated record’s retired note fields come off under --strip-notes, and `say` under --strip-say', () => {
+    // The engine reads none of them, but the text still rides in the source an export carries (meta-door
+    // `stripRetiredNoteFields`). The record keeps its settings and its line count.
+    const s = '<!-- {layout=cards, note="secret", say="Hi"}\nnote: |\n  More secret.\nreader: Old reader.\ndescribe: Old alt.\n-->\n';
+    const stripped = notes.stripChannelsFromSource(s, { notes: true });
+    assert.doesNotMatch(stripped, /secret|Hi|Old reader|Old alt/);
     assert.match(stripped, /layout=cards/);
     assert.equal(lines(stripped), lines(s));
+    const saidOnly = notes.stripChannelsFromSource(s, { say: true });
+    assert.doesNotMatch(saidOnly, /Hi/);
+    assert.match(saidOnly, /note="secret"/);
+    assert.match(saidOnly, /reader: Old reader\./);
+    assert.throws(() => door.stripRetiredNoteFields(s, ['footer']), /not a retired note field/);
   });
 
-  test('an authored record that the door did not compile is never a speaker note; a bare opener stays one (§5.3)', () => {
+  test('an authored record that the door did not compile is never a speaker note; a bare opener is a plain comment (§5.3)', () => {
     assert.equal(notes.isRecordComment(' {layout=cards} '), true);
     assert.equal(notes.isRecordComment(' @meta{layout=cards} '), true);
     assert.equal(notes.isRecordComment('\n{draft} remember the chart\n'), false);
     const out = createEngine().render('# A\n\n<!--\n{draft} remember the chart\n-->\n').html;
-    assert.equal(notes.extractSlideNotes([out])[0], '{draft} remember the chart');
+    // A plain comment is not a note (engineering/decisions/2026-11-20-four-notes.md N3): it reaches no channel, and
+    // `--strip-notes` scrubs it from the source.
+    assert.equal(notes.extractSlideNotes([out])[0], null);
+    assert.equal(notes.isPrivateComment('\n{draft} remember the chart\n'), true);
   });
 });
 
@@ -310,11 +345,10 @@ describe('the first adversarial pass on step 2 (inversion, 2026-11-10)', () => {
   });
 
   test('every block the expansion writes carries its provenance (`latticeRecord`), so the cut can tell it from an authored comment', () => {
-    const tokens = engine._tokens('# A\n\n<!-- {layout=cards, note="n"} -->\n\n<!-- _footer: authored -->\n');
+    const tokens = engine._tokens('# A\n\n<!-- {layout=cards, footer="r"} -->\n\n<!-- _footer: authored -->\n');
     // A directive block is consumed (emptied) by `lattice_directives`; the mark and the line survive.
     const marked = tokens.filter((t) => t.meta?.latticeRecord);
-    assert.deepEqual(marked.map((t) => t.map?.[0]), [2, 2], 'the class and the note, both on the record\'s line');
-    assert.ok(marked.some((t) => t.content.trim() === '<!-- lat-note: n -->'), 'the note stays, in the engine\'s note form');
+    assert.deepEqual(marked.map((t) => t.map?.[0]), [2, 2], 'the class and the footer, both on the record\'s line');
     assert.ok(tokens.some((t) => t.map?.[0] === 4 && !t.meta?.latticeRecord), 'the authored directive on line 4 carries no mark');
   });
 
@@ -356,11 +390,10 @@ describe('the first adversarial pass on step 2 (inversion, 2026-11-10)', () => {
   });
 
   test('the interim Marp bridge writes records back as directive comments, quoting YAML-significant values', () => {
+    // A retired note field is reported and dropped, never written to Marp as a speaker note (four notes N4); the four
+    // notes reach Marp through `notesToMarp`.
     const out = door.recordsToComments('<!-- {layout=cards, footer="Q3: review", header="", carry}\nnote: |\n  The --\\> arrow.\nreader: For you.\n-->\n\n<!-- {bad -->\n\n```\n<!-- {layout=x} -->\n```\n');
-    assert.equal(
-      out,
-      '<!-- class: cards -->\n<!-- footer: "Q3: review" -->\n<!-- header: "" -->\n<!-- The -- > arrow. -->\n<!-- Reader: For you. -->\n\n\n\n```\n<!-- {layout=x} -->\n```\n',
-    );
+    assert.equal(out, '<!-- class: cards -->\n<!-- footer: "Q3: review" -->\n<!-- header: "" -->\n\n\n\n```\n<!-- {layout=x} -->\n```\n');
   });
 });
 
@@ -368,21 +401,25 @@ describe('the red team on step 2 (2026-11-10)', () => {
   const engine = createEngine();
   const rec = (src) => notes.slideNoteRecord(engine.render(src).html.match(/<section[\s\S]*?<\/section>/g) || [])[0];
 
-  test('a record note is the speaker note whatever its words: never a pane marker, a channel or a directive', () => {
+  test('a @note is the speaker note whatever its words: never a pane marker, a channel or a directive', () => {
     for (const words of ['_pane: bar', 'reader: PRIVATE the CFO number', 'say: SECRET', 'describe: X', '_class: lead', 'stress-slide', '{layout=x}']) {
-      const r = rec(`# A\n\n<!-- {layout=list, note="${words}"} -->\n\n- a\n`);
+      const r = rec(`# A\n\n<!-- {layout=list} -->\n<!-- @note{${words}} -->\n\n- a\n`);
       assert.equal(r.note, words, words);
-      assert.equal(r.reader, null, words);
+      assert.equal(r.handout, null, words);
       assert.equal(r.say, null, words);
       assert.equal(r.description, null, words);
+      // …and the same words in a plain comment reach no channel at all.
+      const plain = rec(`# A\n\n<!-- ${words} -->\n\n- a\n`);
+      assert.deepEqual([plain.note, plain.say, plain.description, plain.handout], [null, null, null, null], words);
     }
-    const panes = engine.render('<!-- panes: 60/40 -->\n\n# T\n\n<!-- {pane=list, note="_pane: bar"} -->\n- a\n\n<!-- _pane: list -->\n- b\n').html;
+    const panes = engine.render('<!-- panes: 60/40 -->\n\n# T\n\n<!-- {pane=list} -->\n<!-- @note{_pane: bar} -->\n- a\n\n<!-- _pane: list -->\n- b\n').html;
     assert.equal((panes.match(/<lat-pane class="list/g) || []).length, 2);
   });
 
   test('a privacy strip that removes every inline field leaves a record that still reads, block lines and all', () => {
-    const src = '<!-- {note="PRIVATE"}\nlayout: lead\nfooter: Q3 board\nreader: Kept.\n-->\n\n# A\n';
-    const stripped = notes.stripChannelsFromSource(src, { noteBodies: ['x'] });
+    const src = '<!-- {note="PRIVATE"}\nlayout: lead\nfooter: Q3 board\nreader: Gone too.\n-->\n\n# A\n';
+    const stripped = notes.stripChannelsFromSource(src, { notes: true });
+    assert.doesNotMatch(stripped, /Gone too/);
     assert.doesNotMatch(stripped, /PRIVATE/);
     assert.match(stripped, /^<!-- \{\}\nlayout: lead/);
     const out = engine.render(stripped);
@@ -394,7 +431,7 @@ describe('the red team on step 2 (2026-11-10)', () => {
   test('the strip round-trips the escape and leaves a record quoted in inline code as written', () => {
     const s = notes.stripChannelsFromSource('<!-- {footer=x, note="a --\\> b", say="s"} -->\n\nWrite `<!-- {layout=cards, say="kept"} -->` to set both.\n', { say: true });
     assert.match(s, /`<!-- \{layout=cards, say="kept"\} -->`/);
-    assert.equal(door.readRecord(s.slice(4, s.indexOf('-->'))).notes.note[0], 'a --> b');
+    assert.equal(s.slice(0, s.indexOf('\n')), '<!-- {footer=x, note="a --\\> b"} -->', 'the kept field keeps its escape');
   });
 
   test('a fence the engine’s parser does not open (or closes early) hides no record after it', () => {
@@ -440,12 +477,13 @@ describe('meta-edit: what the engine reads decides a carrier (the checker on #31
     assert.equal(r.value, 'content');
   });
 
-  test('commentReadings: indented and folded comments are not applied; a note is a note', () => {
+  test('commentReadings: indented and folded comments are not applied; any other comment is a comment', () => {
     assert.equal(commentReadings('# T\n\n    <!-- {layout=kpi} -->\n').size, 0);
     assert.equal(commentReadings('<div>\n<!-- {layout=kpi} -->\n</div>').get(2), undefined);
     assert.equal(commentReadings('<!-- {layout=kpi} -->\n# T').get(1)?.kind, 'record');
     assert.equal(commentReadings('<!-- _class: kpi -->\n# T').get(1)?.kind, 'directive');
-    assert.equal(commentReadings('# T\n\n<!-- say this -->').get(3)?.kind, 'note');
+    assert.equal(commentReadings('# T\n\n<!-- say this -->').get(3)?.kind, 'comment');
+    assert.equal(commentReadings('# T\n\n<!-- @note{say this} -->').get(3)?.kind, 'comment');
   });
 });
 

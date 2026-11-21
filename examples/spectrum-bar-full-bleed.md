@@ -5,8 +5,8 @@ paginate: true
 header: "Lattice · full-bleed bar"
 ---
 
-<!-- These layouts claim the whole slide, so their spectrum bar is an overlay strip laid over the art, not a border
-     that would shrink it. Each slide sets a different placement; the photo, panel and text keep their true edges. -->
+<!-- @note{These layouts claim the whole slide, so their spectrum bar is an overlay strip laid over the art, not a border
+     that would shrink it. Each slide sets a different placement; the photo, panel and text keep their true edges.} -->
 
 <!-- _class: image spectrum-edge-left -->
 

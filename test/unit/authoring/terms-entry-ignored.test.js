@@ -32,7 +32,7 @@ describe('terms: reads what YAML reads', () => {
   });
 });
 
-describe('terms: comments, escapes and say: prose', () => {
+describe('terms: comments, escapes and say prose', () => {
   test('a comment line anywhere in the block is skipped, and never ends it or moves its indent', () => {
     const fm = 'terms:\n  # glossary\n    Yearn:\n      # how the team says it\n      pronounce: yurn\n# a root comment\n    Derby: Darby';
     assert.deepEqual(spoken(fm), [['Yearn', 'yurn'], ['Derby', 'Darby']]);
@@ -42,9 +42,11 @@ describe('terms: comments, escapes and say: prose', () => {
   test('an escaped quote inside a double-quoted value does not end it', () => {
     assert.deepEqual(spoken('terms:\n  Hi: "say \\"hi\\" #1 now" # note'), [['Hi', 'say "hi" #1 now']]);
   });
-  test('a say: line keeps a # in its prose', async () => {
-    const { frontMatterSayMap } = await import('../../../lib/core/resolve-narration.mjs');
-    assert.equal(frontMatterSayMap('---\nsay:\n  1: We are Team #1 in the market\n---\n').get(1), 'We are Team #1 in the market');
+  test('a say line keeps a # in its prose', async () => {
+    // The front-matter `say:` map is gone (engineering/decisions/2026-11-20-four-notes.md N6); a say line is the
+    // slide's `@say{…}`, whose body is prose read whole, never YAML with a comment.
+    const { readNote } = await import('../../../lib/core/note-grammar.mjs');
+    assert.equal(readNote('@say{We are Team #1 in the market}').text, 'We are Team #1 in the market');
   });
 });
 

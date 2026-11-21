@@ -530,11 +530,11 @@ export function backdropAxisPosition(before) {
 
 // The cursor's position on a directive NAME being typed inside an HTML comment,
 // before any colon — `<!-- _pag|`. Returns `{ from, typed }` (typed keeps the
-// leading `_`) or null. Once the colon is typed this stops matching, so the
-// per-directive value/grammar sources take over (e.g. `_class:` → component
-// names).
+// leading `_`) or null. A note's name (`<!-- @sa|`) is matched the same way, `@`
+// kept. Once the colon is typed this stops matching, so the per-directive
+// value/grammar sources take over (e.g. `_class:` → component names).
 export function directiveNameAt(before) {
-	const m = before.match(/^(\s*<!--\s*)(_?[\w-]*)$/);
+	const m = before.match(/^(\s*<!--\s*)(_?[\w-]*|@[\w-]*)$/);
 	if (!m) return null;
 	return { from: m[1].length, typed: m[2] };
 }
@@ -645,7 +645,7 @@ export function recordOptions(spot, catalog, vocab, extra = {}) {
 	if (!spot) return [];
 	if (spot.kind === 'field') {
 		const set = new Set(spot.fields);
-		return RECORD_FIELDS.filter((f) => !set.has(f.name) || f.name === 'note').map((f) => ({ label: f.name, type: 'property', detail: f.detail, apply: f.name === 'carry' || f.name === 'hide' ? f.name : `${f.name}=` }));
+		return RECORD_FIELDS.filter((f) => !set.has(f.name)).map((f) => ({ label: f.name, type: 'property', detail: f.detail, apply: f.name === 'carry' || f.name === 'hide' ? f.name : `${f.name}=` }));
 	}
 	const layout = spot.record.layout || '';
 	if (spot.name === 'layout') return spot.prior.length ? [] : classOptions(catalog);

@@ -18,7 +18,7 @@ const DECK = [
 		'- EMEA closed three late deals\n- APAC renewals slipped',
 		'<!-- pane: table -->',
 		'| Region | Q2 | Q3 |\n|---|---|---|\n| EMEA | 4.1 | 5.3 |\n| APAC | 2.8 | 2.8 |',
-		'<!-- A real presenter note stays. -->',
+		'<!-- @note{A real presenter note stays.} -->',
 	].join('\n\n'),
 ].join('\n\n---\n\n');
 

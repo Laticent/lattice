@@ -237,6 +237,7 @@
     "changelog:bump": "node tools/changelog.js --bump",
     "backlog": "node tools/backlog.js",
     "card": "node tools/card.js",
+    "merge:order": "node tools/merge-order.mjs",
     "evidence": "node tools/evidence-plan.js",
     "followups": "node tools/followups.js",
     "docs:components": "node tools/build-component-docs.js",

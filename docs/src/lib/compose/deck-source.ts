@@ -108,15 +108,12 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 	const kept = new Set<string>();
 	for (const line of [...readings.keys()].sort((a, b) => a - b)) {
 		const r = readings.get(line);
-		if (!r || r.kind === 'note') continue;
+		if (!r || r.kind === 'comment') continue;
 		const text = matched.get(line);
 		// A directive nested in a list moves too, as it always did: left in place, Compose's parser reads it as list text
 		// and escapes its underscore, and the slide loses it (the checker on #3136). Lifting it changes no field.
-		// It stays when: it is a pane marker or comes after one; it is a record carrying a speaker note (lifting it would
-		// reorder the slide's notes); it sits between two lists (lifting it would merge them); or it is indented in a list
+		// It stays when: it is a pane marker or comes after one; it sits between two lists (lifting it would merge them); or it is indented in a list
 		// item after a blank line (lifting it would draw a loose list tight).
-		const body = text?.trim().slice(4, -3) ?? '';
-		const carriesNote = r.kind === 'record' && isRecordOpener(body) && Object.keys(readRecord(body)?.notes ?? {}).length > 0;
 		const betweenLists = listAbove(kinds, line) && listBelow(kinds, line + (text?.trim().split('\n').length ?? 1) - 2);
 		// Indented in a list item after a blank line: that blank line is what makes the list loose (each item a
 		// paragraph), so lifting the comment would draw the list tight. Kept, the slide opens in Markdown.
@@ -126,7 +123,6 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 			text !== undefined &&
 			!parsePaneMarker(text.trim())?.pane &&
 			line < firstPane &&
-			!carriesNote &&
 			!betweenLists &&
 			!loosensList;
 		const keys = [...r.keys].map((k) => scopedKey(k, r.kind, chunkLines.slice(line - 1, line + 2).join('\n')));
@@ -257,7 +253,7 @@ function strandsADirective(prose: string): boolean {
 	const kinds = lineKinds(lines);
 	// What the engine applies: its readings, and the pane markers (which commentReadings does not report).
 	const applied = new Set<number>();
-	for (const [line, r] of commentReadings(prose)) if (r.kind !== 'note') applied.add(line);
+	for (const [line, r] of commentReadings(prose)) if (r.kind !== 'comment') applied.add(line);
 	lines.forEach((l, i) => {
 		if (l.trim().startsWith('<!--') && parsePaneMarker(l.trim())?.pane) applied.add(i + 1);
 	});

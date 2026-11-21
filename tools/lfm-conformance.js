@@ -41,11 +41,25 @@ function load() {
 
 /** Every case in the folder: `<name>.md` beside `<name>.json`, or a `<name>.json` table whose
  *  `rows` each carry their own deck. */
+// The LFM version the reference implementation follows. A case whose `until` is at or below it pins behavior a later
+// version changed (LFM-1.0's §3.5, a plain comment as the speaker note, is the first), so it is kept for a 1.x
+// implementation and not run here. spec/conformance/lfm/README.md § A case.
+const REFERENCE_SPEC = 'LFM-2.0';
+const specNumber = (v) => String(v).replace(/^LFM-/, '').split('.').map(Number);
+const atOrBelow = (a, b) => {
+  const [x, y] = [specNumber(a), specNumber(b)];
+  return x[0] < y[0] || (x[0] === y[0] && (x[1] ?? 0) <= (y[1] ?? 0));
+};
+
 function listCases(dir = CASES_DIR) {
   return fs.readdirSync(dir)
     .filter((f) => f.endsWith('.json'))
     .map((f) => f.slice(0, -5))
     .filter((name) => fs.existsSync(path.join(dir, `${name}.md`)) || Array.isArray(readJson(dir, name).rows))
+    .filter((name) => {
+      const until = readJson(dir, name).until;
+      return !until || !atOrBelow(until, REFERENCE_SPEC);
+    })
     .sort();
 }
 
@@ -149,7 +163,8 @@ function l1(source) {
         cards: cardsOf(stage),
         states: items.map(answerOf),
         fences: [...s.querySelectorAll('[data-lattice-hydrate]')].map((e) => e.getAttribute('data-lattice-hydrate').replace(/-/g, '')),
-        notes: notes.noteBodiesFromHtml(s.outerHTML),
+        // The four notes (LFM-2.0 §3.5), each joined as the reference joins it; null where the slide has none.
+        notes: (({ note, say, description, handout }) => ({ note, say, alt: description, handout }))(notes.slideNoteRecord([s.outerHTML])[0]),
         inline: inlineOf(s),
         lens: lensOf(sources[i] ?? ''),
       };
@@ -202,7 +217,7 @@ function runCase(c) {
   return fails;
 }
 
-module.exports = { CASES_DIR, listCases, readCase, runCase };
+module.exports = { CASES_DIR, REFERENCE_SPEC, listCases, readCase, runCase };
 
 if (require.main === module) {
   const names = process.argv.slice(2);

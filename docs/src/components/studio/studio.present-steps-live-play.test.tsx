@@ -24,7 +24,7 @@ vi.mock('@/playground/voice-model.js', () => ({
 vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const BUILD = `<!-- _build -->\n\n## Built\n\n- First\n- Second\n- Third\n\n<!-- say: ${'Three points, each one read aloud in full while the slide is up. '.repeat(20)} -->`;
+const BUILD = `<!-- _build -->\n\n## Built\n\n- First\n- Second\n- Third\n\n<!-- @say{${'Three points, each one read aloud in full while the slide is up. '.repeat(20)}} -->`;
 const steps = () => screen.getAllByTestId('dp').map((d) => d.getAttribute('data-step'));
 /** The preview measures the shown slide: a three-step build, at the step Present asked for. */
 const measure = (at: number | null) => act(() => { for (const r of reports.splice(0)) r({ slide: 0, kind: 'build', count: 3, at }); });

@@ -189,11 +189,16 @@ onEveryEngine('@smoke the PDF export draws the photo on the page, and does not r
 // On every engine, WebKit included: WebKit decodes a slide's pictures only after the first draw, and the
 // PowerPoint capture used to ship that first draw, with no picture and no warning. settled-canvas.js waits.
 onEveryEngine('@smoke the PowerPoint export carries the photo, and does not report a missing image', async ({ page }) => {
+	// The capture's own account of every image it counted as lost: which address, and which path counted it.
+	const exportLog: string[] = [];
+	page.on('console', (m) => {
+		if (m.text().startsWith('[deck-export]')) exportLog.push(m.text());
+	});
 	await setUp(page);
 	const path = await download(page, 'pptx');
-	// The message carries the toast text, so a failure names which image the capture could not load.
+	// The message carries the toast text and the capture's log, so a failure names which image was lost and why.
 	const toasts = (await page.locator('[data-sonner-toast]').allInnerTexts()).join(' | ');
-	expect(toasts, 'the PowerPoint toast').not.toMatch(/could not load every image/i);
+	expect(toasts, `the PowerPoint toast; the capture logged: ${exportLog.join(' | ') || 'nothing'}`).not.toMatch(/could not load every image/i);
 	const zip = await JSZip.loadAsync(readFileSync(path));
 	// PNG or JPEG: a photographic slide is written as a JPEG when that is much smaller (canvasToPictureBlob), and which
 	// one wins depends on the engine's encoder. Firefox writes this deck's slide as a JPEG; a PNG-only filter found no picture.

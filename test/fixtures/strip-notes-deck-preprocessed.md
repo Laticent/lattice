@@ -18,7 +18,7 @@ graph LR
 ## The note sits inside a list item
 
 - Revenue up 12 percent
-  <!-- PREPROCLEAKTOKEN alpha: the author's private remark, inside the list. -->
+  <!-- @note{PREPROCLEAKTOKEN alpha: the author's private remark, inside the list.} -->
 - Costs flat
 - Headcount steady
 

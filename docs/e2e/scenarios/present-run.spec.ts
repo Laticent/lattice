@@ -45,7 +45,7 @@ test('the console carries the speaker note and the next slide — with no second
 	const NOTE = 'Welcome the board and state the ask in one line.';
 	await setEditorContent(
 		page,
-		`<!-- _class: title -->\n\n# Atlas kickoff\n\n\`Board · Kickoff\`\n\nOne platform, three bets.\n\n<!-- note: ${NOTE} -->\n\n---\n\n# The ask\n\nThirty months, one platform.`,
+		`<!-- _class: title -->\n\n# Atlas kickoff\n\n\`Board · Kickoff\`\n\nOne platform, three bets.\n\n<!-- @note{${NOTE}} -->\n\n---\n\n# The ask\n\nThirty months, one platform.`,
 	);
 	// Wait for the editor's text to reach the deck model — the rail is the honest signal.
 	await expect.poll(() => slideCount(page)).toBe(2);

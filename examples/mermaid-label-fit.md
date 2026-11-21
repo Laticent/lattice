@@ -14,7 +14,7 @@ A diagram on a plain slide no longer takes the slide's paragraph size
 
 ---
 
-<!-- eyebrow: Flowchart, left to right -->
+<!-- @note{eyebrow: Flowchart, left to right} -->
 
 # How an order moves
 
@@ -27,7 +27,7 @@ Each label sits whole and centered in its box. Before, every one was clipped to 
 
 ---
 
-<!-- eyebrow: Flowchart, top to bottom -->
+<!-- @note{eyebrow: Flowchart, top to bottom} -->
 
 # Approving a change
 
@@ -43,7 +43,7 @@ A decision diamond keeps its question inside its outline.
 
 ---
 
-<!-- eyebrow: Sequence diagram -->
+<!-- @note{eyebrow: Sequence diagram} -->
 
 # Paying an invoice
 
@@ -59,7 +59,7 @@ A sequence diagram is unchanged: it draws its labels as SVG text, not in a parag
 
 ---
 
-<!-- eyebrow: State diagram -->
+<!-- @note{eyebrow: State diagram} -->
 
 # The life of a ticket
 

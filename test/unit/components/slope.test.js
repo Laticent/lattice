@@ -225,7 +225,7 @@ describe('slope kernel', () => {
         ['Borealis', [['2024', '18'], ['2026', '14']]],
       ])), { classTokens: ['slope'] });
       assert.match(withDetail, /<template class="chart-detail" data-mark="0">/);
-      assert.match(withDetail, /<!-- Atlas \(12 to 19\): Won the Rhodes contract -->/);
+      assert.match(withDetail, /<!-- @note\{Atlas \(12 to 19\): Won the Rhodes contract\} -->/);
       assert.ok(!html.includes('chart-detail'), 'no detail, no payload');
       assert.ok(!html.includes('<!--'), 'no detail, no note');
     });

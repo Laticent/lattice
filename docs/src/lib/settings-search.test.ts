@@ -19,8 +19,8 @@ const ROWS = {
 	headlineAlign: 'Headline alignment Auto — Component Auto, or pin left / center / right.',
 	typeScale: 'Type scale M L XL 2XL Sizes all the text on this slide together.',
 	slideFinish: 'Finish None The backdrop behind this slide.',
-	speakerNote: 'Speaker note for this slide Yours alone: shown beside the slide while you present. Never read aloud, and never in the caption track.',
-	caption: 'Say what this slide says aloud The exact words this slide speaks. caption',
+	speakerNote: 'Speaker notes for you, while you present Shown beside the slide in Present and exported to the PDF and PPTX notes field. Never read aloud, never in the captions.',
+	caption: 'Say voice and captions The exact words this slide speaks. caption',
 	claim: 'Claim Framed How much frame content sits inside.',
 	stampShape: 'Stamp shape Default — tab The shape a state badge renders in.',
 	play: 'Play Animate charts in this deck.',
@@ -30,7 +30,7 @@ const ROWS = {
 	hideHeader: 'Hide header The running title along the top.',
 	saysNothing: 'Says nothing',
 	comments: 'Add comment No comments on this slide yet.',
-	a11y: 'Description for screen readers An objective equivalent of what’s on the slide — the accessibility text alternative (WCAG A).',
+	a11y: 'Alt text for someone who cannot see the slide An objective equivalent of what is on the slide (WCAG 1.1.1). Read by screen readers. accessibility description',
 } as const;
 
 const hits = (query: string) => (Object.keys(ROWS) as (keyof typeof ROWS)[]).filter((k) => settingsMatch(query, ROWS[k]));

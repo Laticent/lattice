@@ -30,7 +30,7 @@ One line at the top of a slide hides it from Present and every export.
 - Its notes and its review comments leave with it
 - Page numbers count only the slides that show
 
-<!-- This deck has eight slides. Two are hidden, so the PDF has six pages, numbered without a gap. -->
+<!-- @note{This deck has eight slides. Two are hidden, so the PDF has six pages, numbered without a gap.} -->
 
 ---
 
