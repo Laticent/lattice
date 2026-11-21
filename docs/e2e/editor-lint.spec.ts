@@ -121,20 +121,50 @@ async function runFixAllFromPalette(page: import('@playwright/test').Page): Prom
 	await row.click();
 }
 
+/** The deck as stored, decoded. */
+async function storedDeck(page: import('@playwright/test').Page): Promise<string> {
+	const raw = await persistedSource(page);
+	return raw.startsWith('"') ? JSON.parse(raw) : raw;
+}
+
 test('@crosswidth @webkit-phone @webkit-tablet @gecko Fix all names a fix it refused, and why, then a second run finishes it', async ({ page }) => {
 	test.setTimeout(240_000);
 	await setEditorContent(page, REFUSED_DECK);
+	// Frames the page paints, counted from here on. This deck needs the fix driver's 500 passes, which once ran inside
+	// the click and froze the page until the last (8.4 s measured in WebKit; past Playwright's 15 s click deadline under
+	// load). Now each pass is a task of its own (lint-core `fixAllDetailedAsync`), so the click returns and the page
+	// keeps painting while Fix all works. Counted, not timed (HARD RULE #32): a frozen page paints at most one frame
+	// in that span, and 500 passes are hundreds of frames of work on any machine.
+	await page.evaluate(() => {
+		const w = window as unknown as { __frames: number };
+		w.__frames = 0;
+		const tick = () => {
+			w.__frames++;
+			requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+	const frames = () => page.evaluate(() => (window as unknown as { __frames: number }).__frames);
 	await runFixAllFromPalette(page);
+	const atClick = await frames();
 	await expect(page.getByText('Fixed 500 issues. 1 fix was not applied.')).toBeVisible({ timeout: 60_000 });
+	expect(await frames(), 'the page kept painting while Fix all ran').toBeGreaterThan(atClick + 10);
 	await expect(page.getByText('Slide 2, card-style-inline-title: Fix all stopped before reaching it; press Fix all again.')).toBeVisible();
+	await expect.poll(() => storedDeck(page)).toContain('- Bet 0\n  - body 0');
+	const afterFirst = await storedDeck(page);
+	expect(afterFirst).toContain('- **Bet 500.** body 500');
 	// The refused fix is still there to run; the second run applies it and refuses nothing.
 	await runFixAllFromPalette(page);
 	await expect(page.getByText('Fixed 1 issue.')).toBeVisible({ timeout: 30_000 });
 	await expect.poll(() => persistedSource(page)).toContain('Bet 500\\n  - body 500');
-	const raw = await persistedSource(page);
-	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	const src = await storedDeck(page);
 	expect(src).toContain('- Bet 500\n  - body 500');
 	expect(src).not.toContain('**Bet');
+	// Each Fix all is ONE undo step, waiting or not: one undo takes back the second run whole, and the first run's
+	// 500 fixes stay. Filo takes the chord from any focus (filo-undo.spec.ts), the phone's shared pane included.
+	const mac = await page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent));
+	await page.keyboard.press(mac ? 'Meta+z' : 'Control+z');
+	await expect.poll(() => storedDeck(page)).toBe(afterFirst);
 });
 
 test('the Coach surfaces the inline-issue count', async ({ page }) => {

@@ -1522,6 +1522,22 @@ does not carry it (`lintCoreGz`, parent note §10.4).
   never work), and a `broke-structure` refusal whose rule reports nothing in the final text is dropped, because a
   later pass resolved that finding another way.
 
+**Fix all gives the page back between passes (2026-11-21).** `fix` runs every pass in one call, and the Studio
+called it from the Fix all click, so the page froze until the last pass. A deck that needs the driver's 500 passes
+froze it for 8.38 s in WebKit with nothing else running. That is the 501-card deck in `editor-lint.spec.ts`: the card
+rule reports one card per slide per lint, so it needs one pass per card. Under whole-project load the click ran past
+Playwright's 15 s deadline. Each pass re-lints the whole deck (9.3 ms for one lint of that deck in Node), and that cannot
+narrow here: all 501 cards sit on one slide, and lint-core reads a slide whole (list nesting, marker stacks).
+So the driver's loop is now a generator, `fixSteps`, which yields at the start of each pass. `fix` drains it
+synchronously, and `fixAsync` awaits a macrotask (`nextTask`) before each pass, the first included, so the click's
+task ends before any lint runs. lint-core has `fixAllDetailedAsync` and the bridge has `fixDeckAsync`, and the Studio
+editor, Compose and the Playground's Alt-Shift-F await them. Each writes the result only onto the text it was
+computed from, as one undo step; when the author typed meanwhile, or the editor was torn down (Compose or another
+deck unmounts it, and a destroyed view takes a dispatch silently), it writes nothing and says so (`STALE_NOTICE`). A
+second press while a run is going starts nothing (maker-checker findings, 2026-11-21). The
+CLI keeps the sync path. Its output is byte-identical on the 741 tracked decks (53 of them changed by Fix all), and
+`fixAsync`'s output equals `fix`'s on all of them.
+
 ### 15.5 Milestones as they touch Lattice
 
 | Milestone | Lattice work | Depends on |
