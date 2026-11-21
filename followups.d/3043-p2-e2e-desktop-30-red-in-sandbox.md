@@ -58,6 +58,26 @@ also red  — 2026-11-11, PR #3141's WebKit and Gecko run (the raise loop's evid
             playground-tab-switch:211. Sandbox note: the export specs need the `chromium-1194` path the docs' pinned
             Playwright names; this sandbox ships build 1243, so they fail with "Browser was not found" until that path
             points at a Chrome (a symlink made them pass, 16 of 18 with the two above).
+triaged   — 2026-11-21, every WebKit and Gecko row above, on main 450df6d (one `npm run build:e2e`, --retries=0): each
+            test alone on its own project (--workers=1 --repeat-each=5), then under load (--workers=3 --repeat-each=8).
+            None is red any more; every row below passed every run, so each is STALE and closes here:
+            - studio-read-article-charts.spec.ts:62 (the old :60, webkit-phone, light and dark): 10 of 10 alone, 16 of 16 loaded.
+            - library-images.spec.ts:248 (the old :256): webkit-tablet 5 of 5 and 8 of 8; gecko 5 of 5 and 8 of 8.
+            - mermaid-cache-bindings.spec.ts:143 (Playground and Studio): webkit-tablet 10 of 10 and 16 of 16; gecko 10 of 10
+              and 16 of 16 (fixed 2026-11-12, below; this confirms it on both engines).
+            - playground-tab-switch.spec.ts:211 (its :260 is inside it, webkit-phone): 5 of 5, 8 of 8.
+            - plugin-returns.spec.ts:60 (webkit-tablet): 5 of 5, 8 of 8.
+            - plugin-admission.spec.ts:176 (the old :168, gecko): 5 of 5, 8 of 8.
+            - plugin-inline-ui.spec.ts:173 (webkit-tablet and gecko) and :139 (webkit-tablet): 5 of 5 and 8 of 8 on each.
+            - logo-wall-equal-weight.spec.ts:27 (webkit-phone): 5 of 5, 8 of 8.
+            - slide-bar-studio.spec.ts:35 (webkit-tablet): 5 of 5, 8 of 8. Its one miss was in a full-suite run, heavier
+              than this; the 64 px read is still unexplained, so a red seen again should keep its trace.
+            - demo-mobile.spec.ts:444 (the old :437, webkit-phone): 5 of 5, 8 of 8 (fixed 2026-11-12 in the touch PR).
+            - plugin-placeholder-cells.spec.ts (gecko, every test): 60 of 60 alone; loaded, 95 of 96, then 72, 72 and 120
+              of 120 (the last at --workers=4 --repeat-each=10), so 359 of 360. The one red was "Target page, context or
+              browser has been closed" inside `gotoStudio`'s first-paint wait, with no assertion and no test-timeout
+              line; its trace was overwritten before it was read, and it did not come back. Not changed: there is no
+              cause to fix without a failure body.
 
 fixed     — 2026-11-12, branch claude/flaky-e2e-render, each at its cause, with a failing arm, 10 runs alone and loaded runs
             (numbers in that PR):
