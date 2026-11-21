@@ -192,6 +192,17 @@ section.topic > p:has(> code:only-child):not(:where([data-prose])) > code {
   padding: 0;
 }
 
+/* ── any other line of text on the band ─────────────────────────────────────
+ * The band is `--surface-inverse` on every face, and only the lede below names its
+ * ink, so any other paragraph or a `> …` on a topic slide inherited the section's
+ * BODY ink: dark on dark, effectively invisible (red team on #3362; a trailing note
+ * already was on main). Anchors take no coda since 2026-11-20, so a `>` here stays
+ * in the body as the author's own line, and it reads in the lede's on-dark voice.
+ * The lede and the eyebrow keep their own, more specific rules. */
+section.topic > :is(p, blockquote) {
+  color: var(--on-dark-secondary);
+}
+
 /* ── the topic name ───────────────────────────────────────────────────────── */
 /* `--fs-h2`, one tier below `divider`'s `--fs-h1`: a topic is smaller than the
  * section containing it and the type says so, which is what keeps the two

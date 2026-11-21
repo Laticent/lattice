@@ -416,8 +416,8 @@ shouldn't get card weight.
 **Supported layouts: 71 of 80, opt-out like Key Insight.** A layout withholds the
 note by declaring `coda: { claims: ["trailing-paragraph"] }`. Nine do: the four
 anchors (no coda, see Key Insight above), `math` (its equation grid), `image` (its
-text column) and the three QR posters. Two layouts
-place it somewhere other than the band, and both are declared:
+text column) and the three QR posters. Some layouts place it somewhere other than
+the band, and each is declared:
 
 - **Every chart kind** (`coda: { caption: true }`). The note IS the chart's caption:
   the kernel takes it like any note, and the chart draws it inside the figure as its
@@ -429,6 +429,13 @@ place it somewhere other than the band, and both are declared:
   "Content clipped" by name. Trim the plan, or keep one of the two beats.
 - **`quote`** (`coda: { anatomy: ["trailing-paragraph"] }`). The first paragraph
   after the quotation is its attribution; a SECOND paragraph is the note.
+- **`diagram` and `video`** (`coda: { caption: true }`). The note is the figure's
+  caption, drawn under it; the key insight stays the slide's panel.
+- **`split-panel` and `split-compare`**. The beats sit in the supporting column, after
+  the layout's own content (split-compare: after its verdict). On `split-panel
+  pullquote` the first blockquote is the panel's quotation and the line after it the
+  cite (`coda.variants`), so a later blockquote is the key insight and a later
+  paragraph the note.
 
 Everything else promotes, **including `content`**, which means any slide that names
 no component at all, since that is what an un-classed slide resolves to (#1292).

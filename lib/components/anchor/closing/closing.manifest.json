@@ -113,7 +113,8 @@
     {
       "mistake": "In the `index` variant, the leading reference key isn't wrapped in inline code, e.g. `docs — the component catalog` instead of leading with a backtick-wrapped key.",
       "fix": "The `index` variant's mono reference-key styling (`section.closing.index :is(ul,ol) li code`) only applies to an actual `<code>` element — wrap the leading key in backticks so it renders as a mono chip, not plain text."
-    }
+    },
+    {"mistake": "A `> …` key insight or a below-note on this slide.", "fix": "Anchors take no closing beat (2026-11-20): a `> …` here is not drawn as a Key Insight panel, and `lint:deck` flags it (`block-unsupported`). Put the takeaway on the content slide it sums up."}
   ],
   "variantDecisionRule": [
     {

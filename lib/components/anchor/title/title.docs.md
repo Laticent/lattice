@@ -26,6 +26,7 @@ First slide of every deck. Sets the topic and the visual tone. Drops the running
 - **The subtitle paragraph is authored before the eyebrow paragraph instead of after it.** The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h1 + p:has(> code:only-child)`) — it only counts element siblings, so an HTML comment between the h1 and the eyebrow is harmless, but another paragraph is not. Keep the source order heading → eyebrow → subtitle.
 - **Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.** Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis.
 - **Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.** Every top-level `hr` token in a slide body is the slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated.
+- **A `> …` key insight or a below-note on this slide.** Anchors take no closing beat (2026-11-20): a `> …` here is not drawn as a Key Insight panel, and `lint:deck` flags it (`block-unsupported`). Put the takeaway on the content slide it sums up.
 
 ## When to use
 

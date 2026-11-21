@@ -28,6 +28,7 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 
 - **A stat's number has no nested caption bullet beneath it.** A bare number still renders as the tile's big display number (the lead auto-bolds and is styled hero-sized regardless of nested content) — but with no nested caption there's no label under it. Nest a bullet directly beneath each number for its caption.
 - **Writing the subtitle/eyebrow line as plain text instead of inline code.** Stats' subtitle DOES change styling depending on backtick-wrapping: a backtick-wrapped, code-only paragraph adjacent to the heading gets lifted into the masthead and picked up by the shared eyebrow/subtitle rule (secondary color, message size); plain unwrapped text instead stays in the body and matches stats' own generic paragraph rule (label color, body size) — a visibly different color and size. Wrap it in backticks for the masthead treatment.
+- **Expecting a closing paragraph to stay a plain line inside the row.** The last paragraph after the stats is the slide's below-note (the coda), centered under the row with the headline; a `> …` before it is the Key Insight panel. Write one of each at most.
 
 ## When to use
 
