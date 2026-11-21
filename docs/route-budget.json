@@ -21,8 +21,8 @@
         "hard": 90460
       },
       "lintCoreGz": {
-        "soft": 152151,
-        "hard": 171974
+        "soft": 169910,
+        "hard": 186901
       },
       "chartKernelsGz": {
         "soft": 231477,
@@ -37,7 +37,7 @@
       },
       "htmlRaw": {
         "soft": 471849,
-        "hard": 519034
+        "hard": 520570
       },
       "engineJsGz": {
         "soft": 648151,
