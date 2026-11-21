@@ -405,13 +405,33 @@ test(`SWEEP ERRORS: a failed query decides sweep or pid by what ran, on ${proces
       helper.once('spawn', resolve);
       helper.once('error', reject);
     });
-    const r = attempt(later, (script) => script.replace('Get-CimInstance Win32_Process', "Get-CimInstance $(if ($n -eq 1) { 'Win32_Process' } else { 'Win32_NoSuchClass' })"));
+    // Pass 2 says it ran (`pass2`, straight to the console, so the two lines may come in either order) before its query
+    // throws, so this case cannot pass with no fault injected.
+    const laterFault = (script) => script.replace('Get-CimInstance Win32_Process', "Get-CimInstance $(if ($n -eq 1) { 'Win32_Process' } else { [Console]::Out.WriteLine('pass2'); 'Win32_NoSuchClass' })");
+    const r = attempt(later, laterFault);
     t.diagnostic(`later query fails: status ${r.status}, stdout ${JSON.stringify(r.stdout)}, answer ${r.how}`);
     assert.equal(r.how, 'sweep', 'a pass ran, so the answer is sweep');
     assert.deepEqual(r.killed, [], 'after a pass ran, the pid must never be killed');
     assert.equal(r.status, 0, 'a later failed query ends the loop, not the script');
-    assert.equal(r.stdout, 'swept');
+    assert.deepEqual(r.stdout.split(/\s+/).sort(), ['pass2', 'swept'], 'pass 1 printed swept, then pass 2 ran into the fault');
     assert.deepEqual(processesLeft(name), [], 'pass 1 did not stop the live process naming the profile');
+    // The CONTROL: the same fault with a catch that exits on EVERY pass, the bug this arm guards against. Its answer
+    // must differ (exit 3), or the assertions above could not tell a right catch from a wrong one.
+    const again = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 240000)', later], { stdio: 'ignore' });
+    const againExited = new Promise((resolve) => again.once('exit', resolve));
+    try {
+      await new Promise((resolve, reject) => {
+        again.once('spawn', resolve);
+        again.once('error', reject);
+      });
+      const c = attempt(later, (script) => laterFault(script).replace('if ($n -eq 1) { exit 3 } else { break }', 'exit 3'));
+      t.diagnostic(`control, a catch that always exits: status ${c.status}, stdout ${JSON.stringify(c.stdout)}, answer ${c.how}`);
+      assert.equal(c.status, 3, 'the broken catch must exit 3 on pass 2, or the control did not inject what it says');
+      assert.deepEqual(c.stdout.split(/\s+/).sort(), ['pass2', 'swept']);
+    } finally {
+      if (again.exitCode === null && again.signalCode === null) again.kill('SIGKILL');
+      await againExited;
+    }
   } finally {
     if (helper.exitCode === null && helper.signalCode === null) helper.kill('SIGKILL');
     await exited;
