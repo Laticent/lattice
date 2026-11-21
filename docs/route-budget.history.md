@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-21 — measured on the built tree at 95c86b6
+
+lintCoreGz grew past its ceiling with two features at once: main's W2 list contract (list-depth-unsupported and the list rules, about +0.5KB gz) and PR #3362's coda lint (the anchor > rule, citation-card's second blockquote, quote-note, and claim-aware capacity budgets, about +0.6KB gz after a 349-byte trim). Owner's OK in the #3362 session, 2026-11-21. The lint core loads after first paint (engine-spine note §5), so no user waits on these bytes.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 168454 | +16303 | 185299 |
+
 ### 2026-11-20 — measured on the built tree at ade41e4f
 
 The owner approved raising the landing page's HTML ceiling (2026-11-20) so the page can carry the site's strict Content-Security-Policy tag (#3307, about 1.46 KB), which would otherwise put it about 1.4 KB past its 121,924-byte ceiling. Landing page only (--route home); the other routes above their soft targets are untouched.
