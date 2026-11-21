@@ -6,7 +6,7 @@ area: website
 severity: low
 swimlane: engineering/decisions/2026-09-27-plugin-system.md
 source: https://github.com/Laticent/lattice/pull/2880
-deferred: off-path — a test-only tightening found by the checker after #2880 merged
+deferred: off-path — #3403 only carries the #2880 notes; the fix was on #2880's path (its own spec) and is small, so it belongs on its own branch from main, not here
 ---
 
 # `library-plugins.spec.ts` checks for any lint warning, not the `unknown-plugin` rule.
