@@ -147,8 +147,10 @@ export async function pictureStill(page: Page, timeout = 15_000): Promise<void> 
  *
  * Why not `waitUntil: 'networkidle'`: it is Playwright's lifecycle event, and under load it can fail to fire with no
  * request open at all (measured on /studio/, 4 cores pinned, 8 contexts: a 40 s timeout with zero page and zero
- * service-worker requests in flight), and on a page that was already idle it returns at once. Moved from
- * site-csp.spec.ts (#3307), which found the second problem.
+ * service-worker requests in flight), and on a page that was already idle it returns at once (found by review in
+ * site-csp.spec.ts, #3277). Moved here unchanged from site-csp.spec.ts, which now imports it. Puppeteer's
+ * `networkidle0` is the same kind of quiet period (engineering/gotchas/browser-engine.md, "`setContent(…, { waitUntil:
+ * 'networkidle0' })` times out on a document that fetches nothing").
  */
 export function pageSettler(page: Page): () => Promise<void> {
 	let inFlight = 0;
