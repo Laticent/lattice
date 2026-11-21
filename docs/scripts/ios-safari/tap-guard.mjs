@@ -39,7 +39,7 @@ export function tapHold(log) {
  * show it: the page's touch times include the time a stalled simulator took to dispatch them, and real taps that placed the
  * caret showed holds of 1018 ms, 6335 ms and 25154 ms (dispatches 43817085692, 43811508778, 43851595030). Every forced or swept long press selected text about 650 to 720 ms in.
  * Events are taken in log order, not by time, because selectionchange is stamped at listener time and touches at event time.
- * @param {{ events?: Array<{ type: string, collapsed?: boolean, text?: string, inEditor?: boolean }> } | null | undefined} log
+ * @param {{ events?: Array<{ type: string, collapsed?: boolean, text?: string, inEditor?: boolean | null, doorbell?: boolean }> } | null | undefined} log
  * @returns {boolean}
  */
 export function pressSelected(log) {
@@ -52,10 +52,15 @@ export function pressSelected(log) {
 	// and left of the finger, which in the Studio is the hidden legend or heading (nightly 44744978068 put a CARET there, so
 	// the clause above missed it, #3241). A stalled tap leaves its caret in the editor, so this never reads one as a press.
 	const end = after.findIndex((e) => e.type === 'touchend' || e.type === 'touchcancel');
-	return end >= 0 && after.slice(end + 1).some((e) => e.type === 'selectionchange' && e.inEditor === false);
+	// NOT when the page moved FOCUS out of the editor: that is a product's doing (an overlay or field that takes the first tap),
+	// and a long press moving the selection into hidden text moves no focus. The undo doorbell's own ring is excluded: it takes
+	// focus for one invisible edit and hands it straight back on ordinary taps. `inEditor` null (no anchor: a cleared selection)
+	// never counts, so a dropped selection is not read as a moved one.
+	const focusLeft = after.some((e) => e.type === 'focusin' && e.inEditor === false && !e.doorbell);
+	return end >= 0 && !focusLeft && after.slice(end + 1).some((e) => e.type === 'selectionchange' && e.inEditor === false);
 }
 
-/** A hold this far past the tap budget, with the page's listeners this late, is the simulator stalling (see `tapVerdict`). */
+/** A hold this far past the tap budget, with the page's listeners this late, is a stalled tap (see `tapVerdict`). */
 export const SIM_STALL_HOLD_MS = 2000;
 export const SIM_STALL_LAG_MS = 1000;
 
@@ -90,7 +95,8 @@ export function tapClicked(log) {
  * - `fail-long-press`: no caret, and the re-delivery was such a long press too. The step fails, naming the hold.
  * - `fail-sim-stall`: no caret, no long press Safari acted on, a hold of SIM_STALL_HOLD_MS or more AND listeners running
  *   SIM_STALL_LAG_MS or more late. Still a failure, never re-delivered; its own name only so triage reads it as the simulator
- *   stalling (the lab's iPhone run 44856765533: a 9313 ms hold, 3.8 s of lag, no click after the lift).
+ *   stalling or a long task on the page holding the tap up (the lab's iPhone run 44856765533: a 9313 ms hold, 3.8 s of lag,
+ *   no click after the lift). It names no culprit: a page long task is a product defect.
  * - `fail`: no caret after anything else: a short hold, a long hold with no selection (a stall, not a press), or no touch
  *   seen at all. A real failure, never re-delivered.
  * @param {{ caret: boolean, hold: number | null, selected: boolean, delivery: number, lag?: number }} r  `delivery` counts from 1
