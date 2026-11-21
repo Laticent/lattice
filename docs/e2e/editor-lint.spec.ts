@@ -100,6 +100,27 @@ test('@webkit-tablet @gecko Fix all fixes every live line in one click and leave
 	await expect(fixAll(page)).toBeDisabled();
 });
 
+// An LFM 1.x deck wrote its speaker notes as plain comments; under the four notes they reach nothing
+// (engineering/decisions/2026-11-20-four-notes.md §5). Lint says so once (`plain-comment-notes`), and its fix
+// runs the whole-deck migration, so "Fix all" turns the old notes into `@note{…}` in one click.
+const OLD_NOTES_DECK = [
+	'---', 'theme: indaco', '---', '', '# Title', '', '<!-- Open on the drop. -->', '', '---', '', '## Two', '',
+	'<!-- Pause before the number. -->', '', '<!-- say: The pipeline holds. -->', '',
+].join('\n');
+
+test('Fix all migrates a deck whose speaker notes are plain comments', async ({ page }) => {
+	await setEditorContent(page, OLD_NOTES_DECK);
+	await expect(fixAll(page)).toBeEnabled();
+	await fixAll(page).click();
+	await expect.poll(() => persistedSource(page)).toContain('<!-- @note{Open on the drop.} -->');
+	const raw = await persistedSource(page);
+	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	expect(src).toContain('<!-- @note{Pause before the number.} -->');
+	expect(src).toContain('<!-- @say{The pipeline holds.} -->');
+	expect(src).not.toContain('<!-- Open on the drop. -->');
+	await expect(fixAll(page)).toBeDisabled();
+});
+
 // A refused fix keeps its underline, so "Fix all" has to say why (followups.d/2966-p2). The one refusal
 // a real deck reaches: the driver's 500-pass cap. lint-core reports the card rule once per slide per
 // lint, so 501 inline-title cards on one slide need 501 passes and the last is refused (`max-passes`).
