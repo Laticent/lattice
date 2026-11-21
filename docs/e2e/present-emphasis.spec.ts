@@ -1,3 +1,4 @@
+import { FRAME_MS } from './frame-clock';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // THE EMPHASIS HOLD, on the real Present overlay.
@@ -36,8 +37,17 @@ Cost discipline held through the period. ${claim} and that single number moved t
 
 /** How often the in-page sampler reads the live cue, in virtual ms: the resolution of every onset. */
 const TICK = 10;
+/**
+ * How far a measured step may sit from the kernel's hold. Each onset the sampler reads is late by up to one frame (the
+ * reader moves on an animation frame, FRAME_MS on Playwright's clock) plus one tick (the sampler looks every TICK), and a step is a difference of differences. The
+ * old band, two ticks, ignored the frame: under Playwright 1.65.1 passing drives read 230 ms against a 250 ms hold and
+ * about 1 in 15 read 210. Still far from the failures it exists to catch: no hold reads about 0, a doubled one about 500.
+ */
+const BAND = 2 * (TICK + FRAME_MS);
 /** How far the drive runs the paused clock. */
 const RUN = 27_000;
+/** Virtual ms per clock step while the narration plays; see the loop in `cueOnsets`. */
+const RUN_STEP = 100;
 
 /**
  * Where Playwright's clock stands, so the next pause can be set ahead of it. A pause can only move time forward, and
@@ -90,7 +100,21 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 			}, tick);
 		});
 	}, TICK);
-	await page.clock.runFor(RUN);
+	// In 100 ms chunks, each followed by one MessageChannel round trip, so React's commits for that span land before
+	// the clock moves on (frame-clock.ts's pattern, at a coarser step). Through Playwright 1.64 one `runFor(RUN)` did,
+	// because its clock yielded on real timers; 1.65 yields through a MessageChannel, and a cue's onset could then read
+	// 10 to 20 ms late (1 run in 10 failed the band).
+	for (let t = 0; t < RUN; t += RUN_STEP) {
+		await page.clock.runFor(RUN_STEP);
+		await page.evaluate(
+			() =>
+				new Promise<void>((done) => {
+					const ch = new MessageChannel();
+					ch.port1.onmessage = () => done();
+					ch.port2.postMessage(0);
+				}),
+		);
+	}
 	const out = await marks;
 	// Time flows again for whatever the test does next (the second drive loads the Studio afresh).
 	clockMark.at = pauseAt + RUN;
@@ -103,10 +127,17 @@ test('an emphasized passage holds a beat on the real Present overlay', async ({ 
 	// Installed before the first load, so every timer the overlay makes is on this clock; it flows as real time
 	// until `cueOnsets` pauses it.
 	await page.clock.install();
-	const plain = await cueOnsets(page, DECK('Retention reached 118 percent'));
-	const bold = await cueOnsets(page, DECK('**Retention reached 118 percent**'));
-	expect(plain.length).toBeGreaterThan(3);
-	expect(bold.length).toBeGreaterThan(3);
+	const plainRaw = await cueOnsets(page, DECK('Retention reached 118 percent'));
+	const boldRaw = await cueOnsets(page, DECK('**Retention reached 118 percent**'));
+	expect(plainRaw.length).toBeGreaterThan(4);
+	expect(boldRaw.length).toBeGreaterThan(4);
+	// Measured from cue 1's onset, not the sampler's start. Where the reader's clock starts relative to the sampler is
+	// not what this test is about, and under Playwright 1.65.1 about 1 drive in 10 started its whole timeline ~190 ms
+	// apart ([10,1830,4250,9330,12170] against [10,2020,4450,9540,12370]: every gap from cue 1 on identical). Cue 0 is
+	// lit at the sampler's first tick in every drive, so it cannot anchor; cue 1, before any emphasis, can.
+	const fromCue1 = (a: number[]) => a.map((t) => t - a[1]);
+	const plain = fromCue1(plainRaw);
+	const bold = fromCue1(boldRaw);
 
 	// Cue 2 carries the claim; the hold lands in the gap AFTER it, so it shows at cue 3's onset.
 	const before = bold[2] - plain[2]; // what the `**` costs before the hold (nothing, or a tick)
@@ -114,8 +145,8 @@ test('an emphasized passage holds a beat on the real Present overlay', async ({ 
 	const step = after - before;
 	// Within a sampling tick either side of the hold the cadence kernel names (cadence.ts `EMPHASIS_HOLD_MS`, 250 ms
 	// for an emphasis of weight 2). Virtual time, so the band is the sampler's resolution, not the machine's.
-	expect(Math.abs(step - 250), `cue onsets plain=${JSON.stringify(plain)} bold=${JSON.stringify(bold)}`).toBeLessThanOrEqual(2 * TICK); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
+	expect(Math.abs(step - 250), `cue onsets from the sampler: plain=${JSON.stringify(plainRaw)} bold=${JSON.stringify(boldRaw)}`).toBeLessThanOrEqual(BAND); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
 
 	// And it holds ONCE: cue 4 inherits the same offset rather than paying a second time.
-	expect(Math.abs(bold[4] - plain[4] - after)).toBeLessThanOrEqual(2 * TICK); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
+	expect(Math.abs(bold[4] - plain[4] - after)).toBeLessThanOrEqual(BAND); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
 });
