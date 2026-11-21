@@ -893,7 +893,7 @@ describe('a list or card slide is judged by the LINES its text wraps to (Amendme
   test('a heading is weighed in its own face, with the kerning share taken out (slide 95 renders whole at huddle)', () => {
     // At laptop the render sets this heading on ONE line (at huddle, where titles now scale, on
     // two, and the slide still renders whole). Outfit's widths read the laptop heading as two.
-    assert.equal(core.rowsAt('list', ['list', 'takeaway', 'numbered'], SD95)(1).over, false);
+    assert.equal(core.rowsAt('list', ['list', 'takeaway'], SD95)(1).over, false); // a `1.` takeaway reads the measured `ordered` rows (W2)
     const h = 'Four sentences hold, or the data design is not one you can defend.';
     const c = require('../../../lib/authoring/venue-capacity.generated.js').rowFrame.heading[0][0];
     assert.equal(core.wrapLines(h, c, core.GLYPH_DISPLAY), 1);

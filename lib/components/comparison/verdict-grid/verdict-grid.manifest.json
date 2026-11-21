@@ -57,6 +57,7 @@
   ],
   "description": "Options scored against criteria as a verdict matrix.",
   "purpose": "Use to evaluate 2–4 options against the same set of criteria, with a check per criterion. Each card represents one option; each criterion is a check in a pill.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

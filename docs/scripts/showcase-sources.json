@@ -157,7 +157,7 @@
 	"topic.dark": {
 		"src": "lib/components/anchor/topic/topic.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "385dbd7950c0b0185f609a794299361a098ff6982c7decd1a2e9708dc5b2200d"
+		"srcSha256": "d2ec1eecb4a47f8ee4babd8ecf0a844ea67af44e329ed1be5057194f39b62a04"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",

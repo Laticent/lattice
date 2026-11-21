@@ -55,6 +55,7 @@
   ],
   "description": "Two-column term/definition table with auto-derived alphabetic range pill.",
   "purpose": "Use for jargon-heavy decks where the audience needs a reference page. The runtime auto-adds a range pill (e.g. 'A – G') to the heading.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
@@ -67,6 +68,16 @@
       "match": [{ "kind": "list", "depth": 1, "marker": "bullet" }, { "kind": "table" }],
       "required": true,
       "description": "Nested bullets: outer li is the term, inner li is its one-line definition. A runtime transform converts the list into a two-column table and derives the alphabetic range pill from the first and last terms, so terms should be authored in alphabetical order; without the Lattice runtime the raw nested list renders unstyled."
+    },
+    "definition": {
+      "selector": "ul > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The term's definition, nested under it. `-` or `1.` read the same here: the layout turns the pair into a table row."
     }
   },
   "skeleton": "<!-- _class: glossary -->\n\n## Glossary\n\n- Adjacency\n  - The relationship between two slides that share an audience or context.\n- Anchor\n  - A title, divider, or closing slide that orients the audience.\n- Cadence\n  - The deck's pacing — how much new information per slide.\n",

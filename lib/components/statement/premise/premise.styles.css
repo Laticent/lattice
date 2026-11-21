@@ -15,7 +15,7 @@
  *    - A framing question?
  *
  * The ledger is an ORDERED list — the same shape every other numbered layout
- * in Lattice uses (LEDGER_OL_LAYOUTS, lib/authoring/lint-core.js). The ordinal
+ * in Lattice uses (LEDGER_LAYOUTS, lib/authoring/lint-core.js). The ordinal
  * is a CSS counter (the built-in `list-item`), so rows renumber on reorder — but
  * an explicit `<ol start="N">` DOES flow through as a presentational hint, which
  * is exactly what lets a split run continue 05/06 instead of restarting. Each row's

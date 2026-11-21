@@ -15,7 +15,7 @@ section.compare-prose > .cell-stage { display:flex; flex-direction:column; gap:v
 section.compare-prose .compare-prose-inner { display:flex; align-items:stretch; flex:1; }
 section.compare-prose .compare-prose-inner .card {
   flex:1; background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  border-radius:var(--radius-card, var(--radius-md)); padding:var(--sp-sm) var(--sp-md);
   --card-tag-rest:var(--sp-sm);   /* the card's own top padding, for a tag off the top (base.card-tag.css) */
   font-weight:700; color:var(--text-heading);
 }
@@ -83,7 +83,7 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol::before
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
   flex:1; background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  border-radius:var(--radius-card, var(--radius-md)); padding:var(--sp-sm) var(--sp-md);
   --card-tag-rest:var(--sp-sm);
   display:grid; align-content:start; justify-items:start;
   font-weight:700; color:var(--text-heading);
@@ -484,7 +484,7 @@ section.compare-split-points .split-runhead {
   font-family: var(--runhead-face);
   font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
-  color: var(--runhead-ink, var(--text-secondary)); border-bottom: 1px solid var(--border);
+  color: var(--runhead-ink, var(--text-secondary)); border-bottom: var(--rule-w, 1px) var(--rule-style, solid) var(--rule-mark, var(--border));
   padding-bottom: var(--sp-xs);
 }
 section.compare-split-points .split-pts { list-style: none; padding: var(--sp-xl) 0 0 0; margin: 0; }

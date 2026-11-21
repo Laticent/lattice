@@ -309,7 +309,9 @@ export default defineConfig({
 		},
 	]),
 	webServer: {
-		command: 'npm run build:e2e && npm run preview:e2e',
+		// E2E_PREBUILT=1 serves a docs/dist/ built elsewhere: the Windows platform suite downloads the Linux build, because
+		// the docs site does not build on Windows (tools/check-ownership.js, checkPlatformSuites; #3345).
+		command: process.env.E2E_PREBUILT === '1' ? 'npm run preview:e2e' : 'npm run build:e2e && npm run preview:e2e',
 		url: `${BASE_URL}/studio/`,
 		reuseExistingServer: !isCI,
 		timeout: 300_000,

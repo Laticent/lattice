@@ -39,6 +39,7 @@
   ],
   "description": "Spiral-packed word cloud — items sized by weight.",
   "purpose": "Use for qualitative summaries — retrospective themes, survey verbatims. Word size encodes frequency or weight; not a precise data viz.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

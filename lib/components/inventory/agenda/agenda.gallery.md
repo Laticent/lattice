@@ -216,8 +216,8 @@ Auto-numbered table of contents for the deck.
 
 - Sub-bullets per section
   - The agenda is a wayfinder, not a treatment. If a section needs decomposition, that belongs on a section divider when the section opens — not here.
-- Unnumbered list
-  - Authoring with `-` instead of `1.` loses the numbered chrome the layout depends on. Always use ordered list syntax.
+- Typing the section numbers
+  - Do not write `01`, `02` into the items: the ledger numbers itself. Either list marker works (`1.` or `-`, the list contract renders both the same), so pick the one you type fastest and let the layout count.
 
 ---
 

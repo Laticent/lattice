@@ -73,13 +73,18 @@
    * palette's own colorblind floor on both faces, one set for both intensities (the vivid aliases come from `a11y-base`). A status line or text
    * paints the status ink above; the two exceptions also wear a SIGNAL ring, the status color at
    * the opposite lightness to its fill. Solved by tools/curate-chart-solids.js. */
-  --pass-mark: light-dark(#44360D, #B1A78C);
-  --warn-mark: light-dark(#6D5500, #DFC98E);
+  --pass-mark: light-dark(#5E553C, #B1A78C);
+  --warn-mark: light-dark(#463600, #DFC98E);
   --fail-mark: light-dark(#221A03, #FFF1CC);
   /* The risk matrix's critical band keeps this share of the fail fill on the dark face and steps the rest toward the
    * slide. This palette's dark-face bands are bright, so the default 82% would land critical between low and medium;
    * 60% makes it the darkest band, last in the order as on the light face and in print. */
   --risk-critical-keep: 60%;
+  /* On the LIGHT face critical steps toward the black shade and keeps this share of the fail fill. Here a status reads
+   * by lightness alone, so the bands must darken in order, low < medium < high < critical: the trio above is solved in
+   * that order (pass lightest), and the default 82% left critical 1.09:1 under high. 40% puts it 1.20:1 under; the
+   * trio's own floor (0.11 OKLab apart, under white at 7:1) caps fail's lightness, so even black reaches only 1.22:1. */
+  --risk-critical-shade-keep: 40%;
   --warn-signal-mark: light-dark(#E3AB00, #8A6700);
   --fail-signal-mark: light-dark(#BD4101, #DE602F);
   --info-mark: light-dark(#125E82, #68ADD4);

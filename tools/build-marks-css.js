@@ -193,6 +193,9 @@ const BODY_BASE_D = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone:
 const STATUS_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const ONE = 'var(--chart-cat-1-hue)';
 const ONE_INK = 'var(--chart-cat-1-ink)';
+/** A sequential ramp's hue and ink: the first category unless the palette names its own (--chart-ramp-hue / --chart-ramp-ink, declared in heatmap.styles.css and map.styles.css). */
+const RAMP = 'var(--chart-ramp-hue)';
+const RAMP_INK = 'var(--chart-ramp-ink)';
 /**
  * The ink for TEXT on a mark, one per finish and never picked per body (a per-body black-or-white cleared 4.5:1,
  * read as mud at a median of 5.6:1, and changed the text color from chart to chart).
@@ -656,8 +659,8 @@ function build() {
   // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
   // (the cell gap) is the member's, except under etch, where the line is the identity.
   w('\n/* RAMP — scaled into the finish\'s band; --mix stays the datum. */');
-  const rampAt = (lo, k, base) => `color-mix(in oklab, ${ONE} calc(${tv(lo)} + var(--mix) * ${tv(k)}), ${base})`;
-  const rampStroke = [`stroke: color-mix(in oklab, ${ONE_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke'];
+  const rampAt = (lo, k, base) => `color-mix(in oklab, ${RAMP} calc(${tv(lo)} + var(--mix) * ${tv(k)}), ${base})`;
+  const rampStroke = [`stroke: color-mix(in oklab, ${RAMP_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke'];
   for (const m of ramps) {
     // A ramp that prints its value takes the shorter text band (see `rampText`), as two whole colors inside
     // light-dark(), never a percentage. Pigment's text band IS the member's own span ([0, 1]: `--mix` as shipped), so it
@@ -689,7 +692,7 @@ function build() {
   // fill and the ink the theme solved for it.
   const STEP_MIX = [18, 36.5, 55, 73.5, 92];
   STEP_MIX.forEach((pct, i) => {
-    const at = (lo, k) => `color-mix(in oklab, ${ONE} calc(${tv(lo)} + var(--heatmap-step${i + 1}, ${pct}%) * ${tv(k)}), var(--heatmap-base))`;
+    const at = (lo, k) => `color-mix(in oklab, ${RAMP} calc(${tv(lo)} + var(--heatmap-step${i + 1}, ${pct}%) * ${tv(k)}), var(--heatmap-base))`;
     w(supports(rule(MOVERS, `.heatmap-value[data-ramp="${i + 1}"]`, [
       `fill: light-dark(${inkOn(at(T.rampTextLo, T.rampTextK))}, ${inkOn(at(T.rampTextDLo, T.rampTextDK))})`,
     ])));
@@ -709,12 +712,23 @@ function build() {
   // 1.62:1). So under etch and tone the icon picks black or white from the SAME body its disc gets (the
   // finish tokens the group rule and the status rule read, so the two cannot drift), and waits on relative
   // color like every text ink here. Pigment's disc is a curated solid, so its icon takes the curated ink.
+  //
+  // Two of these inks need no relative color, so they apply on every engine (#3232 P1, measured in WebKit 17.4, which
+  // fails the guard). The disc moves everywhere, because it carries no text; an icon whose ink waited behind the guard
+  // kept the plain slide's ink on the finished disc, and 218 of 528 icons over 32 palettes and three finishes fell
+  // under 3:1, the worst 1.11:1 (Chromium 153: none). Pigment's group ink is its curated `--finish-ink`, and every
+  // finish's status ink is statusInk(), a percent mix of curated inks. The picked inks below still win where the guard
+  // passes: same selector, later in the sheet.
   w('\n/* HUB-SPOKE ICON — the ink its disc\'s finish body clears. */');
-  w(supports(rule('pigment', `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${tv(T.ink)}`])));
+  w(rule('pigment', `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${tv(T.ink)}`]));
+  w(rule(ALL, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${statusInk()}`]));
+  // Tone's first slot is its deepest step, and the picked ink is white there on every light face (Chromium 153, all 18
+  // light faces); WebKit 17.4 kept the heading ink, 2.25-2.93:1 on 11 brand themes. Its other slots and every dark face
+  // already take the plain ink the pick lands on, so this one fixed ink is the whole fallback.
+  w(rule('tone', '.hub-spoke-icon[data-hue="1"]', ['--hs-icon-ink: light-dark(var(--chart-on-mark), var(--text-heading))']));
   // The disc's body is the mark's own (THE SLOT), and the icon is a mark of the same slot: one rule for every slot.
   w(supports(rule(MOVERS, `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${`light-dark(${inkOn('var(--finish-mark-body-l)')}, ${inkOn('var(--finish-mark-body-d)')})`}`])));
   const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
-  w(supports(rule('pigment', '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${statusInk()}`])));
   w(supports(rule(MOVERS, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: light-dark(${inkOn(tmix(hsStatus.hue, T.status, T.statusBase))}, ${inkOn(tmix(hsStatus.hue, T.statusD, T.statusBase))})`])));
 
   // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
@@ -1036,7 +1050,9 @@ function build() {
       w(ruleIf(name, HS_GROUPED, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
         'fill: var(--chart-neutral-hue)', 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
       ]));
-      w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [`--hs-icon-ink: ${textInk(name)}`])));
+      // The neutral solid's curated ink needs no relative color, so it applies on every engine, like the group and status
+      // icon inks above (#3232 P1: WebKit 17.4 kept the plain heading ink on this solid, 2.33:1 on concrete).
+      w(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [`--hs-icon-ink: ${textInk(name)}`]));
     }
 
     // ── A JOURNEY STAGE BAR — one constant ground (`encodes: none`), the heaviest mark on the slide ────
@@ -1095,7 +1111,9 @@ function build() {
       // only lands critical between low and medium (achromatopsia: low 0.39, critical 0.49, medium 0.59 luminance) keeps
       // less, so critical is the DARKEST band there, last in the order as it is on the light face and in print.
       const CRITICAL_DARK = 'color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-keep, 82%), var(--bg))';
-      const CRITICAL = `light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)), ${CRITICAL_DARK})`;
+      // On the light face the step's size is `--risk-critical-shade-keep` (82% by default): a monochromacy palette, which
+      // reads severity by lightness alone, keeps less so critical clears high (a11y-achromatopsia, 40%).
+      const CRITICAL = `light-dark(color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-shade-keep, 82%), var(--status-shade-mark)), ${CRITICAL_DARK})`;
       w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${CRITICAL}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A timeline's dots are hollow rings by default; pigment is the solid finish, so its dot is filled with its own ink.
       w(rule(name, '.timeline-dot', ['--timeline-dot-fill: var(--timeline-dot-ink)']));

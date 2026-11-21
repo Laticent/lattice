@@ -4,7 +4,7 @@
     "list": {
       "deck": "examples/split-structure.md",
       "by": "list-criteria fold, 2026-09-25 (rendered at size: portrait, indaco, and read page by page)",
-      "note": "Slide 3 is `list takeaway numbered` (migrated from list-criteria). Of 27 pages: cover p8, one item per page p9-p13 with the counter continuing 01..05 via --lat-split-offset, closing p14 carrying the italic annotation. Took over the attestation list-criteria held on the same slide."
+      "note": "Slide 3 is `list takeaway` over a `1.` list (migrated from list-criteria; `list takeaway numbered` until W2 retired `numbered`). Of 27 pages: cover p8, one item per page p9-p13 with the counter continuing 01..05 via --lat-split-offset, closing p14 carrying the italic annotation. Took over the attestation list-criteria held on the same slide."
     },
     "content": {
       "deck": "examples/split-structure.md",

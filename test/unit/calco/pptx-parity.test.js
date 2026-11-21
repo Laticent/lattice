@@ -11,6 +11,19 @@
  * picture decks), with this same reader. pptxgenjs left the tree in the same change, so it cannot be recorded
  * again; a deliberate change to what the writer says edits the snapshot by hand, and the diff is the review.
  *
+ * EDITED for the master and theme (engineering/decisions/2026-11-18-calco-master-theme.md): the reader now records the
+ * slide master (its ground, an explicit white, and its shapes) and each layout's `showMaster`, so every deck gained
+ * `master` and `showMaster`. In `rich`:
+ * - each layout gained the placeholders of its look: a title placeholder in its own title's look (instead of black
+ *   Calibri with Office's 0.1 in inset), and a body placeholder, or on a title look (a heading and at most one line) a
+ *   subtitle, which on slide 4 sits on its lead paragraph and takes its look;
+ * - the master holds title, body and page-number placeholders, and slide 3's layout carries the number (slide 3's own
+ *   number is a `sldNum` placeholder that inherits its layout's style);
+ * - slides 1 and 2 keep their header, footer and number as text, as pptxgenjs wrote them except that the number is
+ *   text, not a placeholder: that chrome is dark ink (#112233) on a navy ground, under 1.5:1, which can only show over
+ *   something the slide's own picture paints, and a layout paints under the picture (masters.ts `candidates`).
+ * Nothing else in the snapshot moved.
+ *
  * WHAT IS COMPARED is what the reader reads (its header lists it); autofit, `lang`, the `ea`/`cs` faces, the master's
  * text styles, the theme and a picture's crop are not, so they can drift without a diff (the design note's §What shipped).
  *
@@ -67,6 +80,19 @@ function normalize(record) {
   const out = JSON.parse(JSON.stringify(record));
   // A layout's page-number field is a stand-in a slide never shows: pptxgenjs wrote "1002", Calco writes "‹#›".
   for (const slide of out.slides) for (const o of slide.layout.objects) if (o.ph === 'sldNum') for (const p of o.text.paras) for (const r of p.runs) delete r.t;
+  // Calco states caps and letter-spacing even when off (`cap="none"`, `spc="0"`) so a run never inherits the master's title
+  // look; pptxgenjs left them out under a master that set neither, which reads the same. pptx.test.js pins the explicit form.
+  const quiet = (objects) => {
+    for (const o of objects) for (const p of o.text?.paras || []) for (const r of p.runs) {
+      if (r.cap === 'none') delete r.cap;
+      if (r.spc === 0) delete r.spc;
+    }
+  };
+  if (out.master) quiet(out.master.objects);
+  for (const slide of out.slides) {
+    quiet(slide.objects);
+    quiet(slide.layout.objects);
+  }
   return out;
 }
 
@@ -127,6 +153,9 @@ describe('calco pptx — parity with the pptxgenjs writer', () => {
     assert.ok(seen((o) => o.text?.paras.some((p) => p.runs.some((r) => r.field === 'slidenum'))), 'a page-number field');
     assert.ok(seen((o) => o.text?.paras.some((p) => p.runs.some((r) => r.cap === 'small'))), 'small caps');
     assert.ok(SNAPSHOT.fonts.fonts.length, 'embedded fonts');
+    // rich's header is dark ink on navy, so it stays on its slides; a header on the master is pptx.test.js's to cover.
+    assert.ok(SNAPSHOT.rich.master.objects.some((o) => o.ph === 'sldNum'), 'a page-number placeholder on the master');
+    assert.ok(SNAPSHOT.rich.slides.some((s) => s.layout.showMaster) && SNAPSHOT.rich.slides.some((s) => !s.layout.showMaster), 'a layout that shows the master and one that hides it');
   });
 
   test('ARM THAT FAILS: a writer that drops a note, an alt text, a run style or a group is caught', async () => {
@@ -143,6 +172,8 @@ describe('calco pptx — parity with the pptxgenjs writer', () => {
       for (const o of r.slides[0].objects) delete o.group;
     }).length, 'an ungrouped card');
     assert.ok(broken((r) => (r.slides[0].objects[1].box[0] += 1000)).length, 'a frame off by a tenth of a pixel');
+    assert.ok(broken((r) => (r.master.objects = r.master.objects.filter((o) => o.ph !== 'sldNum'))).length, 'a page number lost from the master');
+    assert.ok(broken((r) => (r.slides[3].layout.showMaster = true)).length, 'a layout that stops hiding the master');
     assert.deepEqual(broken(() => {}), [], 'and an unchanged record passes');
   });
 });

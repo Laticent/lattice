@@ -57,6 +57,7 @@ const PANE_OUT_FILE = path.join(ROOT, 'lib', 'forms', 'cell', 'pane', 'pane-cata
 const PANE_LINT_OUT_FILE = path.join(ROOT, 'lib', 'authoring', 'pane-lint.generated.js');
 const VENUE_LINT_OUT_FILE = path.join(ROOT, 'lib', 'authoring', 'venue-capacity.generated.js');
 const SLOT_CONTRACT_OUT_FILE = path.join(ROOT, 'lib', 'authoring', 'slot-contract.generated.js');
+const LIST_CONTRACT_OUT_FILE = path.join(ROOT, 'lib', 'core', 'list-contract.generated.js');
 
 const argv = process.argv.slice(2);
 const check = argv.includes('--check');
@@ -549,6 +550,15 @@ function slotRow(slot) {
   return row;
 }
 const slotCounts = (slot) => slot === null || slot.required === true || strictMarker(slot.match);
+// A component that declares a list contract (`lists`) has its markers normalized by the engine
+// (lib/core/list-contract.js, W2), so either marker renders as the layout expects and the marker
+// is no longer a finding: its list slots reach lint as `any`. The manifest keeps the marker it
+// names, because that is the element the engine rewrites the list to.
+function relaxMarkers(slot) {
+  if (!slot?.match) return slot;
+  const relax = (mt) => (mt?.kind === 'list' && mt.marker && mt.marker !== 'any' ? { ...mt, marker: 'any' } : mt);
+  return { ...slot, match: Array.isArray(slot.match) ? slot.match.map(relax) : relax(slot.match) };
+}
 function buildSlotContract() {
   const { UNIVERSAL_MODIFIER_TOKENS, FAMILY_MODIFIER_TOKENS } = require('../lib/components');
   const BASE_WORDS = new Set(UNIVERSAL_MODIFIER_TOKENS);
@@ -556,10 +566,11 @@ function buildSlotContract() {
   const table = {};
   for (const m of loadAll()) {
     if (!m.slots) continue;
-    const slots = Object.fromEntries(Object.entries(m.slots).filter(([, v]) => slotCounts(v)).map(([k, v]) => [k, slotRow(v)]));
+    const norm = m.lists ? relaxMarkers : (slot) => slot;
+    const slots = Object.fromEntries(Object.entries(m.slots).map(([k, v]) => [k, norm(v)]).filter(([, v]) => slotCounts(v)).map(([k, v]) => [k, slotRow(v)]));
     const entry = { slots };
     if (m.variantSlots) {
-      entry.variantSlots = Object.fromEntries(Object.entries(m.variantSlots).map(([v, over]) => [v, Object.fromEntries(Object.entries(over).map(([k, s]) => [k, slotRow(s)]))]));
+      entry.variantSlots = Object.fromEntries(Object.entries(m.variantSlots).map(([v, over]) => [v, Object.fromEntries(Object.entries(over).map(([k, s]) => [k, slotRow(norm(s))]))]));
     }
     if (m.variantKinds) entry.variantKinds = m.variantKinds;
     // This component's own variants beyond the base groups. lint's `foreign-variant` reads it, so
@@ -578,6 +589,81 @@ function buildSlotContract() {
     "   buildVocab, the Studio page's inlined vocab) instead of lint-core's own bundle (the studio route's lintCoreGz).\n" +
     '   Rebuild: node tools/build-stage-catalog.js */\n' +
     'module.exports = ' + JSON.stringify(packContract(table)) + ';\n';
+  return { source, count: Object.keys(table).length };
+}
+
+// The LIST CONTRACT table: every component's `lists` (and `variantLists`), with the element each
+// list depth is rewritten to, read off its list slots' `match.marker` (`ordered` → `ol`, `bullet` →
+// `ul`, `any` or no slot → null, which lib/core/list-contract.js reads as `ul`). A variant whose
+// `variantSlots` or `variantLists` changes the answer gets its own row. The engine and the runtime
+// both read it (lib/core/list-contract.js), so the runtime bundle carries no manifest
+// (engineering/decisions/2026-11-19-deterministic-authoring-audit.md W2).
+function listMarkers(slots) {
+  const byDepth = [];
+  // A slot whose marker is `any` but whose `selector` names one element (`ol > li`, the ledgers
+  // authority-chain, regulatory-update, timeline-list) is read as that element: the layout reads
+  // both, and the selector, which the semantic-invariant suite executes, stays true.
+  const fromSelector = (sel) => {
+    const ol = /(^|[\s>,(+~])ol\b/.test(sel || '');
+    const ul = /(^|[\s>,(+~])ul\b/.test(sel || '');
+    // Only `ol`: a `ul` is already what a neutral layout gets, and on a numbered-tags layout a
+    // `ul > li` selector describes the unnumbered form, not a target to rewrite `1.` into.
+    return ol && !ul ? 'ol' : null;
+  };
+  const visit = (match, selector) => {
+    for (const mt of Array.isArray(match) ? match : [match]) {
+      if (mt?.kind !== 'list') continue;
+      const d = (mt.depth || 1) - 1;
+      const named = mt.marker === 'ordered' ? 'ol' : mt.marker === 'bullet' ? 'ul' : null;
+      const el = named || (d === 0 ? fromSelector(selector) : null);
+      if (!el) continue;
+      if (byDepth[d] && byDepth[d] !== el) throw new Error(`list contract: two list slots at depth ${d + 1} name different markers`);
+      byDepth[d] = el;
+    }
+  };
+  for (const slot of Object.values(slots)) if (slot) visit(slot.match, slot.selector);
+  const out = Array.from({ length: byDepth.length }, (_, i) => byDepth[i] || null);
+  return out;
+}
+// The deepest list depth any slot reads: below it, lists are left as the author wrote them (the
+// owner's ruling on #3330: a nested `1.` the layout does not read keeps its numbered meaning).
+function listDepths(slots) {
+  let deepest = 0;
+  for (const slot of Object.values(slots)) {
+    for (const mt of [].concat(slot?.match)) if (mt?.kind === 'list') deepest = Math.max(deepest, mt.depth || 1);
+  }
+  return deepest;
+}
+const hasListSlot = (slots) => Object.values(slots || {}).some((s) => s && (Array.isArray(s.match) ? s.match : [s.match]).some((mt) => mt?.kind === 'list'));
+function buildListContract() {
+  const table = {};
+  for (const m of [...loadAll()].sort((a, b) => a.name.localeCompare(b.name))) {
+    const listed = hasListSlot(m.slots) || Object.values(m.variantSlots || {}).some(hasListSlot);
+    if (listed && !m.lists) throw new Error(`list contract: ${m.name} has a list slot but no \`lists\` (manifest.schema.json)`);
+    if (!m.lists) continue;
+    const base = { lists: m.lists, depths: listDepths(m.slots || {}), markers: listMarkers(m.slots || {}) };
+    const variants = {};
+    const names = new Set([...Object.keys(m.variantSlots || {}), ...Object.keys(m.variantLists || {})]);
+    for (const v of [...names].sort()) {
+      const slots = { ...(m.slots || {}) };
+      for (const [k, s] of Object.entries(m.variantSlots?.[v] || {})) {
+        if (s === null) delete slots[k];
+        else slots[k] = { ...(slots[k] || {}), ...s };
+      }
+      const row = { lists: m.variantLists?.[v] || m.lists, depths: listDepths(slots), markers: listMarkers(slots) };
+      if (JSON.stringify(row) !== JSON.stringify(base)) variants[v] = row;
+    }
+    table[m.name] = Object.keys(variants).length ? { ...base, variants } : base;
+  }
+  const body = Object.entries(table).map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(',\n');
+  const source =
+    '/* Auto-generated by tools/build-stage-catalog.js — DO NOT EDIT.\n' +
+    "   Source: every component manifest's `lists`, `variantLists` and list slots' `match.marker`.\n" +
+    '   lists   — prose (R1), numbered-tags (R2) or neutral (R3).\n' +
+    '   depths  — the deepest list depth a slot reads; deeper lists are left as written.\n' +
+    '   markers — per list depth, the element lib/core/list-contract.js rewrites a list to (null: `ul`).\n' +
+    '   Rebuild: node tools/build-stage-catalog.js */\n' +
+    `module.exports = {\n${body}\n};\n`;
   return { source, count: Object.keys(table).length };
 }
 
@@ -787,6 +873,7 @@ function main() {
   const { source: paneLintOut, count: paneLintCount } = buildPaneLint();
   const { source: venueLintOut, count: venueLintCount } = buildVenueLint();
   const { source: slotContractOut, count: slotContractCount } = buildSlotContract();
+  const { source: listContractOut, count: listContractCount } = buildListContract();
   const entryCount = (out.match(/": "/g) || []).length;
   if (check) {
     const current = fs.existsSync(OUT_FILE) ? fs.readFileSync(OUT_FILE, 'utf8') : '';
@@ -864,6 +951,11 @@ function main() {
       console.error('[build-stage-catalog] STALE — run `node tools/build-stage-catalog.js` and commit lib/authoring/slot-contract.generated.js');
       process.exit(1);
     }
+    const currentListContract = fs.existsSync(LIST_CONTRACT_OUT_FILE) ? fs.readFileSync(LIST_CONTRACT_OUT_FILE, 'utf8') : '';
+    if (currentListContract !== listContractOut) {
+      console.error('[build-stage-catalog] STALE — run `node tools/build-stage-catalog.js` and commit lib/core/list-contract.generated.js');
+      process.exit(1);
+    }
     if (!silent) console.log('[build-stage-catalog] up to date.');
     return;
   }
@@ -883,6 +975,7 @@ function main() {
   fs.writeFileSync(PANE_LINT_OUT_FILE, paneLintOut);
   fs.writeFileSync(VENUE_LINT_OUT_FILE, venueLintOut);
   fs.writeFileSync(SLOT_CONTRACT_OUT_FILE, slotContractOut);
+  fs.writeFileSync(LIST_CONTRACT_OUT_FILE, listContractOut);
   if (!silent) {
     console.log(`[build-stage-catalog] wrote ${path.relative(ROOT, OUT_FILE)} (${entryCount} entries)`);
     console.log(`[build-stage-catalog] wrote ${path.relative(ROOT, CONFORMANCE_OUT_FILE)} (${conformanceCount} strict)`);
@@ -899,6 +992,7 @@ function main() {
     console.log(`[build-stage-catalog] wrote ${path.relative(ROOT, PANE_LINT_OUT_FILE)} (${paneLintCount} budgets)`);
     console.log(`[build-stage-catalog] wrote ${path.relative(ROOT, VENUE_LINT_OUT_FILE)} (${venueLintCount} venue budgets)`);
     console.log(`[build-stage-catalog] wrote ${path.relative(ROOT, SLOT_CONTRACT_OUT_FILE)} (${slotContractCount} slot contracts)`);
+    console.log(`[build-stage-catalog] wrote ${path.relative(ROOT, LIST_CONTRACT_OUT_FILE)} (${listContractCount} list contracts)`);
   }
 }
 

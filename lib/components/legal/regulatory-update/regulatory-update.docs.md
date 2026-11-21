@@ -22,7 +22,8 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 |---|---|---|---|
 | `heading` | a `## ` heading | yes | Slide heading framing the period or theme of the changes. |
 | `scope` | a line of `inline code` | no | Optional inline-code scope label (e.g. 'Federal · State · International'). |
-| `items` | a list | yes | Ordered list of changes. Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code). |
+| `items` | a list | yes | A list of changes (`1.` or `-`). Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code). |
+| `details` | a list nested 1 level under an item | no | An item's details: its citation and effective date in inline code, and a one-line summary. |
 
 ### Variant decision rule
 
@@ -214,7 +215,7 @@ Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) com
 
 - [`timeline-list`](../../../plugins/chart-family/kinds/timeline-list/timeline-list.docs.md) — dated entries with a status read and a sentence each, but no citation per row
 - [`authority-chain`](../../legal/authority-chain/authority-chain.docs.md) — single rule walked from statute to regulation to guidance to case
-- [`list`](../../inventory/list/list.docs.md) — `takeaway numbered`: flat enumeration of requirements without dates or citations
+- [`list`](../../inventory/list/list.docs.md) — `list takeaway` over a `1.` list: flat enumeration of requirements without dates or citations
 - [`list-steps`](../../progression/list-steps/list-steps.docs.md) — lighter dots-on-a-spine sequence — the `timeline` variant
 - [`list-tabular`](../../inventory/list-tabular/list-tabular.docs.md) — structured metadata per row but no regulatory framing
 

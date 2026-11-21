@@ -256,7 +256,7 @@ section.citation-card.triptych > .cell-stage > :is(ul, ol) {
 section.citation-card.triptych > .cell-stage > :is(ul, ol) > li {
   background:var(--bg-alt);
   border:1px solid var(--border);
-  border-radius:var(--radius-md);
+  border-radius:var(--radius-card, var(--radius-md));
   padding:var(--sp-md);
 }
 section.citation-card.triptych > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {

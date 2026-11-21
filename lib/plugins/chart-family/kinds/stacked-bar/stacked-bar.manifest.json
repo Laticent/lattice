@@ -73,6 +73,7 @@
       "useWhen": "Category names are long enough to wrap or collide under the bars — the bars run horizontally and the names take a left column."
     }
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

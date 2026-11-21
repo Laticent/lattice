@@ -258,7 +258,53 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   Its one curated ink sat at 2.97-4.42:1 on the dark band. `lib/core/resolve-token-expr.js` now reads a color-mix stop
   whose percentage is a var(), so offline checks resolve the new rule instead of passing it through.
   Washes stay washes: kanban cards, journey moods, bullet bands and state-chart groups are tints by design.
+- **The other relative-color guards (2026-11-20).** The same WebKit 17.4 gap reached three hand-written rules
+  outside the marks build, each behind a guard on a plain `red` that WebKit 17.4 passes: hub-spoke's icon ink
+  (`oklch(from var(--text-heading) calc(l * 0.55) c h)`), and the plugin painting canvas and plugin-off chip in
+  base.modifiers.css (`oklch(from var(--accent) l c calc(h + 34))`, which 17.4 also rejects for the calc() in the hue
+  channel). Measured in Playwright 1.44's WebKit 17.4 on indaco, both faces: the icon stroke computed to `none`, and
+  the canvas and chip lost their whole background-image. Each guard now tests its rule's own shape over a light-dark()
+  origin, so 17.4 takes the plain inks (heading ink on light, white and the canvas ink on dark) and paints every
+  gradient; Chromium 153, Firefox 142 and WebKit 26 compute the same values as before. Topic's shelf was the fourth
+  suspect and is fine: it reads a registered `<color>` (`--_shelf-lift`), which is a plain color by the time the
+  relative color reads it, so 17.4 paints the same floored shelf as Chromium. Its guard now tests the rule's own
+  `max(l, 0.34)` over a plain origin, which keeps 17.4 on the measured fill. The finish's opaque face has the same gap
+  with no guard at all; `followups.d/3232-p7-webkit17-finish-opaque-fade.md`.
+  Drawing the icons exposed a second gap: a chart finish repaints a hub-spoke disc on every engine (it carries no
+  text), but each icon ink sat behind the picked-ink guard, so WebKit 17.4 kept the plain slide's ink on the finished
+  disc. Measured over 32 palettes and three finishes, a neutral, two groups and three statuses each: 218 of 528 icons
+  under 3:1, the worst 1.11:1, where Chromium 153 has none. Four of those inks need no relative color, so
+  `tools/build-marks-css.js` now emits them outside the guard: pigment's group and neutral inks (its curated
+  `--finish-ink`, `--chart-on-mark`), every finish's status ink (`statusInk()`, a percent mix of curated inks), and
+  tone's first slot, its deepest step, where the pick is white on every light face (`--chart-on-mark`). The picked
+  inks still follow and win where the guard passes, so Chromium's 576 measured icons are unchanged. WebKit 17.4 after:
+  none under 3:1 (534 icons, plus 168 on a six-group tone slide), the worst 3.24:1. The totals differ because each
+  WebKit 17.4 run measured every page it reached: the before run's browser exited on its last few pages, so it counts
+  528; the after run covers every face but onyx light; Chromium's 576 include the a11y textured discs, which a
+  contrast ratio cannot read (552 measured). Onyx's light face was not
+  measured there: a `blocked` satellite hangs WebKit 17.4 on `main` too, from an oklab `color-mix()` of two
+  light-dark() pairs with a pure black arm; `followups.d/3232-p8-webkit17-oklab-black-mix-hang.md`.
+  The gap was never Safari's alone. Chromium 125 (Playwright 1.44) and Firefox 128 (Playwright 1.46) also pass a
+  relative-color guard on a plain `red` and drop the color over a light-dark() origin: with `main`'s CSS each drew none
+  of 576 hub-spoke icons, and with this note's guards each draws every icon at 3:1 or better (552 measured, the worst
+  3.24:1, onyx light included). Real Mobile Safari 17.5 (iOS 17.5 Simulator) agrees: the contrast computed from the
+  stroke and disc colors it reported is 3.26:1 at worst under the new guards, and the old guards left two icons undrawn.
 
+- **Achromatopsia's light ramp (2026-11-20).** A monochromacy reads a status by lightness alone, so on
+  a11y-achromatopsia's light face the risk bands must darken in order: low (pass) < medium (warn) < high (fail) <
+  critical. They did not: medium was the lightest band (luminance 0.0975, low 0.0390, high 0.0109, critical 0.0059;
+  steps 0.60, 2.42 and 1.09:1). `tools/curate-chart-solids.js` now solves this palette's light trio with an order
+  constraint (`solveCvdTrio(…, ordered)`: pass lighter than warn lighter than fail), and the light face's critical step
+  takes a per-palette share, `--risk-critical-shade-keep` (82% by default; achromatopsia keeps 40%), beside the dark
+  face's `--risk-critical-keep`. After: low 0.0920, medium 0.0394, high 0.0109, critical 0.0006; steps 1.59, 1.47 and
+  1.20:1. Only pass and warn moved (`#44360D` to `#5E553C`, `#6D5500` to `#463600`), still under white at 7:1, and the
+  trio still clears the palette's 0.11 OKLab floor. The follow-up asked for 1.3:1 per step, and the gates rule it out:
+  three fills 0.11 apart in OKLab under white at 7:1 leave fail at most 0.0146 luminance, and even a black critical is
+  then 1.29:1 under it. Black would add 0.02 over 40% and lose the band's hue. The owner accepted 1.20:1 over a black
+  band or a relaxed 7:1 text bar (2026-11-21, #3360 D1 A). The other four a11y palettes' light
+  bands are out of order too (medium lighter than low on base, protanopia and tritanopia; medium darker than high on
+  deuteranopia), but hue still separates them for their readers, so they keep their trio. Held by `marks-css.test.js`
+  (the light-face arm) and shown in `examples/achromatopsia-light-risk-ramp.md`.
 - **Tone's one status level** (`tools/build-marks-css.js` `TONE_STATUS`). Under tone a status kept its own hue at the
   text level, a 30% wash on light and 35% on dark, beside category shades that start at 92%: on light the status chart
   read faded next to its pie, and on dark it all but vanished. Tone now keeps a status at its curated solid on both faces,
@@ -316,18 +362,31 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
 
 - The Studio's theme generator (`lib/theme/derive.js`) still derives the one-ink pair, so a generated theme keeps the
   one ink on both faces: correct and readable, but not the light-face triplet. `followups.d/3232-p2-derive-status-triplets.md`.
-- Carbone's first category is green, so an unstatused mark reads close to on-track (light 0.075, dark 0.053 OKLab from
-  the pass fill). Not caused here, and light improved from 0.029; the fix is a brand call.
-  `followups.d/3232-p3-carbone-first-category-reads-on-track.md`.
-- On achromatopsia's LIGHT face the risk bands do not climb in order: medium (0.098) is lighter than low (0.039), and
-  high (0.011) and critical (0.006) sit 1.09:1 apart. That predates this note and is the palette's light status ramp.
-  `followups.d/3232-p4-achromatopsia-light-risk-ramp.md`.
+- Fixed 2026-11-21 (the owner's call, #3360 D2 A): carbone's first category was its electric green, so an unstatused
+  mark read close to on-track (light 0.075, dark 0.053 OKLab from the on-track solid, `--pass-mark`, under
+  check:glance's 0.08). Carbone's chart cycle now leads with its blue and keeps the green second: 0.224 light, 0.233
+  dark. Everything else that reads the first chart color follows it (single-series bars, icon and avatar defaults, the
+  spectrum bar's first stop); the sequential ramps do not. A heatmap and a map choropleth read `--chart-ramp-hue` /
+  `--chart-ramp-ink` (chart-family.styles.css), the first category unless a palette names `--ramp-hue` / `--ramp-ink`
+  (sanctioned in SANCTIONED_FALLBACK_READS), and carbone names its green, because blue as the heatmap's pole cut the
+  light top step from 6.53:1 to 4.79:1 (chart-finish-reach). The finishes' generated ramp rules read the same tokens,
+  so etch and tone keep the green too, and the print band resets them so a printed ramp keeps its gray. The triplet contract still
+  holds (`curate-status-triplets.js carbone --check`), and `chart-solids.test.js` pins the 0.08 floor for carbone.
+  Ardesia's light face (0.068) and a11y-protanopia's dark face (0.067) sit under the line too and wait on their own
+  brand calls: `followups.d/3232-p9-first-category-near-on-track.md`.
+- Fixed 2026-11-20: on achromatopsia's LIGHT face the risk bands did not climb in order. See § 4, "Achromatopsia's
+  light ramp".
 - Fixed in #3312, found while signing off its exports: onyx's curated status inks (`--pass-on-mark:
   light-dark(#FFFFFF, #FFFFFF)` and the rest) reached the a11y palettes, which extend onyx, in the HTML player only.
   a11y-base overrides them with `var(--on-mark)`, the one a11y ink, but `themeDualMode` in lib/export/player-core.mjs
   picked one entry per token from `light-dark()` declarations alone, so the override was invisible to it. It now lets a
   later plain `:root` declaration replace an earlier pair. Measured over every palette: the five a11y palettes change,
   and the 14 brand themes' player output is byte-identical.
+- Safari 17.5-17.6 hangs on a hub-spoke `blocked` satellite on onyx's light face (an oklab `color-mix()` of two
+  light-dark() pairs with a pure black arm), on `main` too. `followups.d/3232-p8-webkit17-oklab-black-mix-hang.md`.
+- The finish compositor's opaque face (print, and the Studio's in-browser export) fades through
+  `rgb(from var(--fin-canvas) r g b / 0)` with no guard, which WebKit 17.4 drops over a light-dark() origin.
+  `followups.d/3232-p7-webkit17-finish-opaque-fade.md`.
 - Fixed in #3312 too: Chromium 119-122 crash the renderer on a relative color over a `color-mix()` origin (in
   Chromium 121 even `CSS.supports` on that shape takes the page down), which every picked ink is. The player first
   flattened the guard's `light-dark(red, red)` probe to `red`, which handed those engines the crash, so an a11y player

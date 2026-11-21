@@ -34,7 +34,14 @@
  *   2  --only target not found
  */
 
-const { describeMatch } = require('../lib/authoring/slot-contract-pack');
+const { describeMatch: describeRaw } = require('../lib/authoring/slot-contract-pack');
+// The page says what an author writes. On a component with a list contract (`lists`) either list
+// marker works (the engine renders it as the contract says, lib/core/list-contract.js), so a list
+// slot reads "a list" rather than naming the element the engine rewrites it to — the same relaxing
+// tools/build-stage-catalog.js does before it packs the `slot-contract` lint table.
+let docsManifest = null;
+const relaxList = (mt) => (docsManifest?.lists && mt?.kind === 'list' && mt.marker && mt.marker !== 'any' ? { ...mt, marker: 'any' } : mt);
+const describeMatch = (match) => describeRaw(Array.isArray(match) ? match.map(relaxList) : relaxList(match));
 const fs = require('node:fs');
 const path = require('node:path');
 const { componentDir: libComponentDir, loadAll, manifestBucket } = require('../lib/components');
@@ -333,6 +340,7 @@ function emitAgentContract(m, lines) {
   }
 
   if (hasSlots) {
+    docsManifest = m;
     lines.push('### Slots');
     lines.push('');
     // `Write` is the slot's `match` in an author's words, from the same reader `lint:deck`'s

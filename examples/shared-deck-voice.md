@@ -39,18 +39,18 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `The contract`
 
 ## Every sentence, or none of them.
 
-- The device answers first
-  - Each sentence rehearsed in Present is already stored, and costs nothing to ship.
-- The rest is recorded at export
-  - Whatever is missing is synthesized before the file is written, and kept for next time.
-- An incomplete set is refused
-  - A deck that goes quiet halfway through is worse than one that never spoke.
+1. The device answers first
+   - Each sentence rehearsed in Present is already stored, and costs nothing to ship.
+1. The rest is recorded at export
+   - Whatever is missing is synthesized before the file is written, and kept for next time.
+1. An incomplete set is refused
+   - A deck that goes quiet halfway through is worse than one that never spoke.
 
 ---
 
@@ -66,18 +66,18 @@ Both files are self-contained. The difference is whether the recipient can hear 
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Two switches, four files`
 
 ## Captions and audio are separate choices.
 
-- Captions alone
-  - A teleprompter read-along on the player's own clock.
-- Audio alone
-  - The deck speaks and turns its own pages, unwatched.
-- Both
-  - The voice, and the line it is reading, in step.
+1. Captions alone
+   - A teleprompter read-along on the player's own clock.
+1. Audio alone
+   - The deck speaks and turns its own pages, unwatched.
+1. Both
+   - The voice, and the line it is reading, in step.
 
 ---
 
@@ -93,18 +93,18 @@ The narrator defaults to the voice the deck was rehearsed in, and can be changed
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Where the audio rides`
 
 ## Inline, in its own blocks — not inside the manifest.
 
-- Still one file
-  - Inline `data:` URIs. No sidecar, no network origin.
-- Not in the envelope
-  - It base64s itself whole, so audio there would encode twice.
-- Parsed one slide at a time
-  - You pay for the slide in front of you, not the deck.
+1. Still one file
+   - Inline `data:` URIs. No sidecar, no network origin.
+1. Not in the envelope
+   - It base64s itself whole, so audio there would encode twice.
+1. Parsed one slide at a time
+   - You pay for the slide in front of you, not the deck.
 
 ---
 

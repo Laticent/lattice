@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { frontMatterName } from '../../../../lib/core/front-matter-key.js';
-import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetChanges, presetOf, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
+import { frontMatterName, PRESETS, withPresetTable } from '../../../../lib/core/front-matter-key.js';
+import { AUTHOR_KEYS, applyPreset, clearPresetOverrides, deckScalar, PRESET_ENTRIES, PRESET_KEYS, PRESET_NAMES, PRESET_SAMPLE, presetAutoLabel, presetChanges, presetOf, presetRecommendation, presetSampleDeck, registerValue, writeRegister } from './deck-preset';
 
 const deck = (...fm: string[]) => ['---', 'theme: indaco', ...fm, '---', '', '# Hi'].join('\n');
 const fmOf = (src: string) => src.split('---')[1];
@@ -105,3 +105,100 @@ describe('deck-preset — Reset never reaches into a `style: |` block (followups
 		expect(clearPresetOverrides(src)).toBe(deck('preset: brand', 'style: |', '  lift: on', '  rule: short'));
 	});
 });
+
+// P0 of engineering/decisions/2026-11-20-deck-preset-study.md: a preset RECOMMENDS `theme`, `color-mode`, `mode`,
+// `marks` and `backdrop` (D1). No shipped preset sets them yet, so the arms below run on a probe preset.
+const PROBE = { label: 'Probe', desc: 'test only', values: { theme: 'cuoio', 'color-mode': 'dark', marks: 'etch vivid', backdrop: '40 clear', rule: 'short' } };
+const withProbe = <T,>(fn: () => T): T => withPresetTable({ ...PRESETS, probe: PROBE }, fn);
+const bare = (...fm: string[]) => ['---', ...fm, '---', '', '# Hi'].join('\n');
+
+describe('deck-preset — the recommendation keys (P0)', () => {
+	it('reads a multi-word value whole, and a theme in its own case', () => {
+		expect(registerValue(bare('marks: etch vivid'), 'marks')).toBe('etch vivid');
+		expect(registerValue(bare('marks: "etch  Vivid"  # house'), 'marks')).toBe('etch vivid');
+		expect(registerValue(bare('backdrop: 40 clear'), 'backdrop')).toBe('40 clear');
+		expect(registerValue(bare('theme: NoirStudio'), 'theme')).toBe('NoirStudio');
+		// Control: a single-word key still reads as the bare, lower-cased name it always did.
+		expect(registerValue(bare('rule: Short'), 'rule')).toBe('short');
+		// A top-level key nested under another block is not the deck's key.
+		expect(registerValue(bare('foo:', '  backdrop: 40'), 'backdrop')).toBe('');
+	});
+
+	it('shows the preset recommendation until the deck writes its own', () => {
+		withProbe(() => {
+			const src = bare('preset: probe');
+			expect(registerValue(src, 'theme')).toBe('cuoio');
+			expect(registerValue(src, 'color-mode')).toBe('dark');
+			expect(registerValue(src, 'marks')).toBe('etch vivid');
+			expect(registerValue(src, 'backdrop')).toBe('40 clear');
+			expect(registerValue(bare('preset: probe', 'theme: indaco'), 'theme')).toBe('indaco');
+			// The old `chart-finish:` key still speaks for `marks:` and beats the preset, as in the engine.
+			expect(registerValue(bare('preset: probe', 'chart-finish: tone'), 'marks')).toBe('tone');
+			expect(registerValue(bare('preset: probe', 'marks: pigment', 'chart-finish: tone'), 'marks')).toBe('pigment');
+		});
+	});
+
+	it('names what Auto follows: the recommendation, only while the deck leaves the key to the preset', () => {
+		withProbe(() => {
+			expect(presetRecommendation(bare('preset: probe'), 'theme')).toBe('cuoio');
+			expect(presetRecommendation(bare('preset: probe'), 'color-mode')).toBe('dark');
+			expect(presetRecommendation(bare('preset: probe', 'theme: indaco'), 'theme')).toBe(null);
+			expect(presetRecommendation(bare('preset: probe', 'class: color-system'), 'color-mode')).toBe(null);
+			expect(presetRecommendation(bare('preset: probe', 'theme: cuoio-dark'), 'color-mode')).toBe(null);
+			expect(presetRecommendation(bare('foo:', '  preset: probe'), 'theme')).toBe(null);
+		});
+		expect(presetRecommendation(bare('preset: editorial'), 'theme')).toBe(null);
+		// A quoted empty value, a comment-only value and a trailing comment read as the engine reads them.
+		withProbe(() => {
+			expect(presetRecommendation(bare('preset: probe', 'theme: ""'), 'theme')).toBe('cuoio');
+			expect(presetRecommendation(bare('preset: probe', 'color-mode: # todo'), 'color-mode')).toBe('dark');
+			expect(presetRecommendation(bare('preset: probe', 'theme: indaco # brand'), 'theme')).toBe(null);
+		});
+	});
+
+	it('the drawer Auto head reads `<label> (preset)` while the recommendation applies', () => {
+		const cap = (v: string) => v[0].toUpperCase() + v.slice(1);
+		withProbe(() => {
+			expect(presetAutoLabel(bare('preset: probe'), 'theme', 'Indaco', cap)).toBe('Cuoio (preset)');
+			expect(presetAutoLabel(bare('preset: probe'), 'color-mode', "Theme's own", cap)).toBe('Dark (preset)');
+			expect(presetAutoLabel(bare('preset: probe', 'class: dark'), 'color-mode', "Theme's own", cap)).toBe("Theme's own");
+		});
+		expect(presetAutoLabel(bare('theme: cuoio'), 'theme', 'Indaco', cap)).toBe('Indaco');
+		// A palette this host cannot render is not named: the preview falls back to the site's.
+		withProbe(() => {
+			expect(presetAutoLabel(bare('preset: probe'), 'theme', 'Indaco', cap, (n) => n !== 'cuoio')).toBe('Indaco');
+		});
+	});
+
+	it('Reset and the drift count never touch the author theme or color mode', () => {
+		expect(AUTHOR_KEYS).toEqual(['theme', 'color-mode']);
+		withProbe(() => {
+			const src = bare('preset: probe', 'theme: indaco', 'color-mode: light', 'marks: tone', 'rule: none');
+			expect(presetChanges(src)).toEqual(['rule', 'marks']);
+			expect(clearPresetOverrides(src)).toBe(bare('preset: probe', 'theme: indaco', 'color-mode: light'));
+		});
+		// Control: with no preset at all, Reset still keeps them.
+		expect(clearPresetOverrides(bare('theme: indaco', 'color-mode: dark', 'rule: none'))).toBe(bare('theme: indaco', 'color-mode: dark'));
+	});
+
+	it('a picker tile keeps the deck theme and color mode, and drops every other override', () => {
+		const fm = '---\ntheme: indaco\ncolor-mode: dark\nmarks: tone\nbackdrop: 80\n---';
+		const tile = presetSampleDeck(fm, 'editorial');
+		expect(tile).toContain('theme: indaco');
+		expect(tile).toContain('color-mode: dark');
+		expect(tile).not.toContain('marks:');
+		expect(tile).not.toContain('backdrop:');
+	});
+});
+
+describe('deckScalar — the deck panel reads a key the way the engine does', () => {
+	it('cuts quotes and a trailing comment, reads a comment-only value as empty, ignores an indented line', () => {
+		expect(deckScalar(bare('theme: cuoio  # brand'), 'theme')).toBe('cuoio');
+		expect(deckScalar(bare('theme: "NoirStudio"'), 'theme')).toBe('NoirStudio');
+		expect(deckScalar(bare('theme: # todo'), 'theme')).toBe('');
+		expect(deckScalar(bare('class: lead # dark later'), 'class')).toBe('lead');
+		expect(deckScalar(bare('foo:', '  theme: cuoio'), 'theme')).toBe('');
+		expect(deckScalar(bare(), 'theme')).toBe('');
+	});
+});
+

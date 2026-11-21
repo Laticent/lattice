@@ -106,14 +106,15 @@ export interface TextFrame {
 	/**
 	 * What the text is on the slide, when the page says so: the slide's `title`, the
 	 * `eyebrow` kicker above a heading, the `subtitle` below one, the running `header` and
-	 * `footer`, and the page `number`. A writer names the box by it, and where the format has
-	 * a placeholder for it (title, footer, slide number) writes one.
+	 * `footer`, the page `number`, and the `meta` line (a lone inline-code paragraph directly in the
+	 * slide, after which the author wrote nothing: a source, a basis). A writer names the box by it, and its layout offers a placeholder
+	 * in its look, so a slide added in an office app has the slot.
 	 */
 	role?: FrameRole;
 }
 
 /** What a text frame is on the slide (see `TextFrame.role`). */
-export type FrameRole = 'title' | 'eyebrow' | 'subtitle' | 'header' | 'footer' | 'number';
+export type FrameRole = 'title' | 'eyebrow' | 'subtitle' | 'header' | 'footer' | 'number' | 'meta';
 
 /** A color with its opacity. */
 export interface Paint {
@@ -254,6 +255,16 @@ export interface Slide {
 	notes?: string | null;
 	/** Alt text for the slide picture. */
 	description?: string | null;
+	/**
+	 * What kind of slide this is, when the page says so (`readSlide`'s `look`: "title", "content", "divider", "topic",
+	 * "closing"): slides of one look on one ground share a layout, named after it.
+	 */
+	look?: string;
+	/**
+	 * The slide's ground, `#rrggbb` (the section's own background color): what text added on its layout must read on.
+	 * It differs from the background picture's colors where the slide paints a panel of its own (a split slide).
+	 */
+	ground?: string;
 }
 
 /** A whole deck, ready to write. */
@@ -273,6 +284,16 @@ export interface Deck {
 	company?: string;
 	/** Fonts to embed (ODP). A writer embeds only the faces some run uses. */
 	fonts?: EmbeddedFont[];
+	/**
+	 * The host's own palette, when it knows it: wins over what Calco reads off the slides (theme.ts), slot by slot.
+	 * Leave it out and the theme is read from what the deck draws.
+	 */
+	theme?: DeckThemeHint;
+}
+
+/** A host's palette for the file's theme: `#rrggbb` per OOXML color slot (`dk1`, `lt1`, `dk2`, `lt2`, `accent1`–`accent6`, `hlink`, `folHlink`). */
+export interface DeckThemeHint {
+	colors?: Partial<Record<'dk1' | 'lt1' | 'dk2' | 'lt2' | 'accent1' | 'accent2' | 'accent3' | 'accent4' | 'accent5' | 'accent6' | 'hlink' | 'folHlink', string>>;
 }
 
 /** A static TrueType/OpenType face, ready to embed. */

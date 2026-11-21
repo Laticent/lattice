@@ -30,6 +30,7 @@
   ],
   "description": "A network join card: readable Wi-Fi credentials beside a QR a phone scans to connect in one tap.",
   "purpose": "Use to get a room onto the Wi-Fi without reading a password aloud. The QR encodes the standard WIFI: payload; the same details render legibly for anyone typing them by hand. Author the fields as a postfix-key list.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

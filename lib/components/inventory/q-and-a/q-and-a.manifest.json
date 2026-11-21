@@ -90,6 +90,7 @@
   "excludes": [
     "accent"
   ],
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p > code:only-child",
@@ -148,7 +149,7 @@
     },
     {
       "title": "Evaluation criteria in disguise",
-      "body": "If the top-level item is a requirement you are scoring against (with a rationale below), that is `list takeaway numbered`, not a question you expect to be asked. q-and-a defends; list takeaway numbered evaluates."
+      "body": "If the top-level item is a requirement you are scoring against (with a rationale below), that is `list takeaway` over a `1.` list, not a question you expect to be asked. q-and-a defends; a numbered `list takeaway` evaluates."
     }
   ],
   "variantDocs": {
@@ -189,7 +190,7 @@
     },
     {
       "name": "list",
-      "when": "`takeaway numbered`: numbered criteria with rationale — evaluation, not anticipated objections"
+      "when": "`list takeaway` over a `1.` list: numbered criteria with rationale — evaluation, not anticipated objections"
     },
     {
       "name": "cards-stack",

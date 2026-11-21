@@ -63,7 +63,7 @@ section.statute-stack > .cell-stage > ol > li {
   background:var(--bg-alt);
   border:1px solid var(--border);
   border-top:3px solid var(--jur-accent, var(--accent));
-  border-radius:var(--radius-md);
+  border-radius:var(--radius-card, var(--radius-md));
   padding:var(--sp-md);
   display:flex; flex-direction:column;
   gap:var(--sp-xs);
