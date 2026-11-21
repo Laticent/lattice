@@ -151,7 +151,7 @@ comments.
   and by every CLI export.
 - **The budget and the linear paths (PR 3351, round 3).** The migration in lint-core put the Studio's lint chunk
   (`lintCoreGz`) 2.1 KB past its ceiling. It now loads on demand with the fix driver and takes the parser, notes-core and
-  note-grammar from lint-core (`makeNotesKit`), and the owner raised the ceiling by 0.6 KB for the rule itself
+  note-grammar from lint-core (`makeNotesKit`), and the owner raised the ceiling by 1 KB in total for the rules (0.6 KB, then 0.4 KB after PR 3330 grew `main`'s lint chunk)
   (`docs/route-budget.history.md`). The same round found two quadratic walks on a line of `<!--` openers inside one
   comment: `plain-comment-notes` walked comments through the scrub's code masker (15 s on 250 KB; it uses lint's own
   linear walk now), and the masker's give-back of live comments restored the span from every opener (9 s on 200 KB of
