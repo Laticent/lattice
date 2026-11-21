@@ -355,6 +355,44 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
 	});
 
+	it('an engine that fails while a slide is ALREADY SHOWING (the newcomer bake) leaves the slide visible: a bar, not a cover', async () => {
+		// Measured on Chromium and WebKit: the head seed's bake had painted a correct slide when the engine import failed,
+		// and the full card hid it. Now the card is a bar along the slide's foot and the slide stays in the a11y tree.
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		let fail: (e: Error) => void = () => {};
+		whenReady.mockImplementation(() => new Promise<void>((_, reject) => (fail = reject)));
+		const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.style.opacity = '1';
+		container.querySelector('figure')?.appendChild(fr);
+		await waitFor(() => expect(whenReady).toHaveBeenCalled());
+		fail(new Error('Importing a module script failed.'));
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		expect(container.querySelector('.nacre-failed')?.classList.contains('nacre-failed--bar')).toBe(true);
+		// The slide shown IS right, so the bar does not say it couldn't render: it says edits will not show.
+		expect(container.querySelector('.nacre-failed__text')?.textContent).toBe('The slide engine did not load, so edits will not show here.');
+		expect(fr.hasAttribute('aria-hidden')).toBe(false);
+		warn.mockRestore();
+	});
+
+	it('an engine that fails with NO slide on screen covers the box, and hides the parked frame from the a11y tree', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		let fail: (e: Error) => void = () => {};
+		whenReady.mockImplementation(() => new Promise<void>((_, reject) => (fail = reject)));
+		const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.style.opacity = '0';
+		container.querySelector('figure')?.appendChild(fr);
+		await waitFor(() => expect(whenReady).toHaveBeenCalled());
+		fail(new Error('Importing a module script failed.'));
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		expect(container.querySelector('.nacre-failed')?.classList.contains('nacre-failed--bar')).toBe(false);
+		await waitFor(() => expect(fr.getAttribute('aria-hidden')).toBe('true'));
+		warn.mockRestore();
+	});
+
 	it('a transient "renderer disposed" (host detached mid-render) does NOT trip the failure affordance', async () => {
 		// A mobile pane swap / unmount returns this sentinel — the reconnected host re-renders, so
 		// it must NOT read as a failure (which would flash a spurious Retry during a normal swap).

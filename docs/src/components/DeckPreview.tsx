@@ -330,6 +330,10 @@ export function DeckPreview({
 	// actionable, and the whole complaint in #1551 was that the author had no way to know what
 	// was wrong. Empty for failures with nothing useful to add (the never-paint ceiling).
 	const [failedWhy, setFailedWhy] = React.useState('');
+	// The failure arrived while a correct slide was ALREADY SHOWING (the newcomer bake the head seed painted before the
+	// engine loaded): the card then sits as a bar along the slide's foot instead of covering it, and the slide stays in
+	// the accessibility tree. Only the engine-load failure sets it; any other failure covers a frame that never painted.
+	const [failedOverSlide, setFailedOverSlide] = React.useState(false);
 	// One renderer instance for this host (holds the theme + font caches).
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
@@ -584,11 +588,11 @@ export function DeckPreview({
 	React.useEffect(() => {
 		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 		if (!fr) return;
-		if (failed) fr.setAttribute('aria-hidden', 'true');
+		if (failed && !failedOverSlide) fr.setAttribute('aria-hidden', 'true');
 		else fr.removeAttribute('aria-hidden');
 		// `loader` is no longer a dependency: the failure card is raised on loader and
 		// non-loader hosts alike now (#1551), so this effect reads only `failed`.
-	}, [failed]);
+	}, [failed, failedOverSlide]);
 
 	// The allowed web origins by VALUE: a host that builds a fresh array each render must not
 	// re-render the frame for the same list.
@@ -812,6 +816,11 @@ export function DeckPreview({
 			// The card says WHAT failed in words an author can act on; the browser's own message (a module URL, often
 			// wider than a phone, which clipped it on both sides) goes to the console for whoever debugs it.
 			console.warn('[preview] the slide engine did not load:', err);
+			// A slide already on screen (the bake) is correct for this source, so keep it visible: the bar says the
+			// preview cannot follow edits until the engine loads. Measured on Chromium and WebKit: the bake was adopted
+			// and revealed when the import failed, and the full card hid a good slide (PR #3385).
+			const shown = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+			setFailedOverSlide(!!(shown?.style.opacity && shown.style.opacity !== '0'));
 			setFailed(true);
 			setFailedWhy('the slide engine did not load; check the connection, then Retry');
 			return undefined;
@@ -845,6 +854,7 @@ export function DeckPreview({
 				if (issuedRef.current) onSplitPageRef.current?.({ ...issuedRef.current, canSplit: false, page: null });
 			}
 			setFailed(isFailure);
+			setFailedOverSlide(false);
 			setFailedWhy(isFailure ? String(status.error ?? '') : '');
 		}
 		// (Re)hydrate any live scene on the freshly rendered slide. `bindAnima` self-guards to
@@ -1030,6 +1040,7 @@ export function DeckPreview({
 	// simply fail again; the point is to give the user agency instead of a dead blank box.
 	const retry = React.useCallback(() => {
 		setFailed(false);
+		setFailedOverSlide(false);
 		setFailedWhy('');
 		schedulerRef.current?.schedule();
 	}, []);
@@ -1091,9 +1102,14 @@ export function DeckPreview({
 				// The live-region role sits on the TEXT only — not the container — so a screen reader
 				// announces "couldn't render" without sweeping the focusable Retry button into the
 				// live-region update (which reads confusingly). Container is a block-level div.
-				<div className="nacre-failed">
+				<div className={cn('nacre-failed', failedOverSlide && 'nacre-failed--bar')}>
 					<span className="nacre-failed__text" role="status">
-						{failedWhy ? `This preview couldn’t render — ${failedWhy}.` : 'This preview couldn’t render.'}
+						{failedOverSlide
+							? // The slide on screen is correct; what fails is everything after it. Short, so the bar stays one row.
+								'The slide engine did not load, so edits will not show here.'
+							: failedWhy
+								? `This preview couldn’t render — ${failedWhy}.`
+								: 'This preview couldn’t render.'}
 					</span>
 					<button type="button" className="nacre-failed__retry" onClick={retry}>
 						Retry
