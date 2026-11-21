@@ -2887,7 +2887,19 @@ function plainComments() {
   }
   return plainCommentCount;
 }
+// A deck written before the four notes kept its speaker notes as plain comments, which are no notes now: its PDF,
+// PowerPoint or player would ship with none and no word why (the inversion on PR 3351). Asked once per run, from every
+// export with a notes channel, by the linter's own rule (HARD RULE #7), so the CLI and lint never disagree on the shape.
+let oldNotesHinted = false;
+function hintOldNotes() {
+  if (QUIET || STRIP_NOTES || oldNotesHinted) return;
+  oldNotesHinted = true;
+  const { findPlainCommentNotes } = require('./lib/authoring/lint-core');
+  const [f] = findPlainCommentNotes(md);
+  if (f) console.warn(`  note: ${f.message} Run \`lattice migrate notes ${mdFile || 'deck.md'}\` to turn them into @note.`);
+}
 function warnShippedNotes(what, { carriesSource = false } = {}) {
+  hintOldNotes();
   if (QUIET) return;
   const n = materializedNotes.filter(Boolean).length;
   if (n) console.warn(`  ⚠ ${n} ${n === 1 ? 'slide ships' : 'slides ship'} speaker notes in this ${what} — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
@@ -6535,11 +6547,8 @@ function writeNotesSidecar(outPath, notes) {
   const sidecar = outPath.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + '.notes.txt';
   fs.writeFileSync(sidecar, blocks.length ? blocks.join('\n') : '(no speaker notes in this deck)\n');
   if (!QUIET) console.log(`Notes: ${blocks.length} slide${blocks.length === 1 ? '' : 's'} → ${sidecar}`);
-  // A deck written before 2026-11-20 kept its speaker notes as plain comments, which are no notes now: asked for its
-  // notes, it would get none and no word why. One line points at the migration.
-  if (!QUIET && !blocks.length && plainComments()) {
-    console.log(`  note: ${plainComments()} plain comment${plainComments() === 1 ? ' is not a speaker note' : 's are not speaker notes'}; write <!-- @note{…} -->, or run \`lattice migrate notes ${mdFile || 'deck.md'}\`.`);
-  }
+  // A deck written before 2026-11-20 kept its speaker notes as plain comments: asked for its notes, it gets none.
+  if (!blocks.length) hintOldNotes();
 }
 
 // The reading article's stylesheet for `--read`. Targets the `lp-*` class contract the

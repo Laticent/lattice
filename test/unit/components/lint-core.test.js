@@ -397,6 +397,20 @@ describe('lint-core: lintTextWith rules', () => {
     assert.equal(ruleFor(steps('1. Find the record.\n2. Check it.\n'), 'list-steps-inline-body'), undefined, 'a short label ending in a period is a title');
   });
 
+  // The inversion on PR 3351: an LFM 1.x deck loses every speaker note to the four notes, silently.
+  test('plain-comment-notes: a deck with no named note and two plain comments is told, and its fix migrates it', () => {
+    const src = `${FM}# A\n\n<!-- Open cold. -->\n\n---\n\n# B\n\n<!-- Land it. -->\n`;
+    const f = ruleFor(src, 'plain-comment-notes');
+    assert.ok(f, 'a 1.x deck must be told its plain comments are not notes');
+    assert.equal(f.severity, 'info');
+    const fixed = core.applyFix(src, f);
+    assert.match(fixed, /<!-- @note\{Open cold\.\} -->/);
+    assert.match(fixed, /<!-- @note\{Land it\.\} -->/);
+    assert.equal(ruleFor(fixed, 'plain-comment-notes'), undefined, 'the fixed deck is clean');
+    assert.equal(ruleFor(`${FM}# A\n\n<!-- @note{x} -->\n<!-- mine -->\n<!-- mine too -->\n`, 'plain-comment-notes'), undefined, 'a deck with a named note is a 2.0 deck');
+    assert.equal(ruleFor(`${FM}# A\n\n<!-- one -->\n`, 'plain-comment-notes'), undefined, 'one plain comment is not the 1.x shape');
+  });
+
   // The maker-checker review of #3305 (2026-11-19) drove each of these through the rule.
   test('rule 2c — speaker notes, code spans, mixed case and a shallow indent', () => {
     const steps = (body) => `${FM}<!-- _class: list-steps -->\n\n## H\n\n${body}`;

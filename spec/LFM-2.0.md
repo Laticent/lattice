@@ -73,7 +73,9 @@ A comment inside a code fence, an indented code block or an inline code span is 
 never a note.
 
 **Degradation.** Every note is an HTML comment, so a CommonMark viewer that has no knowledge of
-Lattice shows nothing (§5's governing rule holds unchanged).
+Lattice shows nothing (§5's governing rule holds unchanged). A Marp renderer reading a 2.0 deck directly shows
+every comment as a speaker note, `@say{…}` and plain comments included; an implementation's export to
+Marp should write `@note` and `@handout` as Marp notes and drop the rest.
 
 **Removed from 1.x, with no alias.** A conformant L2 linter SHOULD report each as an error that
 names its replacement: a `say:`, `describe:` or `reader:` comment key (now `@say`, `@alt`,
