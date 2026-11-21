@@ -58,7 +58,8 @@ summary.
    `interrupt_session`. Then report what you did in one line per action.
 6. **A merge digest answer** ("all", "all but #N"), typed by the owner here, is the
    owner's merge authorization for exactly the PRs and heads the digest listed
-   (`/desk-merge` step 5). For each: re-read the head; squash-merge only if it still
+   (`/desk-merge` step 5); `.claude/hooks/owner-merge-gate.mjs` enforces that it was
+   the owner's typed turn. For each: re-read the head; squash-merge only if it still
    matches, otherwise skip it and ask again. Report each merge or skip in one line.
    After each merge, `send_message` that PR's own session: "#N merged at <sha>". It
    posts its 📋 standup and 🎯 brief as after any merge (CLAUDE.md's post-merge row).

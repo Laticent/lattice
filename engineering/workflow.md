@@ -1283,6 +1283,16 @@ The contract, and its limits — be precise about what it does and doesn't cover
   authorization), and patch/minor dependency bumps
   (`dependabot-auto-merge.yml`; majors wait). See
   § Automation vs. the main ruleset.
+- **A machine checks the authorization, not the model.** A `PreToolUse` hook,
+  `.claude/hooks/owner-merge-gate.mjs`, runs before every `merge_pull_request` and
+  `enable_pr_auto_merge` call. It allows the call only when the owner's latest typed
+  turn names the PR with a merge word ("merge #3359"), or answers a digest that
+  listed the PR with "all" ("all but #N" excludes it). It reads the transcript's
+  `origin.kind`, which the harness writes: only the owner's own turns are `human`;
+  relayed session messages, subagent reports and hook feedback never are. Anything
+  else is denied with the reason, and an unreadable transcript denies too. Unlike
+  the repo's warn-only hooks, it blocks: it fires on nothing but the two merge tools,
+  and a warning does not stop a merge. The owner can always merge from GitHub itself.
 - **An approval covers the head it was given on** (owner's decision,
   2026-11-20). If the PR gets a new head afterwards that is more than a clean
   rebase (`git range-diff` of old and new is not empty), for example a fix pushed
