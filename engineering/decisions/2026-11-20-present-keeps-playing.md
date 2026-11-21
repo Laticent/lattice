@@ -195,3 +195,9 @@ Toggle states were also hard to read: on was a tinted outline, close to off. On 
   controls, refused gives the immersive layout. Whether a real iPhone grants it too, and whether a
   phone in real full screen should also hide its controls, still needs a check on a device. The
   keep-alive probe now waits for the tap's activation to lapse, so it always tests the refused path.
+- **Two low findings from the second maker-checker review, left as they are.** (F7) The caption lift over the floating
+  controls is measured when Present opens, the layout turns immersive, the chrome is revealed, or the window resizes,
+  so a dock that changes height while it shows (Rail or Notes toggled) leaves the lift stale until the next reveal.
+  (F8) The portrait crawl keys its carried lines on the caption track object, so a new track with the same text would
+  repeat the current lines; no path in Present reaches it (the projection upgrade is skipped while playing, and the
+  band unmounts when not delivering). F1 to F6 of that review are fixed, each with a test that was red first.

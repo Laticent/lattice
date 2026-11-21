@@ -196,26 +196,39 @@ describe('Present — immersive on a phone held sideways', () => {
 		expect(hidden(), 'the chrome did not stay up for the bloom timer').toBe(false);
 	});
 
-	it('a two-finger touch is a pinch, not a tap', async () => {
+	// A swipe or a pinch sends no click, so it is never a tap. Its START must not outlive it either: the rule used to
+	// keep a gesture's start for a whole second, so a tap just after a swipe read the swipe's "hidden" and kept the
+	// chrome up instead of hiding it (#3333's maker-checker, F4). This replaces a pinch test that sent no click and so
+	// could not fail once taps were read from the click.
+	it('a swipe with no click does not decide the tap that follows it', async () => {
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={deck} />);
-		const row = document.querySelector('[data-present-immersive]') as HTMLElement;
 		await step(4000);
-		fireEvent.pointerDown(row, { clientX: 100, clientY: 100, isPrimary: true, pointerId: 1 });
-		fireEvent.pointerDown(row, { clientX: 140, clientY: 100, isPrimary: false, pointerId: 2 });
-		fireEvent.pointerUp(row, { clientX: 140, clientY: 100, isPrimary: false, pointerId: 2 });
-		fireEvent.pointerUp(row, { clientX: 100, clientY: 100, isPrimary: true, pointerId: 1 });
-		await step(0);
 		expect(hidden()).toBe(true);
+		const backdrop = document.querySelector('.lx-ui.fixed.inset-0') as HTMLElement;
+		const at = { clientX: 100, clientY: 100 };
+		fireEvent.pointerDown(backdrop, { ...at, isPrimary: true });
+		fireEvent.touchStart(backdrop, { touches: [at], targetTouches: [at], changedTouches: [at] });
+		fireEvent.touchEnd(backdrop, { touches: [], targetTouches: [], changedTouches: [at] });
+		fireEvent.pointerUp(backdrop, { ...at, isPrimary: true });
+		await step(0);
+		expect(hidden(), 'precondition: the swipe brought the chrome up').toBe(false);
+		await step(400);
+		tap(backdrop);
+		await step(0);
+		expect(hidden(), 'a tap right after a swipe read the swipe and kept the chrome up').toBe(true);
 	});
 });
 
 describe('Present — turning the phone does not show the relayout (owner recording, 2026-11-20)', () => {
 	let fire: () => void = () => {};
 	let restore: () => void = () => {};
+	let coarse = true;
 	beforeEach(() => {
+		fire = () => {};
+		coarse = true;
 		const orig = window.matchMedia;
 		window.matchMedia = ((q: string) => ({
-			matches: false,
+			matches: q === '(pointer: coarse)' && coarse,
 			media: q,
 			addEventListener: (_t: string, fn: () => void) => {
 				if (q === '(orientation: landscape)') fire = fn;
@@ -240,6 +253,16 @@ describe('Present — turning the phone does not show the relayout (owner record
 		act(() => fire());
 		expect(settling(), 'the stage stayed visible through the relayout').toBe(true);
 		expect(await stepUntil(() => !settling(), 1300), 'the stage never came back').toBe(true);
+	});
+
+	// Only a touch device turns: a desktop window dragged across square flips `orientation` too, and must not blank the
+	// deck (#3333's maker-checker, F6).
+	it('a desktop window crossing square is not a phone turning', async () => {
+		coarse = false;
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={deck} />);
+		await step(0);
+		act(() => fire());
+		expect(settling(), 'a fine pointer got the rotation cover').toBe(false);
 	});
 });
 

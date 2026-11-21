@@ -86,6 +86,8 @@ const SILENT_DWELL_MS = 4000;
 const ROTATE_STILL_FRAMES = 6;
 // How long after a gesture starts its click still belongs to it (a tap's click follows its touchstart within a few frames).
 const TAP_WINDOW_MS = 1000;
+// How close a pointerdown and a touchstart must be to belong to the same touch (they arrive in the same task).
+const SAME_TOUCH_MS = 100;
 const ROTATE_SETTLE_MAX_MS = 1200;
 // A toggle that is ON reads as a SOLID accent pill, an OFF one as an outline. The old on-state, a tinted
 // outline, sat too close to off: in the dark theme CC, Voice and Rail on looked like Guide off (owner, 2026-11-20).
@@ -358,6 +360,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const [settling, setSettling] = React.useState(false);
 	React.useEffect(() => {
 		if (!open || typeof window === 'undefined' || !window.matchMedia) return;
+		// A phone or tablet turning, not a desktop window dragged across square or an on-screen keyboard squashing a
+		// portrait viewport: those flip `orientation` too, and the cover would blank the deck for nothing (F6).
+		if (!window.matchMedia('(pointer: coarse)').matches) return;
 		const mq = window.matchMedia('(orientation: landscape)');
 		let raf = 0;
 		let cap = 0;
@@ -2642,10 +2647,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// TIME IS OURS, NOT THE EVENT'S: WebKit can stamp touch and mouse events on different clocks (wall clock vs time since
 	// load), and comparing `event.timeStamp`s across them put every tap outside the window, so the rule fell back to "shown
 	// now" (true: touchstart had just revealed it) and the tap hid the chrome it had just shown (owner, iPhone, 2026-11-20).
-	// The FIRST start of a gesture is kept (a tap sends pointerdown AND touchstart), and the state is read from a ref.
+	// The FIRST start of ONE touch is kept (a tap sends pointerdown AND touchstart, a few ms apart), and the state is read
+	// from a ref. Only that pair is merged: a swipe or a pinch sends no click, so its start would otherwise stand for a
+	// whole TAP_WINDOW_MS and a real tap right after it would read the swipe's state (#3333's maker-checker, F4).
 	const gestureStart = () => {
 		const now = performance.now();
-		if (gestureRef.current && now - gestureRef.current.t < TAP_WINDOW_MS) return;
+		if (gestureRef.current && now - gestureRef.current.t < SAME_TOUCH_MS) return;
 		gestureRef.current = { t: now, shown: revealedRef.current };
 	};
 	const tapClick = (e: React.MouseEvent) => {
