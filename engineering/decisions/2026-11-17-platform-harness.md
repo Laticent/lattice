@@ -135,13 +135,21 @@ failed rebuild retried, status and stop) before the first real run.
 
 ## Open
 
-- **First real use (measured on PR #3302, 2026-11-21).** A cold macOS dispatch waited 14m 08s to 42m 03s for a runner,
-  then 5m 34s of setup before the harness was ready. After that, a round costs the job alone: `ios-safari-undo-iphone`
-  took 10m 48s from the command comment to its reply on a rerun (run 44849877064). A push that changes built code
-  syncs and rebuilds in 2m 31s (`npm run build` and the docs `build:e2e`); one that touches only an inert path
-  (`changelog.d/`) syncs in 0s, and watch re-ran the suite on it by itself (run 44928152244). The deadline kill ended a
-  job's whole process tree on Windows at 90 minutes (run 44937679226).
+- **First real use (measured on PR #3302).** Each figure is the difference of two timestamps GitHub recorded:
+  - *Queue wait for a macOS runner:* 14m 30s for run 44849877064 (created 01:23:15, harness job started 01:37:45 on
+    2026-11-21) and 42m 00s for run 44173383484 (created 20:49:42, job started 21:31:42 on 2026-11-17).
+  - *Setup before the harness takes commands:* 5m 12s for run 44849877064 (job started 01:37:45, `harness ready`
+    comment 01:42:57).
+  - *A warm round:* a `/harness rerun` of `ios-safari-undo-iphone` took 10m 51s from the command comment (01:55:27) to
+    its reply (02:06:18); the reply reports the job itself as 10m 46s. No queue wait and no setup.
+  - *A push:* one that changes built code synced and rebuilt in 2m 31s (`npm run build` and the docs `build:e2e`; reply
+    at 01:45:54 on run 44849877064). One that touched only `changelog.d/` synced in 0s, and watch re-ran the suite on it
+    with no command (reply "on `e849bc3` … synced in 0s: nothing to rebuild — new commit", 17:38:06, run 44928152244).
+  - *The deadline:* run 44937679226's job started 18:50:19, and its job was replied `KILLED at the hard stop` at 20:20:28.
+    A background child's heartbeat in the uploaded artifact ends at 20:20:18, so `taskkill /T` ended the whole tree.
 - **Do the replies reach a subscribed session as events?** Yes (PR #3396, 2026-11-21). A session subscribed to the PR (`subscribe_pr_activity`) got each
   bot reply as an `issue_comment.created` event about 3 seconds after GitHub created it: the `harness ready` comment
-  (created 21:43:49, queued 21:43:52) and the reply to `/harness status`. So a session can post a command and end its
-  turn, and the result wakes it; it needs no polling. Its own command comments did not come back as events.
+  (created 21:43:49, event queued 21:43:52) and the reply to `/harness status` (created 21:44:05, queued 21:44:08). So a
+  session can post a command and end its turn, and the result wakes it; it needs no polling. Its own command comments
+  did not come back as events. Tested once, with one Windows harness; the event path does not depend on the runner's
+  OS, since GitHub sends the event when the comment is created.
