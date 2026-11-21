@@ -27,6 +27,7 @@
  *  11. lib/_semi-universal.css   compact, loose, accent
  *  12. lib/_universal.css        dark, with-period, tint-*, mark-*, state, tone, chrome
  *  13. lib/_diagram-overrides.css  Mermaid SVG theme overrides
+ *  14. lib/base/base.presets.css   the presets' internal tokens (`section.preset-<name>`), after the generated slicing rules
  *
  * lib/_legacy.css was retired on this branch — every block was either
  * moved to its proper destination above or deleted as dead documentation
@@ -210,6 +211,8 @@ const BUILD_SOURCE = 'lib/base/base.build.css';
 // boxes), palette-blind via var(--…). Tail tier so its section.sketch …
 // selectors compose on top of every component. See lib/base/base.sketch.css.
 const SKETCH_SOURCE = 'lib/base/base.sketch.css';
+// The presets' internal tokens (`section.preset-<name>`), appended last. See lib/base/base.presets.css.
+const PRESETS_SOURCE = 'lib/base/base.presets.css';
 // Self-contained Form CSS — every lib/forms/{cell,tile}/<id>/<id>.css. A Cell or
 // Tile that owns its CSS (issue #356, the self-containment reframing) drops a
 // sheet in its folder; the build picks it up by glob, so adding/removing a Cell
@@ -705,15 +708,14 @@ function assemble() {
     parts.push('/* === generated: Form per-family slicing (frame manifests `slicing`) === */');
     parts.push(slicing);
   }
-  // Generated: the PRESET TOKENS (engineering/decisions/2026-11-20-deck-preset-study.md §5 D10) — one
-  // `section.preset-<name> { --token: value }` rule per preset that sets internal tokens, from the preset
-  // table itself (lib/core/resolve-preset.js `presetTokensCss`, which validates every name and value).
-  // No shipped preset sets a token yet, so this adds nothing and the bundle is byte-identical.
-  const presetTokens = require('../lib/core/resolve-preset').presetTokensCss();
-  if (presetTokens) {
-    mark('generated:preset-tokens', null);
-    parts.push('/* === generated: preset tokens (lib/core/front-matter-key.js PRESETS[*].tokens) === */');
-    parts.push(presetTokens);
+  // The PRESETS' internal tokens (engineering/decisions/2026-11-20-deck-preset-study.md §5 D10): one
+  // `section.preset-<name> { --token: value }` rule per preset, in a plain stylesheet. Last, so a preset's
+  // token beats a `typography:` set's or a register's value for the same property at equal specificity.
+  const presets = readIfExists(PRESETS_SOURCE);
+  if (presets) {
+    mark('base:presets', PRESETS_SOURCE);
+    parts.push(`/* === ${PRESETS_SOURCE} === */`);
+    parts.push(presets);
   }
   // Distribute leading `:is()` LAST, over the assembled bundle — so `bundle()`
   // is the single definition of what dist/lattice.css should contain, which is

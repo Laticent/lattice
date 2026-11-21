@@ -1,0 +1,26 @@
+/* base.presets.css — the internal design tokens each deck preset sets.
+ *
+ * A deck that writes `preset: <name>` gets the class `preset-<name>` on every slide (every preset
+ * but `classic`, the default, which stamps nothing; lib/core/resolve-preset.js `presetClass`). This
+ * file is where that class is styled. The preset TABLE (lib/core/front-matter-key.js `PRESETS`)
+ * only names the registers a preset sets; it never holds a style. A script that writes CSS from a
+ * table is the anti-pattern this file exists to avoid.
+ *
+ * WHAT A RULE HERE MAY SET. Only the preset hooks: custom properties no author key exposes, whose
+ * consumers read them with today's value as the `var()` fallback (base.tokens.css § PRESET HOOKS):
+ *   --rule-w  --rule-style  --rule-mark   the heading rule's weight, style and ink
+ *   --rail-w                              the `spectrum-card:` rail's thickness
+ *   --radius-card                         a card's corner
+ * Plus the eyebrow voice a `typography:` set declares (base.typography.css): --eyebrow-case,
+ * --eyebrow-tracking, --eyebrow-style, --eyebrow-weight. Never a `--fs-*` size (HARD RULE #4), never
+ * a hex literal (HARD RULE #3: a color is `var(--token)`), never a property that is not custom.
+ * test/unit/core/preset-plumbing.test.js holds this file to those rules and to the table: every
+ * `section.preset-<name>` names a shipped preset.
+ *
+ * SPECIFICITY AND ORDER. `section.preset-<name>` is (0,1,1), the same as `section.typography-ledger`
+ * or a register's class, and tools/build-css.js appends this file LAST, so a preset's token wins on
+ * source order. A deck's own `style:` block still wins over it, because the theme and deck sheets
+ * load after the engine bundle.
+ *
+ * Palette-blind (HARD RULE #3), no margin (HARD RULE #20), no @layer (HARD RULE #26).
+ */
