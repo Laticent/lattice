@@ -799,7 +799,20 @@ export function DeckPreview({
 		// is loaded (steady-state typing), and the only renders where it's slow are pre-load
 		// full WRITES, already heavy via writePath. So it can't push a real ~2ms patch past
 		// the 50ms line.
-		await engineRef.current?.whenReady();
+		// AN ENGINE THAT DID NOT LOAD IS A FAILURE, ON EVERY HOST (the #1551 rule below). whenReady() rejects when
+		// the engine's import fails, and that used to throw out of this thunk into the scheduler's `.catch`, which
+		// swallows it: no failure card, so a loader host (the Studio's preview) spun for good with nothing to say
+		// (flake desk, PR #3368's first-render notes). Say why and offer Retry: `load-engine` drops a rejected
+		// import from its cache, so Retry imports again.
+		try {
+			await engineRef.current?.whenReady();
+		} catch (err) {
+			setSplitPage(null);
+			if (issuedRef.current) onSplitPageRef.current?.({ ...issuedRef.current, canSplit: false, page: null });
+			setFailed(true);
+			setFailedWhy(`the slide engine did not load (${err instanceof Error ? err.message : String(err)})`);
+			return undefined;
+		}
 		const docBefore = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument ?? null;
 		const status = await renderRef.current();
 		// #1164 — surface a definitive render FAILURE on a non-loader host (a loader host owns its

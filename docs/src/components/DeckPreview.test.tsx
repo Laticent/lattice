@@ -5,7 +5,8 @@ import DeckPreview from './DeckPreview';
 
 // A shared renderInto spy so we can assert what the component asked the renderer
 // to draw across re-renders. The engine itself is never involved.
-const { renderInto, dispose } = vi.hoisted(() => ({
+const { renderInto, dispose, whenReady } = vi.hoisted(() => ({
+	whenReady: vi.fn(() => Promise.resolve()),
 	renderInto: vi.fn(
 		(
 			_host: HTMLElement,
@@ -27,7 +28,7 @@ const created = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 vi.mock('@/playground/single-slide-render', () => ({
 	createSingleSlideRenderer: (o: Record<string, unknown>) => (created.push(o), {
 		renderInto,
-		whenReady: () => Promise.resolve(),
+		whenReady,
 		onThemeChange: () => () => {},
 		scaleFrame() {},
 		ready: () => true,
@@ -53,6 +54,8 @@ beforeEach(() => {
 	renderInto.mockReset();
 	renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null }));
 	dispose.mockClear();
+	whenReady.mockReset();
+	whenReady.mockImplementation(() => Promise.resolve());
 });
 
 describe('DeckPreview — theme threading', () => {
@@ -329,6 +332,22 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		// …and the card carries the renderer's REASON, not a bare "couldn't render". The
 		// reason is the actionable half; without it the author cannot tell what to change.
 		expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('renders as 2 slides');
+	});
+
+	it('an engine that did not load shows the failure card with its reason on a LOADER host, and Retry imports again', async () => {
+		// The Studio's preview is a loader host. whenReady() rejecting used to throw into the frame scheduler's
+		// `.catch`, which swallowed it: no card, and the skeleton spun for good (PR #3368's first-render notes).
+		whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+		const { container, getByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('the slide engine did not load (Importing a module script failed.)');
+		expect(container.querySelector('.nacre-loader')).toBeNull();
+		expect(renderInto).not.toHaveBeenCalled();
+		// The engine loads on Retry (load-engine drops a rejected import, so it really imports again): the slide renders.
+		whenReady.mockImplementation(() => Promise.resolve());
+		fireEvent.click(getByText('Retry'));
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
 	});
 
 	it('a transient "renderer disposed" (host detached mid-render) does NOT trip the failure affordance', async () => {
