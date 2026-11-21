@@ -84,9 +84,10 @@ CodeQL is **42% of all jobs and 23% of job-minutes.** It runs on every push to a
 
 The `ci.yml` comment above `build:check:all` puts it at "~12s". It measures 77 s p50 over 1,495 successful runs.
 
-**Failures over the month.** 1,602 of 30,621 `ci.yml` jobs failed (5.2%), using 7,035 job-minutes (2.9% of
-240,244). The owner's figure of 18,169 failed-job minutes covers every workflow in the organization; `ci.yml` is
-39% of it. By job: `docs-build` 378 failures (3,449 min, half of the total, 49 of them on one branch), `integration`
+**Failures over the month.** Leaving out the `ci` summary job, which fails whenever another job does (688 times),
+914 of 27,763 `ci.yml` jobs failed (3.3%), using 6,988 job-minutes (2.9% of 239,936). The owner's figure of 18,169
+failed-job minutes covers every workflow in the organization; `ci.yml` is 38% of it. By job: `docs-build` 378
+failures (3,449 min, half of the total; 27 on one branch and 22 on another), `integration`
 251 (1,617 min), `studio-smoke` 77 (772 min), `unit` node 22 93 (530 min). This note does not sort these into real
 catches and flakes.
 
@@ -243,9 +244,10 @@ the largest heavy job from PRs anyway.
 This month 48 `ci.yml` runs were re-run by hand. 35 of them ended green after a failed attempt, which is the
 pattern of a flake re-run until it passes (HARD RULE #33 forbids exactly that). The failed earlier attempts held 33
 `integration` legs, 14 `studio-smoke`, 7 `golden-diff`, 4 `docs-build` and 2 `unit` failures, and the discarded
-attempts used **279 job-minutes a day**. In the queue, 19 of 390 groups failed (16 with an `integration` leg red,
-10 with node 24), and each failure re-runs every entry behind it. Fixing these is the flake desk's work, not a CI
-change; it is also C2's precondition.
+attempts used **279 job-minutes a day**. In the queue, 19 of 390 groups failed: `unit` node 24 was red in 10 of
+them, `docs-build` in 8, `unit` node 22 in 5 and `integration` in 4. Each failure re-runs every entry behind it.
+So the render tier is not the main cause of queue ejections today. Fixing the re-run flakes is the flake desk's
+work, not a CI change; it is also C2's precondition.
 
 ### C12. Affected-only test selection
 
@@ -347,6 +349,6 @@ and the `changes` job's filters do that inside one repo, without 40% of changes 
 - The split of `npm ci`'s 50 s between install and `prepare` on a runner (C7 uses the local ratio).
 - What share of cancelled runs `pr:park` would prevent (C3).
 - Whether GitHub's queue ever builds one run for several entries; the data shows at least one run per entry.
-- Which of the month's 1,602 failed jobs were flakes and which were real catches.
+- Which of the month's 914 failed jobs were flakes and which were real catches.
 - Whether Code Quality's findings are read (C1b).
 - Whether the Team plan's 60-job limit is in effect yet; the command center owns that.
