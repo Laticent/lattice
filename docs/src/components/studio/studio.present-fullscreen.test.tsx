@@ -51,9 +51,21 @@ describe('Present — full screen', () => {
 	// control. iPhone Safari has shipped no Fullscreen API for arbitrary elements for
 	// the whole life of the API, and a grayed-out button there sends the reader hunting
 	// for a setting that does not exist.
-	it('shows no button at all where the browser has no Fullscreen API', () => {
+	// IMMERSIVE is the fallback where the browser cannot hand over the screen (iPhone Safari): the slide takes the whole
+	// viewport and Present's own chrome fades until a tap. So the control is offered everywhere and is never dead.
+	const immersive = () => !!document.querySelector('[data-present-immersive]');
+
+	it('offers immersive where the browser has no Fullscreen API, and toggles it', async () => {
+		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
-		expect(screen.queryByRole('button', { name: /fullscreen/i })).toBeNull();
+		const btn = screen.getByRole('button', { name: 'Fullscreen' });
+		expect(btn).toHaveAttribute('aria-pressed', 'false');
+		expect(immersive()).toBe(false);
+		await user.click(btn);
+		expect(screen.getByRole('button', { name: 'Fullscreen' })).toHaveAttribute('aria-pressed', 'true');
+		expect(immersive()).toBe(true);
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
+		expect(immersive()).toBe(false);
 	});
 
 	it('offers the button where the browser allows fullscreen, and requests it on the ROOT element', async () => {
@@ -82,11 +94,15 @@ describe('Present — full screen', () => {
 		expect(await screen.findByRole('button', { name: 'Fullscreen' })).toHaveAttribute('aria-pressed', 'true');
 	});
 
-	it('toggles on `f`, and stays silent on a browser that cannot', async () => {
+	it('toggles immersive on `f` where there is no API, and Escape leaves it without closing Present', async () => {
+		const onClose = vi.fn();
 		const user = userEvent.setup();
-		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
-		await user.keyboard('f'); // no API installed — must not throw, must do nothing
-		expect(screen.queryByRole('button', { name: /fullscreen/i })).toBeNull();
+		render(<PresentOverlay open onClose={onClose} options={options} slides={slides} />);
+		await user.keyboard('f');
+		expect(immersive()).toBe(true);
+		await user.keyboard('{Escape}');
+		expect(immersive()).toBe(false);
+		expect(onClose).not.toHaveBeenCalled();
 	});
 
 	it('toggles on `f` where it is available', async () => {
@@ -145,8 +161,35 @@ describe('Present — full screen', () => {
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
 		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
 		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1), { timeout: 4000 });
-		expect(notify.mock.calls[0][0]).toContain('will not hand over the screen');
-		await waitFor(() => expect(screen.queryByRole('button', { name: /fullscreen/i })).toBeNull());
+		expect(notify.mock.calls[0][0]).toContain('can’t go full screen');
+		// It fell back to immersive, and the control now toggles immersive alone: a second press leaves it, and a third
+		// enters it again without asking the browser that already said no.
+		await waitFor(() => expect(immersive()).toBe(true));
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
+		expect(immersive()).toBe(false);
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
+		expect(immersive()).toBe(true);
+		expect(Element.prototype.requestFullscreen).toHaveBeenCalledTimes(1);
+	}, 10_000);
+
+	it('treats a request that THROWS as structural (iPhone Safari) and falls back to immersive', async () => {
+		withFullscreenApi();
+		const thrower = vi.fn(() => {
+			throw new TypeError("null is not an object (evaluating 'e.webkitEnterFullscreen')");
+		});
+		Object.defineProperty(Element.prototype, 'requestFullscreen', { value: thrower, configurable: true, writable: true });
+		const notify = vi.mocked(notifyModule);
+		notify.mockClear();
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
+		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1));
+		expect(notify.mock.calls[0][0]).toContain('can’t go full screen');
+		expect(notify.mock.calls[0][0]).not.toContain('webkitEnterFullscreen');
+		expect(immersive()).toBe(true);
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
+		expect(thrower).toHaveBeenCalledTimes(1);
 	}, 10_000);
 
 	// A spoken rejection may be transient (an untrusted gesture), so it is reported but the
@@ -165,7 +208,12 @@ describe('Present — full screen', () => {
 		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
 		await waitFor(() => expect(notify).toHaveBeenCalledTimes(1), { timeout: 4000 });
 		expect(notify.mock.calls[0][0]).toContain('not user-initiated');
-		expect(screen.getByRole('button', { name: 'Fullscreen' })).toHaveAttribute('aria-pressed', 'false');
+		// A refusal that may be transient falls back to immersive for now, but keeps real fullscreen for the next try.
+		await waitFor(() => expect(immersive()).toBe(true));
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
+		expect(immersive()).toBe(false);
+		await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
+		expect(Element.prototype.requestFullscreen).toHaveBeenCalledTimes(2);
 	}, 10_000);
 
 	// Closing Present must give the window back. Otherwise the EDITOR is left

@@ -170,8 +170,11 @@ export async function toggleFullscreen(doc: Document | undefined = globalThis.do
 			(call as Promise<void>).catch((err) => { rejection = reasonOf(err); signalRejected(); });
 		}
 	} catch (err) {
-		rejection = reasonOf(err);
-		signalRejected();
+		// A SYNCHRONOUS THROW is the engine failing inside its own API, not a policy saying no — every engine reports a
+		// refusal by rejecting the promise. iPhone Safari is the real case: it reports `fullscreenEnabled` and then throws
+		// "null is not an object (evaluating 'e.webkitEnterFullscreen')" on every request. It will throw the same way
+		// next time, so it is structural.
+		return { ok: false, reason: reasonOf(err), fatal: true };
 	}
 	// Whichever comes first: the screen actually changing, or the browser saying no.
 	// Without the race, a spoken rejection would still sit out the full settle window

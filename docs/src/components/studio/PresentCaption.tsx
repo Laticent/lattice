@@ -23,11 +23,32 @@ import type { Active, CaptionTrack } from '@/lib/cadenza';
 // out of `present/stage-chrome.js` rather than a utility: the sheet is injected into both
 // documents, so there is one implementation instead of a utility version and a hand-written
 // twin that drift.
-export function PresentCaption({ track, active, className, announce = true }: { track: CaptionTrack; active: Active | null; className?: string; announce?: boolean }) {
+/** How many already-read sentences a carried crawl keeps above the current slide's lines. */
+const CARRY_LINES = 12;
+
+export function PresentCaption({ track, active, className, announce = true, carry = false }: { track: CaptionTrack; active: Active | null; className?: string; announce?: boolean; /** Keep the crawl going ACROSS slides (see below). */ carry?: boolean }) {
 	const winRef = React.useRef<HTMLDivElement>(null);
 	const trackRef = React.useRef<HTMLDivElement>(null);
 	// Latch the last non-null cursor so a punctuation/sentence GAP (active===null) holds position.
 	const heldRef = React.useRef({ cueIndex: 0, wordIndex: 0 });
+	// THE CARRIED CRAWL (owner, 2026-11-20: "the Star Wars opening text"). Without it every slide replaced the lines and
+	// the crawl jumped back to the top at each slide. With `carry`, the sentences of the track just left stay ABOVE as read
+	// lines, in the same order and so at the same offsets they had, and the new slide's lines join below: the transform
+	// that centered the last line still points at it, and the re-center below glides on up to the new first line through
+	// the track's own transition. Bounded to the last CARRY_LINES sentences. A new track also restarts the cursor, so a
+	// latched cue index from the slide just left never points into the new one.
+	const [past, setPast] = React.useState<{ id: number; text: string }[]>([]);
+	const lastTrackRef = React.useRef(track);
+	const nextIdRef = React.useRef(0);
+	if (lastTrackRef.current !== track) {
+		const left = lastTrackRef.current;
+		lastTrackRef.current = track;
+		heldRef.current = { cueIndex: 0, wordIndex: 0 };
+		if (carry && left.cues.length) {
+			const add = left.cues.map((c) => ({ id: nextIdRef.current++, text: c.words.map((w) => w.display).join(' ') }));
+			setPast((p) => [...p, ...add].slice(-CARRY_LINES));
+		}
+	}
 	if (active) heldRef.current = { cueIndex: active.cueIndex, wordIndex: active.wordIndex };
 	const cueCount = track.cues.length;
 	const activeCue = cueCount ? Math.min(cueCount - 1, Math.max(0, heldRef.current.cueIndex)) : 0;
@@ -47,7 +68,7 @@ export function PresentCaption({ track, active, className, announce = true }: { 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: re-center on cursor/track change (recenter closes over activeCue/activeWord); useLayoutEffect so there's no flash.
 	React.useLayoutEffect(() => {
 		recenter();
-	}, [recenter, track]);
+	}, [recenter, track, past.length]);
 	// The RESIZE that matters is the HOST window's, and when this is portalled into the Stage
 	// that is not the window this module's `window` refers to. `ownerDocument.defaultView` is
 	// the one the band is actually laid out in — bound after mount, so it is right in both hosts.
@@ -76,6 +97,12 @@ export function PresentCaption({ track, active, className, announce = true }: { 
 			) : null}
 			<div ref={winRef} aria-hidden="true" className="latt-cc-win">
 				<div ref={trackRef} className="latt-cc-track">
+					{carry &&
+						past.map((p) => (
+							<div key={`past-${p.id}`} data-state="read" data-past="" className="latt-cc-line">
+								{p.text}
+							</div>
+						))}
 					{track.cues.map((cue, ci) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: a static caption track never reorders; the cue index is its stable identity
 						<div key={ci} data-cue={ci} data-state={ci < activeCue ? 'read' : ci > activeCue ? 'up' : 'now'} className="latt-cc-line">
