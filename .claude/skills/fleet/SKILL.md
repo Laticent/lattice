@@ -63,7 +63,8 @@ summary.
    that digest listed (`/desk-merge` step 5). `.claude/hooks/owner-merge-gate.mjs`
    enforces it mechanically: it reads only the owner's typed turn, accepts only those
    exact forms (or "merge #N"), and only right after your digest. If you say anything
-   else in between, post the digest again before the owner answers. For each: re-read the head; squash-merge only if it still
+   else in between, post the digest again before the owner answers. For each: re-read the head; squash-merge with `merge_pull_request`
+   (never Bash: the gate cannot see a Bash merge) only if it still
    matches, otherwise skip it and ask again. Report each merge or skip in one line.
    After each merge, `send_message` that PR's own session: "#N merged at <sha>". It
    posts its 📋 standup and 🎯 brief as after any merge (CLAUDE.md's post-merge row).

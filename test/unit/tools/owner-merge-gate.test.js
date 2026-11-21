@@ -1,15 +1,14 @@
 /**
- * Unit: the PreToolUse merge gate (.claude/hooks/owner-merge-gate.mjs) and its Bash
- * prefilter (.claude/hooks/owner-merge-gate-bash.sh).
+ * Unit: the PreToolUse merge gate on the GitHub merge tools
+ * (.claude/hooks/owner-merge-gate.mjs).
  *
  * The gate allows a merge only when the owner's own typed turn (`origin.kind:
  * "human"`, written by the harness) is exactly "merge #N", or exactly "all" /
  * "all but #N" right after a merge digest that listed the PR. These cases pin each
  * way a merge could be wrongly authorized: a relayed session message, a subagent
  * report, a desk brief, a refusal or hedge that mentions the PR, an "all" with no
- * digest, and an unreadable transcript. The Bash cases pin both directions: every
- * real merge route is caught, and text that only MENTIONS a route (a heredoc, a
- * grep) is not, because the first version of this gate blocked its own test file.
+ * digest, a digest marker that is not the heading, and an unreadable transcript.
+ * It does not read Bash, by design: see the hook's header.
  */
 const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
@@ -20,12 +19,10 @@ const { spawnSync } = require('node:child_process');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const HOOK = path.join(REPO, '.claude', 'hooks', 'owner-merge-gate.mjs');
-const PRE = path.join(REPO, '.claude', 'hooks', 'owner-merge-gate-bash.sh');
 
 let decide;
-let bashMergeRoute;
 before(async () => {
-  ({ decide, bashMergeRoute } = await import(HOOK));
+  ({ decide } = await import(HOOK));
 });
 
 const human = (text) => ({ type: 'user', origin: { kind: 'human' }, message: { content: text } });
@@ -33,10 +30,6 @@ const peer = (text) => ({ type: 'user', origin: { kind: 'peer' }, message: { con
 const notice = (text) => ({ type: 'user', origin: { kind: 'task-notification' }, message: { content: text } });
 const assistant = (text) => ({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
 const toolResult = (text) => ({ type: 'user', message: { content: [{ type: 'tool_result', content: text }] } });
-
-// Route strings are assembled, so this file never holds a literal merge command.
-const PULLS = 'pulls';
-const route = (n, tail) => `repos/Laticent/lattice/${PULLS}/${n}/${tail}`;
 
 describe('owner-merge-gate decide()', () => {
   const DIGEST = assistant('🚦 Merge digest\n#3359 — head 43591f0 — green — HIGH\n#3360 — head abc — green — HIGH');
@@ -74,6 +67,14 @@ describe('owner-merge-gate decide()', () => {
       assert.equal(decide([DIGEST, human(said)], 3359).allow, false, said);
     }
     assert.equal(decide([assistant('PR #3359 is ready'), human('all')], 3359).allow, false, 'a status line is not a digest');
+    // The marker must be the heading, and the PR a digest row (the card grader's probes).
+    const mention = assistant('Format note: a 🚦 Merge digest lists PRs; #3359 is NOT ready, holding.');
+    assert.equal(decide([mention, human('all')], 3359).allow, false, 'marker not on the first line');
+    const late = assistant('Here it is:\n🚦 Merge digest\n#3359 — head abc — green — HIGH');
+    assert.equal(decide([late, human('all')], 3359).allow, false, 'a real digest row, but the marker is not the heading');
+    const held = assistant('🚦 Merge digest\n#3360 — head abc — green — HIGH\n#3359 HOLD — red, not asking');
+    assert.equal(decide([held, human('all')], 3359).allow, false, 'not a digest row');
+    assert.equal(decide([held, human('all')], 3360).allow, true);
   });
 
   test('a relayed message, a subagent report or a tool result never authorizes', () => {
@@ -91,28 +92,6 @@ describe('owner-merge-gate decide()', () => {
     assert.equal(decide([human('merge #3360')], 3359).allow, false);
     assert.equal(decide([human('merge #33590')], 3359).allow, false);
     assert.equal(decide([human('merge #3359')], Number.NaN).allow, false);
-  });
-});
-
-describe('owner-merge-gate bashMergeRoute()', () => {
-  test('finds the PR on every Bash merge route', () => {
-    assert.deepEqual(bashMergeRoute(`gh api -X PUT ${route(3359, 'merge')}`), { pr: 3359 });
-    assert.deepEqual(bashMergeRoute(`curl -X PUT "$API/${route(3359, 'ccr/auto_merge')}"`), { pr: 3359 });
-    assert.deepEqual(bashMergeRoute('gh pr merge 3359 --squash'), { pr: 3359 });
-    assert.deepEqual(bashMergeRoute('cd x && gh pr merge --squash 3359'), { pr: 3359 });
-  });
-
-  test('a merge with no readable PR is denied', () => {
-    assert.ok(Number.isNaN(bashMergeRoute('gh api graphql -f query="mutation{mergePullRequest(x)}"').pr));
-    assert.ok(Number.isNaN(bashMergeRoute('gh pr merge').pr));
-  });
-
-  test('text that only MENTIONS a merge route is not a merge', () => {
-    assert.equal(bashMergeRoute('git merge --no-edit FETCH_HEAD'), null);
-    assert.equal(bashMergeRoute(`grep -rn "${PULLS}/3359/merge" docs`), null);
-    const heredoc = `cat > t.js <<'EOF'\ngh api -X PUT ${route(3359, 'merge')}\ngh pr merge 3359\nEOF\nnode --test t.js`;
-    assert.equal(bashMergeRoute(heredoc), null);
-    assert.equal(bashMergeRoute(`python3 - <<EOF\nprint("gh pr merge 3359")\nEOF`), null);
   });
 });
 
@@ -151,26 +130,14 @@ describe('owner-merge-gate as the harness runs it', () => {
     assert.equal(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision, 'deny');
   });
 
-  test('the Bash prefilter passes ordinary and merely-mentioning commands, and denies an unauthorized merge', () => {
-    withTranscript([human('looks good to me')], (t) => {
-      const call = (command) =>
-        spawnSync('bash', [PRE], {
-          input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, transcript_path: t }),
-          encoding: 'utf8',
-        });
-      assert.equal(call('ls -la').stdout, '');
-      assert.equal(call(`cat > f <<'EOF'\ngh api -X PUT ${route(3359, 'merge')}\nEOF`).stdout, '');
-      const denied = JSON.parse(call(`gh api -X PUT ${route(3359, 'merge')}`).stdout);
-      assert.equal(denied.hookSpecificOutput.permissionDecision, 'deny');
-    });
-  });
-
-  test('wired in .claude/settings.json: the gate on the two merge tools, the prefilter on Bash', () => {
+  test('wired in .claude/settings.json on exactly the two merge tools, and on no Bash call', () => {
     const settings = JSON.parse(fs.readFileSync(path.join(REPO, '.claude', 'settings.json'), 'utf8'));
     const gate = settings.hooks.PreToolUse.filter((e) => e.hooks.some((h) => h.command.includes('owner-merge-gate.mjs')));
     assert.equal(gate.length, 1);
     assert.equal(gate[0].matcher, 'mcp__github__merge_pull_request|mcp__github__enable_pr_auto_merge');
-    const bash = settings.hooks.PreToolUse.find((e) => e.matcher === 'Bash');
-    assert.ok(bash.hooks.some((h) => h.command.endsWith('owner-merge-gate-bash.sh')));
+    // It reads no Bash: a shell merge cannot be parsed deterministically, and the
+    // version that tried blocked ordinary commands (workflow.md §Merging).
+    const all = JSON.stringify(settings.hooks);
+    assert.equal(all.includes('owner-merge-gate-bash'), false);
   });
 });

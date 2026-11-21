@@ -1285,22 +1285,25 @@ The contract, and its limits — be precise about what it does and doesn't cover
   § Automation vs. the main ruleset.
 - **A machine checks the authorization, not the model.** A `PreToolUse` hook,
   `.claude/hooks/owner-merge-gate.mjs`, runs before every `merge_pull_request` and
-  `enable_pr_auto_merge` call, and before every Bash command that would run a merge
-  (a `gh api` or `curl` call to a pull's merge or auto-merge route, `gh pr merge`, or
-  a GraphQL merge mutation), found by `owner-merge-gate-bash.sh`, which ignores
-  heredoc text and costs about 4 ms on any other command. The gate reads the
+  `enable_pr_auto_merge` call. **Sessions merge only through those two tools.** The
+  gate does not read Bash, and a Bash merge (`gh api`, `curl`, `gh pr merge`, a
+  script) is a breach of rule 7 that no machine catches: a shell spells a merge too
+  many ways to parse deterministically, and the version that tried both missed real
+  merges (a `$N`, a line continuation, `sudo`) and blocked ordinary commands. The gate reads the
   transcript's `origin.kind`, which the harness writes: only the owner's own turns
   are `human`; relayed session messages, desk briefs, subagent reports and hook
   feedback never are. It allows the merge only when the owner's latest typed turn is,
   **as the whole message**:
   - `merge #N` (or `merge #N, #M`), or
-  - `all` / `all but #N`, answering a message headed `🚦 Merge digest` that lists the PR.
+  - `all` / `all but #N`, answering the newest assistant message, whose first line
+    is exactly `🚦 Merge digest` and which lists the PR as a row `#N — head <sha> …`.
 
   Anything else is denied with the reason: "do not merge #N", "hold all", "yes" or
   "lgtm" do not parse, so a refusal or a hedge can never read as an approval. An
   unreadable transcript denies too. Unlike the repo's warn-only hooks, it blocks: it
-  fires only on a merge, and a warning does not stop one. The owner can always merge
-  from GitHub itself.
+  fires only on a merge tool, and a warning does not stop one. It does not check the
+  PR's head commit; the command center does that before it merges (§Merging, the
+  digest bullet). The owner can always merge from GitHub itself.
 - **An approval covers the head it was given on** (owner's decision,
   2026-11-20). If the PR gets a new head afterwards that is more than a clean
   rebase (`git range-diff` of old and new is not empty), for example a fix pushed
