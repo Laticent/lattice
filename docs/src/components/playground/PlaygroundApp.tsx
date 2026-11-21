@@ -1668,7 +1668,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// pick (playground-state.spec.ts:52, red under load on a phone). The pointer changes only on a pick, so the pick
 			// is the moment to write it; a plan that lands after a newer pick still returns before it writes anything. A
 			// plan that fails to load puts the previous pointer back, so the picker never names a component nobody is reading.
-			const revertTo = pointerRef.current;
+			// Put back what is ON SCREEN, not the last pointer written: a pick superseded before its plan landed already
+			// moved the pointer to a component nobody saw, and a failed pick after it must not restore that one.
+			const shown = walkRef.current;
+			const revertTo = shown?.kind === 'plan' ? shown.plan.name : pointerRef.current;
 			rememberComponent(name);
 			void startWalkRef.current(name, null, { revertTo });
 		},
@@ -2449,6 +2452,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (url.c) {
 			const r = resolveComponent(catalog, url.c);
 			target = r.name;
+			pointerRef.current = r.name;
 			setReaderComponent(r.name);
 			if (r.fallback) setWalkNotice(`“${url.c}” is not a component any more — showing ${r.name}.`);
 		}

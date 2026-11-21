@@ -130,6 +130,43 @@ test('@crosswidth a pick whose plan fails to load puts the previous component ba
 	await expect(page.locator('#pg-template-trigger')).toHaveText(label);
 });
 
+// A pick superseded before its plan landed was never on screen, so a failed pick after it puts back the component that
+// IS on screen, not the superseded one. The revert used to read the last pointer written, which the superseded pick had
+// already moved (checker finding on the port of PR #3278).
+test('@crosswidth a failed pick after a superseded one puts back the component on screen', async ({ page }) => {
+	await gotoPlayground(page);
+	const landed = page.waitForResponse((r) => /\/plans\/big-number\.json/.test(r.url()) && r.ok());
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('big-number');
+	await page.getByRole('option', { name: 'big-number', exact: true }).click();
+	await landed;
+	await expect(page).toHaveURL(/[?&]c=big-number(&|$)/);
+	const label = (await page.locator('#pg-template-trigger').textContent())?.trim() ?? '';
+	// kpi's plan is held open: that pick is superseded before it lands, so it is never on screen.
+	let release = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	await page.route(/\/plans\/kpi\.json/, async (route) => {
+		await held;
+		await route.continue().catch(() => {});
+	});
+	const asked = page.waitForRequest(/\/plans\/kpi\.json/);
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('kpi');
+	await page.getByRole('option', { name: 'kpi', exact: true }).click();
+	await asked;
+	await page.route(/\/plans\/quote\.json/, (route) => route.fulfill({ status: 404, body: 'gone' }));
+	const failed = page.waitForResponse((r) => /\/plans\/quote\.json/.test(r.url()) && r.status() === 404);
+	await page.locator('#pg-template-trigger').click();
+	await page.getByPlaceholder(/Search components/).fill('quote');
+	await page.getByRole('option', { name: 'quote', exact: true }).click();
+	await failed;
+	await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), COMPONENT_KEY)).toBe('big-number');
+	await expect(page.locator('#pg-template-trigger')).toHaveText(label);
+	release();
+});
+
 test('@crosswidth the picker detaches honestly when the draft holds no recognized component', async ({ page }) => {
 	await gotoPlayground(page);
 	await page.locator('#pg-template-trigger').click();

@@ -149,10 +149,10 @@ describe('PanelSheet — a tap on the scrim', () => {
 		}
 	});
 
-	it('stays open when the finger moved (a drag or a scroll) or the browser cancelled it', () => {
+	it('stays open when the finger moved (a drag or a scroll) or the browser canceled it', () => {
 		vi.useFakeTimers();
 		try {
-			for (const how of ['moved', 'cancelled'] as const) {
+			for (const how of ['moved', 'canceled'] as const) {
 				const onOpenChange = vi.fn();
 				const { unmount } = render(
 					<Sheet open onOpenChange={onOpenChange}>

@@ -72,7 +72,8 @@ fixed     — 2026-11-21, branch claude/orphan-flake-ports (ported from orphaned
               on each scroll event. click() checked the option held still, scrolled it into view, then pressed where it
               had measured, so the growth moved the list under the press (trace: press at y 55, Auto at y 31 after).
               The test now scrolls first, so click()'s frame-based stability check waits for the growth. main: 1 of 30
-              red at four workers over three projects. Arm (300 ms press): old 6 of 10 red, new 10 of 10.
+              red at four workers over three projects. Arm (300 ms press, the two projects its tag reaches x5): old 6 of 10
+              red, new 10 of 10.
             - back-gesture.spec.ts:183 (now :172, webkit-phone): a product defect. Radix arms a sheet's outside-tap
               listener a moment after mount, and a lazy panel's real sheet replaces its loading sheet in place, so a
               scrim tap in that gap did nothing. components/ui/sheet.tsx reads the tap from the pointer. main: 3 of

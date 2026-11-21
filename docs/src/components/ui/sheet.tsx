@@ -188,7 +188,7 @@ function SheetContent({
   // at all (the iOS Simulator logged pointerdown, touchstart, pointerup, touchend and nothing after, on every lost tap), and
   // a phone's deck tap on a just-loaded Library did nothing (e2e/back-gesture.spec.ts:172; the iOS deck-tap probe).
   // So the tap is the pointer's own sequence. A scrim's pointers are tracked OUTSIDE any one sheet (`scrimPointers`), so a
-  // pointerup on the scrim that replaced it completes the tap; a moved, held, cancelled or second finger is not a tap.
+  // pointerup on the scrim that replaced it completes the tap; a moved, held, canceled or second finger is not a tap.
   // The tap is put through the SAME decision Radix would have made: the caller's `onPointerDownOutside` and
   // `onInteractOutside` see an outside event, and the sheet closes through Radix's own Close only if neither prevented it.
   // When Radix reports the tap first (a mouse, once it listens), it decides and the record is dropped; when it reports the
