@@ -15,8 +15,11 @@ const SLIDE = [
 	'',
 	'See [the Oct. Tenth recap](https://example.com/oct.-tenth).',
 	'',
-	'<!-- say: On October tenth, we sold out by noon. Oct. Tenth was the day. -->',
-	'<!-- The note for Oct. Tenth: thank the store lead. -->',
+	'<!-- @say{On October tenth, we sold out by noon. Oct. Tenth was the day.} -->',
+	'<!-- @note{The note for Oct. Tenth: thank the store lead.} -->',
+	'<!-- @alt{A queue outside the store on Oct. Tenth.} -->',
+	'<!-- @handout{Oct. Tenth was a Saturday.} -->',
+	'<!-- TODO: Oct. Tenth photo credit -->',
 	'',
 	'```text',
 	'Oct. Tenth in a code sample',
@@ -26,7 +29,7 @@ const SLIDE = [
 describe('slideSegments / findInSlide', () => {
 	it('labels each match by the field a reader would name', () => {
 		const fields = findInSlide(SLIDE, 'Oct. Tenth').map((m) => m.field);
-		expect(fields).toEqual(['eyebrow', 'heading', 'quote', 'quote', 'alt text', 'body', 'spoken line', 'note', 'code']);
+		expect(fields).toEqual(['eyebrow', 'heading', 'quote', 'quote', 'alt text', 'body', 'spoken line', 'speaker notes', 'slide alt text', 'handout', 'comment', 'code']);
 	});
 
 	it('never searches a link or image target, or a directive', () => {
@@ -36,13 +39,13 @@ describe('slideSegments / findInSlide', () => {
 	});
 
 	it('marks code and records as found but not replaceable', () => {
-		const rec = '## A\n\n<!-- {say="Oct. Tenth was busy"} -->';
+		const rec = '## A\n\n<!-- {footer="Oct. Tenth was busy"} -->';
 		expect(findInSlide(rec, 'Oct. Tenth')).toEqual([expect.objectContaining({ field: 'record', replaceable: false })]);
 		expect(findInSlide(SLIDE, 'code sample')).toEqual([expect.objectContaining({ field: 'code', replaceable: false })]);
 	});
 
 	it('honors case and whole-word options', () => {
-		expect(findInSlide(SLIDE, 'OCT. TENTH').length).toBe(9);
+		expect(findInSlide(SLIDE, 'OCT. TENTH').length).toBe(12);
 		expect(findInSlide(SLIDE, 'OCT. TENTH', { caseSensitive: true }).map((m) => m.field)).toEqual(['eyebrow']);
 		expect(findInSlide('## Tent and Tenth', 'Tent', { wholeWord: true }).length).toBe(1);
 		expect(findInSlide('## Tent and Tenth', 'Tent').length).toBe(2);
@@ -62,10 +65,10 @@ describe('slideSegments / findInSlide', () => {
 describe('replaceInSlide', () => {
 	it('replaces every replaceable match and leaves targets, directives and code byte-for-byte', () => {
 		const r = replaceInSlide(SLIDE, 'Oct. Tenth', 'October Tenth');
-		expect(r.replaced.length).toBe(8);
+		expect(r.replaced.length).toBe(11);
 		expect(r.skipped.map((m) => m.field)).toEqual(['code']);
 		expect(r.text).toContain('## What happened October Tenth');
-		expect(r.text).toContain('<!-- say: On October tenth, we sold out by noon. October Tenth was the day. -->');
+		expect(r.text).toContain('<!-- @say{On October tenth, we sold out by noon. October Tenth was the day.} -->');
 		expect(r.text).toContain('![The October Tenth queue](photos/oct.-tenth.jpg)');
 		expect(r.text).toContain('(https://example.com/oct.-tenth)');
 		expect(r.text).toContain('<!-- _class: quote -->');
@@ -94,12 +97,14 @@ describe('replaceInSlide refuses what changes structure (the checker on #3208)',
 	};
 
 	it('never closes a comment early', () => {
-		expect(unchanged('## A\n\n<!-- note: a>b -->', 'a', 'x--').blocked).toBeTruthy();
+		expect(unchanged('## A\n\n<!-- @note{a>b} -->', 'a', 'x--').blocked).toBeTruthy();
 		expect(unchanged('## A\n\n<!-- see --b -->', 'b', '>').blocked).toBeTruthy();
 	});
 
-	it('never turns a note into a directive, a hide, a spoken line or a pane marker', () => {
-		for (const rep of ['_class: lead', 'hide', 'say: hi']) expect(unchanged('## A\n\n<!-- Oct -->', 'Oct', rep).blocked).toBeTruthy();
+	it('never turns a comment into a directive, a hide, a note or a pane marker, nor a note into a comment', () => {
+		for (const rep of ['_class: lead', 'hide', '@say{hi}']) expect(unchanged('## A\n\n<!-- Oct -->', 'Oct', rep).blocked).toBeTruthy();
+		// A brace that does not balance would end the note's body early, and the slide would lose the note.
+		for (const rep of ['}', '{']) expect(unchanged('## A\n\n<!-- @say{Oct} -->', 'Oct', rep).blocked).toBeTruthy();
 		expect(unchanged('## A\n\n<!-- pane: check the numbers -->', ' the numbers', '').blocked).toBeTruthy();
 	});
 
@@ -151,7 +156,7 @@ describe('slideSegments protects every kind of code and target (the checker on #
 	});
 
 	it('labels a match by its whole line, past a mid-line comment', () => {
-		expect(fieldsOf('## H <!-- note: x --> Oct', 'Oct')).toEqual([['heading', true]]);
+		expect(fieldsOf('## H <!-- @note{x} --> Oct', 'Oct')).toEqual([['heading', true]]);
 	});
 
 	it('treats a combining accent as part of its word', () => {
@@ -194,9 +199,9 @@ describe('replace works like a word processor: words change, formatting stays (#
 	});
 	it('writes code spans, spoken lines and notes as typed, and refuses only what they cannot hold', () => {
 		expect(r('`OCT LAUNCH`\n\n## A', 'OCT', '$5').text).toBe('`$5 LAUNCH`\n\n## A');
-		expect(r('## A\n\n<!-- say: five days -->', 'five', '$5').text).toBe('## A\n\n<!-- say: $5 days -->');
+		expect(r('## A\n\n<!-- @say{five days} -->', 'five', '$5').text).toBe('## A\n\n<!-- @say{$5 days} -->');
 		expect(r('`OCT`\n\n## A', 'OCT', 'a`b').blocked).toContain('backtick');
-		expect(r('## A\n\n<!-- note: five -->', 'five', 'a--b').blocked).toContain('`--`');
+		expect(r('## A\n\n<!-- @note{five} -->', 'five', 'a--b').blocked).toContain('`--`');
 	});
 });
 

@@ -3,30 +3,6 @@
   "files": {
     "docs/e2e/present-emphasis.spec.ts": {
       "clock-resume": 1
-    },
-    "docs/e2e/present-guide-handles.spec.ts": {
-      "clock-resume": 1
-    },
-    "docs/e2e/present-guide.spec.ts": {
-      "clock-resume": 1
-    },
-    "docs/e2e/segno-playground.spec.ts": {
-      "clock-resume": 1
-    },
-    "docs/e2e/vetrina-cursor-caption.spec.ts": {
-      "clock-resume": 1
-    },
-    "test/integration/mermaid/mermaid-unavailable.test.js": {
-      "fixed-sleep": 1
-    },
-    "test/unit/components/code-line-width.test.js": {
-      "env-skip": 2
-    },
-    "test/unit/tools/structure.test.js": {
-      "tree-write": 3
-    },
-    "test/unit/trama/serialization.test.js": {
-      "env-skip": 1
     }
   }
 }

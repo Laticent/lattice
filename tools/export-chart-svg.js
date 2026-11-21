@@ -66,12 +66,9 @@ function parseArgs(argv) {
   return a;
 }
 
-/** Front-matter `theme:` of a deck, or null. */
+/** The deck's palette, or null — the shared reader, so a preset's recommended `theme:` exports too. */
 function frontmatterTheme(src) {
-  const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!m) return null;
-  const t = [...m[1].matchAll(/^theme[ \t]*:[ \t]*(\S+)/gm)].pop(); // the last repeat wins (#3050, D1)
-  return t ? t[1] : null;
+  return require('../lib/core/resolve-palette').readFrontMatterTheme(src);
 }
 
 async function main() {

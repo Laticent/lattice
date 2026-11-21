@@ -6,7 +6,7 @@ theme: indaco
 
 This deck exists to prove `--strip-notes` removes the note from every format.
 
-<!-- PRIVATELEAKTOKEN alpha: the author's private remark, slide one. -->
+<!-- @note{PRIVATELEAKTOKEN alpha: the author's private remark, slide one.} -->
 
 ---
 
@@ -15,7 +15,7 @@ This deck exists to prove `--strip-notes` removes the note from every format.
 - A point
 - Another point
 
-<!-- PRIVATELEAKTOKEN bravo: the author's private remark, slide two. -->
+<!-- @note{PRIVATELEAKTOKEN bravo: the author's private remark, slide two.} -->
 
 ---
 
@@ -23,4 +23,4 @@ This deck exists to prove `--strip-notes` removes the note from every format.
 
 Closing.
 
-<!-- PRIVATELEAKTOKEN charlie: the author's private remark, slide three. -->
+<!-- @note{PRIVATELEAKTOKEN charlie: the author's private remark, slide three.} -->

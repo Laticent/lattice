@@ -6,11 +6,11 @@ paginate: true
 header: "Lattice · cycle connector"
 ---
 
-<!-- Demo for the cycle connector fix. The stage-to-stage chevron is now a real
+<!-- @note{Demo for the cycle connector fix. The stage-to-stage chevron is now a real
      inline SVG element that owns a slot in the row, instead of a `::after` pseudo
      placed into a fixed gap. `venue: hall` scales type 1.5x, which is the setting
      where the old mark outgrew its gap and painted over the next card. Each slide
-     here must show the chevron clear of both cards, with the return arc beneath. -->
+     here must show the chevron clear of both cards, with the return arc beneath.} -->
 
 <!-- _class: cycle -->
 

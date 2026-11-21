@@ -10,7 +10,7 @@ test.describe.configure({ timeout: 180_000 });
 const SENTINEL = 'NOTE-SENTINEL-1833';
 const DECK = [
 	'# Atlas expansion plan\n\nThree markets, one playbook.',
-	`## Why now\n\n- Demand is already there.\n\n<!-- ${SENTINEL} keep the layoffs out of this -->`,
+	`## Why now\n\n- Demand is already there.\n\n<!-- @note{${SENTINEL} keep the layoffs out of this} -->`,
 ].join('\n\n---\n\n');
 
 test.beforeEach(async ({ page }) => {

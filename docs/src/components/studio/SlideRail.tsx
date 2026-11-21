@@ -21,6 +21,7 @@ import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText, unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { cn } from '@/lib/utils';
+import { wheelSideways } from '@/lib/wheel-sideways';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { slideClass, slideClasses, slideTitle } from '../../lib/deck-lint';
 import { type LiveColor, liveColor } from './live/live-model';
@@ -128,10 +129,14 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 	// yet, the first time it gets one. Never again on a resize, which would fight a reader who
 	// has scrolled the rail by hand.
 	const observerRef = React.useRef<ResizeObserver | null>(null);
+	const wheelOffRef = React.useRef<(() => void) | null>(null);
 	const navCallback = React.useCallback(
 		(nav: HTMLElement | null) => {
 			observerRef.current?.disconnect();
 			observerRef.current = null;
+			// A mouse wheel over the pills scrolls them sideways (lib/wheel-sideways.ts).
+			wheelOffRef.current?.();
+			wheelOffRef.current = nav ? wheelSideways(nav) : null;
 			navRef.current = nav;
 			center(nav, false);
 			if (nav && !nav.clientWidth && typeof ResizeObserver !== 'undefined') {

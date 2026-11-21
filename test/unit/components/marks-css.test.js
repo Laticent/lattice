@@ -130,8 +130,8 @@ describe('marks.generated.css', () => {
     const rules = [...css.matchAll(/risk-cell\[data-band="critical"\][^{]*\{([^}]*)\}/g)].map((m) => m[1]).filter((b) => /fill:/.test(b));
     assert.ok(rules.length >= 1, 'a critical band fill');
     for (const body of rules) {
-      if (!/--fail-vivid-mark\) 82%/.test(body)) continue;
-      assert.match(body, /light-dark\(color-mix\(in oklab, var\(--fail-vivid-mark\) 82%, var\(--status-shade-mark\)\), color-mix\(in oklab, var\(--fail-vivid-mark\) var\(--risk-critical-keep, 82%\), var\(--bg\)\)\)/);
+      if (!/--risk-critical-shade-keep, 82%\)/.test(body)) continue;
+      assert.match(body, /light-dark\(color-mix\(in oklab, var\(--fail-vivid-mark\) var\(--risk-critical-shade-keep, 82%\), var\(--status-shade-mark\)\), color-mix\(in oklab, var\(--fail-vivid-mark\) var\(--risk-critical-keep, 82%\), var\(--bg\)\)\)/);
     }
   });
 
@@ -163,6 +163,25 @@ describe('marks.generated.css', () => {
       const next = Math.min(Y.low, Y.medium, Y.high);
       const step = (next + 0.05) / (Y.critical + 0.05);
       assert.ok(step >= 1.5, `${theme} dark: critical (${critical}, ${Y.critical.toFixed(3)}) sits ${step.toFixed(2)}:1 below the darkest other band (${next.toFixed(3)}); it must be the darkest band by at least 1.5:1`);
+    }
+  });
+
+  // A monochromacy reads severity by lightness alone, so on a11y-achromatopsia's LIGHT face the four bands darken in
+  // order (followups.d/3232-p4, closed). Before the re-solve, medium (0.098) was lighter than low (0.039) and critical sat
+  // 1.09:1 under high. The follow-up asked for 1.3:1 per step; the palette's own gates cap the last one: three fills 0.11
+  // apart in OKLab under white at 7:1 leave fail at most 0.0146 luminance, and even a black critical is then 1.29:1
+  // under it. So the floor here is the order plus 1.15:1, and the steps measure 1.59, 1.47 and 1.20.
+  test('on a11y-achromatopsia\'s light face the risk bands darken in order, low to critical', () => {
+    const { mergedVars } = require('../../../tools/composed-contrast.js');
+    const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr.js');
+    const { relativeLuminance: lum, hexToRgb } = require('../../../lib/core/color.js');
+    const V = mergedVars('a11y-achromatopsia');
+    const Y = (expr) => lum(hexToRgb(String(resolveTokenExpr(expr, V, false)).trim()));
+    const bands = [['low', Y('var(--pass-mark)')], ['medium', Y('var(--warn-mark)')], ['high', Y('var(--fail-mark)')], ['critical', Y(CRITICAL_FILL)]];
+    for (let i = 1; i < bands.length; i++) {
+      const [[a, ya], [b, yb]] = [bands[i - 1], bands[i]];
+      const step = (ya + 0.05) / (yb + 0.05);
+      assert.ok(step >= 1.15, `light: ${b} (${yb.toFixed(4)}) must sit at least 1.15:1 under ${a} (${ya.toFixed(4)}); it sits ${step.toFixed(2)}:1`);
     }
   });
 
@@ -396,8 +415,27 @@ describe('marks.generated.css', () => {
     // Another is tone's word-cloud words, whose ink is a mix toward the heading ink (text on the slide, not on a body).
     // The other is tone's hub-spoke HUB, a disc body (not text on a body) that goes back to the full heading ink beside group discs.
     // The finish's text ink is a VALUE in its token block, which paints nothing; what matters is that no rule outside the guard reads it.
-    assert.doesNotMatch(outside, /var\(--finish-ink\)/, 'every rule that reads the finish\'s text ink waits behind the guard');
-    const withoutTicks = outside.replace(/--finish-ink:[^;]*;/g, '').replace(/[^}]*\.radar-tick[^}]*\}/g, '').replace(/[^}]*\.hub-spoke-hub[^}]*\}/g, '').replace(/[^}]*\.wc-word[^}]*\}/g, '').replace(/[^}]*\.chart-status-mark[^}]*\}/g, '');
+    // The one exception reads no picked ink: a hub-spoke ICON. Its disc carries no text, so it moves on every engine, and
+    // an icon ink that waited kept the plain slide's ink on the finished disc (WebKit 17.4: 1.11:1 at worst, #3232 P1).
+    // Pigment's group ink and every finish's status ink are curated inks with no relative color, so they apply
+    // everywhere, as does tone's first slot, whose pick is white on every light face; the picked inks behind the guard
+    // still win where it passes.
+    // Strip exactly these four rules before the two ink checks below, so any OTHER icon rule that leaves the guard
+    // still trips them (checker finding: a strip of every `.hub-spoke-icon` rule hid a deleted or rewritten one).
+    const HUB_ICON_FALLBACKS = [
+      /section\.marks-pigment :where\(\.hub-spoke-icon:is\(\[data-hue="1"\][^{]*\{\s*--hs-icon-ink: var\(--finish-ink\) !important;\s*\}/,
+      /section\.marks-pigment :where\(\.hub-spoke-icon:not\(\[data-s\]\):not\(\[data-hue\]\)\)[^{]*\{\s*--hs-icon-ink: var\(--chart-on-mark\) !important;\s*\}/,
+      /section:is\(\.marks-pigment, \.marks-etch, \.marks-tone\) :where\(\.hub-spoke-icon\[data-s\]\)[^{]*\{\s*--hs-icon-ink: light-dark\(color-mix\(in srgb, var\(--finish-ink\) var\(--finish-status-k\), var\(--status-on-ink\)\), color-mix\(in srgb, var\(--finish-ink\) var\(--finish-status-k-d\), var\(--status-on-ink\)\)\) !important;\s*\}/,
+      /section\.marks-tone :where\(\.hub-spoke-icon\[data-hue="1"\]\)[^{]*\{\s*--hs-icon-ink: light-dark\(var\(--chart-on-mark\), var\(--text-heading\)\) !important;\s*\}/,
+    ];
+    const names = ['pigment\'s group icon ink', 'pigment\'s neutral icon ink', 'every finish\'s status icon ink', 'tone\'s first-slot icon ink'];
+    let withoutHubIcons = outside;
+    HUB_ICON_FALLBACKS.forEach((re, i) => {
+      assert.match(outside, re, `${names[i]} applies on every engine`);
+      withoutHubIcons = withoutHubIcons.replace(re, '');
+    });
+    assert.doesNotMatch(withoutHubIcons, /var\(--finish-ink\)/, 'every rule that reads the finish\'s text ink waits behind the guard');
+    const withoutTicks = withoutHubIcons.replace(/--finish-ink:[^;]*;/g, '').replace(/[^}]*\.radar-tick[^}]*\}/g, '').replace(/[^}]*\.hub-spoke-hub[^}]*\}/g, '').replace(/[^}]*\.wc-word[^}]*\}/g, '').replace(/[^}]*\.chart-status-mark[^}]*\}/g, '');
     assert.doesNotMatch(withoutTicks, /var\(--text-(body|heading)\)/, 'no fixed-ink fallback is left');
     assert.match(outside, /\.radar-tick[^}]*fill: var\(--text-heading\)/, 'the radar tick takes the heading ink under every finish');
     // The plain categorical rule skips the text-bearing marks, or they would take its full body.
@@ -405,6 +443,30 @@ describe('marks.generated.css', () => {
     // A mark with no text still moves on every engine.
     assert.match(outside, /\.gantt-milestone\[data-s\]/);
     assert.match(outside, /\.waterfall-bar\[data-s="up"\]/);
+  });
+
+  // The fallback icon inks above apply on every engine, and the picked inks behind the guard must still WIN where it
+  // passes. Both sets are `!important` at the same specificity, so source order alone decides it: a fallback that moved
+  // after its picked rule would change every etch and tone icon in Chromium while every value test stayed green
+  // (checker finding). Pin the order.
+  test('a hub-spoke icon\'s fallback ink comes before the picked ink that overrides it', () => {
+    const at = (head) => {
+      const i = css.indexOf(head);
+      assert.ok(i >= 0, `a rule headed ${head}`);
+      return i;
+    };
+    const guarded = (i) => {
+      const open = css.lastIndexOf('@supports', i);
+      return open >= 0 && !css.slice(open, i).includes('\n}\n}');
+    };
+    const pickedStatus = at('section:is(.marks-etch, .marks-tone) :where(.hub-spoke-icon[data-s])');
+    const pickedSlot = at('section:is(.marks-etch, .marks-tone) :where(.hub-spoke-icon:is([data-hue="1"]');
+    assert.ok(guarded(pickedStatus) && guarded(pickedSlot), 'the picked inks sit behind the guard');
+    const fallbackStatus = at('section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.hub-spoke-icon[data-s])');
+    const fallbackSlot = at('section.marks-tone :where(.hub-spoke-icon[data-hue="1"])');
+    assert.ok(!guarded(fallbackStatus) && !guarded(fallbackSlot), 'the fallback inks sit outside the guard');
+    assert.ok(fallbackStatus < pickedStatus, 'the status fallback precedes the picked status ink');
+    assert.ok(fallbackSlot < pickedSlot, 'tone\'s first-slot fallback precedes the picked slot ink');
   });
 
   test('every status mark\'s member declares the hue and ink the status table reads', () => {

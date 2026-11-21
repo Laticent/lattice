@@ -63,13 +63,22 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // with the old stacks as fallbacks — CSS only, +863 bytes (102,311 -> 103,174). Both hosts give the new SHA.
 // Rebased on the step cursor above: the same +863 bytes of CSS on its 107,176, so 108,039. Both hosts agree.
 // Re-blessed 2026-11-11 (the slide-metadata record, step 2, rebased on both above): the notes-hide rule also hides the
-// reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}` (108,039 -> +21 bytes = 108,060). Both hosts agree.
+// reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}` (the rule as it read then; 108,039 -> +21 bytes = 108,060). Both hosts agree.
 // Re-blessed 2026-11-17 (#3259): the present stage measures a swipe from the press to the LAST pointermove, not to
 // the pointerup's own point, which Mobile Safari reported as (0, 0) on every touch (iOS 26.5 simulator, platform suite
 // run 44013499171), so a tap could turn the slide. Script only: one pointermove listener and two variables
 // (108,060 -> +483 bytes = 108,543). Both hosts agree.
-const GOLDEN_SHA = '24fc34fba59836e8c56215b8019557f3c74a68b8903b848c596b89f4d6417df8';
-const GOLDEN_BYTES = 108543;
+// Re-blessed 2026-11-20 for the light cover (`cover: light` → `cover-light`, lib/core/resolve-cover.js): the
+// player script's `pinsOpposite` also leaves a `cover-light` slide alone on a toggle, so a light cover is not
+// restamped with the deck's dark class. Script only, `||el.classList.contains('cover-light')`
+// (108,543 -> +38 bytes = 108,581); the fixture has no cover-light slide, so its rendering is unchanged. Both hosts agree.
+// Re-blessed 2026-11-20 (four notes, engineering/decisions/2026-11-20-four-notes.md): the reader note became the
+// handout, so the notes-hide rule reads `aside.lattice-notes,aside.lattice-handout{…}`, and the Read article gains its
+// `.lp-handout` rule set, where each slide's handout now prints. CSS only (+223 bytes). Both
+// hosts give the new SHA.
+// Both re-blesses above, together (rebased on the light cover): 108,581 + 223 = 108,804 bytes.
+const GOLDEN_SHA = '3951c244bc7cafe110a396ab36811cebd65e93ea2a0f5eae7da3a46b1988b238';
+const GOLDEN_BYTES = 108804;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

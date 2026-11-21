@@ -24,11 +24,12 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // as a narrated one does (HARD RULE #24 keeps our key off this path; HARD RULE #23 is why this
 // is an e2e spec and not another unit test).
 //
-// EVERY TEST HERE RUNS ON A FAKE CLOCK, stepped one frame at a time from Play (frame-clock.ts). A beat is a timer and
-// a hold is a span of frames, so the old real-clock polls (every 60 ms, with a stopwatch round them) passed or failed
-// on runner load (HARD RULE #32). On the fake clock, "the instant the slide advances" is a frame the test steps onto,
-// "4.5 s with nothing happening" is 4.5 s of virtual time in which the beat's timer had every chance to fire, and a
-// hold's length is a count of frames.
+// EVERY TEST HERE RUNS ON A FAKE CLOCK, moved only by the test from Play (frame-clock.ts): one frame at a time, or in
+// 250 ms chunks read by a sampler in the page (`runChunksUntil`). A beat is a timer and a hold is a span of frames, so
+// the old real-clock polls (every 60 ms, with a stopwatch round them) passed or failed on runner load (HARD RULE #32).
+// On the fake clock, "the instant the slide advances" is a frame on the virtual timeline, "4.5 s with nothing
+// happening" is 4.5 s of virtual time in which the beat's timer had every chance to fire, and a hold's length is
+// virtual milliseconds.
 const CAP_FRAMES = (ms: number) => Math.ceil(ms / FRAME_MS);
 
 /** How far the clock moves per step where a test needs no single-frame precision (see the transport test). */
@@ -44,6 +45,21 @@ async function runAndCommit(page: Page, ms: number): Promise<void> {
 				ch.port2.postMessage(0);
 			}),
 	);
+}
+
+/**
+ * Move the fake clock in `CHUNK_MS` steps until `done()` holds, or `capMs` of virtual time has passed.
+ *
+ * The two timing tests below (the deck's pace, the leave beat) stepped one 16 ms frame at a time, two round trips a
+ * frame, and about 390 frames each. Under four workers that is ~110 ms a frame: both ran at a median of 55 s against
+ * their 60 s limit, and the leave-beat test timed out with every assertion passing (2026-11-21, 1 of 8 at
+ * `--workers=4`, HARD RULE #32, F4). A chunk keeps the frame precision those steps were for. Inside one `runFor`,
+ * Playwright's clock fires the due timers one by one and awaits a real task after each, so the React commit a timer
+ * set lands before the next timer, at that timer's virtual time; a frame callback in the page then reads each frame's
+ * committed state. The precision lives in that page-side sampler, not in the size of the step.
+ */
+async function runChunksUntil(page: Page, done: () => Promise<boolean>, capMs: number): Promise<void> {
+	for (let ms = 0; ms < capMs && !(await done()); ms += CHUNK_MS) await runAndCommit(page, CHUNK_MS);
 }
 
 test.describe('Present — the between-slide beat', () => {
@@ -248,17 +264,33 @@ test.describe('Present — a deck carries its own pace', () => {
 		await dialog.getByRole('group', { name: /Deck progress/ }).getByRole('button').first().click();
 		await expect.poll(position).toBe('1 / 2');
 
-		const first = await position();
+		// Time the hold on ARRIVAL at slide 2, read off the dialog's own published beat state
+		// (`data-beat="hold"`) rather than inferred from a control's label — the transport
+		// deliberately keeps reading Pause through a hold, which is the #1352 fix. A frame callback
+		// in the page times it on the fake clock: from the first frame that shows slide 2 to the
+		// first frame that no longer holds. The clock moves in chunks (`runChunksUntil`).
+		await dialog.evaluate((el) => {
+			const w = window as unknown as { __arrival: { at: number; released: number } };
+			w.__arrival = { at: -1, released: -1 };
+			const read = () => el.querySelector('span.font-mono')?.textContent ?? '';
+			const first = read();
+			const tick = (t: number) => {
+				const a = w.__arrival;
+				if (a.at < 0 && read() !== first) a.at = t;
+				else if (a.at >= 0 && a.released < 0 && el.getAttribute('data-beat') !== 'hold') a.released = t;
+				if (a.released < 0) requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		});
 		await pauseFrames(page);
 		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
 
-		// Time the hold on ARRIVAL at slide 2, read off the dialog's own published beat state
-		// (`data-beat="hold"`) rather than inferred from a control's label — the transport
-		// deliberately keeps reading Pause through a hold, which is the #1352 fix. The hold's
-		// length is the number of frames stepped while it lasts.
-		await stepFramesUntil(page, async () => (await position()) !== first, CAP_FRAMES(60_000));
-		expect(await position(), 'the deck never advanced to the second slide').not.toBe(first);
-		const held = (await stepFramesUntil(page, async () => (await dialog.getAttribute('data-beat')) !== 'hold', CAP_FRAMES(20_000))) * FRAME_MS;
+		const arrival = () => page.evaluate(() => (window as unknown as { __arrival: { at: number; released: number } }).__arrival);
+		await runChunksUntil(page, async () => (await arrival()).released >= 0, 80_000); // 60 s to advance, as before, plus the hold's 20 s
+		const { at, released } = await arrival();
+		expect(at, 'the deck never advanced to the second slide').toBeGreaterThanOrEqual(0);
+		expect(released, 'the arrival hold never ended').toBeGreaterThanOrEqual(0);
+		const held = released - at;
 
 		// `deliberate` is ~2.2s and `brisk` ~0.8s. Anything under 1.5s means the workspace preset
 		// won and the deck's declaration was thrown away the moment it left its author's machine —
@@ -271,6 +303,9 @@ test.describe('Present — a deck carries its own pace', () => {
 // slide appeared on the SAME frame the previous slide's last sentence ended, so a closing line was
 // cut off by the flip. The deck now holds the finished slide for the pace's leave beat (natural:
 // 700 ms) before it advances, and publishes that hold as `data-beat="hold"`, like the arrival beat.
+/** One slide change, as the leave-beat test's frame sampler saw it. */
+type Flip = { hold: boolean; heldMs: number; fineMs: number };
+
 test.describe('Present — the beat before the next slide', () => {
 	test('every handoff holds the finished slide before the next one appears', async ({ page }) => {
 		await page.clock.install();
@@ -288,18 +323,25 @@ test.describe('Present — the beat before the next slide', () => {
 		await expect.poll(position).toBe('1 / 3');
 
 		// Record every slide change on the page's own frame clock: whether the deck was holding on
-		// the frame BEFORE the flip, and for how long it had been holding.
+		// the frame BEFORE the flip, for how long it had been holding, and how long the test had been
+		// stepping frame by frame when the hold began (`fineMs`, see below).
 		await dialog.evaluate((el) => {
-			const w = window as unknown as { __flips: { hold: boolean; heldMs: number }[] };
+			const w = window as unknown as { __flips: Flip[]; __fineAt: number };
 			w.__flips = [];
+			w.__fineAt = -1;
 			const read = () => el.querySelector('span.font-mono')?.textContent ?? '';
 			let last = read();
 			let holdFrom = -1;
 			const tick = (t: number) => {
+				if (w.__fineAt === -2) w.__fineAt = t; // the test asked for the frame its fine steps began on
 				const hold = el.getAttribute('data-beat') === 'hold';
 				const now = read();
 				if (now !== last) {
-					w.__flips.push({ hold: holdFrom >= 0, heldMs: holdFrom >= 0 ? Math.round(t - holdFrom) : 0 });
+					w.__flips.push({
+						hold: holdFrom >= 0,
+						heldMs: holdFrom >= 0 ? Math.round(t - holdFrom) : 0,
+						fineMs: holdFrom >= 0 && w.__fineAt >= 0 ? Math.round(holdFrom - w.__fineAt) : -1,
+					});
 					last = now;
 				}
 				if (hold && holdFrom < 0) holdFrom = t;
@@ -308,15 +350,50 @@ test.describe('Present — the beat before the next slide', () => {
 			};
 			requestAnimationFrame(tick);
 		});
+		// Where the current slide's read has got to, from the rail's played range (as the rail test reads it).
+		const state = () =>
+			dialog.evaluate((el) => {
+				const at = Number.parseInt(el.querySelector('span.font-mono')?.textContent ?? '', 10) - 1;
+				const seg = el.querySelectorAll('[aria-label^="Deck progress"] button')[at];
+				const track = seg?.querySelector('[data-tier="track"]');
+				const played = seg?.querySelector('[data-tier="progress"]');
+				if (!track || !played) return { at, read: 0 };
+				const cs = getComputedStyle(played);
+				const px = Math.max(0, Number.parseFloat(cs.width) + new DOMMatrix(cs.transform).m41);
+				return { at, read: px / track.getBoundingClientRect().width };
+			});
+
+		// TWO STEP SIZES. Frame by frame the whole run took about 390 steps of two round trips each; under four workers
+		// that is ~110 ms a step, and the test ran at a median of 55 s against its 60 s limit and timed out once in 8 with
+		// every assertion passing (2026-11-21, HARD RULE #32, F4). Most of those frames are the arrival beat and the start
+		// of each read, where nothing is measured, so the clock moves there in 250 ms chunks. A chunk does not hold this
+		// test's precision: React can commit a timer's state a frame or two after the timer fired, so a leave beat that
+		// began inside a chunk read 368 ms (2 of 10 runs alone). From 60% of a slide's read to its flip the test steps one
+		// frame at a time, as before. If a hold ever began fewer than 5 fine frames after the switch (`fineMs`), the
+		// coarse steps may have hidden its start, and the test says so rather than report a short hold.
+		const FINE_FROM = 0.6;
 		await pauseFrames(page);
 		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
-		await stepFramesUntil(page, async () => (await position()) === '3 / 3', CAP_FRAMES(60_000), 10);
+		for (let virtualMs = 0; virtualMs < 60_000; ) {
+			const { at, read } = await state();
+			if (at >= 2) break;
+			if (read < FINE_FROM) {
+				await runAndCommit(page, CHUNK_MS);
+				virtualMs += CHUNK_MS;
+				continue;
+			}
+			await page.evaluate(() => {
+				(window as unknown as { __fineAt: number }).__fineAt = -2;
+			});
+			virtualMs += (await stepFramesUntil(page, async () => (await state()).at !== at, CAP_FRAMES(20_000), 4)) * FRAME_MS;
+		}
 		expect(await position()).toBe('3 / 3');
 		// The sampler is a frame callback: it sees the flip React just committed on the NEXT frame.
 		await stepFrame(page);
-		const flips = await page.evaluate(() => (window as unknown as { __flips: { hold: boolean; heldMs: number }[] }).__flips);
+		const flips = await page.evaluate(() => (window as unknown as { __flips: Flip[] }).__flips);
 		expect(flips.length).toBe(2);
 		for (const f of flips) {
+			expect(f.fineMs, `the hold began ${f.fineMs} ms into the fine steps: the 250 ms chunks may have hidden its start`).toBeGreaterThanOrEqual(5 * FRAME_MS);
 			// brisk's leave beat is 400 ms; a frame of slack for the rAF sampling (virtual frames, on the fake clock).
 			expect(f.hold, 'the deck was holding the finished slide when it advanced').toBe(true);
 			expect(f.heldMs, `the finished slide held ${f.heldMs} ms before the next appeared`).toBeGreaterThanOrEqual(380);

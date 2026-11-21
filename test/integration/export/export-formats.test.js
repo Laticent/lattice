@@ -374,7 +374,7 @@ describe('export-formats', () => {
       '<!-- _class: image -->', '',
       '![A photo](photo.svg)', '',
       '# SVG background', '',
-      `<!-- ${NOTE_MARKER} -->`, '',
+      `<!-- @note{${NOTE_MARKER}} -->`, '',
       '---', '',
       '<!-- _class: content -->', '',
       '## Inline SVG image', '',
@@ -448,7 +448,7 @@ describe('export-formats', () => {
     return sum / n;
   }
 
-  test('composes the PDF with the shared writer: one photo per page, real tagged text on top', { timeout: TIMEOUT }, () => {
+  test('composes the PDF with the shared writer: the finish drawn, a photo only where nothing is, real tagged text on top', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.pdf');
     const r = spawnSync(process.execPath, [EMULATOR, writeFinishFixture(dir), out], {
@@ -456,13 +456,19 @@ describe('export-formats', () => {
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.match(r.stdout, /PDF writer: \d+ words/, `the shared writer must run, not fall back to Chrome:\n${r.stdout}`);
-    // One slide-sized photo per page (the finish backdrop lives in it), opaque.
+    // The finish pages (1 and 3) draw their backdrop (read-slide.mjs `readBackdrop`): no slide-sized photo, and the glow
+    // as one opaque quarter-resolution picture with no soft mask. The opted-out page keeps its one opaque 1x photo.
     const rows = pdfImageRows(out);
-    assert.deepEqual(rows.map((row) => Number(row.trim().split(/\s+/)[0])), [1, 2, 3], `one photo per page:\n${rows.join('\n')}`);
-    for (const row of rows) {
-      assert.match(row, /\bimage\s+1280\s+720\b/, `a 1x slide photo: ${row}`);
-      assert.doesNotMatch(row, /\bsmask\b/, `the photo is opaque: ${row}`);
+    const cols = rows.map((row) => row.trim().split(/\s+/));
+    const onPage = (n) => cols.filter((c) => Number(c[0]) === n);
+    for (const page of [1, 3]) {
+      assert.deepEqual(onPage(page).filter((c) => c[2] === 'image' && Number(c[3]) >= 1200).map((c) => c.join(' ')), [], `page ${page}: no slide photo over a drawn backdrop:\n${rows.join('\n')}`);
+      assert.ok(onPage(page).some((c, i, all) => c[2] === 'image' && c[3] === '320' && all[i + 1]?.[2] !== 'smask'), `page ${page}: the glow is one opaque picture:\n${rows.join('\n')}`);
     }
+    const plain = onPage(2);
+    assert.equal(plain.length, 1, `the opted-out page has one photo:\n${rows.join('\n')}`);
+    assert.match(plain[0].join(' '), /\bimage 1280 720\b/, 'a 1x slide photo');
+    assert.equal(rows.filter((r) => r.trim().startsWith('2 ')).some((r) => /\bsmask\b/.test(r)), false, 'the photo is opaque');
     const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
     assert.match(text, /Body text stays vector/, 'slide text must be real, selectable text with its spaces');
     const fonts = execFileSync('pdffonts', [out], { encoding: 'utf8' }).split('\n').slice(2).filter((l) => l.trim());
@@ -1167,7 +1173,7 @@ describe('export-formats', () => {
     const dir = tmpDir();
     const deck = path.join(dir, 'deck.md');
     const SECRET = 'CONFIDENTIAL board compensation figure';
-    fs.writeFileSync(deck, `${fs.readFileSync(FIXTURE, 'utf8')}\n\n<!-- note: ${SECRET} -->\n`);
+    fs.writeFileSync(deck, `${fs.readFileSync(FIXTURE, 'utf8')}\n\n<!-- @note{${SECRET}} -->\n`);
     const render = (out) =>
       spawnSync(process.execPath, [EMULATOR, deck, out, '--notes', '--strip-notes', '--quiet'], {
         cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,

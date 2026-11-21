@@ -26,6 +26,13 @@
  * dist-kits branch for readers without a clone.
  * Record: engineering/decisions/2026-10-09-generated-indexes-uncommitted.md.
  *
+ * FOUND BY SEARCH. .gitignore hides dist/, and ripgrep (behind the agent Grep tool) honors
+ * .gitignore, so a search for a folder name never reached this map. (The agent Glob tool lists
+ * ignored files anyway, so it always could.) The root `.ignore`,
+ * which only search tools read, re-includes this one file and nothing else under dist/. Git
+ * still ignores it. Agents are also pointed here by CLAUDE.md's "Where X lives" row, AGENTS.md
+ * and every roster card that locates code.
+ *
  * Flags:
  *   --check    Validate the SOURCES: exit 1 on a folder or part with no purpose line, or a stale
  *              FOLDERS entry. Reads no output.
@@ -119,6 +126,7 @@ const FOLDERS = {
   'tools/lib/': 'Shared modules the scripts in `tools/` import, so no script reimplements another.',
   'tools/office-conformance/': 'The Open XML SDK checker that validates exported Office files against the official schemas.',
   'tools/parser-bakeoff/': 'A measured bake-off of inline-notation parsers against the shipped kernel as the control.',
+  'tools/pdfkit-check/': 'Draws the finish demo PDF through Apple PDFKit on a macOS runner and compares it with the screen (the `pdf-pdfkit` platform suite).',
   'tools/perf-torture/': 'A reusable profiler that repeats one user action in a browser and reports memory that leaks.',
   'tools/recheck/': 'The pinned regex complexity checker behind `tools/regex-census.js`, kept out of the root install.',
   'tools/script-docs/': 'One description per npm script, the source of `dist/engineering/capabilities.md`.',
@@ -438,4 +446,4 @@ function main(argv = process.argv.slice(2)) {
 
 if (require.main === module) process.exit(main());
 
-module.exports = { FOLDERS, SCOPES, collect, problems, render, foldersInScope, scopeOf, summarize, cell, main };
+module.exports = { OUT_FILE, FOLDERS, SCOPES, collect, problems, render, foldersInScope, scopeOf, summarize, cell, main };

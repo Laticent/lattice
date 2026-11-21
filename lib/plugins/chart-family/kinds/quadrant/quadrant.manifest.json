@@ -94,6 +94,7 @@
   "description": "Native 2×2 scatter chart — items plotted on two continuous axes.",
   "purpose": "Use to position items by two numeric attributes (cost × value, effort × impact). Data-driven; for static categorical 2×2 grids, use matrix-2x2.",
   "axisSet": {"members": ["x", "y"], "body": "list", "keyBelow": false},
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

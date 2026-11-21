@@ -88,6 +88,7 @@
       "useWhen": "Values carry a sign and the direction is the point: variance to plan, sentiment, a tornado / sensitivity chart. Zero sits at the middle of the plot and the two sides share one scale."
     }
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

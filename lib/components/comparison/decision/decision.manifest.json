@@ -46,6 +46,7 @@
   ],
   "description": "The verdict slide — one chosen path, named explicitly.",
   "purpose": "Use after a comparison slide to land the decision. The justifications render as one unified categorical strip — co-equal cards that together signal a single resolved verdict; the heading carries the decision, not a focal/subordinated split.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
@@ -58,6 +59,16 @@
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The option's body lines, nested under its title. `-` or `1.` read the same here: the layout styles them as the card body."
     }
   },
   "skeleton": "<!-- _class: decision -->\n\n## What we are doing.\n\n- Chosen path\n  - One-line rationale for the decision.\n- Rejected option\n  - One-line rationale for why this didn't fit.\n",

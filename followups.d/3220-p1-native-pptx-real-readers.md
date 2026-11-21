@@ -62,3 +62,11 @@ skipped and nothing was filed), and from `f3ead5f` (run 43765111442). Quick Look
 - **Still open, and the reason this note exists:** PowerPoint, Keynote and Google Slides. Apple's importer is not
   PowerPoint: it substitutes fonts and truncates to points, so a clean Quick Look render says the package parses, not
   that PowerPoint shows it as the browser did.
+
+## The master, theme and layouts (feat/calco-master-theme, 2026-11-18)
+
+That branch puts the deck's theme, text styles, title and body placeholders and the running header, footer and page
+number on the slide master (`engineering/decisions/2026-11-18-calco-master-theme.md`). When a real reader opens the
+files above, also check, on a deck exported from that branch or later: New Slide → "Content" gives the deck's title and
+body type, the header and footer, and a page number; the theme colors in the color picker are the deck's; View → Slide
+Master shows the header and footer once, on the master; the title slide shows none. Light and dark.

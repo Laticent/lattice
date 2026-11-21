@@ -62,7 +62,7 @@ describe('runPattern: the Worker’s side', () => {
 });
 
 describe('the kernel with a pattern', () => {
-	const slide = ['<!-- _class: content -->', '`Q3 2026 REVIEW`', '', '## Results for Q3 2026', '', 'Revenue in Q3 2026 rose; see [Q3 2026](https://x.test/q3-2026).', '', '<!-- say: Q3 2026 was strong. -->', '', '```', 'Q3 2026 in code', '```'].join('\n');
+	const slide = ['<!-- _class: content -->', '`Q3 2026 REVIEW`', '', '## Results for Q3 2026', '', 'Revenue in Q3 2026 rose; see [Q3 2026](https://x.test/q3-2026).', '', '<!-- @say{Q3 2026 was strong.} -->', '', '```', 'Q3 2026 in code', '```'].join('\n');
 
 	it('throws if asked to run a pattern itself', () => {
 		expect(() => findInSlide(slide, 'Q\\d', { regex: true })).toThrow(/never runs a pattern/);
@@ -85,7 +85,7 @@ describe('the kernel with a pattern', () => {
 		expect(r.blocked).toBeUndefined();
 		expect(r.text).toContain('## Results for 2026 \\$Q3');
 		expect(r.text).toContain('(https://x.test/q3-2026)');
-		expect(r.text).toContain('<!-- say: 2026 $Q3 was strong. -->');
+		expect(r.text).toContain('<!-- @say{2026 $Q3 was strong.} -->');
 		expect(r.text).toContain('Q3 2026 in code');
 	});
 

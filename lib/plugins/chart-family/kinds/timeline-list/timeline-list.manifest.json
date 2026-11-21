@@ -62,6 +62,7 @@
   "excludes": [
     "claim-bleed"
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
@@ -73,7 +74,7 @@
       "selector": "ol > li",
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
-      "description": "Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated."
+      "description": "A list (`1.` or `-`; the timeline numbers itself). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated."
     },
     "body": {
       "selector": "ol > li > ul > li",

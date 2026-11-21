@@ -103,6 +103,7 @@
       ]
     }
   ],
+  "lists": "numbered-tags",
   "slots": {
     "title": {
       "selector": "h2",
@@ -115,6 +116,16 @@
       "match": { "kind": "list", "depth": 1, "marker": "ordered" },
       "required": true,
       "description": "Ordered list; each li is one step and gets a step number. The `1.` line is the step's TITLE and renders bold; its body goes on a nested `- ` line indented three spaces under it. A title and body on one line (`1. Freeze — two weeks before cutover`) renders the whole sentence as the bold title."
+    },
+    "body": {
+      "selector": "ol > li > ul > li",
+      "match": {
+        "kind": "list",
+        "depth": 2,
+        "marker": "any"
+      },
+      "required": false,
+      "description": "The step's body line, nested under its title. `-` or `1.` read the same here: the layout styles it as the card body."
     }
   },
   "skeleton": "<!-- _class: list-steps -->\n\n## How to roll this out.\n\n1. First step\n   - One sentence on what happens in this step.\n2. Second step\n   - One sentence on what happens in this step.\n3. Third step\n   - One sentence on what happens in this step.\n4. Fourth step\n   - One sentence on what happens in this step.\n",
@@ -163,7 +174,7 @@
     },
     {
       "name": "list",
-      "when": "tenets or values (the `principles` variant) rather than a sequence; `takeaway numbered` for gating requirements rather than a sequence of actions"
+      "when": "tenets or values (the `principles` variant) rather than a sequence; `list takeaway` over a `1.` list for gating requirements rather than a sequence of actions"
     },
     {
       "name": "funnel",
@@ -239,12 +250,12 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Authoring steps as a bullet list (`-`) instead of a numbered list (`1.`).",
-      "fix": "The card chrome — background, border, STEP badge, connector arrow — is scoped to `ol > li` specifically; a `ul` renders as plain unstyled text with no cards, no counter, no badge."
+      "mistake": "Writing `-` and expecting STEP numbers.",
+      "fix": "`1.` numbers the cards (STEP 01, the badge and its counter); `-` renders the same cards and connectors with no number tag. Use `-` only when the steps genuinely have no order."
     },
     {
       "mistake": "Writing a step's title and body on one line, e.g. `1. Freeze new integrations — two weeks before cutover, changes stop.`",
-      "fix": "The whole `1.` line is the step's title, so the sentence renders as one bold block with no body under it. Put the title on the `1.` line and the sentence on a nested line: `1. Freeze new integrations` then `   - Two weeks before cutover, changes stop.` `lint:deck` flags this (`list-steps-inline-body`) and `--fix` splits it."
+      "fix": "The whole `1.` line is the step's title, so the sentence renders as one bold block with no body under it. Put the title on the `1.` line and the sentence on a nested line: `1. Freeze new integrations` then `   - Two weeks before cutover, changes stop.` `lint:deck` flags this (`list-steps-inline-body`) and `--fix` splits it. A whole sentence on the `1.` line with no nested body is flagged too, with no fix, because there is no point to split it at: write a short title and move the sentence under it."
     },
     {
       "mistake": "Deleting or reordering a step and not re-reading the other steps' prose for a stale reference to its old position (e.g. \"as covered in step 3\").",

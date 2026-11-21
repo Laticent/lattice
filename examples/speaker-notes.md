@@ -6,7 +6,7 @@ header: "Lattice · speaker notes"
 ---
 
 <!-- _class: title silent -->
-<!-- Open cold. Hold for two seconds before the first word — let the room settle. This whole line is a speaker note: it lives in the PDF and the HTML, but it never shows on the slide. -->
+<!-- @note{Open cold. Hold for two seconds before the first word — let the room settle. This whole line is a speaker note: it lives in the PDF and the HTML, but it never shows on the slide.} -->
 
 Speaker notes
 
@@ -18,7 +18,7 @@ stays off the slide — exactly the way Marp has always treated it.
 ---
 
 <!-- _class: cards-grid -->
-<!-- The mechanic: any comment that is not a directive and not a tooling pragma is the slide's note. Say this slowly — it is the whole feature. -->
+<!-- @note{The mechanic: any comment that is not a directive and not a tooling pragma is the slide's note. Say this slowly — it is the whole feature.} -->
 
 `The rule`
 
@@ -34,7 +34,7 @@ stays off the slide — exactly the way Marp has always treated it.
 ---
 
 <!-- _class: cards-grid -->
-<!-- Stress that nothing prints. The note you are reading right now proves it: this slide has a long note and the canvas is still clean. -->
+<!-- @note{Stress that nothing prints. The note you are reading right now proves it: this slide has a long note and the canvas is still clean.} -->
 
 `Where it goes`
 
@@ -59,7 +59,7 @@ plain slides sit side by side with no change to either.
 ---
 
 <!-- _class: cards-grid -->
-<!-- Closing beat: the degradation story is the point. Land it, then stop talking. -->
+<!-- @note{Closing beat: the degradation story is the point. Land it, then stop talking.} -->
 
 `Why it travels`
 
@@ -75,7 +75,7 @@ plain slides sit side by side with no change to either.
 ---
 
 <!-- _class: quote -->
-<!-- Thank the room. This is the last note — let the silence do the work. -->
+<!-- @note{Thank the room. This is the last note — let the silence do the work.} -->
 
 > The slide is for them. The note is for you.
 

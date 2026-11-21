@@ -9,6 +9,7 @@
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
+ *   PROBE=present-keepalive node scripts/ios-safari/probe.selftest.mjs   # Present stays awake, immersive tap, captions, Next keeps playing
  *   PROBE=empty-deck [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # empty the deck, tap the start grid's canvas, read the caret
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
@@ -62,10 +63,14 @@ if (process.env.PROBE === 'font-cache') {
 		const context = await webkit.launchPersistentContext(dir, options);
 		for (const arm of ['control', 'warm']) {
 			const page = await context.newPage();
-			await page.addInitScript(SEED);
+			// The same pages in the same order as run.mjs: the server's blank page first, where the settings are seeded, and
+			// `since` stamped before it, so the probe's check that nothing fetched a face before the Studio runs here too.
+			const since = Date.now();
+			await page.goto(`${origins[arm]}/__probe/blank`, { waitUntil: 'load' });
+			await page.addScriptTag({ content: SEED });
 			await page.goto(`${origins[arm]}/studio/`, { waitUntil: 'domcontentloaded' });
 			await page.addScriptTag({ content: FONT });
-			report(label, `font-cache-probe.js ${arm}`, await page.evaluate((a) => globalThis.latticeFontCacheProbe(a), arm));
+			report(label, `font-cache-probe.js ${arm}`, await page.evaluate(([a, s]) => globalThis.latticeFontCacheProbe(a, s), [arm, since]));
 			await page.close();
 		}
 		await context.close();
@@ -138,6 +143,39 @@ if (process.env.PROBE === 'player-charts') {
 		await context.close();
 	}
 	fs.rmSync(dir, { recursive: true, force: true });
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'present-keepalive') {
+	// The Present keep-alive probe, as run.mjs runs it: open Present, press Fullscreen, wait for the chrome to fade, a touch
+	// tap on the slide (Playwright's touchscreen, where run.mjs sends a WebDriver touch), Play, Next, close. iPhone-sized only.
+	const KEEP = fs.readFileSync(path.join(here, 'present-keepalive-probe.js'), 'utf8');
+	const context = await browser.newContext(shapes.at(-1).options);
+	const page = await context.newPage();
+	await page.addInitScript(SEED);
+	const call = (expr) => page.evaluate(`${KEEP}\n${expr}`);
+	const r = {};
+	let error = '';
+	try {
+		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		const at = await call('latticeKeepalivePresentAt()');
+		await page.touchscreen.tap(at.x, at.y);
+		r.open = await call('latticeKeepaliveOpen()');
+		r.immersive = await call('latticeKeepaliveImmersive()');
+		await page.touchscreen.tap(r.immersive.x, r.immersive.y);
+		r.shown = await call('latticeKeepaliveShown()');
+		r.wakeAfterTap = await call('latticeKeepaliveWake()');
+		r.play = await call('latticeKeepalivePlay()');
+		r.next = await call('latticeKeepaliveNext()');
+		r.close = await call('latticeKeepaliveClose()');
+	} catch (e) {
+		error = String(e.message || e).split('\n')[0].slice(0, 300);
+	}
+	// Playwright's WebKit has no Screen Wake Lock, so that one check is reported and not judged here (the Mac judges it).
+	const steps = (await page.evaluate(`${KEEP}\nlatticeKeepaliveChecks(${JSON.stringify(r)}, { realSafari: false })`)).map((s) => (s.name.startsWith('Present holds') && !r.open?.hasApi ? { ...s, pass: true, detail: `${s.detail} (no Wake Lock API in Playwright WebKit: not judged here)` } : s));
+	if (error) steps.push({ name: 'the probe ran to the end', pass: false, detail: error });
+	report('iPhone-sized', 'present-keepalive-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: r.open?.width, steps });
+	await context.close();
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }

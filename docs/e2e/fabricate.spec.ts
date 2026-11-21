@@ -149,13 +149,15 @@ test('a hand-edited theme survives save → reopen, byte-identical apart from th
 
 	// 3. Save the record, leave, and come back in through the Library — the only
 	//    path back into a saved theme.
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText(/Saved/)).toBeVisible();
+	// Through `saveAsset`: a bare `getByText(/Saved/)` is a strict-mode violation the moment a
+	// second "Saved" text is on screen, which went red under load.
+	await saveAsset(page);
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
 	// The desktop shell docks the Library behind "Open Library"; the compact shells
 	// put it in a sheet. Accept either, so this test is not silently desktop-only.
-	const openLibrary = page.getByRole('button', { name: 'Open Library' });
-	await (await openLibrary.count() ? openLibrary : page.getByRole('button', { name: 'Library', exact: true })).click();
+	// Wait for whichever Library control the layout shows (the rail's "Open Library", or a bare
+	// "Library") rather than a one-shot `count()`, which reads the page before it has settled.
+	await page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first().click();
 	await page.getByRole('button', { name: 'Edit Handedit' }).click();
 	await expect(page.locator('.cm-content[aria-label="Theme CSS"]')).toBeVisible();
 
@@ -234,6 +236,14 @@ test('CSS that reaches off the device is paused out of the preview, with a reaso
 async function saveAsset(page: import('@playwright/test').Page) {
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(page.getByText(/Saved/).first()).toBeVisible();
+	// WAIT FOR THE SAVE TO LAND, not for a toast. On a second save the first save's "Saved"
+	// toast is still up, so the line above passes at once, before this save has cleared the
+	// unsaved-edits flag (Fabricate.tsx `setHandDirty(false)` runs after the store write). A
+	// "Back to Compose" taken in that gap arms "Leave and discard your CSS edits" instead of
+	// leaving, and the next step waits for a Library button that never comes: the studio-smoke
+	// failure on #3348. The CSS view says "Edit the stylesheet directly" only while nothing is
+	// unsaved, so that text is the signal (HARD RULE #32: wait for a signal, not a duration).
+	await expect(page.getByText(/^Edit the stylesheet directly/)).toBeVisible();
 }
 
 /**
@@ -282,8 +292,9 @@ test('@smoke an edit over a saved theme is recoverable — the earlier version r
 	// 3. The Library card now says so. The affordance is in the card's metadata line,
 	//    not its action row — that row is already four controls wide at 390px.
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
-	const openLibrary = page.getByRole('button', { name: 'Open Library' });
-	await (await openLibrary.count() ? openLibrary : page.getByRole('button', { name: 'Library', exact: true })).click();
+	// Wait for whichever Library control the layout shows (the rail's "Open Library", or a bare
+	// "Library") rather than a one-shot `count()`, which reads the page before it has settled.
+	await page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first().click();
 	const historyLink = page.getByRole('button', { name: 'Earlier versions of Versioned' });
 	await expect(historyLink).toBeVisible();
 	await expect(historyLink).toHaveText('1 version');
@@ -323,8 +334,9 @@ test('@smoke restoring checkpoints the current version, so a mis-clicked restore
 	await saveAsset(page);
 
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
-	const openLibrary = page.getByRole('button', { name: 'Open Library' });
-	await (await openLibrary.count() ? openLibrary : page.getByRole('button', { name: 'Library', exact: true })).click();
+	// Wait for whichever Library control the layout shows (the rail's "Open Library", or a bare
+	// "Library") rather than a one-shot `count()`, which reads the page before it has settled.
+	await page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first().click();
 	await page.getByRole('button', { name: 'Earlier versions of Roundtrip' }).click();
 	await page.getByRole('button', { name: /^Restore the / }).click();
 	await expect(page.getByText(/Restored/).first()).toBeVisible(); // toasts stack; see saveAsset

@@ -429,9 +429,9 @@ describe('gantt detail reveal — per-task HTML-mark path (#475)', () => {
     assert.ok(out.indexOf('class="chart-details"') > out.indexOf('</div>'));
   });
 
-  test('detail folds into a Marp-faithful speaker-note comment', () => {
+  test('detail folds into a speaker note (`@note{…}`)', () => {
     const out = buildGanttChart(inner(ulDetail), '');
-    assert.match(out, /<!--[\s\S]*API design \(Q1–Q2\): Owner: Platform team[\s\S]*-->/);
+    assert.match(out, /<!-- @note\{[\s\S]*API design \(Q1–Q2\): Owner: Platform team[\s\S]*\} -->/);
   });
 
   test('byte-identical (no payload, no note) when no task carries detail', () => {

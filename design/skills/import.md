@@ -157,7 +157,8 @@ does not read. `lint:deck` names each one.
    count the items, pick the component from `dist/docs/components.pick.md`,
    read its `lib/components/<bucket>/<name>/<name>.docs.md` (HARD RULE #6), and
    pour the source's words into its skeleton. Long paragraphs become a short
-   body plus a speaker note (`<!-- … -->` after the content).
+   body plus a speaker note (`<!-- @note{…} -->` after the content). A Marp
+   deck's plain-comment notes become `@note` with `lattice migrate notes deck.md`.
 
 6. **Add the bookends** — a `title silent` slide and a one-sentence `closing
    silent` slide — if the source had none.

@@ -31,11 +31,12 @@ beforeAll(() => {
 	(globalThis as { FileReader?: unknown }).FileReader = NodeFileReader;
 });
 
-// Two slides, a directive, a speaker note, a `say:` line and a `describe:` line: the note is the
-// one channel that must reach the reference text, and the other three must not pass as one.
+// Two slides, a directive and three of the four notes (engineering/decisions/2026-11-20-four-notes.md): the speaker
+// note (`@note`) is the one channel that must reach the reference text, and the directive, `@say` and `@alt` must not
+// pass as one.
 const SRC = [
 	'---\ntheme: indaco\n---\n\n# Halcyon quarterly',
-	'<!-- _class: content -->\n\n## Retention held\n\n- 94% of accounts renewed.\n\n<!-- Open with the retention number. -->\n\n<!-- say: Retention held at ninety-four percent. -->\n\n<!-- describe: A bullet list. -->',
+	'<!-- _class: content -->\n\n## Retention held\n\n- 94% of accounts renewed.\n\n<!-- @note{Open with the retention number.} -->\n\n<!-- @say{Retention held at ninety-four percent.} -->\n\n<!-- @alt{A bullet list.} -->',
 ].join('\n\n---\n\n');
 
 const file = (b: Blob | Uint8Array | string, name: string, type = '') => new File([b as BlobPart], name, { type });

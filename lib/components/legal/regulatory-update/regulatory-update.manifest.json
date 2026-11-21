@@ -79,6 +79,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "heading": {
       "selector": "h2",
@@ -96,7 +97,13 @@
       "selector": "ol > li",
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
-      "description": "Ordered list of changes. Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code)."
+      "description": "A list of changes (`1.` or `-`). Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code)."
+    },
+    "details": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "An item's details: its citation and effective date in inline code, and a one-line summary."
     }
   },
   "skeleton": "<!-- _class: regulatory-update -->\n\n## Headline naming the period or theme.\n\n`Scope label · jurisdiction tier`\n\n1. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `{Effective Mon YYYY}`\n2. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `{Effective Mon YYYY}`\n3. Change name\n   - `Citation reference`\n   - Summary in one sentence.\n   - `{Effective Mon YYYY}`\n",
@@ -145,7 +152,7 @@
     },
     {
       "name": "list",
-      "when": "`takeaway numbered`: flat enumeration of requirements without dates or citations"
+      "when": "`list takeaway` over a `1.` list: flat enumeration of requirements without dates or citations"
     },
     {
       "name": "list-steps",

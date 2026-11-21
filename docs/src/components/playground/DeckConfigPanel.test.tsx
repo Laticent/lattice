@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+import { PRESETS, withPresetTable } from '../../../../lib/core/front-matter-key.js';
 import { DeckConfigPanel } from './DeckConfigPanel';
 
 // The Playground's Deck settings rows. The front-matter rules themselves (what is written,
@@ -194,3 +195,36 @@ describe('DeckConfigPanel — the fields allow-list', () => {
 		expect(screen.getByRole('textbox', { name: 'Default slide class' })).toBeInTheDocument();
 	});
 });
+
+// P0 of engineering/decisions/2026-11-20-deck-preset-study.md (§5 D1): Auto FOLLOWS a preset's recommended palette and
+// color mode, so the control names it. No shipped preset recommends either yet, so this runs on a probe preset.
+describe('DeckConfigPanel — Auto names a preset recommendation (P0)', () => {
+	const PROBE = { label: 'Probe', desc: '', values: { theme: 'cuoio', 'color-mode': 'dark' } };
+	it('labels Auto with the preset value, and only while the deck leaves the key to it', () => {
+		withPresetTable({ ...PRESETS, probe: PROBE }, () => {
+			mount('---\nmarp: true\npreset: probe\n---\n\n# Hi\n');
+			expect(screen.getByRole('combobox', { name: 'Choose theme' })).toHaveTextContent('Auto — Cuoio (preset)');
+			expect(screen.getByRole('combobox', { name: 'Choose color mode' })).toHaveTextContent('Auto — Dark (preset)');
+		});
+	});
+	it('control: a scheme pinned in class: takes the color-mode label back, and leaves the theme label', () => {
+		withPresetTable({ ...PRESETS, probe: PROBE }, () => {
+			mount('---\nmarp: true\npreset: probe\nclass: light\n---\n\n# Hi\n');
+			expect(screen.getByRole('combobox', { name: 'Choose color mode' })).not.toHaveTextContent('(preset)');
+			expect(screen.getByRole('combobox', { name: 'Choose theme' })).toHaveTextContent('Auto — Cuoio (preset)');
+		});
+	});
+	it('control: a written theme takes the theme label back', () => {
+		withPresetTable({ ...PRESETS, probe: PROBE }, () => {
+			mount('---\nmarp: true\npreset: probe\ntheme: indaco\n---\n\n# Hi\n');
+			expect(screen.getByRole('combobox', { name: 'Choose theme' })).not.toHaveTextContent('(preset)');
+		});
+	});
+	it('control: a recommended palette the host does not have is not named', () => {
+		withPresetTable({ ...PRESETS, probe: { ...PROBE, values: { ...PROBE.values, theme: 'not-a-palette' } } }, () => {
+			mount('---\nmarp: true\npreset: probe\n---\n\n# Hi\n');
+			expect(screen.getByRole('combobox', { name: 'Choose theme' })).toHaveTextContent('Auto — follow the site (Indaco)');
+		});
+	});
+});
+

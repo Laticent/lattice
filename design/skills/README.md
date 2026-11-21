@@ -41,16 +41,16 @@ skill. The others are authorable end-to-end from the file.
 | [`component-showcase`](./component-showcase.md) | Use when writing the gallery slides that teach one component: word budgets per slide form, sized before you render. | 2.1k |
 | [`component`](./component.md) | Use when adding a new `_class:` layout to the catalog: manifest, palette-blind CSS, optional transform, generated docs. | 3.7k |
 | [`deck`](./deck.md) | Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist. | 3.3k |
-| [`finish`](./finish.md) | Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content. | 3.8k |
+| [`finish`](./finish.md) | Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content. | 3.9k |
 | [`lens`](./lens.md) | Use when defining a reader lens (Lente): an approved subset of a deck's slides, projected for another audience without editing it. | 4.7k |
-| [`speaker-notes`](./speaker-notes.md) | Use when writing speaker notes, say: lines, review comments or captions, or when reviewing a deck against the notes rubric. | 5.6k |
+| [`speaker-notes`](./speaker-notes.md) | Use when writing a slide's notes (@note, @say, @alt, @handout) or review comments, or when reviewing a deck against the notes rubric. | 4.6k |
 | [`theme`](./theme.md) | Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes. | 5.9k |
 
 ### Work on a deck you already have
 
 | Skill | Use when… | ≈ tokens |
 |---|---|---|
-| [`accessibility-review`](./accessibility-review.md) | Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion. | 3.5k |
+| [`accessibility-review`](./accessibility-review.md) | Use when reviewing a deck for accessibility: contrast, alt text and @alt notes, reading order, color as the only signal, type size, captions and motion. | 3.5k |
 | [`chart-from-data`](./chart-from-data.md) | Use when the author has numbers (pasted rows, a CSV, a table) and needs the right chart on a slide: pick the kind from the question, author the data, write the claim. | 3.3k |
 | [`cli`](./cli.md) | Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts. | 3.4k |
 | [`diagram`](./diagram.md) | Use when a slide needs a diagram: a Mermaid flowchart, sequence or state diagram, or a native flowchart; when it helps, size limits, theming and what breaks. | 3.0k |

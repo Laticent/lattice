@@ -105,8 +105,10 @@ for (const [w, h] of [
 	const chip = page.getByRole('button', { name: /Change model/ });
 	await expect(chip).toBeVisible();
 	await chip.click();
-	await expect(page.getByText('Ask a question')).toBeVisible();
-	await expect(page.getByText('Make an edit')).toBeVisible();
+	// The rows stand from the first frame with a dash; wait for the priced figures themselves.
+	for (const label of ['Ask a question', 'Make an edit']) {
+		await expect(page.getByText(label, { exact: true }).locator('xpath=following-sibling::span[@data-usd]')).toBeVisible();
+	}
 	await page.getByRole('tab', { name: 'All' }).click();
 	// `click`, not `check`: picking a model closes the picker, and `check` re-reads the radio's state after its click.
 	// Under load the picker had already unmounted it, so `check` retried against a radio that no longer exists until its

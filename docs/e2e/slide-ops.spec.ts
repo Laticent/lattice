@@ -87,10 +87,11 @@ test('move earlier is disabled on the first slide, and the menu says why', async
 	await expect(earlier).toContainText('Already first');
 });
 
-// The front-matter `say:` narration is keyed by slide number, so a move renumbers it with the slides
-// (2026-10-27-slide-structure-strip.md §8): before, moving slide 1 later left "S0" narrating S1.
-test('move slide later carries the say: narration with the slides', async ({ page }) => {
-	const deck = '---\nsay:\n  1: Narrate zero\n  2: Narrate one\n---\n\n# S0\n\nzero\n\n---\n\n# S1\n\none\n\n---\n\n# S2\n\ntwo\n';
+// A slide's notes live on the slide (`<!-- @say{…} -->`, engineering/decisions/2026-11-20-four-notes.md), so a move
+// carries them with it and leaves nothing to renumber: before, the front-matter `say:` map was keyed by slide number and
+// a move had to rewrite it.
+test('move slide later carries each slide’s @say with it', async ({ page }) => {
+	const deck = '# S0\n\nzero\n\n<!-- @say{Narrate zero} -->\n\n---\n\n# S1\n\none\n\n<!-- @say{Narrate one} -->\n\n---\n\n# S2\n\ntwo\n';
 	await typeDeck(page, deck);
 	await expect(railButtons(page)).toHaveCount(3);
 	await railButtons(page).nth(0).click({ button: 'right' });
@@ -99,8 +100,8 @@ test('move slide later carries the say: narration with the slides', async ({ pag
 	const source = () => page.locator('.cm-content').first().evaluate((el) => (el as any).cmTile.root.view.state.doc.toString() as string);
 	await expect.poll(source).toMatch(/^# S1[\s\S]*^# S0/m);
 	const text = await source();
-	expect(text).toContain('  2: Narrate zero\n');
-	expect(text).toContain('  1: Narrate one\n');
+	expect(text).toMatch(/# S1\n\none\n\n<!-- @say\{Narrate one\} -->/);
+	expect(text).toMatch(/# S0\n\nzero\n\n<!-- @say\{Narrate zero\} -->/);
 });
 
 // A deck written without `---` (`split: headings`) is one block of several slides. The strip's ops act on the

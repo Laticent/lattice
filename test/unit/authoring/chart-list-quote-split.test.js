@@ -256,6 +256,6 @@ describe('a description cannot break the slide, the narration or the card', () =
   test('the speaker note pauses between a description and its sublist', () => {
     const md = require('../../../lib/plugins/chart-family/shared/mark-detail.js');
     const note = md.detailNote([{ label: 'G', valueRaw: '1', detail: '<li><p>Up on the year</p><ul><li>two</li><li>one</li></ul></li>' }]);
-    assert.equal(note, '<!-- G (1): Up on the year · two · one -->');
+    assert.equal(note, '<!-- @note{G (1): Up on the year · two · one} -->');
   });
 });

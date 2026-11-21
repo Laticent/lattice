@@ -7,7 +7,7 @@ import { CommentView, commentOpenKey, commentRunPlugin, structuralGuard } from '
 // The Compose view for a RUN of authoring comments — a pill row with one shared panel below.
 //
 // Two things were got wrong before and are pinned here. (1) Each comment used to render its own
-// block, its own panel and its own Remove button, so a slide with a caption, a describe and a note
+// block, its own panel and its own Remove button, so a slide with a say, an alt and a comment
 // showed three identical "NOTE" boxes stacked down the page. (2) The chip's mousedown used to reach
 // ProseMirror, which made clicking a note a NodeSelection — and with an atom selected the next
 // printed character REPLACES it, so reading a note and carrying on typing destroyed it.
@@ -24,9 +24,9 @@ const DECK = [
 	'',
 	'First paragraph.',
 	'',
-	'<!-- say: the slide reads as this. -->',
+	'<!-- @say{the slide reads as this.} -->',
 	'',
-	'<!-- describe: a bar chart with four bars. -->',
+	'<!-- @alt{a bar chart with four bars.} -->',
 	'',
 	'<!-- a plain note. -->',
 	'',
@@ -61,19 +61,19 @@ const commentCount = (v: EditorView) => {
 	return n;
 };
 
-describe('the pills carry the channel, not a generic label', () => {
-	it('labels caption, describe and note distinctly', () => {
+describe('the pills carry the kind, not a generic label', () => {
+	it('labels say, alt and a plain comment distinctly', () => {
 		mount();
-		expect(labels()).toEqual(['say', 'describe', 'note']);
+		expect(labels()).toEqual(['say', 'alt', 'comment']);
 	});
 
-	it('marks each pill with its channel class, so the three read differently', () => {
+	it('marks each pill with its kind class, so the three read differently', () => {
 		mount();
 		const classes = pills().map((p) => [...p.classList].filter((c) => c.startsWith('cs-comment-')).filter((c) => !c.endsWith('first') && !c.endsWith('last')));
-		expect(classes).toEqual([['cs-comment-say'], ['cs-comment-describe'], ['cs-comment-note']]);
+		expect(classes).toEqual([['cs-comment-say'], ['cs-comment-alt'], ['cs-comment-comment']]);
 	});
 
-	it('shows the words without the channel prefix', () => {
+	it('shows the words without the `@name{…}` frame', () => {
 		mount();
 		pills()[0].click();
 		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('the slide reads as this.');
@@ -98,7 +98,7 @@ describe('the run behaves as ONE control', () => {
 		pills()[1].click();
 		expect(panels()).toHaveLength(1);
 		expect(openPills()).toHaveLength(1);
-		expect(labels()[1]).toBe('describe');
+		expect(labels()[1]).toBe('alt');
 	});
 
 	it('clicking another pill MOVES the panel rather than opening a second', () => {
@@ -181,10 +181,10 @@ describe('removal is a deliberate second act', () => {
 
 	it('removes exactly the open one, keeps the rest of the run and the prose', () => {
 		const v = mount();
-		pills()[1].click(); // describe
+		pills()[1].click(); // alt
 		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
 		expect(commentCount(v)).toBe(2);
-		expect(labels()).toEqual(['say', 'note']);
+		expect(labels()).toEqual(['say', 'comment']);
 		const text = v.state.doc.textContent;
 		expect(text).toContain('First paragraph.');
 		expect(text).toContain('Second paragraph.');
@@ -274,9 +274,9 @@ describe('a comment nested in a blockquote is a first-class pill', () => {
 		expect(pills()).toHaveLength(1);
 	});
 
-	it('gives it a channel class and run marks like any other', () => {
+	it('gives it a kind class and run marks like any other', () => {
 		mount(NESTED);
-		expect(pills()[0].classList.contains('cs-comment-note')).toBe(true);
+		expect(pills()[0].classList.contains('cs-comment-comment')).toBe(true);
 		expect(pills()[0].classList.contains('cs-comment-first')).toBe(true);
 		expect(pills()[0].classList.contains('cs-comment-last')).toBe(true);
 	});
@@ -390,7 +390,7 @@ describe('the panel lays the note out for reading', () => {
 });
 
 describe('the row announces itself as the tab bar it is', () => {
-	it('names the CHANNEL on the pill, not the whole note', () => {
+	it('names the KIND on the pill, not the whole note', () => {
 		mount();
 		const label = pills()[0].getAttribute('aria-label') || '';
 		expect(label).toContain('say');
@@ -446,7 +446,7 @@ describe('the row announces itself as the tab bar it is', () => {
 		expect(pills()[0].getAttribute('aria-controls')).toBeNull();
 	});
 
-	it('never says "note" on a channel that is not one', () => {
+	it('never says "note" on a kind that is not one', () => {
 		// Only a screen-reader user met this: the visible chip said "caption" while the accessible
 		// name ended "— authoring note", which is the word the whole feature exists to stop using.
 		mount();
@@ -483,7 +483,7 @@ describe('the row announces itself as the tab bar it is', () => {
 		mount();
 		pills()[1].click();
 		expect(panels()[0].getAttribute('role')).toBe('region');
-		expect(panels()[0].getAttribute('aria-label')).toContain('describe');
+		expect(panels()[0].getAttribute('aria-label')).toContain('alt');
 	});
 });
 

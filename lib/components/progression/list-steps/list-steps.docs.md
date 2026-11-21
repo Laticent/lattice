@@ -21,7 +21,8 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading naming the process. |
-| `steps` | a `1.` list | yes | Ordered list; each li is one step and gets a step number. The `1.` line is the step's TITLE and renders bold; its body goes on a nested `- ` line indented three spaces under it. A title and body on one line (`1. Freeze — two weeks before cutover`) renders the whole sentence as the bold title. |
+| `steps` | a list | yes | Ordered list; each li is one step and gets a step number. The `1.` line is the step's TITLE and renders bold; its body goes on a nested `- ` line indented three spaces under it. A title and body on one line (`1. Freeze — two weeks before cutover`) renders the whole sentence as the bold title. |
+| `body` | a list nested 1 level under an item | no | The step's body line, nested under its title. `-` or `1.` read the same here: the layout styles it as the card body. |
 
 ### Variant decision rule
 
@@ -41,8 +42,8 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ### Common mistakes
 
-- **Authoring steps as a bullet list (`-`) instead of a numbered list (`1.`).** The card chrome — background, border, STEP badge, connector arrow — is scoped to `ol > li` specifically; a `ul` renders as plain unstyled text with no cards, no counter, no badge.
-- **Writing a step's title and body on one line, e.g. `1. Freeze new integrations — two weeks before cutover, changes stop.`** The whole `1.` line is the step's title, so the sentence renders as one bold block with no body under it. Put the title on the `1.` line and the sentence on a nested line: `1. Freeze new integrations` then `   - Two weeks before cutover, changes stop.` `lint:deck` flags this (`list-steps-inline-body`) and `--fix` splits it.
+- **Writing `-` and expecting STEP numbers.** `1.` numbers the cards (STEP 01, the badge and its counter); `-` renders the same cards and connectors with no number tag. Use `-` only when the steps genuinely have no order.
+- **Writing a step's title and body on one line, e.g. `1. Freeze new integrations — two weeks before cutover, changes stop.`** The whole `1.` line is the step's title, so the sentence renders as one bold block with no body under it. Put the title on the `1.` line and the sentence on a nested line: `1. Freeze new integrations` then `   - Two weeks before cutover, changes stop.` `lint:deck` flags this (`list-steps-inline-body`) and `--fix` splits it. A whole sentence on the `1.` line with no nested body is flagged too, with no fix, because there is no point to split it at: write a short title and move the sentence under it.
 - **Deleting or reordering a step and not re-reading the other steps' prose for a stale reference to its old position (e.g. "as covered in step 3").** The STEP/PHASE/… badge is generated purely from a CSS `counter()` on the `ol` position — it renumbers automatically, but any prose that names a step by number does not.
 
 ## When to use
@@ -323,7 +324,7 @@ Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) com
 
 - [`split-panel`](../../statement/split-panel/split-panel.docs.md) — phase label + heading on the left, steps on the right
 - [`roadmap`](../../../plugins/chart-family/kinds/roadmap/roadmap.docs.md) — phased grid across multiple workstreams
-- [`list`](../../inventory/list/list.docs.md) — tenets or values (the `principles` variant) rather than a sequence; `takeaway numbered` for gating requirements rather than a sequence of actions
+- [`list`](../../inventory/list/list.docs.md) — tenets or values (the `principles` variant) rather than a sequence; `list takeaway` over a `1.` list for gating requirements rather than a sequence of actions
 - [`funnel`](../../../plugins/chart-family/kinds/funnel/funnel.docs.md) — a value-driven funnel with conversion percentages, rather than the qualitative `converge` variant
 
 ## Demo deck

@@ -97,6 +97,7 @@
     { "key": "color-mode", "groups": [], "why": "Stamps the engine's `color-*` classes, which an author never types; a slide uses `dark` or `light` (mood)." },
     { "key": "finish", "groups": [], "why": "Stamps `finish finish-<name>`, an open vocabulary: a saved finish is any name." },
     { "key": "image-card", "groups": [], "why": "Stamps the image card's classes, which the image-card register owns (lib/core/resolve-image-card.js)." },
+    { "key": "cover", "groups": [], "why": "Stamps `cover-*` on title and closing slides only, which the cover register owns (lib/core/resolve-cover.js)." },
     { "key": "player-motion", "groups": [], "why": "Read by the player, not stamped on a slide." },
     { "key": "pace", "groups": [], "why": "Read by the narrated guide, not stamped on a slide." },
     { "key": "delivery", "groups": [], "why": "Read by the narrated guide, not stamped on a slide." }

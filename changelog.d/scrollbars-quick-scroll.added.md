@@ -1,0 +1,4 @@
+- Scrollbars in the Studio, the Playground and the docs are now thin everywhere, not only on the page itself. Inner panels such as Compose and the filmstrip used to draw the thick system scrollbar on Windows.
+- Long panes now offer jump to top and jump to bottom: Studio Compose, Source and the reading view, and the Playground editor and preview. The buttons appear while you scroll content longer than two screens and hide 1.5 seconds after you stop. With a mouse they sit as a small rail beside the scrollbar; on a touch screen they stack bottom-right, above the New slide button.
+- A mouse wheel now scrolls the Studio's slide pills and the slide map sideways, wherever the pointer is on the strip. Before, a plain wheel did nothing there unless the pointer sat on the strip's scrollbar.
+- The slide map no longer shows a scrollbar. It used to reserve an empty bar strip even when nothing scrolled; you move through it with the mouse wheel, a trackpad swipe or the keyboard.

@@ -182,15 +182,14 @@ test('the Studio webpage export honors Strip speaker notes, including on a slide
 			'# Cover', '',
 			'<section class="inner"><p>nested</p></section>', '',
 			'Tail copy.', '',
-			// MULTI-PARAGRAPH on purpose. One comment, two paragraphs: the strip matcher
-			// compares a comment's whole trimmed body, so any repair that re-derives the
-			// note bodies by splitting the joined note on the blank line produces fragments
-			// that match nothing — and this whole comment, secret included, ships in the
-			// envelope. A single-line note cannot catch that.
-			'<!--', 'Board only, do not share.', '', SECRET, '-->',
-			'<!-- describe: A cover slide. -->', '',
+			// MULTI-PARAGRAPH on purpose. One `@note`, two paragraphs: the whole comment, secret
+			// included, must leave the envelope, not a fragment of it. A single-line note cannot
+			// catch a scrub that stops at the blank line.
+			'<!-- @note{', 'Board only, do not share.', '', SECRET, '} -->',
+			'<!-- @alt{A cover slide.} -->', '',
 			'---', '', '<!-- _class: diagram -->', '', '## Diagram', '',
 			`${F}mermaid`, 'flowchart LR', '  A["Bake me"] --> B["Or fail loudly"]', F, '',
+			// A plain comment is the author's own (four notes, N5): `--strip-notes` removes it too.
 			'<!-- An ordinary note. -->', '',
 		].join('\n'),
 	);

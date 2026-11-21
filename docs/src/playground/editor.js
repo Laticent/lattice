@@ -302,10 +302,11 @@ const latticeTheme = EditorView.theme({
 	// pointers so tapping in doesn't zoom; desktop keeps the denser 13.5px.
 	// (Coarse-pointer rules live in the `@media` block at the END of this object —
 	// its position is load-bearing; see the note there.)
-	// The editor's own scroller does not inherit the page's thin scrollbar (an ancestor resets it), so it is
-	// stated here, with the SAME mix native-widgets.css puts on :root: the preview frame is handed the page's
-	// resolved value, and the e2e spec holds the two equal.
-	'.cm-scroller': { overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent' },
+	// The scrollbar's WIDTH comes from native-widgets.css's `*` rule (`scrollbar-width` is not inherited, so a
+	// :root rule never reached this scroller; that, not an ancestor reset, is why it once needed its own). The
+	// COLOR is stated here with the SAME mix native-widgets.css puts on :root: the preview frame is handed the
+	// page's resolved value, and the e2e spec holds the two equal.
+	'.cm-scroller': { overflow: 'auto', scrollbarColor: 'color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent' },
 	// THE SLIDE BAND. Two drawn boxes, not line decorations (see `bandPlugin`): the text stays selectable and a
 	// click anywhere in the band puts the caret exactly where it landed, because the band is paint, never a hit
 	// target. The wash has an edge top and bottom, which frames the slide including its `---` fences.
@@ -639,8 +640,11 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			onFix: (v, f) => {
 				const cur = v.state.doc.toString();
 				followAdmission(cur);
-				const out = lintCoreMod.applyFix(cur, f);
-				if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out } });
+				// A whole-deck fix (the notes migration) loads first; a keystroke typed meanwhile wins, and the fix is dropped.
+				const doc = v.state.doc;
+				void lintCoreMod.applyFixWhenReady(cur, f).then((out) => {
+					if (out != null && v.state.doc === doc) v.dispatch({ changes: { from: 0, to: doc.length, insert: out } });
+				});
 			},
 		});
 	};

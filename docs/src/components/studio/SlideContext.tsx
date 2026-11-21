@@ -12,7 +12,7 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Check, Cloud, Info, Sparkles, Volume2 } from 'lucide-react';
+import { BookOpen, Check, Cloud, Info, Presentation, Sparkles, Volume2 } from 'lucide-react';
 import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
 import { SETTING_CONTROL_COL, SETTING_LABEL_COL, SETTING_ROW, SETTING_SCOPE } from '@/components/ui/panel';
@@ -48,10 +48,8 @@ import { SlideComments } from './SlideComments';
 
 const { NO_PAGINATION } = chromeGenerated as { NO_PAGINATION: readonly string[] };
 
-import { getDescription, setDescription } from './slide-descriptions';
-import { getNote, setNote } from './slide-notes';
+import { getSlideNote, type NoteName, setSlideNote } from './slide-notes';
 import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, marksProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setEyebrow, setFinish, setHeadline, setImageCard, setMarks, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
-import { getSayLine, setSayLine } from './slide-say';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
@@ -284,32 +282,33 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
 
-	// Note — a local draft so typing doesn't rewrite the source per keystroke; commit
-	// on blur against the freshest chunk.
-	const curNote = React.useMemo(() => getNote(chunk), [chunk]);
+	// The four notes (engineering/decisions/2026-11-20-four-notes.md), each a local draft so typing doesn't rewrite
+	// the source per keystroke, committed on blur against the freshest chunk. Each writes its own `<!-- @name{…} -->`
+	// (slide-notes.ts) and never touches the slide's other comments.
+	//   @note     speaker notes: Present, the PDF/PPTX notes field
+	//   @say      the voice and the captions; it replaces the narration generated from the slide
+	//   @alt      alt text, for someone who cannot see the slide
+	//   @handout  the handout PDF and the player's read view
+	const curNote = React.useMemo(() => getSlideNote(chunk, 'note'), [chunk]);
 	const [noteDraft, setNoteDraft] = React.useState(curNote);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
 	React.useEffect(() => setNoteDraft(curNote), [curNote, slideNumber]);
-	const commitNote = () => { if (noteDraft !== curNote) onMutate((c) => setNote(c, noteDraft)); };
+	const commit = (name: NoteName, draft: string, cur: string) => { if (draft !== cur) onMutate((c) => setSlideNote(c, name, draft)); };
+	const commitNote = () => commit('note', noteDraft, curNote);
 
-	// Say line — the slide's read-as OVERRIDE, the highest-precedence narration source
-	// (say line → front-matter say: map → projection). A SEPARATE channel from the speaker
-	// note, and the note is not in the chain at all: the note is what you SAY off-slide; the
-	// say line is the exact words the slide READS (read-aloud, the HTML player's Read-Article,
-	// the export `.vtt`, a11y).
-	// Same draft-then-commit shape; writes a `<!-- say: … -->` the engine routes to
-	// narration only, never to the presenter-note field.
-	const curSay = React.useMemo(() => getSayLine(chunk), [chunk]);
+	const curSay = React.useMemo(() => getSlideNote(chunk, 'say'), [chunk]);
 	const [sayDraft, setSayDraft] = React.useState(curSay);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
 	React.useEffect(() => setSayDraft(curSay), [curSay, slideNumber]);
-	const commitSay = () => { if (sayDraft !== curSay) onMutate((c) => setSayLine(c, sayDraft)); };
+	const commitSay = () => commit('say', sayDraft, curSay);
 
-	// Accessibility description — a SEPARATE channel from the note (objective
-	// equivalent of the slide, for screen readers). Same draft-then-commit shape;
-	// commits to a `<!-- describe: … -->` comment the engine routes to image alt /
-	// aria, never to the spoken note.
-	const curDescription = React.useMemo(() => getDescription(chunk), [chunk]);
+	const curHandout = React.useMemo(() => getSlideNote(chunk, 'handout'), [chunk]);
+	const [handoutDraft, setHandoutDraft] = React.useState(curHandout);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
+	React.useEffect(() => setHandoutDraft(curHandout), [curHandout, slideNumber]);
+	const commitHandout = () => commit('handout', handoutDraft, curHandout);
+
+	const curDescription = React.useMemo(() => getSlideNote(chunk, 'alt'), [chunk]);
 	const [descDraft, setDescDraft] = React.useState(curDescription);
 	// An AI-drafted description is UNCONFIRMED until the author acts on it: a wrong
 	// alt is worse than none, so a bare "Generate" then blur must NOT write it to the
@@ -320,8 +319,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const [descMsg, setDescMsg] = React.useState('');
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reseed when the slide changes.
 	React.useEffect(() => { setDescDraft(curDescription); setDescAiDraft(false); setDescMsg(''); }, [curDescription, slideNumber]);
-	const commitDescription = () => { if (!descAiDraft && descDraft !== curDescription) onMutate((c) => setDescription(c, descDraft)); };
-	const confirmDescription = () => { setDescAiDraft(false); if (descDraft !== curDescription) onMutate((c) => setDescription(c, descDraft)); };
+	const commitDescription = () => { if (!descAiDraft) commit('alt', descDraft, curDescription); };
+	const confirmDescription = () => { setDescAiDraft(false); commit('alt', descDraft, curDescription); };
 	const generateDesc = async () => {
 		setDescBusy(true); setDescMsg('');
 		try {
@@ -379,7 +378,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		onResetChange?.({ dirty, reset: () => resetRef.current() });
 	}, [dirty, onResetChange]);
 	React.useEffect(() => () => onResetChange?.(null), [onResetChange]);
-	const resetSlide = () => { if (dirty) { setNoteDraft(getNote(original)); setSayDraft(getSayLine(original)); setDescDraft(getDescription(original)); onMutate(() => original); } };
+	const resetSlide = () => { if (dirty) { setNoteDraft(getSlideNote(original, 'note')); setSayDraft(getSlideNote(original, 'say')); setDescDraft(getSlideNote(original, 'alt')); setHandoutDraft(getSlideNote(original, 'handout')); onMutate(() => original); } };
 
 	resetRef.current = resetSlide;
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
@@ -453,7 +452,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// per-slide override; lib/core/resolve-backdrop.js). Two axes, each Auto = follow the deck.
 	const bdStrength = React.useMemo(() => backdropProvenance(chunk, source, 'strength'), [chunk, source]);
 	const bdMask = React.useMemo(() => backdropProvenance(chunk, source, 'mask'), [chunk, source]);
-	const maskLabel = (m?: string): string => (!m ? "Finish's own" : m === 'clear' ? 'Clear behind content' : m === 'open' ? 'No mask' : `Window · ${BACKDROP_SPOT_LABEL[m.slice(5)] ?? m}`);
+	const maskLabel = (m?: string): string => (!m ? "Finish's own" : m === 'clear' ? 'Clear behind content' : m === 'open' ? 'No mask' : m === 'clear-footer' ? 'Clear the footer' : m === 'clear-hero' ? 'Clear footer and hero' : `Window · ${BACKDROP_SPOT_LABEL[m.slice(5)] ?? m}`);
 	const bdMaskGroups = inheritGroups([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: maskLabel(m) })) }], bdMask.deckValue ? { value: bdMask.deckValue } : { label: maskLabel() });
 	const onBdStrength = (v: string | null) => onMutate((c) => setBackdrop(c, 'strength', v));
 	const onBdMask = (v: string) => onMutate((c) => setBackdrop(c, 'mask', v === '__inherit__' ? null : v));
@@ -773,23 +772,32 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const cleanRow = (
 		<Row label="Clean slide" hint="hide chrome" desc="Hide header, footer, page number and rail." help={<>All four at once — for a full-bleed slide that should carry no furniture. Any one comes back with its own switch below.</>}><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
 	);
+	// Each note is a labeled textarea named for where its words show up. A `SettingsBlock`, not a `Row`, so a search
+	// still finds it by name and the Notes section still collapses when a query matches none of them.
+	const noteHead = (icon: React.ReactNode, title: string, where: string) => (
+		// The title never breaks; the destination wraps under it when a control shares the row (the alt text's Generate).
+		<span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[12.5px] font-semibold text-foreground">
+			{icon}
+			<span className="whitespace-nowrap">{title}</span>
+			<span className="font-normal text-muted-foreground">{where}</span>
+		</span>
+	);
+	const noteHint = (text: React.ReactNode) => <p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">{text}</p>;
+	const noteArea = 'w-full resize-none rounded-lg border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]';
 	const noteBlock = (
-		<SettingsBlock terms="speaker note presenter say off-slide">
-		<textarea
-			value={noteDraft}
-			onChange={(e) => setNoteDraft(e.target.value)}
-			onBlur={commitNote}
-			aria-label="Speaker note for this slide"
-			placeholder="What you'll say on this slide — shown on your Present console, exported to PDF/PPTX notes."
-			className="min-h-[140px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
-		/>
-		<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-			{/* Yours, and only yours — the note is not a narration source. It used to be
-			    (it outranked the slide's own content), which is how a private remark
-			    reached a recipient's caption track; see narration-resolve.ts. */}
-			Yours alone: shown beside the slide while you present, and exported to the PDF/PPTX
-			speaker-notes field. Never read aloud, and never in the caption track.
-		</p>
+		<SettingsBlock terms="speaker notes note presenter present off-slide">
+			{noteHead(<Presentation className="size-3.5 text-[var(--accent)]" />, 'Speaker notes', 'for you, while you present')}
+			{/* Yours alone: the note is not a narration source. It used to be (it outranked the slide's own content),
+			    which is how a private remark reached a recipient's caption track; see narration-resolve.ts. */}
+			{noteHint(<>Shown beside the slide in Present and exported to the PDF and PPTX notes field. Never read aloud, never in the captions. Written as <code className="font-mono">@note{'{…}'}</code>.</>)}
+			<textarea
+				value={noteDraft}
+				onChange={(e) => setNoteDraft(e.target.value)}
+				onBlur={commitNote}
+				aria-label="Speaker notes for this slide"
+				placeholder="What you'll say on this slide."
+				className={cn(noteArea, 'min-h-[120px] border-border')}
+			/>
 		</SettingsBlock>
 	);
 	const sectionDefs: { value: string; label: string; keywords: string; body: () => React.ReactNode }[] = [
@@ -904,42 +912,34 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		{
 			value: 'notes',
 			label: 'Notes',
-			keywords: 'annotation commentary what you say',
+			keywords: 'annotation commentary',
 			body: () => (
 						<div className="py-2">
-							<TabIntro>The speaker note for this slide — what you'll say when it's on screen. It never appears on the slide itself.</TabIntro>
-							{/* The three channels below are `SettingsBlock`s, not `Row`s — each is a
-							    labeled textarea, not a label/control pair — so that a search can
-							    still find them by name and this section can still collapse when a
-							    query matches none of them. */}
+							<TabIntro>Four notes, each named for where its words show up. None of them appears on the slide itself.</TabIntro>
 							{noteBlock}
 
-							{/* SAY — the read-as OVERRIDE, and it REPLACES the generated narration
-							    rather than merging with it. A separate channel from the note, which is
-							    not a narration source at all: say → front-matter say → projection, for a
-							    clean caption track / Read-Article / export `.vtt`.
-							    Writes `<!-- say: … -->`; never lands in the presenter-note field.
-							    `caption` stays in the search terms: an author who knew the old key
-							    should still find the field that replaced it. */}
-							<SettingsBlock terms="say read aloud narration spoken vtt read-article caption" separated>
-								<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Volume2 className="size-3.5 text-[var(--accent)]" />Say <span className="font-normal text-muted-foreground">what this slide says aloud</span></span>
-								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">The exact words this slide speaks — in read-aloud, the HTML player's Read-Article, and the export <code className="font-mono">.vtt</code>. It replaces the narration generated from the slide. Leave empty to use the generated narration.</p>
+							{/* SAY — the voice and the captions. It REPLACES the generated narration rather than merging
+							    with it: say line → chart → projection, for read-aloud, read-along and the export `.vtt`.
+							    `caption` stays in the search terms: an author who knew the old key should still find it. */}
+							<SettingsBlock terms="say voice captions read aloud narration spoken vtt read-along caption" separated>
+								{noteHead(<Volume2 className="size-3.5 text-[var(--accent)]" />, 'Say', 'voice and captions')}
+								{noteHint(<>The exact words this slide speaks: read-aloud, read-along and the export <code className="font-mono">.vtt</code>. It replaces the narration generated from the slide; leave it empty to use that. Written as <code className="font-mono">@say{'{…}'}</code>.</>)}
 								<textarea
 									value={sayDraft}
 									onChange={(e) => setSayDraft(e.target.value)}
 									onBlur={commitSay}
-									aria-label="What this slide says aloud"
-									placeholder="The exact words this slide should read aloud — e.g. “Revenue grew forty percent across three quarters.”"
-									className="min-h-[84px] w-full resize-none rounded-lg border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]"
+									aria-label="Say (voice and captions) for this slide"
+									placeholder="e.g. “Revenue grew forty percent across three quarters.”"
+									className={cn(noteArea, 'min-h-[84px] border-border')}
 								/>
 							</SettingsBlock>
 
-							{/* DESCRIPTION — a separate channel from the note (opposite register:
-							    what's ON the slide, for screen readers), exported as the image's
-							    alt text (PPTX) / an aria description (HTML). */}
-							<SettingsBlock terms="description accessibility alt text screen reader wcag" separated>
+							{/* ALT TEXT — what is ON the slide, for someone who cannot see it: the PPTX image alt text and
+							    the HTML aria description. `description` stays in the search terms: an author who knew the
+							    old `describe:` key should still find the field that replaced it. */}
+							<SettingsBlock terms="alt text accessibility description screen reader wcag" separated>
 								<div className="flex items-center justify-between gap-2">
-									<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><SrDescriptionIcon className="size-3.5 text-[var(--accent)]" />Description <span className="font-normal text-muted-foreground">for screen readers</span></span>
+									{noteHead(<SrDescriptionIcon className="size-3.5 text-[var(--accent)]" />, 'Alt text', 'for someone who cannot see the slide')}
 									{cloudReady ? (
 										<Tip label="Draft a text alternative from this slide (you review & confirm before it's used)"><button
 											type="button"
@@ -962,14 +962,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 										</button></Tip>
 									)}
 								</div>
-								<p className="mt-1 mb-2 text-[11px] leading-snug text-muted-foreground">An objective equivalent of what's on the slide — the accessibility text alternative (WCAG A). Exported as the slide image's alt text; never spoken or shown on the slide.</p>
+								{noteHint(<>An objective equivalent of what is on the slide (WCAG 1.1.1). Read by screen readers and exported as the PPTX alt text. Never spoken or shown on the slide. Written as <code className="font-mono">@alt{'{…}'}</code>.</>)}
 								<textarea
 									value={descDraft}
 									onChange={(e) => { setDescDraft(e.target.value); setDescAiDraft(false); }}
 									onBlur={commitDescription}
-									aria-label="Accessibility description for this slide"
+									aria-label="Alt text for this slide"
 									placeholder="What's on this slide, objectively — e.g. “A bar chart: revenue rising 40% across three quarters.”"
-									className={cn('min-h-[84px] w-full resize-none rounded-lg border bg-background p-3 text-[13px] leading-relaxed text-foreground outline-none focus:border-[var(--accent)]', descAiDraft ? 'border-[var(--accent)]' : 'border-border')}
+									className={cn(noteArea, 'min-h-[84px]', descAiDraft ? 'border-[var(--accent)]' : 'border-border')}
 								/>
 								{descAiDraft && (
 									<div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-2 text-[11.5px] text-[var(--text-heading)]">
@@ -979,6 +979,21 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								)}
 								{descMsg && <p aria-hidden="true" className="mt-2 text-[11px] leading-snug text-[var(--warn,#9a6a00)]">{descMsg}</p>}
 								<Announce message={descMsg} />
+							</SettingsBlock>
+
+							{/* HANDOUT — for someone reading the deck alone, later: the handout PDF and the player's read
+							    view. `reader` stays in the search terms for an author who knew the old key. */}
+							<SettingsBlock terms="handout read view reader leave-behind" separated>
+								{noteHead(<BookOpen className="size-3.5 text-[var(--accent)]" />, 'Handout', 'for someone reading alone, later')}
+								{noteHint(<>Printed under the slide in the handout PDF and shown in the read view. Use it for what the slide leaves to you in the room. Written as <code className="font-mono">@handout{'{…}'}</code>.</>)}
+								<textarea
+									value={handoutDraft}
+									onChange={(e) => setHandoutDraft(e.target.value)}
+									onBlur={commitHandout}
+									aria-label="Handout for this slide"
+									placeholder="e.g. “Measured over 30 days; the cohort is in the appendix.”"
+									className={cn(noteArea, 'min-h-[84px] border-border')}
+								/>
 							</SettingsBlock>
 
 							{!editable && (

@@ -8,7 +8,9 @@
  * consistency rules in `engineering/workflow.md` §One layout for all four cards,
  * and `renderCard` prints the card: 38 columns, label line above value line,
  * CAPS on the critical value, fenced. The layout is correct by construction, so
- * nothing downstream has to lint it.
+ * nothing downstream has to lint it. The fleet board is the one exception to
+ * "one fence": it prints several fenced cards, each with a link row under it,
+ * because a link inside a fence cannot be clicked (workflow.md §🛰️ Fleet board).
  *
  * Lives in `tools/`, not `lib/`: `ajv` is a devDependency and `lib/` ships to every
  * consumer (HARD RULE-backed ownership gate). Pure and fs-free: the CLI
@@ -24,6 +26,24 @@ const MAX_NESTED_LINES = 3;
 
 // One non-empty line: a block scalar or a blank value would print mangled.
 const str = { type: 'string', pattern: '^[^\\r\\n]*\\S[^\\r\\n]*$' };
+
+// The fleet board's loudness scale, loudest first (workflow.md §🛰️ Fleet board).
+const FLEET_LEVELS = [
+  { name: 'needs-you', icon: '🔴' },
+  { name: 'at-risk', icon: '🟠' },
+  { name: 'moving', icon: '🟢' },
+  { name: 'review', icon: '🔵' },
+  { name: 'done', icon: '✅' },
+];
+const FLEET_LEVEL_NAMES = FLEET_LEVELS.map((l) => l.name);
+const fleetIcon = (level) => FLEET_LEVELS.find((l) => l.name === level).icon;
+const fleetRank = (level) => FLEET_LEVEL_NAMES.indexOf(level);
+/**
+ * A line of work is as loud as its loudest session, child sessions included,
+ * so a 🔴 child is never hidden under a ✅ or 🟢 parent.
+ */
+const fleetLoudest = (x) => Math.min(fleetRank(x.level), ...(x.children || []).map((k) => fleetRank(k.level)));
+const REPO_URL = 'https://github.com/Laticent/lattice';
 
 const SCHEMAS = {
   'pre-merge': {
@@ -205,6 +225,57 @@ const SCHEMAS = {
           properties: { question: str, yes: str, no: str },
         },
       },
+    },
+  },
+  fleet: {
+    type: 'object',
+    required: ['card', 'as_of', 'items'],
+    additionalProperties: false,
+    properties: {
+      card: { const: 'fleet' },
+      as_of: str,
+      scope: str,
+      spend: str,
+      hindsight: str,
+      insight: str,
+      foresight: str,
+      items: {
+        type: 'array',
+        minItems: 1,
+        items: {
+          type: 'object',
+          required: ['level', 'title', 'state'],
+          additionalProperties: false,
+          properties: {
+            level: { enum: FLEET_LEVEL_NAMES },
+            title: str,
+            pr: { type: 'integer', minimum: 1 },
+            session: { type: 'string', pattern: '^session_[A-Za-z0-9]+$' },
+            build: { type: 'string', pattern: '^https://\\S+$' },
+            state: str,
+            needs: str,
+            why: str,
+            children: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['level', 'title', 'state'],
+                additionalProperties: false,
+                properties: {
+                  level: { enum: FLEET_LEVEL_NAMES },
+                  title: str,
+                  pr: { type: 'integer', minimum: 1 },
+                  session: { type: 'string', pattern: '^session_[A-Za-z0-9]+$' },
+                  build: { type: 'string', pattern: '^https://\\S+$' },
+                  state: str,
+                  needs: str,
+                },
+              },
+            },
+          },
+        },
+      },
+      actions: { type: 'array', items: str },
     },
   },
 };
@@ -583,11 +654,146 @@ function renderDecision(d, page) {
   });
 }
 
+/** The clickable link row printed under a fleet card, outside its fence. */
+function fleetLinks(x) {
+  const links = [];
+  if (x.pr) links.push(`[Pull Request](${REPO_URL}/pull/${x.pr})`);
+  if (x.session) links.push(`[Session](https://claude.ai/code/${x.session})`);
+  if (x.build) links.push(`[Build](${x.build})`);
+  return links.join(' | ');
+}
+
+const fleetName = (x) => `${fleetIcon(x.level)} ${x.title}${x.pr ? ` — #${x.pr}` : ''}`;
+
+/**
+ * 🛰️ Fleet board: one overview card, then one card per live line of work,
+ * loudest first, each followed by its link row. `done` items fold into the
+ * overview. Returns the blocks; the caller joins them.
+ */
+function renderFleet(d, page) {
+  // A done parent with a live child stays live: the child still needs a card.
+  const DONE = fleetRank('done');
+  const live = d.items.filter((x) => fleetLoudest(x) !== DONE);
+  const done = d.items.filter((x) => fleetLoudest(x) === DONE);
+  const all = d.items.flatMap((x) => [x, ...(x.children || [])]);
+  const counts = FLEET_LEVELS.map((l) => [l.icon, all.filter((x) => x.level === l.name).length])
+    .filter(([, n]) => n)
+    .map(([icon, n]) => `${icon} ${n}`)
+    .join(' · ');
+  const actions = d.actions || [];
+
+  header(page, `🛰️ Fleet — ${d.as_of}`, actions.length ? 'reply: go A1 A2 … | hold' : null, 'as_of');
+  page.blank();
+  page.section('BOTTOM LINE');
+  page.field('board', counts, 'items');
+  const loud = all.filter((x) => x.level === 'needs-you').length;
+  page.field('needs you', loud ? `${loud} — the 🔴 cards below` : 'NOTHING — no 🔴 card', 'items');
+  page.field('scope', d.scope, 'scope');
+  page.field('spend', d.spend, 'spend');
+  if (d.hindsight || done.length) page.section('HINDSIGHT — since last board');
+  // Every finished session, a child of a live line of work included, so the list
+  // matches the ✅ count. A done parent that still has a live child keeps its card instead.
+  const finished = all.filter((x) => x.level === 'done' && !live.includes(x));
+  page.field('done', finished.map((x) => `${x.title}${x.pr ? ` #${x.pr}` : ''} ${x.state}`).join('; '), 'items[done]');
+  page.field('notes', d.hindsight, 'hindsight');
+  if (d.insight) page.section('INSIGHT — patterns');
+  page.field('pattern', d.insight, 'insight');
+  if (d.foresight) page.section('FORESIGHT — next');
+  page.field('next', d.foresight, 'foresight');
+  if (actions.length) page.section('ACTIONS — nothing runs until go');
+  actions.forEach((a, i) => {
+    page.field(`A${i + 1}`, a, `actions[${i}]`);
+  });
+
+  // Stable sort, loudest first, so a 🔴 never sits below a 🟢.
+  const sorted = live
+    .map((x, i) => ({ x, i }))
+    .sort((a, b) => fleetLoudest(a.x) - fleetLoudest(b.x) || a.i - b.i)
+    .map(({ x }) => x);
+  page.blocks = [{ lines: page.lines }];
+  for (const x of sorted) {
+    const where = `items[${d.items.indexOf(x)}]`;
+    if (x.level === 'needs-you' && !x.needs) {
+      page.errors.push(`${where}: a needs-you card must say what it needs in "needs"`);
+    }
+    page.lines = [];
+    // The header wears the loudest session's icon, so scanning headers for 🔴 finds every 🔴.
+    header(page, `${FLEET_LEVELS[fleetLoudest(x)].icon}${fleetName(x).slice(fleetIcon(x.level).length)}`, null, `${where}.title`);
+    page.blank();
+    page.section('BOTTOM LINE');
+    page.field('state', x.state, `${where}.state`);
+    page.field('needs you', x.needs, `${where}.needs`);
+    page.field('why', x.why, `${where}.why`);
+    const kids = x.children || [];
+    if (kids.length) page.section('LINE OF WORK');
+    kids.forEach((k, j) => {
+      const at = `${where}.children[${j}]`;
+      const name = `  ${fleetName(k)}`;
+      if (displayWidth(name) > WIDTH) page.errors.push(`${at}.title: line is wider than ${WIDTH} columns`);
+      page.lines.push(name);
+      page.push(wrap(k.state, '    ', '    '), `${at}.state`, MAX_FIELD_LINES, 'state');
+      if (k.needs) page.push(wrap(`needs you: ${k.needs}`, '    ', '    '), `${at}.needs`, MAX_FIELD_LINES, 'needs');
+      if (k.level === 'needs-you' && !k.needs) {
+        page.errors.push(`${at}: a needs-you session must say what it needs in "needs"`);
+      }
+    });
+    const links = [fleetLinks(x), ...kids.filter((k) => fleetLinks(k)).map((k) => `${k.title}: ${fleetLinks(k)}`)]
+      .filter(Boolean)
+      .join('  \n');
+    page.blocks.push({ lines: page.lines, links });
+  }
+  page.lines = page.blocks.flatMap((b) => b.lines);
+}
+
+/**
+ * A table cell: one line, with `\` escaped first and then `|`, so neither a bare
+ * `|` nor a `\|` already in the value can split the row.
+ */
+const cell = (text) => String(text).replace(/[\\|]/g, '\\$&');
+/** Link text: as a cell, plus `[` and `]`, which would end the link early. One pass, so nothing is escaped twice. */
+const linkText = (text) => String(text).replace(/[\\|[\]]/g, '\\$&');
+
+/**
+ * The fleet board as one markdown table: a row per session, loudest first,
+ * child sessions right under their parent, done rows last. Same YAML and the
+ * same validation as the cards, so the two views cannot disagree. Markdown,
+ * not fenced, so every link can be clicked.
+ */
+function renderFleetTable(card) {
+  const cards = renderCard(card);
+  if (!cards.ok) return cards;
+  if (card.card !== 'fleet') {
+    return { ok: false, errors: ['--table works only on a fleet card'], lines: [], text: '' };
+  }
+  const order = card.items
+    .map((x, i) => ({ x, i }))
+    .sort((a, b) => fleetLoudest(a.x) - fleetLoudest(b.x) || a.i - b.i);
+  const lines = [
+    `🛰️ **Fleet** · ${cell(card.as_of)}`,
+    '',
+    '| | Session | PR | CI | State |',
+    '|:-:|---|---|---|---|',
+  ];
+  const row = (x, child) => {
+    const name = cell(x.title);
+    const named = x.session ? `[${linkText(x.title)}](https://claude.ai/code/${x.session})` : name;
+    lines.push(
+      `| ${fleetIcon(x.level)} | ${child ? '· ' : ''}${named} | ${x.pr ? `[#${x.pr}](${REPO_URL}/pull/${x.pr})` : ''} | ${x.build ? `[run](${x.build})` : ''} | ${cell(x.state)}${x.needs ? ` — **needs:** ${cell(x.needs)}` : ''} |`,
+    );
+  };
+  for (const { x } of order) {
+    row(x, false);
+    for (const k of x.children || []) row(k, true);
+  }
+  return { ok: true, errors: [], lines, text: lines.join('\n') };
+}
+
 const RENDERERS = {
   'pre-merge': renderPreMerge,
   standup: renderStandup,
   continuation: renderContinuation,
   decision: renderDecision,
+  fleet: renderFleet,
 };
 
 /**
@@ -608,12 +814,13 @@ function renderCard(card) {
   const page = new Page();
   RENDERERS[card.card](card, page);
   if (page.errors.length) return { ok: false, errors: page.errors, lines: [], text: '' };
-  return {
-    ok: true,
-    errors: [],
-    lines: page.lines,
-    text: `\`\`\`\n${page.lines.join('\n')}\n\`\`\``,
-  };
+  const fence = (lines) => `\`\`\`\n${lines.join('\n')}\n\`\`\``;
+  // A fleet board is several fenced cards, each with its links OUTSIDE the
+  // fence, because a link inside a fence cannot be clicked.
+  const text = page.blocks
+    ? page.blocks.map((b) => fence(b.lines) + (b.links ? `\n${b.links}` : '')).join('\n\n')
+    : fence(page.lines);
+  return { ok: true, errors: [], lines: page.lines, text };
 }
 
-module.exports = { renderCard, schemaErrors, displayWidth, WIDTH, SCHEMAS };
+module.exports = { renderCard, renderFleetTable, schemaErrors, displayWidth, WIDTH, SCHEMAS };

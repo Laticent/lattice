@@ -63,19 +63,19 @@ export async function routeByBytes(files: { zips: File[]; rejected: File[] }): P
 
 /**
  * A deck's reference text: each slide's words, then its speaker note, in slide order. The
- * note is the one the Studio's notes field shows (slide-notes.ts `getNote`), so a directive,
- * a `describe:` line or a `say:` line is never mistaken for one. Capped and cleaned by
+ * note is the slide's `@note{…}` (slide-notes.ts `getSlideNote`, engineering/decisions/2026-11-20-four-notes.md), so a
+ * directive, an `@alt` or an `@say` is never mistaken for one. Capped and cleaned by
  * `sanitizeDocText`, like every reference text.
  */
 export async function deckReferenceText(source: string, title = ''): Promise<string> {
 	// slide-notes.ts reads the lint core synchronously; its loaders await it first, and so does this one.
 	await loadAuthoring();
-	const [{ getNote }, { splitSlides }] = await Promise.all([import('./slide-notes'), import('@/lib/deck-lint')]);
+	const [{ getSlideNote }, { splitSlides }] = await Promise.all([import('./slide-notes'), import('@/lib/deck-lint')]);
 	const out: string[] = [];
 	if (title.trim()) out.push(`Deck: ${title.trim()}`);
 	splitSlides(stripFrontMatter(source)).forEach((chunk, i) => {
 		const words = withoutComments(chunk);
-		const note = getNote(chunk);
+		const note = getSlideNote(chunk, 'note');
 		const lines = [`Slide ${i + 1}`];
 		if (words) lines.push(words);
 		if (note) lines.push(`Speaker notes: ${note}`);

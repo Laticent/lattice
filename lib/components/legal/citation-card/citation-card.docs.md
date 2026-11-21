@@ -20,6 +20,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 | `citation` | a line of `inline code` | yes | Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA'). |
 | `quotation` | a `>` blockquote | yes | Verbatim quote of the cited language. |
 | `gloss` | a list | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
+| `body` | a list nested 1 level under an item | no | Body lines under a gloss item, such as what the citation obliges you to do. |
 
 ### Variant decision rule
 

@@ -150,9 +150,9 @@ describe('funnel kernel', () => {
       assert.equal((html.match(/class="chart-detail"/g) || []).length, 1);
     });
 
-    test('the same detail folds into a Marp-faithful speaker-note comment', () => {
+    test('the same detail folds into a speaker note (`@note{…}`)', () => {
       const html = buildFunnel(parseFunnel(withDetail));
-      assert.match(html, /<!-- Visitors \(12000\): Top of funnel · Organic 60% -->/);
+      assert.match(html, /<!-- @note\{Visitors \(12000\): Top of funnel · Organic 60%\} -->/);
     });
 
     test('the nested detail sublist does not leak into a visible text node', () => {

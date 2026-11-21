@@ -55,6 +55,7 @@
   "variants": [
     "donut"
   ],
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
@@ -72,7 +73,7 @@
       "selector": "li > ul",
       "match": { "kind": "list", "depth": 2, "marker": "bullet" },
       "required": false,
-      "description": "Optional nested sublist under a slice. Drives two surfaces from one source via the shared chart-family detail substrate (identical to funnel/map/quadrant/radar): (1) Present/Practice — the kernel keeps the label/value as-is, tags each wedge `<path>` with `data-mark`, and emits the sublist as an inert `<template class=\"chart-detail\">` (inside a `.chart-details` wrapper) the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment, which notes-core lifts into the per-slide note channel (a PDF text annotation + the hidden `aside`). The note rides the existing channel, so the chart pixels stay byte-identical. A pie with no sublists emits no note and is unchanged. Detail sublists must be bullet (`-`/`*`) lists, not numbered."
+      "description": "Optional nested sublist under a slice. Drives two surfaces from one source via the shared chart-family detail substrate (identical to funnel/map/quadrant/radar): (1) Present/Practice — the kernel keeps the label/value as-is, tags each wedge `<path>` with `data-mark`, and emits the sublist as an inert `<template class=\"chart-detail\">` (inside a `.chart-details` wrapper) the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment, which notes-core lifts into the per-slide note channel (a PDF text annotation + the hidden `aside`). The note rides the existing channel, so the chart pixels stay byte-identical. A pie with no sublists emits no note and is unchanged. A detail sublist may be written with `-` or `1.`: the list contract reads both the same."
     }
   },
   "skeleton": "<!-- _class: piechart donut -->\n\n`Eyebrow · context`\n\n## What the breakdown shows.\n\n- First slice `40%`\n- Second slice `30%`\n- Third slice `20%`\n- Fourth slice `10%`\n",
@@ -151,8 +152,8 @@
       "fix": "Every slice pill in one chart shares the same unit/format. Mixing formats breaks the part-to-whole read the wedges are supposed to communicate."
     },
     {
-      "mistake": "A `detail` sublist under a slice authored as a numbered list.",
-      "fix": "Detail sublists must be bullet (`-`/`*`) lists, not numbered — the shared chart-family detail substrate (funnel/map/quadrant/radar too) only picks up bullet lists."
+      "mistake": "Writing a slice's detail as prose under the slice instead of a nested list item.",
+      "fix": "A detail is a nested list item under the slice (`-` or `1.`, read the same by the list contract); a paragraph under the slice is not part of the chart."
     }
   ],
   "dataShapeGuidance": [
