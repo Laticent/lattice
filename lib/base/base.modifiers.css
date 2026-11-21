@@ -3856,7 +3856,12 @@ section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note:n
    frame seats BESIDE the stage, so every `> .cell-stage >` arm here stopped matching:
    measured on the split-envelope demo, the checklist and cards-grid notes rendered at
    46.98px instead of --fs-body-compact's 39.96px. */
-section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > p {
+section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > p,
+/* The coda-beat arm. A layout whose coda takes the paragraph beat (stats, since
+   2026-11-20) wraps the raw `p.lat-split-note` in the coda's own `.below-note`, so the
+   note arrives as `.cell-coda > .below-note > p.lat-split-note` and no arm above meets it:
+   the stats note on the split-envelope fixture rendered at 21.4px instead of 17.9px. */
+section.form.lat-split-native.lat-split-native > .cell-coda > .below-note > p.lat-split-note {
   font-size: var(--fs-body-compact);
 }
 /* Rule 2 — a WRAPPED note, any layout, the common non-em-only case. */

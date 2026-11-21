@@ -59,6 +59,9 @@ section.stats:where(:not(.math)) h2 { padding-bottom:var(--sp-xs); text-align:va
 section.form.stats:where(:not(.math)) .cell-masthead .masthead-lede { text-align:var(--headline-align, center); align-items:var(--headline-justify, center); }
 section.stats:where(:not(.math)) h3 { padding-bottom:0.3125cqi; }
 section.stats:where(:not(.math)) > .cell-stage > p, section.stats:where(:not(.math)) > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
+/* The trailing note is the coda's below-note since 2026-11-20, so the stage rule above no longer reaches it.
+   It keeps the row's alignment: centered under a centered headline, start-aligned when the deck sets `headline: left`. */
+section.stats:where(:not(.math)) > .cell-coda > .below-note { text-align:var(--headline-align, center); }
 
 /* The stat strip: the top-level list laid out as a centered flex row. */
 section.stats:where(:not(.math)) > .cell-stage > ol {
