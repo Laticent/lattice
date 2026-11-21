@@ -31,6 +31,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { readFrontMatterTheme } = require('../lib/core/resolve-palette');
 const { pluginKindFolders } = require('../lib/packages/fs.js');
 
 const ROOT = path.join(__dirname, '..');
@@ -47,8 +48,7 @@ function readGalleries(root = ROOT) {
 			if (!comp.isDirectory() || comp.name.startsWith('_')) continue;
 			const file = path.join(base, bucket.name, comp.name, `${comp.name}.gallery.md`);
 			if (!fs.existsSync(file)) continue;
-			const head = fs.readFileSync(file, 'utf8').split(/\r\n?|\n/).slice(0, 12).join('\n');
-			const theme = [...head.matchAll(/^theme[ \t]*:[ \t]*['"]?([\w-]+)/gm)].pop()?.[1] || 'indaco';
+			const theme = readFrontMatterTheme(fs.readFileSync(file, 'utf8')) || 'indaco';
 			out.push({ file: path.relative(root, file).split(path.sep).join('/'), dir: `lib/components/${bucket.name}/${comp.name}/`, theme });
 		}
 	}
@@ -56,8 +56,7 @@ function readGalleries(root = ROOT) {
 	for (const k of pluginKindFolders(base)) {
 		const file = path.join(k.parent, k.name, `${k.name}.gallery.md`);
 		if (!fs.existsSync(file)) continue;
-		const head = fs.readFileSync(file, 'utf8').split(/\r\n?|\n/).slice(0, 12).join('\n');
-		const theme = [...head.matchAll(/^theme[ \t]*:[ \t]*['"]?([\w-]+)/gm)].pop()?.[1] || 'indaco';
+		const theme = readFrontMatterTheme(fs.readFileSync(file, 'utf8')) || 'indaco';
 		const dir = `${path.relative(root, path.join(k.parent, k.name)).split(path.sep).join('/')}/`;
 		out.push({ file: path.relative(root, file).split(path.sep).join('/'), dir, theme });
 	}

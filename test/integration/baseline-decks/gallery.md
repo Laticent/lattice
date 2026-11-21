@@ -339,19 +339,19 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 
 ---
 
-<!-- _class: list takeaway numbered -->
-<!-- _footer: "Numbered criteria · list takeaway numbered" -->
+<!-- _class: list takeaway -->
+<!-- _footer: "Numbered criteria · list takeaway over 1." -->
 
 ## Four requirements every decision system must meet.
 
-- **Speed**
-  - Decisions close inside their window. Latency consumes the value the system protects.
-- **Auditability**
-  - Every decision above the threshold carries a traceable rationale.
-- **Adoption**
-  - Unused weekly, calibration never runs. Ninety minutes per PM is the ceiling.
-- **Calibration**
-  - It must improve over time. A static scoring model is a spreadsheet with extra steps.
+1. **Speed**
+   - Decisions close inside their window. Latency consumes the value the system protects.
+1. **Auditability**
+   - Every decision above the threshold carries a traceable rationale.
+1. **Adoption**
+   - Unused weekly, calibration never runs. Ninety minutes per PM is the ceiling.
+1. **Calibration**
+   - It must improve over time. A static scoring model is a spreadsheet with extra steps.
 
 ---
 
@@ -1063,18 +1063,18 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ---
 
-<!-- _class: list takeaway numbered -->
-<!-- _footer: "List variant — list takeaway · list takeaway numbered" -->
+<!-- _class: list takeaway -->
+<!-- _footer: "List variant — list takeaway · list takeaway over 1." -->
 
 `Section 03 · Recap`
 
 ## What this section will tell you, in five lines.
 
-- The framework buys calibrated prioritization with audit-grade decision custody. — see slide 8
-- Recalibration is a version-floor increment, not a coordinated freeze, not a war room. — see slide 12
-- Per-team weights make recalibration a single policy update. — see slide 18
-- Phase 1 ships the architecture, Phase 2 ships the operations, Phase 3 ships the apology. — see slide 22
-- Five questions stay open until Phase 1 is forced to close them on the record. — see slide 27
+1. The framework buys calibrated prioritization with audit-grade decision custody. — see slide 8
+1. Recalibration is a version-floor increment, not a coordinated freeze, not a war room. — see slide 12
+1. Per-team weights make recalibration a single policy update. — see slide 18
+1. Phase 1 ships the architecture, Phase 2 ships the operations, Phase 3 ships the apology. — see slide 22
+1. Five questions stay open until Phase 1 is forced to close them on the record. — see slide 27
 
 ---
 

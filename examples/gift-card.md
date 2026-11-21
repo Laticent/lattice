@@ -5,7 +5,7 @@ paginate: false
 spectrum: off
 ---
 
-<!-- Demo deck for the gift-card component (engineering/decisions/2026-11-06-gift-link-cli.md §5). Every link here carries a fake key that OpenRouter never issued. -->
+<!-- @note{Demo deck for the gift-card component (engineering/decisions/2026-11-06-gift-link-cli.md §5). Every link here carries a fake key that OpenRouter never issued.} -->
 
 <!-- _class: gift-card -->
 

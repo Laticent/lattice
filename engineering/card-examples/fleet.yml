@@ -1,0 +1,45 @@
+# 🛰️ Fleet board. Render: npm run card -- engineering/card-examples/fleet.yml
+# Levels, loudest first: needs-you 🔴 · at-risk 🟠 · moving 🟢 · review 🔵 · done ✅
+# The renderer sorts the cards loudest first and folds `done` into HINDSIGHT.
+card: fleet
+as_of: Fri 20 Nov 19:40 UTC
+scope: on demand, all live sessions
+hindsight: 4 sessions archived; no PR closed unmerged
+insight: "2 of 6 review-ready PRs are flaky-test fixes from #3305's runs"
+foresight: "merge #3353 first: it unblocks #3347's rebase and card"
+actions:
+  - "answer the playback question in #3333's session"
+  - "after #3353 merges, tell WP-tokens to rebase #3347"
+  - check whether the Coda lint hang is a known flaky shape
+items:
+  - level: done
+    title: rename-toast test
+    pr: 3306
+    state: merged
+  - level: needs-you
+    title: CSP stage 2
+    pr: 3307
+    session: session_015KSkL5XSfvFwY6zLo8KTxh
+    build: https://github.com/Laticent/lattice/actions/runs/44790241398
+    state: merge ask; 🚦 card posted 19:24, ci green on d67e242
+    needs: merge decision
+    why: "rebased on main for #3338; queue precheck clean"
+  - level: review
+    title: Studio presets
+    session: session_015KSkL7nmyGLB3eqQgaSLAb
+    state: 3 of 5 slices green; 2 still building
+    children:
+      - level: review
+        title: P0 plumbing
+        pr: 3348
+        session: session_015KSkL5TtNPbERudmr83y46
+        state: green, waiting on merge order
+      - level: moving
+        title: WP-cover
+        session: session_015KSkL5Kpw8iABc6xNa9tEz
+        state: tests green; demo deck next
+  - level: at-risk
+    title: Universal Coda audit
+    session: session_015KSkL7pYsozV4EeRKQwxq9
+    state: re-running a lint test that hung
+    why: "a hang that passes on re-run may be flaky (HARD RULE #33)"

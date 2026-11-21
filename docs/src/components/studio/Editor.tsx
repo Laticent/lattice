@@ -7,6 +7,7 @@ import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, ChangeSet, EditorSelection as CmSelection, Compartment, EditorState, type Extension, StateEffect, type Text, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
+import { QuickScroll } from '@/components/ui/quick-scroll';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
@@ -20,7 +21,7 @@ import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { completionKeys, completionLoading as completionLoadingFacet } from '@/playground/completion-keys.js';
 import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
-import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, withLazyInlineCore } from './editor-complete';
+import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, positionCompletionInfo, registerValueLists, studioCompletionSources, withLazyInlineCore } from './editor-complete';
 import { largeInsert } from './editor-large-insert';
 import { payloadFold } from './editor-payload-fold';
 import { editorTheme, studioHighlight } from './editor-theme';
@@ -663,7 +664,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const measuredPhotoRef = React.useRef(measuredPhoto);
 	measuredPhotoRef.current = measuredPhoto;
 	const buildAutocomplete = () => [
-		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? [], () => samplesRef.current?.() ?? []), completionComponents, completionRegisters), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false }),
+		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? [], () => samplesRef.current?.() ?? []), completionComponents, completionRegisters), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false, positionInfo: positionCompletionInfo }),
 		// The completion keys (Ctrl-Space, Option-Esc on macOS, Tab to accept) and the "No suggestions here" note, shared
 		// with CodeField and the Playground (completion-keys.js).
 		completionKeys(),
@@ -770,8 +771,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					const fixOpts = {
 						// biome-ignore lint/suspicious/noExplicitAny: lint-core finding + CM view.
 						onFix: (v: any, f: any) => {
-							const out = core.applyFix(docString(v.state.doc), f);
-							if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out }, annotations: editAs.of({ label: 'Quick fix', origin: 'lint' }) });
+							// A whole-deck fix (the notes migration) loads first; a keystroke typed meanwhile wins, and the fix is dropped.
+							const doc = v.state.doc;
+							void core.applyFixWhenReady(docString(doc), f).then((out: string | null) => {
+								if (out != null && v.state.doc === doc) v.dispatch({ changes: { from: 0, to: doc.length, insert: out }, annotations: editAs.of({ label: 'Quick fix', origin: 'lint' }) });
+							});
 						},
 					};
 					// Measured, not linted: sparks the preview found too big for their space. Only the
@@ -1422,5 +1426,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 			/>
 		);
 	}
-	return <div ref={hostRef} data-filo-owned="" className={className} style={{ height: '100%', overflow: 'auto' }} />;
+	return (
+		<>
+			<div ref={hostRef} data-filo-owned="" className={className} style={{ height: '100%', overflow: 'auto' }} />
+			{/* Whichever of the host or `.cm-scroller` scrolls on this engine, the capturing listener finds it. */}
+			<QuickScroll root={hostRef} label="source" />
+		</>
+	);
 });

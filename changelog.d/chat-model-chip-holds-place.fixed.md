@@ -1,0 +1,1 @@
+- The chat's model menu no longer jumps when it finishes loading the model list. The "Ask a question" and "Make an edit" price rows now show a dash until the price arrives, instead of appearing late above the source buttons. Before, the buttons dropped 50 px as the prices landed, and a tap on "On-device" at that moment could miss and leave the source unchanged.

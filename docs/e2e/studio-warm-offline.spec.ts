@@ -82,8 +82,41 @@ async function warmOnline(
 async function goOffline(page: Page, server: import('node:http').Server): Promise<void> {
 	server.closeAllConnections();
 	await new Promise<void>((resolve) => server.close(() => resolve()));
-	await page.reload({ waitUntil: 'domcontentloaded' });
-	await waitForStudioPaint(page);
+	// What went wrong after the cut, kept for the failure message: every request that failed and every console error.
+	// The sweep lost its offline paint once in a 2-worker full Chromium run (2026-11-19) and never in about 100 runs
+	// alone or under load, so the next failure has to say what the page held.
+	const cut = Date.now();
+	const failed: string[] = [];
+	const onFailed = (r: import('@playwright/test').Request) => failed.push(`${Date.now() - cut} ms ${r.failure()?.errorText ?? '?'} ${r.resourceType()} ${new URL(r.url()).pathname}`);
+	const onConsole = (m: import('@playwright/test').ConsoleMessage) => {
+		if (m.type() === 'error') failed.push(`${Date.now() - cut} ms console: ${m.text().slice(0, 200)}`);
+	};
+	page.on('requestfailed', onFailed);
+	page.on('console', onConsole);
+	try {
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await waitForStudioPaint(page);
+	} catch (cause) {
+		// The page's own account, bounded: a wedged main thread must not hang the report.
+		const held = await Promise.race([
+			page
+				.evaluate(() => ({
+					url: location.pathname + location.search,
+					title: document.title,
+					controlled: Boolean(navigator.serviceWorker?.controller),
+					preview: Boolean(document.querySelector('[aria-label="Live deck preview"]')),
+					frames: [...document.querySelectorAll<HTMLIFrameElement>('[aria-label="Live deck preview"] iframe')].map((f) => `${f.className}:${f.contentDocument?.readyState ?? 'no-doc'}:${f.contentDocument?.querySelectorAll('.lattice').length ?? 0}`),
+					alerts: [...document.querySelectorAll('[role="alert"]')].map((a) => (a.textContent ?? '').trim().slice(0, 120)),
+				}))
+				.then((v) => JSON.stringify(v))
+				.catch((e: Error) => `unreadable: ${e.message}`),
+			new Promise<string>((resolve) => setTimeout(() => resolve('no answer in 5 s'), 5_000)), // flaky-ok: a bound on a diagnostic read, never asserted
+		]);
+		throw new Error(`offline paint failed. The page held: ${held}. After the cut: ${failed.length ? failed.join(' | ') : 'no failed request, no console error'}`, { cause });
+	} finally {
+		page.off('requestfailed', onFailed);
+		page.off('console', onConsole);
+	}
 }
 
 test('Present and the reading view open offline after a session that never opened them', async ({ page }) => {

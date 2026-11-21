@@ -4,12 +4,12 @@ theme: indaco
 paginate: true
 ---
 
-<!-- A deliberately over-budget figure: the type-floor watcher's integration test needs a
+<!-- @note{A deliberately over-budget figure: the type-floor watcher's integration test needs a
      deck whose text lands below the legibility floor ON PURPOSE. It used to borrow the
      state-chart gallery, which stopped tripping the floor once that chart learned to wrap
      (2026-09-24) — a fixture that is illegible by accident stops being one when the
      component improves. Thirty-six states, each with a skip and a back-edge, is past any
-     layout's budget on one slide. -->
+     layout's budget on one slide.} -->
 
 <!-- _class: state-chart -->
 

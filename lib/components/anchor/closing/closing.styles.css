@@ -147,3 +147,73 @@ section.closing.index :is(ul,ol) li code {
 }
 
 
+
+/* ── COVER COMPOSITIONS — mirror of title.styles.css, rule for rule ──────────────────────────
+ * The back cover composes the way the front cover does. Why these are variants, why each is
+ * surface-blind and why the alignment sits in `:where()`: the note on the title block. The
+ * closing's heading may be an `h1` or an `h2`, so every heading rule names both; the trailing list
+ * follows the alignment through the `headline:` seam like the rest of the cluster. */
+section:where(.closing.cover-masthead), section:where(.closing.cover-column), section:where(.closing.cover-label), section:where(.closing.cover-poster) { --headline-align: left; --headline-justify: flex-start; }
+section.closing.cover-masthead :is(h1, h2) {
+  align-self: stretch;
+  border-top: calc(var(--_sec-1cqi, 1cqi) * 0.55) solid var(--text-display);
+  padding-top: var(--sp-md);
+}
+section.closing.cover-ledger :is(h1, h2) {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.06em;
+  border-bottom: calc(var(--_sec-1cqi, 1cqi) * 0.47) double var(--text-display);
+  padding-bottom: var(--sp-sm);
+}
+section.closing.cover-column {
+  --_cover-col-w: calc(var(--_sec-1cqi, 1cqi) * 8);
+  padding-inline-end: calc(var(--_inline-inset) - var(--_bar-r, 0px) + var(--_cover-col-w) + var(--sp-xl));
+}
+section.closing.cover-column :is(h1, h2)::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--_sec-1cqi, 1cqi) * 6.875);
+  bottom: calc(var(--_sec-1cqi, 1cqi) * 6.875);
+  inset-inline-end: 0;
+  width: var(--_cover-col-w);
+  background: var(--accent);
+  pointer-events: none;
+}
+section.closing.cover-label { justify-content: flex-end; }
+section.closing.cover-label :is(h1, h2) {
+  font-size: var(--fs-h2);
+  border-top: max(1px, calc(var(--_sec-1cqi, 1cqi) * 0.08)) solid var(--text-display);
+  padding-top: var(--sp-sm);
+}
+section.closing.cover-label p,
+section.closing.cover-label :is(ul, ol) li { font-size: var(--fs-body); }
+/* The eyebrow steps down with the heading, in either source order: written after the heading
+ * (this sheet's rule) or before it (base.modifiers.css, the `:has(+ h1)` / `:has(+ h2)` rules),
+ * so this names the code-only paragraph alone. (0,3,4) beats both (found by the checker: an
+ * eyebrow written first kept the `--fs-h1` scale and came out larger than the heading). */
+section.closing.cover-label p:has(> code:only-child):not(:where([data-prose])) > code {
+  font-size: max(var(--fs-meta), calc(var(--fs-h2) * var(--eyebrow-anchor-scale)));
+}
+section.closing:is(.cover-stage, .cover-poster) {
+  justify-content: safe center;
+  --_cover-foot: calc(var(--frame-inset-y) + 2 * var(--fs-meta));
+  padding-bottom: calc(var(--_sec-1cqi, 1cqi) * 6.875 - var(--_bar-b, 0px) - var(--_cover-foot));
+}
+section.closing:is(.cover-stage, .cover-poster) > :nth-last-child(1 of h1, h2, ul, ol, p:not(:has(> code:only-child):not(:where([data-prose])))) { padding-bottom: var(--_cover-foot); }
+section.closing:is(.cover-stage, .cover-poster) > :nth-last-child(1 of h1, h2, ul, ol, p:not(:has(> code:only-child):not(:where([data-prose])))):is(h1, h2) { padding-bottom: calc(var(--sp-sm) + var(--_cover-foot)); }
+section.closing.cover-stage :is(h1, h2) {
+  font-size: var(--fs-hero);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+}
+section.closing.cover-frame :is(h1, h2) {
+  border: max(1px, var(--rule-w, calc(var(--_sec-1cqi, 1cqi) * 0.16))) var(--rule-style, solid) var(--text-display);
+  padding: var(--sp-md) var(--sp-lg);
+}
+section.closing.cover-poster :is(h1, h2) {
+  font-size: var(--fs-hero);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  max-width: 11em;
+}

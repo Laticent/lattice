@@ -106,6 +106,7 @@
   "description": "Native radar / spider chart — items rated across multiple axes.",
   "purpose": "Use to compare 2–4 options across the same 4–8 criteria. Each option becomes a polygon; overlap shows where strengths align.",
   "axisSet": {"members": ["value"], "body": "list", "keyBelow": false},
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",
@@ -254,8 +255,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Authoring a detail sublist as a numbered list (`1.`) instead of `-`/`*` bullets.",
-      "fix": "Detail sublists must use `-`/`*` bullets — a numbered list isn't recognized as the axis's detail content."
+      "mistake": "Writing a detail line as prose under the score instead of a nested list item.",
+      "fix": "A detail is a nested list item under the series (`-` or `1.`, read the same). A paragraph under the series is not part of the chart."
     },
     {
       "mistake": "Giving a series a different number of values than there are axes.",

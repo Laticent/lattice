@@ -46,6 +46,7 @@ model, see `design/concepts.md`.
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
+| [`cover:`](#the-cover-front-matter-register-the-front-and-back-cover) | The title and closing slides: their surface (the dark inverse panel or the deck's light canvas) and their composition (`masthead`, `ledger`, `column`, `label`, `stage`, `frame`, `poster`) | `inverse plain` |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
 | [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
@@ -74,7 +75,7 @@ Not a per-slide register — it has no `_class:` form. Contract:
 
 ## The `preset:` front-matter register (a named look)
 
-`preset:` is **one word that sets up to twelve registers**: the backdrop (`finish:`), headline
+`preset:` is **one word that sets up to twelve registers**, and may recommend five more (below): the backdrop (`finish:`), headline
 alignment, the brand bar and its placement, the card rail and its placement, structural trim,
 the heading rule, the eyebrow, card lift, corners and the type set (`typography:`). Each of those still works on its own —
 **an explicit key always wins over the preset** — so a preset is a starting point and the keys
@@ -99,16 +100,34 @@ rule: none          # everything from Editorial except the heading rule
 ---
 ```
 
-A preset has **no class token and no CSS of its own**. It resolves in the front-matter reader
-every render path shares (`frontMatterValue` in `lib/core/front-matter-key.js`): when a key in
-the family is absent — or written empty — the reader answers with the preset's value, and
-`preset:` itself is read top-level only. So `preset: editorial` renders exactly as if the deck
-had written its seven keys, per-slide `_class:` overrides work unchanged (`no-finish` keeps a
-slide clean), and the CLI, the export and the Studio agree by construction. A preset
-deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `cards:`, `stamp:` /
-`tone:` and every content key. An unknown name is flagged by the linter (`unknown-preset`) and
-resolves to no preset. The Studio previews the four live on one sample slide, in the deck's theme and color mode, at the top of
-the deck panel, with a count of the keys that differ from the chosen preset and a Reset. See
+A preset resolves in the front-matter reader every render path shares (`frontMatterValue` in
+`lib/core/front-matter-key.js`): when a key in the family is absent — or written empty — the
+reader answers with the preset's value, and `preset:` itself is read top-level only. So
+`preset: editorial` renders exactly as if the deck had written its seven keys, per-slide
+`_class:` overrides work unchanged (`no-finish` keeps a slide clean), and the CLI, the export
+and the Studio agree by construction.
+
+**A preset may also recommend** `theme:` (the palette), `color-mode:`, `mode:` (the rendering
+hand), `marks:` and `backdrop:`. None of the four shipped presets does yet; the presets that
+use them arrive with the deck-preset work
+(`engineering/decisions/2026-11-20-deck-preset-study.md`). A recommendation is weaker than
+anything the author writes: the deck's own key wins, a deck-wide `class: dark`, `light` or
+`print` or a `-dark` theme keeps its color mode, and the Studio never removes your `theme:` or
+`color-mode:` when you pick a preset or press Reset. In the Studio and the Playground, **Auto**
+follows the preset's recommendation and says so (`Auto — Cuoio (preset)`); pick another value to
+override it. Export to Marp writes a recommended
+palette into the bundle as its `theme:` line, because Marp picks the theme.
+
+**A preset may carry internal tokens.** A preset can set design tokens no author key exposes
+(a rule weight, a rail weight) through a `tokens` map in its table entry. A deck on such a
+preset gets a `preset-<name>` class on every slide, and the build generates the matching
+`section.preset-<name>` rule. A preset with no tokens adds no class and no CSS, which is true
+of all four today. The class is the engine's to stamp; don't write it in `_class:`.
+
+A preset leaves alone `claim:`, `cards:`, `stamp:` / `tone:` and every content key. An unknown
+name is flagged by the linter (`unknown-preset`) and resolves to no preset. The Studio previews
+the four live on one sample slide, in the deck's theme and color mode, at the top of the deck
+panel, with a count of the keys that differ from the chosen preset and a Reset. See
 `engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md`.
 
 ## The `mode:` front-matter register (rendering mode)
@@ -303,6 +322,8 @@ or fabricated, without changing the finish itself. It takes up to two words, one
 | Mask | `clear` | `backdrop-clear` | The frame's content box (eyebrow, heading and body) is clean canvas; the finish reads only in the margin, fading in softly on screen and in the PDF, HTML and image exports alike. On a `split-panel` or `split-compare` slide it clears behind the content of the side with the cards |
 | Mask | `spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br` | `backdrop-spot-<pos>` | The finish shows in one window at that anchor, and nowhere else |
 | Mask | `open` | `backdrop-open` | No mask, discarding a finish's own baked clearance or spotlight |
+| Mask | `clear-footer` | `backdrop-clear-footer` | A keep-out for a pattern finish (a grid, dots, ruled lines). The finish keeps running behind the content and steps aside only for the footer band: the footer text, the section rail and the page number sit on clean canvas, and the pattern fades back in above them. The band clears whether or not a slide draws its footer, so the pattern's lower edge holds still |
+| Mask | `clear-hero` | `backdrop-clear-hero` | `clear-footer`, and on a `big-number` slide the content box as well, so the pattern never runs under the hero number. Elsewhere it is `clear-footer`, so one deck line serves a whole patterned deck |
 
 ```markdown
 ---
@@ -531,6 +552,9 @@ caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
 Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
 it on where it earns its place.
 
+The rail's **thickness** is the `--rail-w` token (unset: `0.35cqi` of the slide), which a preset
+sets; no register exposes it. See "Preset hooks" in [`base.docs.md`](base.docs.md).
+
 **`spectrum-trim:` — how much the STRUCTURAL accents carry the spectrum.** Three tiers of
 increasing presence on the in-content accents (table-header rails, the `list-steps` timeline
 spine, code-panel strips, the `hr` rule, split-card underlines). Off by default — those accents
@@ -584,6 +608,11 @@ positioned pseudo that had to be hand-placed; the element makes alignment a plai
 split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
 masthead-scoped. On a slide with no heading underline, `rule:` is a graceful no-op.
 
+`rule:` picks the rule's *shape*; its **weight, line style and ink** are three tokens —
+`--rule-w`, `--rule-style`, `--rule-mark` — that a preset sets and no register exposes. Unset,
+they are today's `1px solid var(--border)`. See "Preset hooks" in
+[`base.docs.md`](base.docs.md).
+
 ## The `inline-code:` front-matter register (pills and marks)
 
 `inline-code:` decides whether the **inline directive grammar** runs — `` `{LABEL}` `` pills
@@ -616,7 +645,6 @@ answer arrives after the pills are drawn. The class is the one signal that alway
 
 ```yaml
 ---
-marp: true
 class: inline-code-literal
 ---
 ```
@@ -773,7 +801,6 @@ front-matter:
 
 ```yaml
 ---
-marp: true
 style: |
   :root { --measure-bookend-heading: 22em; }   /* a wider title block */
 ---
@@ -1253,6 +1280,74 @@ In the Studio: Deck settings → **Image**, one control per axis (backing is a s
 inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
 Full catalog of the classes: `lib/components/imagery/image/image.docs.md`.
 
+## The `cover:` front-matter register (the front and back cover)
+
+The `title` and `closing` slides are the deck's covers, and by default both paint the dark
+inverse panel with a centered heading. `cover:` sets both covers at once, with up to two words in
+either order: a **surface** and a **composition**.
+
+```yaml
+cover: light column
+```
+
+### Surface
+
+| Deck value | Per-slide class | Effect |
+|---|---|---|
+| `inverse` | `cover-inverse` | The dark inverse panel with on-dark inks. **Default**: a deck value of `inverse` stamps nothing, the same as leaving the key out |
+| `light` | `cover-light` | The deck's own light canvas (`--bg`), with the inks a content slide uses for the same roles: the heading takes `--text-heading`, the subtitle, eyebrow and closing list take `--text-secondary`, and the header, footer and page number take the light canvas's muted ink. The deck logo drops its inverse treatment, and a `finish:` mixes toward the light canvas |
+
+**Title and closing only.** The deck's word rides only a slide whose class list names `title` or
+`closing`. Dividers and `topic` keep their own surfaces: a bright divider is `divider light`,
+a separate layout variant.
+
+**The same in both color modes.** A light cover is the light canvas in a dark deck too, the way
+`divider light` is, because the scheme travels with the surface. A dark deck that wants dark
+covers leaves the key out.
+
+**A slide opts out with `cover-inverse`:** in a `cover: light` deck, `_class: closing cover-inverse`
+keeps the dark panel on the back cover. A per-slide `_class: title cover-light` makes one light
+cover in a deck without the key.
+
+**Not the same as `title light`.** The `light` mood token sets a color *scheme* and paints
+nothing, so `title light` keeps its inverse panel. That meaning is unchanged; `cover-light` is
+the word that repaints. Under `color-mode: print` a cover is paper either way.
+
+### Composition
+
+How the heading block sits on the surface. Each one is a variant of the `title` and `closing`
+components, so a slide can also name it in `_class:` (`_class: title cover-poster`).
+
+| Deck value | Per-slide class | Effect |
+|---|---|---|
+| `plain` | `cover-plain` | Today's centered block. **Default**: a deck value of `plain` stamps nothing. On one slide it keeps the centered block inside a deck that sets a composition |
+| `masthead` | `cover-masthead` | A heavy rule over the heading, set left. The rule spans the heading's measure, so it does not change length with the words |
+| `ledger` | `cover-ledger` | Small capitals over a double rule, centered |
+| `column` | `cover-column` | An accent column at the right edge, the heading set left. The column runs between the header and footer bands, so it never sits under the footer or a top-right logo, and a long heading wraps short of it |
+| `label` | `cover-label` | A gallery wall label: the heading at the slide-title size (`--fs-h2`), low on the left under a hairline, with the subtitle at the reading size |
+| `stage` | `cover-stage` | The heading at the display size (`--fs-hero`), centered |
+| `frame` | `cover-frame` | The heading boxed in a keyline. The keyline follows the `--rule-w` and `--rule-style` preset hooks |
+| `poster` | `cover-poster` | The heading at the display size, heavy and tight, set left |
+
+**Every composition works on both surfaces.** Rules, boxes and the column are drawn in the
+heading's ink or the accent, which `cover-light` repoints for the light canvas, so `cover: light
+ledger` and `cover: ledger` both read in either color mode, with or without a `finish:`.
+
+**A `headline:` register still wins.** The four left-set compositions (`masthead`, `column`,
+`label`, `poster`) only change the default alignment, so `headline: center` centers them.
+
+**Keep a `stage` or `poster` heading to a few words: about 60 characters at the laptop venue, and
+fewer as `venue:` scales the display size up.** At laptop that is three lines of about twenty
+characters, with the eyebrow and a subtitle. A longer heading never meets a band silently. It holds
+the top of the content box and grows down, never into the top band or under a logo. The footer
+band is a keep-out: a heading long enough to reach it is reported as overflow (the export's
+overflow line, the Studio ring), never drawn into the footer. Shorten it, or add `cover-plain` to
+that slide.
+
+The register is `lib/core/resolve-cover.js`. It has no Studio control on purpose: presets set it
+(deck-preset study, decision D10), and the Studio's Basic tier gains no new controls for the
+ingredients presets use.
+
 ## The `spark:` front-matter register (inline sparks)
 
 A **spark** is the word-sized chart an author writes in inline code (`` `~{12 14 17}` ``,
@@ -1328,6 +1423,10 @@ slide.
 |---|---|---|
 | `square` | *(none)* | Hard corners. **The default** (omit the key). |
 | `rounded` | `corners-rounded` | The slide rounds, at the theme's radius. |
+
+`corners:` shapes the slide, never its cards. A card's corner is the separate `--radius-card`
+token (unset: `--radius-md`), which a preset sets; see "Preset hooks" in
+[`base.docs.md`](base.docs.md).
 
 Per slide, `<!-- _class: corners-rounded -->` rounds one slide in a square deck and
 `<!-- _class: corners-square -->` squares one slide off in a rounded deck (include the

@@ -13,8 +13,9 @@
 //    replaceable or not. Code (fenced, indented, or fenced inside a quote), math, HTML blocks and `{…}`
 //    records are found but never replaced; directives, pane markers, link and image targets, bare URLs,
 //    reference definitions and footnote labels are never searched at all. A match never crosses a
-//    segment. Comments are classified by the shared helpers the note and say editors use
-//    (slide-directives.ts), so "a comment that is not a directive is a speaker note" holds here too.
+//    segment. Comments are classified by the shared helpers the note editors use (slide-directives.ts):
+//    each of the four notes (`@note{…}`, `@say{…}`, `@alt{…}`, `@handout{…}`) is its own field, and any
+//    other comment that is not a directive is the author's plain comment.
 //
 // 2. THE STRUCTURE CHECK. Layer 1 decides where a match may be; it cannot decide what the replacement
 //    builds around it. A note's words can become `hide` (a directive that hides the slide), `-->` can
@@ -24,11 +25,19 @@
 //    structure moved is refused whole. The checker on this change found each of those by hand; the
 //    check catches the shape, not the list, so the next case is caught too.
 //
-// Pure and synchronous; it never splits or rejoins the deck.
+// Pure and synchronous; it never splits or rejoins the deck. It never runs a regular expression the model
+// wrote, either: a pattern search passes `matches`, computed in a Worker that the page ends on a timeout
+// (deck-find-pattern.ts). The kernel then treats a pattern's matches exactly as it treats literal ones.
+//
+// PER-MATCH WORDS. With `preserveCase`, each replacement takes the case of the words it replaces (`OCT` in
+// an all-caps eyebrow → `OCTOBER`); with `regex`, `$1`, `$<name>` and `$&` fill in what the pattern
+// captured. Both are worked out per match, BEFORE escaping, and every check below runs on what each match
+// will actually write: a group that captured a backtick or a `--` is refused like a typed one.
 
-import { comments, fenceRanges, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isRecordBody, isSayBody } from './slide-directives';
+import { compilePattern, expandReplacement, matchesIn, type RawMatch, withCaseOf } from './deck-find-pattern';
+import { comments, fenceRanges, isDirectiveBody, isPaneMarkerBody, isRecordBody, type NoteName, noteName } from './slide-directives';
 
-export type FindField = 'heading' | 'eyebrow' | 'body' | 'quote' | 'alt text' | 'spoken line' | 'note' | 'description' | 'code' | 'math' | 'html' | 'record' | 'inline syntax';
+export type FindField = 'heading' | 'eyebrow' | 'body' | 'quote' | 'alt text' | 'spoken line' | 'speaker notes' | 'slide alt text' | 'handout' | 'comment' | 'code' | 'math' | 'html' | 'record' | 'inline syntax';
 
 export interface FindOptions {
 	/** Match case exactly. Default false. */
@@ -39,6 +48,15 @@ export interface FindOptions {
 	 *  The Studio passes the engine's own reader (lib/core/inline-code-directives.js). Without it, a span
 	 *  that opens with one of `{ ^ ~ ! @` counts as syntax: never written into, the safe side. */
 	inlineDirective?: (text: string) => boolean;
+	/** The query is a regular expression, and `$1`, `$<name>`, `$&` in a replacement are its groups. The
+	 *  kernel NEVER runs a pattern itself: the caller passes `matches`, computed in a Worker
+	 *  (deck-find-pattern.ts). A regex find without `matches` throws. */
+	regex?: boolean;
+	/** Write each replacement in the case of the words it replaces (`withCaseOf`): `OCT` → `OCTOBER`. */
+	preserveCase?: boolean;
+	/** The matches in one string the kernel searches, from outside: how a pattern's Worker answers. Absent,
+	 *  the kernel matches the literal query itself. `searchTexts` lists every string it will ask about. */
+	matches?: (text: string) => readonly RawMatch[];
 }
 
 const directiveSpan = (opts: FindOptions) => opts.inlineDirective ?? ((t: string) => /^[{^~!@]/.test(t.trim()));
@@ -63,31 +81,39 @@ interface Segment {
 /** The longest query the tools accept. A find string is a phrase, not a paragraph. */
 export const FIND_MAX_CHARS = 200;
 
-const escapeLiteral = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/** A global matcher for a literal query, or null for an empty one. Literal on purpose: a model-written
- *  regular expression run over untrusted deck text on the page's main thread is a ReDoS waiting to happen. */
+/** A global matcher for a LITERAL query, or null for an empty one. Literal on purpose: a model-written
+ *  regular expression run over untrusted deck text on the page's main thread is a ReDoS waiting to happen,
+ *  so a pattern runs only in a Worker (deck-find-pattern.ts) and reaches the kernel as `opts.matches`. */
 export function literalMatcher(query: string, opts: FindOptions = {}): RegExp | null {
 	if (!query) return null;
-	const core = escapeLiteral(query);
-	// \p{M}: a combining accent belongs to its word, so whole-word `cafe` does not match the `cafe` of `café`.
-	const src = opts.wholeWord ? `(?<![\\p{L}\\p{M}\\p{N}_])${core}(?![\\p{L}\\p{M}\\p{N}_])` : core;
-	return new RegExp(src, opts.caseSensitive ? 'gu' : 'giu');
+	const re = compilePattern(query, { wholeWord: opts.wholeWord, caseSensitive: opts.caseSensitive });
+	return re instanceof RegExp ? re : null;
+}
+
+/** The matcher `hits` searches with: the caller's (a pattern's Worker answers), or the literal query's. */
+function searcher(query: string, opts: FindOptions): ((text: string) => readonly RawMatch[]) | null {
+	if (opts.matches) return opts.matches;
+	if (opts.regex) throw new Error('deck-find: a pattern search needs `matches` from its Worker; the kernel never runs a pattern');
+	const re = literalMatcher(query, opts);
+	return re ? (text) => matchesIn(re, text) : null;
 }
 
 // ── Comments ────────────────────────────────────────────────────────────────
 
-type CommentKind = 'record' | 'say' | 'describe' | 'directive' | 'pane' | 'note';
+type CommentKind = NoteName | 'record' | 'directive' | 'pane' | 'comment';
 
 function commentKind(body: string): CommentKind {
 	const t = body.trim();
+	const note = noteName(t);
+	if (note) return note;
 	if (isRecordBody(t)) return 'record';
-	if (isSayBody(t)) return 'say';
-	if (isDescriptionBody(t)) return 'describe';
 	if (isDirectiveBody(t)) return 'directive';
 	if (isPaneMarkerBody(t)) return 'pane';
-	return 'note';
+	return 'comment';
 }
+
+/** The field a reader would name for each comment that carries words. */
+const COMMENT_FIELD: Partial<Record<CommentKind, FindField>> = { note: 'speaker notes', say: 'spoken line', alt: 'slide alt text', handout: 'handout', comment: 'comment' };
 
 /** The comments the engine reads, outside fenced code. */
 function liveComments(text: string) {
@@ -95,11 +121,11 @@ function liveComments(text: string) {
 	return comments(text).filter((c) => !fences.some(([a, b]) => c.start >= a && c.start < b));
 }
 
-/** The text a comment's body carries for a reader, past a `say:` / `note:` / `describe:` label. */
+/** The text a comment's body carries for a reader: inside a note's `@name{…}` frame, or a plain comment's whole body. */
 function labeledBody(body: string, bodyStart: number): { start: number; end: number } {
-	const m = /^(\s*)(?:say|note|describe)\s*:\s*/i.exec(body);
+	const m = /^\s*@[a-z]+\{\s*/.exec(body);
 	const lead = m ? m[0].length : (/^\s*/.exec(body)?.[0].length ?? 0);
-	const trimmedEnd = body.replace(/\s+$/, '').length;
+	const trimmedEnd = m ? body.replace(/\s*\}\s*$/, '').length : body.replace(/\s+$/, '').length;
 	return { start: bodyStart + lead, end: bodyStart + Math.max(lead, trimmedEnd) };
 }
 
@@ -237,9 +263,12 @@ function modedSegments(slide: string, opts: FindOptions = {}): ModedSegment[] {
 		const kind = commentKind(c.body);
 		let sg: ModedSegment | undefined;
 		if (kind === 'record') sg = seg('record', c.bodyStart, c.bodyStart + c.body.length, null);
-		else if (kind === 'say' || kind === 'describe' || kind === 'note') {
-			const b = labeledBody(c.body, c.bodyStart);
-			sg = seg(kind === 'say' ? 'spoken line' : kind === 'describe' ? 'description' : 'note', b.start, b.end, 'raw');
+		else {
+			const field = COMMENT_FIELD[kind];
+			if (field) {
+				const b = labeledBody(c.body, c.bodyStart);
+				sg = seg(field, b.start, b.end, 'raw');
+			}
 		}
 		blocked.push({ start: c.start, end: c.end, seg: sg }); // a directive or pane marker: blocked, never searched
 	}
@@ -504,41 +533,67 @@ interface Hit extends SlideMatch {
 	/** What the replacement is written as here; empty when the match is not replaceable. */
 	readonly mode: WriteMode | null;
 	readonly span: boolean;
+	/** The match as the searcher saw it (reader text in Markdown): its words, for preserve-case, and its groups. */
+	readonly raw: RawMatch;
 }
 
 function hits(slide: string, query: string, opts: FindOptions): Hit[] {
-	const re = literalMatcher(query, opts);
-	if (!re) return [];
+	const search = searcher(query, opts);
+	if (!search) return [];
 	const text = String(slide ?? '');
 	const out: Hit[] = [];
 	for (const s of modedSegments(text, opts)) {
 		const part = text.slice(s.start, s.end);
 		if (s.mode !== 'md') {
-			for (const m of part.matchAll(re)) out.push({ field: s.field, start: s.start + m.index, end: s.start + m.index + m[0].length, replaceable: s.replaceable, mode: s.mode, span: !!s.span });
+			for (const m of search(part)) {
+				if (!m.text) continue;
+				out.push({ field: s.field, start: s.start + m.index, end: s.start + m.index + m.text.length, replaceable: s.replaceable, mode: s.mode, span: !!s.span, raw: m });
+			}
 			continue;
 		}
 		const nl = text.indexOf('\n', s.end);
 		const ls = text.lastIndexOf('\n', s.start - 1) + 1;
 		const v = readerView(part, text.slice(s.end, nl < 0 ? text.length : nl), tableLines(text).has(ls));
-		for (const m of v.text.matchAll(re)) {
+		for (const m of search(v.text)) {
 			const ps = m.index;
-			const pe = ps + m[0].length;
+			const pe = ps + m.text.length;
 			if (pe === ps) continue;
 			// A match that spans a formatting marker (`**Oct.** Tenth`) is found but left alone: replacing it
 			// would drop or move the marker.
 			const crosses = v.gap.slice(ps + 1, pe).some(Boolean);
 			const start = s.start + v.src[ps] - (v.escaped[ps] ? 1 : 0);
 			const end = s.start + v.end[pe - 1];
-			out.push({ field: s.field, start, end, replaceable: !crosses, mode: crosses ? null : 'md', span: false, ...(crosses ? { reason: 'crosses formatting' } : {}) });
+			out.push({ field: s.field, start, end, replaceable: !crosses, mode: crosses ? null : 'md', span: false, raw: m, ...(crosses ? { reason: 'crosses formatting' } : {}) });
 		}
 	}
 	return out;
 }
 
-/** Every match of a literal query in one slide, labeled by field. The query is what a reader sees: an
+/** Every string `findInSlide` / `replaceInSlide` will search in this slide, in order: what a pattern's
+ *  Worker is sent, so it can answer `opts.matches` for each. */
+export function searchTexts(slide: string, opts: FindOptions = {}): string[] {
+	const seen: string[] = [];
+	hits(slide, '', {
+		...opts,
+		matches: (t) => {
+			seen.push(t);
+			return [];
+		},
+	});
+	return seen;
+}
+
+/** Every match of a query in one slide, labeled by field. The query is what a reader sees: an
  *  escaped `\$` matches `$`, and formatting markers are skipped. */
 export function findInSlide(slide: string, query: string, opts: FindOptions = {}): SlideMatch[] {
 	return hits(slide, query, opts).map(({ field, start, end, replaceable, reason }) => ({ field, start, end, replaceable, ...(reason ? { reason } : {}) }));
+}
+
+/** What one match's replacement says before escaping: the pattern's groups filled in, then the case of
+ *  the words it replaces carried over, when the options ask for either. */
+function wordsFor(replacement: string, raw: RawMatch, opts: FindOptions): string {
+	const words = opts.regex ? expandReplacement(replacement, raw) : replacement;
+	return opts.preserveCase ? withCaseOf(raw.text, words) : words;
 }
 
 /**
@@ -557,14 +612,21 @@ export function replaceInSlide(slide: string, query: string, replacement: string
 	const skipped = all.filter((m) => !m.replaceable).map(strip);
 	if (!replaced.length) return { text, replaced: [], skipped };
 	const refuse = (why: string) => ({ text, replaced: [], skipped: all.map(strip), blocked: why });
-	if (replaced.some((m) => m.span && replacement.includes('`'))) return refuse('a backtick would end the code span the words are in');
-	if (replaced.some((m) => m.mode === 'raw' && !m.span && /--/.test(replacement))) return refuse('`--` would end the comment that holds the spoken line or note');
+	// Each match's own words: with a pattern's groups or preserve-case, two matches can be written differently.
+	const words = new Map(replaced.map((m) => [m, wordsFor(replacement, m.raw, opts)]));
+	const any = (test: (m: Hit, w: string) => boolean) => replaced.some((m) => test(m, words.get(m) ?? ''));
+	// A group can carry what the typed replacement could not: a line break, or a comment marker from a note.
+	if (any((_, w) => /[\r\n]/.test(w))) return refuse('the new words would add a line break');
+	if (any((_, w) => /<!--|--!?>/.test(w))) return refuse('the new words would hold a comment marker');
+	if (any((m, w) => m.span && w.includes('`'))) return refuse('a backtick would end the code span the words are in');
+	if (any((m, w) => m.mode === 'raw' && !m.span && /--/.test(w))) return refuse('`--` would end the comment that holds the spoken line or note');
 	let out = text;
 	for (const m of [...replaced].reverse()) {
 		const lineStart = out.lastIndexOf('\n', m.start - 1) + 1;
 		// A line start, or right after a list or quote marker: a `5.` or `#` there would open a new block.
 		const atLineStart = /^\s*(?:(?:[-*+]|\d{1,9}[.)]|>)\s+)*$/.test(out.slice(lineStart, m.start));
-		const written = m.mode === 'md' ? escapeMarkdown(replacement, out.slice(lineStart, m.start), out.slice(m.end), atLineStart) : replacement;
+		const w = words.get(m) ?? '';
+		const written = m.mode === 'md' ? escapeMarkdown(w, out.slice(lineStart, m.start), out.slice(m.end), atLineStart) : w;
 		out = out.slice(0, m.start) + written + out.slice(m.end);
 	}
 	// A code span the replacement turns into Lattice syntax (`npm x` → `^{bucket}` would draw an icon).
@@ -574,7 +636,7 @@ export function replaceInSlide(slide: string, query: string, replacement: string
 	};
 	if (syntaxSpans(out) !== syntaxSpans(text)) return refuse('the new words would turn a code span into Lattice syntax (a pill, an icon…)');
 	if (slideStructure(out) !== slideStructure(text)) {
-		const ws = /^\s|\s$/.test(replacement) ? ' (leading or trailing spaces can start a code block or a line break)' : '';
+		const ws = [...words.values()].some((w) => /^\s|\s$/.test(w)) ? ' (leading or trailing spaces can start a code block or a line break)' : '';
 		return refuse(`the new words would still change the slide’s structure${ws}`);
 	}
 	return { text: out, replaced: replaced.map(strip), skipped };

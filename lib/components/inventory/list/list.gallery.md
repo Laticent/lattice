@@ -11,7 +11,7 @@ header: "Lattice · list"
 
 `Inventory · Stack · Prose`
 
-Bulleted list under a heading — plain pills, hairline takeaways (optionally numbered criteria with a gloss line), or display-weight principles.
+A list under a heading — plain pills, hairline takeaways (a `1.` list numbers them; a nested gloss line makes criteria), or display-weight principles.
 
 ---
 
@@ -51,21 +51,6 @@ Bulleted list under a heading — plain pills, hairline takeaways (optionally nu
 2. Keep rules under ten words.
 3. Order them by how often they apply.
 4. Retire a rule you keep breaking.
-
-
----
-
-<!-- _class: list takeaway numbered -->
-<!-- _footer: "numbered · list numbered — Accent counters on the takeaway rows; add a nested gloss for criteria." -->
-
-## Criteria are gates: clear them in order.
-
-1. State the bar
-   - Each criterion is a pass-or-fail line, not a preference.
-2. Order by veto power
-   - The criterion most likely to kill goes first.
-3. Keep the list short
-   - Three gates decide; six gates stall.
 
 
 ---

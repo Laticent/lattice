@@ -230,7 +230,7 @@ The finish backdrop's strength and mask.
 Acts on: the slide.
 
 - one of `backdrop-20` · `backdrop-40` · `backdrop-60` · `backdrop-80` · `backdrop-full`
-- one of `backdrop-clear` · `backdrop-open` · `backdrop-spot-tl` · `backdrop-spot-t` · `backdrop-spot-tr` · `backdrop-spot-l` · `backdrop-spot-c` · `backdrop-spot-r` · `backdrop-spot-bl` · `backdrop-spot-b` · `backdrop-spot-br`
+- one of `backdrop-clear` · `backdrop-open` · `backdrop-spot-tl` · `backdrop-spot-t` · `backdrop-spot-tr` · `backdrop-spot-l` · `backdrop-spot-c` · `backdrop-spot-r` · `backdrop-spot-bl` · `backdrop-spot-b` · `backdrop-spot-br` · `backdrop-clear-footer` · `backdrop-clear-hero`
 
 ### Card tag — `card-tag`
 
@@ -483,6 +483,7 @@ A register is a front-matter key. It stamps its value as class words on every sl
 | `color-mode:` | — | Stamps the engine's `color-*` classes, which an author never types; a slide uses `dark` or `light` (mood). |
 | `finish:` | — | Stamps `finish finish-<name>`, an open vocabulary: a saved finish is any name. |
 | `image-card:` | — | Stamps the image card's classes, which the image-card register owns (lib/core/resolve-image-card.js). |
+| `cover:` | — | Stamps `cover-*` on title and closing slides only, which the cover register owns (lib/core/resolve-cover.js). |
 | `player-motion:` | — | Read by the player, not stamped on a slide. |
 | `pace:` | — | Read by the narrated guide, not stamped on a slide. |
 | `delivery:` | — | Read by the narrated guide, not stamped on a slide. |

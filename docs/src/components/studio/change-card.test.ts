@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { sliceSlide, slideCount } from '@/components/studio/ai/architect-edits.js';
 import { getFrontMatter } from '../../lib/front-matter';
 import { applyProposedEditsChecked } from './architect';
-import { applyRows, cardHistoryLabel, type RowState, reconcile, rowName, rowStates, toldLine, undoRows } from './change-card';
+import { applyRows, cardHistoryLabel, type RowState, reconcile, rowName, rowStates, toldLine, toldNote, undoRows } from './change-card';
 import type { ChatProposal } from './studio-store';
 
 const DECK = '---\ntheme: cuoio\n---\n\n# Title\n\n---\n\n## Revenue\n\nUp a bit.\n\n---\n\n## Costs\n\nUp too.\n\n---\n\n## Hiring\n\nSome.\n';
@@ -115,6 +115,14 @@ describe('the card words', () => {
 	it('tells the AI what the author did, and nothing while nothing is decided', () => {
 		expect(toldLine(EDITS, ['applied', 'discarded', 'waiting'])).toBe('[The author applied slide 2; discarded slide 3; has not decided on new slide.]');
 		expect(toldLine(EDITS, fresh())).toBe('');
+	});
+	// #3208 items 5 and 27: the present state rides the note, so the model never acts on a slide number the cards moved.
+	it('ends the note with the deck as it is now, and adds nothing when no card has an outcome', () => {
+		const note = toldNote(['[The author applied slide 2.]', '', '[The author discarded slide 4.]'], 7);
+		expect(note).toBe('\n\n(What happened to the edits you proposed earlier, oldest first: [The author applied slide 2.] [The author discarded slide 4.] The deck has 7 slides now, so slide numbers from earlier turns may name other slides; go by the deck as it is now.)');
+		expect(toldNote(['[The author applied slide 2.]'], 1)).toContain('The deck has 1 slide now');
+		expect(toldNote(['', ''], 7)).toBe('');
+		expect(toldNote([], 7)).toBe('');
 	});
 });
 

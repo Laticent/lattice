@@ -233,6 +233,20 @@
    }
   },
   {
+   "name": "backdrop: clear-footer",
+   "source": "---\nbackdrop: clear-footer\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "backdrop: clear-hero",
+   "source": "---\nbackdrop: clear-hero\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
    "name": "backdrop: (unknown)",
    "source": "---\nbackdrop: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
@@ -905,6 +919,55 @@
     "findings": []
    }
   },
+  {
+   "name": "cover: light",
+   "source": "---\ncover: light\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: (unknown)",
+   "source": "---\ncover: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-cover",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "cover: inverse",
+   "source": "---\ncover: inverse\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: light column",
+   "source": "---\ncover: light column\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: poster (composition alone)",
+   "source": "---\ncover: poster\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "cover: masthead light (either order)",
+   "source": "---\ncover: masthead light\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+
   {
    "name": "logo-finish: bottom-center accent-ink lg",
    "source": "---\nlogo-finish: bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",

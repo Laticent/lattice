@@ -38,6 +38,7 @@ npm run quality          # print a summary, write full per-tool reports
 npm run quality -- --json  # machine-readable summary
 npm run quality:bless    # (re)write the committed baseline
 npm run quality:check    # compare the current run against the baseline
+node tools/quality-assessment.js --check --only dead-code   # knip alone, ~5 s: the pre-push ratchet
 ```
 
 - **`npm run quality`** runs everything and writes each tool's full raw
@@ -56,6 +57,20 @@ npm run quality:check    # compare the current run against the baseline
   today's (imperfect) shape. Run it yourself before a PR that touches a lot
   of `lib/`, and re-bless deliberately when a change is expected to move a
   number (the PR is where that's justified, exactly like a perf re-bless).
+- **Dead code is the exception: it is held on every push.** The `dead-code` pre-push job runs
+  `node tools/quality-assessment.js --check --only dead-code`, which runs knip alone and compares seven
+  rows of `test/quality/baseline.json`: unused files, unused exports, unused packages, imports of
+  undeclared packages, unknown binaries, unresolved imports, and every other category knip reports
+  (`otherFindings`: duplicate exports, enum members, any category a later knip adds). All seven are
+  0, so a push that adds one fails, and a knip run that finds something no row counts fails too.
+  **Scope: `.js` files.** `knip.jsonc`'s `project` does not yet include the 229 `.mjs` files in
+  `lib/` and `tools/`; widening it is `followups.d/3334-p3`. The job checks the working tree before
+  a push, not the result of the merge queue, and no CI step runs it. Fix a real finding. For something this repo loads in a way knip cannot follow (a path
+  string, a build alias, a spawned process, a directory listing, a package used only in `docs/`),
+  add it to `knip.jsonc` with its reason on the same line. `--bless --only dead-code` rewrites only
+  those seven rows. Why it is a hook and the rest is not: knip takes about 5 s and is exact, and before
+  the job existed the baseline said 0 while knip found 20 files, 16 packages and 40 undeclared
+  imports, because nothing ran it (owner's D1, 2026-11-20).
 
 Individual sub-tools also run standalone for a faster, narrower loop:
 
@@ -64,7 +79,7 @@ node tools/change-coupling.js --json --since=2025-01-01
 node tools/complexity-report.js --min-complexity=20
 npx depcruise --config .dependency-cruiser.cjs --output-type json lib tools lattice.js
 npx jscpd --config .jscpd.json
-npx knip
+npx knip                 # reads knip.jsonc
 ```
 
 ## Reading the results
@@ -119,7 +134,7 @@ build script repeats a small `--check`/`--silent` CLI scaffold rather than
 sharing an abstraction over ~90 near-identical-but-not-quite build steps) —
 not everything jscpd finds is a refactor candidate.
 
-**Dead exports/files** (`knip`, `knip.json`) needed explicit `entry` points
+**Dead exports/files** (`knip`, `knip.jsonc`) needed explicit `entry` points
 for anything only reachable through a *generated* string entry rather than a
 real file import — several browser-bundle cores (`lib/theme`, `lib/layout`,
 `lib/authoring`, `lib/exemplars`, `lib/plugins/chart-family/shared`,
@@ -127,9 +142,11 @@ real file import — several browser-bundle cores (`lib/theme`, `lib/layout`,
 (`tools/build-theme-core.js` and siblings), which static analysis can't
 trace into. Those directories are listed as `entry` globs so their files
 aren't false-flagged as unreachable — knip still checks *exports* within
-them, just not file-level reachability. `knip` also flags unused npm
-dependencies and imports of undeclared ones (`unlisted`); useful bonus
-signal beyond the seven core dimensions, reported but not baseline-gated.
+them, just not file-level reachability. (Not their exports either: knip skips an entry file's
+exports unless `includeEntryExports` is set, so an unused export in an entry file is not reported.) `knip` also flags unused npm
+dependencies, imports of undeclared ones (`unlisted`), unknown binaries and
+unresolved imports; since 2026-11-20 all of them are baseline rows held at 0 by the
+pre-push ratchet above. Every exception in `knip.jsonc` carries its reason.
 
 ## Why these tools, not others
 

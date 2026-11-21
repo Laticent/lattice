@@ -5,20 +5,23 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const YAML = require('yaml');
-const { renderCard, displayWidth, WIDTH } = require('../../../tools/agent-card');
+const { renderCard, renderFleetTable, displayWidth, WIDTH } = require('../../../tools/agent-card');
+const renderFleet = renderCard;
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EXAMPLES = path.join(ROOT, 'engineering', 'card-examples');
 const load = (name) => YAML.parse(fs.readFileSync(path.join(EXAMPLES, `${name}.yml`), 'utf8'));
 
 test('every shipped example renders, and no line is wider than the phone', () => {
-  for (const name of ['pre-merge', 'standup', 'continuation', 'decision']) {
+  for (const name of ['pre-merge', 'standup', 'continuation', 'decision', 'fleet']) {
     const r = renderCard(load(name));
     assert.equal(r.ok, true, `${name}: ${r.errors.join('; ')}`);
     for (const line of r.lines) {
       assert.ok(displayWidth(line) <= WIDTH, `${name}: "${line}" is ${displayWidth(line)} columns`);
     }
-    assert.ok(r.text.startsWith('```\n') && r.text.endsWith('\n```'), `${name} is fenced`);
+    assert.ok(r.text.startsWith('```\n'), `${name} opens with a fence`);
+    // A fleet board ends with its last card's link row, which must sit outside the fence.
+    if (name !== 'fleet') assert.ok(r.text.endsWith('\n```'), `${name} is fenced`);
   }
 });
 
@@ -245,4 +248,151 @@ test('pre-merge: left_behind is required and printed under RISK', () => {
   assert.equal(lines[lines.indexOf('  left behind') + 1], '    none');
   delete card.risk.left_behind;
   assert.equal(renderCard(card).ok, false);
+});
+
+test('fleet board: loudest card first, done folds into hindsight, links sit outside the fences', () => {
+  const r = renderCard(load('fleet'));
+  assert.equal(r.ok, true, r.errors.join('; '));
+  const heads = r.text.split('\n').filter((l) => /^(🔴|🟠|🟢|🔵|✅) /u.test(l));
+  assert.deepEqual(
+    heads.map((h) => [...h][0]),
+    ['🔴', '🟠', '🟢'],
+    'cards are sorted loudest first; Studio presets wears its 🟢 child; the done item gets no card',
+  );
+  assert.match(r.text, /done\n {4}rename-toast test #3306 merged/);
+  // Every link is on a line outside any fence, so it can be clicked.
+  let fenced = false;
+  for (const line of r.text.split('\n')) {
+    if (line === '```') fenced = !fenced;
+    else if (line.includes('](https://')) assert.equal(fenced, false, `link inside a fence: ${line}`);
+  }
+  assert.match(r.text, /\[Pull Request\]\(https:\/\/github\.com\/Laticent\/lattice\/pull\/3307\) \| \[Session\]\(https:\/\/claude\.ai\/code\/session_/);
+});
+
+test('fleet board: a needs-you card must say what it needs; a bad level or link is refused', () => {
+  const card = load('fleet');
+  delete card.items[1].needs;
+  assert.match(renderCard(card).errors.join('\n'), /needs-you card must say what it needs/);
+  const bad = load('fleet');
+  bad.items[1].level = 'urgent';
+  bad.items[1].build = 'http://example.com';
+  const errors = renderCard(bad).errors.join('\n');
+  assert.match(errors, /level must be one of: needs-you, at-risk, moving, review, done/);
+  assert.match(errors, /build/);
+});
+
+test('fleet board: with no actions there is no reply line, and no 🔴 says NOTHING', () => {
+  const card = load('fleet');
+  delete card.actions;
+  card.items = card.items.filter((x) => x.level !== 'needs-you');
+  const r = renderCard(card);
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.doesNotMatch(r.text, /reply: go/);
+  assert.match(r.text, /needs you\n {4}NOTHING/);
+});
+
+test('fleet table: a row per session, loudest first, children under their parent, done last', () => {
+  const r = renderFleetTable(load('fleet'));
+  assert.equal(r.ok, true, r.errors.join('; '));
+  const rows = r.lines.filter((l) => /^\| (🔴|🟠|🟢|🔵|✅) \|/u.test(l));
+  assert.deepEqual(
+    rows.map((l) => l.split(' | ')[1].replace(/\]\(.*$/, '').replace(/\[/g, '')),
+    ['CSP stage 2', 'Universal Coda audit', 'Studio presets', '· P0 plumbing', '· WP-cover', 'rename-toast test'],
+  );
+  assert.match(rows[0], /\[#3307\]\(https:\/\/github\.com\/Laticent\/lattice\/pull\/3307\) \| \[run\]\(https:\/\/github\.com\//);
+  assert.match(rows[0], /\*\*needs:\*\* merge decision \|$/);
+});
+
+test('fleet table: a | in a value cannot split the row, and a non-fleet card is refused', () => {
+  const card = load('fleet');
+  card.items[1].state = 'ci red | lint';
+  const row = renderFleetTable(card).lines.find((l) => l.includes('CSP stage 2'));
+  assert.equal(row.split(/(?<!\\)\|/).length, 7, 'six cells, so seven pieces around the bars');
+  // A value that already holds `\|` must not turn into `\\|` (an escaped backslash, then a bare bar).
+  card.items[1].state = 'regex a\\|b';
+  const tricky = renderFleetTable(card).lines.find((l) => l.includes('CSP stage 2'));
+  assert.ok(tricky.includes('regex a\\\\\\|b'), tricky);
+  const bars = tricky.replace(/\\./g, '').split('|').length;
+  assert.equal(bars, 7, 'after dropping escape pairs, six cells remain');
+  assert.match(renderFleetTable(load('standup')).errors.join(''), /only on a fleet card/);
+  card.items[1].level = 'urgent';
+  assert.equal(renderFleetTable(card).ok, false, 'the table shares the cards\' validation');
+});
+
+test('CLI: --table prints the fleet board as a markdown table', () => {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'card.js'), '--table', path.join(EXAMPLES, 'fleet.yml')], {
+    encoding: 'utf8',
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^🛰️ \*\*Fleet\*\*/u);
+  assert.match(r.stdout, /\n\| \| Session \| PR \| CI \| State \|\n/);
+});
+
+// The checker's case on #3359: a 🔴 child under a ✅ or 🟢 parent must not be hidden.
+const hiddenChild = () => ({
+  card: 'fleet',
+  as_of: 'Fri 20 Nov 21:00 UTC',
+  items: [
+    { level: 'moving', title: 'Busy work', state: 'building' },
+    {
+      level: 'done',
+      title: 'Shipped parent',
+      state: 'merged',
+      children: [{ level: 'needs-you', title: 'Blocked child', state: 'asked a question', needs: 'answer the question' }],
+    },
+  ],
+});
+
+test('fleet board: a 🔴 child under a ✅ parent is counted, gets a card, and sorts first', () => {
+  const r = renderFleet(hiddenChild());
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.match(r.text, /needs you\n {4}1 — the 🔴 cards below/);
+  assert.doesNotMatch(r.text, /NOTHING/);
+  const firstCard = r.text.split('\n\n```\n')[1];
+  assert.match(firstCard, /^🔴 Shipped parent/, 'the line of work holding the 🔴 child comes first');
+  assert.match(firstCard, /🔴 Blocked child\n {4}asked a question\n {4}needs you: answer the question/);
+  assert.doesNotMatch(r.text, /done\n {4}Shipped parent/, 'it is not folded into hindsight');
+});
+
+test('fleet table: a 🔴 child under a ✅ parent sorts above a 🟢 row', () => {
+  const rows = renderFleetTable(hiddenChild()).lines.filter((l) => /^\| (🔴|🟠|🟢|🔵|✅) \|/u.test(l));
+  assert.deepEqual(rows.map((l) => [...l][2]), ['✅', '🔴', '🟢']);
+  assert.match(rows[1], /\*\*needs:\*\* answer the question/);
+});
+
+test('fleet board: a needs-you child must say what it needs; brackets cannot break a table link', () => {
+  const card = hiddenChild();
+  delete card.items[1].children[0].needs;
+  assert.match(renderFleet(card).errors.join('\n'), /children\[0\]: a needs-you session must say what it needs/);
+  const t = hiddenChild();
+  t.items[0].title = 'Fix ] bracket';
+  t.items[0].session = 'session_abc123';
+  const row = renderFleetTable(t).lines.find((l) => l.includes('bracket'));
+  assert.ok(row.includes('[Fix \\] bracket](https://claude.ai/code/session_abc123)'), row);
+});
+
+test('fleet board: a card header wears its loudest session icon; a done child is listed in hindsight', () => {
+  const card = hiddenChild();
+  card.items[0].children = [{ level: 'done', title: 'Merged slice', pr: 42, state: 'merged' }];
+  const r = renderFleet(card);
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.match(r.text, /```\n🔴 Shipped parent\n/, 'the ✅ parent holding a 🔴 child shows 🔴 in its header');
+  assert.match(r.text, /done\n {4}Merged slice #42 merged/);
+});
+
+test('fleet board: an optional spend line sits in BOTTOM LINE', () => {
+  const card = load('fleet');
+  assert.doesNotMatch(renderFleet(card).text, /\n {2}spend\n/);
+  card.spend = '$41 today across 23 sessions';
+  const r = renderFleet(card);
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.match(r.text.split('HINDSIGHT')[0], /\n {2}spend\n {4}\$41 today across 23 sessions\n/);
+});
+
+test('fleet table: link text escapes \\ | [ ] exactly once', () => {
+  const t = hiddenChild();
+  t.items[0].title = 'a\\]b|c[d';
+  t.items[0].session = 'session_abc123';
+  const row = renderFleetTable(t).lines.find((l) => l.includes('session_abc123'));
+  assert.ok(row.includes('[a\\\\\\]b\\|c\\[d](https://claude.ai/code/session_abc123)'), row);
 });

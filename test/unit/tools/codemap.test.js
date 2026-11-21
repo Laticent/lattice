@@ -203,6 +203,16 @@ test('the live map lists each workspace library once, under its own section only
   for (const p of PARTS.filter((x) => x.library)) assert.ok(!section.includes(`\`${p.match}\``), `${p.match} is in the docs/src/lib/ section`);
 });
 
+test('the root .ignore re-includes the map for search tools, and nothing else under dist/', () => {
+  // .gitignore hides dist/, and ripgrep (the agent Grep tool) honors it, so without this file a
+  // search never reaches the map. A rename of the output must update .ignore too.
+  const { OUT_FILE } = require('../../../tools/build-codemap.js');
+  const rel = path.relative(ROOT, OUT_FILE).split(path.sep).join('/');
+  const rules = fs.readFileSync(path.join(ROOT, '.ignore'), 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const included = rules.filter((l) => l.startsWith('!') && !l.endsWith('/'));
+  assert.deepEqual(included, [`!/${rel}`]);
+});
+
 test('the live tree passes --check', () => {
   assert.equal(require('../../../tools/build-codemap.js').main(['--check']), 0);
 });

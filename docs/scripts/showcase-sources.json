@@ -52,12 +52,12 @@
 	"diagram.light": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.light.pdf",
 		"page": 4,
-		"srcSha256": "49dcbca5687828fe5e461ff089876faa65987e5d7fa9bea8c3eb46c8ce99ad44"
+		"srcSha256": "07ce80fcfed46436d91f9095c0402596b48665c7b1d1b3c2af61c07971f071e4"
 	},
 	"diagram.dark": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.dark.pdf",
 		"page": 4,
-		"srcSha256": "12ce42862fcffcd27747c788133debc3be1c58ae7ef77b75491bd0c881f44811"
+		"srcSha256": "463946076d6cf2245b901439a9f85a0c08422d38a11b79f6ed05869059f288d3"
 	},
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",
@@ -157,7 +157,7 @@
 	"topic.dark": {
 		"src": "lib/components/anchor/topic/topic.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "385dbd7950c0b0185f609a794299361a098ff6982c7decd1a2e9708dc5b2200d"
+		"srcSha256": "d2ec1eecb4a47f8ee4babd8ecf0a844ea67af44e329ed1be5057194f39b62a04"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",

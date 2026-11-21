@@ -120,7 +120,7 @@ for (const [label, bin] of CLIS) {
 
     test('--strip-notes and --strip-say scrub a .lattice copy, and its review comments stay out', { timeout: TIMEOUT }, async () => {
       const dir = tmp('strip');
-      const source = '---\ntheme: indaco\n---\n\n## A slide\n\nBody text.\n\n<!-- Private note 51f0 -->\n\n<!-- say: private narration 7c2a -->\n';
+      const source = '---\ntheme: indaco\n---\n\n## A slide\n\nBody text.\n\n<!-- @note{Private note 51f0} -->\n\n<!-- my own comment 3e1b -->\n\n<!-- @say{private narration 7c2a} -->\n';
       const input = await studioLattice(dir, { source });
       const out = path.join(dir, 'out.lattice');
       const r = cli([input, out, '--strip-notes', '--strip-say'], tmp('home'), NO_BROWSER);
@@ -128,7 +128,7 @@ for (const [label, bin] of CLIS) {
       const zip = await JSZip.loadAsync(fs.readFileSync(out));
       const deck = await zip.file('deck.md').async('string');
       assert.notEqual(deck, source, 'a stripped copy is not the input byte for byte');
-      assert.ok(!deck.includes('Private note 51f0') && !deck.includes('private narration 7c2a'), deck);
+      assert.ok(!deck.includes('Private note 51f0') && !deck.includes('my own comment 3e1b') && !deck.includes('private narration 7c2a'), deck);
       assert.match(deck, /## A slide\n\nBody text\./, 'the slides stay');
       assert.deepEqual(JSON.parse(await zip.file('manifest.json').async('string')).comments, [], 'no review comments under a strip');
     });

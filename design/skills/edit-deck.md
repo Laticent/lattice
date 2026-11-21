@@ -127,9 +127,10 @@ deck already uses it, and don't strip `---` lines from a deck that has them.
    - **Line edit**: change the words, keep the slot. A card title stays a card
      title; a nested body stays nested.
 
-5. **Move cut detail into speaker notes, don't delete it.** A plain HTML
-   comment after the slide's content is that slide's note:
-   `<!-- Have the per-clinic numbers ready. -->`. The author can still say it.
+5. **Move cut detail into speaker notes, don't delete it.** A `@note` comment
+   after the slide's content is that slide's speaker note:
+   `<!-- @note{Have the per-clinic numbers ready.} -->`. The author can still say it.
+   (A plain comment is not a note: it reaches no export.)
 
 6. **Lint**: `npm run lint:deck -- <file>`. Fix every error and warning on the
    slides you touched. Suggestions on untouched slides are not yours to fix
@@ -179,7 +180,6 @@ the result, end on the decision":
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: indaco
 paginate: true
@@ -283,7 +283,7 @@ The rota holds every day but Monday, and winter adds a fifth more walk-ins.
 - **The wall.** A merge stacks two bodies into 95 words — `wall-of-text`. Fix:
   keep the stronger evidence, move the rest to notes, or don't merge.
 - **The orphaned note.** A reorder moved the slide and left its
-  `<!-- note -->` behind on the previous slide. Fix: notes move with their slide.
+  `<!-- @note{…} -->` behind on the previous slide. Fix: notes move with their slide.
 - **The new voice.** Contractions removed, jargon added, numbers reformatted
   from "$190k" to "USD 190,000". Fix: match the author's style, not yours.
 - **The front-matter drive-by.** You "cleaned up" `header:` or switched

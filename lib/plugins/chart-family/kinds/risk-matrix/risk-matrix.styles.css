@@ -45,9 +45,11 @@
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="high"] { fill: var(--state-fail-hue); }
 /* Critical is the step FURTHEST FROM THE INK: the vivid fail fill taken 18% away from it, toward black under a white
  * ink and toward white under a near-black one (`--status-shade-mark`), so it outranks `high` in both
- * intensities, keeps its text and ring clear on every face, and stays ordered in print. What says "exception" is the ring round the band and the cross in each cell, below. */
+ * intensities, keeps its text and ring clear on every face, and stays ordered in print. On the light face a palette may
+ * keep less of the fail fill (`--risk-critical-shade-keep`, 82% by default): a11y-achromatopsia keeps 40%, since its
+ * reader sees lightness alone and 18% left critical 1.09:1 under high. What says "exception" is the ring round the band and the cross in each cell, below. */
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="critical"] {
-  fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark));
+  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-shade-keep, 82%), var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)));
 }
 /* The critical band's SIGNAL RING (chart-family § THE SIGNAL RING), traced round the whole band by the kernel and
  * clipped to the band: twice the ring's width, so the half inside the band is the ring. */
@@ -80,7 +82,7 @@
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="medium"] { fill: var(--state-warn-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="high"] { fill: var(--state-fail-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="critical"] {
-  fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark));
+  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) var(--risk-critical-shade-keep, 82%), var(--status-shade-mark)), color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--status-shade-mark)));
   stroke: var(--state-fail-signal);
   stroke-width: var(--chart-ring);
   paint-order: stroke fill;

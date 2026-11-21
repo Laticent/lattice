@@ -61,6 +61,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -297,6 +298,167 @@ function componentDocs() {
 }
 
 /** The hand-written skills, copied verbatim from design/skills/. */
+/**
+ * plugins/<name>.md — every author-facing plugin's doc, shipped like the component docs.
+ *
+ * Until 2026-11-17 the kit carried none of them, so an agent never learned the inline notation
+ * the plugins add: pills (`{On plan}`), icons, sparks, check marks, avatars, images, video,
+ * callouts, legends. The kit's own starter deck had its pills in a dead form for a month, and
+ * the agent that found it misread the lint fix the same way. Each doc's sibling links become
+ * flat files here; any other repo-relative link becomes the file on GitHub, so the pack's link
+ * gate holds.
+ */
+const REPO_GITHUB = 'https://github.com/Laticent/lattice/';
+const SITE = 'https://lattice.style';
+/**
+ * A repo path's page on GitHub: `blob/` for a file, `tree/` for a folder. GitHub answers
+ * `blob/main/<folder>/` with HTTP 400, so a folder link written as `blob/` is a dead link an
+ * agent follows (it shipped in start.md's anima line). A path that is not in the tree fails
+ * the build: the pack must never point at a file that does not exist.
+ */
+/**
+ * Every code region of a Markdown text: a fence closes only on its own run of backticks or
+ * tildes (a ```` fence holds ``` lines), and a code span only on its own run of backticks.
+ * Unanchored or unmatched forms paired the inline "```mermaid" mentions in start.md's rules with
+ * a skeleton fence 190 lines later, and the link gate below went blind to every link between.
+ */
+const CODE_REGIONS = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$|(`+)[^`\n]*?\2/gm;
+function proseOnly(body, fn) {
+  // Rewrite links in prose only. A link inside a code fence or a code span is an EXAMPLE an
+  // author copies (`![](marcus.jpg)` in the avatars doc is the author's own photo, next to
+  // their deck), so it must reach the pack byte for byte.
+  const kept = [];
+  const masked = body.replace(CODE_REGIONS, (code) => `\uE000${kept.push(code) - 1}\uE000`);
+  return fn(masked).replace(/\uE000(\d+)\uE000/g, (_m, i) => kept[Number(i)]);
+}
+function repoUrl(repoPath) {
+  const abs = path.join(ROOT, repoPath);
+  if (!existsSync(abs)) throw new Error(`agent pack links ${repoPath}, which is not in the repo`);
+  // No trailing slash: GitHub answers `tree/main/<folder>/` with 400 too, only the bare form works.
+  return `${REPO_GITHUB}${statSync(abs).isDirectory() ? 'tree' : 'blob'}/main/${repoPath.replace(/\/$/, '')}`;
+}
+function pluginDocs() {
+  const dir = path.join(ROOT, 'lib', 'plugins');
+  const out = [];
+  for (const name of readdirSync(dir).sort()) {
+    const src = path.join(dir, name, `${name}.docs.md`);
+    if (!existsSync(src)) continue;
+    const from = `lib/plugins/${name}/`;
+    const body = proseOnly(readFileSync(src, 'utf8'), (prose) => prose.replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_whole, href) => {
+      const [file, anchor = ''] = href.split(/(?=#)/);
+      const repoPath = path.posix.normalize(path.posix.join(from, file));
+      const sibling = repoPath.match(/^lib\/plugins\/([a-z0-9-]+)\/\1\.docs\.md$/);
+      if (sibling) return `](./${sibling[1]}.md${anchor})`;
+      const comp = repoPath.match(/^lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md$/);
+      if (comp) return `](../${COMPONENTS}/${comp[1]}.md${anchor})`;
+      return `](${repoUrl(repoPath)}${anchor})`;
+    }));
+    const flat = body
+      // A layout's repo path, written as code, is that layout's file in the pack.
+      .replace(/`lib\/components\/[a-z0-9-]+\/<name>\/<name>\.docs\.md`/g, `\`../${COMPONENTS}/<name>.md\``)
+      .replace(/`lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md`/g, `\`../${COMPONENTS}/$1.md\``)
+      // The repo's rule index means nothing to a pack reader; keep the sentence, drop the citation.
+      .replace(/where HARD RULE #1 put them/g, 'where the shared render kernel keeps them');
+    out.push({ name, body: Buffer.from(flat, 'utf8') });
+  }
+  return out;
+}
+
+/**
+ * authoring/universal.md and authoring/registers.md — what every slide can carry, and every
+ * deck-level front-matter register. They are `lib/base/base.docs.md` and
+ * `lib/base/base.registers.docs.md`, the repo's own references for the parts no single layout
+ * owns: the eyebrow, the subtitle, the key insight, the below-note, annotations, corner tags,
+ * tables, switches, `numbered`, `mirror`, focus, builds, and the `mode:`/`finish:`/`venue:`/…
+ * registers. The pack carried neither until 2026-11-17, so an agent learned the key insight
+ * from one rule's passing mention and the registers not at all. Links are flattened the same
+ * way the plugin docs' are.
+ */
+function universalDocs() {
+  const flatten = (body, from) =>
+    proseOnly(body, (prose) => prose.replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_whole, href) => {
+        const [file, anchor = ''] = href.split(/(?=#)/);
+        // A site path (`/reference/switches/`) is a docs page: the pack lives on that site,
+        // so it becomes the page's Markdown copy there.
+        if (file.startsWith('/')) {
+          const page = file.replace(/^\/|\/$/g, '');
+          const src = ['md', 'mdx'].map((x) => path.join(ROOT, 'docs', 'src', 'content', 'docs', `${page}.${x}`));
+          if (!page || !src.some(existsSync)) throw new Error(`agent pack links site path ${file}, which has no Markdown copy`);
+          return `](${SITE}/${page}.md${anchor})`;
+        }
+        const repoPath = path.posix.normalize(path.posix.join(from, file));
+        if (repoPath === 'lib/base/base.docs.md') return `](./universal.md${anchor})`;
+        if (repoPath === 'lib/base/base.registers.docs.md') return `](./registers.md${anchor})`;
+        const comp = repoPath.match(/^lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md$/);
+        if (comp) return `](../${COMPONENTS}/${comp[1]}.md${anchor})`;
+        const plug = repoPath.match(/^lib\/plugins\/([a-z0-9-]+)\/\1\.docs\.md$/);
+        if (plug) return `](../plugins/${plug[1]}.md${anchor})`;
+        return `](${repoUrl(repoPath)}${anchor})`;
+      }))
+      .replace(/`lib\/components\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md`/g, `\`../${COMPONENTS}/$1.md\``)
+      .replace(/lib\/components\/(?:<bucket>\/)?<name>\/<name>\.docs\.md/g, `../${COMPONENTS}/<name>.md`)
+      .replace(/ \(HARD RULE #\d+[^)]*\)/g, '')
+      .replace(/HARD RULE #\d+/g, 'a house rule');
+  return [
+    { rel: `${AUTHORING}/universal.md`, body: flatten(readFileSync(path.join(ROOT, 'lib', 'base', 'base.docs.md'), 'utf8'), 'lib/base/') },
+    { rel: `${AUTHORING}/registers.md`, body: flatten(readFileSync(path.join(ROOT, 'lib', 'base', 'base.registers.docs.md'), 'utf8'), 'lib/base/') },
+  ];
+}
+
+/** GitHub's heading anchor: lower-case, punctuation dropped, spaces to hyphens. */
+function anchorOf(heading) {
+  return heading.toLowerCase().replace(/[^\p{L}\p{N} -]/gu, '').trim().replace(/ /g, '-');
+}
+
+/**
+ * The parts any slide can carry, from universal.md's "Auto-detected authoring patterns": each
+ * `###` heading with the first sentence under it. And the registers, from registers.md's `##`
+ * headings. Both stay in the source's words, so start.md cannot drift from them.
+ */
+function universalRows(files) {
+  const uni = files.get(`${AUTHORING}/universal.md`).toString('utf8');
+  // Fenced examples carry their own `## Slide heading` lines; take them out before finding where
+  // the section ends.
+  const prose = uni.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
+  const sec = prose.split(/^## Auto-detected authoring patterns\s*$/m)[1]?.split(/^## /m)[0];
+  if (!sec) throw new Error('build-agent-kit: universal.md has no "Auto-detected authoring patterns" section for start.md to summarize.');
+  const parts = [];
+  for (const chunk of sec.split(/^### /m).slice(1)) {
+    const [head, ...rest] = chunk.split('\n');
+    const para = rest.join('\n').trim().split(/\n\n/)[0].replace(/\n/g, ' ');
+    parts.push(`- [${head.trim()}](./${AUTHORING}/universal.md#${anchorOf(head.trim())}): ${firstSentence(para, 170)}`);
+  }
+  const reg = files.get(`${AUTHORING}/registers.md`).toString('utf8');
+  const registers = [...reg.matchAll(/^## (.+)$/gm)].map(([, h]) => {
+    const keys = [...h.matchAll(/`([a-z-]+):`/g)].map((k) => `\`${k[1]}:\``);
+      const what = h.match(/\(([^)]+)\)\s*$/)?.[1] || h.replace(/^The /, '').replace(/`[^`]*`/g, '').replace(/[—–-]\s*$/, '').trim();
+    return keys.length ? `- [${keys.join(' / ')}](./${AUTHORING}/registers.md#${anchorOf(h)}): ${what}` : null;
+  }).filter(Boolean);
+  return { parts, registers };
+}
+
+/**
+ * One plugin, in one line: the doc's first sentence, and the first line of its first example
+ * that actually shows inline notation (`{…}`, `~{…}`, `^{…}`, `!{…}`, `@name{…}`, `[x]`). A
+ * fence plugin (code, math, mermaid…) has no such line; its sentence names the fence.
+ */
+function pluginSummary(body) {
+  const text = body.replace(/^# .*\n+/, '');
+  const lead = firstSentence(text.split(/\n\n/)[0].replace(/:$/, '.'), 150);
+  const ex = text.match(/```markdown\n([\s\S]*?)\n```/);
+  const { MARKER_CLASS } = require(path.join(ROOT, 'lib', 'core', 'checks-registry.js'));
+  const notation = new RegExp(`\`[~^!@a-z]*\\{|^\\s*-\\s\\[${MARKER_CLASS}\\]`);
+  const line = ex?.[1].split('\n').find((l) => notation.test(l));
+  // Where the example works: the layout its own example block sets, when it sets one. A callout
+  // copied onto a `content` slide renders as code (found by rendering every example, 2026-11-17).
+  const cls = ex?.[1].match(/<!--\s*_class:\s*([a-z0-9-]+)/)?.[1] ?? '';
+  // A plugin whose own "Where it draws today" says its authored form is not drawn yet gets no
+  // example: an agent copies examples. When the doc stops saying so, the example comes back.
+  const today = text.split(/^## Where it draws today\s*$/m)[1]?.split(/^## /m)[0] ?? '';
+  const notDrawn = /\bis not drawn\b/.test(today);
+  return { lead, example: line && !notDrawn ? line.trim() : '', cls };
+}
+
 function skillDocs() {
   return readdirSync(SKILLS_DIR)
     .filter((f) => f.endsWith('.md'))
@@ -837,7 +999,7 @@ function modifiersDoc() {
     mood: 'Flip a single slide to the dark companion palette. Deck-wide dark is a theme choice, not this.',
     decoration: 'Ambient art on the canvas. One per slide at most — two read as clutter, and none is the right answer on a dense slide.',
     typography: 'Scale the slide’s type up, or control the auto-period on headings. `scale-*` buys emphasis on a SPARSE slide; on a full one it just overflows.',
-    chrome: 'Turn the running header, footer, page number or section rail off for one slide. `silent` bundles the first three — it is what bookends use.',
+    chrome: 'Turn the running header, footer, page number or section rail off for one slide. `silent` turns off all four in one token — it is what bookends use.',
     note: 'Act on a trailing sentence: keep it as body copy, or mark the slide’s callout as an alarm (the warning triangle is drawn, so a caveat needs no typed glyph).',
     social: 'Crop-safe framing for a slide destined to be screenshotted.',
     table: 'Table treatment switches: drop the zebra, spread rows into leftover height, or decode the six state markers (`[x]` `[-]` `[!]` `[?]` `[ ]` `[/]`) in cells into status discs.',
@@ -1133,10 +1295,9 @@ function authoringReadme(files, layoutCount) {
     ...FRONT_MATTER,
     '```',
     '',
-    '`theme:` picks the palette, and it must name one your RENDERER has registered — not just',
-    'one the engine ships. `cuoio` and `cuoio-dark` resolve on every route this kit documents;',
-    'a name your renderer does not carry renders unstyled with no error. `paginate:` turns on',
-    'page numbers. A deck with no front matter still renders, but with no theme.',
+    '`theme:` picks the palette: `indaco` is the default, and `cuoio`, `onyx` and the rest of',
+    'the palettes in `../skills/theme.md` work the same way. Add `color-mode: dark` for the',
+    'dark version. `paginate:` turns on page numbers.',
     '',
     '## primer.md — the other way to work',
     '',
@@ -1320,7 +1481,7 @@ const SOLO_INTENT = {
   closing: 'the last slide',
   divider: 'a section break',
   content: 'a claim plus a short paragraph',
-  list: '3-5 short bullets (`takeaway numbered` for numbered requirements, each with a reason)',
+  list: '3-5 short bullets (`takeaway` over a `1.` list for numbered requirements, each with a reason)',
   'cards-grid': '2-4 named items with one line each',
   stats: '2-4 numbers side by side',
   kpi: '3 metrics with targets and status',
@@ -1363,25 +1524,18 @@ function skeletonFor(cat, name) {
 }
 
 /**
- * The five front-matter lines every deck opens with. One shape, no choices.
+ * The four front-matter lines every deck opens with. One shape, no choices.
  *
- * `cuoio` AND NOT `indaco`, which is the engine's own default, because this is
- * the theme the kit's own worked examples carry and it has to resolve on every
- * render route the kit documents. It does not: the Marp kit published beside this
- * one registers `lattice`, `cuoio` and `cuoio-dark` and NOTHING ELSE, and Marp
- * resolves a palette by NAME through its theme set — so `theme: indaco` there
- * falls back to Marp's default and renders an unstyled deck **with no error**.
+ * LATTICE'S OWN FRONT MATTER. No `marp: true`: Lattice renders the deck itself, and the
+ * key is read only by Marp. `indaco` is the engine's default palette.
  *
- * That was live until this file: the kit told every model to write `indaco`,
- * the only no-install render route could not resolve it, and both gates stayed
- * green because neither one renders. Caught by rendering a generated example and
- * looking at the page, which is the only thing that catches it.
- *
- * `cuoio` is the intersection of all three documented routes. A deck that wants a
- * different palette says so, and `render/` states the rule: the name must be one
- * your renderer has registered.
+ * This said `marp: true` + `theme: cuoio` from 2026-09-05 to 2026-11-17, because the
+ * kit's only no-install render route was the Marp kit, which registers three palettes.
+ * That made every agent that read the kit write Lattice as Marp. The render route is
+ * now `npx @laticent/lattice`, which knows every palette, and Marp is one export page
+ * (`render/lattice-export-to-marp.md`). See engineering/decisions/2026-11-17-agent-pack.md.
  */
-const FRONT_MATTER = ['---', 'marp: true', 'theme: cuoio', 'paginate: true', '---'];
+const FRONT_MATTER = ['---', 'theme: indaco', 'paginate: true', '---'];
 
 /**
  * The rules that make a deck STRUCTURALLY wrong rather than merely plain. Every
@@ -1391,7 +1545,7 @@ const FRONT_MATTER = ['---', 'marp: true', 'theme: cuoio', 'paginate: true', '--
  * BE PRECISE ABOUT PROVENANCE — an earlier draft of this comment claimed all nine
  * are rated `error` by the linter, which was checkable and wrong. Four map to
  * `error` rules in `lib/authoring/lint-core.js` (`card-style-inline-title`,
- * `ledger-inline-title` / `split-bodyless-item`, `statement-ol-bold`,
+ * `split-bodyless-item`, `statement-ol-bold`,
  * `unterminated-comment`). One maps to a `warning` (`unknown-class`). The other
  * four — separator spacing, the three-space nested indent under `1.`, bookend slot
  * ORDER, and never writing a hex code — are load-bearing at RENDER time and the
@@ -1405,17 +1559,39 @@ const FRONT_MATTER = ['---', 'marp: true', 'theme: cuoio', 'paginate: true', '--
  * What IS a fact about the code: all 18 entries of the reviewer's RUBRIC are
  * `suggestion`, so the taste half is separable and deferrable to the checker.
  */
-const ESSENTIALS = [
+/** The shared chart status words (lib/core/chart-status.js): the only pills a timeline row colors. */
+function chartStatus() {
+  return require(path.join(ROOT, 'lib', 'core', 'chart-status.js')).CHART_STATUS;
+}
+function PROFILE_NAMES() {
+  return require(path.join(ROOT, 'lib', 'authoring', 'deck-profiles.js')).PROFILE_NAMES;
+}
+/**
+ * lint-core's ledger/split and statement layouts as code lists, limited to `only` when given:
+ * the solo text names just its 19, the full-catalog texts name every one.
+ */
+function listShapes(only) {
+  const ls = require(path.join(ROOT, 'lib', 'core', 'list-shapes.js'));
+  const solo = { has: (n) => !only || only.includes(n) };
+  const fmt = (names) => names.map((n) => `\`${n}\``).join(', ');
+  const ledger = [...ls.LEDGER_LAYOUTS, ...ls.SPLIT_SLOT_LAYOUTS].filter((n) => solo.has(n));
+  // A rule about a layout the reader cannot use is noise: it drops while no statement layout is solo.
+  return { ledger: fmt(ledger), statement: fmt(ls.STATEMENT_OL_LAYOUTS.filter((n) => solo.has(n))) };
+}
+const essentials = (only) => [
   'Every slide starts with `<!-- _class: NAME -->` and NAME is a real layout.',
   'Slides are separated by a line containing only `---`, with a blank line each side.',
   'Card layouts nest: `- Title` on one line, then `  - body` indented two spaces. Never `- **Title.** body`.',
   'Under a numbered `1.` row, indent the nested line **three** spaces, not two.',
-  'A ledger or split row always has a body under its title — never a bare title.',
-  'A statement layout\'s `1.` rows carry no `**bold**` lead-in.',
+  // Name the layouts: "a ledger row" and "a statement layout" meant nothing to a small model
+  // (the stand-in eval, 2026-11-19). The sets are lint-core's own, from lib/core/list-shapes.js.
+  `A row on ${listShapes(only).ledger} always has a body under its title — never a bare title.`,
+  listShapes(only).statement && `On ${listShapes(only).statement}, \`1.\` rows carry no \`**bold**\` lead-in.`,
   'Every `<!-- -->` comment is closed.',
   'The title slide is `# H1`, then a backtick `eyebrow` line, then a plain subtitle — in that order.',
   'Colors and emphasis come from the layouts and modifiers. Never write a hex code.',
-];
+].filter(Boolean);
+const ESSENTIALS = essentials();
 
 /** The two taste rules worth prompt budget: both change the SHAPE of the draft. */
 const TASTE_KEPT = [
@@ -1455,7 +1631,7 @@ function instructionsSolo(cat) {
     '',
     '## The file',
     '',
-    'Start every file with these five lines, then the slides:',
+    'Start every file with these lines, then the slides:',
     '',
     ...fenced(FRONT_MATTER.join('\n')),
     '',
@@ -1554,8 +1730,8 @@ function instructionsSolo(cat) {
     '',
     '## The rules',
     '',
-    ...ESSENTIALS.map((r, i) => `${i + 1}. ${r}`),
-    ...TASTE_KEPT.map((r, i) => `${ESSENTIALS.length + i + 1}. ${r}`),
+    ...essentials(SOLO_LAYOUTS).map((r, i) => `${i + 1}. ${r}`),
+    ...TASTE_KEPT.map((r, i) => `${essentials(SOLO_LAYOUTS).length + i + 1}. ${r}`),
     '',
     '## Check before you finish',
     '',
@@ -1665,9 +1841,8 @@ function instructionsMax(traps) {
     ...traps.map((t) => `- ${t}`),
     '',
     'FRONT MATTER YOU MAY SET',
-    '- `theme:` the palette. It must name one your renderer has registered — `cuoio` and',
-    '  `cuoio-dark` work everywhere this kit documents. An unregistered name renders',
-    '  unstyled with no error.',
+    '- `theme:` the palette. `indaco` is the default; `cuoio` and `onyx` are two others.',
+    '- `color-mode: dark` for the dark version of the palette.',
     '- `paginate: true` numbers the slides.',
     '- `size:` defaults to `hd` (1280x720). Leave it alone unless asked.',
     '',
@@ -1692,12 +1867,96 @@ function reviewerTraps() {
 }
 
 /**
- * render/lattice-render-a-deck.md — the step the kit did not have.
+ * The checker reads `../reference/components.json` beside itself; fetched alone it runs a PARTIAL
+ * check and says so. Found by downloading it from the docs preview the way an agent would.
+ */
+const CHECKER_FETCH = [
+  'mkdir -p lattice/review lattice/reference',
+  'curl -fsSL https://lattice.style/agents/review/check.mjs -o lattice/review/check.mjs',
+  'curl -fsSL https://lattice.style/agents/reference/components.json -o lattice/reference/components.json',
+  'node lattice/review/check.mjs deck.md',
+].join('\n');
+
+/**
+ * render/lattice-render-a-deck.md — how to see the deck. Lattice renders it.
  *
- * Until this file, the kit taught an agent to produce a `.md` and stopped. There
- * was no `npx`, no `npm install`, no render command anywhere on the authoring
- * path — a search of the whole kit for one returned nothing — so a model followed
- * the kit perfectly and handed back a file its author could not look at.
+ * Until 2026-11-17 this page led with the Marp kit, because `@laticent/lattice` was not
+ * on npm and marp-cli was the only renderer that needed no clone. That made the kit
+ * describe a Lattice deck as "a Marp deck first", and every agent that read it wrote
+ * `marp: true`. The owner's call (engineering/decisions/2026-11-17-agent-pack.md §3):
+ * write the kit as if the package is published. So `npx @laticent/lattice` leads, the
+ * Studio covers a destination that cannot run a command, and Marp is one export page.
+ *
+ * The page carries no relative links: it is embedded verbatim in an upload bundle and
+ * in the skill's references, where a relative link would not resolve.
+ */
+function renderDoc() {
+  return [
+    '# Turn your deck into a PDF',
+    '',
+    'You have a `.md` file. Lattice renders it.',
+    '',
+    '## With one command',
+    '',
+    ...fenced('npx @laticent/lattice your-deck.md your-deck.pdf', 'sh'),
+    '',
+    'The extension picks the format:',
+    '',
+    '| Output | You get |',
+    '|---|---|',
+    '| `deck.pdf` | A vector PDF with selectable text |',
+    '| `deck.pptx` | PowerPoint; add `--editable` for real text boxes |',
+    '| `deck.png` | One PNG per slide: `deck.001.png`, `deck.002.png`, … |',
+    '| `deck.html` | The rendered deck; add `--player` for a self-contained player |',
+    '',
+    'A third argument overrides the palette for one render:',
+    '`npx @laticent/lattice your-deck.md your-deck.pdf cuoio`. Add `--print` for a',
+    'black-and-white-safe copy. `npx @laticent/lattice --help` lists the rest.',
+    '',
+    'It needs Node 22.13 or newer and a Chrome or Chromium on the machine. If it cannot find',
+    'one, set `CHROME_PATH=/path/to/chrome`.',
+    '',
+    '## Check the deck first',
+    '',
+    ...fenced('node review/check.mjs your-deck.md   # from the kit root', 'sh'),
+    '',
+    'No kit on disk? Fetch the checker and the catalog it reads, side by side as in the kit:',
+    '',
+    ...fenced(CHECKER_FETCH, 'sh'),
+    '',
+    'It is code, not a model: no tokens, offline, about a tenth of a second, and it cannot',
+    'be talked into approving a deck the way a model reviewing its own draft can. It catches',
+    'the wrong Markdown shape for a layout, a layout name that does not exist, and the',
+    'structural traps the reviewer flags.',
+    '',
+    '## Without a command line',
+    '',
+    'Open the deck in the Lattice Studio at <https://lattice.style/studio> and export from',
+    'there. Use this when you are writing in a chat product (a Claude Project, a GPT, a',
+    'Gem) that hands back a file rather than running a command.',
+    '',
+    '## If the render looks wrong',
+    '',
+    '| What you see | What to fix |',
+    '|---|---|',
+    '| The render stops with `unknown palette` | `theme:` names a palette that does not exist. The message lists the real ones |',
+    '| A layout comes out as a plain list | The slide is not in that layout\'s Markdown shape. Copy the skeleton from its file in `components/` again; `check.mjs` names the slide |',
+    '| `⚠ OVERFLOW` in the output | A slide holds more than fits. Split it, or cut words; the layout\'s file gives its capacity |',
+    '',
+    '## Handing the deck to someone who uses Marp',
+    '',
+    'Export a Marp bundle (Studio: **Share → Marp bundle**). The kit\'s',
+    '`render/lattice-export-to-marp.md` explains what the bundle carries and how to do it',
+    'by hand.',
+    '',
+  ].join('\n');
+}
+
+/**
+ * render/lattice-export-to-marp.md — the ONE page in the kit that describes marp-cli.
+ *
+ * Moved here verbatim from the old render page on 2026-11-17. Gate 3 of the pack
+ * (2026-11-17-agent-pack.md §4.4) allows Marp framing in this file and nowhere else.
  *
  * ROUTE 1 IS THE ONE THAT WORKS WITH NOTHING INSTALLED, and it is verified: the
  * Marp kit that ships beside this one on the same branch renders its own 13-slide
@@ -1731,19 +1990,24 @@ function reviewerTraps() {
  * Chrome refuses to execute it. jsDelivr serves the same bytes off the same
  * branch as `application/javascript`. Both were checked against the live hosts;
  * the distinction is invisible until a slide comes up as a plain list.
- *
- * `npm install @laticent/lattice` is DELIBERATELY ABSENT. The package is not
- * published — the registry returns 404 today — so every install line of that
- * shape in our own docs is aspirational, and a kit that opens with one teaches a
- * command that fails on the reader's first attempt.
  */
-function renderDoc() {
+function exportToMarpDoc() {
   const raw = `${KIT_RAW_BASE}/marp`;
   const cdn = `${KIT_CDN_BASE}/marp`;
   return [
-    '# Turn your deck into a PDF',
+    '# Export a Lattice deck to Marp',
     '',
-    'You have a `.md` file. Here is how to see it.',
+    'Lattice renders its own decks: `render/lattice-render-a-deck.md` is the page for that,',
+    'and it needs none of what follows. This page is for one case only: someone needs to',
+    'open your deck in marp-cli or the Marp for VS Code extension.',
+    '',
+    '## The easy way: an export bundle',
+    '',
+    'In the Studio at <https://lattice.style/studio>, use **Share → Marp bundle**. From a',
+    'clone of the repository, `npm run export:marp -- your-deck.md your-deck.zip`. Either',
+    'way you get a folder Marp can render with nothing else: the deck with its slide breaks',
+    'written out, the stylesheet, the palette, the fonts, the runtime scripts and a config.',
+    'Everything below is what the bundle does for you, for when you cannot use it.',
     '',
     '## How Marp and Lattice divide the work',
     '',
@@ -1761,14 +2025,14 @@ function renderDoc() {
     '  diagrams, and the ones that rearrange their own content, like `kpi`. These run in',
     '  the browser, during the render.',
     '',
-    'So a Lattice deck is a Marp deck, plus a stylesheet Marp has to be handed, plus the',
+    'So for Marp to render a Lattice deck it needs the deck, plus a stylesheet it has to be handed, plus the',
     `${numberWord(RUNTIME_SCRIPT_NAMES.length)} scripts the deck carries itself. **Miss any of them and the deck still renders** — as`,
     'plain Marp, or with the palette but no type, or with a layout flattened to a list.',
     'None of those prints an error. That is the whole difficulty of this page.',
     '',
     '## What your deck must carry',
     '',
-    'A Lattice deck is a Marp deck first. Six things make it one:',
+    'Marp needs six things a Lattice deck does not carry on its own:',
     '',
     '| In the deck | Why |',
     '|---|---|',
@@ -1791,9 +2055,7 @@ function renderDoc() {
     '',
     ...fenced(RUNTIME_TAGS.join('\n'), 'html'),
     '',
-    '`examples/lattice-example-starter.md` carries all six. Copying it is the cheapest way',
-    'to get them right.',
-    '',
+
     '## Route 1: the Marp kit (nothing to install)',
     '',
     'The `marp/` folder published beside this kit is a copy-and-go bundle — the engine',
@@ -1881,28 +2143,6 @@ function renderDoc() {
     'flat, and nothing anywhere says why. Use the CDN above in a tag; use this one in a',
     '`curl`.',
     '',
-    '## In the browser, with nothing at all',
-    '',
-    'Paste the deck into the Lattice Studio at <https://lattice.style/studio> and export',
-    'from there. Useful when you have no Node, or you want to try a different palette',
-    'before committing to one.',
-    '',
-    '## From a clone of the repository',
-    '',
-    'If you have the source checked out, the engine renders PDF, PPTX, PNG and HTML:',
-    '',
-    ...fenced('node dist/lattice.js your-deck.md your-deck.pdf', 'sh'),
-    '',
-    'The output format is chosen by the extension — `.pdf`, `.pptx`, `.png`, `.zip`, `.html`.',
-    'Needs Node 22.13 or newer and a Chromium that Puppeteer can find. This route needs no',
-    '`--theme-set` and no `<script>` tags: the engine owns both ends, and it strips the',
-    'deck\'s runtime scripts before export, so a deck carrying them renders the same here.',
-    '',
-    '## What about `npm install`?',
-    '',
-    'Not yet. The package is not published to the npm registry, so an `npm install`',
-    'line would fail on your first attempt. Use one of the routes above until it is.',
-    '',
     '## If the slides come out wrong',
     '',
     'Every failure on this page is silent, so work back from what you see:',
@@ -1914,13 +2154,6 @@ function renderDoc() {
     '| One layout flattened to a list or a bare fence | The runtime scripts did not run: missing, in the wrong order, at the top of the file, or `--html` was not passed |',
     '| `<script src=…>` printed on slide 1 as text | `--html` was not passed, so marp-core escaped it |',
     '| A blank final page after a diagram | An old runtime. Mermaid appends a tooltip to `document.body`, past the last slide, and Chrome spills one more sheet. The shipped runtime pins it; re-fetch yours |',
-    '',
-    '## Before you render, check the deck',
-    '',
-    ...fenced(`node review/check.mjs your-deck.md   # from the kit root`, 'sh'),
-    '',
-    'It is code, not a model: no tokens, offline, about a tenth of a second, and it cannot',
-    'be talked into approving a deck the way a model reviewing its own draft can.',
     '',
   ].join('\n');
 }
@@ -1954,20 +2187,12 @@ function exampleDecks() {
   for (const [slug, rel, blurb] of EXAMPLE_DECKS) {
     const src = path.join(ROOT, 'exemplars', rel);
     if (!existsSync(src)) continue;
-    // Retheme on copy, for the same reason `relocate()` rewrites links: these
-    // decks were written for a repo reader whose renderer has all 19 palettes,
-    // and the kit's reader has the Marp kit, which registers three. Byte-identity
-    // to `exemplars/` is NOT the property worth keeping — a worked example that
-    // renders unstyled through the route the kit documents teaches the wrong
-    // thing. Only the palette line changes; the deck is otherwise verbatim.
-    // ...and append the runtime tags for the same reason. Without them the
-    // DOM-composed layouts these decks lean on (kpi, stats, the chart family)
-    // render as plain ordered lists — palette live, layout absent, no error. The
-    // CLI strips deck-embedded runtime scripts before export, so this costs the
-    // repo reader nothing and buys the kit reader a deck that actually composes.
+    // Verbatim, minus a `marp: true` key: these decks are Lattice decks, and the kit
+    // teaches Lattice front matter (2026-11-17-agent-pack.md). The CLI renders every
+    // palette they name and composes every layout without deck-embedded scripts.
     const body = `${readFileSync(src, 'utf8')
-      .replace(/^theme:[ \t]*\S+[ \t]*$/m, 'theme: cuoio')
-      .trimEnd()}\n\n${RUNTIME_TAGS.join('\n')}\n`;
+      .replace(/^marp:[ \t]*true[ \t]*\r?\n/m, '')
+      .trimEnd()}\n`;
     out.push({
       name: `lattice-example-${slug}.md`,
       blurb,
@@ -2105,13 +2330,13 @@ function starterDeck() {
     '',
     '1. 4 days',
     '   - Time to close',
-    '   - from 9 days `On plan`',
+    '   - from 9 days `{On plan}`',
     '2. 12%',
     '   - Invoices matched by hand',
-    '   - from 60% `On plan`',
+    '   - from 60% `{On plan}`',
     '3. $0.9M',
     '   - Annual run cost',
-    '   - from $4.1M `On plan`',
+    '   - from $4.1M `{On plan}`',
     '',
     '---',
     '',
@@ -2150,10 +2375,14 @@ function starterDeck() {
     '',
     '## Four steps take us from freeze to retirement.',
     '',
-    '1. Freeze new integrations — two weeks before cutover, changes stop.',
-    '2. Rehearse the cutover — a full dry run against production data.',
-    '3. Cut over at quarter end — three days, with finance on standby.',
-    '4. Retire the old ledger — read-only for a year, then archived.',
+    '1. Freeze new integrations',
+    '   - Two weeks before cutover, changes stop.',
+    '2. Rehearse the cutover',
+    '   - A full dry run against production data.',
+    '3. Cut over at quarter end',
+    '   - Three days, with finance on standby.',
+    '4. Retire the old ledger',
+    '   - Read-only for a year, then archived.',
     '',
     '---',
     '',
@@ -2162,8 +2391,6 @@ function starterDeck() {
     '## Approve the March window and the $1.4M migration budget.',
     '',
     '`The ask`',
-    '',
-    ...RUNTIME_TAGS,
     '',
   ].join('\n');
 }
@@ -2446,9 +2673,8 @@ function uploadBundles(components, files, examples, layoutCount) {
       '',
       ...fenced(FRONT_MATTER.join('\n')),
       '',
-      '`theme:` must name a palette your renderer has registered. `cuoio` and `cuoio-dark`',
-      'work on every route this kit documents. The engine ships many more, but a name your',
-      'renderer does not carry falls back to unstyled output with no error.',
+      '`theme:` picks the palette (`indaco` is the default) and `color-mode: dark` gives the',
+      'dark version.',
       '',
       '## What a good deck looks like',
       '',
@@ -2751,9 +2977,17 @@ function rootReadme(files, layoutCount, components) {
     '**Lattice turns plain Markdown into boardroom-quality slides.** One layout per slide,',
     'chosen with `<!-- _class: NAME -->`; slides separated by a line containing only `---`.',
     '',
-    'This kit teaches any model to write them. No clone, no install, nothing vendor-specific.',
+    'This kit teaches any model to write them, and `npx @laticent/lattice deck.md deck.pdf`',
+    'renders the result. Nothing vendor-specific.',
     '',
-    '## Start with where you are putting it',
+    '## An agent that can read files: start here',
+    '',
+    `Read [\`start.md\`](./start.md) (${fmtTok(bytesOf(files, 'start.md'))} tokens). It is everything needed to write a good`,
+    'deck: the file shape, what a good deck is, the rules, all the layouts, the skeletons of',
+    'the common ones, and how to check and render. Then open `components/<name>.md` for each',
+    'layout you use.',
+    '',
+    '## Setting the kit up in a product',
     '',
     '| I am setting up… | Open |',
     '|---|---|',
@@ -2795,7 +3029,8 @@ function rootReadme(files, layoutCount, components) {
     '',
     '| Reading… | ~tokens |',
     '|---|---|',
-    `| \`${PASTE}/lattice-instructions-solo.md\` — everything, self-contained | ${fmtTok(bytesOf(files, `${PASTE}/lattice-instructions-solo.md`))} |`,
+    `| \`start.md\` — the whole contract, all ${layoutCount} layouts | **${fmtTok(bytesOf(files, 'start.md'))}** |`,
+    `| \`${PASTE}/lattice-instructions-solo.md\` — 19 layouts, self-contained, for a small model | ${fmtTok(bytesOf(files, `${PASTE}/lattice-instructions-solo.md`))} |`,
     `| the authoring path: canon → rules → picker | **${fmtTok(canonB + rulesB + pickB)}** once |`,
     `| …then one \`${COMPONENTS}/<name>.md\` per layout you use | + ${fmtTok(compMedian)} each |`,
     `| drafting a whole deck in one pass: canon → primer | ${fmtTok(canonB + primerB)} |`,
@@ -2804,16 +3039,11 @@ function rootReadme(files, layoutCount, components) {
     'The per-layout row is the one that matters: a nine-slide deck reads nine of those files,',
     'so the fixed figure alone describes a one-slide deck and understates a real one by about 3x.',
     '',
-    '## Three things that will bite you',
+    '## Two things that will bite you',
     '',
-    '**`theme:` must name a palette your renderer has registered.** Marp resolves palettes by',
-    'name; an unregistered one falls back to plain Marp styling **with no error**. `cuoio`',
-    'works on every route here.',
-    '',
-    `**A Marp-rendered deck needs the ${numberWord(RUNTIME_SCRIPT_NAMES.length)} runtime \`<script>\` tags at the bottom of the file.**`,
-    'Without them, layouts that compose in the DOM render as plain lists — again, no error.',
-    'The starter deck in `examples/` carries them; copy it and you inherit them, and',
-    `[\`${RENDER}/lattice-render-a-deck.md\`](./${RENDER}/lattice-render-a-deck.md) says where the files come from.`,
+    '**Copy the skeleton exactly.** Every layout reads a fixed Markdown shape: a card layout',
+    'nests `- Title` then `  - body`, a title slide is `# H1`, a backtick eyebrow, then a',
+    'subtitle. A deck in the wrong shape still renders, just not as the layout you picked.',
     '',
     '**Run the checker before you hand a deck over.** `node review/check.mjs your-deck.md`,',
     'from this folder, is code rather than a model: no tokens, offline, a tenth of a second,',
@@ -2827,6 +3057,302 @@ function rootReadme(files, layoutCount, components) {
     '_will differ, and the ratios are what matter._',
     '',
   ].join('\n');
+}
+
+/**
+ * start.md — the one file an agent reads first (2026-11-17-agent-pack.md §4.1).
+ *
+ * Everything needed to write a good deck, in one fetch: the file shape, the deck canon,
+ * the rules, the modifiers, every layout in one line, and the skeletons of the common
+ * ones. A reader of this file alone can write a full deck; `components/<name>.md` raises
+ * one slide from good to excellent (capacity, variants, the mistakes the reviewer flags).
+ *
+ * NOTHING HERE IS WRITTEN TWICE. Each section is a file the kit already builds or a field
+ * of `components.json`, so `start.md` cannot disagree with the rest of the kit. The
+ * budget is START_MAX; the build fails past it.
+ */
+const START_MAX = 48000;
+/** Chart skeletons start.md adds after the solo layouts: the commonest two, a part of a whole and a ranking. */
+const START_CHART_SKELETONS = ['bar', 'piechart'];
+
+function firstSentence(text, max = 110) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  // The first sentence end that is not inside inline code (`1.` in `` `1.` `` is not one).
+  let out = t;
+  for (const m of t.matchAll(/[.!?](?=\s|$)/g)) {
+    if ((t.slice(0, m.index).match(/`/g) || []).length % 2 === 0) {
+      out = t.slice(0, m.index + 1);
+      break;
+    }
+  }
+  out = out.replace(/:$/, '.');
+  if (out.length > max) out = `${out.slice(0, max - 1).replace(/\s+\S*$/, '')}…`;
+  return out;
+}
+
+function capacityNote(c) {
+  const cap = c.capacity;
+  if (!cap?.axis || cap.sweet == null) return '';
+  const unit = cap.axis === 'item' ? 'items' : `${cap.axis}s`;
+  return cap.hard != null && cap.hard !== cap.sweet ? ` (best ${cap.sweet}, max ${cap.hard} ${unit})` : ` (${cap.sweet} ${unit})`;
+}
+
+const BUCKET_ORDER = [
+  ['anchor', 'Where you are in the deck'],
+  ['statement', 'One claim per slide'],
+  ['inventory', 'A set of related items'],
+  ['comparison', 'How options differ'],
+  ['progression', 'Steps, stages, time'],
+  ['evidence', 'Numbers and proof'],
+  ['chart', 'Data as a chart (authored as nested lists, not a fence)'],
+  ['diagram', 'Structure and flow'],
+  ['imagery', 'Photos and pictures'],
+  ['math', 'Equations'],
+  ['code', 'Source code'],
+  ['legal', 'Legal and policy'],
+  ['connect', 'People and contact'],
+  ['layout', 'Two components on one slide'],
+];
+
+function startDoc(files, cat) {
+  const strip = (rel) => {
+    const raw = files.get(rel);
+    if (!raw) throw new Error(`build-agent-kit: start.md needs ${rel}, which is not built yet.`);
+    // start.md sits at the kit root, so a relative link in a section copied from a subfolder
+    // (authoring/modifiers.md's `../reference/components.json`) is re-based to the root.
+    const dir = path.posix.dirname(rel);
+    const rebased = proseOnly(raw.toString('utf8'), (prose) =>
+      prose.replace(/\]\((?!https?:|#|mailto:|sample:)([^)\s]+)\)/g, (_m, href) => {
+        const [file, anchor = ''] = href.split(/(?=#)/);
+        return `](./${path.posix.normalize(path.posix.join(dir, file))}${anchor})`;
+      }),
+    );
+    return rebased
+      .replace(/^# .*\n+/, '')
+      .replace(/\n---\n+(Source|_Generated)[\s\S]*$/, '\n')
+      .trim();
+  };
+  const { DECK_CANON } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
+  const comps = [...cat.values()];
+  const layoutRows = [];
+  for (const [bucket, label] of BUCKET_ORDER) {
+    const inBucket = comps.filter((c) => c.bucket === bucket).sort((a, b) => a.name.localeCompare(b.name));
+    if (!inBucket.length) continue;
+    layoutRows.push(`**${label}**`, '');
+    for (const c of inBucket) {
+      const variants = (c.variants || []).length ? ` Variants: ${c.variants.map((v) => `\`${v}\``).join(', ')}.` : '';
+      const words = c.density?.soft ? ` ~${c.density.soft} words per ${c.density.axis === 'item' ? 'item' : c.density.axis}.` : '';
+      const blocks = c.authoring?.blocks || [];
+      const missing = ['key-insight', 'below-note'].filter((b) => !blocks.includes(b));
+      const noBlocks = missing.length ? ` No ${missing.map((b) => (b === 'key-insight' ? 'key insight' : 'below-note')).join(' or ')}.` : '';
+      layoutRows.push(`- [\`${c.name}\`](./${COMPONENTS}/${c.name}.md): ${firstSentence(c.purpose || c.description)}${capacityNote(c)}${words}${variants}${noBlocks}`);
+    }
+    layoutRows.push('');
+  }
+  const listed = new Set(BUCKET_ORDER.map(([b]) => b));
+  const stray = comps.filter((c) => !listed.has(c.bucket)).map((c) => c.name);
+  if (stray.length) throw new Error(`build-agent-kit: start.md has no bucket heading for ${stray.join(', ')}. Add the bucket to BUCKET_ORDER.`);
+
+  // Plus two charts: the solo list has none, and a data deck needs one. Without these a
+  // model guessed a nested-list shape for a pie (the stand-in eval, 2026-11-19).
+  const skeletons = [...SOLO_LAYOUTS, ...START_CHART_SKELETONS].flatMap((n) => [`### ${n}`, '', ...fenced(skeletonFor(cat, n)), '']);
+  const uni = universalRows(files);
+  const pluginRows = [];
+  for (const [rel, buf] of [...files].filter(([k]) => /^plugins\/[^/]+\.md$/.test(k)).sort()) {
+    const name = rel.slice('plugins/'.length, -3);
+    const { lead, example, cls } = pluginSummary(buf.toString('utf8'));
+    pluginRows.push(`- [\`${name}\`](./${rel}): ${lead}`);
+    if (example) pluginRows.push(`  Example${cls ? ` (on a \`${cls}\` slide)` : ''}: ${example.includes('`') ? `\`\` ${example} \`\`` : `\`${example}\``}`);
+  }
+  if (!pluginRows.length) throw new Error('build-agent-kit: start.md found no plugins/*.md; pluginDocs() must run before startDoc().');
+  return [
+    '# Write a Lattice deck',
+    '',
+    'Lattice turns one Markdown file into a boardroom-ready deck: PDF, PowerPoint, images or',
+    'a web player. Each slide picks a layout with `<!-- _class: NAME -->`, and a palette',
+    'colors the whole deck. This file is everything you need to write a good one. Read it',
+    'top to bottom once.',
+    '',
+    'Then, for each layout you use, open its file (each name below links to it): it gives',
+    'how much the layout holds, its variants, and the mistakes reviewers flag. That is the',
+    'difference between a deck that renders and one worth showing.',
+    '',
+    '## 1. The file',
+    '',
+    ...fenced(FRONT_MATTER.join('\n'), 'markdown'),
+    '',
+    '- `theme:` picks the palette. `indaco` is the default; `cuoio`, `onyx`, `carta`, `laguna`',
+    '  and more ship with Lattice. Add `color-mode: dark` for the dark version.',
+    '- `paginate: true` numbers the slides.',
+    '- Separate slides with a line containing only `---`, with a blank line on each side.',
+    '- Start every slide with one `<!-- _class: NAME -->` line. Use only names from section 5.',
+    '',
+    '## 2. What a good deck is',
+    '',
+    'This is the canon the Lattice Studio sends its own model on every turn.',
+    '',
+    DECK_CANON.trim(),
+    '',
+    '## 3. Rules for every slide',
+    '',
+    strip(`${AUTHORING}/rules.md`)
+      .replace(/^These are the half[\s\S]*?\n\n/, '')
+      .replace(/^> Where a rule says[\s\S]*?\n\n/m, ''),
+    // Gaps a model writing from this file alone hit on 2026-11-19 (the no-spend stand-in eval,
+    // engineering/decisions/2026-11-17-agent-pack.md §4.5): it was told to use speaker notes
+    // with no syntax, and it wrote `{Off plan}` on a kpi row the layout colors as on plan.
+    // The four notes (engineering/decisions/2026-11-20-four-notes.md): a plain comment reaches nothing.
+    '- Notes: `<!-- @note{Pause here for questions.} -->` is the speaker note, `<!-- @say{…} -->` the exact',
+    '  words to speak, `<!-- @alt{…} -->` the alt text, `<!-- @handout{…} -->` the handout. Notes never',
+    '  show on the slide, and a plain `<!-- comment -->` reaches no channel.',
+    // The first real-model run (2026-11-19) then put `{Breaching}` on a row `kpi attention` draws
+    // green with a check: the rule named no rows. These rows are kpi.styles.css's nth-child hooks,
+    // pinned by test/unit/tools/agent-kit-structure.test.js.
+    '- A `kpi` row\'s first pill takes its color from the row\'s POSITION, never its words:',
+    '  plain `kpi` draws every row green with a check (on plan); `kpi attention` draws row 1 in',
+    '  the warning color; `kpi ops` rows 1 and 3; `kpi compliance` row 3. Put an off-plan metric',
+    '  on a warning row, or leave its pill off and say the miss in the context line. A second',
+    '  pill on a row is a neutral tag.',
+    // Measured 2026-11-19 by rendering every variant at 3 and 4 rows, with and without a `>`:
+    // these clip in the export, and lint:deck does not see it (followups.d/3305-p2-kpi-fit-lint.md).
+    '- A `kpi` key insight (`>`) fits only with 3 rows, and never on `kpi ops`; `kpi compliance`',
+    '  holds 3 rows. Past that the export clips the slide: drop the `>` or split.',
+    // Verified by render 2026-11-19: both draw a `##` above the hero, and lint takes it.
+    '- `big-number` and `quote` take an optional `## ` claim above the number or the quotation;',
+    '  their skeletons omit it. Write one, so the headings-only read keeps the beat.',
+    `- A \`timeline-list\` status pill is one of ${chartStatus().length} words: ${chartStatus().map((w) => `\`${w}\``).join(' ')}.`,
+    '  Any other word draws in the info color.',
+    '',
+    '## 4. Parts any slide can carry',
+    '',
+    'These work on almost every layout with no class: write the Markdown shape and the slide',
+    'draws it. A layout line in section 5 says when it does not take a key insight or a',
+    'below-note. Each name links to the full rule and examples.',
+    '',
+    ...uni.parts,
+    '',
+    '**Deck-wide settings (front matter).** Each key sets one thing for the whole deck:',
+    '',
+    ...uni.registers,
+    // Not a register (lib/base/base.registers.docs.md does not list it), so it is added here:
+    // §2's canon names `profile: teaching` and a model had no way to learn its key.
+    `- \`profile:\` (\`${PROFILE_NAMES().join('` · `')}\`): the genre the checker judges the deck against; \`teaching\` allows denser slides`,
+    '',
+    `## 5. All ${comps.length} layouts`,
+    '',
+    'Pick by what the slide has to do. Each line gives the layout\'s job and how much it holds;',
+    'past the maximum, split the slide or pick a roomier layout. If nothing fits, use',
+    '`content` for prose or `list` for bullets. Never invent a name.',
+    '',
+    ...layoutRows,
+    '## 6. Modifiers',
+    '',
+    strip(`${AUTHORING}/modifiers.md`).replace(/^## /gm, '### '),
+    '',
+    '## 7. Inline notation',
+    '',
+    'Plugins add small drawn things you write in inline code: pills, icons, word-sized charts,',
+    'check marks, portraits, pictures. **The backticks are part of the notation**: `` `{On plan}` ``',
+    'is a pill, while a bare {On plan} prints as text. Each name links to the full notation.',
+    'Most work on any slide. Three do not: a callout works on the charts its file lists; the',
+    '`[x]` shortcuts lead a list item only on layouts that read them (checklist, verdict-grid,',
+    'pricing and a few more), though `` `[x]` `` as inline code draws anywhere; and an authored',
+    '`@legend{…}` key is not drawn by any layout yet, since the charts draw their own keys.',
+    '`lint:deck` warns when nothing on the slide reads a callout or legend.',
+    '',
+    ...pluginRows,
+    '',
+    `## 8. Skeletons for the ${SOLO_LAYOUTS.length} most-used layouts and ${START_CHART_SKELETONS.length} charts`,
+    '',
+    'Copy the shape exactly: heading levels, bullet nesting and the order of lines all',
+    'matter. Every other layout\'s skeleton is in its own file.',
+    '',
+    ...skeletons,
+    '## 9. Check and render',
+    '',
+    ...fenced(
+      [
+        'node review/check.mjs deck.md               # from the kit root: code, not a model',
+        'npx @laticent/lattice deck.md deck.pdf      # or .pptx, .png, .html',
+      ].join('\n'),
+      'sh',
+    ),
+    '',
+    'Reading this on lattice.style rather than from the kit? Fetch the checker and the catalog',
+    'it reads, side by side as in the kit; without the catalog it skips the word budgets:',
+    '',
+    ...fenced(CHECKER_FETCH, 'sh'),
+    '',
+    'No command line? Open the file in the Lattice Studio at <https://lattice.style/studio>',
+    `and export from there. More in [\`${RENDER}/lattice-render-a-deck.md\`](./${RENDER}/lattice-render-a-deck.md).`,
+    '',
+    '## 10. When you need more',
+    '',
+    '| To… | Read |',
+    '|---|---|',
+    `| Every universal part, with examples | [\`${AUTHORING}/universal.md\`](./${AUTHORING}/universal.md) |`,
+    `| Every front-matter setting | [\`${AUTHORING}/registers.md\`](./${AUTHORING}/registers.md) |`,
+    `| See a whole deck | [\`${EXAMPLES}/lattice-example-starter.md\`](./${EXAMPLES}/lattice-example-starter.md) |`,
+    `| Edit or restructure an existing deck | [\`${SKILLS}/edit-deck.md\`](./${SKILLS}/edit-deck.md) |`,
+    `| Change how a deck looks, not what it says | [\`${SKILLS}/restyle-deck.md\`](./${SKILLS}/restyle-deck.md) |`,
+    `| Turn numbers into the right chart | [\`${SKILLS}/chart-from-data.md\`](./${SKILLS}/chart-from-data.md) |`,
+    `| Write speaker notes | [\`${SKILLS}/speaker-notes.md\`](./${SKILLS}/speaker-notes.md) |`,
+    `| Fix what the checker reported | [\`${SKILLS}/fix-findings.md\`](./${SKILLS}/fix-findings.md) |`,
+    `| Every other task: a diagram, math, import, a theme | [\`${SKILLS}/README.md\`](./${SKILLS}/README.md) |`,
+    `| Hand the deck to someone who uses Marp | [\`${RENDER}/lattice-export-to-marp.md\`](./${RENDER}/lattice-export-to-marp.md) |`,
+    '',
+  ].join('\n');
+}
+
+/**
+ * The pack's gates (2026-11-17-agent-pack.md §4.4), run on the finished file map.
+ *
+ * 1. LINKS STAY IN THE PACK. Every relative Markdown link in every kit `.md` names a file
+ *    the kit carries. The kit is served verbatim at lattice.style/agents/ and mirrored to
+ *    dist-kits, so a link that resolves here resolves in both places. Code is skipped
+ *    (a `![name](photo.jpg)` inside a skeleton is an example, not a link), and so are
+ *    images, anchors and absolute URLs.
+ * 2. MARP IS ONE PAGE. Wording that teaches Lattice as Marp appears only in the export
+ *    page. This is the sentence-level check `tools/marp-inventory.mjs` cannot make: it
+ *    sorted the whole generator into `export` and so approved "A Lattice deck is a Marp
+ *    deck first". `skills/import.md` is exempt because importing a Marp deck is its job.
+ */
+const MARP_PAGE = 'render/lattice-export-to-marp.md';
+// skills/import.md: importing a Marp deck is its job. plugins/video.md: its "where it works"
+// list says how a video record behaves when a deck is exported to the Marp kit.
+const MARP_EXEMPT = new Set([MARP_PAGE, 'skills/import.md', 'plugins/video.md']);
+// The universal references note how a feature behaves in an exported Marp bundle or the VS Code
+// preview. They may NAME marp-cli; they may still never write `marp: true` or call a deck a Marp deck.
+const MARP_HOST_NOTES = new Set(['authoring/universal.md', 'authoring/registers.md']);
+const MARP_FRAMING = [
+  [/^\s*marp:\s*true\s*$/m, 'a `marp: true` front-matter line'],
+  [/\bis a Marp deck\b|\bMarp deck first\b/i, 'calls a Lattice deck a Marp deck'],
+  [/--theme-set\b/, 'a marp-cli `--theme-set` flag'],
+  [/\bmarp-cli\b/i, 'names marp-cli as a renderer'],
+  [/@marp-team\//, 'an @marp-team package'],
+];
+
+function assertPack(files) {
+  const problems = [];
+  const prose = (t) => t.replace(CODE_REGIONS, '');
+  for (const [rel, buf] of files) {
+    if (!rel.endsWith('.md')) continue;
+    const text = buf.toString('utf8');
+    for (const m of prose(text).matchAll(/(!?)\[[^\]]*\]\(([^)\s]+)\)/g)) {
+      if (m[1] || /^(https?:|mailto:|#|sample:)/.test(m[2])) continue;
+      const target = path.posix.normalize(path.posix.join(path.posix.dirname(rel), m[2].split('#')[0]));
+      const isDir = [...files.keys()].some((k) => k.startsWith(`${target.replace(/\/$/, '')}/`));
+      if (!files.has(target) && !isDir) problems.push(`${rel}: link to ${m[2]} names a file the kit does not carry`);
+    }
+    if (MARP_EXEMPT.has(rel) || rel.startsWith(`${REFERENCE}/`)) continue;
+    for (const [re, what] of MARP_FRAMING) {
+      if (MARP_HOST_NOTES.has(rel) && /marp-cli|@marp-team|theme-set/.test(re.source)) continue;
+      if (re.test(text)) problems.push(`${rel}: ${what} (Marp belongs only in ${MARP_PAGE})`);
+    }
+  }
+  if (problems.length) {
+    throw new Error(`build-agent-kit: the agent pack failed its gates (2026-11-17-agent-pack.md §4.4):\n  ${problems.join('\n  ')}`);
+  }
 }
 
 /**
@@ -2904,6 +3430,9 @@ async function buildKit() {
     );
   }
   for (const c of components) files.set(`${COMPONENTS}/${c.name}.md`, c.body);
+  const plugins = pluginDocs();
+  for (const p of plugins) files.set(`plugins/${p.name}.md`, p.body);
+  for (const u of universalDocs()) files.set(u.rel, Buffer.from(u.body, 'utf8'));
 
   // The skills ship VERBATIM and are byte-pinned. Their index does not:
   // the repo's own README is written for someone inside the repo, so the kit
@@ -2942,6 +3471,12 @@ async function buildKit() {
 
   // render/ and examples/ — the two ends of the pipeline the kit was missing.
   files.set(`${RENDER}/lattice-render-a-deck.md`, Buffer.from(renderDoc(), 'utf8'));
+  files.set(`${RENDER}/lattice-export-to-marp.md`, Buffer.from(exportToMarpDoc(), 'utf8'));
+  const start = startDoc(files, cat);
+  if (start.length > START_MAX) {
+    throw new Error(`build-agent-kit: start.md is ${start.length} characters; its budget is ${START_MAX} (2026-11-17-agent-pack.md §4.1). Cut, do not raise.`);
+  }
+  files.set('start.md', Buffer.from(start, 'utf8'));
   files.set(`${EXAMPLES}/lattice-example-starter.md`, Buffer.from(starterDeck(), 'utf8'));
   const examples = exampleDecks();
   for (const e of examples) files.set(`${EXAMPLES}/${e.name}`, e.body);
@@ -2977,6 +3512,7 @@ async function buildKit() {
   }
 
   files.set('README.md', Buffer.from(rootReadme(files, layoutCount, components), 'utf8'));
+  assertPack(files);
   return files;
 }
 

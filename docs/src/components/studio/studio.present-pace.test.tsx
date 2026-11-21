@@ -34,7 +34,7 @@ vi.mock('@/playground/voice-model.js', () => ({
 vi.mock('./studio-stage', () => ({ buildStageDocument: vi.fn(async () => ({ doc: '', total: 0 })) }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const slides = ['<!-- _class: title -->\n\n# One\n\n<!-- note: First. -->', '<!-- _class: title -->\n\n# Two\n\n<!-- note: Second. -->'];
+const slides = ['<!-- _class: title -->\n\n# One\n\n<!-- @note{First.} -->', '<!-- _class: title -->\n\n# Two\n\n<!-- @note{Second.} -->'];
 const fm = (pace?: string) => `---\ntheme: cuoio${pace ? `\npace: ${pace}` : ''}\n---\n`;
 
 /** Is the deck holding — arrived on a slide, not yet speaking? Published as state by the
@@ -108,18 +108,18 @@ describe('Present — the deck carries its pace (#1399)', () => {
 		expect(beat).toBeLessThan(1300);
 	}, 30_000);
 
-	it('drops the leave beat cleanly when the presenter moves on during it', async () => {
-		// Moving to the next slide by hand inside the leave beat must end the hold: it used to stay
-		// on, so the transport read Pause with nothing playing (checker, reproduced).
+	it('hands the leave beat over to the next slide when the presenter moves on during it', async () => {
+		// Moving to the next slide by hand inside the leave beat drops slide 1's hold (it used to stay on, so the
+		// transport read Pause with nothing playing — checker, reproduced) and, because the deck is still PLAYING,
+		// carries play onto slide 2: it holds slide 2's own arrival beat and then that hold ends too.
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} frontMatter={fm('deliberate')} />);
 		await press('Play the presentation');
 		await stepUntil(() => holding() && !!screen.queryByText('1 / 2'));
 		expect(holding(), 'the finished slide never held its leave beat').toBe(true);
 		await press('Next slide');
-		// Past the whole deliberate leave beat, which is the longest the dropped hold could last.
-		await step(slideBeatMs('leave', 'deliberate') + 400);
-		expect(screen.queryByText('2 / 2')).not.toBeNull();
-		expect(holding(), 'a hold outlived the leave beat it belonged to').toBe(false);
+		expect(await stepUntil(() => holding() && !!screen.queryByText('2 / 2'), 500), 'moving on mid-play stopped the deck instead of carrying play to slide 2').toBe(true);
+		// Past the whole deliberate arrival beat, which is the longest slide 2's hold may last.
+		expect(await stepUntil(() => !holding(), slideBeatMs('slide', 'deliberate') + 400), 'a hold outlived the beat it belonged to').toBe(true);
 	}, 30_000);
 
 	it('still lets the presenter override a declared deck live', async () => {

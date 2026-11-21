@@ -89,7 +89,6 @@ about Form directly — the component already selected it.
 1. **Front matter.** Start with the canonical boardroom block:
    ```yaml
    ---
-   marp: true
    size: 4k
    theme: indaco
    paginate: true
@@ -233,7 +232,7 @@ A 12-slide board update:
 
 ## Ship checklist
 
-- [ ] Front matter present (`marp`, `theme`, `paginate`, a `header`); `size: 4k`.
+- [ ] Front matter present (`theme`, `paginate`, a `header`); `size: 4k`.
 - [ ] Title slide (`# h1` first) and a one-sentence closing slide, both `silent`.
 - [ ] Every `## ` heading is a complete declarative sentence.
 - [ ] Each slide's content counted against the component `capacity`; nothing over

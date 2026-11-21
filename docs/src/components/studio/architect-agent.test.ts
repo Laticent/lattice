@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import skillIndex from '../../../../design/skills/index.json';
+import { type PatternJob, type PatternRunner, runPattern } from '../../lib/deck-find-pattern';
 import { getFrontMatter } from '../../lib/front-matter';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps, loadArchitectAuthoring } from './architect';
@@ -63,6 +64,14 @@ describe('the system prompt', () => {
 		expect(sys).toContain('CANON');
 		// The contract the old primer carried rides along verbatim.
 		expect(sys).toContain('NESTED bullets');
+	});
+
+	it('teaches the four notes, and never the retired plain-comment note', () => {
+		// The prompt taught the retired `note:` comment until 2026-11-20, which is now a plain comment that reaches nothing:
+		// a model following it wrote speaker notes that never showed up (engineering/decisions/2026-11-20-four-notes.md).
+		const sys = buildAgentSystem({ canon: 'C', catalog: CATALOG, frontMatterKeys: FRONT_MATTER_KEYS, themes: ['indaco'], finishes: [] });
+		for (const n of ['@note{…}', '@say{…}', '@alt{…}', '@handout{…}']) expect(sys).toContain(`<!-- ${n} -->`);
+		expect(sys).not.toContain(['<!--', 'note:'].join(' '));
 	});
 
 	it('is byte-stable for the same inputs (the cache prefix)', () => {
@@ -219,11 +228,11 @@ describe('the toolbox', () => {
 			'',
 			"- Twinkima.G's line launched",
 			'',
-			"<!-- say: On October tenth, Twinkima.G's line launched at the Derby, then Ilcea.K joined. -->",
-			'<!-- note: a reminder for the presenter -->',
+			"<!-- @say{On October tenth, Twinkima.G's line launched at the Derby, then Ilcea.K joined.} -->",
+			'<!-- @note{a reminder for the presenter} -->',
 		].join('\n');
 		const out = await toolbox({ source: src }).run('preview_speech', JSON.stringify({ from: 1 }));
-		expect(out).toContain('[slide 1] Read from its spoken line (say:).');
+		expect(out).toContain('[slide 1] Read from its spoken line (@say).');
 		expect(out).toContain("Spoken as: On October tenth, Twinkee mah Gee's line launched at the Darby");
 		expect(out).not.toContain('Oct.'); // the on-screen title is not what the voice says
 		expect(out).not.toContain('reminder'); // nor is the note
@@ -251,7 +260,7 @@ describe('the toolbox', () => {
 		'',
 		'- Sold out ([recap](https://x.test/oct.-tenth))',
 		'',
-		'<!-- say: Oct. Tenth was the day. -->',
+		'<!-- @say{Oct. Tenth was the day.} -->',
 		'',
 		'---',
 		'',
@@ -278,7 +287,7 @@ describe('the toolbox', () => {
 		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'October Tenth', summary: 'Spelled out the date.' }));
 		expect(out).toContain('Replaced 3 matches in 2 slides: slide 1 (1: heading); slide 2 (2: heading, spoken line).');
 		expect(out).toContain('Left alone: 1 in code on slide 3; 1 front-matter line (use set_terms or set_front_matter).');
-		expect(tb.draft).toContain('<!-- say: October Tenth was the day. -->');
+		expect(tb.draft).toContain('<!-- @say{October Tenth was the day.} -->');
 		expect(tb.draft).toContain('(https://x.test/oct.-tenth)');
 		expect(tb.draft).toContain('title: Oct. Tenth review');
 		const rows = tb.proposal();
@@ -320,6 +329,80 @@ describe('the toolbox', () => {
 		expect(await toolbox({ source: OCT }).run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: 'Oct. Tenth', case_sensitive: true, summary: 's' }))).toContain('nothing would change');
 	});
 
+	// PRESERVE-CASE AND PATTERNS (#3208 item 6; owner's call 2026-11-19). The Worker is stood in for by
+	// `runPattern` in this thread: it is the function the Worker runs, so the toolbox sees what it would see.
+	const inThread: PatternRunner = async (job) => runPattern(job);
+	const EYEBROWS = ['---', 'theme: indaco', '---', '', '<!-- _class: content -->', '`OCT LAUNCH`', '', '## Oct launch', '', 'We shipped in oct. See [Oct](https://x.test/oct).'].join('\n');
+
+	it('replace_text with preserve_case writes each match in its own case, and only when asked', async () => {
+		const tb = toolbox({ source: EYEBROWS });
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'oct', replace: 'October', whole_word: true, preserve_case: true, summary: 's' }));
+		expect(out).toContain('Replaced 4 matches in 1 slide');
+		expect(tb.draft).toContain('`OCTOBER LAUNCH`');
+		expect(tb.draft).toContain('## October launch');
+		expect(tb.draft).toContain('We shipped in october. See [October](https://x.test/oct).');
+		const plain = toolbox({ source: EYEBROWS });
+		await plain.run('replace_text', JSON.stringify({ find: 'oct', replace: 'October', whole_word: true, summary: 's' }));
+		expect(plain.draft).toContain('`October LAUNCH`');
+	});
+
+	it('find_text and replace_text run a pattern through the runner, never on the main thread', async () => {
+		const jobs: PatternJob[] = [];
+		const runner: PatternRunner = async (job) => {
+			jobs.push(job);
+			return runPattern(job);
+		};
+		const tb = toolbox({ source: OCT, patterns: runner });
+		const found = await tb.run('find_text', JSON.stringify({ text: 'Oct\\. (Tenth|10)', regex: true }));
+		expect(found).toContain('Pattern "Oct\\\\. (Tenth|10)": 4 matches in 3 slides, and 1 front-matter line.');
+		expect(jobs).toHaveLength(1);
+		expect(jobs[0].source).toBe('Oct\\. (Tenth|10)');
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct\\. (Tenth)', replace: 'October $1', regex: true, summary: 's' }));
+		expect(out).toContain('Replaced 3 matches in 2 slides');
+		expect(tb.draft).toContain('<!-- @say{October Tenth was the day.} -->');
+		expect(tb.draft).toContain('(https://x.test/oct.-tenth)');
+		expect(tb.draft).toContain('title: Oct. Tenth review');
+		expect(jobs).toHaveLength(2);
+	});
+
+	it('a replace limited to some slides sends only those slides to the Worker', async () => {
+		const jobs: PatternJob[] = [];
+		const tb = toolbox({
+			source: OCT,
+			patterns: async (job) => {
+				jobs.push(job);
+				return runPattern(job);
+			},
+		});
+		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct\\. (Tenth)', replace: 'October $1', regex: true, slides: [2], summary: 's' }));
+		expect(out).toContain('Replaced 2 matches in 1 slide: slide 2');
+		expect(jobs[0].texts.some((t) => t.includes('# Oct. Tenth') && !t.includes('After'))).toBe(false); // slide 1's title
+		expect(tb.draft).toContain('# Oct. Tenth\n'); // slide 1 untouched
+	});
+
+	it('a compile error quotes the model’s pattern, not the whole-word wrapper, and explains Unicode-mode escapes', async () => {
+		const out = await toolbox({ source: OCT, patterns: inThread }).run('find_text', JSON.stringify({ text: 'Q\\d\\-2026', regex: true, whole_word: true }));
+		expect(out).toContain('The pattern does not compile');
+		expect(out).toContain('Unicode mode');
+		expect(out).not.toContain('\\p{L}');
+	});
+
+	it('a pattern that does not compile, runs too long, or has no Worker is refused, and the deck is untouched', async () => {
+		const bad = toolbox({ source: OCT, patterns: inThread });
+		expect(await bad.run('replace_text', JSON.stringify({ find: '(Oct', replace: 'x', regex: true, summary: 's' }))).toContain('The pattern does not compile');
+		const slow = toolbox({ source: OCT, patterns: async () => ({ ok: false, reason: 'timeout', message: 'no answer' }) });
+		expect(await slow.run('replace_text', JSON.stringify({ find: '(a+)+$', replace: 'x', regex: true, summary: 's' }))).toContain('was stopped');
+		expect(slow.draft).toBe(OCT);
+		const cold = toolbox({ source: OCT, patterns: async () => ({ ok: false, reason: 'no-start', message: 'the pattern worker did not start in 15 s' }) });
+		const coldOut = await cold.run('find_text', JSON.stringify({ text: 'Q\\d', regex: true }));
+		expect(coldOut).toContain('could not start');
+		expect(coldOut).not.toContain('simpler pattern'); // a cold load is not the pattern's fault
+		const none = toolbox({ source: OCT, patterns: null });
+		expect(await none.run('find_text', JSON.stringify({ text: 'Oct', regex: true }))).toContain('Pattern search is not available');
+		// A literal find never needs the runner.
+		expect(await none.run('find_text', JSON.stringify({ text: 'Oct. Tenth' }))).toContain('"Oct. Tenth": 4 matches');
+	});
+
 	// The checker on #3208: with twin slides the LCS anchored on the wrong one, and a word change read on the card
 	// as insert + replace + delete. Same length now compares in place.
 	it('a word change across twin slides is two replace rows, not an insert and a delete', async () => {
@@ -352,7 +435,7 @@ describe('the toolbox', () => {
 		const out = await tb.run('replace_text', JSON.stringify({ find: 'Oct. Tenth', replace: '$10', summary: 's' }));
 		expect(out).toContain('Replaced 3 matches in 2 slides');
 		expect(tb.draft).toContain('# \\$10');
-		expect(tb.draft).toContain('<!-- say: $10 was the day. -->'); // a spoken line is written as typed
+		expect(tb.draft).toContain('<!-- @say{$10 was the day.} -->'); // a spoken line is written as typed
 		expect(tb.verdict?.refused).toBe(false);
 	});
 

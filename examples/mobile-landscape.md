@@ -49,10 +49,8 @@ Prepared for the Northwind Analytics board of directors.
    - CAC payback
    - target 14 mo · +4 mo QoQ `{Behind}`
 
-<!--
-Speaker note, never narrated: if asked about the audit, the Q3 numbers were reviewed by
-Hartley & Stone on 9 October; the management letter had no findings.
--->
+<!-- @note{Speaker note, never narrated: if asked about the audit, the Q3 numbers were reviewed by
+Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 
@@ -121,10 +119,14 @@ Three findings from the cohort review.
 
 ## How the exit would run.
 
-1. Announce — November, with twelve months' notice to every SMB account.
-2. Migrate — the certified partner onboards accounts from January to June.
-3. Redeploy — nine sellers join mid-market on 1 December.
-4. Report — churn impact at every board meeting until the last account moves.
+1. Announce
+   - November, with twelve months' notice to every SMB account.
+2. Migrate
+   - The certified partner onboards accounts from January to June.
+3. Redeploy
+   - Nine sellers join mid-market on 1 December.
+4. Report
+   - Churn impact at every board meeting until the last account moves.
 
 ---
 

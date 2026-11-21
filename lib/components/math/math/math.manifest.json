@@ -56,7 +56,7 @@
     "assessment",
     "reference"
   ],
-  "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. Rendered equations with persona-appropriate surround. Lattice typesets with KaTeX and marp-core with MathJax; the layouts style both, so you author identically either way.",
+  "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. Rendered equations with persona-appropriate surround.",
   "purpose": "Use when the slide IS the equation. `$$…$$` renders as a centered display block and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).",
   "variantSlots": {
     "derivation": {
@@ -114,6 +114,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p:first-child > code",

@@ -143,6 +143,21 @@ LTT 1.0 declares `inputs.lexicon` and `inputs.acronyms` as hashes that say wheth
 producers now write the merged registry's hash under `acronyms` and no longer write `lexicon`. A reader that
 compares hashes sees one change per deck, once; nothing reads the hashes back as data.
 
+### 2026-11-19: the reader, the built-in list and the period
+
+What an owner hit after shipping (`2026-11-19-segment-acronyms.md` has the census):
+
+| Defect | Fix | Where |
+|---|---|---|
+| `Oct. Tenth: October Tenth` (unquoted key with a space), `pronunciation:` / `say:`, `- Term: x`, `terms: { … }` read as no term, and lint said clean | The reader takes a plain key up to its colon and reads a one-line flow map; whatever it still skips it returns with the reason, and `terms-entry-ignored` reports that list | `resolve-narration.mjs` `parseTerms` / `termsIssues`; `lint-core.js` `findIgnoredTerms` |
+| `Yearn: yurn # note` spoke the comment, in all three keys | A ` #` outside quotes starts a comment | `resolve-narration.mjs` `withoutComment` |
+| A declared `"Oct. Tenth"` never matched: the sentence split ran first and cut it into two cues | The splitter never breaks inside a dotted multi-word key | `segment.ts` `insideJoin`; `track.ts` `dottedPhraseKeys` |
+| `Oct. 10` read "October. ten" (the voice stops at a spoken period) | An abbreviation's period, by the splitter's own predicate, is not spoken for a word we replaced | `normalize.ts` `abbreviationDot` |
+| Built-in terms matched only as typed (`APIs`, `CEO’s`, `KPI-driven` read raw) | The built-in list is a terms.ts index too, so rules 3 and 4 apply to it | `lexicon.ts` `houseSpokenMap`; `normalize.ts` |
+| `OKRs` read "objectives and key resultss" | A plural ending never doubles one the spoken form has | `normalize.ts` `withEnding` |
+| A key ending in its own period (`"U.S."`) missed before a comma | The peel's period is tried back on the key | `normalize.ts` `toSpoken` |
+| No field completion inside `terms:` | The editor offers `pronounce`, `expansion`, `definition` | `editor-complete.ts` `termFieldCompletion` |
+
 ### Left as is
 
 The 29 shipped decks that use `acronyms:` or `lexicon:` keep them: both are read, and rewriting the decks would

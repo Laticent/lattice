@@ -206,8 +206,8 @@ allows is each manifest's `tier` — Talk gets only the reads):
 |---|---|
 | `read_slides` | Reads the exact Markdown of slides in the open deck |
 | `edit_slides` | Stages `replace`, `insert` or `delete` on whole slides |
-| `find_text` | Finds words across the deck: each match's slide, field (heading, body, spoken line, note, alt text…) and the words around it; front-matter matches listed apart |
-| `replace_text` | Stages a find-and-replace across the deck's text, one diff row per slide, the way a word processor does it: the words change and their formatting stays. Characters Markdown reads as markup (`$`, `*`, `[`…) are escaped, so `$5` shows as $5. Never touches link or image targets, URLs, directives, code blocks, math, HTML, records or the front matter; a match that crosses formatting is left alone and reported |
+| `find_text` | Finds words across the deck: each match's slide, field (heading, body, spoken line, note, alt text…) and the words around it; front-matter matches listed apart. With `regex` it searches by pattern (a JavaScript regular expression, run off the page's main thread and stopped after 2 s) |
+| `replace_text` | Stages a find-and-replace across the deck's text, one diff row per slide, the way a word processor does it: the words change and their formatting stays. Characters Markdown reads as markup (`$`, `*`, `[`…) are escaped, so `$5` shows as $5. Never touches link or image targets, URLs, directives, code blocks, math, HTML, records or the front matter; a match that crosses formatting is left alone and reported. `preserve_case` keeps each match's case (`OCT` → `OCTOBER` in an all-caps eyebrow, `Oct` → `October`); `regex` replaces by pattern, with `$1`, `$<name>` and `$&` in the replacement |
 | `set_front_matter` | Stages setting or removing one single-line front-matter key |
 | `set_terms` | Stages adding, changing or removing deck terms (`terms:`, which absorbs `acronyms:` and `lexicon:`): how a word is spoken, what it stands for |
 | `preview_speech` | Shows what the voice says for up to 10 slides, read the way Present and the export read them (spoken line first, then the slide text, labeled approximate); lists the terms that fired and the odd words nothing covers |
@@ -238,7 +238,6 @@ A starter deck to paste into "New deck" (lint-clean):
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: laguna
 paginate: true

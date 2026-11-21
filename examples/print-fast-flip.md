@@ -13,7 +13,7 @@ header: "Lattice · Fast reprint"
 
 The Print drawer now rasterizes each slide **once** and caches the images. Changing paper or orientation re-places those images onto the new sheet — no re-rasterize.
 
-<!-- Speaker: this deck is the demo for the cached-image re-place path; print it, flip between Letter, Legal and A4, and the second build is instant. -->
+<!-- @note{Speaker: this deck is the demo for the cached-image re-place path; print it, flip between Letter, Legal and A4, and the second build is instant.} -->
 
 ---
 

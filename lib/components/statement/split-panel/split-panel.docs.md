@@ -21,13 +21,14 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 | `eyebrow` | a line of `inline code` | no | Optional inline-code label above the feature (the phase number under `steps`, the unit under `metric`). |
 | `heading` | a `## ` heading | yes | The featured element in the left panel — a heading by default; a hero number under `metric`; the phase name under `steps`. (Under `pullquote`, use a blockquote instead — see the variant.) |
 | `lede` | a paragraph | no | One-sentence framing paragraph under the feature. |
-| `points` | a `-` list | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. "You know you're here when"); the other two render as the paired proof cards. |
+| `points` | a list | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. "You know you're here when"); the other two render as the paired proof cards. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 Under a variant, a slot changes shape:
 
 - `pullquote`: `heading` is optional.
 - `pullquote`: `quote` is written as a `>` blockquote and is required.
-- `steps`: `points` is written as a `1.` list.
+- `steps`: `points` is written as a list.
 - `watermark`: `points` is written as a list.
 
 ### Variant decision rule

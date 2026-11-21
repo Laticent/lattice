@@ -7,7 +7,7 @@ const COMMENTS: SlideComment[] = [
 	{ id: 'b', slide: 2, author: 'Ben', body: 'Fixed', createdAt: 2000, resolved: true },
 ];
 
-const SRC = '---\ntheme: indaco\n---\n\n# Slide one\n\n<!-- describe: title -->\n\n---\n\n# Slide two\n';
+const SRC = '---\ntheme: indaco\n---\n\n# Slide one\n\n<!-- @alt{title} -->\n\n---\n\n# Slide two\n';
 
 describe('lattice-file', () => {
 	it('builds a well-formed manifest', () => {

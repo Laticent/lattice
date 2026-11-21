@@ -494,7 +494,7 @@ function checkVariantDeclaration(manifests, errors) {
 
     const cssPath = componentStylesPath(m);
     if (cssPath) {
-      for (const t of cssRootModifierTokens(fs.readFileSync(cssPath, 'utf8'), m.name)) {
+      for (const t of cssRootModifierTokens(readCssSource(cssPath), m.name)) {
         implemented.add(t);
       }
     }
@@ -1482,7 +1482,7 @@ function checkComponentCss(manifests, errors) {
   for (const m of manifests) {
     const cssPath = componentStylesPath(m);
     if (!cssPath) continue;
-    const css = fs.readFileSync(cssPath, 'utf8');
+    const css = readCssSource(cssPath);
     const local = new Set();
     for (const list of topLevelSelectors(css)) {
       for (const sel of splitTopLevel(list)) {
@@ -1516,6 +1516,21 @@ function checkComponentCss(manifests, errors) {
 function isVendoredLibraryDir(dir, entry) {
   return entry.isDirectory() && entry.name === 'vendor'
     && path.basename(path.dirname(dir)) === 'plugins' && path.basename(path.dirname(path.dirname(dir))) === 'lib';
+}
+
+/**
+ * A stylesheet as the gates must see it. A file in build-css.js's NESTED_SOURCES is written
+ * with native CSS nesting and shipped flat, so a gate that read its source would see rules
+ * whose selector is a bare `&…` and judge the wrong subject: `section.x { &.y { width: 1px } }`
+ * hides `section.x.y` from checkSectionBoxOwnership. Every gate reads through here, so it sees
+ * the same flat rules the build ships (owner's D4 spike, #3331). Any other file comes back
+ * unchanged. For a nested file, a reported line number is in the lowered text.
+ */
+function readCssSource(file) {
+  const text = fs.readFileSync(file, 'utf8');
+  const rel = path.relative(ROOT, path.resolve(ROOT, file)).split(path.sep).join('/');
+  const { NESTED_SOURCES, lowerNesting } = require('./build-css');
+  return NESTED_SOURCES.has(rel) ? lowerNesting(text, rel) : text;
 }
 
 function listCssFiles(dir, out = []) {
@@ -1697,7 +1712,7 @@ function checkPackedRootReach(errors, dir = path.join(ROOT, 'themes')) {
 function checkRetiredTokenNames(errors) {
   const files = [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)];
   for (const file of files) {
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const css = stripComments(readCssSource(file));
     const rel = relPosix(ROOT, file);
     const seen = new Set();
     for (const m of css.matchAll(/(--[a-z0-9-]+)\s*:/g)) {
@@ -1763,7 +1778,7 @@ function offendingMargins(css) {
 // in the engine CSS (engineering/typography.md §1).
 function checkTypographyTokens(errors) {
   for (const file of [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)]) {
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const css = stripComments(readCssSource(file));
     const rel = relPosix(ROOT, file);
     for (const name of nonCanonicalFsTokens(css)) {
       errors.push(
@@ -1931,7 +1946,7 @@ function monoFontFamilies(css) {
 function checkLabelVoiceFont(errors) {
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const css = stripComments(readCssSource(file));
     const rel = relPosix(ROOT, file);
     for (const hit of monoFontFamilies(css)) offenses.push({ file: rel, ...hit });
   }
@@ -2224,7 +2239,7 @@ function checkSectionBoxOwnership(errors) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = relPosix(ROOT, file);
-      for (const o of sectionBoxOffenses(fs.readFileSync(file, 'utf8'))) {
+      for (const o of sectionBoxOffenses(readCssSource(file))) {
         offenses.push({ file: rel, ...o });
       }
     }
@@ -2296,7 +2311,7 @@ function checkSizeRegistryOwnership(errors) {
     const dir = path.join(ROOT, root);
     if (!fs.existsSync(dir)) continue;
     for (const file of listCssFiles(dir)) {
-      if (!SIZE_DECL_RE.test(fs.readFileSync(file, 'utf8'))) continue;
+      if (!SIZE_DECL_RE.test(readCssSource(file))) continue;
       errors.push(
         `${relPosix(ROOT, file)}: declares \`@size\`. Geometry belongs to the engine's registry ` +
         `(lib/core/sizes.js), not to a stylesheet — the renderer resolves \`size:\` against the ` +
@@ -2322,7 +2337,7 @@ function checkSizeRegistryOwnership(errors) {
     if (!fs.existsSync(file)) continue;
     // Read the artifact with the ENGINE's own `@size` parser, not a fresh regex —
     // the check then fails on exactly what Marp would fail to read (HARD RULE #1).
-    const stamped = parseSizes(fs.readFileSync(file, 'utf8'));
+    const stamped = parseSizes(readCssSource(file));
     const missing = registered.filter((name) => {
       const got = stamped.get(name);
       return !got || got.width !== SIZES[name].width || got.height !== SIZES[name].height;
@@ -2578,7 +2593,7 @@ function checkSectionCqAnchoring(errors) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = relPosix(ROOT, file);
-      for (const o of sectionCqOffenses(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, ...o });
+      for (const o of sectionCqOffenses(readCssSource(file))) offenses.push({ file: rel, ...o });
     }
   }
   const remaining = [];
@@ -2610,7 +2625,7 @@ function checkSectionCqAnchoring(errors) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = relPosix(ROOT, file);
-      for (const o of rootOnlyAnchorOffenses(fs.readFileSync(file, 'utf8'))) rootOnly.push({ file: rel, ...o });
+      for (const o of rootOnlyAnchorOffenses(readCssSource(file))) rootOnly.push({ file: rel, ...o });
     }
   }
   // …and the shape that reaches the section's own box through a TOKEN.
@@ -2618,7 +2633,7 @@ function checkSectionCqAnchoring(errors) {
   for (const root of SECTION_CQ_ROOTS) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
-      cssFiles.push({ file: relPosix(ROOT, file), css: fs.readFileSync(file, 'utf8') });
+      cssFiles.push({ file: relPosix(ROOT, file), css: readCssSource(file) });
     }
   }
   const tokenLeaks = sectionOwnTokenLeaks(cssFiles);
@@ -2716,7 +2731,7 @@ function checkBackgroundLayerVars(errors) {
   const offenders = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const rel = relPosix(ROOT, file);
-    for (const hit of varInMultiLayerBackground(fs.readFileSync(file, 'utf8'))) {
+    for (const hit of varInMultiLayerBackground(readCssSource(file))) {
       offenders.push({ file: rel, line: hit.line, value: hit.value });
     }
   }
@@ -2751,7 +2766,7 @@ function checkMarginDiscipline(errors) {
   // Collect every offending (file, value) across lib/.
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const css = stripComments(readCssSource(file));
     const rel = relPosix(ROOT, file);
     for (const value of offendingMargins(css)) offenses.push({ file: rel, value });
   }
@@ -2888,7 +2903,7 @@ function checkReadingRole(errors) {
   for (const file of listCssFiles(LIB_DIR)) {
     if (file.endsWith('.tokens.css')) continue;
     const rel = relPosix(ROOT, file);
-    for (const [role, n] of Object.entries(readingRoleCountsIn(fs.readFileSync(file, 'utf8')))) counts.push({ file: rel, role, n });
+    for (const [role, n] of Object.entries(readingRoleCountsIn(readCssSource(file)))) counts.push({ file: rel, role, n });
   }
   errors.push(...readingRoleFindings(counts, SANCTIONED_READING_ROLE));
 }
@@ -2949,7 +2964,7 @@ function checkHandRolledPills(errors) {
   for (const file of listCssFiles(LIB_DIR)) {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
     if (rel.startsWith('lib/plugins/pills/') || rel.endsWith('.tokens.css') || rel.endsWith('.generated.css')) continue;
-    const n = pillReadsIn(fs.readFileSync(file, 'utf8'));
+    const n = pillReadsIn(readCssSource(file));
     if (n) counts.push({ file: rel, n });
   }
   errors.push(...handRolledPillFindings(counts, SANCTIONED_PILL_READS));
@@ -2996,8 +3011,9 @@ function checkHandRolledPills(errors) {
 //
 // KNOWN LIMITS (none present in lib/ or themes/ when this landed): a modifier applied to a
 // descendant rather than the rule's subject (`section.x .compact p`), `transform: scale()`, a
-// size alias written as a calc or with a fallback (`calc(var(--fs-body) * .8)`), and native
-// CSS nesting, which the scanner does not descend into.
+// size alias written as a calc or with a fallback (`calc(var(--fs-body) * .8)`). Native CSS
+// nesting is not a limit: a nested source (build-css.js NESTED_SOURCES) is read flat, through
+// readCssSource.
 //
 // Budget 0, and SANCTIONED_TYPE_SIZE_MODIFIERS for the provably size-neutral: each entry
 // carries its reason, and a stale one fails, as #20 / #22 / #26 do.
@@ -3168,7 +3184,7 @@ function typeSizeModifierOffenses() {
   const ctx = typeSizeContext();
   const offenses = [];
   for (const file of [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)]) {
-    offenses.push(...typeSizeOffensesIn(fs.readFileSync(file, 'utf8'), relPosix(ROOT, file), ctx));
+    offenses.push(...typeSizeOffensesIn(readCssSource(file), relPosix(ROOT, file), ctx));
   }
   return offenses;
 }
@@ -3419,7 +3435,7 @@ function offendingBodyPadding(css) {
 function checkStageInsetOwnership(errors) {
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const css = stripComments(readCssSource(file));
     const rel = relPosix(ROOT, file);
     for (const o of offendingStageInsets(css)) offenses.push({ file: rel, ...o });
     for (const o of offendingBodyPadding(css)) offenses.push({ file: rel, ...o });
@@ -3560,7 +3576,7 @@ function collectZIndexDeclarations() {
   const out = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const rel = relPosix(ROOT, file);
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const css = stripComments(readCssSource(file));
     const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
     let m;
     while ((m = ruleRe.exec(css))) {
@@ -3809,7 +3825,7 @@ function checkMathRendererParity(errors) {
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const rel = relPosix(ROOT, file);
-    for (const selector of katexOnlySelectors(fs.readFileSync(file, 'utf8'))) {
+    for (const selector of katexOnlySelectors(readCssSource(file))) {
       offenses.push({ file: rel, selector });
     }
   }
@@ -3874,7 +3890,7 @@ function checkCascadeLayers(errors) {
   const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const rel = relPosix(ROOT, file);
-    for (const opener of layerBlocksIn(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, opener });
+    for (const opener of layerBlocksIn(readCssSource(file))) offenses.push({ file: rel, opener });
   }
   if (fs.existsSync(LATTICE_BUNDLE)) {
     // Backstop for openers from non-lib sources (vendored KaTeX, JS-generated
@@ -4008,7 +4024,7 @@ function checkHexLiterals(errors) {
   for (const file of listCssFiles(LIB_DIR)) {
     if (/\.tokens\.css$/.test(file)) continue; // token-definition layer — hex is the point
     const rel = relPosix(ROOT, file);
-    const css = stripCommentsKeepOffsets(fs.readFileSync(file, 'utf8'));
+    const css = stripCommentsKeepOffsets(readCssSource(file));
     for (const hit of findHexLiterals(css)) {
       if (hexInsideVar(css, hit.index)) continue; // `var(--token, #fallback)` — compliant
       offenses.push({ file: rel, hex: hit.hex.toLowerCase() });
@@ -4384,7 +4400,7 @@ function routerTokenCount(text) {
 function checkRouterBudget(errors) {
   const file = path.join(ROOT, ROUTER_FILE);
   if (!fs.existsSync(file)) return; // nothing to judge; not this gate's failure to report
-  const text = fs.readFileSync(file, 'utf8');
+  const text = readCssSource(file);
   const tokens = routerTokenCount(text);
   if (tokens <= ROUTER_TOKEN_CEILING) return;
   errors.push(
@@ -4406,7 +4422,7 @@ function checkTypedGlyphs(errors) {
     const rel = relPosix(ROOT, file);
     // Blank comments rather than delete them, so a hit's line number still
     // points at the real line in the file on disk.
-    const text = fs.readFileSync(file, 'utf8')
+    const text = readCssSource(file)
       .replace(CSS_COMMENT_RE, (c) => c.replace(/[^\n]/g, ' '));
     const hits = [];
     let m;
@@ -4449,7 +4465,7 @@ function checkTypedGlyphs(errors) {
   const byFile = [];
   for (const file of listRepoTextFiles()) {
     const rel = relPosix(ROOT, file);
-    const text = fs.readFileSync(file, 'utf8');
+    const text = readCssSource(file);
     if (!isGlyphDeck(rel, text)) continue;
     // A glyph inside a ``` fence is quoted material (two decks quote the CLI's
     // own ⚠ overflow warning verbatim), not slide chrome. See stripFencedCode.
@@ -4887,6 +4903,29 @@ function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefa
  * contract the read needs. `--cat-N-ink`'s did not — that is the whole lesson.
  */
 const SANCTIONED_FALLBACK_READS = [
+  ...[['ramp-hue', 'chart-cat-1-hue'], ['ramp-ink', 'chart-cat-1-ink']].map(([token, fallback]) => ({
+    token,
+    fallback,
+    why:
+      'a sequential ramp\'s hue and ink (heatmap, map choropleth), OPTIONAL by design: a palette names one only when it ' +
+      'wants its ramps on a hue other than its first category. Without one the read lands on the first category\'s ' +
+      'own hue or ink, which is exactly what every ramp painted before the hook existed, so a palette that does not ' +
+      'name one (and a Studio-generated theme) keeps its behavior; tools/derive-chart-cat-ink.js solves the heatmap ' +
+      'step inks against the same pole. Carbone names its green (#3360 D2: its chart cycle leads with blue so "no ' +
+      'status" does not read as on track; its ramps keep the 6.53:1 light top step they were tuned for). Held by ' +
+      'chart-finish-reach --check.',
+  })),
+  {
+    token: 'risk-critical-step-ink',
+    fallback: 'fail-on-mark',
+    why:
+      'the risk matrix critical key number, read only where relative color is missing (Safari 17.5-17.x, Firefox ' +
+      '120-127). The step ink is OPTIONAL by design: a palette names one only when its one curated ink does not clear ' +
+      'its darker dark-face critical band (the a11y palettes name black). Without one the read lands on --fail-on-mark, ' +
+      'the fail ink, which is the same text-on-the-fail-fill contract and the exact ink main painted this number with, ' +
+      'so a palette that does not name one keeps its behavior. Held by marks-css.test.js (4.5:1 on both faces of every ' +
+      'a11y palette).',
+  },
   ...Array.from({ length: 12 }, (_, i) => ({
     token: `cat-${i + 1}-texture`,
     fallback: `cat-${i + 1}-fill`,
@@ -5261,7 +5300,7 @@ function checkAdaptDeclarations(manifests, errors) {
     // `familyReflowingComponents` in check-family-tiers.js already did this; the two
     // gates were answering the same question different ways.
     const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
-    let css = cssPath ? stripComments(fs.readFileSync(cssPath, 'utf8')) : '';
+    let css = cssPath ? stripComments(readCssSource(cssPath)) : '';
     if (manifestBucket(m) === 'chart') css += `\n${stripComments(chartFamilyCss)}`;
     const hasContainerReflow = FAMILY_REFLOW.test(css);
     // orientation defaults to BOTH when omitted (the manifest's documented default).
@@ -6333,7 +6372,7 @@ function checkProviderAttributeWriters(errors, opts = {}) {
   for (const file of listSourceFiles(path.join(root, 'lib'))) {
     const rel = relPosix(root, file);
     if (!/\.[cm]?js$/.test(rel) || /\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?js$/.test(rel)) continue;
-    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    const code = stripCodeComments(readCssSource(file));
     if (sanctioned.has(rel) && COMPUTED_DATA_ATTR.test(code)) used.add(rel);
     COMPUTED_DATA_ATTR.lastIndex = 0;
     for (const p of providerAttributeProblems(rel, code, metaAttrs, sanctioned)) errors.push(p);
@@ -6906,7 +6945,7 @@ function checkFrontMatterReaders(errors) {
     // Tests assert the rule's OUTPUT (and one deliberately writes the idiom down to prove
     // the mirror matches), so they are not readers in the sense this gate polices.
     if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel)) continue;
-    const src = fs.readFileSync(file, 'utf8');
+    const src = readCssSource(file);
     const spans = commentSpans(src);
     const inProse = (i) => spans.some(([a, b]) => i >= a && i < b); // prose may name the pattern
     let flagged = false;
@@ -7107,6 +7146,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'and a BOM would hide the front matter, so the harness would score the wrong box.',
   },
   {
+    file: 'tools/preset-gate.js',
+    why: 'readText — writes a preset recipe into the corpus deck\'s front matter before every '
+       + 'render of the deck-preset judging gate. A BOM or CRLF in a recipe or the corpus would '
+       + 'hide the front matter, so every row would render the default look and the gate would '
+       + 'pass or fail a preset nobody chose.',
+  },
+  {
     file: 'tools/lint-deck.js',
     why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
@@ -7174,6 +7220,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'not listed here: arm 4 flags a second implementation, never a caller of the first.',
   },
   {
+    file: 'tools/agent-pack-eval.mjs',
+    why: 'deckFrom() — a model reply is external input and models emit CRLF; it tests `^---` to '
+       + 'decide whether the reply IS the deck, so a BOM or CR would send a whole deck through the '
+       + 'fence search instead. The nightly agent-pack eval judges what this returns.',
+  },
+  {
     file: 'docs/src/components/studio/ai/architect-edits.js',
     why: 'parseEdits — a model reply is external input and models emit CRLF. Carries the pattern '
        + 'inline rather than importing the helper: this is plain JS loaded directly by '
@@ -7217,10 +7269,16 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/platform-harness.js',
+    why: 'folds a PR COMMENT the warm harness reads as a command (`/harness sh` and its bash fence): a comment typed on '
+       + 'Windows arrives CRLF, and a CR left in the script makes bash read `ls\\r`. It reads no markdown source and '
+       + 'writes nothing back; the folded text only becomes a shell script.',
+  },
+  {
     file: 'lib/core/meta-edit.mjs',
-    why: 'folds a line break inside ONE FIELD VALUE the Studio hands the structured edit (a note typed in a textarea), '
-       + 'so a note channel becomes a `key: |` block and any other field a single line: a raw CR would end the record\'s '
-       + 'value and drop every field in it. It reads no markdown source and writes only that value.',
+    why: 'folds a line break inside ONE FIELD VALUE the Studio hands the structured edit (typed in a text box), '
+       + 'so the field is written on a single line: a raw CR would end the record\'s value and drop every field in it. '
+       + 'It reads no markdown source and writes only that value.',
   },
   {
     file: 'tools/skill-index.js',
@@ -7285,13 +7343,13 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
   },
   {
     file: 'docs/src/components/playground/PlaygroundApp.tsx',
-    why: 'a COMPARISON fold, not an ingest — the same shape as notes-core.js below. The '
+    why: 'a COMPARISON fold, not an ingest. The '
        + 'Playground asks ONE question with it: has the author edited the deck since Explore '
        + 'handed it to the editor? CodeMirror stores a document with its own line separator, '
        + 'so a source that arrived CRLF comes back LF and raw equality reports an edit nobody '
        + 'made, silently dropping a plan walk and stripping the ?c=/?s= params. Neither string '
        + 'is written back and nothing downstream of the answer decides a palette or a slide '
-       + 'count. It strips no BOM for the reason notes-core does not: there is no document '
+       + 'count. It strips no BOM because there is no document '
        + 'here whose front matter a BOM could defeat — the deck that IS ingested goes through '
        + 'the editor and the engine, both already boundaries.',
   },
@@ -7311,12 +7369,17 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + 'wrong read fails its own checks loudly rather than shipping anywhere.',
   },
   {
-    file: 'lib/authoring/notes-core.js',
-    why: 'a COMPARISON fold, not an ingest. stripNotesFromSource matches note bodies that came '
-       + 'back from RENDERED slide HTML (where markdown-it already normalized) against raw '
-       + 'source text; the fold canonicalizes the CANDIDATE for that one comparison and the '
-       + 'source itself flows on untouched. It strips no BOM for the same reason — there is no '
-       + 'document here whose front matter could be defeated.',
+    file: 'lib/core/note-grammar.mjs',
+    why: 'folds inside ONE NOTE BODY (`dedent`), to find the indentation its lines share, so a note written indented '
+       + 'inside its comment reads flush. The body is a comment\'s text, already cut out of a document; the fold '
+       + 'shapes the note a person reads and writes nothing back. It strips no BOM because there is no document '
+       + 'here whose front matter a BOM could defeat (engineering/decisions/2026-11-20-four-notes.md).',
+  },
+  {
+    file: 'lib/cli/migrate-notes.mjs',
+    why: 'a ROUND TRIP, not an ingest: `lattice migrate notes` reads a deck, folds it to LF and drops its BOM so the '
+       + 'codemod scans one shape, then writes the rewritten deck back with the file\'s OWN line endings and BOM. '
+       + 'Nothing it folds reaches the engine or another reader; a deck it does not change is left byte for byte.',
   },
 ];
 
@@ -7411,7 +7474,7 @@ function checkLineEndingBoundaries(
     // they differ, so they are not boundaries in the sense this gate polices. Generated bundles
     // inline their sources' folds and are regenerated from them, never hand-edited (#2).
     if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel) || /\.generated\.[a-z]+$/.test(rel)) continue;
-    const src = fs.readFileSync(file, 'utf8');
+    const src = readCssSource(file);
     const spans = commentSpans(src);
     const inProse = (i) => spans.some(([a, b]) => i >= a && i < b); // prose may name the pattern
     const lineOf = (i) => src.slice(0, i).split('\n').length;
@@ -7551,7 +7614,7 @@ function classAttrOffenses(dirs = {}) {
   for (const file of files) {
     const rel = relPosix(ROOT, file);
     if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel)) continue; // tests assert payloads, not render behavior
-    const src = fs.readFileSync(file, 'utf8');
+    const src = readCssSource(file);
     const spans = commentSpans(src);
     CLASS_ATTR_REGEX.lastIndex = 0;
     let m;
@@ -7600,7 +7663,7 @@ function checkPreviewHtmlSinks(errors, sanctions = SANCTIONED_PREVIEW_BUILDERS, 
   for (const file of listSourceFiles(DOCS_SRC)) {
     const rel = relPosix(root, file);
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue; // tests assert payloads, not preview frames
-    const src = fs.readFileSync(file, 'utf8');
+    const src = readCssSource(file);
     if (!PREVIEW_BUILDER_MARKER.test(src)) continue;
     seen.add(rel);
     if (!sanctioned.has(rel)) {
@@ -7668,7 +7731,7 @@ function checkDocumentStyleSinks(errors, exempt = SANCTIONED_STYLE_SINK_EXEMPT, 
     // (HARD RULE #18), and it is inert on every platform CI runs.
     const rel = relPosix(root, file);
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue;
-    const src = fs.readFileSync(file, 'utf8');
+    const src = readCssSource(file);
     if (!DOC_ASSEMBLER_MARKER.test(src) || !STYLE_SINK_MARKER.test(src)) continue;
     seen.add(rel);
     if (excused.has(rel)) continue;
@@ -7782,7 +7845,7 @@ function checkCssTreeRewrapSinks(errors, root = ROOT) {
   for (const file of files) {
     const rel = relPosix(root, file);
     if (/\.test\.[cm]?[jt]s$/.test(rel)) continue;
-    const src = fs.readFileSync(file, 'utf8');
+    const src = readCssSource(file);
     if (!PRUNE_CALL.test(src)) continue;
     // Which locals hold pruned CSS, and which have been through the guard.
     const tainted = new Set([...src.matchAll(TAINT_FROM_PRUNE)].map((x) => x[1]));
@@ -7912,7 +7975,7 @@ function pluginMigrationCounts(root = ROOT) {
     const rel = relPosix(root, file);
     if (rel === 'lib/plugins/host.js' || /\.test\.[cm]?[jt]s$/.test(rel) || /\.generated\.[cm]?[jt]s$/.test(rel)) continue;
     if (!/\.(?:[cm]?js|ts|tsx)$/.test(rel) || !fs.existsSync(file)) continue;
-    fenceWrappers += (stripCodeComments(fs.readFileSync(file, 'utf8')).match(FENCE_OVERRIDE) || []).length;
+    fenceWrappers += (stripCodeComments(readCssSource(file)).match(FENCE_OVERRIDE) || []).length;
   }
 
   // The token names come from the registry's DATA, never from the generated file's text: a
@@ -7935,7 +7998,7 @@ function pluginMigrationCounts(root = ROOT) {
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
       if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel)) continue;
       if (!/\.(?:[cm]?js|ts|tsx)$/.test(rel) || !fs.existsSync(file)) continue;
-      const code = stripCodeComments(fs.readFileSync(file, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
+      const code = stripCodeComments(readCssSource(file)).replace(/\/\*[\s\S]*?\*\//g, '');
       for (const m of code.matchAll(re)) hits.push(`${rel}: ${m[0]}`);
     }
   }
@@ -7953,7 +8016,7 @@ function pluginMigrationCounts(root = ROOT) {
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
       if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]sx?$/.test(rel)) continue;
       if (!/\.(?:[cm]?js|ts|tsx)$/.test(rel) || !fs.existsSync(file)) continue;
-      const code = stripCodeComments(fs.readFileSync(file, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
+      const code = stripCodeComments(readCssSource(file)).replace(/\/\*[\s\S]*?\*\//g, '');
       for (const m of code.matchAll(re)) drawnHits.push(`${rel}: ${m[0]}`);
     }
   }
@@ -7981,7 +8044,7 @@ function pluginMigrationCounts(root = ROOT) {
       // Full-line `//` comments FIRST, then block comments: a line comment that quotes a glob
       // (`// themes/*.css`) would otherwise open a "block" that swallows code up to the next
       // `*/` (measured: it hid index.astro's URL from this count).
-      const code = fs.readFileSync(file, 'utf8').split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
+      const code = readCssSource(file).split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
       for (const m of code.matchAll(urlRe)) urlHits.push(`${rel}: ${m[0]}`);
       for (const m of code.matchAll(stateRe)) stateHits.push(`${rel}: ${m[0]}`);
     }
@@ -8004,7 +8067,7 @@ function pluginMigrationCounts(root = ROOT) {
     for (const file of files) {
       const rel = relPosix(root, file);
       if (/\.generated\.[cm]?[jt]s$/.test(rel) || !/\.[cm]?js$/.test(rel) || !fs.existsSync(file)) continue;
-      const code = fs.readFileSync(file, 'utf8').split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
+      const code = readCssSource(file).split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
       for (const m of stripCodeComments(code).matchAll(re)) runtimeHits.push(`${rel}: ${m[0]}`);
     }
   }
@@ -8026,7 +8089,7 @@ function pluginMigrationCounts(root = ROOT) {
       const rel = relPosix(root, file);
       if (rel.startsWith('lib/plugins/') || rel === 'tools/check-ownership.js') continue;
       if (/\.generated\.[cm]?[jt]s$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel) || !/\.[cm]?js$/.test(rel) || !fs.existsSync(file)) continue;
-      for (const m of stripCodeComments(fs.readFileSync(file, 'utf8')).matchAll(re)) bakeHits.push(`${rel}: ${m[0]}`);
+      for (const m of stripCodeComments(readCssSource(file)).matchAll(re)) bakeHits.push(`${rel}: ${m[0]}`);
     }
   }
   // A drawn plugin's own figure classes, from its manifest's `render.figureClasses`, used as a
@@ -8056,7 +8119,7 @@ function pluginMigrationCounts(root = ROOT) {
       if (!fs.existsSync(file)) continue;
       // Full-line `//` comments, then block comments — the url arm's order, for its reason. (Blanking
       // ` * …` lines too was tried and blanked every ` */`, so one comment swallowed the file.)
-      const code = fs.readFileSync(file, 'utf8').split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
+      const code = readCssSource(file).split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, ' ');
       for (const m of code.matchAll(re)) figureHits.push(`${rel}: ${m[0].trim()}`);
     }
   }
@@ -8191,7 +8254,7 @@ function checkPluginPurity(errors, sanctions = SANCTIONED_PURITY_HITS, root = RO
     for (const file of listSourceFiles(path.join(root, base))) {
       if (!/\.(?:m?js|cjs)$/.test(file) || /\.test\./.test(path.basename(file))) continue;
       const rel = path.relative(root, file).split(path.sep).join('/');
-      const hits = purityHits(fs.readFileSync(file, 'utf8'));
+      const hits = purityHits(readCssSource(file));
       if (!hits) {
         errors.push(`${rel} does not parse, so the purity gate (G1) cannot read it: fix the syntax error.`);
         continue;
@@ -8298,7 +8361,7 @@ function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_S
     // committed count for a reason nobody could see. `stripCodeComments` removes only FULL-LINE
     // `//` comments, so a TRAILING comment mentioning a sink can still be counted; that is the
     // SAFE direction (the author declares it) and it is stated in the envelope above.
-    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    const code = stripCodeComments(readCssSource(file));
     for (const re of [ASSIGN, CALL, SET_ATTR]) {
       for (const m of code.matchAll(re)) {
         // `document.write` parses markup; `stream.write` / `logger.write` do not. The receiver's
@@ -8620,7 +8683,7 @@ function slideTextAddressCensus(root = ROOT) {
   for (const file of files) {
     const rel = relPosix(root, file);
     if (!/\.[cm]?[jt]s$/.test(rel) || /\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel) || /\.d\.ts$/.test(rel)) continue;
-    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    const code = stripCodeComments(readCssSource(file));
     const sinks = {};
     for (const [k, re] of Object.entries(SLIDE_TEXT_SINK_KINDS)) {
       const n = count(code, re);
@@ -8798,7 +8861,7 @@ function checkSnapshotHtmlSinks(errors) {
   for (const file of listSnapshotFiles(DOCS_SRC)) {
     const rel = relPosix(ROOT, file);
     if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel)) continue; // tests assert payloads, not real sinks
-    const src = fs.readFileSync(file, 'utf8');
+    const src = readCssSource(file);
     if (!referencesSnapshot(src)) continue; // not part of the snapshot path
     const s = sanctioned.get(rel);
     if (s) {
@@ -8995,7 +9058,7 @@ function spineCensusTree(root = ROOT) {
     for (const file of listSourceFiles(dir)) {
       const rel = path.relative(root, file).split(path.sep).join('/');
       if (SPINE_HOMES.has(rel) || /\.test\.|\.spec\.|generated|\.d\.ts$|\/e2e\/|\.min\./.test(rel)) continue;
-      for (const [shape, n] of Object.entries(spineCensusHits(fs.readFileSync(file, 'utf8'), lists))) hits.push({ file: rel, shape, n });
+      for (const [shape, n] of Object.entries(spineCensusHits(readCssSource(file), lists))) hits.push({ file: rel, shape, n });
     }
   }
   return hits;
@@ -9537,7 +9600,7 @@ function playwrightRetriesFindings(text, rel = 'docs/playwright.config.ts', { op
 function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwright.config.ts')) {
   let text;
   try {
-    text = fs.readFileSync(file, 'utf8');
+    text = readCssSource(file);
   } catch (e) {
     errors.push(`could not read ${path.relative(ROOT, file)} (${e.message}) to check its retries (HARD RULE #34).`);
     return;
@@ -10021,8 +10084,12 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     if ('docs_site' in s && typeof s.docs_site !== 'boolean') {
       errors.push(`${at}: \`docs_site\` must be true or false (true: the workflow's docs-site job builds the site this suite serves).`);
     }
-    if (s.docs_site === true && !(typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run))) {
-      errors.push(`${at}: only an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) serves the docs site, so only one can set \`"docs_site": true\`.`);
+    // Two kinds of suite serve the prebuilt docs site: an iOS Simulator suite (docs/scripts/ios-safari/run.sh), and a
+    // Playwright suite that serves it with E2E_PREBUILT=1 (docs/playwright.config.ts then skips its own build). The second
+    // exists because the docs site does not build on Windows (`bake-newcomer-frame`: `module is not defined` in
+    // lib/core/content-policy.js, platform-suites run 44853144110), so a Windows suite must take the Linux build (#3345).
+    if (s.docs_site === true && !(typeof s.run === 'string' && (/docs\/scripts\/ios-safari\/run\.sh/.test(s.run) || /\bE2E_PREBUILT=1\b/.test(s.run)))) {
+      errors.push(`${at}: only a suite that serves the prebuilt docs site can set \`"docs_site": true\`: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) or a Playwright suite whose \`run\` sets E2E_PREBUILT=1.`);
     }
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
       errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
@@ -10071,13 +10138,17 @@ const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']
 // tools/tts-bench.mjs: S0 of 2026-11-11-voice-synthesis-spine.md. Measures TTS latency, the 429
 // onset by concurrency and packed-request cuts; on demand, opt-in, prints its spend and refuses a
 // plan above --max-usd (owner-approved small run, 2026-11-11).
-const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs', 'tools/tts-bench.mjs'];
+// tools/agent-pack-eval.mjs: does the agent pack make a model write a good deck? Opt-in
+// (OPENROUTER_ALLOW_SPEND=1), prints its cost, run nightly by agent-pack-eval-nightly.yml
+// (engineering/decisions/2026-11-17-agent-pack.md §4.5).
+const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs', 'tools/tts-bench.mjs', 'tools/agent-pack-eval.mjs'];
 
 // Workflows allowed to spend the key: sanctioned, budgeted, skipping or failing VISIBLY when the
 // secret is unset (#1931: a silent green skip looks like a real run), and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,
 // never pull_request/push/merge_group, which fire constantly). This is the CI home for live E2E.
 const SANCTIONED_OPENROUTER_WORKFLOWS = [
   '.github/workflows/studio-e2e-nightly.yml', // nightly Studio live-AI E2E — ~1c/night, fails loud without the secret (#696, #1931)
+  '.github/workflows/agent-pack-eval-nightly.yml', // nightly agent-pack eval — six completions, ~USD 0.20–0.40/night, fails loud without the secret (2026-11-17-agent-pack.md §4.5)
 ];
 
 // docs/ CODE files, incl. `.astro` — whose build-time frontmatter runs at build and inlines
@@ -10106,7 +10177,7 @@ function listDocsCodeFiles(dir, out = []) {
 function checkOpenRouterBudget(errors, root = ROOT) {
   // Invariant 1 — no exposure to the deployed site (incl. `.astro` build-time frontmatter).
   for (const file of listDocsCodeFiles(path.join(root, 'docs'))) {
-    if (OPENROUTER_KEY_NAME.test(fs.readFileSync(file, 'utf8'))) {
+    if (OPENROUTER_KEY_NAME.test(readCssSource(file))) {
       errors.push(
         `${relPosix(root, file)} references OPEN_ROUTER_KEY — our server-side key must NEVER ` +
         `reach the site (HARD RULE #24). The deployed docs are a static bundle; the Playground uses ` +
@@ -10124,7 +10195,7 @@ function checkOpenRouterBudget(errors, root = ROOT) {
   for (const file of listSourceFiles(path.join(root, 'test'))) {
     const rel = relPosix(root, file);
     if (OPENROUTER_SCAN_EXEMPT.has(rel)) continue;
-    if (OPENROUTER_KEY_NAME.test(fs.readFileSync(file, 'utf8'))) {
+    if (OPENROUTER_KEY_NAME.test(readCssSource(file))) {
       errors.push(
         `${rel} reads OPEN_ROUTER_KEY (HARD RULE #24) — the automated suite must never spend our ` +
         `budget. Mock the LLM (a page.route interceptor or the user-key Playground flow is fine), or ` +
@@ -10320,7 +10391,7 @@ function checkVetrinaBoundary(errors, dir = VETRINA_DIR) {
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev test runner (a devDep, not host coupling)
     const isAdapter = base === VETRINA_ADAPTER;
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const src = stripJsComments(readCssSource(file));
     const seen = new Set();
     for (const spec of SUONO_SPEC_PATTERNS.flatMap((pattern) => [...src.matchAll(pattern)].map((m) => m[1]))) {
       if (staysInFolder(dir, file, spec)) continue; // in-folder relative — fine
@@ -10479,7 +10550,7 @@ function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe
     if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
     if (isHelper(file)) continue; // a test helper with a non-test name, listed by the package's gate
     const rel = relPosix(ROOT, file);
-    const raw = fs.readFileSync(file, 'utf8');
+    const raw = readCssSource(file);
     for (const problem of unreadableModuleCalls(raw, file)) errors.push(`${rel} ${problem}`);
     const src = stripJsComments(raw);
     const seen = new Set();
@@ -10651,7 +10722,7 @@ function checkPaginationOwners(errors, sanctions = SANCTIONED_PAGINATORS, root =
   for (const file of files) {
     const rel = relPosix(root, file);
     if (/\.generated\.[cm]?[jt]s$|\.test\.[cm]?[jt]sx?$|\.d\.ts$/.test(rel)) continue;
-    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    const code = stripCodeComments(readCssSource(file));
     let n = 0;
     for (const re of PAGINATOR_WRITE_RES) n += [...code.matchAll(re)].length;
     if (n) found.set(rel, n);
@@ -10776,7 +10847,7 @@ function checkTavolaBoundary(errors, dir = TAVOLA_DIR, adapters = TAVOLA_ADAPTER
   for (const file of listPackageSources(root)) {
     if (TEST_FILE.test(file)) continue;
     const mine = new Set(adapters[path.relative(root, file).split(path.sep).join('/')] ?? []);
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const src = stripJsComments(readCssSource(file));
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
         const spec = m[1];
@@ -10813,7 +10884,7 @@ function checkFuocoBoundary(errors, dir = FUOCO_DIR, adapter = FUOCO_ADAPTER) {
   if (!fs.existsSync(dir)) return;
   for (const file of listPackageSources(path.resolve(dir))) {
     if (TEST_FILE.test(file) || path.resolve(file) === path.resolve(adapter)) continue;
-    const raw = fs.readFileSync(file, 'utf8');
+    const raw = readCssSource(file);
     // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
     for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
       errors.push(
@@ -10854,7 +10925,7 @@ function checkVedutaBoundary(errors, dir = VEDUTA_DIR) {
   if (!fs.existsSync(dir)) return;
   for (const file of listPackageSources(path.resolve(dir))) {
     if (TEST_FILE.test(file)) continue;
-    const raw = fs.readFileSync(file, 'utf8');
+    const raw = readCssSource(file);
     // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
     for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
       errors.push(
@@ -10883,7 +10954,7 @@ function checkCennoBoundary(errors, dir = CENNO_DIR) {
   if (!fs.existsSync(dir)) return;
   for (const file of listPackageSources(path.resolve(dir))) {
     if (TEST_FILE.test(file)) continue;
-    const raw = fs.readFileSync(file, 'utf8');
+    const raw = readCssSource(file);
     // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
     for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
       errors.push(
@@ -10913,7 +10984,7 @@ function checkFiloBoundary(errors, dir = FILO_DIR) {
   if (!fs.existsSync(dir)) return;
   for (const file of listPackageSources(path.resolve(dir))) {
     if (TEST_FILE.test(file)) continue;
-    const raw = fs.readFileSync(file, 'utf8');
+    const raw = readCssSource(file);
     // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
     for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
       errors.push(
@@ -11027,7 +11098,7 @@ function checkFiloCommitPath(errors, { shell = FILO_COMMIT_SHELL, roots = FILO_U
   for (const root of roots) {
     for (const file of listUndoScanFiles(root)) {
       const rel = relPosix(ROOT, file);
-      const src = fs.readFileSync(file, 'utf8').replace(COMMENT_OR_STRING_RE, (_m, str) => str ?? '');
+      const src = readCssSource(file).replace(COMMENT_OR_STRING_RE, (_m, str) => str ?? '');
       if (!UNDO_STACK_RE.test(src) && !(CM_COMMANDS_RE.test(src) && MEMBER_HISTORY_RE.test(src))) continue;
       if (allowed.has(rel)) {
         hit.add(rel);
@@ -11136,7 +11207,7 @@ function checkSuonoBoundary(errors, dir = SUONO_DIR) {
     const rel = relPosix(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const src = stripJsComments(readCssSource(file));
     const seen = new Set();
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
@@ -11214,7 +11285,7 @@ function checkAnimaBoundary(errors) {
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use vitest, not host coupling
     const allowed = ANIMA_ADAPTER_DEPS[relInLib] || [];
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const src = stripJsComments(readCssSource(file));
     const seen = new Set();
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
@@ -11279,7 +11350,7 @@ function checkAjvBoundary(errors, dirs = [LIB_DIR, path.join(ROOT, 'docs', 'src'
     if (!fs.existsSync(dir)) continue;
     for (const file of listSourceFiles(dir)) {
       const rel = relPosix(ROOT, file);
-      const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+      const src = stripJsComments(readCssSource(file));
       // Dedupe per file, like checkSuonoBoundary: one module importing ajv two
       // ways is one defect, not two error lines.
       const seen = new Set();
@@ -11311,7 +11382,7 @@ function checkLenteBoundary(errors, dir = LENTE_DIR) {
     const rel = relPosix(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use the dev runner (vitest), not host coupling
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const src = stripJsComments(readCssSource(file));
     const seen = new Set();
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
@@ -11347,7 +11418,7 @@ function checkSegnoBoundary(errors, dir = SEGNO_DIR) {
     const rel = relPosix(ROOT, file);
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue;
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const src = stripJsComments(readCssSource(file));
     const seen = new Set();
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
@@ -11411,7 +11482,7 @@ function checkAudioPlaybackBoundary(errors) {
     const rel = relPosix(ROOT, file);
     if (rel.endsWith('.test.ts') || rel.endsWith('.test.js')) continue; // tests mock the engine, not a real player
     if (rel === SUONO_REL || rel.startsWith(`${SUONO_REL}/`)) continue; // Suono IS the player
-    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const src = stripJsComments(readCssSource(file));
     if (!RAW_AUDIO_PATTERNS.some((re) => re.test(src))) continue;
     seen.add(rel);
     if (!sanctioned.has(rel)) {
@@ -11846,7 +11917,7 @@ function catPaletteSource(name, seen = new Set(), themesDir = THEMES_DIR) {
   if (name === 'lattice') return fs.readFileSync(path.join(LIB_DIR, 'base', 'base.tokens.css'), 'utf8');
   const file = path.join(themesDir, name, `${name}.css`);
   if (!fs.existsSync(file)) return '';
-  const css = fs.readFileSync(file, 'utf8');
+  const css = readCssSource(file);
   let out = '';
   // Comments FIRST: several themes discuss `@import 'lattice';` in prose, and a
   // raw scan treats that sentence as a real import. Harmless where the named
@@ -12712,7 +12783,7 @@ function checkUseCaseManifests(errors, { root = ROOT, legacy = SANCTIONED_LEGACY
     const rel = relPosix(root, file);
     let m;
     try {
-      m = JSON.parse(fs.readFileSync(file, 'utf8'));
+      m = JSON.parse(readCssSource(file));
     } catch (e) {
       errors.push(`${rel}: not valid JSON (${e.message}).`);
       continue;
@@ -12797,7 +12868,7 @@ function checkAgentModelPinning(errors, dirs = {}) {
     }
     for (const file of agents) {
       const rel = relPosix(ROOT, file);
-      const src = fs.readFileSync(file, 'utf8');
+      const src = readCssSource(file);
       const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src); // \r? — CRLF is still valid frontmatter
       if (!fm) {
         errors.push(`${rel} has no YAML frontmatter — HARD RULE #27 needs a \`model:\` field there.`);
@@ -12823,7 +12894,7 @@ function checkAgentModelPinning(errors, dirs = {}) {
   }
   for (const file of listWorkflowFiles(workflowsDir)) {
     const rel = relPosix(ROOT, file);
-    const { error, calls } = agentCallPins(fs.readFileSync(file, 'utf8'));
+    const { error, calls } = agentCallPins(readCssSource(file));
     if (error) {
       errors.push(
         `${rel} does not parse (${error}) — the HARD RULE #27 gate cannot read its agent() calls, ` +
@@ -12869,7 +12940,7 @@ function checkSkillFreshness(errors) {
       errors.push(`design/skills/${a.file} is missing — the skill-freshness gate expects it.`);
       continue;
     }
-    const src = fs.readFileSync(file, 'utf8');
+    const src = readCssSource(file);
     // Enforce EVERY occurrence of the marker, not just the first — a skill states a
     // count in several human-read places (prose + skeleton + checklist), and a later
     // one can drift while the first stays right. matchAll catches all of them.
@@ -13075,7 +13146,7 @@ function checkCssSyntax(errors) {
     const rel = relPosix(ROOT, file);
     let warnings = [];
     try {
-      ({ warnings } = esbuild.transformSync(fs.readFileSync(file, 'utf8'), { loader: 'css' }));
+      ({ warnings } = esbuild.transformSync(readCssSource(file), { loader: 'css' }));
     } catch (err) {
       errors.push(`${rel}: CSS does not parse — ${err.message.split('\n')[0]}`);
       continue;
@@ -13141,8 +13212,9 @@ function checkCssSyntax(errors) {
 //   • a component that scopes with an attribute BEFORE its class
 //     (`section[data-family="strip"].glossary td`) — the repo stamps `data-family`
 //     widely, so this ordering is one refactor away;
-//   • native CSS nesting (`section.foo { & td { … } }`) — zero uses in lib/ today,
-//     so this is a tripwire rather than a present hole;
+//   • native CSS nesting (`section.foo { & td { … } }`) is NOT a hole: every
+//     nested source is listed in build-css.js NESTED_SOURCES and read flat through
+//     readCssSource, the same rules the build ships;
 //   • `themes/*.css`, which this gate does not walk;
 //   • a component the Studio GENERATES at runtime. lib/layout/ai.js tells the
 //     generator to style `section.<name> table/thead th/td` with `border-bottom`
@@ -13205,7 +13277,7 @@ function universalTableClaims(componentNames, dirs = {}) {
   for (const file of listCssFiles(libDir)) {
     if (file === guardCss) continue;
     const rel = relPosix(ROOT, file);
-    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    const css = stripComments(readCssSource(file));
     for (const sel of topLevelSelectors(css).flatMap(splitTopLevel)) {
       if (!subjectIsTableElement(sel)) continue;
       for (const m of sel.matchAll(/(?:section|figure)((?:\.[a-z][a-z0-9-]*)+)/g)) {
@@ -13535,6 +13607,8 @@ const NUL_TEXT_EXTENSIONS = [
   '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.astro', '.css', '.scss', '.md', '.mdx',
   '.json', '.jsonc', '.yml', '.yaml', '.html', '.svg', '.sh', '.txt', '.toml', '.py',
   '.vtt', '.webmanifest', '.patch', '.gitignore', '.gitattributes', '.nvmrc', '.cmd',
+  // The root search-tool ignore file (ripgrep's .ignore), which re-includes the code map.
+  '.ignore',
   // Peggy grammar source (tools/parser-bakeoff/grammars/peggy/) — plain text.
   '.peggy',
   // A vendored library's license text, beside its copy (lib/plugins/<name>/vendor/*.LICENSE).
@@ -14316,7 +14390,7 @@ function checkSyntaxSeparation(errors, themesDir = THEMES_DIR) {
     // EVERY ROLE THE PALETTE MUST DECLARE ITSELF. Before #1715 these resolved
     // through the a11y-base -> onyx import, which is exactly the defect; so a role
     // that is not declared in this palette's OWN file is an error, not an inherit.
-    const own = fs.readFileSync(file, 'utf8');
+    const own = readCssSource(file);
     const missing = [...SYNTAX_ROLES, ...SYNTAX_DIFF_PAIR].filter((r) => !new RegExp(`--syntax-${r}\\s*:`).test(own));
     if (missing.length) {
       errors.push(
@@ -14555,6 +14629,15 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
   { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
   { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },
+  // The preset hooks (deck-preset study §8 WP-tokens, decision D10). Nothing in the engine writes
+  // them; a preset's stamped class (Phase 0) or a deck `style:` block sets them on a section, and
+  // every read carries today's value as its fallback, so unset they render byte-for-byte as before.
+  // Contract: the comment beside `--radius-*` in lib/base/base.tokens.css.
+  { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
+  { token: 'rule-style', why: 'heading-rule border style on the same border-drawn rules. Fallback solid.' },
+  { token: 'rule-mark', why: 'heading-rule ink on the same rules (rule-accent keeps --accent). Fallback var(--border).' },
+  { token: 'rail-w', why: 'spectrum-card rail thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
+  { token: 'radius-card', why: 'card corner: every tile that can carry a card tag (cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list, actors, decision, compare-prose, split-compare options/verdict, split-panel proof/watermark, citation-card triptych, statute-stack) and the tag itself. Fallback var(--radius-md); never --radius-full, quote panels, diagram tiles or corners:.' },
 ]);
 
 /**
@@ -15504,7 +15587,7 @@ function checkAnimaColorVocabulary(errors) {
   // — `// 'var(--text)',  // tried this, it is a phantom, see #1688` — was matched and turned
   // the build RED for a token that is not in the runtime array. Recording why a token was
   // rejected, right where the rejection lives, is exactly what a future author should do.
-  const src = stripCodeComments(fs.readFileSync(file, 'utf8'));
+  const src = stripCodeComments(readCssSource(file));
   const block = /export const SCENE_COLOR_TOKENS\s*=\s*\[([\s\S]*?)\]\s*as const;/.exec(src);
   if (!block) {
     errors.push(
@@ -15619,7 +15702,7 @@ const SYNTAX_INK_GENERATED_CSS = path.join(ROOT, 'docs', 'src', 'styles', 'latti
 
 /** The `html[data-palette][data-mode]` token blocks, parsed out of the committed sheet. */
 function parseGeneratedPaletteBlocks(file) {
-  const css = fs.readFileSync(file, 'utf8');
+  const css = readCssSource(file);
   const blocks = new Map();
   for (const m of css.matchAll(/html\[data-palette="([^"]+)"\]\[data-mode="(light|dark)"\]\{([^}]*)\}/g)) {
     const set = {};
@@ -15903,6 +15986,7 @@ function main(argv) {
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
+  readCssSource,
   checkSpecParts,
   specPartProblems,
   checkTavolaBoundary,

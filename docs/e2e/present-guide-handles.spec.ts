@@ -107,7 +107,8 @@ test('the Guide inks a person’s NAME, not the card around it', async ({ page }
 	// (checked every 30 frames), capped at 60 s of virtual time.
 	const frames = await stepFramesUntil(page, async () => (await play.isVisible()), Math.ceil(60_000 / FRAME_MS), 30);
 	expect(frames, 'the reading never finished inside 60 s of virtual time').toBeLessThan(Math.ceil(60_000 / FRAME_MS));
-	await page.clock.resume();
+	// The clock stays paused: the oracle below reads what the reading recorded. A `resume()` stood here, and a resumed
+	// clock lets a frame born later run ahead of this one (testing.md §fake clock).
 
 	// THE ORACLE: some stroke lands on a name span, and no stroke wraps the card.
 	//

@@ -298,10 +298,52 @@ const BANNER = [
   '',
 ].join('\n');
 
+// SOURCES WRITTEN WITH NATIVE CSS NESTING (the 2026-11-19 nesting spike,
+// engineering/decisions/2026-11-19-nesting-spike.md). Only the files named here are lowered, so
+// every other source reaches the bundle byte for byte as before. Every shipped file stays FLAT:
+// Marp, the VS Code preview and Export-to-Marp read dist/ as plain CSS, and esbuild lowers
+// nesting ONLY (`supported: { nesting: false }` at target esnext) so nothing else is rewritten
+// (target chrome91 would also add hex fallbacks in front of oklch()). esbuild drops the file's
+// comments on the way: they stay in the source, where a reader edits.
+//
+// A nested rule under a selector-LIST parent lowers to a leading `:is(A, B) <rest>`, which
+// distributeLeadingIs (finish/bundleModules) later splits into `A <rest>, B <rest>`. That split is
+// cascade-identical ONLY when A and B are equally specific, so assertEqualIsArms refuses the build
+// otherwise (guard G6). The check lives here, in the build, not in lib/core/leading-is.js: that
+// kernel also runs in the browser over an author's own CSS, where it has no parser and must
+// never throw.
+const NESTED_SOURCES = new Set(['lib/base/base.table-reflow.css']);
+
+function assertEqualIsArms(css, rel) {
+  const csstree = require('css-tree');
+  const { specificity } = require('./lib/css-specificity.js');
+  const { leadingIsArms, splitSelectorList } = require('../lib/core/leading-is');
+  const ast = csstree.parse(css, { parseValue: false, parseRulePrelude: false, parseAtrulePrelude: false });
+  csstree.walk(ast, { visit: 'Rule', enter(rule) {
+    for (const sel of splitSelectorList(csstree.generate(rule.prelude))) {
+      const li = leadingIsArms(sel.trim());
+      if (!li) continue;
+      const specs = li.arms.map((arm) => specificity(csstree.parse(arm.trim(), { context: 'selector' })).join(','));
+      if (new Set(specs).size > 1) {
+        throw new Error(`${rel}: nesting lowered to a leading :is() whose arms differ in specificity (${specs.join(' vs ')}), `
+          + `so distributing it would change the cascade. Give the parent selectors equal specificity. Selector: ${sel.trim().slice(0, 200)}`);
+      }
+    }
+  } });
+}
+
+function lowerNesting(css, rel) {
+  const esbuild = require('esbuild');
+  const { code } = esbuild.transformSync(css, { loader: 'css', target: 'esnext', supported: { nesting: false } });
+  assertEqualIsArms(code, rel);
+  return code;
+}
+
 function readIfExists(rel) {
   const abs = path.join(ROOT, rel);
   if (!fs.existsSync(abs)) return null;
-  return fs.readFileSync(abs, 'utf8').replace(/\s+$/, '') + '\n';
+  const text = fs.readFileSync(abs, 'utf8');
+  return (NESTED_SOURCES.has(rel) ? lowerNesting(text, rel) : text).replace(/\s+$/, '') + '\n';
 }
 
 // Per-family slicing CSS, GENERATED from each Frame manifest's `slicing` block
@@ -663,6 +705,16 @@ function assemble() {
     parts.push('/* === generated: Form per-family slicing (frame manifests `slicing`) === */');
     parts.push(slicing);
   }
+  // Generated: the PRESET TOKENS (engineering/decisions/2026-11-20-deck-preset-study.md §5 D10) — one
+  // `section.preset-<name> { --token: value }` rule per preset that sets internal tokens, from the preset
+  // table itself (lib/core/resolve-preset.js `presetTokensCss`, which validates every name and value).
+  // No shipped preset sets a token yet, so this adds nothing and the bundle is byte-identical.
+  const presetTokens = require('../lib/core/resolve-preset').presetTokensCss();
+  if (presetTokens) {
+    mark('generated:preset-tokens', null);
+    parts.push('/* === generated: preset tokens (lib/core/front-matter-key.js PRESETS[*].tokens) === */');
+    parts.push(presetTokens);
+  }
   // Distribute leading `:is()` LAST, over the assembled bundle — so `bundle()`
   // is the single definition of what dist/lattice.css should contain, which is
   // what the freshness gate (test/unit/cli/build-css.test.js) compares against.
@@ -807,5 +859,5 @@ if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
   bundle, bundleModules, moduleFiles, buildThemes, main, OUTPUT, MIN_OUTPUT, MODULES_DIR, MODULES_MIN_DIR, formsSlicingCss,
-  LAYER_DECLARATION, LAYER_INERT_NOTE,
+  LAYER_DECLARATION, LAYER_INERT_NOTE, NESTED_SOURCES, lowerNesting, assertEqualIsArms,
 };

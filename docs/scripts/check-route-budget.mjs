@@ -451,6 +451,12 @@ export function rebaseline(ledgerRoutes, measured, { slackPct = STALE_SLACK_PCT,
 	return { changes, refused };
 }
 
+/** The ledger's routes, narrowed to `routes` when the reset names some (`--route`). PURE. */
+export function onlyRoutes(ledgerRoutes, routes) {
+	if (!routes) return ledgerRoutes;
+	return Object.fromEntries(Object.entries(ledgerRoutes).filter(([name]) => routes.includes(name)));
+}
+
 /** The newest history row per route/metric: { soft, hard }. PURE. */
 export function newestHistory(history) {
 	const at = history.indexOf(HISTORY_ANCHOR);
@@ -583,7 +589,15 @@ function main() {
 			process.stderr.write(`route-budget:rebaseline: --metric must be one of ${METRICS.join(', ')}.\n`);
 			process.exit(1);
 		}
-		const { changes, refused } = rebaseline(ledger.routes, measured, { raise: args.includes('--raise'), ceiling: args.includes('--ceiling'), metrics });
+		// `--route <name>[,<name>]` resets those routes only, so an OK for one route's ceiling moves
+		// that route and no other route that happens to sit above its soft target.
+		const r = args.indexOf('--route');
+		const routes = r === -1 ? null : String(args[r + 1] || '').split(',').filter(Boolean);
+		if (routes && (!routes.length || !routes.every((x) => Object.hasOwn(ledger.routes, x)))) {
+			process.stderr.write(`route-budget:rebaseline: --route must name routes in route-budget.json: ${Object.keys(ledger.routes).join(', ')}.\n`);
+			process.exit(1);
+		}
+		const { changes, refused } = rebaseline(onlyRoutes(ledger.routes, routes), measured, { raise: args.includes('--raise'), ceiling: args.includes('--ceiling'), metrics });
 		for (const c of refused) process.stdout.write(`  NOT changed: ${c.route} ${c.metric} ${c.from} -> ${c.to}: ${c.why}.\n`);
 		if (!changes.length) {
 			const waiting = pendingFragments().length;

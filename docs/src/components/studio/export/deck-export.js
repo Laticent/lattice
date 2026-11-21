@@ -299,6 +299,12 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const { recordsToComments } = await import('../../../../../lib/core/meta-door.mjs');
 	const recordReport = [];
 	source = recordsToComments(source, recordReport);
+	// The four notes as Marp reads them (engineering/decisions/2026-11-20-four-notes.md): `@note` becomes Marp's plain
+	// speaker note, `@handout` a note labeled `Handout:`, and `@say`, `@alt` and every plain comment are dropped, because
+	// Marp shows any comment as a speaker note and has no channel for the voice or the alt text. The kernel the CLI's
+	// bundle runs (lib/authoring/notes-core.js `notesToMarp`).
+	const { notesCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
+	source = notesCore.notesToMarp(source);
 	// The image plugin's records next, in Marp's spelling, so their pictures are staged below and a panel record is lifted
 	// (lib/export/marp-bundle.js `withImageRecordsAsMarp`). A cached bundle from before the image plugin has none to rewrite.
 	if (typeof marp.withImageRecordsAsMarp === 'function') source = marp.withImageRecordsAsMarp(source, pluginsOff);
@@ -852,7 +858,7 @@ export function emptySlidesOf(html, only, slideCount, splitSections) {
 }
 
 /**
- * The per-slide comment channel (note / `describe:` / `say:`) for a deck, lifted from
+ * The per-slide four notes (`@note`, `@alt`, `@say`, `@handout`) for a deck, lifted from
  * the ENGINE render.
  *
  * Every capture-frame consumer needs this and none of them can read it out of the frame:
@@ -862,7 +868,7 @@ export function emptySlidesOf(html, only, slideCount, splitSections) {
  * the loss passes a parity check unnoticed.
  *
  * @param {string} html the engine's rendered deck HTML
- * @returns {Promise<{note: string|null, description: string|null, say: string|null, reader: string|null}[]>}
+ * @returns {Promise<{note: string|null, description: string|null, say: string|null, handout: string|null}[]>}
  */
 async function slideChannelRecord(html) {
 	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
@@ -1540,8 +1546,11 @@ function shootSection(section, pixelRatio, fontEmbedCSS, log, face, { hostFamili
 		// The camera reads every `url()` in the page's CSS, and `studioDataUri` refuses a web address. One the deck has not
 		// allowed is refused on purpose (the frame's policy refuses it too, and the sweep draws the hatch for a background),
 		// so it is no missing picture: a theme with a web background used to make every export say a picture was lost.
-		onImageError: (url) => {
-			if (log && !refusedWebAddress(section.ownerDocument, url)) log.count += 1;
+		onImageError: (url, err) => {
+			if (!log || refusedWebAddress(section.ownerDocument, url)) return;
+			log.count += 1;
+			// The toast cannot name this one (`createImageFailureLog`), so the console does: which address, and why.
+			console.warn(`[deck-export] the capture could not read ${logName(url)}: ${err?.message ?? err ?? 'no reader for it'}`);
 		},
 		// WebKit decodes a picture nested in the slide's SVG only after the first draw; this waits for them (settled-canvas.js).
 		settle: (svg, drawSlide) => settleSlideDraw(svg, drawSlide, log),
@@ -1670,10 +1679,16 @@ export async function recordUnreachableAssets(sections, log) {
 	const results = await Promise.all([...urls].map((url) => probeImage(win, url, BACKGROUND_PROBE_MS)));
 	[...urls].forEach((url, i) => {
 		if (results[i]) return;
+		console.warn(`[deck-export] the background probe could not load ${logName(url)}`);
 		log.paths.add(url);
 		// The hook never fires for a background, so this IS the trigger as well as the name.
 		log.count += 1;
 	});
+}
+
+/** An address short enough for one console line: a `data:` or long URL is cut, since its bytes say nothing. */
+function logName(url) {
+	return url.length > MISSING_IMAGE_NAME_CHARS ? `${url.slice(0, MISSING_IMAGE_NAME_CHARS)}…` : url;
 }
 
 /** How many names a degradation sentence carries before it stops listing them. */
@@ -2555,7 +2570,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	const images = opts?.images || null;
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const log = createImageFailureLog();
-	// Lift the `describe:` channel from the ENGINE render, before the capture frame
+	// Lift the `@alt` note from the ENGINE render, before the capture frame
 	// sanitizes it away — see the altText note in the slide loop below.
 	let describeRecord = await slideChannelRecord(render.html);
 	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
@@ -2601,11 +2616,11 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 		const image = new Uint8Array(await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images)).arrayBuffer());
-		// Alt text: the slide's own `describe:` description, else a neutral "Slide N".
+		// Alt text: the slide's own `@alt` note, else a neutral "Slide N".
 		//
 		// Read from the RECORD, not from the rasterized section. `sections` comes out of
 		// the capture frame, and that frame sanitizes — `sanitizeSlideHtml` deletes comment
-		// nodes, which is where `describe:` lives. So every PowerPoint export handed screen
+		// nodes, which is where `@alt` lives. So every PowerPoint export handed screen
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
@@ -2658,10 +2673,10 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	// "Strip speaker notes" (the CLI's --strip-notes): the notes pane stays empty. The
 	// descriptions are alt text, not private, so they still ride (#1833).
 	if (opts?.stripNotes) for (const r of record) if (r) r.note = null;
-	// The notes field PowerPoint and Impress carry: the speaker note, then the reader note labeled `Reader:` (D8,
-	// lib/authoring/notes-core.js `withReaderNotes`, the CLI's same join). The reader note survives the strip above.
+	// The notes field PowerPoint and Impress carry: the speaker note, then the handout note labeled `Handout:`
+	// (lib/authoring/notes-core.js `withHandoutNotes`, the CLI's same join). The handout survives the strip above.
 	const { notesCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
-	const officeNotes = (r) => (r ? notesCore.withReaderNotes([r.note], [r.reader ?? null])[0] : null);
+	const officeNotes = (r) => (r ? notesCore.withHandoutNotes([r.note], [r.handout ?? null])[0] : null);
 	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
 		// Every step page carries its slide's notes and description, as the CLI's `--steps` does.
@@ -2680,6 +2695,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		const calco = await import('@/lib/calco');
 		let slides = [];
 		let backgrounds;
+		let theme;
 		const unreadable = [];
 		const unembeddedFonts = [];
 		const progress = async (i) => {
@@ -2735,9 +2751,10 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					}
 				},
 			};
-			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
+			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), palette: officePolicyCore.OFFICE_PALETTE, onWarn: (m) => console.warn(`[deck-export] ${m}`) });
 			slides = captured.slides.map((sl, i) => ({ ...sl, notes: officeNotes(record[i]), description: (record[i]?.description || '').trim() || null }));
 			backgrounds = captured.backgrounds;
+			theme = captured.theme;
 		} else {
 			for (let i = 0; i < sections.length; i++) {
 				await progress(i);
@@ -2762,7 +2779,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		}
 		const { eng, summary } = provenance(meta, sections.length);
 		const { w, h } = slideGeom(sections[0]);
-		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
+		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), ...(theme ? { theme } : {}), title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
 		if (editable) {
 			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
 			const { calcoFontHost } = await import('./calco-font-host.js');

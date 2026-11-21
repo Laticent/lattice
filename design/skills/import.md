@@ -75,10 +75,11 @@ slide at the first `#` and at every `##`, and at every `---`. So a pasted
 document already splits into slides — one per section — but each one is a
 plain slide with a label heading. That is the starting point, not the result.
 
-**Marp decks are nearly native.** Lattice keeps Marp's slide model —
-`marp: true`, `---` separators, `<!-- _class: … -->` — so a Marp deck renders.
+**Marp decks import cleanly.** A Marp deck already uses `---` separators and
+`<!-- _class: … -->` comments, which mean the same thing in Lattice, so it renders.
 What does not carry over is Marp's themes, its per-slide directive comments
-and its background-image size syntax. `lint:deck` names each one.
+and its background-image size syntax, and the `marp: true` key, which Lattice
+does not read. `lint:deck` names each one.
 
 ---
 
@@ -117,7 +118,6 @@ and its background-image size syntax. `lint:deck` names each one.
 3. **Add the front matter** if the source has none, or replace a Marp one:
    ```yaml
    ---
-   marp: true
    size: 4k
    theme: indaco
    paginate: true
@@ -141,7 +141,8 @@ and its background-image size syntax. `lint:deck` names each one.
    count the items, pick the component from `dist/docs/components.pick.md`,
    read its `lib/components/<bucket>/<name>/<name>.docs.md` (HARD RULE #6), and
    pour the source's words into its skeleton. Long paragraphs become a short
-   body plus a speaker note (`<!-- … -->` after the content).
+   body plus a speaker note (`<!-- @note{…} -->` after the content). A Marp
+   deck's plain-comment notes become `@note` with `lattice migrate notes deck.md`.
 
 6. **Add the bookends** — a `title silent` slide and a one-sentence `closing
    silent` slide — if the source had none.
@@ -176,7 +177,6 @@ title subtitle:
 
 ```markdown
 ---
-marp: true
 size: 4k
 theme: indaco
 paginate: true

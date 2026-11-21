@@ -64,3 +64,10 @@ Then: **which attacks you ran and they held**. That section is the useful half
 of a clean report — it tells the reader what is actually covered rather than
 implying everything is. If you found nothing, say what you tried and where you
 would look next with more time. Never conclude "no issues found" without it.
+
+## Finding your way
+
+To learn **which folder** holds something, grep `dist/engineering/codemap.md`
+first: one line per folder, code part, plugin and workspace library, with its
+purpose and layer. It stops at folders, so grep inside the folder it names. If
+the file is missing, `npm run codemap:build` writes it.

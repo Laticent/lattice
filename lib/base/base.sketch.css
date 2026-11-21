@@ -204,7 +204,7 @@ section.sketch.split-compare .option :is(ul, ol) > li::marker {
   color: var(--accent);
 }
 section.sketch.content ul > li::marker,
-section.sketch.split-compare .option ul > li::marker {
+section.sketch.split-compare .option :is(ul, ol) > li::marker {
   content: "\2013\00a0";
 }
 
@@ -840,21 +840,21 @@ section.sketch.agenda:not(.circles):not(.checks).progress-6 > .cell-stage > ol >
  * mark from a rule — it is dotted on purpose, it reads fine in the hand, and
  * roughening it into a solid stroke would erase the distinction the ledger
  * style is built on. */
-section.sketch.agenda:not(.circles):not(.checks).progress-1 ol > li:nth-child(1),
-section.sketch.agenda:not(.circles):not(.checks).progress-2 ol > li:nth-child(2),
-section.sketch.agenda:not(.circles):not(.checks).progress-3 ol > li:nth-child(3),
-section.sketch.agenda:not(.circles):not(.checks).progress-4 ol > li:nth-child(4),
-section.sketch.agenda:not(.circles):not(.checks).progress-5 ol > li:nth-child(5),
-section.sketch.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6) {
+section.sketch.agenda:not(.circles):not(.checks).progress-1 ol:where(.cell-stage > *) > li:nth-child(1),
+section.sketch.agenda:not(.circles):not(.checks).progress-2 ol:where(.cell-stage > *) > li:nth-child(2),
+section.sketch.agenda:not(.circles):not(.checks).progress-3 ol:where(.cell-stage > *) > li:nth-child(3),
+section.sketch.agenda:not(.circles):not(.checks).progress-4 ol:where(.cell-stage > *) > li:nth-child(4),
+section.sketch.agenda:not(.circles):not(.checks).progress-5 ol:where(.cell-stage > *) > li:nth-child(5),
+section.sketch.agenda:not(.circles):not(.checks).progress-6 ol:where(.cell-stage > *) > li:nth-child(6) {
   --rough-ink-stroke: var(--accent);
   --rough-ink-width: 3;
 }
-section.sketch.agenda:not(.circles):not(.checks).progress-1:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(1)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-2:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(2)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-3:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(3)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-4:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(4)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-5:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.checks).progress-6:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(6)::after {
+section.sketch.agenda:not(.circles):not(.checks).progress-1:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(1)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-2:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(2)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-3:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(3)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-4:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(4)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-5:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(5)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-6:has(> svg[data-lattice-rough-ink]) ol:where(.cell-stage > *) > li:nth-child(6)::after {
   display: none;
 }
 

@@ -1,7 +1,7 @@
 // Unit tests for the pure halves of scripts/md-twins.mjs. No build, no dist.
 
 import { describe, expect, it } from 'vitest';
-import { componentDoc, pageToMarkdown, rebaseLinks, twinProblems, withTwinLink } from './md-twins.mjs';
+import { componentDoc, pageToMarkdown, pointLinksAtTwins, rebaseLinks, twinProblems, withTwinLink } from './md-twins.mjs';
 
 const article = (main, head = '') =>
 	`<!doctype html><html><head><meta property="og:type" content="article">${head}</head><body><nav>Site nav</nav><main>${main}</main></body></html>`;
@@ -85,6 +85,19 @@ describe('rebaseLinks', () => {
 		expect(rebaseLinks('[`title`](../../anchor/title/title.docs.md)', SRC)).toBe('[`title`](/components/anchor/title.md)');
 		expect(rebaseLinks('write `- ![Alt](path.jpg)` here', SRC)).toBe('write `- ![Alt](path.jpg)` here');
 		expect(rebaseLinks('```md\n[f](./keep.md)\n```\n', SRC)).toBe('```md\n[f](./keep.md)\n```\n');
+	});
+});
+
+describe('pointLinksAtTwins', () => {
+	const twins = new Set(['/guides/cli/', '/spec/lfm/', '/components/']);
+
+	it('points a link at a page with a copy to the copy, keeping the anchor', () => {
+		expect(pointLinksAtTwins('[cli](/guides/cli/) and [b](/guides/cli/#flags)', twins)).toBe('[cli](/guides/cli.md) and [b](/guides/cli.md#flags)');
+	});
+
+	it('leaves a page with no copy, an image, code, and the whole component reference alone', () => {
+		const md = '[p](/playground/) ![i](/spec/lfm/) `[c](/guides/cli/)` [r](/components/)\n```\n[c](/guides/cli/)\n```\n';
+		expect(pointLinksAtTwins(md, twins)).toBe(md);
 	});
 });
 
