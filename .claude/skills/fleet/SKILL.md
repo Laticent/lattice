@@ -34,12 +34,17 @@ The contract is `engineering/workflow.md` §🛰️ Fleet board. Read that secti
 (`grep -n '🛰️ Fleet board' engineering/workflow.md`, then `sed` the range), not this
 summary.
 
-1. **Gather, cheapest first.** `list_sessions` (`mine: true`, `limit: 100`), then
-   `list_pull_requests` (`state: open`, `fields: [number, title, draft, head, updated_at]`).
-   Skip archived sessions and sessions done before the last board, unless they belong
-   in HINDSIGHT.
+1. **Gather, cheapest first.** `list_sessions` (`mine: true`, `limit: 40`: newest
+   first, and older sessions are archived or already on the last board), then
+   `list_pull_requests` (`state: open`, `sort: updated`, `direction: desc`,
+   `perPage: 30`, `fields: [number, updated_at]`). Skip archived sessions and sessions
+   done before the last board, unless they belong in HINDSIGHT. If the last board's
+   YAML is still in the scratchpad, start from it and change only the rows that moved.
 2. **Join** each session to its PR by head branch, or by a PR comment that names the
-   session ID. Read the newest comments (`pull_request_read` `get_comments`) only for
+   session ID. The last board already joins its rows; fetch `head` (one
+   `list_pull_requests` call with `fields: [number, title, head]`) only when a PR or
+   session is new since then, because every `head` repeats the repository's
+   description, about 400 characters per PR. Read the newest comments (`pull_request_read` `get_comments`) only for
    PRs whose session is review-ready or blocked: they hold the 🚦 level and the CI run link.
    Group sessions tagged `desk:<lane>` under their desk as one line of work.
 3. **Grade** each line of work with the five levels. Nest child sessions under their
