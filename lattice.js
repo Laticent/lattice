@@ -4536,7 +4536,8 @@ async function renderBody(browser, g, closeBrowser) {
   // THE FIT VERDICT, machine-readable, for the one reader that has to agree with the lines above exactly:
   // tools/fit-grace.js, which re-renders a clipped slide under `claim-quiet` and `claim-hero` and suggests the smallest
   // claim that fits (engineering/decisions/2026-11-20-coda-and-marp-parity.md §9). It reads THIS verdict rather than
-  // probing again, so a suggestion can never disagree with the warning it answers. A cut that is entirely inside the
+  // probing again; where the engine split a slide, it re-checks each candidate at the deck's own `fit:` level so it
+  // answers only a warning the export gave (fit-grace.js `plan`). A cut that is entirely inside the
   // running footer is listed apart: a claim that drops the footer would "fix" it without fitting anything.
   if (process.env.LATTICE_FIT_REPORT) {
     fs.writeFileSync(process.env.LATTICE_FIT_REPORT, JSON.stringify({
@@ -4549,11 +4550,14 @@ async function renderBody(browser, g, closeBrowser) {
   // GRACE: for the slides above that clip, the smallest `claim` that makes them fit, checked by rendering them again
   // (lib/cli/fit-grace.js). Only when a slide's BODY clips (a footer-only cut is not a claim's to fix), only for a
   // Markdown deck on disk, and never inside the check's own renders (`LATTICE_FIT_GRACE=off` turns it off).
-  if ((overflowing.length || contentOnly.some((o) => !o.chromeOnly)) && process.env.LATTICE_FIT_GRACE !== 'off'
+  if ((overflowing.length || contentOnly.some((o) => !o.chromeOnly)) && process.env.LATTICE_FIT_GRACE !== 'off' && !flags['no-grace']
     && !process.env.LATTICE_FIT_REPORT && mdFile && mdFile !== '-' && !LATTICE_INPUT) {
     try {
       const grace = require('./lib/cli/fit-grace.js');
-      for (const line of grace.describe(grace.plan(fs.readFileSync(mdFile, 'utf8'), { palette: paletteArg || null }))) console.warn(line);
+      // Rendered next to the deck so its local images and stylesheets resolve as they did here, with the same sheet.
+      const graceArgs = cssIsDefault ? [] : ['--css', path.resolve(cssFile)];
+      const p = grace.plan(fs.readFileSync(mdFile, 'utf8'), { palette: paletteArg || null, dir: path.dirname(path.resolve(mdFile)), args: graceArgs });
+      for (const line of grace.describe(p)) console.warn(line);
     } catch (e) {
       console.warn(`  ↳ grace: not checked (${e.message.split('\n')[0]}).`);
     }

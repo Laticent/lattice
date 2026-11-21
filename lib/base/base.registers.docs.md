@@ -160,7 +160,7 @@ When three or more slides clip and one deck-wide `claim: quiet` (or `claim: hero
 them all, that comes first, with the slide-by-slide list beside it. A slide whose only cut
 is the running footer is left out, because dropping the footer is not a fix. Run it on its
 own with `npm run fit:grace -- deck.md` or `npm run lint:deck -- deck.md --fit`;
-`LATTICE_FIT_GRACE=off` silences it in the export
+`--no-grace` (or `LATTICE_FIT_GRACE=off`) skips it in the export, which saves its re-render
 (`engineering/decisions/2026-11-20-coda-and-marp-parity.md` §9).
 
 `lint:deck` follows the claim too. A list or card layout measured to hold more under a

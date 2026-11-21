@@ -53,3 +53,25 @@ describe('fit-grace: what the author reads', () => {
     assert.deepEqual(g.describe({ clipped: [], footerOnly: [], perSlide: [], deck: null }), []);
   });
 });
+
+// Review of #3362, finding 3: a slide that takes its layout from a running `class:` (Marp's bare global form) must keep
+// it when a claim is added, and a trial slide rendered on its own must keep the directives it inherits.
+describe('fit-grace: a slide that inherits its class and chrome', () => {
+  const slides = ['<!-- class: gantt -->\n<!-- footer: "Board" -->\n\n## A', '## B', '<!-- _class: list -->\n\n## C'];
+  const inh = g.inheritedDirectives(slides);
+  test('the running directives run on to the following slides', () => {
+    assert.deepEqual(inh[1], { class: 'gantt', footer: '"Board"' });
+  });
+  test('a claim on a slide with no `_class:` repeats the running class, so the layout survives', () => {
+    assert.equal(g.withClaim('## B', 'claim-hero', inh[1].class), '<!-- _class: gantt claim-hero -->\n\n## B');
+  });
+  test('a slide alone carries its inherited chrome as spot directives', () => {
+    assert.equal(g.standalone(slides[1], inh[1]), '<!-- _footer: "Board" -->\n\n## B');
+    // its own directive wins
+    assert.equal(g.standalone('<!-- _footer: x -->\n\n## C', inh[2]), '<!-- _footer: x -->\n\n## C');
+  });
+  test('the author is told the spot class to write, layout included', () => {
+    const lines = g.describe({ clipped: [2], footerOnly: [], deck: null, perSlide: [{ slide: 2, claim: 'claim-hero', had: null, write: '<!-- _class: gantt claim-hero -->' }] });
+    assert.match(lines[0], /fits with `<!-- _class: gantt claim-hero -->`/);
+  });
+});

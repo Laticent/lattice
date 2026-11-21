@@ -366,7 +366,15 @@ async function main(argv) {
   if (flags.has('--fit')) {
     const grace = require('../lib/cli/fit-grace.js');
     for (const file of files) {
-      const lines = grace.describe(grace.plan(fs.readFileSync(file, 'utf8')));
+      // A render that fails (no browser, a broken deck) is reported and skipped: the lint report below still prints and
+      // the exit code is still the lint's (review of #3362: an uncaught throw here lost both).
+      let lines;
+      try {
+        lines = grace.describe(grace.plan(fs.readFileSync(file, 'utf8'), { dir: path.dirname(path.resolve(file)) }));
+      } catch (e) {
+        process.stderr.write(`${file} · fit: not checked (${String(e.message).split('\n')[0]}).\n`);
+        continue;
+      }
       process.stderr.write(lines.length ? `${file} · fit\n${lines.join('\n')}\n\n` : `${file} · fit: nothing clips.\n`);
     }
   }

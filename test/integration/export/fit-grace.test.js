@@ -44,3 +44,47 @@ describe('fit-grace renders and checks', { skip: skipWithoutChrome(resolveChrome
     assert.deepEqual(plan(fixed).clipped, []);
   });
 });
+
+// A video with a key insight AND a caption: the caption sits under the card and the poster is capped to the room it
+// leaves (video.styles.css). Before that cap the poster ran 40px down over the caption on both of these compositions
+// (measured 2026-11-21). The QR and gallery compositions need a claim with both beats (fit-grace names it), so they
+// are not pinned here.
+const video = (cls) => `<!-- _class: ${cls} -->
+
+## The video card plays beside its context.
+
+Ninety seconds, unscripted: signup to a published deck without touching support.
+
+\`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind"}\`
+
+> Nobody opened a ticket to publish their first deck.
+
+Recorded in the October pilot, one take.`;
+
+describe('a video keeps both beats on the slide', { skip: skipWithoutChrome(resolveChrome()) }, () => {
+  test('video and video companion, with a key insight and a caption, clip nothing', () => {
+    assert.deepEqual(plan(`${FM}${video('video')}\n\n---\n\n${video('video companion')}\n`).clipped, []);
+  });
+});
+
+// Review of #3362. Finding 2: grace answers only what the export reports, so a slide the engine split cleanly at the
+// deck's own `fit:` is not named. Finding 3: a slide that takes its layout from a running `class:` keeps it in both
+// the trial render and the advice.
+const CARDS8 = `<!-- _class: cards-grid -->
+
+## Eight things we learned.
+
+${Array.from({ length: 8 }, (_, i) => `- Finding ${i + 1}\n  - A short body line that explains this finding in one sentence.`).join('\n')}`;
+
+describe('fit-grace answers the export, not a render the author never got', { skip: skipWithoutChrome(resolveChrome()) }, () => {
+  test('a slide the engine split cleanly at 9:16 is not named', () => {
+    const fm = '---\ntheme: indaco\nsize: 9:16\nheader: "Header"\nfooter: "Footer"\npaginate: true\n---\n\n';
+    assert.deepEqual(plan(`${fm}${CARDS8}\n`).clipped, []);
+  });
+  test('a gantt that takes its layout from a bare `class:` is tried as a gantt, and the advice keeps it', () => {
+    const p = plan(`${FM}${GANTT.replace('<!-- _class: gantt -->', '<!-- class: gantt -->')}\n`);
+    assert.deepEqual(p.clipped, [1]);
+    assert.equal(p.perSlide[0].claim, 'claim-hero');
+    assert.equal(p.perSlide[0].write, '<!-- _class: gantt claim-hero -->');
+  });
+});

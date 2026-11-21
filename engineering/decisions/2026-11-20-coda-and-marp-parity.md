@@ -316,6 +316,18 @@ the clipped slides under each claim. The export prints it under its overflow war
 carries a claim by that claim's measured budget (`capacity.withClaim`, calibrated with
 `tools/calibrate-capacity.js --variant claim-…`), and names the claim as a fix for a bare slide it would hold.
 
+**Review fixes (2026-11-21, maker-checker over the late commits).** Grace judges the export the author got: when the
+deck renders one page per slide its own verdict maps slide for slide; when the engine split a slide, each `fit: report`
+candidate is re-checked alone at the deck's own `fit:` level and dropped if it already heals (an 8-card `cards-grid` at
+9:16 was named though the export split it cleanly). A trial slide carries the running `class:`, `header:`, `footer:` and
+`paginate:` it inherits, and a slide without its own `_class:` is told to write the running class with the claim (a bare
+`<!-- class: gantt -->` slide was tried, and advised, as a plain `content` slide). Trial decks render next to the source,
+so its local images and `--css` resolve; `lint:deck --fit` reports a failed render and keeps the lint report; and
+`--no-grace` skips the re-render that doubles an overflowing export's time. In lint, the claim budget measured at 1280x720
+now wins over the bare wide-family tightening (inventory's wide hard 5 had erased its hero 7, so the named claim cleared
+nothing), the deck's claim is read by the engine's own `frontMatterName` (a trailing `# comment` hid it) and from a
+deck-wide `class: claim-*`.
+
 **Budgets as built.** Fourteen components measured more room under a claim than their bare budget, and thirteen now
 declare it: agenda, cards-grid, cards-stack, checklist, inventory, list-steps, policy-recommendation, pricing, q-and-a,
 roadmap, statute-stack, table and verdict-grid (`capacity.withClaim.<quiet|hero>.{soft,hard}`). `lint-core` takes the
