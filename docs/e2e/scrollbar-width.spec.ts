@@ -44,6 +44,8 @@ async function measure(page: Page): Promise<Widths> {
 
 async function record(browser: string, m: Widths) {
 	const rec = { browser, platform: process.platform, ...m };
+	// In the log too: the platform suite's artifact is the record, the log is what a reader can open without it.
+	console.log(`scrollbar-width ${browser} ${process.platform}: pane ${m.pane}px (${m.paneComputed}), control ${m.control}px (${m.controlComputed})`);
 	await test.info().attach(`scrollbar-width-${browser}.json`, { body: JSON.stringify(rec, null, 2), contentType: 'application/json' });
 	const dir = path.resolve(process.cwd(), '..', 'platform-suite-artifacts');
 	fs.mkdirSync(dir, { recursive: true });
@@ -55,6 +57,9 @@ function expectThinner(m: Widths) {
 	expect(m.paneComputed).toBe('thin');
 	// An engine that draws classic bars (control > 0) must draw the pane's thinner. One that still draws overlay bars
 	// (control 0) proves only the computed value; the artifact records which happened.
+	// Windows draws classic bars here (overlay prefs off, `--hide-scrollbars` dropped), so a 0px control there means
+	// the measure broke, not that the OS chose overlays: fail rather than pass on the computed value alone.
+	if (process.platform === 'win32') expect(m.control, 'Windows must draw a classic control bar').toBeGreaterThan(0);
 	if (m.control > 0) {
 		expect(m.pane).toBeGreaterThan(0);
 		expect(m.pane).toBeLessThan(m.control);
