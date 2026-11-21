@@ -2226,6 +2226,9 @@ the agent's.** Below `VERY HIGH`, before any merge ask:
    integration tier, and a `workflow_dispatch` of the matching macOS / Windows / iOS
    Simulator platform suites. Run every `local` row and dispatch every `dispatch` row.
    "Not installed" is not a stop (#23).
+   When a platform suite needs more than one round, use the **warm harness** rather
+   than re-dispatching: it builds once and takes `/harness` commands from the PR
+   (`engineering/development.md` §Platform suites).
 2. **Get the grade** from the checker (below).
 3. **If it is below `VERY HIGH`, do the `raise it` line**: drive the surface, add the
    test, fix the gap. Then grade again.
