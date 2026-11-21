@@ -408,23 +408,47 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, reload } });
 		try {
 			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
-			const { container, getByText, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader aria-label="p" />);
+			const { container, getByText, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader reloadSafe aria-label="p" />);
 			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
 			fireEvent.click(getByText('Retry'));
 			await waitFor(() => expect(getByText('Reload')).toBeTruthy());
 			expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('the slide engine still did not load; reload, or open the page in a new tab');
 			// An edit schedules another render, which fails too: the card stays Reload (it is sticky until the engine loads).
 			const calls = whenReady.mock.calls.length;
-			rerender(<DeckPreview options={opts} sample="# B" drawn={false} loader aria-label="p" />);
+			rerender(<DeckPreview options={opts} sample="# B" drawn={false} loader reloadSafe aria-label="p" />);
 			await waitFor(() => expect(whenReady.mock.calls.length).toBeGreaterThan(calls));
 			await waitFor(() => expect(getByText('Reload')).toBeTruthy());
 			fireEvent.click(getByText('Reload'));
 			expect(reload).toHaveBeenCalledTimes(1);
 			// The engine arriving (an edit's render succeeding) clears it all.
 			whenReady.mockImplementation(() => Promise.resolve());
-			rerender(<DeckPreview options={opts} sample="# C" drawn={false} loader aria-label="p" />);
+			rerender(<DeckPreview options={opts} sample="# C" drawn={false} loader reloadSafe aria-label="p" />);
 			await waitFor(() => expect(renderInto).toHaveBeenCalled());
 			await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
+		} finally {
+			Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+			warn.mockRestore();
+		}
+	});
+
+	it('a host that is NOT reload-safe never offers Reload: it keeps Retry and says to save first', async () => {
+		// The theme editor and the component lab hold unsaved work in React state alone, so a reload there would lose it
+		// (the checker on PR #3385). Only the Studio's deck preview, saved on pagehide, sets `reloadSafe`.
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const reload = vi.fn();
+		const realLocation = window.location;
+		Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, reload } });
+		try {
+			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
+			const { container, getByText, queryByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} aria-label="p" />);
+			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
+			fireEvent.click(getByText('Retry'));
+			await waitFor(() => expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('save your work, then reload the page or open it in a new tab'));
+			expect(queryByText('Reload')).toBeNull();
+			const calls = whenReady.mock.calls.length;
+			fireEvent.click(getByText('Retry'));
+			await waitFor(() => expect(whenReady.mock.calls.length).toBeGreaterThan(calls));
+			expect(reload).not.toHaveBeenCalled();
 		} finally {
 			Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
 			warn.mockRestore();

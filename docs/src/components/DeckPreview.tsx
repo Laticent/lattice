@@ -206,6 +206,13 @@ export type DeckPreviewProps = {
 	 */
 	loader?: boolean;
 	/**
+	 * A reload keeps everything this host shows: the Studio's deck preview, whose source the Studio writes on `pagehide`
+	 * (studio-filo-persist.ts). Only then does an engine that failed again after Retry offer a Reload button. Every other
+	 * host (the theme editor, the component lab) can hold unsaved work in React state alone, so there the card keeps
+	 * Retry and says to save first (the checker on PR #3385).
+	 */
+	reloadSafe?: boolean;
+	/**
 	 * A build-time first write to show before the engine has loaded (the Studio newcomer bake,
 	 * studio/newcomer-bake.ts). Written once, when it resolves, if the renderer has not written yet
 	 * and the bake still matches this host's render (single-slide-render.ts `adoptBake`).
@@ -272,6 +279,7 @@ export function DeckPreview({
 	onOverflow,
 	onSparkFit,
 	loader = false,
+	reloadSafe = false,
 	bake = null,
 	chartDetail = false,
 	specimen = false,
@@ -340,8 +348,8 @@ export function DeckPreview({
 	// The engine failed again after the author pressed Retry. An in-page retry imports the entry under a fresh URL, but
 	// the entry's own sub-files keep theirs. Chromium and Gecko replay a failed sub-file until the page reloads, so
 	// Reload recovers there. WebKit (measured on Playwright's build) keeps the failure across a reload and a navigation too, and only a
-	// new tab recovers, so the text names both (PR #3385). Sticky until the engine loads. The Studio writes the deck on
-	// `pagehide` (studio-filo-persist.ts), so a reload or a new tab keeps the author's edits.
+	// new tab recovers, so the text names both (PR #3385). Sticky until the engine loads. The button reloads only on a
+	// `reloadSafe` host, whose work a reload keeps.
 	const [reloadNeeded, setReloadNeeded] = React.useState(false);
 	const retriedRef = React.useRef(false);
 	// One renderer instance for this host (holds the theme + font caches).
@@ -1135,9 +1143,13 @@ export function DeckPreview({
 				<div className={cn('nacre-failed', failedOverSlide && 'nacre-failed--bar')}>
 					<span className="nacre-failed__text" role="status">
 						{reloadNeeded
-							? failedOverSlide
-								? 'The slide engine still did not load. Reload, or open the page in a new tab.'
-								: 'This preview couldn’t render — the slide engine still did not load; reload, or open the page in a new tab.'
+							? reloadSafe
+								? failedOverSlide
+									? 'The slide engine still did not load. Reload, or open the page in a new tab.'
+									: 'This preview couldn’t render — the slide engine still did not load; reload, or open the page in a new tab.'
+								: failedOverSlide
+									? 'The slide engine still did not load. Save your work, then reload or open a new tab.'
+									: 'This preview couldn’t render — the slide engine still did not load; save your work, then reload the page or open it in a new tab.'
 							: failedOverSlide
 								? // The slide on screen is correct; what fails is everything after it. Short, so the bar stays one row.
 									'The slide engine did not load, so edits will not show here.'
@@ -1145,8 +1157,8 @@ export function DeckPreview({
 									? `This preview couldn’t render — ${failedWhy}.`
 									: 'This preview couldn’t render.'}
 					</span>
-					<button type="button" className="nacre-failed__retry" onClick={reloadNeeded ? reload : retry}>
-						{reloadNeeded ? 'Reload' : 'Retry'}
+					<button type="button" className="nacre-failed__retry" onClick={reloadNeeded && reloadSafe ? reload : retry}>
+						{reloadNeeded && reloadSafe ? 'Reload' : 'Retry'}
 					</button>
 				</div>
 			)}
