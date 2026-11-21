@@ -7146,6 +7146,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'and a BOM would hide the front matter, so the harness would score the wrong box.',
   },
   {
+    file: 'tools/preset-gate.js',
+    why: 'readText — writes a preset recipe into the corpus deck\'s front matter before every '
+       + 'render of the deck-preset judging gate. A BOM or CRLF in a recipe or the corpus would '
+       + 'hide the front matter, so every row would render the default look and the gate would '
+       + 'pass or fail a preset nobody chose.',
+  },
+  {
     file: 'tools/lint-deck.js',
     why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',

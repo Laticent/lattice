@@ -231,7 +231,9 @@ corrections are listed at the end.
   long-heading stress slides), in own, flip and house, **and in the exported PDF**. Machine gates
   run first: contrast, `tools/pixel-check.js`, `npm run check:jank` and overflow. Then two fresh
   judges, who have not seen earlier rounds, score the **worst slide**, with Classic and today's
-  Editorial in the same batch as calibration anchors. The floor is 8.5 (D5).
+  Editorial in the same batch as calibration anchors. The floor is 8.5 (D5). The corpus is
+  `test/fixtures/preset-corpus.md`, the machine half is `node tools/preset-gate.js`, and the
+  judges follow "The judge protocol" below.
 - **The simplicity budget (D10).** No step adds a Basic-tier control or a picker tile beyond the
   five-in-view limit.
 
@@ -287,6 +289,59 @@ construction; rebase on that real conflict (HARD RULE #16).
 
 Each wave's PR adds its presets to `PRESETS` (whose "four, on purpose" comment is rewritten for
 the grouped picker), passes the overflow guard and the judging gate, and launches together.
+
+### The judge protocol
+
+Every wave PR runs this and records the result in its body. It is the procedure behind V5 and
+the judging-gate rule above.
+
+**1. Machine gates first.** Gate the wave's presets and the two calibration anchors in one run,
+with the previous wave's run as the pixel baseline:
+
+```
+node tools/preset-gate.js --recipe <wave>/earnings.yml … --preset classic,editorial \
+  --against .scratch/preset-gate/<previous run>
+```
+
+The tool renders the corpus deck in own, flip and house, as PNG and as the exported PDF, and runs
+overflow (all three of the CLI's lost-content lines), text contrast (4.5:1), chart-mark fill
+contrast (3:1, sampled from pixels), `check-jank` on the bookends and a card grid with the
+running header or footer as the anchor, and `pixel-check` against the baseline. A preset that fails any of
+them is fixed and re-run; it never reaches a judge. The anchors must pass and must not move,
+unless the wave says why they did. The tool's header describes each gate.
+
+**2. Two fresh judges.** One `checker` and one `red-team` agent, spawned for this wave only, who
+have not seen an earlier round, the study's scores or each other's work. Each gets the contact
+sheets (`sheet-<row>-png.png` and `sheet-<row>-pdf.png` per preset) and the full-resolution PNGs,
+and nothing else: not this note, not the maker's notes, not the floor. A judge who knows the
+floor is 8.5 grades toward it.
+
+**3. Calibration anchors in the same batch.** Classic and today's Editorial are judged in the
+same batch as the candidates, not labeled as anchors. Their scores calibrate the batch: if the
+judges score Classic far from its earlier 7 to 8, the batch reads high or low, and the
+candidates' scores are read against the anchors, not as absolutes.
+
+**4. The rubric (§1), scored on the worst slide.** Judge A's five axes (Boardroom, Craft,
+Readability, Robustness, Distinctness; a 10 needs no axis below 8; a fatal flaw caps the score
+at 6) and Judge B's attack (contrast, pattern noise, hierarchy, distinctness, fit to purpose).
+Each judge names the preset's worst slide in each row and in the PDF, and scores that slide,
+not the average: a preset is as good as the slide a board member stops on. Contrast is measured
+from full-resolution pixels, never estimated from a thumbnail.
+
+**5. The verdict.** A preset ships when both judges score its worst slide at 8.5 or above (D5).
+A split goes to the owner with both judges' worst slides attached. Judges score; they never fix.
+The maker's fixes go to a new pair of judges, since a judge who saw the fix is no longer fresh.
+
+**Cost.** Two agents per wave, counted toward the session's total (HARD RULE #25). The machine
+gates cost no agents. A run over the four shipped presets, three rows each, took 14.5 minutes on the
+cloud sandbox (866 s, 2026-11-21).
+
+**The baseline (2026-11-21, the four shipped presets, `--keep-going`).** Classic, Editorial and
+Minimal pass every machine gate in every row. Brand-forward fails text contrast in all three
+rows: the running header and footer on its dark bookends (title, divider, closing) and the
+split-panel lede measure 4.0 to 4.08:1, because its `strata` finish lifts the navy under them;
+on Classic the same chrome measures 4.58:1. The engine fix is not part of the gate, so Brand-forward
+goes to wave 2 as a known failure (it is raised there anyway, §3).
 
 ### What the trio corrected
 
