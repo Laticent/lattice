@@ -2680,6 +2680,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		const calco = await import('@/lib/calco');
 		let slides = [];
 		let backgrounds;
+		let theme;
 		const unreadable = [];
 		const unembeddedFonts = [];
 		const progress = async (i) => {
@@ -2735,9 +2736,10 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					}
 				},
 			};
-			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
+			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), palette: officePolicyCore.OFFICE_PALETTE, onWarn: (m) => console.warn(`[deck-export] ${m}`) });
 			slides = captured.slides.map((sl, i) => ({ ...sl, notes: officeNotes(record[i]), description: (record[i]?.description || '').trim() || null }));
 			backgrounds = captured.backgrounds;
+			theme = captured.theme;
 		} else {
 			for (let i = 0; i < sections.length; i++) {
 				await progress(i);
@@ -2762,7 +2764,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		}
 		const { eng, summary } = provenance(meta, sections.length);
 		const { w, h } = slideGeom(sections[0]);
-		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
+		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), ...(theme ? { theme } : {}), title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
 		if (editable) {
 			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
 			const { calcoFontHost } = await import('./calco-font-host.js');
