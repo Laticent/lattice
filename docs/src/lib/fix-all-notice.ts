@@ -6,7 +6,7 @@
 /** A fix "Fix all" did not apply, as lint-core's `fixAllDetailed` reports it (lib/authoring/squadra/bridge.js). */
 export type FixRefusal = { rule: string; slide: number; reason: string; detail?: string };
 /** What "Fix all" did: how many fixes it applied, and every one the fix driver refused. `stale`: the deck
- *  changed while the fixes ran (they run between keystrokes, lint-core `fixAllDetailedAsync`), so the
+ *  changed while the fixes ran (they run between keystrokes, lint-core `fixAllDetailed` with a pause), so the
  *  result was for a deck that no longer exists and nothing was written. */
 export type FixAllResult = { applied: number; skipped: FixRefusal[]; stale?: boolean };
 

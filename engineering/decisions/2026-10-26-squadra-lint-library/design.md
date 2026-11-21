@@ -1530,8 +1530,10 @@ Playwright's 15 s deadline. Each pass re-lints the whole deck (9.3 ms for one li
 narrow here: all 501 cards sit on one slide, and lint-core reads a slide whole (list nesting, marker stacks).
 So the driver's loop is now a generator, `fixSteps`, which yields at the start of each pass. `fix` drains it
 synchronously, and `fixAsync` awaits a macrotask (`nextTask`) before each pass, the first included, so the click's
-task ends before any lint runs. lint-core has `fixAllDetailedAsync` and the bridge has `fixDeckAsync`, and the Studio
-editor, Compose and the Playground's Alt-Shift-F await them. Each writes the result only onto the text it was
+task ends before any lint runs. lint-core's `fixAllDetailed` takes an optional `pause` and forwards it
+to the bridge's `fixDeck`, which then returns a Promise from `fixAsync` (the switch sits in the lazily loaded
+driver chunk, so lint-core's `lintCoreGz` budget pays one argument); the Studio editor, Compose and the
+Playground's Alt-Shift-F await it. Each writes the result only onto the text it was
 computed from, as one undo step; when the author typed meanwhile, or the editor was torn down (Compose or another
 deck unmounts it, and a destroyed view takes a dispatch silently), it writes nothing and says so (`STALE_NOTICE`). A
 second press while a run is going starts nothing (maker-checker findings, 2026-11-21). The

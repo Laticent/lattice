@@ -548,7 +548,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 }>(function Editor({ value, onFind, onView, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionLoading = false, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, latestValue, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
-	// A Fix all is running (it awaits its passes, lint-core `fixAllDetailedAsync`): a second press waits for it.
+	// A Fix all is running (it awaits its passes, lint-core `fixAllDetailed` with a pause): a second press waits for it.
 	const fixAllRunningRef = React.useRef(false);
 	const onFindRef = React.useRef(onFind);
 	onFindRef.current = onFind;
@@ -959,11 +959,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					await core.loadFixDriver();
 					// Read the document AFTER the await, so a keystroke typed while it loaded is kept.
 					const cur = docString(v.state.doc);
-					// The passes run one task each (lint-core `fixAllDetailedAsync`), so the click returns at once and
+					// The passes run one task each (lint-core `fixAllDetailed` with a pause), so the click returns at once and
 					// the page keeps painting: the synchronous call froze the Studio for 8.4 s on a deck that needs
 					// the driver's 500 passes (editor-lint.spec.ts). The author can type meanwhile, so the result is
 					// written only onto the text it was computed from, as one undo step; otherwise nothing is written.
-					const res = await core.fixAllDetailedAsync(cur, vocabSets);
+					const res = await core.fixAllDetailed(cur, vocabSets, true);
 					// Stale also when this view was torn down meanwhile (Compose or another deck unmounts it): a destroyed
 					// view keeps its old text and takes a dispatch silently, so the fixes would be announced and never written.
 					const stale = viewRef.current !== v || docString(v.state.doc) !== cur;

@@ -674,9 +674,9 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			const cur = view.state.doc.toString();
 			if (!readFrontMatter(cur).validate) return;
 			followAdmission(cur);
-			// One task per driver pass (lint-core `fixAllDetailedAsync`), so the page keeps painting; the author may
+			// One task per driver pass (lint-core `fixAllDetailed` with a pause), so the page keeps painting; the author may
 			// type meanwhile, so the result is written only onto the text it was computed from.
-			const res = await lintCoreMod.fixAllDetailedAsync(cur, buildVocabSets(vocab));
+			const res = await lintCoreMod.fixAllDetailed(cur, buildVocabSets(vocab), true);
 			// Stale also when the view was torn down meanwhile: a destroyed view keeps its old text and takes a dispatch silently.
 			const stale = !view.dom.isConnected || view.state.doc.toString() !== cur;
 			if (!stale && res.text !== cur) {

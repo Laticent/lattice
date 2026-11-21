@@ -153,7 +153,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko Fix all names a fix it ref
 	await setEditorContent(page, REFUSED_DECK);
 	// Frames the page paints, counted from here on. This deck needs the fix driver's 500 passes, which once ran inside
 	// the click and froze the page until the last (8.4 s measured in WebKit; past Playwright's 15 s click deadline under
-	// load). Now each pass is a task of its own (lint-core `fixAllDetailedAsync`), so the click returns and the page
+	// load). Now each pass is a task of its own (lint-core `fixAllDetailed` with a pause), so the click returns and the page
 	// keeps painting while Fix all works. Counted, not timed (HARD RULE #32): at least one frame per ten passes. Measured
 	// 2026-11-21: the run painted 128 to 525 frames (gecko the fewest, WebKit under 4 workers 479 to 503); with the passes
 	// put back inside the click it painted 3 to 8, the frames before the freeze while the fix driver's chunk loaded.
@@ -196,7 +196,7 @@ test('the Coach surfaces the inline-issue count', async ({ page }) => {
 	await expect(page.getByText(/\d+ inline issue/)).toBeVisible();
 });
 
-// Fix all's passes run between keystrokes (lint-core `fixAllDetailedAsync`), so the author can act while it works.
+// Fix all's passes run between keystrokes (lint-core `fixAllDetailed` with a pause), so the author can act while it works.
 // Two guards decide whether it writes (Editor.tsx `fixAll`): a result computed from a text that has since changed is
 // not written, and says so; and a second press while a run is going starts nothing. The 501-card deck makes the run
 // long enough (hundreds of frames, measured above) for the test to act inside it.

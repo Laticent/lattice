@@ -90,8 +90,8 @@ export async function fixAllText(read: () => string, sets: VocabSets): Promise<{
 	// The fix driver is a chunk of its own, fetched on the first press (lint-core `loadFixDriver`).
 	await c.loadFixDriver();
 	const before = read();
-	// One task per driver pass (lint-core `fixAllDetailedAsync`), so the page is not frozen while it runs.
-	const res = await c.fixAllDetailedAsync(before, sets);
+	// One task per driver pass (lint-core `fixAllDetailed` with a pause), so the page is not frozen while it runs.
+	const res = await c.fixAllDetailed(before, sets, true);
 	return { before, text: res.text, applied: res.applied.length, skipped: res.skipped };
 }
 
