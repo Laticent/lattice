@@ -588,7 +588,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `/harness watch on|off`, `/harness status`, `/harness stop`; add `--no-build` to skip a rebuild. Each push to the branch
   is synced before the next job (a change to the iOS probes, `followups.d/` or `changelog.d/` alone skips the rebuild;
   anything else rebuilds), and with watch on (the default) a push re-runs the last job by itself, once. Results come back
-  as PR comments. Only comments by the person who dispatched the run are executed. A suite's own inline variables (e.g.
+  as PR comments. Only comments by the person who dispatched the run are executed, and never one that was edited: post a fresh comment instead of fixing a typo in place. A suite's own inline variables (e.g.
   `DEVICES=iPhone` in its `run`) cannot be overridden; write the command out with `/harness sh`. It stops 90 minutes
   after it started (a running job is killed then), after 15 idle minutes, or on `/harness stop` once the current job ends;
   one harness runs at a time. Logs and `platform-suite-artifacts/` upload

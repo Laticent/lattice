@@ -42,7 +42,18 @@ const WRITE_PERMISSIONS = new Set(['admin', 'maintain', 'write']);
 const VERBS = new Set(['suite', 'sh', 'rerun', 'watch', 'status', 'stop']);
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
 /** Variables a job may not set: they would change what runs rather than how a suite behaves. */
-const RESERVED_ENV = new Set(['PATH', 'HOME', 'SHELL', 'NODE_OPTIONS', 'BASH_ENV', 'ENV', 'LD_PRELOAD', 'DYLD_INSERT_LIBRARIES', 'GH_TOKEN', 'GITHUB_TOKEN']);
+const RESERVED_ENV = new Set(['PATH', 'HOME', 'SHELL', 'ENV', 'IFS', 'CDPATH', 'GLOBIGNORE', 'SHELLOPTS', 'BASHOPTS', 'PS4',
+  'PROMPT_COMMAND', 'GH_TOKEN', 'TMPDIR']);
+/**
+ * Whole families a job may not set: each holds variables that load or run code (`SHELLOPTS=xtrace` with `PS4=$(…)` runs
+ * a command in bash, `GIT_CONFIG_*` sets `core.fsmonitor`, `NODE_OPTIONS` loads a module). A family, not a name list,
+ * because a name list misses the next one; the red-team review of this change found `SHELLOPTS`/`PS4` that way.
+ */
+const RESERVED_PREFIX = /^(?:(?:BASH|NODE|NPM|GIT|GITHUB|ACTIONS|RUNNER|LD|DYLD|SSH|CURL)(?:_|$)|PERL|RUBY|PYTHON|JAVA|CLASSPATH|HTTPS?_PROXY|ALL_PROXY|NO_PROXY)/;
+/** Whether a job may set this variable on `/harness suite`. */
+function reservedEnv(name) {
+  return RESERVED_ENV.has(name) || RESERVED_PREFIX.test(name) || /TOKEN|SECRET/.test(name);
+}
 const TAIL_LINES = 120;
 const COMMENT_LIMIT = 60000; // GitHub's ceiling is 65536 characters
 
@@ -69,7 +80,7 @@ function parseCommand(body) {
       const eq = pair.indexOf('=');
       const name = eq > 0 ? pair.slice(0, eq) : '';
       if (!ENV_NAME.test(name)) return { verb: 'invalid', noBuild, error: `\`${pair}\` is not KEY=value` };
-      if (RESERVED_ENV.has(name)) return { verb: 'invalid', noBuild, error: `\`${name}\` cannot be set by a job` };
+      if (reservedEnv(name)) return { verb: 'invalid', noBuild, error: `\`${name}\` cannot be set by a job` };
       env[name] = pair.slice(eq + 1);
     }
     return { verb, noBuild, suite, env };
@@ -88,15 +99,19 @@ function parseCommand(body) {
 }
 
 /**
- * Whether a comment may drive the runner: written by the person who dispatched the run, after the session started, and
- * never a reply this script wrote. Their write access is checked once at start (`canWrite`), not per comment from
+ * Whether a comment may drive the runner: written by the person who dispatched the run (matched by numeric user id,
+ * because a login freed by a rename can be claimed by anyone), after the session started, never edited, and never a
+ * reply this script wrote. An edited comment is refused because anyone who can edit comments (a writer, or any app or
+ * workflow token with `issues: write`) could rewrite the dispatcher's comment into a command before the poll reads it,
+ * and the poll does not read while a job runs. Their write access is checked once at start (`canWrite`), not per comment from
  * `author_association`: the job's own token reads a private org member as CONTRIBUTOR (run 44163967462 ignored the
  * dispatcher's command that way), so that field depends on who asks.
  */
-function authorized(comment, { actor, since }) {
-  if (!comment?.user) return false;
+function authorized(comment, { actorId, since }) {
+  if (!comment?.user || typeof actorId !== 'number') return false;
   if (typeof comment.body === 'string' && comment.body.includes(MARK)) return false;
-  if (comment.user.login !== actor) return false;
+  if (comment.user.id !== actorId) return false;
+  if (comment.updated_at && comment.updated_at !== comment.created_at) return false;
   return Date.parse(comment.created_at) >= since;
 }
 
@@ -148,7 +163,8 @@ function redact(text, token) {
 function tail(text, lines = TAIL_LINES, limit = COMMENT_LIMIT - 4000) {
   let out = text.split('\n').slice(-lines).join('\n');
   if (out.length > limit) out = out.slice(out.length - limit);
-  return out.replace(/```/g, '`​``');
+  // Break code fences (the log cannot close the reply's fence) and @-mentions (a log line cannot notify a person or team).
+  return out.replace(/```/g, '`\u200b``').replace(/@(?=[A-Za-z0-9])/g, '@\u200b');
 }
 
 function minutes(ms) {
@@ -242,6 +258,8 @@ async function main() {
   // Dispatching needs write access already; check it anyway, so the harness never runs for anyone who could not push.
   const perm = await api('GET', `/repos/${REPO}/collaborators/${encodeURIComponent(ACTOR)}/permission`);
   if (!canWrite(perm)) throw new Error(`${ACTOR} has ${perm?.permission ?? 'no'} permission on ${REPO}; the harness serves only a login that can push`);
+  const actorId = perm?.user?.id;
+  if (typeof actorId !== 'number') throw new Error(`could not resolve ${ACTOR}'s user id; refusing to serve`);
 
   const reply = async (text) => {
     try {
@@ -356,8 +374,8 @@ async function main() {
       if (c.updated_at > cursor) cursor = c.updated_at;
       const cmd = parseCommand(c.body);
       if (!cmd) continue;
-      if (!authorized(c, { actor: ACTOR, since: started })) {
-        console.log(`ignored comment ${c.id} by ${c.user?.login}: only ${ACTOR}'s comments after the start run`);
+      if (!authorized(c, { actorId, since: started })) {
+        console.log(`ignored comment ${c.id} by ${c.user?.login}: only ${ACTOR}'s unedited comments after the start run`);
         continue;
       }
       if (cmd.verb === 'invalid') { await reply(`**harness**: ${cmd.error}.`); continue; }
@@ -411,4 +429,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseCommand, authorized, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK };
+module.exports = { parseCommand, authorized, reservedEnv, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK };

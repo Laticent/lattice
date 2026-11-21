@@ -5,7 +5,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { parseCommand, authorized, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK } = require(path.join(__dirname, '..', '..', '..', 'tools', 'platform-harness.js'));
+const { parseCommand, authorized, reservedEnv, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK } = require(path.join(__dirname, '..', '..', '..', 'tools', 'platform-harness.js'));
 
 test('a comment that does not start with /harness is not a command', () => {
   assert.equal(parseCommand('looks good'), null);
@@ -25,11 +25,14 @@ test('suite takes a name and KEY=value pairs', () => {
 });
 
 test('a job cannot set the variables that change what runs, or a token', () => {
-  for (const name of ['PATH', 'NODE_OPTIONS', 'BASH_ENV', 'GH_TOKEN', 'DYLD_INSERT_LIBRARIES']) {
+  // SHELLOPTS=xtrace with PS4=$(…) ran a command in bash before this list was a family (red-team review, 2026-11-21).
+  for (const name of ['PATH', 'NODE_OPTIONS', 'BASH_ENV', 'GH_TOKEN', 'DYLD_INSERT_LIBRARIES', 'SHELLOPTS', 'PS4', 'BASHOPTS',
+    'GIT_CONFIG_COUNT', 'NPM_CONFIG_SCRIPT_SHELL', 'LD_LIBRARY_PATH', 'PERL5OPT', 'RUBYOPT', 'PYTHONPATH', 'GITHUB_ENV', 'MY_SECRET']) {
     const r = parseCommand(`/harness suite x ${name}=y`);
     assert.equal(r.verb, 'invalid', name);
     assert.match(r.error, /cannot be set/);
   }
+  for (const name of ['DEBUG', 'PROBE', 'DEVICES', 'SUITE_DEADLINE', 'GITLAB']) assert.equal(reservedEnv(name), false, name);
 });
 
 test('sh runs the first bash fence, CRLF or not', () => {
@@ -52,13 +55,18 @@ test('the small verbs', () => {
 
 test('only the dispatching login, after the session started, drives the runner', () => {
   const since = Date.parse('2026-11-17T18:00:00Z');
-  const c = (over) => ({ body: '/harness stop', user: { login: 'owner' }, author_association: 'CONTRIBUTOR', created_at: '2026-11-17T18:05:00Z', ...over });
+  const at = '2026-11-17T18:05:00Z';
+  const c = (over) => ({ body: '/harness stop', user: { login: 'owner', id: 7 }, author_association: 'CONTRIBUTOR', created_at: at, updated_at: at, ...over });
+  const who = { actorId: 7, since };
   // The job token reads a private org member as CONTRIBUTOR (run 44163967462): the association must not decide.
-  assert.equal(authorized(c({}), { actor: 'owner', since }), true);
-  assert.equal(authorized(c({ user: { login: 'someone' }, author_association: 'OWNER' }), { actor: 'owner', since }), false, 'another login');
-  assert.equal(authorized(c({ created_at: '2026-11-17T17:59:59Z' }), { actor: 'owner', since }), false, 'before the session');
-  assert.equal(authorized(c({ body: `${MARK}\n/harness stop` }), { actor: 'owner', since }), false, 'its own reply');
-  assert.equal(authorized(c({ user: null }), { actor: 'owner', since }), false);
+  assert.equal(authorized(c({}), who), true);
+  assert.equal(authorized(c({ user: { login: 'someone', id: 8 }, author_association: 'OWNER' }), who), false, 'another user');
+  assert.equal(authorized(c({ user: { login: 'owner', id: 9 } }), who), false, 'the login, claimed by someone else after a rename');
+  assert.equal(authorized(c({ updated_at: '2026-11-17T18:06:00Z' }), who), false, 'an edited comment');
+  assert.equal(authorized(c({ created_at: '2026-11-17T17:59:59Z', updated_at: '2026-11-17T17:59:59Z' }), who), false, 'before the session');
+  assert.equal(authorized(c({ body: `${MARK}\n/harness stop` }), who), false, 'its own reply');
+  assert.equal(authorized(c({ user: null }), who), false);
+  assert.equal(authorized(c({}), { since }), false, 'no resolved id serves nobody');
 });
 
 test('the dispatcher must be able to push', () => {
@@ -102,6 +110,7 @@ test('the tail fits a comment and cannot close its code fence', () => {
   assert.equal(t.split('\n').length, 120);
   assert.match(t, /line 499$/);
   assert.ok(!tail('a\n```\nb').includes('```'));
+  assert.ok(!/@[A-Za-z0-9]/.test(tail('ping @someone and @Laticent/team')), 'a log line cannot mention anyone');
   assert.ok(tail('x'.repeat(100000)).length <= 56000);
 });
 

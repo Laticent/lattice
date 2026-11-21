@@ -59,9 +59,13 @@ build once and submit jobs to" (2026-11-17), and chose this design and the PR th
 
 The repository is public, and the harness executes comment text as shell. What keeps that safe:
 
-1. **Who.** A comment runs only when its author is the login that dispatched the run (`github.triggering_actor`) and
-   it was posted after the harness started. At start the harness asks GitHub whether that login can push
-   (`GET /repos/{repo}/collaborators/{login}/permission`: admin, maintain or write) and refuses to serve otherwise.
+1. **Who.** A comment runs only when its author is the person who dispatched the run (`github.triggering_actor`), it
+   was posted after the harness started, and it was never edited. At start the harness asks GitHub whether that login
+   can push (`GET /repos/{repo}/collaborators/{login}/permission`: admin, maintain or write), refuses to serve otherwise,
+   and keeps the numeric user id from the answer. Each comment is matched by that id, not the login: a login freed by a
+   rename can be registered by anyone. An edited comment (`updated_at` differs from `created_at`) never runs, because
+   anyone who can edit comments (a writer, or any app or workflow token with `issues: write`) could otherwise rewrite one
+   of the dispatcher's comments into a command before the poll reads it, and the poll does not read while a job runs.
    Dispatching needs write access already, so the harness grants nobody a power they did not hold: they could push the
    same commands as a commit. It does not read `author_association` per comment: the job's own token reads a private
    org member as CONTRIBUTOR, which is how the first command on a real runner (run 44163967462) was ignored.
@@ -75,7 +79,8 @@ The repository is public, and the harness executes comment text as shell. What k
    variable, and `GITHUB_ENV`/`GITHUB_PATH`/`GITHUB_OUTPUT`/`GITHUB_STATE`, so a job does not plant `NODE_OPTIONS` in the
    later upload and cache steps that hold the runtime token by following the usual variables; and `redact` removes the token, raw and in its base64 forms,
    from every reply, because a comment posted through the API bypasses the Actions log's masking. A `/harness suite` also
-   refuses `PATH`, `NODE_OPTIONS`, `BASH_ENV` and similar, but that list is hygiene, not a boundary: `/harness sh` runs
+   refuses `PATH`, `SHELLOPTS`, `PS4` and whole families that load or run code (`BASH_*`, `NODE_*`, `NPM_*`, `GIT_*`,
+   `LD_*`, `DYLD_*`, `PERL*`, `PYTHON*`, …), but that list is hygiene, not a boundary: `/harness sh` runs
    any bash the dispatcher writes.
    **These guards stop an accident, not a hostile job.** A job runs as the same OS user as the poller and the runner, so
    a job written to do harm can read the poller's environment (`ps eww`, which holds `GH_TOKEN`) and write the runner's
@@ -85,8 +90,14 @@ The repository is public, and the harness executes comment text as shell. What k
    reply's code fence cannot be closed by the log (`tail` breaks every ```` ``` ````).
 
 What it does not defend: a person with write access running something harmful, which they can do with a commit today
-(with watch on, any write-access push re-runs the last job on the new code, which is the same power); and the PR thread
-getting noisy, which `/harness stop` and the idle stop limit.
+(with watch on, any write-access push re-runs the last job on the new code, which is the same power); the PR thread
+getting noisy, which `/harness stop` and the idle stop limit; and an outsider flooding the PR with about a thousand
+comments and editing them, which pushes the dispatcher's command past the poll's ten pages. That last one only delays
+commands until the idle stop; locking the conversation to collaborators ends it. Replies break `@` mentions in a job's
+output, so a log line cannot notify anyone.
+
+The red-team review (2026-11-21) found the edited-comment window, the login match and a variable list that missed
+`SHELLOPTS`/`PS4`. All three are fixed, and each fix has a unit test that went red with the fix removed.
 
 The review (one `checker`, 2026-11-17) found the `.git/config` token, a stale build after a failed rebuild, a rebuild rule
 that skipped paths a build reads, a tag-shadowed fetch that made watch re-run back to back, an unenforced deadline, and a
