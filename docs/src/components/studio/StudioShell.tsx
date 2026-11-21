@@ -5187,6 +5187,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// gesture: that edit would empty WebKit's redo and the redo gesture would stop reaching Filo.
 	// iOS and iPadOS only. Desktop Safari never empties its stack on a frame load, and there WebKit undoes
 	// the bell's own step without a beforeinput, so a ⌘Z would go to the bell and not to Filo.
+	// FAILING ARM ONLY (#3241, never merged): after every touch, the selection is collapsed onto the hidden legend.
+	React.useEffect(() => {
+		const onEnd = () =>
+			setTimeout(() => {
+				const legend = document.querySelector('legend.sr-only');
+				if (legend?.firstChild) getSelection()?.collapse(legend.firstChild, 0);
+			}, 150);
+		window.addEventListener('touchend', onEnd, true);
+		return () => window.removeEventListener('touchend', onEnd, true);
+	}, []);
 	const filoCanRef = React.useRef(filoCan);
 	filoCanRef.current = filoCan;
 	const doorbellRef = React.useRef<UndoDoorbell | null>(null);
