@@ -411,6 +411,19 @@ describe('lint-core: lintTextWith rules', () => {
     assert.equal(ruleFor(`${FM}# A\n\n<!-- one -->\n`, 'plain-comment-notes'), undefined, 'one plain comment is not the 1.x shape');
   });
 
+  // The migration loads on demand (lint-core `loadFixDriver`), so a browser quick fix awaits it through
+  // `applyFixWhenReady`; a one-line fix needs no load and gives the same edit as `applyFix`.
+  test('applyFixWhenReady: a whole-deck fix waits for the migration; a line fix is the same edit as applyFix', async () => {
+    const src = `${FM}# A\n\n<!-- Open cold. -->\n\n---\n\n# B\n\n<!-- Land it. -->\n`;
+    const f = ruleFor(src, 'plain-comment-notes');
+    assert.equal(await core.applyFixWhenReady(src, f), core.applyFix(src, f));
+    assert.match(await core.applyFixWhenReady(src, f), /<!-- @note\{Land it\.\} -->/);
+    const steps = `${FM}<!-- _class: list-steps -->\n\n## H\n\n1. Freeze — the window closes\n`;
+    const line = ruleFor(steps, 'list-steps-inline-body');
+    assert.ok(line?.autofixable && !line.rewrite, 'a one-line autofixable finding to compare');
+    assert.equal(await core.applyFixWhenReady(steps, line), core.applyFix(steps, line));
+  });
+
   // The maker-checker review of #3305 (2026-11-19) drove each of these through the rule.
   test('rule 2c — speaker notes, code spans, mixed case and a shallow indent', () => {
     const steps = (body) => `${FM}<!-- _class: list-steps -->\n\n## H\n\n${body}`;
@@ -2540,6 +2553,17 @@ describe('label-set-above-body — coaching, never refusal', () => {
       assert.ok(scanned <= 1500 * src.length, `${scanned} characters scanned for ${src.length}`);
       assertLinearRegexes(() => core.blankHiddenComments(src));
     }
+  });
+
+  // PR 3351's `plain-comment-notes` walked comments with notes-core's `rewriteComments`, which masks code with the scrub's
+  // `maskCodeRegions`: quadratic on a line of openers in one comment, in a loop the work count above cannot see. It walks
+  // them with `commentKeyFindings` now; this is the hang guard (F4) for that input.
+  test('the note rules stay linear on a line of openers inside one comment', () => {
+    const src = `${'<!-- '.repeat(50000)}\n-->\n`;
+    const t = Date.now(); // flaky-ok: hang guard (F4), see the assert below
+    core.lintTextWith(src, vocab);
+    const ms = Date.now() - t; // flaky-ok: hang guard (F4), see the assert below
+    assert.ok(ms < 3000, `250 KB must not take ${ms}ms; the rewriteComments walk took about 15 s`); // flaky-ok: hang guard (F4): 180 ms today (4 cores), ~15 s with the old walk; 3,000 ms is 16x the one and 5x under the other
   });
 
   test('a key with more members than axes is not called the axis — it prints as text', () => {
