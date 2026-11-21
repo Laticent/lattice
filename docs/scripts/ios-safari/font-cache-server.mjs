@@ -10,6 +10,7 @@
 // conditions of the finding. (The first cut told the frame's font loads from the warm-up's fetches by `Sec-Fetch-Dest`
 // and refused the warm-up on the control port. in Mobile Safari 26.5 neither arm saw a single request marked `font`, so the
 // control could not see a miss and the warm arm's pass meant nothing. Cacheability needs no header to tell them apart.)
+//   GET /__probe/blank   an empty HTML page, no-store: where run.mjs seeds the Studio settings, because it fetches no font.
 //   GET /__probe/fonts   this port's log: [{ t, at, path, dest }] for every request under `/themes/fonts/`
 //                        (`at` is the epoch time, which a page compares with its own `performance.timeOrigin`). `dest` is the
 //                        request's `Sec-Fetch-Dest` as the browser sent it (recorded, not relied on).
@@ -36,6 +37,13 @@ for (const [i, port] of ports.entries()) {
 		host: null,
 		onRequest(req, res) {
 			const url = req.url.split('?')[0];
+			// The page run.mjs seeds the settings on: same origin as the Studio, and it fetches no font. Seeding on the landing
+			// page (#3095) let its slide previews put 8 faces in the warm port's cache before the Studio opened, so the Studio
+			// never asked the server for them and the probe could not tell its warm-up from the landing page's.
+			if (url === '/__probe/blank') {
+				res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end('<!doctype html><meta charset="utf-8"><title>font-cache seed</title>');
+				return true;
+			}
 			if (url === '/__probe/fonts') {
 				res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(log));
 				return true;

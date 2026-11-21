@@ -26,8 +26,13 @@ const FONT_CACHE_DECK = ['---', 'finish: sketch', '---', '', '# Font cache 😀 
 /** The faces the warm-up fetches: studio-warm.ts WARM_FONT_FILES (17 text, 3 icon, 11 emoji). */
 const FONT_CACHE_WARM_COUNT = 31;
 
+/**
+ * @param {'control'|'warm'} arm
+ * @param {number} [sinceMs] epoch ms when the runner first navigated to this origin; when given, any face served between
+ *   then and this document's start fails the run.
+ */
 // biome-ignore lint/correctness/noUnusedVariables: run.mjs and probe.selftest.mjs call it by name.
-async function latticeFontCacheProbe(arm) {
+async function latticeFontCacheProbe(arm, sinceMs) {
 	const steps = [];
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 	const until = async (fn, ms, what) => {
@@ -39,12 +44,21 @@ async function latticeFontCacheProbe(arm) {
 			await sleep(100);
 		}
 	};
-	// This page's part of the server's log: every request since this document's navigation began. The server outlives a run
+	// This run's part of the server's log: every request since this document's navigation began. The server outlives a run
 	// (run.sh drives the iPad, then the iPhone, against one server), so a count over the whole log was already met by the run
 	// before, and the second device edited before its own warm-up had run (found on the self-test's second page shape). Not
 	// "since this probe started": under WebDriver the probe arrives after the load event, and the first slide's own faces may
 	// already have been served. The server and the simulator share the host's clock; a second of slack covers rounding.
 	const since = performance.timeOrigin - 1000;
+	// Every face must come from THIS document. A face fetched by an earlier page of the origin (`sinceMs`, stamped by the
+	// runner before its first navigation) is cached on the warm port, so the Studio reads it without asking the server and
+	// the count below stalls. #3095: run.mjs seeded on the landing page, whose previews fetched 8 faces at iPad width, and
+	// the iPad stopped at 23 of 31. Counting those would let the warm arm pass on faces the Studio never warmed, so the probe
+	// refuses the run instead, naming them. The bound is this document's start itself, not `since`: a page left a moment
+	// before the Studio opened fetched inside the slack above, which the first cut of this check missed. Nothing of the
+	// Studio's own reaches the server before its document starts.
+	const earlier = async () =>
+		typeof sinceMs === 'number' ? ((await (await fetch('/__probe/fonts', { cache: 'no-store' })).json()) || []).filter((e) => e.at >= sinceMs && e.at < performance.timeOrigin).map((e) => e.path.split('/').pop()) : [];
 	const log = async () => ((await (await fetch('/__probe/fonts', { cache: 'no-store' })).json()) || []).filter((e) => e.at >= since);
 	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0;
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
@@ -62,6 +76,8 @@ async function latticeFontCacheProbe(arm) {
 		await until(() => frame()?.style.opacity === '1', 150000, 'the first slide revealed');
 		// Every face fetched once, by the warm-up or the first slide's frame: the server has answered all 31 files, so whatever
 		// the edit asks for has been asked for before.
+		const pre = await earlier();
+		if (pre.length) throw new Error(`a page before the Studio fetched ${pre.length} face(s), so the server cannot see the Studio fetch them: ${pre.join(', ')}`);
 		const served = async () => new Set((await log()).map((e) => e.path)).size;
 		const t0 = Date.now();
 		let n = 0;

@@ -62,10 +62,14 @@ if (process.env.PROBE === 'font-cache') {
 		const context = await webkit.launchPersistentContext(dir, options);
 		for (const arm of ['control', 'warm']) {
 			const page = await context.newPage();
-			await page.addInitScript(SEED);
+			// The same pages in the same order as run.mjs: the server's blank page first, where the settings are seeded, and
+			// `since` stamped before it, so the probe's check that nothing fetched a face before the Studio runs here too.
+			const since = Date.now();
+			await page.goto(`${origins[arm]}/__probe/blank`, { waitUntil: 'load' });
+			await page.addScriptTag({ content: SEED });
 			await page.goto(`${origins[arm]}/studio/`, { waitUntil: 'domcontentloaded' });
 			await page.addScriptTag({ content: FONT });
-			report(label, `font-cache-probe.js ${arm}`, await page.evaluate((a) => globalThis.latticeFontCacheProbe(a), arm));
+			report(label, `font-cache-probe.js ${arm}`, await page.evaluate(([a, s]) => globalThis.latticeFontCacheProbe(a, s), [arm, since]));
 			await page.close();
 		}
 		await context.close();
