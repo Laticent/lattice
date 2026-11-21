@@ -55,6 +55,9 @@ test('a visit measured slow after it starts drops to Lite and says so', async ({
 	// The notice is the proof the visit started at Full: `onDrop` fires only on a change from Full to Lite.
 	await expect(page.getByText(/Lattice switched to Lite mode to stay smooth\. Lattice fell behind while starting up\./)).toBeVisible({ timeout: 30_000 });
 	expect(await tier(page)).toBe('lite');
-	// A drop is this visit's measurement, saved for the next one, and never the person's own choice.
-	expect(await page.evaluate(() => [localStorage.getItem('lattice-device-tier'), localStorage.getItem('lattice-device-tier-override')])).toEqual(['lite', null]);
+	// A drop is this visit's measurement, saved for the next one, and never the person's own choice. It is saved only once
+	// every measurement has answered (lib/device-tier.ts `apply`, PENDING), and the GPU rank fetches its table: on a loaded
+	// machine that table lands after the drop is on screen, so the test waits for the save itself, not for the notice.
+	await expect.poll(() => page.evaluate(() => localStorage.getItem('lattice-device-tier')), { timeout: 30_000 }).toBe('lite');
+	expect(await page.evaluate(() => localStorage.getItem('lattice-device-tier-override'))).toBeNull();
 });
