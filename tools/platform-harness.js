@@ -115,6 +115,35 @@ function authorized(comment, { actorId, since }) {
   return Date.parse(comment.created_at) >= since;
 }
 
+/**
+ * The reply for a command the dispatcher wrote and then edited, or null when the refusal needs no reply (another
+ * person's comment, one from before the start, one of this script's own). Only the dispatcher can trigger it, so it
+ * cannot be used to make the harness talk.
+ */
+function refusalNotice(comment, { actorId, since }) {
+  if (!comment?.user || comment.user.id !== actorId || typeof actorId !== 'number') return null;
+  if (typeof comment.body === 'string' && comment.body.includes(MARK)) return null;
+  if (!(Date.parse(comment.created_at) >= since)) return null;
+  if (!comment.updated_at || comment.updated_at === comment.created_at) return null;
+  return `**harness**: [this command](${comment.html_url}) was edited after it was posted, so it did not run. Post it again as a new comment.`;
+}
+
+/**
+ * What a job left the checkout as, against the commit the harness last synced: a note when HEAD moved or a tracked
+ * file changed (the next sync then resets it), or '' when it is clean.
+ */
+function checkoutDrift(at, head, trackedStatus) {
+  if (at !== head) return `restored the checkout: the last job had moved HEAD to \`${String(at).slice(0, 7)}\``;
+  if (String(trackedStatus).trim()) return 'restored the checkout: the last job had changed tracked files';
+  return '';
+}
+
+/** The commit a reply names: the checkout's, and the build's too when they differ (after `--no-build` or a failed build). */
+function commitLabel(head, builtAt) {
+  const h = `\`${head.slice(0, 7)}\``;
+  return builtAt === head ? h : `${h} (dist/ built at \`${builtAt.slice(0, 7)}\`)`;
+}
+
 /** Whether a GET /repos/{r}/collaborators/{login}/permission answer grants push. */
 function canWrite(answer) {
   return WRITE_PERMISSIONS.has(answer?.permission) || answer?.user?.permissions?.push === true;
@@ -289,9 +318,13 @@ async function main() {
   async function sync(noBuild) {
     const next = fetchBranch();
     const tStart = Date.now();
-    if (next !== head) { git('reset', '--hard', next); head = next; }
-    if (builtAt === head) return { took: 0, note: '' };
-    if (noBuild) return { took: 0, note: `rebuild skipped (--no-build); dist/ is from \`${builtAt.slice(0, 7)}\`` };
+    // A job may have checked out another commit or edited tracked files. Put the checkout back, so a reply's commit is
+    // the code that ran; untracked build output (dist/, docs/dist/) is gitignored and stays.
+    const restored = checkoutDrift(git('rev-parse', 'HEAD'), head, git('status', '--porcelain', '--untracked-files=no'));
+    if (next !== head || restored) { git('reset', '--hard', next); head = next; }
+    const withRestored = (note) => [restored, note].filter(Boolean).join('; ');
+    if (builtAt === head) return { took: 0, note: withRestored('') };
+    if (noBuild) return { took: 0, note: withRestored(`rebuild skipped (--no-build); dist/ is from \`${builtAt.slice(0, 7)}\``) };
     const need = rebuildFor(git('diff', '--name-only', builtAt, head).split('\n').filter(Boolean));
     const steps = [];
     if (need.install) steps.push('npm ci');
@@ -305,7 +338,7 @@ async function main() {
       if (r.code !== 0) return { took: Date.now() - tStart, failed: true, out: r.out, note: steps.join(' && ') };
     }
     builtAt = head;
-    return { took: Date.now() - tStart, note: steps.length ? steps.map((x) => x.startsWith('rm -f') ? 'docs build:e2e' : x).join(', ') : 'nothing to rebuild' };
+    return { took: Date.now() - tStart, note: withRestored(steps.length ? steps.map((x) => x.startsWith('rm -f') ? 'docs build:e2e' : x).join(', ') : 'nothing to rebuild') };
   }
 
   async function execute(job, why) {
@@ -342,7 +375,7 @@ async function main() {
     lastActivity = Date.now();
     const verdict = r.timedOut ? 'KILLED at the hard stop' : r.code === 0 ? 'passed' : `FAILED (exit ${r.code})`;
     await reply([
-      `**harness #${n}** \`${label}\` on \`${head.slice(0, 7)}\`: **${verdict}** in ${minutes(Date.now() - tJob)}` +
+      `**harness #${n}** \`${label}\` on ${commitLabel(head, builtAt)}: **${verdict}** in ${minutes(Date.now() - tJob)}` +
         `${s.note ? ` (synced in ${minutes(s.took)}: ${s.note})` : ''}${why ? ` — ${why}` : ''}.`,
       '',
       `<details${r.code === 0 ? '' : ' open'}><summary>last ${TAIL_LINES} lines</summary>`,
@@ -376,6 +409,9 @@ async function main() {
       if (!cmd) continue;
       if (!authorized(c, { actorId, since: started })) {
         console.log(`ignored comment ${c.id} by ${c.user?.login}: only ${ACTOR}'s unedited comments after the start run`);
+        // Say so when the refused comment is the dispatcher's own: silence would look like a dead harness.
+        const notice = refusalNotice(c, { actorId, since: started });
+        if (notice) await reply(notice);
         continue;
       }
       if (cmd.verb === 'invalid') { await reply(`**harness**: ${cmd.error}.`); continue; }
@@ -429,4 +465,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseCommand, authorized, reservedEnv, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK };
+module.exports = { parseCommand, authorized, refusalNotice, checkoutDrift, commitLabel, reservedEnv, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK };

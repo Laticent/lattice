@@ -5,7 +5,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { parseCommand, authorized, reservedEnv, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK } = require(path.join(__dirname, '..', '..', '..', 'tools', 'platform-harness.js'));
+const { parseCommand, authorized, refusalNotice, checkoutDrift, commitLabel, reservedEnv, canWrite, rebuildFor, inlineAssignments, redact, tail, jobEnv, MARK } = require(path.join(__dirname, '..', '..', '..', 'tools', 'platform-harness.js'));
 
 test('a comment that does not start with /harness is not a command', () => {
   assert.equal(parseCommand('looks good'), null);
@@ -125,4 +125,26 @@ test('no token, and no handle on later steps, reaches a job', () => {
   } finally {
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
   }
+});
+
+test('an edited command from the dispatcher gets a reply saying why it did not run; nobody else gets one', () => {
+  // A silent refusal looks like a dead harness (inversion review, 2026-11-21).
+  const since = Date.parse('2026-11-17T18:00:00Z');
+  const at = '2026-11-17T18:05:00Z';
+  const c = (over) => ({ body: '/harness stop', html_url: 'https://x/1', user: { login: 'owner', id: 7 }, created_at: at, updated_at: '2026-11-17T18:06:00Z', ...over });
+  const who = { actorId: 7, since };
+  assert.match(refusalNotice(c({}), who), /edited after it was posted.*Post it again/);
+  assert.equal(refusalNotice(c({ updated_at: at }), who), null, 'not edited: refused for another reason');
+  assert.equal(refusalNotice(c({ user: { login: 'x', id: 8 } }), who), null, 'another user never makes it talk');
+  assert.equal(refusalNotice(c({ created_at: '2026-11-17T17:00:00Z' }), who), null, 'before the session');
+  assert.equal(refusalNotice(c({ body: `${MARK}\n/harness stop` }), who), null, 'its own reply');
+});
+
+test('a reply names the code that ran: a job that moved HEAD or edited a tracked file is reported and undone', () => {
+  const head = 'a'.repeat(40);
+  assert.equal(checkoutDrift(head, head, ''), '');
+  assert.match(checkoutDrift('b'.repeat(40), head, ''), /moved HEAD to `bbbbbbb`/);
+  assert.match(checkoutDrift(head, head, ' M lib/x.js\n'), /changed tracked files/);
+  assert.equal(commitLabel(head, head), '`aaaaaaa`');
+  assert.equal(commitLabel(head, 'c'.repeat(40)), '`aaaaaaa` (dist/ built at `ccccccc`)', 'after --no-build or a failed build');
 });

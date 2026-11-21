@@ -104,6 +104,12 @@ comments and editing them, which pushes the dispatcher's command past the poll's
 commands until the idle stop; locking the conversation to collaborators ends it. Replies break `@` mentions in a job's
 output, so a log line cannot notify anyone.
 
+The inversion review (2026-11-21) found three ways a reply could mislead. A refused edited command was silent, so a
+change in how GitHub sets `updated_at` would look like a dead harness; the dispatcher now gets a reply saying why. A reply
+named the checkout's commit even when `dist/` was built from an older one; it now names both. A `/harness sh` job that
+checked out another commit or edited a tracked file left the next job running on that tree under a clean-looking commit;
+the next sync now resets it and says so.
+
 The red-team review (2026-11-21) found the edited-comment window, the login match and a variable list that missed
 `SHELLOPTS`/`PS4`. All three are fixed, and each fix has a unit test that went red with the fix removed.
 
