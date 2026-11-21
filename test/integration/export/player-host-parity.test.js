@@ -74,10 +74,11 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // (108,543 -> +38 bytes = 108,581); the fixture has no cover-light slide, so its rendering is unchanged. Both hosts agree.
 // Re-blessed 2026-11-20 (four notes, engineering/decisions/2026-11-20-four-notes.md): the reader note became the
 // handout, so the notes-hide rule reads `aside.lattice-notes,aside.lattice-handout{…}`, and the Read article gains its
-// `.lp-handout` rule set, where each slide's handout now prints. CSS only (108,543 -> +223 bytes = 108,766). Both
+// `.lp-handout` rule set, where each slide's handout now prints. CSS only (+223 bytes). Both
 // hosts give the new SHA.
-const GOLDEN_SHA = '783e4e06527f2381a5ae0ccb1a754b8cedcc286680f48b1147c21f3655d4720b';
-const GOLDEN_BYTES = 108581;
+// Both re-blesses above, together (rebased on the light cover): 108,581 + 223 = 108,804 bytes.
+const GOLDEN_SHA = '3951c244bc7cafe110a396ab36811cebd65e93ea2a0f5eae7da3a46b1988b238';
+const GOLDEN_BYTES = 108804;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

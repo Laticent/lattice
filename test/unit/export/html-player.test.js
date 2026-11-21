@@ -1876,7 +1876,8 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Re-blessed 2026-11-20 (four notes, engineering/decisions/2026-11-20-four-notes.md): the reader note became the
 	// handout, so the notes-hide rule reads `aside.lattice-notes,aside.lattice-handout{display:none!important}`, and the
 	// Read article gains one `.lp-handout` rule set, where each slide's handout now prints. CSS only.
-	assert.equal(sha, '839c15642a8de4a6adf3dbf26ffef0e57e1431db91ad84abea105a98a035ec9a', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Both re-blesses above, together (rebased on the light cover).
+	assert.equal(sha, '4d4dff11667d18ef9e62196ac6aa8aa953292468d832ac953d69d1cd48b54232', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
