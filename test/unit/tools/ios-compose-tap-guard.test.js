@@ -94,3 +94,71 @@ test('a long hold with no selection is a stall, not a long press: a missed caret
   assert.equal(verdict(pressLog), 'redeliver', 'a 1218 ms hold that selected "point" was a long press');
   assert.equal(tapVerdict({ caret: false, hold: 6335 }), 'fail', 'selected must be stated: an omitted flag never re-delivers');
 });
+
+// Nightly 44744978068 (iPad, compose probe tap 1): a tap the simulator held 2642 ms. Safari answered the long press with a
+// CARET moved out of the editor into the Studio's sr-only legend after the lift, not a word, so the guard read it as a real
+// miss and failed the run (#3241). `inEditor` is run.mjs's per-selectionchange flag.
+const nightlyLog = {
+  events: [
+    { type: 'pointerdown', t: 53 },
+    { type: 'touchstart', t: 53 },
+    { type: 'selectionchange', t: 1039, collapsed: true, text: '', inEditor: true },
+    { type: 'pointerup', t: 2695 },
+    { type: 'touchend', t: 2695 },
+    { type: 'selectionchange', t: 3198, collapsed: true, text: '', inEditor: false },
+    { type: 'selectionchange', t: 3436, collapsed: true, text: '', inEditor: true },
+  ],
+};
+
+test('a long press whose release moved the selection out of the editor is re-delivered, even as a caret', async () => {
+  const { tapVerdict, tapHold, pressSelected } = await load();
+  assert.equal(tapHold(nightlyLog), 2642);
+  assert.equal(pressSelected(nightlyLog), true);
+  assert.equal(tapVerdict({ caret: false, hold: tapHold(nightlyLog), selected: pressSelected(nightlyLog), delivery: 1 }), 'redeliver');
+  // Only AFTER the lift: a caret outside the editor before touchend is where focus started, not the press's release.
+  const before = { events: [{ type: 'touchstart', t: 1 }, { type: 'selectionchange', t: 2, collapsed: true, text: '', inEditor: false }, { type: 'touchend', t: 900 }] };
+  assert.equal(pressSelected(before), false);
+  // The clause counts only for a LONG press: the same log with a 200 ms hold, a short tap whose caret left the editor, is
+  // a real failure the probe must show, never re-delivered.
+  const shortLog = { events: nightlyLog.events.map((e) => (e.type === 'pointerup' || e.type === 'touchend' ? { ...e, t: 253 } : e)) };
+  assert.equal(tapHold(shortLog), 200);
+  assert.equal(tapVerdict({ caret: false, hold: tapHold(shortLog), selected: pressSelected(shortLog), delivery: 1 }), 'fail');
+  // A stall that leaves its caret in the editor is still a stall.
+  const stalled = { events: [{ type: 'touchstart', t: 1 }, { type: 'touchend', t: 6000 }, { type: 'selectionchange', t: 6010, collapsed: true, text: '', inEditor: true }] };
+  assert.equal(pressSelected(stalled), false);
+  // A log from before the flag existed (no inEditor) reads as before.
+  assert.equal(pressSelected(stallLog), false);
+});
+
+// Lab run 44856765533 (iPhone, compose probe tap 1): the simulator stalled mid-tap. The page saw a 9313 ms hold, its touch
+// listeners ran 3.8 s late, and nothing followed the lift: no click, no selection change. Safari acted on no long press, so the
+// tap still fails and is never re-delivered (a real defect that eats taps leaves no click either); the verdict only names it.
+const simStallLog = {
+  events: [
+    { type: 'pointerdown', t: 122, lag: 3826 },
+    { type: 'touchstart', t: 122, lag: 3840 },
+    { type: 'pointerup', t: 9435, lag: 32 },
+    { type: 'touchend', t: 9435, lag: 34 },
+  ],
+};
+
+test('a long hold during a simulator stall still fails, under its own name, and is never re-delivered', async () => {
+  const { tapVerdict, tapHold, tapLag, tapClicked, pressSelected, SIM_STALL_HOLD_MS, SIM_STALL_LAG_MS } = await load();
+  assert.equal(tapHold(simStallLog), 9313);
+  assert.equal(tapLag(simStallLog), 3840);
+  assert.equal(tapClicked(simStallLog), false);
+  assert.equal(pressSelected(simStallLog), false);
+  const verdict = (log, delivery = 1) => tapVerdict({ caret: false, hold: tapHold(log), selected: pressSelected(log), delivery, lag: tapLag(log) });
+  assert.equal(verdict(simStallLog), 'fail-sim-stall');
+  assert.equal(verdict(simStallLog, 2), 'fail-sim-stall', 'never re-delivered, on either delivery');
+  // Both conditions, never one: a long hold on a page that kept up is a plain failure, and so is a short tap on a busy one.
+  assert.equal(tapVerdict({ caret: false, hold: 9313, selected: false, delivery: 1, lag: SIM_STALL_LAG_MS - 1 }), 'fail');
+  assert.equal(tapVerdict({ caret: false, hold: SIM_STALL_HOLD_MS - 1, selected: false, delivery: 1, lag: 3840 }), 'fail');
+  // A long press Safari acted on is still re-delivered, stall or not; a caret still passes.
+  assert.equal(tapVerdict({ caret: false, hold: 9313, selected: true, delivery: 1, lag: 3840 }), 'redeliver');
+  assert.equal(tapVerdict({ caret: true, hold: 9313, selected: false, delivery: 1, lag: 3840 }), 'pass');
+  // The earlier stall fixture (no lag recorded) reads as before.
+  assert.equal(verdict(stallLog), 'fail');
+  const tapped = { events: [{ type: 'touchstart', t: 1 }, { type: 'touchend', t: 40 }, { type: 'mousedown', t: 80 }, { type: 'click', t: 90 }] };
+  assert.equal(tapClicked(tapped), true);
+});
