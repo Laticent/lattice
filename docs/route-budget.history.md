@@ -20,9 +20,21 @@ Measured locally with fresh root and docs builds: `main` (with this PR) is 515,7
 
 lint-core grew to the ceiling (#3351 raised it by hand to 165.9KB with 11 B left); #3362's coda and claim-budget rules add ~0.9KB. Standard 10% ceiling raise from the 165.9KB measurement.
 
+This row replaces the 171,974 B ceiling that #3397 set by hand for PR 3349 (the row below). That ceiling covers PR 3349 alone; with PR 3349 (+~2 KB) and PR 3362 (+~0.9 KB) both on `main`, the bundle reaches ~172.8 KB.
+
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
 | studio | lintCoreGz | 152151 | 169910 | +17759 | 186901 |
+
+### 2026-11-21 — the owner raised one ceiling by hand, for PR 3349: studio lintCoreGz to 167.9 KB
+
+Owner OK 2026-11-21, in PR 3349's session, in two steps. First "Raise the ceiling, own PR", over dropping PR 3349's `marks-source-needs-tone` warning (it would land 2 B under the ceiling, and `marks: etch accent` would do nothing with no hint) or finding the bytes elsewhere in the lint core. Then "Hand-set ceiling +2 KB", over the rebaseline tool's standard raise (soft to the measured size and the ceiling 10% above it, about +17 KB), so the gate keeps catching lint-core growth. Trimming the warning's message was measured and does not fit: the shortest wording still lands 90 B over.
+
+Measured with the gate's own closure on `esm/lint.js` after `tools/build-playground.js`, hashes fixed as the gate fixes them: `main` at 65b2432f is 169,914 B, 12 B under the 169,926 B ceiling. PR 3349 rebased on it is 170,060 B (CI read the same, 166.1 KB, 134 B past the ceiling), 146 B over `main`: the warning itself costs 136 B. The ceiling rises 169926 -> 171974 (+2,048 B), which leaves 1,914 B after PR 3349. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 152151 | 152151 | +0 | 171974 |
 
 ### 2026-11-21 — the owner raised one ceiling by hand, for PR 3378: studio chartKernelsGz to 261.7 KB
 

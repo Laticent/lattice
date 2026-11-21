@@ -139,7 +139,10 @@ async function runFixAllFromPalette(page: import('@playwright/test').Page): Prom
 	await page.keyboard.press('ControlOrMeta+k');
 	await page.getByPlaceholder('Search or run a command…').fill('Fix all');
 	await expect(row).toBeVisible({ timeout: 90_000 });
-	await row.click();
+	// The click IS the work: choosing the row runs Fix all inside the click handler, and Playwright 1.65.1's click returns
+	// only once that handler has. Over REFUSED_DECK's 500 issues that took 6.6 s alone on WebKit and 16 to 22 s at four
+	// workers, past the default 15 s action timeout. So the click gets the same budget as the result it produces.
+	await row.click({ timeout: 60_000 });
 }
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko Fix all names a fix it refused, and why, then a second run finishes it', async ({ page }) => {

@@ -36,8 +36,14 @@ async function seedDeck(page: Page, source: string): Promise<void> {
 	await page.getByLabel('Deck source').click();
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('Backspace');
-	await page.keyboard.type(source, { delay: 0 });
-	await expect.poll(() => deckSource(page)).toContain('```');
+	// `insertText`, one input event, as compose-fenced-code.spec.ts seeds: typed key by key, "```ts" opens the fence-language
+	// completion and the Enter after it can accept a suggestion instead of breaking the line.
+	await page.keyboard.insertText(source);
+	// Wait for the WHOLE deck to be saved, not its first fence. Typed key by key, the source was saved mid-typing, and a
+	// read after the first ``` but before the last line made `before` a half-typed deck ("…```ts\nexp"), so the byte-for-byte
+	// compare failed (1 run in 10 at four workers under Playwright 1.65.1; 0 in 20 on 1.56.1).
+	const lastLine = source.trimEnd().split('\n').at(-1) ?? '';
+	await expect.poll(() => deckSource(page)).toContain(lastLine);
 }
 
 const RECORD = '`@code{title="src/load.ts",  focus=2}`';
