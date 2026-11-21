@@ -82,7 +82,7 @@ export function orderMerges(prs, conflicts, dirty = new Set()) {
   }
   // A missing date sorts after every dated PR, then by number, so the order never
   // depends on the order of the input.
-  const age = (x) => x.created_at ?? '~';
+  const age = (x) => x.created_at || '~'; // missing or empty: after every date
   const byAge = (x, y) => (age(x) < age(y) ? -1 : age(x) > age(y) ? 1 : x.number - y.number);
   const older = (x, y) => (byAge(x, y) <= 0 ? x : y);
   for (const { a, b, files } of conflicts) {

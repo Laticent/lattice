@@ -85,6 +85,8 @@ describe('orderMerges', () => {
     const two = orderMerges(prs, [{ a: 2, b: 1, files: ['f'] }]);
     assert.deepEqual(nums(one), [2, 1]);
     assert.deepEqual(nums(two), [2, 1]);
+    const empty = orderMerges([{ number: 1, head: 'a', base: 'main', changes: 5, created_at: '' }, pr(2, 5, '2026-11-19')], []);
+    assert.deepEqual(nums(empty), [2, 1], 'an empty date sorts after every dated PR, as the warning says');
   });
 
   test('a PR stacked on a PR that conflicts with main is held with it (grader probe)', () => {
