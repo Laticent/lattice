@@ -331,7 +331,11 @@ let withSizeCore: ((source: string, name: string) => string) | null = null;
 let withSizeLoad: Promise<void> | null = null;
 function loadWithSize(): Promise<void> {
 	withSizeLoad ??= import('../../../lib/core/sizes.js').then((m) => {
-		withSizeCore = ((m as { default?: { withSize: typeof withSizeCore } }).default ?? (m as unknown as { withSize: typeof withSizeCore })).withSize;
+		const fn = ((m as { default?: { withSize?: unknown } }).default ?? (m as { withSize?: unknown })).withSize;
+		// A module without the function must fail the load, not resolve it: a resolved load with no `withSize` would send
+		// every 4K render back into the wait it just left, forever.
+		if (typeof fn !== 'function') throw new Error('lib/core/sizes.js has no withSize');
+		withSizeCore = fn as (source: string, name: string) => string;
 	}).catch((err) => {
 		// A failed chunk fetch must not pin the failure: the next 4K render tries again.
 		withSizeLoad = null;
@@ -1605,8 +1609,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		fr.style.height = geom.height + 'px';
 		// The screen canvas (see renderInto): a resize that carries the slide across the line re-renders it on the
 		// other canvas, once, after the resize settles.
+		// Not while `withSize` is still loading: the render waiting on it reads the host's width when it resumes, so it
+		// already lands on the right canvas, and a re-render here would supersede it and leave its caller a stand-down
+		// instead of the render's own result.
 		const sc = (host as LiveHost).__latticeScreenCanvas;
-		if (sc && w > 0 && !sc.pending && screenCanvas(sc.deckSize, w, window.devicePixelRatio || 1) !== sc.canvas) {
+		const sizeLoading = !!withSizeLoad && !withSizeCore;
+		if (sc && w > 0 && !sc.pending && !sizeLoading && screenCanvas(sc.deckSize, w, window.devicePixelRatio || 1) !== sc.canvas) {
 			sc.pending = true;
 			setTimeout(() => {
 				if (!disposed && host.isConnected && (host as LiveHost).__latticeScreenCanvas === sc) sc.rerender();
