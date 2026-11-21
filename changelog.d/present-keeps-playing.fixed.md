@@ -1,0 +1,9 @@
+- Present keeps the screen awake while it is open, so a phone no longer locks and stops a deck mid-play; the lock screen and headset buttons now play, pause and move the deck.
+- Previous, Next and jumps no longer stop continuous play: once Play is pressed the deck keeps playing from wherever you move it until you press Pause.
+- Closing Present now stops the narration instead of leaving it playing over the editor.
+- On a phone held sideways, the slide fills the screen and Present's controls float over it, fading after a few seconds; tap the slide to bring them back. Captions sit on the slide's bottom edge as closed captions, the spoken sentence whole on a see-through plate in the brand's dark tone that hugs the words and fades from sentence to sentence, scale with the slide, and read the same in light and dark mode; turning the phone fades the stage through the relayout instead of showing it jump.
+- Fullscreen works on every browser: where the browser cannot go full screen (iPhone Safari), it hides Present's controls instead of showing an error.
+- Narration captions no longer freeze on the first word while the selected voice is still loading: with the voice off they play at once, and with it on they start after a short wait and the voice joins at the next slide. Muting or unmuting during that wait no longer freezes the captions or sends the read back to the start of the slide, and once a voice has kept one slide waiting, the next slides do not wait for it again.
+- Present's on/off controls (captions, voice, rail, guide, notes and the top-bar toggles) now read at a glance: on is a solid accent pill, off an outline.
+- Tapping a faded Present screen on an iPhone brings the controls back and keeps them up, instead of flashing them and hiding them again; a tap right after a swipe hides them as it should.
+- Under the slide, the caption crawl now keeps scrolling from one slide to the next instead of jumping back to the top at each slide.

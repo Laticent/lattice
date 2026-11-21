@@ -50,6 +50,7 @@ model, see `design/concepts.md`.
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
+| [`cover:`](#the-cover-front-matter-register-the-front-and-back-cover) | The surface of the title and closing slides: the dark inverse panel or the deck's light canvas | `inverse` |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
 | [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
@@ -1307,6 +1308,39 @@ Not `image:`: that key is Marp's Open Graph image URL, which Lattice accepts and
 In the Studio: Deck settings → **Image**, one control per axis (backing is a slider with the four names as chips); on an image slide, the slide
 inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
 Full catalog of the classes: `lib/components/imagery/image/image.docs.md`.
+
+## The `cover:` front-matter register (the front and back cover)
+
+The `title` and `closing` slides are the deck's covers, and by default both paint the dark
+inverse panel. `cover:` sets that surface for both at once:
+
+```yaml
+cover: light
+```
+
+| Deck value | Per-slide class | Effect |
+|---|---|---|
+| `inverse` | `cover-inverse` | The dark inverse panel with on-dark inks. **Default**: a deck value of `inverse` stamps nothing, the same as leaving the key out |
+| `light` | `cover-light` | The deck's own light canvas (`--bg`), with the inks a content slide uses for the same roles: the heading takes `--text-heading`, the subtitle, eyebrow and closing list take `--text-secondary`, and the header, footer and page number take the light canvas's muted ink. The deck logo drops its inverse treatment, and a `finish:` mixes toward the light canvas |
+
+**Title and closing only.** The deck's word rides only a slide whose class list names `title` or
+`closing`. Dividers and `topic` keep their own surfaces: a bright divider is `divider light`,
+a separate layout variant.
+
+**The same in both color modes.** A light cover is the light canvas in a dark deck too, the way
+`divider light` is, because the scheme travels with the surface. A dark deck that wants dark
+covers leaves the key out.
+
+**A slide opts out with `cover-inverse`:** in a `cover: light` deck, `_class: closing cover-inverse`
+keeps the dark panel on the back cover. A per-slide `_class: title cover-light` makes one light
+cover in a deck without the key.
+
+**Not the same as `title light`.** The `light` mood token sets a color *scheme* and paints
+nothing, so `title light` keeps its inverse panel. That meaning is unchanged; `cover-light` is
+the word that repaints. Under `color-mode: print` a cover is paper either way.
+
+The register is `lib/core/resolve-cover.js`. It has no Studio control on purpose: presets
+will set it, and the Studio's Basic tier gains no new controls for the ingredients presets use.
 
 ## The `spark:` front-matter register (inline sparks)
 

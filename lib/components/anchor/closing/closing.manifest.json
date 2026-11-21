@@ -20,7 +20,7 @@
     "board-deck"
   ],
   "description": "Final slide. Dark canvas mirror of title.",
-  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out.",
+  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover).",
   "variants": [
     "qr",
     "index",

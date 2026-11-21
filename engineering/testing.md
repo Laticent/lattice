@@ -267,6 +267,24 @@ Every frame, including one born later, then sits at the same time (#3250).
 
 **Gated.** `checkFlakyTests` counts every `<page>.clock.resume()` as the `clock-resume` shape, held to `tools/flaky-test-baseline.json`. A resume that is right where it is takes `// flaky-ok: <why>`.
 
+## Playwright's fake clock: a frame-by-frame walk outruns the test's limit, and a chunk can commit late
+
+**Trap.** Stepping the fake clock one 16 ms frame at a time costs two round trips a frame
+(`frame-clock.ts` `stepFrame`). Under four workers that is about 110 ms a frame, so a walk of a
+few hundred frames crosses a 60 s test limit with every assertion passing (F4). A bigger step
+(`runFor(250)`) is cheap, and usually exact, because the clock awaits a real task after each
+timer and React commits there. But not always: React can commit a timer's state a frame or two
+after the timer fired, so a hold that starts inside a chunk can read up to 32 ms short.
+
+**Example.** `present-beat.spec.ts`, "every handoff holds the finished slide", stepped about 390
+frames and ran at a median of 55 s against 60 s at `--workers=4` (1 timeout in 8). Moved wholly
+to 250 ms chunks, its 400 ms leave beat read 368 ms in 2 of 10 runs alone.
+
+**Do instead.** Chunk where nothing is measured, and step frame by frame only across the window
+the assertion reads, with a page-side frame sampler doing the timing. The test there chunks
+until a slide's read passes 60% on the rail, then steps frames to the flip, and fails loudly if
+a hold began too soon after the switch for the chunks to be ruled out (2026-11-21).
+
 ## The device tier drops to Lite under load
 
 **Trap.** The Studio's device-tier probe drops from Full to Lite when the main thread stalls at

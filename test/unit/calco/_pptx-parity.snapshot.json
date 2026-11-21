@@ -4,6 +4,103 @@
    12192000,
    6858000
   ],
+  "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
+   "objects": [
+    {
+     "kind": "sp",
+     "ph": "title",
+     "box": [
+      609600,
+      186690,
+      9715500,
+      381000
+     ],
+     "geom": "rect",
+     "text": {
+      "wrap": "square",
+      "inset": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "anchor": "t",
+      "paras": [
+       {
+        "runs": [
+         {
+          "t": "Title"
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "kind": "sp",
+     "ph": "body",
+     "box": [
+      609600,
+      796290,
+      9715500,
+      5238750
+     ],
+     "geom": "rect",
+     "text": {
+      "wrap": "square",
+      "inset": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "anchor": "t",
+      "paras": [
+       {
+        "runs": [
+         {
+          "t": "Text"
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "kind": "sp",
+     "ph": "sldNum",
+     "box": [
+      11087100,
+      6633972,
+      819150,
+      381000
+     ],
+     "geom": "rect",
+     "text": {
+      "inset": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "paras": [
+       {
+        "algn": "r",
+        "runs": [
+         {
+          "t": "‹#›",
+          "field": "slidenum"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
   "title": "Rich & <deck>",
   "subject": "Every feature",
   "creator": "Calco test",
@@ -14,32 +111,32 @@
      "bg": {
       "color": "003D66"
      },
+     "showMaster": true,
      "objects": [
       {
        "kind": "sp",
        "ph": "title",
        "box": [
-        609630,
-        186720,
+        609600,
+        186690,
         9715500,
-        381030
+        381000
        ],
        "geom": "rect",
        "text": {
         "wrap": "square",
         "inset": [
-         91440,
-         91440,
-         91440,
-         91440
+         0,
+         0,
+         0,
+         0
         ],
+        "anchor": "t",
         "paras": [
          {
           "runs": [
            {
-            "t": "Title",
-            "color": "000000",
-            "alpha": 100000
+            "t": "Title"
            }
           ]
          }
@@ -48,16 +145,16 @@
       },
       {
        "kind": "sp",
-       "name": "Header",
+       "ph": "subTitle",
        "box": [
-        285750,
-        385602,
-        4190970,
-        381030
+        552450,
+        3009900,
+        6515100,
+        1143000
        ],
        "geom": "rect",
        "text": {
-        "wrap": "none",
+        "wrap": "square",
         "inset": [
          0,
          0,
@@ -67,82 +164,9 @@
         "anchor": "t",
         "paras": [
          {
-          "algn": "l",
-          "lnSpc": 100000,
           "runs": [
            {
-            "t": "Deck",
-            "sz": 900,
-            "font": "Outfit",
-            "color": "112233",
-            "alpha": 100000
-           }
-          ]
-         }
-        ]
-       }
-      },
-      {
-       "kind": "sp",
-       "name": "Footer",
-       "box": [
-        285750,
-        6633972,
-        4190970,
-        381030
-       ],
-       "geom": "rect",
-       "text": {
-        "wrap": "none",
-        "inset": [
-         0,
-         0,
-         0,
-         0
-        ],
-        "anchor": "t",
-        "paras": [
-         {
-          "algn": "l",
-          "lnSpc": 100000,
-          "runs": [
-           {
-            "t": "Foot",
-            "sz": 900,
-            "i": true,
-            "font": "Outfit",
-            "color": "112233",
-            "alpha": 100000
-           }
-          ]
-         }
-        ]
-       }
-      },
-      {
-       "kind": "sp",
-       "ph": "sldNum",
-       "box": [
-        11087100,
-        6633972,
-        819120,
-        381030
-       ],
-       "geom": "rect",
-       "text": {
-        "inset": [
-         0,
-         0,
-         0,
-         0
-        ],
-        "paras": [
-         {
-          "algn": "r",
-          "runs": [
-           {
-            "t": "1002",
-            "field": "slidenum"
+            "t": "Subtitle"
            }
           ]
          }
@@ -169,13 +193,13 @@
       "kind": "sp",
       "name": "Shape 1.1",
       "box": [
-       957285,
-       957285,
-       2847990,
-       1514521
+       957263,
+       957263,
+       2847975,
+       1514475
       ],
       "geom": "roundRect",
-      "adj": 5977,
+      "adj": 5975,
       "fill": {
        "color": "F2F5FA",
        "alpha": 100000
@@ -198,10 +222,10 @@
       "kind": "sp",
       "name": "Rule 1.2",
       "box": [
-       990478,
-       2438522,
-       2781513,
-       23683
+       990505,
+       2438495,
+       2781491,
+       23717
       ],
       "geom": "cust",
       "path": [
@@ -212,31 +236,31 @@
        ],
        [
         "C",
-        15179,
-        15179,
-        35753,
-        23683,
-        57241,
-        23683
+        15183,
+        15183,
+        35776,
+        23717,
+        57245,
+        23717
        ],
        [
         "L",
-        2724272,
-        23683
+        2724245,
+        23717
        ],
        [
         "C",
-        2745760,
-        23683,
-        2766334,
-        15179,
-        2781513,
+        2745715,
+        23717,
+        2766308,
+        15183,
+        2781491,
         0
        ]
       ],
       "pathSize": [
-       2781513,
-       23683
+       2781491,
+       23717
       ],
       "line": {
        "color": "2E608A",
@@ -249,35 +273,35 @@
       "kind": "sp",
       "name": "Label 1.3",
       "box": [
-       962040,
-       962040,
-       761970,
+       962025,
+       962025,
+       762000,
        228600
       ],
       "geom": "cust",
       "path": [
        [
         "M",
-        95280,
+        95250,
         0
        ],
        [
         "L",
-        761970,
+        762000,
         0
        ],
        [
         "L",
-        761970,
-        161940
+        762000,
+        161925
        ],
        [
         "C",
-        761970,
-        198791,
-        732160,
+        762000,
+        198749,
+        732149,
         228600,
-        695310,
+        695325,
         228600
        ],
        [
@@ -288,15 +312,15 @@
        [
         "L",
         0,
-        95280
+        95250
        ],
        [
         "C",
         0,
-        42611,
-        42611,
+        42643,
+        42643,
         0,
-        95280,
+        95250,
         0
        ],
        [
@@ -304,7 +328,7 @@
        ]
       ],
       "pathSize": [
-       761970,
+       762000,
        228600
       ],
       "fill": {
@@ -328,6 +352,8 @@
           {
            "t": "Build",
            "sz": 900,
+           "cap": "none",
+           "spc": 0,
            "font": "Outfit",
            "color": "FFFFFF",
            "alpha": 100000
@@ -343,7 +369,7 @@
       "box": [
        1143000,
        1527048,
-       2419320,
+       2419350,
        228600
       ],
       "geom": "rect",
@@ -364,6 +390,8 @@
           {
            "t": "Owns the policy.",
            "sz": 1350,
+           "cap": "none",
+           "spc": 0,
            "font": "Outfit",
            "color": "112233",
            "alpha": 100000
@@ -377,8 +405,8 @@
       "kind": "sp",
       "name": "Rule 1.4",
       "box": [
-       381030,
-       4762470,
+       381000,
+       4762500,
        5715000,
        0
       ],
@@ -398,7 +426,7 @@
        4572000,
        857250,
        2857500,
-       1904970
+       1905000
       ],
       "geom": "rect",
       "fill": {
@@ -411,8 +439,8 @@
       "name": "Shape 1.6",
       "group": "Group 5 / Group 5.6",
       "box": [
-       4762470,
-       952530,
+       4762500,
+       952500,
        1143000,
        285750
       ],
@@ -428,10 +456,10 @@
       "name": "Shape 1.7",
       "group": "Group 5 / Group 5.6",
       "box": [
-       4810110,
-       1047720,
-       95280,
-       95280
+       4810125,
+       1047750,
+       95250,
+       95250
       ],
       "geom": "roundRect",
       "adj": 50000,
@@ -445,10 +473,10 @@
       "name": "Shape 1.8",
       "descr": "A \"wash\" & <more>",
       "box": [
-       7619970,
+       7620000,
        2857500,
-       1904970,
-       952530
+       1905000,
+       952500
       ],
       "geom": "rect",
       "fill": {
@@ -471,32 +499,32 @@
       "kind": "sp",
       "name": "Mark 1.9",
       "box": [
-       8096280,
-       4762470,
-       190470,
-       190470
+       8096250,
+       4762500,
+       190500,
+       190500
       ],
       "geom": "cust",
       "path": [
        [
         "M",
         0,
-        95280
+        95250
        ],
        [
         "L",
-        76170,
+        76200,
         171450
        ],
        [
         "L",
-        190470,
+        190500,
         0
        ]
       ],
       "pathSize": [
-       190470,
-       190470
+       190500,
+       190500
       ],
       "line": {
        "color": "008800",
@@ -512,9 +540,9 @@
       "name": "Mark 1.10",
       "box": [
        8572500,
-       4762470,
-       190470,
-       190470
+       4762500,
+       190500,
+       190500
       ],
       "geom": "cust",
       "path": [
@@ -525,25 +553,25 @@
        ],
        [
         "L",
-        190470,
+        190500,
         0
        ],
        [
         "C",
-        190470,
-        95280,
-        95280,
-        190470,
+        190500,
+        95250,
+        95250,
+        190500,
         0,
-        190470
+        190500
        ],
        [
         "Z"
        ]
       ],
       "pathSize": [
-       190470,
-       190470
+       190500,
+       190500
       ],
       "fill": {
        "color": "880000",
@@ -555,10 +583,10 @@
       "name": "Picture 1.11",
       "descr": "Logo",
       "box": [
-       9525030,
-       476220,
-       952530,
-       952530
+       9525000,
+       476250,
+       952500,
+       952500
       ],
       "image": "png:a7c3b756173296d4",
       "svg": "svg:0ea6867e76b7cebb"
@@ -568,10 +596,10 @@
       "name": "Picture 1.12",
       "descr": "Picture 1.12",
       "box": [
-       9525030,
-       1904970,
-       952530,
-       952530
+       9525000,
+       1905000,
+       952500,
+       952500
       ],
       "image": "jpeg:8454551154ccfac1"
      },
@@ -579,10 +607,10 @@
       "kind": "sp",
       "ph": "title",
       "box": [
-       609630,
-       186720,
+       609600,
+       186690,
        9715500,
-       381030
+       381000
       ],
       "geom": "rect",
       "text": {
@@ -603,6 +631,124 @@
            "t": "One",
            "sz": 3000,
            "b": true,
+           "cap": "none",
+           "spc": 0,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Header 1",
+      "box": [
+       285750,
+       385572,
+       4191000,
+       381000
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Deck",
+           "sz": 900,
+           "cap": "none",
+           "spc": 0,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Footer 1",
+      "box": [
+       285750,
+       6633972,
+       4191000,
+       381000
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Foot",
+           "sz": 900,
+           "i": true,
+           "cap": "none",
+           "spc": 0,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Slide number 1",
+      "box": [
+       11087100,
+       6633972,
+       819150,
+       381000
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "r",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "1",
+           "field": "slidenum",
+           "sz": 900,
+           "cap": "none",
+           "spc": 0,
            "font": "Outfit",
            "color": "112233",
            "alpha": 100000
@@ -616,8 +762,8 @@
       "kind": "sp",
       "name": "Subtitle 1",
       "box": [
-       552480,
-       3009930,
+       552450,
+       3009900,
        6515100,
        1143000
       ],
@@ -640,6 +786,7 @@
            "t": "Small ",
            "sz": 2100,
            "cap": "small",
+           "spc": 0,
            "font": "Outfit",
            "color": "112233",
            "alpha": 100000
@@ -648,6 +795,8 @@
            "t": "under",
            "sz": 2100,
            "u": "sng",
+           "cap": "none",
+           "spc": 0,
            "font": "Outfit",
            "color": "112233",
            "alpha": 100000
@@ -656,6 +805,8 @@
            "t": " strike",
            "sz": 2100,
            "strike": "sngStrike",
+           "cap": "none",
+           "spc": 0,
            "font": "Outfit",
            "color": "112233",
            "alpha": 100000
@@ -663,6 +814,8 @@
           {
            "t": " faint",
            "sz": 2100,
+           "cap": "none",
+           "spc": 0,
            "font": "Outfit",
            "color": "112233",
            "alpha": 50000
@@ -670,6 +823,8 @@
           {
            "t": " flat",
            "sz": 2100,
+           "cap": "none",
+           "spc": 0,
            "font": "Outfit",
            "color": "888888",
            "alpha": 100000
@@ -689,6 +844,7 @@
            "t": "HI<&>\"'",
            "sz": 2100,
            "b": true,
+           "cap": "none",
            "spc": 113,
            "font": "Outfit",
            "color": "112233",
@@ -698,39 +854,11 @@
           {
            "t": "🙂",
            "sz": 2100,
+           "cap": "none",
+           "spc": 0,
            "font": "Noto Color Emoji",
            "color": "112233",
            "alpha": 100000
-          }
-         ]
-        }
-       ]
-      }
-     },
-     {
-      "kind": "sp",
-      "ph": "sldNum",
-      "box": [
-       11087100,
-       6633972,
-       819120,
-       381030
-      ],
-      "geom": "rect",
-      "text": {
-       "inset": [
-        0,
-        0,
-        0,
-        0
-       ],
-       "paras": [
-        {
-         "algn": "r",
-         "runs": [
-          {
-           "t": "1",
-           "field": "slidenum"
           }
          ]
         }
@@ -745,32 +873,32 @@
      "bg": {
       "color": "003D66"
      },
+     "showMaster": true,
      "objects": [
       {
        "kind": "sp",
        "ph": "title",
        "box": [
-        609630,
-        186720,
+        609600,
+        186690,
         9715500,
-        381030
+        381000
        ],
        "geom": "rect",
        "text": {
         "wrap": "square",
         "inset": [
-         91440,
-         91440,
-         91440,
-         91440
+         0,
+         0,
+         0,
+         0
         ],
+        "anchor": "t",
         "paras": [
          {
           "runs": [
            {
-            "t": "Title",
-            "color": "000000",
-            "alpha": 100000
+            "t": "Title"
            }
           ]
          }
@@ -779,16 +907,16 @@
       },
       {
        "kind": "sp",
-       "name": "Header",
+       "ph": "subTitle",
        "box": [
-        285750,
-        385602,
-        4190970,
-        381030
+        552450,
+        3009900,
+        6515100,
+        1143000
        ],
        "geom": "rect",
        "text": {
-        "wrap": "none",
+        "wrap": "square",
         "inset": [
          0,
          0,
@@ -798,82 +926,9 @@
         "anchor": "t",
         "paras": [
          {
-          "algn": "l",
-          "lnSpc": 100000,
           "runs": [
            {
-            "t": "Deck",
-            "sz": 900,
-            "font": "Outfit",
-            "color": "112233",
-            "alpha": 100000
-           }
-          ]
-         }
-        ]
-       }
-      },
-      {
-       "kind": "sp",
-       "name": "Footer",
-       "box": [
-        285750,
-        6633972,
-        4190970,
-        381030
-       ],
-       "geom": "rect",
-       "text": {
-        "wrap": "none",
-        "inset": [
-         0,
-         0,
-         0,
-         0
-        ],
-        "anchor": "t",
-        "paras": [
-         {
-          "algn": "l",
-          "lnSpc": 100000,
-          "runs": [
-           {
-            "t": "Foot",
-            "sz": 900,
-            "i": true,
-            "font": "Outfit",
-            "color": "112233",
-            "alpha": 100000
-           }
-          ]
-         }
-        ]
-       }
-      },
-      {
-       "kind": "sp",
-       "ph": "sldNum",
-       "box": [
-        11087100,
-        6633972,
-        819120,
-        381030
-       ],
-       "geom": "rect",
-       "text": {
-        "inset": [
-         0,
-         0,
-         0,
-         0
-        ],
-        "paras": [
-         {
-          "algn": "r",
-          "runs": [
-           {
-            "t": "1002",
-            "field": "slidenum"
+            "t": "Subtitle"
            }
           ]
          }
@@ -900,10 +955,10 @@
       "kind": "sp",
       "ph": "title",
       "box": [
-       609630,
-       186720,
+       609600,
+       186690,
        9715500,
-       381030
+       381000
       ],
       "geom": "rect",
       "text": {
@@ -924,6 +979,8 @@
            "t": "Two",
            "sz": 3000,
            "b": true,
+           "cap": "none",
+           "spc": 0,
            "font": "Outfit",
            "color": "112233",
            "alpha": 100000
@@ -935,28 +992,114 @@
      },
      {
       "kind": "sp",
-      "ph": "sldNum",
+      "name": "Header 2",
       "box": [
-       11087100,
-       6633972,
-       819120,
-       381030
+       285750,
+       385572,
+       4191000,
+       381000
       ],
       "geom": "rect",
       "text": {
+       "wrap": "none",
        "inset": [
         0,
         0,
         0,
         0
        ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Deck",
+           "sz": 900,
+           "cap": "none",
+           "spc": 0,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Footer 2",
+      "box": [
+       285750,
+       6633972,
+       4191000,
+       381000
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Foot",
+           "sz": 900,
+           "i": true,
+           "cap": "none",
+           "spc": 0,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Slide number 2",
+      "box": [
+       11087100,
+       6633972,
+       819150,
+       381000
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
        "paras": [
         {
          "algn": "r",
+         "lnSpc": 100000,
          "runs": [
           {
            "t": "2",
-           "field": "slidenum"
+           "field": "slidenum",
+           "sz": 900,
+           "cap": "none",
+           "spc": 0,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
           }
          ]
         }
@@ -971,32 +1114,92 @@
      "bg": {
       "image": "jpeg:8454551154ccfac1"
      },
+     "showMaster": true,
      "objects": [
       {
        "kind": "sp",
        "ph": "title",
        "box": [
-        609630,
-        186720,
+        609600,
+        186690,
         9715500,
-        381030
+        381000
        ],
        "geom": "rect",
        "text": {
         "wrap": "square",
         "inset": [
-         91440,
-         91440,
-         91440,
-         91440
+         0,
+         0,
+         0,
+         0
         ],
+        "anchor": "t",
         "paras": [
          {
           "runs": [
            {
-            "t": "Title",
-            "color": "000000",
-            "alpha": 100000
+            "t": "Title"
+           }
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "kind": "sp",
+       "ph": "obj",
+       "box": [
+        609600,
+        796290,
+        9715500,
+        5360670
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "square",
+        "inset": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "anchor": "t",
+        "paras": [
+         {
+          "runs": [
+           {
+            "t": "Text"
+           }
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "kind": "sp",
+       "ph": "sldNum",
+       "box": [
+        11087100,
+        6633972,
+        819150,
+        381000
+       ],
+       "geom": "rect",
+       "text": {
+        "inset": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "paras": [
+         {
+          "algn": "r",
+          "runs": [
+           {
+            "t": "‹#›",
+            "field": "slidenum"
            }
           ]
          }
@@ -1058,35 +1261,28 @@
      },
      {
       "kind": "sp",
-      "name": "Slide number 3",
+      "ph": "sldNum",
       "box": [
        11087100,
        6633972,
-       819120,
-       381030
+       819150,
+       381000
       ],
       "geom": "rect",
       "text": {
-       "wrap": "none",
        "inset": [
         0,
         0,
         0,
         0
        ],
-       "anchor": "t",
        "paras": [
         {
          "algn": "r",
-         "lnSpc": 100000,
          "runs": [
           {
            "t": "3",
-           "field": "slidenum",
-           "sz": 900,
-           "font": "Outfit",
-           "color": "112233",
-           "alpha": 100000
+           "field": "slidenum"
           }
          ]
         }
@@ -1098,12 +1294,13 @@
    },
    {
     "layout": {
+     "showMaster": false,
      "objects": [
       {
        "kind": "sp",
        "ph": "title",
        "box": [
-        609630,
+        609600,
         548640,
         10972800,
         960120
@@ -1112,18 +1309,47 @@
        "text": {
         "wrap": "square",
         "inset": [
-         91440,
-         91440,
-         91440,
-         91440
+         0,
+         0,
+         0,
+         0
         ],
+        "anchor": "t",
         "paras": [
          {
           "runs": [
            {
-            "t": "Title",
-            "color": "000000",
-            "alpha": 100000
+            "t": "Title"
+           }
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "kind": "sp",
+       "ph": "subTitle",
+       "box": [
+        952500,
+        1915668,
+        6515100,
+        381000
+       ],
+       "geom": "rect",
+       "text": {
+        "wrap": "square",
+        "inset": [
+         0,
+         0,
+         0,
+         0
+        ],
+        "anchor": "t",
+        "paras": [
+         {
+          "runs": [
+           {
+            "t": "Subtitle"
            }
           ]
          }
@@ -1191,6 +1417,12 @@
    12192000,
    6858000
   ],
+  "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
+   "objects": []
+  },
   "title": "deck",
   "subject": "PptxGenJS Presentation",
   "creator": "Calco",
@@ -1198,6 +1430,7 @@
   "slides": [
    {
     "layout": {
+     "showMaster": true,
      "objects": []
     },
     "objects": [
@@ -1273,6 +1506,12 @@
    6858000,
    12191695
   ],
+  "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
+   "objects": []
+  },
   "title": "Portrait",
   "subject": "PptxGenJS Presentation",
   "creator": "Calco",
@@ -1280,6 +1519,7 @@
   "slides": [
    {
     "layout": {
+     "showMaster": true,
      "objects": []
     },
     "objects": [
@@ -1341,6 +1581,12 @@
    12192000,
    6858000
   ],
+  "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
+   "objects": []
+  },
   "title": "deck",
   "subject": "PptxGenJS Presentation",
   "creator": "Calco",
@@ -1348,6 +1594,7 @@
   "slides": [
    {
     "layout": {
+     "showMaster": true,
      "objects": []
     },
     "objects": [
@@ -1475,6 +1722,12 @@
    12192000,
    6858000
   ],
+  "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
+   "objects": []
+  },
   "title": "deck",
   "subject": "PptxGenJS Presentation",
   "creator": "Calco",
@@ -1496,6 +1749,7 @@
   "slides": [
    {
     "layout": {
+     "showMaster": true,
      "objects": []
     },
     "objects": [
@@ -1667,6 +1921,12 @@
    12192000,
    6858000
   ],
+  "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
+   "objects": []
+  },
   "title": "Pictures & <notes>",
   "subject": "CLI",
   "creator": "Lattice",
@@ -1674,6 +1934,7 @@
   "slides": [
    {
     "layout": {
+     "showMaster": true,
      "objects": []
     },
     "objects": [
@@ -1694,6 +1955,7 @@
    },
    {
     "layout": {
+     "showMaster": true,
      "objects": []
     },
     "objects": [
@@ -1714,6 +1976,7 @@
    },
    {
     "layout": {
+     "showMaster": true,
      "objects": []
     },
     "objects": [
@@ -1739,6 +2002,12 @@
    12191695,
    12191695
   ],
+  "master": {
+   "bg": {
+    "color": "FFFFFF"
+   },
+   "objects": []
+  },
   "title": "Square",
   "subject": "PptxGenJS Presentation",
   "creator": "Lattice",
@@ -1746,6 +2015,7 @@
   "slides": [
    {
     "layout": {
+     "showMaster": true,
      "objects": []
     },
     "objects": [
