@@ -2142,6 +2142,18 @@ describe('notes-core: notesToMarp', () => {
 // The red team on PR 3351 (head 0493189): each shape below was a speaker note before the four notes, or was rewritten
 // by a scrub that must not touch it.
 describe('notes-core: the red team on the four notes', () => {
+  // PR 3351 put every comment of a `--strip-notes` export through `maskCodeRegions`, whose give-back of live comments
+  // restored the whole span from every opener nested in one comment: quadratic on a line of openers. The restore loop
+  // indexes an array, which the work counts cannot see (test/helpers/work-count.js), so this is a hang guard (F4).
+  test('the scrub stays linear on a line of openers inside one comment', () => {
+    const src = `# A\n\n${'<!-- '.repeat(40000)}\n-->\n`;
+    const t = Date.now(); // flaky-ok: hang guard (F4), see the assert below
+    const out = core.stripChannelsFromSource(src, { notes: true });
+    const ms = Date.now() - t; // flaky-ok: hang guard (F4), see the assert below
+    assert.ok(!out.includes('<!--'), 'the one comment is scrubbed');
+    assert.ok(ms < 2000, `200 KB must not take ${ms}ms; the quadratic restore took about 9 s`); // flaky-ok: hang guard (F4): 44 ms today (4 cores), ~9 s with the per-opener restore; 2,000 ms is 45x the one and 4x under the other
+  });
+
   test('prose shaped like a pane marker is private; a real pane marker is structure', () => {
     for (const b of [' pane: Pane two needs a better chart ', ' panes: remember the numbers ']) assert.equal(core.isPrivateComment(b), true, b);
     for (const b of [' _pane: bar ', ' pane: list ', ' pane: list no-title ', ' panes: 60/40 stack ', ' _pane: anything at all ']) assert.equal(core.isPrivateComment(b), false, b);
