@@ -1198,6 +1198,10 @@ describe('lint-core: block-unsupported', () => {
     const fenced = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# T\n\n```\n> not a beat\n```\n', v)
       .filter((x) => x.rule === 'block-unsupported');
     assert.equal(fenced.length, 0);
+    // …and a `>` inside a multi-line speaker note is not on the slide (adversarial checker on #3362).
+    const noted = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# T\n\n<!--\n> a quoted line in my notes\n-->\n', v)
+      .filter((x) => x.rule === 'block-unsupported');
+    assert.equal(noted.length, 0);
     const q = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: quote -->\n\n> A quotation.\n\n— Someone\n', { ...v, slotContract: v.slotContract })
       .filter((x) => x.rule === 'block-unsupported');
     assert.equal(q.length, 0);
@@ -1220,6 +1224,9 @@ describe('lint-core: block-unsupported', () => {
     assert.equal(run('## S\n\n> Held\nvoid.\n> Still the same quote.\n').length, 1);
     assert.equal(run('## S\n\n> Held void.\n\n- Point\n  > nested\n').length, 1);
     assert.equal(run('## S\n\n> Held void.\n\n<!--\n> a note\n-->\n').length, 1);
+    // …and these ARE a second blockquote (red team on #3362): one indented a space, and two split by a list item.
+    assert.deepEqual(run('## S\n\n> Held void.\n\n > Renegotiate.\n'), []);
+    assert.deepEqual(run('## S\n\n> Held void.\n- item\n> Renegotiate.\n'), []);
   });
 
   test('says nothing about a correctly-authored quote carrying no modifier', () => {
