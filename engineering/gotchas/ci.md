@@ -984,3 +984,6 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   its Chrome in three tries` means the download host was unreachable from the runner, not that the code is wrong. That
   job failed before any test ran, so re-running it is allowed (HARD RULE #33). Tests that went red with "Could not find
   Chrome" in a job where this step passed are a different defect: find it, do not re-run them.
+- **Proof the step fails:** `.github/workflows/puppeteer-chrome-selftest.yml` runs the action on Linux, Windows and
+  macOS with `PUPPETEER_CACHE_DIR` below a regular file, and passes only when the action fails. It runs on any PR that
+  changes the action, and on demand.

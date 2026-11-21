@@ -86,3 +86,19 @@ test('the action fails its step when the download fails, and tries three times',
   assert.match(run, /for try in 1 2 3/);
   assert.match(run, /exit 1\s*$/);
 });
+
+test('the self-test proves the action fails on a real runner of each OS, and runs when the action changes', () => {
+  const wf = YAML.parse(fs.readFileSync(path.join(WORKFLOWS, 'puppeteer-chrome-selftest.yml'), 'utf8'));
+  assert.ok(wf.on.pull_request.paths.includes('.github/actions/puppeteer-chrome/**'), 'runs when the action changes');
+  const job = wf.jobs['fails-by-name'];
+  assert.deepEqual(job.strategy.matrix.os.map((o) => o.split('-')[0]).sort(), ['macos', 'ubuntu', 'windows']);
+  const steps = job.steps;
+  const chrome = steps.findIndex(isChromeStep);
+  assert.ok(chrome >= 0, `the self-test runs ${ACTION}`);
+  assert.equal(steps[chrome]['continue-on-error'], true, 'its failure is the expected result, read by the next step');
+  const unwritable = steps.findIndex((s) => /PUPPETEER_CACHE_DIR=/.test(s.run ?? ''));
+  assert.ok(unwritable >= 0 && unwritable < chrome, 'the cache is made unwritable before the action runs');
+  const verdict = steps.slice(chrome + 1).map((s) => `${JSON.stringify(s.env ?? {})}\n${s.run ?? ''}`).join('\n');
+  assert.match(verdict, /steps\.chrome\.outcome/);
+  assert.match(verdict, /!= "failure"[\s\S]*exit 1/, 'the job goes red when the action does not fail');
+});
