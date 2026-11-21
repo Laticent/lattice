@@ -4,7 +4,7 @@
   "backlog": {
     "lib/authoring/bare-row-pill.js": 2,
     "lib/authoring/code-format/plan.mjs": 2,
-    "lib/authoring/lint-core.js": 89,
+    "lib/authoring/lint-core.js": 87,
     "lib/authoring/notes-core.js": 4,
     "lib/authoring/review-core.js": 1,
     "lib/authoring/venue-prose.js": 3,
@@ -1884,6 +1884,7 @@
     "/^(\\d+)(?:-(\\d+))?$/": "safe",
     "/^(\\d+)x(\\d+)$/": "safe",
     "/^(\\d+[.)]|[-*+]) (.*)$/": "safe",
+    "/^(\\d+\\.) (.*)$/": "safe",
     "/^(\\d+|full)$/": "safe",
     "/^(\\d{1,4}):(\\d{1,4})$/": "safe",
     "/^(\\d{1,9})([.)])(?=\\s|$)/": "safe",
