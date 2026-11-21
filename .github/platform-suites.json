@@ -265,6 +265,27 @@
       "docs_site": true
     },
     {
+      "name": "ios-safari-present-keepalive",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/present-keepalive-probe.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/PresentOverlay.tsx",
+        "docs/src/components/studio/live/live-wake.ts",
+        "docs/src/components/studio/present/stage-chrome.js",
+        "docs/src/components/studio/read-aloud.ts",
+        "docs/src/lib/fullscreen.ts"
+      ],
+      "run": "PROBE=present-keepalive bash docs/scripts/ios-safari/run.sh",
+      "why": "What keeps a playing deck playing on an iPhone, in real Mobile Safari in an iPhone iOS Simulator (present-keepalive-probe.js, #3333). Present must hold a screen wake lock (published as data-wake); Fullscreen, which iPhone Safari cannot grant, must turn on the immersive layout and its chrome must fade; a real WebDriver touch tap on the slide must bring the chrome back; Play must put the captions inside the slide with a moving highlight; Next while playing must play the next slide on its own with the lock still held; closing must stop the narration. Playwright's WebKit on Linux is not iOS Safari: it sends a tap as a bare click, and the first tap rule passed Chromium and failed there. The checks judge states reached, never durations (HARD RULE #32). A simulator does not auto-lock, so this proves the lock is granted and held, not that a real screen stays awake.",
+      "on_pull_request": false,
+      "docs_site": true
+    },
+    {
       "name": "ios-safari-undo-ipad",
       "os": [
         "macos-26"
