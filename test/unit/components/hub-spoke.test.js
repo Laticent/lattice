@@ -633,8 +633,8 @@ describe('hub-spoke under a chart finish', () => {
   test('under tone, a group\'s band, arrowhead and name join the one hue through --hs-group-*', () => {
     const rule = finishCss.match(/section\.marks-tone :where\(:is\(\.hub-spoke-neck, \.hub-spoke-twig, \.hub-spoke-arrow, \.hub-spoke-name\)\[data-hue\]\)[^{]*\{([^}]*)\}/);
     assert.ok(rule, 'no tone re-point for hub-spoke');
-    assert.match(rule[1], /--hs-group-hue: var\(--chart-cat-1-hue\) !important/);
-    assert.match(rule[1], /--hs-group-ink: var\(--chart-cat-1-ink\) !important/);
+    assert.match(rule[1], /--hs-group-hue: var\(--finish-one\) !important/);
+    assert.match(rule[1], /--hs-group-ink: var\(--finish-one-ink\) !important/);
     assert.doesNotMatch(finishCss, /marks-(pigment|etch) :where\([^)]*hub-spoke-neck/, 'only tone re-points the group property');
     const css = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     // The band, arrowhead and name read the member property, never the family slot table,
