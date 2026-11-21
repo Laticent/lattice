@@ -15,7 +15,7 @@ import { expect, firefox, type Page, test } from '@playwright/test';
  * Firefox runs HEADED, launched here rather than through the `gecko` project. Playwright's headless Firefox
  * reports `scrollbar-width: none` for every element, an inline `auto` included (measured 2026-11-21), so a
  * headless run cannot see the property at all. Headed needs a display: Windows always has one; on Linux run under
- * `xvfb-run`.
+ * `xvfb-run`. It also needs an unsized page (see the test): a sized one draws overlay bars.
  */
 test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
@@ -56,10 +56,11 @@ function expectThinner(m: Widths) {
 	expect(m.controlComputed, 'the control pane must report its own `auto`; `none` means the engine is hiding every bar').toBe('auto');
 	expect(m.paneComputed).toBe('thin');
 	// An engine that draws classic bars (control > 0) must draw the pane's thinner. One that still draws overlay bars
-	// (control 0) proves only the computed value; the artifact records which happened.
-	// Windows draws classic bars here (overlay prefs off, `--hide-scrollbars` dropped), so a 0px control there means
-	// the measure broke, not that the OS chose overlays: fail rather than pass on the computed value alone.
-	if (process.platform === 'win32') expect(m.control, 'Windows must draw a classic control bar').toBeGreaterThan(0);
+	// (control 0, macOS only) proves only the computed value; the artifact records which happened.
+	// Windows and Linux draw classic bars here (overlay prefs off, `--hide-scrollbars` dropped, Firefox unsized), so a
+	// 0px control there means the measure broke: fail rather than pass on the computed value alone. Only macOS may
+	// still choose overlays. A sized Firefox page passed on Windows this way until the guard caught it (2026-11-21).
+	if (process.platform !== 'darwin') expect(m.control, 'this platform must draw a classic control bar').toBeGreaterThan(0);
 	if (m.control > 0) {
 		expect(m.pane).toBeGreaterThan(0);
 		expect(m.pane).toBeLessThan(m.control);
@@ -79,7 +80,10 @@ test('inner panes draw a thinner scrollbar than the OS default (Firefox, headed)
 		firefoxUserPrefs: { 'widget.windows.overlay-scrollbars.enabled': false, 'widget.gtk.overlay-scrollbars.enabled': false, 'ui.useOverlayScrollbars': 0 },
 	});
 	try {
-		const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+		// `viewport: null`, never a size: Playwright's Firefox (Juggler) puts a sized page in Responsive Design Mode
+		// (`inRDMPane`), which draws overlay bars whatever the prefs say, so both bars measure 0px. Measured
+		// 2026-11-21 under xvfb: sized, control 0px and thin 0px; null, 12px and 6px.
+		const page = await browser.newPage({ viewport: null });
 		const m = await measure(page);
 		await record('firefox', m);
 		expectThinner(m);
