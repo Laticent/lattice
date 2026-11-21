@@ -218,13 +218,14 @@ jobs:
     # installs and builds once, then tools/platform-harness.js takes `/harness` commands from the pull request named in the
     # `harness` input: only the dispatching login's comments run, a new commit is synced and rebuilt incrementally, and each
     # result is replied on the PR. It stops after 15 idle minutes, 90 minutes after the job started, or on `/harness stop`.
-    # One at a time: a second dispatch waits for the first rather than taking another macOS slot from the nightly (GitHub
-    # keeps one pending job per group, so a third dispatch replaces the waiting second).
+    # One at a time per OS (owner, 2026-11-21): a second macOS dispatch waits for the first rather than taking another
+    # macOS slot from the nightly, and a Windows harness never blocks a macOS one. GitHub keeps one pending job per group,
+    # so a third dispatch for the same OS replaces the waiting second.
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.harness != '' }}
     runs-on: ${{ github.event.inputs.harness_os }}
     timeout-minutes: 105
     concurrency:
-      group: platform-harness
+      group: platform-harness-${{ github.event.inputs.harness_os }}
       cancel-in-progress: false
     permissions:
       contents: read
