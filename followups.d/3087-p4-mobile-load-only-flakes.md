@@ -114,3 +114,13 @@ revealed frame, polled). The evidence is in that PR.
             events on that timeout. Since then it has not come back: 15 of 15 Menu taps opened the menu across runs
             44059959611 and 44135586134. Not fixed, because there is no failing run to read a cause from; the next red
             prints the Menu tap's events in its job log.
+2026-11-21 — the WebKit and Gecko rows above, triaged on main 450df6d (one `npm run build:e2e`, --retries=0): each test
+            alone on its own project (--workers=1 --repeat-each=5), then under load (--workers=3 --repeat-each=8).
+            - switch-controls.spec.ts:97 (webkit-tablet): 5 of 5 alone, 8 of 8 loaded. STALE.
+            - table-reflow-preview.spec.ts:47 (the old :71, webkit-tablet): 5 of 5 alone, 8 of 8 loaded. STALE.
+            - collage-lightbox.spec.ts:395 (gecko): the test at that line is not tagged `@gecko` today, so all four gecko
+              tests in the file ran: 20 of 20 alone, 32 of 32 loaded. STALE.
+            - back-gesture.spec.ts:172 (the old :183, webkit-phone): 5 of 5 alone, 1 of 8 RED loaded (the deck-band tap
+              left the Library open, back stack `1/1/0`). Load-only, and its fix is the sheet-scrim change in #3278
+              (3 in 100 red on main before it, 100 of 100 after); it stays with that PR.
+            The three STALE rows close here; back-gesture closes when #3278 lands.
