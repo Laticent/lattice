@@ -321,3 +321,20 @@ test('@gecko Studio Compose: a press on an overlay scrollbar, then the drag, sho
 	// (1 in 120 under load) and read 0 for a control about to show.
 	await shown(control(page, 'top'));
 });
+
+test('@gecko Studio Compose: a press on the overlay scrollbar of a bordered pane still counts as on the bar', async ({ page }) => {
+	const { host } = await openCompose(page);
+	// A border widens offsetWidth - clientWidth, which once read as a scrollbar gutter and switched the overlay
+	// band off (card grader, final round). Give the pane a border, then press inside its right edge as the
+	// overlay-bar test does.
+	await host.evaluate((el) => {
+		(el as HTMLElement).style.border = '3px solid transparent';
+	});
+	await settled(host);
+	await host.evaluate((el) => {
+		const r = el.getBoundingClientRect();
+		el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.right - 9, clientY: r.top + r.height / 2 }));
+		el.scrollTop = el.scrollTop + 700;
+	});
+	await shown(control(page, 'top'));
+});

@@ -90,7 +90,10 @@ function onScrollbar(e: PointerEvent): boolean {
 		// the bar reads as a press in content, which would veto the hover path for the drag that follows (the card
 		// grader's final-round finding). With no gutter, the right-hand OVERLAY_BAR px of the scroller count as the
 		// bar. Content keeps clear of that band: Compose pads 44px from the scrollbar on a mouse.
-		const gutter = t.offsetWidth - t.clientWidth
+		// The bar's own width only: offsetWidth - clientWidth also counts the left and right borders, and a bordered
+		// pane with an overlay bar would otherwise read as having a gutter and lose the band (card grader, final round).
+		const cs = getComputedStyle(t)
+		const gutter = t.offsetWidth - t.clientWidth - (parseFloat(cs.borderLeftWidth) || 0) - (parseFloat(cs.borderRightWidth) || 0)
 		return e.offsetX >= t.clientWidth - (gutter > 0 ? 0 : OVERLAY_BAR)
 	}
 	const doc = isNode(t) ? t.ownerDocument : null
