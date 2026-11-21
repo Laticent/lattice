@@ -22,7 +22,7 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 | `options` | a list | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, nest one description bullet under each of the two items (`1. Own the verb` or `- Own the verb`, read the same): the lead is the facet's title, and its numeral (`I` / `II`) is generated. |
 | `lede` | a paragraph | no | `axis` only. A framing sentence between the heading and the two facet cards. |
 | `note` | a paragraph | no | A closing line after the two cards. Plain prose in the base layout; `axis` renders it centered and italic. |
-| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below keeps the marker you wrote. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 Under a variant, a slot changes shape:
 

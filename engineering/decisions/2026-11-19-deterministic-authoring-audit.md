@@ -450,8 +450,9 @@ behind the one before it only where it reads that one's output.
   styled sublists under `agenda` rows, asides and deeper lists. The owner rejected that: the layouts
   are designed, so an unsupported sublist is an authoring error. `list-depth-unsupported` (warning,
   `lint:deck` and the Studio) names a list nested deeper than the declared levels and a second list
-  after a line of prose. The same census found no committed deck that writes either shape. Those
-  shapes render as they did before W2.
+  after a line of prose. Linting every tracked deck when the rule landed found one: a test fixture (`test/fixtures/runtime-cards-parity.md`) nested bodies under `inventory cards`, a layout that writes its detail inline, so the fixture was rewritten in inventory's form. The
+  contract leaves both shapes as written, so they render as they did before W2, and the warning
+  is what tells the author.
 
   Review found descendant selectors in agenda, list-steps and list-tabular (and math's legend
   bullet) that drew a nested or quoted `1.` list as the layout's own cards or rows. They are scoped

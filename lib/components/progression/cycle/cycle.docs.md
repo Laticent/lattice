@@ -23,7 +23,7 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
 | `title` | a `## ` heading | yes | Slide heading naming the cycle. |
 | `eyebrow` | a line of `inline code` | no | Optional label above the heading. |
 | `stages` | a list | yes | Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first. |
-| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below keeps the marker you wrote. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 ### Common mistakes
 

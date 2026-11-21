@@ -22,7 +22,7 @@ Use to show 'who owns what' across a process, scoring policy, or org chart. Two-
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading. |
 | `rows` | a list | yes | One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing actor-name pill, written `{Name}` in inline code (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body. |
-| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below keeps the marker you wrote. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 ### Common mistakes
 

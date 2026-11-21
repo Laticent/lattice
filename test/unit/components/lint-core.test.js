@@ -2816,6 +2816,24 @@ describe('lint-core: list-depth-unsupported', () => {
     assert.deepEqual(shapes('list-steps', '1. A\n   - a\n\nOpen risks:\n\n- x'), ['warning:- x']);
     assert.deepEqual(shapes('regulatory-update', '### Added\n\n- A\n  - `x`\n\n### Amended\n\n- B\n  - `y`'), []);
   });
+  test('CommonMark decides where a list ends: no false aside or sublist (the #3330 review)', () => {
+    // A lazy continuation stays in its item; an ordered marker past 1 cannot interrupt a paragraph;
+    // a thematic break and an indented code block are not lists; a setext heading ends the prose.
+    assert.deepEqual(shapes('agenda', '- One long item\ncontinued lazily\n- Two'), []);
+    assert.deepEqual(shapes('agenda', '- One\n- Two\n\nRevenue grew in\n2026. It was strong.'), []);
+    assert.deepEqual(shapes('agenda', '- One\n\nSome prose.\n\n* * *'), []);
+    assert.deepEqual(shapes('agenda', '- One\n- Two\n\nExample:\n\n    - not a list'), []);
+    assert.deepEqual(shapes('regulatory-update', '- A\n  - `x`\n\nAmended\n-------\n\n- B\n  - `y`'), []);
+  });
+  test('a raw-HTML block between two lists is prose, as the engine counts it', () => {
+    assert.deepEqual(shapes('agenda', '- One\n\n<div class="x">\nnote\n</div>\n\n- Two'), ['warning:- Two']);
+  });
+  test('a pane answers to its own layout', () => {
+    const vocabP = { names: new Set(['columns', 'agenda', 'content']), modifiers: new Set() };
+    const found = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: columns -->\n\n## T\n\n<!-- _pane: agenda -->\n\n- One\n  - sub\n\n<!-- _pane: content -->\n\n- a\n  - b\n', vocabP)
+      .filter((f) => f.rule === 'list-depth-unsupported').map((f) => `${f.classToken}:${f.line}`);
+    assert.deepEqual(found, ['agenda:- sub']);
+  });
   test('a quoted list, a raw-HTML list and a prose layout are left alone', () => {
     assert.deepEqual(shapes('agenda', '- One\n\n> - quoted\n>   - deep'), []);
     assert.deepEqual(shapes('agenda', '- One\n\n<div>\n\n- raw\n  - deep\n\n</div>'), []);

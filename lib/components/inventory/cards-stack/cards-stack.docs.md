@@ -22,7 +22,7 @@ Use when the items want vertical reading order — sequential exploration rather
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading. |
 | `cards` | a list | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional pill on the title line, written `{status}` in inline code, is right-anchored. |
-| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below keeps the marker you wrote. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 - `numbered` is not a class: Write the cards as a `1.` list; the corner numbers come from it, and the class adds nothing.
 
