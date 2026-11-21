@@ -1211,9 +1211,9 @@ test('the player inlines the transport kernel and fits the FRAME to the measured
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /function fitScale\(/, 'the transport kernel is inlined into the player script');
 	assert.match(html, /var st=lpEl\('lp-stage'\);if\(!st\)return/, 'fit measures the stage element directly');
-	assert.match(html, /setProperty\('--lp-fit-present',fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight,slideW:1280,slideH:720,insetX:40,insetY:40\}\)\)/, 'the scale is published as a CSS var the frame sizes to');
+	assert.match(html, /LP_NW=1280,LP_NH=720[\s\S]*setProperty\('--lp-fit-present',fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight,slideW:lpCW,slideH:lpCH,insetX:40,insetY:40\}\)\)/, 'the scale is published as a CSS var the frame sizes to');
 	// The active frame + its section size to that var — the frame is the scaled footprint.
-	assert.match(html, /\[data-lp-view=present\] \.lp-frame\.lp-active\{display:block;\s*width:calc\(1280px \* var\(--lp-fit-present,\.5\)\);height:calc\(720px \* var\(--lp-fit-present,\.5\)\)/, 'the active frame sizes to the scaled footprint, so it fits+centers at any stage height');
+	assert.match(html, /\[data-lp-view=present\] \.lp-frame\.lp-active\{display:block;\s*width:calc\(var\(--lp-cw,1280px\) \* var\(--lp-fit-present,\.5\)\);height:calc\(var\(--lp-ch,720px\) \* var\(--lp-fit-present,\.5\)\)/, 'the active frame sizes to the scaled footprint, so it fits+centers at any stage height');
 	assert.match(html, /createTransport\(\{count:slides\.length/, 'nav runs on the shared transport');
 });
 
@@ -1246,7 +1246,7 @@ test('every player view frames the slide with the shared lift and hands the engi
 	for (const [name, r] of Object.entries(views)) {
 		assert.ok(r, `${name} rule is present`);
 		assert.ok(r.includes(`box-shadow:${slideFrameShadow(lift[name])}`), `${name} uses the shared lift`);
-		assert.match(r, /--slide-edge-k:calc\(100 \/ \(1280 \* var\(--lp-fit/, `${name} tells the engine its on-screen scale`);
+		assert.match(r, /--slide-edge-k:calc\(100 \/ \((?:var\(--lp-cwn,1280\)|1280) \* var\(--lp-fit/, `${name} tells the engine its on-screen scale`);
 		assert.doesNotMatch(r, /border-radius|filter:|border:/, `${name} sets no radius, border or filter of its own`);
 	}
 	// flex:none is load-bearing: #lp-stage is a flex COLUMN, so without it each fixed-height
@@ -1365,8 +1365,8 @@ test('read-slides + the no-JS floor scale each slide with a wrapped transform, n
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.doesNotMatch(html, /zoom:/, 'no view scales with CSS zoom (WebKit cqi/cqh collapse)');
 	assert.match(html, /class="lp-frame"/, 'every slide is wrapped in a sizeable .lp-frame');
-	assert.match(html, /\[data-lp-view=read-slides\] \.lp-frame\{flex:none;width:calc\(1280px \* var\(--lp-fit,\.28\)\)/, 'the frame carries the scaled footprint so the flex gap packs tight');
-	assert.match(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit,\.28\)\);transform-origin:0 0/, 'read-slides scales the native canvas with transform, not zoom');
+	assert.match(html, /\[data-lp-view=read-slides\] \.lp-frame\{flex:none;width:calc\(var\(--lp-cw,1280px\) \* var\(--lp-fit,\.28\)\)/, 'the frame carries the scaled footprint so the flex gap packs tight');
+	assert.match(html, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:var\(--lp-cw,1280px\)!important;height:var\(--lp-ch,720px\)!important;transform:scale\(var\(--lp-fit,\.28\)\);transform-origin:0 0/, 'read-slides scales the native canvas with transform, not zoom');
 	assert.match(html, /html:not\(\.lp-js\) \.lp-frame\{width:calc\(1280px \* var\(--lp-fit\)\)/, 'the no-JS floor frame also carries the scaled footprint');
 	assert.match(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit\)\)/, 'the no-JS floor scales with transform, not zoom');
 	assert.match(html, /function fitRead\(\)/, 'the script fits the read-slides miniatures fluidly to the column');
@@ -1389,18 +1389,21 @@ test('a non-default canvas reaches every sizing site in the player CSS (#1577)',
 	const css = playerCss(false, false, { w: 3840, h: 2160 });
 	// Present frame + slide, read-slides frame + slide, and the no-JS floor: five sites, and a
 	// miss in any one of them is a differently-broken deck rather than a smaller bug.
-	assert.match(css, /\.lp-frame\.lp-active\{[^}]*width:calc\(3840px \* var\(--lp-fit-present/, 'present frame');
-	assert.match(css, /\.lp-frame\.lp-active section\[data-lattice-slide\]\{width:3840px!important;height:2160px!important/, 'present slide');
-	assert.match(css, /\[data-lp-view=read-slides\] \.lp-frame\{flex:none;width:calc\(3840px \*/, 'read-slides frame');
-	assert.match(css, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:3840px!important;height:2160px!important/, 'read-slides slide');
+	assert.match(css, /\.lp-frame\.lp-active\{[^}]*width:calc\(var\(--lp-cw,3840px\) \* var\(--lp-fit-present/, 'present frame');
+	assert.match(css, /\.lp-frame\.lp-active section\[data-lattice-slide\]\{width:var\(--lp-cw,3840px\)!important;height:var\(--lp-ch,2160px\)!important/, 'present slide');
+	assert.match(css, /\[data-lp-view=read-slides\] \.lp-frame\{flex:none;width:calc\(var\(--lp-cw,3840px\) \*/, 'read-slides frame');
+	assert.match(css, /\[data-lp-view=read-slides\] section\[data-lattice-slide\]\{width:var\(--lp-cw,3840px\)!important;height:var\(--lp-ch,2160px\)!important/, 'read-slides slide');
 	assert.match(css, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:3840px!important;height:2160px!important/, 'no-JS floor slide');
 	assert.doesNotMatch(css, /1280px!important/, 'no HD literal survives for a 4K deck');
 });
 
 test('the fit math divides by the deck canvas, not by 1280x720 (#1577)', async () => {
 	const js = await playerJs('', null, false, { w: 1080, h: 1920 });
-	assert.match(js, /slideW:1080,slideH:1920,insetX:40,insetY:40/, 'present fit');
-	assert.match(js, /slideW:1080,slideH:1920,insetX:40,insetY:0/, 'read-slides fit');
+	// The deck canvas is the fit's native divisor (LP_NW/LP_NH); the fit itself divides by the canvas the screen chose
+	// (lpCW/lpCH, lib/core/screen-canvas.mjs), which is the deck's own for every canvas but a 4K one on a small screen.
+	assert.match(js, /LP_NW=1080,LP_NH=1920/, 'the deck canvas is the native divisor');
+	assert.match(js, /slideW:lpCW,slideH:lpCH,insetX:40,insetY:40/, 'present fit');
+	assert.match(js, /slideW:lpCW,slideH:lpCH,insetX:40,insetY:0/, 'read-slides fit');
 	assert.doesNotMatch(js, /slideW:1280/, 'no HD divisor survives');
 });
 
@@ -1466,14 +1469,14 @@ test('a deck with NO declared size is byte-identical — the fallback is the his
 test('assemblePlayer threads a declared canvas end to end (#1577)', async () => {
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0, width: 1080, height: 1350 });
 	assert.match(html, /width:1080px!important;height:1350px!important/, 'the CSS carries the portrait canvas');
-	assert.match(html, /slideW:1080,slideH:1350/, 'and so does the fit math');
+	assert.match(html, /LP_NW=1080,LP_NH=1350/, 'and so does the fit math');
 });
 
 test('Read·Slides is unified onto Present\'s frame, with a floating Home/End overlay + Present mouse wheel', async () => {
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	// fitRead now uses the SAME fitScale as Present (over ~86% of the stage height) so the
 	// first slide matches Present and the next peeks — NOT the old fill-the-width math.
-	assert.match(html, /function fitRead\(\)\{var st=lpEl\('lp-stage'\);if\(!st\)return;[\s\S]*?fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight\*0\.86,slideW:1280,slideH:720,insetX:40,insetY:0\}\)/, 'read-slides fits to Present\'s footprint (86% height, 40px inset), reserving a peek');
+	assert.match(html, /function fitRead\(\)\{var st=lpEl\('lp-stage'\);if\(!st\)return;[\s\S]*?fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight\*0\.86,slideW:lpCW,slideH:lpCH,insetX:40,insetY:0\}\)/, 'read-slides fits to Present\'s footprint (86% height, 40px inset), reserving a peek');
 	assert.doesNotMatch(html, /avail\/1280/, 'the old fill-the-width read-slides fit is gone');
 	// The floating Home/End overlay: markup, view-scoped CSS, and the smooth-scroll handlers.
 	assert.match(html, /<div id="lp-read-nav">/, 'the floating read-slides nav is in the markup');
@@ -1834,7 +1837,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// not to the pointerup's own point. Mobile Safari reported (0, 0) on every touch pointerup (iOS 26.5 simulator,
 	// platform suite run 44013499171), so a tap read as a drag to the page corner and could turn the slide. Script
 	// only: one pointermove listener and two variables; the one-finger swipe and the pinch guard behave as before.
-	assert.equal(sha, '948e030ec4f6994e09112b43f4a4d2c12b59fca87abda55019fae693f7b2bd1e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed 2026-11-20 (#3304, the screen canvas): the JS-path frame and slide rules read the canvas from
+	// --lp-cw/--lp-ch/--lp-cwn with the export's canvas as the fallback, and fit()/fitRead() pick it with lpCanvas,
+	// which carries the kernel's own `screenCanvas` as text (lib/core/screen-canvas.mjs): a 4K deck lays out on HD where the slide is shown at 2,560 device px or fewer.
+	// For this HD golden the values are unchanged (1280x720); the no-JS floor's CSS is unchanged byte for byte.
+	assert.equal(sha, '7734addaff7d317a8d7f42d176c965b3d9bdbbb2ff897680f572b85375a49d5a', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

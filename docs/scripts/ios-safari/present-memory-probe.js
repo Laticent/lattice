@@ -7,8 +7,9 @@
  *                                      WebDriver call carries a string, not 25 MB of bytes
  *   latticePresentImport(title, n)     hand the bytes to the Studio's own "Import deck…" input, as a person picking the file
  *                                      does, and wait until the preview shows the deck
- *   latticePresentReady()              after a reload: the deck back from the browser's store, its title in the preview
- *   latticePresentOpen()               tap Present; time until the presented frame shows the first (title) slide
+ *   latticePresentReady(title)         after a reload: the deck back from the browser's store, its title in the preview
+ *   latticePresentOpen()               tap Present; time until the presented frame shows the first (title) slide, and read
+ *                                      the width that slide is laid out at
  *   latticePresentStep(k)              tap Next k times; time each step until the presented slide is the next one and the
  *                                      photo it points at loads and decodes
  *   latticePresentAlive()              the mark latticePresentOpen left: gone means the page reloaded under the probe
@@ -100,12 +101,13 @@ async function latticePresentImport(title, slides) {
 	return result;
 }
 
-async function latticePresentReady() {
+async function latticePresentReady(title) {
 	const h = latticePresentHelpers();
 	const t0 = Date.now();
+	const want = `${title || 'Present memory probe'}.`;
 	const doc = await h.until(() => {
 		const d = h.preview();
-		return d && /Present memory probe\.|Photo \d+\./.test(h.heading(d)) ? d : null;
+		return d && (h.heading(d) === want || /Photo \d+\./.test(h.heading(d))) ? d : null;
 	}, 150000, 'the imported deck in the preview after the reload');
 	return { readyMs: Date.now() - t0, heading: h.heading(doc), ua: navigator.userAgent, width: innerWidth };
 }
@@ -125,7 +127,10 @@ async function latticePresentOpen() {
 	const shownMs = Date.now() - t0;
 	const [at, total] = h.counter();
 	if (at !== 1) throw new Error(`Present opened on slide ${at}, not the first`);
-	return { openMs: shownMs, total, heading: h.heading(doc), mark: window.__latticePresentMark };
+	// The width the presented slide is laid out at, before the frame's scale (the 4K arm judges it).
+	const sec = doc.querySelector('section');
+	const box = sec ? getComputedStyle(sec).width : '';
+	return { openMs: shownMs, total, heading: h.heading(doc), mark: window.__latticePresentMark, box };
 }
 
 async function latticePresentStep(k) {

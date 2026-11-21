@@ -33,8 +33,14 @@ export const STAGE_CHROME_CSS = `
 /* Visually hidden, still announced — the Stage document has no Tailwind \`sr-only\`. */
 .latt-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 /* ── the caption crawl ───────────────────────────────────────────────────── */
-.latt-cc-band{display:flex;width:100%;justify-content:center;overflow:hidden;max-height:0;opacity:0;transition:max-height .3s,opacity .3s;}
-.latt-cc-band[data-shown="1"]{max-height:80px;opacity:1;}
+/* The caption band owns its own 80px while captions are on (data-reserved), playing or not, so Play and Pause never
+ * move the slide: showing and hiding the crawl only fades it. Turning captions on or off adds or removes the band in
+ * one step, with no animated height, so the slide resizes once. The band used to grow from 0 at Play and fold at Pause,
+ * which rescaled the slide frame on every Play and at every slide's start; on an iPhone, with Guide on, that rescale
+ * of a 4K deck reloaded the tab (2026-11-20). */
+.latt-cc-band{display:none;flex:none;width:100%;height:80px;justify-content:center;overflow:hidden;opacity:0;transition:opacity .3s;}
+.latt-cc-band[data-reserved="1"]{display:flex;}
+.latt-cc-band[data-shown="1"]{opacity:1;}
 .latt-cc{display:block;height:76px;width:100%;max-width:720px;overflow:hidden;padding:0 1rem;}
 .latt-cc-win{position:relative;height:100%;-webkit-mask-image:${CC_MASK};mask-image:${CC_MASK};}
 .latt-cc-track{position:absolute;left:0;right:0;will-change:transform;transition:transform .5s cubic-bezier(.22,.61,.36,1);}

@@ -1,0 +1,14 @@
+studio: +790
+home: +870
+playground: +40
+CI measured studio +764, home +844, playground +14 bytes gzipped against 450df6de; each line leaves about 20 bytes for gzip
+to shift on a rebase. A local build measured studio 26 bytes lower than CI (StudioIsland differs between the two machines), so CI's
+number is the one declared.
+single-slide-render.ts mounts each live slide frame in a display-sized slot and fades the slot, not the frame: on a 4K
+deck WebKit gave the frame's own fade a layer sized 3840x2160 times the pixel density, about 300 MB on an iPhone, and
+Present reloaded the tab. It also lays a 4K deck out on HD wherever the screen shows the slide at 2,560 device px or fewer
+across (lib/core/screen-canvas.mjs, +282 eager on studio and home): same reason, every layer in the frame is paid at the
+frame's box. `withSize` (lib/core/sizes.js, about 960 bytes) loads lazily, only on that 4K path, so it is not in these
+numbers. StudioShell hides the editor's preview while Present is open, so one 4K frame is drawn instead of two. The
+playground's bytes are one more name in PlaygroundIsland's preload map: DeckConfigPanel's lazy chunk now reaches
+screen-canvas through slide-size.ts.

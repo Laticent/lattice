@@ -312,6 +312,39 @@ export async function putClip(key, blob) {
   }
 }
 
+/**
+ * Replace a clip the device ALREADY holds with a smaller copy of the same audio (voice-model.js: a WAV swapped for its Ogg
+ * Opus encode). The write happens only if the key is still stored when the transaction runs, checked inside that same
+ * transaction: the WAV was stored the moment it arrived, so a reload during the encode loses nothing, and a "clear
+ * narration audio" that lands during the encode stays cleared instead of being written back. Resolves true if it replaced.
+ */
+export async function replaceClip(key, blob) {
+  if (!key || !blob || typeof indexedDB === 'undefined') return false;
+  try {
+    const bytes = await blob.arrayBuffer();
+    if (!bytes?.byteLength) return false;
+    const db = await openDB();
+    let replaced = false;
+    let before = 0;
+    await write(db, (clips, meta) => {
+      const req = meta.get(key);
+      req.onsuccess = () => {
+        const row = req.result;
+        if (!row) return; // cleared or evicted while the copy was being made: leave it gone
+        before = row.size || 0;
+        const type = blob.type || 'audio/mpeg';
+        clips.put({ key, bytes, type });
+        meta.put({ key, size: bytes.byteLength, at: row.at ?? nextStamp(), type });
+        replaced = true;
+      };
+    });
+    if (replaced && storedBytes != null) storedBytes += bytes.byteLength - before;
+    return replaced;
+  } catch {
+    return false;
+  }
+}
+
 /** A refusal by the STORAGE layer, told apart from an ordinary transaction failure. Named
  *  rather than instance-checked: `DOMException` is not reliably comparable across the jsdom /
  *  fake-indexeddb boundary the tests run on, and the name is the part the spec pins. */

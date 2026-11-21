@@ -282,11 +282,42 @@ export function createStage(opts: StageOptions = {}): Stage {
 		ensureKeepAlive(); // warm the output route now, ahead of the first clip
 	}
 
-	async function decode(bytes: Bytes, key?: string): Promise<Clip> {
-		if (key) {
-			const hit = decoded.get(key);
-			if (hit) return hit;
-		}
+	/** Drop one decoded clip from the cache, so its PCM can be collected once nothing plays it. A sequence with
+	 *  `decodeAhead` calls this after each item plays: a long narrated deck then holds the clip playing and the next few,
+	 *  not every clip it has decoded (engineering/decisions/2026-07-12-suono-audio-library.md §10). Safe for a playing clip:
+	 *  its source node keeps its own reference. A replay decodes again from the bytes. */
+	function forget(key: string): void {
+		// A decode still running for this key returns its clip to whoever awaits it, but does not cache it: the clip was
+		// released, and a late look-ahead decode would otherwise put it back after it had played.
+		if (inflight.has(key)) forgottenInFlight.add(key);
+		const c = decoded.get(key);
+		if (!c) return;
+		decoded.delete(key);
+		decodedBytes -= clipBytes(c);
+	}
+
+	// Decodes running now, by key. A second request for a key that is still decoding (a sequence's look-ahead, then the
+	// same item's own turn) shares the first one's promise rather than decoding the same bytes again into a second copy.
+	const inflight = new Map<string, Promise<Clip>>();
+	const forgottenInFlight = new Set<string>();
+
+	function decode(bytes: Bytes, key?: string): Promise<Clip> {
+		if (!key) return decodeFresh(bytes);
+		const hit = decoded.get(key);
+		if (hit) return Promise.resolve(hit);
+		const running = inflight.get(key);
+		if (running) return running;
+		const p = decodeFresh(bytes, key);
+		inflight.set(key, p);
+		const settle = () => {
+			if (inflight.get(key) === p) inflight.delete(key);
+			forgottenInFlight.delete(key);
+		};
+		p.then(settle, settle);
+		return p;
+	}
+
+	async function decodeFresh(bytes: Bytes, key?: string): Promise<Clip> {
 		const ctx = getCtx();
 		if (!ctx) throw new Error('no AudioContext');
 		// Reject an oversized payload from its DECLARED size BEFORE materializing it — reading a huge
@@ -299,7 +330,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 		if (ab.byteLength > maxDecodeBytes) throw new Error('audio too large (' + ab.byteLength + ' > ' + maxDecodeBytes + ' bytes)');
 		const buffer = await decodeArrayBuffer(ctx, ab);
 		const clip: Clip = { buffer, durationMs: (buffer.duration || 0) * 1000 };
-		if (key) decodedSet(key, clip);
+		if (key && !forgottenInFlight.has(key)) decodedSet(key, clip);
 		return clip;
 	}
 
@@ -622,6 +653,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 	const stage: Stage = {
 		unlock,
 		decode,
+		forget,
 		play,
 		clockMs,
 		latencyMs,

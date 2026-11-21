@@ -518,3 +518,46 @@ until next slide").
   Suono knowing it's TTS at all.
 - **Leave it in `voice-model.js`.** Zero work, but the next surface pays the whole iOS/latency/cost
   tax again. Rejected — this doc exists because the architect called that outcome.
+
+## 10. Amendment (2026-11-17): Suono writes Ogg Opus, and holds the narration memory window
+
+**Ogg Opus encoding joins WAV encoding.** The narration codec bake-off (`2026-11-17-narration-codec-bakeoff.md`) picked
+Opus for narration kept in browser storage. `ogg-opus.ts` wraps WebCodecs' raw Opus packets in a standard Ogg file (RFC
+7845), beside `encode.ts`, which writes WAV. It is the same kind of thing, bytes in and a standard file out: pure, node-safe,
+zero-dependency, inside the import boundary. It reads each packet's length from the packet's own TOC byte, because
+trusting the encoder's `duration` made Linux WebKit's decoder cut up to a second off a clip.
+
+**The narration memory window belongs here too.** Suono owns the decoded-clip cache and the per-play byte cache,
+which kept every clip of a long narrated Present until a count ran out (64 decoded clips, up to 256 MiB, never released in
+a session). Two options bound them, and both default off, so other callers are unchanged:
+
+- `Stage.forget(key)` drops one decoded clip and its bytes from the stage's count.
+- `SequenceOptions.decodeAhead: n` holds decoded audio for the playing item and the `n` after it, forgets each once it
+  has played, and makes `warm()` fetch bytes without decoding.
+
+The Studio's Present runs `decodeAhead: 2` and a 12-clip byte cache, and caps its stage at 4 decoded clips or 24 MiB as
+a backstop (`read-aloud.ts`).
+
+Measured with the perf-torture `narration` cycle: Chromium, the Studio's 7-slide deck read aloud by a stand-in for
+OpenRouter's Gemini voice (raw 24 kHz PCM), 3 s a slide. The two builds differ only in the window.
+
+| | Decoded audio held after GC, 25 cycles | Heap snapshot growth over 15 cycles |
+|---|---|---|
+| Window off | 0.27 → 6.17 MB, Mann–Kendall z 2.95 | 10.7 MB, led by 5.55 MB of array-buffer data (10 buffers) |
+| Window on | 0.81 → 2.24 MB, z 0.82 | 4.9 MB, no array-buffer data among the growers |
+
+The 4.9 MB left is the same in both runs: compiled code (about 1.9 MB) and script source (1.2 MB) the page loads as the
+run reaches new code. It is warm-up, not narration.
+
+**What the window costs.** A clip is forgotten once its play ends, aborted plays included, so resuming after a pause,
+stepping back a sentence or replaying decodes that clip again from its bytes before it sounds. On an iPhone that is an Opus
+decode, a few milliseconds a clip. `Stage.decode` shares a decode already running for the same key, so a look-ahead and the
+item's own turn never decode one clip twice, and a decode that finishes after its key was forgotten is returned to its
+caller but not cached.
+
+**What stays out.** Persistent storage (the IndexedDB clip store), the bitrate setting and the decision of when to
+compress stay with the caller (`voice-model.js`): Suono still owns no network, no key, no model and no storage.
+
+**§3's "Not streaming" still holds.** It means chunked or streamed synthesis. Narration is still produced and played as
+whole clips; only where a clip is kept, and in what codec, changes.
+

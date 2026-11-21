@@ -13611,6 +13611,9 @@ const NUL_TEXT_EXTENSIONS = [
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
   '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  // Compressed audio containers: the narration codec bake-off's fixtures (docs/scripts/ios-safari/codec-fixtures/),
+  // one 2 s sentence in every codec and container the iOS probe decodes.
+  '.aac', '.caf', '.flac', '.m4a', '.ogg', '.webm',
 ];
 
 // Binary extensions that hold only inside one folder: a corpus whose files take a name no other part of

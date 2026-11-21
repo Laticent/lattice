@@ -21,6 +21,8 @@ const require = createRequire(path.join(root, 'package.json'));
 
 export const PRESENT_PHOTOS = 18;
 export const PRESENT_TITLE = 'Present memory probe';
+/** The 4K arm's deck has its own title, so the arm can tell it is presenting that deck and not the HD arm's import. */
+export const PRESENT_TITLE_4K = 'Present memory probe in 4K';
 
 const CRC = Array.from({ length: 256 }, (_, n) => {
 	let c = n;
@@ -72,15 +74,20 @@ export function photoPng(size, seed) {
 	return new Uint8Array(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 6 })), chunk('IEND', Buffer.alloc(0))]));
 }
 
-/** The deck: one photo slide per picture, each heading `Photo N.`, the photo as the slide's background. */
-export function presentDeckSource(n = PRESENT_PHOTOS) {
-	const slides = [`---\ntitle: ${PRESENT_TITLE}\n---\n\n# ${PRESENT_TITLE}.\n\nEighteen phone photos, presented.`];
+/**
+ * The deck: one photo slide per picture, each heading `Photo N.`, the photo as the slide's background. `deckSize` adds a
+ * `size:` line: the 4K arm (#3304) presents the same photos on a 4K deck, the canvas whose frames reloaded an iPhone tab,
+ * which the Studio lays out on HD wherever the slide is shown at 2,560 device px or fewer (lib/core/screen-canvas.mjs).
+ */
+export function presentDeckSource(n = PRESENT_PHOTOS, deckSize = '', title = PRESENT_TITLE) {
+	const size = deckSize ? `size: ${deckSize}\n` : '';
+	const slides = [`---\ntitle: ${title}\n${size}---\n\n# ${title}.\n\nEighteen phone photos, presented.`];
 	for (let i = 1; i <= n; i++) slides.push(`<!-- _class: content bleed -->\n\n## Photo ${i}.\n\n![Probe photo ${i}](asset:probe-photo-${i})`);
 	return slides.join('\n\n---\n\n');
 }
 
 /** The `.lattice` bytes, the photos as Library media (`media.json` + `media/<file>`), as the Studio's own export writes them. */
-export async function buildPresentDeck(n = PRESENT_PHOTOS, size = 1100) {
+export async function buildPresentDeck(n = PRESENT_PHOTOS, size = 1100, deckSize = '', title = PRESENT_TITLE) {
 	const JSZip = require('jszip');
 	const { buildLatticeZip } = require('./lib/core/reopenable.js');
 	const files = {};
@@ -93,7 +100,7 @@ export async function buildPresentDeck(n = PRESENT_PHOTOS, size = 1100) {
 		files[`media/${file}`] = bytes;
 		index.push({ name: `probe-photo-${i}`, kind: 'image', scope: 'library', mime: 'image/png', bytes: bytes.length, width: size, height: size, sourceName: file, original: true, addedAt: 1, file });
 	}
-	const bytes = await buildLatticeZip(JSZip, { source: presentDeckSource(n), title: PRESENT_TITLE, media: { index: `${JSON.stringify(index, null, 2)}\n`, files }, date: new Date(Date.UTC(2026, 0, 1)) });
+	const bytes = await buildLatticeZip(JSZip, { source: presentDeckSource(n, deckSize, title), title, media: { index: `${JSON.stringify(index, null, 2)}\n`, files }, date: new Date(Date.UTC(2026, 0, 1)) });
 	return { bytes, photoBytes, slides: n + 1 };
 }
 
@@ -105,13 +112,16 @@ export async function buildPresentDeck(n = PRESENT_PHOTOS, size = 1100) {
  * passed by 35 ms, and on the Mac's fast simulator `main` and this change stepped at the same speed.
  * The memory is what separates them: the first iOS run read 795 MB on `main` and 124 MB on #3148.
  */
-export function presentChecks(a, { slides, capMB, memory }) {
+export function presentChecks(a, { slides, capMB, memory, box }) {
 	const checks = [
 		{ name: 'the deck imported and Present counts all its slides', pass: !a.error && a.slides === slides, detail: a.error || `${a.slides} of ${slides} slides, imported in ${a.importMs} ms` },
 		{ name: 'Present showed its first slide', pass: a.openMs !== undefined, detail: `${a.openMs ?? '?'} ms` },
 		{ name: 'every step reached the next slide and its photo decoded', pass: (a.stepsMs || []).length === 6 && a.photos === true, detail: `${(a.stepsMs || []).join('/')} ms${a.photos === false ? ', a photo did not decode' : ''}` },
 		{ name: 'the page did not reload under Present', pass: a.alive === true, detail: a.alive ? '' : 'the mark Present left is gone' },
 	];
+	// The 4K arm: the presented slide is laid out on the canvas this screen shows. On an iPhone (about 1,179 device px across)
+	// that is HD's 1280 px, never the 3840 a 4K frame would be, and the reason the tab no longer reloads.
+	if (box) checks.push({ name: `Present shows the 4K deck, laid out ${box} wide`, pass: a.box === box && a.heading === a.wantHeading, detail: `${a.box || 'no width read'}, title "${a.heading ?? ''}"` });
 	if (memory) {
 		checks.splice(1, 0, { name: 'the reader reads Safari (the Studio holds at least 50 MB before Present)', pass: a.baseMB >= 50, detail: `${a.baseMB ?? '?'} MB` });
 		checks.push({ name: `Present and six steps add at most ${capMB} MB`, pass: a.grewMB !== undefined && a.grewMB <= capMB, detail: `${a.grewMB ?? '?'} MB (Present alone ${a.openGrewMB ?? '?'} MB, other processes freed ${a.freedMB ?? '?'} MB)` });

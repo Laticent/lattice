@@ -441,7 +441,9 @@ section [data-lattice-painting] > .lattice-paint-brush::before {
   bottom: 0;
   left: 0;
   width: calc(100% + 64cqi);
-  will-change: transform;
+  /* No `will-change`: the running sweep gets its layer from its own animation, and a standing hint kept a layer
+   * wider than the slide alive after the picture decoded, paid at the frame's own size in WebKit
+   * (lib/core/screen-canvas.mjs; engineering/gotchas/memory-profiling.md). */
   background-image:
     repeating-linear-gradient(0deg, color-mix(in oklab, var(--bg-alt, var(--bg)) 55%, transparent) 0 1px, transparent 1px 3px, color-mix(in oklab, var(--bg-alt, var(--bg)) 25%, transparent) 3px 4px, transparent 4px 7px),
     repeating-linear-gradient(0deg, transparent 0 5px, color-mix(in oklab, var(--bg-alt, var(--bg)) 35%, transparent) 5px 6.5px, transparent 6.5px 11px),

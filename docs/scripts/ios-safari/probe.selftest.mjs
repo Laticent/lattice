@@ -8,6 +8,7 @@
  *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
+ *   PROBE=codec-support node scripts/ios-safari/probe.selftest.mjs   # the narration codec probe, in Chromium, WebKit and Firefox
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
  *   PROBE=empty-deck [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # empty the deck, tap the start grid's canvas, read the caret
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
@@ -111,7 +112,7 @@ if (process.env.PROBE === 'player-charts') {
 		const context = await browser.newContext(shape.options);
 		const page = await context.newPage();
 		const result = await runPlayerCharts({
-			players: { deck: `file://${players.deck}`, hostile: `file://${players.hostile}` },
+			players: { deck: `file://${players.deck}`, hostile: `file://${players.hostile}`, k4: `file://${players.k4}` },
 			go: (url) => page.goto(url),
 			// In a function scope of its own, as WebDriver's execute-script runs it, so a second call never redeclares a const.
 			call: (expr) => page.evaluate(`(() => {\n${PLAYER_CHARTS_SOURCE}\nreturn ${expr};\n})()`),
@@ -141,17 +142,49 @@ if (process.env.PROBE === 'player-charts') {
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }
+
+if (process.env.PROBE === 'codec-support') {
+	// The narration codec probe, as run.mjs runs it, in each of Playwright's engines (the iPhone answer needs the Mac's
+	// simulator: Linux WebKit decodes with GStreamer, not Apple's media stack).
+	const { chromium, firefox } = await import('@playwright/test');
+	const { codecChecks } = await import('./codecs.mjs');
+	// Suono's Opus encoder and Ogg writer (docs/src/lib/suono/opus.ts), the code the Studio ships, bundled by esbuild into
+	// one plain script that puts them on `SuonoOpus`.
+	const { buildSync } = await import('esbuild');
+	const muxer = buildSync({ entryPoints: [path.join(here, '../../src/lib/suono/opus.ts')], bundle: true, format: 'iife', globalName: 'SuonoOpus', write: false }).outputFiles[0].text;
+	const probe = `${muxer}\n${fs.readFileSync(path.join(here, 'codec-probe.js'), 'utf8')}`;
+	const dir = path.join(here, 'codec-fixtures');
+	const files = fs.readdirSync(dir).sort().map((name) => ({ name, b64: fs.readFileSync(path.join(dir, name)).toString('base64') }));
+	await browser.close();
+	for (const [name, engine] of Object.entries({ chromium, webkit, firefox })) {
+		const b = await engine.launch();
+		const page = await b.newPage();
+		await page.route('https://codec.test/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>codec</title>' }));
+		await page.goto('https://codec.test/');
+		const r = await page.evaluate(`${probe}\nlatticeCodecProbe(${JSON.stringify(files)})`);
+		for (const [k, v] of Object.entries(r.roundTrip)) console.log(`  ${name} round trip ${k}: ${v.ok ? `${v.kbps} kbps, ${v.extraMs} ms longer` : `NO (${v.error})`}${v.ogg ? `; our Ogg ${v.ogg.ok ? `${v.ogg.extraMs} ms longer, pre-skip ${v.ogg.preSkip}${v.ogg.preSkipReported ? ' reported' : ' default'}` : `NO (${v.ogg.error})`}` : ''}`);
+		const steps = codecChecks(r);
+		report(name, 'codec-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: '-', steps });
+		await b.close();
+	}
+	process.exit(failed ? 1 : 0);
+}
+
 if (process.env.PROBE === 'present-memory') {
 	// The Present probe, as run.mjs runs it, minus the footprint (only the Mac can read the simulator's): send the deck,
 	// import it, reload, open Present, step six slides. iPhone-sized only, as the suite runs it. BASELINE_URL adds a second
 	// arm that is reported and not judged, as PRESENT_BASELINE_URL does on the Mac.
-	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
+	const { buildPresentDeck, PRESENT_TITLE, PRESENT_TITLE_4K, presentChecks } = await import('./present-memory.mjs');
 	const PRESENT = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
-	const deck = await buildPresentDeck();
-	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const PIECE = 4_000_000;
-	const arm = async (name, base) => {
-		const out = { arm: name };
+	const fixture = async (deckSize, title) => {
+		const deck = await buildPresentDeck(undefined, undefined, deckSize, title);
+		return { deck, b64: Buffer.from(deck.bytes).toString('base64'), title };
+	};
+	const hd = await fixture('', PRESENT_TITLE);
+	const k4 = await fixture('4k', PRESENT_TITLE_4K);
+	const arm = async (name, base, { deck, b64, title } = hd) => {
+		const out = { arm: name, wantHeading: `${title}.` };
 		const context = await browser.newContext(shapes.at(-1).options);
 		const page = await context.newPage();
 		await page.addInitScript(SEED);
@@ -160,12 +193,12 @@ if (process.env.PROBE === 'present-memory') {
 			await page.goto(`${base}/studio/`, { waitUntil: 'domcontentloaded' });
 			const n = Math.ceil(b64.length / PIECE);
 			for (let i = 0; i < n; i++) await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${n})`);
-			const imported = await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE)}, ${deck.slides})`);
+			const imported = await call(`latticePresentImport(${JSON.stringify(title)}, ${deck.slides})`);
 			Object.assign(out, { importMs: imported.importMs, width: imported.width });
 			await page.goto(`${base}/studio/`, { waitUntil: 'domcontentloaded' });
-			await call('latticePresentReady()');
+			await call(`latticePresentReady(${JSON.stringify(title)})`);
 			const opened = await call('latticePresentOpen()');
-			Object.assign(out, { openMs: opened.openMs, slides: opened.total });
+			Object.assign(out, { openMs: opened.openMs, slides: opened.total, heading: opened.heading, box: opened.box });
 			const stepped = await call('latticePresentStep(6)');
 			Object.assign(out, { stepsMs: stepped.steps.map((s) => s.ms), photos: stepped.steps.every((s) => s.photo), alive: (await call('latticePresentAlive()')).mark === opened.mark });
 		} catch (e) {
@@ -175,7 +208,11 @@ if (process.env.PROBE === 'present-memory') {
 		return out;
 	};
 	const mine = await arm('this build', BASE);
-	const steps = presentChecks(mine, { slides: deck.slides, memory: false });
+	const mine4k = await arm('this build, 4K deck', BASE, k4);
+	const steps = [
+		...presentChecks(mine, { slides: hd.deck.slides, memory: false }),
+		...presentChecks(mine4k, { slides: k4.deck.slides, memory: false, box: '1280px' }).map((c) => ({ ...c, name: `4K deck · ${c.name}` })),
+	];
 	report('iPhone-sized', 'present-memory-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: mine.width, steps });
 	if (process.env.BASELINE_URL) {
 		const b = await arm('baseline', process.env.BASELINE_URL.replace(/\/$/, ''));

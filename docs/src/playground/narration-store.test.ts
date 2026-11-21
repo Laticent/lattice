@@ -10,7 +10,7 @@
 
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { __evictionsSettled, __resetForTests, __touchesSettled, clearClips, clipSizes, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, readyKeys, setBudgetBytes } from './narration-store.js';
+import { __evictionsSettled, __resetForTests, __touchesSettled, clearClips, clipSizes, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, readyKeys, replaceClip, setBudgetBytes } from './narration-store.js';
 
 /** A blob-like in the same duck-typed shape voice-model.js's rungs return. */
 function fakeBlob(bytes: number, type = 'audio/mpeg') {
@@ -361,5 +361,26 @@ describe('when the device refuses the write before the budget does', () => {
 		} finally {
 			quota.restore();
 		}
+	});
+});
+
+describe('replaceClip — the smaller copy of a clip the device already holds', () => {
+	it('replaces a stored clip\'s bytes, type and size', async () => {
+		await putClip('k', fakeBlob(48_000, 'audio/wav'));
+		expect(await replaceClip('k', fakeBlob(6_000, 'audio/ogg; codecs=opus'))).toBe(true);
+		const got = await getClip('k');
+		expect(got?.type).toBe('audio/ogg; codecs=opus');
+		expect(got?.size).toBe(6_000);
+		expect((await clipSizes(['k'])).get('k')).toEqual({ size: 6_000, type: 'audio/ogg; codecs=opus' });
+		expect((await clipStats()).bytes).toBe(6_000);
+	});
+
+	it('writes nothing for a key the device no longer holds, so a clear during the encode stays cleared', async () => {
+		await putClip('k', fakeBlob(48_000, 'audio/wav'));
+		await clearClips();
+		expect(await replaceClip('k', fakeBlob(6_000, 'audio/ogg; codecs=opus'))).toBe(false);
+		expect(await getClip('k')).toBeNull();
+		expect(await replaceClip('never-stored', fakeBlob(10))).toBe(false);
+		expect(await getClip('never-stored')).toBeNull();
 	});
 });

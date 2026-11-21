@@ -157,6 +157,14 @@ function latticePlayerHostile() {
 /* The slide on stage once it differs from `from` (or 5 s pass). */
 const latticePlayerSlideAfter = async (from) => ({ index: (await latticePlayerUntil(() => latticePlayerIndex() !== from, 5000)) ? latticePlayerIndex() : from });
 
+/* The 4K player (#3304): the width the slide on stage is laid out at (its canvas, before the stage scales it), and a mark
+ * on the window, left on the first call: gone on a later call means the page reloaded. */
+async function latticePlayerCanvas() {
+	const sec = await latticePlayerUntil(() => document.querySelector('.lp-frame.lp-active section[data-lattice-slide]'), 30000);
+	if (!window.__latticePlayerMark) window.__latticePlayerMark = `m${Date.now()}`;
+	return latticePlayerPage({ index: latticePlayerIndex(), slides: document.querySelectorAll('.lp-frame').length, box: sec ? getComputedStyle(sec).width : '', mark: window.__latticePlayerMark, height: innerHeight });
+}
+
 /* The entry points player-charts.mjs calls, on one global: the driver evaluates this file, then calls them by name. */
 globalThis.latticePlayerProbe = {
 	toFunnel: latticePlayerToFunnel,
@@ -165,4 +173,5 @@ globalThis.latticePlayerProbe = {
 	card: latticePlayerCard,
 	hostile: latticePlayerHostile,
 	slideAfter: latticePlayerSlideAfter,
+	canvas: latticePlayerCanvas,
 };
