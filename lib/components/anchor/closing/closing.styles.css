@@ -187,7 +187,11 @@ section.closing.cover-label :is(h1, h2) {
 }
 section.closing.cover-label p,
 section.closing.cover-label :is(ul, ol) li { font-size: var(--fs-body); }
-section.closing.cover-label h2 + p:has(> code:only-child):not(:where([data-prose])) > code {
+/* The eyebrow steps down with the heading, in either source order: written after the heading
+ * (this sheet's rule) or before it (base.modifiers.css, the `:has(+ h1)` / `:has(+ h2)` rules),
+ * so this names the code-only paragraph alone. (0,3,4) beats both (found by the checker: an
+ * eyebrow written first kept the `--fs-h1` scale and came out larger than the heading). */
+section.closing.cover-label p:has(> code:only-child):not(:where([data-prose])) > code {
   font-size: max(var(--fs-meta), calc(var(--fs-h2) * var(--eyebrow-anchor-scale)));
 }
 section.closing.cover-stage :is(h1, h2) {

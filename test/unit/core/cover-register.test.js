@@ -98,6 +98,14 @@ test('lint: a composition word is known; a long stage or poster heading warns, a
   assert.equal(long(['cover: masthead'], 'title').length, 0, 'only the display compositions');
   assert.equal(long(['cover: stage'], 'content').length, 0, 'only the covers');
   assert.equal(lintText(deck(['cover: stage'], [TITLE()])).filter((f) => f.rule === 'cover-heading-long').length, 0, 'a short heading');
+  // The heading shapes CommonMark allows, each missed by the first cut (found by the checker).
+  const shape = (fm, body) => lintText(deck(fm, [body])).filter((f) => f.rule === 'cover-heading-long').length;
+  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n${LONG}\n===`), 1, 'a setext heading');
+  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n   # ${LONG}`), 1, 'indented up to three spaces');
+  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n#\t${LONG}`), 1, 'a tab after the marker');
+  assert.equal(shape(['class: cover-stage'], `<!-- _class: title -->\n\n# ${LONG}`), 1, 'a deck-wide class: names it');
+  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n\`An eyebrow first\`\n\n## ${LONG}`), 1, 'an eyebrow before the heading');
+  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n    # ${LONG}`), 0, 'four spaces in is code, not a heading');
 });
 
 test('css: every composition is scoped to its own component, and the size changes are role tokens', () => {
