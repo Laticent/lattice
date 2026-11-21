@@ -193,3 +193,18 @@ test('a cleared selection, or focus taken by the page, is never read as a long p
   const word = withAfter({ type: 'focusin', t: 920, inEditor: false, doorbell: false }, { type: 'selectionchange', t: 950, collapsed: false, text: 'point', inEditor: true });
   assert.equal(pressSelected(word), true);
 });
+
+// The tap log's own classification (run.mjs embeds inEditorOf's source in the page): a selection with NO anchor is null,
+// never false, so the out-of-editor clause cannot read a dropped selection as a moved one (maker-checker, PR #3368).
+test('inEditorOf: inside an editor, outside every editor, and no node at all', async () => {
+  const { inEditorOf, pressSelected } = await load();
+  const el = (editor) => ({ closest: (sel) => (sel === '.ProseMirror' && editor ? {} : null) });
+  assert.equal(inEditorOf(el(true)), true);
+  assert.equal(inEditorOf(el(false)), false);
+  assert.equal(inEditorOf(null), null, 'a cleared selection has no anchor');
+  assert.equal(inEditorOf(undefined), null);
+  assert.equal(inEditorOf({}), false, 'a node without closest (not an element) is outside');
+  // End to end through the log: a cleared selection after a long hold is not a long press.
+  const log = { events: [{ type: 'touchstart', t: 0 }, { type: 'touchend', t: 900 }, { type: 'selectionchange', t: 950, collapsed: true, text: '', inEditor: inEditorOf(null) }] };
+  assert.equal(pressSelected(log), false);
+});
