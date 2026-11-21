@@ -456,8 +456,8 @@
    * clear ≥3:1 on --bg #1A1A1C. */
   --chart-cat1: light-dark(#0E50BE, #3070E1);  /* bright blue    -- cool complement 4.74 / 5.37 */
   --chart-cat2: light-dark(#114D1B, #48814C);  /* electric green -- brand anchor   4.83 / 8.26 */
-  /* The sequential ramps (heatmap, map choropleth) keep the green they were tuned for (chart-family.styles.css
-   * --chart-ramp-hue): blue as the heatmap's pole cut the light top step from 6.53:1 to 4.79:1 against an empty cell. */
+  /* The sequential ramps (heatmap, map choropleth) keep the green they were tuned for (--chart-ramp-hue,
+   * heatmap.styles.css and map.styles.css): blue as the heatmap's pole cut the light top step from 6.53:1 to 4.79:1 against an empty cell. */
   --ramp-hue: var(--chart-cat2);
   --ramp-ink: var(--chart-cat2-ink);
   --chart-cat3: light-dark(#973A00, #B9592B);  /* vivid orange   -- warm opposite   4.77 / 6.18 */

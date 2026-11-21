@@ -193,7 +193,7 @@ const BODY_BASE_D = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone:
 const STATUS_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const ONE = 'var(--chart-cat-1-hue)';
 const ONE_INK = 'var(--chart-cat-1-ink)';
-/** A sequential ramp's hue and ink: the first category unless the palette names its own (chart-family.styles.css). */
+/** A sequential ramp's hue and ink: the first category unless the palette names its own (--chart-ramp-hue / --chart-ramp-ink, declared in heatmap.styles.css and map.styles.css). */
 const RAMP = 'var(--chart-ramp-hue)';
 const RAMP_INK = 'var(--chart-ramp-ink)';
 /**

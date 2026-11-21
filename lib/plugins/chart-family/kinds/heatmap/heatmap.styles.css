@@ -44,9 +44,10 @@
    * (white text clears it at 4.6:1, so it stands off the slide), and a ramp that tops out there barely clears its
    * own empty cell (carbone's dark top step fell to 2.87:1), so the dark ramp climbs toward the solid lifted halfway
    * to white: dark canvas to bright, the way a dark-slide magnitude reads. tools/derive-chart-cat-ink.js solves
-   * every step's ink against this same pole. A palette may name the ramp's hue with `--ramp-hue` (chart-family.styles.css
-   * --chart-ramp-hue; the first category by default): carbone leads its chart cycle with blue so "no status" does not read as on track, and keeps its
-   * heatmap on the green it was tuned for (6.53:1 top step against an empty cell on light; blue gave 4.79:1). */
+   * every step's ink against this same pole. The pole rides --chart-ramp-hue (declared
+   * above), the first category unless a palette names --ramp-hue: carbone leads its chart cycle with blue so "no
+   * status" does not read as on track, and keeps its heatmap on the green it was tuned for (6.53:1 top step against an
+   * empty cell on light; blue gave 4.79:1). */
   --heatmap-pole: light-dark(var(--chart-ramp-hue), color-mix(in oklab, var(--chart-ramp-hue) 50%, white));
 }
 
