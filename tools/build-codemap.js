@@ -129,6 +129,7 @@ const FOLDERS = {
   'tools/pdfkit-check/': 'Draws the finish demo PDF through Apple PDFKit on a macOS runner and compares it with the screen (the `pdf-pdfkit` platform suite).',
   'tools/perf-torture/': 'A reusable profiler that repeats one user action in a browser and reports memory that leaks.',
   'tools/recheck/': 'The pinned regex complexity checker behind `tools/regex-census.js`, kept out of the root install.',
+  'tools/runners/': 'The self-hosted GitHub Actions runner kit: the Linux runner image and supervisor, the Windows VM supervisor (`engineering/self-hosted-runners.md`).',
   'tools/script-docs/': 'One description per npm script, the source of `dist/engineering/capabilities.md`.',
   'tools/segno-legacy/': 'Frozen copies of the inline-code kernels from before Segno phase 2, kept as the bake-off baseline.',
   'tools/spike-card-slack/': 'A spike, not production tooling: the measurement behind the card-stack vertical alignment decision.',

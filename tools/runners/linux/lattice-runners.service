@@ -1,0 +1,19 @@
+# Install: sudo cp lattice-runners.service /etc/systemd/system/ && sudo systemctl enable --now lattice-runners
+# Logs:    journalctl -u lattice-runners -f
+[Unit]
+Description=Lattice self-hosted GitHub Actions runners (one-job Docker containers)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/opt/lattice-runner/runner-supervisor.sh
+Restart=always
+RestartSec=10
+# Let running jobs finish their current step before a stop kills them.
+TimeoutStopSec=60
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

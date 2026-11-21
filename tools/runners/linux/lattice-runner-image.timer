@@ -1,0 +1,12 @@
+# Rebuild the runner image weekly so the actions/runner version never falls behind what GitHub
+# accepts (about 30 days). Pairs with lattice-runner-image.service.
+# Install: sudo cp lattice-runner-image.{service,timer} /etc/systemd/system/ && sudo systemctl enable --now lattice-runner-image.timer
+[Unit]
+Description=Weekly rebuild of the lattice-runner image
+
+[Timer]
+OnCalendar=Sun 04:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target
