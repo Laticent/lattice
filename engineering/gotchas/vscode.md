@@ -212,7 +212,8 @@ this protocol has to record the level, or it is measuring a coin flip.
       the hand-back land before a reader can point.
     - #2734's runtime: everything held on both hosts, first paint and after every edit.
     Rerun it with `tools/vscode-preview-probe.mjs` and its `mermaid-click` deck and probe
-    (below); `--runtime` with a runtime built from before #2734 (9e3644aa9) reproduces the failures.
+    (below); `--runtime` with a runtime built at 9e3644aa9 (on `main`, the parent of #2734's 61e76411b)
+    reproduces the failures.
   - **The `bierner.markdown-mermaid` clue is not explained.** Installing it shifts what
     loads into the preview and when, which would change who wins the race, but that is a
     guess and was not tested.
@@ -299,7 +300,9 @@ fence(s) settled by the Lattice runtime; expected 3") and exited 1, so the tool 
 With `--runtime` pointed at a runtime built from 9e3644aa9, the commit before #2734, both hosts failed
 all four steps and exited 1, and not as hollow runs: the runtime loaded and settled all three diagrams,
 and the click and tooltip checks failed (the tooltip read empty after the first edit). So the probe
-catches the regression it was written for.
+catches the regression it was written for. One difference from the 2026-10-16 run above: on first paint,
+code-server now matched desktop (the tooltip and the second gantt's link alive, the first gantt's
+links gone) rather than being dead outright.
 
 ## `markdown.marp.html` / `html: true` is required or the runtime `<script>` tags print as TEXT
 
