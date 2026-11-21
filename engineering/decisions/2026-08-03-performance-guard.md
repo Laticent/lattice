@@ -140,7 +140,7 @@ rolling-issue pattern with its own marker.
   instead (2026-11-21). The spec reads each shot's SVG as it passes through `Blob` and asserts its `@font-face` rule
   count and bytes. On its 6-slide deck the healthy reading is at most 25 rules and 727 KB per shot; with
   `onlyUsedFontFaces` switched off it is 49 rules and 1.61 MB, and the spec fails. Ceilings: 36 rules, 1.1 MB. Chromium,
-  WebKit and Firefox read the same counts. It runs in the Studio e2e suite (desktop, `webkit-tablet`, `gecko`), not
+  WebKit and Firefox read the same counts. It runs in the Studio e2e suite (desktop, mobile, `webkit-tablet`, `gecko`), not
   `perf-nightly.yml`, and prints the export's seconds without asserting them. It does not
   see the other half of 2904's cost, the PNG encoder's three whole-picture copies: that is native memory a page cannot
   read.

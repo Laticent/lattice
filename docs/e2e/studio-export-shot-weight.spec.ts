@@ -1,4 +1,5 @@
-import { expect, gotoStudio, railButtons, setEditorContent, shareExport, test } from './studio-fixture';
+import { createRequire } from 'node:module';
+import { expect, gotoStudio, railButtons, shareExport, test } from './studio-fixture';
 
 // STUDIO EXPORT SHOT WEIGHT: how much font CSS each slide's picture carries in the real Studio's PDF export.
 //
@@ -30,7 +31,20 @@ const DECK = `---\ntheme: indaco\n---\n\n${Array.from(
 
 type Shot = { bytes: number; faces: number; faceBytes: number };
 
-test('the Studio PDF export carries only the fonts each slide draws in its picture @webkit-tablet @gecko', async ({ page }) => {
+const require = createRequire(import.meta.url);
+
+/** The deck as a `.lattice` project, loaded through the Library's file input: that works at every width, where typing into the
+ *  editor does not reach the phone layout's hidden editor pane. */
+async function latticeFile(): Promise<Buffer> {
+	const JSZip = require('../../node_modules/jszip') as typeof import('jszip');
+	const zip = new JSZip();
+	zip.file('deck.md', DECK);
+	zip.file('manifest.json', JSON.stringify({ format: 'lattice', version: 1, title: 'Export shot weight', engine: 'lattice', generatedAt: 1790000000000, comments: [] }));
+	zip.file('media.json', '[]');
+	return zip.generateAsync({ type: 'nodebuffer' });
+}
+
+test('the Studio PDF export carries only the fonts each slide draws in its picture @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	test.setTimeout(240_000);
 	await page.addInitScript(() => {
 		const shots: { bytes: number; faces: number; faceBytes: number }[] = [];
@@ -50,10 +64,10 @@ test('the Studio PDF export carries only the fonts each slide draws in its pictu
 		};
 	});
 	await gotoStudio(page);
-	await setEditorContent(page, DECK);
+	await page.locator('input[type="file"][accept*=".lattice"]').setInputFiles({ name: 'shot-weight.lattice', mimeType: 'application/zip', buffer: await latticeFile() });
 	await expect(railButtons(page)).toHaveCount(SLIDES, { timeout: 60_000 });
 
-	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 	const download = page.waitForEvent('download', { timeout: 180_000 });
 	const t0 = Date.now();
