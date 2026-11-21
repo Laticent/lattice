@@ -378,7 +378,7 @@ describe('waterfall kernel', () => {
         '<li>Price <code>+20</code><ul><li>Two rises</li></ul></li>' +
         '<li>Close <code>120</code></li>'), {});
       assert.match(withDetail, /<template class="chart-detail" data-mark="1">/);
-      assert.match(withDetail, /<!-- Price \(\+20\): Two rises -->/);
+      assert.match(withDetail, /<!-- @note\{Price \(\+20\): Two rises\} -->/);
       assert.doesNotMatch(svg, /chart-detail/, 'and a walk without detail is unchanged');
     });
   });

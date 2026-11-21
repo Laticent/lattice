@@ -532,10 +532,15 @@ section {
  * source-shape assertions in `test/unit/palette/finish-canvas-contract.test.js` are
  * structurally unable to see this class of failure: the CSS is valid whichever color
  * it resolves to. */
-section:is(.title, .closing):not(.print),
+section:is(.title, .closing):not(.print, .cover-light),
 section.divider:not(.light):not(.print) {
   --fin-canvas: var(--surface-inverse);
 }
+/* `cover-light` (the `cover: light` register, lib/core/resolve-cover.js) is the one bookend
+ * surface that is NOT the panel: it paints `var(--bg)` (base.modifiers.css, the light-cover
+ * block), so it is carved out of the rule above inside the `:not()` that already held `.print`
+ * (the selector keeps its (0,2,1)), and `--fin-canvas` falls back to the `section` default,
+ * `var(--bg)`, which is the surface it paints. No rule of its own is needed, so none is written. */
 
 /* TOPIC IS A SEPARATE BLOCK, and the split is defensive rather than cosmetic.
  * Selectors-4 invalidates a WHOLE selector list on one unparsable complex

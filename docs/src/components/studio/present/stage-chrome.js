@@ -45,6 +45,22 @@ export const STAGE_CHROME_CSS = `
 .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken="1"]{color:var(--accent);}
 .latt-cc--still .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken]{color:var(--text-muted);}
 @media (min-width:640px){.latt-cc-line{font-size:18px;}}
+/* OVER THE SLIDE — Present's immersive (landscape-phone) layout: CLOSED CAPTIONS, not the crawl (owner, 2026-11-20).
+   The sentence being spoken shows whole on the slide's bottom edge, sized as a share of the SLIDE's width (the wrapper is
+   an inline-size container, every length in em), and the only motion is a fade: the band fades in and out, and each
+   new sentence fades in. No scroll, no word-by-word highlight.
+   The plate is ON BRAND and works on light and dark decks: the app palette's --surface-inverse (the brand's dark tone,
+   the same in both modes) slightly see-through, with white type and a faint accent edge so it still separates from a
+   dark slide. It is drawn per visual line and hugs the words (an inline box, box-decoration-break: clone). */
+.latt-cc-over{position:absolute;left:0;right:0;bottom:0;z-index:2;container-type:inline-size;pointer-events:none;transition:transform .3s cubic-bezier(.22,.61,.36,1);}
+.latt-cc-over .latt-cc-band{font-size:clamp(11px,2.5cqw,40px);padding:0 5% 2.5%;max-height:none;transition:opacity .3s;}
+.latt-cc-over .latt-cc{height:auto;max-width:none;padding:0;}
+.latt-cc-over .latt-cc-win{height:auto;-webkit-mask-image:none;mask-image:none;}
+.latt-cc-over .latt-cc-track{position:static;transform:none!important;transition:none;text-align:center;}
+.latt-cc-over .latt-cc-line[data-state="read"],.latt-cc-over .latt-cc-line[data-state="up"]{display:none;}
+.latt-cc-over .latt-cc-line[data-state="now"]{display:inline;font-size:1em;padding:.12em .45em;line-height:1.75;border-radius:.3em;color:white;background:color-mix(in srgb,var(--surface-inverse) 86%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone;animation:latt-cc-in .3s ease-out;}
+.latt-cc-over .latt-cc-line[data-state="now"] .latt-cc-w[data-spoken]{color:white;}
+@keyframes latt-cc-in{from{opacity:0}to{opacity:1}}
 /* ── the progress rail ───────────────────────────────────────────────────── */
 .latt-rail{display:flex;min-width:0;flex-direction:column;align-items:stretch;gap:.375rem;width:100%;}
 .latt-rail-title{height:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;line-height:1;letter-spacing:.16em;color:var(--text-muted);}
@@ -73,7 +89,8 @@ export const STAGE_CHROME_CSS = `
 .latt-rail-hit{position:absolute;left:-2px;right:-2px;top:-10px;bottom:-10px;}
 @keyframes latt-fade-rise{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 @media (prefers-reduced-motion:reduce){
-.latt-cc-band,.latt-cc-track,.latt-cc-line,.latt-rail-fill{transition:none!important;}
+.latt-cc-band,.latt-cc-track,.latt-cc-line,.latt-cc-over,.latt-rail-fill{transition:none!important;}
+.latt-cc-over .latt-cc-line{animation:none!important;}
 .latt-rail-title>span{animation:none!important;}
 }
 `;

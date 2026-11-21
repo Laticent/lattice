@@ -30,11 +30,43 @@
 
 :root {
 	scrollbar-color: color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent;
-	scrollbar-width: thin;
 	/* Checkboxes, radios, range + progress, and the text caret — one line each,
 	 * universal support, so form controls stop rendering in OS blue. */
 	accent-color: var(--accent);
 	caret-color: var(--accent);
+}
+
+/* Thin scrollbars on EVERY scroller, not just the page.
+ *
+ * `scrollbar-color` is inherited, so declaring it once on :root tints every panel. `scrollbar-width`
+ * is NOT inherited (CSS Scrollbars Level 1), so the same one-line :root rule thinned only the page's
+ * own bar and left every inner scroller — the Studio's Compose pane, its filmstrip, the Playground's
+ * panels — at the OS default. On Windows that is a classic 15-17px bar, the thick bar the owner saw
+ * in Firefox. Measured in Chromium with classic scrollbars: an inner panel under the :root-only rule
+ * computed `auto` and reserved 15px; the same panel under this rule computes `thin` and reserves 10px.
+ *
+ * `*` has zero specificity, so an UNLAYERED scroller rule that states its own width (`none` for a
+ * hidden strip) keeps it. A LAYERED one loses: this file is unlayered, and unlayered beats layered at
+ * any specificity (engineering/cascade.md). That caught Starlight, whose table-of-contents column says
+ * `scrollbar-width: none` inside `@layer starlight.core`; lattice.css restates it unlayered. A Tailwind
+ * `[scrollbar-width:none]` utility would lose the same way, so state such a width unlayered.
+ * A preview frame is its own document and gets its thin bar from `docStyleText` (deck-preview.js). */
+* {
+	scrollbar-width: thin;
+}
+
+/* A scroller that shows NO bar: `data-scrollbar="none"` on the element. An attribute here, unlayered, rather
+ * than a Tailwind `[scrollbar-width:none]` utility, which sits in @layer utilities and would lose to the `*`
+ * rule above at any specificity. `::-webkit-scrollbar` covers Safari before 18.2, which has no
+ * `scrollbar-width`. Used by the slide map (MapRail), which the wheel (lib/wheel-sideways.ts), a trackpad
+ * swipe and the keys navigate; only the Playground's side map also has first/last chevrons. Its bar caused a
+ * resize loop whenever it took space. Cost: with no bar, the clipped tile at the edge is the only cue that
+ * more slides lie that way (owner's call, 2026-11-21: "hide the map's bar entirely"). */
+[data-scrollbar='none'] {
+	scrollbar-width: none;
+}
+[data-scrollbar='none']::-webkit-scrollbar {
+	display: none;
 }
 
 /* Mobile: the tap flash on any tappable element. Inherited, so setting it

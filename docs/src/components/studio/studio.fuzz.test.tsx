@@ -15,6 +15,12 @@ vi.mock('@/components/DeckPreview', () => ({
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
+// ONE SEED FOR BOTH PROPERTIES, printed, so a red run replays exactly (HARD RULE #32, F5): `FUZZ_SEED=<n> npx vitest run
+// src/components/studio/studio.fuzz.test.tsx`. fast-check drew a fresh seed every run before, so a failure on CI could
+// not be replayed and a pass said nothing about the next run.
+const SEED = Number(process.env.FUZZ_SEED ?? 3045);
+console.info(`studio.fuzz: seed ${SEED} (replay with FUZZ_SEED=${SEED})`);
+
 // The journeys include a "switch deck" command that targets the original decks,
 // and assume the full-density shell. Seed a returning-user state so "Q3 Board
 // Review" is active and the panels are docked (not the newcomer welcome deck).
@@ -114,28 +120,26 @@ const commands = [
 	),
 ];
 
+// THE JOURNEYS ARE DRAWN ONCE, FROM THE SEED, AND EACH IS ITS OWN TEST. One property ran all 15 inside one 120 s limit:
+// 13 s idle, 43 s under 4-way CPU contention, and past 120 s when other suites shared the CPU (HARD RULE #32, F4). A
+// limit on 15 renders measured the machine; a limit on one render plus at most 12 actions (about 1 s idle) does not.
+// Same journeys, same count, same coverage; what is lost is fast-check's shrinking, so a failure names its seed and
+// its whole journey instead.
+const JOURNEYS = fc.sample(fc.commands(commands, { maxCommands: 12 }), { seed: SEED, numRuns: 15 });
+
 describe('StudioShell — fuzz: no jank across random journeys', () => {
-	it('never crashes and keeps the counter ↔ rail consistent for any action sequence', async () => {
-		await fc.assert(
-			fc.asyncProperty(fc.commands(commands, { maxCommands: 12 }), async (cmds) => {
-				const user = userEvent.setup();
-				render(<StudioShell options={options} />);
-				try {
-					await fc.asyncModelRun(() => ({ model: {}, real: { user } }), cmds);
-				} finally {
-					cleanup();
-					document.documentElement.removeAttribute('data-palette');
-				}
-			}),
-			{ numRuns: 15, endOnFailure: true },
-		);
-		// 15 runs x (a full shell render + up to 12 interactions) is 12.99s on an idle
-		// machine and 43.14s under 4-way CPU contention — a measured 3.3x. The old
-		// 60_000 left 1.39x of headroom over that, i.e. the next wolf-cry queued up in
-		// the very family #1328 filed. Raised to ~2.8x the contended measurement rather
-		// than cutting numRuns, which would buy the margin with fuzz coverage. See
-		// engineering/decisions/2026-08-23-jsdom-suite-timeout-budget.md.
-	}, 120_000);
+	it.each(JOURNEYS.map((cmds, i) => [i + 1, cmds] as const))('journey %i never crashes and keeps the counter ↔ rail consistent', async (n, cmds) => {
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		try {
+			await fc.asyncModelRun(() => ({ model: {}, real: { user } }), cmds);
+		} catch (err) {
+			throw new Error(`journey ${n} of seed ${SEED} failed: ${String(cmds)}`, { cause: err });
+		} finally {
+			cleanup();
+			document.documentElement.removeAttribute('data-palette');
+		}
+	});
 });
 
 // A second, content-level fuzz: arbitrary edits to the deck source must never
@@ -157,7 +161,7 @@ describe('StudioShell — fuzz: arbitrary source never desyncs the derived views
 				await user.paste(`\n\n---\n\n${chunk}`);
 				await waitFor(() => expectNoJank());
 			}),
-			{ numRuns: 12, endOnFailure: true },
+			{ seed: SEED, numRuns: 12, endOnFailure: true },
 		);
-	}, 60_000);
+	});
 });

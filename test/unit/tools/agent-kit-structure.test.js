@@ -986,7 +986,10 @@ test('agent kit structure', { skip }, async (t) => {
 		// header and page number and keeps the footer on purpose (the deck's standing note).
 		assert.match(skel, /^<!-- _class: title -->$/m, 'title skeleton defers to its manifest chrome');
 		assert.match(skel, /^<!-- _class: closing -->$/m, 'closing skeleton defers to its manifest chrome');
-		assert.match(start, /Speaker notes: a plain HTML comment/);
+		// The four notes, named (engineering/decisions/2026-11-20-four-notes.md); a plain comment reaches nothing.
+		assert.match(start, /`<!-- @note\{Pause here for questions\.\} -->` is the speaker note/);
+		for (const name of ['say', 'alt', 'handout']) assert.ok(start.includes(`\`<!-- @${name}{…} -->\``), `start.md teaches @${name}`);
+		assert.doesNotMatch(start, /<!-- (?:say|describe|reader): /, 'start.md teaches no retired note key');
 		assert.match(start, /`kpi` row.s first pill takes its color from the row.s POSITION/);
 		assert.doesNotMatch(skel, /`\{(Board|Audit|Investor)\}`/, 'kpi skeleton carries no decorative pills');
 		for (const chart of ['bar', 'piechart']) assert.match(skel, new RegExp(`^### ${chart}$`, 'm'), `a ${chart} skeleton`);

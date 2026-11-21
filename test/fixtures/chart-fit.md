@@ -247,7 +247,7 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
 
-<!-- The one chart this fixture never carried, and the gap cost what a gap costs
+<!-- @note{The one chart this fixture never carried, and the gap cost what a gap costs
 (#1620): matrix-grid's `table-layout: auto` table cannot render below its
 min-content width, so `width: 100%` was a request the browser was free to ignore.
 At portrait it ran 225.6px past its box with the Verb column cut; at story it was
@@ -259,7 +259,7 @@ clips it 169px at landscape and 555px at portrait — measured while writing thi
 slide. That is capacity, not a layout defect (the same class as #1600), and it is
 not what this slide is here to watch. The table below is the committed gallery
 matrix VERBATIM, so the gate measures the real reference content rather than a
-reduced one that would fit either way. -->
+reduced one that would fit either way.} -->
 
 `[Wider reach, Deeper cognition]`
 
@@ -580,13 +580,13 @@ panel's inset chain had no gate at all.
 2. `Q2` The second, marked `decision`
 3. `Q3` The third milestone
 
-<!-- The `quadrant canvas` slide above is a height-bound SVG on the FAMILY panel
+<!-- @note{The `quadrant canvas` slide above is a height-bound SVG on the FAMILY panel
 default, so it cannot see a PER-CHART one. timeline-list is the only chart that
 has one (`--chart-panel-x` at tall/strip), and deleting an inline token silently
 retuned it 3x tighter until the trio caught it — twice, independently. This slide
 is what watches it now. Kept deliberately short: `timeline-list canvas` at
 portrait is height-tight on `main` too, and this fixture is here to exercise the
-panel token, not to re-litigate that. -->
+panel token, not to re-litigate that.} -->
 
 ---
 

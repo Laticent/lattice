@@ -11,7 +11,7 @@ rendered HTML as raw markup.
 
 ## Slide two
 
-<!-- a speaker note quoting <section class="title"> -->
+<!-- @note{a speaker note quoting <section class="title">} -->
 
 The note above quotes an open section tag.
 

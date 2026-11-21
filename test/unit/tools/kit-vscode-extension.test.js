@@ -26,7 +26,7 @@ describe('classContext — where the menu may open', () => {
 
   test('anywhere else it returns null, so prose opens nothing', () => {
     for (const line of ['', 'The kpi slide', 'lattice-kpi', '::kpi', '/kpi', 'class: kpi', '_class: kpi',
-      '<!-- _paginate: ', '<!-- _class: kpi -->', '<!-- _class: kpi --> and more', '<!-- note: class: kpi',
+      '<!-- _paginate: ', '<!-- _class: kpi -->', '<!-- _class: kpi --> and more', '<!-- @note{class: kpi',
       '- A bullet with `_class: kpi` in code']) {
       assert.equal(classContext(line), null, JSON.stringify(line));
     }

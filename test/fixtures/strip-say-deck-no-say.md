@@ -13,7 +13,7 @@ This deck exists to prove `--strip-say` leaves no trace of which slides carried 
 - A point
 - Another point
 
-<!-- PRIVATELEAKTOKEN bravo: the author's private remark, slide two. -->
+<!-- @note{PRIVATELEAKTOKEN bravo: the author's private remark, slide two.} -->
 
 ---
 

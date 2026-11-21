@@ -309,15 +309,27 @@
               "type": "object",
               "minProperties": 1,
               "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
-              "description": "Comment keys that are not slide directives but are not speaker notes either, each with the channel that reads it. `structure`: the pane carve splits the slide at it (`<!-- _pane: list -->`, `<!-- panes: 60/40 -->`). `channel`: a note-like comment with its own sink (`say:` is read-as text for narration, `describe:` is the slide's accessible description). Readers that must not mistake one for a speaker note, or must find one, ask the vocabulary instead of keeping a list.",
+              "description": "Comment keys that are not slide directives, each with the reader that reads it. `structure`: the pane carve splits the slide at it (`<!-- _pane: list -->`, `<!-- panes: 60/40 -->`). Readers that must find one ask the vocabulary instead of keeping a list.",
               "additionalProperties": {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["kind"],
                 "properties": {
-                  "kind": {"enum": ["structure", "channel"]},
+                  "kind": {"enum": ["structure"]},
                   "describe": {"type": "string", "minLength": 1}
                 }
+              }
+            },
+            "notes": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["note", "say", "alt", "handout"],
+              "description": "The slide's four notes, each `<!-- @name{…} -->` and named for where it shows up (engineering/decisions/2026-11-20-four-notes.md). Only the first-party `meta` plugin declares them; the grammar is lib/core/note-grammar.mjs.",
+              "properties": {
+                "note": {"$ref": "#/$defs/metaNote"},
+                "say": {"$ref": "#/$defs/metaNote"},
+                "alt": {"$ref": "#/$defs/metaNote"},
+                "handout": {"$ref": "#/$defs/metaNote"}
               }
             }
           }
@@ -478,6 +490,12 @@
     }
   },
   "$defs": {
+    "metaNote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["describe"],
+      "properties": {"describe": {"type": "string", "minLength": 1}}
+    },
     "pluginNames": {
       "type": "array",
       "uniqueItems": true,

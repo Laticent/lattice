@@ -49,10 +49,8 @@ Prepared for the Northwind Analytics board of directors.
    - CAC payback
    - target 14 mo · +4 mo QoQ `{Behind}`
 
-<!--
-Speaker note, never narrated: if asked about the audit, the Q3 numbers were reviewed by
-Hartley & Stone on 9 October; the management letter had no findings.
--->
+<!-- @note{Speaker note, never narrated: if asked about the audit, the Q3 numbers were reviewed by
+Hartley & Stone on 9 October; the management letter had no findings.} -->
 
 ---
 

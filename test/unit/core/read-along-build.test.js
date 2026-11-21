@@ -93,30 +93,13 @@ test('mergeNarration: no projection yields silence, never a note', () => {
 	assert.deepEqual(mergeNarration(2, []), ['', '']);
 });
 
-// ── Layer-1 say precedence: say line → fmSayMap → projection (§16) ─────────────
+// ── Layer-1 say precedence: the slide's @say{…} → projection (§16; the front-matter map went 2026-11-20) ──
 
 test('mergeNarration: an inline say line REPLACES the whole slide narration', () => {
 	const merged = mergeNarration(2, ['PROJ 0', 'PROJ 1'], { sayLines: ['Inline say zero.', '  '] });
 	// slide 1: the override, and ONLY the override — an author say line replaces, never merges.
 	// slide 2: blank say line → falls through to the generated projection.
 	assert.deepEqual(merged, ['Inline say zero.', 'PROJ 1']);
-});
-
-test('mergeNarration: a front-matter say: entry (1-based slide number) outranks projection, below inline', () => {
-	const fmSayMap = new Map([[1, 'FM caption for slide 1.'], [3, 'FM caption for slide 3.']]);
-	const merged = mergeNarration(3, ['P0', 'P1', 'P2'], { sayLines: ['Inline wins.', null, null], fmSayMap });
-	// slide 1: inline beats its own fmSay; slide 2: no override → projection; slide 3: fmSay.
-	assert.deepEqual(merged, ['Inline wins.', 'P1', 'FM caption for slide 3.']);
-});
-
-test('mergeNarration: fmSayMap keys are 1-based (get(i+1)), never off-by-one', () => {
-	const fmSayMap = new Map([[2, 'Second slide reads this.']]);
-	assert.deepEqual(mergeNarration(3, [], { fmSayMap }), ['', 'Second slide reads this.', '']); // index 1 ← key 2
-});
-
-test('mergeNarration: a non-Map fmSayMap is ignored', () => {
-	assert.deepEqual(mergeNarration(2, ['P0', 'P1']), ['P0', 'P1']);
-	assert.deepEqual(mergeNarration(2, ['P0', 'P1'], { fmSayMap: {} }), ['P0', 'P1']);
 });
 
 test('mergeNarration: the pre-rename option names throw instead of being ignored', () => {
@@ -129,12 +112,12 @@ test('mergeNarration: the pre-rename option names throw instead of being ignored
 	assert.deepEqual(mergeNarration(1, ['P0'], null), ['P0'], 'null options read as none');
 });
 
-test('mergeNarration: a whitespace-only fm say entry falls through to the projection (trim guard; live parity)', () => {
-	// A quoted "   " survives parseSayMap (space is protectable), but an all-whitespace caption
-	// is silence — the export trims-to-decide and falls through; PresentOverlay uses the same
-	// String(fm ?? "").trim() guard so the two producers agree (§16 F3 fix).
-	const merged = mergeNarration(2, ['P0', 'P1'], { fmSayMap: new Map([[1, '   '], [2, 'Real caption.']]) });
-	assert.deepEqual(merged, ['P0', 'Real caption.']); // slide 1: blank fm → projection; slide 2: fm
+test('mergeNarration: the removed front-matter map (`fmSayMap`) throws instead of being ignored', () => {
+	// The front-matter `say:` map was removed on 2026-11-20 (engineering/decisions/2026-11-20-four-notes.md N6). An
+	// ignored map would narrate the projection where the caller expected the author's words, with no error.
+	assert.throws(() => mergeNarration(2, ['P0', 'P1'], { fmSayMap: new Map([[2, 'Old map line.']]) }), /`fmSayMap` was removed/);
+	assert.throws(() => mergeNarration(2, ['P0', 'P1'], { fmSayMap: undefined }), TypeError, 'a present-but-undefined key still throws');
+	assert.deepEqual(mergeNarration(2, ['P0', 'P1'], { sayLines: [null, 'Slide two.'] }), ['P0', 'Slide two.']);
 });
 
 test('mergeNarration: a non-numeric slide count answers for nothing rather than throwing', () => {
@@ -258,12 +241,11 @@ test('plainSay: a marker that is not emphasis passes through', () => {
   assert.equal(plainSay(null), '');
 });
 
-test('mergeNarration: both say rungs are read through plainSay, the projection is not', () => {
+test('mergeNarration: the say line is read through plainSay, the projection is not', () => {
   const out = mergeNarration(3, ['proj **kept**', 'proj', 'proj'], {
-    sayLines: ['**Inline** say', '', ''],
-    fmSayMap: new Map([[2, 'Front-matter _say_']]),
+    sayLines: ['**Inline** say', '_Second_ say', ''],
   });
-  assert.deepEqual(out, ['Inline say', 'Front-matter say', 'proj']);
+  assert.deepEqual(out, ['Inline say', 'Second say', 'proj']);
 });
 
 test('refsForResolved keeps a binding only while its text is the text read', () => {

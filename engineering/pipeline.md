@@ -293,7 +293,7 @@ is the Lattice host that hands it JSZip, the deck's fonts and the HarfBuzz
 pinner. Two modes:
 
 - **Picture** (every `.odp` without the flag): one full-bleed PNG per page, the
-  speaker notes on each page's notes view, the `describe:` text as each picture's
+  speaker notes on each page's notes view, the `@alt` text as each picture's
   alt text. The PPTX twin is the plain `.pptx` (`lib/export/pptx-export.js`), written by
   the same Calco `writePptx` from a deck of pictures with no text frames.
 - **Editable** (`--editable` on `.odp` or `.pptx`; the Studio's Editable text switch runs the same capture, `captureOfficeSlides`): Calco reads every paragraph off

@@ -276,7 +276,7 @@ describe('heatmap: authored callouts', () => {
   test('a detail joins the cell\'s card and the speaker note', () => {
     const out = render('`@legend{{Dip, for="Jan 2026 · M1", detail="Pricing change"}}`');
     assert.match(out, /<template class="chart-detail" data-mark="1"><li>Dip: Pricing change<\/li><\/template>/);
-    assert.match(out, /<!-- Jan 2026 · M1 \(62\): Dip: Pricing change -->/);
+    assert.match(out, /<!-- @note\{Jan 2026 · M1 \(62\): Dip: Pricing change\} -->/);
   });
 
   test('the description names each callout, and one that names no cell is reported, not drawn', () => {
@@ -425,7 +425,7 @@ describe('the split: @callout and callout: off (2026-10-20-callout-placement.md 
     for (const ctx of [{ classTokens: ['no-callout'] }, { pluginsOff: new Set(['callout']) }, { classTokens: ['lat-callouts-off', 'with-callout'] }, { classTokens: ['with-callout'], pluginsOff: new Set(['callout']) }]) {
       const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), ctx);
       assert.doesNotMatch(out, /legend--anchored|<code>@callout/);
-      assert.match(out, /<!-- Jan 2026 · M1 \(62\): Dip: Pricing change -->/);
+      assert.match(out, /<!-- @note\{Jan 2026 · M1 \(62\): Dip: Pricing change\} -->/);
     }
   });
   test('narration reads a @callout, and callout: off silences it', () => {
@@ -484,7 +484,7 @@ describe('the author\'s switch: callout off', () => {
     const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { classTokens: ['no-callout'] });
     assert.doesNotMatch(out, /legend--anchored|legend-target|<code>@legend/);
     assert.doesNotMatch(doc(out).querySelector('desc').textContent, /Dip/);
-    assert.match(out, /<!-- Jan 2026 · M1 \(62\): Dip: Pricing change -->/);
+    assert.match(out, /<!-- @note\{Jan 2026 · M1 \(62\): Dip: Pricing change\} -->/);
   });
   test('a host that switched the plugin off hides it the same way', () => {
     const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { pluginsOff: new Set(['callout']) });

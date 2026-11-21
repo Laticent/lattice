@@ -17,7 +17,7 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 <!-- _class: bar -->
 <!-- _footer: "bar · names set whole" -->
-<!-- bar · the category band is as tall as its names: North America sets whole on two lines. -->
+<!-- @note{bar · the category band is as tall as its names: North America sets whole on two lines.} -->
 
 `Revenue · FY26`
 
@@ -32,7 +32,7 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 <!-- _class: bar grouped -->
 <!-- _footer: "bar grouped · the key is a tile" -->
-<!-- bar grouped · the key is a tile the kernel places under or beside the plot. -->
+<!-- @note{bar grouped · the key is a tile the kernel places under or beside the plot.} -->
 
 ## We beat plan everywhere but APAC.
 
@@ -50,7 +50,7 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 <!-- _class: bar row -->
 <!-- _footer: "bar row · the name column fits" -->
-<!-- bar row · the name column widens until every name sets whole. -->
+<!-- @note{bar row · the name column widens until every name sets whole.} -->
 
 ## Every unit named in full, nothing abbreviated.
 
@@ -67,7 +67,7 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 <!-- _class: quadrant -->
 <!-- _footer: "quadrant · names on their dots" -->
-<!-- quadrant · names sit on their dots while they can, and move to a numbered key when they cannot. -->
+<!-- @note{quadrant · names sit on their dots while they can, and move to a numbered key when they cannot.} -->
 
 `[{Effort, 0..10}, {Reach, 0..100}]`
 
@@ -90,7 +90,7 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 <!-- _class: quadrant -->
 <!-- _footer: "quadrant · a numbered key" -->
-<!-- quadrant · fourteen names cannot sit clear of their dots: each dot carries its number. -->
+<!-- @note{quadrant · fourteen names cannot sit clear of their dots: each dot carries its number.} -->
 
 ## Fourteen initiatives, one owner.
 
@@ -117,7 +117,7 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 <!-- _class: risk-matrix -->
 <!-- _footer: "risk-matrix · discs give way" -->
-<!-- risk-matrix · ten risks, three in one cell: the discs give way, the numerals never do. -->
+<!-- @note{risk-matrix · ten risks, three in one cell: the discs give way, the numerals never do.} -->
 
 ## Ten risks, three in the same cell.
 
@@ -136,7 +136,7 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 
 <!-- _class: risk-matrix -->
 <!-- _footer: "risk-matrix · notes at role size" -->
-<!-- risk-matrix · authored notes print at their role size; the grid gives them room. -->
+<!-- @note{risk-matrix · authored notes print at their role size; the grid gives them room.} -->
 
 `Enterprise risk register · Q4 2026`
 

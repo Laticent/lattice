@@ -289,23 +289,22 @@ type NotesCore = {
 	 *  because this object is handed to `stripNotesCut`, whose own kernel type requires it —
 	 *  the two must stay in step or the Studio's cut measurement stops typechecking. */
 	sameSlideShape: (a: string[], b: string[]) => boolean;
-	noteBodiesFromHtml: (sectionHtml: string) => string[];
-	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[], opts?: { boundary?: string }) => string;
+	stripChannelsFromSource: (source: string, opts: { notes?: boolean; say?: boolean; boundary?: string }) => string;
 	SCRUB_BOUNDARIES: readonly string[];
 	auditStrippedSource: (strippedSource: string) => string[];
 	slideNoteRecord: (sections: string[]) => SlideNoteRecord[];
 };
 
-/** One slide's whole comment channel, lifted once at the render boundary. */
-// `note` is the display JOIN of a slide's notes; `noteBodies` is the pre-join array. The
-// privacy scrub must use `noteBodies` — see `slideNoteRecord` in lib/authoring/notes-core.js.
+/** One slide's four notes, lifted once at the render boundary (lib/authoring/notes-core.js `slideNoteRecord`). */
 type SlideNoteRecord = {
+	/** `@note`: the speaker notes. */
 	note: string | null;
-	noteBodies: string[];
+	/** `@alt`: the alt text. */
 	description: string | null;
+	/** `@say`: the voice and the captions. */
 	say: string | null;
-	/** The reader note (a record's `reader` field): its own channel, never folded into the speaker note (D8). */
-	reader?: string | null;
+	/** `@handout`: the handout and the player's read view; never folded into the speaker note. */
+	handout: string | null;
 };
 
 /** The depth-aware `<section>` walker (docs/src/lib/markup/sections.ts), via the authoring bundle. */
@@ -338,19 +337,19 @@ type SplitSectionsCore = (html: string) => { type: 'gap' | 'section'; openTag?: 
 function materializeNotes(sections: string[], notesCore: NotesCore, record: SlideNoteRecord[], stripNotes = false): string {
 	const notes = record.map((r) => (stripNotes ? null : r.note));
 	const descriptions = record.map((r) => r.description);
-	// The reader note is meant for whoever opens the file, so the strip that removes the presenter's notes keeps it.
-	const readers = record.map((r) => r.reader ?? null);
+	// The handout is meant for whoever opens the file, so the strip that removes the presenter's notes keeps it.
+	const handouts = record.map((r) => r.handout);
 	return sections
 		.map((sec, i) => {
 			const stripped = notesCore.stripCommentNodes(sec);
 			const note = notes[i];
 			const description = descriptions[i];
-			const reader = readers[i];
-			if (!note && !description && !reader) return stripped;
+			const handout = handouts[i];
+			if (!note && !description && !handout) return stripped;
 			let inject = '';
 			let sectionAttr = '';
 			if (note) inject += `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escHtml(note)}</aside>`;
-			if (reader) inject += `<aside class="lattice-reader" hidden data-slide="${i + 1}">${escHtml(reader)}</aside>`;
+			if (handout) inject += `<aside class="lattice-handout" hidden data-slide="${i + 1}">${escHtml(handout)}</aside>`;
 			if (description) {
 				const id = `lat-desc-${i + 1}`;
 				inject += `<p class="lattice-description" id="${id}">${escHtml(description)}</p>`;
@@ -536,8 +535,8 @@ export async function shareHtmlPlayer(
 	const fontCss = await fontMod.buildFontEmbedCss(`${out.html}\n${getFrontMatter(source, 'title') || ''}`, fontSetting);
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
-	// THE COMMENT CHANNEL, LIFTED ONCE, BEFORE ANYTHING TOUCHES THE MARKUP. Notes,
-	// `describe:` and `say:` ride as HTML comments, and every pipeline below this
+	// THE FOUR NOTES, LIFTED ONCE, BEFORE ANYTHING TOUCHES THE MARKUP. `@note`, `@say`, `@alt`
+	// and `@handout` ride as HTML comments, and every pipeline below this
 	// point destroys them — the capture frame sanitizes, and `sanitizeSlideHtml` deletes
 	// comment nodes. Reading them here, from the engine's own output, is what keeps the
 	// notes sheet, the a11y descriptions and the `--strip-notes` scrub independent of
@@ -576,11 +575,7 @@ export async function shareHtmlPlayer(
 	const placed = remoteRef.blockWebImages(media.html, []);
 	// `let`: the strip-notes cut below swaps in the scrubbed render, and the bake must bake THAT.
 	// HIDDEN SLIDES leave the player (engineering/decisions/2026-11-06-hidden-slides.md), as they leave the CLI's
-	// `--player`. Their note bodies are read FIRST, so the strip-notes scrub below removes those notes from the shipped
-	// source too; reading them off the shown sections left a hidden slide's note in the envelope (the checker's finding).
-	const hiddenNoteBodies = sectionsOf(placed.html)
-		.filter((sec) => hiddenSlides.isHiddenSection(sec))
-		.flatMap((sec) => notesCore.slideNoteRecord([sec]).flatMap((r) => r.noteBodies || []));
+	// `--player`. The strip-notes scrub below reads the whole SOURCE, so a hidden slide's notes leave the shipped source too.
 	const shownHtml = (html: string) => hiddenSlides.withoutHiddenSlides(html, splitSections).html;
 	let playerHtml = shownHtml(placed.html);
 	// Reported with the other degradations at the end: a picture the file cannot show is a
@@ -593,16 +588,10 @@ export async function shareHtmlPlayer(
 	// `let`, because the guard below picks WHICH cut ships once it knows which one reproduces
 	// the deck — the source that ships is the source that was rendered.
 	let envelopeSource = source;
-	// --strip-notes privacy export: the note text must appear NOWHERE in the shipped file —
-	// not the DOM, and not the verbatim envelope source. Scrub the source with the INDIVIDUAL
-	// note bodies lifted from the render (directive-safe: only exact note bodies are removed,
-	// never a `_class`/pragma comment), exactly as the CLI emulator does. The note/non-note
-	// boundary stays the shared notesCore.
-	//
-	// Read those bodies from the RECORD, not from the baked sections below. Those have been
-	// through the bake, so scraping them for note bodies is what produced an empty set and
-	// turned this scrub into a no-op — the leak. A multi-note slide joins its notes with a
-	// blank line, so the record carries them pre-join: the scrub matches INDIVIDUAL bodies.
+	// --strip-notes privacy export: the speaker notes and the author's plain comments must appear
+	// NOWHERE in the shipped file — not the DOM, and not the verbatim envelope source. The scrub
+	// classifies each comment from the SOURCE (notes-core `isPrivateComment`: every `@note{…}` and
+	// every plain comment; never a directive, record, pragma or public note), exactly as the CLI does.
 	//
 	// THEN RENDER THAT SOURCE, and ship its bytes. Blanking the note copies after the fact
 	// left the comment's own whitespace behind, so a stripped slide carried one byte more
@@ -621,7 +610,6 @@ export async function shareHtmlPlayer(
 		const cut = await stripNotesCut(
 			source,
 			notesCore,
-			new Set([...noteRecord.flatMap((r) => r.noteBodies || []), ...hiddenNoteBodies]),
 			recordSections,
 			sectionsOf,
 			// Placeholders on the candidate too, so it compares like-for-like with `recordSections`.
@@ -734,10 +722,9 @@ export async function shareHtmlPlayer(
 	// Belt and braces: under `--strip-notes` the render above is already note-free, so this
 	// is a second, independent guarantee that no materialized copy carries note text.
 	const slides = materializeNotes(tagged, notesCore, noteRecord, stripNotes);
-	// FAIL-CLOSED, mirroring the CLI. The scrub matches bodies lifted from the RENDER against
-	// comments in the SOURCE, and every leak this has had was a new way for those two sides to
-	// disagree. So check the OUTPUT rather than trusting the matcher: a comment still standing
-	// that is not a directive, pragma, `describe:` or `say:` is suspected speaker text. It
+	// FAIL-CLOSED, mirroring the CLI. Check the OUTPUT rather than trusting the classifier: a
+	// comment still standing that is not a directive, record, pragma or public note (`@say`,
+	// `@alt`, `@handout`) is suspected private text. It
 	// reaches the completion toast, because a strip-notes export that quietly keeps a note is
 	// the one failure the author cannot take back once the file has been sent.
 	if (stripNotes) {
@@ -1384,15 +1371,14 @@ type ReadAlongCore = {
 		projectedBefore: readonly string[],
 		spans: readonly (readonly { start: number; end: number; weight: number }[] | undefined)[],
 	) => (readonly { start: number; end: number; weight: number }[] | undefined)[];
-	// The SAME merge the CLI export uses (HARD RULE #1): say line → front-matter say: map →
-	// projection, with the alignment guard that drops the projection wholesale on a
+	// The SAME merge the CLI export uses (HARD RULE #1): `@say` line → projection, with the alignment guard that drops the projection wholesale on a
 	// section/slide count mismatch. Re-exported from the read-along-core bundle.
 	// The first argument is a slide COUNT, not the notes it used to be — a speaker note is
 	// not a narration source (narration-resolve.ts).
 	mergeNarration: (
 		slideCount: number,
 		projected: readonly string[],
-		opts?: { sayLines?: readonly (string | null | undefined)[]; fmSayMap?: ReadonlyMap<number, string> | null },
+		opts?: { sayLines?: readonly (string | null | undefined)[] },
 	) => string[];
 	readAlongToVtt: (ra: unknown) => string;
 	readAlongToVttParts: (ra: unknown) => { index: number; vtt: string }[];
@@ -1403,7 +1389,7 @@ type ReadAlongCore = {
  * (lib/core/read-along-build.js + read-along-vtt.js), bundled for the browser
  * (tools/build-read-along-core.js → read-along-core.generated.js — same packaging
  * idiom as the Webpage player's player-core.generated.js). Resolves each slide's
- * narration through the SAME chain the CLI uses (say line → front-matter say: map →
+ * narration through the SAME chain the CLI uses (`@say` line → chart narration →
  * component-aware DOM projection), builds a Cadenza ESTIMATE track per
  * narrated slide, and downloads a zip: one deck-level `<name>.vtt` (continuous,
  * deck-absolute timeline) plus per-slide `<name>.NN.vtt` — identical in shape to
@@ -1439,7 +1425,7 @@ export async function shareCaptions(
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	// DEPTH-AWARE, for the same reason the webpage export is: the flat splitter pairs each
 	// `<section>` with the NEXT `</section>`, so a slide containing a hand-authored
-	// `<section>` is truncated at the nested close tag and its `<!-- say: -->` / note
+	// `<section>` is truncated at the nested close tag and its `<!-- @say{…} -->`
 	// falls outside the chunk — while the slide COUNT stays right, so parity cannot catch it.
 	// That slide then narrates the DOM projection instead of the author's say line, silently.
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
@@ -1447,10 +1433,9 @@ export async function shareCaptions(
 	// the CLI share): nobody narrates it, and leaving it in made the list one long, so the chart
 	// substitution below stood down and the glossary's definitions were captioned here alone.
 	// HIDDEN slides are not captioned (engineering/decisions/2026-11-06-hidden-slides.md): drop their sections, and keep
-	// the shown authored slides beside them, so section i, `shownSlides[i]` and `say:` entry `authored[i] + 1` agree.
+	// the shown authored slides beside them, so section i and `shownSlides[i]` agree.
 	const allSlides = splitSlides(stripFrontMatter(source));
-	const authored = allSlides.map((_, i) => i).filter((i) => !slideSourceHidden(allSlides[i]));
-	const shownSlides = authored.map((i) => allSlides[i]);
+	const shownSlides = allSlides.filter((md) => !slideSourceHidden(md));
 	const sections = withoutAutoGlossary(
 		splitSectionsCore(out.html)
 			.filter((p) => p.type === 'section')
@@ -1460,21 +1445,14 @@ export async function shareCaptions(
 	).filter((sec) => !hiddenSlides.isHiddenSection(sec));
 
 	// The FULL narration chain, matching the CLI export's writeCaptionsSidecar
-	// (HARD RULE #1): a slide's inline `<!-- say: -->` → its front-matter `say:`
-	// entry → the component-aware DOM projection, and the emphasis spans that ride with it. A speaker note is not a rung. So a deck
+	// (HARD RULE #1): a slide's `<!-- @say{…} -->` → chart narration → the component-aware DOM projection, and the emphasis spans that ride with it. A speaker note is not a rung. So a deck
 	// exported from the docs site now produces the SAME projected captions the CLI does —
 	// closing the gap where the client `.vtt` was silently empty (the CLI already projected).
 	const notes = notesCore.extractSlideNotes(sections);
 	const sayLines = notesCore.extractSlideSayLines(sections);
-	// Front-matter `say:` is keyed by 1-based AUTHORED slide number. The docs render
-	// (`renderMarkdown`) never runs the emulator's Fit-Spine autosplit, so `sections` is 1:1
-	// with the authored slides and `fmSayMap.get(i+1)` binds correctly — we deliberately do
-	// NOT port the CLI's `AUTOSPLIT_APPLIES` guard (which nulls the map): here it would be a
-	// dead no-op at best. A deck whose slides SPLIT exports a `.vtt` that differs from the
-	// CLI's by design (the CLI paginates; splitting is intrinsic since 2026-07-29).
-	// Keyed by AUTHORED slide number, re-keyed to the shown slides' positions.
-	const authoredSay = resolveNarrationMod.frontMatterSayMap(source);
-	const fmSayMap = new Map(authored.flatMap((a, i) => (authoredSay.has(a + 1) ? [[i + 1, authoredSay.get(a + 1) as string] as const] : [])));
+	// The docs render (`renderMarkdown`) never runs the emulator's Fit-Spine autosplit, so
+	// `sections` is 1:1 with the shown authored slides. A deck whose slides SPLIT exports a `.vtt`
+	// that differs from the CLI's by design (the CLI paginates; splitting is intrinsic since 2026-07-29).
 	const terms = resolveNarrationMod.termsSpokenMap(source); // `terms:` + the `acronyms:` / `lexicon:` it absorbs
 	const lang = resolveNarrationMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
 	// Project the ALREADY-rendered sections (no second full render — projected[i] ≡ sections[i]
@@ -1503,7 +1481,7 @@ export async function shareCaptions(
 	// substitution, shared rather than copied (narration-resolve.ts).
 	const { deckPluginsOff: offFor } = await import('@/lib/plugin-admission');
 	projected = narrationResolve.applyChartNarration(shownSlides, projected, undefined, narrationResolve.narrationDeck(source, offFor(source)));
-	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { sayLines, fmSayMap });
+	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { sayLines });
 	// Emphasis only where the resolved text is still the text the spans were measured against —
 	// the ONE shared rule, so all four producers spend the same beats. This sibling was missed on
 	// the first pass: `shareHtmlPlayer` was wired and this was not, so the Studio's
