@@ -103,7 +103,7 @@ catches and flakes.
 | — | C7 | skip `prepare`'s partial build where a full build follows | 0 (measured after the estimate) | — | dropped |
 | 5 | C2 | render tier on the queue only | 4,043 min, 311 jobs | medium: ejections | do, after the flake fix |
 | 6 | C11 | fix the flakes that get re-run | 279 min in discarded attempts, plus ejections | none | do (it is #33 anyway) |
-| — | C9 | cache the build by its inputs | about 3 min (*estimate*, after measuring) | a wrong key gives a stale build | re-asked: drop |
+| — | C9 | cache the build by its inputs | about 3 min (*estimate*, after measuring) | a wrong key gives a stale build | dropped (owner, round 2) |
 | 8 | C4 | `max_entries_to_build` 5 → 3 | up to 830 min | low: a long queue drains slower | do once Team is live |
 | 9 | C8 | node 24 unit leg to the nightly | 225 min, 28 jobs | low | owner's taste |
 | 10 | C10 | fail fast: heavy jobs wait on lint and unit | up to about 530 min | medium: +9 min and one more runner wait per PR run | not now |
@@ -213,7 +213,7 @@ so C7 is dropped and the D3 PR carries C6 alone.
 month it failed 10 times in the queue (66 min), not read. Moving it to the nightly turns a node-24-only break into a
 red nightly instead of an ejection.
 
-### C9. Cache the build by its inputs: too few hits, re-asked
+### C9. Cache the build by its inputs: too few hits, dropped
 
 The first estimate (270–410 job-minutes a day) assumed the build reads only the engine. Two measurements, taken
 while building the pilot, undo it:
@@ -230,7 +230,7 @@ while building the pilot, undo it:
 At a hit rate under 1% on the two unit shards, the saving is about 3 job-minutes a day (*estimate*). It does not pay for a
 cache key that must track every build input. Same-tree re-runs, the other half of "cache by input", pay even less: 3
 PR runs this month re-ran a head that already had a green run (76 min in all), because HARD RULE #16 already stops
-no-op rebases. The owner's D5 was answered on the first estimate, so it goes back to the owner (§6).
+no-op rebases. The owner's D5 was answered on the first estimate; asked again with this measurement, the owner dropped it (§6).
 
 ### C10. Fail fast: heavy jobs wait on lint and unit
 
@@ -348,7 +348,7 @@ for two PRs and a release.
 2. C6: one small `ci.yml` edit (C7 was dropped once measured).
 3. C3: `pr:park` as the `workflow.md` default.
 4. C11, then C2: fix the re-run flakes, then move the render tier to the queue.
-5. C9: re-asked; recommended dropped.
+5. C9: dropped by the owner in round 2 (§6).
 6. C4 once the Team limit is confirmed in effect; C8 at the owner's taste.
 7. C5, C10 and C12 stay parked until runner waits fall.
 
