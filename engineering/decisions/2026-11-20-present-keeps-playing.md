@@ -163,12 +163,20 @@ Toggle states were also hard to read: on was a tinted outline, close to off. On 
   case on `mobile`). The first `webkit-phone` run FAILED on a second real defect — WebKit sends a tap as a `click` with
   no pointer events, so faded chrome never came back — fixed by reading the tap from `click`. After the fix the
   immersive spec on `webkit-phone` passed 10/10 repeated and 5/5 at four workers.
-- iOS Safari Simulator (`platform-suites.yml`, suite `ios-safari-present-memory`, macOS 26) passed on the commit before
-  the click fix. That probe measures memory while stepping a photo deck; it does not exercise the wake lock, the
-  immersive layout, the tap or the media keys, so it is no evidence for those.
-- **UNVERIFIED on a real iPhone:** the wake lock keeping the screen on, the lock-screen and headset controls, the
-  audio-session category, the notch safe-area padding, and whether the rotation fade fully covers iOS's relayout. They
-  are OS behavior that jsdom and Playwright's WebKit do not exercise.
+- iOS Safari Simulator, real Mobile Safari (Safari 26.5, iPhone 17 Pro simulator), the new suite
+  `ios-safari-present-keepalive` (`docs/scripts/ios-safari/present-keepalive-probe.js`), on 913a49d (run 44816163482,
+  and again in dispatch 44824673700). Six checks: the wake lock is held after a real tap; a refused Fullscreen turns on
+  the immersive layout and its chrome fades; a tap on the slide brings the chrome back; the captions ride inside the
+  slide and their highlight walks; Next while playing plays the next slide with the lock held; closing stops the
+  narration. Its page half also runs in Playwright's WebKit (`probe.selftest.mjs`). The same dispatch ran the other iOS
+  suites the diff reaches; all passed but `ios-safari-chat-storage`, which hits its 30-minute job limit on main as well
+  (PR #3365 splits it per device).
+- The owner's iPhone: a long deck kept the screen on, rotation worked, and a tap brought the controls back and they
+  stayed. The owner reported this in the PR's conversation.
+- **UNVERIFIED on a real iPhone:** the lock-screen and headset controls (Media Session), the audio-session category,
+  the notch safe-area padding, and whether a real iPhone grants real full screen (see Open). A simulator does not
+  auto-lock, so the suite proves the lock is granted and held, not that a screen stays awake; that part rests on the
+  owner's device.
 
 ## Open
 
