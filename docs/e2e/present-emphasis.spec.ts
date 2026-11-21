@@ -19,9 +19,9 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // frames and `performance.now()` run on time only this test advances, and every onset is where the reader's clock put it,
 // whatever the machine is doing (followups.d/3101-p4: wall-clock onsets moved under load).
 //
-// ONE DRIVE, ONE PLAY. The plain passage is slide 2 and the bold one slide 3 of the same deck, and Play chains them, so
-// the clock is paused once and never resumed. Two page loads used to need a `clock.resume()` between them, and a pause
-// after a resume can throw "Cannot fast-forward to the past" (#3250). The drive stops once slide 3's cue 4 has started,
+// ONE PAGE LOAD, THE CLOCK PAUSED ONCE. The plain passage is slide 2 and the bold one slide 3 of the same deck, each read from its own
+// Play, so the clock is paused once and never resumed. Two page loads used to need a `clock.resume()` between them, and a pause
+// after a resume can throw "Cannot fast-forward to the past" (#3250). Each read stops once its cue 4 has started,
 // not after a fixed 27 s run (which reached 59.1 s of the 60 s limit at 4 workers).
 //
 // ONSETS AT COMMIT. A MutationObserver stamps each cue's virtual `performance.now()` in the commit that marks it
@@ -29,6 +29,11 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // advances on animation frames: Playwright's fake clock fires them on a 16 ms grid whose phase depends on when Play landed,
 // so each onset sits on that grid and the measured step was only ever 224, 240 or 256 ms. Two onsets enter each slide's
 // interval, so the step is the hold to within two frames, 32 ms; the band is derived from the frame, not tuned.
+// NEEDS PLAYWRIGHT 1.65 OR LATER. On 1.56, `clock.runFor` could fire the next animation frame before React committed the
+// previous frame's caption change, so the observer stamped a cue a frame late and the step read 208 ms (red about 1 run
+// in 5 once #3333 made Present heavier). Stepping one frame at a time and waiting for each commit read the kernel's
+// intervals exactly, so the reader was right and only the stamp was late. 1.65's `runFor` yields through a
+// MessageChannel, which lets React commit between frames: 10 of 10 alone and 60 of 60 at 4 workers there.
 const DECK = (plain: string, bold: string) => `---
 marp: true
 theme: indaco
@@ -86,33 +91,55 @@ test('an emphasized passage holds a beat on the real Present overlay', async ({ 
 	// until then Present reads a plain flatten with no hold. Under load the projection landed after Play, so the `**`
 	// drive timed the flatten and showed no hold. Wait for the product's own signal, not a duration.
 	await expect(dialog).toHaveAttribute('data-narration', 'projected');
-	// The observer: every commit that changes which cue is live stamps the virtual time, the slide (a cue index that
-	// falls back means the next slide's reader started) and which text the captions read at that moment.
+	// The observer: every commit that changes which cue is live stamps the virtual time, the slide the test says is
+	// being read (`__slide`, -1 between the two reads) and which text the captions read at that moment.
 	await page.evaluate(() => {
-		const w = window as unknown as { __marks: Mark[] };
+		const w = window as unknown as { __marks: Mark[]; __slide: number };
 		w.__marks = [];
-		let slide = 0;
-		let last = -1;
+		w.__slide = -1;
+		let key = '';
 		const read = () => {
 			const el = document.querySelector('[data-cue][data-state="now"]');
 			const cue = el ? Number(el.getAttribute('data-cue')) : -1;
-			if (cue < 0 || cue === last) return;
-			if (cue < last) slide++;
-			last = cue;
+			if (cue < 0 || w.__slide < 0 || `${w.__slide}:${cue}` === key) return;
+			key = `${w.__slide}:${cue}`;
 			const narration = document.querySelector('[role="dialog"][data-narration]')?.getAttribute('data-narration') ?? null;
-			w.__marks.push({ slide, cue, at: performance.now(), narration });
+			w.__marks.push({ slide: w.__slide, cue, at: performance.now(), narration });
 		};
 		new MutationObserver(read).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-state', 'data-cue'] });
 	});
+	const marks = () => page.evaluate(() => (window as unknown as { __marks: Mark[] }).__marks);
+	const reading = (slide: number) => page.evaluate((s) => ((window as unknown as { __slide: number }).__slide = s), slide);
+	const readTo = (slide: number) => (ms: Mark[]) => ms.some((m) => m.slide === slide && m.cue === 4);
+	/** Run the paused clock in chunks until `done`, or give up at the cap. */
+	const runUntil = async (done: () => Promise<boolean>) => {
+		for (let ran = 0; ran < CAP_MS && !(await done()); ran += CHUNK_MS) await page.clock.runFor(CHUNK_MS);
+	};
+	const play = dialog.getByRole('button', { name: 'Play the presentation' });
+	const pause = dialog.getByRole('button', { name: 'Pause' });
 	// From here time moves only when the test moves it. `pauseFrames` pauses past the test's own clock as well as the
 	// page's: every frame keeps its own fake clock, and a slide's srcdoc frame, born after the install, read 0.8 to 1.1 s
 	// ahead of the Studio page here, so a pause from the page's `Date.now()` alone threw "Cannot fast-forward to the past".
 	await pauseFrames(page);
-	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
-	await expect(dialog.getByRole('button', { name: /Pause/ })).toBeVisible();
-	const marks = () => page.evaluate(() => (window as unknown as { __marks: Mark[] }).__marks);
-	const done = (ms: Mark[]) => ms.some((m) => m.slide === 1 && m.cue === 4);
-	for (let ran = 0; ran < CAP_MS && !done(await marks()); ran += CHUNK_MS) await page.clock.runFor(CHUNK_MS);
+	// EACH SLIDE IS STARTED BY ITS OWN PLAY. A slide autoplay hands to begins behind an arrival beat and the hand-off, so
+	// its cue 0 onset does not compare with a pressed Play's. Both reads here begin the same way, so only the `**` differs.
+	await reading(0);
+	await play.click();
+	await expect(pause).toBeVisible();
+	await runUntil(async () => readTo(0)(await marks()));
+	await reading(-1);
+	await pause.click();
+	await expect(play).toBeVisible();
+	await page.keyboard.press('ArrowRight'); // onto the bold slide
+	await runUntil(async () => dialog.getByText('3 / 3', { exact: true }).isVisible());
+	await expect(dialog.getByText('3 / 3', { exact: true })).toBeVisible();
+	await runUntil(async () => (await dialog.getAttribute('data-narration')) === 'projected');
+	await expect(dialog).toHaveAttribute('data-narration', 'projected');
+	await reading(1);
+	await play.click();
+	await expect(pause).toBeVisible();
+	await runUntil(async () => readTo(1)(await marks()));
+	const done = (ms: Mark[]) => readTo(0)(ms) && readTo(1)(ms);
 	const all = await marks();
 	const onsets = (slide: number) => {
 		const out: number[] = [];
@@ -131,10 +158,8 @@ test('an emphasized passage holds a beat on the real Present overlay', async ({ 
 	// The hold the cadence kernel names (cadence.ts `EMPHASIS_HOLD_MS`, 250 ms for an emphasis of weight 2), to within the
 	// two frames the onsets can sit on. Virtual time, so the machine's load cannot move it.
 	expect(Math.abs(step - 250), seen).toBeLessThanOrEqual(BAND); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
-	// The interval before the claim is the same on both slides: the `**` costs nothing until the hold. (From cue 1, not
-	// cue 0: cue 0's onset includes how the slide's reading began, Play on the plain slide and the autoplay arrival on the
-	// bold one, so only the intervals between cues compare.)
-	expect(Math.abs(bold[2] - bold[1] - (plain[2] - plain[1])), seen).toBeLessThanOrEqual(BAND); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
+	// The intervals before the claim are the same on both slides: the `**` costs nothing until the hold.
+	expect(Math.abs(bold[2] - bold[0] - (plain[2] - plain[0])), seen).toBeLessThanOrEqual(BAND); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
 	// And it holds ONCE: the interval after cue 3 pays nothing again.
 	expect(Math.abs(bold[4] - bold[3] - (plain[4] - plain[3])), seen).toBeLessThanOrEqual(BAND); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
 });
