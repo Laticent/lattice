@@ -72,6 +72,21 @@ describe('orderMerges', () => {
     assert.deepEqual(nums(self), [4], 'a PR whose head is its base is not its own parent');
   });
 
+  test('a child of a cycle is unordered but not called a cycle member (grader probe)', () => {
+    const prs = [pr(1, 5, '2026-11-18', 'x', 'y'), pr(2, 5, '2026-11-19', 'y', 'x'), pr(4, 5, '2026-11-20', 'c', 'x')];
+    const r = orderMerges(prs, []);
+    assert.deepEqual(r.unordered, [1, 2, 4]);
+    assert.deepEqual(r.onCycle, [1, 2]);
+  });
+
+  test('a missing date gives the same order whichever way the pair is listed (grader probe)', () => {
+    const prs = [{ number: 1, head: 'a', base: 'main', changes: 5 }, pr(2, 5, '2026-11-19')];
+    const one = orderMerges(prs, [{ a: 1, b: 2, files: ['f'] }]);
+    const two = orderMerges(prs, [{ a: 2, b: 1, files: ['f'] }]);
+    assert.deepEqual(nums(one), [2, 1]);
+    assert.deepEqual(nums(two), [2, 1]);
+  });
+
   test('a PR stacked on a PR that conflicts with main is held with it (grader probe)', () => {
     const r = orderMerges([pr(1, 5, '2026-11-18', 'child', 'parent'), pr(2, 5, '2026-11-19', 'parent')], [], new Set([2]));
     assert.deepEqual(nums(r), []);
@@ -140,6 +155,27 @@ describe('merge-order CLI input', () => {
     assert.equal(r.status, 3);
     assert.match(r.stderr, /origin\/no-such-branch-xyz/);
     assert.doesNotMatch(r.stderr, /object Object/);
+  });
+
+  test('a dependency cycle exits 1 with --json too (grader probe)', () => {
+    // Real refs, so the run gets past its git checks to the ordering.
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'merge-order-'));
+    try {
+      const git = (...args) => execFileSync('git', args, { cwd: repo, stdio: 'ignore' });
+      git('init', '-q', '-b', 'main');
+      git('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'base');
+      for (const r of ['main', 'x', 'y']) git('update-ref', `refs/remotes/origin/${r}`, 'HEAD');
+      const input = '[{"number":1,"head":"x","base":"y","changes":1},{"number":2,"head":"y","base":"x","changes":1}]';
+      const run = (...flags) => spawnSync(process.execPath, [TOOL, '--no-fetch', ...flags], { cwd: repo, input, encoding: 'utf8' });
+      const text = run();
+      const json = run('--json');
+      assert.equal(text.status, 1, text.stderr);
+      assert.match(text.stdout, /unordered: #1 is on a dependency cycle/);
+      assert.equal(json.status, 1, json.stderr);
+      assert.deepEqual(JSON.parse(json.stdout).unordered, [1, 2]);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
   });
 
   test('an empty list prints nothing and exits 0', () => {

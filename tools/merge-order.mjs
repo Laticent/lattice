@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Order a merge digest so no two digest PRs conflict with each other.
+ * Order a merge digest: find PRs that conflict with each other, and land the
+ * smaller of each such pair first, so the other rebases once instead of being ejected.
  *
  * `/desk-merge` puts the ready PRs into one 🚦 Merge digest that the owner answers
  * once. Checked one at a time against `main`, two PRs can each be clean and still
@@ -79,7 +80,11 @@ export function orderMerges(prs, conflicts, dirty = new Set()) {
       why.get(p.number).push(`after #${parent.number}: built on its branch`);
     }
   }
-  const older = (x, y) => (x.created_at < y.created_at ? x : y);
+  // A missing date sorts after every dated PR, then by number, so the order never
+  // depends on the order of the input.
+  const age = (x) => x.created_at ?? '~';
+  const byAge = (x, y) => (age(x) < age(y) ? -1 : age(x) > age(y) ? 1 : x.number - y.number);
+  const older = (x, y) => (byAge(x, y) <= 0 ? x : y);
   for (const { a, b, files } of conflicts) {
     const x = by.get(a);
     const y = by.get(b);
@@ -100,7 +105,6 @@ export function orderMerges(prs, conflicts, dirty = new Set()) {
   for (const vs of after.values()) for (const v of vs) indeg.set(v, indeg.get(v) + 1);
   const ready = live.filter((p) => indeg.get(p.number) === 0);
   const order = [];
-  const byAge = (x, y) => (x.created_at < y.created_at ? -1 : x.created_at > y.created_at ? 1 : x.number - y.number);
   while (ready.length) {
     ready.sort(byAge);
     const p = ready.shift();
@@ -114,12 +118,15 @@ export function orderMerges(prs, conflicts, dirty = new Set()) {
   // dependency cycle (two PRs each built on the other), which no order can satisfy.
   const placed = new Set(order);
   const unordered = live.filter((p) => !placed.has(p.number)).map((p) => p.number).sort((x, y) => x - y);
+  // Of those, the ones on the cycle itself reach themselves; the rest only depend on it.
+  const onCycle = unordered.filter((n) => [...after.get(n)].some((m) => reaches(m, n)));
   return {
     order: order.map((n) => ({ number: n, why: why.get(n).length ? why.get(n) : ['oldest first'] })),
     rebaseAfter: Object.fromEntries(rebaseAfter),
     dirty: [...dirty].sort((x, y) => x - y),
     held: [...held].filter(([n]) => !dirty.has(n)).map(([number, why]) => ({ number, why })),
     unordered,
+    onCycle,
     dropped,
   };
 }
@@ -179,13 +186,16 @@ function main() {
       }
     }
     const result = orderMerges(prs, conflicts, dirty);
+    if (result.unordered.length) process.exitCode = 1;
     if (json) return console.log(JSON.stringify(result, null, 2));
     for (const [i, o] of result.order.entries()) console.log(`${i + 1}. #${o.number}  ${o.why.join('; ')}`);
     for (const n of result.dirty) console.log(`rebase first: #${n} conflicts with main`);
     for (const h of result.held) console.log(`held: #${h.number} ${h.why}`);
-    for (const n of result.unordered) console.log(`unordered: #${n} is on a dependency cycle; order it by hand`);
-    for (const p of prs.filter((x) => !x.created_at)) console.log(`warning: #${p.number} has no created_at; it sorts first on age ties`);
-    if (result.unordered.length) process.exitCode = 1;
+    for (const n of result.unordered) {
+      const what = result.onCycle.includes(n) ? 'is on a dependency cycle' : 'is built on a PR in a dependency cycle';
+      console.log(`unordered: #${n} ${what}; order it by hand`);
+    }
+    for (const p of prs.filter((x) => !x.created_at)) console.log(`warning: #${p.number} has no created_at; it sorts after every dated PR`);
     for (const d of result.dropped) console.log(`note: #${d.first} and #${d.second} conflict, but a dependency fixes their order`);
   } catch (err) {
     console.error(`merge-order: ${err.message}`);
