@@ -17,7 +17,7 @@
 //              (esm.run: the on-device voice and model runtimes).
 // A page whose code calls a KNOWN outside origin gets the policy with that origin added to exactly
 // the directive the call needs (ORIGIN_DIRECTIVES), rather than losing the policy.
-// Measured 2026-11-17: stage 1 covered 75 of 203 routes, stage 2 covers 198 of 204 (MIN_POLICY_PAGES).
+// Measured 2026-11-17: stage 1 covered 75 of 203 routes, stage 2 covers 199 of 204 (MIN_POLICY_PAGES).
 // What is left, and how each closes: followups.d/3277-p1-csp-remaining-pages.md.
 //
 // PREVIEW FRAMES ARE COVERED (stage 2, engineering/decisions/2026-11-17-site-discovery.md §2). A slide preview is a
@@ -388,16 +388,12 @@ function pages(dist) {
  * not get a policy anyway, or that no longer exists, fails the build, so the list cannot rot.
  */
 export const HELD_ROUTES = Object.freeze({
-	// The policy tag is about 1.46 KB (ten script hashes, the video players' frame origins and the site's
-	// own origins), and the landing page's HTML sits 52 B under its 121,924 B htmlRaw hard ceiling
-	// (measured 2026-11-19, docs/scripts/check-route-budget.mjs), so the policy would put it 1.4 KB past.
-	// Raising a ceiling is the owner's call, put to them with this change; until then the page
-	// keeps no policy rather than a trimmed one.
-	'index.html': 'route budget: the policy would put the landing page 1.4 KB past its htmlRaw ceiling',
+	// Empty. The landing page was held here until #3363 raised its htmlRaw ceiling by the policy
+	// tag's ~1.5 KB (docs/route-budget.json, route-budget.history.md); it now carries the policy.
 });
 
 /** The fewest pages that must carry the policy (see the check in `main`). */
-export const MIN_POLICY_PAGES = 198;
+export const MIN_POLICY_PAGES = 199;
 
 function main() {
 	const check = process.argv.includes('--check');

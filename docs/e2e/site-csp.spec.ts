@@ -112,8 +112,8 @@ function settler(page: Page) {
 // page (its figure draws in the draw host's sandboxed frame, which needs `'unsafe-eval'` the page
 // itself never grants) and the Playground.
 // (Not Cadenza or Suono: their voice code imports a runtime from esm.run, whose own requests no
-// scan of ours can list, so csp.mjs leaves them without a policy. Not the landing page: held back
-// by name until its route-budget ceiling is decided, csp.mjs HELD_ROUTES.)
+// scan of ours can list, so csp.mjs leaves them without a policy.) The landing page is in the
+// every-page cell below, which walks every route that carries the policy.
 const REPRESENTATIVE = ['/getting-started/', '/comparison/', '/features/', '/plugins/math/learn/', '/libraries/lente/', '/offline/', '/components/chart/bar/', '/plugins/function-plot/', '/playground/'];
 
 test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a page of every kind loads under its strict CSP with no violation', async ({ page }) => {
@@ -260,7 +260,7 @@ test('every page that carries the CSP loads with no violation', async ({ page })
 	// frame: the default 60 s is a budget for one page's worth of test.
 	test.setTimeout(900_000);
 	const routes = policyRoutes();
-	// csp.mjs gave 198 routes a policy in stage 2 (75 in stage 1); far fewer means the build lost
+	// csp.mjs gave 199 routes a policy in stage 2 (75 in stage 1); far fewer means the build lost
 	// them. csp.mjs's own MIN_POLICY_PAGES floor fails the build first.
 	expect(routes.length).toBeGreaterThan(190);
 	const violations = await watchViolations(page);
