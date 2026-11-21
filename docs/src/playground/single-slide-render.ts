@@ -29,7 +29,6 @@ import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { deckSizeOf, screenCanvas } from '../../../lib/core/screen-canvas.mjs';
-import sizesCore from '../../../lib/core/sizes.js';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
 import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
@@ -325,7 +324,21 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeDocLoad?: Promise<void>; __latticeDocSettle?: () => void; __latticeScreenCanvas?: { deckSize: string; canvas: 'hd' | null; rerender: () => void; pending?: boolean } };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeDocLoad?: Promise<void>; __latticeDocSettle?: () => void; __latticeScreenCanvas?: { deckSize: string; canvas: 'hd' | null; rerender: () => void; pending?: boolean }; __latticeCanvasCall?: number };
+
+/** lib/core/sizes.js `withSize`, loaded only when a 4K deck is first shown small (see THE SCREEN CANVAS in renderInto). */
+let withSizeCore: ((source: string, name: string) => string) | null = null;
+let withSizeLoad: Promise<void> | null = null;
+function loadWithSize(): Promise<void> {
+	withSizeLoad ??= import('../../../lib/core/sizes.js').then((m) => {
+		withSizeCore = ((m as { default?: { withSize: typeof withSizeCore } }).default ?? (m as unknown as { withSize: typeof withSizeCore })).withSize;
+	}).catch((err) => {
+		// A failed chunk fetch must not pin the failure: the next 4K render tries again.
+		withSizeLoad = null;
+		throw err;
+	});
+	return withSizeLoad;
+}
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -1811,6 +1824,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// `--size` and the export panel use; exports render on their own and never pass through here. scaleFrame
 		// re-renders the host when a resize carries it across the line (a window made full screen on a 4K display).
 		{
+			// Every call takes a turn here, before any wait, so a render deferred for `withSize` below can tell that a
+			// newer one has started and stand down instead of drawing an older deck over it.
+			const canvasCall = ((host as LiveHost).__latticeCanvasCall = ((host as LiveHost).__latticeCanvasCall ?? 0) + 1);
 			const deckSize = deckSizeOf(markdown);
 			if (/^4k$/i.test(deckSize.trim())) {
 				const original = { markdown, slideMarkdown: opts?.slideMarkdown };
@@ -1825,9 +1841,22 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					},
 				};
 				if (prev?.pending) prev.pending = false;
-				if (canvas) {
-					markdown = sizesCore.withSize(markdown, canvas);
-					if (opts?.slideMarkdown) opts = { ...opts, slideMarkdown: sizesCore.withSize(opts.slideMarkdown, canvas) };
+				// `withSize` lives in lib/core/sizes.js, a CommonJS module the bundler cannot trim: about 1 KB gzipped that
+				// every route would load to serve only a 4K deck shown small. It loads on that path, once per page, and the
+				// render waits for it rather than drawing the 4K frame first (that frame is the one that reloaded the tab).
+				if (canvas && !withSizeCore) {
+					return loadWithSize().then(() => {
+						// A disposed renderer needs no check here: the call below meets renderInto's own `disposed` latch first.
+						if (!host.isConnected || (host as LiveHost).__latticeCanvasCall !== canvasCall) {
+							return { ok: false, slides: 0, error: 'renderer disposed' };
+						}
+						return renderInto(host, original.markdown, drawn, paletteOverride, extra, modeOverride, extraCss, opts);
+					}, () => ({ ok: false, slides: 0, error: 'the 4K screen canvas could not load lib/core/sizes.js' }));
+				}
+				if (canvas && withSizeCore) {
+					const withSize = withSizeCore;
+					markdown = withSize(markdown, canvas);
+					if (opts?.slideMarkdown) opts = { ...opts, slideMarkdown: withSize(opts.slideMarkdown, canvas) };
 				}
 			} else (host as LiveHost).__latticeScreenCanvas = undefined;
 		}
