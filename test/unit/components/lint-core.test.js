@@ -2824,6 +2824,11 @@ describe('lint-core: list-depth-unsupported', () => {
     assert.deepEqual(shapes('agenda', '- One\n\nSome prose.\n\n* * *'), []);
     assert.deepEqual(shapes('agenda', '- One\n- Two\n\nExample:\n\n    - not a list'), []);
     assert.deepEqual(shapes('regulatory-update', '- A\n  - `x`\n\nAmended\n-------\n\n- B\n  - `y`'), []);
+    // Four columns in is never a new item: a paragraph's next line, or a code block inside an item.
+    assert.deepEqual(shapes('agenda', '- One\n- Two\n\nRevenue grew\n    - still the paragraph'), []);
+    assert.deepEqual(shapes('agenda', '- One\n\n      - code in item\n- Two'), []);
+    // A real nested list is still read: four in against a content column of two, after a blank line.
+    assert.deepEqual(shapes('agenda', '- One\n\n    - real nested'), ['warning:- real nested']);
   });
   test('a raw-HTML block between two lists is prose, as the engine counts it', () => {
     assert.deepEqual(shapes('agenda', '- One\n\n<div class="x">\nnote\n</div>\n\n- Two'), ['warning:- Two']);
