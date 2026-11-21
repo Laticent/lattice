@@ -647,9 +647,13 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 	// Fix-all command (Alt-Shift-F) — apply every autofixable finding in the deck
 	// in one undoable pass, via the SAME lint-core the panel's "Fix all" uses.
 	// Returns true so the key is consumed only when validation is live for this deck.
+	let fixAllRunning = false;
 	const fixAllCommand = (view) => {
 		if (!vocab) return false;
 		if (!readFrontMatter(view.state.doc.toString()).validate) return false;
+		// One run at a time (the passes are awaited): a held or repeated key consumes the press and starts nothing.
+		if (fixAllRunning) return true;
+		fixAllRunning = true;
 		(async () => {
 			if (!lintCoreMod) {
 				try {
@@ -666,15 +670,21 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			const cur = view.state.doc.toString();
 			if (!readFrontMatter(cur).validate) return;
 			followAdmission(cur);
-			const res = lintCoreMod.fixAllDetailed(cur, buildVocabSets(vocab));
-			if (res.text !== cur) {
+			// One task per driver pass (lint-core `fixAllDetailedAsync`), so the page keeps painting; the author may
+			// type meanwhile, so the result is written only onto the text it was computed from.
+			const res = await lintCoreMod.fixAllDetailedAsync(cur, buildVocabSets(vocab));
+			// Stale also when the view was torn down meanwhile: a destroyed view keeps its old text and takes a dispatch silently.
+			const stale = !view.dom.isConnected || view.state.doc.toString() !== cur;
+			if (!stale && res.text !== cur) {
 				view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: res.text } });
 			}
 			// Name each fix the driver refused, as the Studio's Fix all does: a refused fix keeps its underline.
 			// Loaded here, not imported: a static import added this chunk to the Playground island's
 			// preload list, which is first-paint JS (docs/route-budget.json, playground eagerJsGz).
-			(await import('../lib/fix-all-notice')).announceFixAllByEvent({ applied: res.applied.length, skipped: res.skipped });
-		})();
+			(await import('../lib/fix-all-notice')).announceFixAllByEvent({ applied: res.applied.length, skipped: res.skipped, stale });
+		})().finally(() => {
+			fixAllRunning = false;
+		});
 		return true;
 	};
 	// A caret outside the rendered lines: a preview scroll can carry the editor a screen or more away from it, and

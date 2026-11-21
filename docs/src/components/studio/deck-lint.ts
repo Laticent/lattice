@@ -90,7 +90,8 @@ export async function fixAllText(read: () => string, sets: VocabSets): Promise<{
 	// The fix driver is a chunk of its own, fetched on the first press (lint-core `loadFixDriver`).
 	await c.loadFixDriver();
 	const before = read();
-	const res = c.fixAllDetailed(before, sets);
+	// One task per driver pass (lint-core `fixAllDetailedAsync`), so the page is not frozen while it runs.
+	const res = await c.fixAllDetailedAsync(before, sets);
 	return { before, text: res.text, applied: res.applied.length, skipped: res.skipped };
 }
 
@@ -114,12 +115,29 @@ export async function composeLintPass(read: () => string, last: Linted, lintVoca
  * text has not changed meanwhile (one undo step, the caller's), and tells the author what was fixed and refused.
  */
 export async function fixAllCompose(read: () => string, lintVocab: LintVocab, extras: Parameters<typeof studioVocabSets>[1], apply: (text: string) => void, notify: (msg: string) => void): Promise<void> {
+	// One run at a time: a second press while the passes run would start a second run on the same text, and its
+	// result would then read as stale against the first run's write.
+	if (composeFixRunning) return;
+	composeFixRunning = true;
+	try {
+		await fixAllComposeOnce(read, lintVocab, extras, apply, notify);
+	} finally {
+		composeFixRunning = false;
+	}
+}
+
+let composeFixRunning = false;
+
+async function fixAllComposeOnce(read: () => string, lintVocab: LintVocab, extras: Parameters<typeof studioVocabSets>[1], apply: (text: string) => void, notify: (msg: string) => void): Promise<void> {
 	const sets = studioVocabSets(lintVocab, extras);
 	const res = sets ? await fixAllText(read, sets) : null;
 	if (!res) {
 		notify('The checker could not load, so nothing was fixed. Try again in a moment.');
 		return;
 	}
-	if (res.text !== res.before && read() === res.before) apply(res.text);
-	(await import('@/lib/fix-all-notice')).announceFixAll({ applied: res.applied, skipped: res.skipped }, notify);
+	// The author may have typed while the passes ran: write only onto the text they were computed from, and say so
+	// when that text is gone (the notice used to report fixes that were never written).
+	const stale = read() !== res.before;
+	if (!stale && res.text !== res.before) apply(res.text);
+	(await import('@/lib/fix-all-notice')).announceFixAll({ applied: res.applied, skipped: res.skipped, stale }, notify);
 }
