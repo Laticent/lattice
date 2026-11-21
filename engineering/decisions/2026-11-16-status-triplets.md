@@ -300,7 +300,8 @@ carta, cuoio and indaco already use. (An earlier cut also moved carbone's dark r
   1.20:1. Only pass and warn moved (`#44360D` to `#5E553C`, `#6D5500` to `#463600`), still under white at 7:1, and the
   trio still clears the palette's 0.11 OKLab floor. The follow-up asked for 1.3:1 per step, and the gates rule it out:
   three fills 0.11 apart in OKLab under white at 7:1 leave fail at most 0.0146 luminance, and even a black critical is
-  then 1.29:1 under it. Black would add 0.02 over 40% and lose the band's hue. The other four a11y palettes' light
+  then 1.29:1 under it. Black would add 0.02 over 40% and lose the band's hue. The owner accepted 1.20:1 over a black
+  band or a relaxed 7:1 text bar (2026-11-21, #3360 D1 A). The other four a11y palettes' light
   bands are out of order too (medium lighter than low on base, protanopia and tritanopia; medium darker than high on
   deuteranopia), but hue still separates them for their readers, so they keep their trio. Held by `marks-css.test.js`
   (the light-face arm) and shown in `examples/achromatopsia-light-risk-ramp.md`.
@@ -361,9 +362,12 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
 
 - The Studio's theme generator (`lib/theme/derive.js`) still derives the one-ink pair, so a generated theme keeps the
   one ink on both faces: correct and readable, but not the light-face triplet. `followups.d/3232-p2-derive-status-triplets.md`.
-- Carbone's first category is green, so an unstatused mark reads close to on-track (light 0.075, dark 0.053 OKLab from
-  the pass fill). Not caused here, and light improved from 0.029; the fix is a brand call.
-  `followups.d/3232-p3-carbone-first-category-reads-on-track.md`.
+- Fixed 2026-11-21 (the owner's call, #3360 D2 A): carbone's first category was its electric green, so an unstatused
+  mark read close to on-track (light 0.075, dark 0.053 OKLab from the pass fill, under check:glance's 0.08). Carbone's
+  chart cycle now leads with its blue and keeps the green second: 0.224 light, 0.233 dark. The triplet contract still
+  holds (`curate-status-triplets.js carbone --check`), and `chart-solids.test.js` pins the 0.08 floor for carbone.
+  Ardesia's light face (0.068) and a11y-protanopia's dark face (0.067) sit under the line too and wait on their own
+  brand calls: `followups.d/3232-p9-first-category-near-on-track.md`.
 - Fixed 2026-11-20: on achromatopsia's LIGHT face the risk bands did not climb in order. See § 4, "Achromatopsia's
   light ramp".
 - Fixed in #3312, found while signing off its exports: onyx's curated status inks (`--pass-on-mark:
