@@ -59,9 +59,10 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 	// Read the toggle's STATE — a blind click would switch captions off if they default on.
 	const cc = dialog.getByRole('button', { name: 'Captions' });
 	if ((await cc.getAttribute('aria-pressed')) !== 'true') await cc.click();
-	// The emphasis spans come from the narration projection, which lands asynchronously after Present opens. A slide reached
-	// before it lands reads the markdown fallback, with no emphasis, until the next slide: under Playwright 1.65.1 about one
-	// bold drive in ten read exactly the plain timeline (no 250 ms hold) and failed. Wait for it, then go to the slide.
+	// The emphasis spans come from the narration projection, which lands asynchronously after Present opens. Until it lands a
+	// slide reads the markdown fallback, with no emphasis, and if it lands only after Play the reading in progress keeps the
+	// fallback (PresentOverlay swaps it in only while nothing plays). Under Playwright 1.65.1 about one bold drive in ten read
+	// exactly the plain timeline (no 250 ms hold) and failed. Wait for it, then go to the slide.
 	await expect(dialog).toHaveAttribute('data-narration-projected', 'true');
 	await page.keyboard.press('ArrowRight'); // onto the content slide
 	await expect(dialog.getByText('2 / 2')).toBeVisible(); // the nav landed — a state wait, not a sleep

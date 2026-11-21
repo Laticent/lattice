@@ -51,15 +51,20 @@ runs:
       run: |
         browsers=$(printf '%s\n' $BROWSERS | sort -u | tr '\n' ' ')
         shim=$(mktemp -d)
+        trap 'rm -rf "$shim"' EXIT
         printf '#!/bin/sh\nprintf "%%s\\n" "$*" > "%s/args"\n' "$shim" > "$shim/apt-get"
         chmod +x "$shim/apt-get"
         list=$(PATH="$shim:$PATH" npx playwright install-deps --dry-run $browsers)
         if [ -s "$shim/args" ]; then
+          # Only the call this was written for: anything else may carry an option value that would read as a package.
+          case "$(cat "$shim/args")" in
+            'install -s --no-install-recommends '*) ;;
+            *) echo "playwright-browsers: unexpected apt-get call from install-deps --dry-run: $(cat "$shim/args")" >&2; exit 1 ;;
+          esac
           pkgs=$(tr ' ' '\n' < "$shim/args" | grep -v -e '^-' -e '^install$' -e '^$' | tr '\n' ' ' | sed 's/ $//')
         else
           pkgs=$(printf '%s\n' "$list" | sed -n 's/.*apt-get install -y --no-install-recommends \([^"&;]*\).*/\1/p' | head -1)
         fi
-        rm -rf "$shim"
         [ -n "$pkgs" ] || { echo "no package list in: $list" >&2; exit 1; }
         version=$(node -p "require('playwright-core/package.json').version")
         # Each browser's own folders, so two calls in one job (chromium, then webkit) cache only what each installs.
