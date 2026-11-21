@@ -156,21 +156,26 @@ function specificity(p) {
  * `registry.generated.js` borrow `chart-registry.generated.js`'s (the red team, #2997). Note what the
  * exemption costs: through the registries the engine is still WIRED to its plugins at runtime, by
  * design; the gate holds the source-level dependencies.
+ *
+ * `root` is the tree both files are read from: the repository, unless a test hands it a copy, so a
+ * planted file never lands in the real `lib/` where other tests walk (testing.md §A test that writes
+ * into the tree).
  */
 const seamCache = new Map();
-function isSeam(file) {
+function isSeam(file, root = ROOT) {
   if (!/^lib\/.*\.generated\.[a-z]+$/.test(file)) return false;
   if (file.endsWith('.json')) return true;
-  if (seamCache.has(file)) return seamCache.get(file);
+  const key = `${root}\0${file}`;
+  if (seamCache.has(key)) return seamCache.get(key);
   let ok = false;
   try {
-    const head = fs.readFileSync(path.join(ROOT, file), 'utf8').slice(0, 600);
+    const head = fs.readFileSync(path.join(root, file), 'utf8').slice(0, 600);
     const tool = /tools\/[\w./-]+\.(?:c|m)?js/.exec(head)?.[0];
-    if (tool && fs.existsSync(path.join(ROOT, tool))) ok = namesPath(fs.readFileSync(path.join(ROOT, tool), 'utf8'), file);
+    if (tool && fs.existsSync(path.join(root, tool))) ok = namesPath(fs.readFileSync(path.join(root, tool), 'utf8'), file);
   } catch {
     ok = false;
   }
-  seamCache.set(file, ok);
+  seamCache.set(key, ok);
   return ok;
 }
 
