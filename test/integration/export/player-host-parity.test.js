@@ -68,8 +68,13 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // the pointerup's own point, which Mobile Safari reported as (0, 0) on every touch (iOS 26.5 simulator, platform suite
 // run 44013499171), so a tap could turn the slide. Script only: one pointermove listener and two variables
 // (108,060 -> +483 bytes = 108,543). Both hosts agree.
-const GOLDEN_SHA = '24fc34fba59836e8c56215b8019557f3c74a68b8903b848c596b89f4d6417df8';
-const GOLDEN_BYTES = 108543;
+// Re-blessed 2026-11-20 (#3304, the screen canvas): the player's JS-path frame and slide rules read the canvas from
+// --lp-cw/--lp-ch/--lp-cwn with the export's canvas as the fallback, and fit()/fitRead() pick it with lpCanvas, which
+// carries lib/core/screen-canvas.mjs `screenCanvas` as text and stamps --_sec-1cqi on a switch (108,543 -> +2,184 bytes
+// = 110,727; the CSP `script-src` hash moves with the script). The fixture is not 4K, so its canvas is unchanged at run
+// time. Both hosts produce the new SHA, so parity holds.
+const GOLDEN_SHA = '2fd2fb46c44ae4c86bb5e55b6ca20a3cf0a67ce8a9366981d4e92ebff43b392b';
+const GOLDEN_BYTES = 110727;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 
