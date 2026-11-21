@@ -13,6 +13,7 @@
 // for it (docs/route-budget.json).
 
 import { checkDrawReply, drawFrameDocument, drawFrameEsmDocument, drawFrameEsmScripts, drawFrameScript } from '../../../../lib/packages/draw-frame-core.mjs';
+import { loadSandboxed, SANDBOX_SHELL_FILE } from '../../../../lib/packages/sandbox-shell.mjs';
 import { DRAW_FRAME_LIBRARIES } from '../../../../lib/plugins/draw-frame-libraries.generated.mjs';
 
 /** A plugin's name: the key of a frame the registry knows. */
@@ -137,6 +138,10 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			throw e;
 		}
 		mark('script-hashed');
+		// On a page with a content policy the frame loads the sandbox shell from the site, and the shell writes
+		// `html` into itself: a srcdoc would inherit the page's script policy, which refuses the frame's own
+		// hashed script. A page without one writes srcdoc as before (sandbox-shell.mjs `loadSandboxed`).
+		const shellUrl = deps.libraryUrl(SANDBOX_SHELL_FILE);
 		const frame = doc.createElement('iframe');
 		frame.setAttribute('sandbox', 'allow-scripts');
 		frame.setAttribute('aria-hidden', 'true');
@@ -155,6 +160,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			close: () => {
 				if (f.closed) return;
 				f.closed = true;
+				unhello();
 				window.removeEventListener('message', listener);
 				for (const [, w] of f.waiting) {
 					clearTimeout(w.timer);
@@ -166,6 +172,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		};
 		let onReady: (() => void) | null = null;
 		let onFailed: (() => void) | null = null;
+		let unhello: () => void = () => {};
 		const listener = (e: MessageEvent) => {
 			// Only this frame speaks to us, and only in the shapes checkDrawReply reads.
 			if (e.source !== frame.contentWindow) return;
@@ -198,7 +205,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 					clearTimeout(timer);
 					reject(new Error(`the ${kind} draw frame could not load its library`));
 				};
-				frame.srcdoc = html;
+				unhello = loadSandboxed(frame, html as string, shellUrl, doc.defaultView ?? window);
 				doc.body.appendChild(frame);
 			});
 		} catch (e) {

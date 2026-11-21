@@ -187,6 +187,7 @@
     "/ $/": "safe",
     "/ /g": "safe",
     "/ aria-(labelledby|describedby)=\"[^\"]*\"/g": "safe",
+    "/ data-([a-z0-9]+)=\"([^\"]*)\"/g": "safe",
     "/ data-step(?:-recede)?=\"/": "safe",
     "/ id=\"([^\"]+)\"/g": "safe",
     "/!?\\[([^\\]]*)\\]\\((?:[^()\\s]|\\([^()\\s]*\\))*\\)/g": "polynomial",
@@ -247,6 +248,7 @@
     "/&(?:amp|lt|gt|quot|#39);/g": "safe",
     "/&(?:amp|lt|gt|quot|#x27);/g": "safe",
     "/&(?:amp|lt|gt|quot|apos|#39);/g": "safe",
+    "/&(?:amp|quot|lt|gt);/g": "safe",
     "/&(?:nbsp|#160|#xa0);/i": "safe",
     "/&(?:nbsp|#160|#xa0);|<\\/p>/i": "safe",
     "/&(AMP|amp|GT|gt|LT|lt|QUOT|quot)(?=[A-Za-z0-9])/g": "safe",
@@ -472,6 +474,7 @@
     "/(^|-)accent(-|$)/": "safe",
     "/(^|-)on-[a-z]/": "safe",
     "/(^|;)\\s*--class:\\s*\"([^\"]*)\";?/": "safe",
+    "/(^|;)\\s*script-src\\s+([^;]*)/": "safe",
     "/(^|[ \\t])#.*$/": "polynomial",
     "/(^|[ \\t])#.*$/gm": "safe",
     "/(^|[\\s(])_(?=\\S)([^_]*?\\S)_(?=$|[\\s).,;:!?])/g": {
@@ -1208,6 +1211,7 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
     },
+    "/\\*|'unsafe-inline'|'strict-dynamic'|\\s(https?|data|blob|filesystem):\\s/": "safe",
     "/\\+/g": "safe",
     "/\\.$/": "safe",
     "/\\.((?:[A-Za-z0-9_-]|\\\\[0-9a-fA-F]{1,6}[ \\t\\n\\r\\f]?|\\\\[^\\n\\r\\f0-9a-fA-F])+)/g": "safe",
@@ -2343,6 +2347,7 @@
     "/^[a-z][a-z0-9-]*$/": "safe",
     "/^[a-z][a-z0-9-]*$/i": "safe",
     "/^[a-z][a-z0-9-]*\\s*=/": "safe",
+    "/^[a-z][a-z0-9]*$/": "safe",
     "/^[a-z]{3}$/": "safe",
     "/^[aeiou]/": "safe",
     "/^[aeiou]/i": "safe",
@@ -2961,6 +2966,7 @@
     "/rgba\\(\\s*0,\\s*0,\\s*0,\\s*0\\s*\\)|transparent/": "safe",
     "/rotate\\(\\s*(-?[\\d.]+)/": "safe",
     "/s$/i": "safe",
+    "/script-src-(elem|attr)/": "safe",
     "/split/i": "safe",
     "/src:url\\(\\s*(['\"]?)fonts\\/([^)'\"]+\\.woff2)\\1\\s*\\)\\s*format\\((['\"]?)woff2\\3\\)[^;}]*/g": {
       "verdict": "unknown",
