@@ -89,3 +89,24 @@ done when — the ratchet holds lib/** to its table in build:check; the table an
             remaining entry carries its reason.
 evidence  — each rewritten pattern: a seeded differential fuzz against the old one, and the old pattern failing its test.
 verify    — maker-checker per rewritten shared pattern; npm test under load.
+
+2026-11-21 — PR 3 scope (owner's B covers every author-input path; the flake desk's plan): drain the rest of the
+            heatmap render hang guard's path (test/unit/core/chart-row-record.test.js, "the stamped-cell rewrite stays
+            linear"), then retire that guard and its flaky-ok. Traced with `traceRegexes` on the guard's input (2,000
+            `<td`) at claude/regex-drain-render 1ec2ee4, which is PR 2: the table walkers, the code-only paragraphs and
+            the tag tokenizers are already done there. Left, 16 the census calls slow:
+              `\s+#.*$` (core/hide-directive.mjs:22, core/meta-keys.mjs:84 and :96) · `^(['"])(.*)\1$` (the same three,
+              and export/marp-bundle-html.js:275) · `[*_]{1,3}(?=\S)([\s\S]*?\S)[*_]{1,3}` (core/table-row-label.js:118)
+              · the bounded tag head `<!--|<(\/?)([a-z][a-z0-9-]*)\b(?:…){0,4000}>` (core/chart-rows.js:389) ·
+              `<code>([\s\S]*?)<\/code>` (core/carousel.js:210, :343, :347; heatmap.transform.js:222) · `\.?0+$`
+              (chart-family/shared/cartesian.js:862) · `<h2[^>]*>[\s\S]*?<\/h2>` (core/premise.js:20,
+              core/split-panels.js:108, flowchart.transform.js:206, state-chart.transform.js:271) ·
+              `\s*<footer\b[\s\S]*?<\/footer>\s*$` and `<p([^>]*)>([\s\S]*?)<\/p>\s*$` (transformers/chart-frame.js) ·
+              masthead.transform.js:321 (already `regex-ok`, anchored) · `<section\b[^>]*\sclass="([^"]*)"`
+              (transformers/inline-run.js:19, label-set-key.js:74 and :146) · `\sdata-lattice-hidden\s*=\s*(["'])true\1`
+              (core/hidden-slides.mjs:13) · `<section\b[^>]*>` (core/image-aspect.js:159, engine/index.js:118) ·
+              `<svg\b(?:…)*>` and `<(?!\/)([a-zA-Z][\w-]*)\b(?:…)*>` (core/svg-a11y-names.js:124 and :158) ·
+              `(?<!\s)\s+data-debug(?:="[^"]*")?` (engine/index.js:307).
+            And 27 the census does not hold: markdown-it's own block and inline rules (third-party: census `allow`
+            with the reason, or a replacement only where a measured hostile input hangs) and patterns built at run
+            time (each named in `allow` with why it is safe, or rewritten).
