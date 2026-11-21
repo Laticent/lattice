@@ -314,7 +314,10 @@ unless the wave says why they did. The tool's header describes each gate.
 have not seen an earlier round, the study's scores or each other's work. Each gets the contact
 sheets (`sheet-<row>-png.png` and `sheet-<row>-pdf.png` per preset) and the full-resolution PNGs,
 and nothing else: not this note, not the maker's notes, not the floor. A judge who knows the
-floor is 8.5 grades toward it.
+floor is 8.5 grades toward it. Copy the sheets into a packet under neutral letters (look A to D)
+and **keep the letter-to-preset key off disk until both judges report**: a judge can read any
+file, and in the first round both judges found a key saved beside the packet and named the
+presets.
 
 **3. Calibration anchors in the same batch.** Classic and today's Editorial are judged in the
 same batch as the candidates, not labeled as anchors. Their scores calibrate the batch: if the
@@ -342,6 +345,34 @@ rows: the running header and footer on its dark bookends (title, divider, closin
 split-panel lede measure 4.0 to 4.08:1, because its `strata` finish lifts the navy under them;
 on Classic the same chrome measures 4.58:1. The engine fix is not part of the gate, so Brand-forward
 goes to wave 2 as a known failure (it is raised there anyway, §3).
+
+### The first round (2026-11-21, the four shipped presets)
+
+Run on the baseline sheets above, at the owner's request, to exercise the protocol. Not a wave:
+no candidate was judged, only the shipped presets, Classic and Editorial among them.
+
+| Preset | Judge A (`checker`) | Judge B (`red-team`) | Worst slide, in both judges' words |
+|---|---|---|---|
+| Minimal | 7 | 7 | split-panel (5): the lede ends 22 to 26 px above the footer |
+| Classic (anchor) | 7 | 5 | the same, and it "collapses into" Minimal: content slides differ on about 1% of pixels |
+| Brand-forward | 7.5 | 5 | title (1): the footer at 4.09:1 on the dotted navy, in every row; the dot grid behind data |
+| Editorial (anchor) | 7 | 6 | ruled lines strike through the kpi line and the footer; the corner glow reads as a smudge |
+
+What the round taught, beyond the scores:
+
+- **The judges agree with the machine gate where both measure.** Judge B measured Brand-forward's
+  title footer at 4.09:1, the gate at 4.08:1; both found every other text run and mark above
+  the floor (judge B's lowest dark-mode mark 3.21:1, the gate's 3:1 floor).
+- **The judges see what no gate measures.** Distinctness (Classic and Minimal are one look on
+  content slides, D1's finding again), texture striking text (Editorial's rules), and the one
+  slide that caps every look the same way: `split-panel` bottom-anchors its panel, so the lede
+  sits about 3.5 px (CSS) above the footer whatever its length, and `check-jank` reports it only
+  as advisory crowding. That is an engine defect, not a corpus one (shortening the copy moved
+  nothing), so it is a follow-up, and it caps every preset equally until it is fixed.
+- **The anchors calibrate.** Editorial scored 7 and 6 here, against Judge A's earlier 7 on the
+  four-slide deck (§3); the study never scored Classic, so 7 and 5 are its first numbers. Read a
+  wave's candidates against the anchors in their own batch, not against the study's numbers.
+- **The key leaked** (step 2 above, now fixed in the procedure).
 
 ### What the trio corrected
 
