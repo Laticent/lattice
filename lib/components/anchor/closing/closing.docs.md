@@ -6,7 +6,7 @@
 
 **Tags** `summary` · `takeaway` · `board-deck`
 
-Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover).
+Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
 
 ## Agent contract
 
@@ -26,6 +26,13 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 - **`qr`.** The audience should leave with a scannable link (docs URL, contact card) rather than just a text call-to-action.
 - **`index`.** The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence.
 - **`spectrum`.** `title` also carries `spectrum` — closes the bookend pair with the same generated gradient bar, echoing the deck's own multi-step color story one last time.
+- **`cover-masthead`.** A heavy rule over the title, set left: the editorial cover. Usually set deck-wide with `cover: masthead`, so the front cover matches.
+- **`cover-ledger`.** A small-caps title over a double rule: the annual-report cover. Usually set deck-wide with `cover: ledger`, so the front cover matches.
+- **`cover-column`.** An accent column at the right edge, clear of the chrome bands; the title is set left and wraps short of it. Usually set deck-wide with `cover: column`, so the front cover matches.
+- **`cover-label`.** A gallery wall label: the title in the slide-title size, low on the left, under a hairline, with a quiet caption. Usually set deck-wide with `cover: label`, so the front cover matches.
+- **`cover-stage`.** The title at stage size, centered: the display role, for a keynote room. Usually set deck-wide with `cover: stage`, so the front cover matches.
+- **`cover-frame`.** The title boxed in a keyline that follows the preset's rule weight and style. Usually set deck-wide with `cover: frame`, so the front cover matches.
+- **`cover-poster`.** A giant title set left, heavy and tight: the poster cover. Usually set deck-wide with `cover: poster`, so the front cover matches.
 
 ### Common mistakes
 
@@ -115,6 +122,90 @@ Mirrors title's generated gradient bar — the deck's color story, one last time
 ## The closing echoes the same six-step spectrum.
 
 `Closing · spectrum`
+```
+
+### `cover-masthead` — cover-masthead
+
+A heavy rule over the title, set left.
+
+```markdown
+<!-- _class: closing silent cover-masthead -->
+
+## The back cover composes as a masthead.
+
+`anchor · closing · cover-masthead`
+```
+
+### `cover-ledger` — cover-ledger
+
+A small-caps title over a double rule.
+
+```markdown
+<!-- _class: closing silent cover-ledger -->
+
+## The back cover composes as a ledger.
+
+`anchor · closing · cover-ledger`
+```
+
+### `cover-column` — cover-column
+
+An accent column at the right edge, the title set left.
+
+```markdown
+<!-- _class: closing silent cover-column -->
+
+## The back cover composes as a column.
+
+`anchor · closing · cover-column`
+```
+
+### `cover-label` — cover-label
+
+A gallery wall label: a smaller title low on the left under a hairline.
+
+```markdown
+<!-- _class: closing silent cover-label -->
+
+## The back cover composes as a label.
+
+`anchor · closing · cover-label`
+```
+
+### `cover-stage` — cover-stage
+
+A stage-size centered title.
+
+```markdown
+<!-- _class: closing silent cover-stage -->
+
+## Thank you.
+
+`anchor · closing · cover-stage`
+```
+
+### `cover-frame` — cover-frame
+
+The title boxed in a keyline.
+
+```markdown
+<!-- _class: closing silent cover-frame -->
+
+## The back cover composes as a frame.
+
+`anchor · closing · cover-frame`
+```
+
+### `cover-poster` — cover-poster
+
+A giant title set left.
+
+```markdown
+<!-- _class: closing silent cover-poster -->
+
+## Make it yours.
+
+`anchor · closing · cover-poster`
 ```
 
 ## Universal modifiers

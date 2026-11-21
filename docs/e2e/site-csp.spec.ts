@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, type Page, test } from '@playwright/test';
+import { pageSettler } from './barriers';
 
 // THE STRICT CSP HOLDS ON THE PAGES THAT CARRY IT (#3207, stage 1; docs/scripts/csp.mjs).
 //
@@ -164,28 +165,8 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko every control on the libra
 			);
 		});
 	});
-	let inFlight = 0;
-	page.on('request', () => inFlight++);
-	page.on('requestfinished', () => inFlight--);
-	page.on('requestfailed', () => inFlight--);
-	const idle = () =>
-		page.evaluate(
-			() =>
-				new Promise<void>((done) => {
-					const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void };
-					if (w.requestIdleCallback) w.requestIdleCallback(() => done(), { timeout: 10_000 });
-					else requestAnimationFrame(() => requestAnimationFrame(() => done()));
-				}),
-		);
-	/** No request in flight and the main thread idle, twice in a row. */
-	const settle = async () => {
-		let quiet = 0;
-		while (quiet < 2) {
-			await expect.poll(() => inFlight, { timeout: 60_000 }).toBe(0);
-			await idle();
-			quiet = inFlight === 0 ? quiet + 1 : 0;
-		}
-	};
+	/** No request in flight and the main thread idle, twice in a row (barriers.ts `pageSettler`). */
+	const settle = pageSettler(page);
 
 	const pressedOn: Record<string, number> = {};
 	for (const route of demos) {
