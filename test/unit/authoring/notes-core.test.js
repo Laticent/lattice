@@ -2138,3 +2138,23 @@ describe('notes-core: notesToMarp', () => {
     assert.equal(core.notesToMarp(null), '');
   });
 });
+
+// The red team on PR 3351 (head 0493189): each shape below was a speaker note before the four notes, or was rewritten
+// by a scrub that must not touch it.
+describe('notes-core: the red team on the four notes', () => {
+  test('prose shaped like a pane marker is private; a real pane marker is structure', () => {
+    for (const b of [' pane: Pane two needs a better chart ', ' panes: remember the numbers ']) assert.equal(core.isPrivateComment(b), true, b);
+    for (const b of [' _pane: bar ', ' pane: list ', ' pane: list no-title ', ' panes: 60/40 stack ', ' _pane: anything at all ']) assert.equal(core.isPrivateComment(b), false, b);
+    const out = core.stripNotesFromSource('# A\n\n<!-- pane: Pane two SECRETV -->\n\nText\n');
+    assert.doesNotMatch(out, /SECRETV/);
+    assert.deepEqual(core.auditStrippedSource('<!-- panes: 50/50 -->\n\n<!-- _pane: right -->\n'), [], 'a real pane marker is not a suspected leak');
+  });
+  test('a comment that opens in the front matter is part of a YAML value: never scrubbed, never reported', () => {
+    const src = '---\ntitle: "Q3 <!-- draft --> review"\n---\n\n# A\n\n<!-- mine -->\n';
+    assert.equal(core.stripNotesFromSource(src), '---\ntitle: "Q3 <!-- draft --> review"\n---\n\n# A\n');
+    assert.deepEqual(core.auditStrippedSource('---\ntitle: "Q3 <!-- draft --> review"\n---\n\n# A\n'), []);
+  });
+  test('the Marp bridge labels a note that opens with a quoted key, which Marp would read as a directive', () => {
+    assert.match(core.notesToMarp('# A\n\n<!-- @note{"_class": evil} -->\n'), /<!-- Note: "_class": evil -->/);
+  });
+});
