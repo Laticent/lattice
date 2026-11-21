@@ -71,7 +71,13 @@ which goes red on the old pattern.
 with this one (`finish-backdrops`, `chart-detail-reveal`, the baseline gallery, the chart and
 statement galleries): every player byte-identical. On Lattice's whole built stylesheet
 (`dist/lattice.css`, 2.9 MB) both patterns find the same 8,582 strings and urls in 3.5 to 4 ms a pass.
-On hostile input the new pattern stays linear: `url(` followed by a million spaces and no `)` takes
-6.7 ms (`main`: 2.9 ms), an unclosed `url("` 16.5 ms (`main`: 18.1 ms). The first version of the fix
-put `\s*` on both sides of the alternation, which overlapped the unquoted branch and went cubic: 2.7 s
-for 2,000 spaces. The spaces now belong to each quoted branch.
+On hostile input the final pattern stays linear: `url(` followed by a million spaces and no `)` takes
+10 ms (`main`: 3 ms), an unclosed `url("` 25 ms (`main`: 18 ms). Repeated `url(` with no `)` is
+quadratic on `main` and here alike (about 0.35 s at 40,000), so nothing new.
+
+Two first attempts, each caught before merge: `\s*` on both sides of the whole alternation overlapped
+the unquoted branch and went cubic (2.7 s for 2,000 spaces), so the spaces now belong to each quoted
+branch; and an unquoted branch of `[^)"']*` made a malformed `url(it's.png)` start a string at its
+stray quote, so the rules after it lost their dark arm, where `main` and a browser end it at its `)`.
+The unquoted branch is `main`'s `[^)]*`, tried after the quoted ones; `html-player.test.js` pins both
+the quoted case and the malformed one, each red on the pattern it guards against.

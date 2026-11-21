@@ -2885,3 +2885,14 @@ test('a quoted url() holding its own ")" is taken whole: no rule after it is los
 	const { darkBlock } = themeDualMode(css);
 	assert.match(darkBlock, /--d:\s*black/, `the dark arm after the url is still collected: ${darkBlock}`);
 });
+
+test('a malformed unquoted url() with a stray quote still ends at its ")": the rules after it keep their dark arm', () => {
+	// `url(it's.png)` is a bad url to a browser, which consumes it to the `)` and applies what follows. The masker must read
+	// it the same way: a pattern that refused quotes in an unquoted url started a string at the stray `'` instead, and the
+	// rules up to the next quote lost their light-dark() resolution.
+	for (const bad of ["url(it's.png)", 'url(a"b.png)']) {
+		const css = `.a{background:${bad}} .b{color:light-dark(red,blue)} .y{content:'k'}`;
+		const dark = resolveLightDark(css, 1);
+		assert.ok(dark.includes('.b{color:blue}'), `${bad}: the rule after it resolves its dark arm: ${dark}`);
+	}
+});
