@@ -5191,7 +5191,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		const onEnd = () =>
 			setTimeout(() => {
-				const legend = document.querySelector('legend.sr-only');
+				const legend = document.querySelector('legend.sr-only') ?? document.querySelector('h1.sr-only');
 				if (legend?.firstChild) getSelection()?.collapse(legend.firstChild, 0);
 			}, 150);
 		window.addEventListener('touchend', onEnd, true);
