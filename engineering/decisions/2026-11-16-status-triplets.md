@@ -366,9 +366,11 @@ mustard; URGENCY answered the first on the light face, and the dark face now fol
   mark read close to on-track (light 0.075, dark 0.053 OKLab from the on-track solid, `--pass-mark`, under
   check:glance's 0.08). Carbone's chart cycle now leads with its blue and keeps the green second: 0.224 light, 0.233
   dark. Everything else that reads the first chart color follows it (single-series bars, icon and avatar defaults, the
-  spectrum bar's first stop); the heatmap does not, through a new optional `--heatmap-hue` (heatmap.styles.css,
-  sanctioned in SANCTIONED_FALLBACK_READS), because blue as its pole cut the light top step from 6.53:1 to 4.79:1
-  (chart-finish-reach). The print band resets that token so a printed heatmap keeps its gray ramp. The triplet contract still
+  spectrum bar's first stop); the sequential ramps do not. A heatmap and a map choropleth read `--chart-ramp-hue` /
+  `--chart-ramp-ink` (chart-family.styles.css), the first category unless a palette names `--ramp-hue` / `--ramp-ink`
+  (sanctioned in SANCTIONED_FALLBACK_READS), and carbone names its green, because blue as the heatmap's pole cut the
+  light top step from 6.53:1 to 4.79:1 (chart-finish-reach). The finishes' generated ramp rules read the same tokens,
+  so etch and tone keep the green too, and the print band resets them so a printed ramp keeps its gray. The triplet contract still
   holds (`curate-status-triplets.js carbone --check`), and `chart-solids.test.js` pins the 0.08 floor for carbone.
   Ardesia's light face (0.068) and a11y-protanopia's dark face (0.067) sit under the line too and wait on their own
   brand calls: `followups.d/3232-p9-first-category-near-on-track.md`.

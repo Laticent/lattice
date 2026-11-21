@@ -275,8 +275,8 @@ function rampSide(raw, dark) {
 	// #2E2E2E). So the seed is always the one that will paint.
 	// The ramp's far end, MIRRORING heatmap.styles.css `--heatmap-pole`: the solid on the light canvas, the solid
 	// lifted halfway to white on the dark one.
-	// A palette that names the ramp's hue (`--heatmap-hue`, carbone) solves against that pole instead of the first category.
-	const solid = resolveTokenExpr(raw['heatmap-hue'] ?? raw['chart-cat1'], raw, dark);
+	// A palette that names the ramp's hue (`--ramp-hue`, carbone) solves against that pole instead of the first category.
+	const solid = resolveTokenExpr(raw['ramp-hue'] ?? raw['chart-cat1'], raw, dark);
 	const hue = dark && isHex(solid) ? resolveTokenExpr(`color-mix(in oklab, ${solid} 50%, white)`, raw, dark) : solid;
 	const seed = resolveTokenExpr(raw['text-body'], raw, dark);
 	const anchor = heatmapAnchor(raw, dark);

@@ -193,6 +193,9 @@ const BODY_BASE_D = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone:
 const STATUS_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const ONE = 'var(--chart-cat-1-hue)';
 const ONE_INK = 'var(--chart-cat-1-ink)';
+/** A sequential ramp's hue and ink: the first category unless the palette names its own (chart-family.styles.css). */
+const RAMP = 'var(--chart-ramp-hue)';
+const RAMP_INK = 'var(--chart-ramp-ink)';
 /**
  * The ink for TEXT on a mark, one per finish and never picked per body (a per-body black-or-white cleared 4.5:1,
  * read as mud at a median of 5.6:1, and changed the text color from chart to chart).
@@ -656,8 +659,8 @@ function build() {
   // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
   // (the cell gap) is the member's, except under etch, where the line is the identity.
   w('\n/* RAMP — scaled into the finish\'s band; --mix stays the datum. */');
-  const rampAt = (lo, k, base) => `color-mix(in oklab, ${ONE} calc(${tv(lo)} + var(--mix) * ${tv(k)}), ${base})`;
-  const rampStroke = [`stroke: color-mix(in oklab, ${ONE_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke'];
+  const rampAt = (lo, k, base) => `color-mix(in oklab, ${RAMP} calc(${tv(lo)} + var(--mix) * ${tv(k)}), ${base})`;
+  const rampStroke = [`stroke: color-mix(in oklab, ${RAMP_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke'];
   for (const m of ramps) {
     // A ramp that prints its value takes the shorter text band (see `rampText`), as two whole colors inside
     // light-dark(), never a percentage. Pigment's text band IS the member's own span ([0, 1]: `--mix` as shipped), so it
@@ -689,7 +692,7 @@ function build() {
   // fill and the ink the theme solved for it.
   const STEP_MIX = [18, 36.5, 55, 73.5, 92];
   STEP_MIX.forEach((pct, i) => {
-    const at = (lo, k) => `color-mix(in oklab, ${ONE} calc(${tv(lo)} + var(--heatmap-step${i + 1}, ${pct}%) * ${tv(k)}), var(--heatmap-base))`;
+    const at = (lo, k) => `color-mix(in oklab, ${RAMP} calc(${tv(lo)} + var(--heatmap-step${i + 1}, ${pct}%) * ${tv(k)}), var(--heatmap-base))`;
     w(supports(rule(MOVERS, `.heatmap-value[data-ramp="${i + 1}"]`, [
       `fill: light-dark(${inkOn(at(T.rampTextLo, T.rampTextK))}, ${inkOn(at(T.rampTextDLo, T.rampTextDK))})`,
     ])));

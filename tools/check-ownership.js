@@ -4903,17 +4903,18 @@ function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefa
  * contract the read needs. `--cat-N-ink`'s did not — that is the whole lesson.
  */
 const SANCTIONED_FALLBACK_READS = [
-  {
-    token: 'heatmap-hue',
-    fallback: 'chart-cat-1-hue',
+  ...[['ramp-hue', 'chart-cat-1-hue'], ['ramp-ink', 'chart-cat-1-ink']].map(([token, fallback]) => ({
+    token,
+    fallback,
     why:
-      'the heatmap ramp\'s hue, OPTIONAL by design: a palette names one only when it wants its magnitude ramp on a ' +
-      'hue other than its first category. Without one the read lands on --chart-cat-1-hue, which is exactly what every ' +
-      'palette\'s heatmap painted before the hook existed, so a palette that does not name one (and a Studio-generated ' +
-      'theme) keeps its behavior; tools/derive-chart-cat-ink.js solves the step inks against the same pole either way. ' +
-      'Carbone names its green (#3360 D2: its chart cycle now leads with blue so "no status" does not read as on ' +
-      'track, and the heatmap keeps the 6.53:1 light top step it was tuned for). Held by chart-finish-reach --check.',
-  },
+      'a sequential ramp\'s hue and ink (heatmap, map choropleth), OPTIONAL by design: a palette names one only when it ' +
+      'wants its ramps on a hue other than its first category. Without one the read lands on the first category\'s ' +
+      'own hue or ink, which is exactly what every ramp painted before the hook existed, so a palette that does not ' +
+      'name one (and a Studio-generated theme) keeps its behavior; tools/derive-chart-cat-ink.js solves the heatmap ' +
+      'step inks against the same pole. Carbone names its green (#3360 D2: its chart cycle leads with blue so "no ' +
+      'status" does not read as on track; its ramps keep the 6.53:1 light top step they were tuned for). Held by ' +
+      'chart-finish-reach --check.',
+  })),
   {
     token: 'risk-critical-step-ink',
     fallback: 'fail-on-mark',

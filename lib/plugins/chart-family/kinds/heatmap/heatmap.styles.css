@@ -35,14 +35,19 @@
    * reading on the slide — and the low end of the ramp sank into it. Exactly the
    * failure this docblock claims not to have, which is how it was caught. */
   --heatmap-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
+  /* THE RAMP'S HUE AND INK: a sequential ramp rides one hue, the first category unless a palette names another with
+   * --ramp-hue / --ramp-ink. Carbone does: its chart cycle leads with blue so a chart's "no status" does not read as
+   * on track (#3360 D2), and its ramps keep the green they were tuned for. The finishes' ramp rules read these too. */
+  --chart-ramp-hue: var(--ramp-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6)));
+  --chart-ramp-ink: var(--ramp-ink, var(--chart-cat-1-ink, light-dark(#0053B3, #2B73D6)));
   /* THE RAMP'S FAR END. On a light slide it is the category solid itself. On a dark slide the solid is a MID-tone
    * (white text clears it at 4.6:1, so it stands off the slide), and a ramp that tops out there barely clears its
    * own empty cell (carbone's dark top step fell to 2.87:1), so the dark ramp climbs toward the solid lifted halfway
    * to white: dark canvas to bright, the way a dark-slide magnitude reads. tools/derive-chart-cat-ink.js solves
-   * every step's ink against this same pole. A palette may name the ramp's hue with `--heatmap-hue` (the first category
-   * by default): carbone leads its chart cycle with blue so "no status" does not read as on track, and keeps its
+   * every step's ink against this same pole. A palette may name the ramp's hue with `--ramp-hue` (chart-family.styles.css
+   * --chart-ramp-hue; the first category by default): carbone leads its chart cycle with blue so "no status" does not read as on track, and keeps its
    * heatmap on the green it was tuned for (6.53:1 top step against an empty cell on light; blue gave 4.79:1). */
-  --heatmap-pole: light-dark(var(--heatmap-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6))), color-mix(in oklab, var(--heatmap-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6))) 50%, white));
+  --heatmap-pole: light-dark(var(--chart-ramp-hue), color-mix(in oklab, var(--chart-ramp-hue) 50%, white));
 }
 
 /* Also on the SVG itself, not just the figure: Read·Article re-hosts the bare
@@ -51,7 +56,9 @@
  * same reason. */
 :is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-svg {
   --heatmap-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
-  --heatmap-pole: light-dark(var(--heatmap-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6))), color-mix(in oklab, var(--heatmap-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6))) 50%, white));
+  --chart-ramp-hue: var(--ramp-hue, var(--chart-cat-1-hue, light-dark(#0053B3, #2B73D6)));
+  --chart-ramp-ink: var(--ramp-ink, var(--chart-cat-1-ink, light-dark(#0053B3, #2B73D6)));
+  --heatmap-pole: light-dark(var(--chart-ramp-hue), color-mix(in oklab, var(--chart-ramp-hue) 50%, white));
 }
 
 /* THE `:not(.journey)` GUARD, and why a zero-leak collision still gets one.

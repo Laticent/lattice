@@ -608,65 +608,65 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-bar-label[data
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-etch, .marks-tone) :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="fill"]),
 figure:is(.marks-etch, .marks-tone) :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="fill"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-lo) + var(--mix) * var(--finish-ramp-text-k)), var(--heatmap-base)), color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-d-lo) + var(--mix) * var(--finish-ramp-text-d-k)), var(--heatmap-base))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-lo) + var(--mix) * var(--finish-ramp-text-k)), var(--heatmap-base)), color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-d-lo) + var(--mix) * var(--finish-ramp-text-d-k)), var(--heatmap-base))) !important;
 }
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-etch, .marks-tone) :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="bg"]),
 figure:is(.marks-etch, .marks-tone) :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="bg"]) {
-  background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-lo) + var(--mix) * var(--finish-ramp-text-k)), var(--heatmap-base)), color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-d-lo) + var(--mix) * var(--finish-ramp-text-d-k)), var(--heatmap-base))) !important;
+  background: light-dark(color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-lo) + var(--mix) * var(--finish-ramp-text-k)), var(--heatmap-base)), color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-d-lo) + var(--mix) * var(--finish-ramp-text-d-k)), var(--heatmap-base))) !important;
 }
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-etch :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="fill"]),
 figure.marks-etch :where(:is(.heatmap-cell)[data-encodes="ramp"][data-paint="fill"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 75%, transparent) !important;
+  stroke: color-mix(in oklab, var(--chart-ramp-ink) 75%, transparent) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
 }
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="fill"]),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="fill"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-lo) + var(--mix) * var(--finish-ramp-k)), var(--map-base)), color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-d-lo) + var(--mix) * var(--finish-ramp-d-k)), var(--map-base))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-lo) + var(--mix) * var(--finish-ramp-k)), var(--map-base)), color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-d-lo) + var(--mix) * var(--finish-ramp-d-k)), var(--map-base))) !important;
 }
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="bg"]),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="bg"]) {
-  background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-lo) + var(--mix) * var(--finish-ramp-k)), var(--map-base)), color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-d-lo) + var(--mix) * var(--finish-ramp-d-k)), var(--map-base))) !important;
+  background: light-dark(color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-lo) + var(--mix) * var(--finish-ramp-k)), var(--map-base)), color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-d-lo) + var(--mix) * var(--finish-ramp-d-k)), var(--map-base))) !important;
 }
 section.marks-etch :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="fill"]),
 figure.marks-etch :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="fill"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 75%, transparent) !important;
+  stroke: color-mix(in oklab, var(--chart-ramp-ink) 75%, transparent) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="1"]),
 figure:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="1"]) {
-  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step1, 18%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step1, 18%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step1, 18%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step1, 18%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="2"]),
 figure:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="2"]) {
-  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step2, 36.5%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step2, 36.5%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step2, 36.5%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step2, 36.5%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="3"]),
 figure:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="3"]) {
-  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step3, 55%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step3, 55%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step3, 55%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step3, 55%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="4"]),
 figure:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="4"]) {
-  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step4, 73.5%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step4, 73.5%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step4, 73.5%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step4, 73.5%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 @supports (color: color(from light-dark(red, red) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="5"]),
 figure:is(.marks-etch, .marks-tone) :where(.heatmap-value[data-ramp="5"]) {
-  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step5, 92%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step5, 92%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-lo) + var(--heatmap-step5, 92%) * var(--finish-ramp-text-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-ramp-hue) calc(var(--finish-ramp-text-d-lo) + var(--heatmap-step5, 92%) * var(--finish-ramp-text-d-k)), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 
