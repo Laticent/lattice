@@ -77,7 +77,8 @@ trades raw speed for spec precision and a tree that plugins can compose over.
 
 ## Verdict
 
-**markdown-it stays.** On Lattice's decks it parses 28 to 52 times faster, imports
+**markdown-it stays.** On Lattice's decks it turns markdown into HTML 28 to 36 times faster and
+parses 29 to 52 times faster, imports
 2.5 times faster and holds about 6 times less heap. remark's draw is the mdast tree
 and its plugin ecosystem. Lattice already has a working token-stream kernel shared
 by every render path (HARD RULE #1), so moving to remark would buy a nicer tree at
