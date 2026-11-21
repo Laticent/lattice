@@ -37,10 +37,11 @@ const loaders = new Map<string, Promise<void>>();
 /** How many times each engine URL's import has failed, so a retry asks for a URL the browser has not cached (below). */
 const failedImports = new Map<string, number>();
 /** The module loader, swappable for tests only: a bare `import()` cannot be intercepted in a unit test. */
-let importModule: (src: string) => Promise<unknown> = (src) => import(/* @vite-ignore */ src);
+const importEngine = (src: string): Promise<unknown> => import(/* @vite-ignore */ src);
+let importModule: (src: string) => Promise<unknown> = importEngine;
 /** Test hook: replace the module loader, and forget past failures and loaders. Not for product code. */
 export function __setEngineImportForTests(fn: ((src: string) => Promise<unknown>) | null): void {
-	importModule = fn ?? ((src) => import(/* @vite-ignore */ src));
+	importModule = fn ?? importEngine;
 	failedImports.clear();
 	loaders.clear();
 }
