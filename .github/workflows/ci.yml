@@ -162,7 +162,7 @@ permissions:
 jobs:
   # ── Change classifier ──────────────────────────────────────────────────
   # Splits a change into two independent tiers:
-  #   code  — affects rendering or the test suite → integration (+ golden-diff)
+  #   code  — affects rendering or the test suite → golden-diff on a PR, integration in the merge queue
   #   docs  — affects the docs site (Astro) → docs-build
   # `lint` and `unit` are always on (see the note above `unit` for why unit
   # left this filter). An allowlist of roots, NOT "everything that isn't
@@ -600,7 +600,7 @@ jobs:
       # `--check` after it passes vacuously and stops being a gate at all.
       - name: Build the generated bundles
         run: npm run build
-      - name: Integration tests (PR slice, one shard)
+      - name: Integration tests (render slice, one shard; merge queue only)
         env:
           # `strategy.job-total` rather than a literal 4, so resizing the matrix
           # cannot leave a file in no leg or in two.

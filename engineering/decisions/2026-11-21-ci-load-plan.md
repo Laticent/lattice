@@ -347,7 +347,7 @@ for two PRs and a release.
 1. C1a: a Settings change, takes effect on the next push; the largest cut in jobs.
 2. C6: one small `ci.yml` edit (C7 was dropped once measured).
 3. C3: `pr:park` as the `workflow.md` default.
-4. C11, then C2: fix the re-run flakes, then move the render tier to the queue. Done: #3275 fixed the flake, and the D2 PR moved the tier.
+4. C11, then C2: fix the re-run flakes, then move the render tier to the queue. The D2 PR moves the tier, and merges only after #3275 (the one flake found in the 5-day window; the month's other re-run failures are the flake desk's).
 5. C9: dropped by the owner in round 2 (§6).
 6. C4 once the Team limit is confirmed in effect; C8 at the owner's taste.
 7. C5, C10 and C12 stay parked until runner waits fall.
@@ -360,7 +360,7 @@ relayed here. The D-numbers are the ❓ card's on PR #3388.
 | Card | Candidate | Answer | Who does what |
 |---|---|---|---|
 | D1 | C1 | **weekly**: drop C# and Python from both CodeQL setups, and scan them once a week instead | The owner changes both setups in Settings. A session adds the weekly scan, which runs into the limit below |
-| D2 | C2 | **A**, after the flakes are fixed | Done 2026-11-21 once #3275 fixed the one flake: `integration` runs in the merge queue only, and `npm run evidence` plans the same slice locally for any `code` PR |
+| D2 | C2 | **A**, after the flakes are fixed | The D2 PR moves it: `integration` runs in the merge queue only, and `npm run evidence` plans the same slice and the venue ratchet locally for any `code` PR. It merges only after #3275, the Chrome-download fix |
 | D3 | C6, C7 | **A** | One PR: `build:check:all` on unit shard 1. C7 measured no saving and is dropped (§2) |
 | D4 | C4 | **A** | The owner sets `max_entries_to_build` to 3 once the Team plan's limit is live (steps below) |
 | D5 | C9 | **A**, re-asked | Measured before building: a safe key hits about 2 of 312 PRs, about 3 min a day (§2, C9). Back to the owner: recommend dropping D5 |

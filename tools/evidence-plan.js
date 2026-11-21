@@ -76,7 +76,9 @@ const SURFACES = [
 		match: (f) =>
 			['lattice.js', 'package.json', 'package-lock.json', '.github/workflows/ci.yml'].includes(f) ||
 			(/^(lib|themes|tools|test|assets\/fonts|examples|exemplars|kit)\//.test(f) && !f.endsWith('.docs.md')),
-		command: 'tools/wait-for.sh --job integration -- npm run test:integration:pr && npm run regress',
+		// The venue ratchet rode on CI's shard 4 and is blocking there, so it travels with the slice.
+		command:
+			'tools/wait-for.sh --job integration --timeout 3600 -- npm run test:integration:pr && tools/wait-for.sh --job venue --timeout 1800 -- npm run --silent check:venue-conformance -- --strict && tools/wait-for.sh --job regress --timeout 3600 -- npm run regress',
 		why: 'PR CI no longer renders; the queue does, and a miss there ejects the PR and the group behind it',
 	},
 	{

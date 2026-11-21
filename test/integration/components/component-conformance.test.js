@@ -22,7 +22,7 @@
  * every shipped palette: the reach and report tests) is held behind `CONFORMANCE_RENDER=1`,
  * because measured on 2026-10-16 it costs about 48 minutes (decision note, section 13.2). The owner
  * ruled it runs nightly: `integration-nightly.yml` has its own report-only step that sets the
- * variable. It is not set on the per-PR path, which runs `tools/conformance-render.js --changed`.
+ * variable. The `--changed` run of `tools/conformance-render.js` (per PR in ci.yml until 2026-11-21, local now) does not set it.
  *
  * Needs Chromium (CHROME_PATH). Local iteration: `CONFORMANCE_RENDER=1 CONF_ONLY=stats,kpi node --test <this file>`.
  */

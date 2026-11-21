@@ -1532,8 +1532,9 @@ it passes, that exact tree becomes `main`.
 - **`integration` (the render slice) runs only in the queue** since 2026-11-21 (the
   owner's D2, `decisions/2026-11-21-ci-load-plan.md`). It was 40% of PR job-minutes, and
   the queue already ran it in full. **So before the merge ask, a PR that touches the
-  `code` paths runs the slice locally**: `npm run evidence` lists it as "the PR render
-  slice", and §The raise loop runs every `local` row. Skip it and a render break
+  `code` paths runs the slice locally**, with the venue conformance ratchet that rode on
+  its shard 4: `npm run evidence` lists both as "the PR render slice", and §The raise
+  loop runs every `local` row. Skip it and a render break
   first shows as a queue ejection, which re-tests every entry behind it.
 
 ## Automation vs. the main ruleset
