@@ -129,7 +129,7 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     usable again and no request is in flight.
 
 - **CSP stage 2: the preview-frame pages** (stage 1's `followups.d/3277-p1-csp-frame-pages.md`; what is left is
-  `followups.d/3277-p1-csp-remaining-pages.md`). 198 of 204
+  `followups.d/3277-p1-csp-remaining-pages.md`). 199 of 204
   routes now carry the policy, up from 75. Measured first, in Chromium, WebKit and Gecko, with a
   page under `script-src 'self'`:
 
@@ -218,17 +218,17 @@ Measured on `docs/dist` from `main` (`5c4be2f`), 220 HTML files:
     a script served from a preview branch. A local build adds its origin with `--self-origin=`
     (`build:e2e`). The tag grew by about 410 bytes;
     `getting-started`, the tightest budgeted policy page, keeps about 1 KB under its ceiling.
-  - **A floor.** `MIN_POLICY_PAGES` (198) fails the build when a page silently loses its policy:
+  - **A floor.** `MIN_POLICY_PAGES` (199) fails the build when a page silently loses its policy:
     an exemption is computed, so a new import can strip one.
   - **What still has no policy, and why** (every build prints the list; the follow-up carries it):
     the Studio and `/proto/chat-figures/` (the export player writes inline scripts into its capture
     and prune frames); Calco (`woff2-encoder`'s Emscripten bindings build functions from strings;
     the fix is the subsetter in a same-origin worker, measured to work above); Cadenza and Suono
     (`esm.run` serves runtimes whose own requests, models and wasm from other hosts, are not yet
-    measured: `OPEN_ORIGINS`); and the landing page, held by name (`HELD_ROUTES`) because the policy
-    tag is about 1,460 bytes and the page's HTML sits 52 bytes under its 121,924-byte `htmlRaw` hard
-    ceiling (measured 2026-11-19), so the policy would put it about 1.4 KB past. The ceiling is the
-    owner's number.
+    measured: `OPEN_ORIGINS`). The landing page was held by name (`HELD_ROUTES`), because the policy
+    tag is about 1,460 bytes and the page's HTML sat 52 bytes under its 121,924-byte `htmlRaw` hard
+    ceiling (measured 2026-11-19). The owner raised that ceiling in #3363, and the page now carries
+    the policy; `HELD_ROUTES` is empty and stays as the place to hold a page by name.
   - **The e2e reads refusals from every frame and from the console.** With an inline script put
     back into the single-slide preview, WebKit fired `securitypolicyviolation` in the frame;
     Chromium and Gecko refused the script, printed the refusal and fired nothing. An event-only

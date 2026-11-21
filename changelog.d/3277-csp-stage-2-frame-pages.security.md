@@ -1,13 +1,14 @@
-- **Security: the docs site's strict Content-Security-Policy now covers 198 of its 204 pages, up
-  from 75.** It reaches every page that shows a slide preview: the component and plugin pages,
-  the docs pages with a live example, and the Playground. A preview frame inherits its page's
-  policy, and the engine used to write its fit, font and link scripts into each frame inline. Under
-  the policy that left the Playground preview blank, so those pages had carried no policy at all.
-  The scripts now live in one file beside the engine (`lattice-frame-agents.js`). The code-package
-  sandbox and the diagram draw frames, which keep their own stricter policies, load through a small
-  same-origin shell, so a page's policy no longer refuses them. Measured on Chromium, WebKit and
-  Gecko: every policy page loads with no violation, and the previews, a function plot drawn in its
-  sandbox, and the library demos all work under it.
+- **Security: the docs site's strict Content-Security-Policy now covers 199 of its 204 pages, up
+  from 75.** It reaches the landing page and every page that shows a slide preview: the
+  component and plugin pages, the docs pages with a live example, and the Playground. A preview
+  frame inherits its page's policy, and the engine used to write its fit, font and link scripts
+  into each frame inline. Under the policy that left the Playground preview blank, so those
+  pages had carried no policy at all. The scripts now live in one file beside the engine
+  (`lattice-frame-agents.js`). The code-package sandbox and the diagram draw frames, which keep
+  their own stricter policies, load through a small same-origin shell, so a page's policy no
+  longer refuses them. Measured on Chromium, WebKit and Gecko: every policy page loads with no
+  violation, and the previews, a function plot drawn in its sandbox, and the library demos all
+  work under it.
 - **Firefox previews keep their fonts and fit from the second page on.** Firefox refused a
   preview's own runtime and fonts once the site's offline service worker was in control, so every
   page after the first rendered its previews in a fallback font. The policy now names the site's
@@ -17,8 +18,7 @@
   Playground preview then shows the slides unscaled instead of nothing, and the Stage shows the
   deck and tells the presenter to reload, instead of a blank projector. If that deck's player
   arrives late after all (a slow network), the Stage says so, so the presenter does not reload.
-- **Six pages still carry no policy, each named by every build:** the Studio and one prototype
+- **Five pages still carry no policy, each named by every build:** the Studio and one prototype
   (the export player writes inline scripts into its capture frames), Calco (its font subsetter
   builds code from strings), Cadenza and Suono (their voice code imports a runtime whose own
-  requests are not yet listed), and the landing page, held back until its page-size ceiling is
-  decided.
+  requests are not yet listed).
