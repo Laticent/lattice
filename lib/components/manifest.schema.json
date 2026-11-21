@@ -309,6 +309,15 @@
         "describe": {"type": "string", "minLength": 1, "description": "One or two sentences for the guide: what the layout decides for the media written in it."}
       }
     },
+    "lists": {
+      "enum": ["prose", "numbered-tags", "neutral"],
+      "description": "The LIST CONTRACT: what an author's `1.` versus `-` means on this layout (engineering/decisions/2026-11-19-deterministic-authoring-audit.md W2, rules R1 to R3). `prose`: the native list renders, so `1.` numbers and `-` bullets (R1; `content`, `list`). `numbered-tags`: the layout's items are cards, and `1.` turns their number tags on while `-` leaves them off (R2; `cards-grid`, `list-steps`). `neutral`: the marker means nothing, and both render the same (R3; everything else that reads a list). The engine enforces it in ONE place before any layout sees the slide (lib/core/list-contract.js, from lib/core/list-contract.generated.js): on a `neutral` slide every list is rewritten to the element its slot's `match.marker` names (`ordered` is `<ol>`, anything else `<ul>`); on a `numbered-tags` slide the outermost list is rewritten the same way when its slot names a marker, and carries `data-ordered` with what the author wrote. The contract reaches only as deep as the component's deepest list slot: a list nested below that keeps the marker its author wrote, so declare a slot for every level the layout reads (a caption or detail line under each item is one); test/unit/core/list-contract.test.js fails a stylesheet that styles one marker only below it. An aside (a list after prose), a list inside a blockquote and a list inside raw HTML are also left as written. Required on every component with a list slot (test/unit/core/list-contract.test.js). Because the engine normalizes the marker, the `slot-contract` lint rule never reports a list marker on a component that declares this."
+    },
+    "variantLists": {
+      "type": "object",
+      "description": "A variant whose list contract differs from the component's `lists`, keyed by variant name (`split-panel steps` is `numbered-tags` while `split-panel` is `neutral`).",
+      "additionalProperties": { "enum": ["prose", "numbered-tags", "neutral"] }
+    },
     "inlineRun": {
       "type": "object",
       "additionalProperties": false,
@@ -709,7 +718,7 @@
     },
     "slots": {
       "type": "object",
-      "description": "What an author writes for this layout, one entry per part. Each slot's `match` describes the author's MARKDOWN (the markdown-it block tree before any transform), never the rendered DOM. `lint:deck`'s `slot-contract` rule is compiled from these (tools/build-stage-catalog.js \u2192 lib/authoring/slot-contract.generated.js): a missing `required` slot, a heading at the wrong level, and a list with the wrong marker are errors. Every sample in the manifest must satisfy its own contract (test/unit/authoring/slot-contract.test.js). engineering/decisions/2026-11-19-deterministic-authoring-audit.md W1.",
+      "description": "What an author writes for this layout, one entry per part. Each slot's `match` describes the author's MARKDOWN (the markdown-it block tree before any transform), never the rendered DOM. `lint:deck`'s `slot-contract` rule is compiled from these (tools/build-stage-catalog.js \u2192 lib/authoring/slot-contract.generated.js): a missing `required` slot and a heading at the wrong level are errors. A list slot's `marker` names the element the layout reads; on a component with a list contract (`lists`) the engine rewrites the author's list to it, so the marker is not a finding there. Every sample in the manifest must satisfy its own contract (test/unit/authoring/slot-contract.test.js). engineering/decisions/2026-11-19-deterministic-authoring-audit.md W1.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -1773,7 +1782,7 @@
           "properties": {
             "kind": { "const": "list" },
             "depth": { "type": "integer", "minimum": 1, "maximum": 4 },
-            "marker": { "enum": ["bullet", "ordered", "any"] }
+            "marker": { "enum": ["bullet", "ordered", "any"], "description": "The list element this layout reads at this depth (`ordered` is `<ol>`, `bullet` is `<ul>`). It is not a requirement on the author: on a component with a list contract (`lists`) the engine rewrites the author's list to this element, and lint relaxes it to `any` (lib/core/list-contract.js, W2). Changing it changes what the layout receives, so render the gallery after editing it." }
           }
         },
         {

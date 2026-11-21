@@ -79,6 +79,7 @@
   ],
   "description": "A measure plotted across an ordered axis, so the movement is the read — one line or several, optionally filled, stacked, or stepped.",
   "purpose": "Use when the claim is that something MOVED: revenue by quarter, headcount through a reorg, latency after a fix. Points sit on a shared value scale so the slope between them is comparable across series; each series is named at the end of its own line in that line's color, so the reader never travels to a key.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

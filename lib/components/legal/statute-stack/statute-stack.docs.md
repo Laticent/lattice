@@ -22,6 +22,7 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
 |---|---|---|---|
 | `heading` | a `## ` heading | yes | Slide heading framing what the three rows compare. |
 | `rows` | a list | yes | One li per jurisdiction. Lead with the jurisdiction label as a plain text first line; nested ul items carry the citation (inline code), obligation summary, and status (inline code). |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 Under a variant, a slot changes shape:
 

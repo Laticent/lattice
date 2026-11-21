@@ -23,6 +23,7 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 | `title` | a `## ` heading | yes | Slide heading. |
 | `cards` | a list | yes | Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule). |
 | `insight` | a `>` blockquote | no | Optional key-insight panel below the cards. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
 
 - `numbered` is not a class: Write the cards as a `1.` list; the corner numbers come from it, and the class adds nothing.
 
@@ -43,12 +44,12 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 - **Parallel items.** Four cards or fewer, each item gets equal weight in the layout. Audience compares them at a glance.
 - **Scannable at a glance.** The audience absorbs the whole set in one look — no scrolling, no eye-leaping between rows.
 - **Equal information density.** Each card carries roughly the same text length. Uneven density makes the grid feel unbalanced.
-- **Order is decorative.** When sequence carries meaning, use list-steps or `list takeaway numbered` instead. cards-grid is for parallel options.
+- **Order is decorative.** When sequence carries meaning, use list-steps or `list takeaway` over a `1.` list instead. cards-grid is for parallel options.
 
 ## When NOT to use
 
 - **More than 4 items.** Split into multiple slides instead. The grid loses scannability past 4 cards.
-- **Order carries meaning.** Use list-steps or `list takeaway numbered`. cards-grid is for parallel options, not sequences.
+- **Order carries meaning.** Use list-steps or `list takeaway` over a `1.` list. cards-grid is for parallel options, not sequences.
 - **Lopsided density.** Equalize the prose when one card has three sentences and the rest have one. Otherwise change layout.
 - **Inline-code-only body.** A body bullet containing only `code` gets promoted to an eyebrow label. Mix it with surrounding prose.
 

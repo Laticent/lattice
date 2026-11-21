@@ -50,20 +50,42 @@ const render = (fm) => latticeEngine.createEngine().render(deck(fm)).html;
 const sectionClasses = (html) => [...new JSDOM(html).window.document.querySelectorAll('section')]
   .map((s) => new Set((s.getAttribute('class') || '').split(/\s+/).filter(Boolean)));
 
+// The RECOMMENDATION keys (D1, engineering/decisions/2026-11-20-deck-preset-study.md): each is checked by
+// its own register's parser, because two take more than one word and `theme` names a palette file.
+const { COLOR_MODE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-color-mode.js'));
+const { MODE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-mode.js'));
+const { parseMarks, MARKS_DEFAULT } = require(path.join(ROOT, 'lib/core/resolve-marks.js'));
+const { parseBackdrop } = require(path.join(ROOT, 'lib/core/resolve-backdrop.js'));
+const fs = require('node:fs');
+const clean = (p) => p.unknown.length === 0 && p.duplicate.length === 0;
+const ACCEPTS = {
+  theme: (v) => v === '' || fs.existsSync(path.join(ROOT, 'themes', v, `${v}.css`)),
+  'color-mode': (v) => v === '' || COLOR_MODE_NAMES.includes(v),
+  mode: (v) => MODE_NAMES.includes(v),
+  marks: (v) => clean(parseMarks(v)),
+  backdrop: (v) => v === '' || clean(parseBackdrop(v)),
+};
+
 test('every value a preset sets is one its register accepts, and every default is too', () => {
-  assert.deepEqual([...PRESET_KEYS].sort(), Object.keys(VOCAB).sort());
+  assert.deepEqual([...PRESET_KEYS].sort(), [...Object.keys(VOCAB), ...Object.keys(ACCEPTS)].sort());
+  assert.equal(PRESET_DEFAULTS.marks, MARKS_DEFAULT, 'the marks default is the register\'s own');
+  const accepts = (key, v) => (VOCAB[key] ? VOCAB[key].includes(v) : ACCEPTS[key](v));
   for (const key of PRESET_KEYS) {
-    assert.ok(VOCAB[key].includes(PRESET_DEFAULTS[key]), `default ${key}: ${PRESET_DEFAULTS[key]}`);
+    assert.ok(accepts(key, PRESET_DEFAULTS[key]), `default ${key}: ${PRESET_DEFAULTS[key]}`);
     for (const name of PRESET_NAMES) {
       const v = PRESETS[name].values[key];
       if (v !== undefined) {
-        assert.ok(VOCAB[key].includes(v), `${name}.${key}: ${v}`);
+        assert.ok(accepts(key, v), `${name}.${key}: ${v}`);
         // A preset lists only what it CHANGES — a default restated would make the
         // "N changes" count in the Studio disagree with what the deck renders.
         assert.notEqual(v, PRESET_DEFAULTS[key], `${name}.${key} restates the default`);
       }
     }
   }
+  // A recommendation key is written by an author too; this pins the vocabulary the arms above read.
+  assert.ok(ACCEPTS.marks('etch vivid') && !ACCEPTS.marks('etch bogus'));
+  assert.ok(ACCEPTS.backdrop('40 clear') && !ACCEPTS.backdrop('loud'));
+  assert.ok(ACCEPTS.theme('cuoio') && !ACCEPTS.theme('nope'));
 });
 
 test('an absent preset key reads as the preset value; an explicit key wins', () => {

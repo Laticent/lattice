@@ -57,6 +57,7 @@
   ],
   "description": "Actual against target inside a qualitative band — one dense row per KPI.",
   "purpose": "Use when the question is 'are we on plan'. Each row carries a measure bar, a perpendicular target marker, and up to four neutral range zones behind them, so a reader sees attainment, threshold and context in one glance. Six KPIs fit where six gauges would not.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

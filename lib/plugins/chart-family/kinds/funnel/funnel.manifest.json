@@ -43,6 +43,7 @@
   ],
   "description": "Tapering stages that show where a flow drops off, with the conversion rate between each.",
   "purpose": "Use for a pipeline that narrows — a sales / conversion funnel, a hiring or grant pipeline, an onboarding flow. Each stage's band width is proportional to its value; the stage-to-stage conversion % is printed in the gaps so the leak is the read.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

@@ -68,6 +68,7 @@
   ],
   "description": "A reinsurance program as stacked layers, each written as its limit in excess of its attachment and split across the reinsurers who took a share of it.",
   "purpose": "Use for a reinsurance or insurance tower — a catastrophe program, a casualty excess tower, a D&O program. The retention sits at the bottom, each layer above it is labeled in the market's notation (`$40M xs $50M`), and each layer is split into its reinsurers' shares, one color per reinsurer across every layer, with any unplaced share shown as `Open`.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

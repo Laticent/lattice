@@ -26,20 +26,20 @@ Present holds a long beat on every slide. Open it on a machine set to brisk and 
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 `Resolution order`
 
 ## Where a presentation pace comes from, in order.
 
-- A live millisecond override
-  - The presenter's adjustment mid-run. Never written into the file.
-- The deck's own declaration
-  - The author's intent, and it travels with the file.
-- The workspace preset
-  - The default when a deck declares nothing. Never an override.
-- The shipped fallback
-  - One point four seconds, when no one has said otherwise.
+1. A live millisecond override
+   - The presenter's adjustment mid-run. Never written into the file.
+1. The deck's own declaration
+   - The author's intent, and it travels with the file.
+1. The workspace preset
+   - The default when a deck declares nothing. Never an override.
+1. The shipped fallback
+   - One point four seconds, when no one has said otherwise.
 
 ---
 

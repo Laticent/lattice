@@ -90,7 +90,7 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- tier: standard -->
 
 ## What any acceptable standard had to satisfy.

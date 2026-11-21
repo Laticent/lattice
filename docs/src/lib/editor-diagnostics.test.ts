@@ -98,7 +98,7 @@ describe('buildVocabSets', () => {
 			packedNames: packVocabNames(live),
 			slotContract: live.slotContract,
 		});
-		const deck = '---\ntheme: indaco\n---\n\n<!-- _class: agenda -->\n\n## A\n\n- one\n- two\n\n---\n\n<!-- _class: cards-grid numbered -->\n\n## B\n\n1. x\n   - y\n\n---\n\n<!-- _class: kpi gallery -->\n\n## C\n\n1. 3\n   - x\n';
+		const deck = '---\ntheme: indaco\n---\n\n<!-- _class: agenda -->\n\n# A\n\n1. one\n2. two\n\n---\n\n<!-- _class: cards-grid numbered -->\n\n## B\n\n1. x\n   - y\n\n---\n\n<!-- _class: kpi gallery -->\n\n## C\n\n1. 3\n   - x\n';
 		const rules = (v: unknown) => lintTextWith(deck, v).map((f: { rule: string; slide: number }) => `${f.slide} ${f.rule}`).filter((r: string) => /slot-contract|variant-inert|foreign-variant/.test(r)).sort();
 		expect(rules(buildVocabSets(shipped))).toEqual(['1 slot-contract', '2 variant-inert', '3 foreign-variant']);
 		expect(rules(buildVocabSets(shipped))).toEqual(rules(live));

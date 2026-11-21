@@ -649,7 +649,7 @@
       "- Fourth short bullet point.",
       "- Fifth short bullet point."
     ],
-    "description": "Bulleted list under a heading — plain pills, hairline takeaways (optionally numbered criteria with a gloss line), or display-weight principles."
+    "description": "A list under a heading — plain pills, hairline takeaways (a `1.` list numbers them; a nested gloss line makes criteria), or display-weight principles."
   },
   "lattice: list-steps": {
     "scope": "markdown",

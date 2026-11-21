@@ -261,8 +261,8 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   looks broken; it looks like those components simply were not themed for dark.
 - **Cause:** `themeDualMode` rebuilds the dark side of the player from CUSTOM-PROPERTY
   declarations only — it scans for `--x: …light-dark(…)` and re-emits those under the scheme
-  scopes, which is complete for TOKENS because every dual-mode token is a `:root` custom
-  property. The base beside it is the whole sheet with every pair collapsed to its LIGHT arm.
+  scopes, which is complete for `:root` TOKENS (a token declared anywhere else is the next
+  entry's). The base beside it is the whole sheet with every pair collapsed to its LIGHT arm.
   A pair written straight into a real property (`box-shadow`, `background`,
   `background-image`, `border`, `fill`) is in neither set: the base keeps the light arm and
   nothing anywhere restores the dark one. 18 such declarations across 14 rules in
@@ -296,6 +296,32 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **The general shape:** when a transform has to make one declaration conditional, move its
   VALUE, not its RULE. Re-scoping a selector changes who wins, everywhere that selector
   applied — a much larger blast radius than the one declaration you meant to change.
+
+## A player's dark mode kept a component's own token light — heatmap values at 2.1:1
+
+- **Symptom:** In a dark `--player` export, the heatmap's darkest-ramp cells print near-black
+  values on a mid-blue fill, visibly fainter than every other label on the slide. The same
+  slide in the PDF, the Studio preview or a `color-mode: dark` HTML render reads fine. Measured
+  on a 3×3 indaco heatmap: steps 4 and 5 at 2.38:1 and 2.09:1 in the player, 4.65:1 after the
+  fix. The same hole froze 66 component-token declarations light in all, among them the chart-frame `--chart-cat-N-hue`
+  set, the flowchart and state-chart fills, hub-spoke, quadrant labels and the callout inks.
+- **Cause:** `themeDualMode` hoists every custom-property `light-dark()` pair onto a flat
+  `:root[data-lp-scheme=dark]` block. That is right for a theme token on `:root` and wrong for
+  one declared on a component selector: `section.heatmap{--heatmap-pole:light-dark(…)}` keeps
+  its LIGHT arm on the section in the base, and an element's own declaration beats the dark
+  value it would inherit from `:root`. So the pole stayed the light-canvas hue, while the
+  per-step INK (a `:root` token) switched to its dark-canvas value, solved against a much
+  lighter fill. The docblock had called this shape hypothetical; 66 declarations shipped it.
+- **Fix:** `hoistRuleLightDark` now takes a custom-property pair too when no arm of its
+  selector is `:root`, and routes it the way it routes a real property: the value moves
+  through a `--lp-ld-*` indirection in its own rule, and the scheme scopes swap it on that
+  element. A pair it cannot re-scope (a selector naming `:root` or `html`, a rule inside
+  `@starting-style`) keeps its `light-dark()` and falls back to the flat `:root` block, as
+  before. A token rule that matches nothing in the deck gets no dark copies at all, which is
+  what keeps the fix from costing a chart-free player bytes; a selector the static DOM cannot
+  answer (`:hover`, a Guide or step hook) is kept on doubt.
+- **How to catch the next one:** `npm run contrast:player` reads the REAL exported player in
+  both schemes. A static contrast tool reads the source, where the pair is correct.
 
 ## An exported player quietly dropped every `X :is(…)` rule the deck renders
 

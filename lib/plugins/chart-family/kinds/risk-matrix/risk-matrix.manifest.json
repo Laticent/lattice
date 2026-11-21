@@ -61,6 +61,7 @@
   ],
   "description": "A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbered marker and a key that lists them worst first.",
   "purpose": "Use for a risk register a board or risk committee reviews: enterprise risk, a project's top risks, an underwriting portfolio's exposures. Each risk is placed by its likelihood and impact (1 to 5); the cell's shade is its band (low, medium, high, critical from likelihood × impact); an optional second position shows where mitigation should take it.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

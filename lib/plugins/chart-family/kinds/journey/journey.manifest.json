@@ -155,6 +155,7 @@
       }
     }
   },
+  "lists": "neutral",
   "slots": {
     "key": {
       "selector": "p > code:only-child",

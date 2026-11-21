@@ -48,6 +48,7 @@
   ],
   "description": "A bridge from one total to another through signed contributions, each bar starting where the last one ended.",
   "purpose": "Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix, a headcount reconciliation. Increases and decreases take the semantic pass/fail hues and float; totals anchor to zero in a neutral third register; a dashed connector carries the running total across each gap so the geometry does the arithmetic.",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

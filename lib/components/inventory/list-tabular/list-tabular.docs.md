@@ -19,7 +19,8 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 | Slot | Write | Required | Description |
 |---|---|---|---|
 | `title` | a `## ` heading | yes | Slide heading. |
-| `rows` | a `1.` list | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
+| `rows` | a list | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
+| `columns` | a list nested 1 level under an item | no | The row's detail columns, nested under its name. `-` or `1.` read the same here. |
 
 ### Variant decision rule
 
@@ -42,7 +43,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 ### Common mistakes
 
 - **Pairing a secondary modifier with the wrong primary variant (e.g. `def solid` or `metric rule`).** Each secondary modifier is scoped to exactly one primary — `rule` only styles `def`, `solid` only styles `metric`, `stacked` only styles `spec`, `outline` only styles `register`; pairing across combinations does nothing because no CSS selector matches.
-- **Authoring rows as a bullet list (`-`) instead of a numbered list (`1.`).** The counter column and row styling are keyed to `ol > li` — a `ul` doesn't produce the numbered ledger at all.
+- **Typing the row numbers into the items.** The counter column numbers the rows itself. Either list marker works (`1.` or `-`, rendered the same by the list contract); a typed `01` doubles the count.
 - **Reaching for a column modifier before looking at the default.** The columns already size to their content. `fit-*` / `flex-*` name the exceptions — a label that should keep the slack, a clause that should hug — and `fixed` restores the old fixed-width tracks. Most ledgers need none of them.
 
 ## When to use

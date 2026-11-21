@@ -25,6 +25,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 | `composites` | a list nested 1 level under an item | no | A sub-item that starts with a NAME is a member state, which makes its parent a composite state (a group), drawn as a box around its members. Groups nest; a transition may leave or enter a group. |
 | `detail` | a `>` blockquote inside an item | no | A `>` blockquote under a state is its HIDDEN DETAIL: the slide never shows it. It appears when the state is hovered or tapped in Present, Practice and Preview (the chart family's detail substrate: the tile carries `data-mark`, the text rides an inert `<template class="chart-detail">`), and it is folded into the slide's speaker note. A PDF does not show it: text the page must carry belongs in a caption. |
 | `key` | a line of `inline code` | no | The key is derived from what the chart uses (statuses, heavy and patterned lines, slots on composites); one bracketed span after the list renames entries, `[{=>, Happy path}]`, as on the flowchart. Words that paint the same tone share one entry. |
+| `composite-transitions` | a list nested 2 levels under an item | no | A transition from a substate inside a composite state, written under that substate. |
 
 ### Variant decision rule
 

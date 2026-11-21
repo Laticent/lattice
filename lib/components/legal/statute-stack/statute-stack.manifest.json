@@ -103,6 +103,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "heading": {
       "selector": "h2",
@@ -115,6 +116,12 @@
       "match": { "kind": "list", "depth": 1, "marker": "any" },
       "required": true,
       "description": "One li per jurisdiction. Lead with the jurisdiction label as a plain text first line; nested ul items carry the citation (inline code), obligation summary, and status (inline code)."
+    },
+    "body": {
+      "selector": "li > ul > li",
+      "match": { "kind": "list", "depth": 2, "marker": "any" },
+      "required": false,
+      "description": "Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`)."
     }
   },
   "skeleton": "<!-- _class: statute-stack -->\n\n## Jurisdiction comparison framing the three obligations.\n\n- Federal `{Citation}`\n  - Headline obligation in one sentence.\n  - `{Status or effective date}`\n- State `{Citation}`\n  - Headline obligation in one sentence.\n  - `{Status or effective date}`\n- Local `{Citation}`\n  - Headline obligation in one sentence.\n  - `{Status or effective date}`\n",

@@ -283,8 +283,53 @@ test('hoistRuleLightDark routes a real-property pair through a private token, in
 	// can differ in layer count and geometry, not only in color.
 	assert.match(css, /\.card\{color:red;box-shadow:var\(--lp-ld-0-0,0 1px #eee\)\}/);
 	assert.match(darkBlock, /:root\[data-lp-scheme=dark\] \.card\{--lp-ld-0-0:0 1px #111\}/);
-	// Untouched: a custom property is themeDualMode's job, not this one's.
-	assert.equal(hoistRuleLightDark('.card{--x:light-dark(#eee,#111)}').darkBlock, '');
+	// Untouched: a `:root` token is themeDualMode's job, not this one's.
+	assert.equal(hoistRuleLightDark(':root{--x:light-dark(#eee,#111)}').darkBlock, '');
+	// A token declared anywhere ELSE is this one's: the flat `:root` block cannot beat it.
+	const local = hoistRuleLightDark('.card{--x:light-dark(#eee,#111)}');
+	assert.match(local.css, /\.card\{--x:var\(--lp-ld-0-0,#eee\)\}/);
+	assert.match(local.darkBlock, /:root\[data-lp-scheme=dark\] \.card\{--lp-ld-0-0:#111\}/);
+});
+
+test('themeDualMode switches a component-scoped token on its own element', () => {
+	// The heatmap shape: the theme sets the hue at `:root`, the component mixes a pole from it
+	// on its own section. Hoisted onto `:root`, the dark pole lost to the section's light base,
+	// and the ramp's top steps printed their dark-canvas ink on a light-canvas fill (2.1:1).
+	const css = ':root{--hue:light-dark(#2E7AAE,#5AA0D0)}'
+		+ 'section.heatmap{--pole:light-dark(var(--hue),color-mix(in oklab,var(--hue) 50%,white))}';
+	const { base, darkBlock } = themeDualMode(css);
+	assert.doesNotMatch(base, /light-dark\(/);
+	assert.match(base, /section\.heatmap\{--pole:var\(--lp-ld-0-0,var\(--hue\)\)\}/);
+	assert.match(darkBlock, /:root\[data-lp-scheme=dark\] section\.heatmap\{--lp-ld-0-0:color-mix\(in oklab,var\(--hue\) 50%,white\)\}/);
+	// And it is NOT also hoisted onto `:root`, where it would define --pole everywhere in dark.
+	assert.doesNotMatch(darkBlock, /(^|[{;])--pole:/);
+});
+
+test('themeDualMode gives no dark copies to a component token the deck never renders', () => {
+	const css = 'section.used{--a:light-dark(#fff,#000)}section.unused{--b:light-dark(#fff,#000)}'
+		+ 'section.unused:hover{--c:light-dark(#fff,#000)}';
+	const { base, darkBlock } = themeDualMode(css, { matches: (sel) => sel === 'section.used' });
+	assert.match(darkBlock, /section\.used\{--lp-ld-\d+-0:#000\}/);
+	assert.doesNotMatch(darkBlock, /section\.unused\{/, 'an unrendered rule gets no copies');
+	assert.match(base, /section\.unused\{--b:#fff\}/, 'and its base is the light arm, as before');
+	assert.doesNotMatch(darkBlock, /--b:#000/, 'nor does it fall back to the :root block');
+	// A selector the static DOM cannot answer is kept on doubt.
+	assert.match(darkBlock, /section\.unused:hover\{--lp-ld-\d+-0:#000\}/);
+});
+
+test('themeDualMode falls back to the :root block for a token pair the in-place route cannot scope', () => {
+	// Three shapes from review, each of which kept its dark arm before the in-place route existed.
+	const darkOf = (css) => themeDualMode(css).darkBlock;
+	// A statement at-rule ahead of the rule used to ride into its prelude and hide it.
+	assert.match(darkOf('@layer a,b;section.x{--t:light-dark(#fff,#000)}'), /section\.x\{--lp-ld-0-0:#000\}/);
+	// A selector naming the root cannot be re-scoped under `:root[data-lp-scheme=dark]`.
+	for (const sel of ['html', ':where(:root)', ':root section']) {
+		const dark = darkOf(`${sel}{--t:light-dark(#fff,#000)}`);
+		assert.match(dark, /--t:#000/, sel);
+		assert.doesNotMatch(dark, /--lp-ld-/, sel);
+	}
+	// A rule the walk does not enter keeps its pair for the flat block.
+	assert.match(darkOf('@starting-style{section.x{--t:light-dark(#fff,#000)}}'), /--t:#000/);
 });
 
 test('themeDualMode lets a later plain :root declaration override an earlier pair, as the cascade does', () => {
@@ -2871,4 +2916,28 @@ test('relative style urls resolve to files that exist, and the inliner embeds pi
 	assert.match(out.html, /url\(data:image\/svg\+xml/, "a sibling folder's picture is embedded");
 	assert.doesNotMatch(out.html, /cHJpdmF0ZQ|private/, 'a file that is not a picture never is');
 	assert.equal(fileToDataUri(path.join(root, 'secret.txt')), null);
+});
+
+test('a quoted url() holding its own ")" is taken whole: no rule after it is lost (minifyCss and themeDualMode)', () => {
+	// A data URI SVG with a filter reference: `url("…url(%23g)…")`. The old `url\([^)]*\)` stopped at the inner `)`, left
+	// an unmatched quote, and read the stylesheet to the next quote as one string: an SVG data URI with a filter reference took 234 KB
+	// of dark-mode rules out of the exported player.
+	const uri = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><rect filter='url(%23g)'/></svg>")`;
+	const css = `.a { background: ${uri}; }\n.b { color: red; }\n.c { content: 'x'; }\n:root { --d: light-dark(white, black); }`;
+	const min = minifyCss(css);
+	assert.ok(min.includes(uri), `the url survives whole: ${min}`);
+	assert.ok(min.includes('.b{color:red}') && min.includes(".c{content:'x'}"), `the rules after it survive: ${min}`);
+	const { darkBlock } = themeDualMode(css);
+	assert.match(darkBlock, /--d:\s*black/, `the dark arm after the url is still collected: ${darkBlock}`);
+});
+
+test('a malformed unquoted url() with a stray quote still ends at its ")": the rules after it keep their dark arm', () => {
+	// `url(it's.png)` is a bad url to a browser, which consumes it to the `)` and applies what follows. The masker must read
+	// it the same way: a pattern that refused quotes in an unquoted url started a string at the stray `'` instead, and the
+	// rules up to the next quote lost their light-dark() resolution.
+	for (const bad of ["url(it's.png)", 'url(a"b.png)']) {
+		const css = `.a{background:${bad}} .b{color:light-dark(red,blue)} .y{content:'k'}`;
+		const dark = resolveLightDark(css, 1);
+		assert.ok(dark.includes('.b{color:blue}'), `${bad}: the rule after it resolves its dark arm: ${dark}`);
+	}
 });

@@ -4903,6 +4903,18 @@ function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefa
  * contract the read needs. `--cat-N-ink`'s did not — that is the whole lesson.
  */
 const SANCTIONED_FALLBACK_READS = [
+  ...[['ramp-hue', 'chart-cat-1-hue'], ['ramp-ink', 'chart-cat-1-ink']].map(([token, fallback]) => ({
+    token,
+    fallback,
+    why:
+      'a sequential ramp\'s hue and ink (heatmap, map choropleth), OPTIONAL by design: a palette names one only when it ' +
+      'wants its ramps on a hue other than its first category. Without one the read lands on the first category\'s ' +
+      'own hue or ink, which is exactly what every ramp painted before the hook existed, so a palette that does not ' +
+      'name one (and a Studio-generated theme) keeps its behavior; tools/derive-chart-cat-ink.js solves the heatmap ' +
+      'step inks against the same pole. Carbone names its green (#3360 D2: its chart cycle leads with blue so "no ' +
+      'status" does not read as on track; its ramps keep the 6.53:1 light top step they were tuned for). Held by ' +
+      'chart-finish-reach --check.',
+  })),
   {
     token: 'risk-critical-step-ink',
     fallback: 'fail-on-mark',
@@ -14595,6 +14607,15 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
   { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
   { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },
+  // The preset hooks (deck-preset study §8 WP-tokens, decision D10). Nothing in the engine writes
+  // them; a preset's stamped class (Phase 0) or a deck `style:` block sets them on a section, and
+  // every read carries today's value as its fallback, so unset they render byte-for-byte as before.
+  // Contract: the comment beside `--radius-*` in lib/base/base.tokens.css.
+  { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
+  { token: 'rule-style', why: 'heading-rule border style on the same border-drawn rules. Fallback solid.' },
+  { token: 'rule-mark', why: 'heading-rule ink on the same rules (rule-accent keeps --accent). Fallback var(--border).' },
+  { token: 'rail-w', why: 'spectrum-card rail thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
+  { token: 'radius-card', why: 'card corner: every tile that can carry a card tag (cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list, actors, decision, compare-prose, split-compare options/verdict, split-panel proof/watermark, citation-card triptych, statute-stack) and the tag itself. Fallback var(--radius-md); never --radius-full, quote panels, diagram tiles or corners:.' },
 ]);
 
 /**

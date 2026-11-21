@@ -46,3 +46,5 @@ verify    — the audit re-run reproduces the table; the warning appears and dis
             the real Studio at three widths.
 note      — the audit spends money. Our OPEN_ROUTER_KEY may only be spent by a sanctioned, on-demand,
             opt-in tool (HARD RULE #24), so the audit is either such a tool or runs on the owner's own keys.
+
+Not moved 2026-11-20 (terms-registry continuation session): the cloud sandbox holds no Gemini or OpenRouter key, and the owner was away, so no candidate could be generated or heard. Both items still need a session with the owner present and a key on the environment.

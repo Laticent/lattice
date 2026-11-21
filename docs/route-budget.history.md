@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-20 — measured on the built tree at ade41e4f
+
+The owner approved raising the landing page's HTML ceiling (2026-11-20) so the page can carry the site's strict Content-Security-Policy tag (#3307, about 1.46 KB), which would otherwise put it about 1.4 KB past its 121,924-byte ceiling. Landing page only (--route home); the other routes above their soft targets are untouched.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | htmlRaw | 110840 | 121872 | +11032 | 134059 |
+
 ### 2026-11-19 — the owner raised one ceiling by hand, for PR 3305: studio lintCoreGz to 164.9 KB
 
 Owner OK 2026-11-19, in PR 3305's session: raise studio's lint-core ceiling by 0.5 KB in its own PR, rather than ship PR 3305 without its `list-steps-inline-body` warning. It stacks on the 1 KB raise for PR 3319 below, which is sized for that PR alone.

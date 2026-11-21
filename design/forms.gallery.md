@@ -26,16 +26,16 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 
 ## Every slide resolves to the same three Cells.
 
-- **Masthead**
-  - The band across the top. Its lede holds the kicker and title Tiles; its bay holds the meta and status Tiles. This slide's bay carries the deck's `meta:` line — the mark above it sits in no band at all.
-- **Stage**
-  - The deterministic content region between the bands — the box a component fills. It computes to pixels before its content lays out, which is why a chart finally has somewhere to live.
-- **Footer**
-  - Three reserved zones that never collide: the footer text on the left, the section progress rail in the center, the page number on the right.
+1. **Masthead**
+   - The band across the top. Its lede holds the kicker and title Tiles; its bay holds the meta and status Tiles. This slide's bay carries the deck's `meta:` line — the mark above it sits in no band at all.
+1. **Stage**
+   - The deterministic content region between the bands — the box a component fills. It computes to pixels before its content lays out, which is why a chart finally has somewhere to live.
+1. **Footer**
+   - Three reserved zones that never collide: the footer text on the left, the section progress rail in the center, the page number on the right.
 
 ---
 

@@ -617,6 +617,25 @@ const PROBES = {
     probe: (doc) => chipTailProbe(doc),
   },
 
+  // The list contract: a `kpi` written with `-` and nested `1.` reads as the `ol` of tiles with
+  // `ul` labels the layout styles, on the engine and after the runtime's mirror alike. The probe
+  // reads every list's element and item count, so a mirror that skipped the slide (a Marp render
+  // keeps `ul` > `ol`) or rewrote the wrong depth shows as a different sequence.
+  listContract: {
+    min: 4,
+    section: 'kpi',
+    body: [
+      '## Retention held', '',
+      '- 94%', '  1. Gross retention',
+      '- 41', '  1. New logos',
+      '- 3.1x', '  1. Pipeline coverage',
+    ].join('\n'),
+    probe: (doc) =>
+      [...doc.querySelectorAll('section ul, section ol')].map(
+        (l) => `${l.tagName.toLowerCase()}:${l.querySelectorAll(':scope > li').length}`,
+      ),
+  },
+
   glossaryListToTable: {
     min: 4,
     section: 'glossary',

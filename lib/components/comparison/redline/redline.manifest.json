@@ -45,6 +45,7 @@
       ]
     }
   ],
+  "lists": "neutral",
   "slots": {
     "heading": {
       "selector": "h2",

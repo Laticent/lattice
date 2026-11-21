@@ -53,14 +53,14 @@ A second paragraph used to print as a second credit, in tracked capitals. It rea
 
 ---
 
-<!-- _class: list takeaway numbered -->
+<!-- _class: list takeaway -->
 <!-- _footer: "list · each word that does nothing as written warns" -->
 
 ## A variant that does nothing as written says so.
 
-- On cards, `numbered` is a `1.` list, never a class
-- `list numbered` draws its counter only with `takeaway`
-- Letters, roman numerals and dots need `principles`
+1. On cards and lists, `numbered` is a `1.` list, never a class
+1. A `-` list under `takeaway` has no counter: the marker decides
+1. Letters, roman numerals and dots need `principles`
 
 ---
 

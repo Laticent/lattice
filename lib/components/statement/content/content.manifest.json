@@ -32,6 +32,7 @@
   ],
   "description": "Generic prose slide \u2014 heading plus paragraphs or a short list.",
   "purpose": "The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better. **`content` is also the DEFAULT**: a slide that names no component at all resolves to it (#1292), so writing nothing and writing `_class: content` are the same thing. That is why its prose reads at the body tier rather than the slide-statement tier \u2014 it has to sit correctly beside a Key Insight, a below-note and a table, all of which are body-tier.",
+  "lists": "prose",
   "slots": {
     "heading": {
       "selector": "h2",

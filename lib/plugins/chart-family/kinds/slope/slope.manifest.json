@@ -126,6 +126,7 @@
       "sample": "<!-- _class: slope signal -->\n\n## Adoption rose everywhere but the two legacy regions.\n\n- APAC\n  - 2024 `41%`\n  - 2026 `58%`\n- North America\n  - 2024 `62%`\n  - 2026 `71%`\n- EMEA North\n  - 2024 `55%`\n  - 2026 `49%`\n- LATAM\n  - 2024 `28%`\n  - 2026 `44%`\n- EMEA South\n  - 2024 `47%`\n  - 2026 `39%`\n"
     }
   },
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

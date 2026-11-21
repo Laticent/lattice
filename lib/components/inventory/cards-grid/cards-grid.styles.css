@@ -22,7 +22,7 @@ section.cards-grid > .cell-stage > ul, section.cards-grid > .cell-stage > ol {
 section.cards-grid > .cell-stage > ul > li, section.cards-grid > .cell-stage > ol > li {
   box-sizing:border-box; width:calc(100% / var(--cards-cols) - (var(--cards-cols) - 1) * var(--sp-md) / var(--cards-cols)); min-height:0;
   background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  border-radius:var(--radius-card, var(--radius-md)); padding:var(--sp-sm) var(--sp-md);
   display:flex; flex-wrap:wrap; align-items:baseline; align-content:start; column-gap:var(--sp-xs);
   /* badge right-anchors via space-between (the title strong/text takes the left end,
      the pill the right) — replaces the pill's auto inline-start anchor, which
@@ -52,7 +52,7 @@ section.cards-grid .cards-grid-inner--ordered {
 section.cards-grid .card {
   box-sizing:border-box; width:calc(100% / var(--cards-cols) - (var(--cards-cols) - 1) * var(--sp-md) / var(--cards-cols)); min-height:0;
   background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  border-radius:var(--radius-card, var(--radius-md)); padding:var(--sp-sm) var(--sp-md);
   display:flex; flex-wrap:wrap; align-items:baseline; align-content:start; column-gap:var(--sp-xs);
   /* badge right-anchors via space-between — see the native-path note above. */
   justify-content:space-between;
@@ -94,7 +94,7 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li {
   box-sizing:border-box; width:calc(100% / var(--cards-cols) - (var(--cards-cols) - 1) * var(--sp-md) / var(--cards-cols)); min-height:0;
   background:var(--bg-alt); border:1px solid var(--border);
-  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
+  border-radius:var(--radius-card, var(--radius-md)); padding:var(--sp-sm) var(--sp-md);
   display:flex; flex-wrap:wrap; align-items:baseline; align-content:start; column-gap:var(--sp-xs);
   /* badge right-anchors via space-between — see the native-path note above. */
   justify-content:space-between;

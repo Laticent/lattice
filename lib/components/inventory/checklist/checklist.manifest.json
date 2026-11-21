@@ -48,6 +48,7 @@
   ],
   "description": "Items with state markers — done, partial, failed, unknown, to do, skipped.",
   "purpose": "Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[!]/[?]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / cross / question / ring / slash — so the shape reads independently of color (color-blind-safe).",
+  "lists": "neutral",
   "slots": {
     "title": {
       "selector": "h2",

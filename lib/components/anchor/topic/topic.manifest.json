@@ -28,6 +28,7 @@
     "accent",
     "compact"
   ],
+  "lists": "neutral",
   "slots": {
     "eyebrow": {
       "selector": "p:first-of-type > code",
