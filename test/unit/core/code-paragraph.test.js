@@ -51,6 +51,12 @@ describe('the code-paragraph walkers answer as the regexes they replaced (seeded
 // `charReads` does not see `String.prototype.indexOf` / `lastIndexOf`: count the characters each call scans.
 function withSearchCount(add, fn) {
   const { indexOf, lastIndexOf } = String.prototype;
+  // The blank-run walk tests one character at a time with `/\s/`: count each regex call as one character read.
+  const { exec } = RegExp.prototype;
+  RegExp.prototype.exec = function (s) {
+    add(1);
+    return exec.call(this, s);
+  };
   String.prototype.indexOf = function (needle, from = 0) {
     const at = indexOf.call(this, needle, from);
     add((at < 0 ? this.length : at + String(needle).length) - Math.max(0, from));
@@ -66,6 +72,7 @@ function withSearchCount(add, fn) {
   } finally {
     String.prototype.indexOf = indexOf;
     String.prototype.lastIndexOf = lastIndexOf;
+    RegExp.prototype.exec = exec;
   }
 }
 
@@ -101,15 +108,16 @@ describe('the code-paragraph walkers are linear on the markup the regexes choked
       };
       const small = work(2000);
       const large = work(8000);
-      assert.ok(large <= 4 * small + 64, `work grew from ${small} to ${large} for 4x the markup`);
+      // 1% of slack over 4x: the walk is linear with a small negative constant (its slices), and a quadratic one grows 16x.
+      assert.ok(large <= 4.04 * small, `work grew from ${small} to ${large} for 4x the markup`);
     });
   }
 
-  test('the walkers run no regex at all', () => {
-    const { keys } = assertLinearRegexes(() => {
+  test('the walkers run only regexes the census calls linear (the one-character `\\s` and `\\w` tests)', () => {
+    assertLinearRegexes(() => {
+      codeParagraphs('<p> <code>x</code> </p>'.repeat(50), { tight: true });
       codeParagraphs('<p><code>x</code></p>'.repeat(50));
       trailingCodeParagraph('<p><code>x</code></p>');
     });
-    assert.equal(keys.size, 0);
   });
 });
