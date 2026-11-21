@@ -487,6 +487,19 @@
       ],
       "run": "node tools/quality-assessment.js --check --only dead-code && node --test test/unit/tools/quality-dead-code.test.js && p=tools/lib/zz-dead-probe && echo 'module.exports = 1;' > \"$p.js\" && ! node tools/quality-assessment.js --check --only dead-code && rm \"$p.js\"",
       "why": "The dead-code pre-push job (owner's D1) runs on every contributor's machine. It starts knip through node (process.execPath plus node_modules/knip/bin/knip.js) because Windows cannot spawn the extensionless node_modules/.bin shim without a shell. This proves on a real Windows runner that the check runs and passes on the tree, that its unit tests pass, and, with a planted unused file, that it fails."
+    },
+    {
+      "name": "pdf-pdfkit",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "lib/core/pdf-compose/*",
+        "tools/pdfkit-check/*",
+        "examples/backdrop-vector-export.md"
+      ],
+      "run": "node tools/pdfkit-check/check.mjs",
+      "why": "Apple PDFKit draws every PDF opened in Preview or on an iPhone, the owner's viewer, and Linux has nothing that runs it. The shared PDF writer draws a finish's backdrop with an image soft mask, a /Interpolate picture and paths (engineering/decisions/2026-11-20-backdrop-gradient-fidelity.md); this draws the demo deck's PDF through PDFKit, and a control with the backdrop photographed whole as before, and fails when any 32 px tile of the drawn page is more than 8 levels further from Chrome's screen than the control's: the mark of a dropped mask or a missing fade. PDFKit's own text rendering is in both and cancels. Pages and report under platform-suite-artifacts/pdf-pdfkit/."
     }
   ]
 }
