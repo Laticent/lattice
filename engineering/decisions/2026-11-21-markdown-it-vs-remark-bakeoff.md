@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: A speed bake-off of Lattice's parser, markdown-it, against remark (unified / micromark / mdast) on the engine bench's jargon and stress decks. The harness is test/benchmark/markdown-it-vs-remark-bench.mjs. Re-measured on 2026-11-21 with markdown-it 14.3.3 against remark-parse 11 and unified 11. markdown-it turns markdown into HTML 25 to 38 times faster, parses 24 to 52 times faster, imports 2.5 times faster cold and holds about 6 times less heap. Verdict: markdown-it stays. Lattice's own plugins and transformers cost 20 to 30 times the bare parse, so render time sits in the kernel, not the parser.
+summary: A speed bake-off of Lattice's parser, markdown-it, against remark (unified / micromark / mdast) on the engine bench's jargon and stress decks. The harness is test/benchmark/markdown-it-vs-remark-bench.mjs. Re-measured on 2026-11-21 with markdown-it 14.3.3 against remark-parse 11 and unified 11. markdown-it turns markdown into HTML 28 to 36 times faster, parses 29 to 52 times faster, imports 2.5 times faster cold and holds about 6 times less heap. Verdict: markdown-it stays. Lattice's own plugins and transformers cost 20 to 30 times the bare parse, so render time sits in the kernel, not the parser.
 ---
 
 # markdown-it vs remark: a speed bake-off
@@ -51,12 +51,13 @@ rehype-stringify 10.0.1. The times are tinybench medians.
 
 | Workload | markdown-it | remark | markdown-it is faster by |
 |---|---|---|---|
-| Parse to HTML, normal (jargon, 30.9 KB) | 1.47 ms | 41.7 ms | **24.6×** |
-| Parse to HTML, stress (jargon ×6, 185 KB) | 13.7 ms | 491 ms | **38.5×** |
-| Parse only, normal | 1.19 ms | 34.6 ms | **23.9×** |
-| Parse only, stress | 8.04 ms | 418 ms | **51.6×** |
+| Parse to HTML, normal (jargon, 30.9 KB) | 1.47 ms | 41.7 ms | **28.4×** |
+| Parse to HTML, stress (jargon ×6, 185 KB) | 13.7 ms | 491 ms | **35.8×** |
+| Parse only, normal | 1.19 ms | 34.6 ms | **29.1×** |
+| Parse only, stress | 8.04 ms | 418 ms | **52.0×** |
 
-The "faster by" column is the harness's own ratio of the two means.
+The "faster by" column is the ratio of the two medians beside it. (The harness's own VERDICT line divides means instead,
+which reads 24.6×, 38.5×, 23.9× and 51.6×.)
 
 - **The Lattice path (tier 3):** 44.8 ms for the normal deck and 273 ms for the
   stress deck. That is about 30 times and 20 times the bare markdown-it render,
@@ -76,7 +77,7 @@ trades raw speed for spec precision and a tree that plugins can compose over.
 
 ## Verdict
 
-**markdown-it stays.** On Lattice's decks it parses 24 to 52 times faster, imports
+**markdown-it stays.** On Lattice's decks it parses 28 to 52 times faster, imports
 2.5 times faster and holds about 6 times less heap. remark's draw is the mdast tree
 and its plugin ecosystem. Lattice already has a working token-stream kernel shared
 by every render path (HARD RULE #1), so moving to remark would buy a nicer tree at
