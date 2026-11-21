@@ -105,9 +105,16 @@ function stringArm(md, size) {
 }
 // Strip what each mark's string arm drew, then let its DOM arm draw it again. A proof slide keeps a `cat-N` the
 // author pinned; the one the engine sequenced comes off.
+// ONE document for the whole corpus, its content replaced per deck. A JSDOM per deck kept about 3.5 MB each past
+// garbage collection (1 MB even with `window.close()`), so the 573-deck walk ended near Node's 2 GB default heap
+// and one more committed deck ran it out of memory. Reused, the walk stays near 115 MB. The whole document element
+// is replaced, not just the deck's div, so nothing a transformer adds to <head> or <body> reaches the next deck.
+let DOM_ARM_DOC = null;
 function domArm(html, src) {
-  const dom = new JSDOM(`<!doctype html><body><div class="lattice">${html}</div></body>`);
-  const doc = dom.window.document;
+  DOM_ARM_DOC ??= new JSDOM('<!doctype html><html><head></head><body></body></html>').window.document;
+  const doc = DOM_ARM_DOC;
+  for (const name of doc.documentElement.getAttributeNames()) doc.documentElement.removeAttribute(name);
+  doc.documentElement.innerHTML = `<head></head><body><div class="lattice">${html}</div></body>`;
   for (const sel of ['.tile-progress', '.divider-marker', '.agenda-rail', '[data-agenda-page]', 'p[data-derived="section"]']) {
     for (const n of doc.querySelectorAll(sel)) n.remove();
   }
@@ -293,9 +300,15 @@ describe('mark agreement', () => {
     assert.ok(fs.readdirSync(FIXTURES).length >= 14);
   });
 
-  test('every committed deck: every mark agrees with the source, on both arms', () => {
+  test('every committed deck: every mark agrees with the source, on both arms', async () => {
     const findings = [];
-    for (const file of CORPUS) for (const f of measure(file)) findings.push(fmt(file, f));
+    for (const file of CORPUS) {
+      for (const f of measure(file)) findings.push(fmt(file, f));
+      // YIELD TO THE EVENT LOOP after each deck. jsdom frees a window only once the loop turns, so a synchronous walk
+      // of the ~570-deck corpus held every deck's DOM-arm window at once: a 2.2 GB peak, which ran out of heap when the
+      // integration tier ran this file beside others (HARD RULE #33). One turn per deck holds the live heap flat.
+      await new Promise((resolve) => setImmediate(resolve));
+    }
     assert.deepEqual(findings, []);
   });
 

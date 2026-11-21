@@ -287,7 +287,12 @@ section.topic > ul.tile-track > li {
   padding: var(--_seam) var(--_tab-pad) 0 var(--_tab-pad);
   font-size: var(--fs-body);
   line-height: var(--lh-snug);
-  color: var(--text-body);
+  /* The heading ink on a dark shelf, not the body ink. The dark shelf is LIFTED toward the
+   * display ink (the SHELF FILL note above), so it sits closer to the body ink than a page
+   * surface does: on indaco-dark, the family default, `--text-body` cleared it at 4.55:1,
+   * which antialiased pixels read as 4.49 (`npm run contrast:player`). Light shelves are a
+   * page surface, so the body ink stays there. */
+  color: light-dark(var(--text-body), var(--text-heading));
   /* NO `text-wrap: balance` here: the wrap point depends on column width, which
    * depends on every other label, so adding one topic re-wraps them all and the
    * track visibly reflows between consecutive slides of one section. */

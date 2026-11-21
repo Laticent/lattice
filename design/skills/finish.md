@@ -223,6 +223,10 @@ with `<!-- _class: no-finish -->`.
 - Every full-bleed layer opaque-mirrored; the PDF looks identical to the screen,
   clean, no gray cloud.
 - Titles and dense chart slides opt out with `no-finish`.
+- A pattern texture (grid, dots, ruled lines) never runs under the footer text, the
+  page number or a hero number: the deck sets `backdrop: clear-footer`, or
+  `clear-hero` when it has `big-number` slides (`lib/base/base.registers.docs.md`,
+  the backdrop table). `clear` would throw the pattern away with the content box.
 
 ---
 
@@ -237,6 +241,7 @@ with `<!-- _class: no-finish -->`.
 - `background-image: url(paper.png)` or a `mask-image` — export-breaking and an
   exfiltration surface; use CSS gradients only.
 - A baked `--fin-mark-text: "ACME"` on a deck-wide finish.
+- A grid or dot pattern crossing the footer line and the page number.
 - Two `finish-*` classes on one slide — only one renders; the linter flags it.
 - A frame drawn on `section::after` — that's reserved for the pagination marker;
   use stacked inset box-shadows via `--fin-frame`.
