@@ -13,7 +13,7 @@ header: "Lattice · PDF export portability"
 
 The deck stays vector — selectable text, embedded fonts, crisp at any zoom. Only the SVG photos become pixels, and only because some viewers demand it.
 
-<!-- Speaker notes ride every slide of this deck: each one is embedded in the PDF as a hidden per-page annotation. Run with --notes-icon to surface them as clickable sticky notes, or --notes for a plaintext sidecar. -->
+<!-- @note{Speaker notes ride every slide of this deck: each one is embedded in the PDF as a hidden per-page annotation. Run with --notes-icon to surface them as clickable sticky notes, or --notes for a plaintext sidecar.} -->
 
 ---
 
@@ -25,7 +25,7 @@ The deck stays vector — selectable text, embedded fonts, crisp at any zoom. On
 
 ## A shared deck gets opened on a phone first — the export has to survive the strictest viewer it meets.
 
-<!-- iOS Safari's built-in PDF viewer (Quartz) is that strictest viewer: it mishandles the vector constructs Chromium prints for clipped SVG image placements — issue #690, found on a real device. -->
+<!-- @note{iOS Safari's built-in PDF viewer (Quartz) is that strictest viewer: it mishandles the vector constructs Chromium prints for clipped SVG image placements — issue #690, found on a real device.} -->
 
 ---
 
@@ -38,7 +38,7 @@ On iOS, this full-bleed SVG used to draw only a top band over bare canvas. It no
 
 ![A lone figure on a wide shore at dusk](sample:photo-pano.svg)
 
-<!-- The spotlight cover placement emits shading-pattern / transparency-group constructs in the vector PDF. Quartz partially renders them; poppler is fine — which is why CI never caught it. -->
+<!-- @note{The spotlight cover placement emits shading-pattern / transparency-group constructs in the vector PDF. Quartz partially renders them; poppler is fine — which is why CI never caught it.} -->
 
 ---
 
@@ -51,7 +51,7 @@ The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is 
 
 ![A figure before violet hills and a pale sun](sample:photo-tall.svg)
 
-<!-- One raster twin per unique SVG, sized to 2x its largest placement — the resolution the #681 on-device fix proved out. Layout is unaffected because the twin keeps the intrinsic aspect ratio. -->
+<!-- @note{One raster twin per unique SVG, sized to 2x its largest placement — the resolution the #681 on-device fix proved out. Layout is unaffected because the twin keeps the intrinsic aspect ratio.} -->
 
 ---
 
@@ -66,7 +66,7 @@ The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is 
 - Leaves you an out
   - `--keep-vector-images` restores the pure-vector export when you control the viewers.
 
-<!-- The swap happens in the loaded page right before printing; the HTML sidecar keeps the original SVGs, because browsers render them perfectly. -->
+<!-- @note{The swap happens in the loaded page right before printing; the HTML sidecar keeps the original SVGs, because browsers render them perfectly.} -->
 
 ---
 
@@ -79,7 +79,7 @@ The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is 
 - `--embed-source`
   - Attaches this deck's Markdown inside the PDF, so the artifact alone round-trips back to an editable deck. Opt-in: it ships your source, speaker notes included.
 
-<!-- This PDF was exported with the defaults: vector pages, rasterized SVG photos, hidden note annotations. -->
+<!-- @note{This PDF was exported with the defaults: vector pages, rasterized SVG photos, hidden note annotations.} -->
 
 ---
 
@@ -91,4 +91,4 @@ The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is 
 
 `Export · portability`
 
-<!-- Closing note: the vector export remains the one canonical artifact; --raster and --embed-source are delivery-time choices, not defaults. -->
+<!-- @note{Closing note: the vector export remains the one canonical artifact; --raster and --embed-source are delivery-time choices, not defaults.} -->

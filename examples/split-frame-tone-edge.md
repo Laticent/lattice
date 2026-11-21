@@ -5,9 +5,9 @@ paginate: true
 header: "Lattice · split frames + tone-edge"
 ---
 
-<!-- A semantic `tone-edge` recolors the slide's top bar. A split frame's bar is its own ribbon, so
+<!-- @note{A semantic `tone-edge` recolors the slide's top bar. A split frame's bar is its own ribbon, so
      the tone color recolors the supporting-zone segment and the frame keeps ONE bar -- as `accent`
-     does. Before the fix a full-width tone border sat above the ribbon and the bar read doubled. -->
+     does. Before the fix a full-width tone border sat above the ribbon and the bar read doubled.} -->
 
 <!-- _class: title silent -->
 

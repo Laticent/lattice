@@ -282,7 +282,9 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 	const TIMEOUT = 120000;
 	const NOTE_A = 'Pause here and make firm eye contact.';
 	const NOTE_B = 'Land the Q3 revenue figure before moving on.';
-	const DECK = ['---', 'theme: indaco', '---', '', '# One', '', `<!-- ${NOTE_A} -->`, '', 'Body A.', '', '---', '', '# Two', '', `<!-- ${NOTE_B} -->`, '', 'Body B.', ''].join('\n');
+	// NOTE_A is a speaker note; NOTE_B a plain comment, which reaches no channel but rides in the source like a code
+	// comment (engineering/decisions/2026-11-20-four-notes.md N3, N5). `--strip-notes` takes both.
+	const DECK = ['---', 'theme: indaco', '---', '', '# One', '', `<!-- @note{${NOTE_A}} -->`, '', 'Body A.', '', '---', '', '# Two', '', `<!-- ${NOTE_B} -->`, '', 'Body B.', ''].join('\n');
 
 	function renderPlayer(strip) {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-notes-'));
@@ -300,6 +302,8 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 		const html = renderPlayer(false);
 		assert.match(html, /<aside class="lattice-notes"[^>]*>[^<]*Pause here/, 'the note aside is baked in');
 		assert.equal(parseEnvelope(html).source.includes(NOTE_A), true, 'the note rides in the envelope source');
+		assert.doesNotMatch(html, /<aside class="lattice-notes"[^>]*>[^<]*Land the Q3/, 'a plain comment is no speaker note');
+		assert.equal(parseEnvelope(html).source.includes(NOTE_B), true, 'but it rides in the source, like a code comment');
 	});
 
 	test('--strip-notes scrubs the note text from EVERY baked copy (the privacy grep)', { timeout: TIMEOUT }, () => {
@@ -321,7 +325,7 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 		// (the joined-then-split note-body recovery used to shatter and miss it).
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-blank-'));
 		const deck = path.join(dir, 'd.md');
-		fs.writeFileSync(deck, ['# S', '', '<!-- First line.', '', 'Second line. LEAKMARK -->', '', 'Body.'].join('\n'));
+		fs.writeFileSync(deck, ['# S', '', '<!-- @note{First line.', '', 'Second line. LEAKMARK} -->', '', 'Body.'].join('\n'));
 		const out = path.join(dir, 'd.pdf');
 		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player', '--strip-notes'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
 		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -342,7 +346,7 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 		// the path `share-export.ts` still takes on byte-faithful Studio source.
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-crlf-'));
 		const deck = path.join(dir, 'd.md');
-		fs.writeFileSync(deck, ['# S', '', '<!-- Pause here.', 'Then CRLFLEAK ask the room. -->', '', 'Body.'].join('\r\n'));
+		fs.writeFileSync(deck, ['# S', '', '<!-- @note{Pause here.', 'Then CRLFLEAK ask the room.} -->', '', 'Body.'].join('\r\n'));
 		const out = path.join(dir, 'd.pdf');
 		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player', '--strip-notes'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
 		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
@@ -365,12 +369,13 @@ describe('html-player export — captions + --strip-say (orthogonal to --strip-n
 	const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
 	const TIMEOUT = 120000;
 	// Single distinctive tokens survive the .vtt's word-by-word cue split.
-	// Slide 3 carries a note and NO caption — the shape the leak lived in.
+	// Slide 3 carries a note and NO say line — the shape the leak lived in. Its line in the RETIRED front-matter `say:`
+	// map (MAPCAP, engineering/decisions/2026-11-20-four-notes.md N6) must not narrate either: the map is not read.
 	const DECK = [
-		'---', 'theme: indaco', 'say:', '  1: FRONTCAP the front-matter caption', '---', '',
-		'# One', '', '<!-- NOTEONE the first note -->', '', 'BODYONE the first body.', '',
-		'---', '', '# Two', '', '<!-- say: INLINECAP the inline caption -->', '<!-- NOTETWO the second note -->', '', 'BODYTWO the second body.', '',
-		'---', '', '# Three', '', '<!-- NOTETHREE the third note -->', '', 'BODYTHREE the third body.', '',
+		'---', 'theme: indaco', 'say:', '  3: MAPCAP the retired map line', '---', '',
+		'# One', '', '<!-- @say{FRONTCAP the first say line} -->', '<!-- @note{NOTEONE the first note} -->', '', 'BODYONE the first body.', '',
+		'---', '', '# Two', '', '<!-- @say{INLINECAP the second say line} -->', '<!-- @note{NOTETWO the second note} -->', '', 'BODYTWO the second body.', '',
+		'---', '', '# Three', '', '<!-- @note{NOTETHREE the third note} -->', '', 'BODYTHREE the third body.', '',
 	].join('\n');
 
 	function render(flags) {
@@ -388,9 +393,11 @@ describe('html-player export — captions + --strip-say (orthogonal to --strip-n
 
 	test('by DEFAULT (--captions) the caption text narrates and rides in the source', { timeout: TIMEOUT }, () => {
 		const { vtt, source } = render([]);
-		assert.ok(vtt.includes('FRONTCAP'), 'the front-matter caption narrates into the .vtt');
-		assert.ok(vtt.includes('INLINECAP'), 'the inline caption narrates into the .vtt');
-		assert.ok(source.includes('FRONTCAP') && source.includes('INLINECAP'), 'both captions ride in the envelope source');
+		assert.ok(vtt.includes('FRONTCAP'), 'slide 1\'s say line narrates into the .vtt');
+		assert.ok(vtt.includes('INLINECAP'), 'slide 2\'s say line narrates into the .vtt');
+		assert.ok(source.includes('FRONTCAP') && source.includes('INLINECAP'), 'both say lines ride in the envelope source');
+		assert.equal(vtt.includes('MAPCAP'), false, 'the retired front-matter map is not read');
+		assert.ok(vtt.includes('BODYTHREE'), 'slide 3 narrates its own body, not the map line');
 	});
 
 	test('A SPEAKER NOTE NEVER REACHES THE .vtt — the caption is generated from CONTENT', { timeout: TIMEOUT }, () => {
@@ -413,10 +420,11 @@ describe('html-player export — captions + --strip-say (orthogonal to --strip-n
 	test('--strip-say scrubs the OVERRIDES; slides fall back to their generated content', { timeout: TIMEOUT }, () => {
 		const { vtt, source } = render(['--strip-say']);
 		// caption text gone from both surfaces
-		assert.equal(vtt.includes('FRONTCAP'), false, 'front-matter caption gone from the .vtt');
-		assert.equal(vtt.includes('INLINECAP'), false, 'inline caption gone from the .vtt');
-		assert.equal(source.includes('FRONTCAP'), false, 'front-matter caption gone from the source');
-		assert.equal(source.includes('INLINECAP'), false, 'inline caption gone from the source');
+		assert.equal(vtt.includes('FRONTCAP'), false, 'slide 1\'s say line gone from the .vtt');
+		assert.equal(vtt.includes('INLINECAP'), false, 'slide 2\'s say line gone from the .vtt');
+		assert.equal(source.includes('FRONTCAP'), false, 'slide 1\'s say line gone from the source');
+		assert.equal(source.includes('INLINECAP'), false, 'slide 2\'s say line gone from the source');
+		assert.equal(source.includes('MAPCAP'), false, 'the retired map is scrubbed too, so an unmigrated deck does not ship it');
 		// …and they fall back to the PROJECTION, not to the notes. This flag used to hand you
 		// the private channel when you asked to scrub the public one, which is why its own help
 		// text had to tell you to strip twice.
@@ -434,7 +442,7 @@ describe('html-player export — captions + --strip-say (orthogonal to --strip-n
 		// generated from slide content there is nothing private left in them to protect, so a
 		// stripped deck keeps its caption track — which is what a recipient needs for a11y.
 		const { vtt, source } = render(['--strip-say', '--strip-notes']);
-		for (const tok of ['FRONTCAP', 'INLINECAP', 'NOTEONE', 'NOTETWO', 'NOTETHREE']) {
+		for (const tok of ['FRONTCAP', 'INLINECAP', 'MAPCAP', 'NOTEONE', 'NOTETWO', 'NOTETHREE']) {
 			assert.equal(vtt.includes(tok), false, `no ${tok} in the fully-stripped .vtt`);
 			assert.equal(source.includes(tok), false, `no ${tok} in the fully-stripped source`);
 		}
@@ -800,16 +808,16 @@ describe('html-player export — a MULTI-LINE note on a CHART slide (the leak th
 	const TIMEOUT = 120000;
 
 	// `funnel` narrates through `narrateFunnel` → `speakLeftover`, the path that reads
-	// raw markdown. The note is multi-line and uses the `note:` form the Studio writes.
+	// raw markdown. The note is multi-line, as the Studio's note editor writes one.
 	const DECK = [
 		'---', 'theme: indaco', '---', '',
 		'# Cover', '', 'Opening body text for the cover slide.', '',
 		'---', '<!-- _class: funnel -->', '# Signup funnel', '',
-		'<!-- note:', 'PRIVATELEAK churn is forty percent and legal has not cleared it', '-->', '',
+		'<!-- @note{', 'PRIVATELEAK churn is forty percent and legal has not cleared it', '} -->', '',
 		'- Visitors `1000`', '- Signups `500`', '- Paid `100`', '',
 	].join('\n');
 
-	const CAPDECK = DECK.replace('<!-- note:', '<!-- say:').replace('PRIVATELEAK churn is forty percent and legal has not cleared it', 'CAPLEAK the second line of a two line caption override');
+	const CAPDECK = DECK.replace('<!-- @note{', '<!-- @say{').replace('PRIVATELEAK churn is forty percent and legal has not cleared it', 'CAPLEAK the second line of a two line caption override');
 
 	function render(deck, flags) {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-chartnote-'));

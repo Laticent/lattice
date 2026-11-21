@@ -1,69 +1,52 @@
-// Speaker notes — read/write a slide's presenter note in its source.
+// A slide's four notes: read and write them in its source.
 //
-// In LFM (Marp-faithful) a NON-directive HTML comment on a slide IS that slide's
-// speaker note; the engine surfaces it on the Present console / PDF notes / PPTX.
-// The Studio authors notes as `<!-- note: … -->` (still a plain note to the
-// engine) and, when reading, accepts any non-directive comment so a hand-authored
-// note round-trips.
+// A note is a comment whose whole body is `@name{…}` (engineering/decisions/2026-11-20-four-notes.md):
 //
-// Directive-vs-note classification and fence awareness are SHARED with the slide
-// directive editor (slide-directives.ts) — one generated vocabulary, one fence
-// mask. The previous hand-rolled directive regex had drifted from the engine and
-// silently deleted `_focus` / `_build` / `style` directives, and its comment scan
-// was fence-blind (it ate `<!-- … -->` shown inside code fences). Both are fixed
-// by routing through `comments()` + `isDirectiveBody()`.
+//   @note{…}     speaker notes: Present, the PPTX notes field, the PDF note annotation
+//   @say{…}      the voice and the captions: TTS, read-along, the `.vtt` sidecar
+//   @alt{…}      alt text: screen readers, PPTX alt text, `aria-describedby`
+//   @handout{…}  the handout PDF and the player's read view
+//
+// Any other comment is the author's own and is never read or touched here: a plain comment, a directive, a record,
+// a panes marker. The grammar is the engine's (lib/core/note-grammar.mjs, through slide-directives.ts), and the scan
+// is the shared fence-aware `comments()`, so a comment shown inside a code sample is content, never a note.
 
-// The lint core's notes boundary, read synchronously: this module's loaders (studio-panels.ts's
-// slide settings panel, StudioShell's Present overlay) await loadAuthoring() before it runs.
-import { authoring } from '@/playground/authoring-door.js';
-import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isRecordBody, isSayBody, recordChannel, setRecordChannel, tidyOutsideFences } from '../../lib/slide-directives';
+import { comments, type NoteName, readNoteBody, tidyOutsideFences, writeNoteComment } from '../../lib/slide-directives';
 
-// A tooling comment (`markdownlint-capture`, `prettier-ignore`, …) is never a note: the engine's
-// note reader skips it (lib/authoring/notes-core.js `isToolingComment`), and so does this one, from
-// the same list. Export-to-Marp writes `markdownlint-capture` where a panes deck's markers were
-// (lib/core/bake-splits.js `stripPaneMarkers`), so a bundle opened in the Studio again would
-// otherwise show it as the slide's speaker note.
-const isTooling = (body: string) => (authoring().notesCore as { isToolingComment: (b: string) => boolean }).isToolingComment(body);
-// A record (`<!-- {layout=cards} -->`) is metadata, never the note: its own `note` field is read through `recordChannel`.
-const notANote = (body: string) => isRecordBody(body) || isDirectiveBody(body) || isDescriptionBody(body) || isSayBody(body) || isPaneMarkerBody(body) || isTooling(body);
+export type { NoteName };
 
-/** The slide's speaker note (the first non-directive, non-description, non-say comment),
- *  or ''. A `describe:` comment is the accessibility description and a `say:` comment is
- *  the read-as narration text (both separate channels) — never the speaker note, and neither is a
- *  panes marker (`isPaneMarkerBody`). */
-export function getNote(chunk: string): string {
-	// A record's `note` field (`<!-- {note="Open cold."} -->`) is the speaker note where the record carries one.
-	const rec = recordChannel(chunk, 'note');
-	if (rec !== null) return rec.trim();
-	for (const c of comments(chunk)) {
-		if (notANote(c.body)) continue;
-		return c.body.trim().replace(/^note:\s*/i, '').trim();
+/** How several notes of one name join, as the engine joins them (lib/authoring/notes-core.js `noteTexts`): paragraphs
+ *  for `@note` and `@handout`, one line for `@say` and `@alt`, each of which is one string to its reader. */
+const JOIN: Record<NoteName, string> = { note: '\n\n', say: ' ', alt: ' ', handout: '\n\n' };
+
+/** The slide's note named `name`: every `@name{…}` on it, in source order, joined as the engine joins them; '' when
+ *  it has none. The grammar has already undone the comment escapes (`--\>`, `\{`), so the text is what the author wrote. */
+export function getSlideNote(chunk: string, name: NoteName): string {
+	const texts: string[] = [];
+	for (const c of comments(String(chunk ?? ''))) {
+		const n = readNoteBody(c.body);
+		if (n?.name !== name) continue;
+		const text = n.text.trim();
+		if (text) texts.push(text);
 	}
-	return '';
+	return texts.join(JOIN[name]);
 }
 
 /**
- * Set (or clear, with an empty note) the slide's speaker note: strip any existing
- * non-directive note comment(s), then append the new one. Directive comments
- * (`_class`, `_paginate`, `_focus`, …) are left untouched, and comments inside
- * fenced code blocks are never touched (they're content, not notes).
+ * Set (or clear, with empty text) the slide's note named `name`: remove every `@name{…}` comment on the slide, then
+ * append one, written by the engine's `writeNote`. Every other comment (plain comments, the other three notes,
+ * directives, records, panes markers) and everything inside a fenced code block is left as it was.
  */
-export function setNote(chunk: string, note: string): string {
-	const text = String(chunk || '');
-	// Ranges of existing note comments (non-directive, non-description, non-say,
-	// outside fences), right-to-left. A `describe:` comment is the accessibility channel
-	// and a `say:` comment is the read-as narration — leave both untouched so setting
-	// the note never clobbers them.
-	const ranges = comments(text)
-		.filter((c) => !notANote(c.body))
+export function setSlideNote(chunk: string, name: NoteName, text: string): string {
+	const src = String(chunk ?? '');
+	const ranges = comments(src)
+		.filter((c) => readNoteBody(c.body)?.name === name)
 		.map((c) => [c.start, c.end] as [number, number]);
-	let out = text;
+	let out = src;
 	for (let i = ranges.length - 1; i >= 0; i--) out = out.slice(0, ranges[i][0]) + out.slice(ranges[i][1]);
-	// Tidy only the gaps left behind — collapse a run of blank lines a removed note
-	// opened up, and trim the tail — without reflowing a fenced code block's interior.
-	out = tidyOutsideFences(out).trim();
-	const t = note.trim().replace(/--+!?>/g, '->'); // never let the body close the comment early
-	const inRecord = setRecordChannel(out, 'note', t);
-	if (inRecord !== null) return inRecord;
-	return t ? `${out}\n\n<!-- note: ${t} -->` : out;
+	// Tidy only the gaps a removed note left (a run of blank lines, the tail), never a fenced code block's interior.
+	if (ranges.length) out = tidyOutsideFences(out);
+	out = out.trim();
+	const t = String(text ?? '').trim();
+	return t ? `${out}\n\n${writeNoteComment(name, t)}` : out;
 }

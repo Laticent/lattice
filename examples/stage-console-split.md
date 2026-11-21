@@ -15,7 +15,7 @@ footer: "Laticent · Stage & console"
 
 Present now opens two surfaces instead of one: a chrome-free Stage window for the projector, and the console you already knew — with your notes and the next slide on it.
 
-<!-- note: Open on the split. Until now, projecting Present projected the presenter's instruments too. One window later, the room sees a deck and nothing else. -->
+<!-- @note{Open on the split. Until now, projecting Present projected the presenter's instruments too. One window later, the room sees a deck and nothing else.} -->
 
 ---
 
@@ -36,7 +36,7 @@ The controls did not move because they were untidy. They moved because they were
   - Next slide and speaker notes
   - A talk clock and private zoom
 
-<!-- note: The rule is one line: if it is aimed at the room it goes to the Stage, and if it is aimed at you it stays on the laptop. Captions and the rail are for the room. Notes never are. The Stage keeps a transport, but it hides itself until you reach for it. -->
+<!-- @note{The rule is one line: if it is aimed at the room it goes to the Stage, and if it is aimed at you it stays on the laptop. Captions and the rail are for the room. Notes never are. The Stage keeps a transport, but it hides itself until you reach for it.} -->
 
 ---
 
@@ -54,7 +54,7 @@ The controls did not move because they were untidy. They moved because they were
    - states showing only the deck
    - fullscreen made it bigger `{Gap}`
 
-<!-- note: Land these slowly. Fullscreen was the tell: it filled the display with the cockpit. There was no setting, anywhere, that showed a room only the deck. -->
+<!-- @note{Land these slowly. Fullscreen was the tell: it filled the display with the cockpit. There was no setting, anywhere, that showed a room only the deck.} -->
 
 ---
 
@@ -66,7 +66,7 @@ The controls did not move because they were untidy. They moved because they were
 
 ## Driving it
 
-<!-- note: New section. Now the practical half — what a presenter actually does with two windows. -->
+<!-- @note{New section. Now the practical half — what a presenter actually does with two windows.} -->
 
 ---
 
@@ -81,7 +81,7 @@ The controls did not move because they were untidy. They moved because they were
 3. Talk
    - *Drive from either. One deck, one place it is kept.*
 
-<!-- note: Emphasize that you are not locked out of the window you are standing at. Keys, wheel and swipe work on the Stage as well as the console — but the console owns the slide index, so a move made anywhere lands in one place and the two can never drift apart. -->
+<!-- @note{Emphasize that you are not locked out of the window you are standing at. Keys, wheel and swipe work on the Stage as well as the console — but the console owns the slide index, so a move made anywhere lands in one place and the two can never drift apart.} -->
 
 ---
 
@@ -98,7 +98,7 @@ The controls did not move because they were untidy. They moved because they were
 - Private zoom.
   - Pinch the console slide. The room sees nothing.
 
-<!-- note: These four are what the retired second window carried. They did not need a window — they needed to be on the presenter's surface, which the overlay already was. -->
+<!-- @note{These four are what the retired second window carried. They did not need a window — they needed to be on the presenter's surface, which the overlay already was.} -->
 
 ---
 
@@ -108,7 +108,7 @@ The controls did not move because they were untidy. They moved because they were
 
 — Why the rename could not have fixed it
 
-<!-- note: This is the sentence that settled the name. Every good label for the old window described something hidden from the room — which is the opposite of what this window is. Fix the architecture and the word falls out: Stage. -->
+<!-- @note{This is the sentence that settled the name. Every good label for the old window described something hidden from the room — which is the opposite of what this window is. Fix the architecture and the word falls out: Stage.} -->
 
 ---
 
@@ -120,4 +120,4 @@ The controls did not move because they were untidy. They moved because they were
 
 `One new word · three deleted`
 
-<!-- note: Close on the vocabulary. Four verbs, each naming a different surface, and none of them naming the same person twice. Then stop and take questions. -->
+<!-- @note{Close on the vocabulary. Four verbs, each naming a different surface, and none of them naming the same person twice. Then stop and take questions.} -->

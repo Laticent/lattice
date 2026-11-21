@@ -299,6 +299,12 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const { recordsToComments } = await import('../../../../../lib/core/meta-door.mjs');
 	const recordReport = [];
 	source = recordsToComments(source, recordReport);
+	// The four notes as Marp reads them (engineering/decisions/2026-11-20-four-notes.md): `@note` becomes Marp's plain
+	// speaker note, `@handout` a note labeled `Handout:`, and `@say`, `@alt` and every plain comment are dropped, because
+	// Marp shows any comment as a speaker note and has no channel for the voice or the alt text. The kernel the CLI's
+	// bundle runs (lib/authoring/notes-core.js `notesToMarp`).
+	const { notesCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
+	source = notesCore.notesToMarp(source);
 	// The image plugin's records next, in Marp's spelling, so their pictures are staged below and a panel record is lifted
 	// (lib/export/marp-bundle.js `withImageRecordsAsMarp`). A cached bundle from before the image plugin has none to rewrite.
 	if (typeof marp.withImageRecordsAsMarp === 'function') source = marp.withImageRecordsAsMarp(source, pluginsOff);
@@ -852,7 +858,7 @@ export function emptySlidesOf(html, only, slideCount, splitSections) {
 }
 
 /**
- * The per-slide comment channel (note / `describe:` / `say:`) for a deck, lifted from
+ * The per-slide four notes (`@note`, `@alt`, `@say`, `@handout`) for a deck, lifted from
  * the ENGINE render.
  *
  * Every capture-frame consumer needs this and none of them can read it out of the frame:
@@ -862,7 +868,7 @@ export function emptySlidesOf(html, only, slideCount, splitSections) {
  * the loss passes a parity check unnoticed.
  *
  * @param {string} html the engine's rendered deck HTML
- * @returns {Promise<{note: string|null, description: string|null, say: string|null, reader: string|null}[]>}
+ * @returns {Promise<{note: string|null, description: string|null, say: string|null, handout: string|null}[]>}
  */
 async function slideChannelRecord(html) {
 	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
@@ -2564,7 +2570,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	const images = opts?.images || null;
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const log = createImageFailureLog();
-	// Lift the `describe:` channel from the ENGINE render, before the capture frame
+	// Lift the `@alt` note from the ENGINE render, before the capture frame
 	// sanitizes it away — see the altText note in the slide loop below.
 	let describeRecord = await slideChannelRecord(render.html);
 	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
@@ -2610,11 +2616,11 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 		const image = new Uint8Array(await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images)).arrayBuffer());
-		// Alt text: the slide's own `describe:` description, else a neutral "Slide N".
+		// Alt text: the slide's own `@alt` note, else a neutral "Slide N".
 		//
 		// Read from the RECORD, not from the rasterized section. `sections` comes out of
 		// the capture frame, and that frame sanitizes — `sanitizeSlideHtml` deletes comment
-		// nodes, which is where `describe:` lives. So every PowerPoint export handed screen
+		// nodes, which is where `@alt` lives. So every PowerPoint export handed screen
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
@@ -2667,10 +2673,10 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	// "Strip speaker notes" (the CLI's --strip-notes): the notes pane stays empty. The
 	// descriptions are alt text, not private, so they still ride (#1833).
 	if (opts?.stripNotes) for (const r of record) if (r) r.note = null;
-	// The notes field PowerPoint and Impress carry: the speaker note, then the reader note labeled `Reader:` (D8,
-	// lib/authoring/notes-core.js `withReaderNotes`, the CLI's same join). The reader note survives the strip above.
+	// The notes field PowerPoint and Impress carry: the speaker note, then the handout note labeled `Handout:`
+	// (lib/authoring/notes-core.js `withHandoutNotes`, the CLI's same join). The handout survives the strip above.
 	const { notesCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
-	const officeNotes = (r) => (r ? notesCore.withReaderNotes([r.note], [r.reader ?? null])[0] : null);
+	const officeNotes = (r) => (r ? notesCore.withHandoutNotes([r.note], [r.handout ?? null])[0] : null);
 	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
 		// Every step page carries its slide's notes and description, as the CLI's `--steps` does.

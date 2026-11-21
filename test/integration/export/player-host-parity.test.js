@@ -63,7 +63,7 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // with the old stacks as fallbacks — CSS only, +863 bytes (102,311 -> 103,174). Both hosts give the new SHA.
 // Rebased on the step cursor above: the same +863 bytes of CSS on its 107,176, so 108,039. Both hosts agree.
 // Re-blessed 2026-11-11 (the slide-metadata record, step 2, rebased on both above): the notes-hide rule also hides the
-// reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}` (108,039 -> +21 bytes = 108,060). Both hosts agree.
+// reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}` (the rule as it read then; 108,039 -> +21 bytes = 108,060). Both hosts agree.
 // Re-blessed 2026-11-17 (#3259): the present stage measures a swipe from the press to the LAST pointermove, not to
 // the pointerup's own point, which Mobile Safari reported as (0, 0) on every touch (iOS 26.5 simulator, platform suite
 // run 44013499171), so a tap could turn the slide. Script only: one pointermove listener and two variables
@@ -72,15 +72,20 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // player script's `pinsOpposite` also leaves a `cover-light` slide alone on a toggle, so a light cover is not
 // restamped with the deck's dark class. Script only, `||el.classList.contains('cover-light')`
 // (108,543 -> +38 bytes = 108,581); the fixture has no cover-light slide, so its rendering is unchanged. Both hosts agree.
+// Re-blessed 2026-11-20 (four notes, engineering/decisions/2026-11-20-four-notes.md): the reader note became the
+// handout, so the notes-hide rule reads `aside.lattice-notes,aside.lattice-handout{…}`, and the Read article gains its
+// `.lp-handout` rule set, where each slide's handout now prints. CSS only (+223 bytes). Both
+// hosts give the new SHA.
 // Re-blessed 2026-11-20 (#3304, the screen canvas): the player's JS-path frame and slide rules read the canvas from
 // --lp-cw/--lp-ch/--lp-cwn with the export's canvas as the fallback, and fit()/fitRead() pick it with lpCanvas, which
 // carries lib/core/screen-canvas.mjs `screenCanvas` as text and stamps --_sec-1cqi on a switch (108,543 -> +2,184 bytes
 // = 110,727; the CSP `script-src` hash moves with the script). The fixture is not 4K, so its canvas is unchanged at run
 // time. Both hosts produce the new SHA, so parity holds.
-// Merged 2026-11-21: both changes together (108,543 + 2,184 + 38 = 110,765 bytes, exactly the sum, so neither moved the
 // other's bytes), measured on the merged tree. Both hosts produce it.
-const GOLDEN_SHA = '9d918038e829e3b7afb0a2cb947569b77f4258f828d7eb01f488ee5822724a04';
-const GOLDEN_BYTES = 110765;
+// Merged again 2026-11-21 with the four notes (main): 108,804 + 2,184 (#3304) = 110,988 bytes, measured on the merged
+// tree. Both hosts produce it.
+const GOLDEN_SHA = '10914d4686da74cd59741872d7ba70705bc723d66a989faac9cc1ce72b1ffbbb';
+const GOLDEN_BYTES = 110988;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

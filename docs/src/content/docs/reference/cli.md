@@ -30,6 +30,7 @@ npx lattice -o <output> [-p palette] [-c layouts.css] <deck.md>
 npx lattice packages <command> [options]
 npx lattice video <deck.md | narrated-export.html> [out.mp4] [options]
 npx lattice fmt <deck.md> [more.md …] [options]
+npx lattice migrate notes <deck.md> [more.md …] [options]
 npx lattice completion <bash | zsh | fish | powershell>
 ```
 
@@ -157,9 +158,9 @@ These apply to `.zip` output only.
 |---|---|
 | `--notes` | Also write the notes to `<output>.notes.txt`, one block per slide |
 | `--notes-icon` | Show a clickable note icon on each slide with a note. Notes are embedded but hidden by default |
-| `--strip-notes` | Remove speaker notes from every copy: the HTML, the PDF annotations, the PowerPoint notes pane and any embedded source. `<!-- describe: -->` text stays. Without it, an export that keeps notes prints a warning saying so |
+| `--strip-notes` | Remove every `@note` and every plain comment from every copy: the HTML, the PDF annotations, the PowerPoint notes pane and any embedded source. `@say`, `@alt` and `@handout` stay. Without it, an export that keeps notes prints a warning saying so |
 | `--captions` | Also write WebVTT captions: `<output>.vtt` for the deck and `<output>.NN.vtt` per slide |
-| `--strip-say` | Remove the spoken lines you wrote (`<!-- say: -->` and the front-matter `say:` map), keeping the generated narration. Replaces the retired `--strip-captions` |
+| `--strip-say` | Remove the spoken lines you wrote (`<!-- @say{…} -->`), keeping the generated narration. Replaces the retired `--strip-captions` |
 
 ## Palette resolution
 
@@ -213,6 +214,30 @@ every deck, and `lattice fmt` names the package a block needs.
 The Studio formats the same way: **Format code blocks** in the command palette,
 and a block whose record says `format` (or a deck with `code: format`) is
 formatted when you leave the editor.
+
+## `lattice migrate notes`
+
+Rewrites a deck's notes in the form Lattice reads, in place:
+
+| Before | After |
+|---|---|
+| `<!-- A plain comment -->` (it was the speaker note) | `<!-- @note{A plain comment} -->` |
+| `<!-- say: … -->` | `<!-- @say{…} -->` |
+| `<!-- describe: … -->` | `<!-- @alt{…} -->` |
+| `<!-- reader: … -->` | `<!-- @handout{…} -->` |
+| a record's `note=`, `say=`, `describe=` or `reader=` field | the record without it, then the note's own comment |
+| a front-matter `say:` map | each line as `@say` at the end of its slide |
+
+Directives, a record's other fields and anything in code stay as written. Line
+endings and a byte-order mark stay as the file had them.
+
+| Option | What it does |
+|---|---|
+| `--check` | Write nothing; exit 1 when a file would change (for CI) |
+| `--stdout` | Print the rewritten deck instead of writing it (one file only) |
+| `--back` | The reverse, for a revert to LFM 1.x: `@note` becomes a plain comment, a slide's `@say` notes one `say:` line, `@alt` `describe:` and `@handout` `reader:` |
+
+Run `--back` before you move a deck to an engine older than LFM 2.0, with a build that has it. `--back` lists, for review, what LFM 1.x reads differently: a plain comment and an `@word{…}` that is no note (1.x shows both as speaker notes), and a note 1.x would read as a directive or a record, which it writes with a `Note:` label.
 
 ## `lattice video`
 

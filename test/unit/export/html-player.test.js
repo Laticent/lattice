@@ -1328,7 +1328,7 @@ test('the player ships the Marp-equivalent chrome CSS (pagination + notes hide +
 	// for every host, CLI included, instead of leaving the CLI's copy as the only one.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /section\[data-lattice-pagination\]::after\{content:attr\(data-lattice-pagination\)\}/, 'page numbers render even when the host docHtml carries no pagination CSS of its own');
-	assert.match(html, /aside\.lattice-notes,aside\.lattice-reader\{display:none!important\}/, 'speaker-note and reader-note asides stay hidden regardless of host docHtml');
+	assert.match(html, /aside\.lattice-notes,aside\.lattice-handout\{display:none!important\}/, 'speaker-note and handout asides stay hidden regardless of host docHtml');
 	assert.match(html, /\.lattice-description\{position:absolute!important/, 'the accessible description is sr-only, never a visible extra paragraph on the slide');
 });
 
@@ -1876,12 +1876,15 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// only on a slide carrying `cover-light`: the selectors gain a class no other slide has, so
 	// every other slide matches exactly the rules it matched before (pinned by the matcher tests
 	// in this file, which assert by `el.matches()`, not by text).
+	// Re-blessed 2026-11-20 (four notes, engineering/decisions/2026-11-20-four-notes.md): the reader note became the
+	// handout, so the notes-hide rule reads `aside.lattice-notes,aside.lattice-handout{display:none!important}`, and the
+	// Read article gains one `.lp-handout` rule set, where each slide's handout now prints. CSS only.
 	// Re-blessed 2026-11-20 (#3304, the screen canvas): the JS-path frame and slide rules read the canvas from
 	// --lp-cw/--lp-ch/--lp-cwn with the export's canvas as the fallback, and fit()/fitRead() pick it with lpCanvas,
 	// which carries the kernel's own `screenCanvas` as text (lib/core/screen-canvas.mjs): a 4K deck lays out on HD where the slide is shown at 2,560 device px or fewer.
 	// For this HD golden the values are unchanged (1280x720); the no-JS floor's CSS is unchanged byte for byte.
-	// Merged 2026-11-21: the light cover's pins (from main) and the screen canvas (#3304) together.
-	assert.equal(sha, '1a699cd769fb87d88109081af334686928b4933673c79aa1803af2a9e78454fa', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Merged again 2026-11-21 with the four notes (main): the screen canvas (#3304) on top, measured on the merged tree.
+	assert.equal(sha, '110fba8c213d79f53b9946132d4155c3702013b1875635f5a494f690218104e4', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

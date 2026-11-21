@@ -374,7 +374,7 @@ describe('export-formats', () => {
       '<!-- _class: image -->', '',
       '![A photo](photo.svg)', '',
       '# SVG background', '',
-      `<!-- ${NOTE_MARKER} -->`, '',
+      `<!-- @note{${NOTE_MARKER}} -->`, '',
       '---', '',
       '<!-- _class: content -->', '',
       '## Inline SVG image', '',
@@ -1173,7 +1173,7 @@ describe('export-formats', () => {
     const dir = tmpDir();
     const deck = path.join(dir, 'deck.md');
     const SECRET = 'CONFIDENTIAL board compensation figure';
-    fs.writeFileSync(deck, `${fs.readFileSync(FIXTURE, 'utf8')}\n\n<!-- note: ${SECRET} -->\n`);
+    fs.writeFileSync(deck, `${fs.readFileSync(FIXTURE, 'utf8')}\n\n<!-- @note{${SECRET}} -->\n`);
     const render = (out) =>
       spawnSync(process.execPath, [EMULATOR, deck, out, '--notes', '--strip-notes', '--quiet'], {
         cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,

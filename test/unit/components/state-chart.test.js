@@ -119,7 +119,7 @@ describe('state chart — the figure through the real engine', () => {
   });
 
   test('the hidden detail rides a template after the figure', () => {
-    assert.match(html, /<div class="chart-details" hidden><template class="chart-detail" data-mark="2"><li>Two reviewers sign off\.<\/li><\/template><\/div><!-- In Review: Two reviewers sign off\. -->/);
+    assert.match(html, /<div class="chart-details" hidden><template class="chart-detail" data-mark="2"><li>Two reviewers sign off\.<\/li><\/template><\/div><!-- @note\{In Review: Two reviewers sign off\.\} -->/);
     assert.ok(html.indexOf('chart-details') > html.indexOf('fc-key'), 'after the figure, never inside it');
     assert.doesNotMatch(html.slice(0, html.indexOf('chart-details')), /Two reviewers sign off/, 'the slide never shows it');
   });

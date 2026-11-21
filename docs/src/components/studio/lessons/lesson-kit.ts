@@ -235,5 +235,5 @@ export const SEL = {
 	reshapeTile: '[aria-label^="Reshape to"][aria-pressed="false"]',
 	mode: '[data-demo="mode"]',
 	slideSettings: '[aria-label="Slide settings"]',
-	notesField: '[aria-label="Speaker note for this slide"]',
+	notesField: '[aria-label="Speaker notes for this slide"]',
 } as const satisfies Record<string, Aim>;
