@@ -10,6 +10,7 @@ import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { QuickScroll } from '@/components/ui/quick-scroll';
 import { CHANGE_FLASH_CSS, changeFlashPlugin, diffFlash, type FlashSpec, flashKey } from '@/lib/compose/change-flash';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, slideClassToken } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, editableNote, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
@@ -3752,10 +3753,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			<div className="cs-frame">
 				{/* Compose's undo is the Studio's (Filo): the root keymap owns ⌘Z here as in the Markdown editor. */}
 				<div ref={hostRef} className="cs-host" data-filo-owned="" />
+				{/* Jump to the deck's top or bottom: appears while a long deck scrolls (components/ui/quick-scroll.tsx). */}
+				<QuickScroll root={hostRef} label="deck" />
 				{flashChip && (
 					<button
 						type="button"
 						className="cs-flash-chip"
+						data-quick-scroll-avoid=""
 						data-dir={flashChip.dir}
 						onMouseDown={(e) => e.preventDefault()}
 						onClick={() => {
@@ -3868,6 +3872,16 @@ function ComposeStyles() {
 			   deck still ends flush, with no phantom empty scroll. */
 			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(clamp(72px,38vh,520px) + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:0 clamp(24px,6cqw,64px) 22px;position:relative}
+			/* Keep each slide's right-hand controls (the delete button) out of the jump rail's column. On a
+			   mouse the rail (components/ui/quick-scroll.tsx) sits 8px inside the scrollbar and is 28px wide, so
+			   everything keeps 44px clear of the scrollbar: 8 + 28 + 8. The slide pads its text that far; its
+			   bar bleeds into that padding (the negative margin below), so the bar pads its own controls back
+			   by the same 44px. Measured before, at 1440 / 1100 / 820px windows: the delete button overlapped
+			   the rail column by 5, 2 and 0px. Wide panes already pad 64px, so nothing moves there. A touch
+			   screen gets the corner stack, which needs no column, and a window under 641px pins the bar inside
+			   the slide (the MOBILE block), where the slide's own padding is enough. */
+			@media (pointer:fine){.cs-host .cs-slide{padding-right:max(clamp(24px,6cqw,64px),44px)}}
+			@media (pointer:fine) and (min-width:641px){.cs-host .cs-slide-bar{margin-right:calc(-1 * max(clamp(24px,6cqw,64px),44px));padding-inline:max(clamp(16px,4cqw,44px),44px)}}
 			/* THE DIVIDER = the slide's control bar, as a COLUMN: a full-width hairline carrying circular
 			   STRUCTURAL caps (collapse left, delete right) on EVERY slide, and — only on the ACTIVE slide —
 			   a centered CONTENT pill (context Format · insert · settings) below it. SHAPE (circle vs rounded

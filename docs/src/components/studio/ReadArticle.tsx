@@ -16,6 +16,7 @@
 
 import { ArrowLeft, FileText } from 'lucide-react';
 import * as React from 'react';
+import { QuickScroll } from '@/components/ui/quick-scroll';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { type ArticleToc, projectDeckArticle } from './article-projection';
 import type { ExtraTheme } from './share-export';
@@ -172,6 +173,7 @@ export const READ_ARTICLE_CSS = `
 
 export function ReadArticle({ options, source, palette, mode, extraTheme, extraCss, onClose }: Props) {
 	const [state, setState] = React.useState<'loading' | 'ready' | 'failed'>('loading');
+	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const [html, setHtml] = React.useState('');
 	const [toc, setToc] = React.useState<ArticleToc[]>([]);
 	// The deck sheet for the figures: flat, pruned and fenced to the figures by
@@ -244,7 +246,8 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 					This deck could not be turned into an article. The slides are still there — go back to the deck.
 				</div>
 			) : (
-				<div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto lg:grid-cols-[230px_minmax(0,1fr)]">
+				<div ref={scrollRef} className="grid min-h-0 flex-1 grid-cols-1 overflow-auto lg:grid-cols-[230px_minmax(0,1fr)]">
+					<QuickScroll root={scrollRef} label="article" />
 					{/* The rail is chrome, not the article: it is hidden below lg so the prose keeps
 					    the full measure on a phone, where it would otherwise eat a third of the width. */}
 					<nav aria-label="Slides" className="hidden self-start overflow-auto border-r px-3 py-6 lg:block">

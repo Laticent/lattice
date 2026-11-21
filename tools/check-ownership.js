@@ -10066,8 +10066,12 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     if ('docs_site' in s && typeof s.docs_site !== 'boolean') {
       errors.push(`${at}: \`docs_site\` must be true or false (true: the workflow's docs-site job builds the site this suite serves).`);
     }
-    if (s.docs_site === true && !(typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run))) {
-      errors.push(`${at}: only an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) serves the docs site, so only one can set \`"docs_site": true\`.`);
+    // Two kinds of suite serve the prebuilt docs site: an iOS Simulator suite (docs/scripts/ios-safari/run.sh), and a
+    // Playwright suite that serves it with E2E_PREBUILT=1 (docs/playwright.config.ts then skips its own build). The second
+    // exists because the docs site does not build on Windows (`bake-newcomer-frame`: `module is not defined` in
+    // lib/core/content-policy.js, platform-suites run 44853144110), so a Windows suite must take the Linux build (#3345).
+    if (s.docs_site === true && !(typeof s.run === 'string' && (/docs\/scripts\/ios-safari\/run\.sh/.test(s.run) || /\bE2E_PREBUILT=1\b/.test(s.run)))) {
+      errors.push(`${at}: only a suite that serves the prebuilt docs site can set \`"docs_site": true\`: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) or a Playwright suite whose \`run\` sets E2E_PREBUILT=1.`);
     }
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
       errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);

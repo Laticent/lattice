@@ -603,7 +603,12 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
   backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `dead-code-windows` runs the
   `dead-code` pre-push check there (knip through node, since Windows cannot spawn the `.bin` shim) and plants an unused file
-  to prove it fails. `wait-for.sh` is a macOS suite that
+  to prove it fails. `docs-scrollbars-windows` serves the docs site built on Linux (`E2E_PREBUILT=1`; the site does not
+  build on Windows yet, `followups.d/3345-p3-docs-build-on-windows.md`) and runs `scrollbar-width.spec.ts` and
+  `wheel-sideways.spec.ts` in Chromium and Firefox against Windows' classic scrollbars. It prints the measured bar widths to the
+  log and writes them to the `platform-suite-docs-scrollbars-windows-windows-2025` artifact. Its Firefox test launches a HEADED
+  Firefox on an UNSIZED page (`viewport: null`): Playwright's headless Firefox reports `scrollbar-width: none` for every element,
+  and a sized page runs in Firefox's Responsive Design Mode, which draws overlay bars 0px wide whatever the prefs say (#3345). `wait-for.sh` is a macOS suite that
   installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
 - **Office files in Apple's importer:** `office-quicklook` (`tools/office-quicklook.mjs`, dispatch and nightly only) exports a deck
   as an editable PowerPoint and renders every slide through `qlmanage` on macOS, the same Office importer iPhone Preview uses (it
