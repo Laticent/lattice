@@ -357,7 +357,11 @@ async function probeTap(id, at) {
  */
 async function composeProbePage(id) {
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
-	await wd('POST', `/session/${id}/execute/sync`, { script: "try { localStorage.removeItem('lattice-studio-settings'); } catch {}", args: [] });
+	// A FIRST VISIT, as the probe says: no settings AND no stored deck. It used to clear only the settings and open whatever deck
+	// the probe before it had saved, so a panes probe that timed out left it studio-probe.js's one-slide deck and a different
+	// probe (iPad run 44850293408, F7 in flaky-tests.md). probe.selftest.mjs gives each probe a fresh context, so it already
+	// ran this probe on the first-visit deck.
+	await wd('POST', `/session/${id}/execute/sync`, { script: "try { for (const k of Object.keys(localStorage)) if (k.startsWith('lattice-studio-')) localStorage.removeItem(k); } catch {}", args: [] });
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
 	const probe = withEditorHelper(fs.readFileSync(path.join(here, 'compose-probe.js'), 'utf8'));
 	await wd('POST', `/session/${id}/execute/sync`, {
