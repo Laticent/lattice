@@ -632,7 +632,7 @@ describe('codeSyntaxRefusal: a dynamic import(), parsed', () => {
 describe('killBrowserTree: the whole browser, on every platform', () => {
   const { killBrowserTree } = require('../../../lib/cli/code-door.js');
   const DIR = path.join(os.tmpdir(), 'lattice-code-sandbox-Ab12Cd');
-  const record = (platform, dir, result = { status: 0 }) => {
+  const record = (platform, dir, result = { status: 0, stdout: 'swept\r\n' }) => {
     const ran = [];
     const killed = [];
     const how = killBrowserTree(4242, dir, {
@@ -656,8 +656,30 @@ describe('killBrowserTree: the whole browser, on every platform', () => {
     assert.deepEqual(killed, []);
   });
 
+  test('on Windows, the sweep lists and stops again until a pass finds nothing, and the passes are capped', () => {
+    // One pass left a helper the live browser started mid-sweep (windows-2025 run 44789928753). The real race runs in
+    // os-sandbox-measure's REAPED, SPAWNING arm; this pins the shape that answers it, in ONE PowerShell process.
+    const { ran } = record('win32', DIR);
+    assert.equal(ran.length, 1);
+    assert.match(ran[0].at(-1), /^\$n = 0; do \{ \$n\+\+; .* \} while \(\$p\.Count -gt 0 -and \$n -lt 8\); exit 0$/);
+    // The first query failing exits 3 (no pass ran: the pid fallback applies); a later one ends the loop.
+    assert.match(ran[0].at(-1), /Get-CimInstance .* -ErrorAction Stop .*catch \{ if \(\$n -eq 1\) \{ exit 3 \} else \{ break \} \}/);
+    assert.match(ran[0].at(-1), /if \(\$n -eq 1\) \{ 'swept' \}/);
+  });
+
+  test('on Windows, once a pass ran (`swept`), the pid is never killed, even if PowerShell then fails or times out', () => {
+    // A timeout or a failed later pass after a sweep must not fall back to the pid: it may have been freed and reused.
+    // The exit code cannot tell (the reviewer's finding on #3358: `-Command` exits 0 after a failed query), the line can.
+    for (const result of [{ status: 0, stdout: 'swept\r\n' }, { status: null, error: Object.assign(new Error('spawnSync powershell.exe ETIMEDOUT'), { code: 'ETIMEDOUT' }), stdout: 'swept\r\n' }, { status: 1, stdout: 'swept\r\n' }]) {
+      const { killed, how } = record('win32', DIR, result);
+      assert.equal(how, 'sweep', JSON.stringify(result));
+      assert.deepEqual(killed, [], JSON.stringify(result));
+    }
+  });
+
   test('on Windows, a sweep that cannot run falls back to the pid, and no `-pid`, which throws there', () => {
-    for (const result of [{ status: 1 }, { error: new Error('ENOENT') }, { status: null }]) {
+    // No `swept`: PowerShell would not start, the first query threw (exit 3), or it exited 0 having swept nothing.
+    for (const result of [{ status: 1 }, { error: new Error('ENOENT') }, { status: null }, { status: 3, stdout: '' }, { status: 0, stdout: '' }]) {
       const { killed, how } = record('win32', DIR, result);
       assert.deepEqual(killed, [[4242, 'SIGKILL']], JSON.stringify(result));
       assert.equal(how, 'pid', JSON.stringify(result));
