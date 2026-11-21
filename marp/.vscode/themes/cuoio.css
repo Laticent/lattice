@@ -1,0 +1,76 @@
+/* @theme cuoio
+ * @size hd       1280px 720px
+ * @size HD       1280px 720px
+ * @size 4K       3840px 2160px
+ * @size 4k       3840px 2160px
+ * @size standard 960px  720px
+ * @size 16:9     1280px 720px
+ * @size mobile-landscape 1560px 720px
+ * @size square   1080px 1080px
+ * @size 1:1      1080px 1080px
+ * @size portrait 1080px 1350px
+ * @size 4:5      1080px 1350px
+ * @size story    1080px 1920px
+ * @size reel     1080px 1920px
+ * @size 9:16     1080px 1920px
+ * @size mobile   1080px 2340px
+ * @size card     1050px 600px
+ * @size card-iso 850px  550px
+ *
+ * Lattice · Cuoio palette
+ * ────────────────────────────────────────────────────────────────────────
+ * Warm cream + leather. Counterpart to the cool indaco default — same
+ * design contract, warm earth pigments instead of cool indigo. Pale
+ * parchment surfaces with saturated leather/saddle accents and dark
+ * espresso ink. Saturated red is reserved for alarm states (gantt
+ * critical, error fills) — every routine surface stays in the warm
+ * earth band so the deck reads as ink-on-vellum.
+ *
+ * This file is a sibling palette to indaco.css; both implement the same
+ * token contract so layouts in lattice.css stay palette-blind.
+ *
+ * Design contract
+ * ───────────────
+ *   1. Single text color (#1e1a15, dark espresso) on every light surface.
+ *      No auto-inversion logic is relied upon; every text variable below
+ *      is set explicitly.
+ *
+ *   2. Two lightness bands for fills:
+ *        Tinted band (L≈83) — --diagram-band-1..12, used directly by
+ *                              flowchart, sequence, class, state, ER,
+ *                              quadrant, and most layouts. Cream/parchment
+ *                              family (#F3EDE4 → #FAF7F2).
+ *        Mid-tone band      — categorical pigments (--cat-*) used as
+ *                              foreground marks on the cream surface
+ *                              (radar curves, kpi accents, status dots).
+ *                              Earth pigment family at L≈30-45.
+ *
+ *   3. Saturation reserved for two purposes:
+ *        a. Borders. Deep taupe #8B7E6D reads on every cream fill.
+ *        b. Alarm signal. Saturated red #9b1c1c only on diagram-state-
+ *           critical and diagram-error-bg — never on routine fills.
+ *
+ *   4. Every text-bearing token clears WCAG AA (4.5:1) against the
+ *      surface it appears on, asserted by test/unit/contrast.test.js.
+ *      Decorative tokens (--text-muted, borders, hairlines, spectrum
+ *      gradient) are WCAG-exempt per design.
+ *
+ * Palette divergence from indaco
+ * ──────────────────────────────
+ * Indaco's --cat-* are L≈60 mid-tones tuned for Mermaid kanban's lighten
+ * step (L≈70 emitted, light enough for dark text on top). Cuoio's --cat-*
+ * are L≈30-45 dark earth pigments because the warm brand reads as
+ * "ink on vellum" — categorical fills want saturation, not pastels. The
+ * Mermaid diagram overrides route categorical fills through
+ * --diagram-band-* (pale tints) instead of --cat-*, so the two contracts
+ * coexist without conflict.
+ *
+ * Diagram overrides
+ * ─────────────────
+ * Palette-blind per-diagram Mermaid overrides live at the bottom of
+ * lattice.css, imported transitively via `@import 'lattice';`. Authoring
+ * a new palette is purely a token-declaration job — no per-palette CSS
+ * rules are needed. See engineering/decisions/2026-05-12-diagram-tokens.md for the
+ * architecture.
+ */
+@import 'lattice';

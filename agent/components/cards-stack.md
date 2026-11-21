@@ -1,0 +1,133 @@
+# cards-stack
+
+> Parallel items stacked vertically, full-width cards.
+
+**Function** inventory · **Form** stack · **Substance** structure
+
+**Tags** `overview` · `summary` · `reference`
+
+Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best.
+
+## Agent contract
+
+**Capacity** ~3 items (over 4 overflows) — past that, list-tabular / split across slides. Past four rows the stack overflows.
+
+**Density** aim ~16 words per item; past ~26 it reads as a wall of text — a stacked card is a short paragraph at most.
+
+**By venue** (`venue:`, ~16 words each) it holds laptop ~4 · huddle ~3 · conference ~2 · hall ~2 items. At ~6 words each: 4 · 3 · 3 · 3. With `compact` (~16 words): 4 · 4 · 2 · 2. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
+### Slots
+
+| Slot | Write | Required | Description |
+|---|---|---|---|
+| `title` | a `## ` heading | yes | Slide heading. |
+| `cards` | a list | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional pill on the title line, written `{status}` in inline code, is right-anchored. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
+
+- `numbered` is not a class: Write the cards as a `1.` list; the corner numbers come from it, and the class adds nothing.
+
+### Variant decision rule
+
+- **default (no modifier).** Vertical, top-to-bottom priority reading — the base look.
+- **`horizontal`.** The sequence reads more naturally left-to-right, e.g. a timeline — pivots the stack onto its side.
+- **`numbered`.** The vertical rank should be explicit rather than implied by position — author as an ordered list to stamp corner numbers.
+
+### Common mistakes
+
+- **Adding a `numbered` class to the slide, expecting it to turn on corner numbers.** There is no `numbered` CSS class — the ranking numbers come purely from authoring the cards as an ordered list (`1.`) instead of `-`.
+
+## When to use
+
+- **Vertical reading order.** The audience scans top-to-bottom, not grid-style. Use when each card builds on the previous one as the eye moves down the slide.
+- **Two sentences per card.** More body than cards-grid can hold without crowding. cards-stack lets each card carry one or two short sentences without losing the layout balance.
+- **Two or three items.** Sweet spot is three. Past that the slide overflows — split across multiple slides or switch to cards-grid with shorter body text per card.
+
+## When NOT to use
+
+- **Five or more items.** Past four the stack overflows. For five or more parallel items reach for cards-grid four, or split across slides.
+- **One-line cards.** If each card is a single short phrase, the stack reads as a padded list. Drop to `list` (or its `takeaway` variant) and reclaim the vertical space.
+- **Forced sequence.** Cards-stack is parallel content read in vertical order, not a numbered sequence. For explicit steps, use list-steps or `list takeaway` over a `1.` list.
+
+## Authoring
+
+```markdown
+<!-- _class: cards-stack -->
+
+## Slide heading.
+
+- First card title
+  - Body text for the first stacked card, two short sentences max.
+- Second card title
+  - Body text for the second stacked card.
+- Third card title
+  - Body text for the third stacked card.
+```
+
+## Anatomy
+
+```text
+┌─────────────────────────────────────────┐
+│  header                                 │
+│  Stacked-cards heading.                 │
+│                                         │
+│  ┌───────────────────────────────────┐  │
+│  │ Card title 1 — claim or label     │  │
+│  │ body text fills the wide row      │  │
+│  └───────────────────────────────────┘  │
+│  ┌───────────────────────────────────┐  │
+│  │ Card title 2 — claim or label     │  │
+│  └───────────────────────────────────┘  │
+│  footer                           1/19  │
+└─────────────────────────────────────────┘
+```
+
+## Variants (component-specific)
+
+### `horizontal` — Horizontal cards
+
+The stack pivots sideways.
+
+```markdown
+<!-- _class: cards-stack horizontal -->
+
+## horizontal lays the stack on its side.
+
+- Rows become columns.
+  - The ranking now reads left to right.
+- Same card anatomy.
+  - Title, body, optional status pill.
+- Use for timelines.
+  - Sequence feels natural sideways.
+```
+
+### `numbered` — Numbered stack
+
+Corner numbers make rank explicit.
+
+```markdown
+<!-- _class: cards-stack -->
+
+## An ordered list makes the ranking explicit.
+
+1. Numbers stamp the rank
+   - The stack's order stops being implicit.
+2. Three still rules
+   - Numbering does not raise the ceiling.
+3. Parallel or nothing
+   - Ranked cards must match shapes.
+```
+
+## Universal modifiers
+
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the universal modifier catalog](../authoring/modifiers.md), generated from `lib/base/base.manifest.json`.
+
+## Related components
+
+- [`cards-grid`](./cards-grid.md) — three or four parallel items in a scannable grid
+- [`compare-prose`](./compare-prose.md) — exactly two items, side by side
+- [`list-steps`](./list-steps.md) — items carry an explicit, ordered sequence
+
+## Demo deck
+
+Every variant rendered, with a live preview and an in-browser editor:
+<https://lattice.style/components/inventory/cards-stack>

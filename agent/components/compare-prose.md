@@ -1,0 +1,231 @@
+# compare-prose
+
+> Two prose options side-by-side with a labeled corner tag on each.
+
+**Function** comparison · **Form** split · **Substance** structure
+
+**Tags** `tradeoff` · `contrast` · `recommendation` · `transformation` · `retrospective`
+
+Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side. `axis` reframes the pair as two facets of one idea — a lede above, a numeral-led card per facet, a closing note below.
+
+## Agent contract
+
+**Density** aim ~20 words per item; past ~32 it reads as a wall of text — each side's case in a sentence or two.
+
+**By venue** (`venue:`, ~20 words each) it holds laptop ~5 · huddle ~4 · conference ~3 · hall ~2 items. At ~6 words each: 9 · 8 · 6 · 5. With `vertical` (~20 words): 2 · 2 · 1 · 1. Ending in a `> …` callout (~20 words): 4 · 3 · 2 · 1. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
+
+### Slots
+
+| Slot | Write | Required | Description |
+|---|---|---|---|
+| `title` | a `## ` heading | yes | Slide heading framing the comparison. |
+| `options` | a list | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, nest one description bullet under each of the two items (`1. Own the verb` or `- Own the verb`, read the same): the lead is the facet's title, and its numeral (`I` / `II`) is generated. |
+| `lede` | a paragraph | no | `axis` only. A framing sentence between the heading and the two facet cards. |
+| `note` | a paragraph | no | A closing line after the two cards. Plain prose in the base layout; `axis` renders it centered and italic. |
+| `body` | a list nested 1 level under an item | no | Body lines nested under an item. `-` or `1.` read the same here: the layout draws them as the item's plain body lines, so the engine hands it a `ul` either way. A list nested a level below is not part of the design: lint warns (`list-depth-unsupported`). |
+
+Under a variant, a slot changes shape:
+
+- `axis`: `options` is written as a list.
+
+### Variant decision rule
+
+- **`axis`.** Two FACETS of one idea, not a before/after change of state — authored as a numbered list (`1. Title` + a nested body line). The I/II numerals are generated from the ol counter, never typed, and the variant opts out of the family's corner-tag treatment so the title stacks under the numeral.
+- **`transition`.** The comparison is a state change over time — left is before, right is after; implies causation, not two co-equal preferences.
+- **`mirror`.** Same anatomy, but the deck's rhythm wants the accented (second) option to land visually on the left instead of the right.
+- **`chosen`.** One option is the winner and the other keeps its full, undiminished case — crowns the second option without dimming the first.
+- **`decision`.** The decision is made and the slide is the record — composes `chosen` with a de-emphasized first card and a stronger connector.
+- **`vertical`.** Either case needs more room than the two-column width can hold — stacks the panes top/bottom instead of side by side.
+- **`tag-band`.** The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag. `tag-band` is the shared card-tag placement (formerly `banner-tag`, which still works); it, or `tag: band` deck-wide, works on every tagged layout.
+- **`rejected`.** One option was considered and explicitly declined — dims and strikes the second card as the record of what didn't make it.
+
+### Common mistakes
+
+- **Assuming `chosen`/`rejected`/`decision` mark whichever option is authored first.** All three target the SECOND card (`li:last-child`) in the markdown — the option to crown (`chosen`) or strike (`rejected`) must be written second, not first.
+- **Combining `mirror` with `chosen`/`rejected`/`decision`, expecting the marked card to move with the visual swap.** `mirror` only reverses the VISUAL row (`flex-direction: row-reverse`) — the chosen/rejected treatment still targets the second option in markdown SOURCE order, so mirroring changes where it appears on screen, not which option gets the accent.
+- **Typing the facet numeral in an `axis` card: a blank outer bullet with `I`, a title and a description as nested items, the form this variant used before its numerals were generated.** Write an ordered list: `1. Own the verb`, then the description as one nested bullet. The numeral comes from the list's own count (upper-roman), so a typed one only adds a stray line of body text.
+
+## When to use
+
+- **Two prose alternatives.** Both sides are full sentences of argument, not lists of facts. The audience reads each column as a paragraph and weighs them against each other.
+- **Equal-density prose.** Each card carries roughly the same body length. One short and one long breaks the visual symmetry that makes the comparison legible.
+- **Add a verdict modifier when chosen.** Layer `chosen`, `decision`, or `vertical` to name the editorial intent. The default (neutral two-up) reads as still-being-decided.
+
+## When NOT to use
+
+- **Code comparison.** Use `compare-code` for two fenced blocks. compare-prose is for sentences, not snippets.
+- **Three or more options.** compare-prose is strictly two. For three or more, use `cards-grid three` or `verdict-grid`, which scores each option against shared criteria.
+- **Verbatim text differences.** When the diff lives inside the prose itself — legal language, contract clauses — use `redline` so insertions and deletions render inline.
+
+## Authoring
+
+```markdown
+<!-- _class: compare-prose -->
+
+## Heading framing the comparison.
+
+- First option
+  - Two-sentence description of the first option, including the strongest argument for it.
+- Second option
+  - Two-sentence description of the second option, including the strongest argument for it.
+```
+
+## Anatomy
+
+```text
+┌─────────────────────────────────────────┐
+│  header                                 │
+│                  LABEL                  │
+│            Comparison Title             │
+│                                         │
+│  ┌──────────────┐     ┌──────────────┐  │
+│  │ Before /     │  →  │ After /      │  │
+│  │ Option A     │     │ Option B     │  │
+│  │              │     │              │  │
+│  └──────────────┘     └──────────────┘  │
+│                                         │
+│  footer                           1/19  │
+└─────────────────────────────────────────┘
+```
+
+## Variants (component-specific)
+
+### `transition` — transition
+
+Left reads as before, right as after.
+
+```markdown
+<!-- _class: compare-prose transition -->
+
+## transition reads left as before, right as after.
+
+- Before
+  - The arrow between the panes turns comparison into change over time.
+- After
+  - Use it for state changes, not preferences — the arrow implies causation.
+```
+
+### `mirror` — mirror
+
+Swaps the reading order.
+
+```markdown
+<!-- _class: compare-prose mirror -->
+
+## mirror swaps the reading order.
+
+- Second option
+  - mirror renders this pane first — for when the deck's rhythm lands on the left.
+- First option
+  - Same anatomy, flipped; the corner tags travel with their panes.
+```
+
+### `chosen` — chosen
+
+Crowns the right pane the winner.
+
+```markdown
+<!-- _class: compare-prose chosen -->
+
+## chosen crowns the right pane the winner.
+
+- The road not taken
+  - The losing option keeps its full case — an honest comparison shows real strength.
+- The verdict
+  - The accent treatment marks this pane as the pick; pair with a reason, not a repeat.
+```
+
+### `decision` — decision
+
+Stamps the verdict banner across the pair.
+
+```markdown
+<!-- _class: compare-prose decision -->
+
+## decision stamps the verdict banner across the pair.
+
+- Option one
+  - Both panes stay equal; the banner above carries the call.
+- Option two
+  - Use when the decision is made and the slide is the record.
+```
+
+### `vertical` — vertical
+
+Stacks the panes for longer cases.
+
+```markdown
+<!-- _class: compare-prose vertical -->
+
+## vertical stacks the panes for longer cases.
+
+- The top option
+  - Stacking buys full slide width, so a case may run toward its ceiling without the columns pinching.
+- The bottom option
+  - The trade is simultaneity — the eye compares in sequence, so lead with the keeper.
+```
+
+### `tag-band` — tag-band
+
+Corner tags become banners.
+
+```markdown
+<!-- _class: compare-prose tag-band -->
+
+## tag-band fills the corner tags at banner weight.
+
+- OPTION A
+  - The tag takes the accent fill and full contrast.
+- OPTION B
+  - Use for short, loud labels — verdicts, camps, teams.
+```
+
+### `rejected` — Rejected
+
+Strikes the losing pane.
+
+```markdown
+<!-- _class: compare-prose rejected -->
+
+## rejected strikes the losing pane.
+
+- The pick
+  - The surviving option reads at full strength.
+- The rejected pane
+  - Dimmed and struck — the record of what was considered and declined.
+```
+
+### `axis` — axis
+
+A lede above, numeral-led facet cards, a closing note below.
+
+```markdown
+<!-- _class: compare-prose axis -->
+
+## The second axis: how far it reaches.
+
+The verb is one axis — how you think. **Reach** is the other — how far what you make travels.
+
+1. Own the verb
+   - You can do the cognitive work — correct, clear, complete. It reaches only you.
+2. Widen the reach
+   - The work travels: team, org, field. Documented, adopted, durable.
+
+*Most engineers stall on making it travel, not on the thinking.*
+```
+
+## Universal modifiers
+
+Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the universal modifier catalog](../authoring/modifiers.md), generated from `lib/base/base.manifest.json`.
+
+## Related components
+
+- [`compare-code`](./compare-code.md) — the columns are code, not prose
+- [`split-compare`](./split-compare.md) — the verdict needs a bottom recommendation bar
+- [`verdict-grid`](./verdict-grid.md) — three or more options scored against shared criteria
+- [`decision`](./decision.md) — the verdict slide that lands after a comparison
+
+## Demo deck
+
+Every variant rendered, with a live preview and an in-browser editor:
+<https://lattice.style/components/comparison/compare-prose>

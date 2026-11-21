@@ -1,0 +1,1704 @@
+# base — front-matter registers
+
+The **deck-level registers**: keys you set once in a deck's front matter that
+propagate to every slide, and that a per-slide `_class:` can override. They are
+`theme:`'s siblings — `theme:` picks the palette, these pick the rendering hand,
+the backdrop, the divider, the marker shape, the accent, the heading rule, the
+kicker, whether inline code draws pills and marks, the framing alignment, the card
+elevation, where a card row puts its spare height, and the slide's own corner.
+
+**Why this file exists.** Nine of these ten lived under `### sketch` in
+`base.docs.md` — a per-slide *variant* — because `mode: sketch` is how you turn
+sketch on deck-wide, and each new register arrived as "a sibling of the one
+above it". A reader looking for `headline:` had no reason to open a section
+about handwriting, and the heading structure gave them no way to find it. The
+tenth (`corners:`) sat one level up, correctly filed and equally hard to find.
+Moved here 2026-08-30. Nine of the ten bodies are byte-identical to what was in
+`base.docs.md`, with only the heading LEVEL changed; the tenth, `eyebrow:`, has a
+one-line edit, because it pointed at *Eyebrow labels* "above" and that section
+stayed behind. Stated exactly rather than as "verbatim", so a future auditor who
+byte-compares all ten knows which mismatch is intended.
+
+Every key, register or not, is a row of `lib/core/deck-settings.js`: `lint:deck` warns on a key
+that is not there (`unknown-key`) and on a register value outside the row's list (`unknown-<key>`).
+The full list of keys, with values and defaults, is the generated front-matter reference page.
+
+For the per-slide variants these compose with — `dark`, `mirror`, `numbered`,
+`silent`, `sketch` itself, the scales, tone tokens, state markers, treatments —
+see `base.docs.md` § Universal variants. For what a register IS in the wider
+model, see `design/concepts.md`.
+
+| Register | What it selects | Default |
+|---|---|---|
+| [`preset:`](#the-preset-front-matter-register-a-named-look) | A named look that sets the backdrop, alignment and accent registers below at once | `classic` |
+| [`mode:`](#the-mode-front-matter-register-rendering-mode) | The deck's rendering hand — clean, sketch, sketch-clean | `boardroom` |
+| [`finish:`](#the-finish-front-matter-register-backdrop) | The palette-blind backdrop layer painted behind content | `none` |
+| [`backdrop:`](#restraining-a-finish--backdrop) | Dims or masks whatever finish is applied, deck-wide or per slide | *(none)* |
+| [`split:`](#the-split-front-matter-divider) | How the deck is divided into slides | `headings` (and `---`) |
+| [`stamp:` / `tone:`](#the-stamp--tone-front-matter-registers-marker-shape) | The marker shape and its tone | *(none)* |
+| [`spectrum:` / `spectrum-edge:`](#the-spectrum--spectrum-edge-registers-the-spectrum-accent-finish) | The spectrum accent finish and which edge carries it | *(none)* |
+| [`rule:`](#the-rule-front-matter-register-heading-underline) | The heading underline | *(none)* |
+| [`eyebrow:`](#the-eyebrow-front-matter-register-kicker-decoration) | The kicker decoration | *(none)* |
+| [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
+| [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
+| [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
+| [`marks:`](#the-marks-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `pigment muted` |
+| [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
+| [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
+| [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
+| [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
+| [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
+| [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
+| [`plugins:`](#the-plugins-front-matter-import-list) | Plugins this deck needs loaded — an import list that only adds | *(the default set: every shipped plugin)* |
+
+## The `plugins:` front-matter import list
+
+`plugins:` names the plugins a deck needs loaded — like an import statement. Every shipped plugin
+(`math`, `function-plot`, `mermaid`, `anima`) is on by default, so listing one changes nothing on
+this engine; the list makes the deck say what it depends on, and it is what loads a plugin that is
+not in a host's default set.
+
+```yaml
+---
+plugins: [math, mermaid]
+---
+```
+
+`plugins: math, mermaid` and a YAML block sequence (`plugins:` then `- math` lines) read the same.
+The list **only adds**: there is no `-name` removal syntax, and no deck can switch off a plugin.
+A slide class that requires a plugin (`math`, `diagram`, `scene`) loads it without being listed.
+A name no plugin has is ignored and flagged by `lint:deck` as `unknown-plugin`. The Studio's deck
+settings have a **Plugins** tab that shows what is on for this deck and why, and writes this key.
+Not a per-slide register — it has no `_class:` form. Contract:
+`engineering/decisions/2026-09-27-plugin-system.md` §9 decision 9.
+
+## The `preset:` front-matter register (a named look)
+
+`preset:` is **one word that sets up to twelve registers**, and may recommend five more (below): the backdrop (`finish:`), headline
+alignment, the brand bar and its placement, the card rail and its placement, structural trim,
+the heading rule, the eyebrow, card lift, corners and the type set (`typography:`). Each of those still works on its own —
+**an explicit key always wins over the preset** — so a preset is a starting point and the keys
+are its overrides.
+
+| `preset:` value | Sets | Look |
+|---|---|---|
+| `classic` | *(nothing — every register at its default)* | The house default, named. **The default** (omit the key). |
+| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
+| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
+| `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
+
+Each preset differs on **every** slide, the title slide included. That is why alignment and
+the backdrop are in the family: a title slide shows no bar and no heading rule, so a preset
+built from those alone left four identical title slides.
+
+```yaml
+---
+theme: indaco
+preset: editorial
+rule: none          # everything from Editorial except the heading rule
+---
+```
+
+A preset resolves in the front-matter reader every render path shares (`frontMatterValue` in
+`lib/core/front-matter-key.js`): when a key in the family is absent — or written empty — the
+reader answers with the preset's value, and `preset:` itself is read top-level only. So
+`preset: editorial` renders exactly as if the deck had written its seven keys, per-slide
+`_class:` overrides work unchanged (`no-finish` keeps a slide clean), and the CLI, the export
+and the Studio agree by construction.
+
+**A preset may also recommend** `theme:` (the palette), `color-mode:`, `mode:` (the rendering
+hand), `marks:` and `backdrop:`. None of the four shipped presets does yet; the presets that
+use them arrive with the deck-preset work
+(`engineering/decisions/2026-11-20-deck-preset-study.md`). A recommendation is weaker than
+anything the author writes: the deck's own key wins, a deck-wide `class: dark`, `light` or
+`print` or a `-dark` theme keeps its color mode, and the Studio never removes your `theme:` or
+`color-mode:` when you pick a preset or press Reset. In the Studio and the Playground, **Auto**
+follows the preset's recommendation and says so (`Auto — Cuoio (preset)`); pick another value to
+override it. Export to Marp writes a recommended
+palette into the bundle as its `theme:` line, because Marp picks the theme.
+
+**A preset may carry internal tokens.** A preset can set design tokens no author key exposes
+(a rule weight, a rail weight) through a `tokens` map in its table entry. A deck on such a
+preset gets a `preset-<name>` class on every slide, and the build generates the matching
+`section.preset-<name>` rule. A preset with no tokens adds no class and no CSS, which is true
+of all four today. The class is the engine's to stamp; don't write it in `_class:`.
+
+A preset leaves alone `claim:`, `cards:`, `stamp:` / `tone:` and every content key. An unknown
+name is flagged by the linter (`unknown-preset`) and resolves to no preset. The Studio previews
+the four live on one sample slide, in the deck's theme and color mode, at the top of the deck
+panel, with a count of the keys that differ from the chosen preset and a Reset. See
+`engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md`.
+
+## The `mode:` front-matter register (rendering mode)
+
+`mode:` is the **deck-wide rendering-mode selector** — a Lattice front-matter
+extension (Marpit has no native key) that names the whole-deck hand in one
+readable token, orthogonal to `theme:` (palette) and `finish:` (backdrop). It
+resolves to the same CSS classes you'd otherwise hand-spell on `class:`, and
+**composes** with any per-slide `_class:` (the same append-not-replace semantic
+as the deck-wide `class:` directive), so `mode: sketch` + `<!-- _class:
+cards-grid -->` renders `class="cards-grid sketch"`. A per-slide `<!-- _class:
+boardroom -->` opts one slide back to clean. Use `mode:` rather than `class:
+sketch` when the intent is "this whole deck is sketch" — it reads as a register,
+and a typo is caught by the deck linter (`unknown-mode`).
+
+| `mode:` value | Resolves to | Effect |
+|---|---|---|
+| `boardroom` | *(no class)* | The baseline — clean type, square boxes. The default when `mode:` is omitted. |
+| `sketch` | `sketch` | Full handwriting (headings **and** body) + drawn boxes. |
+| `sketch-clean` | `sketch sketch-clean-body` | Keep hand headings + boxes; return prose to the clean `--font-body` for text-dense slides. |
+
+## The `fit:` front-matter register (what the engine may do to make a slide fit)
+
+`fit:` is **one deck-wide setting for every move the engine makes to fit a slide**. It
+replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.md`).
+
+| `fit:` value | Resolves to | Effect |
+|---|---|---|
+| `report` | `fit-report` | The engine changes nothing and only flags. No SPLIT, no TRIM: a slide that does not fit clips; the export's `⚠ OVERFLOW` line and "Content clipped" tag say so, and the live preview rings it. The switch for "this is misbehaving", and for an exact reproduction. |
+| `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes. |
+| `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
+
+**The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
+`trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`
+wins. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.
+
+**Per slide:** `<!-- _class: fit-report -->`, `fit-heal` or `fit-trim` (and the old
+`guards-strict` / `guards-loose`). The per-slide token **evicts** the deck token rather
+than stacking on it, so a slide's own choice always wins.
+
+**Two invariants, not settings.** No level changes the type size, and no level changes
+what is REPORTED — `report` changes what the engine does, never what it tells you.
+
+**A scaled deck renders at exactly the size it asks for.** `venue:` and `scale-l/xl/2xl`
+are fixed settings, like desktop zoom: every slide renders at that size whatever its
+content, and none is shrunk to fit. A slide too full for the size clips, and `lint:deck`,
+the Studio's ring and the export's `⚠ OVERFLOW` line name it. The automatic step-down
+(STEP and LEVEL, #2378/#2390) was retired on 2026-09-27; see
+`engineering/decisions/2026-09-25-font-scale-fit.md`, Amendment 2026-09-27 (3).
+
+### What `trim` does, and why it does far less than the name suggests
+
+**TRIM does far less than the name suggests, on purpose.** Three limits, each
+measured rather than assumed:
+
+- **It only cuts prose.** A slot's trim class is a property of what the text
+  MEANS, not of the component. Body copy, list items, captions and notes may be
+  trimmed; headings, KPI values, code, math, citations, legal text and footers may
+  not, and **anything unclassified defaults to never**. An ellipsis on a sentence
+  says "there is more"; on `$1,234,567` it states a different number.
+- **It declines rather than cut invisibly.** If the ellipsis would land outside the
+  visible box, the guard does nothing and leaves the honest clip. A slide that
+  looks finished and is missing two paragraphs is worse than one that visibly
+  clips.
+- **It is all-or-nothing.** A plan that cannot make the slide fit is discarded
+  whole, so `strict` never destroys content AND leaves the slide overflowing.
+  "Fit" is judged twice: each block counts its own padding and borders (planning
+  against the text alone shipped a card sheared by 8px with the overflow warning
+  switched off, because 8px is inside the warning's own slack), and the result is
+  then re-checked with the same overflow probe that prints the warning. If the
+  slide would still clip, every clamp comes off and the render is byte-identical
+  to `fit: heal`.
+
+Measured on the shipped corpus, `strict` resolves **one of the six** slides that
+clip today. The rest are blocked by a heading, a callout's own chrome, or a shell
+command — which is the honest shape of the feature: the blocks that most often
+cause overflow are largely the ones it refuses to touch. See
+`engineering/decisions/2026-09-07-overflow-guards-trim.md`.
+
+**The overflow signals stay on.** `strict` does not silence the ring, the "Content
+clipped" tag or the type-floor warning, and a trim records itself
+(`data-lattice-trim`) because the existing content-clipped probe can see a clamp
+but not a removal. A typo (`guards: strictt`) resolves to the baseline and is
+caught by `npm run lint:deck` as a `guards-renamed` warning (`unknown-fit` for the new
+key), including one carrying a trailing `#` comment.
+
+**The Read view is not trimmed.** A `--player` export's Read/Article column scrolls
+and has no fit problem, so the clamp is lifted there and the reader gets the whole
+paragraph, list markers intact. Trimming is a device for a slide's FIXED cell, and
+nothing else.
+
+**A plain `.html` is not trimmed either, and the reason is the same one.** `strict`
+reaches every artifact built from the rendered page — the PDF, the PNGs, the PPTX,
+a `--player` bundle — and the `.html` is the one file the exporter writes from a
+string BEFORE the page loads, so no clamp can reach it. Exporting `-o deck.html`
+therefore skips the guard outright and says so, rather than cutting a live DOM no
+file is made from; exporting a PDF keeps the trim and warns that the `.html` sidecar
+beside it still clips. `--fluid` closes the gap properly: that viewer inlines the
+runtime, which re-measures at the reader's own window size — the right answer for a
+document with no fixed page, where a line count baked at 1280x720 would be wrong the
+moment someone resized it.
+
+**Inline code, a citation or math makes a paragraph untrimmable.** The argument
+against an ellipsis on a line of code is an argument about the TAIL that gets cut,
+so a `<p>` ending in `--with-a-long-flag` is the same case wearing a prose tag.
+This is deliberately over-broad: a paragraph with one inline `code` span early on
+becomes untrimmable and the slide rings instead, which is the direction the
+asymmetry above already commits us to.
+
+## The `finish:` front-matter register (backdrop)
+
+`finish:` is the sibling **backdrop selector** — the palette-blind gradient layer
+stack painted *behind* content. It composes with `mode:` and `theme:`
+(`mode: sketch` + `finish: atrium` = a hand-drawn deck on an atrium backdrop).
+`none` is the baseline (omitting the key renders it); a typo is caught as
+`unknown-finish`.
+
+| `finish:` value | Resolves to | Effect |
+|---|---|---|
+| `none` | *(no class)* | No backdrop — the baseline. The default when `finish:` is omitted. |
+| `atrium` | `finish finish-atrium` | Corner glow + a fine grid + a left margin rule. |
+| `meridian` | `finish finish-meridian` | Diagonal duotone wash + contour lines + an (author-set) oversized ghost numeral. |
+| `strata` | `finish finish-strata` | Soft horizontal bands + a dot-matrix + a top hairline & corner tick. |
+| `halo` | `finish finish-halo` | Centered spotlight + concentric rings + a vignette (a section/closing treatment). |
+| `ledger` | `finish finish-ledger` | Fine horizontal ruled lines + a bold left margin bar + a top-right corner fold. |
+| `nimbus` | `finish finish-nimbus` | A gradient **mesh** of soft accent blooms (a new wash type) + a seating vignette — pure premium atmosphere; the wash intensity tunes the bloom strength. |
+| `loom` | `finish finish-loom` | A woven **lattice** cross-hatch (a new texture type — two ±45° weaves; on-brand) + a movable corner glow. Tune the weave scale, move the glow. |
+| `savile` | `finish finish-savile` | A tailored vertical **pinstripe** (a new texture type; tune the pitch via scale) + a movable, author-set monogram mark. Editorial. |
+| `gallery` | `finish finish-gallery` | A museum inset keyline **frame** (a new edge type — four crisp accent strips, no soft shadow) + a spotlight + a movable, author-set numeral. |
+
+The nine `finish-*` presets are the **`field` zone** of the Finish family — a
+z-index STACK of palette-blind, export-safe gradient layers painted behind
+content (`lib/base/base.finish.css`). The base `finish` class carries the layer
+compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`); each preset
+sets those per-role props, so a future right-panel designer can drive any single
+layer. Take one slide out of a deck-wide finish with `<!-- _class: no-finish -->`
+(the back-compat `no-backdrop` is an alias); a per-slide `finish-<name>`
+**overrides** the deck finish rather than stacking on it.
+
+**A split run keeps the finish on every page.** When a slide splits (a cover, then
+one member per page — or a carousel's re-authored pages), the splitter replaces the
+page's layout class. The canvas axis and the deck's **surface registers** survive that
+swap as classes: `finish`/`finish-*`/`no-finish`, `mode:`, `stamp:`/`tone:`, every
+`spectrum*` register, `corners:`, `guards:`, `rule:`, `eyebrow:`, `inline-code:`,
+`headline:`, `lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
+layout composes and the cover is a different layout: `claim:` and `cards:`. They reach
+the page as `data-split-mods` like any other authored modifier. The list lives in
+`lib/core/surface-registers.js`, built from each register's own token list. The split
+re-injects the `.backdrop` wrapper on the pages it builds, so a cover really paints its
+finish (#2305).
+
+**On an accent-field cover the finish draws in the cover's own ink.** Every preset
+draws in `var(--field-accent)`, which defaults to `var(--accent)`. The six split covers
+paint `var(--accent)` as their field, so the accent would vanish there. Those covers
+set `--field-accent: var(--on-accent)`, and a `cat-N` tinted cover sets
+`var(--cat-on-fill)`. A saved Studio finish reads the same slot, with `var(--accent)`
+as its fallback. `test/integration/invariants/finish-ink-matrix.test.js` holds every
+cover shape × mode × theme at 3:1 or better. Add `no-finish` to the authored slide to
+keep its whole run clean.
+
+**Glyph-marks (the ghost monogram / numeral) are author-personalized and never
+appear by default.** A finish's `mark` layer carries the layer *type* (so the
+preset and the Studio designer still offer a monogram/numeral), but its rendered
+text (`--fin-mark-text`) is **empty** out of the box — a deck-wide `finish:`
+register paints **no glyph at all**, on any slide. (This is deliberate: a baked
+placeholder like a literal "03" or "L" would otherwise paint the same wrong mark
+on every slide of a deck.) To show a mark, the author sets the glyph themselves —
+in the Studio designer's *Initials*/*Number* field, or in deck source by setting
+the CSS slot on the slide's finish class, e.g. a per-deck/per-slide
+`<style>section.finish-meridian { --fin-mark-text: "Q3"; }</style>`. The other
+mark types (margin bar, registration tick) are pure geometry and render as part
+of their preset; only the *glyph* marks wait for an author value. See the
+`examples/finish-backdrops.md` demo (its meridian/savile/gallery slides opt in
+with explicit glyphs to showcase the movable mark).
+
+Every full-bleed gradient fades **opaque-to-opaque** (`color-mix(var(--accent)
+N%, var(--fin-canvas))` → `var(--fin-canvas)`), never to `transparent`. This is load-bearing for
+export: Chromium's print-to-PDF encodes an alpha area-fade so PDF rasterizers
+interpolate toward transparent-black → a gray cloud (the browser hides it, the
+PDF does not). Patterns are therefore uniform and faint (thin opaque lines with
+`transparent` gaps), not directionally faded.
+
+### Restraining a finish — `backdrop:`
+
+A finish can overpower the words on a slide. `backdrop:` pulls **any** finish back, built-in
+or fabricated, without changing the finish itself. It takes up to two words, one per axis:
+
+| Axis | Deck value | Per-slide class | Effect |
+|---|---|---|---|
+| Strength | `20` `40` `60` `80` | `backdrop-20` … `backdrop-80` | The whole finish at that opacity |
+| Strength | `full` | `backdrop-full` | Full strength, discarding a finish's own baked dim |
+| Mask | `clear` | `backdrop-clear` | The frame's content box (eyebrow, heading and body) is clean canvas; the finish reads only in the margin, fading in softly on screen and in the PDF, HTML and image exports alike. On a `split-panel` or `split-compare` slide it clears behind the content of the side with the cards |
+| Mask | `spot-tl` `spot-t` `spot-tr` `spot-l` `spot-c` `spot-r` `spot-bl` `spot-b` `spot-br` | `backdrop-spot-<pos>` | The finish shows in one window at that anchor, and nowhere else |
+| Mask | `open` | `backdrop-open` | No mask, discarding a finish's own baked clearance or spotlight |
+| Mask | `clear-footer` | `backdrop-clear-footer` | A keep-out for a pattern finish (a grid, dots, ruled lines). The finish keeps running behind the content and steps aside only for the footer band: the footer text, the section rail and the page number sit on clean canvas, and the pattern fades back in above them. The band clears whether or not a slide draws its footer, so the pattern's lower edge holds still |
+| Mask | `clear-hero` | `backdrop-clear-hero` | `clear-footer`, and on a `big-number` slide the content box as well, so the pattern never runs under the hero number. Elsewhere it is `clear-footer`, so one deck line serves a whole patterned deck |
+
+```markdown
+---
+finish: atrium
+backdrop: 40 clear
+---
+
+<!-- _class: backdrop-full -->
+```
+
+The deck line stamps `backdrop-40 backdrop-clear` on every slide. The slide above keeps the
+deck's `clear` and replaces only its strength. A slide's token on one axis evicts the deck's
+token on that axis and leaves the other alone.
+
+**Most specific wins:** a slide class, then the deck's `backdrop:`, then the value a
+fabricated finish baked in Fabricate (and `finish-override:` still tunes that baked value).
+`backdrop:` is inert on a slide without a finish; `no-finish` is still how a slide drops the
+finish entirely. The values are fixed steps and anchors on purpose: a class cannot carry a
+free number without an inline style. Bake an exact value into a finish in Fabricate instead.
+An unknown word, or a second word on one axis, is flagged as `unknown-backdrop`. The old
+multi-line `backdrop:` map form is retired and earns `retired-backdrop-key`. Kernel:
+`lib/core/resolve-backdrop.js`; CSS: `lib/base/base.finish.css` § BACKDROP REGISTER; record:
+`engineering/decisions/2026-09-26-backdrop-register.md`.
+
+Both registers are **open** (`lib/core/resolve-finish.js` for backdrops,
+`lib/core/resolve-mode.js` for the mode) and read by all three render paths.
+An unrecognized value (e.g. `finish: atriumm` or `mode: sketchh`) resolves to no
+classes — so it would silently ship the baseline — which is why `npm run
+lint:deck` flags it (`unknown-finish` / `unknown-mode`).
+
+**Reserved finish classes — do not author by hand.** `lattice-exporting` is an
+**engine-reserved class**: the Studio raster export (`studio/export/deck-export.js`)
+stamps it on every section right before `html-to-image` capture, which flips the
+finish compositor to its opaque export face (`base.finish.css`, the OPAQUE FLIP).
+Never put `lattice-exporting` in deck source — a slide carrying it would render
+its *export* (flatter) finish on screen. The Studio's Finish faculty has an
+**Export-preview** toggle that adds it to the live specimen on purpose, so a
+designer can see the baked look; that is the only legitimate authoring use, and
+it is transient (UI state, never written to the deck). The other reserved finish
+words are the five preset slugs (`atrium`/`meridian`/`strata`/`halo`/`ledger`),
+`no-finish`/`no-backdrop` (the per-slide opt-out), and `finish-preview` (the
+faculty specimen) — a *saved* custom finish whose name collides with any of these
+is namespaced (`atrium` → `atrium-custom`) so it can never shadow a built-in.
+
+## The `split:` front-matter divider
+
+`split:` is the **deck-wide slide divider selector** — another Lattice
+front-matter extension (`lib/core/resolve-split.js`), binary by design:
+
+| `split:` value | Slides divide on | Notes |
+|---|---|---|
+| `headings` | the first `#` (lead) + every `##`, **and** `---` | The **default** (omit the key). Eyebrow-aware + hybrid (below). |
+| `rule` | a top-level `---` only | Opt back into the Marp-classic separators-only behavior. |
+
+The default `headings` divider is **eyebrow-aware**: a slide's lead-in — its
+`<!-- _key -->` directive comments and its eyebrow paragraph, both written
+*above* the heading — is pulled onto the heading's slide, never orphaned onto
+the one before. It is **hybrid**: a literal `---` still forces a break (use it
+for a heading-less image slide, or two slides under one idea). It is
+implemented as one shared `hr`-injection ruler
+(`headingSplit` in `lib/integrations/markdown-it/plugins.js`, run `.before('lattice_slide')`)
+so the owned engine (emulator + playground) and the Export-to-Marp baker produce identical boundaries —
+and it is **slide-count-identical to `rule` on every classic `---`-separated
+deck** (pinned by `test/unit/parsing/heading-split.test.js`), which is why the
+default flip leaves existing decks unchanged. An unrecognized value resolves to
+the default; `npm run lint:deck` flags it as an `unknown-split` warning.
+
+**On vanilla Marp (incl. the marp-vscode live preview).** Lattice is the source
+of truth: the Drawing Board preview and the PDF export both run our engine, so
+the divider is always correct there. Stock Marp doesn't run our splitter, so a
+deck opened directly in the marp-vscode preview divides only on `---`. That's
+expected — Marp is an *export target*, served by a self-contained bundle
+(`npm run export:marp`) that bakes the splits into literal `---` (and packs the
+themes, assets, a renderer + a marp-cli config, and a README), not a live render
+path we keep in lockstep. See `engineering/decisions/2026-06-13-export-to-marp.md`.
+
+## The `stamp:` / `tone:` front-matter registers (marker shape)
+
+`stamp:` and `tone:` are the **deck-wide marker-SHAPE selectors** — siblings of
+`finish:` / `mode:` that pick the *shape* the status markers render in, once, for
+the whole deck. They are **orthogonal to which marker shows**: a state marker
+(`confidential` / `wip` / `draft` / …) sets its own *label + color*; a tone marker
+(`tone-pass` / `tone-warn` / …) sets its own *color*; these registers only choose
+the shape both render in, so a deck reads as one family. They **compose** with any
+per-slide `_class:`, and a slide carrying its OWN `stamp-<name>` / `tone-<style>`
+token **overrides** the deck default (append-not-replace, like every register). A
+typo is caught by the deck linter (`unknown-stamp` / `unknown-tone`). The vocab is
+open (`lib/core/resolve-stamp.js`, `lib/core/resolve-tone-style.js`), read by all
+three render paths, and surfaced in the Studio "This slide" drawer (the boardroom
+subset first, then the wider range).
+
+`stamp:` — the **state-marker shape** (the `::before` corner mark). The default
+(omit the key) is the uniform `tab`. The curated boardroom subset:
+
+| `stamp:` value | Shape |
+|---|---|
+| `tab` | A rounded corner tab. **The default.** |
+| `notch` | A folded corner notch. |
+| `bracket` | The label in `[ … ]` brackets, no fill. |
+| `seal` | A pill-shaped seal. |
+| `pill` | A soft-tinted pill. |
+
+The wider range (also valid, surfaced under "More"): `ribbon`, `flag`,
+`underline`, `dot`, `mark`, `veil`, `bar`, `pin`.
+
+`tone:` — the **tone-marker shape** (how a `tone-*` color paints). The default (omit
+the key) is the left `rail`. `rail` and `glow` are box-shadow-shaped, so they never
+collide with the state `::before` or the pagination `::after`. `edge` **recolors the
+spectrum brand bar** itself (the top border) with the tone color — the same move the
+`accent` modifier makes — instead of a competing top band that would fight it:
+
+| `tone:` value | Shape |
+|---|---|
+| `rail` | A left edge rail. **The default.** |
+| `edge` | Recolors the top spectrum bar with the tone color (needs a semantic tone; a no-op where the spectrum is absent, e.g. a dark/divider slide). |
+| `glow` | A full inset ring. |
+
+Every marker uses the SAME shape by default (a coherent family, not a per-marker
+signature); pick a different shape deck-wide with the register, or per-slide with
+the token. `stamp: seal` + `<!-- _class: confidential stamp-notch -->` renders that
+one slide's "Confidential" marker as a notch while the rest of the deck seals.
+
+## The `spectrum:` / `spectrum-edge:` registers (the spectrum accent finish)
+
+The SPECTRUM is the accent gradient. **By default it paints the brand BAR only** — the section
+edge, the `section.dark` top line, and the divider left rail. The in-content structural accents
+(table-header rails, the `list-steps` timeline spine, code-panel strips, an author's `---` rule,
+split-card underlines) render a **quiet accent-tinted hairline** by default, so a no-config deck stays
+elegant and low-noise. `spectrum-trim: on` flows the spectrum onto that structure too. The keys
+are siblings of the registers above (`lib/core/resolve-spectrum.js`), propagated to every section
+and overridable per slide; a typo is caught as `unknown-spectrum` / `unknown-spectrum-edge` /
+`unknown-spectrum-trim`.
+
+**`spectrum:` — the STYLE (the gradient identity).** Sets `--spectrum-style` at the section
+level, and the bar reads `--spectrum-bar` (the STYLE when one is set, else the theme's ribbon). It
+always drives the brand bar; with `spectrum-trim: on` it drives the structural accents too.
+`--spectrum` itself stays the theme's own ribbon on every element, which is what lets
+`spectrum-card: rainbow` pin that ribbon on a `solid` deck in every host. Custom CSS that wants
+the slide's bar should read `var(--spectrum-bar)`; `var(--spectrum)` is the theme's. White-label lives here: pick a client's single color with `solid` and set the
+theme's `--accent` to their brand.
+
+| `spectrum:` value | Token | Effect |
+|---|---|---|
+| `on` | *(none)*; per slide `with-spectrum` | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
+| `solid` | `spectrum-solid` | A single **`--accent`** — everywhere. |
+| `duo` | `spectrum-duo` | Two-tone: accent → the theme's duotone partner (`--tag-bg`). |
+| `mono` | `spectrum-mono` | A quiet single-hue tint ramp (accent → canvas). |
+| `off` | `no-spectrum` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it no longer takes a frame's CANVAS with the bar. It used to: the rule cleared the bar with the `background:` shorthand, which restated the color at a specificity a frame's own canvas could not beat, so a dark `title`, `closing`, `topic` or accent cover flattened to the deck ground (#2291). It clears `background-image` now. |
+
+**Back to the default on one slide — the restore tokens.** A deck value writes no token when it
+is the default, so the default needs a token of its own for one slide to ask for it inside a deck
+that set something else. Each of these registers has one, named for its default value:
+`with-spectrum`, `spectrum-edge-top`, `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain` and
+`head-auto`. A restore token draws nothing; the engine drops the deck's token on its axis for
+that slide (as any per-slide token does), and the slide renders as the default. So in a
+`spectrum-edge: left` deck, `_class: spectrum-edge-top` puts one slide's bar back on top. It is
+the move `claim-framed` already makes for `claim:`. Write one token per axis: beside a rival
+from its own axis (`with-spectrum spectrum-solid`) a restore token always loses, so `lint:deck`
+warns `conflicting-variants`.
+
+**`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
+ONLY the bar, via a per-side `border-image`; it never touches the structural accents, so a
+bar-off deck keeps its table rails and `---` rules.
+
+| `spectrum-edge:` value | Token | Effect |
+|---|---|---|
+| `top` | *(none)*; per slide `spectrum-edge-top` | The top border. **The default** (omit the key). |
+| `left` | `spectrum-edge-left` | A left rail (the divider look, generalized). |
+| `right` | `spectrum-edge-right` | A right rail. |
+| `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
+| `off` | `no-spectrum-edge` | No section-edge bar (structural accents survive). |
+
+**Placement never moves the slide's content or chrome.** The bar takes its room out of the slide's
+margin, not out of the content: the content box, the header, the footer, the page number, the state
+stamps, the `mark-*` decorations, a centered logo, a background photo and the overflow marker sit in
+the same place under every `spectrum-edge:` value, light and dark. The same goes for adding or removing
+the bar with `accent`, `tone-edge` or the `spectrum:` register. `npm run check:edge-shift` measures it
+across every component, its variants and the layout modifiers, and `--bars` lists any component that
+draws no bar under a placement.
+
+**Full-bleed layouts draw the bar as an overlay.** `image`, `scene`, `split-panel`, `split-compare`, a
+`claim-bleed` media slide and `collage bleed` claim the whole slide and have no margin to give a border,
+so their bar is a strip laid over the slide on the `--z-spectrum` plane (`<i class="slide-bar">`, lib/core/slide-bar.js).
+It takes no room, so the photo or panel keeps its true edge, and it paints above the art. A bleed frame
+shows no top bar by default, as before; a placement, a `spectrum:` style, `accent` or `tone-edge` with a tone class asks for
+one. The split frames keep their own ribbon at the top.
+
+The bar is the top layer. Its overlay strips sit on the `--z-spectrum` plane (110), above the stamps (100),
+the alarm tabs (90) and every decorative mark, so nothing on the slide paints over it, and everything else is
+positioned clear of it: the draft/confidential/wip tab hangs one bar width in from the right edge in every
+placement, the overflow tab sits one bar width above the bottom edge, and a full-width band or full-slide wash
+runs under the bar. A dark slide places its content where a light slide does.
+
+Limits that stay. The `finish:` backdrop ends where a border bar begins, because a backdrop reaching under
+the bar would paint over it. The export-to-Marp bundle ships the runtime, which injects the strips in the browser, so a
+full-bleed slide has its bar there too. And a browser that scales the slide with CSS `zoom` (the print sheet)
+can shift content by half a pixel on a canvas whose bar is not a whole number of device pixels.
+
+**`spectrum-card:` — an INDEPENDENT spectrum rail on CARD surfaces (opt-in).** Off by default.
+Paints a rail on every card (the `cards-grid` / `cards-stack` `.card`, and the `stats` /
+`pricing` / `verdict-grid` tiles). Unlike the section bar, the card rail tunes on its OWN two
+axes — a STYLE and a PLACEMENT — because every spectrum variant is on-brand: `auto` follows the
+deck bar, or PIN `solid` / `duo` / `mono` / `rainbow` regardless of what the bar shows. Per-slide:
+`_class: spectrum-card-duo` pins one slide, `_class: no-spectrum-card` opts one out. A typo is
+caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
+
+| `spectrum-card:` value | Token | Effect |
+|---|---|---|
+| `off` | *(none)* | No card rail. **The default** (omit the key). |
+| `auto` | `with-spectrum-card` | A rail that follows the deck's spectrum STYLE. |
+| `solid` | `spectrum-card-solid` | Pin the rail to the theme's distinctive solid accent. |
+| `duo` | `spectrum-card-duo` | Pin the rail to the accent → endpoint two-tone. |
+| `mono` | `spectrum-card-mono` | Pin the rail to a quiet accent tint ramp. |
+| `rainbow` | `spectrum-card-rainbow` | Pin the rail to the full theme ribbon. |
+
+**`spectrum-card-edge:` — WHERE the card rail sits.** `left` (default) / `top` / `right` /
+`bottom`. Independent of the STYLE axis; overridable per slide (`_class: spectrum-card-edge-top`).
+
+| `spectrum-card-edge:` value | Token | Effect |
+|---|---|---|
+| `left` | *(none)*; per slide `spectrum-card-edge-left` | A rail on the card's left edge. **The default** (omit the key). |
+| `top` | `spectrum-card-edge-top` | A rail across the card's top edge. |
+| `right` | `spectrum-card-edge-right` | A rail on the card's right edge. |
+| `bottom` | `spectrum-card-edge-bottom` | A rail across the card's bottom edge. |
+
+Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
+it on where it earns its place.
+
+The rail's **thickness** is the `--rail-w` token (unset: `0.35cqi` of the slide), which a preset
+sets; no register exposes it. See "Preset hooks" in [`base.docs.md`](./universal.md).
+
+**`spectrum-trim:` — how much the STRUCTURAL accents carry the spectrum.** Three tiers of
+increasing presence on the in-content accents (table-header rails, the `list-steps` timeline
+spine, code-panel strips, the `hr` rule, split-card underlines). Off by default — those accents
+stay a quiet accent-tinted hairline, so the spectrum stays on the brand bar alone (elegant,
+low-noise). Per-slide `_class: with-spectrum-trim` / `spectrum-trim-restrained` opts one slide in at a
+tier, `no-spectrum-trim` out.
+
+| `spectrum-trim:` value | Token | Effect |
+|---|---|---|
+| `off` | *(none)* | A quiet accent-tint hairline (`--spectrum-quiet`). **The default** (omit the key). |
+| `restrained` | `spectrum-trim-restrained` | A single-hue accent ramp (`--sp-fill-mono-h`) — present but quiet, held constant regardless of the bar (a two-tier look that never clashes). |
+| `on` | `with-spectrum-trim` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` STYLE). |
+
+The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left; add
+`spectrum-trim: on` to flow that duo onto the table rails and rules too, and `spectrum-card: auto`
+to extend it into a rail on each card — or `spectrum-card: rainbow` to override the cards to the
+full ribbon while the bar stays duo. `spectrum:` also composes with `accent` /
+`tone: edge` (per-slide bar recolors), which win over the deck register where they apply. On
+a dark bookend a dark client accent reads faint — pick a theme accent that reads on dark, or
+`spectrum: off` there. *(History: `spectrum:` started as a narrow bar-only white-label toggle,
+then `solid`/`duo`/`mono` were consolidated to drive every accent
+(`2026-07-15-accent-finish-consolidation.md`); the default was then pulled back to the brand bar
+alone, with `spectrum-trim:` as the structure opt-in
+(`2026-07-16-spectrum-structure-default.md`).)*
+
+## The `rule:` front-matter register (heading underline)
+
+`rule:` is the **heading-underline** accent finish — the line beneath a slide's heading (the
+`form` masthead hairline; the split-panel kicker rule). Sibling register
+(`lib/core/resolve-rule.js`), propagated to every section, overridable per slide; a typo is
+caught as `unknown-rule`. Palette-blind; defaults to today's render.
+
+| `rule:` value | Token | Effect |
+|---|---|---|
+| `auto` | *(none)*; per slide `rule-auto` | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
+| `full` | `rule-full` | An explicit full-width hairline. |
+| `short` | `rule-short` | A short rule under the heading. |
+| `accent` | `rule-accent` | A short rule painted in `--accent` — a signature without shouting. |
+| `none` | `no-heading-rule` | No heading underline. |
+
+`rule:` sets the heading rule's **style**; **its alignment follows the `headline:` register in
+effect.** The two are orthogonal: a `short`/`accent` rule sits under the heading wherever the
+headline aligns (left / center) — pick the *look* with `rule:`, the *side* with `headline:`.
+(`full` is a full-width divider, so alignment is moot; `none` has nothing to align.) The
+`short`/`accent` rule is a **real `<hr class="masthead-rule">` element** — the last child of the
+masthead-lede flex column — so it aligns with the eyebrow + heading via the cluster's one
+`align-items`, tracking the heading with or without a masthead bay. (It used to be an absolutely
+positioned pseudo that had to be hand-placed; the element makes alignment a plain flex property.)
+
+`rule:` governs the `form` masthead hairline — the canonical heading underline. The
+split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
+masthead-scoped. On a slide with no heading underline, `rule:` is a graceful no-op.
+
+`rule:` picks the rule's *shape*; its **weight, line style and ink** are three tokens —
+`--rule-w`, `--rule-style`, `--rule-mark` — that a preset sets and no register exposes. Unset,
+they are today's `1px solid var(--border)`. See "Preset hooks" in
+[`base.docs.md`](./universal.md).
+
+## The `inline-code:` front-matter register (pills and marks)
+
+`inline-code:` decides whether the **inline directive grammar** runs — `` `{LABEL}` `` pills
+and `` `[x]` `` `` `[-]` `` `` `[ ]` `` `` `[/]` `` state marks. Sibling register
+(`lib/core/resolve-inline-code.js`), read by both render paths; a typo is caught as
+`unknown-inline-code`. Deck-wide.
+
+| `inline-code:` value | Token | Effect |
+|---|---|---|
+| `rich` | *(none)* | The grammar runs — pills and marks are drawn. **The default** (omit the key). |
+| `literal` | `inline-code-literal` | **Every** single-backtick span stays a `<code>`, exactly as typed. |
+
+**Reach for `literal` when you did not write the deck.** The grammar reads every
+single-backtick span in every deck, so a deck authored elsewhere whose prose happens to say
+`` `[x]` `` or `` `{LABEL}` `` renders a disc or a pill where it rendered text. One line
+turns the whole thing off; the per-occurrence escape (`` `\[x]` ``) is the right tool for
+one span and the wrong one for ninety.
+
+**A literal deck keeps a backslash you typed.** With no grammar running there is nothing to
+escape from, so `` `\[x]` `` renders as `\[x]` rather than being quietly rewritten — the
+register never edits your text.
+
+**Turning it off in a MARP-KIT deck** — any deck marp-core renders, with the kit's
+`lattice-runtime-min.js` drawing the pills — uses Marp's own global `class:` directive.
+**This is the route for `marp --pdf` and `marp --html` too, not only the VS Code preview.**
+On a marp-core render the register cannot reach the runtime at all: over `file://` — which
+is how marp-cli loads a deck, and how a recipient opens an exported `.html` — `fetch` is
+CORS-blocked outright (measured in `lib/core/deck-front-matter.js`), and over http(s) the
+answer arrives after the pills are drawn. The class is the one signal that always lands:
+
+```yaml
+---
+class: inline-code-literal
+---
+```
+
+Verified against real marp-cli: the token lands on every section. Two things to know if you
+go this route.
+
+**A slide that sets its own `_class:` loses the token** — Marpit's local directive
+*replaces* the global one rather than adding to it, so the grammar comes back on that
+slide. Measured through Marpit itself:
+
+| slide directive | resulting section class |
+|---|---|
+| *(none — global `class:` only)* | `inline-code-literal` |
+| `_class: big-number` | `big-number` — **the token is gone** |
+| `_class: big-number inline-code-literal` | both — list it and it survives |
+
+So on the raw-Marp route, any slide with its own `_class:` must name
+`inline-code-literal` alongside its other tokens. A Lattice deck never hits this: the
+engine appends the register's token to the class list it builds, so a per-slide `_class:`
+composes with it instead of competing.
+
+**One known limit: a marp-core render with nothing baked into it.** The register needs the
+setting to be *knowable* where the decision is made. It is, on every shape a deck actually ships in:
+
+| shape | how the setting arrives |
+|---|---|
+| the engine, the CLI, the Studio | reads the deck source directly |
+| an **HTML export** | no block needed — the engine already applied the register, so nothing is left to decide |
+| an **Export-to-Marp bundle** | the front matter is baked into the `.md` and the runtime reads it synchronously |
+
+The gap is a deck rendered by **marp-core rather than by Lattice** — so the runtime is the
+only implementation — **and** carrying no baked front-matter block. That is a hand-authored
+marp-kit deck (`marp --pdf`, `marp --html`, the VS Code preview), and an export predating
+the bake. There the register cannot arrive: `fetch` is CORS-blocked on `file://`, and over
+http(s) it answers after the pills are drawn.
+
+**Use `class: inline-code-literal` for those**, per the section above — it needs no fetch
+because marp-core puts the token on every section itself. An export made by Lattice bakes
+its front matter and needs nothing. Making the runtime wait instead was tried and reverted: it cost every other deck
+a full extra transform pass (measured 1 to 3 on a 40-slide deck carrying no register at
+all) and needed a wall-clock guess that produced a wrong render at 3.2s, then at 10.2s once
+the guess was enlarged.
+
+**Per slide, on a Lattice deck**, use the token as an ordinary slide modifier —
+`<!-- _class: inline-code-literal -->` turns the grammar off for that slide and leaves the
+rest of the deck alone. It composes with a component class the usual way
+(`<!-- _class: list-tabular inline-code-literal -->`). For a single SPAN rather than a
+slide, escape it: `` `\{LABEL}` ``.
+
+Both render paths gate on the resolved section class rather than on the front matter, which
+is what makes the register, `class:`, and `_class:` one mechanism instead of three. The one
+exception is a timing detail, not a second mechanism: the engine builds `header:` /
+`footer:` chrome eleven ruler rules before the deck class is propagated, so it reads the
+section class first (that is how a per-slide `_class:` silences that slide's chrome) and
+re-derives the deck-level answer from the front matter when the class is not there yet.
+The runtime needs no exception — marp-core puts chrome inside the section, so it reads the
+same class from inside a header as from inside the body.
+
+## The `eyebrow:` front-matter register (kicker decoration)
+
+`eyebrow:` decorates the **eyebrow** kicker (the code-only line above a heading, set in the
+type set's eyebrow voice — see [`typography:`](#the-typography-front-matter-register-the-type-set) —
+see *Eyebrow labels* in [`base.docs.md`](./universal.md)). Sibling register (`lib/core/resolve-eyebrow.js`), propagated to
+every section, overridable per slide; a typo is caught as `unknown-eyebrow`. Palette-blind;
+defaults to the bare label. Leading marks space with `gap` (never `margin`), so they measure
+cleanly.
+
+| `eyebrow:` value | Token | Effect |
+|---|---|---|
+| `plain` | *(none)*; per slide `eyebrow-plain` | The bare label. **The default** (omit the key). |
+| `dot` | `eyebrow-dot` | A small filled `--accent` disc before the label. |
+| `bar` | `eyebrow-bar` | A short vertical `--accent` tick before the label. |
+| `arrow` | `eyebrow-arrow` | A leading chevron (`›`) in the accent color. |
+| `underline` | `eyebrow-underline` | A hairline rule beneath the label. |
+
+**What this decorates has to BE an eyebrow first, and a pill is not one.** The kicker is a
+POSITION — a paragraph whose only child is a `<code>` element — so `` `{DRAFT, c2}` `` or
+`` `[x]` `` on that line renders as a pill or a mark alone on a line, and no `eyebrow:`
+treatment reaches it. Escape it (`` `\{DRAFT}` ``) to keep the `<code>` and keep the
+kicker. Measured harmless across shipped decks (over a thousand spans across both positions, zero affected) and gated by
+`test/unit/css/eyebrow-position-shadow.test.js`; see *Eyebrow labels* in
+[`base.docs.md`](./universal.md).
+
+Pick **one** eyebrow treatment deck-wide so every kicker reads as one family — mixing marks
+per slide reads as a ransom note. Together `spectrum:` / `rule:` / `eyebrow:` are the Finish
+axis's **accent** sub-family (accent marks on the heading block), distinct from `finish:`
+(backdrops behind content). The eyebrow itself is content, not chrome
+(`engineering/decisions/2026-11-09-type-voices.md`): `eyebrow:` picks its mark, and the
+`typography:` set picks its face.
+
+## The `headline:` front-matter register (framing-text alignment)
+
+`headline:` sets the **horizontal alignment of a slide's framing text** — the eyebrow,
+heading, heading rule, subtitle, below-note, key insight, and caption — as one cluster.
+Alignment used to be baked into each layout (a title centered, a content masthead left, a
+chart header its own way), so the pieces could disagree within a slide. Now one register owns
+the axis: set it deck-wide or per slide, and every framing piece moves together. Sibling
+register (`lib/core/resolve-headline.js`), propagated to every section, overridable per slide;
+a typo is caught as `unknown-headline`.
+
+| `headline:` value | Token | Effect |
+|---|---|---|
+| `auto` | *(none)*; per slide `head-auto` | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
+| `left` | `head-left` | Pin the whole framing cluster to the left margin — even on a layout that centers by default (title, closing, stats, charts). |
+| `center` | `head-center` | Center the whole framing cluster — **even on a layout that lefts by default** (the content masthead, kpi, most Form layouts). Aligns the framing *boxes*, not just their text, so a capped heading and its eyebrow/rule land on one axis; with a masthead bay (`meta:`/`logo:`) the cluster centers *beside* the bay, never under it. |
+| `right` | `head-right` | Right-align the whole framing cluster — the rare escape hatch. Same box machinery as `center` (one `--headline-justify` axis on the flex lede), just the far edge. |
+
+Only the **framing** text follows — the slide **body** keeps its own alignment. Two distinct
+controls, on two surfaces: **`headline:`** moves the framing cluster (this register);
+**`align-left`/`align-center`/`align-right`** (the universal `#527` modifiers) move the **body
+block**. They are independent, so a left headline can sit over a differently-aligned body.
+
+Under the hood the register drives one inherited seam, `--headline-align` (+ `--headline-justify`
+for the flex-boxed pieces); a component's default is the `var(--headline-align, <default>)`
+fallback, so `auto` is byte-identical to today's render. Alignment is `text-align` / `align-*`
+(never `margin`), so it measures cleanly.
+
+**Coverage.** A framing surface follows `headline:` only if its CSS reads the seam — a new
+component must opt in (a rot-guard test pins the covered set). Two layouts don't route their
+heading through the seam yet: `split-panel` / `split-compare` (no `masthead-lede`).
+
+**Width is not a component's to set — alignment is the only lever.** The framing assets
+(eyebrow, heading, subtitle, heading rule) **fill the masthead band**: the `.masthead-lede`
+grid track is the constraint, and it already reserves the right bay, so a `meta:` or `logo:`
+line narrows the track and the framing follows. A component must **not** add its own
+`max-width` to framing text — that is a bespoke composition decision about chrome that frames
+someone else's content, and the deck owns it through this register. Four components used to
+(chart-family's heading + subtitle, `content`'s heading, `decision`'s heading); across the
+gallery corpus they held 42 framing boxes below their own band and cost 30 of them a line, and
+because `cqi` resolves against the section they could not see the bay at all. They are gone —
+don't reintroduce the pattern. Fit is **autosplit + atomization**'s job (which may step type
+down to make a slide fit), never a width cap's.
+
+The **sovereign bookends are the exception**: on `title` / `closing` / `divider` the heading and
+subtitle *are* the slide's content rather than a frame around it, so a composed measure there
+is the component's own call.
+
+### The two bookend measures
+
+Those three components share **two tokens**, and they are the only width caps on framing text
+left in the engine. They are named, documented, and yours to override:
+
+| Token | Default | ≈ | Applies to |
+|---|---|---|---|
+| `--measure-bookend-heading` | `16em` | 33 characters | `title` h1, `closing` h2, `divider` h2 |
+| `--measure-bookend-lede` | `26em` | 56 characters | `closing` subtitle + list rows, `divider.light` subtitle |
+
+**They bind on landscape, with one exception.** Portrait frames are narrower than either token,
+so both go inert there; on square the heading measure does too. The square lede clears `closing`'s
+frame by ~10px — but `divider.light` drops divider's left inset, so its frame is ~54px wider and
+the lede measure binds there by about 1em. Change the bookend proportion for a whole deck from
+front-matter:
+
+```yaml
+---
+style: |
+  :root { --measure-bookend-heading: 22em; }   /* a wider title block */
+---
+```
+
+**Deck-level is the only supported scope.** There is no `_style:` spot directive — `style` is a
+global-only front-matter key, so a per-slide override would need its own selector, and the only
+hook for one is a class token `lint:deck --strict` rejects as unknown. If a single bookend needs
+a different proportion, that is a signal the *deck's* measure is wrong; change it once in
+front-matter.
+
+They are written in `em`, not `cqi`, and that is load-bearing rather than incidental. A measure
+is a count of *characters*, so it belongs to the type; `cqi` is a fraction of the *slide*. The
+two agree only while the type size holds still, and it doesn't — the scale is curated per
+orientation, so the `cqi` caps these replaced allowed ~22 characters per line on landscape and
+~12 on portrait. `em` costs nothing in resolution-independence, because `--fs-*` is itself `cqi`.
+Full reasoning: `engineering/typography.md` §8 and
+`engineering/decisions/2026-08-02-sovereign-bookend-measures.md`.
+
+A measure is also **not** line balance. The cap decides how wide the block is; `text-wrap:
+balance` decides where the breaks fall inside it. Every bookend heading carries both — widening
+a cap to cure an orphaned last word only moves the orphan, and buys a longer line for nothing.
+
+## The `lift:` front-matter register (card elevation)
+
+`lift:` is the **opt-in card-elevation control** for the "Struck" lift — the box-shadow
+that lifts card surfaces (`cards-grid`, `kpi` tiles, `stats`, `pricing`, `verdict-grid`, …)
+off the slide. It's a crisp dark contact shadow on a light deck, a 1px white top-edge
+rim-light on a dark deck (the card *fill* never changes), and zero-blur so it survives the
+vector PDF export. Sibling of the registers above (`lib/core/resolve-lift.js`), propagated
+to every section, overridable per slide.
+
+| `lift:` value | Token | Effect |
+|---|---|---|
+| `off` | *(none)* | Cards are flat. **The default** (omit the key). |
+| `on` | `lifted` | Every card lifts, deck-wide. |
+
+Per slide, `<!-- _class: lifted -->` lifts one slide in a flat deck, and
+`<!-- _class: flat -->` drops one slide out of a lifted deck (include the layout too,
+e.g. `_class: cards-grid flat`). The `lifted` class swaps the `--elevation-card` /
+`--elevation-berth` tokens from their `none` / `0` default to the shadow **and** its berth
+padding, so the two turn on together — a flat card gets neither the shadow nor the extra
+padding. Ruled tables (`glossary`, `list-tabular`) and full-height rails (`split-panel`'s
+left panel) never lift, even when `lift` is on. Toggle it from the **Deck Setting** drawer
+(a **Card lift** switch alongside Auto-glossary / Page numbers) or by hand in the front
+matter. See `engineering/decisions/2026-07-12-struck-elevation.md`.
+
+## The `typography:` front-matter register (the type set)
+
+`typography:` picks **one curated type set**: the heading and body faces, the eyebrow's voice and
+the chart's text voice, chosen together. There is no free font knob on purpose: a type study
+measured 54 free combinations of face, chrome voice and eyebrow, and 30 of them merged content
+into chrome or broke the hierarchy, so the choices stay inside audited sets
+(`engineering/decisions/2026-11-09-type-hierarchy-study.md`).
+
+| `typography:` value | Token | Heading + body | Chart data labels | Suits |
+|---|---|---|---|---|
+| `classic` | *(none)* | Playfair Display + Outfit | Outfit (Playfair has no tabular figures) | **The default** (omit the key); corporate, team |
+| `ledger` | `typography-ledger` | Newsreader + Inter | Newsreader | reports, government, academic |
+| `poster` | `typography-poster` | Barlow Condensed + Inter | Inter (Barlow's figures align only through `tnum`, which PPTX and ODP drop) | launches, sales, brand |
+| `festival` | `typography-festival` | Fraunces + Inter | Inter (Fraunces has no tabular figures) | culture, nonprofit, donor decks |
+
+What every set shares:
+
+- **Chrome stays mono capitals.** The header, meta line, footer and page number keep their
+  voice, so they read as the frame.
+- **The eyebrow is content.** It speaks in the heading face's italic, as written, a step larger
+  than the chrome (and never smaller than the label role), so it belongs to the heading and
+  reads apart from the header beside it. On a title, dark divider or closing it is half the
+  heading's size. `eyebrow:` still picks its mark.
+- **The chart speaks the body face** for ticks, category labels and keys, with aligned figures;
+  the source line stays in the chrome's voice.
+- **The quote credit is set in tracked capitals.**
+- **Size holds when the face changes.** Each set face carries its own size factor
+  (`size-adjust`): Inter 87%, so it reads at Outfit's x-height; Barlow Condensed 110%, Newsreader
+  100%, Fraunces 92% (capped by width, so a heading that fits today does not wrap). The factor follows
+  the face wherever it is drawn, and the PPTX and ODP exports carry it in each text run's size.
+
+```yaml
+---
+theme: indaco
+typography: ledger
+---
+```
+
+A preset carries a set — `editorial` → `ledger`, `brand` → `poster` — and an explicit
+`typography:` wins. `mode: sketch` owns its own hand type and wins over any set. The faces ship
+in `dist/fonts/` like every engine face: a browser fetches a set's faces only when a slide draws them, and an
+export inlines only the faces of the sets the deck names (`lattice.js` filters by the deck),
+and the PDF embeds only the glyphs it uses. In the Studio: **Look → Typography**.
+
+`unknown-typography` catches a typo; a `type:` key is answered with "did you mean
+`typography:`?" (there is no alias — `type:` is a content-type key in Hugo and other site
+generators); `typography-style-override` warns when a deck's own `style:` re-points a face or
+voice token the set owns (`--font-display`, `--font-body`, `--eyebrow-*`, `--chart-*-face`),
+because the set's audit no longer covers it. A per-slide `_class: typography-<set>` overrides
+the deck's set (`typography-classic` returns one slide to the default faces), but a deck should speak in one. The CSS is `lib/base/base.typography.css`; the
+resolver is `lib/core/resolve-typography.js`; `test/integration/type-voices/` holds every
+palette theme × every set, light and dark, to the study's rules.
+
+## The `venue:` front-matter register (where the deck is seen)
+
+`venue:` names the room, and the engine sets the type size for its back row. Use it
+instead of hand-picking `class: scale-*` for a deck that will be projected or shown on a
+shared screen.
+
+| `venue:` value | Resolves to | Who is watching | Type | Labels |
+|---|---|---|---|---|
+| `laptop` | *(no class)* | You on your own screen. The default when `venue:` is omitted. | 1x | 1x |
+| `huddle` | `venue-huddle` | 4–6 people around a TV | 1.15x | 1.15x |
+| `conference` | `venue-conference` | 10–30 people | 1.3x | about 1.5x (header, footer, page number 1.1x) |
+| `hall` | `venue-hall` | 50–2,000 people | 1.5x | about 1.95x (header, footer, page number 1.3x) |
+
+"Labels" is the meta role — eyebrows, captions, card tags — which a venue lifts past the
+body because the smallest text fails first at distance. The running header, footer and
+page number are wayfinding, not content: they follow the venue's type step (1.3x at
+conference, 1.5x at hall), skip the label lift, and take a further 15% cut, so they sit
+well under the body and the eyebrows.
+If your back row is farther from the screen than the band assumes (for example, 30
+people and a small TV), pick the next venue up.
+
+Each component's `.docs.md` prints how many elements it holds at each venue (its
+"**By venue**" line), and `dist/docs/components.pick.md` has the same numbers in a
+`by venue` column — pick for the room before you write.
+
+**A venue is a fixed setting, like desktop zoom.** Every slide renders at the venue's
+size, whatever its content; the engine never shrinks a slide, or the deck, to fit. A
+slide too full for the room clips, and three surfaces name it: `lint:deck` warns
+(`capacity-scale`) on a slide past its budget while you write, the Studio rings it and
+offers a one-click fix (split the slide, or move the deck to the next venue down), and
+the export's `⚠ OVERFLOW` line lists it. In the Studio, pick the venue in deck settings
+(**Look → Venue**), or switch it live on the Present stage without editing the deck.
+`unknown-venue` catches a typo. A
+per-slide `_class: venue-*` overrides the deck's venue, but that slide then differs in size from its
+neighbors, so `lint:deck` warns (`spot-scale`) — set the room once, in the front matter. The derivation — the viewing
+angle, the reading thresholds and the room bands — is `engineering/typography.md` §7
+"Venue". Resolver: `lib/core/resolve-venue.js`.
+
+## The `marks:` front-matter register (how charts spend color)
+
+`marks:` picks how every chart on the deck spends its color. A finish moves color;
+it never adds any, never removes any, and never changes a chart's structure. Its second word, the
+intensity, sets every status mark on the slide, not only a chart's: a checklist disc, a kpi pill,
+a policy badge.
+
+**It was called `chart-finish:`.** The old key and the old `chart-finish-*` slide classes still
+render, and `lint:deck` names the new spelling (`marks-renamed`, info). When a deck sets both keys,
+`marks:` wins.
+
+Like `icon:` and `spark:`, it is a look rather than a layer that can be switched off: a chart
+always spends its color some way, so there is no `off`. A deck that names none wears `pigment`,
+and so does one that names a word that is not a finish (`unknown-marks` catches it).
+
+| `marks:` value | Token | Identity lives in | Choose it for |
+|---|---|---|---|
+| `pigment` | `marks-pigment` | the body's hue: flat, full-strength color. **The default** (omit the key). | a colorful deck |
+| `etch` | `marks-etch` | the line: a whisper of color under a doubled edge | a modern look |
+| `tone` | `marks-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
+
+```markdown
+---
+theme: indaco
+marks: tone
+---
+```
+
+**Intensity: `muted` or `vivid`.** A second word sets how loud the status colors (done, at
+risk, blocked) are, under any finish, and not only in charts: every status mark on the slide
+takes it, so a checklist disc, a verdict badge, a kpi status pill or a policy badge matches
+the chart beside it. Write the two words in either order.
+
+| Second word | Token | Light slide | Dark slide |
+|---|---|---|---|
+| `muted` | `marks-muted` | deep status fills under the slide's paper, each theme's own: done a quiet sage in the theme's green, at risk an amber, blocked a red, deferred a gray in the theme's own neutral. **The default** (omit the word). | mid-tone fills in the same family as the category colors beside them, under white text |
+| `vivid` | `marks-vivid` | every status more saturated, still under the slide's paper | the same, more saturated |
+
+```markdown
+---
+marks: pigment vivid
+---
+```
+
+Each theme curates both sets (`--pass-mark` … and `--pass-vivid-mark` …). On a light slide every
+fill clears 4.5:1 against everything it sits on (the slide, a card, its own row tint), and its text
+is the slide's paper; on a dark slide text on every fill clears 4.6:1. For a reader who is colorblind,
+pick one of the `a11y-*` palettes: they keep the one set that clears every colorblind floor,
+in both intensities.
+
+**Per slide.** `<!-- _class: bar marks-etch -->` gives one chart its own finish, and
+`<!-- _class: bar marks-pigment -->` asks for the default inside a `tone` deck. The slide
+token replaces the deck's; it never stacks with it. The two axes are separate:
+`<!-- _class: bar marks-vivid -->` changes only the intensity and keeps the deck's finish.
+Every slide is stamped, including a chart
+in a pane of a `columns` slide, so a finish never depends on where the chart sits.
+
+**What a finish reaches.** A finish repaints a mark only through the mark contract
+(`data-hue` · `data-encodes` · `data-paint`), so it reaches every mark that encodes a
+category, a magnitude (a heatmap or map ramp) or a layered series, and the chart's key
+with it. It does not reach a mark painted by a stroke or by type, which is `line`, `slope`
+and `word-cloud`. A status color (a gantt bar's `done` or `blocked`) is a meaning, not a
+category, so it keeps its own hue under every finish, `tone` included, at the finish's
+quieter level, and a task with no status wears the neutral one, so a chart never has one
+gradient bar among flat ones.
+
+**What a finish does not reach yet.** `flowchart`, `kanban`, `risk-matrix`, `slope`, `map` and
+`journey` keep their own paint under every finish: their data marks are not on the mark
+contract, so a finish cannot find them. They are consistent inside the chart and not with a
+finished deck, and `tools/chart-finish-reach.mjs` names them (and every other unreached mark,
+with its reason) so the list cannot drift. A few marks are neutral on purpose and stay so: a
+waterfall total, a heatmap's empty cell, an alarm halo, the status stripe on a gantt bar.
+
+**Limits.** Under `tone`, a mark that carries text (a flowchart shape, a matrix-grid
+cell) can use only the quiet top of the one hue, so about four of its categories separate
+by eye. `etch` puts identity on a thin edge, the hardest place to tell hues apart: for
+colorblind readers on an ordinary theme, prefer `pigment` or an a11y theme. A container,
+such as a slotted flowchart group, a tinted kanban column or a roadmap phase, is never repainted as a mark:
+it keeps its own faint tint, and under `tone` that tint joins the one hue.
+
+**What a finish never costs.** Every mark keeps an ink edge. A heatmap value picks black or
+white from its own cell's color and clears 4.5:1 on every step of every theme. On the a11y
+themes and in print, the categorical **pattern fills win over any finish**, so a colorblind
+reader keeps the texture channel.
+
+In the Studio, pick it in deck settings (**Look → Marks**). A chart slide's own
+settings carry a **Marks** row (**Look**) that follows the deck unless you pin one.
+`unknown-marks` catches a typo. The design is `engineering/chart-styling.md` §3. The
+rules are generated from each chart manifest's `kernel.marks` by
+`tools/build-marks-css.js`. Resolver: `lib/core/resolve-marks.js`.
+
+## The `cards:` front-matter register (where a card row puts its spare height)
+
+A row of cards (`cards-grid`, `verdict-grid`) is a wrapped flex container handed the full
+height of the stage. **Stretching** its lines to share that height makes a card holding one
+line of text as tall as the row, carrying the difference as empty space inside itself — so
+the cards are sized to their text and the band is centered by default, and `cards:` hands
+the author the rest. Sibling of the registers above (`lib/core/resolve-cards.js`),
+propagated to every section, overridable per slide.
+
+| `cards:` value | Token | Effect |
+|---|---|---|
+| `center` | `cards-center` | Cards shrink to their text; the band sits at the stage's optical middle. |
+| `stretch` | `cards-stretch` | Cards fill their row; a sparse card carries the empty space inside it. This is what every deck did before the register. |
+| `top` | `cards-top` | Cards shrink; the band sits under the headline rule and the spare height collects at the bottom. |
+| `spread` | `cards-spread` | Cards shrink; the spare height is shared out between the rows, widening the gaps between them. |
+
+**Omit the key and the COMPONENT decides.** Each card component declares its own composition
+in its manifest, and the engine honors it — `cards-grid` centers a grid but paces a tall
+single column, and either component stretches on a slide that ends in a Key Insight coda.
+So omitting `cards:` is *not* the same as writing `cards: center`: omission takes the
+component's answer for that slide's shape, and naming a value takes that value everywhere.
+
+`stats`, `actors` and `kpi` follow the register too (2026-10-16). Their rows and tiles used to grow to fill
+the stage; they now size to their content and center, and `cards-stretch` brings the old fill back.
+`stats` was already centered, and honors `top`, `spread` and `stretch` on wide slides only: at tall, strip
+and square it stacks the numbers and fills the frame by design. Demo: `examples/cards-stats-actors-kpi.md`.
+
+Per slide, `<!-- _class: cards-stretch -->` fills one slide's row in a centered deck, and
+`<!-- _class: cards-center -->` centers one slide in a deck that set something else (include
+the layout too, e.g. `_class: cards-grid cards-stretch`). **A per-slide token names a value;
+it does not restore "whatever this slide would have done."** At tall and strip, and on a slide
+that ends in a Key Insight coda, the rule's own fallback is not `center`, so `_class:
+cards-center` there overrides that shape's default rather than returning to it.
+
+**Pick by how full the cards are, and check the gutter.** `center` and `top` both keep the
+gap between rows equal to the gap between columns, so the grid still reads as a grid;
+`spread` deliberately widens the row gap, which suits two rows of one-line cards and looks
+wrong when the rows are already close. `stretch` still earns its keep on a grid whose cards
+are genuinely full — nothing to reclaim, and stretching keeps the band flush to the stage.
+(A slide ending in a **Key Insight coda** already keeps stretching without being asked; see
+below.)
+
+**How it works — declared in the manifest, resolved by the engine.** A component states its
+composition in `<name>.manifest.json`:
+
+```json
+"cards": { "default": "center",
+           "byFamily": { "tall": "spread", "strip": "spread" },
+           "withCoda": "stretch" }
+```
+
+`tools/build-stage-catalog.js` bakes every such declaration into
+`lib/core/cards-catalog.generated.js` (the runtime bundle cannot read manifests), and
+`lib/core/resolve-cards.js` — one kernel, shared by both render paths — resolves it against
+whatever the author asked for, in this order:
+
+1. a per-slide `_class: cards-*`
+2. the deck's `cards:`
+3. the manifest's `withCoda`, then `byClass[variant]`, then `byFamily[family]`, then `default`
+
+`byClass` is for a component whose variants are different shapes: `split-panel` declares
+`"default": "spread"` for its plain evidence list and `"byClass": { "proof": "stretch" }` for
+the proof grid, whose equal rows are its design.
+
+The engine stamps the answer as `data-cards`, `base.tokens.css` turns that into
+`--cards-align`, and each card row reads it in **one** declaration. **No component encodes a
+default in CSS.**
+
+**To opt a new component in**, two things: add `"cards": { "default": … }` to its manifest,
+and make its card container read the token. The field alone does nothing — the attribute lands
+and the variable is set, but a stylesheet that still hard-codes its own value ignores it — so a
+unit test fails any component that declares a composition its CSS never reads. A component that
+declares nothing is not governed at all: nothing is stamped and its stylesheet is untouched.
+The split-page rules override the composition outright at higher specificity, so a run's pages
+still look alike whatever the deck asked for. How the container reads the token depends on its
+shape:
+
+| Shape | Reads | Examples |
+|---|---|---|
+| **Row** — a wrapped flex row | `align-content: var(--cards-align)`; the row sets `flex-wrap: wrap`, its zero-basis cards still share one line, and each carries `min-width: 0` | `cards-grid`, `verdict-grid`, `decision`, `pricing`, `statute-stack`, `compare-prose`, `cards-stack horizontal`, the `list-steps` row, `team-profile` |
+| **Grid** | `align-content: var(--cards-align)` on the grid; auto rows size to their cards | `compare-code` (its pair of panels; both stay equal height), `split-compare`, `regulatory-update cards`, `split-panel proof` (its rows are `var(--cards-track)`: `1fr` under `stretch`, `auto` otherwise) |
+| **Two-by-two** | as a row, but each cell is exactly half the list under `stretch` and its content otherwise (`min-height`/`max-height` keyed on `--cards-grow`); `q-and-a grid` draws its dividing cross only under `stretch` | `matrix-2x2`, `q-and-a grid` |
+| **Flex column** | `justify-content: var(--cards-align)`; each card grows only under `stretch` (`--cards-grow`). Where the old column shared the stage equally (`flex: 1`), the card is `flex: var(--cards-grow) 1 var(--cards-basis)` — equal shares under `stretch`, content height otherwise, still giving way on a full stage (the default `cards-stack` at wide, `decision` and `matrix-2x2` at tall/strip); where its cards were already content height, only `flex-grow` switches | the `code` panel, the default `cards-stack`, `split-panel`'s evidence list, `regulatory-update`, and `decision`/`pricing`/`matrix-2x2`/`statute-stack`/`q-and-a grid` at the frames where they stack |
+| **Centered stage block** | the stage's `justify-content` (`safe center` for `center` where the component already used `safe`); the list grows under `stretch` | `inventory cards`, `citation-card` (default form), `contact` (its one card; `stretch` grows it to the stage) |
+| **One-column grid with a ceiling** | `align-content`, rows `minmax(min-content, <ceiling>)`, `--cards-grow` lifts the ceiling | `list` (every register) |
+| **One self-placed grid** | `align-content: var(--cards-align)` on a grid whose rows size to their content; with no card chrome, `stretch` reads like `center` | `wifi` (its QR, heading and fields) |
+
+`--cards-grow`, `--cards-basis` and `--cards-track` are set by the same eight `[data-cards]`
+rules in `base.tokens.css` as `--cards-align`, so they can never disagree with it.
+
+**Defaults.** Every governed component declares `center`, except: `matrix-2x2` and
+`q-and-a` declare `stretch` (four equal quadrants are the layout; `q-and-a`'s single tall/strip
+column centers); `split-compare` declares `stretch` (its recommendation card sits under the
+options, inside the panel); `split-panel` spreads its evidence list and stretches `proof` and
+`capstone`; and `cards-grid`, `list`, `cards-stack` and `statute-stack` spread at the frames
+where they stack into one column, which is what they did before. A component stretches above a
+key-insight coda cell (`withCoda: stretch`) except those that already centered there on `main`
+(`team-profile`, `inventory`, `citation-card`, which declare no `withCoda`). The coda
+arm only fires where a `.cell-coda` forms: `split-compare`, `split-panel`, `inventory` and
+`citation-card` keep their blockquote inside the stage, so their slides never have one. A row never shrinks below its text: a slide with more than the stage holds overflows
+where the overflow check reports it.
+
+**Not governed, by design:** `kanban` (a chart — a column's height is its queue length, the WIP
+signal, and stretching or equalizing columns would erase it), `contact` (one self-sized card,
+pinned so the overflow probe can see an overstuffed one), `split-panel capstone` (its quote is
+centered above pillars on the baseline — a designed composition), the `citation-card` split,
+pull-quote, margin and triptych forms, `regulatory-update timeline`, `statute-stack`'s
+hierarchy/bands/preemption/lane forms, the `list-steps` column variants (`vertical`, `chevron`, …), `list-steps capsule` (already content height) and
+`compare-prose decision` (its label sits at mid-stage). See
+`engineering/decisions/2026-09-01-card-stack-vertical-alignment.md` §5, §12 and §13.
+
+## The `tag:` front-matter register (card tags)
+
+A **card tag** is the small label that names a card: the number on a `cards-grid` or
+`cards-stack` card written as `1. … 2. …`, the slot label on a `compare-prose` or `decision`
+card (and its `banner-tag` band), the split-compare verdict, and the list-steps `STEP 01`
+label and `capsule` pill. All of them are drawn by one recipe, `lib/base/base.card-tag.css`, and `tag:` sets
+how they look. It takes up to four words, one per axis, in any order:
+
+| Axis | Deck value | Per-slide class | Effect |
+|---|---|---|---|
+| Color | `color` | `tag-color` | The component's own pair: the accent, or decision's categorical cycle. **The default** (omit the key) |
+| Color | `plain` | `tag-plain` | A neutral pill: page fill, body ink, a hairline edge. For a deck where color is already busy |
+| Color | `bare` | `tag-bare` | No box. The label stays, as bare text in the secondary ink. It never hides the words |
+| Size | `small` `regular` `large` | `tag-small` … | The tag at 0.85×, 1× or 1.2×. Its padding and the space above the card body follow |
+| Placement | `corner` | `tag-corner` | Flush into the card's top-left corner. **The default** on every tagged layout except list-steps |
+| Placement | `foot` | `tag-foot` | Flush into the bottom-left corner. The card keeps the tag's room at its bottom instead |
+| Placement | `notch` | `tag-notch` | A tab inset from the corner that straddles the card's top edge, half outside it. With `bare` it reads as a legend: bare text on the page color, so the edge does not strike through it |
+| Placement | `band` | `tag-band` | A full-width strip across the card top, the way `banner-tag` draws one on decision and compare-prose, now on every tagged layout |
+| Placement | `inline` | `tag-inline` | In the text flow above the card's first line, as a chip. **The default** on list-steps, whose `STEP 01` label is bare text |
+| Text alignment | `start` `center` `end` | `tag-start` … | Where the text sits inside a tag wider than it: a band, a tag widened to match its neighbors, a wrapped label, or list-steps' label across its card. **Default `start`** |
+
+A placement word moves the tag on every tagged layout. On list-steps, `corner`, `foot`, `notch`
+and `band` turn the bare `STEP 01` label into a boxed tag in the accent; `inline` is its own
+place, so it changes nothing there. Five variants draw no card tag, so the placement words leave
+them alone: `compare-prose axis`, whose label is the card's title, and list-steps `timeline`,
+`chevron`, `converge` and `ghost`, whose markers belong to a rail or a watermark.
+
+`banner-tag` is the `band` placement under its older name, and it now works on every tagged
+layout. A placement class on the same slide wins over it (`decision banner-tag tag-foot` draws
+foot tags), and a slide's own `banner-tag` wins over the deck's placement word (`tag: corner`
+leaves a `banner-tag` slide as a band). The list-steps `capsule` pill is the `inline` tag,
+centered, with a pill radius, in the categorical `--cat-N-mark` tier, so the `tag:` words
+restyle it too. `lint:deck` suggests `tag-band` in place of `banner-tag` (`tag-alias`, advisory).
+
+`large` costs room: every tagged card reserves the bigger tag's height above its body, and the
+capacity figures in each component's docs assume the regular size. On a dense slide at a large
+`venue:` that can tip the slide over its frame; the export's fit check names the slide when it
+does.
+
+```markdown
+---
+tag: plain large band
+---
+
+<!-- _class: decision tag-color tag-foot -->
+```
+
+The deck line stamps `tag-plain tag-large tag-band` on every slide. The decision slide above
+returns to its categorical colors, moves its tags to the bottom corner and keeps the large size:
+a slide's word on one axis replaces the deck's word on that axis and leaves the others alone.
+
+**Most specific wins:** a slide class, then the deck's `tag:`, then the component's own tag.
+`tag-color`, `tag-regular`, `tag-corner` and `tag-start` exist so a slide can return to the
+component's own look inside a deck that set another.
+
+**Every tag on a slide is the same size.** Each boxed tag (any placement with a box, and a
+`banner-tag` band) takes the widest tag's width and the tallest tag's height, so `BUILD` and
+`WHY NOT DELAY` read as one component rather than two. A band spans its card, so only its height
+matches. The text sits at the start of the tag unless an alignment word moves it, and a one-line
+tag beside a two-line one is centered in the taller box (a `tag-bare` label, which has no box,
+stays at the top so the labels line up). A measuring step does this after fonts load
+(`lib/core/card-tag-equalize.js`): in the live preview, and in the CLI's PDF, PNG, PPTX, Marp,
+`--fluid` and `--player` outputs. A plain `.html` export has no script, so there each tag keeps
+its own size and the card reserves one line of tag plus its gap: a label that wraps to two lines
+still clears the body, and one that wraps further covers the top of it. The export measures that
+as it writes the file and names each such slide in a warning. The budget below is what keeps a
+lint-clean deck clear of it.
+
+**In the Studio**, deck settings carry a **Card tags** group with one select per axis (Tag
+color, Tag size, Tag placement, Tag text), which writes the `tag:` line; *Component's own* on
+every axis removes it. Slide settings show the same four rows on a tagged layout, each defaulting
+to the deck's word, and write `tag-*` classes on that slide.
+
+**A label fits one line of its tag.** One long label now widens every tag on the slide, and if it
+wraps, every card body moves down a line. So `lint:deck` warns (`tag-budget`) when a slot label
+on `decision` or `compare-prose` is longer than one line of its tag, measured for the cards in
+the row:
+
+| Cards in the row | 2 | 3 | 4 |
+|---|---|---|---|
+| Characters, regular size | 49 | 33 | 24 |
+| Characters, `tag-large` | 40 | 27 | 20 |
+| Characters, `tag-small` | 57 | 38 | 28 |
+
+A band (`tag-band`, or the `banner-tag` class) is a header strip across the card, so it gets
+two lines, twice the figure. That is the one placement where a label should wrap. Anywhere else,
+shorten the label and move the detail into the card body. The figures are measured at the
+`laptop` venue; a larger venue fits fewer characters, and the tags still match each other if a
+label wraps there.
+
+An unknown word, or a second word on one axis, is `unknown-tag`. Kernel:
+`lib/core/resolve-card-tag.js`; CSS: `lib/base/base.card-tag.css` § REGISTER, § PLACEMENT and
+§ TEXT ALIGNMENT; measure: `lib/core/card-tag-equalize.js`; record:
+`engineering/decisions/2026-09-27-card-tag-register.md`.
+
+## The `image-card:` front-matter register (the text card on a photo)
+
+The `spotlight` and `statement` compositions of the `image` component float the slide's words
+over a full-bleed photo: spotlight in a card, statement on a scrim. `image-card:` sets how that
+card looks on every image slide, so a deck of photos keeps one treatment without a class on
+each slide. It takes up to six words, one per axis, in any order:
+
+```yaml
+image-card: top-right soft sm compact
+```
+
+| Axis | Deck value | Per-slide class | Effect |
+|---|---|---|---|
+| Placement | `top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right` | `at-tl` `at-top` `at-tr` `at-center` `at-bl` `at-bottom` `at-br` | Where the card sits. **Default `bottom-left`**. A portrait deck keeps the card full width, so only the vertical part applies |
+| Backing | `solid` `soft` `sheer` `clear`, or a level `5%` … `95%` in 5% steps | `card-solid` … · `card-o5` … `card-o95` | The card's opacity, 0–100%: how much of what sits behind the words survives, spotlight's panel and statement's scrim. The four names are 100%, 80%, 55% and none; the levels fill the gaps (`image-card: 65%`; `55%` and `80%` are written `sheer` and `soft`). A thin backing needs a matching ink. **Default `solid`** |
+| Ink | `light` `dark` | `ink-light` `ink-dark` | White or near-black words; the backing flips to match. Unset, spotlight uses the deck's own ink on a `--bg` card and statement uses white on a dark scrim |
+| Size | `sm` `md` `lg` | `card-sm` `card-md` `card-lg` | The card's width, padding and type, stepped together. **Default `md`** |
+| Density | `regular` `compact` | `card-regular` `compact` | `compact` tightens the card's padding and its inset from the slide edge to 70%. **Default `regular`** |
+| Shape | `float` `band` | `card-float` `band` | `band` stretches the card across the slide along the top or bottom edge, heading left and text right, so the middle of the photo stays clear. It needs a `top` or `bottom` placement and does nothing on a corner, on `center`, or in a portrait or square deck (which already span the width). **Default `float`** |
+
+**Image slides only.** Two of these classes mean something on other layouts too: `at-*` places
+the corner and edge tints, and `compact` tightens any slide. So the deck's words ride only a
+slide whose own class list names `image`; a chart or prose slide in the same deck is untouched.
+On an image slide whose composition sets its text beside the photo (`clean`, `split`, `gallery`)
+the card classes paint nothing, with two exceptions that follow from the shared words: `compact`
+still tightens that slide's spacing, as it does on any slide, and an `at-*` word also moves a
+tint the slide carries (`tint-corner`, `tint-edge`).
+
+**A slide overrides one axis at a time.** A slide's own class on an axis replaces the deck's word
+on that axis and keeps the rest: in a deck with `image-card: top-right soft`, a slide with
+`_class: image spotlight at-bl` gets a soft card in the bottom-left corner. `card-regular` is the
+slide-side way out of a deck-wide `compact`, and `card-float` the way out of a deck-wide `band`; the deck value `regular` stamps nothing, because
+leaving the axis out already means it.
+
+Not `image:`: that key is Marp's Open Graph image URL, which Lattice accepts and ignores.
+
+**Thin cards and ink.** A spotlight card under 60% opaque lets the photo show through, so the theme's own ink is read against the photo, which no theme can promise anything about. `ink-light` (white words on a near-black card) and `ink-dark` (near-black words on a near-white card) swap the card's fill and ink together and restore a contrast floor. Lint warns when a thin spotlight card has neither on the slide or the deck line (`thin-card-no-ink`). In the Studio, dragging the slide's Card backing slider below 60% with no ink set samples the photo behind the card, in the real preview, and writes whichever of the two reads better; it never overwrites an ink you set, and Card ink → Auto removes it. A photo the browser cannot read (a cross-origin image) gets no automatic ink, and the lint warning is what tells you. A statement's ink is fixed white on a dark scrim, so it never needs one.
+
+**Dividers.** The card draws two hairlines that take no space: a line under the heading of a stacked card, and a vertical line between a `band`'s two columns. Both paint `--spectrum-structure`, the token every structural rule reads, so they follow the deck's `spectrum-trim:` (a quiet accent tint by default, the deck's spectrum under `on`) and a slide's own `spectrum-trim` class. `rule: none` drops them.
+
+In the Studio: Deck settings → **Image**, one control per axis (backing is a slider with the four names as chips); on an image slide, the slide
+inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
+Full catalog of the classes: `../components/image.md`.
+
+## The `spark:` front-matter register (inline sparks)
+
+A **spark** is the word-sized chart an author writes in inline code (`` `~{12 14 17}` ``,
+[`sparks.docs.md`](../plugins/sparks.md)). Every spark is framed by default: a squared
+3:2 tile in the `pigment` look. `spark:` changes that for the whole deck. The sparks plugin
+declares it in `sparks.manifest.json`, and `lib/core/register-factory.js` builds it.
+It takes up to three words, one per axis, in any order:
+
+| Axis | Deck value | Per-slide class | Effect |
+|---|---|---|---|
+| Frame | `framed` | `spark-framed` | The squared frame. **The default** (omit the key) |
+| Frame | `bare` | `spark-bare` | No frame: the spark is bare ink in the line |
+| Look | `pigment` | `spark-pigment` | The color fills the tile; the marks read on it. **The default** |
+| Look | `etch` | `spark-etch` | The color is the line: a clear tile, ink edge and marks |
+| Look | `tone` | `spark-tone` | One hue by value: a pale tile, a mid edge and body, a deep line |
+| Corners | `square` | `spark-square` | Hard corners. **The default** |
+| Corners | `rounded` | `spark-rounded` | The theme's small radius (`--radius-sm`) |
+
+```markdown
+---
+spark: etch rounded
+---
+
+<!-- _class: table spark-bare -->
+```
+
+**Most specific wins, one axis at a time:** the spark's own modifier (`` `~{…, framed}` ``), then
+the slide's class, then the deck's `spark:`, then the default. A spark that names its own
+corners keeps a frame in a bare deck unless it also says `bare`. A ring's frame is
+square rather than 3:2. The table slide above drops the
+frame and keeps the deck's etch and rounded words for any spark that asks for a frame back.
+`lint:deck` warns (`unknown-spark`) on a word it does not know and on a second word for one axis.
+
+## The `callout:` front-matter register (chart callouts)
+
+The **callout plugin** draws the notes an author pins to a mark on a chart, such as a heatmap
+callout (`` `@callout{{Onboarding change, row="Feb 2026", col=M2}}` ``,
+[`callout.docs.md`](../plugins/callout.md)). It is on by default. `callout:` turns it
+off for the whole deck; the callout plugin declares it in `callout.manifest.json`, and
+`lib/core/register-factory.js` builds it.
+
+| Deck value | Per-slide class | Effect |
+|---|---|---|
+| `on` | `with-callout` | Callouts are drawn and narrated. **The default** (omit the key) |
+| `off` | `no-callout` | Callouts are hidden: not drawn, not described, not read aloud |
+
+```markdown
+---
+callout: off
+---
+
+<!-- _class: heatmap with-callout -->
+```
+
+**The slide wins over the deck**, so the heatmap above shows its callouts in a deck that hides
+them everywhere else. A hidden callout's `detail` still joins its cell's hover card and the
+speaker note, so the words the author wrote reach the PDF. `lint:deck` notes each hidden callout
+(`legend-off`, info) so a callout that vanished is never a mystery. A host turns the plugin off
+outright with `--disable-plugin callout`, with the same result.
+
+**The pre-split switch.** Before callouts had a plugin of their own they were the legend plugin's,
+and `legend:` switched them. It no longer exists: `lint:deck` flags it as unknown, and
+`legend-off` and `legend-on` on a slide do nothing. Write `callout:`
+(`engineering/decisions/2026-10-20-callout-placement.md` § 2).
+
+## The slide's corner — `corners:`
+
+Whether the slide's own surface is square or rounded. A sibling register of the ones
+above (`lib/core/resolve-corners.js`), propagated to every section, overridable per
+slide.
+
+| `corners:` value | Token | Effect |
+|---|---|---|
+| `square` | *(none)* | Hard corners. **The default** (omit the key). |
+| `rounded` | `corners-rounded` | The slide rounds, at the theme's radius. |
+
+`corners:` shapes the slide, never its cards. A card's corner is the separate `--radius-card`
+token (unset: `--radius-md`), which a preset sets; see "Preset hooks" in
+[`base.docs.md`](./universal.md).
+
+Per slide, `<!-- _class: corners-rounded -->` rounds one slide in a square deck and
+`<!-- _class: corners-square -->` squares one slide off in a rounded deck (include the
+layout too, e.g. `_class: cards-grid corners-square`).
+
+**One token, and it is the engine's.** `--slide-radius` is `0` unless the register turns
+it on; `section.corners-rounded` (`base.modifiers.css`) is the single place that gives it
+a length — `calc(1.5 * var(--_sec-1cqi))`, about 19px at hd. It is a **different tier**
+from `--radius-sm/md/lg`, which round things *inside* a slide (cards, images, code
+panels) and are wrong for this job.
+
+There is deliberately **no theme-facing radius token**. An earlier cut shipped one, on the
+engine-owns-names / theme-owns-values reading of
+`engineering/decisions/2026-08-09-color-theme-ownership.md` — but that charter is about
+*color*. A corner has no per-palette answer worth varying, no theme in the tree wanted
+one, and a theme that ever does is CSS: redeclare `--slide-radius` under
+`section.corners-rounded`.
+
+Two implementation notes worth knowing before you touch either:
+
+- **It clips with `clip-path`, not `border-radius`.** The brand bar is the section's own
+  `border-top` painted with `border-image-source: var(--spectrum)`, and a border image
+  does **not** honor `border-radius` — the bar keeps square corners and pokes past the
+  rounded surface. `clip-path: inset(0 round R)` clips the whole element, border image
+  included, so one property covers the top bar and all four `spectrum-edge` rails.
+- **The rounded value is anchored to `--_sec-1cqi`.** It is consumed by the section's own
+  clip, and a section cannot query its own container — a bare `cqi` there escapes to the
+  host viewport, so the corner would scale with the browser window instead of the slide.
+
+**Every surface that shows a slide follows the engine's corner, because none of them draws
+one.** The exported player, the Playground, the Studio (editor preview, Present, thumbnails,
+pickers, Fabricate) and the docs site all frame a slide with ONE kernel,
+`lib/core/slide-frame.mjs`: the host box sets no radius, border or background, and adds only a
+lift shadow. Before this, each surface picked its own corner (12px, 6px, `rounded-xl`, 14px),
+which rounded square decks and, in the player's no-JS view, cut the slide's edge at every
+corner; the Studio measured the radius back off the frame (`deck-corner.ts`, now removed) and
+reached two of about twelve hosts.
+
+**The slide's EDGE is the engine's too.** On a surface that shows a slide on a page, the engine
+draws a 1px keyline in the deck's own `--border` — on a `.slide-edge` berth above the slide's
+content, inside the slide so no host box can clip it, following this corner, and switched off
+on whichever side carries the spectrum (the bar is that side's edge). A host turns it on by
+stating its scale, `--slide-edge-k: 100 / <on-screen width in px>`; exports and print never
+set it, so no exported artifact carries a keyline. A frame that drops or moves the top bar
+says which edge it now owns with `--_edge-t` / `-r` / `-b` / `-l` in the same rule — see
+base.modifiers.css, "The slide's EDGE".
+
+**What sits behind the slide in a preview is the APP.** The frame's own `html, body` is
+`transparent` (`docs/src/playground/single-slide-render.ts`), and so is `iframe.live`
+(`docs/src/styles/landing.css`): an opaque fill there would make every slide a rectangle to
+the frame's filter. A slide's own canvas is always opaque — every theme's `--bg`,
+`--scheme-dark-bg`, `--brand-canvas` and `--surface-inverse` is a solid color, and
+`test/unit/tools/slide-frame-hosts.test.js` fails on one that is not — so the only place
+the backdrop shows is the arc a rounded corner cuts away. Record:
+`engineering/decisions/2026-09-25-one-slide-frame.md`.
+
+**The Fix-Me berth moves with it.** That author-warning flag sits in the slide's
+bottom-right corner, inside the arc a rounded deck cuts, so it insets by a fraction of
+`--slide-radius` — an alarm surface must not go quiet because a deck chose a shape. The
+token is typed `0px` rather than `0` precisely so that inset resolves to a length on a
+square deck: a unitless zero inside `calc()` is a `<number>`, which makes the whole
+declaration invalid and drops the marker into flow.
+
+The overflow and type-floor flags need no inset: they are **one capsule** (`.marker-rail`)
+berthed **centered against the slide's bottom edge** (2026-09-08), and the middle of an edge
+is never inside a corner arc. A slide that trips both registers shows one object with two
+segments — the clip fact, then the type floor — rather than two pills; a slide that trips one
+shows a single correctly-rounded pill, because the rail clips its children. A reader only
+ever sees one segment: the type floor is author-only. Both berths carry absolute-position
+assertions in `test/integration/parity/content-clipped-pill.test.js` — centering and
+flushness for the capsule, and the square-deck corner measurement for Fix-Me, which is the
+only berth still exposed to the unitless-`calc()` trap.
+
+**In an EXPORT the corner is a capability of the FORMAT, and a format that cannot hold it
+renders square.** A rounded corner is a hole — the slide stops painting and whatever is
+behind shows through — so it only reads as a corner where the artifact can carry
+"nothing". Where it cannot, the hole fills with something we do not control, and you get
+four pale notches rather than a rounded slide. So the engine squares those formats rather
+than rounding then flattening:
+
+| Export | Corner | Why |
+|---|---|---|
+| `.png`, `.zip` PNG / WebP (slides **and** thumbnails) | **rounded** | an alpha channel carries a real hole |
+| `.html`, `--player` / `--fluid` — **on screen** | **rounded** | a live document; the host paints behind it |
+| the same documents, **printed** | square | a printer's page is paper too, so `@media print` squares them |
+| `.zip` JPEG | square | the format has no alpha channel |
+| `.pdf` (vector and `--raster`) | square | a page is paper |
+| `.pptx` | square | the image sits on the **recipient's** slide background, so the corner would take the color of their PowerPoint template |
+
+This holds identically on the CLI and in the Studio's Share sheet. **Want a rounded
+artifact? Export PNG or WebP.**
+
+Two consequences worth knowing. A deck with no rounded **slides** is unaffected in every
+format — square is still the default and still stamps no token. Note that is about slides,
+not about the front-matter key: the transparent capture is gated on a slide actually
+carrying the corner, so a deck that says nothing in its front matter but opts one slide in
+with `_class: corners-rounded` *does* get the alpha channel on that slide, and correctly
+so. And in Lattice's own `--player` viewer the backdrop is the deck's own `--bg`, so a
+rounded corner there is *invisible* rather than wrong: the slide and the surface behind it
+are the same color.
+
+Record, with the per-format measurements on both exporters:
+`engineering/decisions/2026-08-17-corner-export-capability.md`.
+
+| Token / class | Effect |
+|---|---|
+| `sketch` | Full handwriting (headings **and** body) + drawn boxes. The default. |
+| `sketch sketch-clean-body` | Keep hand headings + boxes; return prose to the clean `--font-body` for text-dense slides. |
+| `--sketch-ink` | The ink the boxes are drawn in (defaults to `--text-heading`); a theme override seam. |
+| `--sketch-font-display` / `--sketch-font-body` | The hand fonts; swap either to re-flavor the whole finish in one line. |
+| `--pill-font` | Re-pointed at the hand body face under `sketch` so label chips/badges read hand-drawn; override per theme to restore a clean label font. |
+| `--font-label` | The label voice (table headers, stat sub-labels, header/footer, pagination — not the eyebrow, which takes `--eyebrow-face`); defaults to `--font-mono`, re-pointed at the hand sans under `sketch`. |
+| `--rough-ink-stroke` | **Enrollment.** A structure with a non-empty value gets its lines drawn in rough.js, in this color. Set it (and `--rough-ink-width`) to opt a new structure in. |
+| `--rough-ink-width` | Stroke weight for that structure's ink, in px. The frame is drawn a little heavier than the rules it encloses. |
+| `--rough-ink-cols` | Set to `1` to also ink a table's COLUMN boundaries. Off by default, and nothing ships it on — no table component rules columns, and inking them unasked turns a comparison table into a spreadsheet. |
+| `--sketch-wave` | The old tiled pen-waver, now the **no-script fallback only**. Every rule it draws is switched off under `:root.rough-inked`. Don't add callers. |
+
+**PDF-safe by design.** Boxes are still `border-radius` geometry; lines are
+rough.js `<path>` data, painted into one SVG overlay per slide after layout
+settles. What was prototyped and rejected in June was an SVG **filter**
+(`feTurbulence` + `feDisplacementMap`) — it survives on screen but collapses
+Marp's print-scale transform, shrinking the slide in the PDF. **A plain
+`<path>` is not a filter**, which is why rough.js was available all along:
+Mermaid's `look: 'handDrawn'` has been shipping the same primitive through
+this pipeline since 2026-08-13. Strokes are seeded from each structure's key,
+so two renders of a deck are byte-identical.
+
+The ink is painted by script, so a document that never runs the runtime — a
+raw `.html` sidecar opened with JS off — falls back to the old
+`--sketch-wave` rules rather than showing none. PDF, PNG, PPTX and `--player`
+exports all carry the ink. See
+`engineering/decisions/2026-08-18-rough-ink.md` and
+`engineering/decisions/2026-06-11-sketch-finish.md`.
+
+**Charts/diagrams.** The finish reskins the heading, the HTML legend, and
+card text, but cannot reach inside a chart's SVG geometry — wedges, bars,
+and lines keep their own marks. Hand-drawn chart *marks* are a deferred
+follow-up.
+
+## The section rail — `progress-rail:`
+
+The section rail is the small row of marks that says which section of the deck a slide is in:
+one mark per `divider`, the current one lit. `progress-rail:` places and styles it on ONE line, up
+to one word per axis — the `logo-finish:` shape (`lib/core/resolve-progress-rail.js`), completed word
+by word in the Studio editor and set from the Deck Inspector (**Chrome → Section rail**).
+
+```yaml
+progress-rail: edge bar
+```
+
+| Axis | Words (default first) | What it does |
+|---|---|---|
+| placement | `right` · `center` · `edge` | `right` sits beside the page number's column, a fixed width the band reserves on every slide, so the rail never moves. `center` sits on the slide's center line in the footer band. `edge` stands the rail upright in the right margin, at mid-height, clear of the footer. |
+| style | `dots` · `bar` | `dots` stretches the current dot into a pill. `bar` draws one thin segment per section and fills the current one. Past eight sections the rail draws as a bar unless the deck names `dots`. |
+| show | `on` · `off` | `off` hides the rail, the divider markers and the agenda legend. `on` draws them in a deck below the default floor (see below). |
+
+Per slide, a word on one axis replaces the deck's word on that axis only:
+`<!-- _class: progress-rail-edge -->` moves one slide's rail and `progress-rail-on` brings it back on a
+deck that said `off`. The older switch still works beside the key: `no-progress` hides one slide's
+rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: off`, and a deck-wide
+`class: no-progress` reads as off in the Inspector.
+
+**When it draws, and where** (`lib/forms/tile/progress/progress.transform.js`; the reasoning is
+`engineering/decisions/2026-11-06-section-rail-placement.md`):
+
+- **Only in a deck with 3 or more sections and 15 or more slides**, by default. Two sections is
+  "first half, second half", which the page number already says, and a short deck is held in the head.
+  `progress-rail: on` lowers the floor to two sections and any length. One section never draws.
+- **Only on content slides inside a section.** Title, closing, topic, full-bleed layouts and the
+  slides before the first divider carry no rail.
+- **Each divider draws its own marker instead**: the section's place in figures (`2/4`) and the same
+  marks, a little larger, this section lit, **where the rail will be**: the bottom-right corner by
+  default, the center of the footer band under `center`, upright on the right edge under `edge`. So the
+  divider teaches both what the marks mean and where to look for them. A divider carries no page
+  number, so the marker takes that corner; the deck's footer stays and ends in an ellipsis before the
+  marker. A hidden divider draws no marker and no numeral.
+- **An agenda whose item count equals the deck's section count is a legend**: each item ends with the
+  rail as it will look in that section. A different count draws nothing.
+- **A topic slide with no eyebrow of its own names its section**: `02 · <the divider's heading>`, in figures so it reads the same in any language, and only where the rail would draw (two or more sections, not switched off).
+
+**The lit mark is ink, not accent.** The rail marks the current section in the heading's own ink,
+the same tone cue the topic track uses for its current topic, so the two scales read as one idea.
+`--accent` is not used because it merges into `--border` on onyx, concrete, a11y-base and
+a11y-achromatopsia (`topic.styles.css` § the lit item).
+
+**One section number.** Every divider counts, `light` included, and a `divider numbered` prints the
+same number the rail lights. `npm run lint:deck` warns `empty-section` when a divider follows a
+divider directly, because the first section then holds no slide, its mark never lights, and the first
+rail a reader sees says `2/4`.
+
+**`center` costs footer width.** The rail never yields in the footer band, and the author's
+footer words do (`engineering/decisions/2026-07-27-footer-band-allocation.md`). With the rail on
+the center line, the footer words get the band's left half, up to the rail's own width; a line
+longer than that ends in an ellipsis. The rail holds the exact center on every slide. On a wide
+canvas that half fits the gallery decks' longest footers; on a portrait or square canvas the type
+is larger and the band narrower, so even a short one is cut (`Acme Holdings · Q3 board review`, at
+1080 × 1350). Use `right` there, or a very short footer.
+`right` and `edge` do not pay this. With a bottom-center logo, the rail falls back to `right`.
+
+## The agenda — `agenda:`
+
+`agenda:` sets how the deck's agendas look, and whether an agenda the engine fills from the dividers shows
+page numbers. One line, up to one word per axis, the `progress-rail:` shape (`lib/core/resolve-agenda.js`),
+completed word by word in the Studio editor and set from the Deck Inspector (**Look → Agenda**).
+
+```yaml
+agenda: circles no-pages
+```
+
+| Axis | Words (default first) | What it does |
+|---|---|---|
+| style | `ledger` · `circles` · `checks` | Every agenda that names no style of its own draws in this one. `ledger` is a contents page, `circles` a track of stops, `checks` done, here and ahead. |
+| pages | `pages` · `no-pages` | Whether an agenda the engine FILLED shows each section's page number, flush right. |
+
+**An agenda with no list fills itself** (`lib/core/agenda-autofill.js`): one numbered item per shown
+`divider`, its heading without the closing period, and inside section k it also gets `progress-k`. With the
+pages axis on, each item ends with the page its section starts on: the divider's place among the shown
+slides. A divider draws no number of its own, but it is counted; a hidden slide is not; a split's extra
+pages are numbered `4.2` and move nothing after them. A deck with `paginate: false` prints no page numbers
+on its agenda either, and neither does an agenda whose lines no longer name the sections in order (reordered or
+renamed after the fill): a page number shows only beside the section it belongs to.
+
+**An agenda you write is yours.** Its list and its page references are never changed. The style axis still
+reaches it, as a theme would; give the slide its own word to opt out. The setting is written onto each agenda's own
+`_class` line, so an agenda named by a running `<!-- class: agenda -->` (no underscore) is filled but takes neither
+the deck's style nor page numbers: a word written there would carry to every later slide.
+
+Per slide: `_class: agenda circles` or `agenda checks` sets one agenda's style, `agenda agenda-ledger`
+keeps the ledger in a deck that chose another, and `agenda-no-pages` drops one filled agenda's page
+numbers. Unlike the other axis registers, this one is applied to the agenda slides alone, at the source,
+rather than stamped on every slide: a deck-wide page-number word would reach the agendas an author wrote.
+The decision: `engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`.
+
+## The `delivery:` front-matter register (how the narrated Guide gestures)
+
+`delivery:` sets how the **Guide** behaves while narration plays: in the Studio's Present, in a
+narrated HTML export, and so in a `lattice video` of it. Each delivery is its own character: it
+decides how each narrated sentence is expressed on the slide. It changes nothing in a rendered
+slide, a PDF or a PPTX. Whether an export carries the Guide at all is an export option, on by
+default: the Studio's webpage export has a Guide switch, and the CLI takes `--no-guide`. A deck
+that leaves the line out plays `restrained`, as Present does
+(`engineering/decisions/2026-09-27-guide-in-the-exported-player.md`).
+
+```yaml
+delivery: restrained   # the default: a boardroom, or a board member reading the file alone
+delivery: expressive   # a sales room, a prospect, a lightning talk, a lunch-and-learn
+delivery: somber       # bad news, a loss: nothing moves that does not have to
+```
+
+**What a sentence names is never the delivery's call.** A chart's narration is written from the
+chart's own data, so each sentence already knows the bar, point, stage or cell it is about, and
+the component says how that part is drawn. The delivery only decides what to DO with it:
+
+| The sentence… | `restrained` | `expressive` | `somber` |
+|---|---|---|---|
+| says how to read the figure | the whole figure comes back to full | a bracket around the figure | nothing moves |
+| introduces a series, lane or group | the group stays, the rest recedes | the line is traced by the cursor | nothing moves |
+| names one part (a bar, a point, a stage) | that part and its label stay, the rest recedes | the cursor goes to it and taps it | nothing moves |
+| adds a detail about that part | holds | washes its label | nothing moves |
+| compares two values | the part stays | a bracket around it | nothing moves |
+| names the highest or lowest | the part stays | a circle around it | nothing moves |
+| is the slide's key beat (the component decides which) | as above | as above | the one gesture: that part stays, the rest recedes slowly, held to the slide's end |
+
+| | `restrained` | `expressive` | `somber` |
+|---|---|---|---|
+| How often | every sentence that names a part | every sentence that names a part | once a slide |
+| The rest recedes to | 0.45 (the chart hover's own value) | 0.30 | 0.45, once, slowly |
+| A walked line's other points recede to | 0.30 | 0.20 | 0.50 |
+| Handoff crossfade | 200 ms | 160 ms | 600 ms, and it holds through a short aside ("Thank you.") |
+| Cursor and overlay ink | none | on every act, in the Studio | none |
+| Read-along on the slide (captions off) | yes | yes | no |
+| Caption | the word being said lights up | the word being said lights up | the line reads in one muted ink |
+
+**Prose, bullets and tables** are matched by their words. Under `restrained` and `expressive`
+every sentence that names a block focuses it; under `somber` only the slide's top-ranked moment
+does (an authored `_focus:` target first, then a measured figure, a chart mark, author emphasis,
+then the headline).
+
+**In a sent webpage.** A narrated webpage export of a deck that sets `delivery:` carries the Guide
+(about 49 KB), so the recipient sees the same focus the Studio shows while the deck plays itself.
+Pausing lifts the focus; playing again brings it back. With the captions off, the word being said
+lights on the slide. The export does not draw the cursor or overlay ink yet, so an `expressive`
+deck sent as a file shows its focus but not its ink. A deck with no `delivery:` line exports
+without the Guide, exactly as before.
+
+Each delivery lives in its own file, `lib/core/delivery-styles/<name>.mjs`; the names are gathered
+in `lib/core/resolve-delivery.mjs`. The linter flags an unknown value (`unknown-delivery`). In the
+Studio, Settings ▸ Speech ▸ **Delivery** writes the line, and choosing Restrained removes it. Design:
+`engineering/decisions/2026-09-27-delivery-styles-and-component-scenes.md` (superseding the budget
+model of `2026-09-25-vetrina-delivery-presets.md`).
+
+## The `greeting:` / `closing:` front-matter registers (what a narrated deck says first and last)
+
+`greeting:` sets a line the narrator says **before slide 1**, and `closing:` a line it says
+**after the last slide**. They play only when the deck plays with narration, in the Studio's
+Present view and in an exported player. They change nothing in a rendered slide, a PDF or a
+PPTX. Both are off unless the deck sets them.
+
+```yaml
+greeting: true                                         # "Good morning." (or afternoon / evening)
+greeting: "{greeting}, and welcome to the Q3 review."  # custom text; {greeting} is the salutation
+closing: true                                          # "Thank you."
+closing: "Thank you. Questions are welcome."           # custom text, spoken as written
+```
+
+**`{greeting}` follows the listener's clock.** It becomes "Good morning" from 04:00, "Good
+afternoon" from 12:00 and "Good evening" from 17:00, by the local time where the deck is
+**played**, not where it was written. It never says "good night", which is a farewell. An
+exported player carries all three greetings and picks one when Play is pressed. A video
+export, which has no listener clock, says "Hello". So does a downloaded `.vtt`.
+
+**Each plays at most once.**
+- The greeting plays only when narration starts on slide 1. Starting anywhere else uses it
+  up. Pause and Play, or going back to slide 1, does not repeat it.
+- The closing plays when narration reaches the end of the deck on its own. That includes
+  autoplay arriving on a silent last slide, such as a "Thank you" slide. Clicking through to
+  the last slide by hand does not trigger it.
+- An exported player resets when the file is reopened. The Studio resets each time Present
+  opens.
+
+| Value | Means |
+|---|---|
+| `true`, `yes`, `on` | The default line: `{greeting}.` for the greeting, `Thank you.` for the closing |
+| `false`, `no`, `off`, `none`, or empty | Off (the same as leaving the key out) |
+| any other text | Spoken as written. Quote it when it contains a `:` or `#`, and use double quotes when it contains an apostrophe |
+
+**A line the deck already says is not said twice.** If slide 1's narration already opens with
+a greeting ("Good morning…", "Hello…", "Hi…", "Welcome…"), the greeting is skipped. If the last
+slide's narration already says "thank you" or "thanks", as a "Thank you" closing slide does, the
+closing is skipped. The slide's own words win, because they are what the audience reads on
+screen.
+
+A deck that narrates no slide says neither line. The greeting and the closing are English
+unless you write them yourself, so a deck whose `lang:` is not English should use custom
+text.
+
+The linter flags three mistakes, as warnings:
+- `greeting-hardcoded-period`: a greeting that says "good morning" itself.
+- `unknown-bookend-placeholder`: a `{…}` the voice would read aloud as written. Only the
+  greeting has one, `{greeting}`.
+- `greeting-not-english`: `{greeting}` in a deck whose `lang:` is not English.
+
+The parse and the clock live in `lib/core/resolve-bookends.mjs`. Design:
+`engineering/decisions/2026-09-27-narration-bookends.md`.

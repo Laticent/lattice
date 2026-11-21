@@ -1,0 +1,112 @@
+# mermaid
+
+Draw a flowchart, sequence, state, class, entity-relationship, Gantt, pie, mind-map or any other
+Mermaid diagram from a ` ```mermaid ` fence. The engine emits the fence as highlighted source; a
+browser surface draws it with Mermaid, and the CLI export bakes it to a static SVG before the deck
+renders, so a PDF, PNG, PPTX or `--player` carries a real drawing.
+
+This is a **plugin** (`engineering/decisions/2026-09-27-plugin-system.md`). The `diagram` slide
+class (`../components/diagram.md`) is the layout built around it and declares
+`"plugins": { "requires": ["mermaid"] }`; a fence works on any slide. The full authoring guide —
+node shapes, theme matching, `%%{init}%%`, bands, motion — is `engineering/mermaid.md`.
+
+## Authoring
+
+````markdown
+<!-- _class: diagram -->
+
+## How signals move from input to decision.
+
+```mermaid
+flowchart LR
+  A[Input] --> B{Check}
+  B -->|pass| C[Decide]
+  B -->|fail| D[Reject]
+```
+````
+
+`~~~mermaid` works too, as does a fence inside a list item or a blockquote. Every export draws
+exactly the Mermaid fences the engine parses, the rule the preview follows too: the export takes its fences from the engine's
+own parse (`ctx.fences()`, lib/core/plugin-fences.mjs). So a fence inside an HTML comment (a speaker note, a
+commented-out draft), inside an HTML block such as a `<div>`, or inside a `$$` math block is not a diagram and is never
+drawn (examples/mermaid-engine-fences.md). The CLI warns, naming the line, about a Mermaid fence folded into an HTML
+block; after a `<div>`-style tag a blank line makes it a fence, and inside a `<pre>`, `<script>`, `<style>` or `<textarea>`
+block, which runs to its closing tag, it has to move out. Two shapes the preview draws are still not exported as diagrams:
+an info string that only starts with `mermaid` (` ```mermaid-x `), and a raw `<pre><code class="language-mermaid">`
+written as HTML. Both close when the bake retires (followups.d/3052-p2-retire-mermaid-bake.md).
+
+## Where it draws
+
+| Surface | What it shows | Who draws it |
+|---|---|---|
+| engine (`render()`) | `<pre><code class="language-mermaid">`, highlighted | the engine's code renderer — the fence is declared `as: "code"` |
+| Studio, Playground, `--fluid` | the diagram | the plugin's pass, `mermaid.hydrate.js`, driven by the runtime, with the library its `payload` names (`mermaid.min.js`, staged beside the runtime) |
+| PDF, PNG, PPTX, an `.html` export, `--player` | a static `<div class="mermaid-svg">` | the plugin's bake, `mermaid.bake.js`, in a headless render worker |
+| Export to Marp | the diagram | Mermaid in the recipient's browser (the bundle ships the library) |
+
+**The library is the plugin's own copy.** `vendor/mermaid.min.js` (Mermaid 12.3.0, recorded with
+its SHA-256 in the manifest's `payload.vendored`) is what every row above uses — the pages stage it
+beside the runtime, the CLI bake draws with it, the Marp kit and the Export-to-Marp bundle carry it as
+`mermaid-v11-min.js` (the name is kept across the move to Mermaid 12: decks already exported, and
+the Marp kit, load it by that name). Nobody downloads Mermaid, and `npm install` cannot change it: `package.json`
+pins the exact version and `node_modules` is only the source of `npm run vendor:plugins`. To
+upgrade: bump the pin, `npm install`, `npm run vendor:plugins`, look at the diagram gallery, commit.
+
+The bake's two other inputs are the plugin's own copies too, recorded in the manifest's `vendor`:
+`vendor/mermaid-zenuml.min.js` (`@mermaid-js/mermaid-zenuml` 1.0.1, which registers the `zenuml`
+diagram type) and `vendor/render-page/`, the render page of `@mermaid-js/mermaid-cli` 12.2.0 — its
+`index.html`, with the FontAwesome stylesheet and faces mmdc 12 links (`fontawesome/`, from
+`@fortawesome/fontawesome-free` 7.3.1) beside it, for a label's `fa:fa-…` icon. Mermaid 12 carries
+the elk layouts itself and draws math as MathML, so the page needs nothing else. The render worker
+loads all of them from the plugin folder, so it no longer hunts `node_modules` for the page under
+every install layout. Each package's `LICENSE` sits
+beside its copy (`vendor/*.LICENSE`), recorded the same way.
+
+Each diagram is drawn for the band of **its own slide** — light, dark or print — and in the
+slide's look (a `mode: sketch` deck draws hand-drawn nodes). A portrait deck, or a tall pane,
+turns a left-to-right flowchart top-to-bottom.
+
+## Failure behavior
+
+A definition Mermaid rejects never aborts a deck. In a browser the pass shows an error surface
+with the parser's message and keeps the source. On the CLI the bake degrades that one diagram to
+an escaped `<pre class="mermaid-fallback">` of its source; the rest of the deck's diagrams still
+draw. If the render worker cannot run at all (no Chromium), each diagram is retried one at a time,
+then falls back the same way. A bake that throws — a bug, not a bad diagram — fails the export,
+and the CLI names the plugin.
+
+## What the plugin contributes
+
+- **`fences.mermaid`, `as: "code"`** — the fence is the plugin's (no other plugin may claim it, and
+  it counts as use), but the engine renders it as the code block it always was.
+- **`bake`, `render.exec.bake: "subprocess"`** — `mermaid.bake.js` exports `bake(source, ctx)`.
+  The plugin host (`lib/plugins/host-bake.js`) runs it on the CLI before the engine, only for a
+  deck that uses the plugin. It drives `lib/plugins/mermaid/shared/render-worker.js` in a child
+  process, so the bake stays synchronous.
+- **`hydrate`, `render.exec.hydrate: "pass"`** — `mermaid.hydrate.js` exports `createPass(ctx)`:
+  the diagram pass every browser surface draws through, which the runtime drives (`boot`, `run`,
+  `onMutations`) without naming Mermaid. A pass rather than a per-figure `hydrate(el, ctx)`,
+  because `mermaid.initialize` is global: every fence is grouped by the palette its slide resolves
+  and each band renders on one serial queue. It is bundled and never serialized, so it requires
+  the kernels it shares with the bake. The resolver requires the bake for exactly this reason: the
+  CLI export page carries no runtime.
+- **`highlight`** — `mermaid.highlight.js` exports `highlight(hljs)`, the highlight.js grammar
+  the host registers under ```` ```mermaid ````, so an undrawn or failed fence reads as colored source.
+- **`styles`** — `mermaid.styles.css` is the plugin's stylesheet: the wrapper chrome, the settle
+  states the anti-flash rules read, and the per-diagram overrides. Bundled in the plugin slot of
+  `dist/lattice.css`; every `var(--…)` it reads is listed in the manifest's `tokens`.
+- **The bake's context** — only the generic services in `BAKE_SERVICES` (`lib/plugins/host-bake.js`).
+  The bake assembles Mermaid's theme variables itself (`themeFor`, with `ctx.paletteReader`) and publishes the generic re-bake hook, `ctx.state.rebake`, which the
+  image-set export's cross-scheme look reads.
+
+The render kernels both halves share live in two places. The plugin's OWN — the init directive,
+the render worker, portrait reorientation and the motion roles — are in its `shared/` folder. The
+ones other code also reads — `lib/plugins/mermaid/shared/render-diagrams.js`, `mermaid-theme-map.js`,
+`diagram-scope.js`, `diagram-look.js` — stay where the shared render kernel keeps them; the plugin's modules are
+the entry points onto them.
+
+## See also
+
+- `engineering/mermaid.md` — the authoring guide
+- `../components/diagram.md` — the slide class built around it
+- `lib/plugins/README.md` — the plugin host
