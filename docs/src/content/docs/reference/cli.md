@@ -235,6 +235,9 @@ endings and a byte-order mark stay as the file had them.
 |---|---|
 | `--check` | Write nothing; exit 1 when a file would change (for CI) |
 | `--stdout` | Print the rewritten deck instead of writing it (one file only) |
+| `--back` | The reverse, for a revert to LFM 1.x: `@note` becomes a plain comment, a slide's `@say` notes one `say:` line, `@alt` `describe:` and `@handout` `reader:` |
+
+Run `--back` before you move a deck to an engine older than LFM 2.0, with a build that has it. `--back` lists, for review, what LFM 1.x reads differently: a plain comment and an `@word{…}` that is no note (1.x shows both as speaker notes), and a note 1.x would read as a directive or a record, which it writes with a `Note:` label.
 
 ## `lattice video`
 

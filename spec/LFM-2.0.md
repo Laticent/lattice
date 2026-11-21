@@ -22,7 +22,8 @@ written as changes against [LFM 1.1](./LFM-1.1.md). **Every section not listed h
 | 3.5 | Any comment that is neither a directive nor a tooling pragma is the slide's speaker note (Marp's semantics). | A slide has four notes, each a named comment. A plain comment is not a note. |
 
 A 1.x deck whose plain comments were speaker notes renders the same slides under 2.0, but its
-notes are gone. `lattice migrate notes` rewrites a 1.x deck as a 2.0 deck.
+notes are gone. `lattice migrate notes` rewrites a 1.x deck as a 2.0 deck, and `lattice migrate notes --back`
+rewrites a 2.0 deck as a 1.x deck.
 
 ---
 

@@ -13,7 +13,9 @@ const notes = require('../../../lib/authoring/notes-core.js');
 const { createEngine } = require('../../../lib/engine');
 
 let migrateNotesSource;
+let unmigrateNotesSource;
 let migrateNotesText;
+let unmigrateNotesText;
 let main;
 test.before(async () => {
   const boundaries = await import('../../../lib/core/slide-boundaries.mjs');
@@ -22,7 +24,8 @@ test.before(async () => {
   const m = await import('../../../lib/authoring/notes-migrate.mjs');
   const kit = m.makeNotesKit(boundaries, notesCore, grammar);
   migrateNotesSource = (source) => m.migrateNotesSource(source, kit);
-  ({ migrateNotesText, main } = await import('../../../lib/cli/migrate-notes.mjs'));
+  unmigrateNotesSource = (source) => m.unmigrateNotesSource(source, kit);
+  ({ migrateNotesText, unmigrateNotesText, main } = await import('../../../lib/cli/migrate-notes.mjs'));
 });
 
 const engine = createEngine();
@@ -213,3 +216,56 @@ describe('the file round trip (migrateNotesText) and the CLI', () => {
     assert.match(out.join(''), /would rewrite .*deck\.md: 1 note rewritten/);
   });
 });
+
+// `lattice migrate notes --back`: the reverse, so reverting the four notes costs one command per deck. The revert drill
+// on PR 3351 rendered every repo deck through main's engine after `--back` and compared every notes channel.
+describe('--back writes the four notes in the 1.x forms', () => {
+  test('each note becomes the comment the old engine read it from', () => {
+    const r = unmigrateNotesSource('# A\n\n<!-- @note{Open on the drop.} -->\n<!-- @alt{Funnel chart.} -->\n<!-- @handout{Measured over 30 days.} -->\n');
+    assert.equal(r.source, '# A\n\n<!-- Open on the drop. -->\n<!-- describe: Funnel chart. -->\n<!-- reader: Measured over 30 days. -->\n');
+    assert.deepEqual(r.review, []);
+  });
+  test('a slide\'s @say notes join into one say: line, because the old engine spoke only the last', () => {
+    const r = unmigrateNotesSource('# A\n\n<!-- @say{One.} -->\n<!-- @say{Two.} -->\n\n---\n\n# B\n\n<!-- @say{Three.} -->\n');
+    assert.equal(r.source, '# A\n\n<!-- say: One. Two. -->\n\n---\n\n# B\n\n<!-- say: Three. -->\n');
+  });
+  test('an escaped arrow and a multi-paragraph note keep their text', () => {
+    const r = unmigrateNotesSource('# A\n\n<!-- @note{arrow --\\> here} -->\n<!-- @note{One.\n\nTwo.} -->\n');
+    assert.equal(r.source, '# A\n\n<!-- arrow --\\> here -->\n<!-- One.\n\nTwo. -->\n');
+  });
+  test('a note 1.x would read as a directive or a record gets the Note: label, and is named', () => {
+    const r = unmigrateNotesSource('# A\n\n<!-- @note{color: red is the point} -->\n<!-- @note{{layout=cards}} -->\n');
+    assert.equal(r.source, '# A\n\n<!-- Note: color: red is the point -->\n<!-- Note: {layout=cards} -->\n');
+    assert.equal(r.review.length, 2);
+  });
+  test('a plain comment and an @word{} that is no note stay, and are named: 1.x shows them as speaker notes', () => {
+    const r = unmigrateNotesSource('# A\n\n<!-- mine -->\n<!-- @john{x} -->\n<!-- _class: lead -->\n');
+    assert.equal(r.source, '# A\n\n<!-- mine -->\n<!-- @john{x} -->\n<!-- _class: lead -->\n');
+    assert.equal(r.review.length, 2, 'the directive is not named');
+  });
+  // The same NOTES, as the engine reads them, not the same bytes: a lone `\` in a note comes back escaped (`\\`),
+  // which reads as the same backslash.
+  test('every repo deck with nothing to review migrates forward to the same four notes', () => {
+    const root = path.join(__dirname, '../../..');
+    const decks = [
+      ...fs.readdirSync(path.join(root, 'examples')).filter((f) => f.endsWith('.md')).map((f) => path.join(root, 'examples', f)),
+      ...fs.readdirSync(path.join(root, 'test/fixtures'), { recursive: true }).filter((f) => String(f).endsWith('.md')).map((f) => path.join(root, 'test/fixtures', f)),
+    ];
+    let checked = 0;
+    for (const file of decks) {
+      const src = fs.readFileSync(file, 'utf8').replace(/\r\n?/g, '\n');
+      if (!/<!-- @(?:note|say|alt|handout)\{/.test(src)) continue;
+      const back = unmigrateNotesSource(src);
+      if (back.review.length) continue;
+      assert.deepEqual(read(migrateNotesSource(back.source).source), read(src), path.relative(root, file));
+      checked++;
+    }
+    assert.ok(checked >= 40, `only ${checked} decks with notes checked`);
+  });
+  test('the CLI keeps CRLF and a byte-order mark, and --back --stdout prints the 1.x deck', () => {
+    const r = unmigrateNotesText('﻿# A\r\n\r\n<!-- @note{Hi} -->\r\n');
+    assert.equal(r.text, '﻿# A\r\n\r\n<!-- Hi -->\r\n');
+    assert.equal(unmigrateNotesText('# A\n').text, '# A\n');
+  });
+});
+

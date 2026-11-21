@@ -156,4 +156,19 @@ comments.
   comment: `plain-comment-notes` walked comments through the scrub's code masker (15 s on 250 KB; it uses lint's own
   linear walk now), and the masker's give-back of live comments restored the span from every opener (9 s on 200 KB of
   `--strip-notes`; each character is restored once now). Both carry a hang guard.
+- **The way back, and the revert drill (PR 3351, the owner's "raise it to high").** `lattice migrate notes --back`
+  (`unmigrateNotesSource`) writes the four notes back in the 1.x forms, so reverting this change costs one command per
+  deck: `@note` becomes a plain comment, a slide's `@say` notes one `say:` line (1.x spoke only the last), `@alt`
+  `describe:` and `@handout` `reader:`. It checks each comment against the forward classifier, which knows how 1.x read
+  every comment. A note 1.x would read as a directive or a record has no exact 1.x form: it gets the `Note:` label the
+  Marp bridge uses and is named for review. (`note: …` was the first choice; the drill showed 1.x prints that prefix.) The
+  drill rendered every example and changed fixture whose source holds a note comment in either version (65 decks; 43
+  more without one were rendered too), three ways: this PR's engine on
+  the deck, `main`'s engine on the deck after `--back`, and `main`'s engine on the deck as `main` has it. It compared
+  speaker notes, captions, alt text and handouts. After `--back`, `main` matched this PR on every channel of every deck,
+  with nothing named for review. Against `main`'s own decks, the differences are the intended ones: the `Reader:` label,
+  the Studio `note:` prefix (three decks), and the prose this PR rewrote (`meta`, `read-along-captions`,
+  `accessible-descriptions`).
+  **The order of a revert:** `--back` ships in this change, so a squash revert deletes it. Run `lattice migrate notes
+  --back` on each deck first, with a build that has it, and revert the engine after.
 
