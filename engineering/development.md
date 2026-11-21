@@ -614,10 +614,12 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `DEVICES`) are the one place CI reaches real Mobile Safari. Each builds and serves the docs, boots a fresh iPad or iPhone iOS Simulator, writes the remote-automation defaults inside it, reboots it,,
   launches Safari, and drives it through `safaridriver` (plain WebDriver over `fetch` in `run.mjs`; Playwright cannot drive iOS).
   The page-side check is `studio-probe.js`, the same assertions as `studio-preview-inert-payloads.spec.ts` plus a detector control
-  that must fire. `ios-safari-photo` runs the same recipe with `PROBE=photo`: `photo-probe.js` checks that the photo verdict's
+  that must fire. `ios-safari-photo-ipad` and `ios-safari-photo-iphone` run the same recipe with `PROBE=photo`: `photo-probe.js` checks that the photo verdict's
   Coach finding and editor warning agree word for word, that the Coach's fix lands without the preview leaving the slide, and
   that a finding leaves with its slide (engineering/decisions/2026-10-26-photo-contrast-coach.md). The two were one suite
-  until it ran out of its 30 minutes on a slow runner (#2961); split, each runs only when its own code changes. Each iOS
+  until it ran out of its 30 minutes on a slow runner (#2961); split, each runs only when its own code changes. Every iOS suite that runs both devices except `ios-safari-font-cache` (one job with a 40-minute limit, by design) now runs
+  one device per job through `DEVICES` (studio, undo and player-charts first, then photo, jpeg, photo-memory and chat-storage on 2026-11-20, after 6 of their nightly jobs were cancelled at the 30-minute
+  limit, 5 of them with no test failed), so a slow second boot cannot cost the first device's result. Each iOS
   suite's `paths` name its own probe plus the shared `run.sh` and `run.mjs` (and `show-editor.js` for the suites that load it), so a probe edit runs one suite, not all of them.
   On the iPhone, the Studio suite also runs `icon-grid-probe.js` (#2578): Menu → Search / commands → Insert an icon…, a pick
   from the source pane (the span lands at the caret) and one from the Preview pane (copied, with a toast), each pick a real
@@ -636,11 +638,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
   probe on Playwright WebKit against a local `preview:e2e`, to prove a probe change before spending a macOS job on it. A simulator
   runs on the Mac's hardware, so it is not a physical device.
-  `ios-safari-jpeg` runs the same recipe with `PROBE=jpeg`: `jpeg-probe.js` encodes a slide-sized synthetic photograph and four
+  `ios-safari-jpeg-ipad` and `ios-safari-jpeg-iphone` run the same recipe with `PROBE=jpeg`: `jpeg-probe.js` encodes a slide-sized synthetic photograph and four
   committed screenshots with the shared JPEG encoder (`@laticent/lastra` `createJpegEncoder`) and with Safari's own `toBlob`, on a blank page
   (no docs build). It fails when Safari's bytes for the reference picture differ from Node's or our luma falls under
   38 dB; the step summary records both encoders' sizes and Safari's color sampling, which Linux cannot show.
-  `ios-safari-photo-memory` runs it with `PROBE=photo-memory` (no docs build): `photo-memory.mjs` writes ten 12MP photos with
+  `ios-safari-photo-memory-ipad` and `ios-safari-photo-memory-iphone` run it with `PROBE=photo-memory` (no docs build): `photo-memory.mjs` writes ten 12MP photos with
   `sips` and shows them in ten small frames, first by their own addresses, then through the Studio's preview-sized copies
   (`preview-image-scale.ts`, #2998). Each arm runs on a site of its own (`127.0.0.1`, then `[::1]`), because WebKit picks a content
   process per site and a port is not part of the site. `vmmap --summary` reads each simulator WebKit process's physical footprint
@@ -652,7 +654,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `present-memory.mjs` packs a `.lattice` with eighteen phone-photo-sized PNGs (24 MB; the owner's deck was 33 MB of `data:`
   text and reloaded the tab on a real iPhone), `present-memory-probe.js` hands it to the Studio's own "Import deck…" input,
   the page reloads so the deck comes back from the browser's store, and Present opens and steps six slides, each timed until
-  the next slide's heading shows and the photo it points at decodes. The footprint is read as `ios-safari-photo-memory` reads it, before
+  the next slide's heading shows and the photo it points at decodes. The footprint is read as `ios-safari-photo-memory-*` reads it, before
   Present, after it opens and after the steps. A step whose photo does not decode, a reload, or more than
   `PRESENT_MEMORY_CAP_MB` (300) fails it; the times are reported and never judged (HARD RULE #32: the first run read a
   1,965 ms step that a 2 s limit would have passed by 35 ms). The production site runs as a second arm
@@ -683,7 +685,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   by `Sec-Fetch-Dest`; in Mobile Safari 26.5 neither arm saw a request marked `font`, so it proved nothing.)
   `PROBE=font-cache node docs/scripts/ios-safari/probe.selftest.mjs`, with the server running, does the same on
   Playwright WebKit with a persistent profile: an ephemeral WebKit context keeps no disk cache across preview documents.
-  `ios-safari-chat-storage` runs it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
+  `ios-safari-chat-storage-ipad` and `ios-safari-chat-storage-iphone` run it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
   `chat-storage-probe.js` plants two chat threads the way a build before #3138 saved them (`lattice-studio-chat-<deckId>`,
   one on the open deck, one on a deck never opened), `run.mjs` reloads the page for real, and the probe then waits up to a
   minute for the idle migration to empty localStorage of them and checks both arrive whole in IndexedDB
