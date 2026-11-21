@@ -10,7 +10,6 @@
  *                 `latticePlayerProbe`), and resolve to its value;
  *   tap(x, y)     a real touch at a CSS point of the viewport (no hold: a hold reads as a long press).
  *   swipe(x1, y1, x2, y2)  a one-finger drag from one point to the other, with moves between.
- * `players` names the two exported files: { deck, hostile }.
  *
  * The checks, each beside a control:
  *   - a tap on a funnel band pins its card (the touch log shows the tap landed on that band, so a failure names its point);
@@ -19,7 +18,10 @@
  *   - a second tap on the band closes the card, and a tap elsewhere closes it again after it reopens;
  *   - a horizontal swipe still turns the slide (the stage measures a swipe to its last move, because Mobile Safari
  *     reported every touch pointerup at (0, 0): run 44013499171);
- *   - in a deck whose detail carries author styles, nothing the author styled covers the player.
+ *   - in a deck whose detail carries author styles, nothing the author styled covers the player;
+ *   - a 4K deck's player (#3304, lib/core/screen-canvas.mjs) lays its slides out 1280 px wide on this screen, never 3840
+ *     (a 4K frame reloaded an iPhone tab), and keeps that canvas, without a reload, while swiped through every slide.
+ * `players` names the three exported files: { deck, hostile, k4 }.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PLAYER_CHARTS_SOURCE = fs.readFileSync(path.join(here, 'player-charts-probe.js'), 'utf8');
 /** The decks the probe exports to players (paths from the repo root): the test deck and the checker's hostile deck. */
-export const PLAYER_CHARTS_DECKS = { deck: 'examples/chart-detail-reveal.md', hostile: 'docs/scripts/ios-safari/player-charts-hostile.md' };
+export const PLAYER_CHARTS_DECKS = { deck: 'examples/chart-detail-reveal.md', hostile: 'docs/scripts/ios-safari/player-charts-hostile.md', k4: 'docs/scripts/ios-safari/player-4k.md' };
 
 const where = (t) => (t ? `landed at ${t.x},${t.y} on ${t.mark === null ? `${t.at}, no mark` : `mark ${t.mark}`}` : 'no touch reached the page');
 
@@ -93,6 +95,20 @@ export async function runPlayerCharts({ go, call, tap, swipe, players }) {
 			step('nothing the author styled covers the player', !h.hits.some((x) => x === 'metax' || x === 'bodyx'), `corners and edges: ${h.hits.join(', ')}`);
 			step('the author-styled link is drawn inside the card, unstyled', !!h.link && h.link.style === null && h.link.position !== 'fixed', h.link ? `style ${h.link.style}, position ${h.link.position}` : 'no link in the footer');
 		}
+		// THE 4K PLAYER: laid out on HD on this screen (a phone or a tablet shows fewer than 2,560 device px across), and
+		// still on HD, with no reload, after a swipe to every later slide. The CONTROL that the swipe moved is the index.
+		await go(players.k4);
+		const k4 = await call('latticePlayerProbe.canvas()');
+		step('the 4K player lays its slide out on HD on this screen', k4.box === '1280px', `${k4.box || 'no slide'} on a ${k4.width}px-wide screen`);
+		let at = k4;
+		for (let n = 1; n < (k4.slides || 0); n++) {
+			const y = Math.round((k4.height || 600) / 2);
+			await swipe(Math.round(k4.width * 0.8), y, Math.round(k4.width * 0.2), y);
+			await call(`latticePlayerProbe.slideAfter(${at.index})`);
+			at = await call('latticePlayerProbe.canvas()');
+		}
+		step('a swipe reaches every slide of the 4K player', k4.slides > 1 && at.index === k4.slides - 1, `slide ${at.index + 1} of ${k4.slides}`);
+		step('every 4K slide stays on HD, and the page never reloaded', at.box === '1280px' && at.mark === k4.mark, `${at.box}, ${at.mark === k4.mark ? 'same page' : 'the page reloaded'}`);
 	} catch (e) {
 		return done(steps, page, String(e.message || e));
 	}

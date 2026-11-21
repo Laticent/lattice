@@ -112,7 +112,7 @@ if (process.env.PROBE === 'player-charts') {
 		const context = await browser.newContext(shape.options);
 		const page = await context.newPage();
 		const result = await runPlayerCharts({
-			players: { deck: `file://${players.deck}`, hostile: `file://${players.hostile}` },
+			players: { deck: `file://${players.deck}`, hostile: `file://${players.hostile}`, k4: `file://${players.k4}` },
 			go: (url) => page.goto(url),
 			// In a function scope of its own, as WebDriver's execute-script runs it, so a second call never redeclares a const.
 			call: (expr) => page.evaluate(`(() => {\n${PLAYER_CHARTS_SOURCE}\nreturn ${expr};\n})()`),

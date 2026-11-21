@@ -76,12 +76,14 @@ elif [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ] || [ "$PROBE" = codec-su
   server=$!
   ready="http://localhost:$PORT/"
 elif [ "$PROBE" = player-charts ]; then
-  # Two decks exported to standalone HTML players with the real CLI (player-charts.mjs): the test deck and the checker's
-  # hostile deck. The export renders through Puppeteer's Chrome, which npm ci installed. A plain server is all they need.
+  # Three decks exported to standalone HTML players with the real CLI (player-charts.mjs): the test deck, the checker's
+  # hostile deck and a 4K deck. The export renders through Puppeteer's Chrome, which npm ci installed. A plain server is all they need.
   page="$RUNNER_TEMP/player-charts-page"
   mkdir -p "$page"
   node lattice.js examples/chart-detail-reveal.md "$page/chart-detail-reveal.html" --player -q
   node lattice.js docs/scripts/ios-safari/player-charts-hostile.md "$page/hostile.html" --player -q
+  # A 4K deck (#3304): its player must lay the slides out on HD on an iPhone or an iPad, never at 3840.
+  node lattice.js docs/scripts/ios-safari/player-4k.md "$page/deck-4k.html" --player -q
   (cd "$page" && python3 -m http.server $PORT > "$OUT/preview.log" 2>&1) &
   server=$!
   ready="http://localhost:$PORT/chart-detail-reveal.html"

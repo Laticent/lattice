@@ -565,7 +565,7 @@ async function composeTouchTap(id) {
  */
 async function runPlayerChartsProbe(id) {
 	return runPlayerCharts({
-		players: { deck: `${BASE}/chart-detail-reveal.html`, hostile: `${BASE}/hostile.html` },
+		players: { deck: `${BASE}/chart-detail-reveal.html`, hostile: `${BASE}/hostile.html`, k4: `${BASE}/deck-4k.html` },
 		go: (url) => wd('POST', `/session/${id}/url`, { url }),
 		call: (expr) =>
 			wd('POST', `/session/${id}/execute/async`, {
