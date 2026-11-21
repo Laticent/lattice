@@ -1540,8 +1540,11 @@ function shootSection(section, pixelRatio, fontEmbedCSS, log, face, { hostFamili
 		// The camera reads every `url()` in the page's CSS, and `studioDataUri` refuses a web address. One the deck has not
 		// allowed is refused on purpose (the frame's policy refuses it too, and the sweep draws the hatch for a background),
 		// so it is no missing picture: a theme with a web background used to make every export say a picture was lost.
-		onImageError: (url) => {
-			if (log && !refusedWebAddress(section.ownerDocument, url)) log.count += 1;
+		onImageError: (url, err) => {
+			if (!log || refusedWebAddress(section.ownerDocument, url)) return;
+			log.count += 1;
+			// The toast cannot name this one (`createImageFailureLog`), so the console does: which address, and why.
+			console.warn(`[deck-export] the capture could not read ${logName(url)}: ${err?.message ?? err ?? 'no reader for it'}`);
 		},
 		// WebKit decodes a picture nested in the slide's SVG only after the first draw; this waits for them (settled-canvas.js).
 		settle: (svg, drawSlide) => settleSlideDraw(svg, drawSlide, log),
@@ -1670,10 +1673,16 @@ export async function recordUnreachableAssets(sections, log) {
 	const results = await Promise.all([...urls].map((url) => probeImage(win, url, BACKGROUND_PROBE_MS)));
 	[...urls].forEach((url, i) => {
 		if (results[i]) return;
+		console.warn(`[deck-export] the background probe could not load ${logName(url)}`);
 		log.paths.add(url);
 		// The hook never fires for a background, so this IS the trigger as well as the name.
 		log.count += 1;
 	});
+}
+
+/** An address short enough for one console line: a `data:` or long URL is cut, since its bytes say nothing. */
+function logName(url) {
+	return url.length > MISSING_IMAGE_NAME_CHARS ? `${url.slice(0, MISSING_IMAGE_NAME_CHARS)}…` : url;
 }
 
 /** How many names a degradation sentence carries before it stops listing them. */

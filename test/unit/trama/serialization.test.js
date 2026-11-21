@@ -10,6 +10,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 require('../../../lib/core/dagre-layout.js');
 const trama = require('@laticent/trama');
@@ -57,7 +58,8 @@ describe('trama — serialization', () => {
     // Trama is a workspace package, not a dependency: outside the repo nothing resolves
     // it, and the CLI swallowed the throw and exported every flowchart as tiles.
     const bundle = path.join(__dirname, '../../../dist/lattice.js');
-    if (!fs.existsSync(bundle)) return t.skip('dist/lattice.js not built');
+    const why = skipUnlessCI(!fs.existsSync(bundle), 'dist/lattice.js not built');
+    if (why) return t.skip(why);
     const src = fs.readFileSync(bundle, 'utf8');
     assert.ok(!/require\(["']@laticent\/trama["']\)/.test(src), 'dist/lattice.js requires @laticent/trama at runtime');
     assert.ok(src.includes('graphLayoutKernel'), 'the kernel is inlined');
