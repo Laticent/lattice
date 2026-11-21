@@ -297,6 +297,15 @@ to this change:
 Not reached: a real VS Code (its download host is blocked here), real PowerPoint or Keynote, and the
 player's article view.
 
+**Re-run at the merge candidate (2026-11-21, `fa37ff1`).** Three later commits changed what ships (anchors take no
+beat, overflow grace, the stats and video fixes), so the same 41-slide deck, with the three claims grace named, went
+through every surface again: the Lattice PDF; the HTML player, stepped with the keyboard to 41/41; PPTX and ODP, default
+and `--editable`, printed through LibreOffice; the kit and an Export-to-Marp bundle through real `marp --pdf`
+(marp-cli 4.5.1). Every surface gives 41 pages, every beat sits where the PDF puts it, and the title, divider, topic and
+closing slides carry none. The title-slide note in the editable PPTX above no longer applies: anchors take no key
+insight. One gap, not from this change: a topic slide's `_track:` row draws in the PDF, player, PPTX and ODP and is
+missing on both Marp surfaces (`followups.d/3362-p3-marp-topic-track.md`).
+
 ## 9. Grace: a checked way out when a slide overflows (owner, 2026-11-20)
 
 **Asked.** Lattice reported overflow and offered no way out. The owner's idea: suggest `claim-hero` for slides like
