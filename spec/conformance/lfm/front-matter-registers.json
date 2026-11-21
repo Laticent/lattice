@@ -967,19 +967,7 @@
     "findings": []
    }
   },
-  {
-   "name": "cover: stage on a title with a long heading",
-   "source": "---\ncover: stage\n---\n\n<!-- _class: title -->\n\n# A cover heading far too long to hold three lines at the display size\n",
-   "L2": {
-    "findings": [
-     {
-      "rule": "cover-heading-long",
-      "severity": "warning",
-      "slide": 1
-     }
-    ]
-   }
-  },
+
   {
    "name": "logo-finish: bottom-center accent-ink lg",
    "source": "---\nlogo-finish: bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",

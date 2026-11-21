@@ -189,6 +189,27 @@ section.title.cover-label p:has(> code:only-child):not(:where([data-prose])) > c
 }
 
 /* stage — the title at stage size, centered: the display role, set tight. */
+/* stage and poster: the display role holds three lines (about 60 characters) clear of the bands,
+ * and a longer heading must never meet a band silently. Two parts:
+ *   1. `safe center`: a centered block grows both ways, so a long heading climbed into the top band
+ *      and under a top-right logo. Safe, it holds the top of the content box and grows down.
+ *   2. THE FOOTER BAND IS A KEEP-OUT THE OVERFLOW PROBE CAN SEE. The probe (lib/core/overflow-probe.js)
+ *      measures the flowed children against the SECTION's edge, so the section's own bottom padding
+ *      is invisible to it, and a heading 6px into the footer band read as fitting. So the reserve
+ *      `--_cover-foot` (the footer's inset plus two meta lines, which tracks a venue's lift) moves
+ *      OUT of the section's padding and ONTO the last flowed child's padding: the content box and the
+ *      content both grow by it, so a slide that fits renders exactly as before, and a heading that
+ *      reaches the band pushes that padding past the slide edge, where the probe reports it (the
+ *      export's overflow line, the Studio ring). The eyebrow is excluded: it renders first (`order`).
+ * Padding, never margin (HARD RULE #20). Measured with `npm run check:jank` and a real render,
+ * 2026-11-21. */
+section.title:is(.cover-stage, .cover-poster) {
+  justify-content: safe center;
+  --_cover-foot: calc(var(--frame-inset-y) + 2 * var(--fs-meta));
+  padding-bottom: calc(var(--_sec-1cqi, 1cqi) * 6.875 - var(--_bar-b, 0px) - var(--_cover-foot));
+}
+section.title:is(.cover-stage, .cover-poster) > :nth-last-child(1 of h1, ul, ol, p:not(:has(> code:only-child):not(:where([data-prose])))) { padding-bottom: var(--_cover-foot); }
+section.title:is(.cover-stage, .cover-poster) > :nth-last-child(1 of h1, ul, ol, p:not(:has(> code:only-child):not(:where([data-prose])))):is(h1) { padding-bottom: calc(var(--sp-xs) + var(--_cover-foot)); }
 section.title.cover-stage h1 {
   font-size: var(--fs-hero);
   line-height: 1.02;

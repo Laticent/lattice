@@ -90,7 +90,7 @@ A quiet caption sits under the hairline, the way a museum labels a work.
 <!-- _class: title silent cover-stage -->
 <!-- _footer: "cover-stage · title cover-stage — A stage-size centered title." -->
 
-# The cover composes as a stage.
+# Built for the back row.
 
 `anchor · title · cover-stage`
 
@@ -114,7 +114,7 @@ The keyline follows the deck's rule weight.
 <!-- _class: title silent cover-poster -->
 <!-- _footer: "cover-poster · title cover-poster — A giant title set left." -->
 
-# The cover composes as a poster.
+# Say it loud.
 
 `anchor · title · cover-poster`
 

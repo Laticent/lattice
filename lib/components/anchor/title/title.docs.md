@@ -6,7 +6,7 @@
 
 **Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
 
-First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters (`cover-heading-long`).
+First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
 
 ## Agent contract
 
@@ -144,7 +144,7 @@ A stage-size centered title.
 ```markdown
 <!-- _class: title silent cover-stage -->
 
-# The cover composes as a stage.
+# Built for the back row.
 
 `anchor · title · cover-stage`
 
@@ -172,7 +172,7 @@ A giant title set left.
 ```markdown
 <!-- _class: title silent cover-poster -->
 
-# The cover composes as a poster.
+# Say it loud.
 
 `anchor · title · cover-poster`
 

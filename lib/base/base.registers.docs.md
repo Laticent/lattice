@@ -1336,11 +1336,13 @@ ledger` and `cover: ledger` both read in either color mode, with or without a `f
 **A `headline:` register still wins.** The four left-set compositions (`masthead`, `column`,
 `label`, `poster`) only change the default alignment, so `headline: center` centers them.
 
-**Keep a `stage` or `poster` heading to about 60 characters.** The display size holds three lines
-of about twenty characters with the eyebrow and a subtitle. A fourth line reaches into the band
-padding and a fifth runs into the footer, and the slide does not overflow, so nothing else would
-say so. `lint:deck` warns (`cover-heading-long`); shorten the heading or add `cover-plain` to that
-slide.
+**Keep a `stage` or `poster` heading to a few words: about 60 characters at the laptop venue, and
+fewer as `venue:` scales the display size up.** At laptop that is three lines of about twenty
+characters, with the eyebrow and a subtitle. A longer heading never meets a band silently. It holds
+the top of the content box and grows down, never into the top band or under a logo. The footer
+band is a keep-out: a heading long enough to reach it is reported as overflow (the export's
+overflow line, the Studio ring), never drawn into the footer. Shorten it, or add `cover-plain` to
+that slide.
 
 The register is `lib/core/resolve-cover.js`. It has no Studio control on purpose: presets set it
 (deck-preset study, decision D10), and the Studio's Basic tier gains no new controls for the

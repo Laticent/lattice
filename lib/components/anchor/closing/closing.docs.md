@@ -6,7 +6,7 @@
 
 **Tags** `summary` · `takeaway` · `board-deck`
 
-Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters (`cover-heading-long`).
+Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out. The deck's `cover: light` register repaints the front and back cover together on the deck's light canvas, in both color modes (`cover-light`; a slide opts out with `cover-inverse`). `light` alone sets a scheme and keeps the dark panel (lib/base/base.registers.docs.md § cover). Seven cover compositions (`cover-masthead`, `cover-ledger`, `cover-column`, `cover-label`, `cover-stage`, `cover-frame`, `cover-poster`) set how the heading block sits; the deck writes one with the same register's second word (`cover: light column`) so both covers match, and `cover-plain` keeps one slide centered. A `cover-stage` or `cover-poster` heading holds about 60 characters; a longer one grows down from the top of the frame and overflows at the foot.
 
 ## Agent contract
 
@@ -134,8 +134,6 @@ A heavy rule over the title, set left.
 ## The back cover composes as a masthead.
 
 `anchor · closing · cover-masthead`
-
-The heading sits under a heavy rule as wide as its measure.
 ```
 
 ### `cover-ledger` — cover-ledger
@@ -148,8 +146,6 @@ A small-caps title over a double rule.
 ## The back cover composes as a ledger.
 
 `anchor · closing · cover-ledger`
-
-Small capitals over a double rule, centered.
 ```
 
 ### `cover-column` — cover-column
@@ -162,8 +158,6 @@ An accent column at the right edge, the title set left.
 ## The back cover composes as a column.
 
 `anchor · closing · cover-column`
-
-The accent column runs between the header and footer bands.
 ```
 
 ### `cover-label` — cover-label
@@ -176,8 +170,6 @@ A gallery wall label: a smaller title low on the left under a hairline.
 ## The back cover composes as a label.
 
 `anchor · closing · cover-label`
-
-A quiet caption sits under the hairline, the way a museum labels a work.
 ```
 
 ### `cover-stage` — cover-stage
@@ -187,11 +179,9 @@ A stage-size centered title.
 ```markdown
 <!-- _class: closing silent cover-stage -->
 
-## The back cover composes as a stage.
+## Thank you.
 
 `anchor · closing · cover-stage`
-
-One short line, sized for the back of the hall.
 ```
 
 ### `cover-frame` — cover-frame
@@ -204,8 +194,6 @@ The title boxed in a keyline.
 ## The back cover composes as a frame.
 
 `anchor · closing · cover-frame`
-
-The keyline follows the deck's rule weight.
 ```
 
 ### `cover-poster` — cover-poster
@@ -215,11 +203,9 @@ A giant title set left.
 ```markdown
 <!-- _class: closing silent cover-poster -->
 
-## The back cover composes as a poster.
+## Make it yours.
 
 `anchor · closing · cover-poster`
-
-A poster headline, heavy, tight and set left.
 ```
 
 ## Universal modifiers

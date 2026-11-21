@@ -194,6 +194,13 @@ section.closing.cover-label :is(ul, ol) li { font-size: var(--fs-body); }
 section.closing.cover-label p:has(> code:only-child):not(:where([data-prose])) > code {
   font-size: max(var(--fs-meta), calc(var(--fs-h2) * var(--eyebrow-anchor-scale)));
 }
+section.closing:is(.cover-stage, .cover-poster) {
+  justify-content: safe center;
+  --_cover-foot: calc(var(--frame-inset-y) + 2 * var(--fs-meta));
+  padding-bottom: calc(var(--_sec-1cqi, 1cqi) * 6.875 - var(--_bar-b, 0px) - var(--_cover-foot));
+}
+section.closing:is(.cover-stage, .cover-poster) > :nth-last-child(1 of h1, h2, ul, ol, p:not(:has(> code:only-child):not(:where([data-prose])))) { padding-bottom: var(--_cover-foot); }
+section.closing:is(.cover-stage, .cover-poster) > :nth-last-child(1 of h1, h2, ul, ol, p:not(:has(> code:only-child):not(:where([data-prose])))):is(h1, h2) { padding-bottom: calc(var(--sp-sm) + var(--_cover-foot)); }
 section.closing.cover-stage :is(h1, h2) {
   font-size: var(--fs-hero);
   line-height: 1.02;

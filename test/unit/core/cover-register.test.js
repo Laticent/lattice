@@ -9,7 +9,7 @@
  *   4. the CSS repaints a light cover and leaves the old `title light` meaning alone (source
  *      shape here; the computed values are the finish-canvas matrix's job, in real Chromium);
  *   5. the composition axis: seven words, each a variant of both cover components, a slide's own
- *      word or `cover-plain` evicting the deck's, and the long-heading lint on `stage` / `poster`.
+ *      word or `cover-plain` evicting the deck's, and `stage` / `poster` growing down, never up.
  */
 
 const test = require('node:test');
@@ -86,26 +86,12 @@ test('engine: `cover: light poster` stamps both words on title and closing, and 
   assert.ok(e.includes('cover-light') && e.includes('cover-plain') && !e.includes('cover-poster'), e.join(' '));
 });
 
-test('lint: a composition word is known; a long stage or poster heading warns, a short one or cover-plain does not', () => {
+test('lint: a composition word is known on the register and as a slide class', () => {
   const unknown = (v) => lintText(deck([`cover: ${v}`], [TITLE()])).filter((f) => f.rule === 'unknown-cover');
   assert.equal(unknown('light column').length, 0);
   assert.equal(unknown('collumn').length, 1);
-  const LONG = 'A cover heading far too long to hold three lines at the display size';
-  const long = (fm, cls) => lintText(deck(fm, [`<!-- _class: ${cls} -->\n\n# ${LONG}`])).filter((f) => f.rule === 'cover-heading-long');
-  assert.equal(long(['cover: stage'], 'title').length, 1, 'the deck word reaches the title');
-  assert.equal(long([], 'closing cover-poster').length, 1, 'the slide class counts too');
-  assert.equal(long(['cover: stage'], 'title cover-plain').length, 0, 'cover-plain opts out');
-  assert.equal(long(['cover: masthead'], 'title').length, 0, 'only the display compositions');
-  assert.equal(long(['cover: stage'], 'content').length, 0, 'only the covers');
-  assert.equal(lintText(deck(['cover: stage'], [TITLE()])).filter((f) => f.rule === 'cover-heading-long').length, 0, 'a short heading');
-  // The heading shapes CommonMark allows, each missed by the first cut (found by the checker).
-  const shape = (fm, body) => lintText(deck(fm, [body])).filter((f) => f.rule === 'cover-heading-long').length;
-  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n${LONG}\n===`), 1, 'a setext heading');
-  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n   # ${LONG}`), 1, 'indented up to three spaces');
-  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n#\t${LONG}`), 1, 'a tab after the marker');
-  assert.equal(shape(['class: cover-stage'], `<!-- _class: title -->\n\n# ${LONG}`), 1, 'a deck-wide class: names it');
-  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n\`An eyebrow first\`\n\n## ${LONG}`), 1, 'an eyebrow before the heading');
-  assert.equal(shape(['cover: poster'], `<!-- _class: closing -->\n\n    # ${LONG}`), 0, 'four spaces in is code, not a heading');
+  const unknownClass = (cls) => lintText(deck([], [TITLE(cls)])).filter((f) => f.rule === 'unknown-class' && f.message?.includes(cls));
+  for (const c of [...COVER_COMPOSITION_CLASSES, 'cover-plain']) assert.equal(unknownClass(c).length, 0, c);
 });
 
 test('css: every composition is scoped to its own component, and the size changes are role tokens', () => {
@@ -114,6 +100,12 @@ test('css: every composition is scoped to its own component, and the size change
     for (const v of COVER_COMPOSITION_CLASSES) assert.ok(css.includes(`section.${name}.${v}`), `${name} styles ${v}`);
     const sizes = [...css.matchAll(/section\.\w+\.cover-[a-z]+[^{]*\{[^}]*font-size:\s*([^;]+);/g)].map((m) => m[1].trim());
     assert.ok(sizes.length >= 3, `${name}: stage, poster and label set a size`);
+    // A display heading too long for three lines grows DOWN from the content box and overflows at the
+    // foot, where the probe reports it, never up into the top band and a logo (check:jank, 2026-11-21).
+    const display = css.match(new RegExp(`section\\.${name}:is\\(\\.cover-stage, \\.cover-poster\\) \\{([^}]*)\\}`));
+    assert.ok(display && display[1].includes('justify-content: safe center'), `${name}: stage and poster center safely`);
+    assert.ok(display[1].includes('- var(--_cover-foot)'), `${name}: the footer reserve leaves the section's padding`);
+    assert.ok(css.includes(`section.${name}:is(.cover-stage, .cover-poster) > :nth-last-child(1 of`), `${name}: and lands on the last flowed child, where the probe sees it`);
     for (const v of sizes) assert.match(v, /^(var\(--fs-[a-z0-9]+\)|max\(var\(--fs-meta\), calc\(var\(--fs-h2\) \* var\(--eyebrow-anchor-scale\)\)\))$/, `${name}: ${v} is a role token`);
   }
 });

@@ -71,8 +71,6 @@ The payload bullet renders as a QR code sized for the back row.
 
 `anchor · closing · cover-masthead`
 
-The heading sits under a heavy rule as wide as its measure.
-
 
 ---
 
@@ -82,8 +80,6 @@ The heading sits under a heavy rule as wide as its measure.
 ## The back cover composes as a ledger.
 
 `anchor · closing · cover-ledger`
-
-Small capitals over a double rule, centered.
 
 
 ---
@@ -95,8 +91,6 @@ Small capitals over a double rule, centered.
 
 `anchor · closing · cover-column`
 
-The accent column runs between the header and footer bands.
-
 
 ---
 
@@ -107,19 +101,15 @@ The accent column runs between the header and footer bands.
 
 `anchor · closing · cover-label`
 
-A quiet caption sits under the hairline, the way a museum labels a work.
-
 
 ---
 
 <!-- _class: closing silent cover-stage -->
 <!-- _footer: "cover-stage · closing cover-stage — A stage-size centered title." -->
 
-## The back cover composes as a stage.
+## Thank you.
 
 `anchor · closing · cover-stage`
-
-One short line, sized for the back of the hall.
 
 
 ---
@@ -131,19 +121,15 @@ One short line, sized for the back of the hall.
 
 `anchor · closing · cover-frame`
 
-The keyline follows the deck's rule weight.
-
 
 ---
 
 <!-- _class: closing silent cover-poster -->
 <!-- _footer: "cover-poster · closing cover-poster — A giant title set left." -->
 
-## The back cover composes as a poster.
+## Make it yours.
 
 `anchor · closing · cover-poster`
-
-A poster headline, heavy, tight and set left.
 
 
 ---
