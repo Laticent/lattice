@@ -50,7 +50,9 @@ export function fixAllNotice(r: FixAllResult): { message: string; description?: 
  *  enough to read why; a clean run is a count; a run with nothing to report says nothing. */
 export function announceFixAll(r: FixAllResult | null, notify: (message: string, opts?: { description?: string; duration?: number }) => void): void {
 	const n = r && fixAllNotice(r);
-	if (n) notify(n.message, n.description ? { description: n.description, duration: REFUSAL_DURATION } : undefined);
+	// A stale run asks the author to act (press Fix all again), so it stays as long as a refusal: a status line's
+	// 2.6 s is too short to read the sentence.
+	if (n) notify(n.message, n.description ? { description: n.description, duration: REFUSAL_DURATION } : r?.stale ? { duration: REFUSAL_DURATION } : undefined);
 }
 
 /**
@@ -61,6 +63,6 @@ export function announceFixAll(r: FixAllResult | null, notify: (message: string,
 export function announceFixAllByEvent(r: FixAllResult): void {
 	const n = fixAllNotice(r);
 	if (!n || typeof window === 'undefined') return;
-	const opts = { label: 'OK', onClick: () => {}, ...(n.description ? { description: n.description, duration: REFUSAL_DURATION } : {}) };
+	const opts = { label: 'OK', onClick: () => {}, ...(n.description ? { description: n.description, duration: REFUSAL_DURATION } : r.stale ? { duration: REFUSAL_DURATION } : {}) };
 	window.dispatchEvent(new CustomEvent('lattice:notify-action', { cancelable: true, detail: { message: n.message, opts } }));
 }

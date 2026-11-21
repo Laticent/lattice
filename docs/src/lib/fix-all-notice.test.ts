@@ -47,6 +47,11 @@ describe('a stale run', () => {
 		expect(n).toEqual({ message: STALE_NOTICE });
 		expect(n?.message).not.toMatch(/Fixed/);
 	});
+	it('stays on screen as long as a refusal, since it asks the author to press again', () => {
+		const notify = vi.fn();
+		announceFixAll({ applied: 0, skipped: [], stale: true }, notify);
+		expect(notify).toHaveBeenCalledWith(STALE_NOTICE, { duration: 12000 });
+	});
 });
 
 describe('announceFixAllByEvent', () => {
