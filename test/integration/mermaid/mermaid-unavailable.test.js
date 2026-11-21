@@ -68,8 +68,17 @@ const BROKEN_DECK = deckWith([`flowchart LR ${SENTINEL}`, '  A -->']);
  * `page.addScriptTag`, and that is the whole fidelity argument of this file: the runtime's
  * fast arm reasons about a script that has already had its turn, and `addScriptTag`
  * appends after load, which is the one shape the arm deliberately does not claim.
+ *
+ * `holdMermaid` makes the Mermaid script a SLOW but successful load, the case the fast arm must not mistake for a
+ * failure. The server holds the reply until the runtime has decided: a fence carries `data-lattice-settle` (the runtime
+ * booted and ran its pass) and two frames have passed (its first `tick`, where the fast arm gives up, has run). Then
+ * `beforeRelease(page)` runs, if given, and the reply goes out. `releaseWhen: 'parsed'` releases once the parser is done
+ * instead: a DEFER Mermaid tag ahead of a plain runtime tag holds `DOMContentLoaded`, where the runtime boots
+ * (lib/runtime/index.js), so no fence can settle until the held script runs. A fixed delay stood here (HARD RULE #32, F2): on a
+ * loaded machine the runtime could boot after the delay, Mermaid was already real, and a wrong give-up never got its
+ * chance to fire, so the cell passed on a broken runtime.
  */
-async function readFence({ mermaid, payload = '404', laterDeck = null, laterMs = 0, stampDiagrams = false, deck = DECK, scriptAttrs = '', mermaidDelayMs = 0, basePath = '/', extraScript = '', dynamicInsert = null, waitFor = null, settleMs = 8000, runtimeFirst = false }) {
+async function readFence({ mermaid, payload = '404', laterDeck = null, laterMs = 0, stampDiagrams = false, deck = DECK, scriptAttrs = '', holdMermaid = false, releaseWhen = 'settled', beforeRelease = null, basePath = '/', extraScript = '', dynamicInsert = null, waitFor = null, settleMs = 8000, runtimeFirst = false }) {
   const puppeteer = require('puppeteer');
   const engine = require('../../../lib/engine');
   const { composeCss } = require('../../../lib/engine/css.js');
@@ -120,6 +129,8 @@ async function readFence({ mermaid, payload = '404', laterDeck = null, laterMs =
   const runtimeJs = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'));
   const mermaidJs = mermaid && mermaid !== 'no-tag' ? fs.readFileSync(path.join(ROOT, 'node_modules', 'mermaid', 'dist', 'mermaid.js')) : null;
   const payloadRequests = [];
+  let release = () => {};
+  const held = holdMermaid ? new Promise((r) => { release = r; }) : null;
   const server = http.createServer(async (req, res) => {
     if (req.url.endsWith('/lattice-runtime.js')) {
       res.writeHead(200, { 'content-type': 'application/javascript' });
@@ -138,8 +149,8 @@ async function readFence({ mermaid, payload = '404', laterDeck = null, laterMs =
     }
     if (req.url.endsWith('/mermaid.js')) {
       if (!mermaidJs) { res.writeHead(404); res.end('no mermaid here'); return; }
-      // A SLOW but successful load — the case the fast arm must not mistake for a failure.
-      if (mermaidDelayMs) await new Promise((r) => { setTimeout(r, mermaidDelayMs); });
+      // A SLOW but successful load, held until the runtime has decided (see `holdMermaid`).
+      if (held) await held;
       res.writeHead(200, { 'content-type': 'application/javascript' });
       res.end(mermaidJs);
       return;
@@ -165,7 +176,18 @@ async function readFence({ mermaid, payload = '404', laterDeck = null, laterMs =
       if (t.includes('real mermaid never loaded; giving up')) gaveUpLines.push(t);
     });
     const startedAt = Date.now();
-    await page.goto(base, { waitUntil: 'load' });
+    const navigated = page.goto(base, { waitUntil: 'load' });
+    if (held) {
+      // `load` waits on the held script, so the release has to come from here, while the navigation is still open.
+      await page.waitForFunction(
+        (when) => (when === 'parsed' ? document.readyState !== 'loading' : !!document.querySelector('[data-lattice-settle]')),
+        { polling: 'raf' }, releaseWhen,
+      );
+      await page.evaluate(() => new Promise((r) => { requestAnimationFrame(() => requestAnimationFrame(r)); }));
+      if (beforeRelease) await beforeRelease(page);
+      release();
+    }
+    await navigated;
     // Wait for the fence to SETTLE either way — rendered, or handed back. Bounded well
     // under the runtime's own 10s deadline so cell 4 can distinguish the two arms; a
     // release that only happened on the deadline times out here rather than passing late.
@@ -205,6 +227,7 @@ async function readFence({ mermaid, payload = '404', laterDeck = null, laterMs =
     });
     return { ...read, settled, settledMs, gaveUp: gaveUpLines.length > 0, gaveUpLines, payloadRequests };
   } finally {
+    release();
     await browser.close();
     await new Promise((r) => server.close(r));
   }
@@ -288,7 +311,7 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // `readyState` flips to `interactive` BEFORE deferred scripts execute, so the first
     // version of the predicate reported a defer tag as settled and gave up while Mermaid
     // was still on its way. Position against our own script is the exact question instead.
-    const r = await readFence({ mermaid: true, scriptAttrs: 'defer', mermaidDelayMs: 1200 });
+    const r = await readFence({ mermaid: true, scriptAttrs: 'defer', holdMermaid: true, releaseWhen: 'parsed' });
     assert.equal(r.gaveUp, false,
       `the runtime must not GIVE UP on a defer tag that has not run: ${r.gaveUpLines.join(' | ')}`);
     assert.equal(r.state, 'rendered', 'a slow DEFER mermaid still draws');
@@ -308,7 +331,7 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // No builder writes this order; the predicate should not depend on that.
     const r = await readFence({
       mermaid: true, scriptAttrs: 'defer', runtimeFirst: true,
-      mermaidDelayMs: 600, waitFor: 'rendered', settleMs: 25000,
+      holdMermaid: true, waitFor: 'rendered', settleMs: 25000,
     });
     assert.equal(r.gaveUp, false,
       `our tag coming first must not turn a pending Mermaid into a broken promise: ${r.gaveUpLines.join(' | ')}`);
@@ -316,7 +339,7 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
   });
 
   test('waits for an ASYNC tag that has not run yet', async () => {
-    const r = await readFence({ mermaid: true, scriptAttrs: 'async', mermaidDelayMs: 1200 });
+    const r = await readFence({ mermaid: true, scriptAttrs: 'async', holdMermaid: true });
     assert.equal(r.gaveUp, false,
       `the runtime must not GIVE UP on an async tag that has not run: ${r.gaveUpLines.join(' | ')}`);
     assert.equal(r.state, 'rendered', 'a slow ASYNC mermaid still draws');
@@ -413,9 +436,24 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // An async host tag still loading, and a DOM mutation meanwhile: the debounced pass must not
     // ask the plugin host for a second copy. Before the fix it did, the payload 404ed, and the
     // fence flashed its source until the host's script landed (HARD RULE #25 checker).
+    //
+    // The mutation is a new numbered divider slide, so the later pass leaves a mark. A correct pass with the host tag
+    // still loading writes nothing for Mermaid (`runPass` returns before `wrapFences`), but the same synchronous
+    // `initAndRun` numbers every divider first (lib/runtime/index.js, `sectionIndex.applyToDom`). Mermaid stays held
+    // until the new heading carries its number, so the pass under test has run while the host tag was still loading.
+    // An empty <div> and a 300 ms timer stood here, against a 2.5 s delay, and nothing showed the pass ran in between.
     const r = await readFence({
-      mermaid: true, scriptAttrs: 'async', mermaidDelayMs: 2500,
-      extraScript: '<scr' + 'ipt>setTimeout(function(){document.body.appendChild(document.createElement("div"));}, 300);</scr' + 'ipt>',
+      mermaid: true, scriptAttrs: 'async', holdMermaid: true,
+      beforeRelease: async (page) => {
+        await page.evaluate(() => {
+          const divider = document.createElement('section');
+          divider.className = 'divider numbered';
+          divider.id = 'later-divider';
+          divider.innerHTML = '<h2>Later</h2>';
+          document.querySelector('.lattice').appendChild(divider);
+        });
+        await page.waitForFunction(() => document.querySelector('#later-divider h2').hasAttribute('data-lat-section'), { polling: 'raf' });
+      },
       waitFor: 'rendered', settleMs: 20000,
     });
     assert.deepEqual(r.payloadRequests, [], 'the host tag is the library; the payload is never fetched');
@@ -466,7 +504,7 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // The point of this cell is that the misfire is recovered rather than permanent.
     const r = await readFence({
       mermaid: true,
-      mermaidDelayMs: 900,
+      holdMermaid: true,
       dynamicInsert: 'head',
       // Wait for the DIAGRAM, not for the first settled state — the first settled state
       // here is the misfire this cell exists to watch recover from.
