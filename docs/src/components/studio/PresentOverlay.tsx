@@ -2500,6 +2500,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// measures the wrong window. This is the same trick the Vetrina tour uses for its
 				// own oracles (`data-vt-phase`): publish the state rather than infer it.
 				data-beat={holding ? 'hold' : undefined}
+				// The reader's voice, once Play has DECIDED it ('silent' for captions only, or a voice rung). The decision
+				// waits on real async work (the voice ladder), so a test on a paused clock must see it land before it runs
+				// time; under Playwright 1.65's faster `runFor`, guessing that wait made the captions stall after one cue.
+				data-reader-rung={reader.rung ?? undefined}
+				// The narration projection (the spoken text and its emphasis spans) has landed for the presented set. Until it
+				// does, a slide reads the markdown fallback with no emphasis, and a slide reached before it lands keeps that
+				// reading until the next one; a test that needs the emphasized reading waits for this first.
+				data-narration-projected={projected.set === set ? 'true' : undefined}
 				className="lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden"
 			>
 			<div className="pointer-events-auto flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">

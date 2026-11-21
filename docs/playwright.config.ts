@@ -22,10 +22,9 @@ import { shardProjects } from './e2e/shard-plan.mjs';
 // whose subject is resource ordering, first paint or a pre-hydration window has
 // to say WHICH build produced the `dist` it was measured against.
 //
-// Browser: Chromium build 1194 ↔ @playwright/test 1.56.1, at
-// PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers. The sandbox USED TO ship that build;
-// since 2026-11 it ships a newer one (1243), so `globalSetup` installs 1194 beside it
-// when it is missing (about 20 s). In CI, provision the pinned browser explicitly
+// Browser: Chromium build 1255 ↔ @playwright/test 1.65.1, at
+// PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers. The sandbox ships its own build (1243 as
+// of 2026-11), so `globalSetup` installs 1255 beside it when it is missing (about 20 s). In CI, provision the pinned browser explicitly
 // (the version pin IS the browser pin). See the decision doc
 // §"Sandbox + CI browser provisioning".
 //
@@ -52,8 +51,10 @@ const BASE_URL = `http://localhost:${PORT}`;
 // chat's Send button for a whole click budget (chat-photos.spec.ts, 1/50 at 4 workers). The pin is the person's
 // Performance mode choice, stored before the first script runs, so a `?tier=` pin still outranks it. A spec about the tier
 // opts out with `test.use({ storageState: { cookies: [], origins: [] } })` (device-tier, decline-screen, system-panel,
-// device-tier-drop). The pin is seeded once per context, for this origin only, so a context a spec opens itself
-// (`browser.newContext()`), a page on another origin, or a load after `localStorage.clear()` starts unpinned, as on main.
+// device-tier-drop). The pin is seeded once per context, for this origin only. A context a spec opens itself
+// (`browser.newContext()`) is pinned too: the test runner merges this `use` block, `storageState` included, into every
+// context a test creates (playwright/lib/index.js `runBeforeCreateBrowserContext`); pass `storageState` to opt out, as
+// studio-player-consent does. A page on another origin, or a load after `localStorage.clear()`, starts unpinned.
 const tierPin = (tier: 'lite') => ({
 	cookies: [],
 	origins: [{ origin: BASE_URL, localStorage: [{ name: 'lattice-device-tier-override', value: tier }] }],

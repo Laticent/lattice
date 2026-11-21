@@ -173,7 +173,11 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko every control on the libra
 			() =>
 				new Promise<void>((done) => {
 					const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void };
-					if (w.requestIdleCallback) w.requestIdleCallback(() => done(), { timeout: 10_000 });
+					// One second, not ten. After some presses Chromium 159 (Playwright 1.65.1) gives the page no idle period at
+					// all: on Mosaico 14 of 38 waits ran the full timeout with no animation running, which took this test from
+					// 1.0 min (Chromium 141) to 4.9 min, over its budget under load. Network quiet is the poll above; this is
+					// only "let the page catch up", which WebKit already does with two frames.
+					if (w.requestIdleCallback) w.requestIdleCallback(() => done(), { timeout: 1_000 });
 					else requestAnimationFrame(() => requestAnimationFrame(() => done()));
 				}),
 		);

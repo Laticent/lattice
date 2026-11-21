@@ -9,7 +9,7 @@ name: Studio E2E nightly (playwright)
 # fast subset to PR-blocking only after an observed green streak.
 #
 # Browser provisioning: `@playwright/test`'s pinned version IS the browser pin
-# (1.56.1 ↔ Chromium build 1194). `playwright install` fetches exactly that, so
+# (1.65.1 ↔ Chromium build 1255). `playwright install` fetches exactly that, so
 # `toHaveScreenshot`-style comparisons would be reproducible. The Studio reads the
 # committed `dist/docs/components.json` at build time, so no root BUILD is needed —
 # but the root DEPENDENCIES are, because the site imports engine modules from lib/
@@ -617,7 +617,7 @@ jobs:
   # being lost. Owner's pick, 2026-10-29 (PR #2959, decision D1 B).
   #
   # The image tag IS the browser pin, like `playwright install` in the jobs above: it must match
-  # docs/package-lock.json's @playwright/test (1.56.1). `--retries=0`: a session that connects on
+  # docs/package-lock.json's @playwright/test (1.65.1). `--retries=0`: a session that connects on
   # one try in two is still broken.
   firefox-webrtc:
     # No `spec` filter, like `security`: it runs on every dispatch, so a hand-run on a branch
@@ -625,7 +625,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     container:
-      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
       # Chromium-family pages need the host IPC namespace in Docker (Playwright's Docker guide);
       # harmless for Firefox, and the webServer's site build is a Node process either way.
       options: --ipc=host
@@ -635,7 +635,7 @@ jobs:
         shell: bash
     steps:
       # checkout needs git to make a real clone (the docs build reads git history) rather than fall
-      # back to a tarball. The v1.56.1 image already ships git, so this step normally does nothing. If a
+      # back to a tarball. The v1.65.1 image already ships git, so this step normally does nothing. If a
       # later image drops it, its .deb comes from GitHub's cache, keyed on the image tag; only a miss
       # reads a mirror, through the same mirror list as apt-setup.sh, three tries with apt's own three
       # retries (owner call, 2026-11-11). Inline because the repo's apt-cached action is not on disk
@@ -644,7 +644,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /root/apt-git-debs
-          key: apt-container-git-playwright-v1.56.1-noble-v1
+          key: apt-container-git-playwright-v1.65.1-noble-v1
       - name: Install git
         run: |
           set -euo pipefail

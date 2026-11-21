@@ -98,7 +98,7 @@ async function sessionBrowser(browser: Browser): Promise<Browser> {
 	return b;
 }
 
-/** An init script for Firefox: hold a (fake) microphone capture, so ICE offers host candidates. */
+/** An init script for Firefox and WebKit: hold a (fake) microphone capture, so ICE offers host candidates. */
 function captureFakeMic() {
 	const log = () => ((window as unknown as { __ice?: string[] }).__ice ??= []);
 	if (!navigator.mediaDevices) {
@@ -107,6 +107,8 @@ function captureFakeMic() {
 	}
 	navigator.mediaDevices
 		.getUserMedia({ audio: true, video: true })
+		// A browser with a microphone but no camera refuses the pair; the microphone alone is enough.
+		.catch(() => navigator.mediaDevices.getUserMedia({ audio: true }))
 		.then((s) => {
 			(window as unknown as { __mic: MediaStream }).__mic = s;
 			log().push(`mic: held ${s.getTracks().map((t) => `${t.kind}:${t.readyState}`).join(',')}`);
@@ -170,7 +172,15 @@ function iceReport(page: Page): Promise<string> {
 async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 	const relay = localRelay();
 	// The project's own box: WebKit runs at the tablet box its project exists for.
-	const opts = { baseURL: info.project.use.baseURL, viewport: info.project.use.viewport ?? { width: 1440, height: 900 } };
+	// WebKit, like Firefox, hides a page's addresses behind mDNS names unless it is capturing, and from Playwright 1.65.1
+	// (WebKit build 2388) the two contexts here never resolve each other's names: the guest's lobby never came, 3 of 3
+	// (build 2215 passed). A page that holds a microphone gets its real host candidates, so grant it and hold one.
+	const webkit = browser.browserType().name() === 'webkit';
+	const opts = {
+		baseURL: info.project.use.baseURL,
+		viewport: info.project.use.viewport ?? { width: 1440, height: 900 },
+		...(webkit ? { permissions: ['microphone', 'camera'] } : {}),
+	};
 	const hctx = await browser.newContext(opts);
 	const gctx = await browser.newContext(opts);
 	open.push(hctx, gctx);
@@ -178,7 +188,7 @@ async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 	await relay.attach(gctx);
 	// Keep every peer connection the pages make, so a failed connection can say why (below).
 	for (const c of [hctx, gctx]) await c.addInitScript(keepPeerConnections);
-	if (browser.browserType().name() === 'firefox') for (const c of [hctx, gctx]) await c.addInitScript(captureFakeMic);
+	if (webkit || browser.browserType().name() === 'firefox') for (const c of [hctx, gctx]) await c.addInitScript(captureFakeMic);
 	const host = await hctx.newPage();
 	const guest = await gctx.newPage();
 
