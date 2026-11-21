@@ -60,7 +60,8 @@ also red  — 2026-11-11, PR #3141's WebKit and Gecko run (the raise loop's evid
             points at a Chrome (a symlink made them pass, 16 of 18 with the two above).
 triaged   — 2026-11-21, every WebKit and Gecko row above but library-header-search:19 (fixed, above), on main 450df6d (one `npm run build:e2e`, --retries=0): each
             test alone on its own project (--workers=1 --repeat-each=5), then under load (--workers=3 --repeat-each=8).
-            None is red any more; every row below passed every run, so each is STALE and closes here.
+            None is red any more: every row below passed every run but one plugin-placeholder-cells run in 360 (its bullet
+            says what is known of it), so each is STALE and closes here.
             Then the three projects whole, the load these rows first failed under (--workers=4, --retries=0, one run each):
             webkit-phone 285 passed; webkit-tablet 411 passed, 3 skipped, 1 failed; gecko 424 passed, 8 skipped. None of
             the rows above failed. The one red, editor-lint.spec.ts:124 (webkit-tablet), is a product freeze met here:
