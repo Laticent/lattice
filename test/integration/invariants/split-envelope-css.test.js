@@ -129,7 +129,9 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
 
   test('stats raw note: compact size AND the component-owned centering survive markNote', async () => {
     const got = await page.evaluate(() => {
-      const p = document.querySelector('section[data-lattice-slide="3"] > .cell-stage > p.lat-split-note');
+      // stats takes the paragraph beat since 2026-11-20, so the raw note rides in the coda's
+      // own `.below-note` (2026-11-20-coda-and-marp-parity.md); size and centering must survive the move.
+      const p = document.querySelector('section[data-lattice-slide="3"] > .cell-coda > .below-note > p.lat-split-note');
       if (!p) return null;
       const probe = document.createElement('span');
       probe.style.fontSize = 'var(--fs-body-compact)';
@@ -138,11 +140,11 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
       probe.remove();
       return { fontSize: getComputedStyle(p).fontSize, textAlign: getComputedStyle(p).textAlign, compact };
     });
-    assert.ok(got, 'stats raw note <p class="lat-split-note"> not found under .cell-stage');
+    assert.ok(got, 'stats raw note <p class="lat-split-note"> not found under .cell-coda > .below-note');
     assert.equal(got.fontSize, got.compact,
       `stats note computed ${got.fontSize}, expected --fs-body-compact (${got.compact})`);
     assert.equal(got.textAlign, 'center',
-      'stats note lost its component-owned centering (section.stats > .cell-stage > p) — a regression markNote must not cause by wrapping the note in a fresh div');
+      'stats note lost its component-owned centering (section.stats > .cell-coda > .below-note) — a regression markNote must not cause by wrapping the note in a fresh div');
   });
 
   /**

@@ -16,7 +16,8 @@
       "list-tabular",
       "split across slides"
     ],
-    "note": "past four rows the stack overflows"
+    "note": "past four rows the stack overflows",
+    "withClaim": {"hero":{"soft":5,"hard":5}}
   },
   "cards": {
     "default": "center",

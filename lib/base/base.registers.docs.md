@@ -1,7 +1,11 @@
 # base — front-matter registers
 
 The **deck-level registers**: keys you set once in a deck's front matter that
-propagate to every slide, and that a per-slide `_class:` can override. They are
+propagate to every slide, and that a per-slide `_class:` can override. (In a deck
+rendered by Marp — the copy-and-go kit, marp-cli, the VS Code preview — Marp drops
+these keys from the front matter; put them in a settings block,
+`<script type="application/lattice-settings">`, directly under it. The runtime reads
+the block, so it needs the runtime to run. `dist/marp-kit/README.md` has the recipe.) They are
 `theme:`'s siblings — `theme:` picks the palette, these pick the rendering hand,
 the backdrop, the divider, the marker shape, the accent, the heading rule, the
 kicker, whether inline code draws pills and marks, the framing alignment, the card
@@ -158,6 +162,31 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 | `report` | `fit-report` | The engine changes nothing and only flags. No SPLIT, no TRIM: a slide that does not fit clips; the export's `⚠ OVERFLOW` line and "Content clipped" tag say so, and the live preview rings it. The switch for "this is misbehaving", and for an exact reproduction. |
 | `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes. |
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
+
+**When a slide does not fit, Lattice names a claim that does — checked, not guessed.**
+No `fit:` level gives a crammed slide more room. A `claim` does: `claim-quiet` adds about
+24px of stage at 1280x720 and `claim-hero` about 113px, the same on every layout, without
+cutting a word or shrinking a type size. So the export ends its OVERFLOW and CONTENT CLIPPED
+warnings with the smallest claim that makes each clipped slide fit, found by rendering
+that slide again under each one:
+
+```text
+  ↳ grace: slide 22 fits with `claim-hero` added to its `_class:` (checked by rendering).
+```
+
+When three or more slides clip and one deck-wide `claim: quiet` fits them all, that comes
+first, with the slide-by-slide list beside it. A deck-wide `claim: hero` is never suggested:
+it drops the header and footer on every slide, and only the clipped slides were checked. A slide whose only cut
+is the running footer is left out, because dropping the footer is not a fix. Run it on its
+own with `npm run fit:grace -- deck.md` or `npm run lint:deck -- deck.md --fit`;
+`--no-grace` (or `LATTICE_FIT_GRACE=off`) skips it in the export, which saves its re-render, and the
+export skips it on its own when the `CI` environment variable is set
+(`engineering/decisions/2026-11-20-coda-and-marp-parity.md` §9).
+
+`lint:deck` follows the claim too. A list or card layout measured to hold more under a
+claim is judged by that budget, so a ten-item `checklist claim-quiet` is in budget where a
+bare one is not, and an over-budget bare slide is told the smallest claim that holds it:
+"Or add `claim-quiet`, which fits 10." A slide marked `claim-framed` is never offered one.
 
 **The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
 `trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`

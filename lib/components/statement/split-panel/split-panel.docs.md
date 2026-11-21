@@ -391,6 +391,42 @@ Override: pins this slide to the theme's categorical slot #8 — the claim panel
   - Ownership transfers when someone else can say no.
 ```
 
+### `panel-narrow` — panel-narrow
+
+Narrows the panel to 0.8 of the variant's width; the supporting column takes the room.
+
+```markdown
+<!-- _class: split-panel panel-narrow -->
+
+`split-panel panel-narrow`
+
+## A narrower panel gives the support more room.
+
+The panel still carries the claim; the column carries the detail.
+
+- Four points fit
+  - The supporting column widens as the panel narrows.
+- The claim stays short
+  - A narrow panel wraps a long heading early.
+```
+
+### `panel-wide` — panel-wide
+
+Widens the panel to 1.3 of the variant's width (at most 62%); for a claim that is the argument.
+
+```markdown
+<!-- _class: split-panel panel-wide -->
+
+`split-panel panel-wide`
+
+## A wider panel lets the claim breathe.
+
+Use it when the heading is the argument and the support is brief.
+
+- Two points at most
+  - The supporting column narrows as the panel widens.
+```
+
 ## Universal modifiers
 
 Universal modifiers (`dark`, `compact`, `accent`, state markers, treatments) compose onto this component's class. Every one, by group, is in [the base modifier reference](../../../base/base.modifiers.docs.md), generated from `lib/base/base.manifest.json`.

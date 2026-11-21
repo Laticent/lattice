@@ -52,8 +52,13 @@ section.split-panel { padding:0; flex-direction:row; --frame-inset-x: calc(2.343
  * `--_panel-w + 2 * --sp-lg` — the padding the edge-bar note further down measured as a constant
  * 128 raster px. Both readers resolve `%` against the same 1280px (the section has no padding and
  * no side border), so the chrome budget and the seam cannot drift apart. */
-section.split-panel { --_panel-w:38%; --_panel-outer: calc(var(--_panel-w) + 2 * var(--sp-lg)); }
-section.split-panel .panel-left { width:var(--_panel-w); flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
+section.split-panel { --_panel-w:38%; --_panel-used: min(calc(var(--_panel-w) * var(--_panel-scale, 1)), 62%); --_panel-outer: calc(var(--_panel-used) + 2 * var(--sp-lg)); }
+/* WIDTH — `panel-narrow` / `panel-wide` scale whatever width the variant chose (`--_panel-w`), so each
+ * variant keeps its own proportions and no modifier changes nothing. Wide is capped at 62% so the supporting
+ * column always keeps a usable share (engineering/decisions/2026-11-20-coda-and-marp-parity.md, settled 3). */
+section.split-panel.panel-narrow { --_panel-scale: 0.8; }
+section.split-panel.panel-wide { --_panel-scale: 1.3; }
+section.split-panel .panel-left { width:var(--_panel-used); flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
 /* ── THE SLIDE'S TOP EDGE — one rule, two segments (2026-08-18) ─────────────
  * A sovereign split frame owns its own top edge. `base.elements.css` paints the
  * spectrum as a `border-top` on the SECTION, which a sovereign frame cannot
@@ -169,6 +174,11 @@ section.split-panel.metric .panel-right h3 { color:var(--on-dark-secondary); bor
 section.split-panel.metric .panel-right > ul > li { border-left:2px solid var(--on-dark-ghost); }
 section.split-panel.metric .panel-right > ul > li > strong { color:var(--on-dark-primary); }
 section.split-panel.metric .panel-right > ul > li > :is(ul,ol) > li { color:var(--on-dark-secondary); }
+/* The coda lands in the supporting column (engineering/decisions/2026-11-20-coda-and-marp-parity.md), and under
+ * `metric` that column is the dark one. The note inherits the section's ink and the annotation reads
+ * `--text-secondary` / `--border`, so both painted navy on navy; remap them to the on-dark ramp for the cell. */
+section.split-panel.metric .panel-right > .cell-coda { color:var(--on-dark-secondary); --text-secondary:var(--on-dark-secondary); --border:var(--on-dark-ghost); }
+section.split-panel.metric .panel-right > .cell-coda .below-note > p { color:var(--on-dark-secondary); }
 
 /* ── .quote — pull-quote feature (former split-statement) ────────────────── */
 section.split-panel.pullquote { --_panel-w:50%; }
@@ -944,7 +954,7 @@ section.split-panel.finish:not([data-orientation="portrait"]):not([data-orientat
 }
 section.split-panel.finish.metric:not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {
   inset: var(--sp-xl) auto var(--sp-xl) var(--sp-lg);
-  width: var(--_panel-w);
+  width: var(--_panel-used);
   padding: 0;
 }
 section.split-panel.finish.metric.mirror:not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {

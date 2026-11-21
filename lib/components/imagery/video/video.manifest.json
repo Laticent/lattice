@@ -16,9 +16,7 @@
     "figure": "bare"
   },
   "stage": "canvas",
-  "coda": {
-    "dock": "row"
-  },
+  "coda": { "caption": true },
   "conformance": "strict",
   "orientation": [
     "landscape",
@@ -90,6 +88,10 @@
     {
       "title": "A wall of caption",
       "body": "The caption is one line — 'Scan to watch', a title, a runtime. If you're writing a paragraph about the video, put it in a `content` slide and drop the clip in as a supporting `video`."
+    },
+    {
+      "title": "A key insight AND a caption on qr, gallery or companion qr",
+      "body": "The poster shrinks to make room for a caption, so on `video` and `companion` both beats fit. The QR column and the gallery placard cannot give: with both beats `qr` fits under `claim-quiet`, `gallery` under `claim-hero`, and `companion qr` does not fit at all. The export says so and names the claim. Keep one beat there."
     },
     {
       "title": "Instagram with no poster",

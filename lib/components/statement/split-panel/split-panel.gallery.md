@@ -292,6 +292,38 @@ A bare URL auto-resolves; the caption line labels the scan.
 
 ---
 
+<!-- _class: split-panel panel-narrow -->
+<!-- _footer: "panel-narrow · split-panel panel-narrow — Narrows the panel to 0.8 of the variant's width; the supporting column takes the room." -->
+
+`split-panel panel-narrow`
+
+## A narrower panel gives the support more room.
+
+The panel still carries the claim; the column carries the detail.
+
+- Four points fit
+  - The supporting column widens as the panel narrows.
+- The claim stays short
+  - A narrow panel wraps a long heading early.
+
+
+---
+
+<!-- _class: split-panel panel-wide -->
+<!-- _footer: "panel-wide · split-panel panel-wide — Widens the panel to 1.3 of the variant's width (at most 62%); for a claim that is the argument." -->
+
+`split-panel panel-wide`
+
+## A wider panel lets the claim breathe.
+
+Use it when the heading is the argument and the support is brief.
+
+- Two points at most
+  - The supporting column narrows as the panel widens.
+
+
+---
+
 <!-- _class: split-panel -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · split-panel — Three items at full budget." -->

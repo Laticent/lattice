@@ -4522,7 +4522,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (p.over) return;                       // already on the frame line above
       if (!p.clipSuspect) return;               // nothing clips anything — skip the walk
       const c = probeContentClipped(s, ignoreSel, TOL, bearerSel);
-      if (c.cut) out.push({ slide: i + 1, first: c.first });
+      if (c.cut) out.push({ slide: i + 1, first: c.first, chromeOnly: !!c.chromeOnly });
     });
     return { cuts: out, nearMiss: near };
   }, { ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, ccSrc: CONTENT_CLIPPED_SRC, probeSrc: PROBE_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, tol: FRAME_TOLERANCE, floor: NEAR_MISS_FLOOR }), 'measure content cuts');
@@ -4532,6 +4532,45 @@ async function renderBody(browser, g, closeBrowser) {
     console.warn(`    First cut on each: ${contentOnly.map((o) => `p${o.slide} "${o.first}"`).join(', ')}.`);
     console.warn('    An ellipsis, a line-clamp or a sheared panel head loses text with no box overflow to see,');
     console.warn('    so the frame check above cannot report it. Shorten the copy or give that box more room.');
+  }
+  // THE FIT VERDICT, machine-readable, for the one reader that has to agree with the lines above exactly:
+  // tools/fit-grace.js, which re-renders a clipped slide under `claim-quiet` and `claim-hero` and suggests the smallest
+  // claim that fits (engineering/decisions/2026-11-20-coda-and-marp-parity.md §9). It reads THIS verdict rather than
+  // probing again; where the engine split a slide, it re-checks each candidate at the deck's own `fit:` level so it
+  // answers only a warning the export gave (fit-grace.js `plan`). A cut that is entirely inside the
+  // running footer is listed apart: a claim that drops the footer would "fix" it without fitting anything.
+  if (process.env.LATTICE_FIT_REPORT) {
+    fs.writeFileSync(process.env.LATTICE_FIT_REPORT, JSON.stringify({
+      pages: await g(() => page.evaluate((src) => new Function('return (' + src + ')')()(document).length, DECK_SLIDES_SRC), 'count pages'),
+      overflow: overflowing,
+      clipped: contentOnly.filter((o) => !o.chromeOnly).map((o) => o.slide),
+      footerOnly: contentOnly.filter((o) => o.chromeOnly).map((o) => o.slide),
+    }));
+  }
+  // GRACE: for the slides above that clip, the smallest `claim` that makes them fit, checked by rendering them again
+  // (lib/cli/fit-grace.js). Only when a slide's BODY clips (a footer-only cut is not a claim's to fix), only for a
+  // Markdown deck on disk, and never inside the check's own renders (`LATTICE_FIT_GRACE=off` turns it off).
+  // Not under CI (owner, D3 on #3362): a CI render of a deck that clips on purpose paid ~1.75x for advice nobody reads.
+  if ((overflowing.length || contentOnly.some((o) => !o.chromeOnly)) && process.env.LATTICE_FIT_GRACE !== 'off' && !flags['no-grace'] && !process.env.CI
+    && !process.env.LATTICE_FIT_REPORT && mdFile && mdFile !== '-' && !LATTICE_INPUT) {
+    try {
+      const grace = require('./lib/cli/fit-grace.js');
+      // Rendered next to the deck so its local images and stylesheets resolve as they did here, with the same sheet.
+      // Every option that changes layout is forwarded (`layoutArgs`: --size, --packages, the plugin switches, --no-split,
+      // --css), and the verdict printed above is handed over, so the advice answers that warning on that render.
+      const graceArgs = grace.layoutArgs(process.argv.slice(2));
+      if (positional[1]?.endsWith('.css') && !graceArgs.includes('--css')) graceArgs.push('--css', path.resolve(cssFile));
+      const exportVerdict = {
+        pages: await g(() => page.evaluate((src) => new Function('return (' + src + ')')()(document).length, DECK_SLIDES_SRC), 'count pages'),
+        overflow: overflowing,
+        clipped: contentOnly.filter((o) => !o.chromeOnly).map((o) => o.slide),
+        footerOnly: contentOnly.filter((o) => o.chromeOnly).map((o) => o.slide),
+      };
+      const p = grace.plan(fs.readFileSync(mdFile, 'utf8'), { palette: paletteArg || null, dir: path.dirname(path.resolve(mdFile)), args: graceArgs, exportVerdict });
+      for (const line of grace.describe(p)) console.warn(line);
+    } catch (e) {
+      console.warn(`  ↳ grace: not checked (${e.message.split('\n')[0]}).`);
+    }
   }
   // …and the band the two lines above CANNOT see, said out loud rather than left
   // silent (#2252, HARD RULE #23 — "not measured" is an honest answer, a quiet pass

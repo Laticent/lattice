@@ -145,7 +145,13 @@ function buildCoda() {
     catalog[m.name] = {
       dock: coda.dock || 'column',
       claims: [...(coda.claims || [])].sort(),
+      ...(coda.anatomy?.length ? { anatomy: [...coda.anatomy].sort() } : {}),
+      ...(coda.caption ? { caption: true } : {}),
       ...(coda.readsInsightLabel ? { readsInsightLabel: true } : {}),
+      ...(coda.variants && Object.keys(coda.variants).length ? { variants: Object.fromEntries(Object.keys(coda.variants).sort().map((v) => [v, {
+        ...(coda.variants[v].claims ? { claims: [...coda.variants[v].claims].sort() } : {}),
+        ...(coda.variants[v].anatomy ? { anatomy: [...coda.variants[v].anatomy].sort() } : {}),
+      }])) } : {}),
     };
   }
   const sortedNames = Object.keys(catalog).sort();
@@ -156,6 +162,9 @@ function buildCoda() {
     "   Source: every component manifest's `coda` field (lib/components/).\n" +
     '   dock   — the outer structure the coda cell docks into (column|row|grid).\n' +
     '   claims — trailing elements the layout keeps for its own anatomy.\n' +
+    '   anatomy — elements the layout uses FIRST; a later one of the kind is still a beat.\n' +
+    '   caption — the paragraph beat renders as the layout\'s figure caption.\n' +
+    '   variants — per-variant claims/anatomy, merged over the row when the slide carries that token.\n' +
     '   Rebuild: node tools/build-stage-catalog.js */\n' +
     'module.exports = ' + JSON.stringify(sorted, null, 2) + ';\n';
   return { source, count: sortedNames.length };

@@ -114,7 +114,8 @@ distinct, stable ID.
 | `agenda-empty` | warning | — | An `agenda` slide with no list, in a deck with fewer than two shown `divider` slides, so the engine has nothing to fill it from and it renders as a heading over an empty slide (`lib/core/agenda-autofill.js`). |
 | `agenda-retired-style` | warning | ✓ | An `agenda` slide naming the retired `rail` or `cards` style; it renders as the default ledger. The fix rewrites `rail` to `circles` and removes `cards`. |
 | `conflicting-variants` | warning | — | Two tokens on one slide from an axis that takes one value at a time (two variants, two finishes); only one wins. |
-| `block-unsupported` | warning | — | An editorial modifier (`insight-*`, `no-note`) on a layout that has nothing for it to act on. |
+| `block-unsupported` | warning | — | An editorial modifier (`insight-*`, `no-note`) on a layout that has nothing for it to act on, or an authored `> …` on a layout that takes no closing beat (the anchors: title, closing, divider, topic). |
+| `quote-note` | warning | — | On a `quote`, the second paragraph after the quotation reads as a role line (no sentence-ending mark): it renders as the slide's below-note, not as part of the attribution. |
 | `list-modifier-inert` | warning | — | On a list slide, a counter modifier its register never reads: `numbered` without `takeaway`, or `lettered`/`roman`/`bullet` without `principles`. Also `principles` over `-` bullets (it numbers an ordered list only), and `takeaway` over a `1.` list without `numbered` (the numbers are hidden). |
 | `card-style-inline-title` | error | ✓ | `- **Title.** body` (or ordered `1. **Title.** body`) on a card-style layout — the body inherits the parent `li` bold. Fix: nested `- Title` / `  - body`. |
 | `ledger-inline-title` | error | ✓ | The unordered inline-bold shape on a ledger/numbered layout — autofixes to the ordered `1. Name` / `   - body` shape the layout wants. |

@@ -13,11 +13,7 @@
       "eyebrow"
     ]
   },
-  "coda": {
-    "claims": [
-      "trailing-paragraph"
-    ]
-  },
+  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
   "tags": [
     "walkthrough",
     "agenda-setting",
@@ -144,7 +140,8 @@
     {
       "mistake": "Expecting the two-band composition under `color-mode: dark` or in a dark-mode export.",
       "fix": "It flattens, and that is the whole anchor family's behavior rather than this component's quirk: the deck-wide `dark` canvas replaces a sovereign anchor's own field, so `divider` loses its spectrum rail and `title` and `closing` lose `--surface-inverse` in exactly the same way (measured in Chromium; the committed `divider.gallery.dark.pdf` shows it). The track still draws and still lights the current topic, so the slide keeps saying where you are — it says it on one flat field instead of across a cut. If you need the cut, that is light mode."
-    }
+    },
+    {"mistake": "A `> …` key insight or a below-note on this slide.", "fix": "Anchors take no closing beat (2026-11-20): a `> …` here is not drawn as a Key Insight panel, and `lint:deck` flags it (`block-unsupported`). Put the takeaway on the content slide it sums up."}
   ],
   "variantDecisionRule": [
     {

@@ -1,0 +1,4 @@
+---
+group: Lint & audit
+---
+Overflow grace: for every slide of a deck that clips, the smallest `claim` (`claim-quiet`, then `claim-hero`) that makes it fit, CHECKED by rendering it again rather than guessed. Renders the deck at `fit: report` (no auto-split, so page N is slide N), reads the export's own verdict (`LATTICE_FIT_REPORT`, so a suggestion never disagrees with the warning it answers), then renders the clipped slides under each claim. Suggests one deck-wide `claim: quiet` (or `hero`) when three or more slides clip and that claim fits every one, with the slide-by-slide list beside it. Leaves out a cut that is only the running footer. The CLI export prints the same lines under its OVERFLOW / CONTENT CLIPPED warnings (`LATTICE_FIT_GRACE=off` turns that off) and `lint:deck --fit` prints them per deck. `--json`. Advises, never gates. Logic: lib/cli/fit-grace.js; engineering/decisions/2026-11-20-coda-and-marp-parity.md §9.

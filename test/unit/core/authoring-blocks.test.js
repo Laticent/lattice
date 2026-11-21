@@ -56,8 +56,16 @@ test('what the contract PUBLISHES is what the kernel actually harvests', () => {
   // The real tie, asserted per layout against the live harvest rather than against a
   // second copy of the rules. Body shape: a structural block, then both beats.
   const BODY = '<h2>T</h2>\n<ul>\n<li>a</li>\n</ul>\n<blockquote>\n<p>k</p>\n</blockquote>\n<p>note</p>\n';
+  // A layout whose ANATOMY uses an element first (`coda.anatomy`) is written the way its author writes it: its own
+  // blockquote before the list, its own paragraph (an attribution) before the note. The beats still follow.
+  const bodyFor = (row) => {
+    const a = row.anatomy || [];
+    const own = a.includes('blockquote') ? '<blockquote>\n<p>own</p>\n</blockquote>\n' : '';
+    const attr = a.includes('trailing-paragraph') ? '<p>attribution</p>\n' : '';
+    return '<h2>T</h2>\n' + own + '<ul>\n<li>a</li>\n</ul>\n<blockquote>\n<p>k</p>\n</blockquote>\n' + attr + '<p>note</p>\n';
+  };
   for (const name of Object.keys(CATALOG)) {
-    const out = harvestBody(BODY, name);
+    const out = harvestBody(CATALOG[name].anatomy ? bodyFor(CATALOG[name]) : BODY, name);
     const cell = out.includes(`class="${CODA_CLASS}"`);
     const published = blocksFor(name);
     assert.equal(
@@ -77,10 +85,14 @@ test('what the contract PUBLISHES is what the kernel actually harvests', () => {
   }
 });
 
-test('quote renders neither optional block — the case that started #1651', () => {
-  assert.deepEqual(blocksFor('quote'), []);
+test('quote takes a note after its attribution, and never a key insight', () => {
+  // #1651 started here, when quote advertised both beats and rendered neither. Since
+  // 2026-11-20 quote's attribution is its ANATOMY (`coda.anatomy`), so a SECOND paragraph is
+  // the note; the blockquote stays claimed, because the quotation IS the blockquote
+  // (engineering/decisions/2026-11-20-coda-and-marp-parity.md, settled 1).
+  assert.deepEqual(blocksFor('quote'), ['below-note']);
   assert.equal(supportsBlock('quote', 'key-insight'), false);
-  assert.equal(supportsBlock('quote', 'below-note'), false);
+  assert.equal(supportsBlock('quote', 'below-note'), true);
 });
 
 test('an ordinary prose layout renders both', () => {
@@ -88,11 +100,12 @@ test('an ordinary prose layout renders both', () => {
 });
 
 test('a layout can take one block and not the other', () => {
-  // A chart claims its trailing paragraph for the caption (liftChartCaption) and
-  // leaves the blockquote alone.
-  assert.deepEqual(blocksFor('radar'), ['key-insight']);
-  // A legal layout claims the blockquote for its framed source and leaves the note.
-  assert.deepEqual(blocksFor('citation-card'), ['below-note']);
+  // `image` claims its trailing paragraph for its text column and leaves the blockquote alone.
+  assert.deepEqual(blocksFor('image'), ['key-insight']);
+  // `inventory` draws its trailing blockquote as its own insight treatment and leaves the note.
+  assert.deepEqual(blocksFor('inventory'), ['below-note']);
+  // A chart takes both: its paragraph beat renders as the figure's caption (`coda.caption`).
+  assert.deepEqual(blocksFor('radar'), ['key-insight', 'below-note']);
 });
 
 test('the generated per-layout skeletons are excluded by PATTERN, not by name', () => {
@@ -118,14 +131,14 @@ test('claims are TOKEN-EXACT — the substring wart is gone', () => {
   // are per layout, so a name that merely CONTAINS another answers for itself.
   //
   // `quote` / `pull-quote` is the pair that carries this now: `quote` claims the
-  // blockquote for the quotation itself and takes NEITHER beat, while `pull-quote`
+  // blockquote for the quotation itself and takes only the note, while `pull-quote`
   // — whose name contains it — takes both. `code` / `compare-code` used to be the
   // second demonstration and no longer is: `code` dropped its trailing-paragraph
   // claim (it protected a CSS selector that could never match — see
   // engineering/decisions/2026-08-30-code-type-step.md §3), so the two now agree.
   // They are still asserted below, because a substring regression would make
   // `compare-code` answer with `code`'s row rather than its own.
-  assert.deepEqual(blocksFor('quote'), []);
+  assert.deepEqual(blocksFor('quote'), ['below-note']);
   assert.deepEqual(blocksFor('pull-quote'), ['key-insight', 'below-note']);
   assert.deepEqual(blocksFor('compare-code'), ['key-insight', 'below-note']);
   assert.deepEqual(blocksFor('code'), ['key-insight', 'below-note']);

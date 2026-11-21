@@ -67,23 +67,24 @@ Everything else stays Markdown.
 
 <!-- _class: code -->
 
-## Seven keys of front matter, then one comment per slide.
+## Front matter for Marp, a settings block for Lattice.
 
-```yaml
-marp: true          # activates the Marp extension / marp-cli
-theme: cuoio        # the palette; cuoio is the default
-paginate: true      # page numbers
-size: hd            # 16:9 at 1280x720
-class: dark         # optional — flips the whole deck to dark
+```markdown
+---
+marp: true
+theme: cuoio
+paginate: true
 header: "Lattice · Sample Deck"
-footer: "Copy this folder. Edit this file."
+---
+<script type="application/lattice-settings">
+class: dark
+claim: quiet
+</script>
 ```
 
-`class:` is Marp's own key: whatever you put there lands on every slide, so
-`class: dark` reaches Lattice's `dark` styling with nothing else to configure.
-
-Then each slide opens with one comment naming its layout — `_class: kpi`,
-`_class: diagram`, `_class: quote`. That comment is the entire API.
+Marp drops keys it does not know, and a slide's own `_class:` replaces a `class:`
+at the top. Lattice's deck-wide settings go in the block, which reaches every slide.
+Then each slide opens with one comment naming its layout: `_class: kpi`.
 
 ---
 
@@ -144,12 +145,12 @@ flowchart LR
 | Surface | Layout | Type | Diagrams | Charts |
 | ------------------- | :--: | :--: | :--: | :--: |
 | `marp --pdf`        | [x]  | [x]  | [x]  | [x]  |
-| `marp --html`       | [x]  | [x]  | [-]  | [-]  |
-| VS Code preview     | [x]  | [x]  | [-]  | [-]  |
+| `marp --html`       | [-]  | [x]  | [-]  | [-]  |
+| VS Code preview     | [-]  | [x]  | [-]  | [-]  |
 
-A filled mark works. A half mark needs the runtime to run: an `.html` opened in a
-browser with the `.js` files still beside it, or the VS Code preview with its
-security level set to *Disable*. Anything CSS draws holds everywhere.
+A half mark needs the runtime: an `.html` opened with the `.js` files beside it, or
+the VS Code preview at security level *Disable*. Most layouts, key insights and
+claims are drawn by it. Without it, a notice across the top of the preview says so.
 
 ---
 

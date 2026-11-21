@@ -16,7 +16,8 @@
       "list-tabular",
       "split across slides"
     ],
-    "note": "the grid loses scannability past four cards"
+    "note": "the grid loses scannability past four cards",
+    "withClaim": {"hero":{"soft":5,"hard":6}}
   },
   "cards": {
     "default": "center",
@@ -120,7 +121,7 @@
       "selector": "blockquote",
       "match": { "kind": "blockquote" },
       "required": false,
-      "description": "Optional key-insight panel above the cards."
+      "description": "Optional key-insight panel below the cards."
     }
   },
   "skeleton": "<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body text for the first card, one sentence.\n- Second card title\n  - Body text for the second card, one sentence.\n- Third card title\n  - Body text for the third card, one sentence.\n- Fourth card title\n  - Body text for the fourth card, one sentence.\n",

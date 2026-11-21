@@ -87,15 +87,63 @@ describe('coda — claims', () => {
   });
 
   test('a CLAIMED trailing element is STEPPED OVER, not treated as a wall', () => {
-    // A chart claims its final <p> for the caption. The insight before it must
+    // `image` claims its final <p> for its text column. The insight before it must
     // still be harvested — and the cell still lands last, after the caption.
-    const { html, dom } = bothArms('radar', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote><p>caption</p>');
+    // (This used a chart until 2026-11-20, when charts stopped claiming the paragraph:
+    // their caption IS the coda's paragraph beat — see the `coda.anatomy` tests below.)
+    const { html, dom } = bothArms('image', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote><p>caption</p>');
     for (const out of [html, dom]) {
       assert.match(out, /<p>caption<\/p><div class="cell-coda"/, 'the caption stays put and the cell follows it');
       assert.match(out, /<div class="cell-coda"[^>]*><blockquote>/);
       assert.doesNotMatch(out, /cell-coda[^>]*>[\s\S]*caption/, 'the claimed caption must not be swept into the cell');
     }
     assert.equal(norm(html), norm(dom));
+  });
+
+  test('a layout\'s ANATOMY paragraph stays; a second paragraph after it is the note (quote)', () => {
+    // quote: the first paragraph after the quotation is the attribution, the next is the note.
+    const { html, dom } = bothArms('quote', '<blockquote><p>q</p></blockquote><p>attr</p><p>note</p>');
+    for (const out of [html, dom]) {
+      assert.match(out, /<p>attr<\/p><div class="cell-coda"/, 'the attribution stays, the cell follows it');
+      assert.match(out, /<div class="below-note"><p>note<\/p><\/div>/);
+      assert.doesNotMatch(out, /<blockquote>[\s\S]*cell-coda[\s\S]*<\/blockquote>/);
+    }
+    assert.equal(norm(html), norm(dom));
+    // An attribution alone is never promoted.
+    const bare = bothArms('quote', '<blockquote><p>q</p></blockquote><p>attr</p>');
+    for (const out of [bare.html, bare.dom]) assert.doesNotMatch(out, /cell-coda/);
+  });
+
+  test('a layout\'s ANATOMY blockquote stays; a later one is the key insight (citation-card)', () => {
+    const { html, dom } = bothArms('citation-card', '<blockquote><p>cited</p></blockquote><ul><li>a</li></ul><blockquote><p>k</p></blockquote>');
+    for (const out of [html, dom]) {
+      assert.match(out, /^<blockquote><p>cited<\/p><\/blockquote>/, 'the cited text stays first, in the body');
+      assert.match(out, /<div class="cell-coda"[^>]*><blockquote><p>k<\/p>/);
+    }
+    assert.equal(norm(html), norm(dom));
+    // Its own blockquote alone is never taken as an insight.
+    const own = bothArms('citation-card', '<blockquote><p>cited</p></blockquote><ul><li>a</li></ul>');
+    for (const out of [own.html, own.dom]) assert.doesNotMatch(out, /cell-coda/);
+    // …even when it is the slide's LAST block: the first blockquote is the layout's own, wherever it sits.
+    const last = bothArms('citation-card', '<ul><li>a</li></ul><blockquote><p>cited</p></blockquote>');
+    for (const out of [last.html, last.dom]) assert.doesNotMatch(out, /cell-coda/);
+  });
+
+  test('a VARIANT may change the anatomy: split-panel pullquote keeps its quotation and cite, wherever they sit', () => {
+    // The adversarial checker on #3362: with split-panel claiming nothing, a pull quote AFTER the list was taken as a
+    // Key Insight and the panel rendered empty. `coda.variants.pullquote.anatomy` keeps the first blockquote and the
+    // line after it, the way `quote` does; a later paragraph is the note and a later blockquote the insight.
+    const last = bothArms('split-panel pullquote', '<ul><li>a</li></ul><blockquote><p>q</p></blockquote><p><code>— Jane</code></p>');
+    for (const out of [last.html, last.dom]) assert.doesNotMatch(out, /cell-coda/, 'the quotation and cite stay in the body');
+    const full = bothArms('split-panel pullquote', '<ul><li>a</li></ul><blockquote><p>q</p></blockquote><p>cite</p><blockquote><p>k</p></blockquote><p>note</p>');
+    for (const out of [full.html, full.dom]) {
+      assert.match(out, /^<ul>[\s\S]*<blockquote><p>q<\/p><\/blockquote><p>cite<\/p><div class="cell-coda"/);
+      assert.match(out, /<div class="cell-coda"[^>]*><blockquote><p>k<\/p><\/blockquote><div class="below-note"><p>note<\/p><\/div>/);
+    }
+    assert.equal(norm(full.html), norm(full.dom));
+    // Without the variant, split-panel takes both beats as before.
+    const plain = bothArms('split-panel', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>');
+    for (const out of [plain.html, plain.dom]) assert.match(out, /cell-coda[^>]*><blockquote><p>k<\/p>/);
   });
 
   test('the `no-note` opt-out withholds the note and keeps the insight', () => {
@@ -119,6 +167,19 @@ describe('coda — placement', () => {
       assert.ok(out.indexOf(CELL) < out.indexOf('<footer>'), `chrome must stay last: ${out}`);
     }
     assert.equal(norm(html), norm(dom), 'both arms must place it identically');
+  });
+
+  test('the kit\'s trailing <script>/<link> lines on a deck\'s LAST slide do not hide its beats', () => {
+    // A Marp deck ends with the runtime's <script> tags and a <link>; Marp emits them inside the last slide, after
+    // the author's beats. The scan used to stop at them, so the last slide of every kit deck lost its coda.
+    const tail = '<script src="lattice-runtime-min.js"></script><link rel="stylesheet" href="lattice-vscode-min.css">';
+    const { html, dom } = bothArms('list', `<ul><li>a</li></ul><blockquote><p>k</p></blockquote><p>note</p>${tail}`);
+    for (const out of [html, dom]) {
+      assert.match(out, /<div class="cell-coda"[^>]*><blockquote>/, `the insight is harvested: ${out}`);
+      assert.match(out, /<div class="below-note"><p>note<\/p>/);
+      assert.ok(out.indexOf(CELL) < out.indexOf('<script'), 'the cell goes before the script lines');
+    }
+    assert.equal(norm(html), norm(dom));
   });
 
   test('the cell goes BEFORE a Marp running <footer>', () => {

@@ -1194,3 +1194,32 @@ section.journey .journey-board:has(.journey-callouts) .journey-mood-legend {
     padding: var(--sp-2xs) var(--sp-sm);
   }
 }
+
+/* ── The two keys share one row ─────────────────────────────────────────────
+ * The actor key and the mood key were two full-width rows at the board's foot, and
+ * the board's stack (stages, tasks, moods, two key rows) needed about 410px. Any
+ * closing beat leaves a chart 340-360px, so a key insight or a caption pushed the
+ * mood key past the stage's clip; even `claim-hero` (370px) did not save it
+ * (measured 2026-11-20, engineering/decisions/2026-11-20-coda-and-marp-parity.md §8).
+ * The kernel now wraps both in `.journey-keys`, one centered row that wraps only when
+ * the slide is too narrow for it. Last in the file, so it outranks the per-key
+ * padding rules above at equal specificity. */
+section.journey .journey-board .journey-keys {
+  order: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  column-gap: var(--sp-2xl);
+  row-gap: var(--sp-sm);
+  width: 100%;
+  padding-top: var(--sp-lg);
+}
+section.journey .journey-board .journey-keys > :is(.journey-legend, .journey-mood-legend) {
+  order: 0;
+  width: auto;
+  padding-top: 0;
+}
+section.journey .journey-board:has(.journey-callouts) .journey-keys {
+  padding-top: var(--sp-sm);
+}

@@ -12,7 +12,7 @@
   "function": "anchor",
   "form": "bookend",
   "chrome": { "pagination": false, "header": false },
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
   "substance": "prose",
   "tags": [
     "pitch",
@@ -102,7 +102,8 @@
     {
       "mistake": "Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.",
       "fix": "Every top-level `hr` token in a slide body is the slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated."
-    }
+    },
+    {"mistake": "A `> …` key insight or a below-note on this slide.", "fix": "Anchors take no closing beat (2026-11-20): a `> …` here is not drawn as a Key Insight panel, and `lint:deck` flags it (`block-unsupported`). Put the takeaway on the content slide it sums up."}
   ],
   "variantDocs": {
     "spectrum": {

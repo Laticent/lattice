@@ -19,7 +19,8 @@
     "soft": 3,
     "hard": 3,
     "escalateTo": ["list takeaway numbered", "split across slides"],
-    "note": "past three reasons the panel reads as a memo, not a recommendation — move the evidence to a `list takeaway numbered` slide and keep the recommendation slide to its strongest three"
+    "note": "past three reasons the panel reads as a memo, not a recommendation — move the evidence to a `list takeaway numbered` slide and keep the recommendation slide to its strongest three",
+    "withClaim": {"hero":{"soft":4,"hard":4}}
   },
   "density": {
     "axis": "item",

@@ -46,11 +46,7 @@
       }
     ]
   },
-  "coda": {
-    "claims": [
-      "trailing-paragraph"
-    ]
-  },
+  "coda": { "claims": [], "caption": true },
   "adapt": {
     "mode": "reflow",
     "priority": [

@@ -58,10 +58,25 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 	if ((await cc.getAttribute('aria-pressed')) !== 'true') await cc.click();
 	await page.keyboard.press('ArrowRight'); // onto the content slide
 	await expect(dialog.getByText('2 / 2')).toBeVisible(); // the nav landed — a state wait, not a sleep
+	// The captions read the DOM projection, which alone carries the emphasis spans, only once it has landed;
+	// until then Present reads a plain flatten with no hold. Under load the projection landed after Play, so the
+	// `**` drive timed the flatten and showed no hold (1 in 10 at 4 workers). Wait for the signal, not a duration.
+	await expect(dialog).toHaveAttribute('data-narration', 'projected');
 	// From here time moves only when the test moves it.
-	const pageNow = await page.evaluate(() => Date.now());
-	const pauseAt = Math.max(pageNow, clockMark.at + (Date.now() - clockMark.resumedAt)) + 1_000;
-	await page.clock.pauseAt(pauseAt);
+	// A pause can only move time forward, and under load more than the 1s margin can pass between reading the clock and
+	// pausing it ("Cannot fast-forward to the past", 1 in 30 at 4 workers). Read it again and pause ahead of where it is
+	// NOW: the signal is the clock itself, not a longer margin.
+	let pauseAt = 0;
+	for (let tries = 0; ; tries++) {
+		const pageNow = await page.evaluate(() => Date.now());
+		pauseAt = Math.max(pageNow, clockMark.at + (Date.now() - clockMark.resumedAt)) + 1_000;
+		try {
+			await page.clock.pauseAt(pauseAt);
+			break;
+		} catch (e) {
+			if (tries >= 4 || !/fast-forward to the past/.test(String(e))) throw e;
+		}
+	}
 	await page.getByRole('button', { name: 'Play the presentation' }).click();
 	await expect(dialog.getByRole('button', { name: /Pause/ })).toBeVisible();
 	// The sampler runs on the paused clock too, so it samples virtual time at a fixed TICK.

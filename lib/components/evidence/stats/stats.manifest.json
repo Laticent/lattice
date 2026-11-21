@@ -9,7 +9,7 @@
     "data": true
   },
   "stage": "flow",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": { "claims": [] },
   "capacity": {
     "axis": "item",
     "min": 3,
@@ -140,7 +140,8 @@
     {
       "mistake": "Writing the subtitle/eyebrow line as plain text instead of inline code.",
       "fix": "Stats' subtitle DOES change styling depending on backtick-wrapping: a backtick-wrapped, code-only paragraph adjacent to the heading gets lifted into the masthead and picked up by the shared eyebrow/subtitle rule (secondary color, message size); plain unwrapped text instead stays in the body and matches stats' own generic paragraph rule (label color, body size) — a visibly different color and size. Wrap it in backticks for the masthead treatment."
-    }
+    },
+    {"mistake": "Expecting a closing paragraph to stay a plain line inside the row.", "fix": "The last paragraph after the stats is the slide's below-note (the coda), centered under the row with the headline; a `> …` before it is the Key Insight panel. Write one of each at most."}
   ],
   "specimenVoice": true,
   "pane": {

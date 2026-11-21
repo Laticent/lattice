@@ -15,7 +15,7 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
-  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
+  "coda": { "claims": ["blockquote"], "anatomy": ["trailing-paragraph"] },
   "tags": [
     "pull-quote",
     "quotation",
@@ -97,7 +97,8 @@
     {
       "mistake": "Splitting the quotation across two paragraphs inside the blockquote.",
       "fix": "The blockquote's opening/closing smart-quote glyphs decorate the blockquote as a whole, once — two paragraphs inside it both render at full quotation size with no visual distinction, instead of the single continuous quotation the layout expects."
-    }
+    },
+    {"mistake": "The attribution written over two paragraphs: the name, then the role on its own line.", "fix": "Since 2026-11-20 the first paragraph after the quotation is the attribution and the second is the slide's below-note, so a role line on its own renders as a note (`lint:deck` warns: `quote-note`). Put the role on the attribution line, `— Jane Doe, Head of Product`; write a second paragraph only when it is a note."}
   ],
   "showcase": {
     "featured": true

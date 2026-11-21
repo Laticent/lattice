@@ -32,6 +32,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 - **Eyebrow written as bold or plain text instead of inline code.** The eyebrow match is `h2 + p:has(> code:only-child)` — wrap it in backticks immediately after the heading; without the code span it falls through to the general italic subtitle rule instead of the eyebrow lifted above the heading.
 - **The subtitle paragraph is authored before the eyebrow paragraph instead of after it.** The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h2 + p:has(> code:only-child)`) — keep the source order heading → eyebrow → subtitle.
 - **In the `index` variant, the leading reference key isn't wrapped in inline code, e.g. `docs — the component catalog` instead of leading with a backtick-wrapped key.** The `index` variant's mono reference-key styling (`section.closing.index :is(ul,ol) li code`) only applies to an actual `<code>` element — wrap the leading key in backticks so it renders as a mono chip, not plain text.
+- **A `> …` key insight or a below-note on this slide.** Anchors take no closing beat (2026-11-20): a `> …` here is not drawn as a Key Insight panel, and `lint:deck` flags it (`block-unsupported`). Put the takeaway on the content slide it sums up.
 
 ## When to use
 

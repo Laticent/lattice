@@ -110,7 +110,7 @@
     },
     {
       "mistake": "Expecting a trailing paragraph to stay body copy after a list or a table.",
-      "fix": "It is promoted to a below-note \u2014 hairline rule, muted ink. A paragraph after a PARAGRAPH is never promoted, so ordinary prose is unaffected. When the trailing sentence really is the conclusion of the list rather than a footnote to it, add `no-note` to the slide `_class` and it stays body copy. A deck-wide `class: no-note` in front matter works too, and reaches every slide \u2014 including the ones that name their own `_class:`."
+      "fix": "It is promoted to a below-note \u2014 hairline rule, muted ink. A paragraph after a PARAGRAPH is never promoted, so ordinary prose is unaffected. When the trailing sentence really is the conclusion of the list rather than a footnote to it, add `no-note` to the slide `_class` and it stays body copy. A deck-wide `class: no-note` in front matter works too, and reaches every slide \u2014 including the ones that name their own `_class:` (on the Lattice engine; in a deck Marp renders, put it in the settings block)."
     }
   ],
   "specimenVoice": true,

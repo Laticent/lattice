@@ -160,6 +160,7 @@ These apply to `.zip` output only.
 | `--strip-notes` | Remove speaker notes from every copy: the HTML, the PDF annotations, the PowerPoint notes pane and any embedded source. `<!-- describe: -->` text stays. Without it, an export that keeps notes prints a warning saying so |
 | `--captions` | Also write WebVTT captions: `<output>.vtt` for the deck and `<output>.NN.vtt` per slide |
 | `--strip-say` | Remove the spoken lines you wrote (`<!-- say: -->` and the front-matter `say:` map), keeping the generated narration. Replaces the retired `--strip-captions` |
+| `--no-grace` | Skip the overflow suggestion. When a slide clips, the export normally re-renders it under `claim-quiet` and `claim-hero` and names the smallest that fits; this saves that render. `LATTICE_FIT_GRACE=off` does the same, and the export skips it on its own when `CI` is set |
 
 ## Palette resolution
 

@@ -1150,7 +1150,7 @@ describe('lint-core: unterminated comment', () => {
 // something where the block they govern renders. On a `quote` neither does.
 describe('lint-core: block-unsupported', () => {
   const bVocab = {
-    names: new Set(['quote', 'content', 'cards-grid', 'math', 'timeline-list']),
+    names: new Set(['quote', 'content', 'cards-grid', 'math', 'inventory']),
     modifiers: new Set(['insight-key', 'insight-verdict', 'no-note', 'bare']),
   };
   const bu = (cls, body = '# H\n') =>
@@ -1163,14 +1163,16 @@ describe('lint-core: block-unsupported', () => {
     assert.match(f[0].message, /does nothing here: quote doesn't show/);
   });
 
-  test('flags no-note on a quote too', () => {
-    const f = bu('quote no-note');
+  test('flags no-note on a math slide too', () => {
+    // (Was `quote` until 2026-11-20, when quote gained the note: its attribution is its anatomy and a second
+    // paragraph is the note. `math` still claims both beats for its equation grid.)
+    const f = bu('math no-note');
     assert.equal(f.length, 1);
     assert.equal(f[0].classToken, 'no-note');
   });
 
   test('flags BOTH when both are inert on the same slide', () => {
-    assert.equal(bu('quote insight-key no-note').length, 2);
+    assert.equal(bu('math insight-key no-note').length, 2);
   });
 
   test('stays silent where the block really renders', () => {
@@ -1180,9 +1182,62 @@ describe('lint-core: block-unsupported', () => {
   });
 
   test('handles a layout that takes one block and not the other', () => {
-    // timeline-list renders the key-insight callout but not a below-note.
-    assert.deepEqual(bu('timeline-list insight-key'), []);
-    assert.equal(bu('timeline-list no-note').length, 1);
+    // inventory renders a below-note but draws its trailing blockquote as its own insight treatment,
+    // so an `insight-*` label has no Key Insight panel to rename there.
+    assert.deepEqual(bu('inventory no-note'), []);
+    assert.equal(bu('inventory insight-key').length, 1);
+  });
+
+  test('flags an authored `>` on an anchor, which takes no coda (owner, 2026-11-20)', () => {
+    const v = { ...bVocab, names: new Set([...bVocab.names, 'title']), slotContract: require('../../../lib/authoring/slot-contract.generated.js') };
+    const f = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# Growth held.\n\n> Services filled the gap.\n', v)
+      .filter((x) => x.rule === 'block-unsupported');
+    assert.equal(f.length, 1);
+    assert.match(f[0].message, /title takes no key insight or note/);
+    // A `>` inside a code fence is code, and a quote's own quotation is its anatomy.
+    const fenced = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# T\n\n```\n> not a beat\n```\n', v)
+      .filter((x) => x.rule === 'block-unsupported');
+    assert.equal(fenced.length, 0);
+    // …and a `>` inside a multi-line speaker note is not on the slide (adversarial checker on #3362).
+    const noted = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# T\n\n<!--\n> a quoted line in my notes\n-->\n', v)
+      .filter((x) => x.rule === 'block-unsupported');
+    assert.equal(noted.length, 0);
+    const q = core.lintTextWith('---\nmarp: true\n---\n\n<!-- _class: quote -->\n\n> A quotation.\n\n— Someone\n', { ...v, slotContract: v.slotContract })
+      .filter((x) => x.rule === 'block-unsupported');
+    assert.equal(q.length, 0);
+  });
+
+  test('citation-card: insight-* is inert until a second blockquote, since the first is the cited text', () => {
+    // Its `coda.anatomy` keeps the FIRST blockquote as the card's own cited text; only a later one is the Key
+    // Insight (2026-11-20-coda-and-marp-parity.md). Before anatomy, the layout withheld the beat outright.
+    const v = { ...bVocab, names: new Set([...bVocab.names, 'citation-card']) };
+    const run = (body) => core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: citation-card insight-key -->\n\n${body}`, v)
+      .filter((f) => f.rule === 'block-unsupported');
+    const one = run('## Smith v. Jones\n\n> The court held the clause void.\n');
+    assert.equal(one.length, 1);
+    assert.equal(one[0].classToken, 'insight-key');
+    assert.deepEqual(run('## Smith v. Jones\n\n> The court held the clause void.\n\n> Renegotiate before renewal.\n'), []);
+    // A `>` inside a fence is code, not a second blockquote.
+    assert.equal(run('## S\n\n> Held void.\n\n```\n> code\n```\n').length, 1);
+    // None of these is a second blockquote (review of #3362, finding 8): a lazy continuation, a `>` in a list item,
+    // a `>` inside a multi-line note.
+    assert.equal(run('## S\n\n> Held\nvoid.\n> Still the same quote.\n').length, 1);
+    assert.equal(run('## S\n\n> Held void.\n\n- Point\n  > nested\n').length, 1);
+    assert.equal(run('## S\n\n> Held void.\n\n<!--\n> a note\n-->\n').length, 1);
+    // …and these ARE a second blockquote (red team on #3362): one indented a space, and two split by a list item.
+    assert.deepEqual(run('## S\n\n> Held void.\n\n > Renegotiate.\n'), []);
+    assert.deepEqual(run('## S\n\n> Held void.\n- item\n> Renegotiate.\n'), []);
+  });
+
+  test('quote: two paragraphs after the quotation warn that the second is a note (owner, D2 on #3362)', () => {
+    const v = { ...bVocab };
+    const q = (body) => core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: quote -->\n\n${body}`, v).filter((f) => f.rule === 'quote-note');
+    assert.equal(q('> We bought it for day one.\n\n— Jane Doe\n\nHead of Product, Pilot Team 3\n').length, 1);
+    assert.deepEqual(q('> We bought it for day one.\n\n— Jane Doe, Head of Product\n'), []);
+    // A sentence after the attribution is the note the rule exists for (the PR's own demo deck).
+    assert.deepEqual(q('> We bought it for day one.\n\n— Jane Doe\n\nInterview conducted in March.\n'), []);
+    // A lazy second line of the quotation, a note in speaker notes, and code are not paragraphs after it.
+    assert.deepEqual(q('> We bought it\nfor day one.\n\n— Jane Doe\n\n<!--\nsay this slowly\n-->\n'), []);
   });
 
   test('says nothing about a correctly-authored quote carrying no modifier', () => {

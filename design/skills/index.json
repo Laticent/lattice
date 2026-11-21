@@ -17,7 +17,7 @@
       "description": "Use when adding a new chart kind to the chart family: manifest, pure SVG kernel, palette-blind chart CSS and the contrast contract.",
       "kind": "make",
       "studio": false,
-      "tokens": 5911
+      "tokens": 5990
     },
     {
       "name": "chart-from-data",

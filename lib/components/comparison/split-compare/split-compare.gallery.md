@@ -36,6 +36,46 @@ One question on the left; two option cards and a verdict on the right.
 
 ---
 
+<!-- _class: split-compare panel-narrow -->
+<!-- _footer: "panel-narrow · split-compare panel-narrow — Narrows the dark frame to 0.8 of its width; the option grid takes the room." -->
+
+`Decision Required`
+
+## A narrow frame gives the options room.
+
+Use it when each option carries three rows.
+
+- Alternative option
+  - First fact about the alternative
+  - Second fact about the alternative
+- Preferred option
+  - First fact about the preferred path
+  - Second fact about the preferred path
+
+> The recommendation in one decisive sentence.
+
+
+---
+
+<!-- _class: split-compare panel-wide -->
+<!-- _footer: "panel-wide · split-compare panel-wide — Widens the dark frame to 1.3 of its width; for a question that carries the argument." -->
+
+`Decision Required`
+
+## A wide frame puts the question first.
+
+Use it when the framing is the argument and each option is short.
+
+- Alternative option
+  - One fact
+- Preferred option
+  - One fact
+
+> The recommendation in one decisive sentence.
+
+
+---
+
 <!-- _class: split-compare -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · split-compare — Four rows per card — the ceiling." -->
