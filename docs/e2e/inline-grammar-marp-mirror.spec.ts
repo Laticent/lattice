@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -74,7 +75,17 @@ const head = () => SHEETS.map((f) => `<style>${fs.readFileSync(f, 'utf8')}</styl
 
 test('the runtime mirrors the engine over marp-shaped markup, and settles (#2066)', async ({ page }) => {
 	// ── The engine's answer ────────────────────────────────────────────────────────
-	const engineHtml: string = require(path.join(ROOT, 'lib/engine')).createEngine().render(DECK).html;
+	// Rendered in a plain `node`, outside Playwright's loader. Playwright 1.65 transforms a file once per worker and hands
+	// that one result to `import` and `require()` alike (its in-memory compile cache is keyed by file, not by module
+	// format), so when another spec in the worker had IMPORTED lib/core/boundary-parser.mjs, the engine's `require()` of
+	// it got ESM source as CommonJS: "Cannot use import statement outside a module". Red in every full desktop run.
+	const engineRun = spawnSync(
+		process.execPath,
+		['-e', "process.stdout.write(require(process.argv[1]).createEngine().render(require('node:fs').readFileSync(0, 'utf8')).html)", path.join(ROOT, 'lib/engine')],
+		{ input: DECK, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+	);
+	expect(engineRun.status, `the engine rendered — stderr: ${(engineRun.stderr || '').slice(-800)}`).toBe(0);
+	const engineHtml = engineRun.stdout;
 	await page.setContent(engineHtml, { waitUntil: 'domcontentloaded' });
 	const engineOut: string[] = await page.evaluate(`(${PROBE})()`);
 
