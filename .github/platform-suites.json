@@ -500,6 +500,25 @@
       ],
       "run": "node tools/pdfkit-check/check.mjs",
       "why": "Apple PDFKit draws every PDF opened in Preview or on an iPhone, the owner's viewer, and Linux has nothing that runs it. The shared PDF writer draws a finish's backdrop with an image soft mask, a /Interpolate picture and paths (engineering/decisions/2026-11-20-backdrop-gradient-fidelity.md); this draws the demo deck's PDF through PDFKit, and a control with the backdrop photographed whole as before, and fails when any 32 px tile of the drawn page is more than 8 levels further from Chrome's screen than the control's: the mark of a dropped mask or a missing fade. PDFKit's own text rendering is in both and cancels. Pages and report under platform-suite-artifacts/pdf-pdfkit/."
+    },
+    {
+      "name": "docs-scrollbars-windows",
+      "os": [
+        "windows-2025"
+      ],
+      "paths": [
+        "docs/src/styles/native-widgets.css",
+        "docs/src/styles/lattice.css",
+        "docs/src/components/ui/quick-scroll.tsx",
+        "docs/src/lib/quick-scroll.ts",
+        "docs/src/lib/wheel-sideways.ts",
+        "docs/src/components/map-rail/MapRail.tsx",
+        "docs/src/components/studio/SlideRail.tsx",
+        "docs/e2e/scrollbar-width.spec.ts",
+        "docs/e2e/wheel-sideways.spec.ts"
+      ],
+      "run": "cd docs && npm ci && npx playwright install chromium firefox && E2E_RECORD=off npx playwright test e2e/scrollbar-width.spec.ts e2e/wheel-sideways.spec.ts --project=desktop --project=gecko --trace off",
+      "why": "Windows draws CLASSIC scrollbars that take layout space, which is where the owner saw inner panes keep the thick OS default (15-17px) because `scrollbar-width` is not inherited (#3345). scrollbar-width.spec.ts measures the Compose pane's bar against an `auto` control in Chromium and in a HEADED Firefox (Playwright's headless Firefox reports `scrollbar-width: none` for every element; Linux has no display for it, and its GTK bars are overlay anyway) and writes the widths to platform-suite-artifacts/. wheel-sideways.spec.ts checks a mouse wheel scrolls the slide pills and the slide map sideways, the owner's Windows report. Added at the owner's request (2026-11-21, \"raise it\") to verify on the platform the bug was reported on."
     }
   ]
 }

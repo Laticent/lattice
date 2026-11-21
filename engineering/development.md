@@ -603,7 +603,10 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
   backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `dead-code-windows` runs the
   `dead-code` pre-push check there (knip through node, since Windows cannot spawn the `.bin` shim) and plants an unused file
-  to prove it fails. `wait-for.sh` is a macOS suite that
+  to prove it fails. `docs-scrollbars-windows` builds the docs site there and runs `scrollbar-width.spec.ts` and
+  `wheel-sideways.spec.ts` in Chromium and Firefox against Windows' classic scrollbars, writing the measured bar widths to the
+  `platform-suite-docs-scrollbars-windows-windows-2025` artifact. Its Firefox test launches a HEADED Firefox: Playwright's headless
+  Firefox reports `scrollbar-width: none` for every element (#3345). `wait-for.sh` is a macOS suite that
   installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
 - **Office files in Apple's importer:** `office-quicklook` (`tools/office-quicklook.mjs`, dispatch and nightly only) exports a deck
   as an editable PowerPoint and renders every slide through `qlmanage` on macOS, the same Office importer iPhone Preview uses (it
