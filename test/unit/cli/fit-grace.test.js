@@ -75,3 +75,40 @@ describe('fit-grace: a slide that inherits its class and chrome', () => {
     assert.match(lines[0], /fits with `<!-- _class: gantt claim-hero -->`/);
   });
 });
+
+// The inversion pass on #3362: grace must check the render the export made, not a different one.
+describe('fit-grace: the trial renders the way the export did', () => {
+  test('every option that changes layout is forwarded, in both spellings, paths made absolute', () => {
+    const args = g.layoutArgs(['deck.md', 'out.pdf', '--size', '9:16', '--disable-plugin=chart', '--disable-plugin', 'map',
+      '--default-plugins', 'none', '-c', 'x.css', '--packages=pk', '--no-split', '--notes', '--strip-notes', '-q'], '/w');
+    assert.deepEqual(args, ['--size', '9:16', '--disable-plugin', 'chart', '--disable-plugin', 'map', '--default-plugins', 'none',
+      '--css', '/w/x.css', '--packages', '/w/pk', '--no-split']);
+  });
+  test('the export\'s own verdict is used as given: nothing clipped there, nothing rendered here', () => {
+    const p = g.plan('---\ntheme: indaco\n---\n\n# One\n', { dir: '/nonexistent-fit-grace-dir', exportVerdict: { pages: 1, overflow: [], clipped: [], footerOnly: [] } });
+    assert.deepEqual(p.clipped, []);
+    assert.deepEqual(p.perSlide, []);
+  });
+});
+
+// The red team on #3362: grace read directives inside code, lost a BOM deck's front matter, named the wrong slide when
+// hidden slides shifted the pages, and advised a claim on a slide the author marked `claim-framed`.
+describe('fit-grace: reads the deck the way the engine does', () => {
+  test('a directive shown inside a code fence is not one', () => {
+    const tutorial = '## How to\n\n```markdown\n<!-- class: quote -->\n<!-- footer: Fake -->\n```';
+    assert.deepEqual(g.inheritedDirectives([tutorial, '## Next']), [{}, {}]);
+    assert.deepEqual(g.slideClasses('```md\n<!-- _class: quote -->\n```\n\n## T'), []);
+    assert.equal(g.maskFences('a\n```\n<!-- x: y -->\n```\nb').length, 'a\n```\n<!-- x: y -->\n```\nb'.length);
+  });
+  test('a byte-order mark does not hide the front matter', () => {
+    assert.equal(g.deckParts('﻿---\nsize: 9:16\n---\n\n# A\n').yaml, 'size: 9:16');
+  });
+  test('pages map onto the SHOWN slides, and a claim-framed slide gets no claim', () => {
+    // Slide 1 is hidden, so the export's page 1 is slide 2. Slide 2 is claim-framed, so nothing is rendered.
+    const deck = '---\ntheme: indaco\n---\n\n<!-- hide -->\n\n# Hidden\n\n---\n\n<!-- _class: list claim-framed -->\n\n## Framed\n';
+    const p = g.plan(deck, { dir: '/nonexistent-fit-grace-dir', exportVerdict: { pages: 1, overflow: [1], clipped: [], footerOnly: [] } });
+    assert.deepEqual(p.clipped, [2]);
+    assert.equal(p.perSlide[0].framed, true);
+    assert.match(g.describe(p)[0], /slide 2 clips; it is marked `claim-framed`/);
+  });
+});

@@ -4555,8 +4555,17 @@ async function renderBody(browser, g, closeBrowser) {
     try {
       const grace = require('./lib/cli/fit-grace.js');
       // Rendered next to the deck so its local images and stylesheets resolve as they did here, with the same sheet.
-      const graceArgs = cssIsDefault ? [] : ['--css', path.resolve(cssFile)];
-      const p = grace.plan(fs.readFileSync(mdFile, 'utf8'), { palette: paletteArg || null, dir: path.dirname(path.resolve(mdFile)), args: graceArgs });
+      // Every option that changes layout is forwarded (`layoutArgs`: --size, --packages, the plugin switches, --no-split,
+      // --css), and the verdict printed above is handed over, so the advice answers that warning on that render.
+      const graceArgs = grace.layoutArgs(process.argv.slice(2));
+      if (positional[1]?.endsWith('.css') && !graceArgs.includes('--css')) graceArgs.push('--css', path.resolve(cssFile));
+      const exportVerdict = {
+        pages: await g(() => page.evaluate((src) => new Function('return (' + src + ')')()(document).length, DECK_SLIDES_SRC), 'count pages'),
+        overflow: overflowing,
+        clipped: contentOnly.filter((o) => !o.chromeOnly).map((o) => o.slide),
+        footerOnly: contentOnly.filter((o) => o.chromeOnly).map((o) => o.slide),
+      };
+      const p = grace.plan(fs.readFileSync(mdFile, 'utf8'), { palette: paletteArg || null, dir: path.dirname(path.resolve(mdFile)), args: graceArgs, exportVerdict });
       for (const line of grace.describe(p)) console.warn(line);
     } catch (e) {
       console.warn(`  ↳ grace: not checked (${e.message.split('\n')[0]}).`);
