@@ -1,7 +1,9 @@
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import type { Page, TestInfo } from '@playwright/test';
-import { CHROME, expect, gotoStudio, isPhone, test } from './studio-fixture';
+import JSZip from 'jszip';
+import { CHROME, expect, gotoStudio, isPhone, openSection, test } from './studio-fixture';
 
 // A deck imported through the Library (2026-11-20). On a real iPhone, "Import deck…" showed every
 // `.lattice` grayed out in Files: iOS grays out what an `accept` list does not name and has no type
@@ -117,4 +119,65 @@ test('a .lattice imported through the Library lands on Files and opens as a deck
 	// Library flow in WebKit, not the picker fix (the `@gecko` arm is the one the old code fails).
 	expect(await page.evaluate(() => navigator.userAgent)).toContain('iPhone');
 	await importsADeck(page, testInfo);
+});
+
+/**
+ * The deck a Library keeps survives a workspace backup: the real sheet's backup, restored on an empty device (a fresh
+ * context, its own empty IndexedDB), brings the deck back on Files, and "Open as deck" opens it as itself, speaker note
+ * and all. The deck's file rides in the backup's own binary lane (`refdoc-decks/`), never as base64 in `refdocs.json`.
+ */
+async function backsUpAndRestoresADeck(page: Page, browser: import('@playwright/test').Browser) {
+	const bytes = await latticeBytes();
+	await gotoStudio(page);
+	await openLibrary(page);
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Import files', exact: true }).click();
+	await (await chooser).setFiles({ name: 'Halcyon.lattice', mimeType: 'application/octet-stream', buffer: bytes });
+	await expect(page.getByRole('button', { name: 'Open Halcyon.lattice as a deck' })).toBeVisible({ timeout: 30_000 });
+	await expect.poll(() => storedRef(page, 'Halcyon.lattice').then((r) => r?.deckBytes ?? 0)).toBe(bytes.length);
+	// Close the Library, and on a phone the Menu it was opened from, before the Workspace sheet.
+	for (let i = 0; i < 3 && (await page.getByRole('dialog').count()) > 0; i++) await page.keyboard.press('Escape');
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+
+	// Back up through the real sheet, and look inside: the deck's file is its own entry, the text lane stays text.
+	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
+	await expect(page.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
+	await openSection(page, 'Data');
+	const pending = page.waitForEvent('download', { timeout: 120_000 });
+	await page.getByRole('button', { name: 'Download backup' }).click();
+	const backupPath = (await (await pending).path()) as string;
+	const zip = await JSZip.loadAsync(fs.readFileSync(backupPath));
+	const deckEntries = Object.keys(zip.files).filter((n) => n.startsWith('refdoc-decks/') && !zip.files[n].dir);
+	expect(deckEntries, 'the deck file rides in its own lane').toHaveLength(1);
+	expect((await (zip.file(deckEntries[0]) as JSZip.JSZipObject).async('uint8array')).length).toBe(bytes.length);
+
+	// An empty device.
+	const ctx = await browser.newContext({ viewport: page.viewportSize() ?? undefined, acceptDownloads: true, userAgent: await page.evaluate(() => navigator.userAgent) });
+	try {
+		const fresh = await ctx.newPage();
+		await gotoStudio(fresh);
+		await fresh.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
+		await expect(fresh.getByRole('dialog', { name: /Workspace/ })).toBeVisible();
+		await openSection(fresh, 'Data');
+		await fresh.getByLabel('Restore a workspace backup').setInputFiles(backupPath);
+		await expect(fresh.locator('[data-sonner-toast]').filter({ hasText: 'Workspace restored' }).first()).toBeVisible({ timeout: 60_000 });
+		await fresh.waitForLoadState('load');
+		await expect.poll(() => storedRef(fresh, 'Halcyon.lattice'), { timeout: 30_000 }).toMatchObject({ deckBytes: bytes.length });
+
+		await openLibrary(fresh);
+		const open = fresh.getByRole('button', { name: 'Open Halcyon.lattice as a deck' });
+		await expect(open).toBeVisible({ timeout: 30_000 });
+		await open.click();
+		await expect.poll(() => activeSource(fresh), { timeout: 30_000 }).toBe(DECK);
+	} finally {
+		await ctx.close();
+	}
+}
+
+test('a deck kept in the Library survives a workspace backup and opens as itself on an empty device @gecko', async ({ page, browser }) => {
+	await backsUpAndRestoresADeck(page, browser);
+});
+
+test('a deck kept in the Library survives a workspace backup, at an iPhone\'s size and user agent @webkit-phone', async ({ page, browser }) => {
+	await backsUpAndRestoresADeck(page, browser);
 });
