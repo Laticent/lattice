@@ -18,7 +18,8 @@ import { expect, gotoStudio, LIVE_PREVIEW, livePreview, SHARE_EXPORTS, setEditor
 //                 heading outside the plugin's root is untouched
 //   3. SHARE → PDF the export draws the same deck through the same door and downloads a PDF; the print preview draws it too
 //   4. THREE WIDTHS the card fits 1440, 820 and 390 px (screenshots when LATTICE_EVIDENCE_DIR is set)
-//   5. RELOAD     with the plugin approved, no frame of the new page paints the badge's words without its fill (#3292)
+//   5. RELOAD     with the plugin approved, no frame of the new page paints the badge's words without its fill (#3292),
+//                 or the fence as its source; a block that waits shows its afterimage, at the drawing's size (D1)
 
 test.describe.configure({ timeout: 300_000 });
 
@@ -63,7 +64,8 @@ title: Q3 launch readiness
 \`\`\`
 `;
 
-type BadgeWatch = { __badgeWatch: { bare: string[]; filled: number; done: boolean } };
+type Box = { top: number; height: number };
+type BadgeWatch = { __badgeWatch: { bare: string[]; source: string[]; waits: string[]; waitBox: Box | null; drawnBox: Box | null; filled: number; done: boolean } };
 
 /**
  * Watch every painted frame (#3292): a `requestAnimationFrame` loop in the Studio page reads the live preview frame (a
@@ -75,12 +77,26 @@ type BadgeWatch = { __badgeWatch: { bare: string[]; filled: number; done: boolea
  */
 function installBadgeWatch({ sel, name }: { sel: string; name: string }) {
 	if (window.top !== window) return;
-	const w = { bare: [] as string[], filled: 0, done: false };
+	const w = { bare: [] as string[], source: [] as string[], waits: [] as string[], waitBox: null as Box | null, drawnBox: null as Box | null, filled: 0, done: false };
 	(window as unknown as BadgeWatch).__badgeWatch = w;
 	let frame = 0;
 	const tick = () => {
 		frame++;
 		for (const f of document.querySelectorAll<HTMLIFrameElement>(sel)) {
+			const doc = f.contentDocument;
+			// The fence as its source (D1): the engine's code block for the plugin's fence.
+			if (doc?.querySelector(`code.language-${name}`)) w.source.push(`frame ${frame}`);
+			const box = (el: Element | null | undefined) => {
+				const r = el?.getBoundingClientRect();
+				return r && r.height ? { top: Math.round(r.top), height: Math.round(r.height) } : null;
+			};
+			const wait = doc?.querySelector(`[data-lattice-plugin-wait="${name}"]`);
+			if (wait) {
+				w.waits.push(wait.getAttribute('data-wait-shape') ?? '?');
+				w.waitBox = box(wait) ?? w.waitBox;
+			}
+			const root = doc?.querySelector(`[data-lattice-plugin="${name}"]`);
+			if (root) w.drawnBox = box(root) ?? w.drawnBox;
 			const badge = f.contentDocument?.querySelector(`[data-lattice-plugin="${name}"] .lp-status-card-badge`);
 			if (!badge || badge.textContent?.trim() !== 'at-risk' || !badge.getClientRects().length) continue;
 			const fill = f.contentWindow?.getComputedStyle(badge).backgroundColor ?? '';
@@ -100,6 +116,8 @@ async function expectNoBareFrame(page: Parameters<typeof gotoStudio>[0], when: s
 	await expect.poll(() => page.evaluate(() => (window as unknown as BadgeWatch).__badgeWatch?.done ?? false), { timeout: 60_000 }).toBe(true);
 	const watch = await page.evaluate(() => (window as unknown as BadgeWatch).__badgeWatch);
 	expect(watch.bare, `no frame painted the badge text without the plugin fill ${when}`).toEqual([]);
+	expect(watch.source, `no frame painted the plugin's fence as its source ${when}`).toEqual([]);
+	return watch;
 }
 
 /**
@@ -224,8 +242,22 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		// 5. RELOAD, the plugin approved in the session before: from the first frame of the new page, the badge never shows
 		// its words without its fill. A render can begin before the Studio's stamp holds the plugins (door-run.ts, the stamp-less override).
 		await page.setViewportSize({ width: 1440, height: 900 });
+		// D1: the drawing's afterimage is kept before the reload, so a block that waits shows it, at the size it drew
+		// (code-packages/wait-capture.ts records it after the paint; wait.ts draws it before the door loads).
+		await expect
+			.poll(() => page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('lattice-plugin-afterimages') || '{}')).length), {
+				message: 'the drawn block is recorded for the next reload',
+			})
+			.toBeGreaterThan(0);
 		await page.addInitScript(installBadgeWatch, { sel: LIVE_PREVIEW, name: NAME });
 		await page.reload();
-		await expectNoBareFrame(page, 'after a reload');
+		const watch = await expectNoBareFrame(page, 'after a reload');
+		// A reload may draw before any frame shows the wait; when one does, it is the afterimage, never the generic
+		// skeleton, and the drawing lands in its box: the block does not move.
+		expect(new Set(watch.waits), 'the wait after a reload is the afterimage').toEqual(new Set(watch.waits.length ? ['afterimage'] : []));
+		if (watch.waitBox && watch.drawnBox) {
+			expect(Math.abs(watch.waitBox.top - watch.drawnBox.top), 'the block does not move when it draws (top)').toBeLessThanOrEqual(2);
+			expect(Math.abs(watch.waitBox.height - watch.drawnBox.height), 'the block does not move when it draws (height)').toBeLessThanOrEqual(2);
+		}
 	});
 }

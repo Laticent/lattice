@@ -1,0 +1,1 @@
+- Studio: after a reload, an approved plugin's block no longer flashes its fence source or its unstyled drawing. Until the plugin's code loads, the block shows a muted afterimage of its last drawing at the size it drew, so nothing moves when the drawing arrives; a block drawn for the first time shows a muted chart skeleton instead.

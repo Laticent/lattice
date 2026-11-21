@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: What the Studio shows for an approved plugin's block while a reload waits for the plugin code — four arms (hold the preview, a sized box, a chart-shaped skeleton, an afterimage of the last drawing) built and measured on Chromium, WebKit, Gecko and the iOS Simulator. Recommends the afterimage with the skeleton as its fallback; the owner picks.
+status: shipped
+summary: What the Studio shows for an approved plugin's block while a reload waits for the plugin code — four arms (hold the preview, a sized box, a chart-shaped skeleton, an afterimage of the last drawing) built and measured on Chromium, WebKit, Gecko and the iOS Simulator. The owner picked the afterimage (C+), with the skeleton as its fallback; it shipped in #3337.
 ---
 
 # What a plugin block shows while a reload waits for its code
@@ -10,8 +10,11 @@ after a reload, an approved plugin's block first shows as its fence source, then
 drawn. The owner asked for both fixes the follow-up named, plus a third: a placeholder made for
 plugin blocks, distinct from the slide and image placeholders, and "inspired by charts and
 diagrams". Then a fourth, from the slide map's wireframes: a placeholder that looks like the real
-thing. All four were built behind one switch and measured. This note records the numbers and
-recommends one. **Nothing here ships until the owner picks.**
+thing. All four were built behind one switch and measured. This note records the numbers, the
+scores, and the pick.
+
+**Decided (2026-11-21).** The owner picked **C+**. A, B and the switch were removed; C's skeleton
+stays as C+'s fallback. See [What shipped](#what-shipped).
 
 ## Why the moment exists
 
@@ -24,8 +27,9 @@ code block (`<pre class="lat-code">`), because nothing on the page knows the fen
 
 ## The four arms
 
-All four live in `docs/src/lib/code-packages/wait.ts`, switched by `localStorage['lattice-d1-arm']`
-(`off` | `a` | `b` | `c` | `cplus`). `off` is today's main.
+All four were built in `docs/src/lib/code-packages/wait.ts`, switched by `localStorage['lattice-d1-arm']`
+(`off` | `a` | `b` | `c` | `cplus`); `off` was main. The arms, the switch and the benchmark harness
+are in the tree at commit `d95b712` (#3337's head before the pick) and removed after it.
 
 | Arm | What the reader sees | How |
 |---|---|---|
@@ -39,7 +43,7 @@ slack, so the coda never moves in any arm (measured below).
 
 ## How it was measured
 
-`docs/scripts/bench/plugin-wait-bench.mjs` imports a small bar-chart plugin (`bench-bars`) through
+`docs/scripts/bench/plugin-wait-bench.mjs` (at `d95b712`) imports a small bar-chart plugin (`bench-bars`) through
 the real Library, writes a one-slide deck, approves it, then reloads the Studio. A watcher installed
 before each load records every animation frame: whether the block is blank, the fence source, the
 unstyled drawing, a placeholder, or drawn, plus the block's and the coda's position.
@@ -125,18 +129,45 @@ another, so its times (4–8 s to first paint) are not used to rank the arms.
 
 A fits the budget. B, C and C+ do not without a ceiling raise or a trim.
 
-## Recommendation
+## Scores
 
-**C+, with C as its fallback.** It is the only arm that shows the reader something at once, never
-shows a wrong frame, and never moves the block. A matches it on correctness and stillness but
-shows nothing where the slide should be (see first paint). C+ costs about 0.8 KB over the route's
-headroom, which is the decision below.
+Each arm scored 1–10 per criterion from the numbers above; the weights are a judgment call, so the
+ranking is shown under a second weighting too.
 
-## The decision this needs
+| Criterion (weight) | off | A | B | C | C+ |
+|---|---|---|---|---|---|
+| No wrong frame (25%) | 1 | 10 | 10 | 10 | 10 |
+| Nothing moves (20%) | 1 | 10 | 5 | 5 | 10 |
+| Slide paints at once (20%) | 10 | 4 | 9 | 10 | 10 |
+| What the wait tells the reader (10%) | 1 | 5 | 4 | 7 | 9 |
+| Startup bytes (15%) | 10 | 9 | 5 | 4 | 3 as built, ~8 with the capture lazy |
+| Complexity and risk (10%) | 10 | 7 | 7 | 6 | 4 |
+| **Weighted** | **5.1** | **7.9** | **7.2** | **7.4** | **8.3**, ~9.0 with the capture lazy |
 
-1. **Which arm ships** — A, B, C or C+.
-2. **For B, C or C+: raise the Studio route ceiling by about 1 KB, or trim to fit** (move the
-   capture into the door chunk, so it costs nothing eager).
+With bytes at 40% instead of 15%, A overtakes C+ as first built, but not C+ with the capture lazy.
 
-Once picked, the losing arms and the switch come out, the chosen one gets an e2e test (the
-watcher, as a failing arm against `off`), and the follow-up closes.
+## What shipped
+
+**C+**, in two halves:
+
+- `docs/src/lib/code-packages/wait.ts`, on the Studio's first load: the registry of each plugin's
+  fence (`lattice-plugin-waits`), `withWaits` (the deck with each listed plugin's block swapped for
+  its wait before the eager render), `waitMarkup` (the afterimage, else the skeleton), and
+  `previewPainted`, which holds the last few painted preview documents until the recorder loads.
+- `docs/src/lib/code-packages/wait-capture.ts`, loaded with the door: `rememberWaits` writes the
+  registry, and `watchAfterimages` measures each drawn block after a paint and stores its boxes as
+  numbers (`lattice-plugin-afterimages`, 100 blocks, 150 boxes each). `door.ts` hands it the
+  documents through `setPreviewWatcher` when the door loads; a Studio with no plugin never loads it.
+- `door-run.ts` stamps each drawn block with `data-lattice-wait-key` and, in the stamp-less
+  override, draws the block's wait instead of the engine's code block.
+
+Every stored value is forced to a whole number (`n`) before it is written into the SVG, so nothing in
+browser storage reaches a slide as markup (HARD RULE #22).
+
+**Bytes.** BYTES_TBD
+
+**Test.** `docs/e2e/plugin-slots.spec.ts` step 5 now also fails on any frame after a reload that
+shows the plugin's fence as its source, on a wait that is not the afterimage, and on a wait whose
+box differs from the drawing's by more than 2 px. With `withWaits` and `waitMarkup` turned off it
+fails on Chromium, WebKit and Gecko (3 to 9 source frames per reload); restored, it passes on all
+three. The follow-up `3292-p1-plugin-reload-code-block` is closed by this change.
