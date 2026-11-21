@@ -88,3 +88,31 @@ describe('fit-grace answers the export, not a render the author never got', { sk
     assert.equal(p.perSlide[0].write, '<!-- _class: gantt claim-hero -->');
   });
 });
+
+// Owner decisions on #3362 (2026-11-21). D1: a deck-wide `claim: hero` is never suggested (it drops the header and
+// footer on every slide). D3: the export skips grace under CI.
+describe('fit-grace: owner decisions D1 and D3', { skip: skipWithoutChrome(resolveChrome()) }, () => {
+  test('three gantts that fit only under hero get hero slide by slide, never deck-wide', () => {
+    const p = plan(`${FM}${GANTT}\n\n---\n\n${GANTT}\n\n---\n\n${GANTT}\n`);
+    assert.deepEqual(p.clipped, [1, 2, 3]);
+    assert.equal(p.deck, null);
+    assert.deepEqual(p.perSlide.map((s) => s.claim), ['claim-hero', 'claim-hero', 'claim-hero']);
+  });
+  test('the export prints grace lines, and none when CI is set', () => {
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grace-ci-'));
+    try {
+      const deck = path.join(dir, 'deck.md');
+      fs.writeFileSync(deck, `${FM}${GANTT}\n`);
+      const run = (env) => spawnSync(process.execPath, [path.join(__dirname, '../../../lattice.js'), deck, path.join(dir, 'o.html')],
+        { env: { ...process.env, CI: '', LATTICE_FIT_GRACE: '', ...env }, encoding: 'utf8' }).stderr + '';
+      assert.match(run({}), /↳ grace: slide 1 fits with `claim-hero`/);
+      assert.doesNotMatch(run({ CI: 'true' }), /↳ grace/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

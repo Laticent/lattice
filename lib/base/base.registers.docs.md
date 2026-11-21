@@ -156,11 +156,13 @@ that slide again under each one:
   ↳ grace: slide 22 fits with `claim-hero` added to its `_class:` (checked by rendering).
 ```
 
-When three or more slides clip and one deck-wide `claim: quiet` (or `claim: hero`) fits
-them all, that comes first, with the slide-by-slide list beside it. A slide whose only cut
+When three or more slides clip and one deck-wide `claim: quiet` fits them all, that comes
+first, with the slide-by-slide list beside it. A deck-wide `claim: hero` is never suggested:
+it drops the header and footer on every slide, and only the clipped slides were checked. A slide whose only cut
 is the running footer is left out, because dropping the footer is not a fix. Run it on its
 own with `npm run fit:grace -- deck.md` or `npm run lint:deck -- deck.md --fit`;
-`--no-grace` (or `LATTICE_FIT_GRACE=off`) skips it in the export, which saves its re-render
+`--no-grace` (or `LATTICE_FIT_GRACE=off`) skips it in the export, which saves its re-render, and the
+export skips it on its own when the `CI` environment variable is set
 (`engineering/decisions/2026-11-20-coda-and-marp-parity.md` §9).
 
 `lint:deck` follows the claim too. A list or card layout measured to hold more under a
