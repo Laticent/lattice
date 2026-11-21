@@ -190,7 +190,7 @@ OPTIONS
       --captions          Also write read-along WebVTT caption sidecars — one
                           deck-level <output>.vtt (continuous timeline) plus
                           per-slide <output>.NN.vtt. Each slide narrates its own
-                          CONTENT unless the author overrode it with a say: line.
+                          CONTENT unless the author overrode it with <!-- @say{…} -->.
                           Timing is Cadenza's estimate (no audio, no key); honors
                           --strip-say
       --no-split          Do NOT auto-split a slide with many members — render it
@@ -199,11 +199,11 @@ OPTIONS
                           overflow marks the slide <!-- stress-slide --> instead
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
-                          shareable file with no speaker text. Removes the NOTE
-                          channel only: a <!-- describe: --> accessibility
-                          description survives (it is the slide's text
-                          alternative, not speaker text), and so do say: lines,
-                          which are public narration and have --strip-say
+                          shareable file with no speaker text. Removes every
+                          <!-- @note{…} --> and every plain comment; the public
+                          notes survive: @alt (the slide's alt text), @handout
+                          (for readers), and @say (public narration, which has
+                          --strip-say)
       --no-guide          Leave the Guide out of a narrated --player (on by default:
                           the focus and gestures that follow the narration, as in
                           Present; the deck's delivery: picks only their style).
@@ -213,9 +213,9 @@ OPTIONS
                           bytes and it moves for a recipient you are not there to
                           frame it for. The front-matter equivalent is
                           player-motion: off; this flag is for the scripted export
-      --strip-say         Scrub the author's say: lines (inline <!-- say: --> and
-                          the front-matter say: map) from the .vtt and embedded
-                          source; those slides fall back to the generated narration.
+      --strip-say         Scrub the author's <!-- @say{…} --> lines from the .vtt
+                          and embedded source; those slides fall back to the
+                          generated narration.
                           Orthogonal to --strip-notes — a speaker note is never a
                           narration source, so neither flag can leak the other's channel
       --notes-icon        Show a clickable sticky-note icon on each slide with
@@ -554,9 +554,12 @@ if (process.argv[2] === 'fmt') {
 }
 
 // `lattice migrate meta <deck.md>` — directive comments rewritten as slide records (lib/cli/migrate-meta.mjs,
-// engineering/decisions/2026-10-17-meta-record.md §9 step 5). Dispatched as a child for the same reason as `packages`.
+// engineering/decisions/2026-10-17-meta-record.md §9 step 5). `lattice migrate notes <deck.md>` — old-form notes
+// rewritten as the four notes (lib/cli/migrate-notes.mjs, engineering/decisions/2026-11-20-four-notes.md). Dispatched
+// as a child for the same reason as `packages`.
 if (process.argv[2] === 'migrate') {
-  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/migrate-meta.mjs'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  const tool = process.argv[3] === 'notes' ? 'migrate-notes.mjs' : 'migrate-meta.mjs';
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli', tool), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
 }
@@ -601,7 +604,7 @@ function parseArgs(argv) {
     // Named, not left to the unknown-option error: a script still passing it asked for a privacy
     // strip, and "unknown option" does not tell them which flag gives it to them now.
     if (a === '--strip-captions') {
-      console.error('error: --strip-captions is retired — use --strip-say (the author\'s spoken lines are `say:` now).');
+      console.error('error: --strip-captions is retired — use --strip-say (the author\'s spoken lines are `@say{…}` now).');
       process.exit(1);
     }
     // Renamed 2026-11-09 before any release shipped it: `--fonts` read as choosing fonts, and it only decides what an
@@ -812,13 +815,14 @@ const PLAYER_CONSENT = (() => {
 // `--strip-say`: the SEPARATE privacy strip for the say (read-as) channel —
 // orthogonal to `--strip-notes`. Notes (private, for the presenter) and say lines (public,
 // what a slide speaks) are independent channels, so each has its own strip. This scrubs the
-// author's say OVERRIDES — inline `<!-- say: -->` AND the front-matter `say:` map — from the
-// baked copies: the read-along `.vtt` (those slides fall back to the generated projection) and
+// author's say OVERRIDES — every `<!-- @say{…} -->` — from the baked copies: the read-along `.vtt` (those slides fall back to the generated projection) and
 // the envelope/attached `source`. Notes and the auto DOM projection are untouched.
 const STRIP_SAY = !!flags['strip-say'];
 // Compose the privacy strips for any re-embedded SOURCE copy (the player envelope, the
-// PDF-attached source): scrub note comments under `--strip-notes` and/or say comments
-// under `--strip-say`. `noteBodies` is the set lifted from the render.
+// PDF-attached source, the reopenable `.lattice`): under `--strip-notes` every private comment
+// (each `@note{…}` and each plain comment), and/or under `--strip-say` every `@say{…}`. A note is
+// named in the source, so the kernel classifies each comment where it stands; nothing is lifted
+// from the render (engineering/decisions/2026-11-20-four-notes.md N5).
 // Which cut `strippedSlidesOrAuthored` measured as reproducing the deck. Read here so the
 // SOURCE this ships is the one that was rendered — see the note at that function. ONE cut for
 // both channels, because pass 2 renders ONE combined source; a per-channel cut would be a
@@ -839,22 +843,20 @@ let scrubBoundaryMeasured = false;
 // against the source's own neighbors, so there is no order left to get wrong.
 // The composition carries no reporting — the pure half, so `strippedSlidesOrAuthored` can call
 // it once per candidate cut without warning the author twice about the same deck.
-function composeStrippedSource(src, noteBodies, boundary = scrubBoundary) {
+function composeStrippedSource(src, boundary = scrubBoundary) {
   return notesCore.stripChannelsFromSource(src, {
-    noteBodies: STRIP_NOTES ? noteBodies : null,
+    notes: STRIP_NOTES,
     say: STRIP_SAY,
     boundary,
   });
 }
 const survivorWarned = new Set();
-function stripSharedSource(src, noteBodies, boundary = undefined) {
-  const out = composeStrippedSource(src, noteBodies, boundary ?? scrubBoundary);
+function stripSharedSource(src, boundary = undefined) {
+  const out = composeStrippedSource(src, boundary ?? scrubBoundary);
   if (STRIP_NOTES) {
-    // FAIL-CLOSED. The scrub matches note bodies lifted from the RENDER against comments in
-    // the SOURCE, and every leak this has had was a new way for those two sides to disagree.
-    // So check the OUTPUT rather than trusting the matcher: a comment still standing that is
-    // not a directive, pragma, `describe:` or `say:` is suspected speaker text that got
-    // through. Reported, never silent — a `--strip-notes` export that quietly keeps a note is
+    // FAIL-CLOSED. Check the OUTPUT rather than trusting the classifier: a comment still
+    // standing that is not a directive, a record, a pragma or a public note (`@say`, `@alt`,
+    // `@handout`) is suspected private text that got through. Reported, never silent — a `--strip-notes` export that quietly keeps a note is
     // the one failure the author cannot take back once the file is sent.
     const survivors = notesCore.auditStrippedSource(out);
     // Once per run: `--embed-source` and `--reopenable` scrub two sources when `--size` or
@@ -1218,25 +1220,17 @@ if (retiredForm.length > RETIRED_FORM_SHOWN) {
   console.error(`warning: run \`lattice lint\` for the fix \u2014 Form is the composition model now and cannot be disabled.`);
 }
 
-// A RETIRED SPOKEN-LINE KEY — `caption:` / `captions:` became `say:` (2026-09-28,
-// engineering/decisions/2026-09-28-say-not-caption.md). The render no longer reads the old
-// key, so the slide speaks its generated narration and the old comment surfaces as a speaker
-// note, with a successful exit code. Same channel and reason as the retired Form opt-outs
-// above; the detector is the linter's own (HARD RULE #7).
-const { findRetiredCaptionKeys } = require('./lib/authoring/lint-core');
-const retiredCaption = findRetiredCaptionKeys(md);
-for (const f of retiredCaption.slice(0, RETIRED_FORM_SHOWN)) {
+// A RETIRED NOTE KEY (`say:`, `describe:`, `reader:`, `note:`, `caption:`, the front-matter `say:` map) or a near-miss
+// note (`@Say{…}`, an unclosed brace). The render reads neither, so the line silently reaches nothing, with a
+// successful exit code (engineering/decisions/2026-11-20-four-notes.md). Same channel and reason as the retired Form
+// opt-outs above; the detectors are the linter's own (HARD RULE #7).
+const { findRetiredNoteKeys, findMalformedNotes } = require('./lib/authoring/lint-core');
+const noteFindings = [...findRetiredNoteKeys(md), ...findMalformedNotes(md)];
+for (const f of noteFindings.slice(0, RETIRED_FORM_SHOWN)) {
   console.error(`warning: slide ${f.slide}: ${f.message} ${f.fix}`);
 }
-if (retiredCaption.length > RETIRED_FORM_SHOWN) {
-  console.error(`warning: \u2026 and ${retiredCaption.length - RETIRED_FORM_SHOWN} more retired \`caption:\` line(s). Run \`lattice lint\` for the full list.`);
-}
-// `--strip-say` scrubs the retired key in ANY case (as `--strip-captions` did), so a comment
-// opening with `Caption:` — a note to the engine now — leaves the shipped copies too. Say so:
-// a strip that removes an author's text without a word is the silent loss the checker found.
-const retiredComments = retiredCaption.filter((f) => f.classToken === 'caption').length;
-if (flags['strip-say'] && retiredComments) {
-  console.error(`note: --strip-say also removed ${retiredComments} retired \`caption:\` comment(s), including any that start with \`Caption:\`, from the shipped copies.`);
+if (noteFindings.length > RETIRED_FORM_SHOWN) {
+  console.error(`warning: \u2026 and ${noteFindings.length - RETIRED_FORM_SHOWN} more note line(s) that reach nothing. Run \`lattice lint\` for the full list, or \`lattice migrate notes\` to rewrite the deck.`);
 }
 
 // A STATE CHART STILL IN THE v1 GRAMMAR. State chart v2 moved to the flowchart grammar
@@ -2107,7 +2101,7 @@ const notesCore = require('./lib/authoring/notes-core');
 const imageDimensions    = require('./lib/core/image-dimensions');
 /**
  * A `.lattice` output's deck under `--strip-notes` / `--strip-say`: the functions `--reopenable` scrubs its embedded
- * copy with, fed by an engine render of this deck (its note bodies, and the cut that reproduces the deck).
+ * copy with, and the cut an engine render of this deck shows reproduces it.
  * @param {string} src
  */
 function latticeStrippedSource(src) {
@@ -2122,18 +2116,16 @@ function latticeStrippedSource(src) {
     const all = splitSections(html).filter((p) => p.type === 'section').map((p) => `${p.openTag}${p.inner}</section>`);
     return Object.assign(all.filter((sec) => !isHiddenSection(sec)), { hiddenSections: all.filter(isHiddenSection) });
   };
-  const rendered = STRIP_NOTES ? sectionsOf(src) : [];
-  const bodies = STRIP_NOTES ? new Set([...rendered, ...(rendered.hiddenSections || [])].flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
   const cut = notesCore.measureScrubBoundary({
     attached: src,
     rendered: src,
     inherited: 'preserve',
     inheritedMeasured: false,
-    scrub: (s, boundary) => composeStrippedSource(s, bodies, boundary),
+    scrub: (s, boundary) => composeStrippedSource(s, boundary),
     render: sectionsOf,
     onRenderError: (e) => console.warn(`  ⚠ Could not measure the .lattice deck's cut (${e.message}); keeping a blank line where a note stood.`),
   });
-  return stripSharedSource(src, bodies, cut.boundary);
+  return stripSharedSource(src, cut.boundary);
 }
 
 // ── `.lattice` OUTPUT: the deck as a project file, written HERE and nowhere later ──────────────────────────────────
@@ -2179,9 +2171,8 @@ if (OUT_FORMAT === 'lattice') {
   warnThemeDoesNotTravel('.lattice');
   // From a `.lattice`, the deck exactly as the file held it; otherwise as the CLI read it. Under `--strip-notes` /
   // `--strip-say` it is scrubbed by the SAME functions `--reopenable` scrubs its copy with (`stripSharedSource`, the
-  // cut measured by `notesCore.measureScrubBoundary`), from the note bodies of a render. That render is the engine's,
-  // run here with no package code (the code packages are not filled yet), so nothing a package ships runs to write
-  // a zip; a note a code package would draw itself is not in the source, so it has nothing to scrub.
+  // cut measured by `notesCore.measureScrubBoundary` on a render). That render is the engine's, run here with no
+  // package code (the code packages are not filled yet), so nothing a package ships runs to write a zip.
   const STRIPPING = STRIP_NOTES || STRIP_SAY;
   const asWritten = LATTICE_INPUT ? fs.readFileSync(LATTICE_INPUT.deck, 'utf8') : mdRaw;
   const source = STRIPPING ? latticeStrippedSource(asWritten) : asWritten;
@@ -2682,14 +2673,14 @@ function engineSlides(deckSource = rawMd) {
   // The hidden sections, kept beside the list rather than in it: `--strip-notes` must find THEIR notes too, or a
   // hidden slide's note rides into the shipped source (the checker's finding). Never exported.
   out.hiddenSections = all.filter((sec) => isHiddenSection(sec));
-  // The authored position of each shown section among ALL sections, for anything keyed by slide number
-  // (front-matter `say:`), which counts hidden slides.
+  // The authored position of each shown section among ALL sections, for anything keyed by authored slide number,
+  // which counts hidden slides (the chart-narration blocks below).
   out.sectionIndex = all.map((sec, i) => (isHiddenSection(sec) ? -1 : i)).filter((i) => i >= 0);
   return out;
 }
 
-// PASS 1 — the deck as the author wrote it. Under `--strip-notes` this render exists only
-// to lift the note bodies; the file ships pass 2.
+// PASS 1 — the deck as the author wrote it. Under a privacy strip this render is the shape
+// pass 2 must reproduce; the file ships pass 2.
 const slidesAsAuthored = engineSlides();
 // A deck with PANES inlines the pane-widened sheet: every rule arm that reaches one of its
 // panes' bodies gains a `section lat-pane…` twin (lib/core/pane-css.js), scoped to the
@@ -2716,11 +2707,6 @@ const escapeHtml = (s) => String(s)
 // for text, and adding `"` to it would change the bytes of every exported <title> that
 // quotes something.
 const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
-// The set of INDIVIDUAL note bodies straight from the render — the directive-safe
-// key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
-// attachment). NOT the `\n\n`-joined note split apart, which shatters a single
-// blank-line note and leaks it.
-const noteStripSet = STRIP_NOTES ? new Set([...slidesAsAuthored, ...(slidesAsAuthored.hiddenSections || [])].flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
 // PASS 2 — A PRIVACY STRIP SHIPS THE RENDER OF THE SCRUBBED SOURCE, not a scrubbed render
 // of the authored source. Blanking the note copies after the fact left the comment's own
 // whitespace behind, and one byte per noted slide named WHICH slides had notes — computable
@@ -2774,11 +2760,9 @@ function strippedSlidesOrAuthored() {
   // LIST is the kernel's (#1): the Studio's `stripNotesCut` reads the same one, so neither path
   // can quietly gain a cut or reorder them without the other.
   for (const boundary of notesCore.SCRUB_BOUNDARIES) {
-    const source = composeStrippedSource(rawMd, noteStripSet, boundary);
-    // Nothing either flag removes from this deck — no note, no say comment, no
-    // front-matter `say:` map. Every cut would render the same document, so pass 2 is
-    // pure cost. Asked of the SOURCE rather than of the note set, because `--strip-say`
-    // has no set to be empty: its material is structural.
+    const source = composeStrippedSource(rawMd, boundary);
+    // Nothing either flag removes from this deck — no private comment, no `@say`. Every cut
+    // would render the same document, so pass 2 is pure cost.
     // SETTLED, not unmeasured — and the difference is a warning the author should never see.
     // Every cut renders the same document here, so the boundary question has an answer even
     // though no render was needed to get it. Leaving the flag false made `attachmentCut` inherit
@@ -2864,7 +2848,7 @@ function attachmentCut() {
     // Pass 2's answer AND its confidence. `scrubBoundary` alone cannot say whether it was
     // measured or is still the initial `'preserve'` left behind by a fidelity fallback.
     inheritedMeasured: scrubBoundaryMeasured,
-    scrub: (src, boundary) => composeStrippedSource(src, noteStripSet, boundary),
+    scrub: (src, boundary) => composeStrippedSource(src, boundary),
     render: engineSlides,
     onRenderError: (e) => console.warn(
       `  ⚠ Could not measure the attached source's cut (${e.message}); using the rendered deck's.`
@@ -2887,43 +2871,73 @@ const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 // PDF's annotations, PowerPoint's notes pane. The default is right; silence was wrong.
 // Counts the MATERIALIZED array, so under --strip-notes there is nothing to say. Gated by
 // --quiet like the format's own summary line it follows.
-function warnShippedNotes(what) {
+//
+// A PLAIN comment is no note (engineering/decisions/2026-11-20-four-notes.md): it reaches no rendered surface. But a
+// file that carries the deck's SOURCE (the player, `--embed-source`, `--reopenable`) carries it too, so that file says
+// so as well. Before the four notes, the same comment was a speaker note and this warning covered it; keeping the
+// warning is what keeps "a plain comment goes nowhere" from becoming a silent leak.
+let plainCommentCount = null;
+function plainComments() {
+  if (plainCommentCount === null) {
+    plainCommentCount = 0;
+    notesCore.rewriteComments(md, (body) => {
+      if (notesCore.isPrivateComment(body) && !notesCore.noteOf(body)) plainCommentCount++;
+      return false;
+    });
+  }
+  return plainCommentCount;
+}
+// A deck written before the four notes kept its speaker notes as plain comments, which are no notes now: its PDF,
+// PowerPoint or player would ship with none and no word why (the inversion on PR 3351). Asked once per run, from every
+// export with a notes channel, by the linter's own rule (HARD RULE #7), so the CLI and lint never disagree on the shape.
+let oldNotesHinted = false;
+function hintOldNotes() {
+  if (QUIET || STRIP_NOTES || oldNotesHinted) return;
+  oldNotesHinted = true;
+  const { findPlainCommentNotes } = require('./lib/authoring/lint-core');
+  const [f] = findPlainCommentNotes(md);
+  if (f) console.warn(`  note: ${f.message} Run \`lattice migrate notes ${mdFile || 'deck.md'}\` to turn them into @note.`);
+}
+function warnShippedNotes(what, { carriesSource = false } = {}) {
+  hintOldNotes();
+  if (QUIET) return;
   const n = materializedNotes.filter(Boolean).length;
-  if (QUIET || !n) return;
-  console.warn(`  ⚠ ${n} ${n === 1 ? 'slide ships' : 'slides ship'} speaker notes in this ${what} — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
+  if (n) console.warn(`  ⚠ ${n} ${n === 1 ? 'slide ships' : 'slides ship'} speaker notes in this ${what} — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
+  const c = carriesSource && !STRIP_NOTES ? plainComments() : 0;
+  if (c) console.warn(`  ⚠ ${c} plain comment${c === 1 ? '' : 's'} ride${c === 1 ? 's' : ''} in the deck source this ${what} carries — anyone who opens the file can read ${c === 1 ? 'it' : 'them'}. Export with --strip-notes to remove ${c === 1 ? 'it' : 'them'}.`);
 }
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
-// Per-slide inline `<!-- say: … -->` read-as text (Layer 1, §16) — the highest-precedence
+// Per-slide `<!-- @say{…} -->` read-as text (Layer 1, §16) — the highest-precedence
 // narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A
 // say line is public-facing narration (it reaches the caption track), not a private note, so it is NOT blanked
 // by `--strip-notes` (which removes the note channel) — the two flags compose.
 //
 // Under `--strip-say` this is empty BY CONSTRUCTION, not by a second rule: pass 2 rendered a
 // source with the say comments already gone, so there is nothing here to extract and every
-// slide falls back to the generated projection. The explicit `inlineForMerge` / `fmForMerge`
+// slide falls back to the generated projection. The explicit `inlineForMerge`
 // clearing further down stays as belt and braces, the same way `materializedNotes` does.
 const slideSayLines = notesCore.extractSlideSayLines(slides);
-// Per-slide READER notes (a record's `reader` field, engineering/decisions/2026-10-17-meta-record.md §4.4): text for
-// whoever opens the exported file, not for the presenter. D8: PPTX and PDF carry it in the notes channel as a labeled
-// `Reader:` paragraph after the speaker note (`exportedNotes`); the player keeps it a separate channel. A reader note is
+// Per-slide HANDOUT notes (`<!-- @handout{…} -->`, engineering/decisions/2026-11-20-four-notes.md): text for whoever
+// reads the deck alone, later, not for the presenter. PPTX and PDF carry it in the notes channel as a labeled
+// `Handout:` paragraph after the speaker note (`exportedNotes`); the player keeps it a separate channel. A handout is
 // meant to ship, so `--strip-notes` (the PRESENTER's channel) keeps it: that flag removes what is private.
-const slideReaderNotes = notesCore.extractSlideReaderNotes(slides);
-const exportedNotes = notesCore.withReaderNotes(materializedNotes, slideReaderNotes);
+const slideHandouts = notesCore.extractSlideHandouts(slides);
+const exportedNotes = notesCore.withHandoutNotes(materializedNotes, slideHandouts);
 const slidesWithNotes = slides.map((sec, i) => {
   const stripped = notesCore.stripCommentNodes(sec);
   const note = materializedNotes[i];
   const description = slideDescriptions[i];
-  const reader = slideReaderNotes[i];
-  if (!note && !description && !reader) return stripped;
+  const handout = slideHandouts[i];
+  if (!note && !description && !handout) return stripped;
   let inject = '';
   let sectionAttr = '';
   // Speaker note: a `hidden` aside — out of layout/print AND out of the a11y tree
   // (it is spoken by the presenter, not read by a screen reader). `--strip-notes`
   // omits it so the shared player's DOM carries no speaker text.
   if (note) inject += `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escapeHtml(note)}</aside>`;
-  // Reader note: its own `hidden` aside, never folded into the speaker note, so the player can show it to a reader
-  // and keep it off the presenter's view (D8).
-  if (reader) inject += `<aside class="lattice-reader" hidden data-slide="${i + 1}">${escapeHtml(reader)}</aside>`;
+  // Handout note: its own `hidden` aside, never folded into the speaker note, so the player can show it to a reader
+  // and keep it off the presenter's view.
+  if (handout) inject += `<aside class="lattice-handout" hidden data-slide="${i + 1}">${escapeHtml(handout)}</aside>`;
   // Accessible description: a visually-hidden but AT-EXPOSED element (sr-only, NOT
   // `hidden`), referenced by `aria-describedby` on the section. It is the slide's
   // text alternative for a screen-reader user; sr-only keeps it off the rasterized
@@ -4950,7 +4964,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Bind notes to the RENDERED pages, not the authored slides — a split run has more
     // of the former than the latter, and the length guard inside would otherwise drop
     // every annotation in the deck (see notesPerRenderedPage).
-    const pageNotes = notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { reader: true });
+    const pageNotes = notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { handout: true });
     let finalBytes = await embedNotesInPdf(pdfBytes, pageNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
@@ -4965,7 +4979,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}${sizeNote(outFile)}`);
     }
-    warnShippedNotes('PDF');
+    warnShippedNotes('PDF', { carriesSource: EMBED_SOURCE || REOPENABLE });
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, exportedNotes);
   } else if (OUT_FORMAT === 'pdf') {
     // Image-per-page PDF. Two triggers land here:
@@ -4989,7 +5003,7 @@ async function renderBody(browser, g, closeBrowser) {
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
-    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { reader: true }));
+    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { handout: true }));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     finalBytes = await embedLatticeInPdf(finalBytes);
@@ -5012,7 +5026,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile} (${tags.join(', ')})${sizeNote(outFile)}`);
     }
-    warnShippedNotes('PDF');
+    warnShippedNotes('PDF', { carriesSource: EMBED_SOURCE || REOPENABLE });
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
     // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
     // this sidecar the unstripped array shipped the notes the flag exists to remove.
@@ -5404,7 +5418,7 @@ async function renderBody(browser, g, closeBrowser) {
         height: slideH,
         // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null, and
         // both suites show the notes to anyone who opens the file (#1837).
-      }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { reader: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), PKG_ROOT,
+      }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { handout: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), PKG_ROOT,
       // `--reopenable` rides in the editable .pptx exactly as in the picture one.
       REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate(), fonts: FONT_POLICY } : { fonts: FONT_POLICY });
       if (!QUIET) {
@@ -5412,7 +5426,7 @@ async function renderBody(browser, g, closeBrowser) {
         const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.pictures ? `, ${res.pictures} picture${res.pictures === 1 ? '' : 's'}` : ''}${res.wholePictures ? `, ${res.wholePictures} slide${res.wholePictures === 1 ? '' : 's'} as one whole-slide picture` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
         console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}${sizeNote(outFile)}`);
-        warnShippedNotes(kind === 'ODP' ? 'presentation' : 'PowerPoint file');
+        warnShippedNotes(kind === 'ODP' ? 'presentation' : 'PowerPoint file', { carriesSource: REOPENABLE && OUT_FORMAT === 'pptx' });
       }
     } else {
       const pngBuffers = [];
@@ -5447,9 +5461,9 @@ async function renderBody(browser, g, closeBrowser) {
           // the one format whose native viewer puts the author's private text in front of the
           // recipient by default. This call site was the last one still reading the unstripped
           // array (#1837).
-        }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { reader: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+        }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { handout: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
         if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}${sizeNote(outFile)}`);
-        warnShippedNotes('PowerPoint file');
+        warnShippedNotes('PowerPoint file', { carriesSource: REOPENABLE });
       }
     }
   }
@@ -5463,7 +5477,7 @@ async function renderBody(browser, g, closeBrowser) {
   let playerNarration;
   if (PLAYER && NARRATE) {
     try {
-      const pages = notesPerRenderedPage(cleanDocHtml, exportedNotes, { reader: true }).length;
+      const pages = notesPerRenderedPage(cleanDocHtml, exportedNotes, { handout: true }).length;
       const { readAlong, slideTexts, emphasis, refs, inputs } = await resolveReadAlong(pages, slideSayLines, captionScript);
       if (!readAlong.slides.length) throw new Error('the deck has nothing to narrate (no say lines and no slide prose to project)');
       const { KOKORO, loadKokoro, voiceDeck } = await import('./lib/export/narrate-kokoro.mjs');
@@ -5588,9 +5602,8 @@ async function renderBody(browser, g, closeBrowser) {
         consentOrigins: PLAYER_CONSENT,
         // The envelope carries verbatim source for lossless re-import — but under
         // `--strip-notes` / `--strip-say` that source is re-serialized WITHOUT the
-        // respective comments (directive-safe: notes match only the exact bodies lifted
-        // from the render; say lines match the `say:` prefix), so the shared file leaks
-        // no speaker text and/or no say text. A stripped file re-imports without them —
+        // respective comments (directive-safe: the kernel never takes a directive, a record
+        // or a pragma), so the shared file leaks no private comment and/or no say text. A stripped file re-imports without them —
         // the stated privacy tradeoff (§Notes on export).
         //
         // `md`, the deck as authored, NOT `rawMd`: the plugins' bakes have replaced every
@@ -5616,10 +5629,10 @@ async function renderBody(browser, g, closeBrowser) {
         height: slideH,
         theme: { name: paletteName, mode: PLAYER_MODE ?? deckScheme },
         ...(playerNarration ? { narration: playerNarration } : {}),
-        // The engine's shallow front-matter parse doesn't read the nested `say:` map (it
-        // surfaces as `""`), so `config` normally carries no say text — but an inline
-        // `say: {…}` form would echo here. Under `--strip-say` drop the key outright
-        // so the envelope config can't carry ANY say-labeled text (privacy, not just the map).
+        // A deck written before 2026-11-20 may still hold a front-matter `say:` (or `captions:`)
+        // map, which nothing reads now; an inline `say: {…}` form would echo here. Under
+        // `--strip-say` drop both keys outright so the envelope config can't carry ANY
+        // say-labeled text.
         //
         // Parsed from `md`, the deck as authored, like `source` above: `deckFm` reads `rawMd`, whose
         // `glossary: auto` trigger the auto-glossary strips once it has run, so the record described
@@ -5682,7 +5695,7 @@ async function renderBody(browser, g, closeBrowser) {
         // So the export says what it is about to disclose, and names the flag. Counts the
         // MATERIALIZED array, so under `--strip-notes` there is nothing to warn about and
         // this stays silent (#1833).
-        warnShippedNotes('player');
+        warnShippedNotes('player', { carriesSource: true });
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (webEmbed?.count) console.log(`  embedded ${webEmbed.count} web picture(s) (--allow-remote), ${(webEmbed.bytes / 1024).toFixed(0)} KB`);
         if (webEmbed?.missing.length) console.warn(`  honesty: ${webEmbed.missing.length} web picture(s) could not be embedded and show as placeholders — ${webEmbed.missing.slice(0, 2).map((m) => `${m.url} (${m.reason})`).join('; ')}`);
@@ -5834,8 +5847,8 @@ async function renderBody(browser, g, closeBrowser) {
   if (CAPTIONS) {
     // PAGE-bound notes, not authored ones: `projectDeckSpeechFromHtml` projects the
     // RENDERED sections, so feeding it the authored array made the two lengths disagree
-    // the moment a slide split — and `mergeNarration` then dropped the projection (and
-    // the front-matter say: map with it) rather than misalign. One index space fixes all
+    // the moment a slide split — and `mergeNarration` then dropped the projection
+    // rather than misalign. One index space fixes all
     // three channels at once.
     const pageNotesForCaptions = notesPerRenderedPage(cleanDocHtml, materializedNotes);
     await writeCaptionsSidecar(outFile, pageNotesForCaptions.length, slideSayLines, captionScript);
@@ -6411,7 +6424,7 @@ function attachableSource(src) {
       + `re-import with that block boundary changed. ${advice}`
     );
   }
-  const out = stripSharedSource(src, noteStripSet, cut.boundary);
+  const out = stripSharedSource(src, cut.boundary);
   attachableMemo.set(src, out);
   return out;
 }
@@ -6534,6 +6547,8 @@ function writeNotesSidecar(outPath, notes) {
   const sidecar = outPath.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + '.notes.txt';
   fs.writeFileSync(sidecar, blocks.length ? blocks.join('\n') : '(no speaker notes in this deck)\n');
   if (!QUIET) console.log(`Notes: ${blocks.length} slide${blocks.length === 1 ? '' : 's'} → ${sidecar}`);
+  // A deck written before 2026-11-20 kept its speaker notes as plain comments: asked for its notes, it gets none.
+  if (!blocks.length) hintOldNotes();
 }
 
 // The reading article's stylesheet for `--read`. Targets the `lp-*` class contract the
@@ -6567,6 +6582,8 @@ html,body{background:var(--bg,#fff)}
 #lat-read .lp-insight>*{margin:0}
 #lat-read .lp-insight>:last-child{padding-bottom:0}
 #lat-read .lp-note{border-top:1px solid var(--border,#ddd);padding:.6em 0 1.2em;color:var(--text-muted,#777);font-size:.92rem}
+#lat-read .lp-handout{border-left:3px solid var(--border,#ddd);margin:0 0 1.2em;padding:.1em 0 .1em 1em;color:var(--text-body,#333)}
+#lat-read .lp-handout>p:last-child{padding-bottom:0}
 #lat-read .lp-video{margin:0;padding:.2em 0 1.2em}
 #lat-read .lp-video-link{display:flex;align-items:center;gap:.75em;width:100%;max-width:24em;box-sizing:border-box;padding:.65em 1.1em .65em .65em;border:1px solid var(--border,#ddd);border-radius:12px;background:var(--bg-alt,#f7f7f7);color:var(--text-heading,#111);font-weight:600;text-decoration:none}
 #lat-read .lp-video-link:hover{border-color:var(--accent,#4338ca)}
@@ -6952,23 +6969,20 @@ async function projectDeckSpeechFromHtml(docHtml, browser, g) {
 }
 
 // THE DECK'S NARRATION, resolved once for every CLI consumer: the `--captions` sidecars and the
-// `--narrate` voice (lattice video deck.md). Inline say line, then front-matter say: map, then the
+// `--narrate` voice (lattice video deck.md). The slide's `@say{…}`, then the
 // slide's own content projected to speech, with chart narration and emphasis — so the sentences a
 // voice speaks are the sentences the captions show. Returns the per-slide texts beside the tracks.
 async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   const { buildReadAlong, emphasisForResolved, mergeNarration, refsForResolved } = require('./lib/core/read-along-build.js');
   // Deck term registry (`terms:`, with the `acronyms:` and `lexicon:` it absorbs —
-  // engineering/decisions/2026-11-16-terms-registry.md) → key→spoken map, and the front-matter
-  // `say:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from the shared resolver so
-  // both producers can't drift (#904).
+  // engineering/decisions/2026-11-16-terms-registry.md) → key→spoken map. Parsed once from the
+  // shared resolver so both producers can't drift (#904).
   let terms;
-  let fmSayMap;
   let lang; // deck language (Marp `lang:`); a non-English deck bypasses English say-as (#919)
   let bookends; // the `greeting:` / `closing:` kernel (lib/core/resolve-bookends.mjs); a caption file has no viewer clock, so it takes the NEUTRAL greeting
   try {
-    const { termsSpokenMap, frontMatterSayMap, frontMatterLang } = await import('./lib/core/resolve-narration.mjs');
+    const { termsSpokenMap, frontMatterLang } = await import('./lib/core/resolve-narration.mjs');
     terms = termsSpokenMap(rawMd);
-    fmSayMap = frontMatterSayMap(rawMd);
     lang = frontMatterLang(rawMd);
     const bookendsMod = await import('./lib/core/resolve-bookends.mjs');
     bookends = bookendsMod; // resolved against the slides' narration below, once it is known
@@ -7019,8 +7033,8 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   // heading-only caption. Run the SAME shared narrateChart the live Studio Present uses
   // (lib/core/chart-narration.js) per chart slide and, when it fires (non-null),
   // substitute its FULL-slide narration for the figure projection at that index. It
-  // sits at the PROJECTION precedence level (mergeNarration still lets an inline
-  // say line or a front-matter say: entry win), exactly as Present's narrationAt
+  // sits at the PROJECTION precedence level (mergeNarration still lets the slide's
+  // `@say{…}` win), exactly as Present's narrationAt
   // orders chart → projection. `splitSourceToSections` recovers each rendered
   // section's SOURCE Markdown from the engine's OWN `hr`-token boundary (bake headings
   // boundaries → `---`, then group on markdown-it's hr tokens), so blocks[i] ⇔ section i
@@ -7077,58 +7091,24 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
       if (!QUIET) console.warn(`  note: chart narration skipped (${e?.message})`);
     }
   }
-  // The front-matter `say:` map is keyed by AUTHORED slide number, but the say-line array is indexed
-  // per RENDERED section. Autosplit ADDS sections, so rendered-index+1 ≠ the author's number and a
-  // number-keyed say line would misbind past a split — so drop the front-matter map under autosplit
-  // (with a note). Inline `<!-- say: -->` is unaffected: it rides with its section, staying
-  // index-aligned. (Present resolves the same map through the original source index; the export has
-  // no such map here.) NOTE: say lines are NOT stripped by `--strip-notes` — that flag removes the
-  // private NOTE channel; a say line is public-facing narration the author opts into via `--captions`.
-  // Front-matter `say:[n]` is keyed by AUTHORED slide, and splitting changes the
-  // page count — so the keys stop lining up the moment a slide paginates. This used to
-  // DROP the whole map on any split deck, which was survivable while splitting was
-  // opt-in and is not now that it is intrinsic: every deck with a split slide would
-  // silently lose its authored say lines. Remap instead. `authoredIndexPerPage` recovers
-  // page → authored slide from the contiguous `data-split-run` groups, so a say line
-  // written for slide 4 reaches every page slide 4 became — the same treatment notes
-  // got, for the same reason (2026-07-29-autosplit-is-not-a-toggle.md).
+  // NOTE: say lines are NOT stripped by `--strip-notes` — that flag removes the private NOTE channel; a say line is
+  // public-facing narration the author opts into via `--captions`. A `@say{…}` rides with its section, so it stays
+  // aligned past a split.
   // page → authored slide (1-based), from the contiguous `data-split-run` groups; [] when the
-  // document has no lattice sections. Read by the say-map remap and the glossary blank below.
+  // document has no lattice sections. Read by the glossary blank below.
   const pageOrigin = () => {
     const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
     if (at < 0) return [];
     const pages = splitSections(cleanDocHtml.slice(at)).filter((x) => x.type === 'section');
     return require('./lib/core/auto-split').authoredIndexPerPage(pages);
   };
-  let fmForMerge = fmSayMap;
-  if (fmSayMap?.size) {
-    // `say:` is keyed by AUTHORED slide number, which counts hidden slides; the pages count only shown ones. Map each
-    // page's shown-slide number back through `sectionIndex` (identity when nothing is hidden).
-    const shownAt = slides.sectionIndex;
-    const origin = pageOrigin().map((n) => (shownAt && shownAt[n - 1] !== undefined ? shownAt[n - 1] + 1 : n));
-    // Only rebuild when the split actually moved something; an unsplit deck keeps the
-    // authored map byte-for-byte, so a deck that never paginates is unaffected.
-    // ANY page whose authored slide is not its own position needs the remap. Testing only the LAST page missed a deck
-    // where a split adds exactly the pages hidden slides remove (the second checker's finding).
-    if (origin.some((a, i) => a !== i + 1)) {
-      const remapped = new Map();
-      origin.forEach((authored, i) => {
-        if (fmSayMap.has(authored)) remapped.set(i + 1, fmSayMap.get(authored));
-      });
-      fmForMerge = remapped;
-      if (!QUIET) console.log(`Captions: front-matter say: map remapped across split or hidden slides — ${remapped.size} page(s) keyed from ${fmSayMap.size} authored slide(s)`);
-    }
-  }
-  // `--strip-say` blanks the author's say OVERRIDES (inline + front-matter), so those
-  // slides fall back to the generated projection — the deck still gets an auto caption track.
-  // It no longer has anything to do with `--strip-notes`: a note is not a narration source, so
-  // stripping the public channel cannot hand anyone the private one (it used to, and the help
-  // text for this flag had to warn you to strip twice). Inline say lines come in via the
-  // `sayLines` arg; drop both here.
+  // `--strip-say` blanks the author's `@say{…}` lines, so those slides fall back to the generated
+  // projection — the deck still gets an auto caption track. It has nothing to do with
+  // `--strip-notes`: a note is not a narration source, so stripping the public channel cannot
+  // hand anyone the private one.
   const inlineForMerge = STRIP_SAY ? [] : sayLines;
-  if (STRIP_SAY) fmForMerge = null;
-  // Precedence, highest first: inline `<!-- say: -->` → front-matter `say:[n]` → projection.
-  const slideTexts = mergeNarration(slideCount, projected, { sayLines: inlineForMerge, fmSayMap: fmForMerge });
+  // Precedence, highest first: the slide's `@say{…}` → projection.
+  const slideTexts = mergeNarration(slideCount, projected, { sayLines: inlineForMerge });
   // THE AUTO-GLOSSARY PAGES ARE SILENT, as they are in the Studio. `glossary: auto` appends one
   // slide per glossary page, which the source does not contain, always last; Present never shows it, so the Studio has no clip for
   // it and its projection drops that section (`withoutAutoGlossary`, the same kernel). Narrating it
@@ -7184,8 +7164,8 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
 // (continuous, deck-absolute timeline) plus per-slide <base>.NN.vtt parts. Pure +
 // offline — no audio, no TTS key. See 2026-07-08-read-along-export-manifest.md.
 // EXPORT NARRATION SOURCE: the slide's own CONTENT, narrated by the component-aware
-// DOM speech projection, unless the author overrode it — an inline `<!-- say: -->`
-// or a front-matter `say:` entry replaces the generated line entirely. A speaker
+// DOM speech projection, unless the author overrode it — a `<!-- @say{…} -->` replaces
+// the generated line entirely. A speaker
 // note is NOT a source: it is the author's, and nothing here reads it. (It was the top
 // rung until 2026-08-24, which is how a private remark reached a recipient's caption
 // sidecar; see changelog.d/1810-notes-are-not-captions.fixed.md.)

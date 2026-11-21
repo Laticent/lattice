@@ -6,12 +6,12 @@ paginate: true
 header: "Lattice · white-label"
 ---
 
-<!-- The `spectrum:` register white-labels the brand bar — the rainbow gradient every
+<!-- @note{The `spectrum:` register white-labels the brand bar — the rainbow gradient every
      slide carries on its top border (and a divider carries as a left rail). This deck
      runs `spectrum: solid`, so the whole bar is the theme's single --accent instead of
      the Lattice rainbow. Set --accent to a client's brand color and every bar follows.
      `spectrum: off` (shown mid-deck via a per-slide override) removes the bar entirely;
-     omitting the key is the rainbow default. -->
+     omitting the key is the rainbow default.} -->
 
 <!-- _class: title pinned -->
 

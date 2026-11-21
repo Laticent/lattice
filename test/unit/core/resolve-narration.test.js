@@ -2,10 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 // ESM module under test — dynamic import from this CJS test.
-let parseNarrationFrontMatter, frontMatterSayMap, frontMatterLang, lexiconMap, renumberFrontMatterSay;
+let parseNarrationFrontMatter, frontMatterLang, lexiconMap, narration;
 test.before(async () => {
-  ({ parseNarrationFrontMatter, frontMatterSayMap, frontMatterLang, lexiconMap } = await import('../../../lib/core/resolve-narration.mjs'));
-  ({ renumberFrontMatterSay } = await import('../../../lib/core/renumber-say.mjs'));
+  narration = await import('../../../lib/core/resolve-narration.mjs');
+  ({ parseNarrationFrontMatter, frontMatterLang, lexiconMap } = narration);
 });
 
 const fm = (body) => `---\n${body}\n---\n\n# Deck\n`;
@@ -40,11 +40,6 @@ test('lexicon: a double-quoted value decodes escaped quotes/backslashes (writer�
   const { lexicon } = parseNarrationFrontMatter(fm('lexicon:\n  "x": "say \\"hi\\""\n  "y": "a\\\\b"'));
   assert.equal(lexicon.get('x'), 'say "hi"');
   assert.equal(lexicon.get('y'), 'a\\b');
-});
-
-test('say: a double-quoted value decodes escaped quotes too', () => {
-  const { say } = parseNarrationFrontMatter(fm('say:\n  2: "she said \\"go\\"."'));
-  assert.equal(say.get(2), 'she said "go".');
 });
 
 test('lexicon: absent key → empty map; lexiconMap is the thin accessor', () => {
@@ -109,15 +104,17 @@ test('blockLines is indent-aware: a nested key under lexicon is NOT double-parse
   assert.equal(lexicon.get('→'), 'to');
 });
 
-test('all three parsers still round-trip together at the front-matter root', () => {
-  // acronyms (Layer 2), lexicon (say-as), and the say: map (Layer 1) coexist and each parse cleanly.
-  const { acronyms, lexicon, say } = parseNarrationFrontMatter(
-    fm('acronyms:\n  CRO: chief revenue officer\nlexicon:\n  "→": to\n  Kubernetes: koober-net-eez\nsay:\n  2: FY26 revenue grew.'),
+test('the parsers still round-trip together at the front-matter root, beside a retired say: map', () => {
+  // acronyms (Layer 2) and lexicon (say-as) coexist and each parse cleanly; a retired `say:` block between them is
+  // neither read nor allowed to bleed into its neighbors.
+  const { acronyms, lexicon } = parseNarrationFrontMatter(
+    fm('acronyms:\n  CRO: chief revenue officer\nsay:\n  2: FY26 revenue grew.\nlexicon:\n  "→": to\n  Kubernetes: koober-net-eez'),
   );
   assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer');
+  assert.equal(acronyms.size, 1);
   assert.equal(lexicon.get('→'), 'to');
   assert.equal(lexicon.get('Kubernetes'), 'koober-net-eez');
-  assert.equal(say.get(2), 'FY26 revenue grew.');
+  assert.equal(lexicon.size, 2);
 });
 
 test('acronyms: the block is scoped (a dedented sibling key ends it)', () => {
@@ -141,57 +138,14 @@ test('absent key → empty map; non-string input is safe (never throws)', () => 
   }
 });
 
-// ── say: (Layer 1 — slide-number-keyed read-as text) ───────────────────────────
+// ── the retired say: map (engineering/decisions/2026-11-20-four-notes.md N6) ─────────────────
 
-test('say: slide-number keys → text, kept as authored 1-based numbers', () => {
-  const { say } = parseNarrationFrontMatter(fm('say:\n  3: FY26 revenue grew forty percent.\n  5: Net dollar retention held.'));
-  assert.equal(say.get(3), 'FY26 revenue grew forty percent.');
-  assert.equal(say.get(5), 'Net dollar retention held.');
-  assert.equal(say.size, 2);
-});
-
-test('say: a quoted value keeps its leading/trailing space (quotes stripped)', () => {
-  const { say } = parseNarrationFrontMatter(fm('say:\n  2: "  spaced read.  "'));
-  assert.equal(say.get(2), '  spaced read.  ');
-});
-
-test('say: a non-integer key is skipped; an empty value is skipped', () => {
-  const { say } = parseNarrationFrontMatter(fm('say:\n  intro: not a number\n  4:\n  6: kept'));
-  assert.equal(say.has(4), false); // empty value
-  assert.equal(say.size, 1);
-  assert.equal(say.get(6), 'kept');
-});
-
-test('say: last duplicate key wins', () => {
-  const { say } = parseNarrationFrontMatter(fm('say:\n  1: first\n  1: second'));
-  assert.equal(say.get(1), 'second');
-});
-
-test('say: a lone YAML block/folded scalar indicator is skipped (never narrates the glyph)', () => {
-  // `3: >` / `4: |` / `5: >-` are multi-line YAML forms the flat parser can't read; the body is
-  // on deeper lines it skips — so it must NOT store the bare `>`/`|` as the say line.
-  const { say } = parseNarrationFrontMatter(
-    fm('say:\n  3: >\n    folded body it cannot read\n  4: |\n  5: >-\n  6: kept line.'),
-  );
-  assert.equal(say.has(3), false);
-  assert.equal(say.has(4), false);
-  assert.equal(say.has(5), false);
-  assert.equal(say.get(6), 'kept line.'); // a normal value on the same block still works
-});
-
-test('say: the block is scoped (a dedented sibling key ends it) and coexists with acronyms', () => {
-  const { say, acronyms } = parseNarrationFrontMatter(
-    fm('acronyms:\n  CRO: chief revenue officer\nsay:\n  1: opener line.\ntheme: indaco'),
-  );
-  assert.equal(acronyms.get('CRO').expansion, 'chief revenue officer');
-  assert.equal(say.get(1), 'opener line.');
-  assert.equal(say.size, 1);
-});
-
-test('frontMatterSayMap is the say: map directly; absent key + bad input → empty, never throws', () => {
-  assert.equal(frontMatterSayMap(fm('say:\n  7: line.')).get(7), 'line.');
-  assert.equal(frontMatterSayMap(fm('theme: indaco')).size, 0);
-  for (const v of [null, undefined, 42, {}]) assert.equal(frontMatterSayMap(v).size, 0);
+test('the front-matter say: map is NOT read: a slide\'s say line lives on the slide as @say{…}', () => {
+  const parsed = parseNarrationFrontMatter(fm('say:\n  3: FY26 revenue grew forty percent.\n  5: Net dollar retention held.'));
+  assert.equal(Object.hasOwn(parsed, 'say'), false, 'the parse result carries no say map');
+  assert.deepEqual(Object.keys(parsed).sort(), ['acronyms', 'lexicon', 'terms']);
+  assert.equal(Object.hasOwn(narration, 'frontMatterSayMap'), false, 'the accessor is gone, not left returning an empty map');
+  assert.equal(Object.hasOwn(narration.default, 'frontMatterSayMap'), false);
 });
 
 // The locale-guard signal (#919): the Marp `lang:` directive marks a deck's narration
@@ -207,32 +161,4 @@ test('frontMatterLang: bad input and a language: look-alike key never mis-fire',
   for (const v of [null, undefined, 42, {}]) assert.equal(frontMatterLang(v), null);
   // `language:` must NOT match the `lang:` key (the `:` follows `lang` exactly).
   assert.equal(frontMatterLang(fm('language: klingon')), null);
-});
-
-// renumberFrontMatterSay — the deck ops' rewrite of the `say:` keys after slides move
-// (engineering/decisions/2026-10-27-slide-structure-strip.md §8).
-test('renumberFrontMatterSay: maps keys, drops and copies entries, and keeps every other byte', () => {
-  const md = fm('title: Q3\nsay:\n  1: one\n  2: "two"  # kept\n  3: three\nlang: en');
-  const out = renumberFrontMatterSay(md, (n) => (n === 1 ? [2] : n === 2 ? [1, 3] : []));
-  assert.equal(out, fm('title: Q3\nsay:\n  2: one\n  1: "two"  # kept\n  3: "two"  # kept\nlang: en'));
-  assert.deepEqual([...frontMatterSayMap(out).keys()].sort(), [1, 2, 3]);
-});
-
-test('renumberFrontMatterSay: an identity map, no say: block, or no front matter returns the input itself', () => {
-  const md = fm('say:\n  1: one');
-  assert.equal(renumberFrontMatterSay(md, (n) => [n]), md);
-  assert.equal(renumberFrontMatterSay(fm('title: x'), () => []), fm('title: x'));
-  assert.equal(renumberFrontMatterSay('# no front matter\n', () => []), '# no front matter\n');
-});
-
-test('renumberFrontMatterSay: CRLF line endings and a last line with no newline survive', () => {
-  const crlf = '---\r\nsay:\r\n  1: one\r\n  2: two\r\n---\r\n\r\n# Deck\r\n';
-  assert.equal(renumberFrontMatterSay(crlf, (n) => [3 - n]), '---\r\nsay:\r\n  2: one\r\n  1: two\r\n---\r\n\r\n# Deck\r\n');
-  const flush = '---\nsay:\n  1: one\n---';
-  assert.equal(renumberFrontMatterSay(flush, () => [4, 5]), '---\nsay:\n  4: one\n  5: one\n---');
-});
-
-test('renumberFrontMatterSay: a say: key nested under another block is not the narration map', () => {
-  const md = fm('notes:\n  say:\n    1: not narration\nsay:\n  1: narration');
-  assert.equal(renumberFrontMatterSay(md, () => [2]), fm('notes:\n  say:\n    1: not narration\nsay:\n  2: narration'));
 });

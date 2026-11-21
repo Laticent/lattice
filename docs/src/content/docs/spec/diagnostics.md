@@ -292,8 +292,9 @@ distinct, stable ID.
 
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
-| `caption-key-retired` | error / warning | — | Front-matter `captions:` (renamed `say:`; ignored, so an error) or a `caption:` comment (now a speaker note: an error in lowercase, a warning when capitalized). |
-| `say-key-case` | warning | — | A capitalized `Say:`, which is a speaker note; only lowercase `say:` is spoken. |
+| `note-key-retired` | error / warning | — | An old note key, which the engine no longer reads, so the line reaches nothing: a `say:` or `caption:` comment (now `@say`), a `describe:` comment (now `@alt`), a `reader:` comment (now `@handout`), or a front-matter `say:` / `captions:` map (each line now `@say` on its slide), all errors; a lowercase `note:` comment (now `@note`) is a warning, because it is also how an author opens a comment to themselves. `lattice migrate notes` rewrites a deck. |
+| `note-malformed` | error / warning | — | A comment that almost is a note (LFM-2.0 §3.5): `@Say{…}` (the names are lowercase), braces that never close, or text after the closing brace, each an error; an `@word{…}` whose word is not one of the four notes, a warning. |
+| `plain-comment-notes` | info | ✓ | A deck with no named note and two or more plain comments: the shape of an LFM 1.x deck whose plain comments were its speaker notes, which now exports with none. The fix runs the notes migration over the whole deck (`lattice migrate notes`), turning each plain comment into `@note`. |
 | `lexicon-single-letter-key` | — | — | **Deprecated (2026-11-16), no longer emitted.** It warned that a single-letter/digit `lexicon:` key (`e:`, `2:`) was substituted inside every other word. A letter or digit key in `terms:`, `acronyms:` or `lexicon:` now applies only to the whole word, so the hazard is gone. |
 | `terms-key-renamed` | suggestion | ✓ | An `acronyms:` or `lexicon:` block, both older names for `terms:` and both still read. The fix renames the block and writes each plain `acronyms:` value as `{ expansion: … }`; it is offered only when the deck has one of the three blocks. |
 | `terms-entry-ignored` | warning | — | A `terms:` line the reader skips, so the term is never spoken as written: an unknown field (`pronunciation:`, `say:`; the fields are `pronounce`, `expansion` and `definition`), a list item (`- Yearn: yurn`), an entry with no value, or a line indented under no term. The message names the field that was probably meant. |
@@ -439,7 +440,7 @@ literal text and is never reported.
 | `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
 | `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
 | `meta-class-overridden` | warning | — | Two comments on one slide each set the slide's class (a `_class:` comment, a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. |
-| `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field. The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `unterminated-record`, …). |
+| `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field, a note field (`note=`, `say=`, `describe=`, `reader=`: a note is its own comment, LFM-2.0 §3.5). The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `meta-note-field`, `unterminated-record`, …). |
 | `legacy-directive-comment` | warning | — | An old-form directive comment (`<!-- _class: x -->`). Off unless the host opts in (`metaCut`) until the engine stops reading the form. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
@@ -519,7 +520,7 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   changes how an existing deck renders). Some findings also omit `classToken` or
   `line`, which §1 lists as required: the review tier's slide- and deck-level
   findings and the CLI's `--discover` findings carry no `line`. And three
-  front-matter findings (`autosplit-retired`, `caption-key-retired`,
+  front-matter findings (`autosplit-retired`, `note-key-retired`,
   `paginate-unsupported-value`) report `slide: 1`, where §1 says front matter is
   `slide: 0`. Specifying these is the
   next minor version's work.

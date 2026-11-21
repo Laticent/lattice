@@ -163,7 +163,7 @@ describe('split-compare: an author block the layout does not claim', () => {
   // from its slots, and it used to drop every comment on the way: notes on this one layout never
   // reached an export (found by the checker on #2457).
   test('string path: a speaker note survives the rebuild and notes-core reads it', () => {
-    const html = '<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><!-- say this --><blockquote><p>V.</p></blockquote></section>';
+    const html = '<section class="split-compare"><h2>H</h2><p>C.</p><ul><li><strong>A</strong></li><li><strong>B</strong></li></ul><!-- @note{say this} --><blockquote><p>V.</p></blockquote></section>';
     const out = kernel.applyToRenderedHtml(html);
     assert.deepEqual(extractSlideNotes([out]), ['say this']);
     // Lifted ahead of both panels, where the DOM path leaves the comment node; the slots are unchanged.

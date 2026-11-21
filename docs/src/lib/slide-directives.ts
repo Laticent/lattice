@@ -1,7 +1,7 @@
 // Per-slide directive editing — the substrate under the "This slide" drawer.
 //
 // The drawer edits a single slide's `<!-- _class: … -->` token list (and reads its
-// speaker note, via slide-notes.ts, which shares this module's fence + directive
+// four notes, via slide-notes.ts, which shares this module's fence + note
 // helpers). Every edit is a PURE, SPAN-SURGICAL string transform: it rewrites ONLY
 // the `_class:` value's character range and leaves every other byte — other
 // directives, the body, whitespace, unknown/hand-authored tokens — untouched. It
@@ -9,12 +9,13 @@
 // fenced code block. See engineering/decisions/2026-07-03-slide-context-editor.md §5.
 
 import { parsePaneMarker } from '../../../lib/core/meta-door.mjs';
-import { readMetaField, readRecordChannel, writeMeta, writeRecordChannel } from '../../../lib/core/meta-edit.mjs';
+import { readMetaField, writeMeta } from '../../../lib/core/meta-edit.mjs';
 import { KNOWN_KEYS } from '../../../lib/core/meta-keys.mjs';
 import { isRecordBody, commentBlocks as sharedCommentBlocks, comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges } from '../../../lib/core/meta-record.mjs';
+import { NOTE_NAMES, readNote, writeNote } from '../../../lib/core/note-grammar.mjs';
 
 // The directive KEYS the engine recognizes as scoped/global directives (a comment whose first
-// `key:` is one of these is a DIRECTIVE, not a speaker note). They come from the shared vocabulary
+// `key:` is one of these is a DIRECTIVE, not prose). They come from the shared vocabulary
 // (lib/core/meta-keys.mjs, derived from the `meta` plugin's manifest), the same list the engine
 // reads, so there is no copy here to keep in step. This module used to hold its own and a parity
 // test to catch drift (the old slide-notes.ts hand-list HAD drifted, eating `_focus`/`_build`/`style`).
@@ -22,7 +23,7 @@ export const DIRECTIVE_KEYS: ReadonlySet<string> = KNOWN_KEYS;
 
 /** The bare `key` of a comment body's FIRST directive line (leading `_` stripped),
  *  or '' when the body opens with prose. `<!-- _focus: row 2 -->` → 'focus';
- *  `<!-- note: … -->` → ''; `<!-- remember to smile -->` → ''. A key alone with no colon is only
+ *  `<!-- @note{…} -->` → ''; `<!-- remember to smile -->` → ''. A key alone with no colon is only
  *  a directive if it is a bare-able (flag) key (`<!-- _build -->`). */
 export function directiveKey(body: string): string {
 	return sharedDirectiveKey(body);
@@ -33,26 +34,32 @@ export function isDirectiveBody(body: string): boolean {
 	return directiveKey(body) !== '';
 }
 
-/** True when the comment body is the slide's `describe:` accessibility description
- *  — a separate channel from the speaker note (mirrors notes-core.isDescriptionComment).
- *  Kept distinct so the note reader/writer never treats a description as a note. */
-export function isDescriptionBody(body: string): boolean {
-	return /^describe\s*:/i.test(String(body).trim());
-}
+// ── The four notes ───────────────────────────────────────────────────────────
+// A note is a comment whose whole body is `@note{…}`, `@say{…}`, `@alt{…}` or `@handout{…}`; any other comment is
+// not a note. The grammar is the engine's own (lib/core/note-grammar.mjs), so the Studio reads a note exactly as the
+// export does. See engineering/decisions/2026-11-20-four-notes.md.
 
-/** True when the comment body is the slide's `say:` read-as text — the highest-
- *  precedence narration source, a separate channel from the speaker note (mirrors
- *  notes-core.isSayComment). Kept distinct so the note reader/writer never treats
- *  a say line as a note. */
-export function isSayBody(body: string): boolean {
-	return /^say\s*:/.test(String(body).trim()); // lowercase only — see notes-core SAY_MATCHER
+/** A note's name: where its words show up. */
+export type NoteName = 'note' | 'say' | 'alt' | 'handout';
+
+/** The four names, in the order the manifest declares them. */
+export const NOTE_NAME_LIST = NOTE_NAMES as readonly NoteName[];
+
+/** The note a comment body holds, `{name, text}`, or null when it is not a note (lib/core/note-grammar.mjs). */
+export const readNoteBody = readNote as (body: string) => { name: NoteName; text: string } | null;
+
+/** One note as the comment an author would type, `<!-- @name{…} -->`, escaped so any text reads back unchanged. */
+export const writeNoteComment = writeNote as (name: NoteName, text: string) => string;
+
+/** The name of the note a comment body holds, or null when it is not a note. */
+export function noteName(body: string): NoteName | null {
+	return readNoteBody(body)?.name ?? null;
 }
 
 /** True when the comment body is a PANES marker or layout, in any spelling: `_pane: list`, its `pane:` alias,
  *  the `panes: 35/65` layout line, or a record that names either (`{pane="bar"}`, `@meta{panes="60/40"}`, mixed
  *  with other fields or not). Read by the one shared reader, lib/core/meta-door.mjs `parsePaneMarker`. Structure, not
- *  a speaker note: read as one, the presenter's notes showed "panes: 35/65", and setting a note on the slide stripped
- *  every marker and turned the panes slide back into one component. Not in DIRECTIVE_KEYS, which is the engine's
+ *  prose: the comment classifiers (deck find, the compose view) must never treat it as an author's comment. Not in DIRECTIVE_KEYS, which is the engine's
  *  directive list; the carve reads these before directives are applied. */
 export function isPaneMarkerBody(body: string): boolean {
 	const t = String(body).trim();
@@ -61,7 +68,7 @@ export function isPaneMarkerBody(body: string): boolean {
 	if (!p) return false;
 	if (p.panes !== null) return true;
 	// The alias is one component (plus `no-title`), as lib/core/pane-spec.js `parseMarker` reads it:
-	// `pane: check the numbers` is a speaker note.
+	// `pane: check the numbers` is a plain comment.
 	return !p.pane?.legacy || /^[a-z][\w-]*(?:\s+no-title)*$/.test(p.pane.value);
 }
 
@@ -147,13 +154,6 @@ export function readClassDirective(chunk: string): ClassDirective {
 		soleDirective: f.soleDirective,
 	};
 }
-
-/** A note channel the slide's record carries (`{say="…"}`), or null: the note editors read the record first. */
-export const recordChannel = (chunk: string, name: 'note' | 'reader' | 'say' | 'describe'): string | null => readRecordChannel(chunk, name);
-
-/** Set a note channel in the record that carries it, or null when none does (the caller writes its comment). */
-export const setRecordChannel = (chunk: string, name: 'note' | 'reader' | 'say' | 'describe', value: string): string | null =>
-	writeRecordChannel(chunk, name, value);
 
 /** The slide's `_class` tokens (first directive), or []. */
 export function getClassTokens(chunk: string): string[] {

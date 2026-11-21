@@ -10,6 +10,7 @@ const assert = require('node:assert/strict');
 const {
   splitDetail, detailPayload, detailNote, extractFirstList, topLevelLis,
 } = require('../../../lib/plugins/chart-family/shared/mark-detail');
+const { readNote } = require('../../../lib/core/note-grammar.mjs');
 
 describe('mark-detail — splitDetail', () => {
   test('an item with no sublist returns the whole item as lead, empty detail', () => {
@@ -51,17 +52,30 @@ describe('mark-detail — detailNote', () => {
     assert.equal(detailNote([{ label: 'A', valueRaw: '1' }]), '');
   });
 
-  test('folds label, value and detail items into one comment line per mark', () => {
+  test('folds label, value and detail items into one @note line per mark', () => {
     const note = detailNote([
       { label: 'Visitors', valueRaw: '12000', detail: '<li>Top of funnel</li><li>Organic <code>60%</code></li>' },
       { label: 'Paid', valueRaw: '864' },
     ]);
-    assert.equal(note, '<!-- Visitors (12000): Top of funnel · Organic 60% -->');
+    // A speaker note is named (engineering/decisions/2026-11-20-four-notes.md); a plain comment would reach nothing.
+    assert.equal(note, '<!-- @note{Visitors (12000): Top of funnel · Organic 60%} -->');
+    assert.deepEqual(readNote(note.slice(4, -3)), { name: 'note', text: 'Visitors (12000): Top of funnel · Organic 60%' });
   });
 
   test('neutralizes a stray comment terminator inside the detail', () => {
     const note = detailNote([{ label: 'A', valueRaw: '1', detail: '<li>a --> b</li>' }]);
     assert.doesNotMatch(note.slice(4, -3), /--+>/); // body between <!-- … --> has no terminator
+  });
+
+  test('a brace or a trailing backslash in the detail cannot end the note early; the note reads back as written', () => {
+    for (const [detail, text] of [
+      ['<li>set {a} then }{ x</li>', 'A (1): set {a} then }{ x'],
+      ['<li>under C:\\</li>', 'A (1): under C:\\'],
+      ['<li>a \\{ b</li>', 'A (1): a \\{ b'],
+    ]) {
+      const note = detailNote([{ label: 'A', valueRaw: '1', detail }]);
+      assert.deepEqual(readNote(note.slice(4, -3)), { name: 'note', text }, note);
+    }
   });
 });
 

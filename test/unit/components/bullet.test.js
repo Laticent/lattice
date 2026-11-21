@@ -409,7 +409,7 @@ describe('bullet kernel', () => {
       ), {});
       assert.match(html, /<template class="chart-detail" data-mark="0">/);
       assert.equal((html.match(/class="chart-detail"/g) || []).length, 1);
-      assert.match(html, /<!-- New ARR \(4\.2M\): Two enterprise renewals slipped -->/);
+      assert.match(html, /<!-- @note\{New ARR \(4\.2M\): Two enterprise renewals slipped\} -->/);
       assert.doesNotMatch(html, /<t(?:ext|span)[^<>]*>Two enterprise renewals/,
         'detail rides the template only — never a painted <text>');
     });

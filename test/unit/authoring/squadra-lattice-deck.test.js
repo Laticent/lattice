@@ -15,11 +15,11 @@ const slice = (text, n) => text.slice(n.from, n.to);
 const shape = (n) => (n.kids.length ? [n.kind, n.kids.map(shape)] : n.kind);
 
 describe('lattice-deck: the tree', () => {
-  test('a slide holds its blocks, nested in their containers, and its comments with directives and notes', () => {
+  test('a slide holds its blocks, nested in their containers, and its comments with directives and plain comments', () => {
     const text = '---\ntheme: indaco\n---\n<!-- _class: lead -->\n# Hi\n\n- a\n  > q\n\n<!-- a speaker note -->\n';
     const tree = parse(text);
     assert.deepEqual(tree.kids.map((k) => k.kind), ['front-matter', 'slide']);
-    assert.deepEqual(tree.kids[1].kids.map(shape), [['comment', ['directive']], 'heading', ['list', [['item', ['paragraph', ['quote', ['paragraph']]]]]], ['comment', ['note']]]);
+    assert.deepEqual(tree.kids[1].kids.map(shape), [['comment', ['directive']], 'heading', ['list', [['item', ['paragraph', ['quote', ['paragraph']]]]]], ['comment', ['comment']]]);
     const [dir] = tree.kids[1].kids[0].kids;
     assert.deepEqual(dir.attrs, { key: 'class', spot: true, value: 'lead', folded: false, record: false });
     assert.equal(slice(text, dir.parts.key), '_class');

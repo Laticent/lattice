@@ -45,7 +45,9 @@ test('no flat host keeps a private strip of the wrapper', () => {
 	const own = /\/article\\\.lattice\\s|replace(?:All)?\(\s*['"`]article\.lattice/;
 	const files = execFileSync('git', ['ls-files', 'lib', 'tools', 'docs/src'], { cwd: ROOT, encoding: 'utf8' })
 		.split('\n')
-		.filter((f) => /\.(?:c?js|mjs|ts|tsx)$/.test(f) && !/\.test\.|\.generated\.|^lib\/export\/unwrap-flat-sheet\.mjs$/.test(f));
+		.filter((f) => /\.(?:c?js|mjs|ts|tsx)$/.test(f) && !/\.test\.|\.generated\.|^lib\/export\/unwrap-flat-sheet\.mjs$/.test(f))
+		// The index lists a file deleted in the working tree until the deletion is committed; it holds nothing to scan.
+		.filter((f) => fs.existsSync(path.join(ROOT, f)));
 	assert.ok(files.length > 100, `scanned ${files.length} files`);
 	const hits = files.filter((f) => own.test(fs.readFileSync(path.join(ROOT, f), 'utf8')));
 	assert.deepEqual(hits, [], 'these strip the wrapper themselves; call unwrapFlatSheet');

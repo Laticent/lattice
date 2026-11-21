@@ -6,9 +6,9 @@ import { deckToDoc, docToDeck } from '@/lib/compose/deck-doc';
 import { CommentView, commentRunPlugin, structuralGuard } from './ComposeView';
 
 // A note opens in its panel and its words edit in place. followups.d/2846-p5.
-// The bytes outside the words (the opener, the closer, the `say:` channel) are the author's, and a note that is opened and left is never written.
+// The bytes outside the words (the opener, the closer, a note's `@name{…}` frame) are the author's, and a note that is opened and left is never written.
 
-const DECK = ['<!-- _class: content -->', '', '## Heading', '', 'First paragraph.', '', '<!-- say: the slide reads as this. -->', '', '<!-- a plain note. -->', '', 'Second paragraph.'].join('\n');
+const DECK = ['<!-- _class: content -->', '', '## Heading', '', 'First paragraph.', '', '<!-- @say{the slide reads as this.} -->', '', '<!-- a plain note. -->', '', 'Second paragraph.'].join('\n');
 
 let view: EditorView | null = null;
 afterEach(() => {
@@ -37,12 +37,12 @@ function type(value: string) {
 	f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
 }
 
-describe('writeNote, by channel', () => {
-	it('say and describe text may open with a directive word, because their own key leads', () => {
-		expect(writeNote('<!-- say: hi -->', 'footer: the end')).toBe('<!-- say: footer: the end -->');
-		expect(writeNote('<!-- describe: a chart -->', 'color: red bars over blue')).toBe('<!-- describe: color: red bars over blue -->');
+describe('writeNote, by kind', () => {
+	it('a note’s words may open with a directive word, because its `@name{` frame leads', () => {
+		expect(writeNote('<!-- @say{hi} -->', 'footer: the end')).toBe('<!-- @say{footer: the end} -->');
+		expect(writeNote('<!-- @alt{a chart} -->', 'color: red bars over blue')).toBe('<!-- @alt{color: red bars over blue} -->');
 	});
-	it('a plain note may not become a directive or a panes marker', () => {
+	it('a plain comment may not become a directive or a panes marker', () => {
 		expect(writeNote('<!-- old note -->', 'panes: 40/60')).toBeNull();
 		expect(writeNote('<!-- old note -->', 'pane: list')).toBeNull();
 	});
@@ -52,13 +52,14 @@ describe('writeNote, by channel', () => {
 });
 
 describe('writeNote', () => {
-	it('replaces the words and keeps the opener, closer and channel', () => {
+	it('replaces the words and keeps the opener, closer and a note’s frame', () => {
 		expect(writeNote('<!-- a plain note. -->', 'new words')).toBe('<!-- new words -->');
-		expect(writeNote('<!-- say: old -->', 'new words')).toBe('<!-- say: new words -->');
+		expect(writeNote('<!-- @say{old} -->', 'new words')).toBe('<!-- @say{new words} -->');
+		expect(writeNote('<!--\n  @note{old}\n-->', 'new words')).toBe('<!--\n  @note{new words}\n-->');
 		expect(writeNote('<!--- dashes --->', 'x')).toBe('<!--- x --->');
 	});
 	it('changing one word of a note that spans lines changes that word and no other byte', () => {
-		const cases = ['<!-- Q1 revenue: 10\nQ2 revenue: 20\nQ3 revenue: 30 -->', '<!-- say: First sentence 10.\n     Second sentence. -->', '<!--\nTODO 10\n-->', '<!--\n  - a 10\n  - b\n-->', '<!--note 10-->', '<!-- TODO 10:\n     - call finance\n       - nested\n     - redo the chart -->'];
+		const cases = ['<!-- Q1 revenue: 10\nQ2 revenue: 20\nQ3 revenue: 30 -->', '<!-- @say{First sentence 10.\n     Second sentence.} -->', '<!--\nTODO 10\n-->', '<!--\n  - a 10\n  - b\n-->', '<!--note 10-->', '<!-- TODO 10:\n     - call finance\n       - nested\n     - redo the chart -->'];
 		for (const text of cases) expect(writeNote(text, editableNote(text).replace('10', '11'))).toBe(text.replace('10', '11'));
 	});
 	it('keeps a line of only spaces, and a dash next to the opener or closer of a comment written with no space', () => {
@@ -78,12 +79,15 @@ describe('writeNote', () => {
 		['a bare directive', 'footer: add sources'],
 		['a bare class directive', 'class: lead'],
 		['a second comment', 'one\n<!-- _class: lead'],
-		['a channel change', 'say: now narrated'],
+		['a kind change', '@say{now narrated}'],
 	])('refuses %s', (_n, words) => {
 		expect(writeNote('<!-- a plain note. -->', words)).toBeNull();
 	});
-	it('a say note stays a say note whatever the new words are', () => {
-		expect(writeNote('<!-- say: old -->', 'plain')).toBe('<!-- say: plain -->');
+	it('a say note stays a say note whatever the new words are, unless its braces stop balancing', () => {
+		expect(writeNote('<!-- @say{old} -->', 'plain')).toBe('<!-- @say{plain} -->');
+		expect(writeNote('<!-- @say{old} -->', 'a {balanced} aside')).toBe('<!-- @say{a {balanced} aside} -->');
+		expect(writeNote('<!-- @say{old} -->', 'an open { brace')).toBeNull();
+		expect(writeNote('<!-- @say{old} -->', 'closes} early')).toBeNull();
 	});
 	it('refuses more than a paste would carry', () => {
 		expect(writeNote('<!-- a -->', 'x'.repeat(9000))).toBeNull();
@@ -130,12 +134,12 @@ describe('the note panel', () => {
 		expect([...document.querySelectorAll('.cs-comment-panel button')].map((b) => b.textContent)).toEqual(['Remove']);
 	});
 
-	it('writes only the note, and keeps the channel prefix of a say', () => {
+	it('writes only the note, and keeps the frame of a say', () => {
 		mount();
 		pills()[0].click();
 		expect(field()?.value).toBe('the slide reads as this.');
 		type('it reads as that.');
-		expect(saved()).toBe(DECK.replace('say: the slide reads as this.', 'say: it reads as that.'));
+		expect(saved()).toBe(DECK.replace('@say{the slide reads as this.}', '@say{it reads as that.}'));
 		// The panel stays open on the note it just wrote.
 		expect((document.querySelector('.cs-comment-body') as HTMLTextAreaElement).value).toBe('it reads as that.');
 	});
@@ -203,7 +207,7 @@ describe('the note panel', () => {
 		pills()[1].click();
 		type('oops --> <b>');
 		expect(why().hidden).toBe(false);
-		expect(why().textContent).toMatch(/end its comment early/);
+		expect(why().textContent).toMatch(/end the comment early/);
 		expect(field()?.value).toBe('oops --> <b>');
 		expect(saved()).toBe(DECK);
 	});
@@ -279,7 +283,7 @@ describe('a panel that is rebuilt by an edit elsewhere', () => {
 		await Promise.resolve();
 		await Promise.resolve();
 		expect(saved()).toContain('<!-- half typed words -->');
-		expect(saved()).toContain('<!-- say: the slide reads as this. -->');
+		expect(saved()).toContain('<!-- @say{the slide reads as this.} -->');
 	});
 
 	it('writes once when Ctrl+Enter replaces the field', async () => {
@@ -407,7 +411,7 @@ describe('leaving the panel', () => {
 
 // The seventh check: the caret that Escape and Remove return to must be a text position, in the note's own slide, never a selected note.
 describe('where the caret goes after Escape and Remove', () => {
-	const TWO_SLIDES = ['<!-- _class: content -->', '', '## Plan', '', 'Para one.', '', '<!-- say: first note. -->', '', '<!-- a second note. -->', '', '---', '', '<!-- _class: content -->', '', '## Second', '', 'Body two.', '', '<!-- last note. -->'].join('\n');
+	const TWO_SLIDES = ['<!-- _class: content -->', '', '## Plan', '', 'Para one.', '', '<!-- @say{first note.} -->', '', '<!-- a second note. -->', '', '---', '', '<!-- _class: content -->', '', '## Second', '', 'Body two.', '', '<!-- last note. -->'].join('\n');
 	const slideIndexOf = (v: EditorView) => v.state.selection.$from.index(0);
 	const isTextCaret = (v: EditorView) => v.state.selection instanceof TextSelection;
 
@@ -621,10 +625,10 @@ describe('an undo from another button', () => {
 });
 
 describe('the pill icons', () => {
-	it('say, describe and note each draw their own shape', () => {
-		mount(DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
+	it('each of the four notes and a plain comment draws its own shape', () => {
+		mount(DECK.replace('<!-- a plain note. -->', '<!-- @alt{a bar chart.} -->\n\n<!-- @note{pause.} -->\n\n<!-- @handout{later.} -->\n\n<!-- a plain note. -->'));
 		const shapes = pills().map((p) => p.querySelector('.cs-comment-glyph')?.innerHTML);
-		expect(new Set(shapes).size).toBe(3);
-		expect(pills().map((p) => p.dataset.kind)).toEqual(['say', 'describe', 'note']);
+		expect(new Set(shapes).size).toBe(5);
+		expect(pills().map((p) => p.dataset.kind)).toEqual(['say', 'alt', 'note', 'handout', 'comment']);
 	});
 });

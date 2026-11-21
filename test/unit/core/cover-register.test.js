@@ -7,7 +7,9 @@
  *      TITLE and CLOSING slides only, and a slide's own `cover-inverse` keeps its panel;
  *   3. the linter warns on an unknown word;
  *   4. the CSS repaints a light cover and leaves the old `title light` meaning alone (source
- *      shape here; the computed values are the finish-canvas matrix's job, in real Chromium).
+ *      shape here; the computed values are the finish-canvas matrix's job, in real Chromium);
+ *   5. the composition axis: seven words, each a variant of both cover components, a slide's own
+ *      word or `cover-plain` evicting the deck's, and `stage` / `poster` growing down, never up.
  */
 
 const test = require('node:test');
@@ -18,7 +20,7 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
-const { COVER_REGISTER, coverClasses, coverDeckTokens, coverClassesFromFrontMatter } = require(path.join(ROOT, 'lib/core/resolve-cover.js'));
+const { COVER_REGISTER, COVER_COMPOSITION_CLASSES, coverClasses, coverDeckTokens, coverClassesFromFrontMatter } = require(path.join(ROOT, 'lib/core/resolve-cover.js'));
 const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-registers.js'));
 
@@ -39,7 +41,73 @@ test('kernel: `light` stamps cover-light; `inverse`, unknown and absent stamp no
   assert.deepEqual(coverClasses('pale'), []);
   assert.deepEqual(coverClassesFromFrontMatter('theme: indaco'), []);
   assert.deepEqual(coverClassesFromFrontMatter('cover: light'), ['cover-light']);
-  assert.deepEqual(COVER_REGISTER.TOKENS, ['cover-inverse', 'cover-light']);
+  assert.deepEqual(COVER_REGISTER.TOKENS.slice(0, 2), ['cover-inverse', 'cover-light']);
+});
+
+/* ── The composition axis (plan step N1) ─────────────────────────────────────────────── */
+
+const COMPOSITIONS = ['masthead', 'ledger', 'column', 'label', 'stage', 'frame', 'poster'];
+
+test('kernel: a composition word stamps cover-<word>, with or without a surface, in either order', () => {
+  for (const c of COMPOSITIONS) {
+    assert.deepEqual(coverClasses(c), [`cover-${c}`]);
+    assert.deepEqual(coverClasses(`light ${c}`), ['cover-light', `cover-${c}`]);
+    assert.deepEqual(coverClasses(`${c} light`), ['cover-light', `cover-${c}`], 'axis order, not word order');
+  }
+  assert.deepEqual(coverClasses('plain'), [], 'the default composition stamps nothing deck-wide');
+  assert.deepEqual(coverClasses('inverse plain'), []);
+  assert.deepEqual(coverClasses('poster stage'), ['cover-poster'], 'one word per axis: the first wins');
+  assert.deepEqual(COVER_COMPOSITION_CLASSES, COMPOSITIONS.map((c) => `cover-${c}`));
+});
+
+test('kernel: a slide\'s own composition (or cover-plain) evicts the deck\'s on that axis only', () => {
+  assert.deepEqual(coverDeckTokens(['title'], ['cover-light', 'cover-poster']), ['cover-light', 'cover-poster']);
+  assert.deepEqual(coverDeckTokens(['closing', 'cover-plain'], ['cover-light', 'cover-poster']), ['cover-light']);
+  assert.deepEqual(coverDeckTokens(['closing', 'cover-stage'], ['cover-poster']), []);
+  assert.deepEqual(coverDeckTokens(['title', 'cover-inverse'], ['cover-light', 'cover-poster']), ['cover-poster']);
+  assert.deepEqual(coverDeckTokens(['content'], ['cover-poster']), []);
+});
+
+test('manifests: title and closing declare exactly the seven compositions as variants, in one exclusive axis', () => {
+  for (const name of ['title', 'closing']) {
+    const m = JSON.parse(fs.readFileSync(path.join(ROOT, `lib/components/anchor/${name}/${name}.manifest.json`), 'utf8'));
+    assert.deepEqual(m.variants.filter((v) => v.startsWith('cover-')), COVER_COMPOSITION_CLASSES, name);
+    const axis = (m.variantAxes || []).find((a) => a.label === 'Composition');
+    assert.ok(axis?.exclusive, `${name} declares the exclusive Composition axis`);
+    assert.deepEqual(axis.members, COVER_COMPOSITION_CLASSES, name);
+    for (const v of COVER_COMPOSITION_CLASSES) assert.ok(m.variantDocs?.[v]?.sample, `${name} documents ${v}`);
+  }
+});
+
+test('engine: `cover: light poster` stamps both words on title and closing, and cover-plain opts one out', () => {
+  const [t, c, e] = classesOf(['cover: light poster'], [TITLE(), CONTENT, CLOSING('cover-plain')]);
+  assert.ok(t.includes('cover-light') && t.includes('cover-poster'), t.join(' '));
+  assert.ok(!c.some((x) => x.startsWith('cover-')), c.join(' '));
+  assert.ok(e.includes('cover-light') && e.includes('cover-plain') && !e.includes('cover-poster'), e.join(' '));
+});
+
+test('lint: a composition word is known on the register and as a slide class', () => {
+  const unknown = (v) => lintText(deck([`cover: ${v}`], [TITLE()])).filter((f) => f.rule === 'unknown-cover');
+  assert.equal(unknown('light column').length, 0);
+  assert.equal(unknown('collumn').length, 1);
+  const unknownClass = (cls) => lintText(deck([], [TITLE(cls)])).filter((f) => f.rule === 'unknown-class' && f.message?.includes(cls));
+  for (const c of [...COVER_COMPOSITION_CLASSES, 'cover-plain']) assert.equal(unknownClass(c).length, 0, c);
+});
+
+test('css: every composition is scoped to its own component, and the size changes are role tokens', () => {
+  for (const name of ['title', 'closing']) {
+    const css = fs.readFileSync(path.join(ROOT, `lib/components/anchor/${name}/${name}.styles.css`), 'utf8');
+    for (const v of COVER_COMPOSITION_CLASSES) assert.ok(css.includes(`section.${name}.${v}`), `${name} styles ${v}`);
+    const sizes = [...css.matchAll(/section\.\w+\.cover-[a-z]+[^{]*\{[^}]*font-size:\s*([^;]+);/g)].map((m) => m[1].trim());
+    assert.ok(sizes.length >= 3, `${name}: stage, poster and label set a size`);
+    // A display heading too long for three lines grows DOWN from the content box and overflows at the
+    // foot, where the probe reports it, never up into the top band and a logo (check:jank, 2026-11-21).
+    const display = css.match(new RegExp(`section\\.${name}:is\\(\\.cover-stage, \\.cover-poster\\) \\{([^}]*)\\}`));
+    assert.ok(display && display[1].includes('justify-content: safe center'), `${name}: stage and poster center safely`);
+    assert.ok(display[1].includes('- var(--_cover-foot)'), `${name}: the footer reserve leaves the section's padding`);
+    assert.ok(css.includes(`section.${name}:is(.cover-stage, .cover-poster) > :nth-last-child(1 of`), `${name}: and lands on the last flowed child, where the probe sees it`);
+    for (const v of sizes) assert.match(v, /^(var\(--fs-[a-z0-9]+\)|max\(var\(--fs-meta\), calc\(var\(--fs-h2\) \* var\(--eyebrow-anchor-scale\)\)\))$/, `${name}: ${v} is a role token`);
+  }
 });
 
 test('kernel: the token never collides with the `light` mood token or the narration `bookends`', () => {

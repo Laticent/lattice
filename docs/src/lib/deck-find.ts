@@ -13,8 +13,9 @@
 //    replaceable or not. Code (fenced, indented, or fenced inside a quote), math, HTML blocks and `{…}`
 //    records are found but never replaced; directives, pane markers, link and image targets, bare URLs,
 //    reference definitions and footnote labels are never searched at all. A match never crosses a
-//    segment. Comments are classified by the shared helpers the note and say editors use
-//    (slide-directives.ts), so "a comment that is not a directive is a speaker note" holds here too.
+//    segment. Comments are classified by the shared helpers the note editors use (slide-directives.ts):
+//    each of the four notes (`@note{…}`, `@say{…}`, `@alt{…}`, `@handout{…}`) is its own field, and any
+//    other comment that is not a directive is the author's plain comment.
 //
 // 2. THE STRUCTURE CHECK. Layer 1 decides where a match may be; it cannot decide what the replacement
 //    builds around it. A note's words can become `hide` (a directive that hides the slide), `-->` can
@@ -34,9 +35,9 @@
 // will actually write: a group that captured a backtick or a `--` is refused like a typed one.
 
 import { compilePattern, expandReplacement, matchesIn, type RawMatch, withCaseOf } from './deck-find-pattern';
-import { comments, fenceRanges, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isRecordBody, isSayBody } from './slide-directives';
+import { comments, fenceRanges, isDirectiveBody, isPaneMarkerBody, isRecordBody, type NoteName, noteName } from './slide-directives';
 
-export type FindField = 'heading' | 'eyebrow' | 'body' | 'quote' | 'alt text' | 'spoken line' | 'note' | 'description' | 'code' | 'math' | 'html' | 'record' | 'inline syntax';
+export type FindField = 'heading' | 'eyebrow' | 'body' | 'quote' | 'alt text' | 'spoken line' | 'speaker notes' | 'slide alt text' | 'handout' | 'comment' | 'code' | 'math' | 'html' | 'record' | 'inline syntax';
 
 export interface FindOptions {
 	/** Match case exactly. Default false. */
@@ -99,17 +100,20 @@ function searcher(query: string, opts: FindOptions): ((text: string) => readonly
 
 // ── Comments ────────────────────────────────────────────────────────────────
 
-type CommentKind = 'record' | 'say' | 'describe' | 'directive' | 'pane' | 'note';
+type CommentKind = NoteName | 'record' | 'directive' | 'pane' | 'comment';
 
 function commentKind(body: string): CommentKind {
 	const t = body.trim();
+	const note = noteName(t);
+	if (note) return note;
 	if (isRecordBody(t)) return 'record';
-	if (isSayBody(t)) return 'say';
-	if (isDescriptionBody(t)) return 'describe';
 	if (isDirectiveBody(t)) return 'directive';
 	if (isPaneMarkerBody(t)) return 'pane';
-	return 'note';
+	return 'comment';
 }
+
+/** The field a reader would name for each comment that carries words. */
+const COMMENT_FIELD: Partial<Record<CommentKind, FindField>> = { note: 'speaker notes', say: 'spoken line', alt: 'slide alt text', handout: 'handout', comment: 'comment' };
 
 /** The comments the engine reads, outside fenced code. */
 function liveComments(text: string) {
@@ -117,11 +121,11 @@ function liveComments(text: string) {
 	return comments(text).filter((c) => !fences.some(([a, b]) => c.start >= a && c.start < b));
 }
 
-/** The text a comment's body carries for a reader, past a `say:` / `note:` / `describe:` label. */
+/** The text a comment's body carries for a reader: inside a note's `@name{…}` frame, or a plain comment's whole body. */
 function labeledBody(body: string, bodyStart: number): { start: number; end: number } {
-	const m = /^(\s*)(?:say|note|describe)\s*:\s*/i.exec(body);
+	const m = /^\s*@[a-z]+\{\s*/.exec(body);
 	const lead = m ? m[0].length : (/^\s*/.exec(body)?.[0].length ?? 0);
-	const trimmedEnd = body.replace(/\s+$/, '').length;
+	const trimmedEnd = m ? body.replace(/\s*\}\s*$/, '').length : body.replace(/\s+$/, '').length;
 	return { start: bodyStart + lead, end: bodyStart + Math.max(lead, trimmedEnd) };
 }
 
@@ -259,9 +263,12 @@ function modedSegments(slide: string, opts: FindOptions = {}): ModedSegment[] {
 		const kind = commentKind(c.body);
 		let sg: ModedSegment | undefined;
 		if (kind === 'record') sg = seg('record', c.bodyStart, c.bodyStart + c.body.length, null);
-		else if (kind === 'say' || kind === 'describe' || kind === 'note') {
-			const b = labeledBody(c.body, c.bodyStart);
-			sg = seg(kind === 'say' ? 'spoken line' : kind === 'describe' ? 'description' : 'note', b.start, b.end, 'raw');
+		else {
+			const field = COMMENT_FIELD[kind];
+			if (field) {
+				const b = labeledBody(c.body, c.bodyStart);
+				sg = seg(field, b.start, b.end, 'raw');
+			}
 		}
 		blocked.push({ start: c.start, end: c.end, seg: sg }); // a directive or pane marker: blocked, never searched
 	}

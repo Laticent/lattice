@@ -580,6 +580,21 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   with or without the flag, so a new one cannot land on PRs by forgetting it.
 - **Use it as evidence:** link the run in the PR body under the claim it backs. The decision and its reasoning:
   `engineering/decisions/2026-10-18-platform-suites.md`.
+- **Iterate on one with the warm harness** instead of dispatching again per round. A dispatch pays about 17 minutes
+  before its first test on an iOS suite (queue wait, install, build, docs build); the harness pays that once. Open the PR,
+  then dispatch `platform-suites.yml` on your branch with `harness=<PR number>` (and `harness_os=windows-2025` for
+  Windows). When it replies **harness ready** on the PR, post commands as PR comments:
+  `/harness suite <name> [KEY=value ...]`, `/harness sh` with a `bash` fenced block, `/harness rerun`,
+  `/harness watch on|off`, `/harness status`, `/harness stop`; add `--no-build` to skip a rebuild. Each push to the branch
+  is synced before the next job (a change to the iOS probes, `followups.d/` or `changelog.d/` alone skips the rebuild;
+  anything else rebuilds), and with watch on (the default) a push re-runs the last job by itself, once. Results come back
+  as PR comments. Only comments by the person who dispatched the run are executed, and never one that was edited: post a fresh comment instead of fixing a typo in place (the harness replies when it refuses an edited command). A suite's own inline variables (e.g.
+  `DEVICES=iPhone` in its `run`) cannot be overridden; write the command out with `/harness sh`. It stops 90 minutes
+  after it started (a running job is killed then), after 15 idle minutes, or on `/harness stop` once the current job ends;
+  one harness runs at a time per OS (one macOS and one Windows may run together). When both serve the same PR, each runs every command and each reply starts with its OS; add `--on=macos-26` or `--on=windows-2025` to the first line to send a command to one. A second dispatch for the same OS waits, and a third replaces the waiting second without a word, so after dispatching, wait on the run's status (`tools/wait-for.sh`), not only on the ready comment. A reply names the commit it ran on, and the build's commit too when they differ (after `--no-build`); a job that moves HEAD or edits a tracked file is reported and undone before the next one. Logs and `platform-suite-artifacts/` upload
+  as `harness-<os>` when it ends. Evidence for the card is still a real suite run: once the harness has it green, link that
+  harness run (its reply comment and artifact) or dispatch the suite once more. Contract and threat model:
+  `engineering/decisions/2026-11-17-platform-harness.md`; the loop is `tools/platform-harness.js`.
 - **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs
   `prepare`, and it passed on `windows-latest` (run 39197530212); running the hooks themselves would run the whole unit suite there.
 - **Alert:** a scheduled or manual run that fails or is cancelled (a timeout reads as cancelled) opens, or comments on, a GitHub issue titled "Nightly platform suites failed" (the

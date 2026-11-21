@@ -27,7 +27,7 @@ describe('scanMetaSource', () => {
     const s = m.scanMetaSource('```\n<!-- _class: x -->\n```\n\n<!-- {layout=content} -->\n\n<!-- a note -->\n').slides.at(-1);
     assert.deepEqual([...s.resolved.keys()], ['class']);
     assert.equal(s.resolved.get('class').value, 'content');
-    assert.deepEqual(s.comments.map((c) => c.kind), ['directive', 'note']);
+    assert.deepEqual(s.comments.map((c) => c.kind), ['directive', 'comment']);
   });
   test('a record in a list item or a blockquote is classified, never resolved (D1: the engine does not apply it)', () => {
     const s = m.scanMetaSource('- item\n  <!-- {layout=cards} -->\n\n> <!-- {layout=cards} -->\n').slides.at(-1);
@@ -37,12 +37,16 @@ describe('scanMetaSource', () => {
 });
 
 describe('classifyComment and directiveKey', () => {
-  test('directive, marker, record, note', () => {
+  test('directive, marker, record, note, comment', () => {
     assert.deepEqual(m.classifyComment(' _class: x '), { kind: 'directive', key: 'class', spot: true });
     assert.equal(m.classifyComment(' stress-slide ').kind, 'marker');
     assert.equal(m.classifyComment(' {layout=content} ').kind, 'record');
     assert.equal(m.classifyComment(' @meta{a=b} ').kind, 'record');
-    assert.equal(m.classifyComment(' remember to smile ').kind, 'note');
+    // A note is named (engineering/decisions/2026-11-20-four-notes.md); anything else is the author's plain comment.
+    for (const name of ['note', 'say', 'alt', 'handout']) assert.equal(m.classifyComment(` @${name}{remember to smile} `).kind, 'note', name);
+    assert.equal(m.classifyComment(' remember to smile ').kind, 'comment');
+    assert.equal(m.classifyComment(' say: the old say key ').kind, 'comment');
+    assert.equal(m.classifyComment(' @Say{a near miss} ').kind, 'comment');
   });
   test('a bare key is a directive only when the key may be bare', () => {
     assert.equal(m.directiveKey('_build'), 'build');
@@ -205,10 +209,9 @@ describe('writeMeta on records: the inversion’s cases', () => {
     assert.equal(edit.writeMeta('<!-- {layout=cards, footer=Q3} -->\n\n# Hi', { footer: 'a\r\nb' }), '<!-- {layout=cards, footer=a b} -->\n\n# Hi');
     // `with-icon` is not a word of the icon register (it has no on/off axis), so it stays in `class`.
     assert.equal(edit.writeMeta('<!-- {layout=cards} -->\n# Hi', { class: 'cards with-icon' }), '<!-- {layout=cards, class=with-icon} -->\n# Hi');
-    // A note channel in two records: both read, one value written.
-    const two = '<!-- {note=one} -->\n<!-- {note=two} -->\n# A';
-    assert.equal(edit.readRecordChannel(two, 'note'), 'one\n\ntwo');
-    assert.equal(edit.writeRecordChannel(two, 'note', 'X'), '<!-- {note=X} -->\n# A');
+    // A note reading `class:` is a note, never a directive, whichever way it is written.
+    assert.equal(edit.readMetaField('<!-- @note{class: the cohort we sold to} -->\n\n# One', 'class').present, false);
+    assert.equal(Object.hasOwn(edit, 'readRecordChannel') || Object.hasOwn(edit, 'writeRecordChannel'), false, 'a record holds no note channel to edit');
   });
   test('a finish word or a variant swap stays typed', () => {
     assert.equal(edit.writeMeta('<!-- {layout=cards, finish=ledger} -->\n# A', { class: 'cards finish-halo' }), '<!-- {layout=cards, finish=halo} -->\n# A');

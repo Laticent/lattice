@@ -60,6 +60,7 @@ const RESTORE = Object.freeze({
   'lift:off': 'flat',
   'corners:square': 'corners-square',
   'cover:inverse': 'cover-inverse',
+  'cover:plain': 'cover-plain',
 });
 
 /**

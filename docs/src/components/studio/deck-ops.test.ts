@@ -356,70 +356,6 @@ describe('delete lands on the slide that takes the deleted one’s place', () =>
 	});
 });
 
-describe('deck ops keep the front-matter say: narration on its slide (§8)', async () => {
-	const { buildDeckIndex } = await import('@/lib/deck-outline');
-	const { partText } = await import('@/lib/fuoco/outline');
-	const { frontMatterSayMap } = await import('@/lib/resolve-narration');
-	// Every rendered slide, in order, as the narration counts them (1-based numbers).
-	const slides = (src: string) => {
-		const ix = buildDeckIndex(src);
-		return ix.units.flatMap((u, i) => u.parts.map((_, k) => partText(ix, i, k)));
-	};
-	// Each entry names the heading of the slide it belongs to; after an op, it must still sit on that slide.
-	const onItsSlide = (src: string) => {
-		const all = slides(src);
-		for (const [n, said] of frontMatterSayMap(src)) expect(all[n - 1], `say ${n}: ${said}`).toMatch(new RegExp(`^#+ ${said}\\b`, 'm'));
-	};
-	const deck = (n: number, keys = Array.from({ length: n }, (_, k) => k)) =>
-		`---\ntheme: indaco\nsay:\n${keys.map((k) => `  ${k + 1}: S${k}`).join('\n')}\nlang: en\n---\n\n${Array.from({ length: n }, (_, k) => `# S${k}\n\ntext ${k}`).join('\n\n---\n\n')}\n`;
-
-	it('move, add, duplicate and delete each keep every entry on its slide', () => {
-		const src = deck(5);
-		for (const r of [moveSlide(src, 0, 3), moveSlide(src, 4, 1), addSlideAfter(src, 1), addSlideAfter(src, -1), duplicateSlide(src, 2), deleteSlide(src, 1), deleteSlide(src, 4)]) onItsSlide(r.source);
-	});
-
-	it('a deleted slide takes its entry with it, and a duplicate copies it', () => {
-		expect([...frontMatterSayMap(deleteSlide(deck(4), 1).source).values()]).toEqual(['S0', 'S2', 'S3']);
-		expect([...frontMatterSayMap(duplicateSlide(deck(3), 1).source)]).toEqual([[1, 'S0'], [2, 'S1'], [3, 'S1'], [4, 'S2']]);
-	});
-
-	it('changes only the key digits: the rest of the front matter and the body are as they were', () => {
-		const src = deck(4).replace('  2: S1', '  2: "S1"   # quoted');
-		const r = moveSlide(src, 1, 2);
-		expect(r.source.replace(/^ {2}\d+:/gm, '')).toBe(moveSlide(src.replace(/^ {2}\d+:/gm, ''), 1, 2).source.replace(/^ {2}\d+:/gm, ''));
-		expect(r.source).toContain('  3: "S1"   # quoted');
-	});
-
-	it('a block that headings split counts as its slides', () => {
-		// Block 1 renders as two slides (S1 and S1b), so moving it shifts every number after it by two.
-		const src = '---\nsplit: headings\nsay:\n  1: S0\n  2: S1\n  3: S1b\n  4: S2\n---\n\n# S0\n\nzero\n\n---\n\n# S1\n\none\n\n# S1b\n\none b\n\n---\n\n# S2\n\ntwo\n';
-		expect(slides(src).length).toBe(4);
-		const r = moveSlide(src, 1, 2);
-		onItsSlide(r.source);
-		expect([...frontMatterSayMap(r.source)].sort((a, b) => a[0] - b[0])).toEqual([[1, 'S0'], [2, 'S2'], [3, 'S1'], [4, 'S1b']]);
-	});
-
-	it('holds on random decks, random ops and sparse say: maps', () => {
-		for (let run = 0; run < 400; run++) {
-			const n = 2 + (run % 6);
-			const keys = Array.from({ length: n }, (_, k) => k).filter((k) => (run >> k) & 1 || k === 0);
-			const src = deck(n, keys);
-			const a = (run * 7) % n;
-			const b = (run * 13 + 1) % n;
-			const op = run % 4;
-			const r = op === 0 ? moveSlide(src, a, b) : op === 1 ? deleteSlide(src, a) : op === 2 ? addSlideAfter(src, a) : duplicateSlide(src, a);
-			onItsSlide(r.source);
-			const survivors = keys.length - (op === 1 && keys.includes(a) && n > 1 ? 1 : 0) + (op === 3 && keys.includes(a) ? 1 : 0);
-			expect(frontMatterSayMap(r.source).size, `run ${run}`).toBe(survivors);
-		}
-	});
-
-	it('a deck with no say: block comes back byte for byte as before', () => {
-		const src = deck(3).replace(/say:\n(?: {2}.*\n)+/, '');
-		expect(moveSlide(src, 0, 2).source).not.toContain('say:');
-	});
-});
-
 describe('ops on a rendered slide inside a heading-split block (§6)', async () => {
 	const fs = await import('node:fs');
 	const path = await import('node:path');
@@ -502,15 +438,6 @@ describe('ops on a rendered slide inside a heading-split block (§6)', async () 
 		expect(flatOf(m.source, m.active)).toBe(2);
 		const a = addAfterAt(outline, s, '## Fresh');
 		expect(flatOf(a.source, a.active)).toBe(2);
-	});
-
-	it('a say: entry stays on its slide through an op that cuts a block', async () => {
-		const { frontMatterSayMap } = await import('@/lib/resolve-narration');
-		const src = outline.replace('split: headings\n', 'split: headings\nsay:\n  2: Say B\n  3: Say C\n');
-		const r = moveAt(src, at(src, 1), 1);
-		const slides = engine(r.source);
-		for (const [n, said] of frontMatterSayMap(r.source)) expect(slides[n - 1], said).toMatch(new RegExp(`^## ${said.slice(-1)}`));
-		expect([...frontMatterSayMap(r.source).keys()].sort()).toEqual([2, 3]);
 	});
 
 	it('cuts only what the op needs: a slide in its own block is untouched, and the deck’s last slide stays', () => {

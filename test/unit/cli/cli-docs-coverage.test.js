@@ -59,7 +59,11 @@ function latticeCliFlags() {
   const fmtList = /\[('--[a-z-]+'(?:,\s*'--[a-z-]+')*)\]\.includes\(f\)/.exec(fmtSrc);
   assert.ok(fmtList, 'lib/authoring/code-format/fmt-cli.mjs keeps its switches in one `[…].includes(f)` list');
   const fmt = new Set([...fmtList[1].matchAll(/'(--[a-z-]+)'/g)].map((m) => m[1]));
-  return { render, packages, video: new Set([...video, ...fmt]) };
+  // `lattice migrate notes` lists its switches in one array too.
+  const migrateList = /\[('--[a-z-]+'(?:,\s*'--[a-z-]+')*)\]\.includes\(a\)/.exec(read('lib/cli/migrate-notes.mjs'));
+  assert.ok(migrateList, 'lib/cli/migrate-notes.mjs keeps its switches in one `[…].includes(a)` list');
+  const migrate = new Set([...migrateList[1].matchAll(/'(--[a-z-]+)'/g)].map((m) => m[1]));
+  return { render, packages, video: new Set([...video, ...fmt, ...migrate]) };
 }
 
 /** The options of the repo helper scripts the docs also teach. */

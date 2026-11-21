@@ -18,7 +18,7 @@ acronyms:
 
 Every picture-bound chart now opens with what its encoding means, and three of them say what their numbers are *for*. Listen with the captions on.
 
-<!-- This deck is the listening fixture for the narration explain layer. Play it with captions on, or open the .vtt beside it. Each slide's caption is the whole point — the picture is only there to check the words against. -->
+<!-- @note{This deck is the listening fixture for the narration explain layer. Play it with captions on, or open the .vtt beside it. Each slide's caption is the whole point — the picture is only there to check the words against.} -->
 
 ---
 
@@ -34,7 +34,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 - Services revenue `1.1M` `1.8M`
 - Partner-sourced ARR `0.9M` `1.4M`
 
-<!-- Before: "New ARR, four point two million, five million." Two numbers in authored order, with nothing saying which one was the plan. -->
+<!-- @note{Before: "New ARR, four point two million, five million." Two numbers in authored order, with nothing saying which one was the plan.} -->
 
 ---
 
@@ -49,7 +49,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 - Gross margin `71%` `68%`
 - Deflection `94%` `62%`
 
-<!-- The row that matters is uptime. A raw ratio reads it as ninety-nine percent of target — a rounding error away. The bar is drawn from the floor, so the honest reading is forty-four percent of the way to plan, and that is what the caption says. -->
+<!-- @note{The row that matters is uptime. A raw ratio reads it as ninety-nine percent of target — a rounding error away. The bar is drawn from the floor, so the honest reading is forty-four percent of the way to plan, and that is what the caption says.} -->
 
 ---
 
@@ -67,7 +67,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 - contracts `1`
 - residency `1`
 
-<!-- Nine terms is past the enumeration cap, so the caption names the encoding, then the leader and its margin, then the tail it is standing in for. Before, it read nine counts in a row. It states no TERM COUNT: the packer drops a word it cannot seat, so the source list and the canvas can disagree, and narration runs on markdown. -->
+<!-- @note{Nine terms is past the enumeration cap, so the caption names the encoding, then the leader and its margin, then the tail it is standing in for. Before, it read nine counts in a row. It states no TERM COUNT: the packer drops a word it cannot seat, so the source list and the canvas can disagree, and narration runs on markdown.} -->
 
 ---
 
@@ -96,7 +96,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 - eyebrow `7`
 - watermark `5`
 
-<!-- This slide used to read twenty numbers aloud, in order, with no shape. It is now three: what size encodes, the biggest term and how far clear it is, and where the tail bottoms out. The heading still names twenty because the AUTHOR counted them; the caption does not, for the reason the previous slide's note gives. -->
+<!-- @note{This slide used to read twenty numbers aloud, in order, with no shape. It is now three: what size encodes, the biggest term and how far clear it is, and where the tail bottoms out. The heading still names twenty because the AUTHOR counted them; the caption does not, for the reason the previous slide's note gives.} -->
 
 ---
 
@@ -112,7 +112,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 - reactivation `2`
 - dormancy `1`
 
-<!-- Two terms tie at five, so the caption says they tie rather than naming one of them arbitrarily. This slide started out as `focal`, which widens the size ceiling so one term dwarfs the rest — and the renderer then could not seat the second leader anywhere on the spiral and dropped it. A tie is the signal that `focal` is the wrong variant for the data, and the chart says so twice. -->
+<!-- @note{Two terms tie at five, so the caption says they tie rather than naming one of them arbitrarily. This slide started out as `focal`, which widens the size ceiling so one term dwarfs the rest — and the renderer then could not seat the second leader anywhere on the spiral and dropped it. A tie is the signal that `focal` is the wrong variant for the data, and the chart says so twice.} -->
 
 ---
 
@@ -130,7 +130,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
   - -revise-> In Review
 - Published `end`
 
-<!-- Before, this read as four "From X" sentences and a listener rebuilt the graph from them. The caption now opens with the size, the endpoints, where the machine decides, what steps back and what loops — then reads the edges. -->
+<!-- @note{Before, this read as four "From X" sentences and a listener rebuilt the graph from them. The caption now opens with the size, the endpoints, where the machine decides, what steps back and what loops — then reads the edges.} -->
 
 ---
 
@@ -146,7 +146,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 - Parked
 - Done `end`
 
-<!-- Stuck has a self-loop and no other exit, so the machine can enter it and never leave — and it is never inferred terminal, because the loop counts as an outgoing transition. Nothing leads to Parked at all. Both are said aloud. -->
+<!-- @note{Stuck has a self-loop and no other exit, so the machine can enter it and never leave — and it is never inferred terminal, because the loop counts as an outgoing transition. Nothing leads to Parked at all. Both are said aloud.} -->
 
 ---
 
@@ -161,7 +161,7 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 - APAC `1.8`
 - LATAM `0.6`
 
-<!-- Every picture-bound chart now opens with its encoding, declared in its own manifest: each bar's length is its value, measured from zero. A listener who cannot see the chart had no way to know that. -->
+<!-- @note{Every picture-bound chart now opens with its encoding, declared in its own manifest: each bar's length is its value, measured from zero. A listener who cannot see the chart had no way to know that.} -->
 
 ---
 
@@ -171,4 +171,4 @@ Every picture-bound chart now opens with what its encoding means, and three of t
 
 Narration owes the frame, the shape and the relation. The verdict on the slide is the author's, and it is not said twice.
 
-<!-- Interpretation stays off the ladder on purpose. The bullet slide's own docs tell an author to name the verdict in the heading, so a narrator that adds one is talking over them — and when the heading already carries the tally, the computed one is suppressed. -->
+<!-- @note{Interpretation stays off the ladder on purpose. The bullet slide's own docs tell an author to name the verdict in the heading, so a narrator that adds one is talking over them — and when the heading already carries the tally, the computed one is suppressed.} -->

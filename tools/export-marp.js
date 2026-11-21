@@ -80,6 +80,7 @@ const { execFileSync } = require('child_process');
 const { bakeSplits, bakeHidden, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image-lift');
 const { recordsToComments } = require('../lib/core/meta-door.mjs');
+const { notesToMarp } = require('../lib/authoring/notes-core.js');
 const { withMarpDirectivesOnly } = require('../lib/export/marp-directives.js');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
@@ -455,7 +456,11 @@ function main(argv) {
   const unsafe = recordReport.filter((d) => d.code === 'meta-comment-unsafe');
   if (unsafe.length) die(unsafe.map((d) => `${deckPath}:${d.line}: ${d.message}`).join('\n'));
   for (const d of recordReport) console.warn(`  ⚠ ${deckPath}:${d.line}: ${d.message}`);
-  const imaged = withImageRecordsAsMarp(compiled, admission.off);
+  // The four notes in Marp's form: `@note` a plain comment (Marp's speaker note), `@handout` a `Handout:` note, `@say`
+  // and `@alt` and every other private comment dropped, because Marp would show each as a speaker note
+  // (engineering/decisions/2026-11-20-four-notes.md N5).
+  const noted = notesToMarp(compiled);
+  const imaged = withImageRecordsAsMarp(noted, admission.off);
   const agendaFilled = fillAutoAgenda(imaged);
   const glossed = appendAutoGlossary(agendaFilled);
   const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);

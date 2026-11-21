@@ -706,8 +706,8 @@ test('a multi-line speaker note is never painted in the Stage caption crawl', as
 			'---', 'theme: indaco', '---', '',
 			'# Cover', '', 'Opening body text for the cover slide.', '',
 			'---', '<!-- _class: funnel -->', '# Signup funnel', '',
-			// MULTI-LINE, and in the `note:` form the Studio's editor writes.
-			'<!-- note:', `${SECRET} churn is forty percent and legal has not cleared it`, '-->', '',
+			// MULTI-LINE, as an `@note` the author typed across lines.
+			'<!-- @note{', `${SECRET} churn is forty percent and legal has not cleared it`, '} -->', '',
 			'- Visitors `1000`', '- Signups `500`', '- Paid `100`', '',
 		].join('\n'),
 	);
