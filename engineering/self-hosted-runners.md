@@ -257,5 +257,6 @@ Two things to watch on the first runs:
 | A job container cannot connect to its own host, or to another job | same, a listener on the host and one in a second container | host: refused with the INPUT rule, connects without it; container to container: `Network is unreachable` (`enable_icc=false`); public HTTPS still connects |
 | A runner that dies at once backs off instead of looping | the real `runner-supervisor.sh` and Docker, a stand-in GitHub API handing out an invalid JIT config | 4 registrations in 45 s (5, 10, 20, 40 s apart); the token never on a command line; temporary config files removed; the stop trap ran |
 | The weekly rebuild really rebuilds | `docker build` twice with one `CACHE_EPOCH`, then a new one | same week: every step cached; new week: everything after the base rebuilt |
-| Firewall rules on Ubuntu 24.04's nftables-backed iptables | **UNVERIFIED** | the sandbox is not Ubuntu 24.04; check `sudo iptables -S DOCKER-USER` on the Precision |
+| `firewall.sh` installs on Ubuntu 24.04's nftables-backed iptables | a privileged `ubuntu:24.04` container, `iptables v1.8.10 (nf_tables)`, a `lattice-ci0` bridge | 7 forwarding rules and 1 INPUT rule; a second run adds none. Packet behavior was tested on the sandbox's iptables (rows above), not on a real Ubuntu host |
+| The Windows scripts parse | PowerShell 7.4.6 parser on Linux | all three parse with 0 errors; PSScriptAnalyzer **not run** |
 | Every Windows script | **UNVERIFIED** | needs Hyper-V; nothing Windows ran here |
