@@ -293,9 +293,17 @@ test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko the Playground prev
 	// bake-only check above in Chromium and Gecko.
 	await page.goto('/playground/?view=edit');
 	const live = page.frameLocator('iframe[title]:not([data-pg-bake])').first();
+	// The mark is what proves the agents ran: lattice-frame-agents.js sets it, and so does the inline
+	// fallback, which the policy refuses. It holds at every width.
 	await expect(live.locator('html:not([data-pg-bake])[data-latt-agents]')).toHaveCount(1, { timeout: 30_000 });
-	await expect(live.locator('.lattice')).toHaveCSS('visibility', 'visible', { timeout: 30_000 });
 	await expect(live.locator('.lattice > section').first()).toBeAttached();
+	// On a phone the edit view gives the editor the whole screen and the preview frame 0 x 0, so the
+	// fit agent has nothing to fit into and keeps the slides hidden (measured 2026-11-21, 390 px, in
+	// Chromium and WebKit). Visibility is only a claim where the frame has a size.
+	const liveBox = await page.locator('iframe[title]:not([data-pg-bake])').first().boundingBox();
+	if (liveBox && liveBox.width > 0 && liveBox.height > 0) {
+		await expect(live.locator('.lattice')).toHaveCSS('visibility', 'visible', { timeout: 30_000 });
+	}
 	expect(await violations()).toEqual([]);
 });
 
