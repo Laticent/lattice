@@ -831,11 +831,16 @@ async function runFontCacheProbe(id) {
 		['control', BASE],
 		['warm', process.env.WARM_URL || 'http://localhost:4322'],
 	]) {
-		await wd('POST', `/session/${id}/url`, { url: `${origin}/` });
+		// Seeded on the server's blank page, not the landing page: the landing page's slide previews fetch faces (8 at the
+		// iPad's width), and on the warm port the Studio then read those from the cache, so the server never saw them and the
+		// warm arm could not prove the Studio warmed all 31 itself (#3095). `since` is stamped before the first page of this
+		// origin, so the probe can check that nothing before the Studio fetched a face.
+		const since = Date.now();
+		await wd('POST', `/session/${id}/url`, { url: `${origin}/__probe/blank` });
 		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 		await wd('POST', `/session/${id}/url`, { url: `${origin}/studio/` });
 		last = await wd('POST', `/session/${id}/execute/async`, {
-			script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeFontCacheProbe(${JSON.stringify(arm)}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+			script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeFontCacheProbe(${JSON.stringify(arm)}, ${since}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
 			args: [],
 		});
 		steps.push(...(last.steps || []).map((s) => ({ ...s, name: `${arm} · ${s.name}` })));
