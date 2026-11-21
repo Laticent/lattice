@@ -19,14 +19,30 @@
 //     section-scoped and already survives on its own) is authoritative and ignores
 //     the site mode.
 //
-// Pure + dependency-free (its own tiny front-matter reader, matching the engine's
-// `parseFrontMatter` regex) so BOTH the TS surfaces (Studio, single-slide) and the
+// A deck's PRESET recommends a palette and a color mode too (engineering/decisions/
+// 2026-11-20-deck-preset-study.md §5 D1): an absent `theme:` / `color-mode:` reads as the
+// preset's, exactly as the engine reads it (lib/core/front-matter-key.js
+// `topLevelRegisterValue`), so the preview renders the palette the export does. The preset
+// TABLE is the engine's, imported (HARD RULE #15); the rule that applies it is mirrored here.
+//
+// Pure (its own tiny front-matter reader, matching the engine's
+// `parseFrontMatter` regex, and the engine's preset table as its one import) so BOTH the TS surfaces (Studio, single-slide) and the
 // JS ones (playground-engine) can share ONE implementation instead of each re-reading
 // front matter and re-deciding precedence. See engineering/decisions/
 // 2026-07-08-deck-theme-independence.md.
 
 /** The raw leading `---\n…\n---` front-matter block body, or '' when absent.
  *  CRLF-tolerant, matching lib/engine/directives.js parseFrontMatter. */
+import frontMatterKey from '../../../lib/core/front-matter-key.js';
+
+/** The engine's preset lookup, through a DEFAULT import: front-matter-key.js is CommonJS outside the
+ *  docs root, and Rollup resolves a default import off it, not named ones (deck-preset.ts does the same). */
+const PRESETS = frontMatterKey as unknown as { presetValue: (name: string, key: string) => string | null; frontMatterScalar: (raw: string) => string };
+
+/** The engine's color-axis class tokens (lib/core/color-mode.js `COLOR_MODE_TOKENS`): any one in a deck-wide
+ *  `class:` pins the scheme, so a preset's recommended color mode yields to it. Case-sensitive, as the engine reads it. */
+const COLOR_AXIS = new Set(['dark', 'light', 'color-light', 'color-system', 'color-inherited', 'print']);
+
 function frontMatterBody(source: string): string {
 	const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(String(source ?? ''));
 	return m ? m[1] : '';
@@ -43,10 +59,30 @@ function stripQuotes(v: string): string {
  *  and only a TOP-LEVEL key: the engine's `parseFrontMatter` anchors at column 0 (#2050),
  *  so a `theme:` nested under another block is not the deck's palette. */
 export function deckThemeName(source: string): string | null {
+	return ownThemeName(source) ?? presetRecommends(source, 'theme');
+}
+
+/** The `theme:` the deck itself WRITES (top-level), or null — no preset fallback. */
+function ownThemeName(source: string): string | null {
 	const m = lastLine(/^theme[ \t]*:[ \t]*(.*)$/gm, frontMatterBody(source));
 	if (!m) return null;
-	const v = stripQuotes(m[1]).trim();
+	const v = scalar(m[1]).trim();
 	return v || null;
+}
+
+/** A value read by the engine's own scalar rule (quotes, a trailing comment); a comment-only value reads as ''. */
+function scalar(raw: string): string {
+	const t = raw.trim();
+	return t.startsWith('#') ? '' : PRESETS.frontMatterScalar(t);
+}
+
+/** What the deck's top-level `preset:` recommends for `key`, or null (no preset, an unknown one, or a
+ *  preset that leaves the key alone). */
+function presetRecommends(source: string, key: string): string | null {
+	const m = lastLine(/^preset[ \t]*:[ \t]*(.*)$/gm, frontMatterBody(source));
+	if (!m) return null;
+	const name = scalar(m[1]).trim();
+	return name ? PRESETS.presetValue(name, key) : null;
 }
 
 /** The deck-wide `class:` tokens (front matter), lowercased + split. Deck-wide
@@ -85,8 +121,12 @@ export type ColorMode = 'light' | 'dark' | 'system' | 'inherited' | 'print';
  *  none. This SUPERSEDES the legacy `class: dark`/`class: light` color axis. */
 export function deckColorMode(source: string): ColorMode | null {
 	const m = lastLine(COLOR_MODE_LINE, frontMatterBody(source));
-	if (!m) return null;
-	const v = stripQuotes(m[1]).trim().toLowerCase();
+	const own = m ? scalar(m[1]).trim() : '';
+	// The deck's preset answers only for an absent or empty key, and never over a scheme the deck pins
+	// in `class:` (any color-axis token) or names a `-dark` theme — lib/core/resolve-color-mode.js
+	// `deckColorModeValue`, which this mirrors.
+	const legacyPin = deckClassTokens(source).some((t) => COLOR_AXIS.has(t)) || /-dark$/.test(ownThemeName(source) ?? '');
+	const v = (own || (legacyPin ? '' : (presetRecommends(source, 'color-mode') ?? ''))).toLowerCase();
 	return v === 'light' || v === 'dark' || v === 'system' || v === 'inherited' || v === 'print' ? v : null;
 }
 
