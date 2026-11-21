@@ -5,8 +5,13 @@
 
 /** A fix "Fix all" did not apply, as lint-core's `fixAllDetailed` reports it (lib/authoring/squadra/bridge.js). */
 export type FixRefusal = { rule: string; slide: number; reason: string; detail?: string };
-/** What "Fix all" did: how many fixes it applied, and every one the fix driver refused. */
-export type FixAllResult = { applied: number; skipped: FixRefusal[] };
+/** What "Fix all" did: how many fixes it applied, and every one the fix driver refused. `stale`: the deck
+ *  changed while the fixes ran (they run between keystrokes, lint-core `fixAllDetailedAsync`), so the
+ *  result was for a deck that no longer exists and nothing was written. */
+export type FixAllResult = { applied: number; skipped: FixRefusal[]; stale?: boolean };
+
+/** What a stale run says: nothing was changed, and how to get the fixes. */
+export const STALE_NOTICE = 'The deck changed while Fix all was running, so nothing was changed. Press Fix all again.';
 
 /** Long enough to read a refusal's reason, which a 2.6-second status line was not. */
 const REFUSAL_DURATION = 12000;
@@ -28,6 +33,7 @@ const NAMED = 3;
 /** What "Fix all" says when it finishes. Null when it had nothing to do and refused nothing: the
  *  underlines going away already say it worked, so a clean run needs no message. */
 export function fixAllNotice(r: FixAllResult): { message: string; description?: string } | null {
+	if (r.stale) return { message: STALE_NOTICE };
 	const done = r.applied ? `Fixed ${r.applied} issue${r.applied === 1 ? '' : 's'}.` : '';
 	if (!r.skipped.length) return done ? { message: done } : null;
 	const n = r.skipped.length;
