@@ -156,7 +156,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko Fix all names a fix it ref
 	// load). Now each pass is a task of its own (lint-core `fixAllDetailedAsync`), so the click returns and the page
 	// keeps painting while Fix all works. Counted, not timed (HARD RULE #32): at least one frame per ten passes. Measured
 	// 2026-11-21: the run painted 128 to 525 frames (gecko the fewest, WebKit under 4 workers 479 to 503); with the passes
-	// put back inside the click it painted 5 to 8, the frames before the freeze while the fix driver's chunk loaded.
+	// put back inside the click it painted 3 to 8, the frames before the freeze while the fix driver's chunk loaded.
 	await page.evaluate(() => {
 		const w = window as unknown as { __frames: number };
 		w.__frames = 0;
@@ -194,6 +194,53 @@ test('the Coach surfaces the inline-issue count', async ({ page }) => {
 	// The count lives in the Architect Coach, which is collapsed by default.
 	await page.getByRole('button', { name: 'Toggle Coach' }).click();
 	await expect(page.getByText(/\d+ inline issue/)).toBeVisible();
+});
+
+// Fix all's passes run between keystrokes (lint-core `fixAllDetailedAsync`), so the author can act while it works.
+// Two guards decide whether it writes (Editor.tsx `fixAll`): a result computed from a text that has since changed is
+// not written, and says so; and a second press while a run is going starts nothing. The 501-card deck makes the run
+// long enough (hundreds of frames, measured above) for the test to act inside it.
+const STALE = 'The deck changed while Fix all was running, so nothing was changed. Press Fix all again.';
+
+test('@webkit-tablet @gecko typing while Fix all runs keeps the typing, writes no fixes, and says so', async ({ page }) => {
+	test.setTimeout(240_000);
+	await setEditorContent(page, REFUSED_DECK);
+	await runFixAllFromPalette(page);
+	// The run is going: type at the end of the deck. The palette closed on the click.
+	await page.getByLabel('Deck source').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.type('TYPED');
+	await expect(page.getByText(STALE)).toBeVisible({ timeout: 60_000 });
+	await expect.poll(() => storedDeck(page)).toContain('TYPED');
+	const src = await storedDeck(page);
+	// Nothing from the run was written: every card still has its inline title.
+	expect(src).toContain('- **Bet 0.** body 0');
+	expect(src).toContain('- **Bet 499.** body 499');
+	await expect(page.getByText(/^Fixed \d+ issue/)).toHaveCount(0);
+});
+
+test('@webkit-tablet @gecko a second press while Fix all runs starts nothing', async ({ page }) => {
+	test.setTimeout(240_000);
+	await setEditorContent(page, REFUSED_DECK);
+	await runFixAllFromPalette(page);
+	// Press again while the first run is going (the palette still offers the row: lint has not run since).
+	await runFixAllFromPalette(page);
+	await expect(page.getByText('Fixed 500 issues. 1 fix was not applied.')).toBeVisible({ timeout: 60_000 });
+	await expect.poll(() => storedDeck(page)).toContain('- Bet 0\n  - body 0');
+	// An absence needs the work it would come from to have had its turn. A second run started with the first shares the
+	// page with it pass by pass and so ends a few passes after it; 150 frames is more than a whole run paints at the
+	// least measured (128, gecko). Counted in frames the page paints, not in milliseconds (HARD RULE #32).
+	await page.evaluate(
+		() =>
+			new Promise<void>((done) => {
+				let left = 150;
+				const tick = () => (--left <= 0 ? done() : requestAnimationFrame(tick));
+				requestAnimationFrame(tick);
+			}),
+	);
+	// One run, one notice: no second "Fixed" and no stale notice from a second run racing the first.
+	await expect(page.getByText(/^Fixed \d+ issue/)).toHaveCount(1);
+	await expect(page.getByText(STALE)).toHaveCount(0);
 });
 
 // ── The render-target squiggle lands on the OFFENDING line ─────────────────
