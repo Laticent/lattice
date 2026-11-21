@@ -231,6 +231,9 @@ export async function settleSlideDraw(svg, drawSlide, log) {
 	const { canvas, stuck } = await settle({ pictures, drawSlide });
 	// Unnamed: the SVG holds the picture's bytes, not the path the author wrote, so the toast says only
 	// that not every image made it (`missingImageReason`), which is true.
-	if (stuck.length && log) log.count += 1;
+	if (stuck.length && log) {
+		log.count += 1;
+		console.warn(`[deck-export] ${stuck.length} picture(s) had not decoded when the settle loop gave up`);
+	}
 	return canvas;
 }
