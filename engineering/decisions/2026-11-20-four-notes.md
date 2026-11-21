@@ -106,10 +106,12 @@ Removed with no alias: `<!-- say: … -->`, `<!-- describe: … -->`, `<!-- read
 plain-comment speaker notes, the front-matter `say:` map, and the record fields `note=`, `say=`, `describe=`,
 `reader=`. The engine reads none of them. `lint:deck` reports each old KEY with its replacement (`note-key-retired`, as
 `caption-key-retired` did, `2026-09-28-say-not-caption.md`); `note:` is a warning, because "note: check this" is also
-how an author opens a comment to themselves. A plain comment is not reported: it is legitimate now, and lint cannot
-tell one that used to be a speaker note from one that never was. Two things cover that case instead:
-`lattice migrate notes` (which turns every plain comment the engine read as a note into `@note`), and the CLI, which
-says so when `--notes` finds no `@note` but the deck holds plain comments.
+how an author opens a comment to themselves. One plain comment is not reported: it is legitimate now, and lint cannot tell it from an old note. The SHAPE of an
+LFM 1.x deck is reported (the inversion on PR 3351): no named note and two or more plain comments is `plain-comment-notes`,
+an info finding whose fix runs the migration over the whole deck, so the Studio's quick fix and `lint --fix` convert an
+old deck in one step. Every CLI export with a notes channel (PDF, PowerPoint, ODP, the player, `--notes`) prints the same
+hint once. `lattice migrate notes` lists each converted comment that reads like a TODO or a commented-out draft, because
+output-preserving still makes it a speaker note and the author should decide.
 
 **The migration is output-preserving** (checked by an independent run of eleven repo decks, origin/main against the
 migrated deck: notes sidecar, `.vtt`, PPTX notes and alt text, page counts): a plain comment becomes `@note`; a

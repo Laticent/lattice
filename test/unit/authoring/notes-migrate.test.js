@@ -1,5 +1,5 @@
 /**
- * The notes migration (lib/cli/notes-migrate.mjs, the CLI lib/cli/migrate-notes.mjs): every note a deck wrote the old
+ * The notes migration (lib/authoring/notes-migrate.mjs, the CLI lib/cli/migrate-notes.mjs): every note a deck wrote the old
  * way becomes one of the four notes, so the deck shows, speaks and exports what it did before
  * (engineering/decisions/2026-11-20-four-notes.md). Each old form gets its own case, and every case also proves the
  * rewritten deck reads the note the old engine read.
@@ -16,7 +16,7 @@ let migrateNotesSource;
 let migrateNotesText;
 let main;
 test.before(async () => {
-  ({ migrateNotesSource } = await import('../../../lib/cli/notes-migrate.mjs'));
+  ({ migrateNotesSource } = await import('../../../lib/authoring/notes-migrate.mjs'));
   ({ migrateNotesText, main } = await import('../../../lib/cli/migrate-notes.mjs'));
 });
 
@@ -121,6 +121,14 @@ describe('one say line per slide, as the engine spoke it', () => {
   test('a slide\'s own @say lines, written in the new form, are not thinned', () => {
     const src = '# A\n\n<!-- @say{one} -->\n<!-- @say{two} -->\n';
     assert.equal(migrateNotesSource(src).source, src);
+  });
+});
+
+describe('a converted comment that reads like the author\'s own is named for review', () => {
+  test('a TODO and a commented-out draft are listed; a presenter note is not', () => {
+    const r = migrateNotesSource('# A\n\n<!-- TODO: ask legal -->\n<!-- Open cold. -->\n<!--\n## Draft slide\n- old point\n-->\n');
+    assert.deepEqual(r.review, ['TODO: ask legal', '## Draft slide']);
+    assert.equal(r.converted, 3, 'each is still converted: it was a speaker note on main');
   });
 });
 

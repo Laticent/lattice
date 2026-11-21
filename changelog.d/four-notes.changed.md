@@ -3,3 +3,4 @@
 - PPTX and PDF label the handout `Handout:` after the speaker note (it was `Reader:`), and the HTML player's Read view now prints each slide's handout under the slide.
 - The export to Marp writes `@note` as a Marp speaker note and `@handout` as a `Handout:` note, and drops `@say`, `@alt` and plain comments, which Marp would otherwise show as speaker notes.
 - `list-steps-inline-body` also flags a step written as one whole sentence on its `1.` line with no nested body, which renders as a single bold block; `examples/meta.md` had three such slides.
+- A deck written the old way (no named note, two or more plain comments) gets an info finding, `plain-comment-notes`, whose fix migrates the whole deck, so the Studio's quick fix converts it in one step; every CLI export with a notes channel says so once. `lattice migrate notes` lists converted comments that read like a TODO or a draft, for review.
