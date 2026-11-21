@@ -6,9 +6,22 @@
 // exactly `PG.render` (docs/route-budget.json holds the Studio's first load to its bytes).
 
 import type { Renderer } from './door';
-import { withWaits } from './wait';
+import type { Entry as WaitEntry } from './wait';
 
 type Door = typeof import('./door');
+
+/** What the Studio shows in a listed plugin's place before the plugin draws (wait.ts, D1). */
+export type Waits = { withWaits: (source: string) => string; waitMarkup: (e: WaitEntry, body: string) => string | null; waitKey: (sha16: string, body: string) => string };
+// Only the Studio sets it (StudioShell), so the other routes that render through here, and the door's own chunks, reach
+// the placeholder code through this one reference and never carry it themselves.
+let waits: Waits | null = null;
+export function setWaits(w: Waits): void {
+	waits = w;
+}
+export const getWaits = (): Waits | null => waits;
+
+/** The event a preview fires each time it paints, with its document (wait-capture.ts records the plugin drawings). */
+export const PREVIEW_PAINTED = 'lattice-preview-painted';
 
 /**
  * The localStorage key that holds this browser's code-package and plugin approvals (door.ts). Here, in the eager entry,
@@ -70,5 +83,5 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 		engineOpts = rest;
 	}
 	// A listed plugin's block shows its wait (wait.ts), not its fence source, before the door holds the plugins.
-	return PG.render(withWaits(source), theme, engineOpts) as R;
+	return PG.render(waits ? waits.withWaits(source) : source, theme, engineOpts) as R;
 }

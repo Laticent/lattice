@@ -6,7 +6,21 @@
 // registry wait.ts reads to know which fence belongs to which plugin. It loads with the door, never on the Studio's
 // first load: only a Studio that holds a plugin needs it.
 
-import { AFTER_KEY, afterimages, type Entry, n, REG_KEY, type Shot } from './wait';
+import { PREVIEW_PAINTED } from './entry';
+import type { Entry, Shot } from './wait';
+
+// The same keys wait.ts reads, written here so this chunk does not pull wait.ts in.
+const REG_KEY = 'lattice-plugin-waits';
+const AFTER_KEY = 'lattice-plugin-afterimages';
+const n = (v: number) => Math.round(v);
+function afterimages(): Record<string, Shot> {
+	try {
+		const v = JSON.parse(localStorage.getItem(AFTER_KEY) || '{}');
+		return v && typeof v === 'object' ? v : {};
+	} catch {
+		return {};
+	}
+}
 
 const AFTER_MAX = 100;
 const BOX_MAX = 150;
@@ -78,8 +92,8 @@ function capture(doc: Document): void {
 }
 
 const watched = new WeakSet<Document>();
-/** Keep the afterimages of a preview document's drawings current while it is shown (handed over by wait.ts `previewPainted`). */
-export function watchAfterimages(doc: Document): void {
+/** Keep the afterimages of a preview document's drawings current while it is shown (each preview's PREVIEW_PAINTED event). */
+function watchAfterimages(doc: Document | null | undefined): void {
 	if (!doc?.documentElement || watched.has(doc)) return;
 	watched.add(doc);
 	let pending = false;
@@ -103,3 +117,14 @@ export function watchAfterimages(doc: Document): void {
 	} catch {}
 }
 
+
+// From the door's load on: every preview already on the page, then each one as it paints. A plugin draws only once the
+// door has loaded, so nothing earlier needs recording.
+if (typeof window !== 'undefined') {
+	window.addEventListener(PREVIEW_PAINTED, (e) => watchAfterimages((e as CustomEvent<Document | null>).detail));
+	for (const f of document.querySelectorAll('iframe')) {
+		try {
+			watchAfterimages(f.contentDocument);
+		} catch {}
+	}
+}

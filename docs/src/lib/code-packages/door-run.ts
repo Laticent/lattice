@@ -16,8 +16,8 @@ import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { checkReturnData, fillReturnSlots, returnAttr, SLOT_FILL_MAX, slotFills, splitReturn } from '../../../../lib/packages/plugin-returns.mjs';
 import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, rememberAspect, rememberedAspect, report, type StampEntries, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
+import { getWaits } from './entry';
 import { openPackageFrame, type PackageFrame } from './runner';
-import { waitKey, waitMarkup } from './wait';
 
 // The palette token names every theme defines, handed to a package in its slide's facts. The theme
 // core is already a chunk of its own (import-gate.ts); this module is itself loaded only when a
@@ -475,13 +475,14 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	// under a stamp with no nonce draws it. Judged by the CSS the render paints with, so a render begun with older CSS
 	// cannot race the shell.
 	// Each drawn block carries the key its afterimage is kept under (wait-capture.ts records it; wait.ts draws it).
-	for (const c of capFences.claims) {
+	const waits = getWaits();
+	for (const c of waits ? capFences.claims : []) {
 		const p = offered.get(c.pkg);
-		if (!p || (c as { inline?: string }).inline) continue;
+		if (!waits || !p || (c as { inline?: string }).inline) continue;
 		const key = fenceKey(c, p.sha256);
 		const html = sections.get(key);
 		if (!onPage.has(key) || !html) continue;
-		sections.set(key, html.replace('<div data-lattice-plugin="', `<div data-lattice-wait-key="${waitKey(p.sha256.slice(0, 16), c.body)}" data-lattice-plugin="`));
+		sections.set(key, html.replace('<div data-lattice-plugin="', `<div data-lattice-wait-key="${waits.waitKey(p.sha256.slice(0, 16), c.body)}" data-lattice-plugin="`));
 	}
 	if (handed !== null) {
 		const hidden = new Set<string>();
@@ -494,7 +495,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			if (!onPage.has(key)) continue;
 			// The block's wait (wait.ts: its afterimage, else a skeleton), else the engine's own block for an inline chip.
 			const reg = { name: p.name, placement: p.placeholder?.placement ?? 'figure', aspect: rememberedAspect(p.sha256) ?? p.placeholder?.aspect, sha: p.sha256.slice(0, 16) };
-			sections.set(key, (c as { inline?: string }).inline ? c.block : (waitMarkup(reg, c.body) ?? c.block));
+			sections.set(key, (c as { inline?: string }).inline ? c.block : (waits?.waitMarkup(reg, c.body) ?? c.block));
 			attrs.delete(key);
 			hidden.add(c.pkg);
 		}

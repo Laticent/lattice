@@ -29,12 +29,9 @@ import { parsePaneMarker } from '../../../../lib/core/meta-door.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins, scopePluginCss } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
-import { CODE_APPROVALS_KEY } from './entry';
-import { setPreviewWatcher, withWaits } from './wait';
-import { rememberWaits, watchAfterimages } from './wait-capture';
+import { CODE_APPROVALS_KEY, getWaits } from './entry';
+import { rememberWaits } from './wait-capture';
 
-// The door has loaded, so a plugin may draw: record what each preview paints from now on (wait-capture.ts).
-if (typeof window !== 'undefined') setPreviewWatcher(watchAfterimages);
 
 /** The `class` slice of the directive vocabulary: `unapprovedIn` asks one key (lib/core/comment-directive.mjs). */
 
@@ -398,7 +395,8 @@ export async function renderWithCodePackages<R extends { html: string }>(PG: Ren
 	const engineOpts = withoutDoorFlags(opts);
 	if (!packages.size && !plugins.size) {
 		if (reporting) report({ unapproved: [], failed: [] });
-		return PG.render(withWaits(source), theme, engineOpts) as R;
+		const waits = getWaits();
+		return PG.render(waits ? waits.withWaits(source) : source, theme, engineOpts) as R;
 	}
 	// Everything past this point loads only when the Library holds a code package: the kernel,
 	// the sanitizer, the runner and the shipped claim list stay out of the Studio's first load.

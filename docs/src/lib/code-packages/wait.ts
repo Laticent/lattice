@@ -4,8 +4,9 @@
 // chunk loads, and the stamp the previews paint with is committed, each a moment the engine would draw a plugin's fence
 // as its source. Instead, a block of a plugin the deck lists shows its AFTERIMAGE: the shapes of its last drawing in this
 // browser, in muted ink, at the size it drew. A block with no afterimage yet (a first draw, changed data) shows a muted
-// chart skeleton. This module is on the Studio's first load, so it holds only what draws the wait; recording a drawing's
-// shapes is wait-capture.ts, which loads with the door.
+// chart skeleton. This module is on the Studio's first load only: StudioShell hands it to entry.ts `setWaits`, and the
+// door reaches it there (`getWaits`), so no other route and no door chunk carries it. Recording a drawing's shapes is
+// wait-capture.ts, which loads with the door.
 //
 // Placeholders are built from numbers, never from stored markup: every stored value is forced to a number before it is
 // written into the SVG, so nothing in browser storage reaches a slide as HTML.
@@ -14,15 +15,16 @@ export const REG_KEY = 'lattice-plugin-waits';
 export const AFTER_KEY = 'lattice-plugin-afterimages';
 
 export type Entry = { name: string; placement: string; aspect?: string; sha: string };
-type Reg = Record<string, Entry>;
-function registry(): Reg {
+/** A stored JSON object, or {} when it is missing or unreadable. */
+function stored<T>(key: string): Record<string, T> {
 	try {
-		const v = JSON.parse(localStorage.getItem(REG_KEY) || '{}');
-		return v && typeof v === 'object' ? (v as Reg) : {};
+		const v = JSON.parse(localStorage.getItem(key) || '{}');
+		return v && typeof v === 'object' ? v : {};
 	} catch {
 		return {};
 	}
 }
+const registry = () => stored<Entry>(REG_KEY);
 
 // The deck text is already LF: the Studio folds line endings where it reads a deck in (normalizeSourceText).
 const norm = (body: string) => body.trim();
@@ -39,44 +41,37 @@ function fnv(s: string): string {
 export const waitKey = (sha16: string, body: string) => `${sha16}-${fnv(norm(body))}`;
 
 export type Shot = { w: number; h: number; b: number[][] };
-export function afterimages(): Record<string, Shot> {
-	try {
-		const v = JSON.parse(localStorage.getItem(AFTER_KEY) || '{}');
-		return v && typeof v === 'object' ? v : {};
-	} catch {
-		return {};
-	}
-}
+export const afterimages = () => stored<Shot>(AFTER_KEY);
 
-const MUTED = 'var(--text-muted)';
 /** A stored or measured value as a whole number; anything that is not a finite number becomes 0. */
 export const n = (v: unknown) => {
 	const x = Math.round(Number(v));
 	return Number.isFinite(x) ? x : 0;
 };
 
-/** The fallback skeleton: a faint bar chart with a baseline and gridlines, in muted ink, no words. */
+// Every mark is filled with the wrapper's color (muted ink, set once on the wait's box) at its own opacity.
+const SVG = (h: number) => `<svg viewBox="0 0 1000 ${h}" fill="currentColor" style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true">`;
+const rect = (x: number, y: number, w: number, h: number, r: number, o: number) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" opacity="${o}"/>`;
+
+/** The fallback skeleton: a faint bar chart on a baseline and gridlines, no words. */
 function skeleton(): string {
-	const H = 400;
-	let s = `<svg viewBox="0 0 1000 ${H}" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true">`;
-	for (const y of [80, 160, 240, 320]) s += `<line x1="40" x2="960" y1="${y}" y2="${y}" style="stroke:${MUTED};opacity:0.18;stroke-width:1"/>`;
-	s += `<line x1="40" x2="960" y1="360" y2="360" style="stroke:${MUTED};opacity:0.35;stroke-width:2"/>`;
+	let s = SVG(400);
+	for (const y of [80, 160, 240, 320]) s += rect(40, y, 920, 1, 0, 0.18);
+	s += rect(40, 359, 920, 2, 0, 0.35);
 	[230, 170, 200, 130, 190].forEach((top, i) => {
-		s += `<rect x="${70 + i * 180}" y="${top}" width="140" height="${360 - top}" rx="6" style="fill:${MUTED};opacity:0.16"/>`;
+		s += rect(70 + i * 180, top, 140, 360 - top, 6, 0.16);
 	});
 	return `${s}</svg>`;
 }
 
 /** The afterimage: the boxes of the last drawing, muted; words become rounded bars. */
 function afterimage(shot: Shot): string {
-	const H = n((1000 * n(shot.h)) / Math.max(1, n(shot.w)));
-	let s = `<svg viewBox="0 0 1000 ${H}" preserveAspectRatio="xMidYMid meet" style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true">`;
+	let s = SVG(n((1000 * n(shot.h)) / Math.max(1, n(shot.w))));
 	for (const box of Array.isArray(shot.b) ? shot.b : []) {
 		if (!Array.isArray(box)) continue;
 		const [x, y, w, h, k] = box.map(n);
-		if (k === 0) s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" style="fill:${MUTED};opacity:0.07;stroke:${MUTED};stroke-opacity:0.22"/>`;
-		else if (k === 3) s += `<rect x="${x}" y="${n(y + h * 0.22)}" width="${w}" height="${n(h * 0.56)}" rx="${n(h * 0.28)}" style="fill:${MUTED};opacity:0.22"/>`;
-		else s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" style="fill:${MUTED};opacity:${k === 2 ? 0.32 : 0.16}"/>`;
+		// k: 0 a bordered box, 1 a mark, 2 an emphasized mark, 3 a line of text.
+		s += k === 3 ? rect(x, n(y + h * 0.22), w, n(h * 0.56), n(h * 0.28), 0.22) : rect(x, y, w, h, k ? 3 : 6, k === 2 ? 0.32 : k ? 0.16 : 0.08);
 	}
 	return `${s}</svg>`;
 }
@@ -100,7 +95,7 @@ export function waitMarkup(e: Entry, body: string): string | null {
 	}
 	const drawn = sw > 0 && sh > 0;
 	const name = String(e.name).replace(/[^a-z0-9-]/gi, '');
-	return `<div data-lattice-plugin-wait="${name}" data-wait-shape="${drawn ? 'afterimage' : 'skeleton'}" data-placement="${e.placement === 'stage' ? 'stage' : 'figure'}" role="img" aria-busy="true" aria-label="${name} is loading" style="${style}">${drawn ? afterimage(shot as Shot) : skeleton()}</div>`;
+	return `<div data-lattice-plugin-wait="${name}" data-wait-shape="${drawn ? 'afterimage' : 'skeleton'}" data-placement="${e.placement === 'stage' ? 'stage' : 'figure'}" role="img" aria-busy="true" aria-label="${name} is loading" style="${style};color:var(--text-muted)">${drawn ? afterimage(shot as Shot) : skeleton()}</div>`;
 }
 
 /** The deck's `plugins:` list, read from its front matter (flow or block form). */
@@ -154,21 +149,4 @@ export function withWaits(source: string): string {
 		i = j;
 	}
 	return out.join('\n');
-}
-
-// A painted preview document, handed to the recorder once the door has loaded it (wait-capture.ts `watchAfterimages`).
-// Until then the last few are held, so the first paint of a reload is recorded too. A Studio with no plugin never loads
-// the door, and never needs a recording.
-let watcher: ((doc: Document) => void) | null = null;
-const early: Document[] = [];
-/** A preview document has painted (single-slide-render onFrameLoad, StudioShell `onLivePreviewPaint`). */
-export function previewPainted(doc: Document | null | undefined): void {
-	if (!doc) return;
-	if (watcher) watcher(doc);
-	else if (!early.includes(doc)) early.splice(0, Math.max(0, early.length - 3), doc);
-}
-/** The door's recorder takes over: every document painted so far, then each one as it paints. */
-export function setPreviewWatcher(fn: (doc: Document) => void): void {
-	watcher = fn;
-	for (const d of early.splice(0)) fn(d);
 }

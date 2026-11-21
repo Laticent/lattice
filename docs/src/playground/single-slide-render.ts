@@ -66,7 +66,6 @@ import { previewCspMeta } from '../playground/preview-csp.js';
 // with the Stage (page-script-nonce.js).
 const PREVIEW_SCRIPT_NONCE = PAGE_SCRIPT_NONCE;
 
-import { previewPainted } from '../lib/code-packages/wait';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
 
@@ -2592,7 +2591,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// the reader turns to is stamped final before it paints.
 					prefetchImages(fr);
 					// Record this document's plugin drawings for the next reload's wait (code-packages/wait.ts).
-					previewPainted(fr.contentDocument);
+					window.dispatchEvent(new CustomEvent('lattice-preview-painted', { detail: fr.contentDocument }));
 					const now = performance.now();
 					const rec = recordRenderSample({
 						engineMs,

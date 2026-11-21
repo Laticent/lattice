@@ -88,7 +88,7 @@ function installBadgeWatch({ sel, name }: { sel: string; name: string }) {
 			if (doc?.querySelector(`code.language-${name}`)) w.source.push(`frame ${frame}`);
 			const box = (el: Element | null | undefined) => {
 				const r = el?.getBoundingClientRect();
-				return r && r.height ? { top: Math.round(r.top), height: Math.round(r.height) } : null;
+				return r?.height ? { top: Math.round(r.top), height: Math.round(r.height) } : null;
 			};
 			const wait = doc?.querySelector(`[data-lattice-plugin-wait="${name}"]`);
 			if (wait) {
