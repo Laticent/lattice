@@ -1203,6 +1203,25 @@ describe('lint-core: block-unsupported', () => {
     assert.equal(q.length, 0);
   });
 
+  test('citation-card: insight-* is inert until a second blockquote, since the first is the cited text', () => {
+    // Its `coda.anatomy` keeps the FIRST blockquote as the card's own cited text; only a later one is the Key
+    // Insight (2026-11-20-coda-and-marp-parity.md). Before anatomy, the layout withheld the beat outright.
+    const v = { ...bVocab, names: new Set([...bVocab.names, 'citation-card']) };
+    const run = (body) => core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: citation-card insight-key -->\n\n${body}`, v)
+      .filter((f) => f.rule === 'block-unsupported');
+    const one = run('## Smith v. Jones\n\n> The court held the clause void.\n');
+    assert.equal(one.length, 1);
+    assert.equal(one[0].classToken, 'insight-key');
+    assert.deepEqual(run('## Smith v. Jones\n\n> The court held the clause void.\n\n> Renegotiate before renewal.\n'), []);
+    // A `>` inside a fence is code, not a second blockquote.
+    assert.equal(run('## S\n\n> Held void.\n\n```\n> code\n```\n').length, 1);
+    // None of these is a second blockquote (review of #3362, finding 8): a lazy continuation, a `>` in a list item,
+    // a `>` inside a multi-line note.
+    assert.equal(run('## S\n\n> Held\nvoid.\n> Still the same quote.\n').length, 1);
+    assert.equal(run('## S\n\n> Held void.\n\n- Point\n  > nested\n').length, 1);
+    assert.equal(run('## S\n\n> Held void.\n\n<!--\n> a note\n-->\n').length, 1);
+  });
+
   test('says nothing about a correctly-authored quote carrying no modifier', () => {
     assert.deepEqual(bu('quote', '> A quotation.\n\n— Someone\n'), []);
     assert.deepEqual(bu('quote bare', '> A quotation.\n\n— Someone\n'), []);

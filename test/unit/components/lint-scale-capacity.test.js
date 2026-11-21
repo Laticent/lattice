@@ -1383,3 +1383,33 @@ describe('withClaim — the budget follows the claim', () => {
     assert.doesNotMatch(run('checklist', 13)[0].fix, /claim-/);
   });
 });
+
+// A per-family `wide` budget tighter than the flat one must not cancel the claim budget measured at that size
+// (review of #3362: inventory's wide hard 5 erased its hero 7, so the suggested claim changed nothing).
+describe('withClaim beats the bare wide-family tightening it was measured against', () => {
+  const inv = require('../../../lib/components/inventory/inventory/inventory.manifest.json');
+  const capacity = { ...inv.capacity, families: { wide: inv.adapt.capacity.wide } };
+  const v = { names: new Set(['inventory']), modifiers: new Set(['claim-hero', 'claim-framed']), capacity: { inventory: capacity } };
+  const items = (n) => Array.from({ length: n }, (_, i) => `- Item ${i + 1}\n  - Detail.`).join('\n');
+  const run = (cls, n) => core.lintTextWith(`---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## H.\n\n${items(n)}\n`, v).filter((f) => f.rule === 'capacity-overflow');
+
+  test('the fixture is the reviewed case: wide hard below the flat hard, hero above both', () => {
+    assert.ok(capacity.families.wide.hard < capacity.hard && capacity.withClaim.hero.hard > capacity.hard);
+  });
+  test('the claim the fix names really clears the warning', () => {
+    const n = capacity.families.wide.hard + 1;
+    assert.match(run('inventory', n)[0].fix, /add `claim-hero`/);
+    assert.deepEqual(run('inventory claim-hero', n), []);
+  });
+});
+
+// The deck's claim, however it is written, is the claim in force (review of #3362, finding 7).
+describe('withClaim reads the deck claim the way the engine does', () => {
+  const cl = require('../../../lib/components/inventory/checklist/checklist.manifest.json').capacity;
+  const v = { names: new Set(['checklist']), modifiers: new Set(['claim-hero', 'claim-quiet', 'claim-framed']), capacity: { checklist: cl } };
+  const items = (n) => Array.from({ length: n }, (_, i) => `- Item ${i + 1}`).join('\n');
+  const run = (fm) => core.lintTextWith(`---\nmarp: true\n${fm}---\n\n<!-- _class: checklist -->\n\n## H.\n\n${items(12)}\n`, v).filter((f) => f.rule === 'capacity-overflow');
+  test('claim: with a trailing comment', () => assert.deepEqual(run('claim: hero  # full stage\n'), []));
+  test('a deck-wide class: claim-hero', () => assert.deepEqual(run('class: claim-hero\n'), []));
+  test('and with neither, the twelve items are over budget', () => assert.equal(run('').length, 1));
+});
