@@ -108,7 +108,7 @@ const OLD_NOTES_DECK = [
 	'<!-- Pause before the number. -->', '', '<!-- say: The pipeline holds. -->', '',
 ].join('\n');
 
-test('Fix all migrates a deck whose speaker notes are plain comments', async ({ page }) => {
+test('@webkit-tablet @gecko Fix all migrates a deck whose speaker notes are plain comments', async ({ page }) => {
 	await setEditorContent(page, OLD_NOTES_DECK);
 	await expect(fixAll(page)).toBeEnabled();
 	await fixAll(page).click();
