@@ -122,5 +122,6 @@ revealed frame, polled). The evidence is in that PR.
               tests in the file ran: 20 of 20 alone, 32 of 32 loaded. STALE.
             - back-gesture.spec.ts:172 (the old :183, webkit-phone): 5 of 5 alone, 1 of 8 RED loaded (the deck-band tap
               left the Library open, back stack `1/1/0`). Load-only, and its fix is the sheet-scrim change in #3278
-              (3 in 100 red on main before it, 100 of 100 after); it stays with that PR.
+              (by #3278's own count, 3 to 6 red in 100 on main before it, 100 of 100 at 4 workers after); it stays with
+              that PR.
             The three STALE rows close here; back-gesture closes when #3278 lands.
