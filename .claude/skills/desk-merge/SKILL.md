@@ -30,7 +30,12 @@ facts, and §🚦 Pre-merge card. Tag this session `desk:merge` and `ui:pinned`.
    the digest: message its session to rebase (HARD RULE #16, a real conflict). For a
    pair it orders, message the second PR's session after the first lands: "#A
    landed, rebase #B on main" (also a real conflict). A card that says "merge #X
-   first" is a claim; the tool's order is the check.
+   first" is a claim; the tool's order is the check. Every PR comes back in exactly
+   one list. `held` (built on a PR that must rebase first) stays out of the digest
+   with its parent. `unordered` (a dependency cycle; the tool exits 1) and any
+   `note:` line (a conflict a dependency overruled) go to the owner as a ❓ card,
+   never into the digest. It checks pairs only, so the queue still catches a
+   conflict that needs three PRs together.
 4. **The digest IS the ask.** While you are live, each PR's session posts its 🚦 card
    on its PR and does not ask in chat (CLAUDE.md DEFAULT OPERATING MODE rule 7). You
    build the digest from those PR cards, as plain text: NOT in a code fence and NOT

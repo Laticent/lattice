@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * Order a merge digest so the merge queue never ejects one digest PR for another.
+ * Order a merge digest so no two digest PRs conflict with each other.
  *
  * `/desk-merge` puts the ready PRs into one 🚦 Merge digest that the owner answers
  * once. Checked one at a time against `main`, two PRs can each be clean and still
  * conflict with EACH OTHER: the first lands, the second is ejected an hour later.
  * This tool checks every pair in memory, the way GitHub merges (merge drivers in
  * .gitattributes ignored, as tools/queue-precheck.sh does), and orders the digest
- * by a fixed rule:
+ * by a fixed rule. It checks pairs only: a conflict that needs three PRs together,
+ * or a change to main after the run, is still the merge queue's to catch.
+ * The rule:
  *   1. a PR whose base is another digest PR's branch comes after it (dependency);
  *   2. of two PRs that conflict, the smaller (added + deleted lines) goes first,
  *      ties by the older; the other one's session rebases after it lands
@@ -17,10 +19,12 @@
  * can be in any digest. A conflict edge that would contradict a dependency is
  * dropped (the dependency wins) and reported.
  *
- * Usage: list_pull_requests JSON on stdin, `[{number, head, base, changes,
- * created_at}]` (head and base are branch names; changes = additions + deletions):
+ * Usage: PR JSON on stdin, `[{number, head, base, created_at, changes?}]`, flat
+ * (head and base are branch names) or GitHub's list_pull_requests shape (head and
+ * base as objects with `ref`); a missing `changes` is measured from git:
  *   npm run merge:order -- [--no-fetch] [--json] < prs.json
- * Exit: 0 printed · 2 bad input · 3 a git check could not run.
+ * Exit: 0 printed · 1 printed, but a PR is on a dependency cycle · 2 bad input ·
+ * 3 a git check could not run. Every input PR appears in exactly one list.
  * Contract: .claude/skills/desk-merge/SKILL.md step 3; engineering/workflow.md §Desks.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -34,7 +38,21 @@ import fs from 'node:fs';
  * @param {Set<number>} dirty PRs that conflict with main
  */
 export function orderMerges(prs, conflicts, dirty = new Set()) {
-  const live = prs.filter((p) => !dirty.has(p.number));
+  // A PR stacked on a PR that must rebase first is held with it, not ordered alone.
+  const held = new Map([...dirty].map((n) => [n, 'conflicts with main; rebase first']));
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const p of prs) {
+      if (held.has(p.number)) continue;
+      const parent = prs.find((q) => q !== p && q.head === p.base && held.has(q.number));
+      if (parent) {
+        held.set(p.number, `built on #${parent.number}, which is held`);
+        grew = true;
+      }
+    }
+  }
+  const live = prs.filter((p) => !held.has(p.number));
   const by = new Map(live.map((p) => [p.number, p]));
   const after = new Map(live.map((p) => [p.number, new Set()])); // u -> v: u lands before v
   const why = new Map(live.map((p) => [p.number, []]));
@@ -55,7 +73,7 @@ export function orderMerges(prs, conflicts, dirty = new Set()) {
   };
 
   for (const p of live) {
-    const parent = live.find((q) => q.head === p.base);
+    const parent = live.find((q) => q !== p && q.head === p.base);
     if (parent) {
       after.get(parent.number).add(p.number);
       why.get(p.number).push(`after #${parent.number}: built on its branch`);
@@ -92,10 +110,16 @@ export function orderMerges(prs, conflicts, dirty = new Set()) {
       if (indeg.get(v) === 0) ready.push(by.get(v));
     }
   }
+  // Every input PR lands in exactly one list: a PR left with unmet edges sits on a
+  // dependency cycle (two PRs each built on the other), which no order can satisfy.
+  const placed = new Set(order);
+  const unordered = live.filter((p) => !placed.has(p.number)).map((p) => p.number).sort((x, y) => x - y);
   return {
     order: order.map((n) => ({ number: n, why: why.get(n).length ? why.get(n) : ['oldest first'] })),
     rebaseAfter: Object.fromEntries(rebaseAfter),
     dirty: [...dirty].sort((x, y) => x - y),
+    held: [...held].filter(([n]) => !dirty.has(n)).map(([number, why]) => ({ number, why })),
+    unordered,
     dropped,
   };
 }
@@ -126,8 +150,12 @@ function main() {
   const json = args.includes('--json');
   let prs;
   try {
+    // Accepts the flat shape or GitHub's own list_pull_requests shape (head/base objects).
+    const refOf = (b) => (typeof b === 'string' ? b : b?.ref);
     prs = JSON.parse(fs.readFileSync(0, 'utf8'));
-    if (!Array.isArray(prs) || prs.some((p) => !Number.isInteger(p.number) || !p.head)) throw new Error('shape');
+    if (!Array.isArray(prs)) throw new Error('shape');
+    prs = prs.map((p) => ({ ...p, head: refOf(p.head), base: refOf(p.base) ?? 'main' }));
+    if (prs.some((p) => !Number.isInteger(p.number) || typeof p.head !== 'string' || !p.head)) throw new Error('shape');
   } catch {
     console.error('merge-order: stdin must be a JSON list of {number, head, base, changes, created_at}');
     process.exit(2);
@@ -154,6 +182,10 @@ function main() {
     if (json) return console.log(JSON.stringify(result, null, 2));
     for (const [i, o] of result.order.entries()) console.log(`${i + 1}. #${o.number}  ${o.why.join('; ')}`);
     for (const n of result.dirty) console.log(`rebase first: #${n} conflicts with main`);
+    for (const h of result.held) console.log(`held: #${h.number} ${h.why}`);
+    for (const n of result.unordered) console.log(`unordered: #${n} is on a dependency cycle; order it by hand`);
+    for (const p of prs.filter((x) => !x.created_at)) console.log(`warning: #${p.number} has no created_at; it sorts first on age ties`);
+    if (result.unordered.length) process.exitCode = 1;
     for (const d of result.dropped) console.log(`note: #${d.first} and #${d.second} conflict, but a dependency fixes their order`);
   } catch (err) {
     console.error(`merge-order: ${err.message}`);

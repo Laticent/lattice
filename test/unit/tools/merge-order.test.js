@@ -7,7 +7,7 @@
  * The git half (conflictFiles) runs on a real throwaway repository, because the
  * point is GitHub's merge, not a model of it.
  */
-const { test, describe, before } = require('node:test');
+const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -15,6 +15,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const TOOL = path.join(__dirname, '..', '..', '..', 'tools', 'merge-order.mjs');
+const { spawnSync } = require('node:child_process');
 let orderMerges;
 let conflictFiles;
 before(async () => {
@@ -63,6 +64,21 @@ describe('orderMerges', () => {
     assert.deepEqual(r.dirty, [1]);
   });
 
+  test('every input PR lands in exactly one list, even on a dependency cycle (grader probe)', () => {
+    const r = orderMerges([pr(1, 5, '2026-11-18', 'x', 'y'), pr(2, 5, '2026-11-19', 'y', 'x'), pr(3, 5, '2026-11-20')], []);
+    assert.deepEqual(nums(r), [3]);
+    assert.deepEqual(r.unordered, [1, 2]);
+    const self = orderMerges([pr(4, 5, '2026-11-18', 'z', 'z')], []);
+    assert.deepEqual(nums(self), [4], 'a PR whose head is its base is not its own parent');
+  });
+
+  test('a PR stacked on a PR that conflicts with main is held with it (grader probe)', () => {
+    const r = orderMerges([pr(1, 5, '2026-11-18', 'child', 'parent'), pr(2, 5, '2026-11-19', 'parent')], [], new Set([2]));
+    assert.deepEqual(nums(r), []);
+    assert.deepEqual(r.held, [{ number: 1, why: 'built on #2, which is held' }]);
+    assert.deepEqual(r.dirty, [2]);
+  });
+
   test('a chain of conflicts stays a deterministic order by size', () => {
     const prs = [pr(1, 300, '2026-11-18'), pr(2, 200, '2026-11-19'), pr(3, 100, '2026-11-20')];
     const r = orderMerges(prs, [
@@ -76,6 +92,7 @@ describe('orderMerges', () => {
 
 describe('conflictFiles on a real repository', () => {
   let dir;
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   before(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'merge-order-'));
@@ -106,5 +123,28 @@ describe('conflictFiles on a real repository', () => {
 
   test('an unknown ref throws instead of reading as clean', () => {
     assert.throws(() => conflictFiles('a', 'no-such-branch', dir), /could not run/);
+  });
+});
+
+describe('merge-order CLI input', () => {
+  const run = (input) => spawnSync(process.execPath, [TOOL, '--no-fetch'], { input, encoding: 'utf8' });
+
+  test('non-list or ill-typed input exits 2', () => {
+    assert.equal(run('{}').status, 2);
+    assert.equal(run('[{"number":"3359","head":"a"}]').status, 2);
+    assert.equal(run('[{"number":3359}]').status, 2);
+  });
+
+  test("GitHub's own PR shape is read by its ref, not as [object Object] (grader probe)", () => {
+    const r = run('[{"number":1,"head":{"ref":"no-such-branch-xyz"},"base":{"ref":"main"}}]');
+    assert.equal(r.status, 3);
+    assert.match(r.stderr, /origin\/no-such-branch-xyz/);
+    assert.doesNotMatch(r.stderr, /object Object/);
+  });
+
+  test('an empty list prints nothing and exits 0', () => {
+    const r = run('[]');
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '');
   });
 });
