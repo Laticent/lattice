@@ -88,6 +88,6 @@ image-card: compact
 
 ## The card and the tint, apart.
 
-`at-bl` here belongs to the tint, so the card stays where `image-card-top-right` puts it.
+`at-bl` places the corner tint, which this full-bleed photo covers. It no longer moves the card, so the card stays where `image-card-top-right` puts it.
 
 ![A figure by a lake under a low sun](sample:photo-wide.jpg)
