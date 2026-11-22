@@ -2682,26 +2682,43 @@ follow-up into an issue or retires one that is done or stale; the other desks cl
 Before this rule, only the backlog desk read `followups.d/` (about 580 files), and only the
 deps and optimize desks read a gotcha file (`engineering/gotchas/ci.md`).
 
-**Night mode** (owner's decision, 2026-11-21). The owner types exactly "good night" or
-"afk" in the `desk:night` session. Until their next typed turn there, the merge gate
-(`.claude/hooks/owner-merge-gate.mjs`) allows that session's `enable_pr_auto_merge` or
-`merge_pull_request` on a PR only when `tools/night-eligible.mjs`, run by the gate itself,
-finds on GitHub that:
-- the PR's newest 🚦 card reads VERY HIGH, names a checker in `graded by`, and is newer
-  than the head commit (VERY HIGH only: a PR that tops out at HIGH waits for the owner);
-- `ci` succeeded on the head, and GitHub reports the PR clean or only behind `main`;
-- it touches no never-merge class: CI and hooks (`.github/`, `lefthook`, `.claude/hooks`,
-  `.claude/settings`), canonical docs (`CLAUDE.md`, `AGENTS.md`, this file, the gate and the
-  eligibility tool themselves), the export pipeline and fonts, `package.json`, a
-  `**Breaking:**` changelog fragment, a `security`, `release`, `dependencies` or `breaking`
-  label, a release branch, a bot's PR, or a PR whose body names the night session.
-Anything else fails closed, including a GitHub read that fails. The night desk raises what
-it can, merges what passes, stops when it sees the owner back, and posts one morning ❓
-card. It reads `.claude/skills/desk-night/owner.md` for the owner's preferences on
-reversible choices, never to answer for the owner. What a machine does not check: whether
-the card's grader really was an independent checker (the gate reads the card's words), and
-whether the owner is back in ANOTHER session (the desk watches for that; the gate sees only
-its own session).
+**Night mode** (owner's decisions, 2026-11-21, after a red team, an inversion and a checker
+reviewed the first draft). The owner types `/desk-night` in a session, then exactly "good
+night" or "afk". Until their next typed turn there, or 12 hours, the merge gate
+(`.claude/hooks/owner-merge-gate.mjs`) allows that session's merge calls (never a subagent's)
+on a PR only when `tools/night-eligible.mjs`, taken from `origin/main` and run by the gate
+itself, finds on GitHub that:
+- **it is the owner's own work:** an owner login opened it from this repository (no forks), and
+  no commit carries the night session's `Claude-Session:` trailer (no self-approval);
+- **the card is real and current:** the newest 🚦 card was posted by an owner login and never
+  edited, reads VERY HIGH on its confidence line, names a checker on its graded-by line, and
+  names the PR's current head sha;
+- **it is green on a green base:** `ci` from GitHub Actions succeeded on the head; GitHub reports
+  the PR clean or only behind `main`; and the latest CI, golden-bless and integration-nightly
+  runs on `main` are not red;
+- **it is non-visual and outside the control plane:** every changed path, old name and new, is
+  under `lib/`, `tools/`, `test/`, `engineering/`, `design/`, `followups.d/` or `changelog.d/`.
+  None may be visual (components, base, plugins, finishes, tokens, any CSS, images), export,
+  fonts, a sanitizer, a `package.json`, or a gate the next night depends on (the card builder,
+  the ownership check, the lint core, the flaky baseline, this file, `orchestration.md`,
+  `house-style.md`, the gate and its tests). It also carries no breaking fragment, no release,
+  and no `security`, `release`, `dependencies` or `breaking` label.
+
+Anything unreadable, missing, or over 300 files is a no. There is no cap on merges a night
+(owner's choice). **Visual PRs wait for the owner's eyes**: the desk puts the VERY HIGH ones in
+a morning `🚦 Merge digest` with their artifacts attached. **A new push turns auto-merge off**
+(`.github/workflows/disarm-on-push.yml`, owner-approved): an approval or a night check covers
+the head it saw, and GitHub's auto-merge does not, so the PR is asked about or checked again.
+The desk never regrades or posts a card; the PR's own session raises it. It reads
+`.claude/skills/desk-night/owner.md` only for its own reversible choices.
+
+What no machine checks, stated plainly:
+- whether the owner is back in ANOTHER session (the desk watches the command center; the gate
+  sees only its own session);
+- whether the card's grader really ran (the gate reads the card's words, as #28 says of `npm
+  run card`);
+- a session transcript edited from its own shell, which could already forge a typed `merge #N`
+  before night mode existed.
 
 **What every desk may do on its own (owner's decision, 2026-11-20): act inside
 its lane, and only these verbs.** This list is exhaustive; every other action

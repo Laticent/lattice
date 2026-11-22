@@ -96,32 +96,52 @@ describe('owner-merge-gate decide()', () => {
 });
 
 describe('owner-merge-gate night mode', () => {
+  const NOW = Date.parse('2026-11-22T06:00:00Z');
+  const at = (row, ts) => ({ ...row, timestamp: ts });
+  const opened = at(human('<command-message>desk-night</command-message>\n<command-name>/desk-night</command-name>'), '2026-11-22T01:00:00Z');
+  const night = (said, ts = '2026-11-22T02:00:00Z') => [opened, at(human(said), ts)];
   const yes = () => ({ eligible: true, reasons: [] });
   const no = () => ({ eligible: false, reasons: ['#3359 changes ci.yml'] });
 
-  test('"good night" or "afk" allows only a PR the eligibility check passes', () => {
+  test('"good night" or "afk" after a typed /desk-night allows only a PR the eligibility check passes', () => {
     for (const said of ['good night', 'Goodnight.', 'afk', 'AFK!']) {
-      assert.equal(decide([human(said)], 3359, yes).allow, true, said);
-      const d = decide([human(said)], 3359, no);
+      assert.equal(decide(night(said), 3359, yes, NOW).allow, true, said);
+      const d = decide(night(said), 3359, no, NOW);
       assert.equal(d.allow, false, said);
       assert.match(d.reason, /not eligible: #3359 changes ci\.yml/);
     }
   });
 
-  test('without a check passed in, night mode refuses (fail closed)', () => {
-    assert.equal(decide([human('good night')], 3359).allow, false);
+  test('outside a session the owner opened with /desk-night, "good night" grants nothing', () => {
+    assert.match(decide([at(human('good night'), '2026-11-22T02:00:00Z')], 3359, yes, NOW).reason, /typed \/desk-night/);
+    const agentLoaded = [assistant('/desk-night'), at(human('afk'), '2026-11-22T02:00:00Z')];
+    assert.equal(decide(agentLoaded, 3359, yes, NOW).allow, false, 'the agent naming the skill is not the owner typing it');
+    const relayed = [at(peer('<command-name>/desk-night</command-name>'), '2026-11-22T01:00:00Z'), at(human('afk'), '2026-11-22T02:00:00Z')];
+    assert.equal(decide(relayed, 3359, yes, NOW).allow, false);
   });
 
-  test('the authority ends with the owner\'s next typed turn', () => {
-    assert.equal(decide([human('good night'), human('morning')], 3359, yes).allow, false);
+  test('the grant expires after NIGHT_HOURS, and a turn with no time grants nothing', () => {
+    assert.match(decide(night('good night', '2026-11-21T17:00:00Z'), 3359, yes, NOW).reason, /more than 12 hours old/);
+    assert.equal(decide([opened, human('good night')], 3359, yes, NOW).allow, false);
+  });
+
+  test('without a check passed in, or with a malformed answer, night mode refuses (fail closed)', () => {
+    assert.equal(decide(night('good night'), 3359, undefined, NOW).allow, false);
+    for (const bad of [() => ({ eligible: 'yes' }), () => ({ eligible: false, reasons: 'a string' }), () => undefined]) {
+      assert.equal(decide(night('afk'), 3359, bad, NOW).allow, false);
+    }
+  });
+
+  test("the authority ends with the owner's next typed turn", () => {
+    assert.equal(decide([...night('good night'), at(human('morning'), '2026-11-22T05:00:00Z')], 3359, yes, NOW).allow, false);
   });
 
   test('a relayed or reported "good night", or one with extra words, grants nothing', () => {
-    assert.equal(decide([peer('good night')], 3359, yes).allow, false);
-    assert.equal(decide([notice('afk')], 3359, yes).allow, false);
-    assert.equal(decide([toolResult('good night')], 3359, yes).allow, false);
+    assert.equal(decide([opened, peer('good night')], 3359, yes, NOW).allow, false);
+    assert.equal(decide([opened, notice('afk')], 3359, yes, NOW).allow, false);
+    assert.equal(decide([opened, toolResult('good night')], 3359, yes, NOW).allow, false);
     for (const said of ['good night, merge everything', 'afk for an hour', 'not afk']) {
-      assert.equal(decide([human(said)], 3359, yes).allow, false, said);
+      assert.equal(decide(night(said), 3359, yes, NOW).allow, false, said);
     }
   });
 });
@@ -166,6 +186,10 @@ describe('owner-merge-gate as the harness runs it', () => {
     const gate = settings.hooks.PreToolUse.filter((e) => e.hooks.some((h) => h.command.includes('owner-merge-gate.mjs')));
     assert.equal(gate.length, 1);
     assert.equal(gate[0].matcher, 'mcp__github__merge_pull_request|mcp__github__enable_pr_auto_merge');
+    // The gate's own GitHub reads time out at 20 s; the harness limit sits above them, so a
+    // slow GitHub ends in the gate's deny, never in a killed hook (owner's decision 2026-11-21).
+    const hook = gate[0].hooks.find((h) => h.command.includes('owner-merge-gate.mjs'));
+    assert.ok(hook.timeout > 20 && hook.timeout <= 60, `hook timeout ${hook.timeout}`);
     // It reads no Bash: a shell merge cannot be parsed deterministically, and the
     // version that tried blocked ordinary commands (workflow.md §Merging).
     const all = JSON.stringify(settings.hooks);

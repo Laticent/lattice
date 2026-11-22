@@ -1,0 +1,40 @@
+name: Disarm auto-merge on push
+
+# An approval covers the head it was given on (CLAUDE.md rule 7), and GitHub's
+# auto-merge does not: it stays on when someone with write access pushes. So a
+# PR the owner approved, or the night desk armed after the merge gate checked
+# its head (engineering/workflow.md §Desks, "Night mode"), would merge a later
+# push that nobody checked. This turns auto-merge off on every new push to a
+# PR that has it on; the PR merges again only after a fresh ask or a fresh gate
+# check. The owner approved this job on 2026-11-21.
+#
+# Dependabot is left alone: dependabot-auto-merge.yml re-arms its own patch and
+# minor bumps after each rebase, by design. Fork PRs never get here with
+# auto-merge on, and their token cannot change it anyway.
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  pull-requests: write # turn auto-merge off
+
+concurrency:
+  group: disarm-on-push-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  disarm:
+    if: >-
+      github.event.pull_request.auto_merge != null &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Turn auto-merge off
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh pr merge --disable-auto "$PR_URL"
+          echo "Auto-merge turned off: a new head ($HEAD) arrived after it was armed. Ask again, or let the night desk re-check it." >> "$GITHUB_STEP_SUMMARY"

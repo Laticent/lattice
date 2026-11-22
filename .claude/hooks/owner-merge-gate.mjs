@@ -26,17 +26,19 @@
  * that no machine catches. engineering/workflow.md §Merging.
  *
  * Night mode (the owner's decision, 2026-11-21): when the owner's latest typed turn is
- * exactly "good night" or "afk", the gate allows a merge only of a PR that
- * tools/night-eligible.mjs, run here by the gate itself, finds eligible on GitHub:
- * VERY HIGH, graded by a checker after the head commit, `ci` green, clean, and outside
- * every never-merge class. The authority ends with the owner's next typed turn,
- * because only the latest turn is read. engineering/workflow.md §Desks, "Night mode".
+ * exactly "good night" or "afk", in a session the owner opened with a typed `/desk-night`,
+ * less than NIGHT_HOURS ago, and the call is not a subagent's, the gate allows a merge only
+ * of a PR that tools/night-eligible.mjs finds eligible on GitHub. The gate runs that tool
+ * as it is on `origin/main`, not the working tree, so a session cannot loosen it by
+ * editing the file. The authority ends with the owner's next typed turn in that session,
+ * or after NIGHT_HOURS. engineering/workflow.md §Desks, "Night mode".
  *
  * It blocks, unlike the repo's two warn-only hooks, because it fires only on a merge
  * and a warning does not stop one. The owner can always merge from GitHub itself.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -45,6 +47,9 @@ const MERGE_FORM = new RegExp(String.raw`^(?:squash[- ]?)?merge\s+(${PR_LIST})$`
 const ALL_FORM = new RegExp(String.raw`^all(?:\s+but\s+(${PR_LIST}))?$`, 'i');
 /** The owner's word that hands the night desk merge authority until their next turn. */
 const NIGHT_FORM = /^(?:good ?night|afk)$/i;
+/** How long a "good night" lasts if the owner never comes back to the session. */
+export const NIGHT_HOURS = 12;
+const DESK_NIGHT = '<command-name>/desk-night</command-name>';
 /** The exact first line of a merge digest (`/desk-merge` step 4, `/fleet` step 6). */
 export const DIGEST_MARKER = '🚦 Merge digest';
 
@@ -75,7 +80,7 @@ export function digestLists(text, pr) {
  * Decide one call. Returns { allow, reason }. Pure, so the test drives it directly.
  * `night(pr)` answers whether night mode may merge the PR: { eligible, reasons }.
  */
-export function decide(rows, pr, night = () => ({ eligible: false, reasons: ['night mode was not checked'] })) {
+export function decide(rows, pr, night = () => ({ eligible: false, reasons: ['night mode was not checked'] }), now = Date.now()) {
   if (!Number.isInteger(pr) || pr < 1) return { allow: false, reason: 'the merge call names no PR number' };
   let h = -1;
   for (let i = rows.length - 1; i >= 0; i--) {
@@ -91,10 +96,16 @@ export function decide(rows, pr, night = () => ({ eligible: false, reasons: ['ni
     return { allow: false, reason: "the latest 'human' turn is a desk brief, not the owner's word" };
   }
   if (NIGHT_FORM.test(said)) {
+    const opened = rows.slice(0, h).some((r) => r?.type === 'user' && r.origin?.kind === 'human' && textOf(r).includes(DESK_NIGHT));
+    if (!opened) return { allow: false, reason: 'night mode works only in a session the owner opened with a typed /desk-night' };
+    const at = Date.parse(rows[h].timestamp);
+    if (!Number.isFinite(at) || now - at > NIGHT_HOURS * 3600_000) {
+      return { allow: false, reason: `night mode: the owner's "${said}" is more than ${NIGHT_HOURS} hours old, or has no time` };
+    }
     const n = night(pr);
-    return n.eligible
-      ? { allow: true, reason: `night mode: the owner said "${said}", and #${pr} passed tools/night-eligible.mjs` }
-      : { allow: false, reason: `night mode: #${pr} is not eligible: ${n.reasons.join('; ')}` };
+    if (n?.eligible === true) return { allow: true, reason: `night mode: the owner said "${said}", and #${pr} passed tools/night-eligible.mjs` };
+    const why = Array.isArray(n?.reasons) && n.reasons.length ? n.reasons.join('; ') : 'the eligibility check gave no answer';
+    return { allow: false, reason: `night mode: #${pr} is not eligible: ${why}` };
   }
   const merge = MERGE_FORM.exec(said);
   if (merge) {
@@ -133,13 +144,26 @@ function deny(reason) {
   );
 }
 
-/** Run tools/night-eligible.mjs for one PR; anything but a clean "yes" is a no (fail closed). */
-function nightCheck(pr, session) {
+/** The web session id (`session_…`) the PR trailers carry, from the harness's `cse_…`. */
+function webSession() {
+  const id = process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '';
+  return /^cse_[A-Za-z0-9]+$/.test(id) ? `session_${id.slice(4)}` : '';
+}
+
+/**
+ * Run tools/night-eligible.mjs, as it is on origin/main, for one PR; anything but a clean
+ * "yes" is a no (fail closed).
+ */
+function nightCheck(pr) {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const src = spawnSync('git', ['show', 'origin/main:tools/night-eligible.mjs'], { cwd: root, encoding: 'utf8', timeout: 10_000 });
+  if (src.status !== 0 || !src.stdout) return { eligible: false, reasons: ['tools/night-eligible.mjs is not on origin/main'] };
+  const tool = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'night-')), 'night-eligible.mjs');
+  fs.writeFileSync(tool, src.stdout);
   const r = spawnSync(
     process.execPath,
-    ['--no-warnings', path.join(root, 'tools', 'night-eligible.mjs'), String(pr), '--session', session, '--json'],
-    { encoding: 'utf8', timeout: 60_000, env: { ...process.env, NODE_USE_ENV_PROXY: '1' } },
+    ['--no-warnings', tool, String(pr), '--session', webSession(), '--json'],
+    { encoding: 'utf8', timeout: 20_000, env: { ...process.env, NODE_USE_ENV_PROXY: '1' } },
   );
   try {
     const out = JSON.parse(r.stdout.trim().split('\n').pop());
@@ -169,8 +193,16 @@ function main() {
   } catch {
     return deny('the session transcript could not be read');
   }
-  const { allow, reason } = decide(rows, pr, (n) => nightCheck(n, input.session_id || ''));
+  // A subagent's call never carries the owner's night grant.
+  const night = input.agent_id || input.agent_type ? () => ({ eligible: false, reasons: ['a subagent never merges at night'] }) : nightCheck;
+  const { allow, reason } = decide(rows, pr, night);
   if (!allow) deny(reason);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (import.meta.url === `file://${process.argv[1]}`) {
+  try {
+    main();
+  } catch (err) {
+    deny(`the gate failed (${err.message}), so it refuses`);
+  }
+}
