@@ -31,7 +31,9 @@ import { Tip } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
-import { CODE_APPROVALS_KEY, codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
+import { CODE_APPROVALS_KEY, codePackagesStamp, PREVIEW_PAINTED, setCodePackages, setPlugins, setWaits } from '@/lib/code-packages/entry';
+import { forgetWaits, waitKey, waitMarkup, withWaits } from '@/lib/code-packages/wait';
+
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
@@ -194,6 +196,9 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+// A listed plugin's block waits as its afterimage, not its fence source, until the door holds the plugins (D1).
+setWaits({ withWaits, waitMarkup, waitKey });
 
 /** A `storage` event that can change this browser's code approvals: the approvals key, or `null`, which is another tab
  *  clearing this browser's storage, approvals with it (#3292). */
@@ -1762,8 +1767,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// decides "unchanged": a re-import that keeps the code but widens its returns, kinds or placeholder replaces the
 		// record under the same id, and comparing only id, code and fence kept the old declaration live until a reload.
 		listStudioPlugins()
-			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list)))
-			.catch(() => setLocalPlugins((prev) => (prev.length ? [] : prev)));
+			.then((list) => {
+				// No plugin in the Library: no wait may stand in for one (code-packages/wait.ts).
+				if (!list.length) forgetWaits();
+				setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list));
+			})
+			.catch(() => {
+				forgetWaits();
+				setLocalPlugins((prev) => (prev.length ? [] : prev));
+			});
 	}, []);
 	React.useEffect(() => { refreshComponents(); }, [refreshComponents]);
 	// CODE PACKAGES: every saved component carrying a transform is one the renders may run, each only
@@ -5392,6 +5404,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// read on the commit could still see the old slide (DeckPreview `firePaint`).
 	const onLivePreviewPaint = React.useCallback(() => {
 		for (const listener of previewPaintListeners.current) listener();
+		// Record the live preview's plugin drawings for the next reload's wait (code-packages/wait.ts), on every paint
+		// path (a full write, a patch, an adopted bake), not only the one onFrameLoad sees.
+		try {
+			window.dispatchEvent(new CustomEvent(PREVIEW_PAINTED, { detail: previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument }));
+		} catch {}
 	}, []);
 	// The holder element itself, for the live pointer layer (which reads pointer moves on it).
 	const previewHolderElRef = React.useRef<HTMLDivElement | null>(null);
