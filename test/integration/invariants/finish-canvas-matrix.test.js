@@ -127,7 +127,7 @@ describe('--fin-canvas resolves to the painted surface, on every bookend × canv
  *      toward the deck ground. One class, caught by the matrix.
  *   2. Re-pointing it for `.dark` unconditionally broke every row where a SECOND class
  *      out-specifies the frame and repaints it anyway — `section.dark.no-spectrum`
- *      (0,2,1), `section.dark:is(.spectrum-edge-…):not(.divider)` (0,3,1),
+ *      (0,2,1), `section.dark:is(.spectrum-left…):not(.divider)` (0,3,1),
  *      `section.accent.dark` (0,2,1), the `print` remap. TWO classes: invisible here.
  *   3. Excluding those registers UNCONDITIONALLY then broke the light path, because
  *      every one of those repainters requires `.dark`. Without it nothing repaints, the
@@ -1034,9 +1034,8 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
       ['content dark no-spectrum', 'none'],
       ['divider', 'image'],                        // the control: the rail IS painted
       ['divider no-spectrum', 'none'],
-      ['divider no-spectrum', 'none'],
-      // `spectrum-edge:` moves the bar to a border and is EXEMPT on a divider, whose own
-      // rail stays — only `edge: off` clears that, on the row above.
+      // The edge word on `spectrum:` moves the bar to a border and is EXEMPT on a divider,
+      // whose own rail stays: only `spectrum: off` clears that, on the row above.
       ['divider spectrum-left', 'image'],
     ];
     const rows = await xPage.evaluate((cases) => {

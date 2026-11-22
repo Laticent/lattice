@@ -188,7 +188,7 @@ const VARIANT_DECL_IGNORE = new Map([
   // every family member; checklist only re-tints its row ground under it so the ground follows the inverted role.
   ['checklist', new Set(['heat'])],
   // `left`: legacy alias of `mirror` (base.modifiers.css). The other three are DECK-REGISTER classes
-  // (`rule:` → resolve-rule.js, `spectrum-trim:` → resolve-spectrum.js) that the card's divider reads
+  // (`rule:` → resolve-rule.js, `trim-spectrum:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
   // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
   // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
@@ -14636,7 +14636,7 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'rule-w', why: 'heading-rule weight: masthead hairline, rule-full, the short/accent segment height, the split-panel kicker and the five split-page runheads. Fallback 1px (segment: 0.22cqi).' },
   { token: 'rule-style', why: 'heading-rule border style on the same border-drawn rules. Fallback solid.' },
   { token: 'rule-mark', why: 'heading-rule ink on the same rules (rule-accent keeps --accent). Fallback var(--border).' },
-  { token: 'rail-w', why: 'spectrum-card rail thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
+  { token: 'rail-w', why: 'card-spectrum stripe thickness (base.accent-finish.css --sp-card-w). Fallback 0.35 section cqi.' },
   { token: 'radius-card', why: 'card corner: every tile that can carry a card tag (cards-grid, cards-stack, stats, pricing, verdict-grid, list-steps, list, actors, decision, compare-prose, split-compare options/verdict, split-panel proof/watermark, citation-card triptych, statute-stack) and the tag itself. Fallback var(--radius-md); never --radius-full, quote panels, diagram tiles or corners:.' },
 ]);
 
