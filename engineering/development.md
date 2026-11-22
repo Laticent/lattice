@@ -676,7 +676,10 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   screen does not wrap to two lines, does not play over the slide in a band sized to the sentence, or Play and Pause
   change the slide's size. It also logs, never judges, Present's layout through the turn: in Playwright's WebKit the
   slide host was a box under 100 px (34 to 100 px) for up to about 0.9 s, until the orientation `change` event started
-  the rotation hold. Self-test:
+  the rotation hold; real Mobile Safari showed no such box on either device, going straight from the upright width to
+  the sideways one with the hold on. First iOS run (2026-11-22, run 45043454498): the 13-inch iPad's slide host was
+  1,077 CSS px (2,154 device px, HD) and Present added 97 MB; the iPhone's was 544 CSS px (HD), Present added 126 MB, and
+  a three-line caption fit its band exactly (69 px). Self-test:
   `PROBE=present-landscape node docs/scripts/ios-safari/probe.selftest.mjs` (`NO_TURN=1` is its failing arm for the turn).
   `ios-safari-codec-support` runs it with `PROBE=codec-support` (no docs build, a blank page, the iPhone alone): the iOS arm
   of the narration codec bake-off. `codec-probe.js` decodes every file in `codec-fixtures/` (a 2 s Kokoro sentence as WAV,
