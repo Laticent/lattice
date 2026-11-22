@@ -6,8 +6,10 @@
  *
  * It reads the screen with `uiautomator dump` (Chrome exposes a page's accessible names to it), taps an element at the
  * centre of its bounds, and judges what the system chooser lists. Two arms:
- *   - THE CONTROL: a page whose only input accepts application/pdf. Chrome offers files there and no camera, so a reader that
- *     cannot tell a camera option from a files option fails here first. A probe that passes its control can fail.
+ *   - THE CONTROL: a page whose only input accepts application/pdf, read while Chrome lacks the camera permission. Chrome
+ *     then opens Files with no camera, so a reader that cannot tell a camera option from a files option fails here
+ *     first. A probe that passes its control can fail. (With the permission, this image's Chrome 113 offers Camera on
+ *     every file input, a PDF-only one included, so the control cannot run with it.)
  *   - THE STUDIO: Library, Import. It must offer the camera and a way to choose files (photos and videos are in the
  *     same chooser, or in the files picker it opens).
  * Each step waits for a signal (an element on screen) with a deadline, never a fixed sleep (HARD RULE #32). Every screen
@@ -152,12 +154,19 @@ const files = (labels) => labels.some((l) => /\bfiles?\b|browse|documents|choose
 
 let error = '';
 try {
-	// THE CONTROL: an input that accepts only application/pdf.
+	// THE CONTROL: an input that accepts only application/pdf, with Chrome NOT holding the camera permission. On this image
+	// (Chrome 113) a Chrome that holds the camera offers Camera on every file input, a PDF-only one included (the tenth
+	// dispatch), so the control could never see a camera go missing. Without the permission, Chrome leaves the camera
+	// out and opens Files (the eighth dispatch). That is the absence this probe must be able to report.
+	adb('shell', 'pm', 'revoke', 'com.android.chrome', 'android.permission.CAMERA');
 	open(`${BASE}/__chooser-control.html`);
 	await tapWhenStill(/^Pick a PDF\b/, 60_000, 'the control page');
 	const control = await chooser('control');
 	step('control: a PDF-only (application/pdf) input offers files', files(control.options), control.options.join(' · '));
 	step('control: a PDF-only (application/pdf) input offers no camera (so this probe can see one missing)', !camera(control.options), control.options.join(' · '));
+
+	// The camera back, as on a phone in use, so Android's chooser, not its permission prompt, is what the Studio arm reads.
+	adb('shell', 'pm', 'grant', 'com.android.chrome', 'android.permission.CAMERA');
 
 	// THE STUDIO: Library, then Import, the way a person on a phone gets there (Menu, Library, Import files).
 	open(`${BASE}/studio/`);
