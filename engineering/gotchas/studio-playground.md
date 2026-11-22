@@ -2013,12 +2013,12 @@ never turn "passed in headless" into "works on iOS."
 
 ## A product change does not reach the e2e build, though `npm run build:e2e` ran
 
-- **Symptom** — you edit `docs/src/lib/cadenza/cadence.ts` (or `vetrina/stage.ts`), rebuild the docs site, and the
-  built Studio behaves exactly as before. A mutation meant to turn a test red leaves it green.
-- **Cause** — `@/lib/cadenza` and `@/lib/vetrina` are directory imports of packages with their own `package.json`, and
+- **Symptom** — you edit `docs/src/lib/cadenza/cadence.ts` (or `vetrina/stage.ts`, or `lente/tags.ts`), rebuild the docs
+  site, and the built Studio behaves exactly as before. A mutation meant to turn a test red leaves it green.
+- **Cause** — `@/lib/cadenza`, `@/lib/vetrina` and `@/lib/lente` are directory imports of packages with their own `package.json`, and
   Vite resolves a directory import through its `module` field: `dist/index.mjs`, not the `.ts` source. The site
   build does not rebuild those `dist/` files.
-- **Fix** — rebuild the package first (`npm run vetrina-lib:build`, or the package's own build script), then
+- **Fix** — rebuild the package first (`npm run vetrina-lib:build`, `npm run lente-lib:build`, or the package's own build script), then
   `npm run build:e2e`. For a quick arm, mutate the package's `dist/` file directly and restore it. Importing a file
   by path (`@/lib/vetrina/index.js`) reaches the source; a bare directory does not.
 
