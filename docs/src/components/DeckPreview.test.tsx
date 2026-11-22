@@ -400,8 +400,8 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 	});
 
 	it('an engine that fails AGAIN after Retry offers Reload: an in-page retry cannot fetch a sub-file the browser cached as failed', async () => {
-		// Every engine keeps a failed engine SUB-FILE's error in the page, and `?retry=N` renames only the entry, so a second
-		// in-page retry fails the same way (measured, PR #3385). A reload recovers on Chromium and Gecko; WebKit needs a new tab.
+		// A browser build that keeps a failed engine SUB-FILE's error in the page replays it on a second in-page retry, since
+		// `?retry=N` renames only the entry (measured, PR #3385). A reload, or a new tab, is what recovers it there.
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const reload = vi.fn();
 		const realLocation = window.location;

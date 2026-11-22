@@ -346,10 +346,11 @@ export function DeckPreview({
 	// (the bake, landing late) turns the full card into the bar instead of being covered by it.
 	const [engineFailed, setEngineFailed] = React.useState(false);
 	// The engine failed again after the author pressed Retry. An in-page retry imports the entry under a fresh URL, but
-	// the entry's own sub-files keep theirs. Chromium and Gecko replay a failed sub-file until the page reloads, so
-	// Reload recovers there. WebKit (measured on Playwright's build) keeps the failure across a reload and a navigation too, and only a
-	// new tab recovers, so the text names both (PR #3385). Sticky until the engine loads. The button reloads only on a
-	// `reloadSafe` host, whose work a reload keeps.
+	// the entry's own sub-files keep theirs, and whether a browser fetches a failed sub-file again depends on its build:
+	// measured on PR #3385, Playwright 1.65's Chromium and Gecko did on Retry and its WebKit on a reload, while 1.56's
+	// Chromium and Gecko needed a reload and its WebKit a new tab. So a failed Retry offers both ways that can recover it,
+	// a reload and a new tab. Sticky until the engine loads. The button reloads only on a `reloadSafe` host, whose work
+	// a reload keeps.
 	const [reloadNeeded, setReloadNeeded] = React.useState(false);
 	const retriedRef = React.useRef(false);
 	// One renderer instance for this host (holds the theme + font caches).

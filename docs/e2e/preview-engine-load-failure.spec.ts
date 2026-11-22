@@ -22,8 +22,8 @@ test.use({ serviceWorkers: 'block' });
 // The engine's ENTRY, every attempt included: after a failed import, load-engine.ts asks for `engine.js?retry=N`, a
 // URL the browser's module map has not cached (a plain re-import would replay the failure with no fetch).
 const ENTRY = '**/esm/engine.js*';
-// The entry's SUB-FILES. `?retry=N` renames only the entry, so these keep their URLs, and every engine replays a failed
-// one in the page: after a failed Retry the card offers Reload (and, for WebKit, a new tab).
+// The entry's SUB-FILES. `?retry=N` renames only the entry, so these keep their URLs; a browser build that keeps a failed
+// one recovers only on a reload or in a new tab, which is why a failed Retry makes the card offer both.
 const SUB_FILES = '**/esm/chunk-*.js';
 
 const card = (page: Page) => page.locator('[aria-label="Live deck preview"] .nacre-failed').first();
@@ -63,34 +63,35 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an engine whose entry fail
 	await expectRecovered(page);
 });
 
-// A failed SUB-FILE, engine by engine, as measured (PR #3385). Each branch asserts what that engine does, so a change on
-// any of them goes red; none is skipped.
-//   Chromium and Gecko replay the failure in the page: Retry fails, the card offers Reload, and Reload recovers.
-//   WebKit replays it across a reload and a navigation too (a fresh-URL navigation, a 60 s wait: still failed); only a new
-//   tab recovers. Retry fails, the card offers Reload and names a new tab, and a new tab in the same context recovers.
-test('@crosswidth @webkit-phone @webkit-tablet @gecko an engine whose sub-file fails says how to recover on each engine, and that way works', async ({ page, browserName, context }) => {
+// A failed SUB-FILE, the path the card advises. Whether a browser fetches a failed sub-file again on Retry, on a reload or
+// only in a new tab depends on the browser's BUILD, not on Lattice: Playwright 1.56's Chromium and Gecko needed a reload
+// and its WebKit a new tab, while 1.65's recover a dropped or 503'd sub-file on Retry (Chromium, Gecko) or on a reload
+// (WebKit) (PR #3385, measured). So this test asserts the product's promise, which holds on any build:
+//   1. The sub-files stay blocked through Retry, so Retry fails on every engine, and the card must then offer Reload and
+//      say "reload, or open the page in a new tab".
+//   2. With the sub-files reachable, following that advice loads the engine: the reload does, or else a new tab does.
+test('@crosswidth @webkit-phone @webkit-tablet @gecko an engine whose sub-file fails offers Reload after a failed Retry, and its advice loads the engine', async ({ page, context }) => {
 	await page.route(SUB_FILES, (route) => route.abort());
 	await openToCard(page);
-	await page.unroute(SUB_FILES);
 	await card(page).getByRole('button', { name: 'Retry' }).click();
 	const reload = card(page).getByRole('button', { name: 'Reload' });
 	await expect(reload).toBeVisible();
 	await expect(card(page).locator('.nacre-failed__text')).toContainText(/still did not load.*reload, or open the page in a new tab/i);
-	if (browserName !== 'webkit') {
-		await reload.click();
-		await page.waitForLoadState('domcontentloaded');
-		await expect.poll(() => engineLoaded(page)).toBe(true);
+	expect(await engineLoaded(page)).toBe(false);
+
+	await page.unroute(SUB_FILES);
+	await reload.click();
+	await page.waitForLoadState('domcontentloaded');
+	// After the reload, the engine loads, or (a build that keeps the failure past a reload) the card is back.
+	const failedAgain = card(page).locator('.nacre-failed__text');
+	await expect.poll(async () => (await engineLoaded(page)) || (await failedAgain.count()) > 0).toBe(true);
+	if (await engineLoaded(page)) {
 		const previewTab = page.getByRole('button', { name: 'Preview', exact: true }).first();
-		if (!(await card(page).isVisible()) && !(await page.locator('[aria-label="Live deck preview"] iframe.live').first().isVisible()) && (await previewTab.isVisible())) await previewTab.click();
+		if (!(await page.locator('[aria-label="Live deck preview"] iframe.live').first().isVisible()) && (await previewTab.isVisible())) await previewTab.click();
 		await expectRecovered(page);
 		return;
 	}
-	// WebKit: the page the card offered stays failed after its own reload (the card is back, offering Retry), and a new
-	// tab loads the engine.
-	await reload.click();
-	await page.waitForLoadState('domcontentloaded');
-	await expect(card(page).locator('.nacre-failed__text')).toHaveText(/the slide engine did not load/i);
-	expect(await engineLoaded(page)).toBe(false);
+	// The card's other advice: a new tab loads it.
 	const fresh = await context.newPage();
 	await fresh.goto('/studio/', { waitUntil: 'domcontentloaded' });
 	await expect.poll(() => engineLoaded(fresh)).toBe(true);
