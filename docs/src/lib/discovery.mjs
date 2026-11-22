@@ -25,6 +25,7 @@ export const NOINDEX_PREFIXES = Object.freeze([
 	'/gift/',
 	'/offline/',
 	'/proto/',
+	'/spike/', // THROWAWAY storage spike, never merges
 	'/vetrina-exemplars/',
 	'/vetrina-tour/',
 	// `/libraries/<name>/` is noindex; `/libraries/` and `/libraries/<name>/learn/` are not.

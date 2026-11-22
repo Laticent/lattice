@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>opfs spike</title>
+<script type="module">
+const out = (window.__opfs = {});
+async function main() {
+  const q = new URLSearchParams(location.search);
+  const phase = q.get('phase');
+  const token = q.get('token');
+  out.secure = isSecureContext;
+  out.hasGetDirectory = !!(navigator.storage && navigator.storage.getDirectory);
+  try { out.persisted = await navigator.storage.persisted(); } catch (e) { out.persisted = 'err ' + e.name; }
+  if (!out.hasGetDirectory) { out.done = true; return; }
+  const root = await navigator.storage.getDirectory();
+  // main thread: createWritable
+  if (phase === 'write') {
+    try {
+      const fh = await root.getFileHandle('main-writable.txt', { create: true });
+      out.mainHasCreateWritable = typeof fh.createWritable === 'function';
+      const w = await fh.createWritable(); await w.write('main-writable:' + token); await w.close();
+      out.mainWritable = 'ok';
+    } catch (e) { out.mainWritable = 'ERR ' + e.name + ': ' + e.message; }
+  }
+  const w = new Worker('./worker.js');
+  out.worker = await new Promise((res) => { w.onmessage = (e) => res(e.data); w.onerror = (e) => res({ error: String(e.message) }); w.postMessage({ phase, token }); });
+  if (phase === 'read') {
+    for (const name of ['main-writable.txt', 'worker-sync.txt', 'worker-writable.txt']) {
+      try { const f = await (await root.getFileHandle(name)).getFile(); out['read:' + name] = await f.text(); }
+      catch (e) { out['read:' + name] = 'ERR ' + e.name; }
+    }
+  }
+  out.done = true;
+}
+main().catch((e) => { out.fatal = e.name + ': ' + e.message; out.done = true; });
+</script>

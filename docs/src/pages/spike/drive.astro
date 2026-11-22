@@ -1,0 +1,329 @@
+---
+// THROWAWAY STORAGE SPIKE (PR "spike(storage): throwaway — do not merge"). Never merges.
+// Route: /spike/drive/?client_id=<OAuth web client id>[&api_key=<browser key>][&app_id=<project number>]
+// Checks the Google facts engineering/decisions/2026-11-22-local-first-drive-storage.md §12 rests on.
+// The access token lives in one JS variable, in memory only: never stored, never logged, never in the panel.
+// No markup from Google or Drive is rendered; every result is JSON text in a <textarea>.
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>Storage spike · Drive</title>
+<style>
+  :root { color-scheme: light dark; --ink: light-dark(#1b1b1f, #e7e7ea); --bg: light-dark(#fafafa, #16161a);
+    --panel: light-dark(#ffffff, #1e1e24); --line: light-dark(#d4d4d8, #34343c); --muted: light-dark(#5b5b66, #9aa0a8); }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; display: grid; gap: 12px; }
+  h1 { font-size: 20px; margin: 0; }
+  p, li { color: var(--muted); margin: 0; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+  h2 { font-size: 15px; margin: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  input { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
+  textarea { width: 100%; min-height: 320px; font: 12px/1.4 ui-monospace, monospace; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  #status { font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Storage spike: Google Drive checks</h1>
+  <p>Throwaway test page. Run each button in order; every result lands in the JSON panel at the bottom. Press <b>Copy JSON</b> and paste it back. Nothing is saved: the Google token lives in this tab's memory only.</p>
+  <section>
+    <h2>0 · Setup</h2>
+    <input id="cid" placeholder="OAuth client ID (or pass ?client_id=)" autocomplete="off" />
+    <input id="akey" placeholder="Picker API key, optional (or ?api_key=)" autocomplete="off" />
+    <input id="appid" placeholder="Cloud project number for setAppId, optional (or ?app_id=)" autocomplete="off" />
+    <p id="status">Not signed in.</p>
+  </section>
+  <section>
+    <h2>1 · Sign in, token, account</h2>
+    <div class="row"><button data-run="signin">Sign in</button><button data-run="about">about.get</button><button data-run="renew">Renew with hint</button><button data-run="renewSilent">Renew, no prompt</button></div>
+    <p>For the token lifetime: leave the tab open past the expiry the panel shows, then press <b>about.get</b> (expect 401) and <b>Renew with hint</b>.</p>
+  </section>
+  <section>
+    <h2>2 · The Lattice/ folder</h2>
+    <div class="row"><button data-run="folder">Create Lattice/ and list it</button></div>
+  </section>
+  <section>
+    <h2>3 · appProperties size</h2>
+    <div class="row"><button data-run="props">Write files at 100 / 124 / 125 / 200 bytes</button></div>
+  </section>
+  <section>
+    <h2>4 · Changes feed</h2>
+    <div class="row"><button data-run="changes">startPageToken → write → changes.list</button></div>
+  </section>
+  <section>
+    <h2>5 · Upload into a trashed folder</h2>
+    <div class="row"><button data-run="trashStep1">Step 1: create Lattice-trash-test/</button><button data-run="trashStep2">Step 2: upload into it</button></div>
+    <p>After step 1, open drive.google.com, move <b>Lattice-trash-test</b> to the trash, then press step 2.</p>
+  </section>
+  <section>
+    <h2>6 · Google Picker</h2>
+    <div class="row"><button data-run="pickFile">Pick a file</button><button data-run="pickFolder">Pick a folder</button><button data-run="pickedFolderList">List inside the picked folder</button></div>
+    <p>Pick a folder that already holds files you did NOT create with this page. The panel records whether the Picker needed the API key or app id.</p>
+  </section>
+  <section>
+    <h2>7 · A file uploaded through drive.google.com</h2>
+    <div class="row"><button data-run="listLattice">List Lattice/ now</button></div>
+    <p>Upload any small file into <b>Lattice/</b> on drive.google.com, then press the button. Then pick that file with <b>Pick a file</b> and press it again.</p>
+  </section>
+  <section>
+    <h2>8 · Two tabs race files.update</h2>
+    <div class="row"><button data-run="raceCreate">Create race file</button><button data-run="raceArm">Arm this tab</button><button data-run="raceGo">Go (both tabs)</button><button data-run="raceRevisions">List revisions</button><button data-run="ifMatch">Try If-Match</button></div>
+    <p id="raceHint">Create the race file here, open the link that appears in a second tab, sign in there, press Arm in both tabs, then Go in either.</p>
+  </section>
+  <section>
+    <h2>9 · Revoke</h2>
+    <div class="row"><button data-run="revoke">Revoke, then about.get</button></div>
+  </section>
+  <section>
+    <h2>Results</h2>
+    <div class="row"><button id="copy">Copy JSON</button><button id="clear">Clear</button></div>
+    <textarea id="out" readonly></textarea>
+  </section>
+</main>
+<script>
+(() => {
+	const DRIVE = 'https://www.googleapis.com/drive/v3';
+	const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+	const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+	const q = new URLSearchParams(location.search);
+	const $ = (id) => document.getElementById(id);
+	$('cid').value = q.get('client_id') || '';
+	$('akey').value = q.get('api_key') || '';
+	$('appid').value = q.get('app_id') || '';
+	let token = null; // memory only
+	let tokenExpiresAt = 0;
+	let tokenClient = null;
+	let account = null; // { permissionId, emailAddress }
+	const state = { latticeId: null, trashFolderId: null, pickedFolderId: null, raceFileId: q.get('race') };
+	const log = [];
+	const env = {
+		ua: navigator.userAgent,
+		standalone: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
+		origin: location.origin,
+		apiKeyGiven: !!$('akey').value,
+		appIdGiven: !!$('appid').value,
+	};
+	const render = () => { $('out').value = JSON.stringify({ env, results: log }, null, 2); };
+	const add = (check, ok, data) => { log.push({ check, at: new Date().toISOString(), ok, data }); render(); };
+	const scrub = (s) => (token ? String(s).split(token).join('[token]') : String(s));
+	const setStatus = () => { $('status').textContent = token ? `Signed in${account ? ` as ${account.emailAddress}` : ''}; token expires ${new Date(tokenExpiresAt).toLocaleTimeString()}` : 'Not signed in.'; };
+	render();
+
+	function loadScript(src) {
+		return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = res; s.onerror = () => rej(new Error(`load failed: ${src}`)); document.head.append(s); });
+	}
+	async function api(method, url, body, headers = {}) {
+		if (!token) throw new Error('no token: press Sign in');
+		const r = await fetch(url, { method, headers: { Authorization: `Bearer ${token}`, ...headers }, body });
+		const text = await r.text();
+		let json; try { json = JSON.parse(text); } catch { json = text.slice(0, 500); }
+		return { status: r.status, json };
+	}
+	const meta = (o) => JSON.stringify(o);
+	async function upload(metadata, content, fileId) {
+		const b = `spike${Math.random().toString(36).slice(2)}`;
+		const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta(metadata)}\r\n--${b}\r\nContent-Type: text/plain\r\n\r\n${content}\r\n--${b}--`;
+		const url = fileId ? `${UPLOAD}/files/${fileId}?uploadType=multipart` : `${UPLOAD}/files?uploadType=multipart`;
+		return api(fileId ? 'PATCH' : 'POST', `${url}&fields=id,name,parents,trashed,appProperties,headRevisionId,version,modifiedTime`, body, { 'Content-Type': `multipart/related; boundary=${b}` });
+	}
+	async function ensureLattice() {
+		if (state.latticeId) return state.latticeId;
+		const found = await api('GET', `${DRIVE}/files?q=${encodeURIComponent("name='Lattice' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&orderBy=createdTime&fields=files(id,name,createdTime)`);
+		if (found.json.files?.length) return (state.latticeId = found.json.files[0].id);
+		const made = await api('POST', `${DRIVE}/files?fields=id,name`, meta({ name: 'Lattice', mimeType: 'application/vnd.google-apps.folder', appProperties: { latticeRoot: '1' } }), { 'Content-Type': 'application/json' });
+		return (state.latticeId = made.json.id);
+	}
+
+	function requestToken(opts) {
+		return new Promise((resolve) => {
+			const t0 = performance.now();
+			tokenClient.callback = (resp) => {
+				if (resp.error) return resolve({ ok: false, error: resp.error, error_description: resp.error_description, ms: Math.round(performance.now() - t0) });
+				token = resp.access_token;
+				tokenExpiresAt = Date.now() + Number(resp.expires_in) * 1000;
+				setStatus();
+				resolve({ ok: true, expires_in: Number(resp.expires_in), scope: resp.scope, token_type: resp.token_type, ms: Math.round(performance.now() - t0) });
+			};
+			tokenClient.error_callback = (err) => resolve({ ok: false, error_callback: err.type, message: err.message, ms: Math.round(performance.now() - t0) });
+			tokenClient.requestAccessToken(opts);
+		});
+	}
+	async function initGis() {
+		const cid = $('cid').value.trim();
+		if (!cid) throw new Error('enter the client ID first');
+		if (!window.google?.accounts?.oauth2) await loadScript('https://accounts.google.com/gsi/client');
+		tokenClient ??= google.accounts.oauth2.initTokenClient({ client_id: cid, scope: SCOPE, callback: () => {} });
+	}
+
+	let picker = null;
+	async function loadPicker() {
+		if (picker) return;
+		if (!window.gapi) await loadScript('https://apis.google.com/js/api.js');
+		await new Promise((res) => gapi.load('picker', res));
+		picker = google.picker;
+	}
+	function runPicker(folder) {
+		return new Promise((resolve) => {
+			const view = new picker.DocsView(picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(folder);
+			if (folder) view.setMimeTypes('application/vnd.google-apps.folder');
+			const b = new picker.PickerBuilder().addView(view).setOAuthToken(token).setOrigin(location.origin)
+				.setCallback((d) => { if (d.action === picker.Action.PICKED || d.action === picker.Action.CANCEL) resolve(d); });
+			if ($('akey').value.trim()) b.setDeveloperKey($('akey').value.trim());
+			if ($('appid').value.trim()) b.setAppId($('appid').value.trim());
+			const p = b.build();
+			p.setVisible(true);
+		});
+	}
+
+	const bc = 'BroadcastChannel' in window ? new BroadcastChannel('lattice-spike-race') : null;
+	let armed = false;
+	if (bc) bc.onmessage = (e) => { if (e.data?.go && armed) raceFire(e.data.at); };
+	async function raceFire(at) {
+		const wait = Math.max(0, at - Date.now());
+		await new Promise((r) => setTimeout(r, wait));
+		try {
+			const before = await api('GET', `${DRIVE}/files/${state.raceFileId}?fields=headRevisionId,version`);
+			const tag = `tab-${Math.random().toString(36).slice(2, 7)}`;
+			const res = await upload({}, `written by ${tag} at ${new Date().toISOString()}`, state.raceFileId);
+			add('race.update', res.status === 200, { tag, firedLateMs: Date.now() - at, before: before.json, status: res.status, after: res.json });
+		} catch (e) { add('race.update', false, { error: scrub(e.message) }); }
+	}
+
+	const checks = {
+		async signin() { await initGis(); const r = await requestToken({ prompt: '' }); add('signin', r.ok, { ...r, expiresAt: new Date(tokenExpiresAt).toISOString() }); if (r.ok) await checks.about(); },
+		async about() {
+			const r = await api('GET', `${DRIVE}/about?fields=user(permissionId,emailAddress,displayName),storageQuota(limit,usage)`);
+			if (r.status === 200) { const prev = account; account = { permissionId: r.json.user.permissionId, emailAddress: r.json.user.emailAddress }; setStatus(); add('about.get', true, { status: r.status, permissionId: account.permissionId, samePermissionIdAsBefore: prev ? prev.permissionId === account.permissionId : null, quota: r.json.storageQuota, secondsLeftOnToken: Math.round((tokenExpiresAt - Date.now()) / 1000) }); }
+			else add('about.get', false, { status: r.status, error: r.json?.error?.message ?? r.json, secondsLeftOnToken: Math.round((tokenExpiresAt - Date.now()) / 1000) });
+		},
+		async renew() { await initGis(); const r = await requestToken({ prompt: '', hint: account?.emailAddress }); add('renew.hint', r.ok, { ...r, hintGiven: !!account, note: 'did a popup or account chooser appear? write it in your paste' }); if (r.ok) await checks.about(); },
+		async renewSilent() { await initGis(); const r = await requestToken({ prompt: 'none', hint: account?.emailAddress }); add('renew.prompt-none', r.ok, r); },
+		async folder() {
+			const id = await ensureLattice();
+			const child = await upload({ name: 'hello.md', parents: [id], appProperties: { latticeId: 'spike-1' } }, '# hello\n');
+			const list = await api('GET', `${DRIVE}/files?q=${encodeURIComponent(`'${id}' in parents and trashed=false`)}&fields=files(id,name,mimeType,appProperties)`);
+			const roots = await api('GET', `${DRIVE}/files?q=${encodeURIComponent("name='Lattice' and mimeType='application/vnd.google-apps.folder'")}&fields=files(id,createdTime,trashed,appProperties)`);
+			add('folder', list.status === 200 && list.json.files?.some((f) => f.id === child.json.id), { latticeId: id, childStatus: child.status, listed: list.json.files, latticeFoldersVisible: roots.json.files });
+		},
+		async props() {
+			const id = await ensureLattice();
+			const rows = [];
+			for (const total of [100, 124, 125, 200]) {
+				const key = 'k';
+				const value = 'v'.repeat(total - key.length);
+				const r = await upload({ name: `props-${total}.txt`, parents: [id], appProperties: { [key]: value } }, `props ${total}`);
+				rows.push({ keyPlusValueBytes: total, status: r.status, accepted: r.status === 200, storedLength: r.json?.appProperties?.[key]?.length ?? null, error: r.json?.error?.message ?? null });
+			}
+			const sha = 'a'.repeat(64);
+			const two = await upload({ name: 'props-two-hashes.txt', parents: [id], appProperties: { sha256: sha, svSha256: sha, latticeId: 'x'.repeat(36) } }, 'two hashes');
+			rows.push({ case: 'sha256 + svSha256 (64 hex each) + latticeId (36)', status: two.status, error: two.json?.error?.message ?? null });
+			add('appProperties.size', true, rows);
+		},
+		async changes() {
+			const id = await ensureLattice();
+			const start = await api('GET', `${DRIVE}/changes/startPageToken`);
+			const t = start.json.startPageToken;
+			const f = await upload({ name: `change-${Date.now()}.md`, parents: [id] }, 'changed');
+			const rounds = [];
+			let page = t;
+			for (let i = 0; i < 5 && page; i++) {
+				const c = await api('GET', `${DRIVE}/changes?pageToken=${page}&fields=nextPageToken,newStartPageToken,changes(fileId,removed,time,file(name,trashed,parents))`);
+				rounds.push({ status: c.status, count: c.json.changes?.length, seesNewFile: !!c.json.changes?.some((x) => x.fileId === f.json.id), newStartPageToken: !!c.json.newStartPageToken, changes: c.json.changes?.slice(0, 10) });
+				if (c.json.changes?.some((x) => x.fileId === f.json.id)) break;
+				page = c.json.nextPageToken || (c.json.newStartPageToken && (await new Promise((r) => setTimeout(r, 2000)), c.json.newStartPageToken));
+			}
+			add('changes', rounds.some((r) => r.seesNewFile), { startPageToken: t, newFile: f.json.id, rounds });
+		},
+		async trashStep1() {
+			const id = await ensureLattice();
+			const r = await api('POST', `${DRIVE}/files?fields=id,name`, meta({ name: 'Lattice-trash-test', parents: [id], mimeType: 'application/vnd.google-apps.folder' }), { 'Content-Type': 'application/json' });
+			state.trashFolderId = r.json.id;
+			add('trash.step1', r.status === 200, { folderId: r.json.id, next: 'trash Lattice-trash-test in drive.google.com, then press Step 2' });
+		},
+		async trashStep2() {
+			if (!state.trashFolderId) throw new Error('run Step 1 first');
+			const folder = await api('GET', `${DRIVE}/files/${state.trashFolderId}?fields=id,trashed,explicitlyTrashed`);
+			const up = await upload({ name: 'into-trashed.md', parents: [state.trashFolderId] }, 'into a trashed folder');
+			const after = up.json?.id ? await api('GET', `${DRIVE}/files/${up.json.id}?fields=id,trashed,explicitlyTrashed,parents`) : null;
+			add('trash.step2', true, { folderBefore: folder.json, uploadStatus: up.status, uploadError: up.json?.error?.message ?? null, uploaded: after?.json ?? null });
+		},
+		async pickFile() {
+			await loadPicker();
+			const d = await runPicker(false);
+			const docs = (d.docs || []).map((x) => ({ id: x.id, name: x.name, mimeType: x.mimeType }));
+			const reads = [];
+			for (const x of docs) { const r = await api('GET', `${DRIVE}/files/${x.id}?fields=id,name,parents,capabilities(canEdit)`); reads.push({ id: x.id, status: r.status }); }
+			add('picker.file', d.action === 'picked', { action: d.action, apiKeyUsed: !!$('akey').value.trim(), appIdUsed: !!$('appid').value.trim(), docs, readableAfterPick: reads });
+		},
+		async pickFolder() {
+			await loadPicker();
+			const d = await runPicker(true);
+			const docs = (d.docs || []).map((x) => ({ id: x.id, name: x.name, mimeType: x.mimeType }));
+			state.pickedFolderId = docs[0]?.id ?? null;
+			add('picker.folder', d.action === 'picked', { action: d.action, apiKeyUsed: !!$('akey').value.trim(), appIdUsed: !!$('appid').value.trim(), docs });
+			if (state.pickedFolderId) await checks.pickedFolderList();
+		},
+		async pickedFolderList() {
+			if (!state.pickedFolderId) throw new Error('pick a folder first');
+			const r = await api('GET', `${DRIVE}/files?q=${encodeURIComponent(`'${state.pickedFolderId}' in parents and trashed=false`)}&fields=files(id,name,mimeType)`);
+			const first = r.json.files?.find((f) => f.mimeType !== 'application/vnd.google-apps.folder');
+			const read = first ? await api('GET', `${DRIVE}/files/${first.id}?alt=media`) : null;
+			add('picker.folder.children', r.status === 200, { status: r.status, childrenVisible: r.json.files?.length ?? 0, children: r.json.files?.slice(0, 20), firstFileContentRead: read ? read.status : 'no file child', note: 'compare childrenVisible with what drive.google.com shows in that folder' });
+		},
+		async listLattice() {
+			const id = await ensureLattice();
+			const r = await api('GET', `${DRIVE}/files?q=${encodeURIComponent(`'${id}' in parents and trashed=false`)}&fields=files(id,name,mimeType,createdTime)`);
+			add('lattice.list', r.status === 200, { status: r.status, files: r.json.files, note: 'did the file you uploaded on drive.google.com appear?' });
+		},
+		async raceCreate() {
+			const id = await ensureLattice();
+			const r = await upload({ name: 'race.md', parents: [id] }, 'race base');
+			state.raceFileId = r.json.id;
+			const link = `${location.origin}${location.pathname}?client_id=${encodeURIComponent($('cid').value.trim())}&race=${r.json.id}`;
+			$('raceHint').textContent = `Open in a second tab: ${link}`;
+			add('race.create', r.status === 200, { fileId: r.json.id, headRevisionId: r.json.headRevisionId, secondTabLink: link });
+		},
+		async raceArm() { if (!state.raceFileId) throw new Error('create the race file (or open the link)'); armed = true; add('race.arm', true, { fileId: state.raceFileId, broadcastChannel: !!bc }); },
+		async raceGo() { const at = Date.now() + 1500; bc?.postMessage({ go: true, at }); if (armed) raceFire(at); },
+		async raceRevisions() {
+			if (!state.raceFileId) throw new Error('no race file');
+			const r = await api('GET', `${DRIVE}/files/${state.raceFileId}/revisions?fields=revisions(id,modifiedTime,size,md5Checksum,keepForever)`);
+			const content = await api('GET', `${DRIVE}/files/${state.raceFileId}?alt=media`);
+			add('race.revisions', r.status === 200, { revisions: r.json.revisions, finalContent: content.json });
+		},
+		async ifMatch() {
+			if (!state.raceFileId) throw new Error('no race file');
+			const b = `spike${Date.now()}`;
+			const body = `--${b}\r\nContent-Type: application/json\r\n\r\n{}\r\n--${b}\r\nContent-Type: text/plain\r\n\r\nif-match test\r\n--${b}--`;
+			const r = await api('PATCH', `${UPLOAD}/files/${state.raceFileId}?uploadType=multipart&fields=headRevisionId`, body, { 'Content-Type': `multipart/related; boundary=${b}`, 'If-Match': '"stale-etag"' });
+			add('race.ifMatch', true, { status: r.status, honored: r.status === 412, body: r.json });
+		},
+		async revoke() {
+			const t = token;
+			await new Promise((res) => google.accounts.oauth2.revoke(t, (d) => { add('revoke', !!d.successful, { successful: d.successful, error: d.error ?? null }); res(); }));
+			const r = await fetch(`${DRIVE}/about?fields=user(permissionId)`, { headers: { Authorization: `Bearer ${t}` } });
+			add('revoke.after', r.status === 401, { aboutStatus: r.status });
+			token = null; setStatus();
+		},
+	};
+	document.addEventListener('click', async (e) => {
+		const name = e.target?.dataset?.run;
+		if (!name) return;
+		try { await checks[name](); } catch (err) { add(name, false, { error: scrub(err?.message ?? err) }); }
+	});
+	$('copy').onclick = async () => { try { await navigator.clipboard.writeText($('out').value); $('copy').textContent = 'Copied'; } catch { $('out').select(); document.execCommand('copy'); $('copy').textContent = 'Copied (fallback)'; } setTimeout(() => ($('copy').textContent = 'Copy JSON'), 1500); };
+	$('clear').onclick = () => { log.length = 0; render(); };
+})();
+</script>
+</body>
+</html>
