@@ -192,8 +192,9 @@ function SheetContent({
   // The tap is put through the SAME decision Radix would have made: the caller's `onPointerDownOutside` and
   // `onInteractOutside` see an outside event, and the sheet closes through Radix's own Close only if neither prevented it.
   // When Radix reports the tap first (a mouse, once it listens), it decides and the record is dropped; when it reports the
-  // same tap after this did (its touch path, on the click), its report is prevented and not passed on, so a caller hears
-  // each tap once and the sheet never closes twice.
+  // same tap after this did (its touch path, on the click) and this path CLOSED the sheet, its report is prevented and not
+  // passed on, so the sheet never closes twice. A tap the caller kept is not claimed, so Radix's later report of it reaches
+  // the caller again (see KNOWN LIMITS below).
   const contentRef = React.useRef<HTMLDivElement | null>(null)
   const closeRef = React.useRef<HTMLButtonElement | null>(null)
   const decided = React.useRef(false)
