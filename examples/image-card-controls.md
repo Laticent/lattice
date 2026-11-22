@@ -29,7 +29,9 @@ The small card steps the type down, so the photo carries the slide.
 
 ## A soft dark card, centered low.
 
-`image-card-soft` thins the panel to 80%; `image-card-light` sets white words on a dark card.
+`image-card-soft` thins the panel to 80%.
+
+`image-card-light` sets white words on it.
 
 ![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
