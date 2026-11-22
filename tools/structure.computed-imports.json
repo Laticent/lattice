@@ -97,6 +97,10 @@
       "count": 3,
       "why": "esbuild needs each chart kind's file, read from the registry's source as data (followups.d/2630-p3-computed-require-into-chart-registry.md)"
     },
+    "lib/packages/code-door-worker.js": {
+      "count": 1,
+      "why": "esmExpression checks the names it inlines against what Node itself exports from the sibling remote-ref.js requires (./css-tokens.mjs today); the path is that sibling, read from remote-ref.js, so it cannot be a literal. a downward edge (lib/packages -> lib/core), already in the graph through the literal require of remote-ref.js"
+    },
     "lib/packages/draw-frame-core.mjs": {
       "count": 1,
       "why": "writes an import() into the sandboxed draw frame's boot script as text; the frame loads the plugin's vendored library by URL"
