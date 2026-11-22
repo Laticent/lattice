@@ -62,6 +62,25 @@ afterEach(() => {
 	localStorage.clear();
 });
 
+// THE STRIP'S NOTES DO NOT FADE IN THIS FILE. StudioShell clears the strip note (`stripNote`, its Undo included) after
+// 6 s and the New slide door's "Added before/after" note (`addedNote`) after 1.8 s, both on real timers. A test that
+// reads a note, or its Undo, a few clicks after the op that wrote it then passed or failed on the machine's speed: a
+// loaded run spent the 1.8 s and found no note, and an "the Undo is gone" check could pass because the timer, not the
+// rule it tests, removed it (HARD RULE #32, followups.d/3367-p1 G4). With those two timers dropped, a note stays until
+// the next action replaces it, which is the behavior these tests are about. The filter matches the delay AND the
+// caller, so every other timer runs. No test here checks the fade itself.
+const NOTE_FADE_MS = new Set([6000, 1800]);
+const realSetTimeout = globalThis.setTimeout;
+beforeEach(() => {
+	vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void, ms?: number, ...rest: unknown[]) =>
+		ms !== undefined && NOTE_FADE_MS.has(ms) && /StudioShell\.tsx/.test(new Error().stack ?? '')
+			? (0 as unknown as ReturnType<typeof setTimeout>)
+			: realSetTimeout(fn, ms, ...rest)) as typeof setTimeout);
+});
+afterEach(() => {
+	vi.restoreAllMocks();
+});
+
 // StudioShell loads the Editor through `React.lazy` (StudioShell.tsx:127) behind a Suspense
 // fallback, and React.lazy memoizes its resolution on a MODULE-scope object. So only the FIRST
 // test in this file to mount the Studio pays CodeMirror's cold import and sees `EditorSkeleton`;
