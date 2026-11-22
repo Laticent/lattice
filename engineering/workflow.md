@@ -1823,6 +1823,13 @@ left bare is read as a YAML comment); the tool refuses a card whose value was cu
 at a `#` instead of printing it truncated. `npm run card -- --check card.yml`
 only validates.
 
+**The card signs itself.** With `LATTICE_ACTOR` set to a key in `.github/actors.json`
+(`picard`, `kirk`), the printed card ends with `— John Luke Picard · session_<id>`
+after the closing fence: paste it with the card, above the usual footers. Unset, the
+card prints unsigned with a one-line warning; set to a key the roster lacks, the tool
+refuses the card (exit 1) and says how to set it. It never guesses a name
+(`engineering/decisions/2026-11-22-two-person-relay.md`, D3).
+
 1. **Header lines**: emoji, card name and subject on the first line; how to
    respond on the second.
 2. **BOTTOM LINE first.** The ask, your pick and the state come before the detail.

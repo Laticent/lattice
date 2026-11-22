@@ -14,6 +14,12 @@
  *   npm run card -- --table fleet.yml # fleet board as one markdown table
  *   cat card.yml | npm run card -- -  # read YAML from stdin
  *
+ * Signature (engineering/decisions/2026-11-22-two-person-relay.md, D3): with LATTICE_ACTOR set to a
+ * key in `.github/actors.json`, the printed card ends with `— <name> · session_<id>`, the line that
+ * goes above the usual footers. Unset: the card prints unsigned with a one-line warning on stderr.
+ * Set to a key the roster lacks: the card is refused (exit 1) with how to set it. `--check` signs
+ * nothing.
+ *
  * Exit codes:
  *   0  the card is valid and was printed
  *   1  the card is invalid; every problem is listed on stderr
@@ -114,4 +120,25 @@ if (!result.ok) {
   for (const e of result.errors) console.error(`  - ${e}`);
   process.exit(1);
 }
-console.log(check ? `card: OK (${card.card}, ${result.lines.length} lines)` : result.text);
+if (check) {
+  console.log(`card: OK (${card.card}, ${result.lines.length} lines)`);
+  process.exit(0);
+}
+const relay = require('./relay-core');
+let actor;
+try {
+  actor = relay.resolveActor(process.env, relay.loadRoster());
+} catch (err) {
+  console.error(`card: cannot read the actor roster: ${err.message}`);
+  process.exit(1);
+}
+if (actor.status === 'invalid') {
+  console.error(`card: not signed: ${actor.message}`);
+  process.exit(1);
+}
+if (actor.status === 'unset') {
+  console.error(`card: warning: ${actor.message}`);
+  console.log(result.text);
+} else {
+  console.log(`${result.text}\n\n${relay.signature(actor.name, relay.sessionId(process.env))}`);
+}
