@@ -5,27 +5,33 @@ recorded: 2026-11-21
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md
-deferred: off-path — #3367 changed docs and comments only; these are jsdom Studio unit tests it does not touch, and the owner's flake desk assigns one owner per flake
-source: https://github.com/Laticent/lattice/pull/3367#issuecomment-7057507711
+deferred: blocked — what is left (G1) waits on the owner's decision about the docs vitest pool or worker count, a change to the test contract (CLAUDE.md, decisions the owner makes, row 2)
+source: https://github.com/Laticent/lattice/pull/3398#issuecomment-7074021849
 ---
 
-# About 27 Studio and Compose unit tests time out when the box is under load
+# Heavy Studio unit tests run past the 20 s hang guard when the box is under load
 
-why now   — `npx vitest run src/lib/compose src/components/studio` (docs/) is green alone (374 files, 6591 tests) but
-            failed about 27 tests every time it ran beside a 4-worker Playwright run. Measured 2026-11-21 under the same
-            load: on prosemirror-view 1.42.9, 27 failed in 7 files (26 test timeouts at the 20 s `testTimeout` in
-            docs/vitest.config, 1 hook timeout, 1 Testing Library `findBy` miss); on 1.42.8, 27 failed in 25 files with
-            242 skipped (24 test timeouts, 9 hook timeouts at 10 s and 30 s, 3 `findBy` misses). A first loaded run
-            reported 29 failed in 3 files; only its summary line was kept, so those names are unrecorded. So no dependency
-            bump causes it; it is a load sensitivity on `main`
-            (HARD RULE #32: a test passes or fails on the code alone, never on the machine's load).
-where     — on 1.42.9: `studio.controls.test.tsx` (13), `studio.theme-depth.test.tsx` (6), `StudioShell.test.tsx` (5),
-            `WorkspaceSheet.test.tsx`, `studio.coach-profile.test.tsx`, `studio.fuzz.test.tsx`, and
-            `src/lib/compose/raw-block.test.ts`. The 1.42.8 run spread wider (`studio.local-components`, `deck-source`,
-            `scoped-resync`, `deck-markdown-soft-break` and others). `studio.fuzz`'s timeout may already be owned by the
-            flake desk's unit/integration session; check before starting.
-done when — the same command passes while a 4-worker Playwright run loads the box, with no test's timeout raised to get
-            there (HARD RULE #33), and each fix names what the test was waiting on.
-evidence  — the loaded run's counts before and after; for each changed test, a failing arm and `--workers=4` repeats
-            (HARD RULE #34).
-verify    — tier 1: self-review with the gates, plus the loaded repro.
+why now   — `npx vitest run src/lib/compose src/components/studio` (docs/) passes alone but fails 27 to 109 tests when a
+            4-worker Playwright run shares the 4-core box. The flake desk (session_015KSkL4YsxynRbn58Xd9Yhb) gave the set to
+            the session that found it and agreed three groups. Two are fixed in #3398; this item is the third.
+            - G2, fixed (#3398, `docs/src/test/orphan-guard.ts`): a timed-out test's leftover work landed on the next
+              test's page (about 10 collateral failures on an empty body).
+            - G3, fixed (#3398, `docs/src/test/corpus.ts`): five tests each swept the whole shipped corpus; now one test
+              per deck.
+            - G1, OPEN: about 90 whole-Studio jsdom tests do real CPU work (about 10 re-renders of StudioShell each),
+              1-4 s alone and 20-43 s under load, past the 20 s `testTimeout`. They wait on nothing, so no test-side fix
+              exists short of less coverage or a bigger timeout, and the flake desk ruled out the bigger timeout.
+              `engineering/decisions/2026-08-23-jsdom-suite-timeout-budget.md` already measured that the work cannot be
+              cheaply cut.
+measured  — CI: in merge-queue runs 2026-11-08 to 2026-11-22 (about 350), `docs-test` (`npm test -- --maxWorkers=4`, alone on
+            its runner) failed 3 times, none of them G1: run 43376276820 (a persistent-surface focus assertion) and runs
+            43994458532 and 43999565415 (a real scoped-resync assertion). So G1 is local-only.
+            Full docs suite on this 4-core sandbox (2026-11-22, with the G2 guard; the run stopped after three rows):
+            default alone 492 s, 13731 passed; default beside the Playwright run 4084 s, 102 failed; `--maxWorkers=2` alone
+            703 s, 13731 passed. Still to measure: `--maxWorkers=2` loaded, `--pool=forks` alone and loaded.
+where     — `docs/vitest.config.ts` (`testTimeout`, pool, workers); the heaviest files are `studio.controls`, `StudioShell`,
+            `studio.theme-depth` and `studio.fuzz`.
+done when — the owner has picked a config (or "accept: unit tests do not share the box with a browser run") from the full
+            table, and the chosen change is in with the suite green alone and under the same load.
+evidence  — the six-row table (wall time and failures for each config, alone and loaded), and the owner's answer.
+verify    — tier 1: self-review with the gates; the owner's answer is the decision.
