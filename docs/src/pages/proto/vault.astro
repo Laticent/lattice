@@ -1,0 +1,72 @@
+---
+// ISOLATED PROTOTYPE: the storage vault's test harness (slice 1 of
+// engineering/decisions/2026-11-22-local-first-drive-storage.md). Not linked from anywhere.
+// Route: /proto/vault/
+//
+// It opens the browser vault (OPFS bytes through the write worker, the IndexedDB `lattice-vault`
+// index) and exposes it as `window.vaultHarness`, so docs/e2e/vault.spec.ts can write, reload and
+// read on real Chromium, WebKit and Gecko. Delete this file and that spec to revert.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Vault harness</title>
+	</head>
+	<body>
+		<main>
+			<h1>Vault harness</h1>
+			<p>Status: <output id="status">opening</output></p>
+		</main>
+		<script>
+			import { openBrowserVault } from '@/lib/vault';
+
+			const status = document.getElementById('status') as HTMLOutputElement;
+			const ready = openBrowserVault().then(
+				(vault) => {
+					status.value = 'ready';
+					document.body.dataset.ready = 'yes';
+					return vault;
+				},
+				(err) => {
+					status.value = `failed: ${(err as Error).message}`;
+					document.body.dataset.code = (err as { code?: string }).code ?? 'error';
+					document.body.dataset.ready = 'failed';
+					throw err;
+				},
+			);
+			const changes: unknown[] = [];
+			void ready.then((v) => v.watch((c) => changes.push(...c)));
+			const toText = async (b: Blob) => new TextDecoder().decode(new Uint8Array(await b.arrayBuffer()));
+
+			(window as unknown as { vaultHarness: unknown }).vaultHarness = {
+				ready,
+				changes,
+				write: async (path: string, data: string) => (await ready).write(path, data),
+				writeBytes: async (path: string, size: number, seed: number) => {
+					const bytes = new Uint8Array(size);
+					let a = seed >>> 0;
+					for (let i = 0; i < size; i++) {
+						a = (Math.imul(a, 1664525) + 1013904223) >>> 0;
+						bytes[i] = a >>> 24;
+					}
+					return (await ready).write(path, bytes);
+				},
+				readText: async (path: string) => toText(await (await ready).read(path)),
+				readSize: async (path: string) => (await (await ready).read(path)).size,
+				list: async (dir: string) => (await ready).list(dir, { recursive: true }),
+				remove: async (path: string) => (await ready).remove(path),
+				move: async (from: string, to: string) => (await ready).move(from, to),
+				journal: async () => (await ready).journal(),
+				deviceId: async () => (await ready).deviceId(),
+				recovery: async () => (await ready).recovery,
+				writePaths: async () => [...(await ready).writePaths],
+				probe: async () => (await ready).probeWritePath(),
+				settled: async () => (await ready).settled(),
+			};
+		</script>
+	</body>
+</html>
