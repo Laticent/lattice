@@ -160,7 +160,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-keepalive' ? await runPresentKeepaliveProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'present-landscape' ? await runPresentLandscapeProbe(id) : PROBE === 'codec-support' ? await runCodecProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : PROBE === 'player-charts' ? await runPlayerChartsProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -830,6 +830,133 @@ async function runPresentMemoryProbe(id) {
 	];
 	const failed = steps.filter((s) => !s.pass);
 	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: a.ua, width: a.width, deckBytes: deck.bytes.length, arms, steps };
+}
+
+/**
+ * Turn the booted simulator sideways. simctl has no rotate verb, so this drives Simulator.app, the way a person at the
+ * Mac does: show the device in it, then Device > Rotate Left from its menu bar; if the page is still upright, the same
+ * command's shortcut (Command-Left). Each try waits for the PAGE to report a landscape viewport (a signal, bounded:
+ * HARD RULE #32). Returns which try turned it, or '' with what each try said; the verdict then fails "the simulator is
+ * turned to landscape" by name rather than judging an upright screen as a sideways one.
+ */
+async function turnSimulatorSideways(id) {
+	const sideways = async () => {
+		const [w, h] = (await wd('POST', `/session/${id}/execute/sync`, { script: 'return [innerWidth, innerHeight];', args: [] })) || [0, 0];
+		return w > h;
+	};
+	const settled = async () => {
+		for (let i = 0; i < 30; i++) {
+			if (await sideways()) return true;
+			await sleep(500);
+		}
+		return false;
+	};
+	if (await sideways()) return { by: 'already sideways', notes: [] };
+	const notes = [];
+	const osa = (lines) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }).toString();
+	try {
+		execFileSync('open', ['-a', 'Simulator', '--args', '-CurrentDeviceUDID', UDID], { timeout: 30000 });
+		await sleep(8000); // Simulator.app has no "window shown" signal to wait on from here; the page check below is the judge.
+	} catch (e) {
+		notes.push(`open Simulator: ${String(e.message || e).slice(0, 120)}`);
+	}
+	const tries = [
+		['the Device menu', ['tell application "Simulator" to activate', 'delay 1', 'tell application "System Events" to tell process "Simulator" to click menu item "Rotate Left" of menu 1 of menu bar item "Device" of menu bar 1']],
+		['Command-Left', ['tell application "Simulator" to activate', 'delay 1', 'tell application "System Events" to key code 123 using command down']],
+	];
+	for (const [by, lines] of tries) {
+		try {
+			osa(lines);
+		} catch (e) {
+			notes.push(`${by}: ${String(e.stderr || e.message || e).trim().slice(0, 160)}`);
+			continue;
+		}
+		if (await settled()) return { by, notes };
+		notes.push(`${by}: ran, the page stayed upright`);
+	}
+	return { by: '', notes };
+}
+
+/**
+ * The Present LANDSCAPE probe (PROBE=present-landscape, #3304): the 4K photo deck presented on a simulator turned
+ * sideways, the case the 🚦 card named as unrun. The iPad Pro 13-inch (run.sh picks it) is the iPad with the widest
+ * landscape screen, about 2,752 device px, over FOUR_K_FROM; Present's own chrome leaves its slide host about 1,100 CSS
+ * px, so the rule lays the deck out on HD (the Linux self-test read 1,099 px). An iPhone turned sideways plays the deck
+ * with its spoken notes, so the captions ride over the slide (#3333) in the band #3304 sized to its sentence.
+ *
+ * Present opens upright and the simulator is turned after (turnSimulatorSideways): a phone held sideways shows the Studio
+ * no Present button, and turning mid-Present is what a presenter does. Then the canvas is read (latticePresentGeometry),
+ * the captions played on the phone (latticePresentCaptions), and six slides stepped. The footprint is read before
+ * Present, after the turn and after the steps, judged against PRESENT_MEMORY_CAP_MB like the upright probe. The verdict
+ * is present-memory.mjs `presentChecks` plus `landscapeChecks`: states and sizes, never time (HARD RULE #32).
+ */
+async function runPresentLandscapeProbe(id) {
+	const { buildPresentDeck, PRESENT_TITLE_LANDSCAPE, presentChecks, landscapeChecks } = await import('./present-memory.mjs');
+	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
+	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 300);
+	const PIECE = 4_000_000;
+	const phone = /iphone/i.test(LABEL);
+	const deck = await buildPresentDeck(undefined, undefined, '4k', PRESENT_TITLE_LANDSCAPE, true);
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const pieces = Math.ceil(b64.length / PIECE);
+	const source = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
+	const call = async (expr, what) => {
+		const r = await wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+		if (r?.error) throw new Error(`${what}: ${r.error}`);
+		return r;
+	};
+	const shot = (name) => {
+		try {
+			execFileSync('xcrun', ['simctl', 'io', UDID, 'screenshot', path.join(OUT, `${PROBE}-${LABEL}-${name}.png`)], { timeout: 30000, stdio: 'ignore' });
+		} catch (e) {
+			console.log(`${LABEL}: no ${name} screenshot (${e.message})`);
+		}
+	};
+	const out = { wantHeading: `${PRESENT_TITLE_LANDSCAPE}.` };
+	try {
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		for (let i = 0; i < pieces; i++) await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${pieces})`, 'sending the deck');
+		const imported = await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)}, ${deck.slides})`, 'importing the deck');
+		Object.assign(out, { importMs: imported.importMs, ua: imported.ua, width: imported.width });
+		await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
+		await call(`latticePresentReady(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)})`, 'the deck after the reload');
+		await sleep(8000); // memory has no "settled" event: the upright probe reads the same way
+		const m0 = await simulatorWebContentMB();
+		const opened = await call('latticePresentOpen()', 'opening Present');
+		Object.assign(out, { openMs: opened.openMs, slides: opened.total, heading: opened.heading });
+		await call('latticePresentWatchTurn()', 'watching the turn');
+		const turned = await turnSimulatorSideways(id);
+		out.rotatedBy = turned.by || `nothing (${turned.notes.join('; ')})`;
+		console.log(`${LABEL}: turned by ${out.rotatedBy}${turned.notes.length && turned.by ? ` after ${turned.notes.join('; ')}` : ''}`);
+		out.geo = await call('latticePresentGeometry()', 'reading the canvas');
+		out.box = out.geo.box;
+		shot('sideways');
+		await sleep(3000);
+		const m1 = await simulatorWebContentMB();
+		if (phone) {
+			out.captions = await call('latticePresentCaptions()', 'playing the captions');
+			shot('captions');
+		}
+		const stepped = await call('latticePresentStep(6)', 'stepping through Present');
+		Object.assign(out, { stepsMs: stepped.steps.map((x) => x.ms), photos: stepped.steps.every((x) => x.photo) });
+		await sleep(3000);
+		const m2 = await simulatorWebContentMB();
+		out.alive = (await call('latticePresentAlive()', 'the page mark'))?.mark === opened.mark;
+		const open = growthMB(m0, m1);
+		const all = growthMB(m0, m2);
+		Object.assign(out, { baseMB: all.baseMB, openGrewMB: open.grew, grewMB: all.grew, freedMB: all.freed });
+	} catch (e) {
+		out.error = String(e.message || e).slice(0, 300);
+	}
+	const g = out.geo || {};
+	console.log(`${LABEL}: sideways ${g.innerW}x${g.innerH} at ${g.dpr}x, slide host ${g.hostW} px (${Math.round((g.hostW || 0) * (g.dpr || 0))} device px), laid out ${g.box}; ${out.grewMB ?? '?'} MB above ${out.baseMB ?? '?'} MB`);
+	// Reported, not judged: what Present showed between the turn and the rotation hold (see latticePresentWatchTurn).
+	console.log(`${LABEL}: through the turn (hold ${g.sawHold ? 'seen' : 'not seen'}): ${g.turn || 'no rows'}`);
+	const steps = [...presentChecks(out, { slides: deck.slides, capMB: CAP_MB, memory: true }), ...landscapeChecks(out, { expect: 'hd', captions: phone })];
+	const failed = steps.filter((x) => !x.pass);
+	return { ok: failed.length === 0, error: failed.map((x) => x.name).join('; ') || undefined, ua: out.ua, width: g.innerW ?? out.width, deckBytes: deck.bytes.length, arm: out, steps };
 }
 
 /**

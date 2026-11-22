@@ -666,6 +666,16 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   (`PRESENT_BASELINE_URL`, time-boxed to 6 minutes) that is reported and never judged: the before until #3148 deployed,
   the live site after it. The first run
   (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
+  `ios-safari-present-landscape` runs it with `PROBE=present-landscape` (#3304), on an iPad Pro 13-inch and an iPhone,
+  turned sideways. The deck is the same photos at `size: 4k`, each slide with a spoken note. Present opens upright, then
+  `run.mjs` turns the simulator through Simulator.app (Device > Rotate Left, then Command-Left; `simctl` has no rotate
+  verb). It fails when the page is not sideways, or the slide is not laid out on the canvas `lib/core/screen-canvas.mjs`
+  picks for the host width the page measures. It also fails when the 4K deck is not on HD (Present's chrome leaves the
+  13-inch iPad's slide host about 1,100 CSS px), on the present-memory failures, and, on the iPhone, when the captions
+  do not play over the slide in a band sized to the sentence, or Play and Pause change the slide's size. It also logs,
+  never judges, Present's layout through the turn: in Playwright's WebKit the slide is a 71-100 px box for 0.6-0.8 s,
+  until the orientation `change` event starts the rotation hold. Self-test:
+  `PROBE=present-landscape node docs/scripts/ios-safari/probe.selftest.mjs` (`NO_TURN=1` is its failing arm for the turn).
   `ios-safari-codec-support` runs it with `PROBE=codec-support` (no docs build, a blank page, the iPhone alone): the iOS arm
   of the narration codec bake-off. `codec-probe.js` decodes every file in `codec-fixtures/` (a 2 s Kokoro sentence as WAV,
   and the same in Opus/Ogg, Opus/WebM, Opus/MP4, Opus/CAF, AAC/MP4, AAC/ADTS, LAME MP3 with and without a gapless tag,

@@ -11,6 +11,7 @@
  *   PROBE=codec-support node scripts/ios-safari/probe.selftest.mjs   # the narration codec probe, in Chromium, WebKit and Firefox
  *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
  *   PROBE=present-keepalive node scripts/ios-safari/probe.selftest.mjs   # Present stays awake, immersive tap, captions, Next keeps playing
+ *   PROBE=present-landscape [SHAPES=<label,…>] [NO_TURN=1] node scripts/ios-safari/probe.selftest.mjs   # the 4K photo deck presented sideways: canvas, captions
  *   PROBE=empty-deck [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # empty the deck, tap the start grid's canvas, read the caret
  *   PROBE=icon-grid [SHOTS=<dir>] node scripts/ios-safari/probe.selftest.mjs   # the icon grid on a phone: insert from Source, copy from Preview
  *   PROBE=player-charts node scripts/ios-safari/probe.selftest.mjs   # chart cards in an exported player, opened and closed by taps
@@ -205,6 +206,63 @@ if (process.env.PROBE === 'present-keepalive') {
 	if (error) steps.push({ name: 'the probe ran to the end', pass: false, detail: error });
 	report('iPhone-sized', 'present-keepalive-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: r.open?.width, steps });
 	await context.close();
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'present-landscape') {
+	// The landscape probe, as run.mjs runs it, minus the footprint and the turn (the page here starts sideways): send the
+	// 4K photo deck with spoken notes, import it, reload, open Present, read the canvas, play the captions on the phones,
+	// step six slides. The iPad Pro 13-inch as Safari shows it sideways (1376 CSS px at 2x, less its bars), and the two
+	// iPhone sizes, because the larger one is the closest a phone comes to the FOUR_K_FROM line.
+	const { buildPresentDeck, PRESENT_TITLE_LANDSCAPE, presentChecks, landscapeChecks } = await import('./present-memory.mjs');
+	const PRESENT = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
+	const PIECE = 4_000_000;
+	const deck = await buildPresentDeck(undefined, undefined, '4k', PRESENT_TITLE_LANDSCAPE, true);
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	// Each device starts upright and is turned once Present is open, as a person does it and as run.mjs turns the
+	// simulator: a phone held sideways shows the Studio no Present button at all.
+	const sideways = [
+		{ label: 'iPad-13-landscape', expect: process.env.IPAD_EXPECT || 'hd', captions: false, options: { viewport: { width: 1032, height: 1302 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, turned: { width: 1376, height: 958 } },
+		{ label: 'iPhone-15-Pro-landscape', expect: 'hd', captions: true, options: { ...devices['iPhone 15 Pro'] }, turned: devices['iPhone 15 Pro landscape'].viewport },
+		{ label: 'iPhone-15-Pro-Max-landscape', expect: 'hd', captions: true, options: { ...devices['iPhone 15 Pro Max'] }, turned: devices['iPhone 15 Pro Max landscape'].viewport },
+	];
+	const only = process.env.SHAPES ? process.env.SHAPES.split(',') : null;
+	for (const shape of sideways.filter((x) => !only || only.includes(x.label))) {
+		const out = { wantHeading: `${PRESENT_TITLE_LANDSCAPE}.`, rotatedBy: 'the viewport' };
+		const context = await browser.newContext(shape.options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		const call = (expr) => page.evaluate(`${PRESENT}\n${expr}`);
+		try {
+			await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+			const n = Math.ceil(b64.length / PIECE);
+			for (let i = 0; i < n; i++) await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${n})`);
+			const imported = await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)}, ${deck.slides})`);
+			Object.assign(out, { importMs: imported.importMs, width: imported.width });
+			await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+			await call(`latticePresentReady(${JSON.stringify(PRESENT_TITLE_LANDSCAPE)})`);
+			const opened = await call('latticePresentOpen()');
+			Object.assign(out, { openMs: opened.openMs, slides: opened.total, heading: opened.heading, box: opened.box });
+			// NO_TURN=1 leaves the page upright: the failing arm for "the simulator is turned to landscape".
+			await call('latticePresentWatchTurn()');
+			if (!process.env.NO_TURN) await page.setViewportSize(shape.turned);
+			out.geo = await call('latticePresentGeometry()');
+			out.box = out.geo.box;
+			if (process.env.SHOTS) await page.screenshot({ path: path.join(process.env.SHOTS, `${shape.label}-open.png`) });
+			if (shape.captions) out.captions = await call('latticePresentCaptions()');
+			if (process.env.SHOTS && shape.captions) await page.screenshot({ path: path.join(process.env.SHOTS, `${shape.label}-captions.png`) });
+			const stepped = await call('latticePresentStep(6)');
+			Object.assign(out, { stepsMs: stepped.steps.map((x) => x.ms), photos: stepped.steps.every((x) => x.photo), alive: (await call('latticePresentAlive()')).mark === opened.mark });
+		} catch (e) {
+			out.error = String(e.message || e).split('\n')[0].slice(0, 300);
+		}
+		const g = out.geo || {};
+		console.log(`${shape.label}: viewport ${g.innerW}x${g.innerH} at ${g.dpr}x, host ${g.hostW} px, slide ${g.slideW} px on screen, laid out ${g.box}`);
+		if (process.env.TURN_TRACE) console.log(`  turn: ${g.turn}`);
+		const steps = [...presentChecks(out, { slides: deck.slides, memory: false }), ...landscapeChecks(out, { expect: shape.expect, captions: shape.captions })];
+		report(shape.label, 'present-memory-probe.js', { ok: steps.every((x) => x.pass), error: steps.filter((x) => !x.pass).map((x) => x.name).join('; '), width: out.width, steps });
+		await context.close();
+	}
 	await browser.close();
 	process.exit(failed ? 1 : 0);
 }

@@ -271,6 +271,28 @@
       "docs_site": true
     },
     {
+      "name": "ios-safari-present-landscape",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/present-memory.mjs",
+        "docs/scripts/ios-safari/present-memory-probe.js",
+        "docs/scripts/ios-safari/photo-memory.mjs",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/PresentOverlay.tsx",
+        "docs/src/components/studio/present/stage-chrome.js",
+        "docs/src/playground/single-slide-render.ts",
+        "lib/core/screen-canvas.mjs"
+      ],
+      "run": "PROBE=present-landscape bash docs/scripts/ios-safari/run.sh",
+      "why": "Present on a phone or tablet turned sideways, in real Mobile Safari (#3304, the owner's choice of a suite of its own). The present-memory suite runs upright, on the iPhone alone, and uses 16.5 of its 30 minutes, so the 🚦 card named landscape as unrun. This presents a deck of eighteen phone photos (about 24 MB) at `size: 4k`, with spoken notes, on an iPad Pro 13-inch (the widest iPad screen, about 2,752 device px sideways) and an iPhone. Present opens upright and run.mjs turns the simulator through Simulator.app (simctl has no rotate verb). It fails when the page is not sideways, when the slide is not laid out on the canvas lib/core/screen-canvas.mjs picks for the host width the page measures, when the 4K deck is not on HD (Present's chrome leaves the 13-inch iPad's slide host about 1,100 CSS px, 2,200 device px), when a step does not reach its photo, the page reloads or Present adds more than PRESENT_MEMORY_CAP_MB (300), and on the iPhone when the captions do not play over the slide with every line whole, or Play and Pause change the slide's size. States and sizes, never times (HARD RULE #32). Proved first by `PROBE=present-landscape node docs/scripts/ios-safari/probe.selftest.mjs` on Playwright's WebKit. Nightly and on dispatch only.",
+      "on_pull_request": false,
+      "docs_site": true
+    },
+    {
       "name": "ios-safari-present-keepalive",
       "os": [
         "macos-26"

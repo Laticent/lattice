@@ -8,6 +8,7 @@
 # across a reload, and measures the localStorage allowance (chat-storage-probe.js), against the site in both simulators. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
 # cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
 # photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=codec-support decodes and round-trips the narration codec fixtures on a blank page (codec-probe.js).
+# PROBE=present-landscape presents a 4K photo deck on an iPad Pro 13-inch and an iPhone turned sideways: the canvas, captions, memory.
 # PROBE=present-keepalive opens Present on an iPhone: the wake lock, immersive, a touch tap, captions, Next while playing (present-keepalive-probe.js). PROBE=player-charts
 # exports two decks to HTML players and taps their chart detail cards open and shut (player-charts.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
@@ -152,6 +153,9 @@ families='iPad iPhone'
 [ "$PROBE" = codec-support ] && families='iPhone'
 # The Present keep-alive probe is the owner's case too: Present on an iPhone, where full screen falls back to immersive (#3333).
 [ "$PROBE" = present-keepalive ] && families='iPhone'
+# The Present landscape probe turns the simulator sideways (#3304): the iPad Pro 13-inch, the widest iPad screen, and an
+# iPhone, where the captions ride over the slide. run.mjs turns it through Simulator.app.
+[ "$PROBE" = present-landscape ] && families='iPad iPhone'
 # DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
 # each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
 # twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest
@@ -188,7 +192,7 @@ for family in $families; do
   device_t0=$SECONDS
   device_type=$(xcrun simctl list devices available --json | jq -r --arg rt "$runtime" --arg f "$family" --arg p "$PROBE" \
     '[.devices[$rt][] | select(.name | startswith($f))] as $all
-     | (if $p == "focus-sync" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
+     | (if $p == "focus-sync" or $p == "present-landscape" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
      | .deviceTypeIdentifier // empty')
   # A missing device type is a runner-image or script fault, not a simulator that would not connect: a finding, never re-run.
   if [ -z "$device_type" ]; then echo "no $family device type for $runtime" >&2; status=1; probe_failed=1; continue; fi
