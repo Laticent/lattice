@@ -357,4 +357,38 @@ describe('PanelSheet — a tap on the scrim', () => {
 			vi.useRealTimers();
 		}
 	});
+
+	it('hears the next outside press after the caller kept a finger tap that no click followed', () => {
+		// A kept tap leaves nothing armed: the scrim path claims a tap only when it closes the sheet. Before, a kept
+		// finger tap with no click (Mobile Safari, or the gap) left the claim set, and it swallowed the NEXT outside
+		// press, one that never touched the scrim, so the caller never heard it and the sheet stayed open.
+		vi.useFakeTimers();
+		try {
+			const onOpenChange = vi.fn();
+			let keep = true;
+			const onInteractOutside = vi.fn((e: Event) => {
+				if (keep) e.preventDefault();
+			});
+			const { unmount } = render(
+				<Sheet open onOpenChange={onOpenChange}>
+					<SheetContent onInteractOutside={onInteractOutside}>
+						<SheetTitle>Kept once</SheetTitle>
+					</SheetContent>
+				</Sheet>,
+			);
+			touch(scrim(), { click: false });
+			expect(onInteractOutside).toHaveBeenCalledTimes(1);
+			expect(onOpenChange).not.toHaveBeenCalled();
+			keep = false;
+			vi.runOnlyPendingTimers();
+			ptr(document.body, 'pointerdown', 'mouse');
+			ptr(document.body, 'pointerup', 'mouse');
+			fireEvent.click(document.body, { clientX: 20, clientY: 20 });
+			expect(onInteractOutside).toHaveBeenCalledTimes(2);
+			expect(onOpenChange).toHaveBeenCalledWith(false);
+			unmount();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });

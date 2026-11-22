@@ -209,15 +209,16 @@ function SheetContent({
     },
     [callerRef]
   )
-  // KNOWN LIMITS of the scrim path, found in review (#3418); no caller in the tree meets either today:
+  // KNOWN LIMITS of the scrim path, found in review (#3418); no caller in the tree meets any today:
   //  - The close below is a real click on the hidden Close, and React bubbles it through this sheet's
   //    React parents. A parent `onClick` around a <Sheet> hears it, and in a real browser it can also
   //    hear the browser's own click on the fading scrim: two clicks for one tap. Do not toggle on a
   //    click from a sheet's parent; use `onOpenChange`.
-  //  - When a caller keeps the sheet open (preventDefault) and no click follows (iOS, or the gap before
-  //    Radix listens), `decided` stays set until the next scrim press or the next open, so ONE later
-  //    outside event that does not start on the scrim is swallowed. And the synthetic event has no
-  //    `target` and carries a `pointerup` in `detail.originalEvent`: a caller must not read either.
+  //  - When a caller keeps the sheet open (preventDefault) and the browser's click follows, Radix reports
+  //    the same tap again, so the caller's outside handlers run twice for it and must give the same
+  //    answer. (A kept tap claims nothing, so it never swallows a later press: panel-scrim.test.tsx.)
+  //  - The synthetic event has no `target` and carries a `pointerup` in `detail.originalEvent`: a caller
+  //    must not read either.
   //  Stopping the click's propagation would fix the first, but it would also keep the click from the
   //  document, where Radix's one-shot touch listener waits: not worth it without a caller that needs it.
   const onScrimPointerUp = (e: React.PointerEvent) => {
@@ -225,10 +226,13 @@ function SheetContent({
     if (contentRef.current?.getAttribute("data-state") !== "open") return
     if (layerAbove(contentRef.current)) return
     const outside = new CustomEvent("dismissableLayer.pointerDownOutside", { bubbles: false, cancelable: true, detail: { originalEvent: e.nativeEvent } })
-    decided.current = true
     onPointerDownOutside?.(outside as unknown as Outside)
     onInteractOutside?.(outside as unknown as Outside)
-    if (!outside.defaultPrevented) closeRef.current?.click()
+    if (outside.defaultPrevented) return
+    // Claim the tap only now, as it closes: Radix's own report of it (a click on touch) is then dropped, not
+    // handed to the caller a second time. A tap the caller kept claims nothing, so it swallows no later press.
+    decided.current = true
+    closeRef.current?.click()
   }
   return (
     <SheetPortal>
