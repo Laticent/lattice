@@ -229,15 +229,20 @@ describe('readHead (real git, throwaway origin)', () => {
   });
 
   test('a rescue ref that already holds other commits: exit 3 with how to keep both, never forced', () => {
-    // rewrite local history so the next rescue is not a fast-forward of the ref pushed above
+    // its own session id and its own earlier rescue, so it never depends on another test (#32)
+    const NF = 'session_NF01';
+    const ref = `refs/heads/relay-rescue/claude/relay/${NF}`;
     git('reset', '-q', '--hard', 'origin/claude/relay');
-    commit(`wip: different work\n\n${trailer(ME)}`);
-    const before = execFileSync('git', ['ls-remote', 'origin', `refs/heads/relay-rescue/claude/relay/${ME}`], { cwd: work, encoding: 'utf8' });
+    commit(`wip: first try\n\n${trailer(NF)}`);
+    git('push', '-q', 'origin', `HEAD:${ref}`);
+    git('reset', '-q', '--hard', 'origin/claude/relay');
+    commit(`wip: different work\n\n${trailer(NF)}`);
+    const before = execFileSync('git', ['ls-remote', 'origin', ref], { cwd: work, encoding: 'utf8' });
     const lines = [];
-    const code = run(['rescue', 'claude/relay'], { env: { LATTICE_SESSION: ME }, out: (s) => lines.push(s), err: (s) => lines.push(s) });
+    const code = run(['rescue', 'claude/relay'], { env: { LATTICE_SESSION: NF }, out: (s) => lines.push(s), err: (s) => lines.push(s) });
     assert.equal(code, 3);
     assert.match(lines.join('\n'), /already holds other commits.*git merge FETCH_HEAD/s);
-    const after = execFileSync('git', ['ls-remote', 'origin', `refs/heads/relay-rescue/claude/relay/${ME}`], { cwd: work, encoding: 'utf8' });
+    const after = execFileSync('git', ['ls-remote', 'origin', ref], { cwd: work, encoding: 'utf8' });
     assert.equal(after, before, 'the earlier rescue is never overwritten');
   });
 });
@@ -286,6 +291,20 @@ describe('npm run baton -- rescue', () => {
     const r = go(['rescue'], { push: 1 });
     assert.equal(r.code, 3);
     assert.doesNotMatch(r.text, /pushed/);
+  });
+
+  test('a pre-push hook that refuses on stdout: its reason reaches the session', () => {
+    const lines = [];
+    const gitRun = (args) =>
+      args[0] === 'rev-list'
+        ? { status: 0, stdout: '1\n', stderr: '' }
+        : args[0] === 'push'
+          ? { status: 1, stdout: 'LINT: 3 errors in tools/x.js\n', stderr: 'error: failed to push some refs\n' }
+          : { status: 0, stdout: '', stderr: '' };
+    const code = run(['rescue'], { env: { LATTICE_SESSION: ME }, gitRun, branchNow: () => 'claude/x', out: (x) => lines.push(x), err: (x) => lines.push(x) });
+    assert.equal(code, 3);
+    assert.match(lines.join('\n'), /LINT: 3 errors in tools\/x\.js/);
+    assert.match(lines.join('\n'), /never --no-verify/);
   });
 
   test('no session id: exit 64', () => assert.equal(go(['rescue'], { env: {} }).code, 64));

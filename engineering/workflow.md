@@ -159,8 +159,11 @@ Each account has its own weekly meter, and **each session reads it itself** at e
 newest `rate_limit_event` in its own transcript (`list_events` on its own session id, `kinds:
 ["rate_limit_event"]`) carries `…rate_limit_info.unifiedWindows.seven_day.utilization`, for example
 `0.30`. The field is undocumented, so a session that cannot read it treats the level as unknown and says
-so. (`get_session` drops the percentage and shows only `allowed_warning`, which flips at about 25%.) A
-command-center `usage N` broadcast is optional. Decision: `2026-11-22-two-person-relay.md` §Usage
+so at each checkpoint and carries on. (`get_session` drops the percentage and shows only
+`allowed_warning`, which flips at about 25%.) A command-center `usage N` broadcast is optional and only
+prompts a session to read its own level now; a broadcast never pauses a session by itself (#31). A
+session whose level is unknown and that hears a broadcast of 75% or more checkpoints, releases and asks
+the owner in its own chat whether to pause. Decision: `2026-11-22-two-person-relay.md` §Usage
 checkpoints.
 
 | Level | Every session |
@@ -172,7 +175,9 @@ checkpoints.
 **A session never declares itself critical.** After pausing it checks `list_sessions` for a live session
 tagged `command-center` on its account: if there is one, it says the command center will propose which
 sessions resume; if not, it says only the owner can resume it. It resumes when the owner says `keep going`,
-in that session or as a keep list the owner approved in the command center and relayed. A relayed resume
+in that session or relayed from a keep list the owner approved in the command center. Resuming starts with
+`npm run baton -- take`; if the other person's session took the branch meanwhile, the session stays
+paused and says so. A relayed resume
 continues the session's own work, so #31 does not block it, and the pause is the session's own rule rather
 than another session's order, so it needs no second ask. Critical work for a keep list: release-gate work,
 red-on-main fixes (#33), work needed to reach a merge the owner already asked for. The owner accepted the
@@ -182,7 +187,7 @@ cost: when 75% arrives with nobody awake, all work waits for an answer.
 mandated card checker runs. Work that needs the adversarial trio does not start until the reset, and work
 whose trio stage falls past 75% stops at a checkpoint before that stage; the trio is never skipped. The
 usage cap is a stop reason for the raise loop (§The raise loop): the card's `raised` row says so, e.g.
-`1 round: HIGH (stopped: usage past 75%)`. Work that cannot fit even that one round waits, not carded
+`1 round: HIGH (stopped: usage past 75%)`. Work that cannot fit even that one round waits and is not carded
 (`npm run card` refuses `0 rounds` below VERY HIGH). At the limit itself the CLI injects "Usage limit
 reached — grace window active. Wrap up: finish or checkpoint; don't start subagents or long work."
 

@@ -91,13 +91,16 @@ function rescue(branch, me, { gitRun, fetch, out }) {
   out(`rescue: pushing HEAD to ${ref} (the pre-push hook runs first, about a minute)…`);
   const push = gitRun(['push', 'origin', `HEAD:refs/heads/${ref}`]);
   if (push.status !== 0) {
-    const tail = (push.stderr || '').trim().split('\n').slice(-12).join('\n');
+    // The pre-push hook's reason can land on stdout or stderr; show the end of both.
+    const tail = `${push.stdout || ''}\n${push.stderr || ''}`.trim().split('\n').slice(-20).join('\n');
     if (/\[rejected\]|non-fast-forward|fetch first/.test(push.stderr || '')) {
       throw new relay.RelayError(
         `${ref} already holds other commits (an earlier rescue). Keep both: git fetch origin ${ref} && git merge FETCH_HEAD, then rescue again. Never force it.\n${tail}`,
       );
     }
-    throw new relay.RelayError(`git push to ${ref} failed (${push.status === null ? 'killed' : `exit ${push.status}`}); your commits are still only in this sandbox:\n${tail}`);
+    throw new relay.RelayError(
+      `git push to ${ref} failed (${push.status === null ? 'killed' : `exit ${push.status}`}); your commits are still only in this sandbox. If the pre-push hook refused it, fix what it names and rescue again (never --no-verify, #14):\n${tail}`,
+    );
   }
   out(`rescue: pushed HEAD (${n} commit${n === 1 ? '' : 's'} beyond origin/${branch}) to ${ref}.`);
   out('  Name it in the living comment (or tell the owner if you cannot edit it), then stop. The baton holder');

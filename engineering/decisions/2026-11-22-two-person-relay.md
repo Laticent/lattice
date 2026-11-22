@@ -285,8 +285,9 @@ The owner answered the PR's ❓ card on 2026-11-22 (in the workflow desk's sessi
   PR in this line of work after this one merges, with the adversarial trio and the card grader:
   `followups.d/3427-p1-relay-actor-commit-msg-hook.md` and
   `followups.d/3427-p2-session-start-actor-warning.md`.
-- **Usage pauses (D4: A).** Each paused session asks the owner again in its own chat; #31 gets no
-  exception.
+- **Usage pauses (D4: A), superseded.** The owner's answer was that each paused session asks again in
+  its own chat, with no #31 exception. The second usage round then made the 75% pause the session's own
+  rule (U3, revised, below), so there is no relayed pause left to ask about.
 - The three vetoes stand (merge-not-rebase on relay branches, the compressed rule text, §As built).
 
 ## Usage checkpoints (decided 2026-11-22)
@@ -314,8 +315,12 @@ missing. At the limit itself, the CLI injects: "Usage limit reached — grace wi
 or checkpoint; don't start subagents or long work."
 
 - **U1 (revised) Source: each session reads its own level** at every checkpoint (the 30-minute floor and
-  each cadence step), as above. At 25 and 50%: checkpoint, then continue. The command center's
-  `usage N` broadcast is optional, not the mechanism. *The owner's last recorded answer was "command
+  each of the checkpoint moments in §Relay rule 6), as above. At 25 and 50%: checkpoint, then continue.
+  The command center's `usage N` broadcast is optional, not the mechanism: it only prompts a session to
+  read its own level now. A broadcast never pauses a session by itself (#31: no message stops a
+  session's work). When a session cannot read its level, it says `usage level unknown` at each
+  checkpoint and carries on; if a broadcast then says 75% or more, it checkpoints, releases the baton
+  and asks the owner in its own chat whether to pause. *The owner's last recorded answer was "command
   center only", given before the investigation found this source; the self-read is confirmed at the
   merge card.*
 - **U3 (revised) At 75%, every session pauses by default** (the owner's answer: "Everyone pauses").
@@ -323,8 +328,10 @@ or checkpoint; don't start subagents or long work."
   `paused at 75% (seven_day <pct>); I can't judge my own criticality`. A session never declares itself
   critical. It then checks `list_sessions` for a live session tagged `command-center` on its account: if
   there is one, it says the command center will propose which sessions resume; if not, it says only the
-  owner can resume it. It resumes when the owner says `keep going`, typed in that session or as a keep
-  list the owner approved in the command center, relayed. Resuming continues the session's own work, so a
+  owner can resume it. It resumes when the owner says `keep going`, typed in that session or relayed from
+  a keep list the owner approved in the command center. Resuming starts with `npm run baton -- take`:
+  the other person's session may have taken the branch meanwhile, and then the session stays paused and
+  says so. Resuming continues the session's own work, so a
   relayed resume is not on #31's list (stopping, dropping, reverting, pulling). The pause is the
   session's own rule, not another session's order, so D4's second ask is moot and #31 needs no exception.
   Critical work for a keep list is still release-gate work (meta, Segno), red-on-main fixes (#33), and
