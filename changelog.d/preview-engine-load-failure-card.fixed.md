@@ -6,8 +6,8 @@
   slide engine did not load, so edits will not show here." Retry imports the engine again. When a later part of the
   engine failed, some browser versions keep that failure until the page reloads, or even until a new tab opens: so if
   Retry fails too, the Studio's preview says "reload, or open the page in a new tab" and its button becomes Reload.
-  Safari keeps that failure even past a reload, so when a reload does not help either, the button opens the Studio in
-  a new tab. The Studio saves the deck moments after each edit, and at once as a page closes, so neither loses edits.
+  Safari can keep that failure even past a reload, and in a tab the page opens itself, so when a reload does not help
+  either, the preview says to close the tab and open the page again, and shows no button. The Studio saves the deck moments after each edit, and at once as a page closes, so neither loses edits.
   A preview whose page can hold unsaved work (the theme editor, the component lab) never reloads by itself: it keeps
   Retry and says to save your work first. Retry also takes a tap or click now: inside the Studio's preview it took
   neither.

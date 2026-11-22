@@ -357,9 +357,11 @@ export function DeckPreview({
 	const [reloadNeeded, setReloadNeeded] = React.useState(false);
 	const retriedRef = React.useRef(false);
 	// This page is the reload the card's Reload button asked for (`RELOADED_KEY`, kept in the tab's sessionStorage). Real
-	// Mobile Safari keeps a failed engine sub-file failed across that reload too (the iOS Simulator probe, engine-retry.mjs,
-	// PR #3385: Retry and Reload failed, a new tab loaded it), so if the engine fails again here the button opens a new tab
-	// instead of offering the same Reload forever. Only on a `reloadSafe` host; cleared once the engine loads.
+	// Mobile Safari keeps a failed engine sub-file failed across that reload too, and across a tab the PAGE opens
+	// (`window.open`: on the iOS Simulator, iPad and iPhone, the opened tab failed without one sub-file request); a tab the
+	// person opens loads it (engine-retry.mjs, PR #3385). So when the engine fails again here the card offers no button that
+	// would fail the same way: it tells the person to close the tab and open the page again. Only on a `reloadSafe` host;
+	// cleared once the engine loads.
 	const [reloaded, setReloaded] = React.useState(() => {
 		try {
 			return reloadSafe && sessionStorage.getItem(RELOADED_KEY) === '1';
@@ -1113,16 +1115,6 @@ export function DeckPreview({
 		}
 		window.location.reload();
 	}, []);
-	// The reload did not help (real Mobile Safari): a new tab does. Opened from the click, so it is a user gesture; `noopener`
-	// so the new page shares nothing with this one.
-	const openNewTab = React.useCallback(() => {
-		try {
-			sessionStorage.removeItem(RELOADED_KEY);
-		} catch {
-			/* storage unavailable */
-		}
-		window.open(window.location.href, '_blank', 'noopener');
-	}, []);
 
 	// `m-0` neutralizes the `<figure>` UA default margin (`0 40px`) — Tailwind
 	// preflight doesn't reach inside the studio island, and that 40px inline margin
@@ -1186,8 +1178,8 @@ export function DeckPreview({
 						{reloadNeeded
 							? reloadSafe && reloaded
 								? failedOverSlide
-									? 'The slide engine still did not load after a reload. Open the page in a new tab.'
-									: 'This preview couldn’t render — the slide engine still did not load after a reload; open the page in a new tab.'
+									? 'The slide engine still did not load after a reload. Close this tab and open the page again.'
+									: 'This preview couldn’t render — the slide engine still did not load after a reload; close this tab and open the page again.'
 								: reloadSafe
 								? failedOverSlide
 									? 'The slide engine still did not load. Reload, or open the page in a new tab.'
@@ -1202,9 +1194,12 @@ export function DeckPreview({
 									? `This preview couldn’t render — ${failedWhy}.`
 									: 'This preview couldn’t render.'}
 					</span>
-					<button type="button" className="nacre-failed__retry" onClick={reloadNeeded && reloadSafe ? (reloaded ? openNewTab : reload) : retry}>
-						{reloadNeeded && reloadSafe ? (reloaded ? 'New tab' : 'Reload') : 'Retry'}
-					</button>
+					{/* After a reload that did not help, no button: in Safari a reload or a page-opened tab fails the same way. */}
+					{!(reloadNeeded && reloadSafe && reloaded) && (
+						<button type="button" className="nacre-failed__retry" onClick={reloadNeeded && reloadSafe ? reload : retry}>
+							{reloadNeeded && reloadSafe ? 'Reload' : 'Retry'}
+						</button>
+					)}
 				</div>
 			)}
 		</figure>

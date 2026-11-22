@@ -19,8 +19,10 @@
 //   2. Sub-files reachable again, press Retry: the engine loads, or the card offers Reload.
 //   3. If it offered Reload: press the card's Reload button (it marks the tab, then reloads). The engine loads, or the
 //      card is back.
-//   4. If the reload did not recover it, the card's button now reads "New tab" (DeckPreview `reloaded`): press it, with
-//      a WebDriver element click (a real gesture, so Safari lets it open a tab), and the engine must load in that tab.
+//   4. If the reload did not recover it, the card must say to close the tab and open the page again, with no button
+//      (DeckPreview `reloaded`): a tab the PAGE opens (`window.open`) failed the same way in Safari (0 sub-file requests).
+//      Then open a tab as the person would (WebDriver's new window, the equivalent of a user-opened tab), go to the
+//      Studio there, and the engine must load.
 // The verdict passes when the engine loaded by the path the card advises. Which path it took is the finding.
 
 import http from 'node:http';
@@ -86,7 +88,8 @@ const STATE_EXPR = `(() => {
 		return '';
 	}
 	const word = card.querySelector('.nacre-failed__retry')?.textContent.trim();
-	return word === 'Reload' ? 'reload' : word === 'New tab' ? 'newtab' : 'card';
+	if (!word && /close this tab and open the page again/i.test(card.textContent)) return 'closetab';
+	return word === 'Reload' ? 'reload' : 'card';
 })()`;
 
 /**
@@ -123,7 +126,7 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 	/**
 	 * Press the card's button with a real TOUCH at its center, as the suite's other taps are made (run.mjs `touchAt`). A
 	 * WebDriver element click did not activate it on the iPhone simulator (run 44973877783: after the "press" the page never
-	 * reloaded), and a script `click()` is no user gesture, which Safari requires before the New tab button may open a tab.
+	 * reloaded), and a script `click()` is no user gesture.
 	 */
 	const pressCardButton = async () => {
 		const at = await wd('POST', `/session/${id}/execute/sync`, {
@@ -164,43 +167,37 @@ export async function runEngineRetryProbe(wd, id, base, mode = 'drop') {
 
 		const beforeReload = proxy.state.subFiles;
 		// The product's own Reload button, not WebDriver's refresh: the button marks the tab first, and the reloaded page
-		// reads that mark to offer a new tab. A plain refresh skipped it (run 44972018871: no New tab offered).
+		// reads that mark to give its last advice. A plain refresh skipped it (run 44972018871).
 		await markDocument();
 		await pressCardButton();
 		// Only the NEW document counts: the one the press left still shows Reload until the navigation replaces it.
-		const reloaded = await waitFor(`!window.__engineRetryOldDoc && (last === 'loaded' || last === 'card' || last === 'reload' || last === 'newtab')`, 150000);
+		const reloaded = await waitFor(`!window.__engineRetryOldDoc && (last === 'loaded' || last === 'card' || last === 'reload' || last === 'closetab')`, 150000);
 		if (reloaded !== 'none' && (await wd('POST', `/session/${id}/execute/sync`, { script: 'return !!window.__engineRetryOldDoc;', args: [] }))) {
 			step('Reload: the button reloaded the page', false, 'the page the press left is still loaded');
 		}
-		r.afterReload = reloaded === 'loaded' ? 'loaded' : reloaded === 'card' || reloaded === 'reload' || reloaded === 'newtab' ? 'failed' : 'none';
+		r.afterReload = reloaded === 'loaded' ? 'loaded' : reloaded === 'card' || reloaded === 'reload' || reloaded === 'closetab' ? 'failed' : 'none';
 		step('Reload: the engine loads (a finding either way)', true, `${r.afterReload}; ${proxy.state.subFiles - beforeReload} sub-file requests reached the server`);
 		if (r.afterReload === 'loaded') return finish();
 
-		// The reloaded page must now offer the new tab, not the same Reload again.
-		const offered = reloaded === 'newtab' ? 'newtab' : await waitFor(`last === 'newtab' || last === 'loaded'`, 30000);
-		step('after a failed reload, the card offers a new tab', offered === 'newtab', offered);
-		if (offered !== 'newtab') {
+		// The reloaded page must now say to close the tab and open the page again, with no button that would fail the same way.
+		const advised = reloaded === 'closetab' ? 'closetab' : await waitFor(`last === 'closetab' || last === 'loaded'`, 30000);
+		step('after a failed reload, the card says to close the tab and open the page again (no button)', advised === 'closetab', advised);
+		if (advised !== 'closetab') {
 			r.newTab = 'none';
 			return finish();
 		}
 		try {
-			const before = await wd('GET', `/session/${id}/window/handles`);
+			// A tab the person opens: WebDriver's new window is not opened by the page, as a tab from the tab bar is not.
 			const beforeTab = proxy.state.subFiles;
-			await pressCardButton();
-			let handle = null;
-			for (let i = 0; i < 40 && !handle; i++) {
-				const now = await wd('GET', `/session/${id}/window/handles`);
-				handle = now.find((h) => !before.includes(h)) ?? null;
-				if (!handle) await new Promise((z) => setTimeout(z, 250)); // flaky-ok: polls WebDriver for the new tab's handle, a signal with a 10 s bound
-			}
-			if (!handle) throw new Error('the button opened no tab (a popup blocker, or no gesture)');
-			await wd('POST', `/session/${id}/window`, { handle });
-			const tab = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload' || last === 'newtab'`, 150000);
+			const win = await wd('POST', `/session/${id}/window/new`, { type: 'tab' });
+			await wd('POST', `/session/${id}/window`, { handle: win.handle });
+			await wd('POST', `/session/${id}/url`, { url: `${proxy.origin}/studio/` });
+			const tab = await waitFor(`last === 'loaded' || last === 'card' || last === 'reload' || last === 'closetab'`, 150000);
 			r.newTab = tab === 'loaded' ? 'loaded' : tab === 'none' ? 'none' : 'failed';
-			step('the New tab button: the engine loads there', r.newTab === 'loaded', `${r.newTab}; ${proxy.state.subFiles - beforeTab} sub-file requests reached the server`);
+			step('a tab the person opens: the engine loads there', r.newTab === 'loaded', `${r.newTab}; ${proxy.state.subFiles - beforeTab} sub-file requests reached the server`);
 		} catch (e) {
 			r.newTab = 'unsupported';
-			step('the New tab button: the engine loads there', false, String(e).slice(0, 200));
+			step('a tab the person opens: the engine loads there', false, String(e).slice(0, 200));
 		}
 		return finish();
 	} finally {

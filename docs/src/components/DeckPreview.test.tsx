@@ -431,24 +431,23 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		}
 	});
 
-	it('a page the Reload button reloaded offers a NEW TAB when the engine fails again: real Mobile Safari keeps the failure past a reload', async () => {
-		// The iOS Simulator probe (engine-retry.mjs, PR #3385): in Mobile Safari, Retry and Reload both failed on a cut engine
-		// sub-file, and a new tab loaded it. So the reloaded page must not offer the same Reload again.
+	it('a page the Reload button reloaded, where the engine fails again, says to close the tab and open the page again: no button', async () => {
+		// The iOS Simulator probe (engine-retry.mjs, PR #3385): in Mobile Safari a reload, and a tab the page opens, both failed
+		// on a cut engine sub-file without one request; a tab the person opened loaded it. So the card offers no button there.
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const open = vi.spyOn(window, 'open').mockImplementation(() => null);
 		sessionStorage.setItem('lattice-preview-engine-reloaded', '1');
 		try {
 			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
-			const { container, getByText, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader reloadSafe aria-label="p" />);
-			await waitFor(() => expect(getByText('New tab')).toBeTruthy());
-			expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('still did not load after a reload; open the page in a new tab');
-			fireEvent.click(getByText('New tab'));
-			expect(open).toHaveBeenCalledWith(window.location.href, '_blank', 'noopener');
-			expect(sessionStorage.getItem('lattice-preview-engine-reloaded')).toBeNull();
-			// The engine arriving clears the state.
+			const { container, rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} loader reloadSafe aria-label="p" />);
+			await waitFor(() => expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('still did not load after a reload; close this tab and open the page again'));
+			expect(container.querySelector('.nacre-failed__retry')).toBeNull();
+			expect(open).not.toHaveBeenCalled();
+			// The engine arriving clears the state, and the mark.
 			whenReady.mockImplementation(() => Promise.resolve());
 			rerender(<DeckPreview options={opts} sample="# B" drawn={false} loader reloadSafe aria-label="p" />);
 			await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
+			expect(sessionStorage.getItem('lattice-preview-engine-reloaded')).toBeNull();
 		} finally {
 			sessionStorage.removeItem('lattice-preview-engine-reloaded');
 			open.mockRestore();
@@ -477,14 +476,14 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		}
 	});
 
-	it('a host that is NOT reload-safe ignores a reloaded mark: it never offers a new tab', async () => {
+	it('a host that is NOT reload-safe ignores a reloaded mark: it keeps Retry', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		sessionStorage.setItem('lattice-preview-engine-reloaded', '1');
 		try {
 			whenReady.mockImplementation(() => Promise.reject(new Error('Importing a module script failed.')));
 			const { container, getByText, queryByText } = render(<DeckPreview options={opts} sample="# A" drawn={false} aria-label="p" />);
 			await waitFor(() => expect(getByText('Retry')).toBeTruthy());
-			expect(queryByText('New tab')).toBeNull();
+			expect(queryByText('Reload')).toBeNull();
 			// Its first failure reads as a first failure: the mark is the Studio deck's, not this host's.
 			expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('check the connection, then Retry');
 		} finally {
