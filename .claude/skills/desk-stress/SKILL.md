@@ -1,80 +1,85 @@
 ---
 name: desk-stress
 description: >
-  Run the 🔥 stress desk: break Lattice on purpose before a user does: deck authoring at
-  its limits (huge decks, hostile input), the Studio's features under load (ProseMirror,
-  CodeMirror, settings, library, coach, lenses, Present, Live, chat), and long sessions on
-  slow devices. Model features are stressed against a FAKE model by default; a real,
-  paid call is a tiny capped sample the owner approves. Every break goes to the lane that
-  owns it. Use when this session is told to be the stress desk, or the owner asks what
-  breaks under load.
-argument-hint: "[authoring | editors | library | present | live | chat | export | followups]"
+  Run the 📈 stress desk: find the upper limits of what still PASSES, without breaking
+  anything: how big a deck, how many images or chart points, how long a session, before
+  rendering, the editors, export or the Studio stop meeting the bar. The output is a limits
+  table Lattice can stand behind, and a regression is a limit that drops. Model features run
+  against a FAKE model; a paid call is a sanctioned, capped sample on the owner's word.
+  Crashing things on purpose is the torture desk's job, not this one. Use when this session
+  is told to be the stress desk, or the owner asks how far Lattice goes.
+argument-hint: "[authoring | editors | library | present | live | chat | export | limits | followups]"
 ---
 
-# 🔥 Stress desk
+# 📈 Stress desk
 
 Read first, by section: `engineering/workflow.md` §Desks (the verbs, the budget, and "Read
-your lane first"), `tools/perf-torture/README.md`, `engineering/gotchas/memory-profiling.md`,
-the flaky-tests note `engineering/decisions/2026-11-06-flaky-tests.md` (a stress test still
-passes or fails on the code alone, HARD RULE #32), and CLAUDE.md HARD RULE #24 before going
-near a model feature. Tag this session `desk:stress` and `ui:pinned`.
+your lane first") and §Performance (HARD RULE #19), the flaky-tests note
+`engineering/decisions/2026-11-06-flaky-tests.md` (HARD RULE #32: a test asserts work done,
+never milliseconds), and CLAUDE.md HARD RULE #24 before going near a model feature. Tag this
+session `desk:stress` and `ui:pinned`.
 
-**The question this desk owns:** what breaks when a real person pushes hard, for a long
-time, on a slow device? This desk FINDS breaks and hands each to its owner; it is not the
-lane that fixes them.
+**The question this desk owns:** how far can a real author go before Lattice stops being
+good? It climbs toward the ceiling and stops at the last size that still passes. It does not
+push past failure: a crash, a hang or memory that will not come back is handed to the torture
+desk.
+
+**What "passes" means**, per area: the deck renders and fits (the fit gates and `lint:deck`
+clean), the export completes, and the Studio stays usable: typing echoes, panes switch, Present
+advances. Each area's bar is a count or a yes/no where it can be (slides rendered, findings,
+pages exported). A time is measured with `npm run bench` and reported as a number, never
+asserted in a test.
 
 ## Rotation: one area per pass
 
-| Area | Stress means | Tools |
+| Area | Climb | Tools |
 |---|---|---|
-| Deck authoring | 500+ slide decks, every component at its limits, pasted and imported junk, CRLF and BOM, half-typed front matter | the fuzz helpers (`test/helpers/web-ref-fuzz.js`), `npm run lint:deck`, the CLI render |
-| Editors | long typing runs, undo and redo storms, huge or hostile paste, switching panes mid-edit (ProseMirror, CodeMirror) | Playwright on the built Studio, `tools/perf-torture/` |
-| Settings, library, lenses | many decks and lenses, rapid switching, a full storage quota, reload mid-save | Playwright, `tools/perf-torture/` |
-| Coach, Present, Live | the coach on a deck full of findings, a long Present session (memory over time), a Live session that drops and returns | `tools/perf-torture/` (`--snapshot`, `--retainers`) |
-| Chat and model features | slow replies, a stream cut halfway, garbage or huge replies, a 429, an expired or empty user key, cancel mid-stream | a FAKE model only (below) |
-| Export | the biggest deck in every theme, low-memory devices | the Studio export path, `docs/e2e/studio-export-shot-weight.spec.ts`, the iOS suites via the devices desk |
+| Deck authoring | slides per deck, components per slide, words per slot, images, chart data points, Mermaid nodes | the CLI render, `npm run lint:deck`, the fit gates, the fuzz helpers (`test/helpers/web-ref-fuzz.js`) |
+| Editors | document length and paste size in ProseMirror and CodeMirror before typing stops feeling instant | Playwright on the built Studio, `npm run bench` |
+| Settings, library, lenses | decks in the library, lenses per deck, storage used | Playwright |
+| Coach, Present, Live | findings the coach shows, slides Present plays through, Live viewers and reconnects | Playwright |
+| Chat and model features | reply length, conversation length, tool calls per turn, all against a FAKE model (below) | Playwright `page.route` |
+| Export | the largest deck that exports in every theme and format | the CLI and the Studio export path |
 
-## Model features: test the plumbing, never pay for volume
+## Model features: a fake model by default
 
-- **Default: a fake model.** Stress every model feature against a mocked endpoint
-  (Playwright `page.route`, as `docs/e2e/model-spine.spec.ts` does). The fake can be slow,
-  fail halfway, stream garbage, return 429 or send a huge reply. That covers what we own:
-  the UI, retries, cancel, streaming, the cost display. It costs nothing.
-- **A real call is a sample, and the owner's call.** Only through a route HARD RULE #24
+- Climb against a mocked endpoint (Playwright `page.route`, as `docs/e2e/model-spine.spec.ts`
+  does): long replies, long conversations, many tool calls. It costs nothing.
+- **A real call is a sample, and the owner's call**, only through a route HARD RULE #24
   already sanctions: a tool in `SANCTIONED_OPENROUTER_SPENDERS` (`tools/check-ownership.js`;
   such as `tools/component-gen-eval.mjs`, run with `OPENROUTER_ALLOW_SPEND=1 --limit 1`, its
-  cost printed) or a workflow in `SANCTIONED_OPENROUTER_WORKFLOWS` (`studio-e2e-nightly.yml`, the
-  nightly Studio live-AI E2E, about 1 cent a night), under
-  the per-key cap set at OpenRouter. A feature with no sanctioned route gets none until the
-  owner sanctions one in a PR. The desk proposes it to the owner as a numbered action with the
-  expected cost; it never starts it (HARD RULE #24: our key stays off the site and out of
-  tests).
-- **Users pay for their own chat.** The Studio runs on the user's own key, so what matters is
-  how the UI behaves when their key fails, runs out or is slow, and the fake model covers it.
+  cost printed) or a workflow in `SANCTIONED_OPENROUTER_WORKFLOWS` (`studio-e2e-nightly.yml`,
+  about 1 cent a night). A feature with no sanctioned route gets none until the owner
+  sanctions one in a PR. The desk proposes the run with its cost; it never starts one.
+- Users pay for their own chat (the Studio runs on their key), so stress the UI around the
+  model, not the model.
 
 ## The pass
 
-1. **Read your lane first.** `npm run followups` and keep the items about load, memory,
-   long sessions and limits; the open issues that mention them; `claim:` tags on live
-   sessions; and the gotcha file for the area.
-2. **Stress one area** from the rotation, on a local build of `main`, `cd docs && npm run build:e2e` (never a published
-   build, CLAUDE.md). Record each break with its steps, its numbers and the build it ran on.
-3. **Confirm before routing:** a break must reproduce from its steps, and a memory rise must
-   survive `memory-profiling.md`'s idle check (JIT warmup is not a leak).
-4. **Route each break to its owner**, with the reproduction: a crash or wrong behavior to the
-   feature's lane or a fix session from `main` (tags `desk:stress`, `origin:desk-stress`,
-   a `claim:`); slowness or memory to the optimize desk; layout motion to jank; a red test to
-   flake; a device-only break to devices. A stress scenario worth keeping becomes a test or a
-   `perf-torture` scenario in the fix PR, written to HARD RULES #32 and #34 (counts, not
-   milliseconds; a failing arm).
-5. **Write back** (through a session you start, counted in the budget). A new trap becomes a gotcha entry; a break not routed this pass becomes a
-   `followups.d/` file with its steps.
-6. **Report** to the command center: the area stressed, each break and where it went, any
-   proposed paid sample with its cost, and `budget: N/10 today`.
+1. **Read your lane first.** `npm run followups` and keep the items about limits, size and
+   scale; the open issues that mention them; `claim:` tags on live sessions; the gotcha file
+   for the area; and the last limits table (below).
+2. **Climb one area** on a local build of `main`, `cd docs && npm run build:e2e` for the Studio
+   (never a published build, CLAUDE.md). Double the size until it stops passing, then bisect
+   to the last size that passes. Record the steps, the build and each number.
+3. **Compare** with the last recorded limit. A limit that dropped is a regression: find the
+   commit range and route it. A crash, a hang or unrecovered memory on the way up goes to the
+   torture desk with its steps.
+4. **Route each finding:** a limit too low for a real deck goes to the owning lane or a fix
+   session from `main` (tags `desk:stress`, `origin:desk-stress`, a `claim:`); slowness goes to
+   the optimize desk with the `bench` numbers; layout motion goes to jank; a red test goes to
+   flake. A limit worth guarding becomes a test that counts work (HARD RULES #32, #34) or a
+   bench scenario (#19), in the fix PR.
+5. **Write back** (through a session you start, counted in the budget): the limits table in a
+   decision note (one row per area: the limit, the bar, the build, the date), a new trap as a
+   gotcha entry, and a finding not routed this pass as a `followups.d/` file. The docs desk
+   decides which limits users see.
+6. **Report** to the command center: the area climbed, the limits and any that dropped, where
+   each finding went, any proposed paid sample with its cost, and `budget: N/10 today`.
 
 ## Lane
 
-Yours: finding and confirming breaks under load. Not yours: fixing them (each goes to its
-lane), raising a budget or a threshold, model choice. Never: spend our OpenRouter key without
-the owner's word, put a timing assertion in a test (#32), or run stress against a shared or
-deployed service other people use.
+Yours: the passable ceiling and its regressions. Not yours: crashes, leaks and memory
+failure (the torture desk), fixing what you find (its lane), raising a budget or threshold.
+Never: spend our OpenRouter key without the owner's word, put a timing assertion in a test
+(#32), or run stress against a shared or deployed service other people use.

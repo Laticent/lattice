@@ -3,8 +3,8 @@ status: in-progress
 summary: >
   How the command center and desks run many Claude sessions with one human: the workflow, the patterns it borrows
   (orchestrator-workers, supervisor trees, a blackboard, incident command, the two-person rule), what heals itself
-  and what does not, and the gotchas paid for on 2026-11-21. Adds eight desks the owner picked for launch
-  (jank, polish, a11y, docs, devices, release, feedback, stress); frontier and a Starfleet vocabulary stay proposed.
+  and what does not, and the gotchas paid for on 2026-11-21. Adds nine desks the owner picked for launch
+  (jank, polish, a11y, docs, devices, release, feedback, stress, torture); frontier and a Starfleet vocabulary stay proposed.
 ---
 
 # The fleet: a command center, desks, and one human (2026-11-21)
@@ -173,7 +173,7 @@ Every rule below exists because something went wrong without it. The rule's home
    tells the owner which one is current.
 6. **Bank work as it finishes.** Merge in batches, archive in batches, log leftovers as they appear.
 
-## 8. New desks: eight built, frontier proposed
+## 8. New desks: nine built, frontier proposed
 
 The first proposal, before the owner's answers, was four desks. Each new desk is a skill (`.claude/skills/desk-<lane>/SKILL.md`), a row in `workflow.md` §Desks, and the same verb
 list and budget as the others. Adding one changes a canonical doc's contract, so each is the owner's decision.
@@ -183,10 +183,10 @@ list and budget as the others. Adding one changes a canonical doc's contract, so
 | 🚀 Frontier | new product work run as **missions**: a multi-PR feature with a goal, waves and a definition of done (the Studio presets work is today's example) | the presets coordinator's plan-then-waves shape; the `design-competition` workflow for wide design forks | write each live mission's plan as a note, give every wave an owner, report progress on the board |
 | ✨ Polish | the 10/10 boardroom bar on what already ships: the gallery, themes, the docs site at three widths | CLAUDE.md QUALITY BAR, `engineering/visual-review.md`, `tools/pixel-check.js`, `tools/screenshot.js` | sweep one surface, file each shortfall with a screenshot, start fix sessions for the worst |
 | 〰️ Jank | layouts that move when content grows: drift, collision, crowding | `engineering/jank.md`, `npm run check:jank` | run it across the catalog, rank by how often a real deck hits it, own each fix |
-| 🔥 Torture (built as Stress, below) | breaking things on purpose: huge decks, hostile input, memory and long sessions, slow devices | `tools/perf-torture/`, the fuzz tests, the iOS and Windows platform suites, the warm `/harness` runner | stress one Studio area per pass and route each break to its lane |
+| 🔥 Torture (built, below, beside a separate stress desk) | breaking things on purpose: huge decks, hostile input, memory and long sessions, slow devices | `tools/perf-torture/`, the fuzz tests, the iOS and Windows platform suites, the warm `/harness` runner | stress one Studio area per pass and route each break to its lane |
 
 **The owner's answers (2026-11-21).** Jank and polish first. Both now exist as `/desk-jank` and `/desk-polish`,
-with rows in `workflow.md` §Desks. Frontier stays proposed; torture became the stress desk below.
+with rows in `workflow.md` §Desks. Frontier stays proposed; torture was built beside a separate stress desk (below).
 
 **Read your lane first, write back last.** The owner asked what the backlog, the follow-ups and the gotchas are for,
 and whether desks read them first. Mostly not: only the backlog desk read `followups.d/` (about 580 files), and only
@@ -209,13 +209,21 @@ work touched found three lanes with no owner (accessibility, docs, devices) and 
 | 🚢 Release (`/desk-release`) | launch readiness, release notes, the dry run | disclosure day; it never cuts a release, the owner's dispatch does |
 | 💬 Feedback (`/desk-feedback`) | outside reports: reproduce, route, draft replies | outside users arrive with disclosure; every reply is the owner's to send |
 
-**The torture proposal became the stress desk** (`/desk-stress`, the owner's `go stress`). It rotates one area
-per pass: authoring, the editors, settings and library, coach and Present and Live, chat, export. The owner's
-constraint shaped it: Studio chat and the model features cost money, so the desk stresses them against a fake model
-(Playwright `page.route`) by default. A real call is at most one prompt per feature, capped, and only on the owner's
-word (HARD RULE #24). It finds and confirms breaks; their lanes fix them.
+**Stress and torture are two desks** (the owner's `go stress`, then the owner's correction). They differ in
+intent:
 
-All eight new desks exist as skills only. No desk session starts until the owner says so.
+| | 📈 Stress (`/desk-stress`) | 🔥 Torture (`/desk-torture`) |
+|---|---|---|
+| Goal | the upper limit of what still PASSES | failure on purpose, and a confession |
+| Stops at | the last size that passes the bar | a crash, a leak, memory that will not come back |
+| Output | a limits table; a limit that drops is a regression | the leaking action, the rise per cycle, and the retainer chain or listener add-site that names the culprit |
+| Tools | the CLI render, the fit gates, Playwright, `npm run bench` | `npm run torture` (`tools/perf-torture/`: `--snapshot`, `--retainers`, `--listeners`) |
+
+A crash the stress desk meets on its way up goes to the torture desk. Both run the model features against a fake
+model (Playwright `page.route`), because Studio chat and the model features cost money; a real call is at most a
+sanctioned, capped sample, and only on the owner's word (HARD RULE #24).
+
+All nine new desks exist as skills only. No desk session starts until the owner says so.
 
 **Open question for the owner.**
 - Whether a frontier desk may start sessions for feature work, which today only the owner does.
@@ -233,7 +241,7 @@ The owner noticed the fleet already reads like a starship. The analogy holds wel
 | Sickbay | the flake desk: triage, one doctor per patient, treat the cause |
 | Tactical / security | the security desk |
 | Operations | the merge desk: traffic, docking order, clearances |
-| The holodeck's safety protocols off | the stress desk: break it here so it does not break in the field |
+| The holodeck's safety protocols off | the torture desk: break it here so it does not break in the field |
 | The captain's log | the 📋 standup and 🎯 brief on each PR |
 | "Make it so" | `go A1`, `merge #N`: nothing moves without it |
 

@@ -2654,7 +2654,8 @@ running it:
 | 📱 Devices | `/desk-devices` | claims left UNVERIFIED on a real device, the platform suites and the `/harness` runner's time |
 | 🚢 Release | `/desk-release` | launch readiness: the blocker list, release notes from the fragments, the dry run; never cuts a release |
 | 💬 Feedback | `/desk-feedback` | outside reports: reproduce, route to the lane, draft replies for the owner |
-| 🔥 Stress | `/desk-stress` | breaking authoring and the Studio on purpose: huge decks, hostile input, long sessions; model features against a fake model, a paid sample only on the owner's word |
+| 📈 Stress | `/desk-stress` | the upper limits of what still passes (deck size, images, chart points, session length) without breaking anything; a limits table, and a dropped limit is a regression |
+| 🔥 Torture | `/desk-torture` | driving the Studio to crash, leak or rot on purpose with `perf-torture`, and naming the culprit by its retainer chain or listener add-site |
 
 **Read your lane first, write back last** (owner's decision, 2026-11-21). A desk's
 first pass starts from the work already known in its lane, not only from live state:
